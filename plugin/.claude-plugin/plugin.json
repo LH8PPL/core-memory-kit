@@ -1,0 +1,11 @@
+{
+  "name": "claude-memory-kit",
+  "description": "Per-project in-repo memory system for Claude Code. Frozen-snapshot session loads, auto-extract Stop hook, memory-write skill, optional memsearch semantic recall, optional auto-curation crons.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Lior Hollander"
+  },
+  "homepage": "https://github.com/<your-username>/claude-memory-kit",
+  "repository": "https://github.com/<your-username>/claude-memory-kit",
+  "license": "MIT"
+}

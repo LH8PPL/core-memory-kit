@@ -1,0 +1,47 @@
+# Granular Memory Archive — Index
+
+This file lists every per-fact memory file in `context/memory/`. **NOT auto-loaded at session start** — read this index when looking up whether a topic has a saved memory.
+
+## Purpose vs. the bounded scratchpad
+
+| File | Purpose | Loaded at startup? | Cap |
+|---|---|---|---|
+| `../MEMORY.md` | Hot working state (current threads, environment, pending decisions) | Yes | 2,500 chars |
+| `../USER.md` | User profile and preferences | Yes | 1,375 chars |
+| `./<type>_<slug>.md` (this dir) | Durable typed facts with reasoning | No | none |
+
+## When to write where
+
+- **Durable typed fact** (user role, project decision with rationale, feedback rule, external system pointer) → new file here, plus one-line entry below.
+- **Working state** (current threads, today's environment notes, open decisions) → `../MEMORY.md`.
+- If a fact graduates from working state to durable archive, MOVE it (don't duplicate).
+
+## Frontmatter format for granular files
+
+````markdown
+---
+name: short-kebab-case-slug
+description: one-line summary used for retrieval
+metadata:
+  type: user | feedback | project | reference
+---
+
+[Body. For feedback / project entries, lead with the rule or fact, then:
+**Why:** the reason / context / past incident
+**How to apply:** when this guidance kicks in, edge cases to watch]
+
+Link related entries with [[their-slug]].
+````
+
+## Type taxonomy
+
+- `user_*.md` — facts about the user (role, goals, knowledge, responsibilities).
+- `feedback_*.md` — corrections or confirmations about how to approach work. Always include Why + How to apply.
+- `project_*.md` — facts about ongoing initiatives or decisions specific to a project. Time-bound.
+- `reference_*.md` — pointers to external systems (Linear, Slack, dashboards, repos).
+
+## Files
+
+<!-- (No granular files yet. As you accumulate, add one line per file:
+- [type] [Title](filename.md) — short hook
+-->

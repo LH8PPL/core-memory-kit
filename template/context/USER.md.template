@@ -1,0 +1,18 @@
+<!--
+Cap: 1375 chars (the user-profile budget — measured by `wc -c`).
+Last updated: {{TODAY}}.
+-->
+
+# User Profile
+
+## About
+
+<!-- Who the user is: role, expertise, current focus. 2-4 bullets. -->
+
+## Preferences
+
+<!-- Persistent preferences ("I prefer X", "always do Y", "never Z"). -->
+
+## Working Style
+
+<!-- How the user approaches work. Iteration cadence, comfort with destructive ops, etc. -->

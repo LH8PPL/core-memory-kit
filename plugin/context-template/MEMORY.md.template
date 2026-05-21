@@ -1,0 +1,19 @@
+<!--
+Cap: 2500 chars (the working scratchpad budget — measured by `wc -c`).
+Last distilled: {{TODAY}}.
+Last health check: {{TODAY}}.
+-->
+
+# Working Memory
+
+## Active Threads
+
+<!-- Current work in progress. Drop bullets when work resolves. -->
+
+## Environment Notes
+
+<!-- Tool versions, paths, URLs, env state. Update on change. -->
+
+## Pending Decisions
+
+<!-- Things the user still has to decide. Remove when resolved. -->
