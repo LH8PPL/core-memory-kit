@@ -39,13 +39,27 @@ Persistent memory for Claude Code that:
 
 All output is markdown. Sessions are captured as JSONL internally but converted to structured markdown summaries for storage.
 
-## Hook architecture (3 hooks)
+## Hook architecture — 2 hooks (CORRECTED 2026-05-22)
+
+**Correction**: this note originally claimed 3 hooks. Primary-source examination of `hooks/hooks.json` on 2026-05-22 confirms **only 2 hooks are registered**:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/session-start-hook.sh\"" }] }],
+    "PostToolUse": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/post-tool-hook.sh\"" }] }]
+  }
+}
+```
 
 | Hook | Purpose |
 |---|---|
 | SessionStart | Loads memory files into context |
-| UserPromptSubmit | Injects current timestamp |
 | PostToolUse | Auto-saves when tool output exceeds threshold (default: 50+ lines) |
+
+The `scripts/user-prompt-hook.sh` file exists in the repo but is **not wired in hooks.json** — possibly future-pending or removed feature. The repo is at v0.7.2 and may add it back.
+
+See [research/2026-05-22-primary-source-examination.md](2026-05-22-primary-source-examination.md) for full file contents.
 
 **Notable design choices**:
 
