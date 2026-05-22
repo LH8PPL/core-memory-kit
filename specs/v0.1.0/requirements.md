@@ -370,11 +370,17 @@ Acceptance: When the user runs `cmk view`, a browser at `http://localhost:37778`
 
 ### NFR-1 — Performance budgets
 
-- SessionStart snapshot injection: < 200 ms p99.
-- Auto-extract on Stop: spawned in background, < 50 ms to launch (extract itself can take seconds, but must not block).
-- `cmk search` keyword: < 100 ms for 10,000-bullet corpus.
-- `cmk search` semantic: < 1 s for same.
-- Bootstrap (`install.sh`): < 10 s.
+EARS-form (per Kiro spec convergence: more precise + testable than v0.0.1 prose):
+
+- **WHEN** the SessionStart hook fires, **THE** Memory_System **SHALL** assemble and inject the Context_Payload (≤ 10 KB) **within 500 ms** for projects with up to 1,000 fact files.
+- **WHEN** the Stop hook fires, **THE** Memory_System **SHALL** spawn the detached auto-extract subprocess **within 50 ms** (the extract itself may take seconds, but the hook must not block).
+- **WHEN** `cmk search` is invoked in keyword mode, **THE** Memory_System **SHALL** return results **within 100 ms** for corpora up to 10,000 observations.
+- **WHEN** `cmk search` is invoked in semantic or hybrid mode (Layer 5 installed), **THE** Memory_System **SHALL** return results **within 1,000 ms** for the same corpora.
+- **WHEN** the user runs `bash install.sh` on a machine where prereqs are met, **THE** installer **SHALL** complete scaffolding **within 10 seconds**.
+- **WHEN** the `cmk reindex --boot` command runs, **THE** Memory_System **SHALL** complete the full rebuild **within 30 seconds** for corpora up to 1,000 fact files.
+- **WHEN** the `mk_get`, `mk_search`, `mk_recent_activity`, or `mk_cite` MCP tools are invoked, **THE** MCP server **SHALL** respond **within 200 ms** for corpora up to 10,000 observations.
+
+Cumulative budget for session start (snapshot injection + cold filesystem reads + cache validation): **< 500 ms p95**.
 
 **NFR-2 — Token budget for snapshot**
 The three-tier snapshot shall total ≤ 10 KB injected at session start. This is roughly 2,500 tokens — small enough to preserve prefix-cache, large enough to carry meaningful context.
