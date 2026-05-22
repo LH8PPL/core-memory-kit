@@ -1,0 +1,432 @@
+# Glossary — claude-memory-kit v0.1.0
+
+**Status**: Draft · **Date started**: 2026-05-23
+
+This file is the **canonical definition** of every domain term used in [`requirements.md`](requirements.md), [`design.md`](design.md), and [`tasks.md`](tasks.md). When two docs disagree on what a term means, **this file wins**.
+
+Reference this file in PRs and ADRs as `[GLOSSARY: <term>]`.
+
+---
+
+## How to read this glossary
+
+- **Term**: the canonical name.
+- **One-line definition**: what it is, terse.
+- **Where it lives**: file path or module if the term names a concrete artifact.
+- **Cross-refs**: related terms in this file, in `[[brackets]]`.
+- **Spec source**: which FR / § / ADR defines it.
+
+When in doubt, **add a term here** instead of inventing a new synonym in another doc.
+
+---
+
+## Architecture
+
+### Tier
+
+One of three storage scopes the kit reads from at session start. Defines **who owns the memory** and **how durable it is**.
+
+| Tier | Path | Owned by | Travels with `git clone`? |
+| --- | --- | --- | --- |
+| **User tier** | `~/.claude-memory-kit/` (overridable via `$MEMORY_KIT_USER_DIR`) | The human, across all projects | No (machine-local) |
+| **Project tier** | `<repo>/context/` | The team, committed to git | **Yes** |
+| **Local tier** | `<repo>/context.local/` | The current machine for this project | No (gitignored) |
+
+Cross-refs: [[Frozen snapshot]], [[Precedence model]], [[Tier prefix]]. Spec: FR-1, FR-4, FR-5; design §1.1.
+
+### Tier prefix
+
+The single-letter prefix in a [[Citation ID]] indicating which [[Tier]] owns the observation:
+
+- `U-` → user tier
+- `P-` → project tier
+- `L-` → local tier
+
+Cross-refs: [[Citation ID]], [[Tier]]. Spec: §3.1.
+
+### Precedence model
+
+Git-config-style rule for resolving conflicts between [[Tier]]s at session start: **most-specific tier wins per observation; settings deep-merge**. Order from highest to lowest priority: local → project → user.
+
+Cross-refs: [[Tier]], [[Frozen snapshot]], [[Shadowed_by log]]. Spec: design §1.1, §7.
+
+### Frozen snapshot
+
+The ≤10 KB block of memory text injected into Claude's context window at session start. Assembled by the [[SessionStart hook]] from the three [[Tier]]s in [[Precedence model]] order. Called "frozen" because it's read once and never mutated mid-session (preserves prefix cache).
+
+Cross-refs: [[SessionStart hook]], [[Context_Payload]], [[additionalContext]]. Spec: FR-7; design §1.4.
+
+### Context_Payload
+
+Synonym for the [[Frozen snapshot]] when emphasizing its structural shape (which sections, which order). The hook's emitted JSON has the snapshot in `hookSpecificOutput.additionalContext`.
+
+Cross-refs: [[Frozen snapshot]], [[additionalContext]]. Spec: design §1.4, §7.1.
+
+---
+
+## Files & schemas
+
+### Scratchpad
+
+A bounded markdown file the kit reads at session start and (optionally) writes to during the session. Each scratchpad has a documented character cap and three fixed sections. Examples: `SOUL.md`, `MEMORY.md`, `USER.md`, `HABITS.md`, `LESSONS.md`.
+
+Cross-refs: [[Bullet]], [[Char cap]], [[Provenance frontmatter]], [[Section sign]]. Spec: FR-3; design §2.1.
+
+### Bullet
+
+A single fact stored as one line in a [[Scratchpad]], immediately followed by a [[Provenance frontmatter]] HTML comment. Each bullet has a [[Citation ID]] at the front.
+
+Cross-refs: [[Scratchpad]], [[Citation ID]], [[Provenance frontmatter]]. Spec: design §2.1.
+
+### Char cap
+
+The maximum byte size of a [[Scratchpad]] file, counted via `wc -c` and including frontmatter/comments. When a write would exceed cap, the kit consolidates before writing. Caps are configurable via `<repo>/context/settings.json` and `~/.claude-memory-kit/settings.json`.
+
+Cross-refs: [[Scratchpad]], [[Consolidation]]. Spec: FR-3; design §2.1.
+
+### Consolidation
+
+The cap-enforcement workflow inside the [[Memory-write skill]] (action `add`): merge similar [[Bullet]]s, drop stale entries (>14 days, no recent reference), THEN apply the new write. Different from [[Compression]] which is the rolling-window pipeline.
+
+Cross-refs: [[Char cap]], [[Memory-write skill]]. Spec: design §2.1.
+
+### Fact file
+
+A markdown file in the granular archive (`<tier>/memory/<type>_<slug>.md`) holding one durable fact with full YAML frontmatter (id, type, title, provenance, tags, etc.).
+
+Cross-refs: [[Granular archive]], [[Provenance frontmatter]], [[Type taxonomy]]. Spec: FR-1; design §2.2.
+
+### Granular archive
+
+The collection of one-fact-per-file [[Fact file]]s under `context/memory/` (project tier) and `~/.claude-memory-kit/fragments/` (user tier). The [[INDEX]] file is the pointer index over this collection.
+
+Cross-refs: [[Fact file]], [[INDEX]], [[Pointer index]]. Spec: FR-1, FR-29; design §2.2.
+
+### INDEX
+
+A markdown file (`memory/INDEX.md` or `fragments/INDEX.md`) listing every non-tombstoned [[Fact file]] as one line: `- ({id}) [type] [title](filename.md) — <hook>`. It is a [[Pointer index]], not content-direct.
+
+Cross-refs: [[Granular archive]], [[Pointer index]]. Spec: FR-1, FR-7; design §2.3.
+
+### Pointer index
+
+A markdown file whose entries link out to other files rather than containing content directly. Used because the token budget at session start is bounded: a pointer index of ~200 lines is ~30 KB max; content-direct would blow the budget immediately.
+
+Cross-refs: [[INDEX]]. Spec: design §2.3.
+
+### Provenance frontmatter
+
+The metadata immediately attached to every observation: `id`, `source_file`, `source_line`, `source_sha1`, `write_source`, `trust`, `created_at`, plus optional `merged_from` / `superseded_by` / `deleted_at` / `private`. Stored as YAML in [[Fact file]]s and as inline HTML comment in [[Scratchpad]]s.
+
+Cross-refs: [[Citation ID]], [[Trust]], [[Write source]]. Spec: FR-29; design §4.
+
+### Type taxonomy
+
+The four categories a [[Fact file]] can have: `user_*`, `feedback_*`, `project_*`, `reference_*`. Filename prefix mirrors the type.
+
+Spec: design §2.2.
+
+### Section sign
+
+The `§` character. Used in cross-references to design.md sections (`design §6.7`). NOT used as a delimiter in our markdown format — Hermes uses it; we use plain markdown bullets.
+
+Spec: design §2.1.
+
+---
+
+## IDs & citations
+
+### Citation ID
+
+A content-addressed identifier of the form `<tier_prefix>-<base32(SHA-256(canonical_text))[:8]>`. Examples: `P-A8FN3MQ2`, `U-9F2D7T1S`, `L-K3P5R8Q2`. Same canonical text → same ID, anywhere in the world.
+
+Cross-refs: [[Canonical text]], [[Tier prefix]], [[Session anchor]]. Spec: FR-14; design §3.
+
+### Canonical text
+
+The result of `canonicalize(bullet_text)`: trim → collapse whitespace → ASCII lowercase → strip citation backrefs → strip bullet marker → strip trailing punctuation → strip HTML comments. **Deterministic across Node and Python implementations.**
+
+Cross-refs: [[Citation ID]]. Spec: design §3.2.
+
+### Session anchor
+
+A BibTeX-style human-mnemonic identifier for a session: `S-2026Q2-001`. Used as a temporal marker, NOT content-addressed (sessions are temporal, mnemonic IDs are more useful for humans browsing).
+
+Cross-refs: [[Citation ID]]. Spec: design §3.1.
+
+### Backref
+
+The `(P-XXXXXXXX)` prefix appearing at the start of a [[Bullet]]. The [[Canonical text]] rules strip backrefs before hashing — so adding or removing a backref produces no ID change.
+
+Cross-refs: [[Citation ID]], [[Canonical text]]. Spec: design §3.2.
+
+---
+
+## Hooks & lifecycle
+
+### Hook
+
+A shell command Claude Code invokes at specific lifecycle events. The kit registers 6 hooks: Setup, SessionStart, UserPromptSubmit, PostToolUse, Stop, SessionEnd.
+
+Cross-refs: [[SessionStart hook]], [[stop_hook_active guard]]. Spec: FR-9; design §5.
+
+### SessionStart hook
+
+The hook that fires when a new Claude Code session begins. Reads all 3 [[Tier]]s, assembles the [[Frozen snapshot]], emits as [[additionalContext]] JSON. Budget: 500 ms (per NFR-1).
+
+Cross-refs: [[Frozen snapshot]], [[additionalContext]]. Spec: FR-9; design §5.2.
+
+### Stop hook
+
+The hook that fires at the end of each assistant turn. Appends transcript, spawns the [[Auto-extract subagent]] detached, returns within 50 ms.
+
+Cross-refs: [[Auto-extract subagent]], [[stop_hook_active guard]]. Spec: FR-9, FR-10; design §5.2.
+
+### `stop_hook_active` guard
+
+A recursion-prevention check at the top of the Stop hook handler. When Anthropic's hook payload contains `stop_hook_active: true` (meaning this Stop fire was triggered by a previous block decision), the handler exits immediately to avoid an infinite loop.
+
+Cross-refs: [[Stop hook]]. Spec: design §5.2.1.
+
+### additionalContext
+
+The JSON field a hook emits to push text into Claude's context window: `{"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": "..."}}`. Defined by Anthropic's hook protocol.
+
+Cross-refs: [[Frozen snapshot]]. Spec: design §1.4, §5.2.
+
+---
+
+## Subagents & skills
+
+### Auto-extract subagent
+
+The detached subprocess spawned by the [[Stop hook]] that runs `claude --print --model haiku-4.5 --allowed-tools "Read" --max-turns 1` against the just-captured transcript turn, asks Haiku to identify durable facts, and routes the results through the [[Memory-write skill]] or the [[Review queue]] per [[Trust]] level.
+
+Cross-refs: [[Stop hook]], [[Memory-write skill]], [[Six writing triggers]], [[Trust]]. Spec: FR-10, FR-12; design §6.1.
+
+### Memory-write skill
+
+A Claude Code skill auto-triggered by phrases like "remember this", "update memory", "forget about X". Three actions: `add` (new fact), `replace` (update existing), `remove` (tombstone). Every write goes through [[Poison_Guard]] first.
+
+Cross-refs: [[Auto-extract subagent]], [[Poison_Guard]], [[Trigger phrase]]. Spec: FR-10, FR-11; design §6.3.
+
+### Six writing triggers
+
+The six patterns the [[Auto-extract subagent]] is instructed to save (verbatim from Hermes Agent): user corrections; discovered preferences; environment facts; project conventions; completed complex workflows; tool quirks/workarounds.
+
+Cross-refs: [[Auto-extract subagent]]. Spec: design §6.4.
+
+### Trigger phrase
+
+A natural-language pattern the [[Memory-write skill]] auto-detects in user prompts to infer the action: e.g., "remember this", "for next time" → `add`; "update memory: X is now Y" → `replace`; "forget about X" → `remove`.
+
+Cross-refs: [[Memory-write skill]]. Spec: FR-11; design §6.3.
+
+---
+
+## Quality gates
+
+### Trust
+
+A three-level confidence rating on each observation: `high` / `medium` / `low`. Default by [[Write source]]: user-explicit + manual-edit → high; auto-extract + imported → medium; compressor → low. Manual override via `cmk trust <id>`.
+
+Cross-refs: [[Write source]], [[Review queue]], [[Conflict queue]]. Spec: FR-29; design §4.
+
+### Write source
+
+The enum field on every observation recording how it was written: `user-explicit` / `auto-extract` / `compressor` / `manual-edit` / `imported`.
+
+Cross-refs: [[Trust]]. Spec: design §4.
+
+### Poison_Guard
+
+The pre-write regex filter inside the [[Memory-write skill]] that rejects writes containing secrets (API keys, tokens, PEM headers) or prompt-injection phrases ("ignore previous instructions"). Rejected writes are logged with a redacted excerpt to `.locks/poison-guard.log`.
+
+Cross-refs: [[Memory-write skill]]. Spec: design §6.7.
+
+### Review queue
+
+A staging file at `context/queues/review.md` where [[Auto-extract subagent]] routes `medium`-[[Trust]] candidates. User reviews via `cmk queue review` and promotes (→ canonical) or discards.
+
+Cross-refs: [[Auto-extract subagent]], [[Trust]], [[Conflict queue]]. Spec: design §6.2.
+
+### Conflict queue
+
+A staging file at `context/queues/conflicts.md` where the [[Memory-write skill]] routes writes that conflict with existing higher-trust observations (similarity > 0.85 + content differs + new.trust < existing.trust). User resolves via `cmk queue conflicts` with `keep-old` / `keep-new` / `merge-both`.
+
+Cross-refs: [[Trust]], [[Review queue]]. Spec: design §6.8.
+
+### Tombstone
+
+A deleted-but-preserved [[Fact file]] moved to `<tier>/memory/archive/tombstones/<id>.md` with `deleted_at`, `deleted_reason`, `deleted_by` added to frontmatter. The original ID still resolves (returns content + "deleted on Y" annotation). Mirrors git revert (don't rewrite history), not git rebase.
+
+Cross-refs: [[Forget]]. Spec: design §6.5.
+
+### Forget
+
+The user-level action that produces a [[Tombstone]]. Triggered by `cmk forget <id>` or by the [[Memory-write skill]]'s `remove` action. Always prompts for confirmation. Never silently deletes.
+
+Cross-refs: [[Tombstone]], [[Memory-write skill]]. Spec: design §6.5.
+
+### Superseded
+
+A [[Fact file]] replaced by a newer one (via [[Consolidation]] merge or `replace` action). Original is moved to `<tier>/memory/archive/superseded/` with `superseded_by: <new_id>` added. Both old + new IDs resolve forever.
+
+Cross-refs: [[Consolidation]], [[Merge]]. Spec: design §3.4.
+
+### Merge
+
+The operation that combines two [[Fact file]]s `A` and `B` into a new `C` with `C.frontmatter.merged_from = [A, B]` and `A.frontmatter.superseded_by = C` (same for B). Used by the weekly curator and by manual `cmk merge`.
+
+Cross-refs: [[Superseded]], [[Citation ID]]. Spec: design §3.4.
+
+### Shadowed_by log
+
+The append-only log at `context/.locks/shadowed_by.log` capturing every event where the [[Precedence model]] picked one tier's observation over another tier's same-ID observation. Format: NDJSON, one line per shadowing event.
+
+Cross-refs: [[Precedence model]]. Spec: design §7.1.
+
+---
+
+## Compression & rolling-window
+
+### Rolling-window compression
+
+The four-layer pipeline that distills session activity into progressively smaller, more durable summaries: `sessions/now.md` → `today-{date}.md` → `recent.md` → `archive.md`. Each layer is compressed from the layer below.
+
+Cross-refs: [[Compression]], [[CompressorBackend]], [[Lazy compression]]. Spec: FR-19, FR-20; design §8.1.
+
+### Compression
+
+The specific operation of running a [[CompressorBackend]] (e.g., Haiku) over a transcript or session file to produce a shorter summary. Preserves [[Citation ID]]s verbatim. Cooldown: 120 s minimum between Haiku calls.
+
+Cross-refs: [[Rolling-window compression]], [[CompressorBackend]]. Spec: FR-20; design §8.
+
+### CompressorBackend
+
+The pluggable interface for running compression (defined in v0.1, multi-impl in v0.2). v0.1 ships `HaikuViaAnthropicApi`. v0.2 candidates: `BedrockHaiku`, `LocalLlama`.
+
+Cross-refs: [[Compression]]. Spec: ADR-0008; design §8.3.
+
+### Lazy compression
+
+The [[SessionStart hook]]-triggered fallback when cron is unavailable. Detects stale compression outputs via mtime checks, spawns `cmk compress --lazy` detached. Non-blocking — current session uses whatever state existed at SessionStart; next session gets the freshly compressed state.
+
+Cross-refs: [[Rolling-window compression]], [[SessionStart hook]]. Spec: design §8.2.1.
+
+---
+
+## CLI & tools
+
+### `cmk`
+
+The Node binary that ships with the kit. Subcommands per design §12. Implementation: `@claude-memory-kit/cli` npm package.
+
+Spec: FR-22, FR-23; design §12.
+
+### `cmk roll`
+
+The manual force-roll command that invokes the same compression internals as the [[SessionEnd hook]]/cron but on user demand. Flags: `--scope now|today|recent`.
+
+Cross-refs: [[Rolling-window compression]]. Spec: design §12; T-033.
+
+### `cmk doctor`
+
+The diagnostic command that runs all 8 health checks (HC-1..HC-8) and prints a structured report with documented self-repair commands for any failures.
+
+Cross-refs: [[Health check]]. Spec: design §14; T-031.
+
+### `cmk import-anthropic-memory`
+
+The explicit bridge command that merges useful bullets from Anthropic's auto-memory location (`~/.claude/projects/<slug>/memory/MEMORY.md`) into the project tier with `write_source: imported`, `trust: medium`. Always user-confirmed, never automatic.
+
+Cross-refs: [[Coexistence (Option D)]]. Spec: design §11.2.
+
+### MCP server
+
+The local subprocess that exposes 6 tools (`mk_search`, `mk_get`, `mk_timeline`, `mk_cite`, `mk_remember`, `mk_recent_activity`) to Claude Code via stdio JSON-RPC. Transport: **stdio** (per MCP spec).
+
+Cross-refs: [[MCP tool]]. Spec: FR-26; design §10.
+
+### MCP tool
+
+One of the 6 callable functions exposed by the [[MCP server]]. Each tool has a documented input schema, output shape, and response size.
+
+Spec: design §10.
+
+### Health check (HC)
+
+One of 8 yes/no diagnostics run by [[`cmk doctor`]]. Each has a documented self-repair path. HC-1..HC-7 from requirements.md; HC-8 detects whether Anthropic's native Auto Memory is active.
+
+Spec: design §14.
+
+---
+
+## Privacy & safety
+
+### `<private>` tag
+
+An inline tag (`<private>...</private>`) used in user prompts to mark content that must never be written to disk in any form. Stripped at hook level (UserPromptSubmit + Stop); replaced with `[private content redacted]`.
+
+Cross-refs: [[`<retain>` tag]], [[`private: true` flag]]. Spec: FR-15; design §6.6.
+
+### `<retain>` tag
+
+An inline tag (`<retain>...</retain>`) used in user prompts to force-keep content the [[Auto-extract subagent]] might otherwise skip. Tags themselves are stripped from saved content.
+
+Cross-refs: [[`<private>` tag]]. Spec: FR-15; design §6.6.
+
+### `private: true` flag
+
+A per-[[Fact file]] frontmatter boolean. When `true`: fact exists on disk, is searchable, but is excluded from the [[Frozen snapshot]] and from cross-project promotion. Different from `<private>` tag, which redacts at the *transcript level* before any write.
+
+Cross-refs: [[`<private>` tag]]. Spec: design §6.6.
+
+---
+
+## Coexistence with Anthropic Auto Memory
+
+### Coexistence (Option D)
+
+The strategy in which our kit and Anthropic's native Auto Memory **both run**, both write (to different locations), and both load into Claude's context at session start. Ours is canonical (committed to git, audited); theirs is supplementary (machine-local capture).
+
+Cross-refs: [[Native Auto Memory]]. Spec: ADR-0011; design §1.2, §11.
+
+### Native Auto Memory
+
+Anthropic's built-in memory feature (Claude Code v2.1.59+) that writes to `~/.claude/projects/<slug>/memory/`. NOT disabled by the kit. Detected by HC-8.
+
+Cross-refs: [[Coexistence (Option D)]]. Spec: ADR-0011; design §11.
+
+---
+
+## Test & engineering discipline
+
+### TDD (Test-Driven Development)
+
+The workflow used for v0.1.0 implementation: **write the test first**, let the agent implement, verify, repeat. Small cycles. Test sub-tasks live inside each task in [`tasks.md`](tasks.md). All tests are run by the agent (Claude), not the human.
+
+Cross-refs: [[Checkpoint]], [[Boundary testing]]. Spec: tasks.md intro.
+
+### Boundary testing
+
+Testing the **public interface** of a module, not its internal helpers. Per Ousterhout's "A Philosophy of Software Design": deep modules expose simple interfaces; tests target those interfaces so they survive refactors. Example: test `writeFact()` contract (file created, frontmatter correct, error category on schema violation), NOT the private `_parseFrontmatter()` helper.
+
+Cross-refs: [[TDD]]. Spec: tasks.md intro.
+
+### Checkpoint
+
+A non-implementation task that gates progress between layers in [`tasks.md`](tasks.md). The agent runs the full test suite and confirms zero failures before moving to the next layer.
+
+Cross-refs: [[TDD]]. Spec: tasks.md.
+
+---
+
+## Where this glossary IS NOT the source
+
+- **FR / NFR specifications**: [`requirements.md`](requirements.md).
+- **Architectural decisions with full rationale**: [`docs/adr/`](../../docs/adr/).
+- **Step-by-step build sheet**: [`tasks.md`](tasks.md).
+- **HOW the system works**: [`design.md`](design.md).
+
+This file is a **definitional reference only**. When you need the *why*, follow the spec-source link on each term.
