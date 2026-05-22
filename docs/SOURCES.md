@@ -40,15 +40,19 @@ When ingesting into liorwiki, prefer ✓ entries. Use ~ entries with caution.
 - ✓ **A-MemGuard** (paper only: <https://arxiv.org/abs/2510.02373>) — Proactive defense framework for LLM agent memory. Consensus validation + lessons memory. >95% attack-success-rate reduction. Sep 2025. **Informs our NFR-9 baseline defenses.**
 - ✓ **Anthropic official Memory tool** (<https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool>) — API-level (`type: memory_20250818` beta). Client-side `/memories/*.md` files. Validates markdown-as-storage. Research note: [research/2026-05-21-anthropic-memory-tool.md](research/2026-05-21-anthropic-memory-tool.md).
 
-### Mentioned but unverified (low-effort lookup pending)
+### Verified after Claude.ai bibliography (2026-05-22)
 
-- ~ **Fail-Safe/Noema** — Markdown source-of-truth + SQLite-FTS5 index + P2P federation. Cited in Option-B research; no direct verification yet.
-- ~ **codenamev/claude_memory** (Ruby) — 3 hooks + MCP-for-everything inversion. Cited in Option-B.
-- ~ **coleam00/claude-memory-compiler** — Background Claude Agent SDK call. Cited in Option-B.
-- ~ **disler/claude-code-hooks-mastery** (<https://github.com/disler/claude-code-hooks-mastery>) — All 13 hook events reference. Cited in Option-B.
-- ~ **luongnv89/claude-howto** — 29-event hook matrix. Cited in Option-B.
-- ~ **memvid/claude-brain** — Single `.mv2` binary (Rust). Cited in Option-B.
-- ~ **doobidoo/mcp-memory-service** — Multi-backend MCP, 86.0% R@5 self-reported. Cited in Option-B.
+- ✓ **Fail-Safe/Noema** (<https://github.com/Fail-Safe/Noema>) — 8 ⭐, Go, MIT. *"The intentional memory layer for your AI agents."* Markdown-source + SQLite-FTS5-index design. Pushed 2026-05-20. **Validates our ADR-0002 architecture choice.**
+- ✓ **sqliteai/sqlite-memory** (<https://github.com/sqliteai/sqlite-memory>) — 56 ⭐, C. *"Markdown based AI agent memory with semantic search, hybrid retrieval, and offline-first sync between agents."* Mentioned in Option-B; verified here.
+- ✓ **pmmvr/obsidian-index-service** (<https://github.com/pmmvr/obsidian-index-service>) — 9 ⭐, Python, MIT. Obsidian-vault → SQLite (WAL mode) indexer; cleanest air-gap data-plane pattern.
+- ✓ **modelcontextprotocol/servers** (<https://github.com/modelcontextprotocol/servers>) — 86,082 ⭐, TypeScript. The canonical MCP servers repo. Includes the Anthropic-managed `src/memory` knowledge-graph memory server (9 tools, JSONL storage, latest release 2025.11.25). **Important for our MCP design (FR-26).**
+- ✓ **codenamev/claude_memory** (<https://github.com/codenamev/claude_memory>) — 20 ⭐, Ruby, MIT. *"Long-term, self-managed memory for Claude Code using hooks, MCP tools, and SQLite."* 3-hook + MCP-for-everything inversion.
+- ✓ **coleam00/claude-memory-compiler** (<https://github.com/coleam00/claude-memory-compiler>) — 1,077 ⭐, Python. SessionEnd + PreCompact background compilation via Claude Agent SDK. Karpathy-inspired knowledge articles.
+- ✓ **disler/claude-code-hooks-mastery** (<https://github.com/disler/claude-code-hooks-mastery>) — 3,699 ⭐, Python. Reference logger covering all 13 hook events. UV single-file Python pattern.
+- ✓ **luongnv89/claude-howto** (<https://github.com/luongnv89/claude-howto>) — 33,799 ⭐!, Python, MIT. *"A visual, example-driven guide to Claude Code."* 29-event hook matrix (post-March-2026 events).
+- ✓ **memvid/claude-brain** (<https://github.com/memvid/claude-brain>) — 496 ⭐, TypeScript, MIT. *"Give Claude Code photographic memory in ONE portable file."* Single `.mv2` Rust file; no DB.
+- ✓ **doobidoo/mcp-memory-service** (<https://github.com/doobidoo/mcp-memory-service>) — 1,868 ⭐, Python, Apache-2.0. Multi-backend memory MCP. REST API + knowledge graph + autonomous consolidation. Latest release v10.60.0 (May 2026).
+- ✓ **abordage/awesome-mcp** (<https://github.com/abordage/awesome-mcp>) — 6 ⭐, MIT. Curated list of MCP servers, auto-updated daily. Good source for novel-find candidates.
 
 ### Suspected hallucination
 
@@ -66,7 +70,8 @@ When ingesting into liorwiki, prefer ✓ entries. Use ~ entries with caution.
 ## Anthropic / Claude Code references
 
 - **Claude Code plugins reference**: <https://code.claude.com/docs/en/plugins> — manifest format (`.claude-plugin/plugin.json`), skills/hooks/agents directory conventions, `--plugin-dir` for testing, `/plugin install` for marketplace.
-- **Claude Code hooks documentation**: <https://docs.claude.com/en/docs/claude-code/hooks> — payload schemas, additionalContext output protocol.
+- **Claude Code hooks reference**: <https://code.claude.com/docs/en/hooks> — authoritative hook payload schemas, parallel-execution semantics, async hook behavior.
+- **Claude Code hooks documentation (mirror)**: <https://docs.claude.com/en/docs/claude-code/hooks> — payload schemas, additionalContext output protocol.
 - **Claude Code skills documentation**: <https://docs.claude.com/en/docs/claude-code/skills> — SKILL.md frontmatter.
 - **Anthropic Memory tool docs**: <https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool>.
 - **Effective context engineering**: <https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents>.
@@ -75,6 +80,13 @@ When ingesting into liorwiki, prefer ✓ entries. Use ~ entries with caution.
 - **Anthropic SDK examples** (TypeScript memory): <https://github.com/anthropics/anthropic-sdk-typescript/blob/main/examples/tools-helpers-memory.ts>.
 - **Bug: hook double-fire from marketplace + cache**: <https://github.com/anthropics/claude-code/issues/24115>.
 - **Bug: command-template dedup collision**: <https://github.com/anthropics/claude-code/issues/29724>.
+- **Bug: Anthropic memory MCP schema validation (read_graph/search_nodes/open_nodes)**: <https://github.com/modelcontextprotocol/servers/issues/3074>. Unfixed as of release `2025.11.25`.
+- **Anthropic — Claude Haiku 4.5 product page**: <https://www.anthropic.com/claude/haiku>. Authoritative pricing ($1/MTok input, $5/MTok output).
+- **ClaudeLog — Hooks mechanics**: <https://claudelog.com/mechanics/hooks/>. Hook ordering and `updatedInput` field usage.
+- **ShakaCode hooks guide**: <https://github.com/shakacode/claude-code-commands-skills-agents/blob/main/docs/hooks-guide.md>. Community reference for hook chaining and parallel execution.
+- **claude-mem DeepWiki — Hook and Context Issues**: <https://deepwiki.com/thedotmack/claude-mem/8.3-hook-and-context-issues>. Third-party wiki on hook failure modes; supplementary.
+- **claude-mem Mintlify mirror — Database Architecture**: <https://www.mintlify.com/thedotmack/claude-mem/architecture/database>. SQLite schema reference.
+- **Knowledge Graph Memory Server (Glama mirror)**: <https://glama.ai/mcp/servers/@modelcontextprotocol/knowledge-graph-memory-server>. Alternative view of Anthropic's memory MCP.
 
 ## Anthropic models (cost data, May 2026)
 
@@ -84,7 +96,15 @@ When ingesting into liorwiki, prefer ✓ entries. Use ~ entries with caution.
 | **claude-sonnet-4-6** | $3 | $15 | Batch $1.50/$7.50; option for high-stakes compression |
 | **claude-opus-4-7** | $5 | $25 | Overkill for compression; used for design / planning conversations |
 
-Source: Anthropic Haiku page (<https://anthropic.com/claude/haiku>); referenced in Option-B research TL;DR.
+Source: Anthropic Haiku page (<https://www.anthropic.com/claude/haiku>); referenced in Option-B research TL;DR.
+
+Third-party pricing corroborations (consulted 2026-05-22):
+
+- CloudZero — Anthropic Claude API Pricing 2026: <https://www.cloudzero.com/blog/claude-api-pricing/>.
+- PE Collective — Claude API Pricing 2026: <https://pecollective.com/tools/anthropic-api-pricing/>.
+- DevTk — Anthropic Claude API Pricing Guide 2026: <https://devtk.ai/en/blog/claude-api-pricing-guide-2026/>.
+
+Numbers consistent with Anthropic's own page across all four sources.
 
 ## memsearch and Milvus
 
@@ -137,7 +157,10 @@ Source: Anthropic Haiku page (<https://anthropic.com/claude/haiku>); referenced 
 ### Cited but not directly fetched
 
 - ~ **SGMem** (arXiv:2509.21212) — Sentence-graph memory. Cited in Option-B research.
-- ~ **ProMem** ("Beyond Static Summarization", arXiv:2601.04463) — Self-questioning extraction phase. Cited in Option-B research.
+
+### Papers verified after Claude.ai bibliography (2026-05-22)
+
+- ✓ **ProMem** / *"Beyond Static Summarization: Proactive Memory Extraction for LLM Agents"* — <https://arxiv.org/abs/2601.04463>. Chengyuan Yang, Zequn Sun, Wei Wei, Wei Hu. Submitted January 8, 2026. Proactive memory extraction; addresses missing-information accumulation in HaluMem. (Claude.ai's bibliography flagged the arxiv ID as suspicious due to the unusual "2601" prefix — independently re-verified: the prefix is just January 2026 in arxiv's YYMM.NNNNN scheme. Paper is real.)
 
 ## Standards and conventions
 
