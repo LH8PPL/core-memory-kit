@@ -40,7 +40,7 @@ The design assumes [`requirements-revisions-proposed.md`](requirements-revisions
 └────────────────────────────────┬────────────────────────────────────┘
                                  │
 ┌────────────────────────────────▼────────────────────────────────────┐
-│  LOCAL TIER  <repo>/.claude/local/                                   │
+│  LOCAL TIER  <repo>/context.local/                                   │
 │  • machine-paths.md  absolute paths for this machine (1,000 cap)     │
 │  • overrides.md      machine-specific overrides (1,000 cap)          │
 │  Loaded with HIGHEST priority (most-specific wins).                  │
@@ -54,6 +54,8 @@ The design assumes [`requirements-revisions-proposed.md`](requirements-revisions
 ```
 
 **Precedence model** (Git config semantics): first-match-wins at observation level, deep-merge at settings level. When two tiers have the same observation ID, the most-specific tier (highest priority) wins and the others are logged as `shadowed_by` in the debug output. See §6.
+
+**User-tier path override**: the user tier path defaults to `~/.claude-memory-kit/` but can be overridden via the `MEMORY_KIT_USER_DIR` environment variable. Use cases: testing against an isolated fixture, multi-account machines, encrypted home directories, ephemeral CI runners. When the env var is set and points to a non-existent directory, `cmk init-user-tier` creates it; otherwise the kit reads from the override path.
 
 **Implements**: FR-1, FR-4, FR-5, FR-6, FR-7 (T1, T2, T3, T8).
 
@@ -109,7 +111,7 @@ Each layer is replaceable. Layer 1-3 is pure file ops. Layer 4 is what makes mem
 SessionStart hook fires
     │
     ├─ Resolve 3-tier file paths
-    │       local: <repo>/.claude/local/
+    │       local: <repo>/context.local/
     │       project: <repo>/context/
     │       user: ~/.claude-memory-kit/
     │
@@ -240,6 +242,20 @@ Last health check: 2026-05-22.
 
 **Char cap enforcement**: counted via `wc -c` on the file. Includes everything (frontmatter, comments, bullets). When a write would push the file over cap, the `memory-write` skill **consolidates first** (merge similar bullets, drop stale entries older than 14 days with no current reference), then writes the new content. (Per FR-3.)
 
+**Caps are configurable** via `<repo>/context/settings.json` (project tier) or `~/.claude-memory-kit/settings.json` (user tier). Defaults match the values shown in the §1.1 tier diagram. Per-project override example:
+
+```json
+{
+  "scratchpads": {
+    "MEMORY.md": { "max_chars": 4000 },
+    "SOUL.md":   { "max_chars": 2200 },
+    "USER.md":   { "max_chars": 1375 }
+  }
+}
+```
+
+Hardcoded defaults in design.md are starting points; teams that distill more aggressively or want more room can tune without forking the kit. (Per Cursor spec convergence + Hermes Agent's 1,375-char USER.md cap derivation — both treat caps as parameters, not constants.)
+
 **Implements**: FR-1, FR-3, FR-29 (T8).
 
 ### 2.2 Granular per-fact archive
@@ -260,6 +276,7 @@ source_sha1: abc123ef...
 merged_from: null
 related: [P-A8FN3MQ2]
 tags: [video-pipeline, roi, calibration]
+private: false                 # if true, excluded from SessionStart digest
 ---
 
 # Webcam ROI is wider than expected
@@ -601,6 +618,17 @@ This mirrors the design of git revert (don't rewrite history) more than git reba
 
 `<retain>...</retain>` content is **force-saved** by the auto-extract sub-Claude even if it wouldn't otherwise pass the durable-fact filter. The `<retain>` tags themselves are stripped from saved content.
 
+**Per-fact `private: true` frontmatter flag** (complementary to inline tags): any fact in the granular archive may carry `private: true` in its YAML frontmatter. Effect:
+
+- The fact still exists on disk and is searchable via `cmk search` (returns title only, body redacted).
+- The fact is **excluded from the SessionStart digest** — never auto-loaded into Claude's context window.
+- The fact is **excluded from cross-project promotion** (`cmk lessons promote` refuses with a clear error).
+- Claude can still retrieve the body explicitly via `mk_get(P-XXXXXXXX)` if needed, but only with an audit-logged tool call.
+
+Use cases that `<private>` inline tags don't cover: an entire fact about a sensitive system, a private project decision, a personal preference you want recorded but not always-injected. The two mechanisms compose: `<private>` is for "this passage in a longer fact is sensitive"; `private: true` is for "this whole fact is sensitive at the digest layer".
+
+Per Cursor spec convergence (their FR-052).
+
 (v0.1.x candidate: add `<ephemeral>` tag for session-only content auto-extract should always skip. Per ChatGPT/Google A spec convergence.)
 
 ### 6.7 Poison_Guard — secret + injection filter (before any commit-eligible write)
@@ -679,7 +707,7 @@ The SessionStart hook (`cmk-inject-context`) resolves and merges the three tiers
 
 ```text
 1. Discover tier paths
-   local_dir   = <repo>/.claude/local/         (if exists)
+   local_dir   = <repo>/context.local/         (if exists)
    project_dir = <repo>/context/               (walks up from cwd)
    user_dir    = ~/.claude-memory-kit/         (if exists)
 
@@ -705,7 +733,7 @@ Mirrors `git config --show-origin`. Resolves the source of any setting or observ
 
 ```text
 $ cmk config --show-origin USER.preferred_editor
-local    <repo>/.claude/local/overrides.md:5    "neovim"
+local    <repo>/context.local/overrides.md:5    "neovim"
 project  <repo>/context/SOUL.md:18              "vscode"     (shadowed by local)
 user     ~/.claude-memory-kit/USER.md:7         "vim"        (shadowed by project)
 ```
@@ -942,16 +970,42 @@ Six tools (per FR-26 + the `recent_activity` borrowed from Basic Memory verified
 | `mk_remember(text, tier?, cites?)` | Explicit user-driven save with audit trail | `{id, written_to, accepted}` |
 | `mk_recent_activity(window?: "1h"\|"24h"\|"7d", limit?)` | Recent memory mutations — common query | List of recent observation changes |
 
-### 10.1 Security
+### 10.1 Transport — stdio (per MCP spec)
 
-Per NFR-6 + Anthropic API memory tool guidance (verified):
+Per [MCP 2025-06-18 transport spec](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports): *"Clients SHOULD support stdio whenever possible."* For a local memory tool that runs as a subprocess of Claude Code, **stdio is the correct standard** and what every comparable project does (claude-mem, Basic Memory, Hermes, Cursor's design).
 
-- MCP server binds to `127.0.0.1` only (never 0.0.0.0)
+```text
+Claude Code (client)                 cmk-mcp (server subprocess)
+       │                                       │
+       ├─ spawn `cmk mcp serve` ───────────────►
+       │                                       │
+       ├─ write JSON-RPC ──► stdin ────────────►
+       │                                       │
+       ◄─────────── stdout ◄── write JSON-RPC ─┤
+       │                                       │
+       ◄─────────── stderr ◄── optional logs ──┤
+       │                                       │
+       └─ close stdin, terminate ──────────────►
+```
+
+**Why not Streamable HTTP**: HTTP-style transports are for remote/networked MCP servers (multi-client, cross-machine, web-app-style). Our server is local-only, single-client, subprocess-style — stdio fits the use case exactly and avoids DNS rebinding, port allocation, and auth-token concerns.
+
+**Implementation notes**:
+
+- The MCP server is registered in `.mcp.json` (per-project) or the user's global Claude Code config; the command is `cmk mcp serve` (no port, no host).
+- `stdout` is reserved for valid MCP JSON-RPC messages only. ALL logging goes to `stderr` (or to `context/sessions/{date}.mcp.log`).
+- Messages are newline-delimited; never embedded newlines inside a single message (per spec).
+
+### 10.2 Security
+
+Per NFR-6 (verified):
+
 - Path traversal validation on every read/write
-- Canonicalize paths via `pathlib.Path.resolve()`; reject any path outside `<repo>/context/` or `~/.claude-memory-kit/`
+- Canonicalize paths via `path.resolve()` (Node) / `pathlib.Path.resolve()` (Python); reject any path outside `<repo>/context/`, `<repo>/context.local/`, or `~/.claude-memory-kit/`
 - Per Kiro's stricter pattern: validate that paths start with the expected prefix; reject URL-encoded traversal (`%2e%2e%2f`)
+- Network egress is impossible by transport choice — stdio has no listening socket. No DNS rebinding, no bind-address concerns.
 
-### 10.2 When to use each mechanism
+### 10.3 When to use each mechanism
 
 | Mechanism | When | Visibility to Claude |
 | --- | --- | --- |
@@ -1018,6 +1072,7 @@ Single Node binary, ships with the kit. Subcommands:
 | `cmk queue review` | **[CHANGE]** Interactive review of `context/queues/review.md` (medium-trust auto-extracts). Promote / discard each |
 | `cmk forget <id-or-query>` | Tombstone a fact per §6.5 |
 | `cmk purge --hard <id>` | Permanent deletion (requires confirmation; rare) |
+| `cmk roll [--scope now\|today\|recent]` | Manual force-roll of the rolling-window pipeline without ending the session. Same internals as the SessionEnd hook but user-invokable. (Per Cursor spec convergence — FR-013.) |
 | `cmk repair` | Idempotent self-repair (re-install hooks, reset stale locks) |
 | `cmk version` | Print kit version + check for updates |
 

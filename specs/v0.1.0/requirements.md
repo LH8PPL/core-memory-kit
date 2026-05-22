@@ -181,15 +181,15 @@ The kit shall support a global user tier at `~/.claude-memory-kit/` (Windows: `%
 Acceptance: When the user runs `claude-memory-kit init-user`, the system shall create `~/.claude-memory-kit/` with the layout above. When the directory already exists, the command shall be a no-op for existing files.
 
 **FR-5 — Local tier directory layout**
-The kit shall support a per-project + per-machine local tier at `<repo>/.claude/local/`, automatically added to `.gitignore`:
+The kit shall support a per-project + per-machine local tier at `<repo>/context.local/`, automatically added to `.gitignore`:
 
 ```text
-<repo>/.claude/local/
+<repo>/context.local/
 ├── machine-paths.md   (≤ 1,000 chars, absolute paths for this machine)
 └── overrides.md       (≤ 1,000 chars, machine-specific overrides)
 ```
 
-Acceptance: When bootstrap runs, the system shall create `<repo>/.claude/local/` AND add `.claude/local/` to `<repo>/.gitignore` if not already present.
+Acceptance: When bootstrap runs, the system shall create `<repo>/context.local/` AND add `context.local/` to `<repo>/.gitignore` if not already present.
 
 **FR-6 — Markdown is the source of truth**
 All durable storage shall be human-readable markdown files. The system shall NOT use SQLite, vector DBs, or other opaque formats as the source of truth. (Indexes and caches built FROM markdown are allowed; see FR-18.)
@@ -201,7 +201,7 @@ Acceptance: When the user opens any memory file in a text editor and makes a man
 **FR-7 — Three-tier frozen snapshot injection**
 At session start, the system shall inject memory in this priority order via the SessionStart hook (with PreToolUse as a fallback):
 
-1. **Local tier** (highest priority — overrides everything): `<repo>/.claude/local/*.md`
+1. **Local tier** (highest priority — overrides everything): `<repo>/context.local/*.md`
 2. **Project tier** (middle priority): `<repo>/context/SOUL.md`, `MEMORY.md`, `memory/INDEX.md`, latest `sessions/today-*.md`, `sessions/now.md` (if any)
 3. **User tier** (lowest priority — defaults): `~/.claude-memory-kit/USER.md`, `HABITS.md`, `fragments/INDEX.md`
 
@@ -404,7 +404,7 @@ All other operations shall be local-only.
 ### NFR-6 — Security
 
 - `<private>` tag content shall NEVER be written to disk.
-- `.claude/local/` shall be in `.gitignore` automatically.
+- `context.local/` shall be in `.gitignore` automatically.
 - The MCP server (FR-26) shall bind to `127.0.0.1` only, never 0.0.0.0.
 - The web viewer (FR-27) shall bind to `127.0.0.1` only.
 
