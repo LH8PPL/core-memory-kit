@@ -10,23 +10,58 @@ For deep-dive notes on individual sources, see [sources/](sources/). For source-
 - **Hermes** (Anthropic example agent) — the frozen-snapshot pattern that inspired SOUL.md as a separate "how Claude shows up" file from USER.md ("who the user is").
 - **AWS Kiro — "From Chat to Specs Deep Dive"** (<https://kiro.dev/blog/from-chat-to-specs-deep-dive/>) — the spec-driven workflow we adopted. Three-document structure: requirements → design → tasks. Deep-dive: [sources/kiro-spec-driven-deep-dive.md](sources/kiro-spec-driven-deep-dive.md).
 
+## Verification status legend
+
+- ✓ **Verified** — URL fetched directly via `gh api` or `WebFetch` on 2026-05-22.
+- ~ **Partial** — referenced in research but not independently verified.
+- ✗ **Unverified / suspected hallucination** — could not confirm existence.
+
+When ingesting into liorwiki, prefer ✓ entries. Use ~ entries with caution.
+
 ## Competitive landscape (memory systems for AI agents)
 
-- **thedotmack/claude-mem** (<https://github.com/thedotmack/claude-mem>) — 77,244 ⭐ as of 2026-05-21. Global opaque SQLite + Chroma. Cross-agent (Claude/Codex/Gemini/Hermes/Copilot). 30 releases, latest `v13.3.0` (2026-05-21). Research note: [research/2026-05-21-claude-mem-architecture.md](research/2026-05-21-claude-mem-architecture.md).
-- **Digital-Process-Tools/claude-remember** (<https://github.com/Digital-Process-Tools/claude-remember>) — Per-project markdown, Haiku-compressed daily summaries. Closest design sibling to our kit. Research note: [research/2026-05-21-claude-remember-architecture.md](research/2026-05-21-claude-remember-architecture.md).
-- **Anthropic official Memory tool** (<https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool>) — API-level (`type: memory_20250818` beta). Client-side `/memories/*.md` files. Validates the markdown-as-storage choice. Research note: [research/2026-05-21-anthropic-memory-tool.md](research/2026-05-21-anthropic-memory-tool.md).
-- **mem0ai/mem0** (<https://github.com/mem0ai/mem0>) — Extraction-as-a-service, GPT-4o-mini by default. Self-hostable.
-- **letta-ai/letta** (formerly MemGPT) (<https://github.com/letta-ai/letta>) — Tiered memory; the agent decides when to spill from core to archival via tool calls.
-- **topoteretes/cognee** (<https://github.com/topoteretes/cognee>) — Knowledge-graph-first with 14 retrieval modes.
-- **getzep/zep** (<https://github.com/getzep/zep>) — Temporal knowledge graph, async background extraction. Apache-2.0.
-- **LangMem** (LangChain's memory module) — referenced; specific URL captured per-research-run.
-- **Fail-Safe/Noema** — Markdown source-of-truth + SQLite FTS5 index. Closest architectural sibling. P2P federation with vector clocks. Cited in Option-B research.
-- **codenamev/claude_memory** (Ruby) — 3 hooks + MCP-for-everything inversion. Novel pattern worth borrowing in v0.2+.
-- **coleam00/claude-memory-compiler** — SessionEnd + PreCompact safety net. Daily log → knowledge articles via Claude Agent SDK in background.
-- **disler/claude-code-hooks-mastery** (<https://github.com/disler/claude-code-hooks-mastery>) — Reference logger covering all 13 hook events using UV-managed Python.
-- **luongnv89/claude-howto** — 29-event hook matrix including newer events (InstructionsLoaded, UserPromptExpansion, etc.).
-- **memvid/claude-brain** — Single `.mv2` binary (Rust). Zero-dependency endpoint.
-- **doobidoo/mcp-memory-service** (<https://github.com/doobidoo/mcp-memory-service>) — Multi-backend MCP. Self-reported 86.0% R@5 at v10.35.0+.
+### Verified (direct `gh api` + URL fetch on 2026-05-22)
+
+- ✓ **Basic Memory** (<https://github.com/basicmachines-co/basic-memory>) — 3,064 ⭐, AGPL-3.0, Python. "Local-first. Plain text on your disk. Forever." Closest open-source design analog to claude-memory-kit. Deep-dive: [sources/basic-memory-deep-dive.md](sources/basic-memory-deep-dive.md).
+- ✓ **Mem0** (<https://github.com/mem0ai/mem0>) — 56,406 ⭐, Apache-2.0, Python. Universal memory layer for AI agents.
+- ✓ **Letta / MemGPT** (<https://github.com/letta-ai/letta>) — 22,877 ⭐, Apache-2.0, Python. Stateful agents with explicit memory blocks.
+- ✓ **Cognee** (<https://github.com/topoteretes/cognee>) — 17,440 ⭐, Apache-2.0, Python. "Memory control plane in 6 lines of code."
+- ✓ **Zep / Graphiti** (<https://github.com/getzep/graphiti>) — 26,362 ⭐, Apache-2.0, Python. Temporal knowledge graph; raw episodes as provenance.
+- ✓ **LangMem** (<https://github.com/langchain-ai/langmem>) — 1,465 ⭐, MIT, Python. Hot-path memory tools + background memory management for LangGraph.
+- ✓ **Supermemory** (<https://github.com/supermemoryai/supermemory>) — 22,653 ⭐, MIT, TypeScript. Portable cross-LLM memory.
+- ✓ **thedotmack/claude-mem** (<https://github.com/thedotmack/claude-mem>) — 77,244 ⭐ (2026-05-21), v13.3.0. Global opaque SQLite + Chroma, 6 hooks. Research note: [research/2026-05-21-claude-mem-architecture.md](research/2026-05-21-claude-mem-architecture.md).
+- ✓ **Digital-Process-Tools/claude-remember** (<https://github.com/Digital-Process-Tools/claude-remember>) — Per-project markdown, Haiku-compressed daily summaries. Research note: [research/2026-05-21-claude-remember-architecture.md](research/2026-05-21-claude-remember-architecture.md).
+- ✓ **chunxiaoxx/nautilus-compass** (<https://github.com/chunxiaoxx/nautilus-compass>) — Memory layer with Merkle-chained audit log for tamper-evident provenance. Paper: <https://arxiv.org/abs/2605.09863> ("Nautilus Compass: Black-box Persona Drift Detection for Production LLM Agents"). ROC AUC 0.83 for drift detection. **Use cases match our v0.2+ direction for tamper-evident memory.**
+- ✓ **CosmoNaught/claude-code-cmv** (<https://github.com/CosmoNaught/claude-code-cmv>) — Contextual Memory Virtualization: snapshot/branch/trim primitives for Claude Code session state. Snapshots in `~/.cmv/snapshots/`. Auto-trim PreCompact + PostToolUse hooks. **Use case parallel to our rolling-window compression.**
+- ✓ **DeusData/codebase-memory-mcp** (<https://github.com/DeusData/codebase-memory-mcp>) — Persistent Tree-Sitter knowledge graph for code exploration via MCP. 155 languages. Paper: <https://arxiv.org/abs/2603.27277> (Martin Vogel, March 2026). 14 MCP tools, sub-ms queries, 31-repo eval. **v0.2+ direction: structural code memory as separate subsystem.**
+- ✓ **EverMind-AI/EverOS** (<https://github.com/EverMind-AI/EverOS>) — Self-organizing memory OS with MemCells/MemScenes. Paper: <https://arxiv.org/abs/2601.02163>. 92.73% on LoCoMo for long-dialogue. (Repo name is `EverOS`, not `EverMemOS` as Option A reported.)
+- ✓ **MemTensor/MemOS** (<https://github.com/MemTensor/MemOS>) — Memory OS with MemCube abstraction across plaintext/activation/parameter memory. Paper: <https://arxiv.org/abs/2507.03724>.
+- ✓ **RayNeo-AI-2025/AnchorMem** (<https://github.com/RayNeo-AI-2025/AnchorMem>) — Anchored facts + associative event graph. Paper: <https://arxiv.org/abs/2604.17377> (April 2026). LoCoMo benchmark.
+- ✓ **A-MemGuard** (paper only: <https://arxiv.org/abs/2510.02373>) — Proactive defense framework for LLM agent memory. Consensus validation + lessons memory. >95% attack-success-rate reduction. Sep 2025. **Informs our NFR-9 baseline defenses.**
+- ✓ **Anthropic official Memory tool** (<https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool>) — API-level (`type: memory_20250818` beta). Client-side `/memories/*.md` files. Validates markdown-as-storage. Research note: [research/2026-05-21-anthropic-memory-tool.md](research/2026-05-21-anthropic-memory-tool.md).
+
+### Mentioned but unverified (low-effort lookup pending)
+
+- ~ **Fail-Safe/Noema** — Markdown source-of-truth + SQLite-FTS5 index + P2P federation. Cited in Option-B research; no direct verification yet.
+- ~ **codenamev/claude_memory** (Ruby) — 3 hooks + MCP-for-everything inversion. Cited in Option-B.
+- ~ **coleam00/claude-memory-compiler** — Background Claude Agent SDK call. Cited in Option-B.
+- ~ **disler/claude-code-hooks-mastery** (<https://github.com/disler/claude-code-hooks-mastery>) — All 13 hook events reference. Cited in Option-B.
+- ~ **luongnv89/claude-howto** — 29-event hook matrix. Cited in Option-B.
+- ~ **memvid/claude-brain** — Single `.mv2` binary (Rust). Cited in Option-B.
+- ~ **doobidoo/mcp-memory-service** — Multi-backend MCP, 86.0% R@5 self-reported. Cited in Option-B.
+
+### Suspected hallucination
+
+- ✗ **"True Memory"** — cited in Option A as a paper arguing extraction-at-write-time is the wrong primitive. **No paper by that exact name was found via web search.** The conceptual argument IS supported by these real papers — cite these instead:
+  - **MemMachine** (<https://arxiv.org/abs/2604.04853>) — "Ground-Truth-Preserving Memory System for Personalized AI Agents." Stores raw conversational episodes, minimizes routine LLM-based extraction.
+  - **"A Simple Yet Strong Baseline"** (<https://arxiv.org/abs/2511.17208>) — Non-compressive enriched EDUs over aggressive summarization.
+
+### Cited in Option A but no arxiv ID provided (verification pending)
+
+- ~ **Hindsight** — retain/recall/reflect architecture.
+- ~ **Agentic Memory** — RL-trained memory-operation policy.
+- ~ **MemLineage** — provenance enforcement.
+- ~ **MemoryGraft** — memory poisoning research.
 
 ## Anthropic / Claude Code references
 
@@ -79,12 +114,30 @@ Source: Anthropic Haiku page (<https://anthropic.com/claude/haiku>); referenced 
 
 ## Academic / research papers
 
-- **LightMem** (zjunlp et al., ICLR 2026, arXiv:2510.18866) — 3-stage architecture (sensory → topic-aware short-term → sleep-time long-term). Reports 38× token reduction. Repo: <https://github.com/zjunlp/LightMem>. ArXiv: <https://arxiv.org/abs/2510.18866>.
-- **SGMem** (arXiv:2509.21212) — Sentence-graph memory with cross-session aggregation.
-- **A Simple Yet Strong Baseline** (Zhou et al., Nov 2025, arXiv:2511.17208) — Argues for non-compressive enriched EDUs rather than aggressive summarization.
-- **KVzip** (Kim et al., arXiv:2505.23416) — KV cache compression with 3-4× size reduction; runs locally. Relevant for air-gapped deployments. <https://arxiv.org/abs/2505.23416>.
-- **ProMem** ("Beyond Static Summarization", arXiv:2601.04463) — Adds a self-questioning extraction phase.
-- **A Comparative Analysis of Identifier Schemes** (Karimian Kakolaki, Sep 2025, arXiv:2509.08969) — UUIDv4 vs UUIDv7 vs ULID for distributed systems. Informed ADR-0007. <https://arxiv.org/abs/2509.08969>.
+### Verified (URL fetched, abstract read 2026-05-22)
+
+- ✓ **LightMem** (zjunlp et al., ICLR 2026) — <https://arxiv.org/abs/2510.18866>. 3-stage architecture (sensory → topic-aware short-term → sleep-time long-term). Reports 38× token reduction. Repo: <https://github.com/zjunlp/LightMem> (verified 853 ⭐, MIT).
+- ✓ **KVzip** (Kim et al., NeurIPS 2025 Oral) — <https://arxiv.org/abs/2505.23416>. 3-4× KV cache compression, ~2× FlashAttention decode latency reduction. Up to 170K context.
+- ✓ **A Comparative Analysis of Identifier Schemes** (Karimian Kakolaki, Sep 2025) — <https://arxiv.org/abs/2509.08969>. UUIDv4 vs UUIDv7 vs ULID for distributed systems. Informed ADR-0007.
+- ✓ **EverMemOS** (Chuanrui Hu et al., 2026) — <https://arxiv.org/abs/2601.02163>. Self-organizing memory OS with MemCells/MemScenes. 92.73% on LoCoMo.
+- ✓ **MemOS** (2025) — <https://arxiv.org/abs/2507.03724>. Memory OS with MemCube abstraction across plaintext/activation/parameter memory.
+- ✓ **Nautilus Compass** (2026) — <https://arxiv.org/abs/2605.09863>. Black-box persona drift detection. ROC AUC 0.83.
+- ✓ **AnchorMem** (April 2026) — <https://arxiv.org/abs/2604.17377>. Anchored facts + associative event graph. LoCoMo benchmark.
+- ✓ **A-MemGuard** (Sep 2025) — <https://arxiv.org/abs/2510.02373>. Proactive defense framework. >95% attack-success-rate reduction.
+- ✓ **Codebase-Memory** (Martin Vogel, March 2026) — <https://arxiv.org/abs/2603.27277>. Tree-Sitter KG via MCP. 155 languages. 31-repo eval.
+
+### Verified during defensive lookups (not cited in either research output, found via WebSearch 2026-05-22)
+
+- ✓ **MemMachine** — <https://arxiv.org/abs/2604.04853>. "Ground-Truth-Preserving Memory System for Personalized AI Agents." Stores raw conversational episodes, minimizes routine LLM-based extraction. **The real paper behind Option A's "True Memory" attribution.**
+- ✓ **A Simple Yet Strong Baseline for Long-Term Conversational Memory of LLM Agents** (Zhou et al., Nov 2025) — <https://arxiv.org/abs/2511.17208>. Non-compressive enriched EDUs over aggressive summarization.
+- ✓ **Memory for Autonomous LLM Agents: Mechanisms, Evaluation, and Emerging Frontiers** (survey) — <https://arxiv.org/abs/2603.07670>. Useful overview of the whole memory field.
+- ✓ **Memory Matters More: Event-Centric Memory** / CompassMem (2026) — <https://arxiv.org/abs/2601.04726>. Event graph for agent reasoning.
+- ✓ **Survey on Long-Term Memory Security in LLM Agents (Mnemonic Sovereignty)** — <https://arxiv.org/html/2604.16548v1>. Confirms memory security as 2026 architectural concern.
+
+### Cited but not directly fetched
+
+- ~ **SGMem** (arXiv:2509.21212) — Sentence-graph memory. Cited in Option-B research.
+- ~ **ProMem** ("Beyond Static Summarization", arXiv:2601.04463) — Self-questioning extraction phase. Cited in Option-B research.
 
 ## Standards and conventions
 
