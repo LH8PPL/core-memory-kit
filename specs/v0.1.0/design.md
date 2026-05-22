@@ -2,8 +2,8 @@
 
 **Status**: Draft, section 1-3 of N · **Author**: Claude (Opus 4.7) + Lior Hollander · **Date started**: 2026-05-22
 
-This document specifies **HOW** v0.1.0 is built. 
-The companion [`requirements.md`](requirements.md) specifies **WHAT** v0.1.0 must do. 
+This document specifies **HOW** v0.1.0 is built.
+The companion [`requirements.md`](requirements.md) specifies **WHAT** v0.1.0 must do.
 Every section here cites the FRs it implements.
 
 The design assumes [`requirements-revisions-proposed.md`](requirements-revisions-proposed.md) is approved (it is, per user 2026-05-22 — locked in tenets T7/T8, US-14/15, FR-28/29/30, NFR-9, OS-9..13, OQ-8).
@@ -602,6 +602,70 @@ This mirrors the design of git revert (don't rewrite history) more than git reba
 `<retain>...</retain>` content is **force-saved** by the auto-extract sub-Claude even if it wouldn't otherwise pass the durable-fact filter. The `<retain>` tags themselves are stripped from saved content.
 
 (v0.1.x candidate: add `<ephemeral>` tag for session-only content auto-extract should always skip. Per ChatGPT/Google A spec convergence.)
+
+### 6.7 Poison_Guard — secret + injection filter (before any commit-eligible write)
+
+Auto-extract runs against captured turns that may contain secrets pasted by the user (API keys, tokens, passwords) or prompt-injection phrases scraped from web content the user shared. Because the project tier (`<repo>/context/`) is **committed to git**, a single leaked secret in `MEMORY.md` is a real exposure event.
+
+**Poison_Guard** is a pre-write regex filter applied inside the `memory-write` skill — before any write to a project-tier or user-tier file:
+
+```text
+Patterns rejected (write fails with category='poison_guard'):
+
+  Secrets (case-insensitive):
+    /(?i)(aws_secret|aws_access_key_id)[\s:=]+[A-Z0-9/+=]{16,}/
+    /(?i)(api[_-]?key|secret|password|passwd|token|bearer)[\s:=]+["']?[A-Za-z0-9_\-/+=]{20,}/
+    /-----BEGIN (RSA |EC |OPENSSH |PGP )?PRIVATE KEY-----/
+    /ghp_[A-Za-z0-9]{36}/                       (GitHub personal access token)
+    /sk-(ant-|proj-)?[A-Za-z0-9_\-]{40,}/       (OpenAI / Anthropic style keys)
+    /xox[bps]-[A-Za-z0-9-]{10,}/                (Slack tokens)
+
+  Prompt-injection / role-override (case-insensitive):
+    /(?i)ignore (all |any |previous |prior )?(instructions?|prompts?|rules?)/
+    /(?i)you are now (a |an |the )?[A-Za-z]/
+    /(?i)<\/?system>|<\/?assistant>/            (fake role tags)
+    /(?i)disregard the above/
+```
+
+**Behavior on match**:
+
+1. The write is **rejected** (no bullet added, no fact file written).
+2. Logged to `context/.locks/poison-guard.log` (NDJSON): `{ts, pattern_id, source_file, source_line, action: "rejected", redacted_excerpt: "...***..."}`. The matched text itself is **redacted** in the log — only a pattern ID + truncated/masked excerpt is recorded.
+3. The auto-extract sub-Claude logs `error_category: "poison_guard"` in `extract.log` so analytics can track frequency.
+4. **No notification to the user** by default (avoid notification fatigue). `cmk doctor` surfaces a count via "N writes blocked by Poison_Guard this week".
+
+**Tunable via** `context/settings.json`: users can extend the pattern list (additive, never replacement) or set `poison_guard.strict: true` to also reject `low`-trust writes that score >50% on a softer heuristic. Default is the conservative regex list above.
+
+**Why discoverability-only, not perfect prevention**: per user-locked decision on the discoverability defense model — the threat model is "accidental commit", not "active adversary in your repo". Regex catches the high-frequency mistakes; secret-scanners (gitleaks, trufflehog) are the second line of defense, not us.
+
+### 6.8 Conflict queue (companion to the review queue)
+
+The review queue (§6.2) handles medium-trust *new* writes awaiting blessing. A separate concern: what happens when an auto-extract or user statement **contradicts an existing high-trust fact**?
+
+Example: `MEMORY.md` has `(P-A8FN3MQ2) we standardized on Python 3.13` (trust: high, user-explicit). Later, auto-extract captures "we're moving to Python 3.14 for the websockets fix" from a turn — same canonical topic, different content.
+
+**Conflict detection**: the `memory-write` skill, before writing, runs a semantic similarity check (FTS5 + optional vector) against existing observations on the same heading_path. If similarity > 0.85 AND content differs → **conflict**.
+
+**Routing**:
+
+```text
+IF new_write.trust < existing_obs.trust:
+  Write to context/queues/conflicts.md (NOT MEMORY.md, NOT review.md)
+  Append entry:
+    - (proposed: P-NEW) "<new bullet text>"
+      conflicts_with: P-A8FN3MQ2
+      detected_at: <ISO>
+      resolution: pending
+
+IF new_write.trust >= existing_obs.trust:
+  Mark existing as superseded_by: P-NEW
+  Write new as canonical
+  Both stay in archive (per §3.4 consolidation rules)
+```
+
+User resolves via `cmk queue conflicts`: review each conflict; choose `keep-old`, `keep-new`, or `merge-both` (writes a third combined bullet that supersedes both originals).
+
+**Why separate from the review queue**: conflicts are higher-stakes than fresh medium-trust facts — they imply existing memory is wrong. Different queue, different UX, different urgency. Per ChatGPT spec convergence + user-locked decision on the every-observation provenance principle (conflicts must surface explicitly, not silently overwrite).
 
 **Implements**: FR-10, FR-11, FR-12, FR-13, FR-15, NFR-9.
 
