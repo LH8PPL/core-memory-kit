@@ -1,0 +1,90 @@
+# Architectural Decision Records (ADRs)
+
+Each ADR captures one meaningful design decision: the context, what was decided, why, what alternatives were rejected, and what the consequences are. The format is adapted from [Michael Nygard's classic ADR template](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions) with extra fields for liorwiki ingestion (deciders, dates, supersedes/superseded_by chains, tags).
+
+## Index
+
+| # | Title | Status | Date |
+|---|---|---|---|
+| [0001](0001-separate-project-not-fork-youtube-to-slide.md) | Build claude-memory-kit as a separate project, not by forking youtube-to-slide | accepted | 2026-05-21 |
+| [0002](0002-markdown-source-of-truth-over-opaque-db.md) | Markdown files as the source of truth; SQLite/vector DBs are regenerable caches | accepted | 2026-05-21 |
+| [0003](0003-per-project-with-future-cross-project-tier.md) | Per-project memory in v0.1, three-tier scope (user/project/local) in v0.1.1+ | accepted | 2026-05-21 |
+| [0004](0004-spec-driven-development-kiro-style.md) | Spec-driven development using a Kiro-adapted workflow (requirements → design → tasks) | accepted | 2026-05-21 |
+| [0005](0005-three-install-paths.md) | Ship three install paths: bash script + PowerShell script + Claude Code plugin | accepted | 2026-05-21 |
+| [0006](0006-lifecycle-hooks-architecture.md) | Lifecycle hook architecture — initial 6 hooks, revised to 5+1 after Option-B research | accepted (revised 2026-05-22) | 2026-05-21 |
+| [0007](0007-content-addressed-citation-ids.md) | Content-addressed citation IDs — 8-char base32 SHA-256 with tier prefix | accepted | 2026-05-22 |
+| [0008](0008-bank-airgap-deferred-to-future-version.md) | Bank / air-gap deployment deferred to v0.2+ but compressor designed pluggably | accepted | 2026-05-22 |
+
+## ADR lifecycle
+
+- **proposed** — under discussion, may not be merged.
+- **accepted** — agreed and load-bearing.
+- **superseded** — replaced by a newer ADR. Old ADR remains for audit trail; `superseded_by:` points to the new one.
+- **deprecated** — no longer applies but not formally replaced.
+
+When an ADR is superseded, **never delete it**. The audit trail is the value.
+
+## Template
+
+When writing a new ADR, copy this:
+
+```markdown
+---
+adr: XXXX
+title: Short imperative title
+status: proposed | accepted | superseded | deprecated
+date: YYYY-MM-DD
+deciders:
+  - Name (role)
+supersedes: NNNN-* (or null)
+superseded_by: null
+related:
+  - NNNN-*.md
+tags:
+  - one-word-tags
+---
+
+# ADR-XXXX — Short imperative title
+
+## Status
+
+Current status, date, who decided. If superseded, link to the replacement.
+
+## Context
+
+What's the situation that forces a decision? What was already in place?
+What were the external signals (research, conversation, bug, request)?
+
+## Decision
+
+What we chose. Be specific. Cite paths, schemas, commands.
+
+## Consequences
+
+### Positive
+- ...
+### Negative
+- ...
+### Neutral
+- ...
+
+## Alternatives considered (and why rejected)
+
+| Alternative | Why rejected |
+|---|---|
+| ... | ... |
+
+## References
+
+- URLs, repos, papers, conversation log entries, related ADRs.
+
+## Review history
+
+| Date | Reviewer | Action |
+|---|---|---|
+| YYYY-MM-DD | Name | Proposed/Accepted/Revised |
+```
+
+## Why this discipline
+
+Three reasons. **First**, a Claude session resuming after a long gap needs to be able to re-derive *why* a decision was made — not just *what* was decided. Code shows what; ADRs show why. **Second**, when we go to revise (e.g., when v0.2 changes the hook architecture), the ADR being superseded carries the full context for the new ADR's author. **Third**, liorwiki ingests these directly — every decision becomes a wiki entry, every entry retains its provenance.
