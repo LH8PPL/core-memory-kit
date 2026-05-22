@@ -30,7 +30,7 @@ Persistent memory for Claude Code that:
 ## File structure (per-project at `<repo>/.remember/`)
 
 | File | Purpose |
-|---|---|
+| --- | --- |
 | `.remember/now.md` | Current session buffer — appended live by hooks |
 | `.remember/today-{YYYY-MM-DD}.md` | Daily Haiku-compressed summary |
 | `.remember/recent.md` | Rolling 7-day consolidation |
@@ -53,7 +53,7 @@ All output is markdown. Sessions are captured as JSONL internally but converted 
 ```
 
 | Hook | Purpose |
-|---|---|
+| --- | --- |
 | SessionStart | Loads memory files into context |
 | PostToolUse | Auto-saves when tool output exceeds threshold (default: 50+ lines) |
 
@@ -89,7 +89,7 @@ This is **strictly better than v0.0.1's "auto-extract every turn"** approach bec
 ## How claude-remember informed our ADRs
 
 | Finding | Our response |
-|---|---|
+| --- | --- |
 | Per-project markdown at `.remember/` | Confirms our ADR-0002 (markdown SoT) and validates ADR-0003 (per-project tier). |
 | Rolling-window hierarchy (now → today → recent → archive) | **Adopted in requirements.md FR-19**. Our names mirror theirs: `sessions/now.md`, `sessions/today-{date}.md`, `sessions/recent.md`, `sessions/archive.md`. |
 | 3-hook architecture (no Stop, no SessionEnd) | Rejected in favor of 5+1 (ADR-0006). We need Stop for rolling-window trigger and SessionEnd for final flush. claude-remember's PostToolUse-driven save is good but loses session-boundary structure. |
