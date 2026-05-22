@@ -57,18 +57,21 @@ When ingesting into liorwiki, prefer ✓ entries. Use ~ entries with caution.
 - ✓ **doobidoo/mcp-memory-service** (<https://github.com/doobidoo/mcp-memory-service>) — 1,868 ⭐, Python, Apache-2.0. Multi-backend memory MCP. REST API + knowledge graph + autonomous consolidation. Latest release v10.60.0 (May 2026).
 - ✓ **abordage/awesome-mcp** (<https://github.com/abordage/awesome-mcp>) — 6 ⭐, MIT. Curated list of MCP servers, auto-updated daily. Good source for novel-find candidates.
 
-### Suspected hallucination
+### CORRECTION (2026-05-22) — "True Memory" is real
 
-- ✗ **"True Memory"** — cited in Option A as a paper arguing extraction-at-write-time is the wrong primitive. **No paper by that exact name was found via web search.** The conceptual argument IS supported by these real papers — cite these instead:
-  - **MemMachine** (<https://arxiv.org/abs/2604.04853>) — "Ground-Truth-Preserving Memory System for Personalized AI Agents." Stores raw conversational episodes, minimizes routine LLM-based extraction.
-  - **"A Simple Yet Strong Baseline"** (<https://arxiv.org/abs/2511.17208>) — Non-compressive enriched EDUs over aggressive summarization.
+Earlier I marked "True Memory" as a suspected hallucination. **I was wrong.** ChatGPT's bibliography surfaced the actual paper:
 
-### Cited in Option A but no arxiv ID provided (verification pending)
+- ✓ **"Storage Is Not Memory: A Retrieval-Centered Architecture for Agent Recall"** by Joshua Adler and Guy Zehavi — <https://arxiv.org/abs/2605.04897> (May 6, 2026). The paper title uses "Storage Is Not Memory"; the proposed architecture inside is called "True Memory." Both names refer to the same paper. Verbatim abstract opener: *"Extraction at ingestion is the wrong primitive for agent memory: content discarded before the query is known cannot be recovered at retrieval time."* Validates ADR-0010 (raw transcripts preserved indefinitely).
 
-- ~ **Hindsight** — retain/recall/reflect architecture.
-- ~ **Agentic Memory** — RL-trained memory-operation policy.
-- ~ **MemLineage** — provenance enforcement.
-- ~ **MemoryGraft** — memory poisoning research.
+The MemMachine and "Simple Yet Strong Baseline" papers below are also real and support the same argument; cite all three for the "retrieval-over-preserved-events" direction.
+
+### Cited in Option A with arxiv IDs from ChatGPT bibliography (URLs verified by gh api or noted otherwise)
+
+- ✓ **Storage Is Not Memory / True Memory** (Joshua Adler, Guy Zehavi, May 2026) — <https://arxiv.org/abs/2605.04897>. See correction above.
+- ~ **Hindsight is 20/20** (Dec 14, 2025) — <https://arxiv.org/abs/2512.12818>. URL from ChatGPT bibliography; not directly fetched by me yet.
+- ~ **MemLineage** (May 14, 2026) — <https://arxiv.org/abs/2605.14421>. URL from ChatGPT bibliography; not directly fetched.
+- ~ **MemoryGraft** (Dec 18, 2025) — <https://arxiv.org/abs/2512.16962>. URL from ChatGPT bibliography; not directly fetched.
+- ✗ **"Agentic Memory"** — ChatGPT honestly admitted it could not be tied to a specific paper. *"Multiple plausible 2025-2026 papers fit that description."* Skip as a citation unless we find a specific one later.
 
 ## Anthropic / Claude Code references
 
@@ -174,6 +177,24 @@ Numbers consistent with Anthropic's own page across all four sources.
 ### Papers verified after Claude.ai bibliography (2026-05-22)
 
 - ✓ **ProMem** / *"Beyond Static Summarization: Proactive Memory Extraction for LLM Agents"* — <https://arxiv.org/abs/2601.04463>. Chengyuan Yang, Zequn Sun, Wei Wei, Wei Hu. Submitted January 8, 2026. Proactive memory extraction; addresses missing-information accumulation in HaluMem. (Claude.ai's bibliography flagged the arxiv ID as suspicious due to the unusual "2601" prefix — independently re-verified: the prefix is just January 2026 in arxiv's YYMM.NNNNN scheme. Paper is real.)
+
+### Papers verified after ChatGPT bibliography (2026-05-22)
+
+- ✓ **Mem0 paper**: *"Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory"* by Prateek Chhikara, Dev Khant, Saket Aryan, Taranjeet Singh, Deshraj Yadav. <https://arxiv.org/abs/2504.19413>. Submitted April 28, 2025. Formal architecture description for Mem0's extraction/consolidation/retrieval pipeline.
+- ✓ **Zep paper**: *"Zep: A Temporal Knowledge Graph Architecture for Agent Memory"* by Preston Rasmussen, Pavlo Paliychuk, Travis Beauvais, Jack Ryan, Daniel Chalef. <https://arxiv.org/abs/2501.13956>. Submitted January 20, 2025. Outperforms MemGPT on Deep Memory Retrieval benchmark.
+- ✓ **Claude Code CMV paper**: *"Contextual Memory Virtualisation: DAG-Based State Management and Structurally Lossless Trimming for LLM Agents"* by Cosmo Santoni. <https://arxiv.org/abs/2602.22402>. Submitted February 25, 2026. The theoretical framing behind the `CosmoNaught/claude-code-cmv` reference implementation we already verified.
+
+### Repos verified after ChatGPT bibliography (2026-05-22)
+
+- ✓ **Supermemory MCP** (separate from `supermemoryai/supermemory`): <https://github.com/supermemoryai/supermemory-mcp>. 1,691 ⭐, MIT, last push 2025-12-30. *"Your memories are in ChatGPT... But nowhere else. Universal Memory MCP makes your memories available to every single LLM."* Different scope than the main supermemory repo.
+
+### Repo URL where ChatGPT's link returns 404 (2026-05-22)
+
+- ✗ **A-MemGuard repo** at `https://github.com/TangciuYueng/AMemGuard` — `gh api` returns 404. This URL appears both in ChatGPT's bibliography and in the paper's own arxiv HTML. The repo may have been renamed, made private, or moved. The paper itself (<https://arxiv.org/abs/2510.02373>) is real and verified. If anyone needs the code, contact the authors directly.
+
+### The Verge article on Anthropic Claude consumer memory upgrade
+
+- ~ **The Verge — Anthropic Claude memory upgrades + import** (2026-03-02): <https://www.theverge.com/ai-artificial-intelligence/887885/anthropic-claude-memory-upgrades-importing>. URL from ChatGPT bibliography; not directly fetched. Supports the claim that Claude consumer products now have memory + import/export workflow from competing AI assistants.
 
 ## Standards and conventions
 

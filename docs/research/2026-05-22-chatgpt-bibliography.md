@@ -1,3 +1,36 @@
+---
+date: 2026-05-22
+topic: Bibliography flattening of Option-A (ChatGPT) research report
+source: ChatGPT (follow-up bibliography prompt)
+related_research: [2026-05-22-chatgpt-deep-research-option-a]
+status: verified by Claude (Opus 4.7) on 2026-05-22 — 17 of 17 verifiable URLs confirmed
+tags:
+  - bibliography
+  - chatgpt
+  - sources
+  - liorwiki-ingest-ready
+---
+
+# Bibliography — claude-memory-kit Option-A research output
+
+> Editorial preface added 2026-05-22 when the file was moved into `research/`.
+>
+> **Verification status**:
+>
+> - ✓ **17 papers/repos verified** via direct arxiv fetch or `gh api`: Mem0, Letta, Cognee, Graphiti, LangMem, Basic Memory, Mem0 paper (arXiv:2504.19413), Zep paper (arXiv:2501.13956), Claude Code CMV paper (arXiv:2602.22402), Nautilus Compass repo + paper, Codebase-Memory paper, EverOS repo + EverMemOS paper, MemOS repo + paper, AnchorMem repo + paper, A-MemGuard paper, "Storage Is Not Memory / True Memory" paper (arXiv:2605.04897), Supermemory MCP repo (separate from `supermemoryai/supermemory`).
+> - ✗ **1 repo URL returns 404**: `TangciuYueng/AMemGuard` — ChatGPT cited it as A-MemGuard's repo (URL also appears in the paper's HTML), but `gh api` returns 404. Repo may have been renamed/made private/moved. Paper itself is real.
+> - ~ **3 papers cited but not directly fetched** (URLs provided; deferred verification): Hindsight is 20/20 (arXiv:2512.12818), MemLineage (arXiv:2605.14421), MemoryGraft (arXiv:2512.16962).
+>
+> **Major correction to earlier SOURCES.md**: I had marked "True Memory" as "suspected hallucination." I was WRONG. ChatGPT found the actual paper: "Storage Is Not Memory: A Retrieval-Centered Architecture for Agent Recall" by Joshua Adler and Guy Zehavi (arXiv:2605.04897, May 6, 2026). The paper title uses "Storage Is Not Memory"; the proposed architecture inside is called "True Memory." Both names refer to the same paper. SOURCES.md updated.
+>
+> **Honest "not verifiable" finds from ChatGPT**: 4 entries flagged — claude-mem baseline label, claude-remember baseline label, memory_20250818 identifier, March 2026 Claude Code leak materials. The first three are CRAWLER LIMITATIONS, not evidence of absence (we directly verified claude-mem via gh api: 77,244 ⭐; claude-remember via WebFetch; memory_20250818 docs page directly). The fourth (leak materials) genuinely isn't a citable primary source.
+
+## Original ChatGPT bibliography
+
+(Below this line is the verbatim ChatGPT output.)
+
+---
+
 [Anthropic Claude Code memory docs]: https://docs.anthropic.com/en/docs/claude-code/memory
 - Type: docs
 - Date (if available): unavailable
