@@ -9,6 +9,8 @@ For deep-dive notes on individual sources, see [sources/](sources/). For source-
 - **Simon Scrapes — "Master Claude Memory to Get Ahead of 99% of People"** ([YouTube](https://www.youtube.com/watch?v=rFWxRZ5D-lM), [companion Notion](https://scrapeshq.notion.site/claude-memory-systems)) — the source pattern for layered, per-project memory; the four-component Layer 4 design (PreToolUse + Stop + skill + auto-extract); the frozen-snapshot concept. Deep-dive: [sources/simon-scrapes-master-claude-memory.md](sources/simon-scrapes-master-claude-memory.md).
 - **Hermes** (Anthropic example agent) — the frozen-snapshot pattern that inspired SOUL.md as a separate "how Claude shows up" file from USER.md ("who the user is").
 - **AWS Kiro — "From Chat to Specs Deep Dive"** (<https://kiro.dev/blog/from-chat-to-specs-deep-dive/>) — the spec-driven workflow we adopted. Three-document structure: requirements → design → tasks. Deep-dive: [sources/kiro-spec-driven-deep-dive.md](sources/kiro-spec-driven-deep-dive.md).
+- **Faisal Haque — "Give Claude Permanent Memory"** ([Plain English / Medium, 2026-05-04](https://ai.plainenglish.io/give-claude-permanentmemory-7b4343de2d7e)) — clean 4-layer overview of Anthropic's official memory architecture (Chat Synthesis / Project Memory Spaces / CLAUDE.md / API Memory Tool). Surfaced for us that Anthropic ships Auto Memory in Claude Code v2.1.59+ with the same `<type>_<slug>.md` granular pattern we designed independently. Triggered ADR-0011 investigation.
+- **Rick Hightower — "Anthropic Harness Engineering: Bridging the Memory Gap"** ([TowardsAI, 2026-05-06](https://pub.towardsai.net/anthropic-harness-engineering-bridging-the-memory-gap-how-ai-agents-conquer-the-context-window-12dd2b20e298)) — practitioner writeup of Anthropic's official harness-engineering paper. Surfaces 4 critical patterns: (1) `init.sh` for standardized environment, (2) `claude-progress.txt` narrative log = our `sessions/{date}.md`, (3) **`feature_list.json` with `passes: false` checklist** — JSON over Markdown for "structural gravity" against the Premature Victory failure mode, (4) explicit two-agent architecture (Initializer + Coding) which maps onto our Kiro phases. Direct quotes informing our design tenets: *"compaction is a band-aid, not a cure"*, *"summary is not a specification"*. **Implication**: our `tasks.md` should likely be `tasks.json`. Worth a design.md decision.
 
 ## Verification status legend
 
@@ -73,9 +75,19 @@ When ingesting into liorwiki, prefer ✓ entries. Use ~ entries with caution.
 - **Claude Code hooks reference**: <https://code.claude.com/docs/en/hooks> — authoritative hook payload schemas, parallel-execution semantics, async hook behavior.
 - **Claude Code hooks documentation (mirror)**: <https://docs.claude.com/en/docs/claude-code/hooks> — payload schemas, additionalContext output protocol.
 - **Claude Code skills documentation**: <https://docs.claude.com/en/docs/claude-code/skills> — SKILL.md frontmatter.
-- **Anthropic Memory tool docs**: <https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool>.
+- **Anthropic Memory tool docs (API-level)**: <https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool>.
+- **Anthropic Claude Code Memory docs (different from above!)**: <https://code.claude.com/docs/en/memory>. Covers CLAUDE.md hierarchy + Auto Memory (v2.1.59+). The Auto Memory feature uses `~/.claude/projects/<project>/memory/` with `MEMORY.md` entrypoint + `<type>_<slug>.md` topic files — independently the same pattern we designed. Research note: [research/2026-05-22-anthropic-claude-code-auto-memory.md](research/2026-05-22-anthropic-claude-code-auto-memory.md).
 - **Effective context engineering**: <https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents>.
-- **Effective harnesses for long-running agents**: <https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents>.
+- **Effective harnesses for long-running agents**: <https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents>. **Canonical Anthropic engineering reference** for the long-running-agent harness pattern. Inspired our rolling-window compression, session log discipline, and 3-tier scope. The pattern Hightower writes about above.
+- **Building Effective Agents** (Anthropic): <https://anthropic.com/research/building-effective-agents>.
+- **Writing Effective Tools for AI Agents** (Anthropic): <https://anthropic.com/engineering/writing-tools-for-agents>.
+- **Effective Context Engineering for AI Agents** (Anthropic, already cited above; included here for completeness in the harness-engineering canon).
+- **Equipping Agents for the Real World with Agent Skills** (Anthropic): <https://anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills>.
+- **The "Think" Tool: Enabling Claude to Stop and Think** (Anthropic): <https://anthropic.com/engineering/claude-think-tool>.
+- **Building Agents with the Claude Agent SDK** (Anthropic): <https://anthropic.com/engineering/building-agents-with-the-claude-agent-sdk>.
+- **How We Built Our Multi-Agent Research System** (Anthropic): <https://anthropic.com/engineering/multi-agent-research-system>.
+- **Code Execution with MCP** (Anthropic): <https://anthropic.com/engineering/code-execution-with-mcp>.
+- **Introducing the Model Context Protocol** (Anthropic): <https://anthropic.com/news/model-context-protocol>.
 - **Anthropic SDK examples** (Python memory): <https://github.com/anthropics/anthropic-sdk-python/blob/main/examples/memory/basic.py>.
 - **Anthropic SDK examples** (TypeScript memory): <https://github.com/anthropics/anthropic-sdk-typescript/blob/main/examples/tools-helpers-memory.ts>.
 - **Bug: hook double-fire from marketplace + cache**: <https://github.com/anthropics/claude-code/issues/24115>.
