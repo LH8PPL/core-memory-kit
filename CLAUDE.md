@@ -84,11 +84,31 @@ The user (Lior) is direct and tight on time. Match the energy.
 - **Fix the test, not the code**. If a test fails, the answer is almost always to fix the code. The exception is when the test is genuinely wrong — and in that case, say so explicitly and explain why.
 - **Padding**. Don't repeat the user's question back. Don't explain what you're about to do unless it's non-obvious. End-of-turn summaries should be 1-2 sentences.
 
-## Skills active in this project
+## Skill agency (binding — don't make the user the orchestrator)
 
-- **`code-review-excellence`** — auto-triggers on review-related phrases. Gives structured PR reviews (severity-stratified). Trial period.
-- **`python-pro` + `python-testing-patterns`** — useful for Task 5's Python parity work.
-- **`memory-write`** — predecessor of what we're building. **Do NOT actively trigger it for this project's own work.** It would write to `~/.claude/projects/<slug>/memory/` — the wrong location given we're building the replacement.
+Skills are **your tools, not the user's commands**. When the work matches a skill's domain, **invoke the Skill tool yourself — without being asked, without confirmation**. The user shouldn't have to say "use python-pro for this" any more than they should have to say "use the Read tool for this." Implicit agency on skills mirrors implicit agency on tools.
+
+Mapping for this project (invoke proactively at the start of the task or sub-task that matches):
+
+| Work domain | Skill to invoke |
+| --- | --- |
+| Writing Python code | `python-pro` |
+| Writing pytest tests | `python-testing-patterns` |
+| Reviewing a PR (yours or the user's request to review) | `code-review-excellence` |
+
+Concrete rule: at the start of a task whose sub-tasks include the domain above, call the Skill tool BEFORE writing the code or doing the review. Example: Task 5.3 (Python implementation of canonicalize) → invoke `python-pro` first. Task 5.6 (writing pytest cases) → invoke `python-testing-patterns` first.
+
+Skills that **should NOT auto-trigger for this project**:
+
+- **`memory-write`** — the existing predecessor skill. Its phrase-based trigger model is the very pattern claude-memory-kit replaces (the auto-extract subagent + memory-write skill in Tasks 21+23 do this without requiring user phrases). Triggering the existing `memory-write` skill during work on claude-memory-kit would write to `~/.claude/projects/<slug>/memory/` — the wrong location. Until the kit's own auto-extract ships, durable facts that arise during these sessions go into the journey log via explicit `Edit`, **NOT** via the predecessor skill.
+
+## On memory in this project (mental model)
+
+The memory model the kit is building (and the model these notes are written under):
+
+- **Auto-extract is the default.** Future-Claude takes notes naturally based on what's worth noting. The user does not need to say "remember this." See [`specs/v0.1.0/design.md`](specs/v0.1.0/design.md) §6.0 for the full mental model.
+- **User phrase triggers are an override**, for cases where the user wants immediate explicit capture.
+- **Until Tasks 21 + 23 ship**, this project doesn't have working auto-extract for itself. So the practical workaround during the build: when something genuinely durable comes up in conversation (architectural decision, design rationale, user preference, anti-pattern discovered), explicitly capture it into the journey log via an `Edit`. **Don't wait for the user to say "remember this"** — that's exactly the broken pattern the kit replaces.
 
 ## Current state (update as we ship)
 

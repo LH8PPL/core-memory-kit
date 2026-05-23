@@ -499,6 +499,21 @@ Our SessionStart hook fires before Anthropic's auto-memory loads naturally. Both
 
 ## 6. Auto-extract subagent + `memory-write` skill
 
+### 6.0 Mental model — auto-extract is the default; user phrases are an override
+
+The whole point of the memory system is that **Claude takes notes naturally**, the way a colleague taking minutes in a meeting doesn't need the speaker to say "please write that down." Putting the trigger on the user is broken UX — it makes the human do both the work of *deciding what's durable* AND *cueing the capture*. At that point the AI is a scribe, not an assistant.
+
+The kit therefore has **two memory-write paths that compose**:
+
+| Path | When it fires | Who decides what to save | Role |
+| --- | --- | --- | --- |
+| **Auto-extract subagent** (§6.1, §6.4) | After every assistant turn, via the Stop hook | The sub-Claude (Haiku), applying the six writing triggers in §6.4 | **The default — primary mechanism** |
+| **`memory-write` phrase trigger** (§6.3) | User explicitly says "remember this" / "from now on" / etc. | The user, explicitly | **An override — explicit emphasis** |
+
+The phrase trigger is **not the primary path**. It exists for the cases where the user wants immediate, explicit capture (e.g., dictating a critical decision and wanting confirmation it landed). The primary path is silent and automatic.
+
+This matters when reading the rest of §6: when you see "memory-write skill" mentioned, default-assume it's being invoked by the auto-extract subagent — not by the user. Phrase-triggered invocation is the secondary case.
+
 ### 6.1 Auto-extract invocation (tightened per claude-remember pattern)
 
 Spawned detached by the Stop hook. Reads the just-captured turn from a temp file, invokes `claude --print` headlessly with a fact-extraction prompt.
@@ -566,15 +581,24 @@ This adds a **review queue file** (`context/queues/review.md`) as an explicit st
 
 ### 6.3 The `memory-write` skill
 
-Auto-triggers on phrases per FR-11. Three actions:
+The skill that does the actual write to disk. Invoked by **two callers**, in this priority order:
 
-| Action | When triggered | Behavior |
+1. **The auto-extract subagent** (the primary caller — fires after every turn; see §6.0)
+2. **The user explicitly** via phrase trigger (the override caller — "remember this", "from now on", etc.; see FR-11)
+
+Both callers go through the same skill, so the validation / dedup / cap-enforcement logic is centralized.
+
+Three actions:
+
+| Action | When | Behavior |
 | --- | --- | --- |
-| `add` | New fact, user-explicit or auto-extract | Compute canonical text → derive ID → dedup check → cap check → write bullet + provenance |
-| `replace` | "update memory: X is now Y" | Substring match → swap → recompute ID → record `superseded_by` on old |
-| `remove` | "forget about X" | Substring match → confirm with user → **move to tombstones (per §6.5), NOT silent delete** |
+| `add` | Either caller produces a new durable fact | Compute canonical text → derive ID → dedup check → cap check → write bullet + provenance |
+| `replace` | User says "update memory: X is now Y" (or auto-extract detects an update) | Substring match → swap → recompute ID → record `superseded_by` on old |
+| `remove` | User says "forget about X" (or `cmk forget <id>`) | Substring match → confirm with user → **move to tombstones (per §6.5), NOT silent delete** |
 
 Cap enforcement workflow at >95%: consolidate similar bullets / drop stale entries > 14 days old with no recent reference, THEN add new. Per FR-3.
+
+**Implementation note**: the skill's `SKILL.md` file declares phrase triggers in its `description` field — that's what makes Claude Code's harness auto-invoke it on user prompts containing those phrases. **The auto-extract subagent invokes the skill programmatically** (not via phrase match), bypassing the trigger system entirely. Both paths land at the same skill code.
 
 ### 6.4 Six writing triggers (Hermes-verified pattern)
 
