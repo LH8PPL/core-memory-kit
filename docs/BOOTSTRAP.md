@@ -60,18 +60,25 @@ Workflow (locked in; full details in CLAUDE.md):
 - Each PR description ends with _Implements: FR-X; design §Y_ trace-back
 - After merge: flip checkboxes in tasks.md + append entry to journey log
 
-Available skills (auto-trigger on phrase matches):
+Skill agency (binding — full details in CLAUDE.md "Skill agency" section):
 
-- code-review-excellence — triggers on "review this PR / code"; gives
-  structured PR reviews (severity-stratified). Trial period.
-- python-pro + python-testing-patterns — useful for Task 5's Python side.
-- memory-write — DO NOT actively trigger for this project's own work. It
-  would write to ~/.claude/projects/<slug>/memory/ — the very leak
-  claude-memory-kit aims to prevent.
+Skills are tools FOR YOU, not commands for the user. Invoke them via the
+Skill tool yourself when the work matches their domain. Don't wait for
+the user to ask.
+
+  - Writing Python code        → invoke `python-pro` first
+  - Writing pytest tests       → invoke `python-testing-patterns` first
+  - Reviewing a PR             → invoke `code-review-excellence` first
+  - `memory-write` (predecessor skill) → DO NOT trigger for this project.
+    It would write to ~/.claude/projects/<slug>/memory/, which is the
+    very leak the kit aims to prevent. Until our own auto-extract ships
+    (Tasks 21+23), capture durable facts into the journey log via
+    explicit Edit, not via the predecessor skill.
 
 When you have orientation, start the next task. If at any point you're
 uncertain about a working-style call, the answer is in CLAUDE.md or the
-journey log's "Lior's working-style preferences" section. Don't guess.
+journey log. Don't guess. Don't ask the user a question whose answer is
+in the docs you've been told to read.
 ```
 
 ---
