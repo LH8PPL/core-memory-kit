@@ -4,6 +4,9 @@
   "private": true,
   "description": "Per-project, in-repo memory system for Claude Code. Monorepo root for development; published packages live under packages/.",
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
