@@ -645,8 +645,12 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Test install-requiring repair: stub prompt; assert prompt shown before any install command
   - _Requirements: FR-22; design §14_
 
-- [ ] 38. `cmk import-anthropic-memory` bridge (T-032)
-  - Estimate: S · Depends: 5, 24
+- [ ] 38. `cmk import-anthropic-memory` + `cmk transcripts extract` (T-032)
+  - Estimate: M · Depends: 5, 24
+  - Scope expanded 2026-05-24 (post-bootstrap-test): both subcommands live at the same boundary (the harness's `~/.claude/projects/<slug>/` directory), share filesystem discovery logic, and together cover the full "mine pre-kit conversation history" workflow. Per design §16.8.
+
+### 38a. `cmk import-anthropic-memory` (Anthropic-managed `MEMORY.md` → kit MEMORY.md)
+
 - [ ] 38.1 Read `~/.claude/projects/<current-slug>/memory/MEMORY.md`
 - [ ] 38.2 Compute canonical IDs via task 5; dedup against existing project MEMORY.md
 - [ ] 38.3 Propose additions with `write_source: imported`, `trust: medium`
@@ -657,6 +661,32 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Test duplicate detection: candidate with matching canonical ID skipped; audit.log has `skipped: duplicate`
   - Test missing source file: exit 0 cleanly with "no Anthropic auto-memory found"
   - _Requirements: FR-25; design §11.2_
+
+### 38b. `cmk transcripts extract` (harness session jsonl → readable markdown)
+
+Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility) to a user-facing CLI subcommand. Lets users mine months of pre-kit conversation history at `~/.claude/projects/<slug>/<uuid>.jsonl` into clean markdown corpora they can curate from.
+
+- [ ] 38.6 Move filter logic from `scripts/extract-session-transcript.mjs` into `packages/cli/src/transcripts.mjs`
+  - Public boundary: `extractTranscript({ inputPath, outputPath, includeThinking }) → { turnsKept, outputSize, errors }`
+  - Same filters as the existing script: keep user + assistant text; drop tool_use/tool_result/thinking blocks (unless `--include-thinking`); strip `<system-reminder>`, `<command-name>`, `<ide_*>`, `<local-command-*>` annotations
+- [ ] 38.7 Wire `cmk transcripts extract` subcommand in `subcommands.mjs`
+  - Args / flags: `--session <uuid>` | `--slug <slug>` (with `--all` for every session in the slug) | `--since YYYY-MM-DD`
+  - `--output <dir>` defaults to `<cwd>/transcripts-extracted/` (created if missing)
+  - `--include-thinking` flag for the rare case the user wants the agent's internal reasoning
+  - On invocation: discover sessions, run extractor for each, print summary (sessions processed, total turns kept, output size)
+- [ ] 38.8 Implement session-discovery helper
+  - `--session <uuid>`: resolve to a specific jsonl by uuid suffix match across all slugs (or fail with a clear list of close matches)
+  - `--slug <slug> --all`: walk `~/.claude/projects/<slug>/*.jsonl`, extract each
+  - `--since YYYY-MM-DD`: filter jsonls by mtime, walk matching ones
+  - Skip the `memory/` subdirectory + the session-directory siblings (those are not session jsonls)
+- [ ]* 38.9 Write unit tests for transcripts extraction
+  - Test fixture jsonl (10 turns: user + assistant + tool_use + system_reminder mix) produces expected markdown (5 turns kept, filters applied)
+  - Test `--include-thinking` retains thinking blocks; default drops them
+  - Test session discovery: `--session <uuid>` resolves correctly; `--session <unknown>` exits non-zero with helpful error
+  - Test `--slug <slug> --all` against a tempdir-mocked harness layout: processes N jsonls, skips `memory/` subdir
+  - Test `--since YYYY-MM-DD` filters by mtime correctly
+  - Test boundary: extractor never writes outside the configured output directory (no path traversal via filename in jsonl)
+  - _Requirements: FR-25 (broadened to cover both Anthropic-MEMORY and harness-jsonl import paths); design §11, §16.8_
 
 - [ ] 39. `cmk repair` + `cmk roll` (T-033)
   - Estimate: M · Depends: 17, 22, 28, 33
@@ -755,7 +785,7 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 | Layer 4 — Hooks + auto-extract | 10 (17–26) | ~55 | 1 (#27) | Yes |
 | Layer 5 — Search | 4 (28–31) | ~22 | 1 (#32) | Optional |
 | Layer 6 — Cron compression | 3 (33–35) | ~13 | 1 (#36) | Optional |
-| Cross-cutting | 5 (37–41) | ~24 | 1 (#42) | Yes |
+| Cross-cutting | 5 (37–41) | ~28 (Task 38 expanded 2026-05-24 to cover transcripts extraction) | 1 (#42) | Yes |
 | Release | 1 (43) | 6 | 1 (#44) | Yes |
 
 **44 numbered items at the top level** (36 implementation tasks + 8 checkpoints). **~180 sub-tasks** (implementation + test). Required-only path: ~51 dev-days. Full surface incl. optional: ~69 dev-days.

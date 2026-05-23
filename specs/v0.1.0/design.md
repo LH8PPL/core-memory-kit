@@ -1244,17 +1244,32 @@ Companion to `cmk import-anthropic-memory` (Task 32) which imports from Anthropi
 
 The extractor logic already exists at `scripts/extract-session-transcript.mjs`; promoting it to a `cmk` subcommand means wrapping it with arg parsing + a discovery layer that walks `~/.claude/projects/`.
 
-### 16.9 Guided-comment templates (à la OpenClaw)
+### 16.9 Guided-comment templates for memory-relevant files (à la OpenClaw)
 
-v0.1.x candidate. Inspired by [OpenClaw's template patterns](https://docs.openclaw.ai/concepts/memory) examined on 2026-05-24: their `SOUL.md` template opens with `"You're not a chatbot. You're becoming someone"` and includes inline coaching like `"Skip the 'Great question!'"`. Their `BOOTSTRAP.md` is a one-time "first-run ritual" that explicitly instructs the user to delete it after setup. `HEARTBEAT.md` is empty by default but documents how to populate it.
+v0.1.x candidate. Inspired by [OpenClaw's template patterns](https://docs.openclaw.ai/concepts/memory) examined on 2026-05-24: their `SOUL.md` template opens with `"You're not a chatbot. You're becoming someone"` and includes inline coaching like `"Skip the 'Great question!'"`. Worth absorbing the **style of guidance**, NOT the file list.
 
-Our current seed templates (`template/project/SOUL.md.template`, `template/user/HABITS.md.template`, etc.) DO have HTML comments with guidance — but the guidance is terse compared to OpenClaw's. Enriching it would:
+**Scope (deliberate)**: enrich the existing memory-relevant seed templates. Do not import OpenClaw's agent-orchestration files (`IDENTITY.md` / `TOOLS.md` / `AGENTS.md` / `HEARTBEAT.md`) — those define how the agent works, which is Anthropic's territory, not ours. The kit is a memory system for Claude Code, not an agent framework.
 
-- Reduce the activation energy for users to fill in scratchpads after install
-- Carry working-style calibration into the templates themselves (which the bootstrap-test demonstrated transfers behavior, not just knowledge)
-- Make the kit's templates self-coaching: read the comments, the user knows what's expected
+Files in scope for enrichment:
 
-Specifically: each tier-seed template should include 200-400 chars of inline coaching above the section headings, modeled on the existing journey log's "Working-style preferences for future-Claude" pattern. The kit's own [`CLAUDE.md`](../../CLAUDE.md) is a worked example of this style — terse, opinionated, specific.
+- `template/project/SOUL.md.template` — project persona / disposition
+- `template/project/MEMORY.md.template` — working scratchpad
+- `template/local/machine-paths.md.template` + `template/local/overrides.md.template` — local-tier memory
+- `template/user/USER.md.template` — user profile / preferences
+- `template/user/HABITS.md.template` — cross-project working style
+- `template/user/LESSONS.md.template` — cross-project lessons
+- `template/user/fragments/INDEX.md.template` — user-tier index
+
+Each template should include 200-400 chars of inline coaching above the section headings: what belongs in this file, what good content looks like, what to avoid. Models for the coaching voice: the journey log's "Working-style preferences for future-Claude" section + the kit's own [`CLAUDE.md`](../../CLAUDE.md).
+
+Outcome: a user running `cmk install` gets templates that teach them what to write, not just where to write it. Reduces activation energy + carries calibration the bootstrap-test (see [`docs/journey/2026-05-23-bootstrap-test.md`](../../docs/journey/2026-05-23-bootstrap-test.md)) showed transfers behavior, not just knowledge.
+
+Files **explicitly NOT** in scope (out-of-scope by product boundary, not by oversight):
+
+- Agent-identity templates (`IDENTITY.md`) — Claude is Anthropic's
+- Tool-definition templates (`TOOLS.md`) — Claude Code defines its own
+- Operating-instruction templates for the agent (`AGENTS.md`) — outside memory
+- Periodic-task primitives (`HEARTBEAT.md`) — see §16.12 below
 
 ### 16.10 `docs/journey/` template scaffold
 
@@ -1284,17 +1299,20 @@ A "See it in action" section in the README (just a pointer list, no new content)
 
 Cost: ~50 lines of README. No code change.
 
-### 16.12 HEARTBEAT-pattern primitive (OpenClaw-style)
+### 16.12 HEARTBEAT-pattern primitive (OpenClaw-style) — REJECTED, out of scope
 
-v0.2 candidate. OpenClaw's `HEARTBEAT.md` is "empty by default; user adds tasks; the agent runs them periodically." It's a lightweight scheduling primitive that lives in the workspace, distinct from cron (which is OS-level).
+**Decision (2026-05-24, Lior)**: this pattern is out of scope for the kit. Recorded here as a considered-and-rejected entry so future contributors don't re-propose it.
 
-We currently have cron jobs (Layer 6) as the production scheduling mechanism + the lazy compression fallback (§8.2.1) for no-cron environments. A heartbeat-style primitive would be a third option: in-session periodic checks driven by hook timing. Use cases:
+OpenClaw's `HEARTBEAT.md` is *"empty by default; user adds tasks; the agent runs them periodically"* — a lightweight scheduling primitive for the **agent** to run during sessions. It's agent-orchestration territory: telling the agent what to do periodically.
 
-- "Every 5 turns, check if `today-*.md` has grown enough to compress"
-- "Every session-start, check `cmk doctor` health"
-- "Every hour of active session, remind about pending review-queue entries"
+Our kit doesn't orchestrate the agent. We give Claude memory; Anthropic decides what Claude does. We already have two scheduling layers in the right scope:
 
-Cleanly separable from cron (which runs outside sessions) and from lazy fallback (which runs at SessionStart only). Worth examining for v0.2 whether this is genuinely useful or just another mechanism with diminishing returns.
+- **Cron** (Layer 6) — OS-level periodic tasks for memory maintenance (daily distill, weekly curate)
+- **Lazy compression fallback** (§8.2.1) — SessionStart-triggered when cron isn't available
+
+A HEARTBEAT-style mechanism would compete with both AND step outside our product boundary. Rejected.
+
+If a future user wants periodic in-session checks, the right tool is Claude Code's own hooks (PreToolUse, PostToolUse, etc.) — not a kit-managed file. The kit shouldn't try to be both a memory system and an agent-task scheduler.
 
 ---
 
