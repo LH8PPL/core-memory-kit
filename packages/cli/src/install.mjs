@@ -42,14 +42,25 @@ import {
 import { homedir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { injectClaudeMdBlock } from './claude-md.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const CLI_SRC_DIR = dirname(__filename);
 // Walk up: packages/cli/src → packages/cli → packages → repo root
 const REPO_ROOT_DEV = resolve(CLI_SRC_DIR, '..', '..', '..');
+const CLI_PKG_DIR = resolve(CLI_SRC_DIR, '..');
 
 const GITIGNORE_START = '# claude-memory-kit:gitignore:start v0.1.0';
 const GITIGNORE_END = '# claude-memory-kit:gitignore:end';
+
+/**
+ * Read the kit version from the cli package's package.json.
+ * Used as the default version for the CLAUDE.md marker.
+ */
+export function getKitVersion() {
+  const pkg = JSON.parse(readFileSync(join(CLI_PKG_DIR, 'package.json'), 'utf8'));
+  return pkg.version;
+}
 
 /**
  * Locate the kit's template/ directory.
@@ -247,6 +258,8 @@ export async function install(options = {}) {
     ? resolve(options.projectRoot)
     : resolve(process.cwd());
   const userTier = options.userTier ? resolve(options.userTier) : resolveUserTier();
+  const force = !!options.force;
+  const version = options.version || getKitVersion();
 
   const templateDir = resolveTemplateDir();
 
@@ -260,5 +273,27 @@ export async function install(options = {}) {
 
   const gitignore = injectGitignore(projectRoot, buildGitignoreBlock(templateDir));
 
-  return { projectRoot, userTier, created, skipped, gitignore, errors };
+  // CLAUDE.md loader block — Task 4. Read the block content from the kit's
+  // template/ and inject (or refresh) it inside marker delimiters. Never
+  // touches content outside the markers.
+  const claudeMdTemplatePath = join(templateDir, 'CLAUDE.md.template');
+  let claudeMd = { action: 'skipped', path: join(projectRoot, 'CLAUDE.md') };
+  if (existsSync(claudeMdTemplatePath)) {
+    const content = readFileSync(claudeMdTemplatePath, 'utf8');
+    try {
+      claudeMd = injectClaudeMdBlock({ projectRoot, content, version, force });
+    } catch (err) {
+      errors.push({
+        path: join(projectRoot, 'CLAUDE.md'),
+        error: err && err.message ? err.message : String(err),
+      });
+    }
+  } else {
+    errors.push({
+      path: claudeMdTemplatePath,
+      error: 'CLAUDE.md.template missing from kit template/',
+    });
+  }
+
+  return { projectRoot, userTier, created, skipped, gitignore, claudeMd, errors };
 }

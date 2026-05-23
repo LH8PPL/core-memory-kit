@@ -14,26 +14,56 @@
 // asserts exactly what's exported here, so coverage stays automatic.
 
 import { install as installAction } from './install.mjs';
+import { removeClaudeMdBlock } from './claude-md.mjs';
+import { resolve as resolvePath } from 'node:path';
 
 const NOTICE_PREFIX = 'not yet implemented in v0.1.0';
 
 /**
- * Real `cmk install` action — wired in Task 3. Reads CLI options/flags
- * and dispatches to the install module, then prints a human-readable
- * summary of what was created / skipped.
+ * Real `cmk install` action — wired in Task 3, extended in Task 4 with
+ * --force passed through to the CLAUDE.md downgrade guard. Reads CLI
+ * options/flags, dispatches to the install module, prints a one-line
+ * summary, and reports the CLAUDE.md action (created / appended /
+ * replaced / upgraded / downgrade-blocked / forced-downgrade / unchanged).
  */
-async function runInstall(/* commanderArgs */) {
-  // commander passes (options, command) for an option-only invocation.
-  // We don't need any options yet (--force is reserved for Task 4 once
-  // the CLAUDE.md downgrade-guard lands), so just call install() with
-  // defaults: projectRoot=cwd, userTier=resolveUserTier().
-  const result = await installAction({});
-  console.log(`cmk install: scaffolded ${result.created.length} file(s)` +
-    (result.skipped.length ? `, skipped ${result.skipped.length} existing` : '') +
-    `, .gitignore=${result.gitignore.action}`);
+async function runInstall(options /* , command */) {
+  const result = await installAction({ force: !!(options && options.force) });
+  const parts = [
+    `scaffolded ${result.created.length} file(s)`,
+    result.skipped.length ? `skipped ${result.skipped.length} existing` : null,
+    `.gitignore=${result.gitignore.action}`,
+    `CLAUDE.md=${result.claudeMd.action}`,
+  ].filter(Boolean);
+  console.log('cmk install: ' + parts.join(', '));
+
+  if (result.claudeMd.action === 'downgrade-blocked') {
+    console.error(
+      `  warning: CLAUDE.md already has a newer kit block (v${result.claudeMd.oldVersion}). ` +
+        `Re-run with --force to downgrade.`
+    );
+  }
+
   if (result.errors.length > 0) {
     for (const e of result.errors) console.error(`  error: ${e.path}: ${e.error}`);
     process.exitCode = 1;
+  }
+}
+
+/**
+ * `cmk uninstall` — wired in Task 4. Strips the kit-managed block from
+ * the project's CLAUDE.md (if present). Everything outside the markers
+ * is byte-preserved. Does NOT touch context/, context.local/, the user
+ * tier, or .gitignore — `cmk uninstall` is conservative; users delete
+ * those by hand if they really want to.
+ */
+function runUninstall(/* options, command */) {
+  const projectRoot = resolvePath(process.cwd());
+  const result = removeClaudeMdBlock({ projectRoot });
+  console.log(`cmk uninstall: CLAUDE.md=${result.action} (${result.path})`);
+  if (result.action === 'not-found') {
+    console.log('  (no kit-managed block found; CLAUDE.md left unchanged)');
+  } else if (result.action === 'no-file') {
+    console.log('  (no CLAUDE.md to uninstall from)');
   }
 }
 
@@ -88,7 +118,7 @@ export const subcommands = [
     name: 'uninstall',
     description: 'remove the CLAUDE.md kit block (preserves everything else byte-for-byte)',
     milestone: 4,
-    action: stub('uninstall', 4),
+    action: runUninstall,
   },
   {
     name: 'init-user-tier',
