@@ -6,6 +6,10 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Claude Code dev-only config at repo root (per-developer, not part of the kit).
+# Plugin format files at plugin/.claude-plugin/ stay tracked — different dir.
+/.claude/
+
 # Python
 __pycache__/
 *.py[cod]
