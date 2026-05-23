@@ -1,95 +1,49 @@
-# {{PROJECT_NAME}}
+## Memory System — claude-memory-kit
 
-<!-- One-line description of this project. -->
+This project uses **claude-memory-kit** for per-project, in-repo memory that survives session boundaries. Memory lives in `context/` (committed) and `context.local/` (gitignored). Cross-project memory lives at `~/.claude-memory-kit/` (or `$MEMORY_KIT_USER_DIR`).
 
-## Memory System (in-repo, layered)
+> v0.1.0 is under active development. This block is the runtime contract. Specific mechanisms (auto-extract, memory-write skill, MCP search) come online incrementally — `cmk doctor` will tell you which layers are active in the current install. Full architecture: <https://github.com/LH8PPL/claude-memory-kit/blob/main/docs/journey/v0.1.0-build-log.md>
 
-This project uses a layered memory system that lives **inside the repo** (`context/`) so it travels with `git clone` and survives VS Code workspace / multi-root layouts. Full architecture, install steps, and repair procedures live in [context/SETUP.md](context/SETUP.md). This section is the runtime contract.
+### Where memory lives
 
-### Session startup (silent — produce no user-visible output for these steps)
+| Tier | Path | Travels with `git clone`? |
+| --- | --- | --- |
+| **User** | `~/.claude-memory-kit/` | No — machine-local, cross-project |
+| **Project** | `<repo>/context/` | **Yes** — committed |
+| **Local** | `<repo>/context.local/` | No — gitignored, per-machine |
 
-Two paths to the snapshot — the **PreToolUse hook** is authoritative; the manual reads below are belt-and-suspenders for cases where the hook didn't fire (e.g. session as additional cwd, hook disabled, very first turn of a fresh project).
+Precedence at session start: local > project > user (most-specific wins, others are logged as shadowed).
 
-**Automatic path** — `.claude/hooks/pre-tool-memory.js` fires before the first tool call and injects SOUL.md + USER.md + MEMORY.md + INDEX.md + today's session log as `additionalContext`. Once per session, guarded by a `/tmp` flag.
+### How memory works
 
-**Manual fallback** — if the hook didn't fire, on every session start, in this order:
+- **Session start** — the kit injects a frozen snapshot (≤10 KB) from the three tiers into Claude's context. Loaded once, never mutated mid-session — preserves the prefix cache.
+- **During the session** — durable facts get captured automatically by the Stop hook + `memory-write` skill (once Layer 4 is live). The user can also explicitly say "remember this", "from now on", "we decided X".
+- **End of session** — the rolling-window pipeline compresses `sessions/now.md` into a daily summary. Cron jobs distill into `recent.md` and `archive.md` over time (Layer 6, optional).
 
-1. Read `context/SOUL.md` (~1.8 KB) — project persona / disposition / norms.
-2. Read `context/USER.md` (~1.4 KB) — user profile and preferences.
-3. Read `context/MEMORY.md` (~2.5 KB) — bounded working scratchpad. Parse the metadata comment at the top for "Last distilled" / "Last health check" timestamps.
-4. Read `context/sessions/{today}.md` if it exists, else `context/sessions/{yesterday}.md`. Skip if neither exists.
-5. Read `context/memory/INDEX.md` — directory of the granular archive. Don't load the listed files yet; just know what's available.
-6. Run health checks (below). If any fail, follow Self-repair before proceeding with the user's request.
+### Health checks (when `cmk doctor` is live)
 
-This is the **frozen snapshot pattern**: files loaded once at session start form static context. Mid-session writes to MEMORY.md / USER.md persist to disk but only take effect next session. This preserves Claude's prefix cache.
+Health checks (HC-1..HC-8) verify each layer is wired correctly: install integrity, hook registration, transcript capture freshness, INDEX accuracy, cron registration, semantic search backend, native Auto Memory coexistence. See [`docs/adr/`](docs/adr/) and [`specs/v0.1.0/design.md`](specs/v0.1.0/design.md) for the full contract.
 
-### Automatic memory writes (Stop hook + memory-write skill)
+### Memory write rules (for Claude)
 
-You are not required to flag durable facts manually. **Two mechanisms keep memory current automatically:**
+When you learn something durable about this project or the user:
 
-1. **Auto-extract Stop hook** — after every assistant turn, `.claude/hooks/transcript-capture.js` captures the transcript AND spawns `scripts/auto-extract-memory.sh` in the background. The script invokes Claude headlessly with a fact-extraction prompt that examines the turn for durable content (user-explicit "remember this" signals, decisions, corrections, env facts) and writes any findings to MEMORY.md / USER.md / granular archive via the memory-write skill. Silent — log lands at `context/sessions/{today}.extract.log`.
+1. **Working state** (current threads, today's environment, open decisions) → write to `context/MEMORY.md` (≤2,500 chars). Consolidate at the cap.
+2. **Typed durable fact** (user role / project decision / feedback / external reference) → create `context/memory/<type>_<slug>.md` with full YAML frontmatter; add a one-line entry to `context/memory/INDEX.md`.
+3. **Cross-project lesson** → user-tier `~/.claude-memory-kit/LESSONS.md` (via `cmk lessons promote`).
+4. **Never duplicate** between scratchpad and granular archive. If a working-state item becomes durable, MOVE it.
+5. **Confirm silently.** Frozen-snapshot semantics mean the write takes effect next session.
 
-2. **memory-write skill** at `.claude/skills/memory-write/SKILL.md` — auto-triggers on user phrases ("remember this", "note that", "save this", "from now on", "i prefer", "we decided", "forget about"). Handles add / replace / remove with dedup guard and char-cap enforcement at write time. Both the live Claude session AND the auto-extract sub-session can invoke this skill.
+### Privacy
 
-**Result**: the user should not need to remind you to write things down. The system captures them.
+Anything inside `<private>...</private>` tags in a user prompt is stripped before any disk write — never persisted in any form. Per-fact `private: true` frontmatter excludes a fact from the session-start digest.
 
-### Health Checks
+### Uninstall / remove this block
 
-Run silently at session start. Each check is yes/no; on failure, route to matching self-repair. See [context/SETUP.md § Health Checks](context/SETUP.md) for the authoritative table.
+This block is managed by `cmk install`. To remove it cleanly:
 
-- **HC-1**: `pip show memsearch` succeeds → memsearch installed.
-- **HC-2**: `.claude/settings.json` references `transcript-capture.js` → Stop hook registered.
-- **HC-3**: `<!-- Last distilled: YYYY-MM-DD -->` in MEMORY.md is within 2 days of today → distill cron alive.
-- **HC-4**: Newest file in `context/transcripts/` has mtime within 3 days → Stop hook is actually firing.
-- **HC-5**: Files listed in `context/memory/INDEX.md` match files present in `context/memory/` (excluding INDEX itself) → index is accurate.
-- **HC-6**: Every active job in `cron/jobs/*.md` is registered with the host scheduler.
-- **HC-7**: memsearch can reach its backend → `memsearch stats` exits 0.
-
-### Self-repair
-
-When a health check fails, follow [context/SETUP.md § Self-repair](context/SETUP.md). Summary:
-
-- **HC-1 fails** → ASK user "install memsearch?" If yes, run Step 5 from SETUP.md.
-- **HC-2 fails** → Re-run Step 4 from SETUP.md (register the hook).
-- **HC-3 fails** → Distill yesterday's session log manually + add "Pending Decision" to MEMORY.md about cron status.
-- **HC-4 fails** → First check the root cause: Claude Code's Stop hook fires only when this project is the **primary** working directory. If the project IS primary and the hook still doesn't fire: verify Node is installed (`node --version`), test the hook in isolation, re-register in `.claude/settings.json`.
-- **HC-5 fails** → Add missing INDEX entries / remove stale ones.
-- **HC-6 fails** → Run `python scripts/register-crons.py` (after asking user).
-- **HC-7 fails** → memsearch package is installed but its backend isn't reachable. On Windows: ASK user "start Docker Desktop and bring up the Milvus container?" On Unix: check that `~/.memsearch/milvus.db` is accessible.
-
-**Never run `pip install`, `npm install`, or system-level changes silently.** Always ask the user first.
-
-### Memory Write rules
-
-When the user says "remember this", "note that", "update memory", "forget about", or when learning something durable:
-
-1. **Working state** (current threads, today's environment, open decisions) → write to `context/MEMORY.md` under the appropriate section. Before writing, check `wc -c context/MEMORY.md`. If over 2,500 chars, consolidate existing entries first.
-2. **Durable typed fact** (user role/preference, project decision with rationale, feedback rule with Why + How to apply, external system reference) → create a new file in `context/memory/<type>_<slug>.md` using the frontmatter format in INDEX.md. Add a one-line entry to INDEX.md.
-3. **Confirm** silently. Don't announce. (Frozen snapshot pattern means the write takes effect next session anyway.)
-4. **Never duplicate** between MEMORY.md and the granular archive. If a working-state item becomes durable, MOVE it.
-
-### Memory Retrieval
-
-When the user asks about past context, decisions, or facts:
-
-1. **Tier 0** — Check MEMORY.md, USER.md, today's session log. Already in context, zero cost.
-2. **Tier 1** — Grep `context/memory/INDEX.md` for relevant filenames; read the matched file(s).
-3. **Tier 2** — `memsearch search "query" --top-k 5` — hybrid keyword + vector search over all of `context/`.
-4. **Tier 3** — `memsearch expand <chunk_hash>` — full markdown section around a Tier 2 match.
-5. **Tier 4** — `memsearch transcript <session>` — raw dialogue, last resort.
-6. **Fallback** — "I don't have a record of that."
-
-Only escalate when the previous tier didn't find the answer.
-
-### Daily session log
-
-Append meaningful work to `context/sessions/{today}.md` silently as it happens. Format:
-
-```
-## Session N (HH:MM start)
-**Goal**: [one line, filled when the user states their goal]
-**Deliverables**: [files created/modified, decisions made]
-**Open threads**: [anything unfinished or pending]
+```bash
+cmk uninstall
 ```
 
-Never announce "I've logged that."
+Everything outside the `claude-memory-kit:start` / `:end` markers is byte-preserved.
