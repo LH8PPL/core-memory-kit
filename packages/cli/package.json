@@ -1,0 +1,39 @@
+{
+  "name": "@claude-memory-kit/cli",
+  "version": "0.1.0-dev",
+  "description": "cmk — the CLI for claude-memory-kit. Per-project, in-repo memory system for Claude Code.",
+  "type": "module",
+  "bin": {
+    "cmk": "./bin/cmk.mjs"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "README.md"
+  ],
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LH8PPL/claude-memory-kit.git",
+    "directory": "packages/cli"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "memory",
+    "anthropic",
+    "cli"
+  ]
+}
