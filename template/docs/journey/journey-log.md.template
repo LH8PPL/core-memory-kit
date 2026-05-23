@@ -1,0 +1,292 @@
+<!--
+==================================================================
+JOURNEY LOG — narrative behind the spec
+==================================================================
+
+What this file IS:
+  The story of HOW you and your AI assistant figured out what to
+  build, captured as it happens. Not WHAT you built (that's in
+  specs/) — but WHY each decision was made, what you tried first
+  that didn't work, what the AI got wrong, what you corrected.
+
+What this file is FOR:
+  - Future-you, six months from now, asking "why did we decide X?"
+  - A future AI session bootstrapping into the project cold
+  - An article, talk, or retrospective derived from the build
+
+How to update it:
+  Append, don't overwrite. New milestones go at the END of their
+  phase section. Old entries don't get rewritten — they stay as
+  the record of what was true at that point in time. When a
+  decision changes, add an "Update: YYYY-MM-DD" entry rather
+  than editing the original.
+
+For inspiration:
+  See claude-memory-kit's own journey log as a worked example:
+  https://github.com/LH8PPL/claude-memory-kit/blob/main/docs/journey/v0.1.0-build-log.md
+
+This template uses HTML comments (like this one) to coach the
+user through each section. The comments are stripped from
+Claude's context per Anthropic docs, so they don't waste tokens.
+Delete a comment block once you've filled in that section.
+==================================================================
+-->
+
+# {{PROJECT_NAME}} — journey log (v{{VERSION}})
+
+**Started**: {{TODAY}}
+**Status**: in progress
+
+<!--
+Pin the high-level "what is this project" in 1-2 sentences here.
+Update when the project's mission changes.
+-->
+
+[One-paragraph project summary. Update on major mission changes.]
+
+---
+
+## 0. The frustration that started this
+
+<!--
+Why does this project exist? What pain were you in, what failed
+attempt prompted it, what's the emotional/practical seed?
+
+This section ages well. Future-you wants to remember why it
+mattered. Be specific — "I was tired of re-explaining context
+every morning" beats "the AI needed memory."
+
+Length: 2-4 short paragraphs.
+-->
+
+[Write about the motivating frustration. Be honest, specific.]
+
+---
+
+## 1. The starting state
+
+<!--
+What existed before you started? Prior versions, existing tooling,
+constraints inherited from elsewhere.
+
+Honest about both what worked and what didn't in the prior state.
+This grounds the rest of the log — readers see where you started.
+
+Format suggestion: a bullet list of what existed + a short
+paragraph on what was missing or broken.
+-->
+
+[What existed before; what worked; what was missing.]
+
+---
+
+## 2. Research
+
+<!--
+What did you read, what projects did you examine, what patterns
+did you find converging?
+
+Most useful pattern to record: specific corrections you made
+along the way. "I initially thought X, then found out Y by
+reading the actual source" — these become the article's anchor
+moments and they decay from memory faster than anything else.
+
+Tip: maintain a SOURCES.md alongside this file with verification
+status (✓ verified primary source / ~ partial / ✗ retracted)
+for every external claim you make in the spec.
+-->
+
+### Articles read
+
+- [link or title] — what stuck with you in one sentence
+
+### Projects examined (primary-source verified)
+
+- [link] — pattern relevant to yours; what they got right; what you'd do differently
+
+### Lessons that emerged
+
+- **[The rule that crystallized]** — [the specific incident that taught it]
+
+---
+
+## 3. Design decisions
+
+<!--
+For each major architectural choice: what alternatives were on
+the table, what you picked, why. Record the REJECTED options
+too — they're more interesting than the chosen ones.
+
+When a decision changes later: append "Update: YYYY-MM-DD"
+rather than rewriting. The history is the value.
+
+Format suggestion: one sub-section per decision, with the
+4-field structure below.
+-->
+
+### Decision: [name]
+
+- **Considered**: A / B / C
+- **Chose**: B
+- **Why**: [rationale, including what made B's tradeoffs preferable]
+- **Tradeoff accepted**: [what you gave up by not picking A or C]
+
+---
+
+## 4. Working with an AI assistant
+
+<!--
+Skip this section if you're working solo or with humans only.
+
+If you're using Claude / GPT / Cursor / Copilot / etc., this
+section captures:
+- Where the AI added the most value
+- Where it failed and how you corrected it
+- Specific corrections that became durable rules
+
+This is the section most useful to a future AI session
+bootstrapping into your project. Specific incidents beat
+general principles every time — quote actual user messages
+that became load-bearing.
+
+Don't sanitize the failures. They're the article material.
+-->
+
+### Where the AI added value
+
+- [pattern of value-add — drafting, synthesis, exhaustive comparison, etc.]
+
+### Where the AI failed (and what corrected it)
+
+- **[The failure mode]** — *"[verbatim user correction]"* — [what changed afterward]
+
+### Durable rules that emerged
+
+- **[rule]** — *Why*: [the incident that taught it]. *How to apply*: [when to invoke this rule]
+
+---
+
+## 5. Implementation log
+
+<!--
+One sub-section per major milestone (task, PR, sprint, layer).
+
+Keep entries short. The discipline:
+- What landed (3-5 bullets, file paths and counts)
+- TDD evidence (real bugs caught vs test relaxations)
+- Surprises or pivots (anything that didn't go as planned)
+- Cumulative test count (so progress is visible)
+
+Append; don't overwrite. The log grows.
+-->
+
+### [Task / Milestone N] — [title] ([YYYY-MM-DD])
+
+**What landed**:
+
+- [file or feature 1]
+- [file or feature 2]
+
+**TDD evidence**:
+
+- Tests written first
+- [N] real bugs caught by tests; [M] test relaxations resisted
+- [cumulative test count] green
+
+**Surprises**:
+
+- [anything that didn't go as planned]
+
+---
+
+## 6. Open questions / things deferred
+
+<!--
+Things you considered and explicitly deferred (with reasons),
+so future-you knows why something ISN'T in the current version.
+
+Format: bullet list with deferral reason.
+-->
+
+- **[thing]** — deferred to vX.Y because [reason]
+
+---
+
+## 7. Working-style preferences (for future-AI sessions)
+
+<!--
+This section is the most important for AI-assisted projects.
+A new AI reading this section should be able to calibrate to
+your style without you having to re-explain it.
+
+Capture:
+- Tone preferences (terse / verbose / formal / casual)
+- Action signals ("go" = start immediately, etc.)
+- Anti-patterns you've explicitly rejected
+- Specific corrections that landed (quote them verbatim)
+- What you're OK with the AI doing without asking
+- What you want the AI to confirm first
+
+For inspiration, see how claude-memory-kit's CLAUDE.md
+captures this:
+https://github.com/LH8PPL/claude-memory-kit/blob/main/CLAUDE.md
+-->
+
+### Tone
+
+- [preference 1]
+- [preference 2]
+
+### Action signals
+
+- "[your signal word]" = [meaning]
+
+### Anti-patterns I've rejected
+
+- **[pattern]** — *why*: [reason; ideally a quoted user correction]
+
+### What the AI can do without asking
+
+- [low-stakes action 1]
+- [low-stakes action 2]
+
+### What the AI should confirm first
+
+- [high-stakes action 1 — git push, destructive ops, etc.]
+
+---
+
+## 8. Conversation as raw material
+
+<!--
+The meta-thread: AI conversations don't persist by default.
+If your context window rolls or you start a new session, you
+lose everything that's only in conversation memory.
+
+This file is the bridge. What you write here survives. What
+you only said in chat doesn't.
+
+When something important comes up in conversation that you'd
+want a future-you (or future-AI) to know, the discipline is:
+write it here. Don't trust the conversation buffer.
+
+This applies to: design rationale, working-style corrections,
+surprising findings, anti-patterns discovered, anything that
+took more than a few turns to figure out.
+-->
+
+[Add observations as they emerge. This section grows the most
+of any — it's the running notebook.]
+
+---
+
+**Last updated**: {{TODAY}}
+
+<!--
+==================================================================
+End of journey-log scaffold.
+
+When you've filled in enough that the comments feel like noise,
+delete them. The file is yours.
+==================================================================
+-->

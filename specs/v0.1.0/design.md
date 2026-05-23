@@ -1228,6 +1228,74 @@ v0.1 is Claude Code only. v0.2 candidates: `cursor-hooks/`, `.windsurf/`, `.code
 
 v0.1.x patch candidate. Third tag alongside `<private>` and `<retain>` for session-only content auto-extract should always skip. Per ChatGPT + Google Antigravity spec convergence.
 
+### 16.8 `cmk transcripts extract` subcommand
+
+v0.1.x or v0.2 candidate. Fell out of the bootstrap-test experiment on 2026-05-23 (see [`docs/journey/2026-05-23-bootstrap-test.md`](../../docs/journey/2026-05-23-bootstrap-test.md)): we wrote `scripts/extract-session-transcript.mjs` as a kit-dev utility to convert harness session jsonls (`~/.claude/projects/<slug>/<uuid>.jsonl`) into clean human-readable markdown, and realized this is useful for kit *users* too.
+
+Concrete shape:
+
+```bash
+cmk transcripts extract --session <uuid>           # one session
+cmk transcripts extract --slug <slug> --all        # every session for a slug
+cmk transcripts extract --since YYYY-MM-DD         # all recent sessions
+```
+
+Companion to `cmk import-anthropic-memory` (Task 32) which imports from Anthropic's `MEMORY.md` — this is the dual, importing from raw jsonl session logs. Useful when a user installs the kit on a project with months of conversation history they want to mine for durable facts.
+
+The extractor logic already exists at `scripts/extract-session-transcript.mjs`; promoting it to a `cmk` subcommand means wrapping it with arg parsing + a discovery layer that walks `~/.claude/projects/`.
+
+### 16.9 Guided-comment templates (à la OpenClaw)
+
+v0.1.x candidate. Inspired by [OpenClaw's template patterns](https://docs.openclaw.ai/concepts/memory) examined on 2026-05-24: their `SOUL.md` template opens with `"You're not a chatbot. You're becoming someone"` and includes inline coaching like `"Skip the 'Great question!'"`. Their `BOOTSTRAP.md` is a one-time "first-run ritual" that explicitly instructs the user to delete it after setup. `HEARTBEAT.md` is empty by default but documents how to populate it.
+
+Our current seed templates (`template/project/SOUL.md.template`, `template/user/HABITS.md.template`, etc.) DO have HTML comments with guidance — but the guidance is terse compared to OpenClaw's. Enriching it would:
+
+- Reduce the activation energy for users to fill in scratchpads after install
+- Carry working-style calibration into the templates themselves (which the bootstrap-test demonstrated transfers behavior, not just knowledge)
+- Make the kit's templates self-coaching: read the comments, the user knows what's expected
+
+Specifically: each tier-seed template should include 200-400 chars of inline coaching above the section headings, modeled on the existing journey log's "Working-style preferences for future-Claude" pattern. The kit's own [`CLAUDE.md`](../../CLAUDE.md) is a worked example of this style — terse, opinionated, specific.
+
+### 16.10 `docs/journey/` template scaffold
+
+v0.1.x candidate. The bootstrap-test demonstrated that a narrative journey log captures things the spec stack can't (the *why*, the specific incidents, the working-style anchors). The kit could ship an empty scaffold at install time.
+
+Concrete shape:
+
+- New install tier `template/docs/` parallels `template/{project,local,user}/`
+- `cmk install` copies `template/docs/journey/journey-log.md.template` → `<target>/docs/journey/{vX.Y.Z}-build-log.md`
+- The scaffold file is heavily commented with section-by-section guidance (similar to the OpenClaw template approach in §16.9)
+- Cost: minor install.mjs change (add a fourth tier), plus the scaffold file content
+
+A draft of the scaffold lives at `template/docs/journey/journey-log.md.template` for inspection. Promoting it to an install tier becomes a v0.1.x task.
+
+### 16.11 "See it in action" README section
+
+v0.1.x candidate. Low-cost README addition. The kit's own repository demonstrates the patterns it teaches:
+
+- `CLAUDE.md` at root — working-style + binding rules + skill agency
+- `docs/journey/v0.1.0-build-log.md` — full narrative (~600 lines)
+- `docs/BOOTSTRAP.md` — canonical session-handoff prompt template
+- `specs/v0.1.0/glossary.md` — domain-term dispute-resolution doc
+- `SOURCES.md` — verification-status legend (✓ / ~ / ✗)
+- `docs/research/` — primary-source examination notes
+
+A "See it in action" section in the README (just a pointer list, no new content) lets new kit users browse the kit's own setup as a worked example. Especially valuable because `cmk install` only seeds empty placeholders — users have to figure out what to put in them, and a reference implementation drops the activation energy.
+
+Cost: ~50 lines of README. No code change.
+
+### 16.12 HEARTBEAT-pattern primitive (OpenClaw-style)
+
+v0.2 candidate. OpenClaw's `HEARTBEAT.md` is "empty by default; user adds tasks; the agent runs them periodically." It's a lightweight scheduling primitive that lives in the workspace, distinct from cron (which is OS-level).
+
+We currently have cron jobs (Layer 6) as the production scheduling mechanism + the lazy compression fallback (§8.2.1) for no-cron environments. A heartbeat-style primitive would be a third option: in-session periodic checks driven by hook timing. Use cases:
+
+- "Every 5 turns, check if `today-*.md` has grown enough to compress"
+- "Every session-start, check `cmk doctor` health"
+- "Every hour of active session, remind about pending review-queue entries"
+
+Cleanly separable from cron (which runs outside sessions) and from lazy fallback (which runs at SessionStart only). Worth examining for v0.2 whether this is genuinely useful or just another mechanism with diminishing returns.
+
 ---
 
 ## End of design.md v0.1.0
