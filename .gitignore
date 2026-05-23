@@ -6,12 +6,16 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Local Claude Code permission grants (per-session, not team-shared)
+.claude/
+
 # Python
 __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
 venv/
+.pytest_cache/
 
 # Node
 node_modules/
@@ -23,3 +27,6 @@ plugin/milvus-deploy-template/volumes/
 # Logs from local testing
 *.log
 .extract-*.tmp
+
+# canonicalize parity scratch dumps (Task 5)
+/tmp-parity-*.json

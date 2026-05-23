@@ -1,0 +1,246 @@
+{
+  "$schema_version": "0.1.0",
+  "description": "Canonical test vectors for canonicalize() + generateId(). Loaded by both Node (@cmk/canonicalize) and Python (cmk_canonicalize) test suites. Both implementations MUST produce byte-identical output against every vector. expected_id is computed for tier prefix 'P' (project); tier prefix only affects the ID prefix, not the hash.",
+  "canonicalize_rules": [
+    "1. Strip HTML comments (<!--...-->), DOTALL semantics",
+    "2. Strip citation backrefs (P-XXXXXXXX), (U-XXXXXXXX), (L-XXXXXXXX) where X is any [A-Za-z0-9]",
+    "3. Strip leading bullet marker (^[-*+]\\s+)",
+    "4. Trim leading/trailing whitespace",
+    "5. Collapse internal whitespace runs (\\s+) to single space",
+    "6. ASCII lowercase (A-Z only; non-ASCII passthrough)",
+    "7. Strip trailing punctuation ([.,;]+ at end)"
+  ],
+  "id_format": "<tier>-<first 8 chars of base32(SHA-256(canonical_text))>",
+  "base32_alphabet": "23456789ABCDEFGHJKLMNPQRSTUVWXYZa",
+  "base32_alphabet_notes": "32 chars (5 bits/char). Excludes ambiguous 0, O, 1, l, I, 8. RFC 4648 base32 minus I,O = 30 chars; deviation documented in design §3.1.",
+  "vectors": [
+    {
+      "name": "ws-collapse-simple",
+      "input": "hello  world",
+      "expected_canonical": "hello world",
+      "expected_id_P": "P-S79MJHFN"
+    },
+    {
+      "name": "ws-collapse-multiple-runs",
+      "input": "a   b    c     d",
+      "expected_canonical": "a b c d",
+      "expected_id_P": "P-a2RH5GMN"
+    },
+    {
+      "name": "ws-collapse-tabs-newlines",
+      "input": "foo\tbar\n\nbaz",
+      "expected_canonical": "foo bar baz",
+      "expected_id_P": "P-WJCLLKH6"
+    },
+    {
+      "name": "trim-leading",
+      "input": "   leading space",
+      "expected_canonical": "leading space",
+      "expected_id_P": "P-34GZDKAW"
+    },
+    {
+      "name": "trim-trailing",
+      "input": "trailing space   ",
+      "expected_canonical": "trailing space",
+      "expected_id_P": "P-P9HKNNHY"
+    },
+    {
+      "name": "trim-both",
+      "input": "  both sides  ",
+      "expected_canonical": "both sides",
+      "expected_id_P": "P-4EUaN3FN"
+    },
+    {
+      "name": "lowercase-simple",
+      "input": "HELLO",
+      "expected_canonical": "hello",
+      "expected_id_P": "P-7NU6WHMa"
+    },
+    {
+      "name": "lowercase-mixed",
+      "input": "Hello World",
+      "expected_canonical": "hello world",
+      "expected_id_P": "P-S79MJHFN"
+    },
+    {
+      "name": "lowercase-preserves-digits-and-punctuation",
+      "input": "Python 3.13 ROCKS!",
+      "expected_canonical": "python 3.13 rocks!",
+      "expected_id_P": "P-NYNAUS2Q"
+    },
+    {
+      "name": "lowercase-preserves-non-ascii",
+      "input": "Café Lågom Naïve",
+      "expected_canonical": "café lågom naïve",
+      "expected_id_P": "P-NJD6HT3P"
+    },
+    {
+      "name": "backref-strip-P-prefix",
+      "input": "(P-A8FN3MQ2) we standardized on python 3.13",
+      "expected_canonical": "we standardized on python 3.13",
+      "expected_id_P": "P-ZGHBQBGS"
+    },
+    {
+      "name": "backref-strip-U-prefix",
+      "input": "(U-9F2D7T1S) user runs macos 14",
+      "expected_canonical": "user runs macos 14",
+      "expected_id_P": "P-GDZU5542"
+    },
+    {
+      "name": "backref-strip-L-prefix",
+      "input": "(L-K3P5R8Q2) local override active",
+      "expected_canonical": "local override active",
+      "expected_id_P": "P-aQTADQAH"
+    },
+    {
+      "name": "backref-strip-multiple",
+      "input": "(P-AAAAAAAA) merged with (P-BBBBBBBB) and (U-CCCCCCCC)",
+      "expected_canonical": "merged with and",
+      "expected_id_P": "P-RQEULVDC"
+    },
+    {
+      "name": "backref-strip-mid-text-preserves-context",
+      "input": "see fact (P-XYZQ1234) for context",
+      "expected_canonical": "see fact for context",
+      "expected_id_P": "P-3Ea74VJA"
+    },
+    {
+      "name": "bullet-marker-dash",
+      "input": "- list item one",
+      "expected_canonical": "list item one",
+      "expected_id_P": "P-EN396aW6"
+    },
+    {
+      "name": "bullet-marker-asterisk",
+      "input": "* asterisk bullet",
+      "expected_canonical": "asterisk bullet",
+      "expected_id_P": "P-D6YL7RBC"
+    },
+    {
+      "name": "bullet-marker-plus",
+      "input": "+ plus bullet",
+      "expected_canonical": "plus bullet",
+      "expected_id_P": "P-EJaMF24W"
+    },
+    {
+      "name": "bullet-marker-only-leading-stripped",
+      "input": "- first item with - mid dash",
+      "expected_canonical": "first item with - mid dash",
+      "expected_id_P": "P-2HGSXLL3"
+    },
+    {
+      "name": "trailing-punct-period",
+      "input": "ends with period.",
+      "expected_canonical": "ends with period",
+      "expected_id_P": "P-RE7AW2P4"
+    },
+    {
+      "name": "trailing-punct-comma",
+      "input": "ends with comma,",
+      "expected_canonical": "ends with comma",
+      "expected_id_P": "P-2DZG7XF4"
+    },
+    {
+      "name": "trailing-punct-semicolon",
+      "input": "ends with semicolon;",
+      "expected_canonical": "ends with semicolon",
+      "expected_id_P": "P-QRTJTU5Z"
+    },
+    {
+      "name": "trailing-punct-multiple",
+      "input": "ends with many...;,",
+      "expected_canonical": "ends with many",
+      "expected_id_P": "P-a5HXLCLX"
+    },
+    {
+      "name": "trailing-punct-preserves-mid-text",
+      "input": "v2.6.16 is the version",
+      "expected_canonical": "v2.6.16 is the version",
+      "expected_id_P": "P-ZSAQVJJH"
+    },
+    {
+      "name": "html-comment-simple",
+      "input": "before <!-- hide this --> after",
+      "expected_canonical": "before after",
+      "expected_id_P": "P-ZSYY75WS"
+    },
+    {
+      "name": "html-comment-multiline",
+      "input": "before <!--\nhidden\nmulti\nline\n--> after",
+      "expected_canonical": "before after",
+      "expected_id_P": "P-ZSYY75WS"
+    },
+    {
+      "name": "html-comment-multiple",
+      "input": "<!-- one --> middle <!-- two --> end",
+      "expected_canonical": "middle end",
+      "expected_id_P": "P-X5Na9ETD"
+    },
+    {
+      "name": "combined-bullet-trim-lowercase",
+      "input": "  - HELLO WORLD  ",
+      "expected_canonical": "hello world",
+      "expected_id_P": "P-S79MJHFN"
+    },
+    {
+      "name": "combined-backref-bullet-punct",
+      "input": "- (P-A8FN3MQ2) We Standardized On Python 3.13.",
+      "expected_canonical": "we standardized on python 3.13",
+      "expected_id_P": "P-ZGHBQBGS"
+    },
+    {
+      "name": "combined-everything",
+      "input": "  * (P-XYZ12345) Milvus IS Pinned At v2.6.16 <!-- provenance --> ;  ",
+      "expected_canonical": "milvus is pinned at v2.6.16",
+      "expected_id_P": "P-BW2RaQ59"
+    },
+    {
+      "name": "non-ascii-emoji-passthrough",
+      "input": "ship it 🚀 today",
+      "expected_canonical": "ship it 🚀 today",
+      "expected_id_P": "P-L9B5ZMCY"
+    },
+    {
+      "name": "empty-string",
+      "input": "",
+      "expected_canonical": "",
+      "expected_id_P": "P-XHTFBKPT"
+    },
+    {
+      "name": "only-whitespace",
+      "input": "   \t\n  ",
+      "expected_canonical": "",
+      "expected_id_P": "P-XHTFBKPT"
+    },
+    {
+      "name": "idempotency-canonical-input",
+      "input": "already canonical form",
+      "expected_canonical": "already canonical form",
+      "expected_id_P": "P-56UXMRD6"
+    },
+    {
+      "name": "long-input",
+      "input": "  - (P-AAAAAAAA) The QUICK brown FOX jumps over the LAZY dog, and then the lazy dog jumps over the quick brown fox, repeating endlessly until the heat death of the universe.  ",
+      "expected_canonical": "the quick brown fox jumps over the lazy dog, and then the lazy dog jumps over the quick brown fox, repeating endlessly until the heat death of the universe",
+      "expected_id_P": "P-GLaLVPQ7"
+    },
+    {
+      "name": "real-world-spec-example-1",
+      "input": "We standardized on Python 3.13",
+      "expected_canonical": "we standardized on python 3.13",
+      "expected_id_P": "P-ZGHBQBGS"
+    },
+    {
+      "name": "real-world-spec-example-2",
+      "input": "Milvus is pinned at v2.6.16",
+      "expected_canonical": "milvus is pinned at v2.6.16",
+      "expected_id_P": "P-BW2RaQ59"
+    },
+    {
+      "name": "real-world-spec-example-3",
+      "input": "User runs macOS 14 Sonoma",
+      "expected_canonical": "user runs macos 14 sonoma",
+      "expected_id_P": "P-XLFPMCK4"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cmk-canonicalize"
+version = "0.1.0.dev0"
+description = "Python parallel to @cmk/canonicalize. Deterministic text canonicalization + content-addressed ID generation for claude-memory-kit. Byte-identical with the Node implementation against fixtures/canonicalize-vectors.json."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "Lior Hollander" },
+]
+keywords = ["claude", "claude-code", "memory", "canonicalize", "content-addressed"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
+[project.urls]
+Repository = "https://github.com/LH8PPL/claude-memory-kit"
+Source = "https://github.com/LH8PPL/claude-memory-kit/tree/main/python"
+
+[tool.hatch.build.targets.wheel]
+packages = ["cmk_canonicalize"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

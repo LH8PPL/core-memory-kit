@@ -346,7 +346,9 @@ Where:
 - `<tier_prefix>` is `U` (user), `P` (project), or `L` (local).
 - `canonical_text` is the bullet's text after canonicalization (§3.2).
 - `SHA-256(...)` produces a 32-byte hash.
-- `base32(...)` uses RFC 4648 alphabet **excluding ambiguous chars** (no `0/O`, `1/l`, `I/8`). Length: 8 chars = 40 bits = ~10⁻⁶ collision probability per pair at 10⁶ entries.
+- `base32(...)` uses a **kit-custom 32-char alphabet** that excludes all six ambiguous chars `0`, `O`, `1`, `l`, `I`, `8`. Length: 8 chars = 40 bits = ~10⁻⁶ collision probability per pair at 10⁶ entries.
+
+**Alphabet** (frozen as of Task 5, PR #5): `"2345679ABCDEFGHJKLMNPQRSTUVWXYZa"` — 7 unambiguous digits (`2,3,4,5,6,7,9`) + 24 unambiguous uppercase letters (A–Z minus `I`, `O`) + lowercase `a` to reach 32 chars. RFC 4648's base32 alphabet minus `I,O` yields only 30 chars, which would not preserve 5-bit-per-char encoding; the lowercase `a` is the minimal deviation that satisfies both the no-ambiguous-chars rule and the base32 bit-width requirement.
 
 **Examples**:
 
