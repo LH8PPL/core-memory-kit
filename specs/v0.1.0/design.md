@@ -1230,6 +1230,92 @@ v0.1 is Claude Code only. v0.2 candidates: `cursor-hooks/`, `.windsurf/`, `.code
 
 v0.1.x patch candidate. Third tag alongside `<private>` and `<retain>` for session-only content auto-extract should always skip. Per ChatGPT + Google Antigravity spec convergence.
 
+### 16.8 `cmk transcripts extract` subcommand
+
+v0.1.x or v0.2 candidate. Fell out of the bootstrap-test experiment on 2026-05-23 (see [`docs/journey/2026-05-23-bootstrap-test.md`](../../docs/journey/2026-05-23-bootstrap-test.md)): we wrote `scripts/extract-session-transcript.mjs` as a kit-dev utility to convert harness session jsonls (`~/.claude/projects/<slug>/<uuid>.jsonl`) into clean human-readable markdown, and realized this is useful for kit *users* too.
+
+Concrete shape:
+
+```bash
+cmk transcripts extract --session <uuid>           # one session
+cmk transcripts extract --slug <slug> --all        # every session for a slug
+cmk transcripts extract --since YYYY-MM-DD         # all recent sessions
+```
+
+Companion to `cmk import-anthropic-memory` (Task 32) which imports from Anthropic's `MEMORY.md` — this is the dual, importing from raw jsonl session logs. Useful when a user installs the kit on a project with months of conversation history they want to mine for durable facts.
+
+The extractor logic already exists at `scripts/extract-session-transcript.mjs`; promoting it to a `cmk` subcommand means wrapping it with arg parsing + a discovery layer that walks `~/.claude/projects/`.
+
+### 16.9 Guided-comment templates for memory-relevant files (à la OpenClaw)
+
+v0.1.x candidate. Inspired by [OpenClaw's template patterns](https://docs.openclaw.ai/concepts/memory) examined on 2026-05-24: their `SOUL.md` template opens with `"You're not a chatbot. You're becoming someone"` and includes inline coaching like `"Skip the 'Great question!'"`. Worth absorbing the **style of guidance**, NOT the file list.
+
+**Scope (deliberate)**: enrich the existing memory-relevant seed templates. Do not import OpenClaw's agent-orchestration files (`IDENTITY.md` / `TOOLS.md` / `AGENTS.md` / `HEARTBEAT.md`) — those define how the agent works, which is Anthropic's territory, not ours. The kit is a memory system for Claude Code, not an agent framework.
+
+Files in scope for enrichment:
+
+- `template/project/SOUL.md.template` — project persona / disposition
+- `template/project/MEMORY.md.template` — working scratchpad
+- `template/local/machine-paths.md.template` + `template/local/overrides.md.template` — local-tier memory
+- `template/user/USER.md.template` — user profile / preferences
+- `template/user/HABITS.md.template` — cross-project working style
+- `template/user/LESSONS.md.template` — cross-project lessons
+- `template/user/fragments/INDEX.md.template` — user-tier index
+
+Each template should include 200-400 chars of inline coaching above the section headings: what belongs in this file, what good content looks like, what to avoid. Models for the coaching voice: the journey log's "Working-style preferences for future-Claude" section + the kit's own [`CLAUDE.md`](../../CLAUDE.md).
+
+Outcome: a user running `cmk install` gets templates that teach them what to write, not just where to write it. Reduces activation energy + carries calibration the bootstrap-test (see [`docs/journey/2026-05-23-bootstrap-test.md`](../../docs/journey/2026-05-23-bootstrap-test.md)) showed transfers behavior, not just knowledge.
+
+Files **explicitly NOT** in scope (out-of-scope by product boundary, not by oversight):
+
+- Agent-identity templates (`IDENTITY.md`) — Claude is Anthropic's
+- Tool-definition templates (`TOOLS.md`) — Claude Code defines its own
+- Operating-instruction templates for the agent (`AGENTS.md`) — outside memory
+- Periodic-task primitives (`HEARTBEAT.md`) — see §16.12 below
+
+### 16.10 `docs/journey/` template scaffold
+
+v0.1.x candidate. The bootstrap-test demonstrated that a narrative journey log captures things the spec stack can't (the *why*, the specific incidents, the working-style anchors). The kit could ship an empty scaffold at install time.
+
+Concrete shape:
+
+- New install tier `template/docs/` parallels `template/{project,local,user}/`
+- `cmk install` copies `template/docs/journey/journey-log.md.template` → `<target>/docs/journey/{vX.Y.Z}-build-log.md`
+- The scaffold file is heavily commented with section-by-section guidance (similar to the OpenClaw template approach in §16.9)
+- Cost: minor install.mjs change (add a fourth tier), plus the scaffold file content
+
+A draft of the scaffold lives at `template/docs/journey/journey-log.md.template` for inspection. Promoting it to an install tier becomes a v0.1.x task.
+
+### 16.11 "See it in action" README section
+
+v0.1.x candidate. Low-cost README addition. The kit's own repository demonstrates the patterns it teaches:
+
+- `CLAUDE.md` at root — working-style + binding rules + skill agency
+- `docs/journey/v0.1.0-build-log.md` — full narrative (~600 lines)
+- `docs/BOOTSTRAP.md` — canonical session-handoff prompt template
+- `specs/v0.1.0/glossary.md` — domain-term dispute-resolution doc
+- `SOURCES.md` — verification-status legend (✓ / ~ / ✗)
+- `docs/research/` — primary-source examination notes
+
+A "See it in action" section in the README (just a pointer list, no new content) lets new kit users browse the kit's own setup as a worked example. Especially valuable because `cmk install` only seeds empty placeholders — users have to figure out what to put in them, and a reference implementation drops the activation energy.
+
+Cost: ~50 lines of README. No code change.
+
+### 16.12 HEARTBEAT-pattern primitive (OpenClaw-style) — REJECTED, out of scope
+
+**Decision (2026-05-24, Lior)**: this pattern is out of scope for the kit. Recorded here as a considered-and-rejected entry so future contributors don't re-propose it.
+
+OpenClaw's `HEARTBEAT.md` is *"empty by default; user adds tasks; the agent runs them periodically"* — a lightweight scheduling primitive for the **agent** to run during sessions. It's agent-orchestration territory: telling the agent what to do periodically.
+
+Our kit doesn't orchestrate the agent. We give Claude memory; Anthropic decides what Claude does. We already have two scheduling layers in the right scope:
+
+- **Cron** (Layer 6) — OS-level periodic tasks for memory maintenance (daily distill, weekly curate)
+- **Lazy compression fallback** (§8.2.1) — SessionStart-triggered when cron isn't available
+
+A HEARTBEAT-style mechanism would compete with both AND step outside our product boundary. Rejected.
+
+If a future user wants periodic in-session checks, the right tool is Claude Code's own hooks (PreToolUse, PostToolUse, etc.) — not a kit-managed file. The kit shouldn't try to be both a memory system and an agent-task scheduler.
+
 ---
 
 ## End of design.md v0.1.0
