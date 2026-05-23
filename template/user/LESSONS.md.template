@@ -1,0 +1,42 @@
+<!--
+Cap: 1800 chars (per design §1.1 user-tier budget — new in v0.1).
+File: ~/.claude-memory-kit/LESSONS.md  (or $MEMORY_KIT_USER_DIR/LESSONS.md).
+Last updated: {{TODAY}}.
+
+Purpose: cross-project LESSONS the user has learned the hard way.
+Project-specific lessons live in <repo>/context/MEMORY.md; this file is
+for things that transfer across every project the user works in.
+
+Promote a project-level lesson to this file via `cmk lessons promote <id>`.
+-->
+
+# Lessons (cross-project)
+
+## Tooling lessons
+
+<!--
+Things learned about tools that apply everywhere. Examples:
+- `git reset --hard` is fast and irreversible — always create a backup branch first.
+- Vitest >>> Jest for new Node projects: ESM-native, faster, less config.
+- For Anthropic API: stream by default — non-stream blocks the event loop for long generations.
+-->
+
+## Process lessons
+
+<!--
+Things learned about workflow. Examples:
+- When a session runs > 1 hour without a commit, something has gone wrong.
+- "I'll factor it out later" almost always means "this will be wrong forever".
+- Reading the actual code beats reading the docs about the code.
+-->
+
+## Anti-patterns (what NOT to do)
+
+<!--
+Failure modes the user has been burned by. Examples:
+- Don't refactor and add features in the same PR. Reviewer can't tell what changed.
+- Don't `pip install` from inside a session without explicit user OK.
+- Don't write fallback code for cases that can't actually happen.
+-->
+
+- (Replace placeholders with actual lessons as they're learned.)
