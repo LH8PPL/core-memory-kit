@@ -1,0 +1,33 @@
+<!--
+Cap: 1000 chars (per design §1.1 local-tier budget).
+File: <repo>/context.local/overrides.md (gitignored — never committed).
+Last updated: {{TODAY}}.
+
+Purpose: machine-specific OVERRIDES of preferences declared elsewhere.
+When the user has different defaults on this machine vs. their normal
+setup (different editor, different shell, different tool preference),
+record them here. Highest precedence in the 3-tier model.
+
+Use `cmk config --show-origin <key>` to see which tier a setting came from.
+-->
+
+# Machine-specific overrides (local tier)
+
+## Tool overrides
+
+<!--
+Examples:
+- preferred-editor: neovim (instead of vscode from SOUL.md — this machine has no graphical UI)
+- shell: pwsh (instead of bash — Windows laptop)
+- python: /opt/python-3.13/bin/python (instead of system python)
+-->
+
+## Behavior overrides
+
+<!--
+Examples:
+- never run docker on this machine (low RAM)
+- assume offline (this machine is air-gapped)
+-->
+
+- (Add machine-specific overrides here. Remove this placeholder when first edited.)

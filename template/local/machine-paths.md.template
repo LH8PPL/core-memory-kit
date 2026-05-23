@@ -1,0 +1,23 @@
+<!--
+Cap: 1000 chars (per design §1.1 local-tier budget).
+File: <repo>/context.local/machine-paths.md (gitignored — never committed).
+Last updated: {{TODAY}}.
+
+Purpose: absolute paths that are specific to THIS machine for THIS project.
+Highest priority in the 3-tier precedence model — overrides anything in
+context/ or ~/.claude-memory-kit/. Use sparingly.
+-->
+
+# Machine paths (local tier)
+
+## Absolute paths for this machine
+
+<!--
+One bullet per path. Examples:
+- /Users/lior/Documents/datasets/ (where I keep training data on this machine)
+- C:\Users\lior\dev\models\ (Windows-equivalent on the laptop)
+- /opt/cuda-12.4/bin (custom CUDA install for this GPU)
+Keep to actual paths only. Preferences go in overrides.md.
+-->
+
+- (Add machine-specific absolute paths here. Remove this placeholder when first edited.)

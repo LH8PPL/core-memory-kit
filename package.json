@@ -1,0 +1,23 @@
+{
+  "name": "@claude-memory-kit/repo",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Per-project, in-repo memory system for Claude Code. Monorepo root for development; published packages live under packages/.",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "validate:template": "node scripts/validate-template.mjs"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LH8PPL/claude-memory-kit.git"
+  }
+}

@@ -1,0 +1,12 @@
+# claude-memory-kit — added by `cmk install`. Do not edit by hand;
+# `cmk install` refreshes these lines idempotently. Remove via
+# `cmk uninstall`.
+
+# Local-tier (per-machine, never committed)
+context.local/
+
+# SQLite + FTS5 read cache (regenerable from markdown)
+context/.index/
+
+# Run-time locks + transient state
+context/.locks/

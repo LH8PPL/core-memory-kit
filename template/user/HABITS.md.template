@@ -1,0 +1,40 @@
+<!--
+Cap: 1800 chars (per design §1.1 user-tier budget).
+File: ~/.claude-memory-kit/HABITS.md  (or $MEMORY_KIT_USER_DIR/HABITS.md).
+Last updated: {{TODAY}}.
+
+Purpose: the user's CROSS-PROJECT working style — habits that apply
+regardless of which project they're in. Anything project-specific
+belongs in <repo>/context/SOUL.md or <repo>/context/MEMORY.md, not here.
+-->
+
+# Habits (cross-project working style)
+
+## Iteration cadence
+
+<!--
+How the user prefers work to be paced. Examples:
+- Small commits, frequent pushes. Review before merging.
+- Prefer to see plan before implementation for anything > 30 min of work.
+- TDD: write tests first, watch them fail, then implement.
+-->
+
+## Comfort with destructive operations
+
+<!--
+What the user is OK with Claude doing without asking. Examples:
+- Free to edit local files, run tests, install dev dependencies.
+- ALWAYS confirm before: git push, git reset --hard, rm -rf, deploys, npm publish.
+- Never bypass git hooks (--no-verify) without explicit per-session approval.
+-->
+
+## Communication style
+
+<!--
+How the user wants Claude to communicate. Examples:
+- Direct and terse. No filler ("Sure thing!", "Great question!").
+- Lead with the answer. Add caveats only if material.
+- Acknowledge mistakes plainly. Don't bury them in apology.
+-->
+
+- (Replace placeholders with actual habits when first edited.)
