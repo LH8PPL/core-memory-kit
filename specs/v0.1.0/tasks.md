@@ -95,17 +95,17 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Test idempotency: two consecutive `cmk install` runs produce identical on-disk state
   - _Requirements: FR-22, FR-23, FR-24; design §1.1, §13_
 
-- [ ] 4. CLAUDE.md loader block with versioned delimiters (T-004)
+- [x] 4. CLAUDE.md loader block with versioned delimiters (T-004) — _shipped 2026-05-23, PR #4_
   - Estimate: S · Depends: 3
-- [ ] 4.1 Implement append-on-first-install path
+- [x] 4.1 Implement append-on-first-install path
   - When `CLAUDE.md` has no `<!-- claude-memory-kit:start vX.Y.Z -->` delimiter, append the block at end-of-file; preserve prior content verbatim
-- [ ] 4.2 Implement in-place replace for same/older version
+- [x] 4.2 Implement in-place replace for same/older version
   - Replace block contents; everything outside delimiters unchanged
-- [ ] 4.3 Implement downgrade-guard for newer-version block
+- [x] 4.3 Implement downgrade-guard for newer-version block
   - On re-install against a block declaring a newer version: warn + no-op + exit 0 unless `--force`
-- [ ] 4.4 Implement `cmk uninstall` clean removal
+- [x] 4.4 Implement `cmk uninstall` clean removal
   - Strip block + delimiters exactly; preserve everything else byte-for-byte
-- [ ]* 4.5 Write unit tests for CLAUDE.md loader
+- [x]* 4.5 Write unit tests for CLAUDE.md loader
   - Test fresh install (no CLAUDE.md): file created with delimited block, nothing else
   - Test install against CLAUDE.md with prior user content: block appended at EOF; prior content byte-identical (diff = 0 outside block)
   - Test re-install with same version: block contents replaced; surrounding content unchanged
