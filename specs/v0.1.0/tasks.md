@@ -43,51 +43,51 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 
 ## Layer 1 — Foundation
 
-- [ ] 1. Repo scaffolding + `template/` skeleton (T-001)
+- [x] 1. Repo scaffolding + `template/` skeleton (T-001) — _shipped 2026-05-23, PR #1_
   - Estimate: S · Depends: —
-- [ ] 1.1 Create canonical `template/` directory tree
+- [x] 1.1 Create canonical `template/` directory tree
   - Includes `context/`, `context/memory/`, `context/sessions/`, `context/transcripts/`, `context/queues/`, `context/.index/.gitkeep`
-- [ ] 1.2 Add seed files into `template/`
+- [x] 1.2 Add seed files into `template/`
   - CLAUDE.md loader block with versioned delimiters
   - README.md placeholder
   - `.gitignore` rules for `context.local/`, `context/.index/`, `context/.locks/`
-- [ ] 1.3 Add `scripts/validate-template.sh` lint script
+- [x] 1.3 Add `scripts/validate-template.sh` lint script
   - Asserts every required file exists
   - Asserts every required file has non-empty content
-- [ ]* 1.4 Write unit tests for template scaffolding
+- [x]* 1.4 Write unit tests for template scaffolding
   - Test every required file in `template/` exists (manifest-driven)
   - Test every required file is non-empty (`size > 0`)
   - Test `validate-template.sh` exits 0 against canonical `template/`
   - Test `validate-template.sh` exits non-zero when a required file is deleted (tempdir copy + targeted deletion)
   - _Requirements: FR-1, FR-4, FR-5; design §1.1, §13_
 
-- [ ] 2. `cmk` Node CLI scaffold (T-002)
+- [x] 2. `cmk` Node CLI scaffold (T-002) — _shipped 2026-05-23, PR #2_
   - Estimate: M · Depends: 1
-- [ ] 2.1 Create `@claude-memory-kit/cli` npm package skeleton
+- [x] 2.1 Create `@claude-memory-kit/cli` npm package skeleton
   - `package.json`, `bin/cmk`, basic Node entry point
-- [ ] 2.2 Wire `commander` or `cac` for arg parsing
+- [x] 2.2 Wire `commander` or `cac` for arg parsing
   - One option chosen and locked in for v0.1
-- [ ] 2.3 Add stubs for every subcommand from design §12
+- [x] 2.3 Add stubs for every subcommand from design §12
   - `install`, `init-user-tier`, `search`, `reindex`, `doctor`, `config`, `view`, `import-anthropic-memory`, `trust`, `lessons promote`, `queue review`, `queue conflicts`, `forget`, `purge --hard`, `roll`, `repair`, `version`
   - Each prints "not yet implemented in v0.1.0 milestone N" and exits 0
-- [ ]* 2.4 Write unit tests for CLI scaffold
+- [x]* 2.4 Write unit tests for CLI scaffold
   - Test `cmk --help` output contains every documented subcommand
   - Test every subcommand stub exits 0
   - Test stub message includes the literal "not yet implemented" string
   - Test `npm install -g` smoke (CI): `cmk version` runs from a clean shell after global install
   - _Requirements: FR-22, FR-23; design §12_
 
-- [ ] 3. `cmk install` cross-OS implementation (T-003)
+- [x] 3. `cmk install` cross-OS implementation (T-003) — _shipped 2026-05-23, PR #3_
   - Estimate: M · Depends: 1, 2
-- [ ] 3.1 Implement 3-tier directory creation
+- [x] 3.1 Implement 3-tier directory creation
   - Project tier (`<repo>/context/`), local tier (`<repo>/context.local/`), user tier (`~/.claude-memory-kit/`)
-- [ ] 3.2 Copy `template/*` into project tier without overwriting existing files
+- [x] 3.2 Copy `template/*` into project tier without overwriting existing files
   - Skip + log when a target file already exists; user content preserved
-- [ ] 3.3 Inject `.gitignore` entries for `context.local/`, `context/.index/`, `context/.locks/`
+- [x] 3.3 Inject `.gitignore` entries for `context.local/`, `context/.index/`, `context/.locks/`
   - Idempotent: re-runs don't duplicate lines
-- [ ] 3.4 Honor `MEMORY_KIT_USER_DIR` env var for the user-tier path
+- [x] 3.4 Honor `MEMORY_KIT_USER_DIR` env var for the user-tier path
   - Default `~/.claude-memory-kit/`; override creates the named path
-- [ ]* 3.5 Write unit tests for `cmk install`
+- [x]* 3.5 Write unit tests for `cmk install`
   - Test install in fresh tempdir produces expected file tree (manifest compare)
   - Test re-install preserves a hand-edited `MEMORY.md` (mtime + sha1 unchanged)
   - Test re-install refreshes kit-managed `.gitignore` lines while preserving unrelated entries
