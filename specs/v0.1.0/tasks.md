@@ -114,18 +114,18 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Test `cmk uninstall`: block + delimiters removed; surrounding content byte-identical via `diff`
   - _Requirements: FR-22; design §13.1_
 
-- [ ] 5. `canonicalize()` + ID generation (Node + Python parity) (T-005)
+- [x] 5. `canonicalize()` + ID generation (Node + Python parity) (T-005) — _shipped 2026-05-24, PR #5_
   - Estimate: M · Depends: 2
-- [ ] 5.1 Define `fixtures/canonicalize-vectors.json`
+- [x] 5.1 Define `fixtures/canonicalize-vectors.json`
   - ≥30 representative inputs covering whitespace collapse, lowercase, backref strip, punctuation strip, HTML-comment strip, non-ASCII passthrough
-- [ ] 5.2 Implement Node `@cmk/canonicalize` package
+- [x] 5.2 Implement Node `@cmk/canonicalize` package
   - `canonicalize()` + `generateId(tier, text)`
-- [ ] 5.3 Implement Python parallel implementation (for cron + auto-extract scripts)
+- [x] 5.3 Implement Python parallel implementation (for cron + auto-extract scripts)
   - Same function signatures; same outputs
-- [ ] 5.4 Implement base32 alphabet excluding ambiguous chars (`0`, `O`, `1`, `l`, `I`, `8`)
+- [x] 5.4 Implement base32 alphabet excluding ambiguous chars (`0`, `O`, `1`, `l`, `I`, `8`)
   - RFC 4648 alphabet minus the six ambiguous chars; documented in code
-- [ ] 5.5 Wire CI parity job that runs both implementations against the fixture and asserts byte-identical output
-- [ ]* 5.6 Write unit tests for canonicalize + ID generation
+- [x] 5.5 Wire CI parity job that runs both implementations against the fixture and asserts byte-identical output
+- [x]* 5.6 Write unit tests for canonicalize + ID generation
   - Test each fixture produces the documented expected canonical form (both implementations)
   - Test Node and Python produce byte-identical output on every fixture (parity matrix)
   - Test SHA-256 → base32 → first-8-chars produces the documented expected ID
@@ -133,8 +133,8 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Test base32 alphabet: encode 1000 random hashes; assert no output contains any of `0`, `O`, `1`, `l`, `I`, `8`
   - _Requirements: FR-14; design §3_
 
-- [ ] 6. Checkpoint — Layer 1 (Foundation) complete
-  - All tests for tasks 1–5 green
+- [x] 6. Checkpoint — Layer 1 (Foundation) complete — _passed 2026-05-24_
+  - All tests for tasks 1–5 green (218 Node + 140 Python + 38-vector parity)
   - `cmk install` works end-to-end on a fresh repo
   - `cmk --help` lists every documented subcommand
   - Agent runs the full suite and confirms zero failures before starting Layer 2
