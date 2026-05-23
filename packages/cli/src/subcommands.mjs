@@ -1,9 +1,10 @@
 // Subcommand registry for cmk.
 //
 // Single source of truth for every verb the CLI accepts. Each entry
-// describes one verb + (optionally) its sub-verbs. v0.1.0 ships only
-// stubs — each `action` prints a "not yet implemented in v0.1.0
-// milestone N" notice and exits 0.
+// describes one verb + (optionally) its sub-verbs. v0.1.0 implements
+// verbs incrementally — each task in tasks.md replaces one stub with
+// a real action. Verbs still on stub print a "not yet implemented in
+// v0.1.0 milestone N" notice (N = the tasks.md task that lights it up).
 //
 // The `milestone` field references the tasks.md parent task that will
 // implement the subcommand. Use "v0.1.x" for verbs deferred past v0.1
@@ -12,7 +13,29 @@
 // Adding a new verb? Append to `subcommands` below — the test suite
 // asserts exactly what's exported here, so coverage stays automatic.
 
+import { install as installAction } from './install.mjs';
+
 const NOTICE_PREFIX = 'not yet implemented in v0.1.0';
+
+/**
+ * Real `cmk install` action — wired in Task 3. Reads CLI options/flags
+ * and dispatches to the install module, then prints a human-readable
+ * summary of what was created / skipped.
+ */
+async function runInstall(/* commanderArgs */) {
+  // commander passes (options, command) for an option-only invocation.
+  // We don't need any options yet (--force is reserved for Task 4 once
+  // the CLAUDE.md downgrade-guard lands), so just call install() with
+  // defaults: projectRoot=cwd, userTier=resolveUserTier().
+  const result = await installAction({});
+  console.log(`cmk install: scaffolded ${result.created.length} file(s)` +
+    (result.skipped.length ? `, skipped ${result.skipped.length} existing` : '') +
+    `, .gitignore=${result.gitignore.action}`);
+  if (result.errors.length > 0) {
+    for (const e of result.errors) console.error(`  error: ${e.path}: ${e.error}`);
+    process.exitCode = 1;
+  }
+}
 
 /** Helper: build a stub action that prints the standard notice + exits 0. */
 function stub(name, milestone, extra) {
@@ -54,12 +77,12 @@ function stub(name, milestone, extra) {
 export const subcommands = [
   {
     name: 'install',
-    description: 'cross-OS one-shot install — scaffold 3-tier dirs + inject .gitignore + CLAUDE.md block',
+    description: 'cross-OS one-shot install — scaffold 3-tier dirs + inject .gitignore (CLAUDE.md block follows in Task 4)',
     milestone: 3,
     optionSpec: [
-      { flags: '--force', description: 'allow downgrade of an existing newer-version block' },
+      { flags: '--force', description: 'allow downgrade of an existing newer-version block (reserved for Task 4)' },
     ],
-    action: stub('install', 3),
+    action: runInstall,
   },
   {
     name: 'uninstall',
