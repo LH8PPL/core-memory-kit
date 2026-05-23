@@ -37,8 +37,17 @@ function runCmk(args, { input } = {}) {
   });
 }
 
-/** Stubs that aren't expected to print the standard notice. */
-const NON_STUB_VERBS = new Set(['version']);
+/**
+ * Verbs NOT expected to print the standard "not yet implemented" notice.
+ * Either real implementations (replaced their stub in a later task) or
+ * special-cased actions.
+ *
+ *   version → prints version string (Task 2, special case)
+ *   install → real implementation as of Task 3; tested by tests/cli-install.test.js
+ *             against tempdir sandboxes (NEVER from this test, which would
+ *             write into the repo's cwd and damage the kit)
+ */
+const NON_STUB_VERBS = new Set(['version', 'install']);
 
 describe('Task 2 — cmk CLI scaffold', () => {
   describe('Package layout', () => {
