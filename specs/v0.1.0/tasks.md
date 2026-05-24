@@ -411,6 +411,7 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 - [ ] 23. Auto-extract subagent + CompressorBackend Haiku impl (T-020)
   - Estimate: L · Depends: 5, 7, 12, 13
   - **High-risk surface — individual PR review required** via the `code-review-excellence` skill. This task spawns external subprocesses, holds lock files, writes NDJSON logs to disk, and routes facts by trust level. Lots of edge cases. Review before merge, not deferred to the Layer 4 checkpoint review at #27
+  - **Pre-implementation: read [`docs/research/2026-05-25-claude-remember-code-dive.md`](../../docs/research/2026-05-25-claude-remember-code-dive.md)** for absorbed patterns — Haiku sandbox flags (`cd /tmp` + `env -u CLAUDECODE` + `--allowedTools ""` + `--max-turns 1` + empty MCP config + stdin-from-temp-file), position tracking via `last-save.json {session, line}`, tool-use compaction (`[TOOL: <name> <basename>]`), noise-tag stripping (`<system-reminder>` etc.), dedup context (feed last `##`-prefixed entry to Haiku), `noclobber` lock + `kill -0` stale recovery, 120s cooldown + 3-msg threshold. **License caveat:** claude-remember ships under a Community License with a no-competing-use clause — absorb ideas/values, NOT code or prompts. Write our own from scratch with attribution per SOURCES.md.
 - [ ] 23.1 Implement `auto-extract-memory.sh` (Unix) and Node equivalent (Windows)
   - Reads just-captured turn from a temp file; spawns `claude --print` with documented flags
 - [ ] 23.2 Implement extraction prompt for sub-Claude
@@ -587,6 +588,7 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 
 - [ ] 33. Daily distill cron (T-028)
   - Estimate: M · Depends: 22, 23
+  - **Pre-implementation: read [`docs/research/2026-05-25-claude-remember-code-dive.md`](../../docs/research/2026-05-25-claude-remember-code-dive.md)** for absorbed patterns — NDC compression structure (now.md → today-YYYY-MM-DD.md after 1h cooldown), 60-80% compression-target norm, background subshell with `set +e`, per-stage `noclobber` lock at `.locks/ndc.lock`, post-success truncation of `now.md`. **License caveat:** write our own prompt + code from scratch; the technique is absorbable but the implementation is under their Community License (see SOURCES.md).
 - [ ] 33.1 Implement `scripts/run-daily-distill.sh`
   - Reads last 7 days of `today-*.md`; writes fresh `sessions/recent.md`
 - [ ] 33.2 Implement `python scripts/register-crons.py` (idempotent across platforms)
@@ -601,6 +603,7 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 
 - [ ] 34. Weekly curate cron (T-029)
   - Estimate: M · Depends: 10, 33
+  - **Pre-implementation: read [`docs/research/2026-05-25-claude-remember-code-dive.md`](../../docs/research/2026-05-25-claude-remember-code-dive.md)** for absorbed patterns — single-pass two-stage consolidation prompt (Step 1: each `today-*.md` → ONE entry in recent.md with 2-4-sentence body; Step 2: rotate entries older than 3 days into archive.md grouped by `## Week of YYYY-MM-DD` with 3-5 sentences/week), delimited response format (`===RECENT===` / `===ARCHIVE===`) with graceful-degradation fallback, token caps (600 recent / 400 archive), `.done.md` rename for processed staging files (audit retention, never delete), per-stage `noclobber` lock. **License caveat:** write our own prompt from scratch — claude-remember's prompt text is under Community License and is creative expression (the technique is absorbable, the text is not).
 - [ ] 34.1 Implement `scripts/run-weekly-curate.sh`
   - Moves `today-*.md` >7d into `archive.md` (appended); deletes originals
 - [ ] 34.2 Merge high-similarity bullets across days via task 10
@@ -791,13 +794,13 @@ Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility)
 > **Numbering note**: Task 45 is appended at the tail rather than slotted after Task 23 because mid-stream insertion would renumber Tasks 24-44. The numbering reflects authoring order, not execution order: Task 45 logically depends on Task 23 and must ship before Task 43 (release). The Task 43 release-task entry has been updated to add Task 45 to its `Depends:` list.
 
 - [ ] 45. Auto-persona generation (T-014)
-  - Estimate: L · Depends: 7, 12, 13, 22, 23 · Must ship before Task 43 (release)
+  - Estimate: L · Depends: 7, 12, 13, 22, 23, 34 · Must ship before Task 43 (release)
   - Uses shared modules from `packages/cli/src/{tier-paths,audit-log,frontmatter,result-shapes}.mjs` + scratchpad.mjs (Task 12) + provenance.mjs (Task 13). Consumes auto-extract output from Task 23. See design.md §16.16 for full motivation + design.
-- [ ] 45.1 Implement `cmk persona generate` subcommand
-  - Reads `<userDir>/memory/` + cross-project persona-tagged facts (via `cmk search --tier U` or direct file walk)
-  - Synthesizes user-profile state via `CompressorBackend` (default `HaikuViaAnthropicApi` per design §8.3)
-  - Output: candidate updates staged at `<userDir>/queues/persona-review.md` with full provenance (one bullet per proposed update)
-  - Honors 120s Haiku cooldown shared with the rest of the kit
+  - **Pre-implementation: read [`docs/research/2026-05-24-tencentdb-agent-memory.md`](../../docs/research/2026-05-24-tencentdb-agent-memory.md) (auto-persona-every-N-facts source pattern) + [`docs/research/2026-05-25-claude-remember-code-dive.md`](../../docs/research/2026-05-25-claude-remember-code-dive.md) (identity-candidates inline-surfacing pattern — architectural simplification, see 45.1 below).** License: TencentDB is MIT (port freely with attribution); claude-remember is Community License (absorb idea, write our own).
+- [ ] 45.1 Implement persona-candidate surfacing — **two design choices**
+  - **Design A (separate pipeline stage)**: `cmk persona generate` subcommand reads `<userDir>/memory/` + cross-project persona-tagged facts, synthesizes via `CompressorBackend` (default `HaikuViaAnthropicApi` per §8.3), outputs candidate updates staged at `<userDir>/queues/persona-review.md` with full provenance. Triggered manually or every-N-facts from auto-extract (Task 23). Honors 120s Haiku cooldown.
+  - **Design B (inline in consolidator)**: piggyback on Task 34's weekly consolidation pass. The consolidator already runs the CompressorBackend over recent.md content; extend its prompt with a "Step 3: identity candidates" instruction that surfaces persona-relevant moments at the end of recent.md as `## Identity Candidates\n- IDENTITY CANDIDATE: <description>` bullets. Zero additional API calls. `cmk persona generate` becomes a thin wrapper that reads these candidates from recent.md and stages them in `queues/persona-review.md`. **Source:** claude-remember's actual implementation (see code-dive note §"Transition 3" + the Step 3 prompt fragment); architectural simplification worth pre-implementation decision.
+  - **Decision deferred to implementation time** (after Task 34 ships and we see whether the consolidator's prompt budget has headroom for the extra instruction). Recommendation: try Design B first; fall back to Design A if the consolidator can't reliably surface candidates without hurting compression quality.
 - [ ] 45.2 Implement `cmk persona accept <id>` / `cmk persona reject <id>` subcommands
   - `accept`: matched bullet promoted into target scratchpad via `appendScratchpadBullet` (Task 12) with `trust: high` (manual user-attestation)
   - `reject`: candidate removed from `queues/persona-review.md`; rejection recorded as an anti-signal fact in `<userDir>/memory/persona_rejections.md` (informs future syntheses — auto-extract sees the pattern and skips it)

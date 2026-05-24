@@ -1428,15 +1428,71 @@ If users won't hand-curate, the user-tier files stay empty, the cross-project la
 
 Not direct comparables — they're integration-specific (OpenClaw + Hermes) and self-reported. But the methodology (continuous long-horizon sessions, baseline-vs-with-plugin, pass-rate + token cost) is the right shape.
 
+**Harness architecture (port from GBrain).** GBrain's `gbrain eval longmemeval` harness (research note: [`docs/research/2026-05-24-gbrain-architecture.md`](../../docs/research/2026-05-24-gbrain-architecture.md), Pattern 3) is the right shape to mirror. Six properties worth copying directly:
+
+1. **Hermetic by default.** When the benchmark CLI is invoked, the kit's normal `connectEngine()` is skipped — the user's actual brain is never touched. Tests stub the LLM client so the full pipeline runs without an API key. Critical property: the benchmark must NEVER mutate user-facing state.
+2. **Reset-in-place between questions.** Sequential 500-question benchmark uses ONE in-memory state. Between questions: clear all content tables/files (enumerated at runtime) except a `PRESERVE` allow-list (config, locks, infrastructure). Avoids snapshot/restore complexity. For our markdown-based kit: between-question reset wipes `<sandbox>/context/{memory,scratchpads,transcripts}/` while preserving the manifest + `.locks/` state.
+3. **Resume-from-path.** `--resume-from <hypothesis.jsonl>` reads a previous run's output, skips question IDs already processed, appends new ones. Recovery path for mid-run aborts (rate-limit, cost-cap, OS interrupt). Production-grade benchmark UX.
+4. **Mode flags.** `--retrieval-only` (skip LLM, score retrieval alone), `--keyword-only` (skip vector path), `--expansion` (query rewriting on/off), `--mode conservative|balanced|tokenmax`. Lets the same harness produce comparable scores across configuration variations.
+5. **By-category aggregation with floor enforcement.** `--by-type` emits per-question-type pass rates as the last JSONL line. `--by-type-floor 0.45` exits non-zero if any bucket falls below the floor. Catches the "average looks good but one category collapsed" failure mode that a single aggregate hides.
+6. **Methodology-disclosure stamps.** When extra preprocessing is enabled (e.g. an intent classifier in front of retrieval), the output gets stamped with a method id like `extractor=haiku-preprocess-v1`. Honest comparison vs. baseline — downstream readers see the preprocessing step is in the pipeline. Our equivalent: stamp non-baseline runs so when we cite numbers we can name the configuration.
+
 **Tasks to add when scoping v0.2:**
 
-- Benchmark harness (probably a separate repo or sub-directory; benchmarks shouldn't bloat the v0.1 test surface)
-- Task suite curation (5 refactors + recall + consistency + decay)
+- Benchmark harness, mirroring the six properties above (separate sub-directory `benchmarks/` so it doesn't bloat the v0.1 test surface)
+- Task suite curation (5 refactors + 10-fact recall + 5-decision consistency + decay-across-sessions)
 - Baseline measurement protocol (no-kit runs)
 - With-kit measurement protocol (kit installed, all subagents active)
 - Results publication (`docs/benchmarks/v0.2/` + README narrative section)
 
 **Honest acknowledgement to v0.1.0 users.** Until v0.2 ships benchmarks, the README's effectiveness claims must say "expected behavior, not measured." The kit is structurally sound (architecture-first decision per §1.4); the empirical case follows.
+
+### 16.18 Temporal awareness — fact shapes + validity windows + mode-aware retrieval
+
+v0.2 candidate. Inspired by Indranil Chandra's "Beyond the Log: Time-Aware Blueprint for AI Agent Memory" (research note: [`docs/research/2026-05-24-beyond-the-log-time-aware-memory.md`](../../docs/research/2026-05-24-beyond-the-log-time-aware-memory.md)).
+
+**The gap diagnosed.** Our current temporal model is: timestamps on every bullet + 14-day staleness drop for `trust: medium` in the consolidator (Task 12) + `superseded_by` ID references for merged facts (Task 10). This handles permanence + decay but NOT *current-validity*. Two contradictory facts on the same topic can coexist for up to 14 days; `cmk search "current status of X"` cannot reliably surface the most-recent valid version. Chandra calls this **temporal blindness**: vector embeddings capture topic similarity but not temporal coordinates, so older + newer facts on the same subject both match a "what is the current X?" query — sometimes the older one scores higher.
+
+**Proposed v0.2 absorbs (three layers, ordered by cost):**
+
+1. **`shape:` field on provenance** (smallest absorb; v0.2 entry point). Optional initially, defaulting to `State`. Seven values from Chandra's taxonomy: `State` (ongoing condition), `Event` (happened once), `Plan` (future-dated), `Relationship` (relation between entities), `Preference` (personalization), `Absence` (negative fact — "user does NOT do X"), `Timeless` (always true). Implementation: extend `provenance.mjs` (Task 13) field validation; extend YAML frontmatter on per-fact files; update auto-extract subagent (Task 23) to classify. Pays off the day it ships — even without retrieval changes, `Absence` becomes distinguishable from `Preference` (currently both expressed as bullet text with implicit negation that topic-similarity search can't see).
+
+2. **Validity windows on `State`-shape facts.** Add `started_at` and `ended_at` to provenance for `shape: State` facts. When `mergeFacts()` (Task 10) detects a `state_key` match with `ended_at: null`, atomically close the old (`ended_at = merge_ts`, add `status: "completed"`) and create the new (`status: "ongoing"`, `ended_at: null`). The existing `superseded_by` reference stays as a backward-compat link; the new fields make point-in-time queries (`cmk search "X as of 2026-03-15"`) fall out for free. Compose with our existing audit-log + tombstone discipline — nothing is deleted; the timeline of validity windows IS the audit trail.
+
+3. **State-key annotation as a new optional provenance field.** Facts that participate in atomic mutation declare a `state_key` (e.g. `state_key: "primary_treatment_for_X"`). Without it, the fact stays a flat history entry; with it, it becomes part of a validity timeline that `mergeFacts()` can update atomically. Mirrors Chandra's pattern for stateful facts.
+
+**Deferred to v0.3 (or later):**
+
+- The 7-mode query classifier + nudged reranker on the retrieval side (Current State / Historical Range / Upcoming / Lifetime / As-of Point / Deltas / Timeless). Requires classifier infrastructure + reranker stage; marginal value at single-user-at-a-keyboard scope. Revisit if multi-tenant ever enters the roadmap (it won't in v0.x). The shape-field + validity-windows layer gives us most of the practical benefit without the classifier.
+
+**Smaller v0.1.x candidate (folds in opportunistically):**
+
+- `Absence` as a tag or boolean on existing bullets, *without* the full shape-field machinery. Lets us start capturing negative facts ("user does NOT want emoji in responses") without v0.2-scoped work. Tradeoff: more bespoke; less general. Worth piloting before the full shape-field commits.
+
+**Why this matters even before retrieval changes ship.** Even with timestamps and 14-day decay, we cannot reliably answer "what is the current valid version of X?" because the consolidator drops by AGE, not by VALIDITY. A `trust: high` fact from 2026-01 contradicting a `trust: medium` fact from 2026-05 stays around forever (trust:high is preserved). The validity-window mechanism solves this without changing trust semantics.
+
+### 16.19 Self-wiring knowledge-graph layer — zero-LLM typed-edge extraction
+
+v0.2 candidate. Inspired by Garry Tan's GBrain (research note: [`docs/research/2026-05-24-gbrain-architecture.md`](../../docs/research/2026-05-24-gbrain-architecture.md), Pattern 1).
+
+**The gap.** Our current model has per-fact files (granular archive) and bulleted scratchpads. Facts link to source transcripts via the `source` provenance field. They do NOT link to each other via typed edges. A search for "what does Alice work on?" can find facts mentioning Alice but cannot traverse "Alice → Acme (works_at) → Acme's recent decisions (made_at)" the way GBrain's typed-edge graph can. GBrain's measured impact: +31.4 P@5 over vector-only RAG on rich-prose corpus.
+
+**Three-layer technique (port the technique, not the code — see SOURCES.md license note for GBrain).**
+
+1. **Auto-link on every fact write.** When `writeFact()` (Task 7) commits a new fact, scan the body for entity-reference patterns. Two shapes: standard markdown links `[Name](dir/slug)` and Obsidian-style wikilinks `[[dir/slug|Display]]`. The directory prefix encodes the entity TYPE — `people/`, `companies/`, `projects/`, etc. — so the parser knows at extraction time what kind of entity it's linking to. Zero LLM calls; pure regex. Code-fence stripping is defense-in-depth (slugs inside ``` blocks aren't real refs).
+
+2. **Verb-based type inference** for the edge type (`works_at`, `invested_in`, `founded`, `advises`, `mentions`). When a link is found, run the ~240-char context window through a per-edge-type regex catalog. GBrain's catalog is calibrated to VC/business prose; ours would need a developer-prose catalog (`works_on`, `owns`, `reviewed`, `merged_by`, `depends_on`, `replaces`, etc.). The technique adapts; the specific catalogs we write from scratch.
+
+3. **Page-role prior layer.** When per-edge inference falls through to generic `mentions`, check whether the source page itself has a role descriptor (e.g. a person-page that establishes "Lior is the engineer working on claude-memory-kit" — outbound refs to projects then default to `works_on` even when individual link contexts lack the verb). Catches narrative prose where the verb appears once and downstream references rely on it being implied.
+
+**Companion subcommand:** `cmk graph-query <slug> --type <edge-type>` for multi-hop traversal. Edge storage: every typed edge writes both directions (`from → to` AND `to ← from`) so traversal is symmetric. Per-page backlink count feeds §16.17's retrieval ranking (also informed by GBrain) when we add hybrid search.
+
+**Why we'd port the technique but not the code.** GBrain's [`link-extraction.ts`](https://github.com/garrytan/gbrain/blob/master/src/core/link-extraction.ts) (~640 lines) is MIT-licensed and could in principle be reused with attribution. But: (a) it's tuned for the page-shaped knowledge model GBrain uses (entity pages with frontmatter), not our per-fact-archive shape; (b) the regex catalogs would need substantial rework for developer prose; (c) the implementation is tightly coupled to their `BrainEngine` interface. Cleaner to re-implement the *technique* (dir-whitelist + verb regex + page-role prior) with our shape and our catalogs. SOURCES.md records the inspiration.
+
+**Deferred to v0.3:**
+
+- Schema packs (agent-authored evolvable types — GBrain's `gbrain schema use ...` system). Right now the kit ships fixed scratchpad types; making them agent-evolvable adds scope. File as v0.3 candidate IF user feedback indicates the fixed scratchpad set is too rigid for their use cases.
+- Frontmatter-derived edges (per-fact `related: [...]` fields auto-becoming edges). Useful but larger than v0.2's cut.
 
 ---
 
