@@ -197,17 +197,17 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Test `cmk forget <nonexistent_id>` exits 2 with "ID not found" stderr
   - _Requirements: FR-29; design §6.5_
 
-- [ ] 10. Consolidation / merge semantics (T-009)
+- [x] 10. Consolidation / merge semantics (T-009) — _shipped 2026-05-24, GitHub PR #9 + cleanup PRs #10 + #11 (Checkpoint-11 review fixes)_
   - Estimate: M · Depends: 7, 9
-- [ ] 10.1 Implement `mergeFacts(idA, idB) → newC` boundary
+- [x] 10.1 Implement `mergeFacts(idA, idB) → newC` boundary
   - Public interface only; internal merge logic is one deep module
-- [ ] 10.2 Compute new ID for merged body via canonicalize + generateId
+- [x] 10.2 Compute new ID for merged body via canonicalize + generateId
   - `newC.id = generateId(tier, canonicalize(merged_body))`
-- [ ] 10.3 Move A.md and B.md to `<tier>/memory/archive/superseded/`
+- [x] 10.3 Move A.md and B.md to `<tier>/memory/archive/superseded/`
   - Add `superseded_by: <newC.id>` to each
-- [ ] 10.4 Expose `mk_get(idA)` post-merge to return A's content + `merged_into: <newC.id>` annotation
+- [x] 10.4 Expose `mk_get(idA)` post-merge to return A's content + `merged_into: <newC.id>` annotation
   - Old IDs never die; they resolve to the new one
-- [ ]* 10.5 Write unit tests for merge semantics
+- [x]* 10.5 Write unit tests for merge semantics
   - Test merging A + B with body "X. Y." produces C with `id = generateId(canonical("x. y."))`
   - Test C's frontmatter contains `merged_from: [idA, idB]` (order preserved)
   - Test A.md and B.md moved to `archive/superseded/` with `superseded_by: <C.id>`
@@ -215,11 +215,11 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Test three-way merge: `mergeFacts(mergeFacts(A, B), C)` produces final ID = `generateId(canonical(combined_body))`; merged_from traced correctly
   - _Requirements: FR-14; design §3.4_
 
-- [ ] 11. Checkpoint — Layer 2 (Granular archive) complete
-  - All tests for tasks 1–10 green
-  - Round-trip works: write fact → reindex → query INDEX → forget → tombstone resolves on `mk_get`
-  - **Layer-wide code review pass** via the `code-review-excellence` skill across Tasks 7, 8, 9, 10. Focus: cross-task design smells, public-API consistency between `writeFact` / `reindex` / `mergeFacts` / tombstone flow, uniformity of audit-log shape, error-handling style drift. Output: structured markdown summary; any blocking issues fixed before checkpoint passes
-  - Agent confirms zero failures + zero blocking review issues before starting Layer 3
+- [x] 11. Checkpoint — Layer 2 (Granular archive) complete — _passed 2026-05-24 after PRs #10 (B1+B2 blockers) + #11 (cross-module cleanup)_
+  - All tests for tasks 1–10 green (335 Node + 140 Python + 38-vector parity, re-run from main after PR #11 merge)
+  - Round-trip works: write fact → reindex → query INDEX → forget → tombstone resolves on `resolveFact` (G1 integration tests in `tests/layer-2-roundtrip.test.js` cover this end-to-end)
+  - **Layer-wide code review pass** via the `code-review-excellence` skill across Tasks 7, 8, 9, 10. Found: 2 blockers (B1 collision in mergeFacts; B2 frontmatter injection) → PR #10. 4 important (I1-I4 cross-module drift; helpers, frontmatter parser, errorCategory enum, audit-log schema) → PR #11. 6 minors (subset folded into PR #11; M4/M6 + S2 deferred to v0.1.x; Q2 audit-log rotation added to design §16.13).
+  - Agent confirmed zero failures + zero blocking review issues. Shared helpers now live in [`packages/cli/src/{tier-paths,audit-log,frontmatter,result-shapes}.mjs`](../../packages/cli/src/) — Layer 3 modules import these per [CLAUDE.md](../../CLAUDE.md) "Shared modules" rule.
 
 ---
 
@@ -227,6 +227,7 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 
 - [ ] 12. Bounded scratchpad writer + cap enforcement (T-010)
   - Estimate: M · Depends: 5
+  - Uses shared modules from `packages/cli/src/{tier-paths,audit-log,frontmatter,result-shapes}.mjs` — see CLAUDE.md "Shared modules" rule
 - [ ] 12.1 Implement scratchpad writer boundary (public interface)
   - One module; one entry point per scratchpad operation
 - [ ] 12.2 Implement cap counting via `wc -c` (counts everything including frontmatter/comments)
@@ -246,6 +247,7 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 
 - [ ] 13. Provenance frontmatter writer + reader (T-011)
   - Estimate: S · Depends: 5, 12
+  - Uses shared modules from `packages/cli/src/{tier-paths,audit-log,frontmatter,result-shapes}.mjs` — see CLAUDE.md "Shared modules" rule
 - [ ] 13.1 Implement `writeBullet(text, provenance)` boundary
   - Emits bullet on one line + HTML-comment provenance on the next
 - [ ] 13.2 Validate 7 required provenance fields
@@ -262,6 +264,7 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 
 - [ ] 14. Seed scratchpad templates (T-012)
   - Estimate: S · Depends: 12, 13
+  - Uses shared modules from `packages/cli/src/{tier-paths,audit-log,frontmatter,result-shapes}.mjs` — see CLAUDE.md "Shared modules" rule
 - [ ] 14.1 Author project-tier seeds in `template/context/`
   - SOUL.md, MEMORY.md, context.local/{machine-paths,overrides}.md
 - [ ] 14.2 Author user-tier seeds for `cmk init-user-tier`
@@ -278,6 +281,7 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 
 - [ ] 15. `cmk trust <id> <level>` override (T-013)
   - Estimate: S · Depends: 7, 12, 13
+  - Uses shared modules from `packages/cli/src/{tier-paths,audit-log,frontmatter,result-shapes}.mjs` — see CLAUDE.md "Shared modules" rule
 - [ ] 15.1 Implement ID resolver for both scratchpad bullets and fact files
 - [ ] 15.2 Update `trust:` field in the matched provenance/frontmatter
 - [ ] 15.3 Append one audit.log line per trust change
