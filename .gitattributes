@@ -1,0 +1,25 @@
+# Force LF line endings on all text files across the repo. The kit's
+# scratchpad cap is measured in BYTES (via `wc -c` per design §2.1), so
+# CRLF line endings on a Windows checkout would silently push files past
+# their declared cap (~1 extra byte per line). LF normalization keeps
+# the byte budget deterministic across platforms.
+#
+# Scratchpad template files (`*.template`) are the most cap-sensitive
+# (some sit within 2 bytes of their cap; CRLF would push them over).
+# All Markdown / YAML / JS / Python text files use LF too — consistency
+# matters more than per-platform native conventions for a build artifact.
+#
+# Binary files (PNG, etc.) are excluded from text-conversion via the
+# explicit `binary` attribute as needed; no such files exist in the
+# repo today.
+
+* text=auto eol=lf
+*.template text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.mjs text eol=lf
+*.js text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sh text eol=lf
