@@ -54,8 +54,8 @@ export const DEFAULT_SCRATCHPAD_CAPS = Object.freeze({
   'USER.md': 1375, // Hermes-verified
   'HABITS.md': 1800,
   'LESSONS.md': 1800,
-  'machine-paths.md': 1000,
-  'overrides.md': 1000,
+  'machine-paths.md': 1500,
+  'overrides.md': 1500,
 });
 
 // Canonical 3 fixed sections per scratchpad (Task 14 / design §2.1). Each seed

@@ -1,26 +1,36 @@
-<!-- Cap: 1000 chars · Last distilled: {{TODAY}} · Last health check: {{TODAY}} -->
+<!-- Cap: 1500 chars · Last distilled: {{TODAY}} · Last health check: {{TODAY}} -->
 
-<!-- overrides.md (local tier, gitignored). Bullet+provenance format: see USER.md. -->
+<!--
+overrides.md = machine-specific overrides of preferences declared elsewhere.
+Local tier (gitignored). Highest precedence in the 3-tier model.
+3 fixed sections per design §2.1.
+
+Bullet+provenance format (universal — see provenance.mjs):
+  - (L-XXXXXXXX) the bullet text on one line
+    <!-- source, source_line, sha1, write, trust, at -->
+
+Auto-populated by `cmk persona generate` (Task N, design §16.16); empty is fine.
+-->
 
 # Machine-specific overrides (local tier)
 
 ## Tool Overrides
 
-<!-- Editor/shell/tool overrides. -->
+<!-- Editor/shell/tool overrides for this machine. -->
 
 - (L-9WZMWJ7a) editor preference placeholder
-  <!-- source: overrides.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
+  <!-- source: overrides.md, source_line: 20, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Behavior Overrides
 
-<!-- Behavior changes. -->
+<!-- Behavior changes for this machine (offline mode, rate limits, etc.). -->
 
 - (L-AaMYaRBL) offline mode placeholder
-  <!-- source: overrides.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
+  <!-- source: overrides.md, source_line: 27, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Path Overrides
 
-<!-- Path overrides. -->
+<!-- Path overrides for this machine. -->
 
 - (L-GDYXPZ3C) workspace root placeholder
-  <!-- source: overrides.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
+  <!-- source: overrides.md, source_line: 34, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->

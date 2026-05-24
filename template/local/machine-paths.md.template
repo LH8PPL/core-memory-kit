@@ -1,6 +1,17 @@
-<!-- Cap: 1000 chars · Last distilled: {{TODAY}} · Last health check: {{TODAY}} -->
+<!-- Cap: 1500 chars · Last distilled: {{TODAY}} · Last health check: {{TODAY}} -->
 
-<!-- machine-paths.md (local tier, gitignored). Bullet+provenance format: see USER.md. -->
+<!--
+machine-paths.md = absolute paths specific to THIS machine for THIS project.
+Local tier (gitignored — never committed). Highest priority in the 3-tier
+precedence model — overrides anything in context/ or ~/.claude-memory-kit/.
+3 fixed sections per design §2.1.
+
+Bullet+provenance format (universal — see provenance.mjs):
+  - (L-XXXXXXXX) the bullet text on one line
+    <!-- source, source_line, sha1, write, trust, at -->
+
+Auto-populated by `cmk persona generate` (Task N, design §16.16); empty is fine.
+-->
 
 # Machine paths (local tier)
 
@@ -9,18 +20,18 @@
 <!-- Tool/binary paths. -->
 
 - (L-MH9QRHFZ) node binary path placeholder
-  <!-- source: machine-paths.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
+  <!-- source: machine-paths.md, source_line: 19, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Project Paths
 
-<!-- Project-specific paths. -->
+<!-- Project-specific paths on this machine. -->
 
 - (L-A4WPLNZK) primary data directory placeholder
-  <!-- source: machine-paths.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
+  <!-- source: machine-paths.md, source_line: 26, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Misc Paths
 
 <!-- Other path types. -->
 
 - (L-JABPQBGQ) cache root directory placeholder
-  <!-- source: machine-paths.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
+  <!-- source: machine-paths.md, source_line: 33, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
