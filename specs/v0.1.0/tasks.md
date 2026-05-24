@@ -279,14 +279,14 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Test each seed contains its three documented section headings
   - _Requirements: FR-3; design §2.1_
 
-- [ ] 15. `cmk trust <id> <level>` override (T-013)
+- [x] 15. `cmk trust <id> <level>` override (T-013) _shipped 2026-05-25, PR #15_
   - Estimate: S · Depends: 7, 12, 13
   - Uses shared modules from `packages/cli/src/{tier-paths,audit-log,frontmatter,result-shapes}.mjs` — see CLAUDE.md "Shared modules" rule
-- [ ] 15.1 Implement ID resolver for both scratchpad bullets and fact files
-- [ ] 15.2 Update `trust:` field in the matched provenance/frontmatter
-- [ ] 15.3 Append one audit.log line per trust change
+- [x] 15.1 Implement ID resolver for both scratchpad bullets and fact files
+- [x] 15.2 Update `trust:` field in the matched provenance/frontmatter
+- [x] 15.3 Append one audit.log line per trust change
   - Schema: `{ts, actor, action: "trust_change", id, prior_trust, new_trust}`
-- [ ]* 15.4 Write unit tests for `cmk trust`
+- [x]* 15.4 Write unit tests for `cmk trust`
   - Test `cmk trust <existing_id> high` updates the field + writes one audit.log line with the documented schema
   - Test trust change for a scratchpad bullet (HTML-comment provenance) updates the comment
   - Test trust change for a fact file (YAML frontmatter) updates the YAML
