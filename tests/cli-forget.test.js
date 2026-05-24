@@ -46,18 +46,10 @@ function validFactOpts(overrides = {}) {
   };
 }
 
+import { parse as parseFrontmatterText } from '../packages/cli/src/frontmatter.mjs';
+
 function parseFrontmatter(filePath) {
-  const text = readFileSync(filePath, 'utf8');
-  const m = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
-  if (!m) return { frontmatter: null, body: text };
-  const fm = {};
-  for (const line of m[1].split('\n')) {
-    if (!line.trim()) continue;
-    const idx = line.indexOf(':');
-    if (idx === -1) continue;
-    fm[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
-  }
-  return { frontmatter: fm, body: m[2] };
+  return parseFrontmatterText(readFileSync(filePath, 'utf8'));
 }
 
 /** Write a scratchpad with a bullet referencing a given citation id, plus an
@@ -145,7 +137,7 @@ describe('Task 9 — forget() + resolveFact() boundaries', () => {
       expect(text).toContain(body);
     });
 
-    it('appends an audit-log entry recording the tombstone', () => {
+    it('appends an audit-log entry recording the tombstone (canonical schema v1)', () => {
       const w = writeFact(validFactOpts({ projectRoot }));
       forget({ idOrQuery: w.id, projectRoot, reason: 'r', yes: true });
       const auditPath = join(projectRoot, 'context', '.locks', 'audit.log');
@@ -156,7 +148,24 @@ describe('Task 9 — forget() + resolveFact() boundaries', () => {
         .map((l) => JSON.parse(l));
       const entry = lines.find((e) => e.action === 'tombstoned' && e.id === w.id);
       expect(entry).toBeDefined();
-      expect(entry.reason).toBe('r');
+      // Post-PR-2 canonical audit-log schema (per Layer-2 review I4):
+      //   {ts, schema: 1, action, tier, id, reasonCode, reasonText?, paths, extra}
+      expect(entry.schema).toBe(1);
+      expect(entry.tier).toBe('P');
+      expect(entry.reasonCode).toBe('user-requested');
+      expect(entry.reasonText).toBe('r');
+      expect(entry.paths.before).toBe(w.path);
+      expect(entry.paths.archive).toBe(
+        join(
+          projectRoot,
+          'context',
+          'memory',
+          'archive',
+          'tombstones',
+          `${w.id}.md`,
+        ),
+      );
+      expect(entry.extra.deletedBy).toBe('user-explicit');
     });
   });
 
@@ -190,8 +199,13 @@ describe('Task 9 — forget() + resolveFact() boundaries', () => {
   });
 
   describe('not-found and error cases', () => {
-    it('forget(<nonexistent_id>) returns action: "not-found"', () => {
-      const r = forget({ idOrQuery: 'P-MISSING2', projectRoot, yes: true });
+    // Layer-2 review M5: use a valid-format-but-nonexistent id (chars all in
+    // the kit's custom base32 alphabet) instead of 'P-MISSING2' which contains
+    // 'I' (excluded). Pre-fix this test silently exercised the query-fallback
+    // path (idOrQuery → substring search → 0 matches). Post-fix it exercises
+    // the intended ID-not-found code path.
+    it('forget(<valid-format-but-nonexistent id>) returns action: "not-found"', () => {
+      const r = forget({ idOrQuery: 'P-MSSNGGG2', projectRoot, yes: true });
       expect(r.action).toBe('not-found');
       expect(r.errors).toBeDefined();
       expect(r.errors.join(' ')).toMatch(/not found|no matching/i);
@@ -202,68 +216,41 @@ describe('Task 9 — forget() + resolveFact() boundaries', () => {
       expect(r.action).toBe('error');
     });
 
-    // Layer-2 code-review blocker B2: `reason` lands in the tombstone
-    // frontmatter via the naive serializer. \n / \r / : would corrupt the
-    // on-disk shape. Reject at the input boundary.
-    it('forget with reason containing newline → schema error, no tombstone created', () => {
-      const w = writeFact(validFactOpts({ projectRoot }));
-      const r = forget({
-        idOrQuery: w.id,
-        projectRoot,
-        reason: 'multi\nline reason',
-        yes: true,
-      });
-      expect(r.action).toBe('error');
-      expect(r.errorCategory).toBe('schema');
-      expect(r.errors.join(' ')).toMatch(/reason/i);
-      // Original file untouched, no tombstone
-      expect(existsSync(w.path)).toBe(true);
-      expect(
-        existsSync(
-          join(
-            projectRoot,
-            'context',
-            'memory',
-            'archive',
-            'tombstones',
-            `${w.id}.md`,
-          ),
-        ),
-      ).toBe(false);
-    });
-
-    it('forget with reason containing colon → schema error', () => {
-      const w = writeFact(validFactOpts({ projectRoot }));
-      const r = forget({
-        idOrQuery: w.id,
-        projectRoot,
-        reason: 'user said: forget X',
-        yes: true,
-      });
-      expect(r.action).toBe('error');
-      expect(r.errorCategory).toBe('schema');
-      expect(existsSync(w.path)).toBe(true);
-    });
-
-    it('forget with reason containing carriage-return → schema error', () => {
-      const w = writeFact(validFactOpts({ projectRoot }));
-      const r = forget({
-        idOrQuery: w.id,
-        projectRoot,
-        reason: 'corrupt\rpayload',
-        yes: true,
-      });
-      expect(r.action).toBe('error');
-      expect(r.errorCategory).toBe('schema');
-      expect(existsSync(w.path)).toBe(true);
-    });
-
     it('reindex of an archive subdir does not see the tombstoned file (existing reindex contract)', () => {
       // Sanity that the tombstone path puts the file outside reindex's scan.
       const w = writeFact(validFactOpts({ projectRoot, slug: 'tomb' }));
       const r = forget({ idOrQuery: w.id, projectRoot, yes: true });
       expect(r.tombstonePath).toContain(join('archive', 'tombstones'));
     });
+  });
+
+  // Layer-2 review B2 RELAXATION (PR-2): PR-1 rejected \n / \r / : in the
+  // `reason` field as a minimum fix for the naive serializer. PR-2's
+  // frontmatter.mjs (js-yaml CORE_SCHEMA) quotes those chars properly.
+  // The input restriction is LIFTED; these tests prove the round-trip works.
+  describe('B2 relaxation — `reason` now accepts \\n / \\r / : via js-yaml quoting', () => {
+    const trickyReasons = [
+      'multi\nline reason',
+      'user said: forget X',
+      'corrupt\rpayload',
+      'compound: with all\nspecial chars\rin one string',
+    ];
+
+    for (const reason of trickyReasons) {
+      const label = JSON.stringify(reason).slice(0, 40);
+      it(`tombstones successfully with reason ${label}: round-trip preserves the value`, () => {
+        const w = writeFact(validFactOpts({ projectRoot }));
+        const r = forget({
+          idOrQuery: w.id,
+          projectRoot,
+          reason,
+          yes: true,
+        });
+        expect(r.action).toBe('tombstoned');
+        const { frontmatter } = parseFrontmatter(r.tombstonePath);
+        expect(frontmatter.deleted_reason).toBe(reason);
+      });
+    }
   });
 
   describe('confirmation', () => {

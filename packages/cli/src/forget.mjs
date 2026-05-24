@@ -1,5 +1,12 @@
+// Tombstone-write + tombstone-aware fact resolver (Task 9, refactored in
+// cleanup-layer-2-cross-module-drift). Two public boundaries:
+//   forget(opts) → result          — user-requested deletion
+//   resolveFact(opts) → state      — read-side, knows live/tombstoned/superseded
+//
+// Uses shared modules: tier-paths, frontmatter, audit-log, result-shapes.
+// See design §6.5 + CLAUDE.md "Shared modules" rule.
+
 import {
-  appendFileSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -8,54 +15,23 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { canonicalize } from '../../canonicalize/src/index.mjs';
+import {
+  VALID_TIERS,
+  ID_PATTERN,
+  resolveTierRoot,
+  resolveFactDir,
+} from './tier-paths.mjs';
+import { parse, format } from './frontmatter.mjs';
+import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
+import { ERROR_CATEGORIES, errorResult, notFoundResult } from './result-shapes.mjs';
 
-const VALID_TIERS = new Set(['U', 'P', 'L']);
-const ID_PATTERN = /^[PUL]-[2345679ABCDEFGHJKLMNPQRSTUVWXYZa]{8}$/;
-
-function resolveTierRoot({ tier, projectRoot, userDir }) {
-  if (tier === 'P') return join(projectRoot ?? process.cwd(), 'context');
-  if (tier === 'L') return join(projectRoot ?? process.cwd(), 'context.local');
-  return (
-    userDir ??
-    process.env.MEMORY_KIT_USER_DIR ??
-    join(homedir(), '.claude-memory-kit')
-  );
-}
-
-function resolveFactDir(tier, tierRoot) {
-  return tier === 'U' ? join(tierRoot, 'fragments') : join(tierRoot, 'memory');
-}
-
-function readAndParse(filePath) {
-  const text = readFileSync(filePath, 'utf8');
-  const m = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
-  if (!m) return { frontmatter: null, body: text, text };
-  const fm = {};
-  for (const line of m[1].split('\n')) {
-    if (!line.trim()) continue;
-    const idx = line.indexOf(':');
-    if (idx === -1) continue;
-    fm[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
-  }
-  return { frontmatter: fm, body: m[2] ?? '', text };
-}
-
-function nowIso() {
-  return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
-}
-
-function appendAuditLog(tierRoot, entry) {
-  const locksDir = join(tierRoot, '.locks');
-  mkdirSync(locksDir, { recursive: true });
-  appendFileSync(
-    join(locksDir, 'audit.log'),
-    JSON.stringify(entry) + '\n',
-    'utf8',
-  );
-}
+// Layer-2 review: PR-1 rejected \n / \r / : in the `reason` field as a
+// minimum fix for the naive serializer (finding B2). PR-2's frontmatter.mjs
+// (js-yaml CORE_SCHEMA) quotes those chars properly. The B2 restriction is
+// LIFTED here — reasons may contain newlines, colons, etc. and round-trip
+// correctly. Round-trip tests in cli-forget.test.js (`B2 relaxation`) prove it.
 
 function listLiveFactFiles(factDir) {
   if (!existsSync(factDir)) return [];
@@ -69,6 +45,12 @@ function listLiveFactFiles(factDir) {
   return out;
 }
 
+function readFactAt(filePath) {
+  const text = readFileSync(filePath, 'utf8');
+  const { frontmatter, body } = parse(text);
+  return { frontmatter, body, text };
+}
+
 function resolveById(id, { projectRoot, userDir }) {
   const tier = id[0];
   if (!VALID_TIERS.has(tier)) return { matches: [] };
@@ -77,7 +59,7 @@ function resolveById(id, { projectRoot, userDir }) {
   for (const filename of listLiveFactFiles(factDir)) {
     const p = join(factDir, filename);
     if (!statSync(p).isFile()) continue;
-    const { frontmatter, body } = readAndParse(p);
+    const { frontmatter, body } = readFactAt(p);
     if (frontmatter?.id === id && !frontmatter.deleted_at) {
       return {
         matches: [
@@ -103,7 +85,7 @@ function resolveByQuery(query, { projectRoot, userDir }) {
     for (const filename of listLiveFactFiles(factDir)) {
       const p = join(factDir, filename);
       if (!statSync(p).isFile()) continue;
-      const { frontmatter, body } = readAndParse(p);
+      const { frontmatter, body } = readFactAt(p);
       if (!frontmatter?.id || frontmatter.deleted_at) continue;
       if (canonicalize(body).includes(canonicalQuery)) {
         matches.push({
@@ -118,6 +100,9 @@ function resolveByQuery(query, { projectRoot, userDir }) {
       }
     }
   }
+  // Layer-2 review M3: sort matches deterministically so ambiguous-error
+  // messages list candidate ids in stable order across machines.
+  matches.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   return { matches };
 }
 
@@ -125,12 +110,16 @@ function moveFactToTombstone(match, { deletedAt, reason, deletedBy }) {
   const tombDir = join(match.factDir, 'archive', 'tombstones');
   mkdirSync(tombDir, { recursive: true });
   const tombPath = join(tombDir, `${match.id}.md`);
-  const original = readFileSync(match.path, 'utf8');
-  const tombstoned = original.replace(
-    /^---\n/,
-    `---\ndeleted_at: ${deletedAt}\ndeleted_reason: ${reason}\ndeleted_by: ${deletedBy}\n`,
-  );
-  writeFileSync(tombPath, tombstoned, 'utf8');
+  // Read + parse the original, inject deletion fields at the top of the
+  // frontmatter object, write via the canonical formatter. No regex hacks.
+  const { frontmatter, body } = parse(readFileSync(match.path, 'utf8'));
+  const updated = {
+    deleted_at: deletedAt,
+    deleted_reason: reason,
+    deleted_by: deletedBy,
+    ...(frontmatter ?? {}),
+  };
+  writeFileSync(tombPath, format({ frontmatter: updated, body }), 'utf8');
   unlinkSync(match.path);
   return tombPath;
 }
@@ -199,36 +188,19 @@ export function forget(opts = {}) {
   } = opts;
 
   if (!idOrQuery || typeof idOrQuery !== 'string') {
-    return {
-      action: 'error',
+    return errorResult({
+      category: ERROR_CATEGORIES.SCHEMA,
       errors: ['idOrQuery: required, non-empty string'],
-    };
+    });
   }
 
-  // Layer-2 review finding B2: reason lands in the tombstone frontmatter
-  // and is written verbatim by the naive serializer. \n / \r / : would
-  // corrupt the on-disk format. PR-2's frontmatter.mjs lifts this.
-  if (reason !== undefined && reason !== null) {
-    if (typeof reason !== 'string') {
-      return {
-        action: 'error',
-        errorCategory: 'schema',
-        errors: ['reason: must be a string'],
-      };
-    }
-    if (
-      reason.includes('\n') ||
-      reason.includes('\r') ||
-      reason.includes(':')
-    ) {
-      return {
-        action: 'error',
-        errorCategory: 'schema',
-        errors: [
-          'reason: must not contain newlines or colons (frontmatter corruption risk; see Layer-2 review B2)',
-        ],
-      };
-    }
+  // PR-2: B2 restriction on reason is RELAXED (js-yaml quotes strings with
+  // \n / \r / :). Only type-check remains.
+  if (reason !== undefined && reason !== null && typeof reason !== 'string') {
+    return errorResult({
+      category: ERROR_CATEGORIES.SCHEMA,
+      errors: ['reason: must be a string'],
+    });
   }
 
   const resolved = ID_PATTERN.test(idOrQuery)
@@ -236,20 +208,19 @@ export function forget(opts = {}) {
     : resolveByQuery(idOrQuery, { projectRoot, userDir });
 
   if (resolved.matches.length === 0) {
-    return {
-      action: 'not-found',
+    return notFoundResult({
       errors: [`no matching fact for "${idOrQuery}"`],
-    };
+    });
   }
   if (resolved.matches.length > 1) {
     const ids = resolved.matches.map((m) => m.id);
-    return {
-      action: 'error',
+    return errorResult({
+      category: ERROR_CATEGORIES.COLLISION,
       errors: [
         `ambiguous query "${idOrQuery}" matched multiple facts: ${ids.join(', ')}`,
       ],
       candidateIds: ids,
-    };
+    });
   }
 
   const match = resolved.matches[0];
@@ -288,19 +259,21 @@ export function forget(opts = {}) {
 
   const scratchpadEdits = scrubAllScratchpads(match.tierRoot, match.id);
 
-  appendAuditLog(match.tierRoot, {
+  appendAuditEntry(match.tierRoot, {
     ts: deletedAt,
     action: 'tombstoned',
-    id: match.id,
     tier: match.tier,
-    reason: tombstoneReason,
-    deletedBy: tombstoneDeletedBy,
-    originalPath: match.path,
-    tombstonePath,
-    scratchpadEdits: scratchpadEdits.map((e) => ({
-      path: e.path,
-      removed: e.removed,
-    })),
+    id: match.id,
+    reasonCode: REASON_CODES.USER_REQUESTED,
+    reasonText: tombstoneReason || undefined,
+    paths: { before: match.path, archive: tombstonePath },
+    extra: {
+      deletedBy: tombstoneDeletedBy,
+      scratchpadEdits: scratchpadEdits.map((e) => ({
+        path: e.path,
+        removed: e.removed,
+      })),
+    },
   });
 
   return {
@@ -322,7 +295,7 @@ export function resolveFact({ id, projectRoot, userDir }) {
   for (const filename of listLiveFactFiles(factDir)) {
     const p = join(factDir, filename);
     if (!statSync(p).isFile()) continue;
-    const { frontmatter, body } = readAndParse(p);
+    const { frontmatter, body } = readFactAt(p);
     if (frontmatter?.id === id) {
       return {
         state: frontmatter.deleted_at ? 'tombstoned' : 'live',
@@ -336,7 +309,7 @@ export function resolveFact({ id, projectRoot, userDir }) {
 
   const tombPath = join(factDir, 'archive', 'tombstones', `${id}.md`);
   if (existsSync(tombPath)) {
-    const { frontmatter, body } = readAndParse(tombPath);
+    const { frontmatter, body } = readFactAt(tombPath);
     return {
       state: 'tombstoned',
       path: tombPath,
@@ -348,7 +321,7 @@ export function resolveFact({ id, projectRoot, userDir }) {
 
   const supersededPath = join(factDir, 'archive', 'superseded', `${id}.md`);
   if (existsSync(supersededPath)) {
-    const { frontmatter, body } = readAndParse(supersededPath);
+    const { frontmatter, body } = readFactAt(supersededPath);
     return {
       state: 'superseded',
       path: supersededPath,

@@ -1,5 +1,12 @@
+// Fact consolidation (Task 10, refactored in cleanup-layer-2-cross-module-drift).
+// Single public boundary: mergeFacts(opts) → result. See design §3.4.
+//
+// Uses shared modules: tier-paths, frontmatter, audit-log, result-shapes.
+// Composes writeFact() to create the new merged fact, then moves A + B into
+// archive/superseded/ with superseded_by injected. See CLAUDE.md "Shared
+// modules" rule.
+
 import {
-  appendFileSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -8,85 +15,53 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { generateId } from '../../canonicalize/src/index.mjs';
+import {
+  VALID_TIERS,
+  ID_PATTERN,
+  resolveTierRoot,
+  resolveFactDir,
+} from './tier-paths.mjs';
+import { parse, format } from './frontmatter.mjs';
+import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
+import { ERROR_CATEGORIES, errorResult, notFoundResult } from './result-shapes.mjs';
 import { writeFact } from './write-fact.mjs';
 
-const VALID_TIERS = new Set(['U', 'P', 'L']);
-const ID_PATTERN = /^[PUL]-[2345679ABCDEFGHJKLMNPQRSTUVWXYZa]{8}$/;
-
-function resolveTierRoot({ tier, projectRoot, userDir }) {
-  if (tier === 'P') return join(projectRoot ?? process.cwd(), 'context');
-  if (tier === 'L') return join(projectRoot ?? process.cwd(), 'context.local');
-  return (
-    userDir ??
-    process.env.MEMORY_KIT_USER_DIR ??
-    join(homedir(), '.claude-memory-kit')
-  );
-}
-
-function resolveFactDir(tier, tierRoot) {
-  return tier === 'U' ? join(tierRoot, 'fragments') : join(tierRoot, 'memory');
-}
-
-function readAndParse(filePath) {
-  const text = readFileSync(filePath, 'utf8');
-  const m = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
-  if (!m) return { frontmatter: null, body: text, text };
-  const fm = {};
-  for (const line of m[1].split('\n')) {
-    if (!line.trim()) continue;
-    const idx = line.indexOf(':');
-    if (idx === -1) continue;
-    fm[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
-  }
-  return { frontmatter: fm, body: m[2] ?? '', text };
-}
-
-function nowIso() {
-  return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
-}
-
-function appendAuditLog(tierRoot, entry) {
-  const locksDir = join(tierRoot, '.locks');
-  mkdirSync(locksDir, { recursive: true });
-  appendFileSync(
-    join(locksDir, 'audit.log'),
-    JSON.stringify(entry) + '\n',
-    'utf8',
-  );
-}
-
-function findLiveFactById(factDir, id) {
-  if (!existsSync(factDir)) return null;
+function listLiveFactFiles(factDir) {
+  if (!existsSync(factDir)) return [];
+  const out = [];
   for (const entry of readdirSync(factDir, { withFileTypes: true })) {
     if (!entry.isFile()) continue;
     if (!entry.name.endsWith('.md')) continue;
     if (entry.name === 'INDEX.md') continue;
-    const p = join(factDir, entry.name);
+    out.push(entry.name);
+  }
+  return out;
+}
+
+function findLiveFactById(factDir, id) {
+  if (!existsSync(factDir)) return null;
+  for (const filename of listLiveFactFiles(factDir)) {
+    const p = join(factDir, filename);
     if (!statSync(p).isFile()) continue;
-    const { frontmatter, body, text } = readAndParse(p);
+    const { frontmatter, body } = parse(readFileSync(p, 'utf8'));
     if (frontmatter?.id === id && !frontmatter.deleted_at) {
-      return { id, path: p, frontmatter, body, text };
+      return { id, path: p, frontmatter, body };
     }
   }
   return null;
 }
 
 function moveToSuperseded(match, supersededBy) {
-  const supersededDir = join(
-    match.factDir,
-    'archive',
-    'superseded',
-  );
+  const supersededDir = join(match.factDir, 'archive', 'superseded');
   mkdirSync(supersededDir, { recursive: true });
   const newPath = join(supersededDir, `${match.id}.md`);
-  const updated = match.text.replace(
-    /^---\n/,
-    `---\nsuperseded_by: ${supersededBy}\n`,
-  );
-  writeFileSync(newPath, updated, 'utf8');
+  const { frontmatter, body } = parse(readFileSync(match.path, 'utf8'));
+  const updated = {
+    superseded_by: supersededBy,
+    ...(frontmatter ?? {}),
+  };
+  writeFileSync(newPath, format({ frontmatter: updated, body }), 'utf8');
   unlinkSync(match.path);
   return newPath;
 }
@@ -111,13 +86,13 @@ export function mergeFacts(opts = {}) {
   } = opts;
 
   const errors = [];
-  if (!idA || !ID_PATTERN.test(idA)) errors.push(`idA: must be a valid citation ID`);
-  if (!idB || !ID_PATTERN.test(idB)) errors.push(`idB: must be a valid citation ID`);
+  if (!idA || !ID_PATTERN.test(idA)) errors.push('idA: must be a valid citation ID');
+  if (!idB || !ID_PATTERN.test(idB)) errors.push('idB: must be a valid citation ID');
   if (idA && idB && idA === idB) {
-    return {
-      action: 'error',
+    return errorResult({
+      category: ERROR_CATEGORIES.SCHEMA,
       errors: [`idA and idB are the same (${idA}); cannot merge a fact with itself`],
-    };
+    });
   }
   if (!mergedBody || typeof mergedBody !== 'string' || !mergedBody.length) {
     errors.push('mergedBody: required, non-empty string');
@@ -125,29 +100,38 @@ export function mergeFacts(opts = {}) {
   if (!mergedTitle || typeof mergedTitle !== 'string') {
     errors.push('mergedTitle: required, non-empty string');
   }
-  if (!mergedSlug || typeof mergedSlug !== 'string') {
-    errors.push('mergedSlug: required, non-empty string');
+  // Layer-2 review S4: removed the redundant `mergedSlug` truthy check. The
+  // downstream writeFact owns all slug validation (pattern + presence).
+  // Inconsistent layering disappears; bad slugs surface from writeFact with
+  // a clear schema error.
+  //
+  // Layer-2 review S3: writeSource is now REQUIRED (no compressor default).
+  // Compressor was the most-suspicious default — Task 23 auto-extract and
+  // Task 24 memory-write are NOT compressor-driven. Forcing the caller to
+  // pick avoids accidentally tagging human-curated merges as 'compressor'.
+  if (!writeSource || typeof writeSource !== 'string') {
+    errors.push('writeSource: required (no default). Pick one of user-explicit/auto-extract/compressor/manual-edit/imported.');
   }
   if (errors.length > 0) {
-    return { action: 'error', errorCategory: 'schema', errors };
+    return errorResult({ category: ERROR_CATEGORIES.SCHEMA, errors });
   }
 
   const tierA = idA[0];
   const tierB = idB[0];
   if (tierA !== tierB) {
-    return {
-      action: 'error',
+    return errorResult({
+      category: ERROR_CATEGORIES.SCHEMA,
       errors: [
         `cross-tier merge not supported: idA tier (${tierA}) ≠ idB tier (${tierB}). Promote one side to the same tier first.`,
       ],
-    };
+    });
   }
   const tier = tierA;
   if (!VALID_TIERS.has(tier)) {
-    return {
-      action: 'error',
+    return errorResult({
+      category: ERROR_CATEGORIES.SCHEMA,
       errors: [`invalid tier prefix on ids: ${tier}`],
-    };
+    });
   }
 
   const tierRoot = resolveTierRoot({ tier, projectRoot, userDir });
@@ -159,10 +143,9 @@ export function mergeFacts(opts = {}) {
     const missing = [];
     if (!matchA) missing.push(idA);
     if (!matchB) missing.push(idB);
-    return {
-      action: 'not-found',
+    return notFoundResult({
       errors: [`no live fact found for ${missing.join(', ')}`],
-    };
+    });
   }
   matchA.factDir = factDir;
   matchB.factDir = factDir;
@@ -176,7 +159,7 @@ export function mergeFacts(opts = {}) {
     slug: mergedSlug,
     title: mergedTitle,
     body: mergedBody,
-    writeSource: writeSource ?? 'compressor',
+    writeSource,
     trust: trust ?? 'high',
     sourceFile: sourceFile ?? matchA.frontmatter.source_file ?? 'merge',
     sourceLine: sourceLine ?? 1,
@@ -187,40 +170,37 @@ export function mergeFacts(opts = {}) {
     userDir,
   });
   if (writeResult.action === 'error') {
-    return {
-      action: 'error',
-      errorCategory: writeResult.errorCategory,
+    return errorResult({
+      category: writeResult.errorCategory,
       errors: writeResult.errors,
-    };
+    });
   }
-
-  // Layer-2 review finding B1: if writeFact dedup'd against an existing
-  // unrelated fact (content-addressed collision), we must NOT proceed to
-  // moveToSuperseded — that would silently retarget A's and B's history
-  // to a pre-existing fact whose frontmatter has no merged_from entry.
-  // Reject with a clear error; caller picks a different mergedBody.
+  // PR-1 blocker B1 fix preserved: writeFact dedup'd to an existing unrelated
+  // fact → return collision error rather than silently retargeting A and B.
   if (writeResult.action !== 'created') {
-    return {
-      action: 'error',
-      errorCategory: 'collision',
+    return errorResult({
+      category: ERROR_CATEGORIES.COLLISION,
       errors: [
         `merged body collides with existing fact ${writeResult.id} (writeFact returned ${writeResult.action}${writeResult.skipReason ? ': ' + writeResult.skipReason : ''}); choose a different mergedBody`,
       ],
-    };
+    });
   }
 
   const supersededA = moveToSuperseded(matchA, writeResult.id);
   const supersededB = moveToSuperseded(matchB, writeResult.id);
 
   const ts = now ?? nowIso();
-  appendAuditLog(tierRoot, {
+  appendAuditEntry(tierRoot, {
     ts,
     action: 'merged',
-    id: writeResult.id,
     tier,
-    mergedFrom: [idA, idB],
-    supersededPaths: [supersededA, supersededB],
-    newPath: writeResult.path,
+    id: writeResult.id,
+    reasonCode: REASON_CODES.CURATED_MERGE,
+    paths: {
+      after: writeResult.path,
+      archive: [supersededA, supersededB],
+    },
+    extra: { mergedFrom: [idA, idB] },
   });
 
   return {
