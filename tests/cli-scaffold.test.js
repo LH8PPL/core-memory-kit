@@ -48,8 +48,12 @@ function runCmk(args, { input } = {}) {
  *               write into the repo's cwd and damage the kit)
  *   uninstall → real implementation as of Task 4; tested by tests/cli-claude-md.test.js
  *               against tempdir sandboxes (same rationale as install)
+ *   reindex   → real implementation as of Task 8 (markdown INDEX walker; SQLite
+ *               cache deferred to Task 29); tested by tests/cli-reindex.test.js
+ *               against tempdir sandboxes — never invoked from the repo cwd here
+ *               because it would create context/memory/INDEX.md inside the kit
  */
-const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall']);
+const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex']);
 
 describe('Task 2 — cmk CLI scaffold', () => {
   describe('Package layout', () => {

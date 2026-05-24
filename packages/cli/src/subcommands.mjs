@@ -15,6 +15,7 @@
 
 import { install as installAction } from './install.mjs';
 import { removeClaudeMdBlock } from './claude-md.mjs';
+import { reindex as reindexAction } from './reindex.mjs';
 import { resolve as resolvePath } from 'node:path';
 
 const NOTICE_PREFIX = 'not yet implemented in v0.1.0';
@@ -65,6 +66,21 @@ function runUninstall(/* options, command */) {
   } else if (result.action === 'no-file') {
     console.log('  (no CLAUDE.md to uninstall from)');
   }
+}
+
+/**
+ * `cmk reindex` — wired in Task 8. Walks the project tier's granular
+ * archive (context/memory/*.md), rebuilds INDEX.md as a pointer index
+ * per design §2.3. The SQLite + FTS5 cache rebuild (--boot / --full
+ * flags) lands in Task 29; for now those flags are declared but no-op.
+ */
+function runReindex(/* options, command */) {
+  const projectRoot = resolvePath(process.cwd());
+  const result = reindexAction({ tier: 'P', projectRoot });
+  console.log(
+    `cmk reindex: tier=${result.tier} facts=${result.factCount} bytes=${result.bytes} (${result.indexPath})`,
+  );
+  // reindex() already emits warnings to stderr via its `warn` callback default.
 }
 
 /** Helper: build a stub action that prints the standard notice + exits 0. */
@@ -143,13 +159,13 @@ export const subcommands = [
   },
   {
     name: 'reindex',
-    description: 'rebuild SQLite + FTS5 cache from markdown sources',
-    milestone: 29,
+    description: 'rebuild the markdown INDEX.md pointer index for the project tier',
+    milestone: 8,
     optionSpec: [
-      { flags: '--boot', description: 'incremental — re-index only changed files (default)' },
-      { flags: '--full', description: 'drop the cache and rebuild from scratch' },
+      { flags: '--boot', description: 'incremental — re-index only changed files (Task 29; ignored for now)' },
+      { flags: '--full', description: 'drop the cache and rebuild from scratch (Task 29; ignored for now)' },
     ],
-    action: stub('reindex', 29),
+    action: runReindex,
   },
   {
     name: 'doctor',
