@@ -1,0 +1,459 @@
+// Tests for Task 10 — Consolidation / merge semantics (T-009).
+// Per tasks.md 10.5:
+//   - Test merging A + B with body "X. Y." produces C with id = generateId(canonical("x. y."))
+//   - Test C's frontmatter contains merged_from: [idA, idB] (order preserved)
+//   - Test A.md and B.md moved to archive/superseded/ with superseded_by: <C.id>
+//   - Test resolveFact(idA) returns A's body + supersededBy: <C.id> (the mk_get annotation
+//     is the MCP layer's job — Task 31 wraps this structured response into the
+//     human-readable "merged_into" string)
+//   - Test 3-way merge: mergeFacts(mergeFacts(A, B), C) produces final id =
+//     generateId(canonical(combined_body)); merged_from traces direct parents
+//
+// Boundary-test discipline:
+//   - Test the mergeFacts() PUBLIC contract — new fact at expected path with
+//     correct frontmatter; originals moved with superseded_by; resolveFact
+//     finds superseded facts; transitive merge composes correctly.
+//   - Do NOT test internal helpers.
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import {
+  mkdtempSync,
+  rmSync,
+  existsSync,
+  readFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { mergeFacts } from '../packages/cli/src/merge-facts.mjs';
+import { writeFact } from '../packages/cli/src/write-fact.mjs';
+import { resolveFact } from '../packages/cli/src/forget.mjs';
+import { generateId, canonicalize } from '../packages/canonicalize/src/index.mjs';
+
+function validFactOpts(overrides = {}) {
+  return {
+    tier: 'P',
+    type: 'feedback',
+    slug: 'sample',
+    title: 'Sample fact',
+    body: 'Some text content for the fact.',
+    writeSource: 'user-explicit',
+    trust: 'high',
+    sourceFile: 'context/transcripts/2026-05-24.md',
+    sourceLine: 1,
+    sourceSha1: 'deadbeef0123456789abcdef0123456789abcdef',
+    ...overrides,
+  };
+}
+
+function validMergeOpts(idA, idB, overrides = {}) {
+  return {
+    idA,
+    idB,
+    mergedBody: 'merged body content',
+    mergedTitle: 'Merged title',
+    mergedSlug: 'merged_slug',
+    writeSource: 'user-explicit',
+    trust: 'high',
+    sourceFile: 'context/transcripts/2026-05-24.md',
+    sourceLine: 99,
+    sourceSha1: 'feedface0123456789abcdef0123456789abcdef',
+    ...overrides,
+  };
+}
+
+function parseFrontmatter(filePath) {
+  const text = readFileSync(filePath, 'utf8');
+  const m = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  if (!m) return { frontmatter: null, body: text };
+  const fm = {};
+  for (const line of m[1].split('\n')) {
+    if (!line.trim()) continue;
+    const idx = line.indexOf(':');
+    if (idx === -1) continue;
+    fm[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
+  }
+  return { frontmatter: fm, body: m[2] };
+}
+
+describe('Task 10 — mergeFacts() boundary', () => {
+  let sandbox;
+  let projectRoot;
+
+  beforeEach(() => {
+    sandbox = mkdtempSync(join(tmpdir(), 'cmk-merge-test-'));
+    projectRoot = join(sandbox, 'proj');
+  });
+
+  afterEach(() => {
+    rmSync(sandbox, { recursive: true, force: true });
+  });
+
+  describe('happy path — merge A + B → C', () => {
+    it('produces C at <tier>/memory/<type>_<slug>.md with action: "merged"', () => {
+      const wA = writeFact(validFactOpts({ projectRoot, slug: 'a', body: 'Body A.' }));
+      const wB = writeFact(validFactOpts({ projectRoot, slug: 'b', body: 'Body B.' }));
+      const r = mergeFacts(
+        validMergeOpts(wA.id, wB.id, {
+          projectRoot,
+          mergedBody: 'X. Y.',
+          mergedSlug: 'combined',
+        }),
+      );
+      expect(r.action).toBe('merged');
+      expect(r.path).toBe(
+        join(projectRoot, 'context', 'memory', 'feedback_combined.md'),
+      );
+      expect(existsSync(r.path)).toBe(true);
+    });
+
+    it('C.id = generateId(tier, canonicalize(merged_body))', () => {
+      const wA = writeFact(validFactOpts({ projectRoot, slug: 'a' }));
+      const wB = writeFact(validFactOpts({ projectRoot, slug: 'b', body: 'different body' }));
+      const r = mergeFacts(
+        validMergeOpts(wA.id, wB.id, {
+          projectRoot,
+          mergedBody: 'X. Y.',
+        }),
+      );
+      expect(r.id).toBe(generateId('P', 'X. Y.'));
+      // Sanity: canonical form of merged body matches what generateId sees
+      expect(canonicalize('X. Y.')).toBe(canonicalize(r.frontmatter ? '' : 'X. Y.'));
+    });
+
+    it("C's frontmatter contains merged_from: [idA, idB] in argument order", () => {
+      const wA = writeFact(validFactOpts({ projectRoot, slug: 'a' }));
+      const wB = writeFact(validFactOpts({ projectRoot, slug: 'b', body: 'B body' }));
+      const r = mergeFacts(
+        validMergeOpts(wA.id, wB.id, { projectRoot, mergedBody: 'combined body' }),
+      );
+      const text = readFileSync(r.path, 'utf8');
+      expect(text).toMatch(
+        new RegExp(`merged_from:\\s*\\[\\s*${wA.id}\\s*,\\s*${wB.id}\\s*\\]`),
+      );
+    });
+
+    it("merged_from order reflects argument order even with swapped ids", () => {
+      const wA = writeFact(validFactOpts({ projectRoot, slug: 'a' }));
+      const wB = writeFact(validFactOpts({ projectRoot, slug: 'b', body: 'B body' }));
+      const r = mergeFacts(
+        validMergeOpts(wB.id, wA.id, { projectRoot, mergedBody: 'combined' }),
+      );
+      const text = readFileSync(r.path, 'utf8');
+      expect(text).toMatch(
+        new RegExp(`merged_from:\\s*\\[\\s*${wB.id}\\s*,\\s*${wA.id}\\s*\\]`),
+      );
+    });
+  });
+
+  describe('superseding the originals', () => {
+    it('moves A and B to <tier>/memory/archive/superseded/<id>.md and removes the live files', () => {
+      const wA = writeFact(validFactOpts({ projectRoot, slug: 'a' }));
+      const wB = writeFact(validFactOpts({ projectRoot, slug: 'b', body: 'B body' }));
+      const r = mergeFacts(
+        validMergeOpts(wA.id, wB.id, { projectRoot, mergedBody: 'combined' }),
+      );
+      expect(r.supersededPaths).toHaveLength(2);
+      const supersededA = join(
+        projectRoot,
+        'context',
+        'memory',
+        'archive',
+        'superseded',
+        `${wA.id}.md`,
+      );
+      const supersededB = join(
+        projectRoot,
+        'context',
+        'memory',
+        'archive',
+        'superseded',
+        `${wB.id}.md`,
+      );
+      expect(existsSync(supersededA)).toBe(true);
+      expect(existsSync(supersededB)).toBe(true);
+      expect(existsSync(wA.path)).toBe(false);
+      expect(existsSync(wB.path)).toBe(false);
+      expect(r.supersededPaths).toEqual(
+        expect.arrayContaining([supersededA, supersededB]),
+      );
+    });
+
+    it('superseded files have superseded_by: <C.id> in their frontmatter', () => {
+      const wA = writeFact(validFactOpts({ projectRoot, slug: 'a' }));
+      const wB = writeFact(validFactOpts({ projectRoot, slug: 'b', body: 'B body' }));
+      const r = mergeFacts(
+        validMergeOpts(wA.id, wB.id, { projectRoot, mergedBody: 'merged content' }),
+      );
+      const supersededA = join(
+        projectRoot,
+        'context',
+        'memory',
+        'archive',
+        'superseded',
+        `${wA.id}.md`,
+      );
+      const fmA = parseFrontmatter(supersededA).frontmatter;
+      const fmB = parseFrontmatter(
+        join(
+          projectRoot,
+          'context',
+          'memory',
+          'archive',
+          'superseded',
+          `${wB.id}.md`,
+        ),
+      ).frontmatter;
+      expect(fmA.superseded_by).toBe(r.id);
+      expect(fmB.superseded_by).toBe(r.id);
+      // Original frontmatter preserved
+      expect(fmA.id).toBe(wA.id);
+      expect(fmA.title).toBe('Sample fact');
+    });
+
+    it('original bodies preserved verbatim in the superseded files', () => {
+      const wA = writeFact(
+        validFactOpts({ projectRoot, slug: 'a', body: 'unique-marker-alpha' }),
+      );
+      const wB = writeFact(
+        validFactOpts({ projectRoot, slug: 'b', body: 'unique-marker-beta' }),
+      );
+      mergeFacts(
+        validMergeOpts(wA.id, wB.id, { projectRoot, mergedBody: 'merged' }),
+      );
+      const textA = readFileSync(
+        join(
+          projectRoot,
+          'context',
+          'memory',
+          'archive',
+          'superseded',
+          `${wA.id}.md`,
+        ),
+        'utf8',
+      );
+      const textB = readFileSync(
+        join(
+          projectRoot,
+          'context',
+          'memory',
+          'archive',
+          'superseded',
+          `${wB.id}.md`,
+        ),
+        'utf8',
+      );
+      expect(textA).toContain('unique-marker-alpha');
+      expect(textB).toContain('unique-marker-beta');
+    });
+
+    it('audit log records the merge with action: "merged"', () => {
+      const wA = writeFact(validFactOpts({ projectRoot, slug: 'a' }));
+      const wB = writeFact(validFactOpts({ projectRoot, slug: 'b', body: 'B body' }));
+      const r = mergeFacts(
+        validMergeOpts(wA.id, wB.id, { projectRoot, mergedBody: 'merged' }),
+      );
+      const auditPath = join(projectRoot, 'context', '.locks', 'audit.log');
+      expect(existsSync(auditPath)).toBe(true);
+      const entries = readFileSync(auditPath, 'utf8')
+        .split('\n')
+        .filter((l) => l.trim())
+        .map((l) => JSON.parse(l));
+      const merge = entries.find((e) => e.action === 'merged');
+      expect(merge).toBeDefined();
+      expect(merge.id).toBe(r.id);
+      expect(merge.mergedFrom).toEqual([wA.id, wB.id]);
+    });
+  });
+
+  describe('resolveFact() on superseded ids — old IDs never die', () => {
+    it('resolveFact(idA) returns state: "superseded" with A body + supersededBy: <C.id>', () => {
+      const wA = writeFact(
+        validFactOpts({ projectRoot, slug: 'a', body: 'precious-original-A-body' }),
+      );
+      const wB = writeFact(
+        validFactOpts({ projectRoot, slug: 'b', body: 'B body' }),
+      );
+      const r = mergeFacts(
+        validMergeOpts(wA.id, wB.id, { projectRoot, mergedBody: 'consolidated' }),
+      );
+
+      const rA = resolveFact({ id: wA.id, projectRoot });
+      expect(rA.state).toBe('superseded');
+      expect(rA.body).toContain('precious-original-A-body');
+      expect(rA.supersededBy).toBe(r.id);
+      expect(rA.frontmatter.id).toBe(wA.id);
+    });
+
+    it('resolveFact(idB) also resolves to "superseded" with supersededBy: <C.id>', () => {
+      const wA = writeFact(validFactOpts({ projectRoot, slug: 'a' }));
+      const wB = writeFact(
+        validFactOpts({ projectRoot, slug: 'b', body: 'precious-B' }),
+      );
+      const r = mergeFacts(
+        validMergeOpts(wA.id, wB.id, { projectRoot, mergedBody: 'merged' }),
+      );
+
+      const rB = resolveFact({ id: wB.id, projectRoot });
+      expect(rB.state).toBe('superseded');
+      expect(rB.body).toContain('precious-B');
+      expect(rB.supersededBy).toBe(r.id);
+    });
+
+    it('resolveFact(C.id) returns state: "live" — C is the new canonical fact', () => {
+      const wA = writeFact(validFactOpts({ projectRoot, slug: 'a' }));
+      const wB = writeFact(validFactOpts({ projectRoot, slug: 'b', body: 'B' }));
+      const r = mergeFacts(
+        validMergeOpts(wA.id, wB.id, { projectRoot, mergedBody: 'live now' }),
+      );
+      const rC = resolveFact({ id: r.id, projectRoot });
+      expect(rC.state).toBe('live');
+      expect(rC.body).toContain('live now');
+    });
+  });
+
+  describe('3-way (chained) merge', () => {
+    it('mergeFacts(mergeFacts(A, B), C) → final, merged_from = [C1.id, C.id], id = generateId(canonical(final_body))', () => {
+      const wA = writeFact(
+        validFactOpts({ projectRoot, slug: 'a', body: 'alpha sentence.' }),
+      );
+      const wB = writeFact(
+        validFactOpts({ projectRoot, slug: 'b', body: 'beta sentence.' }),
+      );
+      const wC = writeFact(
+        validFactOpts({ projectRoot, slug: 'c', body: 'gamma sentence.' }),
+      );
+
+      // First merge: A + B → C1 with body "x. y."
+      const c1 = mergeFacts(
+        validMergeOpts(wA.id, wB.id, {
+          projectRoot,
+          mergedBody: 'x. y.',
+          mergedSlug: 'ab_merge',
+        }),
+      );
+      expect(c1.id).toBe(generateId('P', 'x. y.'));
+
+      // Second merge: C1 + C (the external fact) → final with body "x. y. z."
+      const finalR = mergeFacts(
+        validMergeOpts(c1.id, wC.id, {
+          projectRoot,
+          mergedBody: 'x. y. z.',
+          mergedSlug: 'final_merge',
+        }),
+      );
+
+      expect(finalR.action).toBe('merged');
+      expect(finalR.id).toBe(generateId('P', 'x. y. z.'));
+
+      // merged_from in the final file should be the direct parents [C1, wC]
+      const finalText = readFileSync(finalR.path, 'utf8');
+      expect(finalText).toMatch(
+        new RegExp(`merged_from:\\s*\\[\\s*${c1.id}\\s*,\\s*${wC.id}\\s*\\]`),
+      );
+
+      // Original A and B still resolve via supersededBy: c1.id
+      const rA = resolveFact({ id: wA.id, projectRoot });
+      expect(rA.state).toBe('superseded');
+      expect(rA.supersededBy).toBe(c1.id);
+
+      // C1 itself now resolves as superseded by finalR.id
+      const rC1 = resolveFact({ id: c1.id, projectRoot });
+      expect(rC1.state).toBe('superseded');
+      expect(rC1.supersededBy).toBe(finalR.id);
+
+      // wC also resolves as superseded by finalR.id
+      const rC = resolveFact({ id: wC.id, projectRoot });
+      expect(rC.state).toBe('superseded');
+      expect(rC.supersededBy).toBe(finalR.id);
+    });
+  });
+
+  describe('error cases', () => {
+    it('idA not found → action: "not-found"', () => {
+      const wB = writeFact(validFactOpts({ projectRoot, slug: 'b' }));
+      // Valid-format ID (all chars in the kit's custom base32 alphabet) that
+      // doesn't resolve to any live fact — exercises the not-found path, not
+      // schema validation.
+      const r = mergeFacts(
+        validMergeOpts('P-MSSNGGG2', wB.id, {
+          projectRoot,
+          mergedBody: 'merged',
+        }),
+      );
+      expect(r.action).toBe('not-found');
+      expect(r.errors.join(' ')).toContain('P-MSSNGGG2');
+      // wB untouched
+      expect(existsSync(wB.path)).toBe(true);
+    });
+
+    it('idB not found → action: "not-found"', () => {
+      const wA = writeFact(validFactOpts({ projectRoot, slug: 'a' }));
+      const r = mergeFacts(
+        validMergeOpts(wA.id, 'P-NPHFRNM2', {
+          projectRoot,
+          mergedBody: 'merged',
+        }),
+      );
+      expect(r.action).toBe('not-found');
+      expect(existsSync(wA.path)).toBe(true);
+    });
+
+    it('idA malformed (chars outside the kit alphabet) → schema error', () => {
+      const wB = writeFact(validFactOpts({ projectRoot, slug: 'b' }));
+      const r = mergeFacts(
+        validMergeOpts('P-MISSING2', wB.id, {
+          projectRoot,
+          mergedBody: 'merged',
+        }),
+      );
+      expect(r.action).toBe('error');
+      expect(r.errorCategory).toBe('schema');
+      expect(r.errors.join(' ')).toMatch(/idA|citation ID/i);
+      expect(existsSync(wB.path)).toBe(true);
+    });
+
+    it('cross-tier merge (idA tier ≠ idB tier) → action: "error"', () => {
+      const wA = writeFact(validFactOpts({ projectRoot, slug: 'a' }));
+      const userDir = join(sandbox, 'user-tier');
+      const wU = writeFact(validFactOpts({ tier: 'U', userDir, slug: 'u' }));
+      const r = mergeFacts(
+        validMergeOpts(wA.id, wU.id, {
+          projectRoot,
+          userDir,
+          mergedBody: 'cross-tier',
+        }),
+      );
+      expect(r.action).toBe('error');
+      expect(r.errors.join(' ')).toMatch(/tier/i);
+      // both files untouched
+      expect(existsSync(wA.path)).toBe(true);
+      expect(existsSync(wU.path)).toBe(true);
+    });
+
+    it('idA == idB → action: "error"', () => {
+      const wA = writeFact(validFactOpts({ projectRoot, slug: 'a' }));
+      const r = mergeFacts(
+        validMergeOpts(wA.id, wA.id, {
+          projectRoot,
+          mergedBody: 'merged',
+        }),
+      );
+      expect(r.action).toBe('error');
+      expect(r.errors.join(' ')).toMatch(/same|identical/i);
+      expect(existsSync(wA.path)).toBe(true);
+    });
+
+    it('missing mergedBody → action: "error" with schema category', () => {
+      const wA = writeFact(validFactOpts({ projectRoot, slug: 'a' }));
+      const wB = writeFact(validFactOpts({ projectRoot, slug: 'b', body: 'B' }));
+      const opts = validMergeOpts(wA.id, wB.id, { projectRoot });
+      delete opts.mergedBody;
+      const r = mergeFacts(opts);
+      expect(r.action).toBe('error');
+      expect(r.errorCategory).toBe('schema');
+      // Both still alive
+      expect(existsSync(wA.path)).toBe(true);
+      expect(existsSync(wB.path)).toBe(true);
+    });
+  });
+});
