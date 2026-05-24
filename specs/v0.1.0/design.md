@@ -41,8 +41,8 @@ The design assumes [`requirements-revisions-proposed.md`](requirements-revisions
                                  │
 ┌────────────────────────────────▼────────────────────────────────────┐
 │  LOCAL TIER  <repo>/context.local/                                   │
-│  • machine-paths.md  absolute paths for this machine (1,000 cap)     │
-│  • overrides.md      machine-specific overrides (1,000 cap)          │
+│  • machine-paths.md  absolute paths for this machine (1,500 cap)     │
+│  • overrides.md      machine-specific overrides (1,500 cap)          │
 │  Loaded with HIGHEST priority (most-specific wins).                  │
 │  Automatically added to .gitignore at install time.                  │
 └────────────────────────────────┬────────────────────────────────────┘

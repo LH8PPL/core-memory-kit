@@ -54,6 +54,21 @@ export const DEFAULT_SCRATCHPAD_CAPS = Object.freeze({
   'USER.md': 1375, // Hermes-verified
   'HABITS.md': 1800,
   'LESSONS.md': 1800,
-  'machine-paths.md': 1000,
-  'overrides.md': 1000,
+  'machine-paths.md': 1500,
+  'overrides.md': 1500,
+});
+
+// Canonical 3 fixed sections per scratchpad (Task 14 / design §2.1). Each seed
+// template MUST emit exactly these `## <section>` headings; appendScratchpadBullet
+// callers MUST pass one of these exact section names. The test in
+// tests/cli-seed-templates.test.js asserts that every shipped seed contains
+// all 3 documented sections.
+export const SCRATCHPAD_DOCUMENTED_SECTIONS = Object.freeze({
+  'SOUL.md': ['Tone and Disposition', 'Operating Defaults', 'Boundary Rules'],
+  'MEMORY.md': ['Active Threads', 'Environment Notes', 'Pending Decisions'],
+  'USER.md': ['About', 'Preferences', 'Working Style'],
+  'HABITS.md': ['Iteration Cadence', 'Destructive Operations', 'Communication Style'],
+  'LESSONS.md': ['Tooling Lessons', 'Process Lessons', 'Anti-patterns'],
+  'machine-paths.md': ['Tool Paths', 'Project Paths', 'Misc Paths'],
+  'overrides.md': ['Tool Overrides', 'Behavior Overrides', 'Path Overrides'],
 });

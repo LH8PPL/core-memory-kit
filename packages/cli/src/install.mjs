@@ -297,3 +297,31 @@ export async function install(options = {}) {
 
   return { projectRoot, userTier, created, skipped, gitignore, claudeMd, errors };
 }
+
+/**
+ * `cmk init-user-tier` — user-tier-only install. Task 14.
+ *
+ * Scaffolds the user-tier seeds (USER.md, HABITS.md, LESSONS.md, fragments/)
+ * at the resolved user-tier path. Does NOT touch project tier, local tier,
+ * .gitignore, or CLAUDE.md. Useful when:
+ *   - A user wants to set up user-tier independently of any project install
+ *   - A user wants to refresh user-tier seeds without re-running `cmk install`
+ *     (which would also re-evaluate project tier + CLAUDE.md block)
+ *
+ * Path precedence (same as install()): explicit option > $MEMORY_KIT_USER_DIR
+ * > ~/.claude-memory-kit/. Re-runs are idempotent — existing files are
+ * skipped, not overwritten.
+ *
+ * Returns {userTier, created, skipped, errors}.
+ */
+export function initUserTier(options = {}) {
+  const userTier = options.userTier
+    ? resolve(options.userTier)
+    : resolveUserTier();
+  const templateDir = resolveTemplateDir();
+  const created = [];
+  const skipped = [];
+  const errors = [];
+  installTier(join(templateDir, 'user'), userTier, { created, skipped, errors });
+  return { userTier, created, skipped, errors };
+}

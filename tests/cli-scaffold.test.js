@@ -58,7 +58,7 @@ function runCmk(args, { input } = {}) {
  *               --yes anyway and we don't want to maintain an "error-exits-2"
  *               leaf in the scaffold's exit-0 loop
  */
-const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex', 'forget']);
+const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex', 'forget', 'init-user-tier']);
 
 describe('Task 2 — cmk CLI scaffold', () => {
   describe('Package layout', () => {

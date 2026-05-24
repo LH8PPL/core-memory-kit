@@ -1,33 +1,36 @@
+<!-- Cap: 1500 chars · Last distilled: {{TODAY}} · Last health check: {{TODAY}} -->
+
 <!--
-Cap: 1000 chars (per design §1.1 local-tier budget).
-File: <repo>/context.local/overrides.md (gitignored — never committed).
-Last updated: {{TODAY}}.
+overrides.md = machine-specific overrides of preferences declared elsewhere.
+Local tier (gitignored). Highest precedence in the 3-tier model.
+3 fixed sections per design §2.1.
 
-Purpose: machine-specific OVERRIDES of preferences declared elsewhere.
-When the user has different defaults on this machine vs. their normal
-setup (different editor, different shell, different tool preference),
-record them here. Highest precedence in the 3-tier model.
+Bullet+provenance format (universal — see provenance.mjs):
+  - (L-XXXXXXXX) the bullet text on one line
+    <!-- source, source_line, sha1, write, trust, at -->
 
-Use `cmk config --show-origin <key>` to see which tier a setting came from.
+Auto-populated by `cmk persona generate` (Task N, design §16.16); empty is fine.
 -->
 
 # Machine-specific overrides (local tier)
 
-## Tool overrides
+## Tool Overrides
 
-<!--
-Examples:
-- preferred-editor: neovim (instead of vscode from SOUL.md — this machine has no graphical UI)
-- shell: pwsh (instead of bash — Windows laptop)
-- python: /opt/python-3.13/bin/python (instead of system python)
--->
+<!-- Editor/shell/tool overrides for this machine. -->
 
-## Behavior overrides
+- (L-AUT6CX47) (example) editor: code --wait
+  <!-- source: overrides.md, source_line: 20, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
-<!--
-Examples:
-- never run docker on this machine (low RAM)
-- assume offline (this machine is air-gapped)
--->
+## Behavior Overrides
 
-- (Add machine-specific overrides here. Remove this placeholder when first edited.)
+<!-- Behavior changes for this machine (offline mode, rate limits, etc.). -->
+
+- (L-2QZJRZLT) (example) offline mode: true
+  <!-- source: overrides.md, source_line: 27, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
+
+## Path Overrides
+
+<!-- Path overrides for this machine. -->
+
+- (L-YRDULPLW) (example) workspace root: ~/Projects
+  <!-- source: overrides.md, source_line: 34, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->

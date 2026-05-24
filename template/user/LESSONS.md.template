@@ -1,42 +1,39 @@
+<!-- Cap: 1800 chars · Last distilled: {{TODAY}} · Last health check: {{TODAY}} -->
+
 <!--
-Cap: 1800 chars (per design §1.1 user-tier budget — new in v0.1).
+LESSONS.md is for CROSS-PROJECT lessons the user has learned the hard way.
+Project-specific lessons live in <repo>/context/MEMORY.md; this file is for
+things that transfer across every project the user works in.
 File: ~/.claude-memory-kit/LESSONS.md  (or $MEMORY_KIT_USER_DIR/LESSONS.md).
-Last updated: {{TODAY}}.
+Promote a project-level lesson via `cmk lessons promote <id>`.
+3 fixed sections per design §2.1.
 
-Purpose: cross-project LESSONS the user has learned the hard way.
-Project-specific lessons live in <repo>/context/MEMORY.md; this file is
-for things that transfer across every project the user works in.
+Bullet+provenance format:
+- (U-XXXXXXXX) the bullet text · <!-- source, source_line, sha1, write, trust, at -->
 
-Promote a project-level lesson to this file via `cmk lessons promote <id>`.
+Auto-populated by `cmk persona generate` (Task N, design §16.16) once ~50 facts
+captured. Until then: keep the seed bullets, edit them, or leave blank.
 -->
 
 # Lessons (cross-project)
 
-## Tooling lessons
+## Tooling Lessons
 
-<!--
-Things learned about tools that apply everywhere. Examples:
-- `git reset --hard` is fast and irreversible — always create a backup branch first.
-- Vitest >>> Jest for new Node projects: ESM-native, faster, less config.
-- For Anthropic API: stream by default — non-stream blocks the event loop for long generations.
--->
+<!-- Things learned about tools that apply across projects. -->
 
-## Process lessons
+- (U-RDBNQSL7) fix the code, not the test
+  <!-- source: LESSONS.md, source_line: 22, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
-<!--
-Things learned about workflow. Examples:
-- When a session runs > 1 hour without a commit, something has gone wrong.
-- "I'll factor it out later" almost always means "this will be wrong forever".
-- Reading the actual code beats reading the docs about the code.
--->
+## Process Lessons
 
-## Anti-patterns (what NOT to do)
+<!-- Things learned about workflow / collaboration / pacing. -->
 
-<!--
-Failure modes the user has been burned by. Examples:
-- Don't refactor and add features in the same PR. Reviewer can't tell what changed.
-- Don't `pip install` from inside a session without explicit user OK.
-- Don't write fallback code for cases that can't actually happen.
--->
+- (U-APHTKHMQ) correlation is not causation; measured profiling beats educated guessing
+  <!-- source: LESSONS.md, source_line: 29, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
-- (Replace placeholders with actual lessons as they're learned.)
+## Anti-patterns
+
+<!-- Failure modes the user has been burned by. -->
+
+- (U-U5RM2FXH) premature abstraction outlives the requirement that motivated it
+  <!-- source: LESSONS.md, source_line: 36, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
