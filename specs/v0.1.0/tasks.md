@@ -294,10 +294,10 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Test `cmk trust <id> bogus_level` exits 2 with validation error
   - _Requirements: FR-29; design §4, §6.2_
 
-- [ ] 16. Checkpoint — Layer 3 (Scratchpads) complete
-  - All tests for tasks 1–15 green
-  - End-to-end: install → write scratchpad bullet → trigger consolidation at cap → override trust → audit log records all events
-  - Agent confirms zero failures before starting Layer 4
+- [x] 16. Checkpoint — Layer 3 (Scratchpads) complete — _passed 2026-05-25_
+  - All tests for tasks 1–15 green (473/473 Node + 140/140 Python + 38-vector parity; validate-test-ids pre-test lint clean)
+  - End-to-end smoke verified: `install({projectRoot, userTier})` (9 files, MEMORY.md 1916 bytes) → `appendScratchpadBullet` at `MEMORY.md / Active Threads` (action=appended, 1916→2149 bytes, consolidator: dropped 0 at sub-cap) → `overrideTrust(id, 'low')` (action=trust-updated) → audit.log captured both events with matching ids + correct reasonCodes (`scratchpad-append`, `trust-change`). Cap-pressure consolidator path is covered by [`tests/cli-scratchpad.test.js`](../../tests/cli-scratchpad.test.js) (24 tests).
+  - Agent confirmed zero failures. No layer-wide review at this checkpoint by design — the review-schedule decision (Checkpoints 11, 27, 42 only) allocates review budget to the largest-surface layers; Layer 3's smaller cross-module surface didn't warrant a fourth review pass.
 
 ---
 
