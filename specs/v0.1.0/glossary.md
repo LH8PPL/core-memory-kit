@@ -118,7 +118,9 @@ Cross-refs: [[INDEX]]. Spec: design §2.3.
 
 The metadata immediately attached to every observation: `id`, `source_file`, `source_line`, `source_sha1`, `write_source`, `trust`, `created_at`, plus optional `merged_from` / `superseded_by` / `deleted_at` / `private`. Stored as YAML in [[Fact file]]s and as inline HTML comment in [[Scratchpad]]s.
 
-Cross-refs: [[Citation ID]], [[Trust]], [[Write source]]. Spec: FR-29; design §4.
+**Canonical reader/writer**: all reads and writes go through [`packages/cli/src/frontmatter.mjs`](../../packages/cli/src/frontmatter.mjs) — the single js-yaml–backed `serialize`/`parse` pair. Don't roll your own parser; values containing `\n` / `:` / `"` round-trip correctly only via this module. See design §4 + CLAUDE.md "Shared modules" rule.
+
+Cross-refs: [[Citation ID]], [[Trust]], [[Write source]], [[Audit log]]. Spec: FR-29; design §4.
 
 ### Type taxonomy
 
@@ -285,6 +287,26 @@ Cross-refs: [[Superseded]], [[Citation ID]]. Spec: design §3.4.
 The append-only log at `context/.locks/shadowed_by.log` capturing every event where the [[Precedence model]] picked one tier's observation over another tier's same-ID observation. Format: NDJSON, one line per shadowing event.
 
 Cross-refs: [[Precedence model]]. Spec: design §7.1.
+
+### Audit log
+
+The append-only NDJSON log at `<tierRoot>/.locks/audit.log` capturing every mutating operation across the kit: `writeFact` skips (duplicate / duplicate-elsewhere), `forget` tombstones, `mergeFacts` merges, and (Layer 4+) `memory-write` and trust overrides. Canonical schema v1: `{ts, schema: 1, action, tier, id, reasonCode, reasonText?, paths: {before?, after?, archive?}, extra?}`.
+
+**Canonical writer**: all writers use `appendAuditEntry(tierRoot, entry)` from [`packages/cli/src/audit-log.mjs`](../../packages/cli/src/audit-log.mjs). Don't append directly. Schema-version field defends against future migrations.
+
+Cross-refs: [[Result shape]], [[Tombstone]], [[Merge]]. Spec: design §6.1 + §1.3.
+
+### Result shape
+
+The canonical return-shape contract for every cmk public boundary. Write-side boundaries return:
+
+- **`{action, id, path, ...extras}`** on success, where `action ∈ {created, skipped, tombstoned, merged, cancelled}`
+- **`{action: 'error', errorCategory, errors, ...}`** on validation/runtime failure
+- **`{action: 'not-found', errors}`** on lookup failure
+
+Where `errorCategory ∈ {schema, collision, not-found, concurrent_run}` — defined in [`packages/cli/src/result-shapes.mjs`](../../packages/cli/src/result-shapes.mjs). Read-side boundaries (`resolveFact`) use a `state` field (`{live, tombstoned, superseded, not-found}`) instead of `action`.
+
+Cross-refs: [[Audit log]]. Spec: design §1.3.
 
 ---
 

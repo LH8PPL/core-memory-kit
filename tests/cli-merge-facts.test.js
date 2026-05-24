@@ -61,18 +61,10 @@ function validMergeOpts(idA, idB, overrides = {}) {
   };
 }
 
+import { parse as parseFrontmatterText } from '../packages/cli/src/frontmatter.mjs';
+
 function parseFrontmatter(filePath) {
-  const text = readFileSync(filePath, 'utf8');
-  const m = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
-  if (!m) return { frontmatter: null, body: text };
-  const fm = {};
-  for (const line of m[1].split('\n')) {
-    if (!line.trim()) continue;
-    const idx = line.indexOf(':');
-    if (idx === -1) continue;
-    fm[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
-  }
-  return { frontmatter: fm, body: m[2] };
+  return parseFrontmatterText(readFileSync(filePath, 'utf8'));
 }
 
 describe('Task 10 — mergeFacts() boundary', () => {
@@ -261,7 +253,15 @@ describe('Task 10 — mergeFacts() boundary', () => {
       const merge = entries.find((e) => e.action === 'merged');
       expect(merge).toBeDefined();
       expect(merge.id).toBe(r.id);
-      expect(merge.mergedFrom).toEqual([wA.id, wB.id]);
+      // Post-PR-2 canonical audit-log schema (per Layer-2 review I4):
+      //   reasonCode = 'curated-merge'; mergedFrom moves to `extra`;
+      //   paths.after = new fact path; paths.archive = [supersededA, supersededB]
+      expect(merge.schema).toBe(1);
+      expect(merge.tier).toBe('P');
+      expect(merge.reasonCode).toBe('curated-merge');
+      expect(merge.paths.after).toBe(r.path);
+      expect(merge.paths.archive).toEqual(r.supersededPaths);
+      expect(merge.extra.mergedFrom).toEqual([wA.id, wB.id]);
     });
   });
 

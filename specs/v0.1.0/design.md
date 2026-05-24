@@ -103,6 +103,8 @@ The design assumes [`requirements-revisions-proposed.md`](requirements-revisions
 
 Each layer is replaceable. Layer 1-3 is pure file ops. Layer 4 is what makes memory automatic. Layer 5-6 are optional power features.
 
+**Implementation convention**: each tier's operations are exposed via single-export modules in [`packages/cli/src/`](../../packages/cli/src/) (one boundary per task — `writeFact`, `reindex`, `forget`, `mergeFacts`, etc.). Internal helpers shared across those modules live in `packages/cli/src/{tier-paths,audit-log,frontmatter,result-shapes}.mjs`. This split is **implementation detail; not part of the public user-facing surface**, but future task modules MUST import from the shared helpers rather than reimplement path resolution, YAML parsing, audit-logging, or result-shape conventions. See [`CLAUDE.md`](../../CLAUDE.md) "Shared modules" rule. Established post-Checkpoint-11 after the Layer-2 code-review pass surfaced cross-task drift (extracted 2026-05-24).
+
 ### 1.4 Data flow
 
 **At session start** (one-time per session):
@@ -408,6 +410,8 @@ When the weekly curator merges bullets `A` (`#P-AAAAAAAA`) and `B` (`#P-BBBBBBBB
 
 This mirrors DOI deprecation: old IDs never die; they point to the new one.
 
+**Note on transitivity**: `merged_from` records only direct parents. A chain — A+B → C₁; C₁+D → C₂ — gives `C₂.merged_from = [C₁, D]`, not `[A, B, D]`. The full lineage is walkable via successive `resolveFact()` calls. Decided this way for storage simplicity; a flat-transitive list can be derived on demand if a tool needs it.
+
 ### 3.5 Why this scheme
 
 - **Natural dedup**: identical text → identical ID. Re-capturing the same fact produces no duplicate.
@@ -439,6 +443,8 @@ Optional fields: `merged_from` (for consolidation), `superseded_by` (when replac
 **Trust default** by `write_source`: `user-explicit` and `manual-edit` → `high`; `auto-extract` and `imported` → `medium`; `compressor` → `low`. Manual override via `cmk trust <id> <high|medium|low>`.
 
 **Placement**: HTML comment immediately below each bullet (comments are stripped from Claude's context per verified Anthropic docs, so metadata is invisible to model, visible to humans/tools).
+
+**Canonical serializer/parser**: all reads and writes of this frontmatter (per-fact YAML AND per-bullet HTML-comment provenance, once Layer 3 lands) MUST go through [`packages/cli/src/frontmatter.mjs`](../../packages/cli/src/frontmatter.mjs) — the single js-yaml–backed `serialize`/`parse` pair. Pre-PR-2 each module had its own naive parser; values with `\n` / `:` silently corrupted. Don't roll your own. See §1.3 + [`CLAUDE.md`](../../CLAUDE.md) "Shared modules" rule.
 
 **Implements**: FR-29, T8.
 
@@ -543,7 +549,7 @@ claude --print \
 | Log file | What gets written | One-line schema (NDJSON) |
 | --- | --- | --- |
 | `context/sessions/{date}.extract.log` | Auto-extract invocations | `{ts, success, error_category, observation_count, skipped_reason, duration_ms}` |
-| `context/sessions/{date}.audit.log` | Memory writes (add/replace/remove/tombstone) by skill or CLI | `{ts, actor, action, id, tier, write_source, trust}` |
+| `context/.locks/audit.log` | Memory writes (add/replace/remove/tombstone/merge) by skill or CLI | canonical schema v1 — see [`packages/cli/src/audit-log.mjs`](../../packages/cli/src/audit-log.mjs) |
 | `context/sessions/{date}.compress.log` | Compression runs (session-end + lazy + daily/weekly) | `{ts, scope, input_bytes, output_bytes, model_id, cost_usd, duration_ms}` |
 | `context/.locks/network-blocks.log` | Any sandbox/network denial during compressor or MCP runs | `{ts, host, port, reason, hook_or_tool}` |
 | `context/.locks/shadowed_by.log` | 3-tier merge shadowing events (§7.1) | `{ts, id, winner_tier, shadowed_tiers[], source_file}` |
@@ -555,6 +561,14 @@ Example auto-extract line:
 ```json
 {"ts":"2026-05-23T14:30:00Z","success":true,"error_category":null,"observation_count":1,"skipped_reason":null,"duration_ms":1842}
 ```
+
+Example audit-log line (canonical schema v1, per [`audit-log.mjs`](../../packages/cli/src/audit-log.mjs)):
+
+```json
+{"ts":"2026-05-24T14:30:00Z","schema":1,"action":"tombstoned","tier":"P","id":"P-A8FN3MQ2","reasonCode":"user-requested","reasonText":"no longer relevant","paths":{"before":"…/feedback_x.md","archive":"…/archive/tombstones/P-A8FN3MQ2.md"},"extra":{"deletedBy":"user-explicit","scratchpadEdits":[{"path":"…/MEMORY.md","removed":1}]}}
+```
+
+All audit-log writes go through `appendAuditEntry(tierRoot, entry)` in [`audit-log.mjs`](../../packages/cli/src/audit-log.mjs) — single canonical writer; do not append to `audit.log` directly. See §1.3 + [`CLAUDE.md`](../../CLAUDE.md) "Shared modules" rule.
 
 ### 6.2 Auto-extract decision: where does the write go?
 
@@ -1315,6 +1329,18 @@ Our kit doesn't orchestrate the agent. We give Claude memory; Anthropic decides 
 A HEARTBEAT-style mechanism would compete with both AND step outside our product boundary. Rejected.
 
 If a future user wants periodic in-session checks, the right tool is Claude Code's own hooks (PreToolUse, PostToolUse, etc.) — not a kit-managed file. The kit shouldn't try to be both a memory system and an agent-task scheduler.
+
+### 16.13 Audit-log rotation
+
+v0.1.x candidate (surfaced by the Layer-2 code-review pass, 2026-05-24). The canonical `<tierRoot>/.locks/audit.log` (see §6.1, [`audit-log.mjs`](../../packages/cli/src/audit-log.mjs)) grows unbounded. For long-lived user-tier installs (which accumulate writes across all projects), this becomes real over months.
+
+Right home: Task 33 (daily-distill cron). Concrete shape:
+
+- Threshold: rotate when `audit.log` size > N MB OR age > M days (configurable, defaults `5 MB / 90 days`)
+- Rotated files: `<tierRoot>/.locks/archive/audit-YYYY-MM-DD.log` (one rotation file per cycle)
+- Schema-version awareness: keep the `schema: 1` field intact so future readers can mix old + new entries
+
+No code change needed in v0.1 itself — the existing writers append; rotation is a separate concern that runs out-of-band. Surface this as a v0.1.x patch once we've actually accumulated enough log entries to make it relevant.
 
 ---
 
