@@ -9,7 +9,7 @@
 //
 // Uses shared modules per CLAUDE.md "Shared modules" rule:
 //   tier-paths.mjs    — VALID_TIERS, ID_PATTERN, SCRATCHPADS_BY_TIER,
-//                       resolveTierRoot, resolveFactDir, resolveScratchpadPath
+//                       resolveTierRoot, resolveFactDir
 //   frontmatter.mjs   — parse + format (for fact-file YAML round-trip)
 //   audit-log.mjs     — appendAuditEntry, nowIso, REASON_CODES.TRUST_CHANGE
 //   result-shapes.mjs — ERROR_CATEGORIES, errorResult, notFoundResult
@@ -28,7 +28,6 @@ import {
   SCRATCHPADS_BY_TIER,
   resolveTierRoot,
   resolveFactDir,
-  resolveScratchpadPath,
 } from './tier-paths.mjs';
 import { parse, format } from './frontmatter.mjs';
 import { readBullet, writeBullet } from './provenance.mjs';
@@ -137,14 +136,6 @@ function listScratchpadsForTier(tier, tierRoot) {
   const allowed = SCRATCHPADS_BY_TIER[tier];
   const out = [];
   for (const scratchpad of allowed) {
-    const path = resolveScratchpadPath({
-      tier,
-      scratchpad,
-      projectRoot: undefined, // resolveScratchpadPath will use the tierRoot via resolveTierRoot
-      userDir: undefined,
-    });
-    // Wait — resolveScratchpadPath needs the original projectRoot/userDir;
-    // it re-calls resolveTierRoot. Simpler: just join here.
     out.push({ name: scratchpad, path: join(tierRoot, scratchpad) });
   }
   return out;
