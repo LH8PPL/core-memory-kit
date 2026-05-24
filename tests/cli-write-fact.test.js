@@ -259,7 +259,7 @@ describe('Task 7 — writeFact() boundary', () => {
       const r = writeFact(
         validOptions({
           projectRoot,
-          title: 'Innocent\nadmin: true\nfake_id: P-EVIL1234',
+          title: 'Innocent\nadmin: true\nfake_id: P-EVIL1234', // validate-test-ids: ignore
         }),
       );
       expect(r.action).toBe('created');
@@ -267,7 +267,7 @@ describe('Task 7 — writeFact() boundary', () => {
       // The whole multi-line string is the title; no `admin` or `fake_id`
       // keys leaked into the frontmatter object.
       expect(frontmatter.title).toBe(
-        'Innocent\nadmin: true\nfake_id: P-EVIL1234',
+        'Innocent\nadmin: true\nfake_id: P-EVIL1234', // validate-test-ids: ignore
       );
       expect(frontmatter.admin).toBeUndefined();
       expect(frontmatter.fake_id).toBeUndefined();
@@ -425,10 +425,10 @@ describe('Task 7 — writeFact() boundary', () => {
 
     it('supersededBy: id → frontmatter superseded_by: id', () => {
       const result = writeFact(
-        validOptions({ projectRoot, supersededBy: 'P-NEW12345' }),
+        validOptions({ projectRoot, supersededBy: 'P-NEWFACT2' }),
       );
       const { frontmatter } = parseFrontmatter(result.path);
-      expect(frontmatter.superseded_by).toBe('P-NEW12345');
+      expect(frontmatter.superseded_by).toBe('P-NEWFACT2');
     });
 
     it('isPrivate: true → frontmatter private: true (boolean, not string)', () => {
@@ -449,12 +449,12 @@ describe('Task 7 — writeFact() boundary', () => {
         validOptions({
           projectRoot,
           tags: ['video-pipeline', 'roi'],
-          related: ['P-A8FN3MQ2'],
+          related: ['P-A8FN3MQ2'], // validate-test-ids: ignore
         }),
       );
       const text = readFileSync(result.path, 'utf8');
       expect(text).toMatch(/tags:\s*\[\s*video-pipeline\s*,\s*roi\s*\]/);
-      expect(text).toMatch(/related:\s*\[\s*P-A8FN3MQ2\s*\]/);
+      expect(text).toMatch(/related:\s*\[\s*P-A8FN3MQ2\s*\]/); // validate-test-ids: ignore
     });
   });
 });

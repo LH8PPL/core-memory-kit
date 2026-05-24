@@ -63,6 +63,8 @@ The user (Lior) is direct and tight on time. Match the energy.
 - Each task produces working, integrated code. No orphaned code.
 - After any sub-task, the codebase should still pass all tests.
 
+**Test fixture IDs must pass `ID_PATTERN`** — enforced via [`scripts/validate-test-ids.mjs`](scripts/validate-test-ids.mjs), wired as a pre-test step in `npm test`. Use only the kit's base32 alphabet (excludes `0`, `O`, `1`, `l`, `I`, `8`) or copy a real id from [`fixtures/canonicalize-vectors.json`](fixtures/canonicalize-vectors.json). For tests that deliberately use a malformed id (e.g. asserting `readBullet` rejects bad input), add `// validate-test-ids: ignore` on the same line.
+
 **Shared modules** (established post-Checkpoint-11, 2026-05-24):
 
 When implementing new task modules under [`packages/cli/src/`](packages/cli/src/), use the shared helpers — don't roll your own:

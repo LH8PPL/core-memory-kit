@@ -357,7 +357,7 @@ describe('Task 15 — overrideTrust() boundary', () => {
     });
 
     it('malformed id (chars outside the kit alphabet) returns schema error', () => {
-      const r = overrideTrust({ id: 'P-MISSING2', projectRoot, level: 'high' });
+      const r = overrideTrust({ id: 'P-MISSING2', projectRoot, level: 'high' }); // validate-test-ids: ignore
       expect(r.action).toBe('error');
       expect(r.errorCategory).toBe('schema');
       expect(r.errors.join(' ')).toMatch(/id|citation/i);

@@ -374,15 +374,15 @@ describe('Task 12 — appendScratchpadBullet() boundary', () => {
         '# Working Memory',
         '',
         '## Active Threads',
-        mkBullet('P-OLDMED01', stale, 'medium'),
-        mkBullet('P-OLDMED02', stale, 'medium'),
-        mkBullet('P-OLDMED03', stale, 'medium'),
-        mkBullet('P-OLDHGH01', stale, 'high'),
-        mkBullet('P-OLDHGH02', stale, 'high'),
-        mkBullet('P-OLDHGH03', stale, 'high'),
-        mkBullet('P-NEWMED01', recent, 'medium'),
-        mkBullet('P-NEWMED02', recent, 'medium'),
-        mkBullet('P-NEWMED03', recent, 'medium'),
+        mkBullet('P-STLMEDA2', stale, 'medium'),
+        mkBullet('P-STLMEDB2', stale, 'medium'),
+        mkBullet('P-STLMEDC2', stale, 'medium'),
+        mkBullet('P-STLHGHA2', stale, 'high'),
+        mkBullet('P-STLHGHB2', stale, 'high'),
+        mkBullet('P-STLHGHC2', stale, 'high'),
+        mkBullet('P-NEWMEDA2', recent, 'medium'),
+        mkBullet('P-NEWMEDB2', recent, 'medium'),
+        mkBullet('P-NEWMEDC2', recent, 'medium'),
         '',
         '## Environment Notes',
         '',
@@ -411,19 +411,19 @@ describe('Task 12 — appendScratchpadBullet() boundary', () => {
       const after = readFileSync(memoryMd, 'utf8');
 
       // Stale-medium → dropped
-      expect(after).not.toContain('P-OLDMED01');
-      expect(after).not.toContain('P-OLDMED02');
-      expect(after).not.toContain('P-OLDMED03');
+      expect(after).not.toContain('P-STLMEDA2');
+      expect(after).not.toContain('P-STLMEDB2');
+      expect(after).not.toContain('P-STLMEDC2');
 
       // Stale-high → kept (trust: high preserved regardless of age)
-      expect(after).toContain('P-OLDHGH01');
-      expect(after).toContain('P-OLDHGH02');
-      expect(after).toContain('P-OLDHGH03');
+      expect(after).toContain('P-STLHGHA2');
+      expect(after).toContain('P-STLHGHB2');
+      expect(after).toContain('P-STLHGHC2');
 
       // Recent-medium → kept (<14d old)
-      expect(after).toContain('P-NEWMED01');
-      expect(after).toContain('P-NEWMED02');
-      expect(after).toContain('P-NEWMED03');
+      expect(after).toContain('P-NEWMEDA2');
+      expect(after).toContain('P-NEWMEDB2');
+      expect(after).toContain('P-NEWMEDC2');
 
       expect(r.bulletsConsolidated).toBe(3);
     });
