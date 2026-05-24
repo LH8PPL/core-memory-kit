@@ -65,7 +65,7 @@ function buildMemoryMd({
   while (true) {
     const id = `P-PAD${String(i).padStart(5, '0')}`;
     const bullet = `- (${id}) padding bullet number ${i} ensuring deterministic char count`;
-    const comment = `  <!-- source: pad/${i}.md, sha1: ${'a'.repeat(40)}, write: manual-edit, trust: ${paddingTrust}, at: ${paddingDate} -->`;
+    const comment = `  <!-- source: pad/${i}.md, source_line: 1, sha1: ${'a'.repeat(40)}, write: manual-edit, trust: ${paddingTrust}, at: ${paddingDate} -->`;
     const candidate = lines.join('\n') + '\n' + bullet + '\n' + comment + footer;
     if (Buffer.byteLength(candidate, 'utf8') >= targetBytes) {
       // Stop adding padding; current state hasn't pushed past target yet.
@@ -85,7 +85,8 @@ function validBulletOpts(overrides = {}) {
     section: 'Active Threads',
     text: 'newly added scratchpad bullet',
     provenance: {
-      source: 'transcripts/2026-05-24.md:42',
+      source: 'transcripts/2026-05-24.md',
+      source_line: 42,
       sha1: 'b'.repeat(40),
       write: 'user-explicit',
       trust: 'high',
@@ -221,7 +222,7 @@ describe('Task 12 — appendScratchpadBullet() boundary', () => {
       const r = appendScratchpadBullet(
         validBulletOpts({
           projectRoot,
-          provenance: { source: 'x', sha1: 'a'.repeat(40) /* missing write/trust/at */ },
+          provenance: { source: 'x', source_line: 1, sha1: 'a'.repeat(40) /* missing write/trust/at */ },
         }),
       );
       expect(r.action).toBe('error');
@@ -236,6 +237,7 @@ describe('Task 12 — appendScratchpadBullet() boundary', () => {
           projectRoot,
           provenance: {
             source: 'x',
+            source_line: 1,
             sha1: 'a'.repeat(40),
             write: 'user-explicit',
             trust: 'medium-rare',
@@ -360,7 +362,7 @@ describe('Task 12 — appendScratchpadBullet() boundary', () => {
       const stale = '2026-04-01T00:00:00Z'; // >14d old
       const recent = '2026-05-20T00:00:00Z'; // <14d old (now is 2026-05-24)
       const mkBullet = (id, at, trust) =>
-        `- (${id}) bullet ${id}\n  <!-- source: x.md, sha1: ${'a'.repeat(40)}, write: manual-edit, trust: ${trust}, at: ${at} -->`;
+        `- (${id}) bullet ${id}\n  <!-- source: x.md, source_line: 1, sha1: ${'a'.repeat(40)}, write: manual-edit, trust: ${trust}, at: ${at} -->`;
 
       const file = [
         '<!--',
@@ -485,7 +487,7 @@ function buildMemoryMdLikeUser({ targetBytes }) {
   while (true) {
     const id = `U-PAD${String(i).padStart(5, '0')}`;
     const bullet = `- (${id}) user padding ${i}`;
-    const comment = `  <!-- source: pad/${i}.md, sha1: ${'a'.repeat(40)}, write: manual-edit, trust: high, at: 2026-05-24T10:00:00Z -->`;
+    const comment = `  <!-- source: pad/${i}.md, source_line: 1, sha1: ${'a'.repeat(40)}, write: manual-edit, trust: high, at: 2026-05-24T10:00:00Z -->`;
     const candidate = lines.join('\n') + '\n' + bullet + '\n' + comment + footer;
     if (Buffer.byteLength(candidate, 'utf8') >= targetBytes) break;
     lines.push(bullet);
