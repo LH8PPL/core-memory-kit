@@ -321,13 +321,13 @@ describe('Task 8 — reindex() boundary', () => {
       mkdirSync(archiveDir, { recursive: true });
       writeFileSync(
         join(archiveDir, 'feedback_buried.md'),
-        '---\nid: P-BURIED99\ntype: feedback\ntitle: Buried\n---\n\nshould not appear\n',
+        '---\nid: P-BURYED99\ntype: feedback\ntitle: Buried\n---\n\nshould not appear\n',
         'utf8',
       );
 
       const r = reindex({ tier: 'P', projectRoot });
       const c = readFileSync(r.indexPath, 'utf8');
-      expect(c).not.toContain('P-BURIED99');
+      expect(c).not.toContain('P-BURYED99');
       expect(c).not.toContain('Buried');
       expect(r.factCount).toBe(1);
     });

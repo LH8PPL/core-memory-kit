@@ -45,7 +45,7 @@ describe('@cmk/canonicalize — fixture-driven', () => {
 describe('@cmk/canonicalize — backref idempotency (FR-14)', () => {
   it('adding a (P-XXXXXXXX) backref does not change the ID', () => {
     const base = 'we standardized on python 3.13';
-    const withBackref = `(P-A8FN3MQ2) ${base}`;
+    const withBackref = `(P-A8FN3MQ2) ${base}`; // validate-test-ids: ignore
     expect(generateId('P', withBackref)).toBe(generateId('P', base));
   });
 

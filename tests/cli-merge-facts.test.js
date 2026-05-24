@@ -401,7 +401,7 @@ describe('Task 10 — mergeFacts() boundary', () => {
     it('idA malformed (chars outside the kit alphabet) → schema error', () => {
       const wB = writeFact(validFactOpts({ projectRoot, slug: 'b' }));
       const r = mergeFacts(
-        validMergeOpts('P-MISSING2', wB.id, {
+        validMergeOpts('P-MISSING2', wB.id, { // validate-test-ids: ignore
           projectRoot,
           mergedBody: 'merged',
         }),

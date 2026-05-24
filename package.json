@@ -8,7 +8,8 @@
     "packages/*"
   ],
   "scripts": {
-    "test": "vitest run",
+    "test": "node scripts/validate-test-ids.mjs && vitest run",
+    "lint:test-ids": "node scripts/validate-test-ids.mjs",
     "test:watch": "vitest",
     "validate:template": "node scripts/validate-template.mjs"
   },
