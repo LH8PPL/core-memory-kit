@@ -23,7 +23,7 @@ Current work in progress. Drop bullets when work resolves. Auto-extract
 (Task 23) writes here; manual edits welcome too.
 -->
 
-- (P-4MXA2Y46) placeholder thread: replace with the current piece of in-progress work
+- (P-T6M95JXF) (example) reviewing PR #142 for the auth refactor
   <!-- source: MEMORY.md, source_line: 22, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Environment Notes
@@ -33,7 +33,7 @@ Tool versions, paths, URLs, env state. Update on change. Auto-extract picks
 these up from PostToolUse hook events; manual edits welcome.
 -->
 
-- (P-BBUP9VMT) placeholder env note: replace with this project tool versions and conventions
+- (P-R662a95Y) (example) Node 20.x; Python 3.13; Postgres 16 in the test environment
   <!-- source: MEMORY.md, source_line: 30, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Pending Decisions
@@ -43,5 +43,5 @@ Things the user still has to decide. Remove when resolved. Auto-populated by
 `cmk persona generate` (Task N, design §16.16); empty is fine.
 -->
 
-- (P-KYT5BXXU) placeholder decision: replace with an open question the user must resolve
+- (P-KU3aNBX9) (example) decide whether to deprecate /api/v1 by Q3 2026
   <!-- source: MEMORY.md, source_line: 38, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->

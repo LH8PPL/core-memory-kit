@@ -19,19 +19,19 @@ Auto-populated by `cmk persona generate` (Task N, design §16.16); empty is fine
 
 <!-- Tool/binary paths. -->
 
-- (L-MH9QRHFZ) node binary path placeholder
+- (L-aVFaHNDV) (example) node binary at /usr/local/bin/node
   <!-- source: machine-paths.md, source_line: 19, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Project Paths
 
 <!-- Project-specific paths on this machine. -->
 
-- (L-A4WPLNZK) primary data directory placeholder
+- (L-CDHEKGDa) (example) primary data directory at ~/.local/share/cmk
   <!-- source: machine-paths.md, source_line: 26, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Misc Paths
 
 <!-- Other path types. -->
 
-- (L-JABPQBGQ) cache root directory placeholder
+- (L-KWLHFMRN) (example) cache root at ~/.cache/cmk
   <!-- source: machine-paths.md, source_line: 33, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->

@@ -18,19 +18,19 @@ Auto-populated by `cmk persona generate` (Task N, design §16.16); empty is fine
 
 <!-- Editor/shell/tool overrides for this machine. -->
 
-- (L-9WZMWJ7a) editor preference placeholder
+- (L-AUT6CX47) (example) editor: code --wait
   <!-- source: overrides.md, source_line: 20, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Behavior Overrides
 
 <!-- Behavior changes for this machine (offline mode, rate limits, etc.). -->
 
-- (L-AaMYaRBL) offline mode placeholder
+- (L-2QZJRZLT) (example) offline mode: true
   <!-- source: overrides.md, source_line: 27, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Path Overrides
 
 <!-- Path overrides for this machine. -->
 
-- (L-GDYXPZ3C) workspace root placeholder
+- (L-YRDULPLW) (example) workspace root: ~/Projects
   <!-- source: overrides.md, source_line: 34, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->

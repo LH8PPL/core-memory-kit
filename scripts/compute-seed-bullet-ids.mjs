@@ -23,9 +23,9 @@ const SEEDS = {
   'MEMORY.md': {
     tier: 'P',
     bullets: [
-      { section: 'Active Threads', text: 'placeholder thread: replace with the current piece of in-progress work' },
-      { section: 'Environment Notes', text: 'placeholder env note: replace with this project tool versions and conventions' },
-      { section: 'Pending Decisions', text: 'placeholder decision: replace with an open question the user must resolve' },
+      { section: 'Active Threads', text: '(example) reviewing PR #142 for the auth refactor' },
+      { section: 'Environment Notes', text: '(example) Node 20.x; Python 3.13; Postgres 16 in the test environment' },
+      { section: 'Pending Decisions', text: '(example) decide whether to deprecate /api/v1 by Q3 2026' },
     ],
   },
   'USER.md': {
@@ -55,18 +55,17 @@ const SEEDS = {
   'machine-paths.md': {
     tier: 'L',
     bullets: [
-      // Local-tier files have 1000-char caps; bullets kept very short.
-      { section: 'Tool Paths', text: 'node binary path placeholder' },
-      { section: 'Project Paths', text: 'primary data directory placeholder' },
-      { section: 'Misc Paths', text: 'cache root directory placeholder' },
+      { section: 'Tool Paths', text: '(example) node binary at /usr/local/bin/node' },
+      { section: 'Project Paths', text: '(example) primary data directory at ~/.local/share/cmk' },
+      { section: 'Misc Paths', text: '(example) cache root at ~/.cache/cmk' },
     ],
   },
   'overrides.md': {
     tier: 'L',
     bullets: [
-      { section: 'Tool Overrides', text: 'editor preference placeholder' },
-      { section: 'Behavior Overrides', text: 'offline mode placeholder' },
-      { section: 'Path Overrides', text: 'workspace root placeholder' },
+      { section: 'Tool Overrides', text: '(example) editor: code --wait' },
+      { section: 'Behavior Overrides', text: '(example) offline mode: true' },
+      { section: 'Path Overrides', text: '(example) workspace root: ~/Projects' },
     ],
   },
 };
