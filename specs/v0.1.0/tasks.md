@@ -225,19 +225,19 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 
 ## Layer 3 — Scratchpads
 
-- [ ] 12. Bounded scratchpad writer + cap enforcement (T-010)
+- [x] 12. Bounded scratchpad writer + cap enforcement (T-010) — _shipped 2026-05-24, GitHub PR #12_
   - Estimate: M · Depends: 5
   - Uses shared modules from `packages/cli/src/{tier-paths,audit-log,frontmatter,result-shapes}.mjs` — see CLAUDE.md "Shared modules" rule
-- [ ] 12.1 Implement scratchpad writer boundary (public interface)
+- [x] 12.1 Implement scratchpad writer boundary (public interface)
   - One module; one entry point per scratchpad operation
-- [ ] 12.2 Implement cap counting via `wc -c` (counts everything including frontmatter/comments)
-- [ ] 12.3 Implement consolidation trigger at >95% of cap
-  - Merge similar bullets; drop entries >14 days old without recent reference; preserve `trust: high` regardless of age
-- [ ] 12.4 Read caps from `<repo>/context/settings.json` and `~/.claude-memory-kit/settings.json`
+- [x] 12.2 Implement cap counting via `wc -c` (counts everything including frontmatter/comments)
+- [x] 12.3 Implement consolidation trigger at >95% of cap
+  - Merge similar bullets _(deferred to v0.1.x / Task 34)_; drop entries >14 days old without `trust: high`; preserve `trust: high` regardless of age
+- [x] 12.4 Read caps from `<repo>/context/settings.json` and `~/.claude-memory-kit/settings.json`
   - Project tier overrides; user tier fallback; hardcoded defaults as last resort
-- [ ] 12.5 Reject still-over-cap writes after consolidation
+- [x] 12.5 Reject still-over-cap writes after consolidation
   - `error_category: "cap_exceeded"`; no silent truncation
-- [ ]* 12.6 Write unit tests for scratchpad writer
+- [x]* 12.6 Write unit tests for scratchpad writer
   - Test write at 50% of cap: write succeeds; consolidator not invoked (mock + assert not-called)
   - Test write at 96% of cap: consolidator invoked before write
   - Test consolidation: bullets <14 days kept; >14 days without `trust: high` dropped; >14 days with `trust: high` kept
