@@ -32,3 +32,28 @@ export function resolveTierRoot({ tier, projectRoot, userDir }) {
 export function resolveFactDir(tier, tierRoot) {
   return tier === 'U' ? join(tierRoot, 'fragments') : join(tierRoot, 'memory');
 }
+
+// Scratchpads live at the tier root (no subdir). Filename is the scratchpad
+// canonical name (e.g. 'MEMORY.md', 'USER.md'). Per design §1.1 + §2.1.
+export function resolveScratchpadPath({ tier, scratchpad, projectRoot, userDir }) {
+  return join(resolveTierRoot({ tier, projectRoot, userDir }), scratchpad);
+}
+
+// Allow-list of scratchpads per tier, per design §1.1.
+export const SCRATCHPADS_BY_TIER = Object.freeze({
+  P: new Set(['SOUL.md', 'MEMORY.md']),
+  L: new Set(['machine-paths.md', 'overrides.md']),
+  U: new Set(['USER.md', 'HABITS.md', 'LESSONS.md']),
+});
+
+// Hardcoded scratchpad cap defaults (chars). Tunable via settings.json per
+// design §2.1; defaults are the fallback when no settings.json override exists.
+export const DEFAULT_SCRATCHPAD_CAPS = Object.freeze({
+  'SOUL.md': 1800,
+  'MEMORY.md': 2500,
+  'USER.md': 1375, // Hermes-verified
+  'HABITS.md': 1800,
+  'LESSONS.md': 1800,
+  'machine-paths.md': 1000,
+  'overrides.md': 1000,
+});
