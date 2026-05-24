@@ -224,6 +224,14 @@ A natural-language pattern the [[Memory-write skill]] auto-detects in user promp
 
 Cross-refs: [[Memory-write skill]]. Spec: FR-11; design §6.3.
 
+### Auto-persona
+
+System-derived synthesis of user-tier scratchpads (`USER.md`, `HABITS.md`, `LESSONS.md`) from accumulated granular-archive facts. Triggered manually via `cmk persona generate` or automatically by the [[Auto-extract subagent]] every N captured facts (default 50). Synthesized via the [[CompressorBackend]] (Haiku per design §8.3). Two modes: **stage** (default — proposals land in `<userDir>/queues/persona-review.md` for user `accept`/`reject` via `cmk persona accept|reject <id>`) and **auto-apply** (opt-in via `settings.json` — direct writes at `trust: medium`).
+
+Replaces the hand-curated user-tier failure mode the kit was originally going to ship with. Promoted from v0.1.x candidate to v0.1.0 in-scope on 2026-05-24 (see [[Task 45]] in tasks.md). Conflicts with existing `trust: high` hand-curated entries route through `<userDir>/queues/persona-conflict.md` — never silent-overwrite.
+
+Cross-refs: [[Auto-extract subagent]], [[Memory-write skill]], [[Trust]], [[Review queue]]. Spec: design §16.16; tasks.md Task 45.
+
 ---
 
 ## Quality gates

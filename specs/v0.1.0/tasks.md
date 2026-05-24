@@ -765,7 +765,7 @@ Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility)
 ## Release
 
 - [ ] 43. v0.1.0 release — version, CHANGELOG, npm publish, GitHub release (T-036)
-  - Estimate: S · Depends: ALL prior tasks + checkpoint 42
+  - Estimate: S · Depends: ALL prior tasks + checkpoint 42 + Task 45 (auto-persona — tail-appended 2026-05-24; logically gates this release)
 - [ ] 43.1 Bump `package.json` to `0.1.0`
 - [ ] 43.2 Write `CHANGELOG.md` entry for `[0.1.0] — YYYY-MM-DD`
 - [ ] 43.3 Tag `v0.1.0` and push the tag
@@ -786,6 +786,41 @@ Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility)
 
 ---
 
+## Late v0.1.0 addition (promoted from §16 v0.1.x candidate on 2026-05-24)
+
+> **Numbering note**: Task 45 is appended at the tail rather than slotted after Task 23 because mid-stream insertion would renumber Tasks 24-44. The numbering reflects authoring order, not execution order: Task 45 logically depends on Task 23 and must ship before Task 43 (release). The Task 43 release-task entry has been updated to add Task 45 to its `Depends:` list.
+
+- [ ] 45. Auto-persona generation (T-014)
+  - Estimate: L · Depends: 7, 12, 13, 22, 23 · Must ship before Task 43 (release)
+  - Uses shared modules from `packages/cli/src/{tier-paths,audit-log,frontmatter,result-shapes}.mjs` + scratchpad.mjs (Task 12) + provenance.mjs (Task 13). Consumes auto-extract output from Task 23. See design.md §16.16 for full motivation + design.
+- [ ] 45.1 Implement `cmk persona generate` subcommand
+  - Reads `<userDir>/memory/` + cross-project persona-tagged facts (via `cmk search --tier U` or direct file walk)
+  - Synthesizes user-profile state via `CompressorBackend` (default `HaikuViaAnthropicApi` per design §8.3)
+  - Output: candidate updates staged at `<userDir>/queues/persona-review.md` with full provenance (one bullet per proposed update)
+  - Honors 120s Haiku cooldown shared with the rest of the kit
+- [ ] 45.2 Implement `cmk persona accept <id>` / `cmk persona reject <id>` subcommands
+  - `accept`: matched bullet promoted into target scratchpad via `appendScratchpadBullet` (Task 12) with `trust: high` (manual user-attestation)
+  - `reject`: candidate removed from `queues/persona-review.md`; rejection recorded as an anti-signal fact in `<userDir>/memory/persona_rejections.md` (informs future syntheses — auto-extract sees the pattern and skips it)
+  - Both write audit-log entries via `appendAuditEntry` per design §6.1
+- [ ] 45.3 Implement auto-apply mode behind `--auto` flag and `settings.json` opt-in
+  - `cmk persona generate --auto` writes directly to target scratchpad via `appendScratchpadBullet` with `trust: medium` (system-derived, not user-attested)
+  - Per-scratchpad opt-in: `settings.json` key `persona.auto_apply: ["USER.md", "HABITS.md"]` lists which scratchpads accept auto-apply (default: empty array — explicit opt-in only)
+  - One audit-log entry per change, including the source-fact ID(s) the synthesis was derived from
+- [ ] 45.4 Conflict-with-hand-curated handling
+  - When a proposed update conflicts with an existing `trust: high` entry (substring similarity >0.85 + different text), stage in `<userDir>/queues/persona-conflict.md` rather than silent overwrite
+  - Consistent with design §6.2 conflict queue + §6.8 (memory-write conflict resolution; user resolves via `cmk queue conflicts`)
+  - Never silently demote a `trust: high` hand-curated entry to make room for a system-generated proposal
+- [ ]* 45.5 Write unit tests
+  - Test `cmk persona generate` with mocked Haiku: produces candidate bullets in `persona-review.md` with provenance
+  - Test `accept` promotes candidate to scratchpad at `trust: high`; audit log records the promotion
+  - Test `reject` removes candidate from queue + writes rejection fact; audit log records
+  - Test `--auto` mode writes directly at `trust: medium`; opt-in gating via settings.json enforced
+  - Test conflict-with-hand-curated: high-trust entry NOT overwritten; candidate staged in `persona-conflict.md`
+  - Test 120s Haiku cooldown honored
+  - _Requirements: FR-3, FR-10, FR-29; design §16.16 + §6.2 + §8.3_
+
+---
+
 ## Summary
 
 | Layer | Parent tasks | Sub-tasks (incl. tests) | Checkpoints | Required? |
@@ -798,10 +833,11 @@ Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility)
 | Layer 6 — Cron compression | 3 (33–35) | ~13 | 1 (#36) | Optional |
 | Cross-cutting | 5 (37–41) | ~28 (Task 38 expanded 2026-05-24 to cover transcripts extraction) | 1 (#42) | Yes |
 | Release | 1 (43) | 6 | 1 (#44) | Yes |
+| Late addition (auto-persona) | 1 (45) | 5 | — | Yes (promoted to v0.1.0 in-scope 2026-05-24) |
 
-**44 numbered items at the top level** (36 implementation tasks + 8 checkpoints). **~180 sub-tasks** (implementation + test). Required-only path: ~51 dev-days. Full surface incl. optional: ~69 dev-days.
+**45 numbered items at the top level** (37 implementation tasks + 8 checkpoints; Task 45 added 2026-05-24 as a tail-appended in-scope addition). **~185 sub-tasks** (implementation + test). Required-only path: ~55 dev-days (Task 45 estimated L). Full surface incl. optional: ~73 dev-days.
 
-**Critical path**: 1 → 5 → 6 (checkpoint) → 7 → 10 → 11 → 12 → 13 → 16 → 17 → 18 → 21 → 23 → 24 → 26 → 27 → 37 → 41 → 42 → 43 → 44.
+**Critical path**: 1 → 5 → 6 (checkpoint) → 7 → 10 → 11 → 12 → 13 → 16 → 17 → 18 → 21 → 23 → 24 → 26 → 27 → 37 → 41 → 42 → **45** → 43 → 44. Task 45 (auto-persona) inserts on the critical path between Checkpoint 42 and Release Task 43 despite its high task number — Task 45 depends on Task 23 (auto-extract) and must ship before the v0.1.0 release tag per the 2026-05-24 promotion decision.
 
 ## What's deliberately not in tasks.md (audit trail)
 
