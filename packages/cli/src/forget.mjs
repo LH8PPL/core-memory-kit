@@ -205,6 +205,32 @@ export function forget(opts = {}) {
     };
   }
 
+  // Layer-2 review finding B2: reason lands in the tombstone frontmatter
+  // and is written verbatim by the naive serializer. \n / \r / : would
+  // corrupt the on-disk format. PR-2's frontmatter.mjs lifts this.
+  if (reason !== undefined && reason !== null) {
+    if (typeof reason !== 'string') {
+      return {
+        action: 'error',
+        errorCategory: 'schema',
+        errors: ['reason: must be a string'],
+      };
+    }
+    if (
+      reason.includes('\n') ||
+      reason.includes('\r') ||
+      reason.includes(':')
+    ) {
+      return {
+        action: 'error',
+        errorCategory: 'schema',
+        errors: [
+          'reason: must not contain newlines or colons (frontmatter corruption risk; see Layer-2 review B2)',
+        ],
+      };
+    }
+  }
+
   const resolved = ID_PATTERN.test(idOrQuery)
     ? resolveById(idOrQuery, { projectRoot, userDir })
     : resolveByQuery(idOrQuery, { projectRoot, userDir });

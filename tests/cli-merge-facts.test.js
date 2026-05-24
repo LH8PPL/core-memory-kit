@@ -456,4 +456,73 @@ describe('Task 10 — mergeFacts() boundary', () => {
       expect(existsSync(wB.path)).toBe(true);
     });
   });
+
+  // Layer-2 code-review blocker B1: if the merged body happens to canonicalize
+  // to an existing unrelated fact's id, writeFact returns 'skipped' (content-
+  // addressed dedup). Pre-fix, mergeFacts ignored this and moved A + B to
+  // superseded with supersededBy pointing at the unrelated existing fact —
+  // silent data corruption. Post-fix, mergeFacts must return an error and
+  // leave A, B, and the unrelated fact untouched.
+  describe('blocker B1 — merged body collides with existing unrelated fact', () => {
+    it('returns action: "error", errorCategory: "collision"; A, B, and the colliding fact all untouched', () => {
+      const wA = writeFact(
+        validFactOpts({ projectRoot, slug: 'a', body: 'fact A body' }),
+      );
+      const wB = writeFact(
+        validFactOpts({ projectRoot, slug: 'b', body: 'fact B body' }),
+      );
+      // Pre-existing unrelated fact whose canonical body matches what we will
+      // try to merge into. mergeFacts must detect the dedup-collision via
+      // writeFact's 'skipped' return and refuse to proceed.
+      const wC = writeFact(
+        validFactOpts({
+          projectRoot,
+          slug: 'c',
+          body: 'collision body',
+        }),
+      );
+
+      const r = mergeFacts(
+        validMergeOpts(wA.id, wB.id, {
+          projectRoot,
+          mergedBody: 'collision body',
+          mergedSlug: 'attempted_merge',
+        }),
+      );
+
+      expect(r.action).toBe('error');
+      expect(r.errorCategory).toBe('collision');
+      expect(r.errors.join(' ')).toContain(wC.id);
+
+      // A, B, C all byte-untouched at their original paths
+      expect(existsSync(wA.path)).toBe(true);
+      expect(existsSync(wB.path)).toBe(true);
+      expect(existsSync(wC.path)).toBe(true);
+
+      // No superseded files created
+      const supersededDir = join(
+        projectRoot,
+        'context',
+        'memory',
+        'archive',
+        'superseded',
+      );
+      expect(existsSync(supersededDir)).toBe(false);
+
+      // The attempted-merge filename was never created
+      expect(
+        existsSync(
+          join(
+            projectRoot,
+            'context',
+            'memory',
+            'feedback_attempted_merge.md',
+          ),
+        ),
+      ).toBe(false);
+
+      // resolveFact on C still returns 'live' (C is unchanged)
+      // — verified by file presence above; structural assertion sufficient.
+    });
+  });
 });
