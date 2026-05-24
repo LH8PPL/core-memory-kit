@@ -38,6 +38,11 @@ export const ERROR_CATEGORIES = Object.freeze({
   // Another writer holds a lock; retry later. Reserved for Layer 4+ where
   // the auto-extract subagent + memory-write skill genuinely contend.
   CONCURRENT_RUN: 'concurrent_run',
+
+  // A scratchpad write would push the file past its configured cap even
+  // after consolidation (Task 12, design §2.1). Caller chose not to
+  // forcibly truncate; the write is rejected so no silent data loss.
+  CAP_EXCEEDED: 'cap_exceeded',
 });
 
 export const ACTION_TYPES = Object.freeze({
