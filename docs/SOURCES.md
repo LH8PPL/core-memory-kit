@@ -249,6 +249,7 @@ Numbers consistent with Anthropic's own page across all four sources.
 - **Bun** (used by claude-mem): <https://bun.sh/> — referenced for the worker-service pattern; not a v0.1 dependency.
 - **chokidar** (Node file-watcher): <https://github.com/paulmillr/chokidar> — option for the SQLite reindex strategy if we go Node.
 - **fswatch / inotify** — alternatives if we stay shell-only.
+- ✓ **js-yaml** (<https://github.com/nodeca/js-yaml>) — 6,400+ ⭐, MIT, ~50KB minified. YAML 1.2 parser + serializer for Node. Added as `packages/cli/cli` dependency (`^4.1.0`) in PR-2 (cleanup-layer-2-cross-module-drift, 2026-05-24) for the canonical `frontmatter.mjs` serialize/parse pair. Used with `CORE_SCHEMA` to avoid implicit Date conversion (ISO timestamps stay as strings) and `flowLevel: 1` to keep array values inline (`tags: [a, b]` not multi-line block style). Fixes the Layer-2 review's I2 finding (homegrown split-on-colon parsers were not bidirectional — booleans round-tripped as strings, arrays not at all, values with `:` truncated). Verified: package downloaded + tested via `npm install` on 2026-05-24.
 
 ## Wiki and personal knowledge bases (where this output is ingested)
 

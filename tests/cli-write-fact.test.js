@@ -42,22 +42,13 @@ function validOptions(overrides = {}) {
   };
 }
 
-/** Parse YAML frontmatter from a markdown file. Tiny shallow parser; only handles
- * top-level `key: value` and `key: [a, b]` shapes — sufficient for writeFact output. */
+// Use the production parser so tests see the exact typed shape callers see.
+// Per Layer-2 review I2: the prior local parser was naive (split-on-first-colon,
+// values typed as strings). PR-2 makes production use js-yaml; tests must too.
+import { parse as parseFrontmatterText } from '../packages/cli/src/frontmatter.mjs';
+
 function parseFrontmatter(filePath) {
-  const text = readFileSync(filePath, 'utf8');
-  const m = text.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-  if (!m) return { frontmatter: null, body: text };
-  const fm = {};
-  for (const line of m[1].split('\n')) {
-    if (!line.trim()) continue;
-    const idx = line.indexOf(':');
-    if (idx === -1) continue;
-    const key = line.slice(0, idx).trim();
-    const value = line.slice(idx + 1).trim();
-    fm[key] = value;
-  }
-  return { frontmatter: fm, body: m[2] };
+  return parseFrontmatterText(readFileSync(filePath, 'utf8'));
 }
 
 function readAuditLog(tierRoot) {
@@ -118,7 +109,9 @@ describe('Task 7 — writeFact() boundary', () => {
       expect(frontmatter.write_source).toBe('user-explicit');
       expect(frontmatter.trust).toBe('high');
       expect(frontmatter.source_file).toBe(opts.sourceFile);
-      expect(frontmatter.source_line).toBe('142');
+      // Post-PR-2: js-yaml parses integers as numbers (CORE_SCHEMA). Pre-PR-2
+      // the naive parser left everything as strings; that bug is gone.
+      expect(frontmatter.source_line).toBe(142);
       expect(frontmatter.source_sha1).toBe(opts.sourceSha1);
     });
 
@@ -223,44 +216,64 @@ describe('Task 7 — writeFact() boundary', () => {
     });
   });
 
-  // Layer-2 code-review blocker B2: the naive frontmatter serializer writes
-  // string values verbatim with no quoting. Values containing \n, \r, or ':'
-  // silently corrupt the on-disk frontmatter. Minimum fix: reject at the
-  // input boundary for scalar frontmatter fields (title, sourceFile,
-  // sourceSha1). PR-2's frontmatter.mjs (js-yaml) lifts this restriction.
-  describe('blocker B2 — reject newlines and colons in scalar frontmatter fields', () => {
-    const unsafeValues = [
-      { label: 'newline', value: 'something\nadmin: true' },
-      { label: 'carriage-return', value: 'something\rinjected' },
+  // Layer-2 review B2 RELAXATION (PR-2): PR-1 rejected \n / \r / : in scalar
+  // frontmatter fields as a minimum fix for the naive serializer. PR-2's
+  // frontmatter.mjs (js-yaml CORE_SCHEMA) quotes those chars properly. The
+  // input restriction is LIFTED here — these tests prove the round-trip
+  // works for previously-rejected inputs.
+  describe('B2 relaxation — chars previously rejected by PR-1 now round-trip correctly via js-yaml', () => {
+    const trickyValues = [
+      { label: 'newline', value: 'first line\nsecond line' },
+      { label: 'carriage-return', value: 'first\rsecond' },
       { label: 'colon', value: 'something: with colon' },
+      {
+        label: 'all three combined',
+        value: 'with: colon\nand newline\rand cr',
+      },
     ];
 
-    for (const { label, value } of unsafeValues) {
-      it(`rejects title containing ${label} → schema error, no file written`, () => {
+    for (const { label, value } of trickyValues) {
+      it(`title containing ${label}: write succeeds + round-trip preserves the value`, () => {
         const r = writeFact(validOptions({ projectRoot, title: value }));
-        expect(r.action).toBe('error');
-        expect(r.errorCategory).toBe('schema');
-        expect(r.errors.join(' ')).toMatch(/title/i);
-        const memDir = join(projectRoot, 'context', 'memory');
-        expect(existsSync(memDir) ? readdirSync(memDir) : []).toEqual([]);
+        expect(r.action).toBe('created');
+        const { frontmatter } = parseFrontmatter(r.path);
+        expect(frontmatter.title).toBe(value);
       });
 
-      it(`rejects sourceFile containing ${label} → schema error`, () => {
+      it(`sourceFile containing ${label}: write succeeds + round-trip preserves the value`, () => {
         const r = writeFact(validOptions({ projectRoot, sourceFile: value }));
-        expect(r.action).toBe('error');
-        expect(r.errorCategory).toBe('schema');
-        expect(r.errors.join(' ')).toMatch(/sourceFile/i);
+        expect(r.action).toBe('created');
+        const { frontmatter } = parseFrontmatter(r.path);
+        expect(frontmatter.source_file).toBe(value);
       });
 
-      it(`rejects sourceSha1 containing ${label} → schema error`, () => {
+      it(`sourceSha1 containing ${label}: write succeeds + round-trip preserves the value`, () => {
         const r = writeFact(validOptions({ projectRoot, sourceSha1: value }));
-        expect(r.action).toBe('error');
-        expect(r.errorCategory).toBe('schema');
-        expect(r.errors.join(' ')).toMatch(/sourceSha1/i);
+        expect(r.action).toBe('created');
+        const { frontmatter } = parseFrontmatter(r.path);
+        expect(frontmatter.source_sha1).toBe(value);
       });
     }
 
-    it('safe values (no newlines/colons) still accepted — regression guard', () => {
+    it('YAML injection attempt does NOT create extra frontmatter keys (proves quoting works)', () => {
+      const r = writeFact(
+        validOptions({
+          projectRoot,
+          title: 'Innocent\nadmin: true\nfake_id: P-EVIL1234',
+        }),
+      );
+      expect(r.action).toBe('created');
+      const { frontmatter } = parseFrontmatter(r.path);
+      // The whole multi-line string is the title; no `admin` or `fake_id`
+      // keys leaked into the frontmatter object.
+      expect(frontmatter.title).toBe(
+        'Innocent\nadmin: true\nfake_id: P-EVIL1234',
+      );
+      expect(frontmatter.admin).toBeUndefined();
+      expect(frontmatter.fake_id).toBeUndefined();
+    });
+
+    it('safe values still work (regression guard against over-restrictive validation)', () => {
       const r = writeFact(
         validOptions({
           projectRoot,
@@ -354,8 +367,12 @@ describe('Task 7 — writeFact() boundary', () => {
       expect(log.length).toBeGreaterThan(0);
       const skipEntry = log.find((e) => e.action === 'skipped');
       expect(skipEntry).toBeDefined();
-      expect(skipEntry.reason).toMatch(/duplicate/);
+      // Post-PR-2 canonical audit-log schema: reasonCode is the machine-
+      // parseable enum; reasonText is the optional free-text companion.
+      expect(skipEntry.reasonCode).toMatch(/duplicate/);
       expect(skipEntry.id).toBe(first.id);
+      expect(skipEntry.schema).toBe(1);
+      expect(skipEntry.tier).toBe('P');
     });
 
     it('different body → different ID, second file created', () => {
@@ -414,10 +431,11 @@ describe('Task 7 — writeFact() boundary', () => {
       expect(frontmatter.superseded_by).toBe('P-NEW12345');
     });
 
-    it('isPrivate: true → frontmatter private: true', () => {
+    it('isPrivate: true → frontmatter private: true (boolean, not string)', () => {
       const result = writeFact(validOptions({ projectRoot, isPrivate: true }));
       const { frontmatter } = parseFrontmatter(result.path);
-      expect(frontmatter.private).toBe('true');
+      // Post-PR-2: js-yaml parses booleans as booleans (was string 'true' pre-PR-2).
+      expect(frontmatter.private).toBe(true);
     });
 
     it('isPrivate: false → no private field in frontmatter (default behavior)', () => {

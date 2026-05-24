@@ -63,6 +63,19 @@ The user (Lior) is direct and tight on time. Match the energy.
 - Each task produces working, integrated code. No orphaned code.
 - After any sub-task, the codebase should still pass all tests.
 
+**Shared modules** (established post-Checkpoint-11, 2026-05-24):
+
+When implementing new task modules under [`packages/cli/src/`](packages/cli/src/), use the shared helpers — don't roll your own:
+
+| Concern | Use this module | Don't |
+| --- | --- | --- |
+| Tier path resolution (`P/L/U`, projectRoot, userDir) | [`tier-paths.mjs`](packages/cli/src/tier-paths.mjs) | Re-derive `homedir() + .claude-memory-kit` inline |
+| Frontmatter read/write (YAML in fact files, HTML-comment in scratchpads) | [`frontmatter.mjs`](packages/cli/src/frontmatter.mjs) (js-yaml–backed) | Write a "tiny shallow split-on-colon" parser |
+| Audit-log appends (any mutating operation) | [`audit-log.mjs`](packages/cli/src/audit-log.mjs) — `appendAuditEntry()` | `appendFileSync` to `.locks/audit.log` directly |
+| Error / result shape | [`result-shapes.mjs`](packages/cli/src/result-shapes.mjs) — `errorResult()` / `notFoundResult()` + `ERROR_CATEGORIES` enum | Hand-roll `{action: 'error', errorCategory: 'schema', ...}` per file |
+
+Why: the Layer-2 review surfaced 4 modules independently reimplementing the same helpers with small variations — drift was already producing bugs (e.g. `INDEX.md` not filtered from one writer's dedup scan; audit-log shape divergence across writers). Future Layer 3/4/5/6 modules import from these shared sources. See [design §1.3](specs/v0.1.0/design.md) for the architectural note and [glossary](specs/v0.1.0/glossary.md) entries for [[Audit log]] + [[Result shape]] + [[Provenance frontmatter]].
+
 ## Workflow
 
 - **One PR per parent task** in tasks.md (1, 2, 3, ..., not sub-tasks). Branch: `task-N-short-name`. Squash-merge into main. Delete branch on merge.

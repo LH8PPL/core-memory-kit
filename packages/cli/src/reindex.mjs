@@ -1,15 +1,21 @@
+// Granular-archive pointer-index writer (Task 8, refactored in
+// cleanup-layer-2-cross-module-drift). Single public boundary:
+// reindex(opts) → result. See design §2.3.
+//
+// Uses shared modules: tier-paths (path resolution), frontmatter (js-yaml
+// parse). See CLAUDE.md "Shared modules" rule.
+
 import {
   existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
-  statSync,
   writeFileSync,
 } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { VALID_TIERS, resolveTierRoot, resolveFactDir } from './tier-paths.mjs';
+import { parse } from './frontmatter.mjs';
 
-const VALID_TIERS = new Set(['U', 'P', 'L']);
 const INDEX_SIZE_WARN_BYTES = 25 * 1024;
 const HOOK_MAX_LEN = 80;
 
@@ -18,35 +24,6 @@ const TIER_LABEL = {
   L: 'local tier',
   U: 'user tier',
 };
-
-function resolveTierRoot({ tier, projectRoot, userDir }) {
-  if (tier === 'P') return join(projectRoot ?? process.cwd(), 'context');
-  if (tier === 'L') return join(projectRoot ?? process.cwd(), 'context.local');
-  return (
-    userDir ??
-    process.env.MEMORY_KIT_USER_DIR ??
-    join(homedir(), '.claude-memory-kit')
-  );
-}
-
-function resolveFactDir(tier, tierRoot) {
-  return tier === 'U' ? join(tierRoot, 'fragments') : join(tierRoot, 'memory');
-}
-
-function parseFrontmatter(text) {
-  const m = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
-  if (!m) return { frontmatter: null, body: text };
-  const fm = {};
-  for (const line of m[1].split('\n')) {
-    if (!line.trim()) continue;
-    const idx = line.indexOf(':');
-    if (idx === -1) continue;
-    const key = line.slice(0, idx).trim();
-    const value = line.slice(idx + 1).trim();
-    fm[key] = value;
-  }
-  return { frontmatter: fm, body: m[2] ?? '' };
-}
 
 function extractHook(body) {
   for (const raw of body.split('\n')) {
@@ -106,9 +83,11 @@ export function reindex(opts = {}) {
       pushWarning(`reindex: failed to read ${filename}: ${e.message}`);
       continue;
     }
-    const { frontmatter, body } = parseFrontmatter(text);
+    const { frontmatter, body, parseError } = parse(text);
     if (!frontmatter) {
-      pushWarning(`reindex: ${filename} skipped — no YAML frontmatter`);
+      pushWarning(
+        `reindex: ${filename} skipped — ${parseError ?? 'no YAML frontmatter'}`,
+      );
       continue;
     }
     if (!frontmatter.id || !frontmatter.type || !frontmatter.title) {
