@@ -28,6 +28,7 @@ import { join } from 'node:path';
 import { overrideTrust } from '../packages/cli/src/trust.mjs';
 import { writeFact } from '../packages/cli/src/write-fact.mjs';
 import { parse as parseFrontmatterText } from '../packages/cli/src/frontmatter.mjs';
+import { readBullet } from '../packages/cli/src/provenance.mjs';
 
 function parseFrontmatter(filePath) {
   return parseFrontmatterText(readFileSync(filePath, 'utf8'));
@@ -185,6 +186,84 @@ describe('Task 15 — overrideTrust() boundary', () => {
       const bIdx = lines.findIndex((l) => l.includes(`(${wB.id})`));
       expect(lines[aIdx + 1]).toMatch(/trust: high/);
       expect(lines[bIdx + 1]).toMatch(/trust: medium/);
+    });
+  });
+
+  // PR-15 review finding B1 (CRITICAL): the prior surgical-regex impl matched
+  // any bullet whose body text CONTAINED `(P-XXX)`, not just bullets whose
+  // LEADING id was `P-XXX`. Result: trust override on a referenced id
+  // mutated the wrong bullet (the one referencing it), then broke out of
+  // the loop without ever touching the real target. Silent data corruption.
+  // Post-fix: readBullet returns the leading id deterministically, so
+  // `parsed.id === id` only matches the actual target bullet.
+  describe('regression — bullet body references another bullet id (PR-15 B1)', () => {
+    it('mutates ONLY the bullet whose LEADING id matches, even when another bullet body text contains the target id', () => {
+      const memoryMd = join(projectRoot, 'context', 'MEMORY.md');
+      mkdirSync(join(projectRoot, 'context'), { recursive: true });
+      // Two distinct, alphabet-valid ids from the canonicalize fixture.
+      const referencerId = 'P-S79MJHFN';
+      const targetId = 'P-WJCLLKH6';
+      const content = [
+        '<!-- Cap: 2500 chars · Last distilled: 2026-05-24 · Last health check: 2026-05-24 -->',
+        '',
+        '# Working Memory',
+        '',
+        '## Active Threads',
+        '',
+        `- (${referencerId}) this bullet references (${targetId}) in its body text`,
+        `  <!-- source: x.md, source_line: 1, sha1: ${'a'.repeat(40)}, write: manual-edit, trust: medium, at: 2026-05-24T10:00:00Z -->`,
+        '',
+        `- (${targetId}) this is the actual target bullet`,
+        `  <!-- source: x.md, source_line: 2, sha1: ${'b'.repeat(40)}, write: manual-edit, trust: medium, at: 2026-05-24T10:00:00Z -->`,
+        '',
+        '## Environment Notes',
+        '',
+        '## Pending Decisions',
+        '',
+      ].join('\n');
+      writeFileSync(memoryMd, content, 'utf8');
+
+      const r = overrideTrust({ id: targetId, level: 'high', projectRoot });
+      expect(r.action).toBe('trust-updated');
+      expect(r.updatedLocations).toHaveLength(1);
+
+      // Parse the result file back through readBullet to verify EACH bullet's
+      // trust independently — string-grep on the whole file isn't enough
+      // because both bullets contain the target id in some form.
+      const lines = readFileSync(memoryMd, 'utf8').split('\n');
+      const findBulletByLeadingId = (leadingId) => {
+        for (let i = 0; i < lines.length - 1; i++) {
+          const parsed = readBullet({
+            bulletLine: lines[i],
+            commentLine: lines[i + 1],
+          });
+          if (parsed && parsed.id === leadingId) return parsed;
+        }
+        return null;
+      };
+
+      const referencer = findBulletByLeadingId(referencerId);
+      const target = findBulletByLeadingId(targetId);
+      expect(referencer).not.toBeNull();
+      expect(target).not.toBeNull();
+      // Referencer trust UNCHANGED (still medium); target trust IS high.
+      expect(referencer.provenance.trust).toBe('medium');
+      expect(target.provenance.trust).toBe('high');
+
+      // Audit-log records the actual mutation site (scratchpad path),
+      // not the referencer site.
+      const auditPath = join(projectRoot, 'context', '.locks', 'audit.log');
+      const entries = readFileSync(auditPath, 'utf8')
+        .split('\n')
+        .filter((l) => l.trim())
+        .map((l) => JSON.parse(l));
+      const entry = entries.find((e) => e.action === 'trust-changed');
+      expect(entry).toBeDefined();
+      expect(entry.id).toBe(targetId);
+      // priorTrust array has exactly one entry (the scratchpad mutation)
+      // with priorTrust=medium (target's actual prior trust)
+      expect(entry.extra.priorTrust).toHaveLength(1);
+      expect(entry.extra.priorTrust[0].value).toBe('medium');
     });
   });
 

@@ -31,6 +31,7 @@ import {
   resolveScratchpadPath,
 } from './tier-paths.mjs';
 import { parse, format } from './frontmatter.mjs';
+import { readBullet, writeBullet } from './provenance.mjs';
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import {
   ERROR_CATEGORIES,
@@ -93,35 +94,43 @@ function updateFactFileTrust(path, newLevel) {
   return { priorTrust };
 }
 
-// Match a provenance-comment line like:
-//   <!-- source: x, source_line: 1, sha1: ..., write: ..., trust: medium, at: ... -->
-// Replace only the `trust:` field value; preserve everything else.
+// Locate the bullet with matching leading id and rewrite both its lines via
+// the canonical provenance.mjs reader+writer pair. PR-15 review finding:
+// the prior `bulletLine.includes('(' + id + ')')` match was too loose — it
+// also matched bullets whose BODY TEXT referenced another fact's id (e.g.
+// "see also (P-XYZ)"). readBullet returns the leading id deterministically,
+// so `parsed.id === id` only matches the actual target. Bonus: this closes
+// the read/write-path asymmetry self-flagged in the PR description —
+// overrideTrust now round-trips through the same provenance pair that
+// appendScratchpadBullet uses.
 function updateScratchpadBulletTrust(path, id, newLevel) {
   const text = readFileSync(path, 'utf8');
   const lines = text.split('\n');
-  let priorTrust = null;
-  let updated = false;
-
   for (let i = 0; i < lines.length - 1; i++) {
-    const bulletLine = lines[i];
-    const commentLine = lines[i + 1];
-    if (!bulletLine.includes(`(${id})`)) continue;
-    if (!/^\s*<!--.*-->\s*$/.test(commentLine)) continue;
-    // Extract prior trust to record
-    const m = commentLine.match(/trust:\s*([a-z]+)/);
-    if (!m) continue;
-    priorTrust = m[1];
-    lines[i + 1] = commentLine.replace(
-      /trust:\s*[a-z]+/,
-      `trust: ${newLevel}`,
-    );
-    updated = true;
-    break; // one bullet per id in a scratchpad (per design)
+    const parsed = readBullet({
+      bulletLine: lines[i],
+      commentLine: lines[i + 1],
+    });
+    if (!parsed || parsed.id !== id) continue;
+    const priorTrust = parsed.provenance.trust;
+    const result = writeBullet({
+      id: parsed.id,
+      text: parsed.text,
+      provenance: { ...parsed.provenance, trust: newLevel },
+    });
+    if (result.action !== 'formatted') {
+      throw new Error(
+        'overrideTrust: writeBullet failed for re-formatted bullet — ' +
+          (result.errors?.join('; ') ?? 'unknown'),
+      );
+    }
+    const [newBullet, newComment] = result.lines.split('\n');
+    lines[i] = newBullet;
+    lines[i + 1] = newComment;
+    writeFileSync(path, lines.join('\n'), 'utf8');
+    return { priorTrust };
   }
-
-  if (!updated) return null;
-  writeFileSync(path, lines.join('\n'), 'utf8');
-  return { priorTrust };
+  return null;
 }
 
 function listScratchpadsForTier(tier, tierRoot) {
