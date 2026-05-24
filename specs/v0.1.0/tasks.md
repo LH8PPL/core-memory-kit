@@ -143,16 +143,16 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 
 ## Layer 2 — Granular archive
 
-- [ ] 7. Per-fact file format + writer (T-006)
+- [x] 7. Per-fact file format + writer (T-006) — _shipped 2026-05-24, GitHub PR #6_
   - Estimate: M · Depends: 5
-- [ ] 7.1 Implement `writeFact(tier, type, slug, body, provenance)` boundary
+- [x] 7.1 Implement `writeFact(tier, type, slug, body, provenance)` boundary
   - Public interface; internal helpers stay private
-- [ ] 7.2 Validate 9 required YAML frontmatter fields
+- [x] 7.2 Validate 9 required YAML frontmatter fields
   - `id`, `type`, `title`, `created_at`, `write_source`, `trust`, `source_file`, `source_line`, `source_sha1`; missing field → `error_category: "schema"`
-- [ ] 7.3 Compute citation ID via `canonicalize()` + `generateId()` (task 5)
-- [ ] 7.4 Implement dedup-via-canonical-ID check
+- [x] 7.3 Compute citation ID via `canonicalize()` + `generateId()` (task 5)
+- [x] 7.4 Implement dedup-via-canonical-ID check
   - Identical canonical text → same ID → second write is logged + skipped (no overwrite, no error)
-- [ ]* 7.5 Write unit tests for `writeFact()`
+- [x]* 7.5 Write unit tests for `writeFact()`
   - Test valid call creates file at expected path with all 9 frontmatter fields
   - Test each of the 9 required fields, when omitted, produces `error_category: "schema"` and no file
   - Test ID computation calls `canonicalize()` with the body (mock + assertion)
