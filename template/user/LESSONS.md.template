@@ -1,18 +1,17 @@
+<!-- Cap: 1800 chars · Last distilled: {{TODAY}} · Last health check: {{TODAY}} -->
+
 <!--
-Cap: 1800 chars (per design §1.1 user-tier budget — new in v0.1).
+LESSONS.md is for CROSS-PROJECT lessons the user has learned the hard way.
+Project-specific lessons live in <repo>/context/MEMORY.md; this file is for
+things that transfer across every project the user works in.
 File: ~/.claude-memory-kit/LESSONS.md  (or $MEMORY_KIT_USER_DIR/LESSONS.md).
-Last updated: {{TODAY}}.
-
-Purpose: cross-project LESSONS the user has learned the hard way.
-Project-specific lessons live in <repo>/context/MEMORY.md; this file is
-for things that transfer across every project the user works in.
-
-Promote a project-level lesson to this file via `cmk lessons promote <id>`.
+Promote a project-level lesson here via `cmk lessons promote <id>`.
+Three fixed sections per design §2.1; do not add a fourth.
 -->
 
 # Lessons (cross-project)
 
-## Tooling lessons
+## Tooling Lessons
 
 <!--
 Things learned about tools that apply everywhere. Examples:
@@ -21,7 +20,7 @@ Things learned about tools that apply everywhere. Examples:
 - For Anthropic API: stream by default — non-stream blocks the event loop for long generations.
 -->
 
-## Process lessons
+## Process Lessons
 
 <!--
 Things learned about workflow. Examples:
@@ -30,7 +29,7 @@ Things learned about workflow. Examples:
 - Reading the actual code beats reading the docs about the code.
 -->
 
-## Anti-patterns (what NOT to do)
+## Anti-patterns
 
 <!--
 Failure modes the user has been burned by. Examples:
@@ -38,5 +37,3 @@ Failure modes the user has been burned by. Examples:
 - Don't `pip install` from inside a session without explicit user OK.
 - Don't write fallback code for cases that can't actually happen.
 -->
-
-- (Replace placeholders with actual lessons as they're learned.)

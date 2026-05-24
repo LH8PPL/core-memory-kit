@@ -1,23 +1,34 @@
-<!--
-Cap: 1000 chars (per design §1.1 local-tier budget).
-File: <repo>/context.local/machine-paths.md (gitignored — never committed).
-Last updated: {{TODAY}}.
+<!-- Cap: 1000 chars · Last distilled: {{TODAY}} · Last health check: {{TODAY}} -->
 
-Purpose: absolute paths that are specific to THIS machine for THIS project.
-Highest priority in the 3-tier precedence model — overrides anything in
-context/ or ~/.claude-memory-kit/. Use sparingly.
+<!--
+machine-paths.md records absolute paths specific to THIS machine for THIS
+project. Highest priority in the 3-tier precedence model — overrides
+anything in context/ or ~/.claude-memory-kit/. Gitignored. Use sparingly.
+Three fixed sections per design §2.1.
 -->
 
 # Machine paths (local tier)
 
-## Absolute paths for this machine
+## Tool Paths
 
 <!--
-One bullet per path. Examples:
-- /Users/lior/Documents/datasets/ (where I keep training data on this machine)
-- C:\Users\lior\dev\models\ (Windows-equivalent on the laptop)
+Absolute paths to tools / binaries / SDKs on this machine. Examples:
 - /opt/cuda-12.4/bin (custom CUDA install for this GPU)
-Keep to actual paths only. Preferences go in overrides.md.
+- C:\Program Files\nodejs (Windows node install)
 -->
 
-- (Add machine-specific absolute paths here. Remove this placeholder when first edited.)
+## Project Paths
+
+<!--
+Absolute paths to data / outputs / dependencies tied to this project on
+this machine. Examples:
+- /Users/lior/Documents/datasets/ (training data for this project)
+- C:\Users\lior\dev\models\ (model artifacts on the laptop)
+-->
+
+## Misc Paths
+
+<!--
+Anything else path-like that doesn't fit the above two. Keep to actual
+paths; preferences go in overrides.md.
+-->

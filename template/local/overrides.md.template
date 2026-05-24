@@ -1,19 +1,17 @@
+<!-- Cap: 1000 chars · Last distilled: {{TODAY}} · Last health check: {{TODAY}} -->
+
 <!--
-Cap: 1000 chars (per design §1.1 local-tier budget).
-File: <repo>/context.local/overrides.md (gitignored — never committed).
-Last updated: {{TODAY}}.
-
-Purpose: machine-specific OVERRIDES of preferences declared elsewhere.
-When the user has different defaults on this machine vs. their normal
-setup (different editor, different shell, different tool preference),
-record them here. Highest precedence in the 3-tier model.
-
-Use `cmk config --show-origin <key>` to see which tier a setting came from.
+overrides.md records machine-specific overrides of preferences declared
+elsewhere. When the user has different defaults on this machine vs. their
+normal setup (editor, shell, tool preference), record them here. Highest
+precedence in the 3-tier model. Gitignored.
+Use `cmk config --show-origin <key>` to trace which tier a setting came from.
+Three fixed sections per design §2.1.
 -->
 
 # Machine-specific overrides (local tier)
 
-## Tool overrides
+## Tool Overrides
 
 <!--
 Examples:
@@ -22,7 +20,7 @@ Examples:
 - python: /opt/python-3.13/bin/python (instead of system python)
 -->
 
-## Behavior overrides
+## Behavior Overrides
 
 <!--
 Examples:
@@ -30,4 +28,10 @@ Examples:
 - assume offline (this machine is air-gapped)
 -->
 
-- (Add machine-specific overrides here. Remove this placeholder when first edited.)
+## Path Overrides
+
+<!--
+Examples:
+- working-dir: D:\projects\ (instead of C:\dev — D: has more space)
+- cache-dir: /var/tmp/cmk (instead of $HOME/.cache — XDG override)
+-->

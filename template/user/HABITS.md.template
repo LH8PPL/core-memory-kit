@@ -1,16 +1,16 @@
-<!--
-Cap: 1800 chars (per design §1.1 user-tier budget).
-File: ~/.claude-memory-kit/HABITS.md  (or $MEMORY_KIT_USER_DIR/HABITS.md).
-Last updated: {{TODAY}}.
+<!-- Cap: 1800 chars · Last distilled: {{TODAY}} · Last health check: {{TODAY}} -->
 
-Purpose: the user's CROSS-PROJECT working style — habits that apply
-regardless of which project they're in. Anything project-specific
-belongs in <repo>/context/SOUL.md or <repo>/context/MEMORY.md, not here.
+<!--
+HABITS.md is the user's CROSS-PROJECT working style — habits that apply
+regardless of which project they're in. Anything project-specific belongs in
+<repo>/context/SOUL.md or <repo>/context/MEMORY.md, not here.
+File: ~/.claude-memory-kit/HABITS.md  (or $MEMORY_KIT_USER_DIR/HABITS.md).
+Three fixed sections per design §2.1; do not add a fourth.
 -->
 
 # Habits (cross-project working style)
 
-## Iteration cadence
+## Iteration Cadence
 
 <!--
 How the user prefers work to be paced. Examples:
@@ -19,7 +19,7 @@ How the user prefers work to be paced. Examples:
 - TDD: write tests first, watch them fail, then implement.
 -->
 
-## Comfort with destructive operations
+## Destructive Operations
 
 <!--
 What the user is OK with Claude doing without asking. Examples:
@@ -28,7 +28,7 @@ What the user is OK with Claude doing without asking. Examples:
 - Never bypass git hooks (--no-verify) without explicit per-session approval.
 -->
 
-## Communication style
+## Communication Style
 
 <!--
 How the user wants Claude to communicate. Examples:
@@ -36,5 +36,3 @@ How the user wants Claude to communicate. Examples:
 - Lead with the answer. Add caveats only if material.
 - Acknowledge mistakes plainly. Don't bury them in apology.
 -->
-
-- (Replace placeholders with actual habits when first edited.)

@@ -1,7 +1,10 @@
+<!-- Cap: 2500 chars · Last distilled: {{TODAY}} · Last health check: {{TODAY}} -->
+
 <!--
-Cap: 2500 chars (the working scratchpad budget — measured by `wc -c`).
-Last distilled: {{TODAY}}.
-Last health check: {{TODAY}}.
+MEMORY.md is the working scratchpad. Cap measured by `wc -c` over the whole
+file (header + comments + bullets). Consolidation triggers at >95% (Task 12);
+stale bullets (>14d without `trust: high`) drop on consolidate. Three fixed
+sections per design §2.1; do not add a fourth.
 -->
 
 # Working Memory

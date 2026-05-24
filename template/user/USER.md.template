@@ -1,6 +1,9 @@
+<!-- Cap: 1375 chars · Last distilled: {{TODAY}} · Last health check: {{TODAY}} -->
+
 <!--
-Cap: 1375 chars (the user-profile budget — measured by `wc -c`).
-Last updated: {{TODAY}}.
+USER.md is the user profile. Loaded at session start with LOWEST priority
+(project/local override). 1375-char cap from Hermes Agent's verified design.
+Three fixed sections per design §2.1; do not add a fourth.
 -->
 
 # User Profile

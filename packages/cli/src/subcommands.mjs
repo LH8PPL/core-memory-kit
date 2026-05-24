@@ -13,7 +13,7 @@
 // Adding a new verb? Append to `subcommands` below — the test suite
 // asserts exactly what's exported here, so coverage stays automatic.
 
-import { install as installAction } from './install.mjs';
+import { install as installAction, initUserTier as initUserTierAction } from './install.mjs';
 import { removeClaudeMdBlock } from './claude-md.mjs';
 import { reindex as reindexAction } from './reindex.mjs';
 import { forget as forgetAction } from './forget.mjs';
@@ -66,6 +66,25 @@ function runUninstall(/* options, command */) {
     console.log('  (no kit-managed block found; CLAUDE.md left unchanged)');
   } else if (result.action === 'no-file') {
     console.log('  (no CLAUDE.md to uninstall from)');
+  }
+}
+
+/**
+ * `cmk init-user-tier` — wired in Task 14. User-tier-only install.
+ * Scaffolds USER.md, HABITS.md, LESSONS.md, fragments/ at the
+ * resolved user-tier path. Does NOT touch project/local tier files
+ * or .gitignore or CLAUDE.md (call `cmk install` for that).
+ */
+function runInitUserTier(/* options, command */) {
+  const result = initUserTierAction({});
+  console.log(
+    `cmk init-user-tier: scaffolded ${result.created.length} file(s)` +
+      (result.skipped.length ? `, skipped ${result.skipped.length} existing` : '') +
+      ` at ${result.userTier}`,
+  );
+  if (result.errors.length > 0) {
+    for (const e of result.errors) console.error(`  error: ${e.path}: ${e.error}`);
+    process.exitCode = 1;
   }
 }
 
@@ -194,7 +213,7 @@ export const subcommands = [
     name: 'init-user-tier',
     description: 'scaffold ~/.claude-memory-kit/ (honors $MEMORY_KIT_USER_DIR override)',
     milestone: 14,
-    action: stub('init-user-tier', 14),
+    action: runInitUserTier,
   },
   {
     name: 'search',
