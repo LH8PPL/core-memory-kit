@@ -16,6 +16,7 @@
 import { install as installAction } from './install.mjs';
 import { removeClaudeMdBlock } from './claude-md.mjs';
 import { reindex as reindexAction } from './reindex.mjs';
+import { forget as forgetAction } from './forget.mjs';
 import { resolve as resolvePath } from 'node:path';
 
 const NOTICE_PREFIX = 'not yet implemented in v0.1.0';
@@ -81,6 +82,59 @@ function runReindex(/* options, command */) {
     `cmk reindex: tier=${result.tier} facts=${result.factCount} bytes=${result.bytes} (${result.indexPath})`,
   );
   // reindex() already emits warnings to stderr via its `warn` callback default.
+}
+
+/**
+ * `cmk forget <id-or-query>` — wired in Task 9. Tombstones the matching
+ * fact (moves it to <tier>/<memory|fragments>/archive/tombstones/<id>.md
+ * with deleted_at/deleted_reason/deleted_by frontmatter) and strips any
+ * citing bullets from same-tier scratchpads.
+ *
+ * v0.1 requires --yes — the interactive confirmation prompt is a v0.1.x
+ * follow-up (the boundary's `confirm()` callback path is still tested by
+ * cli-forget.test.js; the CLI just doesn't wire stdin readline yet).
+ */
+function runForget(idOrQuery, options /* , command */) {
+  if (!options.yes) {
+    console.error(
+      'cmk forget: --yes is required in v0.1.0 (interactive confirmation prompt is a v0.1.x follow-up). Re-run with --yes to confirm tombstoning.',
+    );
+    process.exitCode = 2;
+    return;
+  }
+  const projectRoot = resolvePath(process.cwd());
+  const result = forgetAction({
+    idOrQuery,
+    projectRoot,
+    reason: options.reason,
+    deletedBy: options.deletedBy,
+    yes: true,
+  });
+
+  if (result.action === 'tombstoned') {
+    console.log(
+      `cmk forget: tombstoned ${result.id} (${result.tier}) → ${result.tombstonePath}`,
+    );
+    if (result.scratchpadEdits.length > 0) {
+      const total = result.scratchpadEdits.reduce((n, e) => n + e.removed, 0);
+      console.log(
+        `  scrubbed ${total} bullet(s) across ${result.scratchpadEdits.length} scratchpad(s)`,
+      );
+    }
+    return;
+  }
+  if (result.action === 'not-found') {
+    console.error(`cmk forget: ${result.errors[0]}`);
+    process.exitCode = 2;
+    return;
+  }
+  if (result.action === 'error') {
+    for (const e of result.errors) console.error(`cmk forget: ${e}`);
+    process.exitCode = 2;
+    return;
+  }
+  // cancelled (won't fire here since we pass yes:true above, but defensive)
+  console.log('cmk forget: cancelled');
 }
 
 /** Helper: build a stub action that prints the standard notice + exits 0. */
@@ -249,8 +303,12 @@ export const subcommands = [
     description: 'tombstone an observation (preserves audit trail; never silent delete)',
     milestone: 9,
     argSpec: [{ flags: '<id-or-query>', description: 'citation ID or substring query against canonical text' }],
-    optionSpec: [{ flags: '--yes', description: 'skip the interactive confirmation prompt (tests + scripts)' }],
-    action: stub('forget', 9),
+    optionSpec: [
+      { flags: '--yes', description: 'skip the interactive confirmation prompt (required in v0.1.0; interactive prompt is a v0.1.x follow-up)' },
+      { flags: '--reason <text>', description: 'deletion reason recorded in the tombstone frontmatter' },
+      { flags: '--deleted-by <enum>', description: 'who initiated the deletion (default: user-explicit)' },
+    ],
+    action: runForget,
   },
   {
     name: 'purge',

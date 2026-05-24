@@ -52,8 +52,13 @@ function runCmk(args, { input } = {}) {
  *               cache deferred to Task 29); tested by tests/cli-reindex.test.js
  *               against tempdir sandboxes — never invoked from the repo cwd here
  *               because it would create context/memory/INDEX.md inside the kit
+ *   forget    → real implementation as of Task 9 (tombstone + scratchpad scrub);
+ *               tested by tests/cli-forget.test.js against tempdir sandboxes —
+ *               never invoked from the repo cwd here because the v0.1 CLI requires
+ *               --yes anyway and we don't want to maintain an "error-exits-2"
+ *               leaf in the scaffold's exit-0 loop
  */
-const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex']);
+const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex', 'forget']);
 
 describe('Task 2 — cmk CLI scaffold', () => {
   describe('Package layout', () => {
