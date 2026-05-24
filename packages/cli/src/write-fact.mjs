@@ -23,6 +23,16 @@ const VALID_WRITE_SOURCES = new Set([
 const VALID_TRUST = new Set(['high', 'medium', 'low']);
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9_-]*$/i;
 
+// Layer-2 review finding B2: the naive frontmatter serializer writes string
+// values verbatim with no quoting. A value containing \n, \r, or ':' silently
+// corrupts the on-disk frontmatter (extra lines become injected fields; values
+// with colons mis-split on the read side). Minimum fix: reject these chars at
+// the input boundary. PR-2's frontmatter.mjs with js-yaml will quote properly
+// and lift this restriction.
+function hasUnsafeFrontmatterChars(s) {
+  return s.includes('\n') || s.includes('\r') || s.includes(':');
+}
+
 function resolveTierRoot({ tier, projectRoot, userDir }) {
   if (tier === 'P') return join(projectRoot ?? process.cwd(), 'context');
   if (tier === 'L') return join(projectRoot ?? process.cwd(), 'context.local');
@@ -56,6 +66,10 @@ function validateOptions(opts) {
   }
   if (!opts.title || typeof opts.title !== 'string' || !opts.title.trim()) {
     errors.push('title: required, non-empty string');
+  } else if (hasUnsafeFrontmatterChars(opts.title)) {
+    errors.push(
+      'title: must not contain newlines or colons (frontmatter corruption risk; see Layer-2 review B2)',
+    );
   }
   if (opts.body == null || typeof opts.body !== 'string' || !opts.body.length) {
     errors.push('body: required, non-empty string');
@@ -74,6 +88,10 @@ function validateOptions(opts) {
     !opts.sourceFile.length
   ) {
     errors.push('sourceFile: required, non-empty string');
+  } else if (hasUnsafeFrontmatterChars(opts.sourceFile)) {
+    errors.push(
+      'sourceFile: must not contain newlines or colons (use POSIX-style paths; Windows drive-letter paths blocked until PR-2 adds real YAML quoting)',
+    );
   }
   if (
     typeof opts.sourceLine !== 'number' ||
@@ -88,6 +106,10 @@ function validateOptions(opts) {
     !opts.sourceSha1.length
   ) {
     errors.push('sourceSha1: required, non-empty string');
+  } else if (hasUnsafeFrontmatterChars(opts.sourceSha1)) {
+    errors.push(
+      'sourceSha1: must not contain newlines or colons (sha1 hex strings shouldn\'t anyway)',
+    );
   }
   return errors;
 }
