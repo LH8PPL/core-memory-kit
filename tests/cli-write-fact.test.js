@@ -223,6 +223,56 @@ describe('Task 7 — writeFact() boundary', () => {
     });
   });
 
+  // Layer-2 code-review blocker B2: the naive frontmatter serializer writes
+  // string values verbatim with no quoting. Values containing \n, \r, or ':'
+  // silently corrupt the on-disk frontmatter. Minimum fix: reject at the
+  // input boundary for scalar frontmatter fields (title, sourceFile,
+  // sourceSha1). PR-2's frontmatter.mjs (js-yaml) lifts this restriction.
+  describe('blocker B2 — reject newlines and colons in scalar frontmatter fields', () => {
+    const unsafeValues = [
+      { label: 'newline', value: 'something\nadmin: true' },
+      { label: 'carriage-return', value: 'something\rinjected' },
+      { label: 'colon', value: 'something: with colon' },
+    ];
+
+    for (const { label, value } of unsafeValues) {
+      it(`rejects title containing ${label} → schema error, no file written`, () => {
+        const r = writeFact(validOptions({ projectRoot, title: value }));
+        expect(r.action).toBe('error');
+        expect(r.errorCategory).toBe('schema');
+        expect(r.errors.join(' ')).toMatch(/title/i);
+        const memDir = join(projectRoot, 'context', 'memory');
+        expect(existsSync(memDir) ? readdirSync(memDir) : []).toEqual([]);
+      });
+
+      it(`rejects sourceFile containing ${label} → schema error`, () => {
+        const r = writeFact(validOptions({ projectRoot, sourceFile: value }));
+        expect(r.action).toBe('error');
+        expect(r.errorCategory).toBe('schema');
+        expect(r.errors.join(' ')).toMatch(/sourceFile/i);
+      });
+
+      it(`rejects sourceSha1 containing ${label} → schema error`, () => {
+        const r = writeFact(validOptions({ projectRoot, sourceSha1: value }));
+        expect(r.action).toBe('error');
+        expect(r.errorCategory).toBe('schema');
+        expect(r.errors.join(' ')).toMatch(/sourceSha1/i);
+      });
+    }
+
+    it('safe values (no newlines/colons) still accepted — regression guard', () => {
+      const r = writeFact(
+        validOptions({
+          projectRoot,
+          title: 'A safe title with - dashes and (parens)',
+          sourceFile: 'context/transcripts/2026-05-24.md',
+          sourceSha1: 'abc123ef0123456789abcdef0123456789abcdef',
+        }),
+      );
+      expect(r.action).toBe('created');
+    });
+  });
+
   describe('ID derivation (task 7.3)', () => {
     it('ID equals generateId(tier, body) — derived from body, not title or slug', () => {
       const opts = validOptions({ projectRoot, title: 'IRRELEVANT', slug: 'irrelevant' });

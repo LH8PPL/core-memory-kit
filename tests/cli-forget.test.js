@@ -202,6 +202,62 @@ describe('Task 9 — forget() + resolveFact() boundaries', () => {
       expect(r.action).toBe('error');
     });
 
+    // Layer-2 code-review blocker B2: `reason` lands in the tombstone
+    // frontmatter via the naive serializer. \n / \r / : would corrupt the
+    // on-disk shape. Reject at the input boundary.
+    it('forget with reason containing newline → schema error, no tombstone created', () => {
+      const w = writeFact(validFactOpts({ projectRoot }));
+      const r = forget({
+        idOrQuery: w.id,
+        projectRoot,
+        reason: 'multi\nline reason',
+        yes: true,
+      });
+      expect(r.action).toBe('error');
+      expect(r.errorCategory).toBe('schema');
+      expect(r.errors.join(' ')).toMatch(/reason/i);
+      // Original file untouched, no tombstone
+      expect(existsSync(w.path)).toBe(true);
+      expect(
+        existsSync(
+          join(
+            projectRoot,
+            'context',
+            'memory',
+            'archive',
+            'tombstones',
+            `${w.id}.md`,
+          ),
+        ),
+      ).toBe(false);
+    });
+
+    it('forget with reason containing colon → schema error', () => {
+      const w = writeFact(validFactOpts({ projectRoot }));
+      const r = forget({
+        idOrQuery: w.id,
+        projectRoot,
+        reason: 'user said: forget X',
+        yes: true,
+      });
+      expect(r.action).toBe('error');
+      expect(r.errorCategory).toBe('schema');
+      expect(existsSync(w.path)).toBe(true);
+    });
+
+    it('forget with reason containing carriage-return → schema error', () => {
+      const w = writeFact(validFactOpts({ projectRoot }));
+      const r = forget({
+        idOrQuery: w.id,
+        projectRoot,
+        reason: 'corrupt\rpayload',
+        yes: true,
+      });
+      expect(r.action).toBe('error');
+      expect(r.errorCategory).toBe('schema');
+      expect(existsSync(w.path)).toBe(true);
+    });
+
     it('reindex of an archive subdir does not see the tombstoned file (existing reindex contract)', () => {
       // Sanity that the tombstone path puts the file outside reindex's scan.
       const w = writeFact(validFactOpts({ projectRoot, slug: 'tomb' }));

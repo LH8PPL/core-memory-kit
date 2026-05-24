@@ -194,6 +194,21 @@ export function mergeFacts(opts = {}) {
     };
   }
 
+  // Layer-2 review finding B1: if writeFact dedup'd against an existing
+  // unrelated fact (content-addressed collision), we must NOT proceed to
+  // moveToSuperseded — that would silently retarget A's and B's history
+  // to a pre-existing fact whose frontmatter has no merged_from entry.
+  // Reject with a clear error; caller picks a different mergedBody.
+  if (writeResult.action !== 'created') {
+    return {
+      action: 'error',
+      errorCategory: 'collision',
+      errors: [
+        `merged body collides with existing fact ${writeResult.id} (writeFact returned ${writeResult.action}${writeResult.skipReason ? ': ' + writeResult.skipReason : ''}); choose a different mergedBody`,
+      ],
+    };
+  }
+
   const supersededA = moveToSuperseded(matchA, writeResult.id);
   const supersededB = moveToSuperseded(matchB, writeResult.id);
 
