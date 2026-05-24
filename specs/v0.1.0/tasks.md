@@ -245,16 +245,16 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Test `settings.json` override (`MEMORY.md.max_chars: 4000`) enforced even if default is higher
   - _Requirements: FR-3; design §2.1_
 
-- [ ] 13. Provenance frontmatter writer + reader (T-011)
+- [x] 13. Provenance frontmatter writer + reader (T-011) — _shipped 2026-05-24, GitHub PR #13 (+ review-fix commits for B3 comma-injection + design.md example-id replacement)_
   - Estimate: S · Depends: 5, 12
   - Uses shared modules from `packages/cli/src/{tier-paths,audit-log,frontmatter,result-shapes}.mjs` — see CLAUDE.md "Shared modules" rule
-- [ ] 13.1 Implement `writeBullet(text, provenance)` boundary
+- [x] 13.1 Implement `writeBullet(text, provenance)` boundary
   - Emits bullet on one line + HTML-comment provenance on the next
-- [ ] 13.2 Validate 7 required provenance fields
-  - `source`, `sha1`, `write`, `trust`, `at`, plus per-bullet `id`, `source_line`
-- [ ] 13.3 Implement reader that parses HTML-comment provenance back into struct
-  - Used by SessionStart hook (task 18) for tier-merging
-- [ ]* 13.4 Write unit tests for provenance writer + reader
+- [x] 13.2 Validate 7 required provenance fields
+  - `source`, `source_line` (separate field, not inline in source — see design §2.1 update), `sha1`, `write`, `trust`, `at`, plus per-bullet `id`
+- [x] 13.3 Implement reader that parses HTML-comment provenance back into struct
+  - Used by SessionStart hook (task 18) for tier-merging. Tolerant: returns `null` on non-bullet lines so callers can iterate freeform markdown without crashing
+- [x]* 13.4 Write unit tests for provenance writer + reader
   - Test `writeBullet({text, provenance})` produces two-line output: bullet, then HTML comment with all required fields
   - Test each required field, when omitted: rejected with `error_category: "schema"`
   - Test reader parses comment back into struct with all fields populated
