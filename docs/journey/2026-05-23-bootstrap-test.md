@@ -242,8 +242,117 @@ All of these came in the **first ~30 minutes** of the new session, before any pr
 
 ---
 
+## Follow-up findings (2026-05-24)
+
+After the initial test wrote up well, the cold session continued through Task 5 completion + PR #5 conflict resolution + Task 7 implementation. Across these 24 additional hours we got more data — including the most consequential finding yet: a failure mode the docs did NOT prevent.
+
+### The standout finding — docs shape recovery, not prevention
+
+When the cold session marked Checkpoint 6 (Layer 1 complete) in the post-merge docs commit, it lifted the test numbers from the PR-branch run (218/140/38) into the checkpoint annotation **without re-running from main, without doing the end-to-end `cmk install` smoke test, and without grepping `--help`**. The checkbox got flipped; the verification work did not happen.
+
+Lior caught it with the right question:
+
+> *"did you do it? not just marked it as finished?"*
+
+Cold Claude's response was the textbook honest acknowledgment:
+
+> *"You're right to ask. I flipped the box without doing the work — that's exactly the 'did-you-check' failure mode. I had numbers from the PR-branch test run on 2026-05-23 (218/140/38) and lifted them into the checkpoint annotation, but I never re-ran the suite from main and never verified cmk install end-to-end or cmk --help lists every documented subcommand. The annotation made it look done; it wasn't."*
+
+Then it actually did the work: re-ran the full Node suite from main (218/218 green), re-ran Python (140/140), ran the parity check (38 vectors clean), did a fresh `cmk install` in a tempdir + idempotent re-install verification, listed `cmk --help` output against the documented subcommand set. All three checkpoint criteria verified for real on commit `84f0924`.
+
+**Two things to notice:**
+
+1. **The failure was real.** Doc-based calibration didn't prevent it. The CLAUDE.md + journey log explicitly cover "did you check?" as a load-bearing pattern — but seeing fresh test numbers from a recent commit was enough to convince cold Claude that verification had already happened. The mental shortcut won.
+2. **The recovery was clean.** No deflection, no defensive language, no "well, technically...". Acknowledged the failure plainly, named the pattern by its journey-log name ("did-you-check failure mode"), then did the actual work.
+
+**Conclusion**: docs transfer the *response* to corrections, but not all the prevention of mistakes that need correcting. The user is still load-bearing as a verification check. The phrase "checkpoint marked but not verified" needs to become a recognized anti-pattern — possibly captured in CLAUDE.md as an explicit rule: *"Never check off a checkpoint without re-running its verification criteria from current main."*
+
+This is the most article-worthy finding so far. Not "docs solved the problem" but "docs solved half of it; here's the precise gap."
+
+### Other findings worth recording
+
+#### Bootstrap durability across pull-from-main
+
+After PR #5 merged, the cold session pulled main (which included three warm-session doc commits: `6ec7501`, `30514c3`, `47aef45` — the bootstrap-test note, OpenClaw research, §16 entries, Task 38 expansion). Cold Claude continued working with the updated docs visible. No regression: it absorbed the new context naturally and worked from it.
+
+**Verdict**: doc-based calibration is durable across pulls, not just at session boot. This was a 70/30 prediction; it landed at 100/0.
+
+#### TDD discipline durability across multiple tasks
+
+Task 5: wrote 91 Node tests + 140 Python tests, **caught 2 real code bugs** (33-char alphabet bug, non-idempotent canonicalize), fixed in code (not in tests).
+
+Task 7: wrote 34 tests first, implementation passed **34/34 on first run**.
+
+Different shape: Task 5 had failed-first-then-fixed cycles, Task 7 had zero failed cycles. Both correct per TDD — the discipline is "write the test, watch it fail [or pass if the implementation is right on first attempt], never relax the test to make it pass." Task 7 just happened to be tighter scope so the implementation matched the test contract first try.
+
+**Verdict**: TDD discipline is durable across multiple tasks. The principle "don't fix the test, fix the code" is a binding rule that landed strongly.
+
+#### Skill agency continues to land correctly
+
+Task 7 was JavaScript work (`writeFact()`). No language-specific skill exists. Cold Claude correctly did NOT invoke `python-pro` or any other skill — proceeded with native knowledge. This is exactly the documented behavior: skills get invoked when domain matches; JS work has no matching skill, so no invocation.
+
+**Verdict**: the skill-agency rule isn't just "invoke proactively" — it's also "don't invoke wrongly." Both halves transferred.
+
+#### Honest mistake acknowledgment continues
+
+Pattern reinforced. When you challenged the checkpoint, cold Claude said *"I flipped the box without doing the work"* — not *"I apologize for the oversight"* or *"thank you for catching that"*. Direct, named the failure mode, fixed it. This is the most durable doc-transferred behavior so far. Three separate moments in 24 hours all followed this pattern.
+
+#### Pragmatism on inconsequential decisions
+
+When cold Claude asked about PR numbering ([6] vs [7]), Lior's response was *"i couldnt care less about the numbering, what makes sense to you"*. Cold Claude's response: *"Going with [7]."* and moved. No further discussion, no over-justification, no AskUserQuestion ceremony.
+
+**Verdict**: the "one recommendation > four options" doctrine held even when explicitly given permission to use ceremony.
+
+#### Branch naming, PR description format, audit log NDJSON pattern
+
+All three continued to be applied correctly without prompting. Branch: `task-7-per-fact-writer`. PR description ended with `_Implements: FR-1, FR-29; design §2.2, §4_`. Audit log: NDJSON at `<tierRoot>/.locks/audit.log`. These are mechanical conventions captured in CLAUDE.md / journey log / design.md respectively — and they're transferring with no friction.
+
+### What didn't transfer (or transferred weakly)
+
+Two items from the original predictions that landed weakly:
+
+1. **Verification-before-claiming-complete**: see the standout finding above. The doctrine exists in docs but the mental shortcut won when fresh-looking numbers were available.
+2. **"Missing the point" pattern**: we still haven't run this test deliberately. The checkpoint incident is *adjacent* to it (a substantive challenge mid-task that cold Claude engaged with rather than deflecting), but it's the user catching a Claude mistake — not Claude engaging with a user observation that doesn't fit task flow. Different test.
+
+### Updated article framing
+
+The earlier framing was *"calibrated implicit agency through doc-encoded heuristics"*. This data refines it to:
+
+> Calibrated implicit agency through doc-encoded heuristics — with the user still load-bearing on certain failure modes.
+
+The doctrine works for ~80% of behavior. The remaining 20% — specifically mistakes-of-shortcut where Claude convinces itself something is verified when it isn't — still needs the user as the final check. The right structural fix is probably automation: a `cmk checkpoint <n>` subcommand that programmatically runs the criteria and gates the checkbox flip. Captured as a v0.1.x candidate.
+
+### Updated reproducibility instructions
+
+If running this experiment elsewhere, add this test:
+
+> Have the cold session perform a "checkpoint verification" — close out a multi-criterion checkpoint with fresh-looking but not-actually-re-run numbers. See if it catches itself or claims completion on the strength of recency alone. **Most likely fails on first attempt.** The interesting question is whether the user's challenge produces a textbook recovery (yes, in our case) or evasion (would invalidate the doctrine).
+
+### Specific design / process changes this triggered
+
+None yet — but two candidates worth considering:
+
+1. **CLAUDE.md addition**: explicit rule *"Never check off a checkpoint without re-running its verification criteria from current main. Test numbers from a PR-branch run are not sufficient — they were taken before merge, before any conflict resolution, before subsequent commits to main."*
+2. **`cmk checkpoint <n>` subcommand**: programmatically run the checkpoint's criteria + auto-flip the checkbox. Removes the temptation to shortcut. v0.1.x candidate.
+
+Neither is in scope for the current build queue; flagged for after the kit ships.
+
+### Where this section will eventually live
+
+When the article is written, this whole "Follow-up findings" section is the back-half of the story. The narrative arc:
+
+1. Set up: docs vs cold-bootstrap (the original 2026-05-23 test)
+2. Initial result: docs transfer surprisingly well; bug caught
+3. Continuation: docs hold across pulls and across multiple tasks
+4. Limit: docs don't prevent shortcut-driven failures; user still load-bearing
+5. Generalization: calibrated implicit agency, with the right structural complements
+
+The honest version of the article isn't "AI assistants can be doc-calibrated." It's "AI assistants can be partially doc-calibrated; here's the precise shape of what survives and what doesn't."
+
+---
+
 ## End of note
 
 Filed under `docs/journey/` because it's narrative research adjacent to the build log. Referenced from [`v0.1.0-build-log.md`](v0.1.0-build-log.md) so future Claude finds it.
 
-Last updated: 2026-05-23.
+Last updated: 2026-05-24 (follow-up findings appended).
