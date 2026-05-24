@@ -54,6 +54,20 @@ const REQUIRED_PROVENANCE_FIELDS = [
   'at',
 ];
 
+// PR-1 finding B2 was about newlines/colons in YAML-frontmatter scalar values.
+// Layer-3 review finding B3 is the same shape with `,` as the separator: the
+// HTML-comment provenance is `key: value, key: value, ...`, so a value
+// containing `,` would silently inject a fake field. A `source` of
+// `"Innocent, sha1: fake"` would round-trip as if it had an `sha1: fake`
+// field of its own. Defensive boundary check: reject these chars in scalar
+// provenance fields + the bullet text.
+//
+// `write` and `trust` are enums (already rejected if not in the allow-list);
+// `source_line` is a number (no string-injection possible).
+const UNSAFE_FOR_COMMENT = /[,\n\r]/;
+const UNSAFE_FOR_BULLET_TEXT = /[\n\r]/; // commas are fine in bullet text (line 1, not the comment)
+const FIELDS_TO_SANITIZE = ['source', 'sha1', 'at'];
+
 // Match the bullet line: `- (<id>) <text>`. The id pattern is the kit's
 // custom base32 alphabet from tier-paths.mjs; non-conforming ids are
 // treated as "not a kit bullet" by readBullet.
@@ -77,6 +91,10 @@ function validateBulletInput({ id, text, provenance }) {
 
   if (!text || typeof text !== 'string' || !text.trim()) {
     errors.push('text: required, non-empty string');
+  } else if (UNSAFE_FOR_BULLET_TEXT.test(text)) {
+    errors.push(
+      'text: must not contain newlines (would break the 2-line bullet+comment shape; see review finding B3)',
+    );
   }
 
   if (!provenance || typeof provenance !== 'object') {
@@ -119,6 +137,19 @@ function validateBulletInput({ id, text, provenance }) {
     errors.push(
       `provenance.write: must be one of user-explicit/auto-extract/compressor/manual-edit/imported (got ${JSON.stringify(provenance.write)})`,
     );
+  }
+
+  // B3 defense: scalar string fields that land in the comment must not contain
+  // `,` / `\n` / `\r`. A `,` would silently spawn a fake field on read; a
+  // newline would break the single-line comment shape.
+  for (const f of FIELDS_TO_SANITIZE) {
+    const v = provenance[f];
+    if (typeof v === 'string' && UNSAFE_FOR_COMMENT.test(v)) {
+      errors.push(
+        `provenance.${f}: must not contain commas, newlines, or carriage returns ` +
+          '(comment-format injection risk; see review finding B3)',
+      );
+    }
   }
 
   return errors;

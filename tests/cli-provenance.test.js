@@ -225,6 +225,88 @@ describe('Task 13 — writeBullet() / readBullet() / parseBulletProvenance()', (
     });
   });
 
+  // Layer-3 PR-13 review finding B3: same shape as PR-1's B2 but with `,`
+  // as the separator. The HTML-comment provenance is `key: value, key: value`,
+  // so a value containing `,` would silently inject a fake field on read.
+  // writeBullet rejects unsafe chars at the input boundary; we verify both
+  // the rejection AND that the would-be-injection can't sneak through.
+  describe('B3 — reject commas/newlines/carriage-returns in scalar provenance fields', () => {
+    const unsafeChars = [
+      { label: 'comma', value: 'Innocent, sha1: fake' },
+      { label: 'newline', value: 'first\nsha1: fake' },
+      { label: 'carriage-return', value: 'first\rinjected' },
+    ];
+
+    for (const { label, value } of unsafeChars) {
+      for (const field of ['source', 'sha1', 'at']) {
+        it(`rejects provenance.${field} containing ${label} → schema error`, () => {
+          const r = writeBullet(
+            validBulletInput({
+              provenance: { ...validBulletInput().provenance, [field]: value },
+            }),
+          );
+          expect(r.action).toBe('error');
+          expect(r.errorCategory).toBe('schema');
+          expect(r.errors.join(' ')).toMatch(new RegExp(field, 'i'));
+        });
+      }
+
+      it(`rejects bullet text containing ${label} → schema error`, () => {
+        // bullet text only forbids \n / \r (commas in text are fine; they
+        // don't interfere with the comment on line 2)
+        if (label === 'comma') {
+          // Commas in text are explicitly allowed (line-1 vs line-2 isolation)
+          const r = writeBullet(
+            validBulletInput({ text: 'a bullet, with a comma' }),
+          );
+          expect(r.action).toBe('formatted');
+          return;
+        }
+        const r = writeBullet(validBulletInput({ text: value }));
+        expect(r.action).toBe('error');
+        expect(r.errorCategory).toBe('schema');
+        expect(r.errors.join(' ').toLowerCase()).toContain('text');
+      });
+    }
+
+    it('writeBullet rejects the precise attack vector — a source value that would otherwise leak an sha1 field', () => {
+      const r = writeBullet(
+        validBulletInput({
+          provenance: {
+            ...validBulletInput().provenance,
+            source: 'Innocent, sha1: fake',
+          },
+        }),
+      );
+      expect(r.action).toBe('error');
+      expect(r.errorCategory).toBe('schema');
+      // Sanity: even if we tried to hand-craft the bad comment line and parse
+      // it, the parser would naively read the injected sha1 — which is why
+      // the writer-side rejection is the right place for the defense.
+      const adversarial =
+        '  <!-- source: Innocent, sha1: fake, source_line: 1, sha1: real-value, write: user-explicit, trust: high, at: 2026-05-24T12:00:00Z -->';
+      const leaked = parseBulletProvenance(adversarial);
+      // The parser is permissive (read more, fail less); duplicate `sha1`
+      // keys would last-write-win. This proves the input-side rejection is
+      // necessary — we cannot rely on the parser to detect injection.
+      expect(leaked.sha1).toBe('real-value'); // last-key-wins; injection happens
+    });
+
+    it('safe values still accepted — regression guard against over-restrictive validation', () => {
+      const r = writeBullet(
+        validBulletInput({
+          provenance: {
+            ...validBulletInput().provenance,
+            source: 'transcripts/2026-05-24.md', // no chars in [,\n\r]
+            sha1: 'a'.repeat(40), // pure hex
+            at: '2026-05-24T12:00:00Z', // ISO 8601, no commas
+          },
+        }),
+      );
+      expect(r.action).toBe('formatted');
+    });
+  });
+
   describe('round-trip: write → read → write byte-identical (13.4)', () => {
     const cases = [
       {
