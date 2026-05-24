@@ -219,10 +219,10 @@ Last health check: 2026-05-22.
 ## Active Threads
 
 - (P-A8FN3MQ2) we standardized on Python 3.13
-  <!-- source: transcripts/2026-05-22.md:142, sha1:abc123ef..., write: user-explicit, trust: high, at: 2026-05-22T14:30:00Z -->
+  <!-- source: transcripts/2026-05-22.md, source_line: 142, sha1: abc123ef..., write: user-explicit, trust: high, at: 2026-05-22T14:30:00Z -->
 
 - (P-3L8N1P9R) milvus pinned at v2.6.16 in milvus-deploy/docker-compose.yml
-  <!-- source: transcripts/2026-05-21.md:88, sha1:def456gh..., write: auto-extract, trust: medium, at: 2026-05-21T19:45:12Z -->
+  <!-- source: transcripts/2026-05-21.md, source_line: 88, sha1: def456gh..., write: auto-extract, trust: medium, at: 2026-05-21T19:45:12Z -->
 
 ## Environment Notes
 
@@ -238,7 +238,7 @@ Last health check: 2026-05-22.
 - **HTML comment frontmatter at top** for size cap, last-distilled, last-health-check. These comments are stripped from Claude's context per Anthropic's docs (saves tokens; humans still see them when viewing).
 - **Three fixed sections** per file (Active Threads / Environment Notes / Pending Decisions for `MEMORY.md`; About / Preferences / Working Style for `USER.md`; etc.).
 - **One bullet per fact**, ≤ 200 chars per bullet (the bullet text itself, not counting metadata).
-- **Provenance frontmatter** in HTML comment immediately below the bullet. Required fields: `source`, `sha1`, `write`, `trust`, `at`. (Per T8, FR-29.)
+- **Provenance frontmatter** in HTML comment immediately below the bullet. Required fields per Task 13: `source` (file path), `source_line` (positive integer), `sha1`, `write` (enum), `trust` (enum), `at` (ISO 8601 UTC). The 7th required field is `id` — recovered from the bullet line's `(P-XXX)` prefix, not duplicated in the comment. The canonical writer/reader pair is [`packages/cli/src/provenance.mjs`](../../packages/cli/src/provenance.mjs) (`writeBullet` / `readBullet` / `parseBulletProvenance`); don't roll your own. (Per T8, FR-29.)
 - **Citation ID in parentheses at start of bullet**: `(P-A8FN3MQ2)`. (Per FR-14.)
 - **Section sign delimiter `§`** is NOT used in our format (Hermes uses it; we use markdown bullets — simpler and git-diffable).
 
