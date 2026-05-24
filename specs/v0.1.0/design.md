@@ -1342,6 +1342,100 @@ Right home: Task 33 (daily-distill cron). Concrete shape:
 
 No code change needed in v0.1 itself — the existing writers append; rotation is a separate concern that runs out-of-band. Surface this as a v0.1.x patch once we've actually accumulated enough log entries to make it relevant.
 
+### 16.14 Mermaid-style symbolic short-term memory
+
+v0.2 candidate. Inspired by [TencentDB Agent Memory](https://github.com/Tencent/TencentDB-Agent-Memory) (research note: [`docs/research/2026-05-24-tencentdb-agent-memory.md`](../../docs/research/2026-05-24-tencentdb-agent-memory.md)). Distinct concept from our rolling-window compression (§7) — that operates on closed sessions; this operates on open ones.
+
+**The problem.** Long-running agent sessions (50+ tool calls, verbose outputs) bloat context. Compression doesn't help inside an active session; you need a way to keep the working state addressable without keeping every tool output verbatim.
+
+**Tencent's approach.**
+
+- Tool outputs offloaded to disk at `refs/*.md` under the data directory
+- State transitions encoded as **Mermaid syntax** inside a lightweight "task canvas"
+- Agent reasons over the symbol graph in context, then `greps` a `node_id` to pull raw text on demand
+
+**Reported impact** (Tencent self-reported, see research note §"Reported benchmarks"): 61% token reduction on WideSearch, 33% on SWE-bench, both on 50-task continuous sessions.
+
+**Investigation needed.** Whether Claude Code's PostToolUse hook can capture tool outputs and offload them in real time without disrupting normal tool flow. If yes, the kit can host this as a separate add-on subcommand (e.g. `cmk task-canvas`) that maintains a per-session symbolic state file in `<projectRoot>/context.local/scratchpads/task-canvas.md`.
+
+**Divergence from Tencent's specific form.** We wouldn't tie this to Mermaid; the representation should be format-agnostic ("compact symbolic representation," with Mermaid as one option alongside DOT, bullet lists, or any structured format). Same orthogonality discipline as §1.1 (storage tiers ≠ specific filesystem layout).
+
+### 16.15 L2 "scenario" layer between granular facts and persona
+
+v0.2 candidate (lower priority). Inspired by TencentDB's 4-tier pyramid (research note §"The 4-tier semantic pyramid"). Their tiers: L0 raw conversation → L1 atomic facts → **L2 scenario summaries** → L3 persona.
+
+**Our current shape.** Granular archive (≈ L1) → scratchpads (≈ L3). The `MEMORY.md` "Active Threads" section informally covers some of what L2 would do — grouping related facts into mid-level summaries — but it's a scratchpad section, not a separate retrieval tier.
+
+**Why it might matter.** Tencent's retrieval is deterministic drill-down: query the persona first, descend to scenarios, then to atoms, only loading raw conversation when needed. An explicit L2 tier could improve our drill-down ergonomics (the MCP server's `mk_search` could return scenario-level results by default with a deeper-detail flag).
+
+**Why it's lower priority.** Our scratchpad structure covers most of what L2 would do. The current concern is whether the user tier gets populated at all (see §16.16); mid-level retrieval ergonomics are a follow-on optimization, not a prerequisite.
+
+**Revisit timing.** After §16.16 auto-persona ships and we see whether mid-level groupings emerge naturally from the auto-extract subagent's behavior.
+
+### 16.16 Auto-persona generation (Lior-prioritized 2026-05-24)
+
+**v0.1.x candidate — high priority.** Replaces hand-curated user-tier files (`USER.md`, `HABITS.md`, `LESSONS.md`) with auto-generated content driven by the auto-extract subagent (Task 23).
+
+**Why this matters (the failure mode it fixes).** The 3-tier scope (user / project / local) only delivers value if all three tiers actually fill up. The project + local tiers fill organically via the auto-extract subagent. The user tier was specced as hand-curated, which is exactly the same failure-mode pattern the kit was built to fix everywhere else: don't make the user do work the system should do automatically. Lior's direct feedback (2026-05-24, captured verbatim in [`docs/research/2026-05-24-tencentdb-agent-memory.md`](../../docs/research/2026-05-24-tencentdb-agent-memory.md)):
+
+> *"i dont like the hand-curated user-tier files, i know that i myself will not fill them up if i have to do it manually as a user/developer using our kit, it's too much of a hassle."*
+
+If users won't hand-curate, the user-tier files stay empty, the cross-project layer provides no value, and the 3-tier benefit collapses to project + local. Auto-persona is the structural fix.
+
+**Inspired by.** Tencent's auto-persona-every-50-memories pattern (research note §"Retrieval defaults"). Same principle as our memory-write trigger-phrase critique (don't require user phrases for capture; the system extracts automatically).
+
+**Proposed shape.**
+
+- New subcommand: `cmk persona generate` (manual trigger) + automatic invocation from the auto-extract subagent (Task 23) every N captured facts (default: 50, configurable)
+- Reads the granular archive (project + user tier facts via `cmk search` and direct `<userDir>/memory/` reads)
+- Synthesizes current user-profile state via the same CompressorBackend used elsewhere (Haiku default per §8.3)
+- Output: candidate updates to `USER.md` / `HABITS.md` / `LESSONS.md`
+- Two modes:
+  - **Stage**: write to `<userDir>/queues/persona-review.md` for user confirmation (default)
+  - **Auto-apply**: write directly to user-tier files with audit log entry (opt-in via `--auto`)
+
+**Open questions for the v0.1.x design pass.**
+
+- Cross-project vs single-project persona generation. User-tier is by definition cross-project; how does the auto-extract subagent in project P access facts from project Q? Likely via `cmk search --tier U` reading directly from `<userDir>/memory/`.
+- Conflict resolution. What happens when the proposed persona update contradicts an existing hand-curated entry? Default: stage in `queues/persona-review.md`, don't overwrite (consistent with §6.2 conflict queue).
+- Trust level. Auto-persona entries get `provenance.trust = medium` (system-derived, not user-attested). Hand-curated entries stay `high`. Confirmed-from-queue entries get promoted to `high`.
+
+**Glossary entry pending.** Add `[[Auto-persona]]` to [`specs/v0.1.0/glossary.md`](glossary.md) when the v0.1.x task gets formally specced.
+
+### 16.17 Empirical benchmarks methodology
+
+**v0.2 priority — required before public claims about kit effectiveness.**
+
+**The gap.** Tencent has published benchmarks (research note §"Reported benchmarks"); we have none. v0.1.0 can ship as "infrastructure ready, not yet measured" — but v0.2's narrative needs evidence.
+
+**Methodology shape (from Tencent's approach + our scope).**
+
+- **Long-horizon coding tasks**: 5 multi-session refactors. Run each with and without the kit installed. Measure session-start time-to-orientation, total tokens per session, task completion rate, and end-state correctness.
+- **Cross-session recall**: 10 facts established in session 1 (mix of decisions, preferences, project state). Test in session 2 whether the kit-equipped agent correctly retrieves them when relevant. Compare to no-kit baseline.
+- **Decision consistency**: 5 design decisions made in session 1. Test in session 2 whether follow-up decisions stay consistent with the prior choices.
+- **Session 1 → session N**: extend the recall + consistency tests across 5+ sessions to measure decay behavior.
+
+**Reference target** (Tencent's reported numbers, see research note):
+
+| Benchmark | Their baseline | Their with-plugin | Pass-rate Δ | Token Δ |
+| --- | --- | --- | --- | --- |
+| WideSearch | 33% | 50% | +51.52% | −61.38% |
+| SWE-bench | 58.4% | 64.2% | +9.93% | −33.09% |
+| AA-LCR | 44.0% | 47.5% | +7.95% | −30.98% |
+| PersonaMem | 48% | 76% | +59% | (not reported) |
+
+Not direct comparables — they're integration-specific (OpenClaw + Hermes) and self-reported. But the methodology (continuous long-horizon sessions, baseline-vs-with-plugin, pass-rate + token cost) is the right shape.
+
+**Tasks to add when scoping v0.2:**
+
+- Benchmark harness (probably a separate repo or sub-directory; benchmarks shouldn't bloat the v0.1 test surface)
+- Task suite curation (5 refactors + recall + consistency + decay)
+- Baseline measurement protocol (no-kit runs)
+- With-kit measurement protocol (kit installed, all subagents active)
+- Results publication (`docs/benchmarks/v0.2/` + README narrative section)
+
+**Honest acknowledgement to v0.1.0 users.** Until v0.2 ships benchmarks, the README's effectiveness claims must say "expected behavior, not measured." The kit is structurally sound (architecture-first decision per §1.4); the empirical case follows.
+
 ---
 
 ## End of design.md v0.1.0
