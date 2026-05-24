@@ -1374,7 +1374,9 @@ v0.2 candidate (lower priority). Inspired by TencentDB's 4-tier pyramid (researc
 
 ### 16.16 Auto-persona generation (Lior-prioritized 2026-05-24)
 
-**v0.1.x candidate — high priority.** Replaces hand-curated user-tier files (`USER.md`, `HABITS.md`, `LESSONS.md`) with auto-generated content driven by the auto-extract subagent (Task 23).
+**v0.1.0 in-scope** (promoted from v0.1.x candidate on 2026-05-24, immediately after Task 14's seed-template work landed). Implemented as [Task 45](../v0.1.0/tasks.md) (appended at the tasks.md tail to avoid renumbering 24+ existing tasks; depends on Task 23 / consumes its output; must ship before the v0.1.0 release tag). Replaces hand-curated user-tier files (`USER.md`, `HABITS.md`, `LESSONS.md`) with auto-generated content driven by the auto-extract subagent (Task 23).
+
+**Promotion rationale.** Shipping with hand-curated user-tier means shipping with a structurally broken third of the value proposition on day one. Hand-curation is a known failure mode; "v0.1.x patch" assumes users stick around long enough to receive it — they won't, if their first experience is empty `USER.md` / `HABITS.md` / `LESSONS.md`. The auto-persona path closes the loop: user uses kit → auto-extract captures durable facts → auto-persona synthesizes them into user-tier scratchpads → user benefits from cross-project memory automatically. Removing any link in that chain breaks the value prop.
 
 **Why this matters (the failure mode it fixes).** The 3-tier scope (user / project / local) only delivers value if all three tiers actually fill up. The project + local tiers fill organically via the auto-extract subagent. The user tier was specced as hand-curated, which is exactly the same failure-mode pattern the kit was built to fix everywhere else: don't make the user do work the system should do automatically. Lior's direct feedback (2026-05-24, captured verbatim in [`docs/research/2026-05-24-tencentdb-agent-memory.md`](../../docs/research/2026-05-24-tencentdb-agent-memory.md)):
 
