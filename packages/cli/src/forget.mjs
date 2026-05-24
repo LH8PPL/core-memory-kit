@@ -320,5 +320,17 @@ export function resolveFact({ id, projectRoot, userDir }) {
     };
   }
 
+  const supersededPath = join(factDir, 'archive', 'superseded', `${id}.md`);
+  if (existsSync(supersededPath)) {
+    const { frontmatter, body } = readAndParse(supersededPath);
+    return {
+      state: 'superseded',
+      path: supersededPath,
+      body,
+      frontmatter,
+      supersededBy: frontmatter?.superseded_by,
+    };
+  }
+
   return { state: 'not-found' };
 }
