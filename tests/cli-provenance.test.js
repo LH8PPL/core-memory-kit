@@ -210,7 +210,7 @@ describe('Task 13 — writeBullet() / readBullet() / parseBulletProvenance()', (
     it('returns null when the bullet id is malformed (uses chars outside the kit base32 alphabet)', () => {
       // 'I' is excluded from the kit's base32 alphabet
       const r = readBullet({
-        bulletLine: '- (P-MISSING2) some text',
+        bulletLine: '- (P-MISSING2) some text', // validate-test-ids: ignore
         commentLine: '  <!-- source: x, source_line: 1, sha1: y, write: user-explicit, trust: high, at: t -->',
       });
       expect(r).toBeNull();

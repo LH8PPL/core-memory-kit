@@ -35,6 +35,7 @@ export const REASON_CODES = Object.freeze({
   USER_REQUESTED: 'user-requested', // forget: user-initiated tombstone
   CURATED_MERGE: 'curated-merge', // mergeFacts: explicit merge of A + B → C
   SCRATCHPAD_APPEND: 'scratchpad-append', // scratchpad: appendScratchpadBullet (Task 12)
+  TRUST_CHANGE: 'trust-change', // trust: overrideTrust (Task 15)
 });
 
 export function nowIso() {

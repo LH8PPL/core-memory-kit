@@ -63,7 +63,7 @@ function seedScratchpad(path, citedId, otherText = 'unrelated bullet') {
     `- The bullet that cites (${citedId}) and should be removed.`,
     `<!-- id: ${citedId}, source_file: x.md, source_line: 1, source_sha1: abc, write_source: user-explicit, trust: high, created_at: 2026-05-24T10:00:00Z -->`,
     `- ${otherText}`,
-    `<!-- id: P-OTHERFCT, source_file: y.md, source_line: 1, source_sha1: def, write_source: user-explicit, trust: high, created_at: 2026-05-24T10:00:01Z -->`,
+    `<!-- id: P-XTRAFRCT, source_file: y.md, source_line: 1, source_sha1: def, write_source: user-explicit, trust: high, created_at: 2026-05-24T10:00:01Z -->`,
     '',
   ].join('\n');
   mkdirSync(join(path, '..'), { recursive: true });
@@ -200,7 +200,7 @@ describe('Task 9 — forget() + resolveFact() boundaries', () => {
 
   describe('not-found and error cases', () => {
     // Layer-2 review M5: use a valid-format-but-nonexistent id (chars all in
-    // the kit's custom base32 alphabet) instead of 'P-MISSING2' which contains
+    // the kit's custom base32 alphabet) instead of 'P-MSSNGGG2' which contains
     // 'I' (excluded). Pre-fix this test silently exercised the query-fallback
     // path (idOrQuery → substring search → 0 matches). Post-fix it exercises
     // the intended ID-not-found code path.
@@ -320,7 +320,7 @@ describe('Task 9 — forget() + resolveFact() boundaries', () => {
       const after = readFileSync(memoryMd, 'utf8');
       expect(after).not.toContain(w.id);
       expect(after).toContain('unrelated bullet');
-      expect(after).toContain('P-OTHERFCT');
+      expect(after).toContain('P-XTRAFRCT');
     });
 
     it('scratchpads NOT containing the id are byte-preserved', () => {
@@ -343,7 +343,7 @@ describe('Task 9 — forget() + resolveFact() boundaries', () => {
         `- First citation of (${w.id}).`,
         `<!-- id: ${w.id}, source_file: x.md, source_line: 1, source_sha1: a, write_source: user-explicit, trust: high, created_at: 2026-05-24T10:00:00Z -->`,
         `- Unrelated bullet.`,
-        `<!-- id: P-OTHERAAA, source_file: y.md, source_line: 1, source_sha1: b, write_source: user-explicit, trust: high, created_at: 2026-05-24T10:00:01Z -->`,
+        `<!-- id: P-XTRAFAAA, source_file: y.md, source_line: 1, source_sha1: b, write_source: user-explicit, trust: high, created_at: 2026-05-24T10:00:01Z -->`,
         `- Second citation of (${w.id}).`,
         `<!-- id: ${w.id}, source_file: z.md, source_line: 1, source_sha1: c, write_source: user-explicit, trust: high, created_at: 2026-05-24T10:00:02Z -->`,
         '',

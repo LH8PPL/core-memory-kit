@@ -17,6 +17,7 @@ import { install as installAction, initUserTier as initUserTierAction } from './
 import { removeClaudeMdBlock } from './claude-md.mjs';
 import { reindex as reindexAction } from './reindex.mjs';
 import { forget as forgetAction } from './forget.mjs';
+import { overrideTrust as overrideTrustAction } from './trust.mjs';
 import { resolve as resolvePath } from 'node:path';
 
 const NOTICE_PREFIX = 'not yet implemented in v0.1.0';
@@ -85,6 +86,35 @@ function runInitUserTier(/* options, command */) {
   if (result.errors.length > 0) {
     for (const e of result.errors) console.error(`  error: ${e.path}: ${e.error}`);
     process.exitCode = 1;
+  }
+}
+
+/**
+ * `cmk trust <id> <level>` — wired in Task 15. Updates the `trust:`
+ * field in BOTH the matched fact file (YAML frontmatter) AND any
+ * scratchpad bullet with the matching id (HTML-comment provenance).
+ * Writes a canonical audit-log entry per design §6.1 + spec 15.3.
+ */
+function runTrust(id, level /* , options, command */) {
+  const projectRoot = resolvePath(process.cwd());
+  const result = overrideTrustAction({ id, level, projectRoot });
+  if (result.action === 'trust-updated') {
+    console.log(
+      `cmk trust: ${result.id} (${result.tier}) → ${result.level} — updated ${result.updatedLocations.length} location(s)`,
+    );
+    for (const loc of result.updatedLocations) {
+      console.log(`  ${loc.type}: ${loc.path} (was ${loc.priorTrust})`);
+    }
+    return;
+  }
+  if (result.action === 'not-found') {
+    console.error(`cmk trust: ${result.errors[0]}`);
+    process.exitCode = 2;
+    return;
+  }
+  if (result.action === 'error') {
+    for (const e of result.errors) console.error(`cmk trust: ${e}`);
+    process.exitCode = 2;
   }
 }
 
@@ -286,13 +316,13 @@ export const subcommands = [
   },
   {
     name: 'trust',
-    description: 'manually override the trust level of an observation',
+    description: 'manually override the trust level of an observation (fact file or scratchpad bullet)',
     milestone: 15,
     argSpec: [
-      { flags: '<id>', description: 'citation ID (e.g. P-A8FN3MQ2)' },
+      { flags: '<id>', description: 'citation ID (e.g. P-S79MJHFN)' },
       { flags: '<level>', description: 'low | medium | high' },
     ],
-    action: stub('trust', 15),
+    action: runTrust,
   },
   {
     name: 'lessons',
