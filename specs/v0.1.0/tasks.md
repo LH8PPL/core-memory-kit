@@ -179,17 +179,17 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Test tombstoned facts (`deleted_at`) excluded from INDEX
   - _Requirements: FR-1, FR-7; design §2.3_
 
-- [ ] 9. Tombstone discipline (T-008)
+- [x] 9. Tombstone discipline (T-008) — _shipped 2026-05-24, GitHub PR #8_
   - Estimate: S · Depends: 7
-- [ ] 9.1 Implement `cmk forget <id-or-query>` resolver
+- [x] 9.1 Implement `cmk forget <id-or-query>` resolver
   - ID match exact; query match by substring on canonical text
-- [ ] 9.2 Implement confirmation prompt (with `--yes` skip for tests)
+- [x] 9.2 Implement confirmation prompt (with `--yes` skip for tests)
   - User must explicitly confirm; never silently delete
-- [ ] 9.3 Move matched file to `<tier>/memory/archive/tombstones/<id>.md` + add deletion frontmatter
+- [x] 9.3 Move matched file to `<tier>/memory/archive/tombstones/<id>.md` + add deletion frontmatter
   - `deleted_at`, `deleted_reason`, `deleted_by`
-- [ ] 9.4 Remove matching bullet (matched by ID) from any scratchpad
+- [x] 9.4 Remove matching bullet (matched by ID) from any scratchpad
   - Removes the bullet line + its provenance HTML-comment line
-- [ ]* 9.5 Write unit tests for tombstone flow
+- [x]* 9.5 Write unit tests for tombstone flow
   - Test `cmk forget P-XXX --yes` moves file to `archive/tombstones/<id>.md`
   - Test deletion frontmatter fields all present (valid ISO timestamp, string reason, enum `deleted_by`)
   - Test scratchpad bullet with matching ID is removed (bullet + provenance comment)
