@@ -262,17 +262,17 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Test round-trip: write → read → write produces byte-identical output
   - _Requirements: FR-29; design §4_
 
-- [ ] 14. Seed scratchpad templates (T-012)
+- [x] 14. Seed scratchpad templates (T-012) — _shipped 2026-05-24, GitHub PR #14 (+ three review-fix commits: trust+at fix, cap raise to 1500, (example)-prefix polish)_
   - Estimate: S · Depends: 12, 13
   - Uses shared modules from `packages/cli/src/{tier-paths,audit-log,frontmatter,result-shapes}.mjs` — see CLAUDE.md "Shared modules" rule
-- [ ] 14.1 Author project-tier seeds in `template/context/`
+- [x] 14.1 Author project-tier seeds in `template/context/`
   - SOUL.md, MEMORY.md, context.local/{machine-paths,overrides}.md
-- [ ] 14.2 Author user-tier seeds for `cmk init-user-tier`
+- [x] 14.2 Author user-tier seeds for `cmk init-user-tier`
   - USER.md, HABITS.md, LESSONS.md, fragments/INDEX.md
-- [ ] 14.3 Include canonical header comment + three section headings in every seed
+- [x] 14.3 Include canonical header comment + three section headings in every seed
   - Header: `Cap: N chars · Last distilled: ISO · Last health check: ISO`
-  - Sections per design §2.1 (Active Threads / Environment Notes / Pending Decisions for MEMORY.md, etc.)
-- [ ]* 14.4 Write unit tests for seed templates
+  - 3 documented sections per scratchpad locked in `SCRATCHPAD_DOCUMENTED_SECTIONS` (tier-paths.mjs). Each section ships with a real-generated-id seed bullet at `trust: medium` + `at: 2020-01-01T00:00:00Z` (auto-drops on first cap-pressure write per Task 12 consolidator).
+- [x]* 14.4 Write unit tests for seed templates
   - Test `cmk install` produces every required project-tier file (manifest list)
   - Test `cmk init-user-tier` with `MEMORY_KIT_USER_DIR=/tmp/xxx` puts user-tier files at `/tmp/xxx/`
   - Test each seed's first 100 chars contain header markers (`Cap:`, `Last distilled:`, `Last health check:`)
