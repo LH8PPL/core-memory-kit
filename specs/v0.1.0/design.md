@@ -218,11 +218,11 @@ Last health check: 2026-05-22.
 
 ## Active Threads
 
-- (P-A8FN3MQ2) we standardized on Python 3.13
-  <!-- source: transcripts/2026-05-22.md:142, sha1:abc123ef..., write: user-explicit, trust: high, at: 2026-05-22T14:30:00Z -->
+- (P-S79MJHFN) we standardized on Python 3.13
+  <!-- source: transcripts/2026-05-22.md, source_line: 142, sha1: abc123ef..., write: user-explicit, trust: high, at: 2026-05-22T14:30:00Z -->
 
-- (P-3L8N1P9R) milvus pinned at v2.6.16 in milvus-deploy/docker-compose.yml
-  <!-- source: transcripts/2026-05-21.md:88, sha1:def456gh..., write: auto-extract, trust: medium, at: 2026-05-21T19:45:12Z -->
+- (P-WJCLLKH6) milvus pinned at v2.6.16 in milvus-deploy/docker-compose.yml
+  <!-- source: transcripts/2026-05-21.md, source_line: 88, sha1: def456gh..., write: auto-extract, trust: medium, at: 2026-05-21T19:45:12Z -->
 
 ## Environment Notes
 
@@ -238,8 +238,8 @@ Last health check: 2026-05-22.
 - **HTML comment frontmatter at top** for size cap, last-distilled, last-health-check. These comments are stripped from Claude's context per Anthropic's docs (saves tokens; humans still see them when viewing).
 - **Three fixed sections** per file (Active Threads / Environment Notes / Pending Decisions for `MEMORY.md`; About / Preferences / Working Style for `USER.md`; etc.).
 - **One bullet per fact**, ≤ 200 chars per bullet (the bullet text itself, not counting metadata).
-- **Provenance frontmatter** in HTML comment immediately below the bullet. Required fields: `source`, `sha1`, `write`, `trust`, `at`. (Per T8, FR-29.)
-- **Citation ID in parentheses at start of bullet**: `(P-A8FN3MQ2)`. (Per FR-14.)
+- **Provenance frontmatter** in HTML comment immediately below the bullet. Required fields per Task 13: `source` (file path), `source_line` (positive integer), `sha1`, `write` (enum), `trust` (enum), `at` (ISO 8601 UTC). The 7th required field is `id` — recovered from the bullet line's `(P-XXX)` prefix, not duplicated in the comment. The canonical writer/reader pair is [`packages/cli/src/provenance.mjs`](../../packages/cli/src/provenance.mjs) (`writeBullet` / `readBullet` / `parseBulletProvenance`); don't roll your own. (Per T8, FR-29.)
+- **Citation ID in parentheses at start of bullet**: `(P-S79MJHFN)`. (Per FR-14.)
 - **Section sign delimiter `§`** is NOT used in our format (Hermes uses it; we use markdown bullets — simpler and git-diffable).
 
 **Char cap enforcement**: counted via `wc -c` on the file. Includes everything (frontmatter, comments, bullets). When a write would push the file over cap, the `memory-write` skill **consolidates first** (merge similar bullets, drop stale entries older than 14 days with no current reference), then writes the new content. (Per FR-3.)
@@ -276,7 +276,7 @@ source_file: context/transcripts/2026-05-21.md
 source_line: 142
 source_sha1: abc123ef...
 merged_from: null
-related: [P-A8FN3MQ2]
+related: [P-S79MJHFN]
 tags: [video-pipeline, roi, calibration]
 private: false                 # if true, excluded from SessionStart digest
 ---
@@ -298,7 +298,7 @@ Krish Naik's setup has a wide circular webcam overlay (not the typical narrow re
 
 ## Related observations
 
-- See [[P-A8FN3MQ2]] for the broader auto-ROI design notes.
+- See [[P-S79MJHFN]] for the broader auto-ROI design notes.
 ```
 
 **Type taxonomy** (from claude-mem + Anthropic auto-memory pattern):
@@ -324,9 +324,9 @@ Krish Naik's setup has a wide circular webcam overlay (not the typical narrow re
 
 ## Files
 
-- (P-A8FN3MQ2) [feedback] [Webcam ROI is wider than expected](feedback_webcam_roi.md) — `--roi 0,0,80,100` not enough
-- (P-3L8N1P9R) [project] [Milvus version pinned at v2.6.16](project_milvus_version.md) — v2.6+ Woodpecker WAL needs manual flush
-- (P-9F2D7T1S) [user] [Wiki for research and study](user_use_case_wiki_research.md) — informs density/quality tradeoffs
+- (P-S79MJHFN) [feedback] [Webcam ROI is wider than expected](feedback_webcam_roi.md) — `--roi 0,0,80,100` not enough
+- (P-WJCLLKH6) [project] [Milvus version pinned at v2.6.16](project_milvus_version.md) — v2.6+ Woodpecker WAL needs manual flush
+- (P-34GZDKAW) [user] [Wiki for research and study](user_use_case_wiki_research.md) — informs density/quality tradeoffs
 ```
 
 **Format per line**: `- ({id}) [type] [title](filename.md) — short hook`. Pointer + one-line summary. Stable IDs survive INDEX rebuilds.
@@ -357,8 +357,8 @@ Where:
 | Bullet text | Canonical text | Hash → base32 → ID |
 | --- | --- | --- |
 | `We standardized on Python 3.13` | `we standardized on python 3.13` | `7K2X9Q4F` → `P-7K2X9Q4F` |
-| `Milvus is pinned at v2.6.16` | `milvus is pinned at v2.6.16` | `3L8N1P9R` → `P-3L8N1P9R` |
-| `User runs macOS 14 Sonoma` | `user runs macos 14 sonoma` | `9F2D7T1S` → `U-9F2D7T1S` |
+| `Milvus is pinned at v2.6.16` | `milvus is pinned at v2.6.16` | `WJCLLKH6` → `P-WJCLLKH6` |
+| `User runs macOS 14 Sonoma` | `user runs macos 14 sonoma` | `34GZDKAW` → `U-34GZDKAW` |
 
 **Session anchors are different** — they use BibTeX-style human-mnemonic IDs:
 
@@ -430,7 +430,7 @@ Every bullet in a scratchpad file and every fact in the granular archive carries
 
 | Field | Type | What it means |
 | --- | --- | --- |
-| `id` | string | Citation ID from §3 (e.g. `P-A8FN3MQ2`) |
+| `id` | string | Citation ID from §3 (e.g. `P-S79MJHFN`) |
 | `source_file` | string | Path to the source transcript/session |
 | `source_line` | int | Line in source (1-indexed) |
 | `source_sha1` | string | SHA-1 of source at capture time (detects drift) |
@@ -565,7 +565,7 @@ Example auto-extract line:
 Example audit-log line (canonical schema v1, per [`audit-log.mjs`](../../packages/cli/src/audit-log.mjs)):
 
 ```json
-{"ts":"2026-05-24T14:30:00Z","schema":1,"action":"tombstoned","tier":"P","id":"P-A8FN3MQ2","reasonCode":"user-requested","reasonText":"no longer relevant","paths":{"before":"…/feedback_x.md","archive":"…/archive/tombstones/P-A8FN3MQ2.md"},"extra":{"deletedBy":"user-explicit","scratchpadEdits":[{"path":"…/MEMORY.md","removed":1}]}}
+{"ts":"2026-05-24T14:30:00Z","schema":1,"action":"tombstoned","tier":"P","id":"P-S79MJHFN","reasonCode":"user-requested","reasonText":"no longer relevant","paths":{"before":"…/feedback_x.md","archive":"…/archive/tombstones/P-S79MJHFN.md"},"extra":{"deletedBy":"user-explicit","scratchpadEdits":[{"path":"…/MEMORY.md","removed":1}]}}
 ```
 
 All audit-log writes go through `appendAuditEntry(tierRoot, entry)` in [`audit-log.mjs`](../../packages/cli/src/audit-log.mjs) — single canonical writer; do not append to `audit.log` directly. See §1.3 + [`CLAUDE.md`](../../CLAUDE.md) "Shared modules" rule.
@@ -636,7 +636,7 @@ These are verbatim from Hermes Agent's writing-triggers pattern (Glukhov 2026-05
 **[CHANGE absorbed from comparison]** Per ChatGPT's explicit `tombstones/` directory and Kiro's `deleted_at` field — when a user says "forget about X" and we delete a bullet, we DON'T silently delete the file or strip the bullet without trace. Instead:
 
 ```text
-1. User invokes `forget about X` (or `cmk forget P-A8FN3MQ2`)
+1. User invokes `forget about X` (or `cmk forget P-S79MJHFN`)
 2. memory-write skill (with `remove` action) finds the matching bullet/fact
 3. Confirms with user (the only action that confirms)
 4. Moves the original to context/memory/archive/tombstones/<id>.md
@@ -648,7 +648,7 @@ These are verbatim from Hermes Agent's writing-triggers pattern (Glukhov 2026-05
 6. Updates SQLite cache: marks observation as deleted (not actually purged)
 ```
 
-Future `mk_get(P-A8FN3MQ2)` still resolves — returns the tombstoned content with a clear "deleted on YYYY-MM-DD" annotation. Audit trail preserved. Truly destructive operations (`cmk purge --hard`) require explicit user invocation outside the normal "forget" flow.
+Future `mk_get(P-S79MJHFN)` still resolves — returns the tombstoned content with a clear "deleted on YYYY-MM-DD" annotation. Audit trail preserved. Truly destructive operations (`cmk purge --hard`) require explicit user invocation outside the normal "forget" flow.
 
 This mirrors the design of git revert (don't rewrite history) more than git rebase (rewrite). For memory, we want the audit trail more than the cleanliness.
 
@@ -710,7 +710,7 @@ Patterns rejected (write fails with category='poison_guard'):
 
 The review queue (§6.2) handles medium-trust *new* writes awaiting blessing. A separate concern: what happens when an auto-extract or user statement **contradicts an existing high-trust fact**?
 
-Example: `MEMORY.md` has `(P-A8FN3MQ2) we standardized on Python 3.13` (trust: high, user-explicit). Later, auto-extract captures "we're moving to Python 3.14 for the websockets fix" from a turn — same canonical topic, different content.
+Example: `MEMORY.md` has `(P-S79MJHFN) we standardized on Python 3.13` (trust: high, user-explicit). Later, auto-extract captures "we're moving to Python 3.14 for the websockets fix" from a turn — same canonical topic, different content.
 
 **Conflict detection**: the `memory-write` skill, before writing, runs a semantic similarity check (FTS5 + optional vector) against existing observations on the same heading_path. If similarity > 0.85 AND content differs → **conflict**.
 
@@ -721,7 +721,7 @@ IF new_write.trust < existing_obs.trust:
   Write to context/queues/conflicts.md (NOT MEMORY.md, NOT review.md)
   Append entry:
     - (proposed: P-NEW) "<new bullet text>"
-      conflicts_with: P-A8FN3MQ2
+      conflicts_with: P-S79MJHFN
       detected_at: <ISO>
       resolution: pending
 
@@ -759,7 +759,7 @@ The SessionStart hook (`cmk-inject-context`) resolves and merges the three tiers
      Read bullets from any tier where present.
      Resolve duplicate IDs: most-specific tier wins.
      Log shadowed copies to context/.locks/shadowed_by.log:
-       "P-A8FN3MQ2 in project shadows same ID in user (line 12)"
+       "P-S79MJHFN in project shadows same ID in user (line 12)"
 
 4. Concatenate into frozen snapshot (≤10 KB total)
    Order: local → project → user (highest priority first in prompt)
@@ -916,7 +916,7 @@ Read-cache at `<repo>/context/.index/memory.db`. Regenerable; never source of tr
 
 ```sql
 CREATE TABLE observations (
-  id TEXT PRIMARY KEY,               -- e.g. 'P-A8FN3MQ2'
+  id TEXT PRIMARY KEY,               -- e.g. 'P-S79MJHFN'
   tier TEXT NOT NULL CHECK(tier IN ('U','P','L')),
   source_file TEXT NOT NULL,
   source_line INTEGER NOT NULL,
@@ -1006,7 +1006,7 @@ Six tools (per FR-26 + the `recent_activity` borrowed from Basic Memory verified
 | `mk_search(query, mode?, tier?, since?, limit?, min_trust?)` | BM25 + optional vector hybrid | ~50-100 tokens/result |
 | `mk_get(ids[])` | Full body + provenance + relations | ~500-1000 tokens/result |
 | `mk_timeline(anchor, depth_before?, depth_after?)` | Sequential context around an ID or timestamp | varies |
-| `mk_cite(id)` | Canonical Markdown citation link `[#P-A8FN3MQ2](memkit://obs/P-A8FN3MQ2)` | trivial |
+| `mk_cite(id)` | Canonical Markdown citation link `[#P-S79MJHFN](memkit://obs/P-S79MJHFN)` | trivial |
 | `mk_remember(text, tier?, cites?)` | Explicit user-driven save with audit trail | `{id, written_to, accepted}` |
 | `mk_recent_activity(window?: "1h"\|"24h"\|"7d", limit?)` | Recent memory mutations — common query | List of recent observation changes |
 

@@ -28,6 +28,7 @@ import {
 } from './tier-paths.mjs';
 import { appendAuditEntry, nowIso } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
+import { writeBullet, parseBulletProvenance } from './provenance.mjs';
 
 const VALID_TRUST = new Set(['high', 'medium', 'low']);
 const VALID_WRITE_SOURCES = new Set([
@@ -37,7 +38,16 @@ const VALID_WRITE_SOURCES = new Set([
   'manual-edit',
   'imported',
 ]);
-const REQUIRED_PROVENANCE_FIELDS = ['source', 'sha1', 'write', 'trust', 'at'];
+// Per Task 13.2 / provenance.mjs: 6 comment fields. `id` comes from the
+// bullet line and is added by appendScratchpadBullet, not from caller.
+const REQUIRED_PROVENANCE_FIELDS = [
+  'source',
+  'source_line',
+  'sha1',
+  'write',
+  'trust',
+  'at',
+];
 
 const CONSOLIDATION_TRIGGER_RATIO = 0.95;
 const STALE_AFTER_DAYS = 14;
@@ -71,7 +81,7 @@ function validateOptions(opts) {
   }
 
   if (!opts.provenance || typeof opts.provenance !== 'object') {
-    errors.push('provenance: required object with source/sha1/write/trust/at');
+    errors.push('provenance: required object with source/source_line/sha1/write/trust/at');
   } else {
     for (const f of REQUIRED_PROVENANCE_FIELDS) {
       if (opts.provenance[f] === undefined || opts.provenance[f] === null || opts.provenance[f] === '') {
@@ -89,6 +99,21 @@ function validateOptions(opts) {
   }
 
   return errors;
+}
+
+// Bullet formatting is delegated to provenance.mjs's writeBullet (Task 13).
+// scratchpad.mjs is responsible for "where the bullet goes" (which file,
+// which section, cap enforcement); provenance.mjs is responsible for
+// "what the bullet+comment look like on disk".
+function formatBullet({ id, text, provenance }) {
+  const result = writeBullet({ id, text, provenance });
+  if (result.action !== 'formatted') {
+    // Shouldn't happen — we already validated above, but be defensive.
+    throw new Error(
+      `scratchpad.formatBullet: writeBullet returned ${result.action}: ${result.errors?.join('; ') ?? 'unknown'}`,
+    );
+  }
+  return result.lines;
 }
 
 function readJsonIfExists(path) {
@@ -134,15 +159,6 @@ function resolveCap({ tier, scratchpad, projectRoot, userDir, settings }) {
   return DEFAULT_SCRATCHPAD_CAPS[scratchpad];
 }
 
-function formatBullet({ id, text, provenance }) {
-  // Per design §2.1 example: bullet on one line, HTML-comment provenance
-  // indented 2 spaces on the next. Comment fields in canonical order:
-  // source, sha1, write, trust, at.
-  const bullet = `- (${id}) ${text}`;
-  const comment = `  <!-- source: ${provenance.source}, sha1: ${provenance.sha1}, write: ${provenance.write}, trust: ${provenance.trust}, at: ${provenance.at} -->`;
-  return `${bullet}\n${comment}`;
-}
-
 function findSectionRange(lines, sectionTitle) {
   const startIdx = lines.findIndex(
     (l) => l.trim() === `## ${sectionTitle}`,
@@ -172,21 +188,6 @@ function insertIntoSection(text, sectionTitle, bullet) {
   return lines.join('\n');
 }
 
-function parseProvenanceComment(line) {
-  // Extract fields from `<!-- source: x, sha1: y, write: z, trust: w, at: t -->`.
-  // Tolerant: split on `,` then `:` per field; whitespace-trim.
-  const inner = line.replace(/^\s*<!--/, '').replace(/-->\s*$/, '');
-  const fields = {};
-  for (const part of inner.split(',')) {
-    const idx = part.indexOf(':');
-    if (idx === -1) continue;
-    const k = part.slice(0, idx).trim();
-    const v = part.slice(idx + 1).trim();
-    if (k) fields[k] = v;
-  }
-  return fields;
-}
-
 function consolidate(text, { nowDate }) {
   const lines = text.split('\n');
   const removeIdx = new Set();
@@ -200,8 +201,8 @@ function consolidate(text, { nowDate }) {
     if (!bulletLine.startsWith('- (')) continue;
     if (!commentLine || !/^\s*<!--.*-->\s*$/.test(commentLine)) continue;
 
-    const prov = parseProvenanceComment(commentLine);
-    if (!prov.at || !prov.trust) continue;
+    const prov = parseBulletProvenance(commentLine);
+    if (!prov || !prov.at || !prov.trust) continue;
     if (prov.trust === 'high') continue; // Preserve high-trust regardless of age.
 
     const at = new Date(prov.at);
