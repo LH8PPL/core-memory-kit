@@ -161,15 +161,15 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Test optional fields (`merged_from`, `superseded_by`, `private`) written when supplied, absent when not
   - _Requirements: FR-1, FR-29; design §2.2_
 
-- [ ] 8. INDEX.md generation + maintenance (T-007)
+- [x] 8. INDEX.md generation + maintenance (T-007) — _shipped 2026-05-24, GitHub PR #7_
   - Estimate: S · Depends: 7
-- [ ] 8.1 Implement `cmk reindex` markdown-side walker
+- [x] 8.1 Implement `cmk reindex` markdown-side walker
   - Walks `<tier>/memory/*.md`, reads frontmatter
-- [ ] 8.2 Generate INDEX.md in documented format
+- [x] 8.2 Generate INDEX.md in documented format
   - One line per non-tombstoned fact: `- ({id}) [type] [title](filename.md) — <hook>`
-- [ ] 8.3 Emit warning on INDEX.md > 25 KB but still write
+- [x] 8.3 Emit warning on INDEX.md > 25 KB but still write
   - No hard cap; warning suggests consolidation
-- [ ]* 8.4 Write unit tests for INDEX generation
+- [x]* 8.4 Write unit tests for INDEX generation
   - Test reindex with 0 facts produces header-only INDEX.md
   - Test reindex with N facts produces exactly N body lines in the documented format
   - Test adding a new fact + reindex: new line appears at the documented sort position
