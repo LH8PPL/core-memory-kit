@@ -1,34 +1,26 @@
 <!-- Cap: 1000 chars · Last distilled: {{TODAY}} · Last health check: {{TODAY}} -->
 
-<!--
-machine-paths.md records absolute paths specific to THIS machine for THIS
-project. Highest priority in the 3-tier precedence model — overrides
-anything in context/ or ~/.claude-memory-kit/. Gitignored. Use sparingly.
-Three fixed sections per design §2.1.
--->
+<!-- machine-paths.md (local tier, gitignored). Bullet+provenance format: see USER.md. -->
 
 # Machine paths (local tier)
 
 ## Tool Paths
 
-<!--
-Absolute paths to tools / binaries / SDKs on this machine. Examples:
-- /opt/cuda-12.4/bin (custom CUDA install for this GPU)
-- C:\Program Files\nodejs (Windows node install)
--->
+<!-- Tool/binary paths. -->
+
+- (L-MH9QRHFZ) node binary path placeholder
+  <!-- source: machine-paths.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: high, at: 2026-05-24T00:00:00Z -->
 
 ## Project Paths
 
-<!--
-Absolute paths to data / outputs / dependencies tied to this project on
-this machine. Examples:
-- /Users/lior/Documents/datasets/ (training data for this project)
-- C:\Users\lior\dev\models\ (model artifacts on the laptop)
--->
+<!-- Project-specific paths. -->
+
+- (L-A4WPLNZK) primary data directory placeholder
+  <!-- source: machine-paths.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: high, at: 2026-05-24T00:00:00Z -->
 
 ## Misc Paths
 
-<!--
-Anything else path-like that doesn't fit the above two. Keep to actual
-paths; preferences go in overrides.md.
--->
+<!-- Other path types. -->
+
+- (L-JABPQBGQ) cache root directory placeholder
+  <!-- source: machine-paths.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: high, at: 2026-05-24T00:00:00Z -->

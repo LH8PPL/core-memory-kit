@@ -86,6 +86,61 @@ describe('Task 14 — Seed scratchpad templates', () => {
     }
   });
 
+  // Lior's Task 14 scope-tightening (2026-05-24): each seed ships with
+  // one real-id seed bullet per section (3 per file) so content-addressed
+  // dedup works when a user later writes the same fact. Placeholder IDs
+  // (P-AAAAAAAA) only belong in HTML-comment tutorials, not in real seed
+  // bullets. The IDs are computed once via scripts/compute-seed-bullet-ids.mjs
+  // and frozen into the template files.
+  describe('Lior scope-tightening — each seed has real-id seed bullets', () => {
+    for (const scratchpad of Object.keys(SCRATCHPAD_DOCUMENTED_SECTIONS)) {
+      it(`${scratchpad} has at least 3 seed bullets with kit-format citation IDs`, () => {
+        const text = readFileSync(TEMPLATE_PATHS[scratchpad], 'utf8');
+        // Count bullet lines that match the kit's id pattern. Excludes
+        // anything inside <!-- ... --> blocks (which can contain tutorial
+        // bullets with placeholder ids).
+        const noComments = text.replace(/<!--[\s\S]*?-->/g, '');
+        const bullets = noComments.match(
+          /^- \([PUL]-[2345679ABCDEFGHJKLMNPQRSTUVWXYZa]{8}\)/gm,
+        );
+        expect(bullets).not.toBeNull();
+        expect(bullets.length).toBeGreaterThanOrEqual(3);
+      });
+
+      it(`${scratchpad} seed bullet IDs use the correct tier prefix`, () => {
+        const expectedTier =
+          scratchpad === 'SOUL.md' || scratchpad === 'MEMORY.md'
+            ? 'P'
+            : scratchpad === 'machine-paths.md' || scratchpad === 'overrides.md'
+              ? 'L'
+              : 'U';
+        const text = readFileSync(TEMPLATE_PATHS[scratchpad], 'utf8');
+        const noComments = text.replace(/<!--[\s\S]*?-->/g, '');
+        const bullets = noComments.match(
+          /^- \(([PUL])-[2345679ABCDEFGHJKLMNPQRSTUVWXYZa]{8}\)/gm,
+        );
+        for (const bullet of bullets) {
+          const m = bullet.match(/^- \(([PUL])-/);
+          expect(m[1]).toBe(expectedTier);
+        }
+      });
+    }
+  });
+
+  // Cap math check: seed files must fit under their declared caps,
+  // otherwise the first user-write hits CAP_EXCEEDED and fails. This is
+  // the operational constraint that drove the local-tier file tutorial
+  // to be a 1-line cross-reference rather than a full format example.
+  describe('Lior scope-tightening — every seed fits under its declared cap', () => {
+    for (const [scratchpad, cap] of Object.entries(DEFAULT_SCRATCHPAD_CAPS)) {
+      it(`${scratchpad} template byte-size ≤ ${cap} (so users can append without immediate CAP_EXCEEDED)`, () => {
+        const text = readFileSync(TEMPLATE_PATHS[scratchpad], 'utf8');
+        const bytes = Buffer.byteLength(text, 'utf8');
+        expect(bytes).toBeLessThanOrEqual(cap);
+      });
+    }
+  });
+
   describe('14.1 — cmk install produces every required project-tier file', () => {
     let sandbox;
     let projectRoot;

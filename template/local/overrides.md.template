@@ -1,37 +1,26 @@
 <!-- Cap: 1000 chars · Last distilled: {{TODAY}} · Last health check: {{TODAY}} -->
 
-<!--
-overrides.md records machine-specific overrides of preferences declared
-elsewhere. When the user has different defaults on this machine vs. their
-normal setup (editor, shell, tool preference), record them here. Highest
-precedence in the 3-tier model. Gitignored.
-Use `cmk config --show-origin <key>` to trace which tier a setting came from.
-Three fixed sections per design §2.1.
--->
+<!-- overrides.md (local tier, gitignored). Bullet+provenance format: see USER.md. -->
 
 # Machine-specific overrides (local tier)
 
 ## Tool Overrides
 
-<!--
-Examples:
-- preferred-editor: neovim (instead of vscode from SOUL.md — this machine has no graphical UI)
-- shell: pwsh (instead of bash — Windows laptop)
-- python: /opt/python-3.13/bin/python (instead of system python)
--->
+<!-- Editor/shell/tool overrides. -->
+
+- (L-9WZMWJ7a) editor preference placeholder
+  <!-- source: overrides.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: high, at: 2026-05-24T00:00:00Z -->
 
 ## Behavior Overrides
 
-<!--
-Examples:
-- never run docker on this machine (low RAM)
-- assume offline (this machine is air-gapped)
--->
+<!-- Behavior changes. -->
+
+- (L-AaMYaRBL) offline mode placeholder
+  <!-- source: overrides.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: high, at: 2026-05-24T00:00:00Z -->
 
 ## Path Overrides
 
-<!--
-Examples:
-- working-dir: D:\projects\ (instead of C:\dev — D: has more space)
-- cache-dir: /var/tmp/cmk (instead of $HOME/.cache — XDG override)
--->
+<!-- Path overrides. -->
+
+- (L-GDYXPZ3C) workspace root placeholder
+  <!-- source: overrides.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: high, at: 2026-05-24T00:00:00Z -->
