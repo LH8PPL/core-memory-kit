@@ -23,6 +23,7 @@ Domain terms used below (Tier, Citation ID, Frozen snapshot, Poison_Guard, etc.)
 2. **Boundary testing** (per Ousterhout, _A Philosophy of Software Design_): Test the public interface of each module, not its internal helpers. Test the contract that survives refactors.
 3. **Deep modules with simple interfaces**: When implementing, wrap related code into broad modules that expose narrow surfaces. Don't fragment cohesive logic into many shallow helpers.
 4. **Incremental build**: Each task produces working, integrated code. No orphaned code. After any sub-task, you can run what exists and verify it works.
+5. **Code review at strategic boundaries** (not per-PR): tests are catching unit-level bugs; reviews target what tests miss. Three layer-wide reviews at Checkpoints 11, 27, 42 via the `code-review-excellence` skill. Plus individual PR reviews on Tasks 23 (auto-extract), 24 (memory-write + Poison_Guard), 31 (MCP server) — high-risk surface. See those entries for specifics. For all other tasks, just build them normally — no per-PR review step.
 
 ## Scope of v0.1.0
 
@@ -217,7 +218,8 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 - [ ] 11. Checkpoint — Layer 2 (Granular archive) complete
   - All tests for tasks 1–10 green
   - Round-trip works: write fact → reindex → query INDEX → forget → tombstone resolves on `mk_get`
-  - Agent confirms zero failures before starting Layer 3
+  - **Layer-wide code review pass** via the `code-review-excellence` skill across Tasks 7, 8, 9, 10. Focus: cross-task design smells, public-API consistency between `writeFact` / `reindex` / `mergeFacts` / tombstone flow, uniformity of audit-log shape, error-handling style drift. Output: structured markdown summary; any blocking issues fixed before checkpoint passes
+  - Agent confirms zero failures + zero blocking review issues before starting Layer 3
 
 ---
 
@@ -404,6 +406,7 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 
 - [ ] 23. Auto-extract subagent + CompressorBackend Haiku impl (T-020)
   - Estimate: L · Depends: 5, 7, 12, 13
+  - **High-risk surface — individual PR review required** via the `code-review-excellence` skill. This task spawns external subprocesses, holds lock files, writes NDJSON logs to disk, and routes facts by trust level. Lots of edge cases. Review before merge, not deferred to the Layer 4 checkpoint review at #27
 - [ ] 23.1 Implement `auto-extract-memory.sh` (Unix) and Node equivalent (Windows)
   - Reads just-captured turn from a temp file; spawns `claude --print` with documented flags
 - [ ] 23.2 Implement extraction prompt for sub-Claude
@@ -427,6 +430,7 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 
 - [ ] 24. `memory-write` skill + Poison_Guard (T-021)
   - Estimate: L · Depends: 7, 9, 12, 13
+  - **High-risk surface — individual PR review required** via the `code-review-excellence` skill. The Poison_Guard regex filter is the kit's last line of defense against secrets being committed to git via auto-extracted facts. False negatives = credentials in the repo. False positives = legitimate writes blocked. Pattern correctness has to be right. Review before merge
 - [ ] 24.1 Implement trigger-phrase auto-invocation
   - Phrases from design §6.3; inferred action (`add` / `replace` / `remove`)
 - [ ] 24.2 Implement `add` action
@@ -489,7 +493,8 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 - [ ] 27. Checkpoint — Layer 4 (Hooks + auto-extract + skill) complete
   - All tests for tasks 1–26 green
   - End-to-end: session starts → snapshot injected → user prompts trigger memory-write → Poison_Guard catches fake API key → review queue surfaces medium-trust output → conflict routed
-  - Agent confirms zero failures before Layer 5 (or skipping to cross-cutting if Layer 5 deferred)
+  - **Layer-wide code review pass** via the `code-review-excellence` skill across Tasks 17–26. **The most important review of the project** — Layer 4 has the heaviest interaction surface (six hooks + auto-extract subagent + memory-write skill + Poison_Guard + conflict/review queues). Focus: coupling between hooks, race conditions in subprocess spawning, security regex correctness, audit-log uniformity across the new write paths, error-handling consistency. Note that Tasks 23 (auto-extract) and 24 (memory-write + Poison_Guard) should already have had individual PR reviews; this is the cross-task layer review on top
+  - Agent confirms zero failures + zero blocking review issues before Layer 5 (or skipping to cross-cutting if Layer 5 deferred)
 
 ---
 
@@ -547,6 +552,7 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 
 - [ ] 31. MCP server with 6 tools (stdio transport) (T-027)
   - Estimate: L · Depends: 28, 29, 30
+  - **High-risk surface — individual PR review required** via the `code-review-excellence` skill. MCP is a protocol implementation + a security boundary (stdio with path-traversal validation on every read/write). Subtle bugs in JSON-RPC framing, newline handling, or path validation can introduce real CVEs. Review before merge
 - [ ] 31.1 Implement stdio JSON-RPC transport per MCP 2025-06-18 spec
   - newline-delimited; no embedded newlines; stdout for messages only
 - [ ] 31.2 Implement path-traversal validation
@@ -747,7 +753,8 @@ Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility)
   - CI matrix green on all 3 OSes
   - `cmk doctor` reports green on fresh installs
   - Docs verified end-to-end
-  - Agent confirms zero failures before task 43 (release)
+  - **Pre-release code review pass** via the `code-review-excellence` skill — final filter before the v0.1.0 release tag. Focus: anything missed at earlier layer reviews, ergonomics of the public CLI surface (`cmk` subcommand consistency), security surface review of the MCP server (Task 31, even if individually reviewed at PR time), `cmk doctor` health-check coverage. Output: blocking-issue list (must fix before release) + nice-to-have list (deferred to v0.1.x)
+  - Agent confirms zero failures + zero blocking review issues before task 43 (release)
 
 ---
 
