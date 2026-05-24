@@ -21,18 +21,18 @@ captured. Until then: keep the seed bullets, edit them, or leave blank.
 <!-- How the user prefers work paced (commit frequency, plan vs do). -->
 
 - (U-CEKUY3H4) commits incrementally as work progresses; not in one big push at the end
-  <!-- source: HABITS.md, source_line: 21, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: high, at: 2026-05-24T00:00:00Z -->
+  <!-- source: HABITS.md, source_line: 21, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Destructive Operations
 
 <!-- What confirmation Claude should ask for before irreversible operations. -->
 
 - (U-GXB2C4JZ) always confirms before git push, git reset --hard, or other irreversible operations
-  <!-- source: HABITS.md, source_line: 28, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: high, at: 2026-05-24T00:00:00Z -->
+  <!-- source: HABITS.md, source_line: 28, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Communication Style
 
 <!-- How the user wants Claude to communicate (tone, brevity, claims discipline). -->
 
 - (U-aUMQHVCV) reads the diff before the commit message; trusts code over claims
-  <!-- source: HABITS.md, source_line: 35, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: high, at: 2026-05-24T00:00:00Z -->
+  <!-- source: HABITS.md, source_line: 35, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->

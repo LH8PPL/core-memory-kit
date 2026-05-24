@@ -24,7 +24,7 @@ Current work in progress. Drop bullets when work resolves. Auto-extract
 -->
 
 - (P-4MXA2Y46) placeholder thread: replace with the current piece of in-progress work
-  <!-- source: MEMORY.md, source_line: 22, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: high, at: 2026-05-24T00:00:00Z -->
+  <!-- source: MEMORY.md, source_line: 22, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Environment Notes
 
@@ -34,7 +34,7 @@ these up from PostToolUse hook events; manual edits welcome.
 -->
 
 - (P-BBUP9VMT) placeholder env note: replace with this project tool versions and conventions
-  <!-- source: MEMORY.md, source_line: 30, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: high, at: 2026-05-24T00:00:00Z -->
+  <!-- source: MEMORY.md, source_line: 30, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Pending Decisions
 
@@ -44,4 +44,4 @@ Things the user still has to decide. Remove when resolved. Auto-populated by
 -->
 
 - (P-KYT5BXXU) placeholder decision: replace with an open question the user must resolve
-  <!-- source: MEMORY.md, source_line: 38, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: high, at: 2026-05-24T00:00:00Z -->
+  <!-- source: MEMORY.md, source_line: 38, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->

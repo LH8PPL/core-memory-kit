@@ -22,18 +22,18 @@ captured. Until then: keep the seed bullets, edit them, or leave blank.
 <!-- Things learned about tools that apply across projects. -->
 
 - (U-RDBNQSL7) fix the code, not the test
-  <!-- source: LESSONS.md, source_line: 22, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: high, at: 2026-05-24T00:00:00Z -->
+  <!-- source: LESSONS.md, source_line: 22, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Process Lessons
 
 <!-- Things learned about workflow / collaboration / pacing. -->
 
 - (U-APHTKHMQ) correlation is not causation; measured profiling beats educated guessing
-  <!-- source: LESSONS.md, source_line: 29, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: high, at: 2026-05-24T00:00:00Z -->
+  <!-- source: LESSONS.md, source_line: 29, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Anti-patterns
 
 <!-- Failure modes the user has been burned by. -->
 
 - (U-U5RM2FXH) premature abstraction outlives the requirement that motivated it
-  <!-- source: LESSONS.md, source_line: 36, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: high, at: 2026-05-24T00:00:00Z -->
+  <!-- source: LESSONS.md, source_line: 36, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->

@@ -9,18 +9,18 @@
 <!-- Editor/shell/tool overrides. -->
 
 - (L-9WZMWJ7a) editor preference placeholder
-  <!-- source: overrides.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: high, at: 2026-05-24T00:00:00Z -->
+  <!-- source: overrides.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Behavior Overrides
 
 <!-- Behavior changes. -->
 
 - (L-AaMYaRBL) offline mode placeholder
-  <!-- source: overrides.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: high, at: 2026-05-24T00:00:00Z -->
+  <!-- source: overrides.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Path Overrides
 
 <!-- Path overrides. -->
 
 - (L-GDYXPZ3C) workspace root placeholder
-  <!-- source: overrides.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: high, at: 2026-05-24T00:00:00Z -->
+  <!-- source: overrides.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->

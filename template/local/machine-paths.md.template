@@ -9,18 +9,18 @@
 <!-- Tool/binary paths. -->
 
 - (L-MH9QRHFZ) node binary path placeholder
-  <!-- source: machine-paths.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: high, at: 2026-05-24T00:00:00Z -->
+  <!-- source: machine-paths.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Project Paths
 
 <!-- Project-specific paths. -->
 
 - (L-A4WPLNZK) primary data directory placeholder
-  <!-- source: machine-paths.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: high, at: 2026-05-24T00:00:00Z -->
+  <!-- source: machine-paths.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Misc Paths
 
 <!-- Other path types. -->
 
 - (L-JABPQBGQ) cache root directory placeholder
-  <!-- source: machine-paths.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: high, at: 2026-05-24T00:00:00Z -->
+  <!-- source: machine-paths.md, source_line: 1, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
