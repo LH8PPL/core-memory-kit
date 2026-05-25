@@ -28,10 +28,15 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = join(dirname(__filename), '..');
+// Canonical Anthropic plugin layout: hooks.json lives at <plugin-root>/hooks/
+// per https://code.claude.com/docs/en/plugins ("Plugin structure overview" —
+// the `.claude-plugin/` subdirectory holds ONLY `plugin.json`, NOT `hooks/`).
+// An earlier draft of design.md placed this at `plugin/.claude-plugin/hooks/`;
+// that path does not load in Claude Code 2.1.140 and the working-product live
+// test caught it (see docs/journey/2026-05-26-live-test-findings.md).
 const HOOKS_JSON_PATH = join(
   REPO_ROOT,
   'plugin',
-  '.claude-plugin',
   'hooks',
   'hooks.json',
 );
@@ -56,7 +61,7 @@ function loadHooksJson() {
 }
 
 describe('Task 17 — hooks.json scaffold', () => {
-  it('hooks.json exists at the documented path (plugin/.claude-plugin/hooks/hooks.json)', () => {
+  it('hooks.json exists at the documented path (plugin/hooks/hooks.json)', () => {
     expect(existsSync(HOOKS_JSON_PATH)).toBe(true);
   });
 
