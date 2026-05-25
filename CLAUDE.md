@@ -48,7 +48,7 @@ The user (Lior) is direct and tight on time. Match the energy.
 3. Implement the code until tests pass.
 4. Never change the test to make it pass. Change the code.
 
-**Boundary testing** (per Ousterhout, _A Philosophy of Software Design_):
+**Boundary testing** (per Ousterhout, *A Philosophy of Software Design*):
 
 - Test the **public interface** of each module. Not the internal helpers.
 - A good test survives refactors. If a refactor breaks a test that was testing the contract, the refactor broke the contract — that's the test working.
@@ -85,6 +85,13 @@ Why: the Layer-2 review surfaced 4 modules independently reimplementing the same
 - **One PR per parent task** in tasks.md (1, 2, 3, ..., not sub-tasks). Branch: `task-N-short-name`. Squash-merge into main. Delete branch on merge.
 - **Flip each sub-task checkbox the moment it ships, not at end-of-PR**. Binding. As soon as a sub-task is implemented + tested green, flip its `[ ]` → `[x]` in `tasks.md` in the same commit that ships it. Batching the flips for the end-of-task housekeeping commit is error-prone — Task 23 shipped with 23.8 unchecked even though the work was in PR #26, and only got caught when Lior asked "did you really do all the tasks in 23?" mid-Task-24. Apply this to every task from Task 24 onward.
 - **All tests run by the agent (Claude), not by a human.** "Tests are green" is your assertion; the user trusts that assertion until proven wrong.
+- **Never invoke tests manually — always through an `npm run …` script.** Binding (Lior 2026-05-26: *"please write all tests in scripts… never do tests manually"*). The repo provides:
+  - `npm test` — full suite (one run, validate-test-ids + validate-template prerun, live-Haiku spawn-smokes enabled by default)
+  - `npm run test:file -- <path>` — targeted single-file or specific-test-name iteration (skips the slow prerun; pass any extra vitest args after `--`, e.g. `-t "test name"`)
+  - `npm run test:watch` — interactive vitest
+  - `npm run stress` — 5x full suite, refuses to run if `CMK_SKIP_LIVE_HAIKU=1` is set; this is the gate before opening any PR whose surface touches spawn boundaries, detached children, hook handlers, or anything else where concurrency-class flakes hide
+  - `npm run lint:test-ids` / `npm run validate:template` — individual prerun pieces
+  - **Do not** type `npx vitest run …` directly; use `test:file`. **Do not** type `for i in 1..5; do npm test; done`; use `stress`. **Do not** set `CMK_SKIP_LIVE_HAIKU=1` to save round-trips; if a script's too slow, fix the script. The rule's job is to make the next-session-me invoke the same flow as this-session-me, without re-deriving it. New common invocations get a new `npm run` script, not a new shell habit.
 - **PR title format**: `[N] <description> (T-NNN)` (T-NNN is the legacy ID; current convention is the bare number).
 - **PR description ends with**: `_Implements: FR-X; design §Y_` traceability footer.
 - **After merge**:

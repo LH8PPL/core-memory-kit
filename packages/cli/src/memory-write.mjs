@@ -224,6 +224,16 @@ function writeTombstone({
 }
 
 // --- Action: add ---------------------------------------------------
+//
+// Split into two functions on purpose: `doAdd` is the public path
+// (validate → Poison_Guard → write); `appendBulletGuarded` is the
+// inner write-only step that assumes the caller has ALREADY gated
+// through Poison_Guard. `doReplace` calls the inner directly so the
+// guard doesn't fire twice on the same text. This isn't just
+// performance — the guard call has a side effect (NDJSON log write),
+// and double-rejecting a still-fine text would produce log noise the
+// moment Poison_Guard ever becomes non-deterministic (e.g. settings-
+// driven extension patterns from design §6.7's tunability hook).
 
 function doAdd(opts) {
   const errors = [];
@@ -239,9 +249,13 @@ function doAdd(opts) {
     now: opts.now,
   });
   if (poisonResult) return poisonResult;
+  return appendBulletGuarded(opts);
+}
 
-  // Delegate to the existing scratchpad writer. It already handles
-  // dedup + cap + consolidation + audit + ID derivation.
+function appendBulletGuarded(opts) {
+  // Caller MUST have run Poison_Guard already. This is the inner
+  // write step — delegates to the existing scratchpad writer which
+  // handles dedup + cap + consolidation + audit + ID derivation.
   const sha1 = createHash('sha1').update(opts.text, 'utf8').digest('hex');
   const ts = opts.now ?? nowIso();
   return appendScratchpadBullet({
@@ -331,16 +345,21 @@ function doReplace(opts) {
   ].join('\n');
   writeFileSync(path, stripped, 'utf8');
 
-  // Append the new bullet through the same write path (gets dedup +
-  // cap + audit for free).
-  const addResult = doAdd({
+  // Append the new bullet via the GUARDED inner path. We already ran
+  // Poison_Guard at the top of doReplace — calling doAdd() here
+  // would re-run it on the same text, with side effects (NDJSON log
+  // writes) that double-count once Poison_Guard becomes settings-
+  // driven per design §6.7. The inner appendBulletGuarded() skips
+  // the guard since the caller already gated.
+  const addResult = appendBulletGuarded({
     ...opts,
     action: 'add',
     text: opts.text,
   });
   if (addResult.action !== 'appended') {
-    // Append failed AFTER we stripped the old. Roll back: restore
-    // the original file so the user isn't left with a partial state.
+    // Append failed AFTER we stripped the old (e.g. cap_exceeded
+    // after consolidation). Roll back: restore the original file so
+    // the user isn't left with a partial state.
     writeFileSync(path, original, 'utf8');
     return addResult;
   }

@@ -104,6 +104,20 @@ claude-memory-kit/
 └── examples/                  ← (sample projects using the kit)
 ```
 
+## Development
+
+Contributing to claude-memory-kit itself (vs. installing it in your own project)? Tests are wired through npm scripts — **do not** invoke `vitest` directly, the scripts handle Windows .cmd shim resolution and suppress the cmd.exe popup that bare `npx` invocations cause.
+
+| Script | When to use |
+| --- | --- |
+| `npm test` | Single full-suite run with validate-test-ids + validate-template prerun. Live-Haiku spawn-smokes run by default (requires `claude` on PATH; gracefully skips if absent). |
+| `npm run test:file -- <path>` | Iterate on a single test file. Pass `-t "test name"` after the path to target one test. Skips the slow prerun. |
+| `npm run test:watch` | Interactive vitest watcher. |
+| `npm run stress` | 5x full suite. Refuses to run if `CMK_SKIP_LIVE_HAIKU=1` — the point is to stress the live spawn boundaries, not to avoid them. **Run this before opening any PR that touches a spawn boundary, hook handler, or detached child.** |
+| `npm run lint:test-ids` / `npm run validate:template` | Individual prerun pieces. |
+
+The full test discipline (real-binary spawn smokes, stress-run gate, what "concurrency-sensitive" means) is documented in [`specs/v0.1.0/design.md` §17](specs/v0.1.0/design.md).
+
 ## Credit
 
 - Based on the patterns Simon Scrapes documents in his "Master Claude Memory" video and Notion page.

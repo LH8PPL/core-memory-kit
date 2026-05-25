@@ -268,6 +268,66 @@ describe('Task 24 — memoryWrite() boundary', () => {
       expect(readMemoryMd(projectRoot)).toBe(before);
     });
 
+    it('successful replace runs Poison_Guard exactly once on the new text (I2 regression)', () => {
+      // The earlier doReplace flow ran Poison_Guard at the top AND
+      // then called doAdd() which ran it again. Functionally OK
+      // because the guard is deterministic on the same input, but
+      // architecturally brittle (any future canonicalization in
+      // doAdd would diverge), and would produce double NDJSON log
+      // entries once Poison_Guard becomes settings-driven per
+      // design §6.7. Fixed by factoring appendBulletGuarded() that
+      // skips the gate.
+      //
+      // To pin this without a Poison_Guard-side spy, we rely on the
+      // observable side effect: NDJSON log writes. A CLEAN replace
+      // (no secret) should produce ZERO Poison_Guard log entries.
+      // If the gate ran twice and one of the runs accidentally
+      // logged a passing call, this would fail.
+      seedActiveThread('We standardized on Python 3.13.');
+      const r = memoryWrite({
+        action: 'replace',
+        oldText: 'Python 3.13',
+        text: 'We migrated to Python 3.14 for the websockets fix',
+        tier: 'P',
+        scratchpad: 'MEMORY.md',
+        section: 'Active Threads',
+        source: 'user-explicit',
+        projectRoot,
+        userDir,
+        now: '2026-05-25T10:00:00Z',
+      });
+      expect(r.action).toBe('replaced');
+      // No Poison_Guard log entries should exist — neither call
+      // rejected, so the log file should be absent or empty.
+      expect(readPoisonGuardLog(projectRoot)).toHaveLength(0);
+    });
+
+    it('rejected replace runs Poison_Guard exactly once (one log entry, not two)', () => {
+      // The mirror of the above: when the NEW text is rejected, we
+      // should see ONE log entry (from doReplace's top-level guard),
+      // not two (from doReplace + the inner doAdd's gate). The
+      // earlier code would have produced 1 entry because doReplace
+      // returned before calling doAdd, but if a future refactor
+      // moved the gate-vs-strip ordering around, this test pins
+      // the contract.
+      seedActiveThread('We standardized on Python 3.13.');
+      memoryWrite({
+        action: 'replace',
+        oldText: 'Python 3.13',
+        text: 'ghp_1234567890abcdefghij1234567890abcdef12',
+        tier: 'P',
+        scratchpad: 'MEMORY.md',
+        section: 'Active Threads',
+        source: 'user-explicit',
+        projectRoot,
+        userDir,
+        now: '2026-05-25T10:00:00Z',
+      });
+      const log = readPoisonGuardLog(projectRoot);
+      expect(log).toHaveLength(1);
+      expect(log[0].pattern_id).toBe('secret_github_pat');
+    });
+
     it('substring not found → not-found error, scratchpad unchanged', () => {
       seedActiveThread('We standardized on Python 3.13.');
       const before = readMemoryMd(projectRoot);

@@ -1669,6 +1669,31 @@ const skipReason = (() => {
 
 Dev environments that have `claude` available run the smoke automatically on every `npm test`. The smoke is fast (~3-8 seconds for the round-trip) and the unit-test alternative (mocked spawn) is what missed the bug originally — having a real-spawn baseline on every test invocation is the structural fix.
 
+### 17.5 Stress-run gate (PR-level discipline)
+
+Spawn-layer flakes don't always surface on a single `npm test` invocation. PR #29's audit surfaced four time-bound flakes that had passed individually but failed under full-suite concurrency on Windows (cold-start contention, file-system visibility races, live-Haiku rate-limit retry windows). PR #30 surfaced another one in the same class (empty-file race in `cli-capture-turn`).
+
+The structural fix is a **stress-run gate** before opening any PR whose surface touches spawn boundaries, detached children, hook handlers, or anything else where concurrency-class flakes hide:
+
+```bash
+npm run stress   # runs npm test 5x, exit-fails on first non-green run
+```
+
+The script (`scripts/stress-test.mjs`) refuses to run if `CMK_SKIP_LIVE_HAIKU=1` is set — the whole point is to stress the live spawn boundaries, not to avoid them. Wired into the test verbs:
+
+| Script | Purpose |
+| --- | --- |
+| `npm test` | Single full-suite run (validate-test-ids + validate-template prerun + vitest). Live spawn-smokes enabled by default. |
+| `npm run test:file -- <path>` | Targeted file iteration (skips the slow prerun; pass `-t "name"` for a single test). |
+| `npm run test:watch` | Interactive vitest. |
+| `npm run stress` | 5x full suite, refuses `CMK_SKIP_LIVE_HAIKU=1`. PR-opening gate for concurrency-sensitive changes. |
+
+Concrete checklist for the agent (Claude in this repo):
+
+1. Before opening a PR that touches `auto-extract.mjs`, `capture-turn.mjs`, `compress-session.mjs`, `compressor.mjs`, any new spawn boundary, any new hook handler, or any new detached child: **run `npm run stress` and confirm 5/5 green**.
+2. If a stress run fails, do not open the PR. Either fix the flake or surface it as a blocker for review.
+3. Never invoke tests manually via `npx vitest run …` or shell loops; the scripts exist so that the workflow survives across sessions and so the `windowsHide:true` option fires consistently (avoids cmd.exe popup flicker on Windows).
+
 ---
 
 ## End of design.md v0.1.0
