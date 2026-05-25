@@ -66,6 +66,8 @@ Most kit tests assert (1) and (2). The ones that miss (3) or (4) are the ones wh
 
 **Over-mutation guard** — for any operation that mutates a subset of state (remove one bullet, replace one fact, tombstone one observation), the test must assert *the other records are untouched*. Seed N records, mutate one, assert N-1 remain. Goldberg calls this "test undesired side effects (delete-one doesn't delete-all)" and it catches off-by-one splices, wrong-section walkers, and over-eager regex matches that happy-path tests miss because the matched record disappears as expected. Specific instance: `tests/cli-memory-write.test.js` has explicit over-mutation tests for `remove` and `replace`.
 
+**Walk all four doors before considering a test "done"** — when writing a new test or opening an existing test file, explicitly run through the five-exit-doors checklist (Response / State / External calls / Observability / [Queues — N/A]) and pin every door that applies. Doors 3 and 4 are the ones future bugs hide behind when missed — Door 3 (external calls) because mock-only tests miss spawn-layer breakage (the PR #22 lesson), Door 4 (observability) because NDJSON log assertions are the audit trail for production debugging.
+
 **Deep modules with simple interfaces:**
 
 - Wrap related code into broad modules that expose narrow surfaces.

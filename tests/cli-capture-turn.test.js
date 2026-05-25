@@ -243,7 +243,7 @@ describe('Task 21 — captureTurn() boundary', () => {
     // here — well below design §5.1's 30s hook timeout, and a value
     // that catches "I accidentally awaited the child" regressions
     // without being flaky on Windows.
-    it('captureTurn() returns fast (well under hook timeout) even when spawned subagent sleeps', () => {
+    it('captureTurn() returns fast (well under hook timeout) even when spawned subagent sleeps', async () => {
       const stub = writeAutoExtractStub(sandbox, { sleepMs: 500 });
       const t0 = Date.now();
       const r = captureTurn({
@@ -256,6 +256,14 @@ describe('Task 21 — captureTurn() boundary', () => {
       expect(r.action).toBe('captured');
       expect(r.spawned).toBe(true);
       expect(elapsed).toBeLessThan(250);
+      // Door 3 (external calls): the perf assertion alone could pass
+      // if spawn silently failed (`r.spawned` is set BEFORE the child
+      // exit). Pin that the spawned child actually ran by polling
+      // for its sentinel content. Without this, a spawn-broken
+      // regression on Windows .cmd shims would still pass the perf
+      // bound and ship undetected.
+      await pollForFileWithContent(stub.lockFile);
+      expect(readFileSync(stub.lockFile, 'utf8')).toContain('LOCK');
     });
 
     it('autoExtractPath missing: spawned:false, but transcript still appended', () => {
