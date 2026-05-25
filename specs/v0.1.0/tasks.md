@@ -432,7 +432,7 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Test mocked Haiku non-zero exit: extract.log has `success: false`, `error_category` populated; hook exits 0
   - Test NDJSON line matches design §6.1 schema (ts, success, error_category, observation_count, skipped_reason, duration_ms)
   - _Requirements: FR-10, FR-12, FR-13; design §6.1, §6.2, §8.3_
-- [ ]* 23.8 Spawn-smoke test for `HaikuViaAnthropicApi` per design §17
+- [x]* 23.8 Spawn-smoke test for `HaikuViaAnthropicApi` per design §17 _shipped 2026-05-25, PR #26 (PR-A)_
   - Retroactively added 2026-05-26. The Task 23 unit tests used an injected `spawnFn` mock; that pinned the cmd/args shape but never invoked real `child_process.spawn` against the real `claude` binary. Live test surfaced 3 spawn-layer issues on Windows (ENOENT on .cmd shim; CVE-2024-27980 hardening; cmd.exe quote-stripping). See [`docs/journey/2026-05-26-live-test-findings.md`](../../docs/journey/2026-05-26-live-test-findings.md) "Bonus finding".
   - Implementation: [`tests/spawn-smoke-haiku.test.js`](../../tests/spawn-smoke-haiku.test.js)
   - Real `claude` spawn against `HaikuViaAnthropicApi.compress()` with a minimal prompt
