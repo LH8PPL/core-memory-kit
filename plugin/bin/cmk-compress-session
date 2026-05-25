@@ -1,15 +1,9 @@
 #!/usr/bin/env bash
-# cmk-compress-session — SessionEnd hook stub (Task 17 scaffold).
+# cmk-compress-session — SessionEnd hook (Task 22 real handler).
 #
-# Real implementation lands in a later Layer 4 / Layer 6 task: Haiku-
-# compress sessions/now.md → sessions/today-{YYYY-MM-DD}.md (claude-
-# remember's NDC pattern) and truncate now.md so the next session
-# starts fresh.
-#
-# Hook protocol: payload on stdin; JSON on stdout; diagnostics on
-# stderr; {"continue": true} lets SessionEnd complete normally.
+# hooks.json invokes this via `bash "${CLAUDE_PLUGIN_ROOT}/bin/cmk-compress-session"`,
+# so the entrypoint must be a bash script. The actual handler lives in
+# the sibling .mjs file (same pattern as cmk-capture-prompt, cmk-inject-context).
 
-cat >/dev/null
-echo "cmk: SessionEnd hook (cmk-compress-session) — not yet implemented" >&2
-echo '{"continue": true}'
-exit 0
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+exec node "${script_dir}/cmk-compress-session.mjs"
