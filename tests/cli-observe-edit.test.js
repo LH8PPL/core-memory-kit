@@ -40,7 +40,6 @@ const BIN_PATH = join(REPO_ROOT, 'plugin', 'bin', 'cmk-observe-edit');
 const HOOKS_JSON_PATH = join(
   REPO_ROOT,
   'plugin',
-  '.claude-plugin',
   'hooks',
   'hooks.json',
 );

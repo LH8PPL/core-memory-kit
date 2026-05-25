@@ -35,6 +35,7 @@ The user (Lior) is direct and tight on time. Match the energy.
 **Verification:**
 
 - **"Did you check?" is the load-bearing question.** Every external claim about a project / library / API gets verified against the primary source before being stated as fact. My training data is sometimes wrong — primary-source examination has surfaced 8+ corrections during this project.
+- **Convention-convergence-across-third-party-implementations is not primary-source verification.** When a project / library / API has official docs, check the docs directly. Reading two plugins that both implement convention X tells you those two authors agreed on X — it doesn't tell you X is correct. If a primary source exists (Anthropic's plugin docs, the W3C spec, the language reference manual), go there. The 2026-05-26 live-test plugin-layout bug surfaced because design.md §5.1 was written against convergent third-party evidence without checking Anthropic's docs (which would have caught the mistake instantly via a Warning callout in their structure-overview section).
 - Verification status (`✓` / `~` / `✗`) is tracked in [`SOURCES.md`](SOURCES.md).
 
 ## Engineering discipline (binding)

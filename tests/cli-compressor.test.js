@@ -111,15 +111,13 @@ describe('Task 23.6 — HaikuViaAnthropicApi', () => {
     expect(big).toBeGreaterThan(small);
   });
 
-  it('compress spawns claude --print with documented sandbox flags (cd /tmp, env -u CLAUDECODE, empty allowedTools, --max-turns 1, empty MCP, stdin)', async () => {
+  it('compress spawns claude --print with documented sandbox flags (OS-tmpdir cwd, env -u CLAUDECODE, empty allowedTools, --max-turns 1, MCP via tempfile, stdin, shell:true)', async () => {
     // Capture what spawnFn was called with — the test never invokes
     // a real `claude` binary.
     const spawnCalls = [];
+    const { EventEmitter } = await import('node:events');
     const fakeSpawn = (cmd, args, opts) => {
       spawnCalls.push({ cmd, args, opts });
-      // Return a fake child-process-like object with stdin/stdout/stderr +
-      // an event emitter for 'close'.
-      const { EventEmitter } = require('node:events');
       const child = new EventEmitter();
       child.stdin = {
         write: () => true,
@@ -147,21 +145,38 @@ describe('Task 23.6 — HaikuViaAnthropicApi', () => {
 
     expect(spawnCalls).toHaveLength(1);
     const { cmd, args, opts } = spawnCalls[0];
-    expect(cmd).toBe('claude');
+    // Bin defaults to `claude.cmd` on Windows, `claude` on POSIX (npm
+    // installs CLI binaries as .cmd shims on Windows; spawn won't
+    // auto-resolve the extension without help).
+    expect(cmd).toBe(process.platform === 'win32' ? 'claude.cmd' : 'claude');
     expect(args).toContain('--print');
     expect(args).toContain('--max-turns');
     expect(args[args.indexOf('--max-turns') + 1]).toBe('1');
     expect(args).toContain('--allowed-tools');
     expect(args[args.indexOf('--allowed-tools') + 1]).toBe(''); // tightened from design §6.1's "Read" to empty per claude-remember pattern
     expect(args).toContain('--mcp-config');
-    expect(args[args.indexOf('--mcp-config') + 1]).toBe('{"mcpServers":{}}');
+    // MCP config is now passed as a file path (not inline JSON) — see
+    // docs/journey/2026-05-26-live-test-findings.md for the cmd.exe
+    // quoting issue that drove the change. The path is an absolute
+    // file under the OS tmpdir; the file itself contains the
+    // `{"mcpServers":{}}` JSON.
+    const mcpConfigArg = args[args.indexOf('--mcp-config') + 1];
+    expect(mcpConfigArg).not.toBe('{"mcpServers":{}}'); // not inline JSON anymore
+    expect(mcpConfigArg).toMatch(/empty-mcp\.json$/);
     expect(args).toContain('--strict-mcp-config');
     expect(args).toContain('--model');
     expect(args[args.indexOf('--model') + 1]).toBe('claude-haiku-4-5-20251001');
-    // cd /tmp — implemented via opts.cwd
-    expect(opts.cwd).toBe('/tmp');
+    // cwd: OS-native tmpdir (not the bash-style `/tmp` which fails
+    // to resolve on Windows). Must be an existing directory.
+    expect(typeof opts.cwd).toBe('string');
+    expect(opts.cwd.length).toBeGreaterThan(0);
     // env -u CLAUDECODE — env passed without CLAUDECODE
     expect('CLAUDECODE' in (opts.env ?? {})).toBe(false);
+    // shell:true required so claude.cmd resolves through cmd.exe on
+    // Windows (CVE-2024-27980 hardening prevents node from running
+    // .cmd files via plain spawn). No-op on Linux/macOS for our
+    // metacharacter-free argv.
+    expect(opts.shell).toBe(true);
 
     expect(r.outputText).toContain('mock response body');
   });

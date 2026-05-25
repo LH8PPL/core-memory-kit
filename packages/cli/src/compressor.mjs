@@ -28,9 +28,26 @@
 // never needs Read either — the turn content arrives in the prompt).
 
 import { spawn as defaultSpawn } from 'node:child_process';
+import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const HAIKU_MODEL_ID = 'claude-haiku-4-5-20251001';
-const DEFAULT_CLAUDE_BIN = 'claude';
+
+// On Windows, npm-installed CLI binaries ship as a `.cmd` shim. Node's
+// child_process.spawn does NOT auto-resolve `.cmd`/`.bat` extensions
+// (unlike shell PATH resolution), so `spawn('claude')` fails with
+// ENOENT on Windows even though `where claude` finds it. The
+// documented Node-on-Windows pattern is to either pass the explicit
+// `.cmd` suffix or use `shell: true`. We use the explicit suffix so
+// the args (which include JSON like `'{"mcpServers":{}}'`) pass
+// through unescaped — `shell: true` would let cmd.exe re-tokenize.
+//
+// Live-test surface this bug: HaikuViaAnthropicApi.compress() crashed
+// with ENOENT on every detached auto-extract invocation on Windows
+// because the bin defaulted to 'claude' literally. See
+// docs/journey/2026-05-26-live-test-findings.md.
+const DEFAULT_CLAUDE_BIN = process.platform === 'win32' ? 'claude.cmd' : 'claude';
 
 // Conservative cost estimate for Haiku 4.5 (USD per 1K input tokens +
 // USD per 1K output tokens). Anthropic-published pricing as of
@@ -86,9 +103,20 @@ export class HaikuViaAnthropicApi extends CompressorBackend {
     // shell interpolation can't reach it.
     const promptBody = instructions ? `${instructions}\n\n${input}` : input;
 
+    // Write empty MCP config to a temp file rather than passing inline
+    // JSON. Inline JSON via argv survives Linux/macOS shells but cmd.exe
+    // strips the double-quotes when shell:true is set on Windows,
+    // mangling `{"mcpServers":{}}` to `{mcpServers:{}}` and breaking
+    // --mcp-config parsing. Tempfile + path arg is the cross-platform
+    // pattern (live-test surface: see
+    // docs/journey/2026-05-26-live-test-findings.md).
+    const sandbox = mkdtempSync(join(tmpdir(), 'cmk-haiku-'));
+    const mcpConfigPath = join(sandbox, 'empty-mcp.json');
+    writeFileSync(mcpConfigPath, JSON.stringify({ mcpServers: {} }), 'utf8');
+
     // Build claude --print invocation with the documented sandbox flags.
-    // The empty allowedTools + empty MCP config are the tightest
-    // possible sandbox; the sub-Claude can only respond, not act.
+    // Empty allowedTools + empty MCP config = tightest possible sandbox;
+    // the sub-Claude can only respond, not act.
     const args = [
       '--print',
       '--model',
@@ -98,7 +126,7 @@ export class HaikuViaAnthropicApi extends CompressorBackend {
       '--max-turns',
       '1',
       '--mcp-config',
-      '{"mcpServers":{}}',
+      mcpConfigPath,
       '--strict-mcp-config',
       '--output-format',
       'text',
@@ -110,11 +138,26 @@ export class HaikuViaAnthropicApi extends CompressorBackend {
     const env = { ...process.env };
     delete env.CLAUDECODE;
 
+    // shell:true required on Windows so that .cmd shims (claude.cmd)
+    // resolve through cmd.exe. Without it, node's spawn fails with
+    // EINVAL/ENOENT because it won't auto-resolve .cmd extensions
+    // (CVE-2024-27980 hardening). On Linux/macOS shell:true is a
+    // no-op for argv-style invocation when the arguments don't contain
+    // shell metacharacters — ours don't (the prompt goes via stdin).
     const child = this._spawn(this._bin, args, {
-      cwd: '/tmp',
+      cwd: tmpdir(), // OS-native temp dir; replaces `/tmp` which fails to resolve on Windows
       env,
       stdio: ['pipe', 'pipe', 'pipe'],
+      shell: true,
     });
+
+    const cleanupSandbox = () => {
+      try {
+        rmSync(sandbox, { recursive: true, force: true });
+      } catch {
+        // Best-effort; OS cleans tmpdir eventually.
+      }
+    };
 
     return await new Promise((resolve, reject) => {
       let stdout = '';
@@ -125,8 +168,12 @@ export class HaikuViaAnthropicApi extends CompressorBackend {
       child.stderr.on('data', (chunk) => {
         stderr += chunk.toString('utf8');
       });
-      child.on('error', (err) => reject(err));
+      child.on('error', (err) => {
+        cleanupSandbox();
+        reject(err);
+      });
       child.on('close', (code) => {
+        cleanupSandbox();
         if (code !== 0) {
           reject(
             new Error(
