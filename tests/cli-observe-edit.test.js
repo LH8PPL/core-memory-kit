@@ -226,7 +226,17 @@ describe('Task 20 — observeEdit() boundary', () => {
       expect(r.action).toBe('noop');
     });
 
-    it('completes well under 50ms on the synchronous path (NFR-1)', () => {
+    it('completes within the NFR-1 500ms in-process budget', () => {
+      // Per requirements.md §387 (NFR-1 scope clarification, 2026-05-26):
+      // "the 500 ms budget on the SessionStart bullet — and equivalent
+      // budgets on other hook entries — applies to the kit's in-process
+      // work: injectContext() for SessionStart, capturePrompt() for
+      // UserPromptSubmit, captureTurn() for Stop, observeEdit() for
+      // PostToolUse." The earlier 50ms threshold was aspirational
+      // tightness, not the published SLA — it flaked under Windows
+      // full-suite contention with disk I/O. PRs #22 and #23 documented
+      // this class as a "known flake" without fixing. Aligning to the
+      // actual NFR-1 contract.
       const t0 = Date.now();
       observeEdit({
         payload: {
@@ -238,7 +248,7 @@ describe('Task 20 — observeEdit() boundary', () => {
         now: '2026-05-25T10:00:00Z',
       });
       const elapsed = Date.now() - t0;
-      expect(elapsed).toBeLessThan(50);
+      expect(elapsed).toBeLessThan(500);
     });
   });
 });
@@ -288,11 +298,19 @@ describe('Task 20 — bin/cmk-observe-edit (hook bash wrapper)', () => {
     const parentMs = Date.now() - t0;
     expect(r.status).toBe(0);
 
-    // Parent should be fast (well under the design §5.1 120s timeout;
-    // we don't pin a tight bound here because bash + spawn cold-start
-    // is variable on Windows — but ensure it's not waiting for the
-    // detached child either).
-    expect(parentMs).toBeLessThan(5000);
+    // Sanity bound on the parent. Design §5.1 sets the hook envelope at
+    // 120s; we want a value tight enough to fail-fast if the parent is
+    // actually stuck on the detached child, but loose enough that a
+    // Windows cold-start spike under full-suite concurrency (bash +
+    // node + spawn contention with ~700 other tests) doesn't tip it
+    // into a false-negative. 30s mirrors the timeout we set on every
+    // other live-spawn test in this repo (e.g. spawn-smoke-haiku) and
+    // is two orders of magnitude below the actual hook ceiling, so it
+    // still catches a true "parent is waiting for the detached child"
+    // regression — the child here does <50ms of work, so any case
+    // where parentMs approaches the child's work time would already
+    // be exposed by the polling completion check below.
+    expect(parentMs).toBeLessThan(30000);
 
     // Poll for the now.md file to appear — the detached node child is
     // doing the work after the parent returned.
