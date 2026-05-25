@@ -32,7 +32,13 @@ import { homedir } from 'node:os';
 import { SCRATCHPADS_BY_TIER, resolveTierRoot } from './tier-paths.mjs';
 import { nowIso } from './audit-log.mjs';
 
-const DEFAULT_CAP_BYTES = 10 * 1024;
+// 13,000 bytes = sum of all per-file caps (12,275 from Task 12/14) + 725
+// bytes of headroom for inter-tier markers + future modest growth.
+// Coordinated with TIER_BUDGETS below per design §7.1 "Snapshot cap
+// coordination rule" (2026-05-26 amendment). Raising this requires
+// raising one or more TIER_BUDGETS to consume the new headroom; see
+// scripts/validate-template.mjs for the build-time invariant check.
+const DEFAULT_CAP_BYTES = 13_000;
 const HOOK_EVENT_NAME = 'SessionStart';
 
 // Match any line containing a `(P-XXXXXXXX)`-shaped citation id. Looser
@@ -52,17 +58,27 @@ const TIER_LABELS = {
   U: 'user',
 };
 
-// Per-tier byte budgets (design §7.1.1, 2026-05-26 amendment). Each tier
-// truncates section-by-section to its own budget BEFORE the snapshot's
-// total-cap drop step runs. Sum is 10,000 bytes; the snapshot cap default
-// is 10,240, leaving 240 bytes of slack. Configured via constants here
-// rather than settings.json so the structural invariant ("the user tier
-// always reaches Claude in default install") can't be lost to local
-// config drift.
+// Per-tier byte budgets (design §7.1, 2026-05-26 coordination amendment).
+// Each tier truncates section-by-section to its own budget BEFORE the
+// snapshot's total-cap drop step runs. Each budget = EXACT SUM of
+// per-file caps in that tier (Task 12/14):
+//
+//   L = 3000  (machine-paths.md 1500 + overrides.md 1500)
+//   P = 4300  (SOUL.md 1800 + MEMORY.md 2500)
+//   U = 4975  (USER.md 1375 + HABITS.md 1800 + LESSONS.md 1800)
+//   Σ = 12,275 (fits the 13,000 DEFAULT_CAP_BYTES with 725-byte slack)
+//
+// This is THE STRUCTURAL FIX from PR-25's user-tier truncation finding.
+// Per-file caps were specified independently from snapshot cap and
+// per-tier budgets in v0.1.0's initial spec; the sums didn't compose,
+// so files at their legal caps blew the snapshot. Now per-tier budgets
+// derive from per-file caps; snapshot cap derives from the sum.
+// scripts/validate-template.mjs asserts this composition rule on every
+// `npm test` run so future per-file-cap changes can't silently break it.
 const TIER_BUDGETS = Object.freeze({
-  L: 1500,
-  P: 4500,
-  U: 4000,
+  L: 3000,
+  P: 4300,
+  U: 4975,
 });
 
 // Per-tier reading plan. The hook reads the scratchpads allowed at that
