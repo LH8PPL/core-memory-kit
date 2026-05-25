@@ -1,16 +1,11 @@
 #!/usr/bin/env bash
-# cmk-capture-turn — Stop hook stub (Task 17 scaffold).
+# cmk-capture-turn — Stop hook (Task 21 real handler).
 #
-# Real implementation lands in Task 21: implement the stop_hook_active
-# recursion guard (early-return when payload has stop_hook_active:true),
-# append the assistant turn to context/transcripts/{YYYY-MM-DD}.md with
-# <private> stripped + <retain> preserved, then spawn the detached
-# auto-extract subprocess and return within 50 ms.
-#
-# Hook protocol: payload on stdin; JSON on stdout; diagnostics on
-# stderr; {"continue": true} lets the session close cleanly.
+# hooks.json invokes this via `bash "${CLAUDE_PLUGIN_ROOT}/bin/cmk-capture-turn"`.
+# Same bash-wrapper-then-exec-node pattern as the other real handlers.
+# The node handler honors the stop_hook_active recursion guard, appends
+# the assistant turn (privacy-sanitized) to the daily transcript, and
+# spawns a detached auto-extract subagent (Task 23 fills it in).
 
-cat >/dev/null
-echo "cmk: Stop hook (cmk-capture-turn) — not yet implemented" >&2
-echo '{"continue": true}'
-exit 0
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+exec node "${script_dir}/cmk-capture-turn.mjs"
