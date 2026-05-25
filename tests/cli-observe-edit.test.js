@@ -226,7 +226,17 @@ describe('Task 20 — observeEdit() boundary', () => {
       expect(r.action).toBe('noop');
     });
 
-    it('completes well under 50ms on the synchronous path (NFR-1)', () => {
+    it('completes within the NFR-1 500ms in-process budget', () => {
+      // Per requirements.md §387 (NFR-1 scope clarification, 2026-05-26):
+      // "the 500 ms budget on the SessionStart bullet — and equivalent
+      // budgets on other hook entries — applies to the kit's in-process
+      // work: injectContext() for SessionStart, capturePrompt() for
+      // UserPromptSubmit, captureTurn() for Stop, observeEdit() for
+      // PostToolUse." The earlier 50ms threshold was aspirational
+      // tightness, not the published SLA — it flaked under Windows
+      // full-suite contention with disk I/O. PRs #22 and #23 documented
+      // this class as a "known flake" without fixing. Aligning to the
+      // actual NFR-1 contract.
       const t0 = Date.now();
       observeEdit({
         payload: {
@@ -238,7 +248,7 @@ describe('Task 20 — observeEdit() boundary', () => {
         now: '2026-05-25T10:00:00Z',
       });
       const elapsed = Date.now() - t0;
-      expect(elapsed).toBeLessThan(50);
+      expect(elapsed).toBeLessThan(500);
     });
   });
 });
