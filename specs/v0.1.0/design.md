@@ -824,14 +824,30 @@ The earlier draft of §7.1 specified only a total snapshot cap (10 KB) and a tie
 
 Root cause: per-file caps (Task 12 / design §2.1) and the snapshot cap (this section) were specified independently. Per-file caps don't add to a coherent total; the snapshot cap was set without budgeting how much of it each tier deserves.
 
-**Fix: per-tier byte budgets, enforced before the total-cap drop step.**
+**Fix (PR-25 first pass, then PR-B coordination): per-tier byte budgets coordinated with per-file caps.**
 
-| Tier | Budget (bytes) | Justification |
+Per-tier budget = EXACT SUM of per-file caps in that tier. Snapshot cap = sum of all per-tier budgets + small headroom for inter-tier markers.
+
+| Tier | Budget (bytes) | = sum of per-file caps |
 | --- | --- | --- |
-| **L** (local — machine-paths + overrides) | 1500 | Two small scratchpads; rarely grows beyond seeds. |
-| **P** (project — SOUL + MEMORY + memory/INDEX + latest day-session) | 4500 | Bulk of the snapshot. Grows with auto-extract over time. |
-| **U** (user — USER + HABITS + LESSONS + fragments/INDEX) | 4000 | Slow-growing per-user persona; must survive cap pressure. |
-| **Total** | 10,000 | Matches the existing 10,240-byte snapshot cap with 240-byte slack. |
+| **L** (local) | 3,000 | machine-paths.md 1500 + overrides.md 1500 |
+| **P** (project) | 4,300 | SOUL.md 1800 + MEMORY.md 2500 |
+| **U** (user) | 4,975 | USER.md 1375 + HABITS.md 1800 + LESSONS.md 1800 |
+| **Σ per-tier budgets** | **12,275** | |
+| **Snapshot cap** (`DEFAULT_CAP_BYTES`) | **13,000** | Σ + 725-byte headroom for inter-tier markers |
+
+#### Snapshot cap coordination rule (binding)
+
+**The snapshot cap MUST be ≥ sum of all per-file caps across all tiers. Per-tier budget MUST equal the sum of per-file caps in that tier.** These are not three independent numbers — they are derived from one source-of-truth (the per-file caps in Task 12/14). Changing any per-file cap requires updating both the per-tier budget and (if total exceeds snapshot cap) the snapshot cap itself.
+
+Why this rule is non-optional: when per-file caps and snapshot cap are specified independently, files at their LEGAL caps blow the snapshot. The lowest-priority tier gets dropped on every session — even in fresh installs with only seed content present. PR-25's user-tier truncation finding was the surface; PR-B (this amendment) is the structural fix. See [`docs/journey/2026-05-26-user-tier-cap-fix.md`](../../docs/journey/2026-05-26-user-tier-cap-fix.md) for the "separately-correct-jointly-broken" pattern this rule prevents.
+
+**Enforced at build time** by [`scripts/validate-template.mjs`](../../scripts/validate-template.mjs):
+
+- `Σ per-file caps across all tiers ≤ DEFAULT_CAP_BYTES` — fails the test suite if not
+- `Σ per-file caps in tier T == TIER_BUDGETS[T]` for each T ∈ {L, P, U} — fails if drift
+
+Lint runs on every `npm test` invocation. PR-14's seed-trust × consolidator bug and PR-22's auto-extract-reads-assistant-only bug were the same shape; this rule + the build-time check prevent the next instance.
 
 **Truncation algorithm** (per-tier, then total):
 
@@ -851,7 +867,9 @@ If sum still exceeds snapshot_cap (configuration error — sum of budgets > cap)
 
 #### Meta-lesson: per-file caps and snapshot cap must be coordinated
 
-This bug was structurally inevitable given how the spec was originally written. Per-file caps from Task 12 (Maxes: SOUL 1800 / MEMORY 2500 / USER 1375 / HABITS 1800 / LESSONS 1800 / machine-paths 1500 / overrides 1500 = total 12,275) are larger than the snapshot cap (10 KB). Any user who fills their scratchpads up to cap WILL trigger truncation. Specifying per-file caps independently from snapshot composition is exactly the kind of separately-correct-jointly-broken pattern that surfaces only at integration time — same shape as the seed-trust+at-vs-consolidator bug from PR-14 (per-file cap interacted with consolidator behavior). Logged for the v0.1 retrospective.
+This bug was structurally inevitable given how the spec was originally written. Per-file caps from Task 12 (total 12,275) exceeded the snapshot cap (originally 10 KB). Any user who filled their scratchpads up to cap WOULD trigger truncation. PR-25's first pass tightened user-tier seeds + introduced per-tier budgets but kept the snapshot cap at 10 KB; PR-B raised the cap to 13,000 and aligned per-tier budgets to per-file caps. The coordination rule above is the load-bearing invariant going forward.
+
+Same shape as PR-14's seed-trust+at vs consolidator bug AND PR-22's auto-extract-reads-assistant-only bug. Three instances of the separately-correct-jointly-broken pattern; the CLAUDE.md "Composition verification" rule + this design.md coordination rule + the build-time check in validate-template.mjs are the three artifacts that prevent the next instance.
 
 ### 7.2 `cmk config --show-origin` debug command
 
