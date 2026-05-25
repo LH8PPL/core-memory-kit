@@ -390,16 +390,16 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Test parent kill: spawn stub subagent that writes sentinel after 2 s; kill parent at 100 ms; assert sentinel appears after 2 s (detach proof)
   - _Requirements: FR-9, FR-10, FR-15; design §5.2, §5.2.1, §6.6_
 
-- [ ] 22. `cmk-compress-session` — SessionEnd hook (T-019)
+- [x] 22. `cmk-compress-session` — SessionEnd hook (T-019) _shipped 2026-05-25, PR #28 (+ #29 follow-up flake-class audit)_
   - Estimate: M · Depends: 17, 23
-- [ ] 22.1 Read `sessions/now.md`; no-op if empty
-- [ ] 22.2 Invoke CompressorBackend (task 23 ships Haiku impl)
+- [x] 22.1 Read `sessions/now.md`; no-op if empty
+- [x] 22.2 Invoke CompressorBackend (task 23 ships Haiku impl)
   - Result written to `sessions/today-{YYYY-MM-DD}.md` (create or append for same day)
-- [ ] 22.3 Truncate `now.md` to 0 bytes on success
-- [ ] 22.4 Honor 120 s Haiku cooldown
+- [x] 22.3 Truncate `now.md` to 0 bytes on success
+- [x] 22.4 Honor 120 s Haiku cooldown
   - If `last-haiku-call.ts` mtime within cooldown: skip + log `skipped: cooldown`
-- [ ] 22.5 On compression failure: leave `now.md` intact, log error, exit 0 (non-fatal)
-- [ ]* 22.6 Write unit tests for SessionEnd hook
+- [x] 22.5 On compression failure: leave `now.md` intact, log error, exit 0 (non-fatal)
+- [x]* 22.6 Write unit tests for SessionEnd hook
   - Test non-empty `now.md` invokes mocked backend; output written to `today-{date}.md`
   - Test empty `now.md`: backend NOT invoked; hook exits 0
   - Test existing same-day `today-{date}.md`: new content appended (not overwriting)
