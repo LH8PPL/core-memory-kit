@@ -463,7 +463,16 @@ describe('Task 21 — bin/cmk-capture-turn (hook bash wrapper)', () => {
     // scheduler timing — what matters is that it eventually lands AND
     // its content matches what the stub wrote (proves spawn invoked
     // the stub with the right argv).
-    await pollFor(() => existsSync(stub.lockFile), { timeoutMs: 4000 });
+    //
+    // 20s poll window: the detached child has to clear bash startup
+    // (~500-1000ms on Windows) + node cold-start (~500-1500ms) +
+    // 600ms stub sleep + writeFile. Under full-suite concurrency on
+    // Windows those add up well past 4000ms (the previous bound,
+    // which PR #22 and #23 documented as a "known cli-capture-turn
+    // flake" without fixing). 20s is two orders of magnitude below
+    // the design §5.1 hook timeout (30s) so any case where the
+    // sentinel genuinely never lands still fails fast.
+    await pollFor(() => existsSync(stub.lockFile), { timeoutMs: 20000 });
     expect(existsSync(stub.lockFile)).toBe(true);
     expect(readFileSync(stub.lockFile, 'utf8')).toContain('DETACH_PROOF');
   });

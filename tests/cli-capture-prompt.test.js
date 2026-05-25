@@ -253,7 +253,13 @@ describe('Task 19 — capturePrompt() boundary', () => {
       expect(r.action).toBe('noop');
     });
 
-    it('completes well under 100ms on a small prompt (NFR-1 budget)', () => {
+    it('completes within the NFR-1 500ms in-process budget', () => {
+      // Per requirements.md §387 (NFR-1 scope clarification): the
+      // 500ms in-process budget applies to capturePrompt() — same
+      // class as injectContext / captureTurn / observeEdit. The
+      // earlier 100ms threshold was aspirational tightness, not the
+      // published SLA, and flaked under Windows full-suite contention
+      // with disk I/O. Aligning to the actual contract.
       const t0 = Date.now();
       capturePrompt({
         payload: { prompt: 'a prompt with some content' },
@@ -261,7 +267,7 @@ describe('Task 19 — capturePrompt() boundary', () => {
         now: '2026-05-25T10:00:00Z',
       });
       const elapsed = Date.now() - t0;
-      expect(elapsed).toBeLessThan(100);
+      expect(elapsed).toBeLessThan(500);
     });
   });
 });
