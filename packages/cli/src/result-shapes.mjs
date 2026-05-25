@@ -35,14 +35,39 @@ export const ERROR_CATEGORIES = Object.freeze({
   // referenced ids without a discriminator change.
   NOT_FOUND: 'not-found',
 
-  // Another writer holds a lock; retry later. Reserved for Layer 4+ where
-  // the auto-extract subagent + memory-write skill genuinely contend.
+  // Another writer holds a lock; retry later. Used by the auto-extract
+  // subagent (Task 23) when a prior invocation still holds the
+  // context/.locks/auto-extract.lock file.
   CONCURRENT_RUN: 'concurrent_run',
 
   // A scratchpad write would push the file past its configured cap even
   // after consolidation (Task 12, design §2.1). Caller chose not to
   // forcibly truncate; the write is rejected so no silent data loss.
   CAP_EXCEEDED: 'cap_exceeded',
+
+  // --- Auto-extract / hook entrypoint validation (Task 23) -----------
+  // These pair with handlers that ALWAYS exit 0 (a crashed hook is
+  // worse than a missing capture). The category surfaces in
+  // sessions/{date}.extract.log so analytics can track failure modes.
+
+  // The caller did not pass `projectRoot`. Programmer error in the
+  // bin wrapper; ships as a guard against misuse.
+  MISSING_PROJECT_ROOT: 'missing_project_root',
+
+  // No CompressorBackend implementation was passed. Same shape as
+  // above — guards a programmer error.
+  MISSING_BACKEND: 'missing_backend',
+
+  // The expected turn buffer file (Task 21 wrote it under
+  // transcripts/.extract-*.tmp) doesn't exist by the time auto-extract
+  // gets scheduled. Could be a race with Task 21's writeFileSync, or
+  // a manual cleanup of stale temp files.
+  MISSING_TURN: 'missing_turn',
+
+  // The CompressorBackend's compress() rejected. For
+  // HaikuViaAnthropicApi this means the `claude --print` subprocess
+  // exited non-zero or the spawn itself failed.
+  HAIKU_FAILED: 'haiku_failed',
 });
 
 export const ACTION_TYPES = Object.freeze({
