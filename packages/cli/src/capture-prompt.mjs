@@ -26,15 +26,7 @@
 
 import { existsSync, mkdirSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
-
-// Multiline + dot-matches-newline so private blocks spanning lines are
-// captured. Non-greedy so adjacent blocks aren't merged.
-const PRIVATE_RE = /<private>[\s\S]*?<\/private>/g;
-const REDACTED = '[private content redacted]';
-
-function sanitize(prompt) {
-  return prompt.replace(PRIVATE_RE, REDACTED);
-}
+import { sanitizePrivacyTags } from './privacy.mjs';
 
 function dateFromIso(iso) {
   // Slice 'YYYY-MM-DD' from 'YYYY-MM-DDTHH:MM:SSZ'. Validating
@@ -57,7 +49,7 @@ export function capturePrompt({ payload, projectRoot, now } = {}) {
   const transcriptsDir = join(projectRoot, 'context', 'transcripts');
   const transcriptPath = join(transcriptsDir, `${date}.md`);
 
-  const sanitized = sanitize(prompt);
+  const sanitized = sanitizePrivacyTags(prompt);
   const entry = `## ${ts} — user\n\n${sanitized}\n\n`;
 
   if (!existsSync(transcriptsDir)) {
