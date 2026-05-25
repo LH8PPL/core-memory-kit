@@ -303,13 +303,13 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 
 ## Layer 4 — Hooks + skill + auto-extract
 
-- [ ] 17. `hooks.json` + 6-hook scaffold (T-014)
+- [x] 17. `hooks.json` + 6-hook scaffold (T-014) _shipped 2026-05-25, PR #16_
   - Estimate: S · Depends: 3
-- [ ] 17.1 Ship `plugin/.claude-plugin/hooks/hooks.json` per design §5.1
+- [x] 17.1 Ship `plugin/.claude-plugin/hooks/hooks.json` per design §5.1
   - All 6 hooks registered with documented matchers + timeouts
-- [ ] 17.2 Ship `bin/cmk-<verb>` script stubs for each hook
+- [x] 17.2 Ship `bin/cmk-<verb>` script stubs for each hook
   - Each prints "not yet implemented" and exits 0 with `{"continue": true}` JSON
-- [ ]* 17.3 Write unit tests for hooks.json + stubs
+- [x]* 17.3 Write unit tests for hooks.json + stubs
   - Test `hooks.json` parses as valid JSON
   - Test all 6 hook events registered: `Setup`, `SessionStart`, `UserPromptSubmit`, `PostToolUse`, `Stop`, `SessionEnd`
   - Test PostToolUse has matcher `"Write|Edit|MultiEdit"`
