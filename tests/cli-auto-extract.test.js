@@ -480,6 +480,62 @@ describe('Task 23 — runAutoExtract() boundary', () => {
       expect(memory).toContain(retainBody);
     });
 
+    it('(g) semantically-equivalent but textually-different facts → NO dedup; user → MEMORY, assistant → review (documents canonicalize limitation)', async () => {
+      // Documents the literal-canonical-dedup limitation that the
+      // `dedupByCanonicalId` comment describes in prose. The two
+      // candidates below are semantically the same fact but their
+      // canonical forms genuinely differ (different word ordering /
+      // an added "we are using" phrase), so generateId() produces
+      // different IDs and dedup does NOT collapse them.
+      //
+      // Verified out-of-band on this branch:
+      //   canonicalize('use pnpm not npm')          → 'use pnpm not npm'
+      //   canonicalize('we are using pnpm not npm') → 'we are using pnpm not npm'
+      //   generateId('P', a) === 'P-AUHD34KB'
+      //   generateId('P', b) === 'P-A2Q5UK55'
+      //
+      // Expected outcome: user-origin TRUST_HIGH lands in MEMORY.md
+      // (no demotion for user); assistant-origin TRUST_HIGH demotes to
+      // MEDIUM → queues/review.md. Both are kept (no dedup). This
+      // pins current behavior so a future Task 25 conflict queue with
+      // fuzzy/semantic similarity cannot silently change auto-extract
+      // semantics — semantic dedup belongs at WRITE time (Task 25),
+      // not in auto-extract's literal-canonical dedup.
+      const turnFile = writeTurnFile(projectRoot, {
+        user: 'use pnpm not npm',
+        assistant: 'OK, noted — we are using pnpm not npm.',
+      });
+      const r = await runAutoExtract({
+        turnFile,
+        projectRoot,
+        haikuBackend: mockBackend(
+          'TRUST_HIGH user: use pnpm not npm',
+          'TRUST_HIGH assistant: we are using pnpm not npm',
+        ),
+        now: '2026-05-25T10:00:00Z',
+      });
+      // Two observations land: 1 in MEMORY (user-HIGH), 1 in review
+      // (assistant-HIGH demoted to MEDIUM). No dedup collapses them
+      // even though they describe the same fact.
+      expect(r.action).toBe('extracted');
+      expect(r.observation_count).toBe(2);
+
+      const memory = readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8');
+      expect(memory).toContain('use pnpm not npm');
+      expect(memory).not.toContain('we are using pnpm not npm');
+
+      const reviewPath = join(projectRoot, 'context', 'queues', 'review.md');
+      expect(existsSync(reviewPath)).toBe(true);
+      const review = readFileSync(reviewPath, 'utf8');
+      expect(review).toContain('we are using pnpm not npm');
+      expect(review).not.toContain('use pnpm not npm');
+
+      // extract.log records observation_count: 2 — no dedup happened
+      const logLines = await readExtractLog(projectRoot, '2026-05-25');
+      const lastEntry = logLines[logLines.length - 1];
+      expect(lastEntry.observation_count).toBe(2);
+    });
+
     it('(f) <retain> in assistant turn forces HIGH — override beats demotion', async () => {
       // The critical ordering test: assistant-origin LOW would
       // normally demote to discarded; <retain> override must run
