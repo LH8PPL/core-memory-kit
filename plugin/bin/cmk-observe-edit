@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# cmk-observe-edit — PostToolUse hook stub (Task 17 scaffold).
+#
+# Real implementation lands in Task 20: filter to Write/Edit/MultiEdit
+# (matcher in hooks.json already does this), threshold-check output
+# line count (>50 lines), append a one-line summary to sessions/now.md
+# (fire-and-forget detached subprocess — returns within 50 ms).
+#
+# Hook protocol: payload on stdin; JSON on stdout; diagnostics on
+# stderr. Marked async:true in hooks.json so the timeout (120s) covers
+# the detached child without blocking the parent tool.
+
+cat >/dev/null
+echo "cmk: PostToolUse hook (cmk-observe-edit) — not yet implemented" >&2
+echo '{"continue": true}'
+exit 0

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# cmk-inject-context — SessionStart hook stub (Task 17 scaffold).
+#
+# Real implementation lands in Task 18: walk 3 tiers (local → project →
+# user), assemble a ≤10 KB Frozen snapshot, emit as `additionalContext`
+# per Claude Code's hook protocol so it lands in the system prompt
+# before user-message processing.
+#
+# Hook protocol: payload on stdin; JSON on stdout; diagnostics on
+# stderr; {"continue": true} keeps the session opening normally.
+
+cat >/dev/null
+echo "cmk: SessionStart hook (cmk-inject-context) — not yet implemented" >&2
+echo '{"continue": true}'
+exit 0

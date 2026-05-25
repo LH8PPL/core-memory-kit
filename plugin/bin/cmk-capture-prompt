@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# cmk-capture-prompt — UserPromptSubmit hook stub (Task 17 scaffold).
+#
+# Real implementation lands in Task 19: strip <private>...</private>
+# blocks before any disk write, preserve <retain>...</retain> tags for
+# the Stop-hook downstream, append the cleaned prompt to
+# context/transcripts/{YYYY-MM-DD}.md.
+#
+# Hook protocol: payload on stdin; JSON on stdout; diagnostics on
+# stderr; {"continue": true} keeps the prompt flowing through normally.
+
+cat >/dev/null
+echo "cmk: UserPromptSubmit hook (cmk-capture-prompt) — not yet implemented" >&2
+echo '{"continue": true}'
+exit 0

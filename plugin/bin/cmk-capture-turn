@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# cmk-capture-turn — Stop hook stub (Task 17 scaffold).
+#
+# Real implementation lands in Task 21: implement the stop_hook_active
+# recursion guard (early-return when payload has stop_hook_active:true),
+# append the assistant turn to context/transcripts/{YYYY-MM-DD}.md with
+# <private> stripped + <retain> preserved, then spawn the detached
+# auto-extract subprocess and return within 50 ms.
+#
+# Hook protocol: payload on stdin; JSON on stdout; diagnostics on
+# stderr; {"continue": true} lets the session close cleanly.
+
+cat >/dev/null
+echo "cmk: Stop hook (cmk-capture-turn) — not yet implemented" >&2
+echo '{"continue": true}'
+exit 0
