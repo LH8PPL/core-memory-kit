@@ -356,6 +356,171 @@ describe('Task 18 — injectContext() boundary', () => {
       expect(r.truncationEvents).toEqual([]);
     });
   });
+
+  // -------------------------------------------------------------------
+  // Per-tier byte budgets (design §7.1.1, 2026-05-26 amendment).
+  // Each tier truncates section-by-section to its own budget BEFORE the
+  // snapshot-cap drop step runs. This protects the user tier from being
+  // squeezed out when the project tier grows over time — the bug
+  // surfaced by live-test scenario 4.
+  // -------------------------------------------------------------------
+  describe('per-tier budgets (design §7.1.1)', () => {
+    // Helper: build a 3-section scratchpad whose total size exceeds the
+    // tier's budget. Each section is ~bulkBytes large so truncation
+    // can drop 1-2 sections to fit. Section headings match the design
+    // §2.1 fixed names so the section-granular truncator finds them.
+    function buildOversizedScratchpad(sectionNames, bulkBytes) {
+      const sections = sectionNames.map(
+        (name, i) =>
+          `## ${name}\n\n` +
+          `bullet-${i}-marker\n` +
+          'x'.repeat(bulkBytes) +
+          `\nsection-${i}-tail-marker\n`,
+      );
+      return `# Title\n\n` + sections.join('\n');
+    }
+
+    it('user tier > U-budget → drops user-tier sections from end; PROJECT + LOCAL untouched', () => {
+      // Build a user-tier scratchpad with 3 sections, each ~2000 bytes
+      // (total ~6KB > 4000 U-budget). Should drop the last 1-2 sections.
+      writeFile(
+        join(userDir, 'LESSONS.md'),
+        buildOversizedScratchpad(
+          ['Tooling Lessons', 'Process Lessons', 'Anti-patterns'],
+          2000,
+        ),
+      );
+      // Project + local: small seed content (well under budgets).
+      writeFile(
+        join(projectRoot, 'context', 'MEMORY.md'),
+        '# MEMORY\n\n## Active Threads\n\nproject-bullet-marker\n',
+      );
+      writeFile(
+        join(projectRoot, 'context.local', 'machine-paths.md'),
+        '# machine-paths\n\n## Tool Paths\n\nlocal-bullet-marker\n',
+      );
+
+      const r = injectContext({ cwd: projectRoot, userDir, capBytes: 10240 });
+      // Local + project survived intact.
+      expect(r.snapshot).toContain('local-bullet-marker');
+      expect(r.snapshot).toContain('project-bullet-marker');
+      // User tier's first section survived (it fits within budget after dropping the others).
+      expect(r.snapshot).toContain('bullet-0-marker'); // Tooling Lessons retained
+      // At least one section dropped from the user tier.
+      expect(r.snapshot).not.toContain('section-2-tail-marker'); // Anti-patterns dropped
+      // tier_truncated_to_budget event emitted with shape from §7.1.1.
+      const tierEvt = r.truncationEvents.find(
+        (e) => e.event === 'tier_truncated_to_budget' && e.tier === 'U',
+      );
+      expect(tierEvt).toBeDefined();
+      expect(tierEvt).toMatchObject({
+        ts: expect.any(String),
+        event: 'tier_truncated_to_budget',
+        tier: 'U',
+        budget: 4000,
+        pre_bytes: expect.any(Number),
+        post_bytes: expect.any(Number),
+        sections_dropped: expect.any(Number),
+      });
+      expect(tierEvt.pre_bytes).toBeGreaterThan(tierEvt.post_bytes);
+      expect(tierEvt.post_bytes).toBeLessThanOrEqual(4000);
+      expect(tierEvt.sections_dropped).toBeGreaterThanOrEqual(1);
+    });
+
+    it('default install seed-content fixture → ALL 3 tiers reach the snapshot, no drops', async () => {
+      // Use the real install module so we test against the actual
+      // seed-template byte sizes shipped in template/ — this pins the
+      // "user tier survives default install" contract.
+      const { install } = await import('../packages/cli/src/install.mjs');
+      await install({ projectRoot, userTier: userDir });
+
+      const r = injectContext({ cwd: projectRoot, userDir, capBytes: 10240 });
+
+      // All three tier markers present in the snapshot.
+      expect(r.snapshot).toContain('<!-- cmk: local tier (L) -->');
+      expect(r.snapshot).toContain('<!-- cmk: project tier (P) -->');
+      expect(r.snapshot).toContain('<!-- cmk: user tier (U) -->');
+
+      // Substantive USER-tier content reaches Claude — at least one of
+      // the frozen seed bullets from each user-tier scratchpad.
+      expect(r.snapshot).toContain('U-PRNQKRaC'); // USER.md About
+      expect(r.snapshot).toContain('U-CEKUY3H4'); // HABITS.md Iteration Cadence
+      expect(r.snapshot).toContain('U-RDBNQSL7'); // LESSONS.md Tooling Lessons
+
+      // No legacy whole-tier drops on default install.
+      const wholeDrops = r.truncationEvents.filter((e) => e.dropped_tiers);
+      expect(wholeDrops).toEqual([]);
+    });
+
+    it('local tier > L-budget → local-tier sections drop; user + project untouched', () => {
+      writeFile(
+        join(projectRoot, 'context.local', 'machine-paths.md'),
+        buildOversizedScratchpad(['Tool Paths', 'Project Paths', 'Misc Paths'], 700),
+      );
+      writeFile(
+        join(userDir, 'USER.md'),
+        '# USER\n\n## About\n\nuser-survives-marker\n',
+      );
+
+      const r = injectContext({ cwd: projectRoot, userDir, capBytes: 10240 });
+      // User tier survives intact.
+      expect(r.snapshot).toContain('user-survives-marker');
+      // Local tier truncated.
+      const tierEvt = r.truncationEvents.find(
+        (e) => e.event === 'tier_truncated_to_budget' && e.tier === 'L',
+      );
+      expect(tierEvt).toBeDefined();
+      expect(tierEvt.budget).toBe(1500);
+      expect(tierEvt.post_bytes).toBeLessThanOrEqual(1500);
+    });
+
+    it('tier_truncated_to_budget events land in truncation.log as NDJSON', () => {
+      writeFile(
+        join(userDir, 'HABITS.md'),
+        buildOversizedScratchpad(
+          ['Iteration Cadence', 'Destructive Operations', 'Communication Style'],
+          2000,
+        ),
+      );
+
+      injectContext({ cwd: projectRoot, userDir, capBytes: 10240 });
+
+      const truncLog = join(projectRoot, 'context', '.locks', 'truncation.log');
+      expect(existsSync(truncLog)).toBe(true);
+      const lines = readFileSync(truncLog, 'utf8').split('\n').filter(Boolean);
+      const parsed = lines.map((l) => JSON.parse(l));
+      const tierEvt = parsed.find(
+        (e) => e.event === 'tier_truncated_to_budget' && e.tier === 'U',
+      );
+      expect(tierEvt).toBeDefined();
+      expect(tierEvt).toHaveProperty('pre_bytes');
+      expect(tierEvt).toHaveProperty('post_bytes');
+      expect(tierEvt).toHaveProperty('sections_dropped');
+    });
+
+    it('per-tier truncation runs BEFORE total-cap fallback (configuration safety)', () => {
+      // Set the snapshot cap WAY below the sum of budgets (1500+4500+
+      // 4000 = 10000 > 1024). After per-tier truncation, the kept
+      // blocks still exceed the snapshot cap, so the dropped_tiers
+      // fallback fires. Verifies both paths can be active.
+      writeFile(
+        join(userDir, 'LESSONS.md'),
+        buildOversizedScratchpad(['Tooling Lessons', 'Process Lessons', 'Anti-patterns'], 1000),
+      );
+      writeFile(
+        join(projectRoot, 'context', 'MEMORY.md'),
+        '# MEMORY\n\n## Active Threads\n\nproject-bullet-marker\n',
+      );
+
+      const r = injectContext({ cwd: projectRoot, userDir, capBytes: 1024 });
+      // Both event types can coexist in extreme overflow.
+      expect(Buffer.byteLength(r.snapshot, 'utf8')).toBeLessThanOrEqual(1024);
+      // The dropped_tiers fallback must have fired since per-tier
+      // truncation alone (4KB U budget) can't fit a 1KB total cap.
+      const dropEvt = r.truncationEvents.find((e) => e.dropped_tiers);
+      expect(dropEvt).toBeDefined();
+    });
+  });
 });
 
 describe('Task 18 — bin/cmk-inject-context (hook bash wrapper)', () => {

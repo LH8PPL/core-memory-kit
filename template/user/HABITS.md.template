@@ -1,38 +1,18 @@
 <!-- Cap: 1800 chars · Last distilled: {{TODAY}} · Last health check: {{TODAY}} -->
 
-<!--
-HABITS.md is the user's CROSS-PROJECT working style — habits that apply
-regardless of which project they're in. Anything project-specific belongs in
-<repo>/context/SOUL.md or <repo>/context/MEMORY.md, not here.
-File: ~/.claude-memory-kit/HABITS.md  (or $MEMORY_KIT_USER_DIR/HABITS.md).
-3 fixed sections per design §2.1.
-
-Bullet+provenance format:
-- (U-XXXXXXXX) the bullet text · <!-- source, source_line, sha1, write, trust, at -->
-
-Auto-populated by `cmk persona generate` (Task N, design §16.16) once ~50 facts
-captured. Until then: keep the seed bullets, edit them, or leave blank.
--->
-
 # Habits (cross-project working style)
 
 ## Iteration Cadence
 
-<!-- How the user prefers work paced (commit frequency, plan vs do). -->
-
 - (U-CEKUY3H4) commits incrementally as work progresses; not in one big push at the end
-  <!-- source: HABITS.md, source_line: 21, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
+  <!-- source: HABITS.md, source_line: 7, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Destructive Operations
 
-<!-- What confirmation Claude should ask for before irreversible operations. -->
-
 - (U-GXB2C4JZ) always confirms before git push, git reset --hard, or other irreversible operations
-  <!-- source: HABITS.md, source_line: 28, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
+  <!-- source: HABITS.md, source_line: 12, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Communication Style
 
-<!-- How the user wants Claude to communicate (tone, brevity, claims discipline). -->
-
 - (U-aUMQHVCV) reads the diff before the commit message; trusts code over claims
-  <!-- source: HABITS.md, source_line: 35, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
+  <!-- source: HABITS.md, source_line: 17, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
