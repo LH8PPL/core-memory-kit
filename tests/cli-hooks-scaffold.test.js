@@ -46,7 +46,7 @@ const EXPECTED_HOOKS = [
   { event: 'Setup', stub: 'cmk-version-check', timeout: 30, async: false, isStub: true },
   { event: 'SessionStart', stub: 'cmk-inject-context', timeout: 30, async: false, isStub: false },
   { event: 'UserPromptSubmit', stub: 'cmk-capture-prompt', timeout: 10, async: false, isStub: false },
-  { event: 'PostToolUse', stub: 'cmk-observe-edit', timeout: 120, async: true, matcher: 'Write|Edit|MultiEdit', isStub: true },
+  { event: 'PostToolUse', stub: 'cmk-observe-edit', timeout: 120, async: true, matcher: 'Write|Edit|MultiEdit', isStub: false },
   { event: 'Stop', stub: 'cmk-capture-turn', timeout: 30, async: false, isStub: true },
   { event: 'SessionEnd', stub: 'cmk-compress-session', timeout: 60, async: false, isStub: true },
 ];
