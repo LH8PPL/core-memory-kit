@@ -812,11 +812,46 @@ The SessionStart hook (`cmk-inject-context`) resolves and merges the three tiers
      Log shadowed copies to context/.locks/shadowed_by.log:
        "P-S79MJHFN in project shadows same ID in user (line 12)"
 
-4. Concatenate into frozen snapshot (≤10 KB total)
+4. Concatenate into frozen snapshot (≤10 KB total), with per-tier budgets enforced first
    Order: local → project → user (highest priority first in prompt)
 
 5. Emit as additionalContext JSON via hook output protocol
 ```
+
+#### 7.1.1 Per-tier byte budgets (2026-05-26 amendment)
+
+The earlier draft of §7.1 specified only a total snapshot cap (10 KB) and a tier-priority drop order on overflow. Live-test scenario 4 (see [`docs/journey/2026-05-26-live-test-findings-scenarios-3-7.md`](../../docs/journey/2026-05-26-live-test-findings-scenarios-3-7.md)) surfaced the failure mode this creates: **the default install + a single auto-extract bullet already exceeds 10 KB**, and the lowest-priority tier (user) gets dropped on every session — even in fresh installs with only seed content present. The user tier's value prop is undercut by cap pressure from day 1.
+
+Root cause: per-file caps (Task 12 / design §2.1) and the snapshot cap (this section) were specified independently. Per-file caps don't add to a coherent total; the snapshot cap was set without budgeting how much of it each tier deserves.
+
+**Fix: per-tier byte budgets, enforced before the total-cap drop step.**
+
+| Tier | Budget (bytes) | Justification |
+| --- | --- | --- |
+| **L** (local — machine-paths + overrides) | 1500 | Two small scratchpads; rarely grows beyond seeds. |
+| **P** (project — SOUL + MEMORY + memory/INDEX + latest day-session) | 4500 | Bulk of the snapshot. Grows with auto-extract over time. |
+| **U** (user — USER + HABITS + LESSONS + fragments/INDEX) | 4000 | Slow-growing per-user persona; must survive cap pressure. |
+| **Total** | 10,000 | Matches the existing 10,240-byte snapshot cap with 240-byte slack. |
+
+**Truncation algorithm** (per-tier, then total):
+
+```text
+For each tier in priority order [L, P, U]:
+  if bytes(tier_block) > tier_budget:
+    drop whole sections from the END of the tier block until bytes ≤ budget
+    log NDJSON: {ts, tier, pre_bytes, post_bytes, sections_dropped}
+                              ↑ event type: tier_truncated_to_budget
+
+After per-tier truncation, total bytes = sum(kept_tiers) — should be ≤ snapshot_cap.
+If sum still exceeds snapshot_cap (configuration error — sum of budgets > cap):
+  drop whole tier blocks from the tail (legacy behavior; old dropped_tiers event).
+```
+
+**Section-granular truncation** (not bullet- or byte-granular) is intentional. Each tier scratchpad has 3 fixed sections per design §2.1; dropping whole sections preserves the structural shape Claude's session-start prompt expects to see. A half-truncated section with a stray `##` heading and missing bullets is worse than no section at all — Claude reads it as "this section is empty" and may draw the wrong inference.
+
+#### Meta-lesson: per-file caps and snapshot cap must be coordinated
+
+This bug was structurally inevitable given how the spec was originally written. Per-file caps from Task 12 (Maxes: SOUL 1800 / MEMORY 2500 / USER 1375 / HABITS 1800 / LESSONS 1800 / machine-paths 1500 / overrides 1500 = total 12,275) are larger than the snapshot cap (10 KB). Any user who fills their scratchpads up to cap WILL trigger truncation. Specifying per-file caps independently from snapshot composition is exactly the kind of separately-correct-jointly-broken pattern that surfaces only at integration time — same shape as the seed-trust+at-vs-consolidator bug from PR-14 (per-file cap interacted with consolidator behavior). Logged for the v0.1 retrospective.
 
 ### 7.2 `cmk config --show-origin` debug command
 
