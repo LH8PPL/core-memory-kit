@@ -537,5 +537,94 @@ describe('Task 24 — memoryWrite() boundary', () => {
       expect(r.action).toBe('error');
       expect(r.errorCategory).toBe('not-found');
     });
+
+    it('over-mutation guard: removing one bullet does NOT touch the other bullets in the same section', () => {
+      // Per Goldberg's "test undesired side effects" pattern: seed N
+      // records, perform the mutation on one, assert the other N-1
+      // are untouched. Without this, an over-mutation bug
+      // (off-by-one in line splice, wrong section walker, etc.) ships
+      // silently — happy-path tests pass because the matched bullet
+      // disappears, but the collateral damage to siblings is invisible.
+      seedActiveThread('bullet alpha: Python 3.13 standardization');
+      seedActiveThread('bullet beta: ruff for linting');
+      seedActiveThread('bullet gamma: pytest for tests');
+      const beforeText = readMemoryMd(projectRoot);
+      // All three IDs present pre-remove.
+      const idsBeforeMatch = beforeText.match(/\(P-[2345679ABCDEFGHJKLMNPQRSTUVWXYZa]{8}\)/g) ?? [];
+      expect(idsBeforeMatch.length).toBe(3);
+
+      const r = memoryWrite({
+        action: 'remove',
+        text: 'bullet beta',
+        confirmRemove: true,
+        tier: 'P',
+        scratchpad: 'MEMORY.md',
+        section: 'Active Threads',
+        source: 'user-explicit',
+        projectRoot,
+        userDir,
+        now: '2026-05-25T10:00:00Z',
+      });
+      expect(r.action).toBe('tombstoned');
+
+      const afterText = readMemoryMd(projectRoot);
+      // Matched bullet gone.
+      expect(afterText).not.toContain('bullet beta');
+      // Siblings UNTOUCHED — same text AND same IDs.
+      expect(afterText).toContain('bullet alpha: Python 3.13 standardization');
+      expect(afterText).toContain('bullet gamma: pytest for tests');
+      const idsAfterMatch = afterText.match(/\(P-[2345679ABCDEFGHJKLMNPQRSTUVWXYZa]{8}\)/g) ?? [];
+      expect(idsAfterMatch.length).toBe(2);
+    });
+  });
+
+  describe('replace action — over-mutation guard', () => {
+    function seedActiveThread(text) {
+      memoryWrite({
+        action: 'add',
+        text,
+        tier: 'P',
+        scratchpad: 'MEMORY.md',
+        section: 'Active Threads',
+        source: 'user-explicit',
+        projectRoot,
+        userDir,
+        now: '2026-05-25T09:00:00Z',
+      });
+    }
+
+    it('replacing one bullet does NOT touch the other bullets in the same section', () => {
+      // Mirror of the remove over-mutation test for the replace path.
+      // Off-by-one in the strip-old or append-new logic would silently
+      // damage siblings without a multi-bullet seed.
+      seedActiveThread('bullet alpha: Python 3.13 standardization');
+      seedActiveThread('bullet beta: ruff for linting');
+      seedActiveThread('bullet gamma: pytest for tests');
+
+      const r = memoryWrite({
+        action: 'replace',
+        oldText: 'bullet beta',
+        text: 'bullet beta-prime: switched from ruff to biome',
+        tier: 'P',
+        scratchpad: 'MEMORY.md',
+        section: 'Active Threads',
+        source: 'user-explicit',
+        projectRoot,
+        userDir,
+        now: '2026-05-25T10:00:00Z',
+      });
+      expect(r.action).toBe('replaced');
+
+      const afterText = readMemoryMd(projectRoot);
+      // Old beta replaced.
+      expect(afterText).not.toContain('bullet beta: ruff for linting');
+      expect(afterText).toContain('bullet beta-prime: switched from ruff to biome');
+      // Siblings UNTOUCHED.
+      expect(afterText).toContain('bullet alpha: Python 3.13 standardization');
+      expect(afterText).toContain('bullet gamma: pytest for tests');
+      // Bullet count: still 3 (one stripped, one appended).
+      const idsAfterMatch = afterText.match(/\(P-[2345679ABCDEFGHJKLMNPQRSTUVWXYZa]{8}\)/g) ?? [];
+      expect(idsAfterMatch.length).toBe(3);
+    });
   });
 });

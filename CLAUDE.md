@@ -54,6 +54,18 @@ The user (Lior) is direct and tight on time. Match the energy.
 - A good test survives refactors. If a refactor breaks a test that was testing the contract, the refactor broke the contract — that's the test working.
 - The test for `writeFact()` checks what file lands where with what frontmatter. NOT how `_parseFrontmatter()` happens to handle YAML.
 
+**The five exit doors** (per Goldberg's *nodejs-testing-best-practices*) — when writing a test, walk this checklist and assert every applicable door:
+
+1. **Response** — what does the public function return? (action / errorCategory / id / path / …)
+2. **State** — what changed on disk / in the audit log / in the scratchpad / in the tombstone archive?
+3. **External calls** — what subprocesses got spawned with what argv + env? (use the spawn-smoke pattern from design §17 for the real-binary side)
+4. **Observability** — what NDJSON entry landed in the right log with the right shape? (audit.log, extract.log, compress.log, poison-guard.log)
+5. (Message queues — N/A for the kit; no MQ surface.)
+
+Most kit tests assert (1) and (2). The ones that miss (3) or (4) are the ones where a future bug ships silently. Pin all four whenever they apply.
+
+**Over-mutation guard** — for any operation that mutates a subset of state (remove one bullet, replace one fact, tombstone one observation), the test must assert *the other records are untouched*. Seed N records, mutate one, assert N-1 remain. Goldberg calls this "test undesired side effects (delete-one doesn't delete-all)" and it catches off-by-one splices, wrong-section walkers, and over-eager regex matches that happy-path tests miss because the matched record disappears as expected. Specific instance: `tests/cli-memory-write.test.js` has explicit over-mutation tests for `remove` and `replace`.
+
 **Deep modules with simple interfaces:**
 
 - Wrap related code into broad modules that expose narrow surfaces.
