@@ -160,7 +160,10 @@ export class HaikuViaAnthropicApi extends CompressorBackend {
 }
 
 function extractIds(text) {
-  const re = /[ULP]-[A-Za-z0-9]{6,8}/g;
+  // Fixed 8-char IDs per design §3.1. Previously `{6,8}` for slop
+  // tolerance, but the kit only emits 8-char IDs; the {6,8} range
+  // was a documented inconsistency. Tightened per PR-21 review.
+  const re = /[ULP]-[A-Za-z0-9]{8}/g;
   const set = new Set();
   let m;
   while ((m = re.exec(text)) !== null) set.add(m[0]);
