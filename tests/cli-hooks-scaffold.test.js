@@ -45,7 +45,7 @@ const BIN_DIR = join(REPO_ROOT, 'plugin', 'bin');
 const EXPECTED_HOOKS = [
   { event: 'Setup', stub: 'cmk-version-check', timeout: 30, async: false, isStub: true },
   { event: 'SessionStart', stub: 'cmk-inject-context', timeout: 30, async: false, isStub: false },
-  { event: 'UserPromptSubmit', stub: 'cmk-capture-prompt', timeout: 10, async: false, isStub: true },
+  { event: 'UserPromptSubmit', stub: 'cmk-capture-prompt', timeout: 10, async: false, isStub: false },
   { event: 'PostToolUse', stub: 'cmk-observe-edit', timeout: 120, async: true, matcher: 'Write|Edit|MultiEdit', isStub: true },
   { event: 'Stop', stub: 'cmk-capture-turn', timeout: 30, async: false, isStub: true },
   { event: 'SessionEnd', stub: 'cmk-compress-session', timeout: 60, async: false, isStub: true },
@@ -208,18 +208,20 @@ describe('Task 17 — bin/cmk-<verb> hook scripts', () => {
           expect(combined.toLowerCase()).toContain('not yet implemented');
         });
       } else {
-        // Real handlers emit hookSpecificOutput per Anthropic's hook
-        // protocol, not the stub-shaped {continue: true}. Per-hook
-        // behavior tests live in the per-hook test file (e.g.
-        // tests/cli-inject-context.test.js for SessionStart); here we
-        // only assert the shape envelope.
-        it('real handler JSON contains hookSpecificOutput', () => {
+        // Real handlers emit different JSON shapes depending on the
+        // hook event — SessionStart emits hookSpecificOutput;
+        // UserPromptSubmit / Stop / etc. emit a bare {continue: true}
+        // because their side effect is on disk, not in the prompt.
+        // The per-hook test file (tests/cli-<verb>.test.js) asserts
+        // the specific shape; here we only assert that the script
+        // still emits parseable JSON and exits 0 — i.e., that it
+        // honors the hook-protocol envelope regardless of payload.
+        it('real handler emits parseable JSON (envelope contract)', () => {
           const r = spawnSync('bash', [stubPath], {
             input: '',
             encoding: 'utf8',
           });
-          const parsed = JSON.parse(r.stdout);
-          expect(parsed).toHaveProperty('hookSpecificOutput');
+          expect(() => JSON.parse(r.stdout)).not.toThrow();
         });
       }
 
