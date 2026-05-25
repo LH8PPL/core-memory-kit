@@ -1,15 +1,11 @@
 #!/usr/bin/env bash
-# cmk-inject-context — SessionStart hook stub (Task 17 scaffold).
+# cmk-inject-context — SessionStart hook (Task 18 real handler).
 #
-# Real implementation lands in Task 18: walk 3 tiers (local → project →
-# user), assemble a ≤10 KB Frozen snapshot, emit as `additionalContext`
-# per Claude Code's hook protocol so it lands in the system prompt
-# before user-message processing.
-#
-# Hook protocol: payload on stdin; JSON on stdout; diagnostics on
-# stderr; {"continue": true} keeps the session opening normally.
+# hooks.json invokes this via `bash "${CLAUDE_PLUGIN_ROOT}/bin/cmk-inject-context"`,
+# so the entrypoint must be a bash script. The actual handler lives in
+# the sibling .mjs file (so we get real ES-module support + a clean
+# import of packages/cli/src/inject-context.mjs); this wrapper just
+# resolves its own directory and execs node against the sibling.
 
-cat >/dev/null
-echo "cmk: SessionStart hook (cmk-inject-context) — not yet implemented" >&2
-echo '{"continue": true}'
-exit 0
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+exec node "${script_dir}/cmk-inject-context.mjs"
