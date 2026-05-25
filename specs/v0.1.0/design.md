@@ -1582,8 +1582,79 @@ v0.2 candidate. Inspired by Garry Tan's GBrain (research note: [`docs/research/2
 
 ---
 
+## 17. Test discipline for spawn boundaries
+
+**Tail-appended 2026-05-26** after the live-test surfaced a class of bug that mocked-spawn tests could not catch.
+
+### 17.1 Why mocked-spawn tests miss spawn-layer breakage
+
+Task 23 shipped with `HaikuViaAnthropicApi`'s spawn fully unit-tested via an injectable `spawnFn` parameter. The unit test pinned the command name, the argument array, and the spawn options (`cwd`, `env`, `stdio`). All assertions passed. The contract was correct per spec.
+
+The contract was **wrong per reality**. The unit test mock recorded what `spawnFn` was called with — but it never invoked the real `child_process.spawn` against the real `claude` binary on the real operating system. When the live test ran on Windows, three real-spawn issues immediately surfaced:
+
+1. **`spawn('claude', args)` returned ENOENT on Windows** — npm-installed CLI binaries ship as `.cmd` shims; node's spawn does not auto-resolve `.cmd`/`.bat` extensions (unlike shell PATH resolution).
+2. **`{ shell: true }` was required** for `.cmd` execution per CVE-2024-27980 hardening, AND it triggered cmd.exe's quote-stripping behavior on inline JSON arguments (`--mcp-config '{"mcpServers":{}}'` became `--mcp-config {mcpServers:{}}`).
+3. **`cwd: '/tmp'`** didn't resolve on Windows.
+
+All three are real-world boundary semantics that the mocked-spawn unit test couldn't reach. The shape of the spawn call was right; the kit's interaction with the OS's spawn implementation was broken.
+
+See [`docs/journey/2026-05-26-live-test-findings.md`](../../docs/journey/2026-05-26-live-test-findings.md) ("Bonus finding — Windows spawn bug") for the full diagnostic chain.
+
+### 17.2 The pattern — real-binary spawn smoke tests
+
+Every kit module that constructs a `spawn()` call MUST ship a complementary **real-binary spawn smoke test** alongside its unit tests:
+
+- Calls `child_process.spawn` via the production code path, with no mock or injected `spawnFn`.
+- Spawns **the real subject binary** the production code targets (`claude`, `node`, etc.). NOT a no-op stand-in like `echo` or `node -e "process.exit(0)"`.
+- Uses a minimal-but-meaningful invocation (e.g., for HaikuViaAnthropicApi: `compress({input: "hi"})` against the real Haiku model).
+- Asserts on observable spawn-layer signals: no ENOENT/EINVAL exception, exit code 0, stderr does not contain `unrecognized` or `invalid` (catches flag renames in future tool updates), and the response is non-empty.
+
+The no-op-binary alternative was rejected because it fails to catch the exact bug class that motivates the test:
+
+- `echo "hi"` resolves to a shell builtin or coreutils binary that has nothing to do with `claude`'s `.cmd` shim semantics — the test would pass while the production spawn still ENOENTs.
+- `node -e "..."` resolves to node which is on every developer's PATH but proves nothing about the subject binary's resolution.
+
+Real-binary spawn is the load-bearing check.
+
+### 17.3 When to apply
+
+Every spawn boundary in the kit. Currently:
+
+- **HaikuViaAnthropicApi** (Task 23) — smoke test ships in [`tests/spawn-smoke-haiku.test.js`](../../tests/spawn-smoke-haiku.test.js) per Task 23.8.
+
+Future spawn boundaries each add their own smoke test:
+
+- Task 24 `memory-write` skill if it spawns sub-Claude for trigger-phrase auto-invocation
+- Task 28-29 cron compression invocations
+- Task 31 MCP stdio transport
+- Any v0.2 backend that uses subprocess IPC
+
+### 17.4 How to guard CI portability
+
+Real-Haiku tests have two failure modes that aren't kit bugs: (1) the test environment lacks the `claude` binary, (2) the test environment lacks Anthropic auth. Both are environment-not-kit problems and should not produce false-positive test failures.
+
+The graceful-skip protocol:
+
+```js
+const skipReason = (() => {
+  if (process.env.CMK_SKIP_LIVE_HAIKU === '1') return 'CMK_SKIP_LIVE_HAIKU=1';
+  if (!claudeBinaryFound()) return 'claude binary not on PATH';
+  return null;
+})();
+
+(skipReason ? describe.skip : describe)(`spawn-smoke: HaikuViaAnthropicApi (${skipReason ?? 'live'})`, () => {
+  // real-spawn tests
+});
+```
+
+**Default behavior is to run the real thing.** The opt-out env var is purely for end-user CI environments that can't run real `claude`. Setting `CMK_SKIP_LIVE_HAIKU=1` is an explicit, auditable choice — not a silent default that hides regressions.
+
+Dev environments that have `claude` available run the smoke automatically on every `npm test`. The smoke is fast (~3-8 seconds for the round-trip) and the unit-test alternative (mocked spawn) is what missed the bug originally — having a real-spawn baseline on every test invocation is the structural fix.
+
+---
+
 ## End of design.md v0.1.0
 
-Sections 1-16 = full design surface. Cross-references to specific FRs and ADRs throughout. The four absorbable changes from the spec-generator comparison (tombstones §6.5, review queue §6.2, native auto-memory detection HC-8, structured logging §6.1) are baked in.
+Sections 1-17 = full design surface. Cross-references to specific FRs and ADRs throughout. The four absorbable changes from the spec-generator comparison (tombstones §6.5, review queue §6.2, native auto-memory detection HC-8, structured logging §6.1) are baked in. §17 was tail-appended 2026-05-26 after the working-product live-test surfaced the spawn-layer Windows bug.
 
-Total ~870 lines. Next per Kiro flow: write `tasks.md` after design.md is approved.
+Total ~900 lines. Next per Kiro flow: write `tasks.md` after design.md is approved.
