@@ -620,9 +620,9 @@ Cap enforcement workflow at >95%: consolidate similar bullets / drop stale entri
 
 **Implementation note**: the skill's `SKILL.md` file declares phrase triggers in its `description` field — that's what makes Claude Code's harness auto-invoke it on user prompts containing those phrases. **The auto-extract subagent invokes the skill programmatically** (not via phrase match), bypassing the trigger system entirely. Both paths land at the same skill code.
 
-### 6.4 Six writing triggers (Hermes-verified pattern)
+### 6.4 Six writing triggers (Hermes-verified pattern) + bi-turn extraction
 
-The auto-extract prompt instructs the sub-Claude to save when:
+The auto-extract prompt instructs the sub-Claude to save when EITHER the user turn OR the assistant turn reveals one of these triggers:
 
 1. **User corrections** — "Don't do that again." "Use this instead."
 2. **Discovered preferences** — pattern recognition across turns
@@ -634,6 +634,53 @@ The auto-extract prompt instructs the sub-Claude to save when:
 And to skip: conversational chatter, trivial info, raw data dumps, session-specific ephemera, info already in MEMORY.md (check INDEX).
 
 These are verbatim from Hermes Agent's writing-triggers pattern (Glukhov 2026-05-01, verified).
+
+#### Bi-turn input (2026-05-26 amendment)
+
+Earlier drafts read only the assistant turn. The working-product live test (see [`docs/journey/2026-05-26-live-test-findings.md`](../../docs/journey/2026-05-26-live-test-findings.md)) surfaced the failure mode: a user dictating preferences to a terse acknowledging assistant ("Got it.") produces zero captures, because the assistant turn carries no durable content even though the user just stated four facts.
+
+**Input shape**: Task 21's capture-turn writes the temp file as:
+
+```text
+USER_TURN:
+<sanitized user prompt body>
+
+ASSISTANT_TURN:
+<sanitized assistant turn body>
+```
+
+The user portion comes from the just-written transcript entry capture-prompt produced on UserPromptSubmit. If no preceding user entry exists (system-initiated turns), the USER_TURN section is empty and only the assistant turn is examined.
+
+**Origin-tagged output**: Haiku is instructed to label every candidate with its origin:
+
+```text
+TRUST_HIGH user: <text>          — user clearly stated this
+TRUST_MEDIUM user: <text>
+TRUST_LOW user: <text>           — rarely emit
+TRUST_HIGH assistant: <text>     — assistant inferred this confidently
+TRUST_MEDIUM assistant: <text>
+TRUST_LOW assistant: <text>      — rarely emit
+SKIP                             — emit alone if nothing in either turn is durable
+```
+
+**Trust-routing precedence**:
+
+- **User-origin** candidates: use Haiku's trust assessment as-is. The user is the authority on facts about themselves; if Haiku marks it HIGH, it lands in MEMORY.md.
+- **Assistant-origin** candidates: **demote one trust level** before routing. `HIGH → MEDIUM`, `MEDIUM → LOW`, `LOW → discarded`. Assistant observations are inferences, not attestations — demotion forces them through the review queue (`context/queues/review.md`) for user confirmation before they become canonical memory. This pairs with Task 25's `cmk queue review` resolver.
+
+**`<retain>` override** (existing behavior from §6.6): a candidate whose text overlaps with a `<retain>...</retain>` segment (in EITHER turn) is force-promoted to `HIGH` regardless of origin or demotion. The override beats demotion — explicit user signal trumps automatic skepticism.
+
+**Within-call dedup**: when the user states a fact and the assistant restates it, Haiku may emit two candidates for the same canonical text. Group candidates by `generateId(canonicalize(text))`; keep the higher-trust candidate per group. Because user-origin facts aren't demoted, they typically win ties — which is the intended outcome (user attestation > assistant echo). Dedup is literal canonical-ID-match; semantically-similar phrasings with different canonical forms are handled by Task 25's conflict queue at write time, not here.
+
+**Implementation order** inside `runAutoExtract` (per `packages/cli/src/auto-extract.mjs`):
+
+1. Parse Haiku response → `[{trust, origin, text}]`
+2. `applyOriginDemotion` (assistant-origin trust drops one level; `LOW` → `discarded`)
+3. `applyRetainOverride` (matched candidates force-promote to `HIGH`)
+4. `dedupByCanonicalId` (group by `generateId('P', text)`, keep highest trust)
+5. Route each: `HIGH` → MEMORY.md, `MEDIUM` → queues/review.md, `LOW` / `discarded` → drop + log
+
+Origin is in-memory metadata only — it is NOT persisted to scratchpad provenance (provenance carries `write: auto-extract` regardless).
 
 ### 6.5 Tombstone discipline for deletions
 

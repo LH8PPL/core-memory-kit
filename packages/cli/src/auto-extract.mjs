@@ -7,9 +7,10 @@
 // from scratch per design.md §6; no code or prompts copied verbatim.
 //
 // Spawned detached by Task 21's Stop hook (cmk-capture-turn). Reads
-// the just-captured assistant turn from a temp file, asks a sandboxed
-// Haiku to identify durable facts per the six writing triggers from
-// design §6.4, then routes each candidate by trust:
+// the just-captured turn pair (user prompt + assistant response) from
+// a temp file, asks a sandboxed Haiku to identify durable facts per
+// the six writing triggers from design §6.4, then routes each
+// candidate by trust:
 //   high   → appended to context/MEMORY.md (Active Threads) via
 //            appendScratchpadBullet (the canonical scratchpad writer
 //            from Task 12). Task 24 will re-route this through the
@@ -18,6 +19,17 @@
 //   medium → appended to context/queues/review.md (user reviews via
 //            `cmk queue review`).
 //   low    → discarded; logged as skipped_reason "nothing_durable".
+//
+// Bi-turn extraction (2026-05-26 amendment, see design §6.4 +
+// docs/journey/2026-05-26-live-test-findings.md): the temp file
+// carries BOTH turns with explicit USER_TURN: / ASSISTANT_TURN:
+// markers. Haiku tags each candidate with origin (user|assistant);
+// assistant-origin candidates demote one trust level (HIGH → MEDIUM,
+// MEDIUM → LOW, LOW → discarded) so assistant inferences land in the
+// review queue for user confirmation rather than auto-applying. The
+// <retain> override beats demotion (force-promotes to HIGH).
+// Within-call dedup by canonical-ID keeps the higher-trust candidate
+// when the user states a fact and the assistant echoes it.
 //
 // Public boundary: runAutoExtract({turnFile, projectRoot, haikuBackend,
 // now, sessionId}) → result. The bin wrapper at
@@ -64,8 +76,27 @@ const RETAIN_RE = /<retain>([\s\S]*?)<\/retain>/g;
 
 // Trust labels Haiku emits in our prompt's response format. Anything
 // not matching a label is ignored (resilient against minor format drift).
-const CANDIDATE_LINE_RE = /^TRUST_(HIGH|MEDIUM|LOW):\s*(.+)$/i;
+// Shape: `TRUST_<HIGH|MEDIUM|LOW> <user|assistant>: <text>`
+const CANDIDATE_LINE_RE = /^TRUST_(HIGH|MEDIUM|LOW)\s+(user|assistant):\s*(.+)$/i;
 const SKIP_LINE_RE = /^\s*SKIP\s*$/i;
+
+// Demotion map for assistant-origin candidates (design §6.4 amendment).
+// HIGH → MEDIUM → LOW → discarded. Discarded candidates never reach the
+// router; they're dropped immediately and counted toward
+// `skipped_reason: nothing_durable` if everything demotes away.
+const ASSISTANT_DEMOTION = Object.freeze({
+  high: 'medium',
+  medium: 'low',
+  low: 'discarded',
+});
+
+// Trust ranking for the within-call dedup tiebreak. Higher = stronger.
+const TRUST_RANK = Object.freeze({
+  high: 3,
+  medium: 2,
+  low: 1,
+  discarded: 0,
+});
 
 // --- Lock file primitives -------------------------------------------
 
@@ -179,18 +210,49 @@ function readLastEntryFromNowMd(projectRoot) {
   return lines.slice(lastHeadingIdx).join('\n').trim();
 }
 
+// --- Turn-file parser (bi-turn) -------------------------------------
+
+// Parse the temp-file format Task 21's capture-turn writes:
+//   USER_TURN:
+//   <user body>
+//
+//   ASSISTANT_TURN:
+//   <assistant body>
+// Either section may be empty. If no USER_TURN: / ASSISTANT_TURN:
+// markers are present, fall back to "the whole file is the assistant
+// turn" so old-format temp files (pre-2026-05-26) still work — useful
+// when running auto-extract against a turn buffer that pre-dates this
+// amendment (unlikely after the rollout, but defensive).
+const USER_TURN_RE = /^[ \t]*USER_TURN:\s*\n([\s\S]*?)(?=^[ \t]*ASSISTANT_TURN:|\Z)/m;
+const ASSISTANT_TURN_RE = /^[ \t]*ASSISTANT_TURN:\s*\n([\s\S]*)$/m;
+
+function parseTurnFile(rawTurn) {
+  const userMatch = rawTurn.match(USER_TURN_RE);
+  const assistantMatch = rawTurn.match(ASSISTANT_TURN_RE);
+  if (!userMatch && !assistantMatch) {
+    // Old-format / unlabeled — treat whole content as assistant.
+    return { userTurn: '', assistantTurn: rawTurn.trim() };
+  }
+  return {
+    userTurn: (userMatch?.[1] ?? '').trim(),
+    assistantTurn: (assistantMatch?.[1] ?? '').trim(),
+  };
+}
+
 // --- Prompt construction --------------------------------------------
 
 // Written from scratch per design §6.4 — no text copied from claude-
-// remember's prompts. The six writing triggers are our own
-// paraphrase; the constrained output format (TRUST_HIGH/MEDIUM/LOW
-// prefix lines) is our own design.
+// remember's prompts. Output format encodes origin so the routing
+// layer can apply the assistant-demotion rule (§6.4 amendment, 2026-05-26).
 function buildExtractionInstructions() {
   return [
     'You are a memory-extraction agent for claude-memory-kit.',
-    'You read a captured assistant turn and identify durable facts worth saving.',
+    'You read a captured turn pair (the user prompt + the assistant response) and identify durable facts worth saving.',
     '',
-    'Save when the turn reveals any of the six writing triggers:',
+    'The user is the authority on facts about themselves and their preferences.',
+    'The assistant is inferring or echoing — treat its observations as proposals to confirm later, not as ground truth.',
+    '',
+    'Save when EITHER turn reveals any of the six writing triggers:',
     '  1. User corrections — "don\'t do that again", "use this instead".',
     '  2. Discovered preferences — patterns across multiple turns.',
     '  3. Environment facts — tool versions, paths, configurations.',
@@ -200,29 +262,37 @@ function buildExtractionInstructions() {
     '',
     'Skip: conversational chatter, trivial info, raw data dumps, session-specific ephemera.',
     '',
-    'Output format (one candidate per line; any other lines are ignored):',
-    '  TRUST_HIGH: <short bullet text>     — for vetted, durable facts the user clearly asserted.',
-    '  TRUST_MEDIUM: <short bullet text>   — for inferred or pattern-based facts that deserve user review.',
-    '  TRUST_LOW: <short bullet text>      — for weakly-signaled facts (will be discarded; only emit if you think it MIGHT be useful).',
-    '  SKIP                                — emit on its own line if nothing in the turn is worth saving.',
+    'Output format (one candidate per line; tag each with origin = user OR assistant):',
+    '  TRUST_HIGH user: <text>          — user clearly stated this; high confidence',
+    '  TRUST_MEDIUM user: <text>        — user mentioned this but ambiguously',
+    '  TRUST_LOW user: <text>           — barely a signal (rarely emit)',
+    '  TRUST_HIGH assistant: <text>     — assistant inferred this with high confidence',
+    '  TRUST_MEDIUM assistant: <text>   — assistant\'s weaker inference',
+    '  TRUST_LOW assistant: <text>      — barely a signal (rarely emit)',
+    '  SKIP                             — emit alone if nothing in either turn is worth saving',
     '',
     'Constraints:',
     '  - Each bullet ≤ 200 chars.',
     '  - No prose around the labels.',
-    '  - Do not invent facts; only restate what the turn shows.',
-    '  - If a previous entry context is included below, do NOT re-emit facts already in it.',
+    '  - Do not invent facts; only restate what the turns show.',
+    '  - If a previous-entry context is included below, do NOT re-emit facts already in it.',
+    '',
+    'Note: assistant-origin candidates are auto-demoted one trust level before routing (HIGH → MEDIUM → LOW → discarded). This is intentional — assistant inferences need user review. Emit your honest trust assessment; the routing layer handles demotion.',
   ].join('\n');
 }
 
-function buildExtractionPrompt({ turnBody, dedupContext }) {
+function buildExtractionPrompt({ userTurn, assistantTurn, dedupContext }) {
   const sections = [];
   if (dedupContext) {
     sections.push('# Previous entry (do not re-emit facts already here)');
     sections.push(dedupContext);
     sections.push('');
   }
-  sections.push('# Captured assistant turn');
-  sections.push(turnBody);
+  sections.push('# USER_TURN');
+  sections.push(userTurn || '(no user turn captured)');
+  sections.push('');
+  sections.push('# ASSISTANT_TURN');
+  sections.push(assistantTurn || '(no assistant turn captured)');
   return sections.join('\n');
 }
 
@@ -236,11 +306,42 @@ function parseCandidates(haikuOutput) {
     const m = trimmed.match(CANDIDATE_LINE_RE);
     if (!m) continue;
     const trust = m[1].toLowerCase();
-    const text = m[2].trim();
+    const origin = m[2].toLowerCase();
+    const text = m[3].trim();
     if (text === '') continue;
-    candidates.push({ trust, text });
+    candidates.push({ trust, origin, text });
   }
   return candidates;
+}
+
+// Demote assistant-origin candidates one trust level. User-origin
+// candidates pass through unchanged — they're authoritative.
+// Order: must run BEFORE applyRetainOverride so the override beats
+// demotion (an assistant-origin candidate inside a <retain> still
+// force-promotes to HIGH).
+function applyOriginDemotion(candidates) {
+  return candidates.map((c) => {
+    if (c.origin !== 'assistant') return c;
+    const demoted = ASSISTANT_DEMOTION[c.trust] ?? c.trust;
+    return { ...c, trust: demoted, demotedFrom: c.trust };
+  });
+}
+
+// Group by canonical id of text; keep the highest-trust candidate per
+// group. Handles the "user states X; assistant echoes X" duplicate
+// problem. Note: canonical-id dedup is LITERAL — semantically-similar
+// phrasings with different canonical forms slip through here and are
+// resolved by Task 25's conflict queue at write time.
+function dedupByCanonicalId(candidates) {
+  const byId = new Map();
+  for (const c of candidates) {
+    const id = generateId('P', c.text);
+    const existing = byId.get(id);
+    if (!existing || (TRUST_RANK[c.trust] ?? 0) > (TRUST_RANK[existing.trust] ?? 0)) {
+      byId.set(id, c);
+    }
+  }
+  return [...byId.values()];
 }
 
 // Force-promote any candidate whose text overlaps substantively with a
@@ -432,15 +533,19 @@ export async function runAutoExtract({
     }
 
     // 2. Sanitize: strip noise tags + extract <retain> segments
-    //    (for the override).
+    //    (for the override). Both apply across BOTH turn bodies —
+    //    <retain> in either user or assistant turn triggers the
+    //    override.
     const retainSegments = extractRetainSegments(rawTurn);
     const sanitized = stripNoiseTags(rawTurn);
+    const { userTurn, assistantTurn } = parseTurnFile(sanitized);
 
-    // 3. Build prompt with dedup context.
+    // 3. Build prompt with dedup context (last `## ` entry from now.md).
     const dedupContext = readLastEntryFromNowMd(projectRoot);
     const instructions = buildExtractionInstructions();
     const promptBody = buildExtractionPrompt({
-      turnBody: sanitized,
+      userTurn,
+      assistantTurn,
       dedupContext,
     });
 
@@ -472,9 +577,15 @@ export async function runAutoExtract({
       };
     }
 
-    // 5. Parse + apply <retain> override.
+    // 5. Parse → demote assistant-origin → apply <retain> override
+    //    → dedup-within-call. Order matters: demotion runs BEFORE
+    //    retain so an assistant-origin candidate inside a <retain>
+    //    still force-promotes to HIGH; dedup runs last so same-id
+    //    candidates collapse to the highest-trust survivor.
     let candidates = parseCandidates(haikuResult.outputText);
+    candidates = applyOriginDemotion(candidates);
     candidates = applyRetainOverride(candidates, retainSegments);
+    candidates = dedupByCanonicalId(candidates);
 
     if (candidates.length === 0) {
       const entry = {
