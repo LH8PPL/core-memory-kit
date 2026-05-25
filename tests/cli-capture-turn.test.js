@@ -283,6 +283,102 @@ describe('Task 21 — captureTurn() boundary', () => {
       expect(lockContent).toContain('.extract-');
     });
   });
+
+  // ----------------------------------------------------------------
+  // Bi-turn temp file shape (design §6.4 amendment, 2026-05-26).
+  // capture-turn assembles BOTH the prior user prompt + the
+  // just-captured assistant turn into the temp file with
+  // USER_TURN: / ASSISTANT_TURN: markers, so auto-extract can apply
+  // origin-aware trust routing.
+  // ----------------------------------------------------------------
+  describe('bi-turn temp file (design §6.4 amendment)', () => {
+    it('temp file contains USER_TURN: and ASSISTANT_TURN: markers with both bodies', () => {
+      // Pre-populate today's transcript with a user entry (as
+      // capture-prompt would have done on the UserPromptSubmit that
+      // triggered this assistant turn).
+      const transcriptPath = join(projectRoot, 'context', 'transcripts', '2026-05-25.md');
+      require('node:fs').mkdirSync(require('node:path').dirname(transcriptPath), { recursive: true });
+      writeFileSync(
+        transcriptPath,
+        '## 2026-05-25T10:00:00Z — user\n\nI prefer pnpm not npm\n\n',
+        'utf8',
+      );
+
+      const r = captureTurn({
+        payload: { assistant_message: 'Got it.' },
+        projectRoot,
+        now: '2026-05-25T10:00:01Z',
+        // No autoExtractPath → no spawn → temp file just persists
+      });
+      expect(r.action).toBe('captured');
+      expect(existsSync(r.turnFile)).toBe(true);
+      const body = readFileSync(r.turnFile, 'utf8');
+      expect(body).toContain('USER_TURN:');
+      expect(body).toContain('ASSISTANT_TURN:');
+      expect(body).toContain('I prefer pnpm not npm');
+      expect(body).toContain('Got it.');
+      // Order: USER_TURN before ASSISTANT_TURN
+      expect(body.indexOf('USER_TURN:')).toBeLessThan(body.indexOf('ASSISTANT_TURN:'));
+      // User body sits between the markers
+      const userIdx = body.indexOf('I prefer pnpm not npm');
+      const asstMarkerIdx = body.indexOf('ASSISTANT_TURN:');
+      expect(userIdx).toBeLessThan(asstMarkerIdx);
+    });
+
+    it('no prior user entry in transcript → USER_TURN section is empty but the markers still appear', () => {
+      // Transcript is empty (or only contains the just-appended
+      // assistant entry from THIS captureTurn call). readLastUserTurnFromTranscript
+      // finds no `— user` heading and returns ''.
+      const r = captureTurn({
+        payload: { assistant_message: 'standalone assistant message' },
+        projectRoot,
+        now: '2026-05-25T10:00:00Z',
+      });
+      expect(r.action).toBe('captured');
+      const body = readFileSync(r.turnFile, 'utf8');
+      expect(body).toContain('USER_TURN:');
+      expect(body).toContain('ASSISTANT_TURN:');
+      expect(body).toContain('standalone assistant message');
+      // USER_TURN body is empty: between the marker and the next
+      // ASSISTANT_TURN: line, only blank lines.
+      const userTurnStart = body.indexOf('USER_TURN:') + 'USER_TURN:'.length;
+      const asstTurnStart = body.indexOf('ASSISTANT_TURN:');
+      const userBody = body.slice(userTurnStart, asstTurnStart).trim();
+      expect(userBody).toBe('');
+    });
+
+    it('most recent user entry is selected when transcript has multiple user entries', () => {
+      const transcriptPath = join(projectRoot, 'context', 'transcripts', '2026-05-25.md');
+      require('node:fs').mkdirSync(require('node:path').dirname(transcriptPath), { recursive: true });
+      // Two user entries; the second is the immediate predecessor.
+      writeFileSync(
+        transcriptPath,
+        [
+          '## 2026-05-25T09:00:00Z — user',
+          '',
+          'first older prompt',
+          '',
+          '## 2026-05-25T09:05:00Z — assistant',
+          '',
+          'older response',
+          '',
+          '## 2026-05-25T10:00:00Z — user',
+          '',
+          'the most recent prompt',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      const r = captureTurn({
+        payload: { assistant_message: 'reply' },
+        projectRoot,
+        now: '2026-05-25T10:00:01Z',
+      });
+      const body = readFileSync(r.turnFile, 'utf8');
+      expect(body).toContain('the most recent prompt');
+      expect(body).not.toContain('first older prompt');
+    });
+  });
 });
 
 describe('Task 21 — bin/cmk-capture-turn (hook bash wrapper)', () => {
