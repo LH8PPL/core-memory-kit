@@ -317,20 +317,20 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Test each stub's stdout parses as valid JSON containing `"continue": true`
   - _Requirements: FR-9; design §5.1_
 
-- [ ] 18. `cmk-inject-context` — SessionStart hook (T-015)
+- [x] 18. `cmk-inject-context` — SessionStart hook (T-015) _shipped 2026-05-25, PR #17_
   - Estimate: M · Depends: 14, 17
-- [ ] 18.1 Implement 3-tier path discovery
+- [x] 18.1 Implement 3-tier path discovery
   - Walks up from cwd to find project tier; resolves user tier via `$MEMORY_KIT_USER_DIR` or default
-- [ ] 18.2 Read tiers in priority order (local → project → user)
+- [x] 18.2 Read tiers in priority order (local → project → user)
   - Reads SOUL/USER/MEMORY/HABITS/LESSONS + INDEX files + latest today-*.md
-- [ ] 18.3 Resolve duplicate IDs across tiers; log shadowed copies
+- [x] 18.3 Resolve duplicate IDs across tiers; log shadowed copies
   - Most-specific wins; shadowed → `context/.locks/shadowed_by.log` (NDJSON)
-- [ ] 18.4 Exclude facts marked `private: true` from the emitted snapshot
-- [ ] 18.5 Concatenate into ≤10 KB Frozen snapshot; truncate per documented priority on overflow
+- [x] 18.4 Exclude facts marked `private: true` from the emitted snapshot
+- [x] 18.5 Concatenate into ≤10 KB Frozen snapshot; truncate per documented priority on overflow
   - Drop lowest-tier-oldest first; log truncation events
-- [ ] 18.6 Emit `additionalContext` JSON per hook protocol
+- [x] 18.6 Emit `additionalContext` JSON per hook protocol
   - `{"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": "..."}}`
-- [ ]* 18.7 Write unit tests for SessionStart hook
+- [x]* 18.7 Write unit tests for SessionStart hook
   - Test on a 3-tier fixture project: output is valid JSON with the documented shape
   - Test assembled snapshot is ≤10 KB on the fixture
   - Test hook completes within 500 ms (timer assertion)
