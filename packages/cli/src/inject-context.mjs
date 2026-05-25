@@ -52,6 +52,19 @@ const TIER_LABELS = {
   U: 'user',
 };
 
+// Per-tier byte budgets (design §7.1.1, 2026-05-26 amendment). Each tier
+// truncates section-by-section to its own budget BEFORE the snapshot's
+// total-cap drop step runs. Sum is 10,000 bytes; the snapshot cap default
+// is 10,240, leaving 240 bytes of slack. Configured via constants here
+// rather than settings.json so the structural invariant ("the user tier
+// always reaches Claude in default install") can't be lost to local
+// config drift.
+const TIER_BUDGETS = Object.freeze({
+  L: 1500,
+  P: 4500,
+  U: 4000,
+});
+
 // Per-tier reading plan. The hook reads the scratchpads allowed at that
 // tier (per SCRATCHPADS_BY_TIER) plus the tier's INDEX file, plus — for
 // the project tier — the most recent rolling-window day file.
@@ -180,29 +193,114 @@ function writeNdjsonLine(logPath, entry) {
   appendFileSync(logPath, JSON.stringify(entry) + '\n', 'utf8');
 }
 
-// Drop entire tier blocks from the tail (lowest-priority first) until the
-// concatenated snapshot fits within capBytes. Each drop emits one
-// truncation event.
+// Truncate one tier block to fit its budget by dropping whole `## `
+// sections from the END. Section-granular (not bullet- or byte-
+// granular) per design §7.1.1: structural shape preservation matters
+// more than maximum byte utilization. Returns { text, sectionsDropped,
+// preBytes, postBytes }.
+//
+// Algorithm: split into sections delimited by `## ` (level-2 markdown
+// heading) anywhere in the tier block. Anything BEFORE the first `## `
+// (file headers, comments, top-level title) is the "preamble" and is
+// always kept. Sections are popped from the END until the kept text
+// fits the budget OR no sections remain (preamble-only). If the
+// preamble alone exceeds budget, we return it unchanged — that's a
+// configuration problem (preamble shouldn't be that big) but
+// preferable to dropping the file header.
+function truncateTierToBudget(blockText, budget) {
+  const preBytes = Buffer.byteLength(blockText, 'utf8');
+  if (preBytes <= budget) {
+    return { text: blockText, sectionsDropped: 0, preBytes, postBytes: preBytes };
+  }
+  // Find every `## ` heading position. Each section runs from one
+  // heading line to the next (or EOF).
+  const lines = blockText.split('\n');
+  const headingIdxs = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (/^##\s/.test(lines[i])) headingIdxs.push(i);
+  }
+  if (headingIdxs.length === 0) {
+    // No sections — nothing to drop. Return as-is.
+    return { text: blockText, sectionsDropped: 0, preBytes, postBytes: preBytes };
+  }
+  // Build section boundaries: [start..end) for each section.
+  const sections = headingIdxs.map((startIdx, i) => ({
+    startIdx,
+    endIdx: i + 1 < headingIdxs.length ? headingIdxs[i + 1] : lines.length,
+  }));
+  // Pop from the end while over budget.
+  let droppedCount = 0;
+  let keptEndLine = lines.length;
+  while (sections.length > 0) {
+    const candidateText = lines.slice(0, keptEndLine).join('\n');
+    if (Buffer.byteLength(candidateText, 'utf8') <= budget) break;
+    const last = sections.pop();
+    keptEndLine = last.startIdx;
+    droppedCount++;
+  }
+  const finalText = lines.slice(0, keptEndLine).join('\n');
+  return {
+    text: finalText,
+    sectionsDropped: droppedCount,
+    preBytes,
+    postBytes: Buffer.byteLength(finalText, 'utf8'),
+  };
+}
+
+// Enforce per-tier byte budgets (design §7.1.1) by dropping whole `## `
+// sections from each tier block's tail. Each truncation emits a
+// tier_truncated_to_budget NDJSON event.
+//
+// AFTER per-tier truncation, if the SUM of kept tier blocks still
+// exceeds the snapshot cap (configuration error: Σ budgets > cap),
+// fall back to the legacy whole-tier-drop behavior — drops the
+// lowest-priority tier wholesale, logged as a dropped_tiers event.
+// This shouldn't fire under the documented budget table (1500+4500+
+// 4000 = 10000 ≤ 10240 default cap), but the safety net is cheap.
 function enforceCap(orderedBlocks, capBytes, ts) {
-  const events = [];
-  // Pre-compute byte sizes so the loop doesn't reassemble repeatedly.
+  const tierEvents = [];
+  // Step 1: per-tier budget enforcement (section-granular).
+  for (const block of orderedBlocks) {
+    const budget = TIER_BUDGETS[block.tier];
+    if (typeof budget !== 'number') continue; // unknown tier; pass through
+    const r = truncateTierToBudget(block.text, budget);
+    if (r.sectionsDropped > 0) {
+      tierEvents.push({
+        ts,
+        event: 'tier_truncated_to_budget',
+        tier: block.tier,
+        budget,
+        pre_bytes: r.preBytes,
+        post_bytes: r.postBytes,
+        sections_dropped: r.sectionsDropped,
+      });
+      block.text = r.text;
+    }
+  }
+
+  // Step 2: total-cap fallback. Drop whole tier blocks from the tail
+  // until under capBytes. Shouldn't fire in normal config; the
+  // dropped_tiers shape is preserved for back-compat.
+  const dropEvents = [];
   let bytes = orderedBlocks.reduce(
     (sum, b) => sum + Buffer.byteLength(b.text, 'utf8'),
     0,
   );
-  // Drop from the END (lowest priority is last in TIER_ORDER → last in the
-  // ordered block list).
   while (bytes > capBytes && orderedBlocks.length > 0) {
     const dropped = orderedBlocks.pop();
     bytes -= Buffer.byteLength(dropped.text, 'utf8');
-    let event = events[events.length - 1];
+    let event = dropEvents[dropEvents.length - 1];
     if (!event) {
       event = { ts, capBytes, dropped_tiers: [] };
-      events.push(event);
+      dropEvents.push(event);
     }
     event.dropped_tiers.push(dropped.tier);
   }
-  return { blocks: orderedBlocks, truncationEvents: events };
+
+  return {
+    blocks: orderedBlocks,
+    truncationEvents: [...tierEvents, ...dropEvents],
+  };
 }
 
 export function injectContext({ cwd, userDir, now, capBytes } = {}) {

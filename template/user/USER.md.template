@@ -1,34 +1,18 @@
 <!-- Cap: 1375 chars · Last distilled: {{TODAY}} · Last health check: {{TODAY}} -->
 
-<!--
-USER.md = user profile. 1375-char cap. 3 sections per design §2.1.
-
-Bullet+provenance format (universal — see provenance.mjs):
-  - (U-XXXXXXXX) the bullet text
-    <!-- source, source_line, sha1, write, trust, at -->
-
-Auto-populated by `cmk persona generate` (Task N, design §16.16); empty is fine.
--->
-
 # User Profile
 
 ## About
 
-<!-- Who the user is. -->
-
 - (U-PRNQKRaC) engineer comfortable with TDD and incremental code review
-  <!-- source: USER.md, source_line: 16, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
+  <!-- source: USER.md, source_line: 7, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Preferences
 
-<!-- Persistent preferences. -->
-
 - (U-K3Z73EAQ) prefers terse responses; no preamble before the answer
-  <!-- source: USER.md, source_line: 23, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
+  <!-- source: USER.md, source_line: 12, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Working Style
 
-<!-- How the user approaches work. -->
-
 - (U-PUYHL2BL) one PR per parent task; squash-merge into main
-  <!-- source: USER.md, source_line: 30, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
+  <!-- source: USER.md, source_line: 17, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
