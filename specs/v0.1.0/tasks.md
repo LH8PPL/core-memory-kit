@@ -408,23 +408,23 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Test cooldown active: backend NOT invoked; `skipped: cooldown` logged
   - _Requirements: FR-19, FR-20; design §1.4, §8.1, §8.3_
 
-- [ ] 23. Auto-extract subagent + CompressorBackend Haiku impl (T-020)
+- [x] 23. Auto-extract subagent + CompressorBackend Haiku impl (T-020) _shipped 2026-05-25, PR #21_
   - Estimate: L · Depends: 5, 7, 12, 13
-  - **High-risk surface — individual PR review required** via the `code-review-excellence` skill. This task spawns external subprocesses, holds lock files, writes NDJSON logs to disk, and routes facts by trust level. Lots of edge cases. Review before merge, not deferred to the Layer 4 checkpoint review at #27
+  - **High-risk surface — individual PR review required** via the `code-review-excellence` skill. This task spawns external subprocesses, holds lock files, writes NDJSON logs to disk, and routes facts by trust level. Lots of edge cases. Review before merge, not deferred to the Layer 4 checkpoint review at #27 — _review pass completed; 5 findings (1 blocking / 3 important / 1 minor); 4 fixed in-PR, 1 accepted with disclosure (Poison_Guard bypass closes with Task 24)_
   - **Pre-implementation: read [`docs/research/2026-05-25-claude-remember-code-dive.md`](../../docs/research/2026-05-25-claude-remember-code-dive.md)** for absorbed patterns — Haiku sandbox flags (`cd /tmp` + `env -u CLAUDECODE` + `--allowedTools ""` + `--max-turns 1` + empty MCP config + stdin-from-temp-file), position tracking via `last-save.json {session, line}`, tool-use compaction (`[TOOL: <name> <basename>]`), noise-tag stripping (`<system-reminder>` etc.), dedup context (feed last `##`-prefixed entry to Haiku), `noclobber` lock + `kill -0` stale recovery, 120s cooldown + 3-msg threshold. **License caveat:** claude-remember ships under a Community License with a no-competing-use clause — absorb ideas/values, NOT code or prompts. Write our own from scratch with attribution per SOURCES.md.
-- [ ] 23.1 Implement `auto-extract-memory.sh` (Unix) and Node equivalent (Windows)
+- [x] 23.1 Implement `auto-extract-memory.sh` (Unix) and Node equivalent (Windows)
   - Reads just-captured turn from a temp file; spawns `claude --print` with documented flags
-- [ ] 23.2 Implement extraction prompt for sub-Claude
+- [x] 23.2 Implement extraction prompt for sub-Claude
   - Six writing triggers per design §6.4; output schema constrained
-- [ ] 23.3 Implement trust-routing of sub-Claude output
+- [x] 23.3 Implement trust-routing of sub-Claude output
   - `high` → memory-write (canonical), `medium` → `queues/review.md`, `low` → discard + log
-- [ ] 23.4 Implement lock-file guard at `context/.locks/auto-extract.lock`
+- [x] 23.4 Implement lock-file guard at `context/.locks/auto-extract.lock`
   - `set -o noclobber` pattern per claude-remember; second invocation exits without spawn
-- [ ] 23.5 Implement NDJSON logging to `sessions/{date}.extract.log`
+- [x] 23.5 Implement NDJSON logging to `sessions/{date}.extract.log`
   - One line per invocation per design §6.1 schema
-- [ ] 23.6 Implement `HaikuViaAnthropicApi` CompressorBackend
+- [x] 23.6 Implement `HaikuViaAnthropicApi` CompressorBackend
   - Conforms to CompressorBackend interface from design §8.3; used by task 22 + Layer 6
-- [ ]* 23.7 Write unit tests for auto-extract + Haiku backend
+- [x]* 23.7 Write unit tests for auto-extract + Haiku backend
   - Test with mocked Haiku returning 1 high-trust candidate: written to canonical MEMORY.md via memory-write
   - Test with mocked Haiku returning 1 medium-trust candidate: in `queues/review.md`; canonical unchanged
   - Test with low-trust candidate: discarded; extract.log has `skipped: nothing_durable`
