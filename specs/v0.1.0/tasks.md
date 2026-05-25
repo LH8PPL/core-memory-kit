@@ -339,14 +339,14 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Test fact with `private: true` containing sentinel `__PRIVATE_FACT_SENTINEL__`: sentinel does NOT appear in emitted additionalContext (grep)
   - _Requirements: FR-7, FR-9; design §1.4, §5.2, §7.1_
 
-- [ ] 19. `cmk-capture-prompt` — UserPromptSubmit hook (T-016)
+- [x] 19. `cmk-capture-prompt` — UserPromptSubmit hook (T-016) _shipped 2026-05-25, PR #18_
   - Estimate: S · Depends: 17
-- [ ] 19.1 Strip `<private>...</private>` blocks before any disk write
+- [x] 19.1 Strip `<private>...</private>` blocks before any disk write
   - Replace with `[private content redacted]`; literal "private content" NEVER on disk
-- [ ] 19.2 Preserve `<retain>...</retain>` tags for the Stop-hook downstream
-- [ ] 19.3 Append cleaned prompt to `context/transcripts/{YYYY-MM-DD}.md`
+- [x] 19.2 Preserve `<retain>...</retain>` tags for the Stop-hook downstream
+- [x] 19.3 Append cleaned prompt to `context/transcripts/{YYYY-MM-DD}.md`
   - Timestamp + role marker per documented format
-- [ ]* 19.4 Write unit tests for UserPromptSubmit hook
+- [x]* 19.4 Write unit tests for UserPromptSubmit hook
   - Test prompt with `<private>SENTINEL_STRING</private>`: transcript has `[private content redacted]`; grep for SENTINEL_STRING in `context/` returns 0 hits
   - Test prompt with `<retain>important</retain>`: transcript preserves the `<retain>` tags verbatim
   - Test prompt without privacy tags: transcript contains prompt verbatim with timestamp + role marker
@@ -354,15 +354,15 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Test malformed stdin JSON: hook exits 0, logs error to stderr
   - _Requirements: FR-15; design §5.2, §6.6_
 
-- [ ] 20. `cmk-observe-edit` — PostToolUse hook (T-017)
+- [x] 20. `cmk-observe-edit` — PostToolUse hook (T-017) _shipped 2026-05-25, PR #19_
   - Estimate: S · Depends: 17
-- [ ] 20.1 Filter to only Write/Edit/MultiEdit (matcher already in hooks.json)
+- [x] 20.1 Filter to only Write/Edit/MultiEdit (matcher already in hooks.json)
   - Handler defensive-checks tool_name even though matcher should block first
-- [ ] 20.2 Threshold check on output line count (>50 lines)
+- [x] 20.2 Threshold check on output line count (>50 lines)
   - Below threshold: hook exits with no-op
-- [ ] 20.3 Append one-line summary to `sessions/now.md` (detached fire-and-forget)
+- [x] 20.3 Append one-line summary to `sessions/now.md` (detached fire-and-forget)
   - Returns within 50 ms; the append work runs in the spawned subprocess
-- [ ]* 20.4 Write unit tests for PostToolUse hook
+- [x]* 20.4 Write unit tests for PostToolUse hook
   - Test invocation with 51-line Write output: `sessions/now.md` gets one summary line
   - Test invocation with 49-line Write output: `now.md` unchanged
   - Test invocation with `tool_name: "Read"`: matcher blocks at hooks.json level (integration test with stub that crashes-on-invocation)
@@ -370,18 +370,18 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Test parent termination: kill parent mid-append; summary line still lands in `now.md` (mtime watch)
   - _Requirements: FR-9; design §5.2, §1.4_
 
-- [ ] 21. `cmk-capture-turn` — Stop hook + `stop_hook_active` guard + spawn auto-extract (T-018)
+- [x] 21. `cmk-capture-turn` — Stop hook + `stop_hook_active` guard + spawn auto-extract (T-018) _shipped 2026-05-25, PR #20_
   - Estimate: M · Depends: 17, 19
-- [ ] 21.1 Implement `stop_hook_active` guard at handler top
+- [x] 21.1 Implement `stop_hook_active` guard at handler top
   - Payload with `stop_hook_active: true` → exit immediately with `{"continue": true}`; no spawn
-- [ ] 21.2 Append assistant turn to `transcripts/{date}.md`
+- [x] 21.2 Append assistant turn to `transcripts/{date}.md`
   - Strip `<private>`, preserve `<retain>` (parallel to task 19)
-- [ ] 21.3 Spawn detached auto-extract subprocess (Unix)
+- [x] 21.3 Spawn detached auto-extract subprocess (Unix)
   - `</dev/null >/dev/null 2>&1 & disown` pattern per claude-remember
-- [ ] 21.4 Spawn detached auto-extract subprocess (Windows)
+- [x] 21.4 Spawn detached auto-extract subprocess (Windows)
   - Node `child_process.spawn(..., {detached: true, stdio: 'ignore'})`; unref()
-- [ ] 21.5 Return `{"continue": true}` within 50 ms after spawn
-- [ ]* 21.6 Write unit tests for Stop hook
+- [x] 21.5 Return `{"continue": true}` within 50 ms after spawn
+- [x]* 21.6 Write unit tests for Stop hook
   - Test payload with `stop_hook_active: true`: hook exits 0; auto-extract lock file NOT created (proves no spawn)
   - Test `stop_hook_active: false`: lock file created; transcript appended
   - Test `stop_hook_active` absent: same as false
