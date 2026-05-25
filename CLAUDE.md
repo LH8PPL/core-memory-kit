@@ -83,6 +83,7 @@ Why: the Layer-2 review surfaced 4 modules independently reimplementing the same
 ## Workflow
 
 - **One PR per parent task** in tasks.md (1, 2, 3, ..., not sub-tasks). Branch: `task-N-short-name`. Squash-merge into main. Delete branch on merge.
+- **Flip each sub-task checkbox the moment it ships, not at end-of-PR**. Binding. As soon as a sub-task is implemented + tested green, flip its `[ ]` → `[x]` in `tasks.md` in the same commit that ships it. Batching the flips for the end-of-task housekeeping commit is error-prone — Task 23 shipped with 23.8 unchecked even though the work was in PR #26, and only got caught when Lior asked "did you really do all the tasks in 23?" mid-Task-24. Apply this to every task from Task 24 onward.
 - **All tests run by the agent (Claude), not by a human.** "Tests are green" is your assertion; the user trusts that assertion until proven wrong.
 - **PR title format**: `[N] <description> (T-NNN)` (T-NNN is the legacy ID; current convention is the bare number).
 - **PR description ends with**: `_Implements: FR-X; design §Y_` traceability footer.

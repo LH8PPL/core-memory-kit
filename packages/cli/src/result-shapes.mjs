@@ -78,6 +78,15 @@ export const ERROR_CATEGORIES = Object.freeze({
   // recovery semantics: extract is best-effort, compression
   // leaves now.md intact for the next attempt).
   COMPRESS_FAILED: 'compress_failed',
+
+  // Poison_Guard rejection (Task 24, design §6.7) — the pre-write
+  // regex filter matched a secret/injection pattern. memoryWrite()
+  // returns this category and the matched pattern_id surfaces in
+  // .locks/poison-guard.log (NDJSON, redacted) so audits can track
+  // frequency without exposing the cleartext that triggered the
+  // rejection. Pairs with POISON_GUARD_CATEGORIES from
+  // poison-guard.mjs for routing analytics.
+  POISON_GUARD: 'poison_guard',
 });
 
 export const ACTION_TYPES = Object.freeze({

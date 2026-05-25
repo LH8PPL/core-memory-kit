@@ -778,4 +778,70 @@ describe('Task 23 — runAutoExtract() boundary', () => {
       expect(prompt.toLowerCase()).toMatch(/correction|preference|environment|convention|workflow|quirk/);
     });
   });
+
+  describe('Task 24 integration — Poison_Guard rejection on high-trust route', () => {
+    it('high-trust candidate containing a secret: NOT written to MEMORY.md; logged to poison-guard.log; observation_count drops to 0', async () => {
+      // The case Task 23 documented as "users SHOULD NOT enable real
+      // auto-extract in committed-tier scenarios until Task 24 merges."
+      // Now that 24 has wired memoryWrite() in the routeHigh path,
+      // the regex catalog gates the write. This test pins the
+      // closure of the gap.
+      const turnFile = writeTurnFile(projectRoot, {
+        user: 'remember: my key is ghp_1234567890abcdefghij1234567890abcdef12',
+        assistant: 'Acknowledged.',
+      });
+      const r = await runAutoExtract({
+        turnFile,
+        projectRoot,
+        haikuBackend: mockBackend(
+          'TRUST_HIGH user: my GitHub token is ghp_1234567890abcdefghij1234567890abcdef12',
+        ),
+        now: '2026-05-25T10:00:00Z',
+      });
+      // observation_count drops to 0 because the only high-trust
+      // candidate got Poison_Guard-rejected.
+      expect(r.observation_count).toBe(0);
+      // MEMORY.md must NOT contain the secret in any form.
+      const memory = readFileSync(
+        join(projectRoot, 'context', 'MEMORY.md'),
+        'utf8',
+      );
+      expect(memory).not.toContain('ghp_');
+      // Poison_Guard log captured the rejection.
+      const logPath = join(projectRoot, 'context', '.locks', 'poison-guard.log');
+      expect(existsSync(logPath)).toBe(true);
+      const log = readFileSync(logPath, 'utf8')
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => JSON.parse(l));
+      expect(log.length).toBeGreaterThanOrEqual(1);
+      expect(log[0].pattern_id).toBe('secret_github_pat');
+      // Critical: the cleartext token must NOT appear in the log.
+      expect(JSON.stringify(log[0])).not.toContain('ghp_1234567890abcdefghij1234567890abcdef12');
+    });
+
+    it('clean high-trust candidate alongside a secret-containing candidate: clean one lands, secret rejected', async () => {
+      const turnFile = writeTurnFile(projectRoot, {
+        user: 'standardized on Python 3.13. also: key is sk-ant-api03-' + 'a'.repeat(50),
+        assistant: 'Acknowledged.',
+      });
+      const r = await runAutoExtract({
+        turnFile,
+        projectRoot,
+        haikuBackend: mockBackend(
+          'TRUST_HIGH user: we standardized on Python 3.13',
+          'TRUST_HIGH user: ANTHROPIC_API_KEY=sk-ant-api03-' + 'a'.repeat(50),
+        ),
+        now: '2026-05-25T10:00:00Z',
+      });
+      // Exactly one observation lands — the clean one.
+      expect(r.observation_count).toBe(1);
+      const memory = readFileSync(
+        join(projectRoot, 'context', 'MEMORY.md'),
+        'utf8',
+      );
+      expect(memory).toContain('Python 3.13');
+      expect(memory).not.toContain('sk-ant-');
+    });
+  });
 });

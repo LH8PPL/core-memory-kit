@@ -443,19 +443,19 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 - [ ] 24. `memory-write` skill + Poison_Guard (T-021)
   - Estimate: L · Depends: 7, 9, 12, 13
   - **High-risk surface — individual PR review required** via the `code-review-excellence` skill. The Poison_Guard regex filter is the kit's last line of defense against secrets being committed to git via auto-extracted facts. False negatives = credentials in the repo. False positives = legitimate writes blocked. Pattern correctness has to be right. Review before merge
-- [ ] 24.1 Implement trigger-phrase auto-invocation
-  - Phrases from design §6.3; inferred action (`add` / `replace` / `remove`)
-- [ ] 24.2 Implement `add` action
+- [x] 24.1 Implement trigger-phrase auto-invocation
+  - Phrases from design §6.3; inferred action (`add` / `replace` / `remove`). SKILL.md rewritten 2026-05-26 against Anthropic primary source — trigger phrases moved from `description` to `when_to_use` per the verified spec; body restructured for "state what to do" conciseness (62 lines → 30).
+- [x] 24.2 Implement `add` action
   - Validates → Poison_Guard → consolidates if needed → writes bullet or fact
-- [ ] 24.3 Implement `replace` action
+- [x] 24.3 Implement `replace` action
   - Substring-match against canonical text; new ID computed; old observation marked `superseded_by`
-- [ ] 24.4 Implement `remove` action
+- [x] 24.4 Implement `remove` action
   - Delegates to tombstone flow (task 9); ALWAYS prompts for confirmation
-- [ ] 24.5 Implement Poison_Guard regex filter
+- [x] 24.5 Implement Poison_Guard regex filter
   - Secret patterns + injection patterns per design §6.7; reject before any write reaches disk
-- [ ] 24.6 Implement Poison_Guard logging (redacted)
+- [x] 24.6 Implement Poison_Guard logging (redacted)
   - Append to `.locks/poison-guard.log` (NDJSON); match text masked with `***`; user-visible rejection identifies category without echoing text
-- [ ]* 24.7 Write unit tests for memory-write + Poison_Guard
+- [x]* 24.7 Write unit tests for memory-write + Poison_Guard
   - Test each trigger phrase invokes skill with documented action
   - Test `add` with each Poison_Guard pattern category (secret samples + injection samples): rejected with `error_category: "poison_guard"`; log has redacted line
   - Test `add` with clean text: bullet appears in MEMORY.md with provenance
