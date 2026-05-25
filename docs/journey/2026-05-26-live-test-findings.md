@@ -291,6 +291,12 @@ Possible directions (parking for Task 22 / Task 24 spec discussion):
 
 NOT fixing in this PR.
 
+## Observations not blocking this PR (parked for later)
+
+**Inter-hook data dependencies are a fragility class.** PR-23 (the bi-turn extraction fix) introduces a runtime dependency: `capture-turn` reads the most recent `## <ts> — user` entry from today's transcript file, which `capture-prompt` writes on the triggering `UserPromptSubmit`. In production this chain always holds (UserPromptSubmit fires before Stop), but the dependency is implicit — nothing on the disk surfaces it. If `capture-prompt` is ever disabled, errors out silently, or doesn't write the transcript entry (hook timeout, missing transcripts dir, file lock), `capture-turn` will read no user entry and produce an empty `USER_TURN:` section. `auto-extract` then reverts to assistant-only behavior — the same bug PR-23 is fixing, but **silently degraded** rather than failing loudly. The defensive empty-string fallback is the right call (crashing the Stop hook would interrupt the user's session) but it means a broken UserPromptSubmit hook silently degrades the kit instead of being discoverable.
+
+Future task candidate (parking, not for this PR): extract.log gains a `degraded_input` field set to `true` when the USER_TURN section is empty AND it shouldn't be (i.e., a non-system-initiated turn that expected a user prompt to exist). Surfaces silent degradation in the audit log so `cmk doctor` can detect "N degraded extracts this week" and flag a misconfigured capture-prompt. Same shape as the existing Poison_Guard-blocked-write counter (design §6.7).
+
 ## What's NOT in this PR (per Lior's gate)
 
 This PR fixes only the immediate path mismatch + the CLAUDE.md discipline note + the Windows spawn bug surfaced during live testing. It does NOT:

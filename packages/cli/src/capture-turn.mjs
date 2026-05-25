@@ -26,14 +26,27 @@
 //     <projectRoot>/context/transcripts/.extract-<ts>.tmp
 //   so the detached child can read it without sharing stdin.
 //
-// Until Task 23 ships the auto-extract subagent itself, autoExtractPath
-// defaults to a documented future path; if the file doesn't exist, we
-// skip the spawn (don't error). Tests inject their own stub.
+// Both-turns temp-file shape (design §6.4 amendment, 2026-05-26):
+//   The temp file now contains BOTH the prior user prompt AND the
+//   just-captured assistant turn, separated by literal markers:
+//     USER_TURN:
+//     <user body>
+//
+//     ASSISTANT_TURN:
+//     <assistant body>
+//   This lets auto-extract identify candidate-origin (user-stated vs
+//   assistant-inferred) and apply the demotion rule from design §6.4
+//   (assistant-origin facts demote one trust level so user review is
+//   required before they enter MEMORY.md). The user turn is sourced
+//   by reading the most recent `## <ts> — user` entry from today's
+//   transcript file — which Task 19's capture-prompt wrote just
+//   before this Stop hook fired.
 
 import {
   existsSync,
   mkdirSync,
   appendFileSync,
+  readFileSync,
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
@@ -53,6 +66,60 @@ function extractTurnText(payload) {
   if (typeof payload.response === 'string') return payload.response;
   if (typeof payload.message === 'string') return payload.message;
   return '';
+}
+
+// Scan today's transcript for the most recent `## <ts> — user` entry
+// and return its body. capture-prompt (Task 19) writes these entries
+// on every UserPromptSubmit; the most-recent one is by definition the
+// user prompt that triggered the assistant turn we're now capturing.
+// Returns '' if the transcript doesn't exist, no user entry is
+// present, or any read error occurs.
+function readLastUserTurnFromTranscript(transcriptPath) {
+  if (!existsSync(transcriptPath)) return '';
+  let text;
+  try {
+    text = readFileSync(transcriptPath, 'utf8');
+  } catch {
+    return '';
+  }
+  const lines = text.split(/\r?\n/);
+  let lastUserHeadingIdx = -1;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    // Match capture-prompt's format: "## <iso-ts> — user"
+    if (/^##\s+\S+\s+—\s+user\s*$/.test(lines[i])) {
+      lastUserHeadingIdx = i;
+      break;
+    }
+  }
+  if (lastUserHeadingIdx === -1) return '';
+  // The user body runs from the line after the heading until the next
+  // `## ` heading (the just-appended assistant entry) or EOF.
+  let endIdx = lines.length;
+  for (let i = lastUserHeadingIdx + 1; i < lines.length; i++) {
+    if (/^##\s/.test(lines[i])) {
+      endIdx = i;
+      break;
+    }
+  }
+  const body = lines.slice(lastUserHeadingIdx + 1, endIdx);
+  while (body.length > 0 && body[0].trim() === '') body.shift();
+  while (body.length > 0 && body[body.length - 1].trim() === '') body.pop();
+  return body.join('\n');
+}
+
+// Assemble the both-turns temp-file body. Both turns are sanitized
+// upstream — the user body comes from the transcript (which
+// capture-prompt sanitized when writing it) and the assistant body
+// is the now-sanitized argument. Markers are literal-prefix lines so
+// auto-extract's parser can split cleanly.
+function assembleBothTurnsBody({ userTurn, assistantTurn }) {
+  return [
+    'USER_TURN:',
+    userTurn,
+    '',
+    'ASSISTANT_TURN:',
+    assistantTurn,
+  ].join('\n');
 }
 
 function defaultAutoExtractPath() {
@@ -118,12 +185,22 @@ export function captureTurn({
     'utf8',
   );
 
-  // 3. Buffer the turn to a temp file so the detached child can read
-  //    it without sharing our stdin (which has already been consumed
-  //    by the parent bash wrapper).
+  // 3. Buffer BOTH turns to a temp file so the detached child can read
+  //    them without sharing our stdin (which has already been consumed
+  //    by the parent bash wrapper). Per design §6.4, auto-extract
+  //    reads the user prompt + assistant response together so it can
+  //    distinguish user-stated facts from assistant-inferred ones.
+  //    The user portion comes from today's transcript (capture-prompt
+  //    wrote it before this Stop fired); the assistant portion is the
+  //    `sanitized` text we just appended above.
+  const userTurn = readLastUserTurnFromTranscript(transcriptPath);
   const turnFile = join(transcriptsDir, `.extract-${Date.now()}.tmp`);
   try {
-    writeFileSync(turnFile, sanitized, 'utf8');
+    writeFileSync(
+      turnFile,
+      assembleBothTurnsBody({ userTurn, assistantTurn: sanitized }),
+      'utf8',
+    );
   } catch (err) {
     // Continue without spawning — partial success is better than abort.
     return {
