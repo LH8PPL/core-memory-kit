@@ -55,14 +55,34 @@ const SESSIONS_DIR_RELATIVE = ['context', 'sessions'];
 // Touched / Active Threads) is the §8.4 contract. The citation-ID
 // preservation rule (`/#[ULP]-[A-Z0-9]{6,8}/`) is the §3.1 contract
 // — Haiku must NEVER invent IDs and must preserve any it sees.
+//
+// Prompt-engineering note: compressor.mjs concatenates
+// `${instructions}\n\n${input}` into a single user-side message. The
+// earlier prompt phrasing ("You receive a live session buffer...")
+// invited Haiku to read the whole thing as a meta-configuration
+// conversation and respond with "OK, ready to compress — send me the
+// buffer." Surfaced by tests/spawn-smoke-compress-session.test.js in
+// the full-suite run on 2026-05-25 (the isolated run got lucky on
+// stochastic Haiku output; under cache-cold/full-suite conditions it
+// took the meta-conversation path). Fix: (a) imperative voice with
+// an explicit forward-reference to the buffer that follows, (b)
+// SESSION_BUFFER_DELIMITER markers around the buffer so the model
+// has an unambiguous boundary between directive and input, and
+// (c) explicit ban on preamble / clarifying questions / "I
+// understand" acknowledgments.
+const SESSION_BUFFER_DELIMITER = '=== BEGIN SESSION BUFFER (compress this) ===';
+const SESSION_BUFFER_END_DELIMITER = '=== END SESSION BUFFER ===';
+
 function buildCompressionInstructions(maxOutputBytes) {
   return [
-    'You are a memory compressor for claude-memory-kit.',
+    'You are a memory compressor for claude-memory-kit. Your task is to compress the session buffer that appears below into a four-section Markdown summary.',
     '',
-    'You receive a live session buffer (sessions/now.md). Output a compressed Markdown summary using exactly the four sections below, in this order:',
+    'Output ONLY the compressed Markdown. Do not write preamble. Do not acknowledge the task. Do not ask clarifying questions. Do not include any meta-commentary. Begin your response with the first applicable section heading.',
+    '',
+    'REQUIRED FORMAT (emit these section headings exactly, in this order; omit any heading whose section would have no entries):',
     '',
     '## Decisions',
-    '- <one short bullet per concrete decision the session reached, ≤80 chars>',
+    '- <one bullet per concrete decision the session reached, ≤80 chars>',
     '',
     '## Open Questions',
     '- <one bullet per unresolved question raised during the session, ≤80 chars>',
@@ -73,13 +93,19 @@ function buildCompressionInstructions(maxOutputBytes) {
     '## Active Threads',
     '- <one bullet per work-in-progress thread the next session should resume, ≤80 chars>',
     '',
-    'Hard rules:',
-    `  1. Preserve every citation ID matching /#[ULP]-[A-Z0-9]{6,8}/ verbatim. Never invent new IDs.`,
+    'HARD RULES:',
+    '  1. Preserve every citation ID matching /#[ULP]-[A-Z0-9]{6,8}/ verbatim. Never invent new IDs.',
     `  2. Total output ≤ ${maxOutputBytes} bytes.`,
-    '  3. If a section has no entries, OMIT the heading entirely (do not emit an empty heading).',
-    '  4. No prose around the headings — just the bulleted list per section.',
-    '  5. Do not include this prompt or any meta-commentary in your output.',
+    '  3. If a section has no entries, omit the heading entirely (do not emit an empty heading).',
+    '  4. No prose around the headings — only the bulleted list per section.',
+    '  5. Your output goes directly into the next session\'s memory. Do not address the user, do not refer to yourself, do not narrate.',
+    '',
+    `The session buffer to compress appears below between the ${SESSION_BUFFER_DELIMITER} and ${SESSION_BUFFER_END_DELIMITER} markers.`,
   ].join('\n');
+}
+
+function wrapBufferForPrompt(buffer) {
+  return `${SESSION_BUFFER_DELIMITER}\n${buffer}\n${SESSION_BUFFER_END_DELIMITER}`;
 }
 
 function readNowMdPath(projectRoot) {
@@ -268,7 +294,7 @@ export async function compressSession({
   let result;
   try {
     result = await backend.compress({
-      input: buffer,
+      input: wrapBufferForPrompt(buffer),
       instructions,
       preserveCitationIds: true,
       maxOutputBytes,

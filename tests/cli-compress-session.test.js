@@ -403,5 +403,34 @@ describe('Task 22 — compressSession() boundary', () => {
       // preserveCitationIds flag passed through
       expect(call.preserveCitationIds).toBe(true);
     });
+
+    it('input is wrapped in BEGIN/END SESSION BUFFER delimiters so Haiku has an unambiguous boundary', async () => {
+      // Regression test: the earlier prompt phrasing invited Haiku to
+      // interpret the directive as a meta-conversation ("OK, ready to
+      // compress — send me the buffer") and respond with preamble
+      // instead of the compressed Markdown. Surfaced by the live
+      // spawn-smoke under full-suite load on 2026-05-25. The fix is
+      // delimiter-bracketed input so the model has an explicit marker
+      // between directive and buffer.
+      const bufferText = 'unique-buffer-marker-9472';
+      writeNowMd(projectRoot, bufferText + '\n');
+      const backend = mockBackend('compressed\n');
+      await compressSession({
+        projectRoot,
+        backend,
+        now: '2026-05-26T10:00:00Z',
+      });
+      const call = backend.calls[0];
+      expect(call.input).toContain('=== BEGIN SESSION BUFFER');
+      expect(call.input).toContain('=== END SESSION BUFFER ===');
+      expect(call.input).toContain(bufferText);
+      // The buffer text appears BETWEEN the markers (not before BEGIN
+      // or after END).
+      const beginIdx = call.input.indexOf('=== BEGIN SESSION BUFFER');
+      const endIdx = call.input.indexOf('=== END SESSION BUFFER ===');
+      const bufferIdx = call.input.indexOf(bufferText);
+      expect(bufferIdx).toBeGreaterThan(beginIdx);
+      expect(bufferIdx).toBeLessThan(endIdx);
+    });
   });
 });
