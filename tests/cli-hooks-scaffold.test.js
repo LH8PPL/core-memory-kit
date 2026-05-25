@@ -37,14 +37,18 @@ const HOOKS_JSON_PATH = join(
 );
 const BIN_DIR = join(REPO_ROOT, 'plugin', 'bin');
 
-// Documented event → (stub basename, timeout seconds, async?) per design §5.1
+// Documented event → (basename, timeout seconds, async?, isStub?) per
+// design §5.1. As each hook gets its real handler the `isStub` flag
+// flips to false; the assertion suite below then only enforces the
+// stub-shape contracts (`continue: true`, "not yet implemented") for
+// the entries that are still stubs.
 const EXPECTED_HOOKS = [
-  { event: 'Setup', stub: 'cmk-version-check', timeout: 30, async: false },
-  { event: 'SessionStart', stub: 'cmk-inject-context', timeout: 30, async: false },
-  { event: 'UserPromptSubmit', stub: 'cmk-capture-prompt', timeout: 10, async: false },
-  { event: 'PostToolUse', stub: 'cmk-observe-edit', timeout: 120, async: true, matcher: 'Write|Edit|MultiEdit' },
-  { event: 'Stop', stub: 'cmk-capture-turn', timeout: 30, async: false },
-  { event: 'SessionEnd', stub: 'cmk-compress-session', timeout: 60, async: false },
+  { event: 'Setup', stub: 'cmk-version-check', timeout: 30, async: false, isStub: true },
+  { event: 'SessionStart', stub: 'cmk-inject-context', timeout: 30, async: false, isStub: false },
+  { event: 'UserPromptSubmit', stub: 'cmk-capture-prompt', timeout: 10, async: false, isStub: true },
+  { event: 'PostToolUse', stub: 'cmk-observe-edit', timeout: 120, async: true, matcher: 'Write|Edit|MultiEdit', isStub: true },
+  { event: 'Stop', stub: 'cmk-capture-turn', timeout: 30, async: false, isStub: true },
+  { event: 'SessionEnd', stub: 'cmk-compress-session', timeout: 60, async: false, isStub: true },
 ];
 
 function loadHooksJson() {
@@ -144,9 +148,9 @@ describe('Task 17 — hooks.json scaffold', () => {
   });
 });
 
-describe('Task 17 — bin/cmk-<verb> stub scripts', () => {
-  for (const { stub } of EXPECTED_HOOKS) {
-    describe(`bin/${stub}`, () => {
+describe('Task 17 — bin/cmk-<verb> hook scripts', () => {
+  for (const { stub, isStub } of EXPECTED_HOOKS) {
+    describe(`bin/${stub}${isStub ? '' : ' (real handler)'}`, () => {
       const stubPath = join(BIN_DIR, stub);
 
       it('exists on disk', () => {
@@ -177,23 +181,47 @@ describe('Task 17 — bin/cmk-<verb> stub scripts', () => {
         expect(r.status).toBe(0);
       });
 
-      it('stdout parses as JSON with continue: true', () => {
+      it('stdout parses as JSON', () => {
         const r = spawnSync('bash', [stubPath], {
           input: '',
           encoding: 'utf8',
         });
-        const parsed = JSON.parse(r.stdout);
-        expect(parsed).toMatchObject({ continue: true });
+        expect(() => JSON.parse(r.stdout)).not.toThrow();
       });
 
-      it('stdout (or stderr) contains the documented "not yet implemented" notice', () => {
-        const r = spawnSync('bash', [stubPath], {
-          input: '',
-          encoding: 'utf8',
+      if (isStub) {
+        it('stub JSON contains continue: true', () => {
+          const r = spawnSync('bash', [stubPath], {
+            input: '',
+            encoding: 'utf8',
+          });
+          const parsed = JSON.parse(r.stdout);
+          expect(parsed).toMatchObject({ continue: true });
         });
-        const combined = `${r.stdout}\n${r.stderr}`;
-        expect(combined.toLowerCase()).toContain('not yet implemented');
-      });
+
+        it('stub stdout (or stderr) contains the documented "not yet implemented" notice', () => {
+          const r = spawnSync('bash', [stubPath], {
+            input: '',
+            encoding: 'utf8',
+          });
+          const combined = `${r.stdout}\n${r.stderr}`;
+          expect(combined.toLowerCase()).toContain('not yet implemented');
+        });
+      } else {
+        // Real handlers emit hookSpecificOutput per Anthropic's hook
+        // protocol, not the stub-shaped {continue: true}. Per-hook
+        // behavior tests live in the per-hook test file (e.g.
+        // tests/cli-inject-context.test.js for SessionStart); here we
+        // only assert the shape envelope.
+        it('real handler JSON contains hookSpecificOutput', () => {
+          const r = spawnSync('bash', [stubPath], {
+            input: '',
+            encoding: 'utf8',
+          });
+          const parsed = JSON.parse(r.stdout);
+          expect(parsed).toHaveProperty('hookSpecificOutput');
+        });
+      }
 
       it('exits 0 with a payload-shaped JSON stdin (proves it tolerates real hook input)', () => {
         const fakePayload = JSON.stringify({
