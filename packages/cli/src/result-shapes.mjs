@@ -68,6 +68,16 @@ export const ERROR_CATEGORIES = Object.freeze({
   // HaikuViaAnthropicApi this means the `claude --print` subprocess
   // exited non-zero or the spawn itself failed.
   HAIKU_FAILED: 'haiku_failed',
+
+  // SessionEnd compression (Task 22) — the CompressorBackend's
+  // compress() rejected when called with the §8.4 compression
+  // prompt against sessions/now.md. Disambiguates from
+  // HAIKU_FAILED in extract.log so analytics can separate
+  // extraction failures from compression failures (same root cause
+  // — the `claude` subprocess — but the call sites have different
+  // recovery semantics: extract is best-effort, compression
+  // leaves now.md intact for the next attempt).
+  COMPRESS_FAILED: 'compress_failed',
 });
 
 export const ACTION_TYPES = Object.freeze({
