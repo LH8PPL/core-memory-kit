@@ -1,16 +1,29 @@
 #!/usr/bin/env bash
-# cmk-observe-edit — PostToolUse hook stub (Task 17 scaffold).
+# cmk-observe-edit — PostToolUse hook (Task 20 real handler).
 #
-# Real implementation lands in Task 20: filter to Write/Edit/MultiEdit
-# (matcher in hooks.json already does this), threshold-check output
-# line count (>50 lines), append a one-line summary to sessions/now.md
-# (fire-and-forget detached subprocess — returns within 50 ms).
-#
-# Hook protocol: payload on stdin; JSON on stdout; diagnostics on
-# stderr. Marked async:true in hooks.json so the timeout (120s) covers
-# the detached child without blocking the parent tool.
+# hooks.json invokes this via `bash "${CLAUDE_PLUGIN_ROOT}/bin/cmk-observe-edit"`
+# with `async: true`, meaning Claude Code does not wait for the hook to
+# complete before continuing. We exploit this by:
+#   1. Buffering stdin into a temp file (so the detached child gets the
+#      payload even after the parent has exited).
+#   2. Spawning a detached node process to do the actual append work.
+#      The `( ... ) & disown` pattern detaches the child from the
+#      parent's job table so it survives shell exit on POSIX; on Git
+#      Bash for Windows the same syntax works (bash backgrounds the
+#      subshell; node continues running).
+#   3. Returning {"continue": true} immediately so the parent hook
+#      reports completion within the 50ms NFR-1 target regardless of
+#      how big the tool output was.
 
-cat >/dev/null
-echo "cmk: PostToolUse hook (cmk-observe-edit) — not yet implemented" >&2
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+tmpfile="$(mktemp 2>/dev/null || echo "/tmp/cmk-observe-edit-$$.json")"
+cat > "$tmpfile"
+
+(
+  node "${script_dir}/cmk-observe-edit.mjs" < "$tmpfile" >/dev/null 2>&1
+  rm -f "$tmpfile"
+) &
+disown 2>/dev/null || true
+
 echo '{"continue": true}'
 exit 0
