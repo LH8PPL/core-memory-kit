@@ -454,7 +454,11 @@ Optional fields: `merged_from` (for consolidation), `superseded_by` (when replac
 
 ### 5.1 Verbatim hooks.json
 
-Pattern: `${CLAUDE_PLUGIN_ROOT}/bin/cmk-<verb>` (kit-unique prefix dodges Anthropic bug [#29724](https://github.com/anthropics/claude-code/issues/29724)). Convention verified against claude-mem (`thedotmack/claude-mem/plugin/hooks/hooks.json`) and claude-remember (`Digital-Process-Tools/claude-remember/hooks/hooks.json`).
+**Manifest file location**: `<plugin-root>/hooks/hooks.json` — per Anthropic's official plugin docs at [code.claude.com/docs/en/plugins](https://code.claude.com/docs/en/plugins) ("Plugin structure overview" section). The `.claude-plugin/` subdirectory holds **only** `plugin.json`; `hooks/`, `skills/`, `agents/`, `commands/`, etc. all live at the plugin root. Anthropic's docs explicitly call out the `.claude-plugin/hooks/` placement as a "Common mistake" in a Warning callout.
+
+> **Historical note (2026-05-26):** an earlier draft of this section placed `hooks.json` under `plugin/.claude-plugin/hooks/`. That path does not load in Claude Code 2.1.140 — the canonical Anthropic layout puts `hooks/` at the plugin root, NOT under `.claude-plugin/`. The mismatch was caught by the working-product live test (see [`docs/journey/2026-05-26-live-test-findings.md`](../../docs/journey/2026-05-26-live-test-findings.md)). The earlier mistake came from verifying against two third-party plugins (claude-mem, claude-remember) instead of Anthropic's primary docs — both third-party plugins had the right layout (`plugin/hooks/hooks.json`), but the verification chain stopped at convergent secondary sources without checking the upstream Anthropic docs once.
+
+Command pattern: `${CLAUDE_PLUGIN_ROOT}/bin/cmk-<verb>` (kit-unique prefix dodges Anthropic bug [#29724](https://github.com/anthropics/claude-code/issues/29724)). Both claude-mem (`thedotmack/claude-mem/plugin/hooks/hooks.json`) and claude-remember (`Digital-Process-Tools/claude-remember/hooks/hooks.json`) implement the same layout, matching Anthropic's docs.
 
 ```json
 {
