@@ -8,11 +8,13 @@
     "packages/*"
   ],
   "scripts": {
-    "test": "node scripts/validate-test-ids.mjs && node scripts/validate-template.mjs && vitest run",
+    "test": "node scripts/validate-test-ids.mjs && node scripts/validate-template.mjs && node scripts/validate-exit-doors.mjs && node scripts/validate-references.mjs && vitest run",
     "test:file": "node scripts/test-file.mjs",
     "test:watch": "vitest",
     "stress": "node scripts/stress-test.mjs",
     "lint:test-ids": "node scripts/validate-test-ids.mjs",
+    "lint:exit-doors": "node scripts/validate-exit-doors.mjs",
+    "lint:references": "node scripts/validate-references.mjs",
     "validate:template": "node scripts/validate-template.mjs"
   },
   "devDependencies": {
