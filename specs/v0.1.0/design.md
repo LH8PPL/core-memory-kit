@@ -792,6 +792,70 @@ User resolves via `cmk queue conflicts`: review each conflict; choose `keep-old`
 
 **Implements**: FR-10, FR-11, FR-12, FR-13, FR-15, NFR-9.
 
+### 6.9 Lock-file discipline + stale recovery
+
+**Tail-appended 2026-05-26** (Task 23.10 retroactive) after the post-PR-31 class-2 audit (PR-B). PR-A's subprocess timeout closed the dominant lock-leak path (Claude Code's outer hook ceiling killing the parent mid-Haiku); this section covers the residual cases + the user-facing recovery path.
+
+#### Lock-file inventory (class-2 audit, PR-B)
+
+Greps across `packages/cli/src/` for true mutex locks (`acquireLock` / `noclobber` / `wx` flag) surfaced **one production lock**:
+
+| Site | Path | Purpose | Cleanup contract |
+| --- | --- | --- | --- |
+| `auto-extract.mjs` `acquireLock(lockPath)` | `<projectRoot>/context/.locks/auto-extract.lock` | Prevent two concurrent auto-extract subagents racing on the same project (each Stop hook fire would otherwise spawn its own) | `try { … } finally { releaseLock(lockPath); }` in `runAutoExtract` — releases on every normal exit AND PR-A's timeout path (the inner timeout fires → catch routes the HaikuTimeoutError → finally releases the lock BEFORE the outer hook ceiling kills the parent) |
+
+State-marker files under `.locks/` (`last-haiku-call.ts` cooldown mtime, `audit.log`, `poison-guard.log`, `network-blocks.log`, `shadowed_by.log`) are NOT locks — they're append-only NDJSON or mtime-tracked timestamps. The HC-9 scanner ignores them by extension match (only `*.lock` is treated as a true lock).
+
+#### The residual leak case
+
+After PR-A, the lock-leak window narrows to cases where the parent process dies *without running its finally block*:
+
+- External `kill -9` (user manually killing a hung process, OS OOM, container shutdown).
+- Hardware failure (laptop sleep-fail, power loss mid-Haiku).
+- Parent uncaught exception that bypasses the try/finally (rare — `runAutoExtract`'s top-level try wraps the entire flow, but a synchronous throw before the try wrapper would leak).
+
+In any of these, `auto-extract.lock` stays on disk holding the dead pid. The existing in-band stale-recovery in `acquireLock` ([packages/cli/src/auto-extract.mjs](../../packages/cli/src/auto-extract.mjs)) handles the next-invocation case: if the holder pid no longer responds to `process.kill(pid, 0)`, the recovery path unlinks the stale lock and reacquires once. But that requires *another* auto-extract invocation to happen — until then, auto-extract is silently disabled.
+
+#### HC-9 stale-lock detection
+
+[`packages/cli/src/lock-discipline.mjs`](../../packages/cli/src/lock-discipline.mjs) `detectStaleLocks(projectRoot, {userDir})` scans `*.lock` files under `<projectRoot>/context/.locks/` (and `<userDir>/.locks/` if supplied), parses the pid inside each, probes liveness via `process.kill(pid, 0)`, and returns a structured report:
+
+```text
+[
+  {
+    path: '/abs/.../context/.locks/auto-extract.lock',
+    pid: 99999,
+    holderAlive: false,
+    stale: true,
+    reason: 'pid 99999 no longer alive (holder process died without releasing lock)',
+    recoveryCommand: 'rm "/abs/.../context/.locks/auto-extract.lock"',
+  },
+  …
+]
+```
+
+Held-by-live-process locks return `stale: false` (no recoveryCommand emitted). Unparseable lock contents (empty file, non-numeric, corrupted mid-write) return `stale: true` with `pid: null` and a copy-paste recovery command.
+
+Consumed by:
+
+- **`cmk doctor` HC-9** (when Task 37 ships the diagnostic verb): surfaces stale locks in the report with the recoveryCommand for each.
+- **`auto-extract.mjs` stale-recovery path**: imports `pidIsAlive` from this module — same probe, no inlined drift.
+
+#### PID-reuse limitation (documented, not fixed in v0.1)
+
+`pidIsAlive(pid)` returns true if the pid exists, regardless of whether it's the *original* holder. On long-running systems, the OS may have reused the pid for an unrelated process by the time auto-extract checks staleness. Worst case: HC-9 reports a stale lock as held-alive, suppressing the user-facing recovery hint.
+
+Hardening (deferred to v0.1.x): write `{pid, started_at}` JSON to the lock file instead of bare pid; on liveness check, compare against the OS-reported start time of the holding pid. Per-OS APIs (`/proc/<pid>/stat`, macOS `ps -o lstart`, Windows `Get-Process | Select StartTime`) make this a more substantial fix; deferred until it bites in practice.
+
+#### Composition with PR-A's subprocess timeout
+
+The two PRs compose to bound the leak window:
+
+- **PR-A inner timeout (25s auto-extract / 50s compress-session)** runs the catch + finally + log-write *before* the outer hook ceiling fires. Closes the dominant leak path (Anthropic API slowness).
+- **PR-B HC-9 + stale recovery** catches the residual cases. Even if a lock leaks somehow, `cmk doctor` HC-9 reports it with a one-command recovery, and the next auto-extract invocation's stale-recovery path cleans it automatically.
+
+**Implements**: Task 23.10. Cross-references: §6.1 (`.locks/` directory layout); §14 (HC-9 in the health-check table); [`HEALTH-CHECKS.md`](../../HEALTH-CHECKS.md) (user-facing HC-9 self-repair).
+
 ---
 
 ## 7. 3-tier scope merging
@@ -1346,7 +1410,7 @@ The install paths above MUST inject the kit's CLAUDE.md content inside an idempo
 
 ## 14. Failure modes + health checks
 
-Eight yes/no checks at session start (HC-1..HC-7 from requirements.md, plus HC-8 added below). Each has a documented self-repair path.
+Nine yes/no checks at session start (HC-1..HC-7 from requirements.md, plus HC-8 added per ADR-0011 + HC-9 added per PR-B's class-2 lock audit). Each has a documented self-repair path.
 
 | ID | Check | Repair if failed |
 | --- | --- | --- |
@@ -1358,6 +1422,7 @@ Eight yes/no checks at session start (HC-1..HC-7 from requirements.md, plus HC-8
 | HC-6 | Cron jobs registered with host scheduler | `python scripts/register-crons.py` (idempotent) |
 | HC-7 | memsearch backend reachable (Layer 5) | Windows: start Docker Desktop, `docker compose up -d` in `milvus-deploy/`. macOS/Linux: check `~/.memsearch/milvus.db` |
 | **HC-8** | **[CHANGE]** Native Anthropic Auto Memory status detected | **Inspect `~/.claude/projects/<slug>/memory/` existence + contents. Log result to `context/.locks/native-memory-status.log` as `{active: true \| false \| unknown, last_modified: <ISO>, file_count: N}`. Non-fatal — informational only, lets users see whether their kit is supplementing or substituting Anthropic's. Per Kiro's spec-pattern of explicit detection + audit logging.** |
+| **HC-9** | **Stale lock files under `context/.locks/` + `<userDir>/.locks/`** | **Per-stale-lock recoveryCommand emitted in the report (e.g. `rm "<path>"`). Library: [`packages/cli/src/lock-discipline.mjs`](../../packages/cli/src/lock-discipline.mjs) `detectStaleLocks(projectRoot, {userDir})`. Closes the residual leak window left after PR-A's subprocess timeout (external SIGKILL / OS OOM / hardware failure — see §6.9 for the composition). Non-fatal — `cmk doctor` reports + the next auto-extract invocation's in-band stale-recovery also handles it.** |
 
 **Critical rule** (per NFR-9): any repair requiring `pip install` / `npm install` / system-level changes MUST ASK the user first.
 

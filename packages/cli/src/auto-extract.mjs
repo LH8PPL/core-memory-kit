@@ -51,6 +51,7 @@ import { join, dirname } from 'node:path';
 import { generateId } from '../../canonicalize/src/index.mjs';
 import { memoryWrite } from './memory-write.mjs';
 import { HaikuTimeoutError } from './compressor.mjs';
+import { pidIsAlive } from './lock-discipline.mjs';
 import { nowIso } from './audit-log.mjs';
 import { ERROR_CATEGORIES } from './result-shapes.mjs';
 
@@ -145,18 +146,10 @@ function acquireLock(lockPath) {
   }
 }
 
-function pidIsAlive(pid) {
-  // process.kill with signal 0 is a permission check — doesn't actually
-  // signal. ESRCH → no such process; EPERM → process exists but we
-  // can't signal it; success → exists and we can signal. Either of the
-  // last two means "alive".
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (err) {
-    return err.code === 'EPERM';
-  }
-}
+// pidIsAlive is consolidated in lock-discipline.mjs — same probe is
+// used by cmk doctor HC-9 + this module's stale-recovery path.
+// Importing instead of inlining eliminates drift risk (the kit's
+// shared-modules rule, CLAUDE.md §1.3).
 
 function releaseLock(lockPath) {
   try {
