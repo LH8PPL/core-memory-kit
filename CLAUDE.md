@@ -164,10 +164,10 @@ The memory model the kit is building (and the model these notes are written unde
 
 ## Current state (update as we ship)
 
-- **Tasks 1, 2, 3, 4** merged into main (PRs #1, #2, #3, #4)
-- **127/127 tests green**
-- **`cmk install`** and **`cmk uninstall`** are real subcommands; every other verb is still a stub
-- **Next task**: Task 5 — `canonicalize()` + ID generation (Node + Python parity)
+- **Tasks 1-24 merged** (PRs #1-#30); Task 23 has 9 sub-tasks including 23.9 retroactive (subprocess timeout per design §8.5, PR #32)
+- **761/761 tests green, 5/5 stress runs** with live-Haiku spawn-smokes enabled (no skips)
+- **Post-PR-31 audit campaign in flight** — converts prose-only verification rules into enforcement validators where shape admits. **Task 25 PAUSED** until PR-D merges. Authoritative tracker: [`docs/journey/v0.1.0-build-log.md` §"Post-PR-31 audit campaign tracker"](docs/journey/v0.1.0-build-log.md). Read that section first if resuming work — it carries the queue status, structured deferrals from earlier PRs (e.g. capture-turn spawn-failed observability → PR-D), the skill-experiment audit-note discipline for PR-D, and the resume criteria for Task 25.
+- **Campaign queue**: PR-A `[MERGED 2026-05-26]` (#32) → PR-B `fix-lock-file-discipline` (NEXT) → PR-C `audit-spec-stack-references` → PR-D `audit-completeness-and-enforcement`. Each PR runs `code-review-excellence` before opening + `npm run stress` 5x before opening + names "Part N of 4 in the post-PR-31 audit campaign" in its description.
 
 ## Working-product milestone
 
