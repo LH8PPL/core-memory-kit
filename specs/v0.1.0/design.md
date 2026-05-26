@@ -1600,11 +1600,33 @@ v0.2 candidate. Inspired by Garry Tan's GBrain (research note: [`docs/research/2
 
 ---
 
-## 17. Test discipline for spawn boundaries
+## 17. Test discipline
 
-**Tail-appended 2026-05-26** after the live-test surfaced a class of bug that mocked-spawn tests could not catch.
+**Tail-appended 2026-05-26.** §17.2-17.6 originated from the live-test that surfaced a class of bug mocked-spawn tests could not catch (the Windows `.cmd`-shim ENOENT class). §17.1 was promoted in front of them after the PR-30 four-doors audit, because the doors checklist is the broader umbrella — spawn-smoke is the application of doors 3 + 4 to cross-process testing, not a peer discipline.
 
-### 17.1 Why mocked-spawn tests miss spawn-layer breakage
+### 17.1 The four exit doors (what every test must assert)
+
+Per Goldberg's [*nodejs-testing-best-practices*](https://github.com/goldbergyoni/nodejs-testing-best-practices) §1 ("the five exit doors of any function under test"). The fifth door (message queues) is N/A for the kit; the other four are load-bearing.
+
+When writing a test — or opening an existing test file for any other reason — walk this checklist and pin every door that applies. Tests that miss door 3 or door 4 ship silent-failure bugs because the happy-path assertions on doors 1 + 2 still pass.
+
+| Door | What it is | Kit examples |
+| --- | --- | --- |
+| **1. Response** | What the public function returned | `r.action === 'compressed'`, `r.errorCategory === 'poison_guard'`, `r.id` matches `ID_PATTERN`, `r.observation_count === 3` |
+| **2. State** | What changed on disk / in memory / in the audit trail | `MEMORY.md` contains the new bullet; `now.md` was truncated to 0 bytes; `archive/tombstones/<id>.md` exists with the documented frontmatter; the lock file was rewritten with the current pid |
+| **3. External calls** | What subprocesses got spawned with what argv + env; for mocked-spawn tests, what args the mock received | `mock.calls[0].input` contains the §8.4 prompt structure; the real-binary spawn-smoke (§17.3) actually invoked `claude --print` with the documented flags |
+| **4. Observability** | What NDJSON entry landed in the right log with the right shape | `extract.log` records `{success:false, error_category:'concurrent_run', observation_count:0}`; `compress.log` has matching `input_bytes` and `output_bytes` cross-checked against the return struct; `poison-guard.log` masked the matched secret with `***` and recorded the canonical `pattern_id` |
+
+**Common gap patterns** (each surfaced as a real finding in the PR-30 audit; preserved here so future tests pre-empt them):
+
+- A test for a function that *invokes a subprocess* pins door 1 (the return value) but never asserts door 3 (the subprocess was called with the expected args). Result: a spawn-broken regression passes if the return value happens to be set before the spawn would fail.
+- A test for a function that *writes to disk and logs* pins door 1 + door 2 but never reads the NDJSON log. Result: a refactor that silently drops the log-write ships, breaking analytics + audit trails downstream.
+- A test for a function that *mutates a subset of records* pins the mutation but not the non-mutation of siblings. (See the "over-mutation guard" rule in CLAUDE.md — Goldberg §6.)
+- A test that asserts a return-struct field has a value pins door 1 but doesn't cross-check that the corresponding log entry has the SAME value. **Separately-correct-jointly-broken** is a real failure class (CLAUDE.md "Composition verification" rule) and the return-vs-log cross-check is exactly where it hides.
+
+§17.2-§17.6 are specializations: §17.2-§17.5 are how to assert door 3 properly when the call is cross-process (real-binary spawn smoke), and §17.6 is the PR-level gate that catches concurrency-class door-3/door-4 flakes which a single test run misses.
+
+### 17.2 Why mocked-spawn tests miss spawn-layer breakage
 
 Task 23 shipped with `HaikuViaAnthropicApi`'s spawn fully unit-tested via an injectable `spawnFn` parameter. The unit test pinned the command name, the argument array, and the spawn options (`cwd`, `env`, `stdio`). All assertions passed. The contract was correct per spec.
 
@@ -1618,7 +1640,7 @@ All three are real-world boundary semantics that the mocked-spawn unit test coul
 
 See [`docs/journey/2026-05-26-live-test-findings.md`](../../docs/journey/2026-05-26-live-test-findings.md) ("Bonus finding — Windows spawn bug") for the full diagnostic chain.
 
-### 17.2 The pattern — real-binary spawn smoke tests
+### 17.3 The pattern — real-binary spawn smoke tests
 
 Every kit module that constructs a `spawn()` call MUST ship a complementary **real-binary spawn smoke test** alongside its unit tests:
 
@@ -1634,7 +1656,7 @@ The no-op-binary alternative was rejected because it fails to catch the exact bu
 
 Real-binary spawn is the load-bearing check.
 
-### 17.3 When to apply
+### 17.4 When to apply
 
 Every spawn boundary in the kit. Currently:
 
@@ -1647,7 +1669,7 @@ Future spawn boundaries each add their own smoke test:
 - Task 31 MCP stdio transport
 - Any v0.2 backend that uses subprocess IPC
 
-### 17.4 How to guard CI portability
+### 17.5 How to guard CI portability
 
 Real-Haiku tests have two failure modes that aren't kit bugs: (1) the test environment lacks the `claude` binary, (2) the test environment lacks Anthropic auth. Both are environment-not-kit problems and should not produce false-positive test failures.
 
@@ -1669,7 +1691,7 @@ const skipReason = (() => {
 
 Dev environments that have `claude` available run the smoke automatically on every `npm test`. The smoke is fast (~3-8 seconds for the round-trip) and the unit-test alternative (mocked spawn) is what missed the bug originally — having a real-spawn baseline on every test invocation is the structural fix.
 
-### 17.5 Stress-run gate (PR-level discipline)
+### 17.6 Stress-run gate (PR-level discipline)
 
 Spawn-layer flakes don't always surface on a single `npm test` invocation. PR #29's audit surfaced four time-bound flakes that had passed individually but failed under full-suite concurrency on Windows (cold-start contention, file-system visibility races, live-Haiku rate-limit retry windows). PR #30 surfaced another one in the same class (empty-file race in `cli-capture-turn`).
 

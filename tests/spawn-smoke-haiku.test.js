@@ -1,9 +1,13 @@
 // Real-binary spawn smoke test for HaikuViaAnthropicApi (Task 23.8,
-// retroactive). Per design §17 "Test discipline for spawn boundaries":
-// the Task 23 unit tests use an injected `spawnFn` mock; that pins the
-// cmd/args shape per spec but does NOT invoke real `child_process.spawn`
-// against the real `claude` binary on the real OS. The working-product
-// live test surfaced three spawn-layer bugs the mock could not catch:
+// retroactive). Per design §17 "Test discipline" — specifically
+// the §17.3-§17.5 spawn-boundary subsections (§17.1 four-doors
+// umbrella covers WHAT to assert; these subsections cover HOW to
+// assert door 3 properly when the call is cross-process). The
+// Task 23 unit tests use an injected `spawnFn` mock; that pins the
+// cmd/args shape per spec but does NOT invoke real
+// `child_process.spawn` against the real `claude` binary on the
+// real OS. The working-product live test surfaced three spawn-
+// layer bugs the mock could not catch:
 //
 //   1. `spawn('claude', ...)` returns ENOENT on Windows — npm CLI
 //      binaries ship as `.cmd` shims; node's spawn doesn't auto-resolve
