@@ -722,7 +722,7 @@ This mirrors the design of git revert (don't rewrite history) more than git reba
 
 Use cases that `<private>` inline tags don't cover: an entire fact about a sensitive system, a private project decision, a personal preference you want recorded but not always-injected. The two mechanisms compose: `<private>` is for "this passage in a longer fact is sensitive"; `private: true` is for "this whole fact is sensitive at the digest layer".
 
-Per Cursor spec convergence (their FR-052).
+Per Cursor spec convergence (their `FR-052`).
 
 (v0.1.x candidate: add `<ephemeral>` tag for session-only content auto-extract should always skip. Per ChatGPT/Google A spec convergence.)
 
@@ -1358,7 +1358,7 @@ Single Node binary, ships with the kit. Subcommands:
 | `cmk queue review` | **[CHANGE]** Interactive review of `context/queues/review.md` (medium-trust auto-extracts). Promote / discard each |
 | `cmk forget <id-or-query>` | Tombstone a fact per §6.5 |
 | `cmk purge --hard <id>` | Permanent deletion (requires confirmation; rare) |
-| `cmk roll [--scope now\|today\|recent]` | Manual force-roll of the rolling-window pipeline without ending the session. Same internals as the SessionEnd hook but user-invokable. (Per Cursor spec convergence — FR-013.) |
+| `cmk roll [--scope now\|today\|recent]` | Manual force-roll of the rolling-window pipeline without ending the session. Same internals as the SessionEnd hook but user-invokable. (Per Cursor spec convergence — `FR-013`.) |
 | `cmk repair` | Idempotent self-repair (re-install hooks, reset stale locks) |
 | `cmk version` | Print kit version + check for updates |
 
@@ -1897,6 +1897,27 @@ Concrete checklist for the agent (Claude in this repo):
 1. Before opening a PR that touches `auto-extract.mjs`, `capture-turn.mjs`, `compress-session.mjs`, `compressor.mjs`, any new spawn boundary, any new hook handler, or any new detached child: **run `npm run stress` and confirm 5/5 green**.
 2. If a stress run fails, do not open the PR. Either fix the flake or surface it as a blocker for review.
 3. Never invoke tests manually via `npx vitest run …` or shell loops; the scripts exist so that the workflow survives across sessions and so the `windowsHide:true` option fires consistently (avoids cmd.exe popup flicker on Windows).
+
+### 17.7 Enforcement validators for §17 disciplines
+
+§17 disciplines that have a deterministic structural shape get enforcement validators in `scripts/validate-*.mjs`, wired into `npm test` as pre-test steps. Drift is caught at lint time, not when it ships. This section is the source-of-truth for which §17 disciplines are structurally enforced vs. which remain code-review-only (judgment-rules).
+
+| §17 discipline | Validator | Mode |
+| --- | --- | --- |
+| §17.1 — every test file declares its exit-door coverage via `// @doors:` header (and explicitly marks N/A doors with reasons) | [`scripts/validate-exit-doors.mjs`](../../scripts/validate-exit-doors.mjs) | **Warning** during PR-D2 annotation pass (header-missing files warn but do not fail the suite). **Strict** under `CMK_DOORS_STRICT=1`; flipped to default after all 30 test files are annotated. Silent-omission (declared neither in-set nor N/A) violates regardless. |
+| §17.3-§17.5 — real-binary spawn smoke tests exercise the kit's actual spawn boundaries with the same `windowsHide:true` + `shell:true` posture as production | `scripts/validate-spawn-discipline.mjs` (PR-D2) | **Planned**: every `spawn()` in `packages/cli/src/` either passes `timeoutMs` + cleanup callback OR is suppressed with a documented reason (e.g. detached fire-and-forget where parent-side timeout is incorrect). |
+| §17.6 — `npm run stress` gate before opening any PR whose surface touches spawn boundaries / hook handlers / detached children | None (workflow rule; enforced by the PR-author's discipline) | **Judgment rule**: stays prose-only. The validator that COULD enforce this is "did the PR description include a stress-result line?" — the kit doesn't have a PR-description linter, and adding one is out of scope for v0.1. |
+
+**Internal-reference rot** (cross-cutting §17 but not §17-specific) gets its own validator:
+
+| Rule | Validator | Mode |
+| --- | --- | --- |
+| Internal cross-references resolve: file links, `ADR-NNNN`, `§N.N` (within design.md), `FR-N`, `NFR-N`, `Task N` — broken or dangling references fail the suite. Code blocks + inline-code spans + `docs/research/` + `docs/sources/` + `docs/conversation-log/` are skipped (research-base notes use third-party FR namespaces). | [`scripts/validate-references.mjs`](../../scripts/validate-references.mjs) | **Strict**. Suppression via `<!-- validate-references: ignore -->` on the same line — sparingly. |
+
+**Numbering-gap and composition validators come in PR-D2.** Their source rules:
+
+- `validate-numbering-gaps.mjs` enforces that `ADR-NNNN` / FR-N / Task-N / `§N` ID sequences either have no gaps OR have an explicit `reserved-not-yet-shipped` README marker. PR-C found ADR-0009 + ADR-0010 missing for ~3 weeks because no validator caught the gap.
+- `validate-composition.mjs` enforces that documented composition invariants have asserted test pairs. The four instances from CLAUDE.md "Composition verification" (PR-14 / PR-22 / PR-25 / PR-A subprocess-timeout) are the precedent.
 
 ---
 

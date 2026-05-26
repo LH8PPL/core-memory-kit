@@ -101,6 +101,54 @@ When implementing new task modules under [`packages/cli/src/`](packages/cli/src/
 
 Why: the Layer-2 review surfaced 4 modules independently reimplementing the same helpers with small variations — drift was already producing bugs (e.g. `INDEX.md` not filtered from one writer's dedup scan; audit-log shape divergence across writers). Future Layer 3/4/5/6 modules import from these shared sources. See [design §1.3](specs/v0.1.0/design.md) for the architectural note and [glossary](specs/v0.1.0/glossary.md) entries for [[Audit log]] + [[Result shape]] + [[Provenance frontmatter]].
 
+## Prose rules vs enforcement (binding)
+
+This codebase has two kinds of rules:
+
+1. **Structural rules** — the rule has a deterministic shape that code can check: "every `spawn()` site has a `timeoutMs` argument", "every test file has a `// @doors:` header", "every reference like `ADR-NNNN` resolves to a file under `docs/adr/`". These get **validators** in `scripts/validate-*.mjs` wired into `npm test` as pre-test steps. Drift is caught at lint time, not when it ships.
+2. **Judgment rules** — the rule's enforcement requires context the validator can't see: "Did you check the primary source?", "Did you ask the trigger question before codifying?", "Is this an instance of the lazy-framing class?". These stay as prose in CLAUDE.md and rely on the **code-review-excellence** ONE-holistic-pass-per-PR discipline (see "Skill agency" section).
+
+**The validators that exist** (post-PR-31 audit campaign Part 4 / PR-D1):
+
+| Validator | What it enforces | Source rule |
+| --- | --- | --- |
+| [`scripts/validate-test-ids.mjs`](scripts/validate-test-ids.mjs) | Every `[PUL]-XXXXXXXX` token in tests uses the kit's base32 alphabet (excludes `0`/`O`/`1`/`l`/`I`/`8`) | "Test fixture IDs must pass `ID_PATTERN`" (Engineering discipline) |
+| [`scripts/validate-template.mjs`](scripts/validate-template.mjs) | The `template/` scaffold has every required dir + file, none empty; per-tier cap-coordination invariant (design §7.1) holds | "Snapshot cap composes with per-file caps" (Composition verification, instance #3) |
+| [`scripts/validate-exit-doors.mjs`](scripts/validate-exit-doors.mjs) | Every test file has a `// @doors: <list>` header; doors not declared are explicitly marked `// Door N N/A: <reason>` | "Five exit doors framework — discipline is never silent omission" (design §17.1; Goldberg attribution in SOURCES.md). Warning mode during PR-D2 annotation pass; strict mode after (`CMK_DOORS_STRICT=1`). |
+| [`scripts/validate-references.mjs`](scripts/validate-references.mjs) | Internal references (file links, ADR-NNNN, §N.N in design.md, FR-N, NFR-N, Task N) resolve to real anchors in the kit corpus | "Internal cross-references are subject to the same primary-source verification" (Verification rules, 10th) |
+
+**The validators that are coming** (PR-D2):
+
+- `validate-spawn-discipline.mjs` — every `spawn()` site in `packages/cli/src/` has an enforced `timeoutMs` + cleanup contract (design §8.5). Source rule: "Composition verification — inner subprocess timeouts compose with outer hook ceilings", instance #4 from PR-A.
+- `validate-numbering-gaps.mjs` — ADR / §N / FR-N / Task NN contiguity (no silent gaps; reserved-not-shipped state explicitly marked). Source rule: backfilled from PR-C's missing-ADR finding.
+- `validate-composition.mjs` — every documented composition invariant has an asserted test pair OR is suppressed with a reason. Source rule: "Composition verification" 4-instance pattern.
+
+When a prose-only rule turns out to have a structural shape, **the move is to write the validator, not to add another prose paragraph**. Prose accumulates faster than discipline; structural enforcement catches drift on every run.
+
+### Adoption-verification sub-rule (PR-D)
+
+When the kit adopts an external thing — a library, a framework, a convention, a skill — the adoption must be justified by **concrete evidence**, not by feel. Use the template below per invocation. "It felt useful" is the lazy framing this campaign exists to eliminate.
+
+```text
+Adopted: <name>
+What it provided (concrete): <specific artifact, citation, finding, regex, template, etc.>
+What I would have done without it (counterfactual): <estimated alternative path + rough time estimate>
+Verdict: helpful / neutral / not helpful
+Reasoning: <one sentence — why the verdict>
+```
+
+**Evidence that counts as "helpful"** (any one is enough):
+
+- Caught something I wouldn't have caught otherwise (specific finding).
+- Produced a concrete artifact (validator regex, test template, checklist) I'd have built from scratch.
+- Surfaced a primary source (citation, framework, repo) I'd have missed.
+- Accelerated measurably (saved ~X hours via concrete template).
+- Failed usefully (wrong output that I caught, forcing a verification check that surfaced something).
+
+**Does NOT count**: "It felt useful." "It produced what I would have produced anyway." "It helped me think about the problem."
+
+Applies beyond skills — to libraries, tools, conventions, anything the kit adopts. Negative-result audit notes ("invoked X, neutral outcome, reasoning: …") are valuable data, not failures.
+
 ## Workflow
 
 - **One PR per parent task** in tasks.md (1, 2, 3, ..., not sub-tasks). Branch: `task-N-short-name`. Squash-merge into main. Delete branch on merge.
@@ -110,7 +158,7 @@ Why: the Layer-2 review surfaced 4 modules independently reimplementing the same
   - `npm test` — full suite (one run, validate-test-ids + validate-template prerun, live-Haiku spawn-smokes enabled by default)
   - `npm run test:file -- <path>` — targeted single-file or specific-test-name iteration (skips the slow prerun; pass any extra vitest args after `--`, e.g. `-t "test name"`)
   - `npm run test:watch` — interactive vitest
-  - `npm run stress` — 5x full suite, refuses to run if `CMK_SKIP_LIVE_HAIKU=1` is set; this is the gate before opening any PR whose surface touches spawn boundaries, detached children, hook handlers, or anything else where concurrency-class flakes hide
+  - `npm run stress` — 5x full suite, refuses to run if `CMK_SKIP_LIVE_HAIKU=1` is set; this is the gate before opening any PR whose surface touches spawn boundaries, detached children, hook handlers, or anything else where concurrency-class flakes hide. **Gate met = 5/5 on the first stress invocation, OR — for the documented live-Haiku external-API jitter class only (PR #28's queued retry-on-timeout followup) — first run 4/5 followed by two consecutive 5/5 runs.** The two-consecutive-clears clause is narrow: it applies ONLY when the failing test is in the known live-Haiku jitter set (timeouts / 5xx / network blips during `claude --print` spawn-smokes), and it does NOT apply to any other flake class (Windows cold-start, lock contention, fixture races, etc.). For any non-jitter flake, the gate is 5/5 on the FIRST invocation — fix the flake or surface it as a PR blocker. Documented as PR-D1's gate-meeting precedent 2026-05-26.
   - `npm run lint:test-ids` / `npm run validate:template` — individual prerun pieces
   - **Do not** type `npx vitest run …` directly; use `test:file`. **Do not** type `for i in 1..5; do npm test; done`; use `stress`. **Do not** set `CMK_SKIP_LIVE_HAIKU=1` to save round-trips; if a script's too slow, fix the script. The rule's job is to make the next-session-me invoke the same flow as this-session-me, without re-deriving it. New common invocations get a new `npm run` script, not a new shell habit.
 - **PR title format**: `[N] <description> (T-NNN)` (T-NNN is the legacy ID; current convention is the bare number).
@@ -174,8 +222,8 @@ The memory model the kit is building (and the model these notes are written unde
 
 - **Tasks 1-24 merged** (PRs #1-#30); Task 23 has 10 sub-tasks including 23.9 (subprocess timeout per design §8.5, PR #32) and 23.10 (lock-file discipline per design §6.9, PR #33), both retroactive from the post-PR-31 audit campaign
 - **775/775 tests green** with live-Haiku spawn-smokes enabled (~5% live-Haiku external-API jitter remains the only flake class — queued spawn-smoke retry-on-timeout followup tracked from PR #28)
-- **Post-PR-31 audit campaign in flight** — 5 PRs total, converts prose-only verification rules into enforcement validators where shape admits. **Task 25 PAUSED** until PR-E merges (PR-E is a v0.1.0 release blocker — cross-platform discipline sweep — was promoted from 4 PRs to 5 after PR-B's `recoveryCommand` finding surfaced the platform class). Authoritative tracker: [`docs/journey/v0.1.0-build-log.md` §"Post-PR-31 audit campaign tracker"](docs/journey/v0.1.0-build-log.md). Read that section first if resuming work — it carries the queue status, structured deferrals from earlier PRs (capture-turn spawn-failed observability → PR-D), the skill-experiment audit-note discipline for PR-D, PR-E's full scope, and the resume criteria for Task 25.
-- **Campaign queue**: PR-A `[MERGED]` (#32) → PR-B `[MERGED]` (#33) → PR-C `[MERGED]` (#34) → PR-D `audit-completeness-and-enforcement` `[NEXT]` → PR-E `audit-cross-platform-portability`. Each PR runs `code-review-excellence` (ONE holistic pass per PR — see Skill agency section) before opening + `npm run stress` 5x before opening + names "Part N of 5 in the post-PR-31 audit campaign" in its description.
+- **Post-PR-31 audit campaign in flight** — 6 PRs total, converts prose-only verification rules into enforcement validators where shape admits. **Task 25 PAUSED** until PR-E merges (PR-E is a v0.1.0 release blocker — cross-platform discipline sweep — was promoted from 4 PRs to 5 after PR-B's `recoveryCommand` finding surfaced the platform class; PR-D was then split into D1 + D2 after the in-flight scope audit surfaced realistic-session-budget as another unanticipated category — same campaign rule fires: open another PR rather than bundling). Authoritative tracker: [`docs/journey/v0.1.0-build-log.md` §"Post-PR-31 audit campaign tracker"](docs/journey/v0.1.0-build-log.md). Read that section first if resuming work — it carries the queue status, structured deferrals from earlier PRs (capture-turn spawn-failed observability → PR-D2), the skill-experiment audit-note discipline for PR-D, PR-E's full scope, and the resume criteria for Task 25.
+- **Campaign queue**: PR-A `[MERGED]` (#32) → PR-B `[MERGED]` (#33) → PR-C `[MERGED]` (#34) → PR-D1 `audit-enforcement-validators-1` `[OPEN]` (#35) → PR-D2 `audit-enforcement-validators-2` `[NEXT after D1 merge]` (3 validators + annotation pass + class-5 audit + capture-turn observability + 7 deferred review findings from D1) → PR-E `audit-cross-platform-portability`. Each PR runs `code-review-excellence` (ONE holistic pass per PR — see Skill agency section) before opening + `npm run stress` 5x before opening + names "Part N of 6 in the post-PR-31 audit campaign" in its description.
 - **No parallel campaign PRs.** Per the original campaign launch: *"Each PR opens AFTER the prior PR merges. No parallel work on this campaign — the audits in each class touch overlapping files and parallel PRs would conflict."* Sequencing is strict: PR-A merges → PR-B opens; PR-B merges → PR-C opens; etc. The only exception is direct-to-main docs commits (tracker updates, meta-rule additions, future-work entries) which are docs-only and don't touch the campaign-PR branches' diffs — those CAN happen while a campaign PR is in flight, as demonstrated by the post-PR-32 tracker write and the post-PR-C bundle (`dd1f25e`).
 - **If an audit surfaces an unanticipated category, open another PR in the campaign rather than bundling.** Per the original launch: *"If any PR's audit surfaces a class-7-class-8 unanticipated category, open a fifth PR in the campaign rather than bundling into the current one. Each PR stays focused."* This rule fired when PR-B surfaced the cross-platform class → PR-E added as Part 5/5 instead of folded into PR-D.
 
