@@ -1,6 +1,6 @@
 // Real-binary spawn smoke test for the SessionEnd compression code
 // path (Task 22, retroactive). Per design §17 "Test discipline" —
-// specifically §17.3-§17.5 (§17.1 four-doors umbrella covers WHAT
+// specifically §17.3-§17.5 (§17.1 five-exit-doors umbrella covers WHAT
 // to assert; these subsections cover HOW to assert door 3 when the
 // call is cross-process):
 //

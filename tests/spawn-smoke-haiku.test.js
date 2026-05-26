@@ -1,6 +1,6 @@
 // Real-binary spawn smoke test for HaikuViaAnthropicApi (Task 23.8,
 // retroactive). Per design §17 "Test discipline" — specifically
-// the §17.3-§17.5 spawn-boundary subsections (§17.1 four-doors
+// the §17.3-§17.5 spawn-boundary subsections (§17.1 five-exit-doors
 // umbrella covers WHAT to assert; these subsections cover HOW to
 // assert door 3 properly when the call is cross-process). The
 // Task 23 unit tests use an injected `spawnFn` mock; that pins the

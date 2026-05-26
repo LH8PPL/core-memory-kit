@@ -50,6 +50,7 @@ import {
 import { join, dirname } from 'node:path';
 import { generateId } from '../../canonicalize/src/index.mjs';
 import { memoryWrite } from './memory-write.mjs';
+import { HaikuTimeoutError } from './compressor.mjs';
 import { nowIso } from './audit-log.mjs';
 import { ERROR_CATEGORIES } from './result-shapes.mjs';
 
@@ -544,6 +545,13 @@ export async function runAutoExtract({
     });
 
     // 4. Call Haiku.
+    //
+    // Subprocess timeout: 25_000 ms. Sits comfortably under the 30s
+    // Stop hook ceiling (design §5.1) so on timeout the catch +
+    // finally + extract.log write all complete BEFORE Claude Code
+    // kills the parent. Without this, a hung claude --print call
+    // would leak the auto-extract.lock file and skip the NDJSON
+    // log entry — see design §8.5 for the composition rationale.
     let haikuResult;
     try {
       haikuResult = await haikuBackend.compress({
@@ -551,18 +559,30 @@ export async function runAutoExtract({
         instructions,
         maxOutputBytes: 2000,
         preserveCitationIds: false,
+        timeoutMs: 25_000,
       });
     } catch (err) {
+      // Route on the error TYPE — distinguishes "took too long"
+      // (HAIKU_TIMEOUT) from "subprocess exited non-zero"
+      // (HAIKU_FAILED). Using `instanceof HaikuTimeoutError`
+      // rather than `err.category === 'haiku_timeout'` because the
+      // string-comparison contract is fragile: a future error class
+      // that happens to set `.category` to a colliding value, or a
+      // rename of the string at one end but not the other, would
+      // silently misroute. The instanceof check is type-anchored.
+      const category = err instanceof HaikuTimeoutError
+        ? ERROR_CATEGORIES.HAIKU_TIMEOUT
+        : ERROR_CATEGORIES.HAIKU_FAILED;
       const entry = {
         ...baseEntry,
         success: false,
-        error_category: ERROR_CATEGORIES.HAIKU_FAILED,
+        error_category: category,
         duration_ms: Date.now() - t0,
       };
       const logPath = writeExtractLogEntry({ projectRoot, ts, entry });
       return {
         action: 'error',
-        error_category: ERROR_CATEGORIES.HAIKU_FAILED,
+        error_category: category,
         observation_count: 0,
         duration_ms: entry.duration_ms,
         logPath,
