@@ -1753,6 +1753,57 @@ Deferred to v0.1.x because the manual disciplines work, the write side has recur
 
 **The meta-irony worth documenting:** this is the **9th instance** of the cross-build pattern — we have the solution, it exists in the codebase, it shipped (Task 23), and we've been hand-rolling manual workarounds because nobody triggered the question "could we use this on ourselves?" Same shape as the skills library miss (had it, never surveyed — PR-D's planned skill experiment), the Goldberg attribution miss (knew the source, never cited — caught by PR-A's five-doors restoration), the audit campaign itself (rules exist, never enforced — what this whole campaign exists to fix). Documenting here so the option is visible after v0.1.0 ships.
 
+### 16.21 `InstructionsLoaded` hook integration (article-verification finding)
+
+**v0.1.x candidate.**
+
+Surfaced by the 2026-05-26 article-verification side quest. Anthropic's official Claude Code docs document an `InstructionsLoaded` hook (see [code.claude.com/docs/en/memory](https://code.claude.com/docs/en/memory), Troubleshoot section): *"Use the `InstructionsLoaded` hook to log exactly which instruction files are loaded, when they load, and why."* The kit's hook research base ([`docs/research/2026-05-21-claude-ai-deep-research-option-b.md`](../../docs/research/2026-05-21-claude-ai-deep-research-option-b.md)) enumerates 8 lifecycle hooks (SessionStart / UserPromptSubmit / PreToolUse / PostToolUse / Stop / SessionEnd / PreCompact / Notification) but does NOT include `InstructionsLoaded` — an integration gap the article-verification surfaced indirectly.
+
+Use cases for the kit:
+
+- **`cmk doctor` HC-* diagnostics**: log which kit-installed CLAUDE.md / `.claude/rules/*.md` files are actually loaded, when. If a user reports "the kit's instructions aren't firing," this hook tells us whether the files are visible to Claude Code at all.
+- **Debug aid for the campaign's `validate-references.mjs` rollout**: when the validator surfaces a broken internal reference, the user might want to know whether that file was even loaded. `InstructionsLoaded` provides the ground-truth.
+
+Deferred to v0.1.x because: (a) the kit currently functions without it; (b) needs research-base entry (deep-dive against the actual hook payload + timing semantics); (c) the kit's existing hooks already cover the high-leverage lifecycle events for v0.1.0.
+
+Provenance: [`docs/research/2026-05-26-claude-code-memory-guide-verification.md`](../../docs/research/2026-05-26-claude-code-memory-guide-verification.md) (side-finding #1).
+
+### 16.22 MEMORY.md 25KB ceiling vs the kit's cap composition
+
+**v0.1.x candidate (composition-verification class).**
+
+Surfaced by the 2026-05-26 article-verification side quest. Anthropic's official docs: *"The first 200 lines of `MEMORY.md`, **or the first 25KB, whichever comes first**, are loaded at the start of every conversation."* The kit's [§7 cap-coordination invariant](#snapshot-cap-coordination-rule-binding) currently encodes the 200-line rule (via per-tier scratchpad budgets) but does NOT directly encode the 25KB byte-ceiling that Anthropic enforces on a separate file (`MEMORY.md` — the auto-memory entry-point, not the kit's per-tier scratchpads).
+
+The composition question: when the kit's auto-extract subagent writes to MEMORY.md, does the 200-line-bullet-heavy output fit within 25KB? Or could a bullet-heavy MEMORY.md exceed 25KB before hitting the 200-line ceiling? A bullet-heavy `MEMORY.md` with average line-length 50 chars would fit 200 lines in ~10KB (well under 25KB). A paragraph-heavy file with 150-char lines would fit 200 lines in ~30KB (over 25KB — Anthropic truncates at the byte limit, dropping the last lines silently).
+
+The kit's snapshot cap is currently 12KB total across tiers (per `DEFAULT_CAP_BYTES` in `inject-context.mjs`) — much less than Anthropic's 25KB MEMORY.md ceiling, so we're nominally safe. But if Anthropic raises their ceiling or the kit grows its per-tier budgets, the composition could drift. v0.1.x: add a `validate-memory-md-ceiling.mjs` validator OR a §7.1 amendment that explicitly states the kit's cap composes within Anthropic's ceiling.
+
+This is the 5th instance of the composition-verification pattern (CLAUDE.md "Composition verification" rule — PR-14 / PR-22 / PR-25 / PR-A and now this).
+
+Provenance: [`docs/research/2026-05-26-claude-code-memory-guide-verification.md`](../../docs/research/2026-05-26-claude-code-memory-guide-verification.md) (side-finding #3).
+
+### 16.23 Block-level HTML-comment stripping pattern in template CLAUDE.md
+
+**v0.1.x candidate.**
+
+Surfaced by the 2026-05-26 article-verification side quest. Anthropic's official docs: *"Block-level HTML comments (`<!-- maintainer notes -->`) in CLAUDE.md files are stripped before the content is injected into Claude's context. Use them to leave notes for human maintainers without spending context tokens on them. Comments inside code blocks are preserved."*
+
+Use case for the kit's [`template/CLAUDE.md.template`](../../template/CLAUDE.md.template): the template currently has either no maintainer notes OR token-spending inline prose. Anthropic's stripping rule means we can add:
+
+```markdown
+<!--
+MAINTAINER NOTE: This file is the kit's auto-installed CLAUDE.md
+template. Edit `template/CLAUDE.md.template` in the kit repo, not
+the installed copy; `cmk repair` re-syncs from the template.
+-->
+```
+
+…and the user's session won't burn tokens on the maintainer note. The kit's own `CLAUDE.md` could use the same pattern for internal-build notes (the "Working style locked in by the user" preamble could move into a stripped comment if we want to hide it from session context while keeping it visible to maintainers in the file).
+
+Deferred to v0.1.x because: (a) low priority — the kit functions without it; (b) requires the template scaffold to settle (Task 14 still has follow-on work); (c) the optimization is small per file but useful at scale across the kit's template + per-tier CLAUDE.md emissions.
+
+Provenance: [`docs/research/2026-05-26-claude-code-memory-guide-verification.md`](../../docs/research/2026-05-26-claude-code-memory-guide-verification.md) (side-finding #4).
+
 ---
 
 ## 17. Test discipline
