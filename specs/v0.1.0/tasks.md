@@ -444,7 +444,7 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 - [x] 23.9.1 Add explicit `timeoutMs` option to `CompressorBackend.compress` interface (design §8.3)
 - [x] 23.9.2 Caller-driven timeouts: auto-extract 25_000ms (under 30s Stop), compress-session 50_000ms (under 60s SessionEnd); headroom for catch + finally + NDJSON log-write
 - [x] 23.9.3 Cleanup contract: SIGTERM → grace window (default 2s) → SIGKILL; exposed as `terminateSubprocess(child, {killGraceMs})` for independent testability
-- [x] 23.9.4 New `ERROR_CATEGORIES.HAIKU_TIMEOUT` (disambiguates from `HAIKU_FAILED` non-zero exit / spawn ENOENT); callers route on `err.category`
+- [x] 23.9.4 New `ERROR_CATEGORIES.HAIKU_TIMEOUT` (disambiguates from `HAIKU_FAILED` non-zero exit / spawn ENOENT); callers route on `err instanceof HaikuTimeoutError` (type-anchored per PR-A code-review pass — string-comparison contract was structurally fragile)
 - [x]* 23.9.5 Tests: unit (mocked spawn that never closes; assert kill chain + reject with `HaikuTimeoutError` carrying `category: 'haiku_timeout'`) + real-binary spawn-smoke (against `tests/fixtures/hang-forever.mjs` fixture, pins the OS-level kill primitives work on Windows TerminateProcess path)
   - Implementation: [`packages/cli/src/compressor.mjs`](../../packages/cli/src/compressor.mjs), [`tests/cli-compressor-timeout.test.js`](../../tests/cli-compressor-timeout.test.js), [`tests/spawn-smoke-kill-chain.test.js`](../../tests/spawn-smoke-kill-chain.test.js)
   - _Requirements: addresses post-PR-31 finding; design §8.5_
