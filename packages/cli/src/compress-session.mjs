@@ -37,6 +37,7 @@ import {
 import { join, dirname } from 'node:path';
 import { nowIso } from './audit-log.mjs';
 import { ERROR_CATEGORIES } from './result-shapes.mjs';
+import { HaikuTimeoutError } from './compressor.mjs';
 
 const DEFAULT_COOLDOWN_MS = 120_000;
 const DEFAULT_MAX_OUTPUT_BYTES = 4096;
@@ -291,6 +292,13 @@ export async function compressSession({
   const instructions = buildCompressionInstructions(maxOutputBytes);
 
   // 3. Invoke backend. On throw: leave now.md intact (22.5).
+  //
+  // Subprocess timeout: 50_000 ms. Sits under the 60s SessionEnd
+  // hook ceiling (design §5.1) so on timeout the catch + log write
+  // complete BEFORE Claude Code kills the parent. now.md is left
+  // intact in the timeout case (the truncate step is reached only
+  // on the success path), so the next session-end retries naturally.
+  // See design §8.5 for the composition rationale.
   let result;
   try {
     result = await backend.compress({
@@ -298,8 +306,19 @@ export async function compressSession({
       instructions,
       preserveCitationIds: true,
       maxOutputBytes,
+      timeoutMs: 50_000,
     });
   } catch (err) {
+    // Distinguish HAIKU_TIMEOUT (slow Anthropic) from COMPRESS_FAILED
+    // (non-zero subprocess exit / spawn ENOENT / etc). Analytics
+    // treat them differently — timeouts retry naturally on the
+    // next SessionEnd; failed exits often need investigation.
+    // `instanceof HaikuTimeoutError` (not string match on
+    // err.category) so the routing contract is type-anchored —
+    // see compressor.mjs HaikuTimeoutError docstring for rationale.
+    const errorCategory = err instanceof HaikuTimeoutError
+      ? ERROR_CATEGORIES.HAIKU_TIMEOUT
+      : ERROR_CATEGORIES.COMPRESS_FAILED;
     const duration_ms = Date.now() - t0;
     const entry = {
       ts,
@@ -310,12 +329,12 @@ export async function compressSession({
       cost_usd: 0,
       duration_ms,
       success: false,
-      error_category: ERROR_CATEGORIES.COMPRESS_FAILED,
+      error_category: errorCategory,
     };
     writeCompressLogEntry({ projectRoot, date, entry });
     return {
       action: 'error',
-      error_category: ERROR_CATEGORIES.COMPRESS_FAILED,
+      error_category: errorCategory,
       duration_ms,
       errorMessage: err?.message ?? String(err),
     };

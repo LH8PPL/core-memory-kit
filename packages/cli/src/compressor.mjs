@@ -73,6 +73,71 @@ export class CompressorBackend {
   }
 }
 
+// Subprocess timeout error — distinguishes "the call took too long"
+// from "the call exited with a non-zero status" (which produces a
+// generic Error with the subprocess's stderr). Callers route on
+// `err.category` per design §8.5; the kit's ERROR_CATEGORIES enum
+// uses HAIKU_TIMEOUT for this case + HAIKU_FAILED for non-zero exit.
+//
+// Per the design §8.5 contract, every CompressorBackend implementation
+// (HaikuViaAnthropicApi here; v0.2 BedrockHaiku / LocalLlama later)
+// MUST honor the caller-supplied timeoutMs by rejecting with a
+// HaikuTimeoutError (or category-equivalent). The "Haiku" in the
+// name is historical — the contract applies to every backend.
+export class HaikuTimeoutError extends Error {
+  constructor(message, { timeoutMs }) {
+    super(message);
+    this.name = 'HaikuTimeoutError';
+    this.category = 'haiku_timeout';
+    this.timeoutMs = timeoutMs;
+  }
+}
+
+// SIGTERM → grace window → SIGKILL escalation. Exported so the kill
+// chain itself is independently testable against real OS processes
+// (see tests/spawn-smoke-kill-chain.test.js) — the production code
+// path in compress() uses it internally.
+//
+// Returns {method: 'already-exited' | 'sigterm' | 'sigkill' |
+// 'sigkill-no-confirm', exitCode}. The 'sigkill-no-confirm' case
+// means we sent SIGKILL but the OS didn't deliver the 'exit' event
+// within the secondary timeout — exceedingly rare; documented for
+// completeness.
+export function terminateSubprocess(child, { killGraceMs = 2000 } = {}) {
+  return new Promise((resolve) => {
+    if (child.exitCode !== null && child.exitCode !== undefined) {
+      resolve({ method: 'already-exited', exitCode: child.exitCode });
+      return;
+    }
+    let settled = false;
+    let sigkillSent = false;
+    const finish = (method) => {
+      if (settled) return;
+      settled = true;
+      resolve({ method, exitCode: child.exitCode ?? null });
+    };
+    const onExit = () => {
+      finish(sigkillSent ? 'sigkill' : 'sigterm');
+    };
+    child.once('exit', onExit);
+    try {
+      child.kill('SIGTERM');
+    } catch {
+      // Child already gone — onExit will fire (or has fired)
+    }
+    setTimeout(() => {
+      if (settled) return;
+      sigkillSent = true;
+      try {
+        child.kill('SIGKILL');
+      } catch {
+        // Best-effort
+      }
+      setTimeout(() => finish('sigkill-no-confirm'), 1000);
+    }, killGraceMs);
+  });
+}
+
 export class HaikuViaAnthropicApi extends CompressorBackend {
   constructor({ claudeBin, model, spawnFn } = {}) {
     super();
@@ -94,7 +159,7 @@ export class HaikuViaAnthropicApi extends CompressorBackend {
     );
   }
 
-  async compress({ input, maxOutputBytes, preserveCitationIds, instructions } = {}) {
+  async compress({ input, maxOutputBytes, preserveCitationIds, instructions, timeoutMs, killGraceMs } = {}) {
     if (typeof input !== 'string') {
       throw new Error('HaikuViaAnthropicApi.compress: input must be a string');
     }
@@ -158,6 +223,15 @@ export class HaikuViaAnthropicApi extends CompressorBackend {
     });
 
     const cleanupSandbox = () => {
+      // Single-use sandbox: the directory and the empty-mcp.json file
+      // inside it are created per-call; nothing else references them
+      // after the subprocess dies. On the timeout path,
+      // `terminateSubprocess` runs in the background AFTER we call
+      // `rmSync` here — if the dying subprocess is mid-read of
+      // mcpConfigPath when SIGTERM hits, Windows can emit a benign
+      // EBUSY which is swallowed by the catch. The ordering
+      // (rm-then-kill) is intentional: the kill chain only touches
+      // the child PID, never the sandbox path.
       try {
         rmSync(sandbox, { recursive: true, force: true });
       } catch {
@@ -168,6 +242,27 @@ export class HaikuViaAnthropicApi extends CompressorBackend {
     return await new Promise((resolve, reject) => {
       let stdout = '';
       let stderr = '';
+      let settled = false;
+      // Timeout timer (set up below if caller supplied timeoutMs).
+      // Cleared on close/error so a child that exits cleanly within
+      // the window doesn't trigger the kill chain.
+      let timeoutTimer = null;
+
+      const settleReject = (err) => {
+        if (settled) return;
+        settled = true;
+        if (timeoutTimer) clearTimeout(timeoutTimer);
+        cleanupSandbox();
+        reject(err);
+      };
+      const settleResolve = (value) => {
+        if (settled) return;
+        settled = true;
+        if (timeoutTimer) clearTimeout(timeoutTimer);
+        cleanupSandbox();
+        resolve(value);
+      };
+
       child.stdout.on('data', (chunk) => {
         stdout += chunk.toString('utf8');
       });
@@ -175,13 +270,12 @@ export class HaikuViaAnthropicApi extends CompressorBackend {
         stderr += chunk.toString('utf8');
       });
       child.on('error', (err) => {
-        cleanupSandbox();
-        reject(err);
+        settleReject(err);
       });
       child.on('close', (code) => {
-        cleanupSandbox();
+        if (settled) return; // timeout already fired
         if (code !== 0) {
-          reject(
+          settleReject(
             new Error(
               `HaikuViaAnthropicApi: claude --print exit ${code}: ${stderr.trim() || '(no stderr)'}`,
             ),
@@ -197,7 +291,7 @@ export class HaikuViaAnthropicApi extends CompressorBackend {
             ? outputText.slice(0, maxOutputBytes)
             : outputText;
         const preservedIds = preserveCitationIds ? extractIds(trimmed) : [];
-        resolve({
+        settleResolve({
           outputText: trimmed,
           inputTokens: Math.ceil(Buffer.byteLength(promptBody, 'utf8') / BYTES_PER_TOKEN_ESTIMATE),
           outputTokens: Math.ceil(Buffer.byteLength(trimmed, 'utf8') / BYTES_PER_TOKEN_ESTIMATE),
@@ -205,6 +299,34 @@ export class HaikuViaAnthropicApi extends CompressorBackend {
           preservedIds,
         });
       });
+
+      // Optional timeout. Default (no timeoutMs supplied) preserves
+      // prior behavior — wait forever for the subprocess. Callers
+      // SHOULD pass timeoutMs in production paths per design §8.5
+      // (auto-extract 25_000, compress-session 50_000); the no-
+      // timeout default exists only for backwards compatibility with
+      // existing test fixtures that don't expect a timer.
+      if (typeof timeoutMs === 'number' && timeoutMs > 0) {
+        timeoutTimer = setTimeout(() => {
+          if (settled) return;
+          // Fire the kill chain. Don't await it — settle the Promise
+          // immediately with the timeout error so the caller doesn't
+          // also have to wait the kill-grace window. The kill chain
+          // runs in the background to clean up the OS-level subprocess
+          // (terminateSubprocess returns a Promise we ignore here; the
+          // sandbox cleanup happens in settleReject).
+          terminateSubprocess(child, { killGraceMs: killGraceMs ?? 2000 }).catch(() => {
+            // Best-effort; can't do anything further
+          });
+          settleReject(
+            new HaikuTimeoutError(
+              `HaikuViaAnthropicApi: claude --print did not return within ${timeoutMs}ms`,
+              { timeoutMs },
+            ),
+          );
+        }, timeoutMs);
+      }
+
       // Send the prompt body via stdin and close.
       child.stdin.write(promptBody);
       child.stdin.end();

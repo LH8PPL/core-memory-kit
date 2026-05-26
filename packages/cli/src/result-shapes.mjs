@@ -66,8 +66,23 @@ export const ERROR_CATEGORIES = Object.freeze({
 
   // The CompressorBackend's compress() rejected. For
   // HaikuViaAnthropicApi this means the `claude --print` subprocess
-  // exited non-zero or the spawn itself failed.
+  // exited non-zero or the spawn itself failed. HAIKU_TIMEOUT
+  // (below) is the disambiguated case for "took too long" vs.
+  // "exited unhealthy"; analytics treat them differently.
   HAIKU_FAILED: 'haiku_failed',
+
+  // CompressorBackend.compress() exceeded the caller-supplied
+  // timeoutMs (design §8.5). The subprocess was killed by the
+  // SIGTERM → grace → SIGKILL escalation in terminateSubprocess.
+  // Auto-extract passes timeoutMs=25_000 (under 30s Stop hook
+  // ceiling); compress-session passes 50_000 (under 60s SessionEnd
+  // ceiling). The inner timeout exists so the catch + finally +
+  // log-write all run BEFORE the outer hook ceiling kills the
+  // parent — without it, a hung Haiku call would leak the
+  // auto-extract.lock file and skip the NDJSON log entry.
+  // Distinct from HAIKU_FAILED so analytics can separate "the API
+  // is slow today" from "the API rejected our call".
+  HAIKU_TIMEOUT: 'haiku_timeout',
 
   // SessionEnd compression (Task 22) — the CompressorBackend's
   // compress() rejected when called with the §8.4 compression

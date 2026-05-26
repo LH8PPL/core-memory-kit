@@ -439,6 +439,15 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Asserts: spawn does not throw ENOENT/EINVAL; exit 0; stderr does not contain `unrecognized`/`invalid` (catches flag renames); `outputText` non-empty
   - Skips gracefully if `CMK_SKIP_LIVE_HAIKU=1` env OR `claude` binary not in PATH
   - _Requirements: addresses live-test finding; design §17_
+- [x] 23.9 Subprocess timeout + cleanup contract for HaikuViaAnthropicApi (per design §8.5)
+  - Retroactively added 2026-05-26 (post-PR-31 audit campaign Part 1/4). The post-PR-31 timeout investigation surfaced that `HaikuViaAnthropicApi.compress()` had NO inner timeout — relying entirely on Claude Code's outer hook ceiling (30s Stop / 60s SessionEnd) to kill hung subprocesses. Outer-kill ran with no cleanup: auto-extract.lock file leaked, no NDJSON log entry written, cooldown marker untouched. The composition-verification rule from CLAUDE.md (inner + outer bounds must compose) caught this once the class-1 spawn audit was applied across the codebase.
+- [x] 23.9.1 Add explicit `timeoutMs` option to `CompressorBackend.compress` interface (design §8.3)
+- [x] 23.9.2 Caller-driven timeouts: auto-extract 25_000ms (under 30s Stop), compress-session 50_000ms (under 60s SessionEnd); headroom for catch + finally + NDJSON log-write
+- [x] 23.9.3 Cleanup contract: SIGTERM → grace window (default 2s) → SIGKILL; exposed as `terminateSubprocess(child, {killGraceMs})` for independent testability
+- [x] 23.9.4 New `ERROR_CATEGORIES.HAIKU_TIMEOUT` (disambiguates from `HAIKU_FAILED` non-zero exit / spawn ENOENT); callers route on `err.category`
+- [x]* 23.9.5 Tests: unit (mocked spawn that never closes; assert kill chain + reject with `HaikuTimeoutError` carrying `category: 'haiku_timeout'`) + real-binary spawn-smoke (against `tests/fixtures/hang-forever.mjs` fixture, pins the OS-level kill primitives work on Windows TerminateProcess path)
+  - Implementation: [`packages/cli/src/compressor.mjs`](../../packages/cli/src/compressor.mjs), [`tests/cli-compressor-timeout.test.js`](../../tests/cli-compressor-timeout.test.js), [`tests/spawn-smoke-kill-chain.test.js`](../../tests/spawn-smoke-kill-chain.test.js)
+  - _Requirements: addresses post-PR-31 finding; design §8.5_
 
 - [ ] 24. `memory-write` skill + Poison_Guard (T-021)
   - Estimate: L · Depends: 7, 9, 12, 13
