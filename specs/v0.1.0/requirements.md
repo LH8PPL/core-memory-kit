@@ -2,6 +2,8 @@
 
 **Status**: Draft for review · **Author**: Claude (Opus 4.7) + Lior Hollander · **Date**: 2026-05-21
 
+> **FR-28, FR-29, FR-30, and NFR-9 are NOT in this file.** They were approved 2026-05-22 and live in [`requirements-revisions-proposed.md`](requirements-revisions-proposed.md) which is authoritative for those entries pending v0.1.x cleanup that merges them into this file. The rest of the spec stack (design.md, tasks.md, ADRs 0009/0010) cites them as if merged. PR-C of the post-PR-31 audit campaign (2026-05-26) surfaced this gap and added this pointer.
+
 ---
 
 ## 1. Introduction
