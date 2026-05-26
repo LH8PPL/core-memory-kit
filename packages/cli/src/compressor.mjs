@@ -149,6 +149,12 @@ export class HaikuViaAnthropicApi extends CompressorBackend {
       env,
       stdio: ['pipe', 'pipe', 'pipe'],
       shell: true,
+      // Suppress the transient cmd.exe console window on Windows —
+      // every shell:true spawn flashes a window otherwise (visible
+      // to the user when auto-extract / compress-session fires
+      // dozens of times per session). stdio is piped so we still
+      // capture the child's output through the regular handlers.
+      windowsHide: true,
     });
 
     const cleanupSandbox = () => {

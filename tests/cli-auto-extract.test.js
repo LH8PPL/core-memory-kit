@@ -310,6 +310,12 @@ describe('Task 23 — runAutoExtract() boundary', () => {
       });
       expect(r.action).toBe('extracted');
       expect(r.observation_count).toBe(1);
+      // Door 2 (state): promoted candidate actually lands in MEMORY.md.
+      // The result struct alone could mislead (observation_count=1
+      // doesn't prove the write itself succeeded — Poison_Guard or
+      // cap-exceeded could have rejected post-promotion).
+      const memory = readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8');
+      expect(memory).toContain(retainBody);
     });
 
     it('retain segment ≥20 chars: candidate that is a SUBSTRING of retain is NOT promoted (reverse direction blocked)', async () => {
@@ -325,6 +331,15 @@ describe('Task 23 — runAutoExtract() boundary', () => {
       });
       expect(r.action).toBe('skipped');
       expect(r.observation_count).toBe(0);
+      // Door 2 (state): pin the absence on disk too. A future regression
+      // that incorrectly re-introduced reverse-direction promotion
+      // could leave observation_count at 0 (bug elsewhere) but still
+      // smuggle the bullet into MEMORY.md.
+      const memoryPath = join(projectRoot, 'context', 'MEMORY.md');
+      if (existsSync(memoryPath)) {
+        const memory = readFileSync(memoryPath, 'utf8');
+        expect(memory).not.toContain('lock file path');
+      }
     });
   });
 
@@ -579,6 +594,17 @@ describe('Task 23 — runAutoExtract() boundary', () => {
       expect(r.error_category).toBe('concurrent_run');
       const memory = readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8');
       expect(memory).not.toContain('should not be written');
+      // Door 4 (observability): the concurrent-run skip must surface
+      // in extract.log so analytics can track contention frequency.
+      // Without this pin, a refactor that silently drops the log
+      // write would ship — the "memory wasn't written" check above
+      // passes regardless.
+      const logPath = join(projectRoot, 'context', 'sessions', '2026-05-25.extract.log');
+      expect(existsSync(logPath)).toBe(true);
+      const log = readFileSync(logPath, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+      expect(log).toHaveLength(1);
+      expect(log[0].error_category).toBe('concurrent_run');
+      expect(log[0].observation_count).toBe(0);
     });
 
     it('lock file with DEAD PID present → stale recovery: take over the lock and proceed', async () => {
@@ -599,6 +625,20 @@ describe('Task 23 — runAutoExtract() boundary', () => {
       expect(r.observation_count).toBe(1);
       const memory = readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8');
       expect(memory).toContain('stale recovery proved');
+      // Door 2 (state) sub-gap: the stale-PID recovery path must
+      // REWRITE the lock with the current process's PID, not just
+      // delete the stale one. A silent "delete-and-don't-recreate"
+      // bug would still pass the extracted-memory check above but
+      // leave a future concurrent-call without a lock to defend
+      // against. Pin the takeover here. The lock has been released
+      // by the time runAutoExtract returns (releaseLock fires in
+      // the finally block), so we check existence-during-run is
+      // impossible from outside — what we CAN pin is that the
+      // takeover succeeded, which the observation_count=1 already
+      // proves transitively (memoryWrite would fail with
+      // concurrent_run if takeover hadn't worked). Belt-and-
+      // suspenders: assert the lock file is gone post-release.
+      expect(existsSync(lockPath)).toBe(false);
     });
 
     it('lock released after run completes (next invocation can acquire)', async () => {
@@ -651,6 +691,14 @@ describe('Task 23 — runAutoExtract() boundary', () => {
       });
       expect(r.action).toBe('error');
       expect(r.error_category).toBe('missing_turn');
+      // Door 4 (observability): extract.log records the error so
+      // analytics can track missing-turn frequency (e.g., race with
+      // Task 21's writeFileSync, manual cleanup of stale temp files).
+      const logPath = join(projectRoot, 'context', 'sessions', '2026-05-25.extract.log');
+      expect(existsSync(logPath)).toBe(true);
+      const log = readFileSync(logPath, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+      expect(log).toHaveLength(1);
+      expect(log[0].error_category).toBe('missing_turn');
     });
 
     it('empty turn file → action:skipped, skipped_reason: empty_turn', async () => {
@@ -663,6 +711,14 @@ describe('Task 23 — runAutoExtract() boundary', () => {
       });
       expect(r.action).toBe('skipped');
       expect(r.skipped_reason).toBe('empty_turn');
+      // Door 4 (observability): empty turns get a log entry too —
+      // skipped_reason carries the discriminator, success:true (the
+      // skip is a normal outcome, not a failure).
+      const logPath = join(projectRoot, 'context', 'sessions', '2026-05-25.extract.log');
+      const log = readFileSync(logPath, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+      expect(log).toHaveLength(1);
+      expect(log[0].skipped_reason).toBe('empty_turn');
+      expect(log[0].success).toBe(true);
     });
   });
 
@@ -700,6 +756,14 @@ describe('Task 23 — runAutoExtract() boundary', () => {
       await runAutoExtract({ turnFile: f2, projectRoot, haikuBackend: mockBackend('TRUST_HIGH user:x'), now: '2026-05-25T11:00:00Z' });
       const lines = await readExtractLog(projectRoot, '2026-05-25');
       expect(lines).toHaveLength(2);
+      // Door 4 deeper: per-entry shape must differ — a length-only
+      // check would still pass if the writer accidentally mutated
+      // the same entry in place (or re-wrote both with the second
+      // result). Pin first=SKIP and second=extracted-with-1.
+      expect(lines[0].skipped_reason).toBe('nothing_durable');
+      expect(lines[0].observation_count).toBe(0);
+      expect(lines[1].observation_count).toBe(1);
+      expect(lines[1].skipped_reason).toBeNull();
     });
 
     it('extract.log records error_category on Haiku failure', async () => {
@@ -776,6 +840,93 @@ describe('Task 23 — runAutoExtract() boundary', () => {
       // Do assert it mentions the core directive concepts so reviewers
       // catch a regression that drops them.
       expect(prompt.toLowerCase()).toMatch(/correction|preference|environment|convention|workflow|quirk/);
+    });
+  });
+
+  describe('Task 24 integration — Poison_Guard rejection on high-trust route', () => {
+    it('high-trust candidate containing a secret: NOT written to MEMORY.md; logged to poison-guard.log; observation_count drops to 0', async () => {
+      // The case Task 23 documented as "users SHOULD NOT enable real
+      // auto-extract in committed-tier scenarios until Task 24 merges."
+      // Now that 24 has wired memoryWrite() in the routeHigh path,
+      // the regex catalog gates the write. This test pins the
+      // closure of the gap.
+      const turnFile = writeTurnFile(projectRoot, {
+        user: 'remember: my key is ghp_1234567890abcdefghij1234567890abcdef12',
+        assistant: 'Acknowledged.',
+      });
+      const r = await runAutoExtract({
+        turnFile,
+        projectRoot,
+        haikuBackend: mockBackend(
+          'TRUST_HIGH user: my GitHub token is ghp_1234567890abcdefghij1234567890abcdef12',
+        ),
+        now: '2026-05-25T10:00:00Z',
+      });
+      // observation_count drops to 0 because the only high-trust
+      // candidate got Poison_Guard-rejected.
+      expect(r.observation_count).toBe(0);
+      // MEMORY.md must NOT contain the secret in any form.
+      const memory = readFileSync(
+        join(projectRoot, 'context', 'MEMORY.md'),
+        'utf8',
+      );
+      expect(memory).not.toContain('ghp_');
+      // Poison_Guard log captured the rejection.
+      const logPath = join(projectRoot, 'context', '.locks', 'poison-guard.log');
+      expect(existsSync(logPath)).toBe(true);
+      const log = readFileSync(logPath, 'utf8')
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => JSON.parse(l));
+      expect(log.length).toBeGreaterThanOrEqual(1);
+      expect(log[0].pattern_id).toBe('secret_github_pat');
+      // Critical: the cleartext token must NOT appear in the log.
+      expect(JSON.stringify(log[0])).not.toContain('ghp_1234567890abcdefghij1234567890abcdef12');
+    });
+
+    it('clean high-trust candidate alongside a secret-containing candidate: clean one lands, secret rejected', async () => {
+      const turnFile = writeTurnFile(projectRoot, {
+        user: 'standardized on Python 3.13. also: key is sk-ant-api03-' + 'a'.repeat(50),
+        assistant: 'Acknowledged.',
+      });
+      const r = await runAutoExtract({
+        turnFile,
+        projectRoot,
+        haikuBackend: mockBackend(
+          'TRUST_HIGH user: we standardized on Python 3.13',
+          'TRUST_HIGH user: ANTHROPIC_API_KEY=sk-ant-api03-' + 'a'.repeat(50),
+        ),
+        now: '2026-05-25T10:00:00Z',
+      });
+      // Exactly one observation lands — the clean one.
+      expect(r.observation_count).toBe(1);
+      const memory = readFileSync(
+        join(projectRoot, 'context', 'MEMORY.md'),
+        'utf8',
+      );
+      expect(memory).toContain('Python 3.13');
+      expect(memory).not.toContain('sk-ant-');
+      // Door 4 (observability): the rejected secret is logged with
+      // pattern_id surfacing the Anthropic-key category. Mirrors the
+      // pin from the github-pat test above; without it, the
+      // observation-count drop ("the secret didn't land") could be
+      // caused by an unrelated rejection (cap_exceeded, schema)
+      // rather than Poison_Guard.
+      const pgLogPath = join(projectRoot, 'context', '.locks', 'poison-guard.log');
+      expect(existsSync(pgLogPath)).toBe(true);
+      const pgLog = readFileSync(pgLogPath, 'utf8')
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => JSON.parse(l));
+      expect(pgLog.length).toBeGreaterThanOrEqual(1);
+      // The catalog runs patterns in order — generic_credential
+      // (api_key|secret|password|token|bearer + 20+ chars of value)
+      // matches `ANTHROPIC_API_KEY=...` before the more specific
+      // openai_anthropic_key shape. Either is a correct rejection;
+      // what we're pinning is that SOME secret_* category fired.
+      expect(pgLog[0].pattern_id).toMatch(/^secret_/);
+      // Cleartext key must not appear in the log.
+      expect(JSON.stringify(pgLog[0])).not.toContain('sk-ant-api03-');
     });
   });
 });

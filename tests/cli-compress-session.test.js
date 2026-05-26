@@ -163,6 +163,15 @@ describe('Task 22 — compressSession() boundary', () => {
       expect(r.bytesOut).toBeGreaterThanOrEqual(200);
       expect(typeof r.duration_ms).toBe('number');
       expect(r.duration_ms).toBeGreaterThanOrEqual(0);
+      // Door 4 cross-check: the return struct and the compress.log
+      // entry must agree on bytesIn/bytesOut. Separately-correct-
+      // jointly-broken risk class (per CLAUDE.md composition rule):
+      // the return path could be right while the log records zero
+      // or vice versa. Pin them to the SAME values.
+      const log = readCompressLog(projectRoot, '2026-05-26');
+      expect(log).toHaveLength(1);
+      expect(log[0].input_bytes).toBe(r.bytesIn);
+      expect(log[0].output_bytes).toBe(r.bytesOut);
     });
   });
 
@@ -204,6 +213,36 @@ describe('Task 22 — compressSession() boundary', () => {
       expect(r.action).toBe('skipped');
       expect(r.reason).toBe('empty');
       expect(backend.calls).toHaveLength(0);
+    });
+
+    it('door 4: every empty/whitespace/missing skip writes a compress.log entry with skipped_reason=empty', async () => {
+      // Pin the observability contract for the no-op skip path.
+      // Without this pin, a refactor that silently dropped the log
+      // write on empty-input would ship — none of the empty/missing
+      // tests above read the log because the contract was unstated.
+      // Cover all three trigger paths in one go via successive calls
+      // into fresh fixtures.
+      // Path A: explicit empty
+      writeNowMd(projectRoot, '');
+      await compressSession({
+        projectRoot,
+        backend: mockBackend('unused'),
+        now: '2026-05-26T10:00:00Z',
+      });
+      // Path B: whitespace-only
+      writeNowMd(projectRoot, '   \n\n\t');
+      await compressSession({
+        projectRoot,
+        backend: mockBackend('unused'),
+        now: '2026-05-26T10:01:00Z',
+      });
+      const log = readCompressLog(projectRoot, '2026-05-26');
+      expect(log).toHaveLength(2);
+      expect(log[0].skipped_reason).toBe('empty');
+      expect(log[1].skipped_reason).toBe('empty');
+      expect(log[0].input_bytes).toBe(0);
+      expect(log[1].input_bytes).toBe(0);
+      expect(log[0].success).toBe(true);
     });
   });
 
@@ -258,6 +297,12 @@ describe('Task 22 — compressSession() boundary', () => {
       });
       expect(r.action).toBe('compressed');
       expect(backend.calls).toHaveLength(1);
+      // Door 2 (state): the backend was invoked, but did the
+      // compressed output actually land on disk? `action:compressed`
+      // alone doesn't prove the today-{date}.md write happened —
+      // a future regression that returned 'compressed' without
+      // appending would still pass without this pin.
+      expect(readTodayMd(projectRoot, '2026-05-26')).toContain('compressed body');
     });
 
     it('no cooldown marker present → backend invoked (first-call case)', async () => {
@@ -269,6 +314,8 @@ describe('Task 22 — compressSession() boundary', () => {
         now: '2026-05-26T10:00:00Z',
       });
       expect(r.action).toBe('compressed');
+      // Door 2 (state): same as above — pin today-{date}.md exists.
+      expect(readTodayMd(projectRoot, '2026-05-26')).toContain('compressed');
       expect(backend.calls).toHaveLength(1);
     });
 

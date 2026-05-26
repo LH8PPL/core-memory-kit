@@ -9,8 +9,10 @@
   ],
   "scripts": {
     "test": "node scripts/validate-test-ids.mjs && node scripts/validate-template.mjs && vitest run",
-    "lint:test-ids": "node scripts/validate-test-ids.mjs",
+    "test:file": "node scripts/test-file.mjs",
     "test:watch": "vitest",
+    "stress": "node scripts/stress-test.mjs",
+    "lint:test-ids": "node scripts/validate-test-ids.mjs",
     "validate:template": "node scripts/validate-template.mjs"
   },
   "devDependencies": {
