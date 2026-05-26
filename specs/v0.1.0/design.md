@@ -1741,6 +1741,18 @@ v0.2 candidate. Inspired by Garry Tan's GBrain (research note: [`docs/research/2
 - Schema packs (agent-authored evolvable types — GBrain's `gbrain schema use ...` system). Right now the kit ships fixed scratchpad types; making them agent-evolvable adds scope. File as v0.3 candidate IF user feedback indicates the fixed scratchpad set is too rigid for their use cases.
 - Frontmatter-derived edges (per-fact `related: [...]` fields auto-becoming edges). Useful but larger than v0.2's cut.
 
+### 16.20 Self-host the kit's SessionStart injection on its own build environment
+
+**v0.1.x candidate.**
+
+The kit's auto-extract + SessionStart + scratchpads exist and ship in v0.1.0. Cold session, Lior, and Claude (reviewer) have been managing campaign state via manual journey log + design.md + tasks.md updates — the durable spec stack working as designed. But the kit's own scratchpads at `c:/Projects/claude-memory-kit/context/` are not loaded at session start; we've been treating `context/` as test-target output rather than as the kit's own memory.
+
+**Soft dogfooding** (read side only — install SessionStart hook on the kit's own `context/`, leave auto-extract write side OFF during active kit development to avoid recursive modification) would absorb some of the manual discipline. Auto-load campaign state at session start; no recursive write-during-modification risk.
+
+Deferred to v0.1.x because the manual disciplines work, the write side has recursive complexity (a session modifying `auto-extract.mjs` while auto-extract runs against that session creates uncertainty), and v0.1.0 release is better served by completing the audit campaign than expanding scope.
+
+**The meta-irony worth documenting:** this is the **9th instance** of the cross-build pattern — we have the solution, it exists in the codebase, it shipped (Task 23), and we've been hand-rolling manual workarounds because nobody triggered the question "could we use this on ourselves?" Same shape as the skills library miss (had it, never surveyed — PR-D's planned skill experiment), the Goldberg attribution miss (knew the source, never cited — caught by PR-A's five-doors restoration), the audit campaign itself (rules exist, never enforced — what this whole campaign exists to fix). Documenting here so the option is visible after v0.1.0 ships.
+
 ---
 
 ## 17. Test discipline
