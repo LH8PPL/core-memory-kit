@@ -1,6 +1,6 @@
 # Health checks
 
-Seven yes/no checks the kit runs at session start. Each has a self-repair path. Documented here for reference; the authoritative copy lives in each project's `context/SETUP.md` (so it travels with the project).
+Nine yes/no checks the kit runs at session start. Each has a self-repair path. Documented here for reference; the authoritative copy lives in each project's `context/SETUP.md` (so it travels with the project).
 
 | ID | Check | How to verify |
 |---|---|---|
@@ -11,6 +11,8 @@ Seven yes/no checks the kit runs at session start. Each has a self-repair path. 
 | HC-5 | INDEX.md matches `context/memory/` | Files listed in INDEX = files present on disk (excluding INDEX itself) |
 | HC-6 | Cron jobs registered with host scheduler | Windows: `schtasks /query` returns Ready for every active job. Unix: `crontab -l` contains matching comment line. |
 | HC-7 | memsearch backend reachable | `memsearch stats` exits 0 |
+| HC-8 | Native Anthropic Auto Memory status detected | Inspect `~/.claude/projects/<slug>/memory/` existence + contents; log to `context/.locks/native-memory-status.log` as `{active: true \| false \| unknown, last_modified: <ISO>, file_count: N}` (non-fatal informational — lets users see whether the kit is supplementing or substituting Anthropic's native memory) |
+| HC-9 | No stale lock files under `context/.locks/` + `<userDir>/.locks/` | `detectStaleLocks(projectRoot, {userDir})` from [packages/cli/src/lock-discipline.mjs](packages/cli/src/lock-discipline.mjs) returns no entries with `stale: true` |
 
 ## Self-repair
 

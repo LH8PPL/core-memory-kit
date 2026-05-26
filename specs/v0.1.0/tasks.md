@@ -448,6 +448,16 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 - [x]* 23.9.5 Tests: unit (mocked spawn that never closes; assert kill chain + reject with `HaikuTimeoutError` carrying `category: 'haiku_timeout'`) + real-binary spawn-smoke (against `tests/fixtures/hang-forever.mjs` fixture, pins the OS-level kill primitives work on Windows TerminateProcess path)
   - Implementation: [`packages/cli/src/compressor.mjs`](../../packages/cli/src/compressor.mjs), [`tests/cli-compressor-timeout.test.js`](../../tests/cli-compressor-timeout.test.js), [`tests/spawn-smoke-kill-chain.test.js`](../../tests/spawn-smoke-kill-chain.test.js)
   - _Requirements: addresses post-PR-31 finding; design §8.5_
+- [x] 23.10 Lock-file discipline + HC-9 stale-lock detection (per design §6.9)
+  - Retroactively added 2026-05-26 (post-PR-31 audit campaign Part 2/4). Class-2 audit surfaced one production lock (`auto-extract.lock`) — try/finally cleanup works for normal cases + PR-A's timeout path, but vulnerable to residual cases (external SIGKILL, OS OOM, hardware failure, parent uncaught exception) with no user-visible recovery path. PR-A closed the dominant leak window (hook-ceiling-kill mid-Haiku); PR-B adds the safety net for the residual cases.
+- [x] 23.10.1 Extract `pidIsAlive(pid)` + new `detectStaleLocks(projectRoot, {userDir})` into shared module `packages/cli/src/lock-discipline.mjs`
+- [x] 23.10.2 `auto-extract.mjs` imports `pidIsAlive` from the shared module (eliminates drift; same probe powers HC-9 + the in-band stale-recovery in `acquireLock`)
+- [x] 23.10.3 Library skips non-`*.lock` files (`.locks/audit.log`, `last-haiku-call.ts`, etc.) — only true mutex locks are scanned
+- [x] 23.10.4 LockReport shape: `{path, pid, holderAlive, stale, reason?, recoveryCommand?}` — `recoveryCommand` is a copy-paste `rm` command users can run immediately
+- [x] 23.10.5 PID-reuse limitation documented in design §6.9 (deferred to v0.1.x; per-OS process-start-time APIs make the fix substantial)
+- [x]* 23.10.6 Tests: unit (mock filesystem with held / stale / corrupted / mixed-with-non-lock files; assert correct categorization + `recoveryCommand` for staleness)
+  - Implementation: [`packages/cli/src/lock-discipline.mjs`](../../packages/cli/src/lock-discipline.mjs), [`tests/cli-lock-discipline.test.js`](../../tests/cli-lock-discipline.test.js)
+  - _Requirements: addresses post-PR-31 finding; design §6.9; HC-9 logic ready for Task 37 to consume_
 
 - [ ] 24. `memory-write` skill + Poison_Guard (T-021)
   - Estimate: L · Depends: 7, 9, 12, 13
@@ -656,21 +666,24 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 
 ## Cross-cutting
 
-- [ ] 37. `cmk doctor` health checks HC-1..HC-8 (T-031)
+- [ ] 37. `cmk doctor` health checks HC-1..HC-9 (T-031)
   - Estimate: M · Depends: 3
 - [ ] 37.1 Implement HC-1..HC-7 from design §14
   - memsearch installed; hooks registered; distill freshness; transcripts firing; INDEX consistency; cron registered; memsearch backend reachable
 - [ ] 37.2 Implement HC-8 — native Anthropic Auto Memory detector
   - Inspect `~/.claude/projects/<slug>/memory/`; log to `.locks/native-memory-status.log`
+- [ ] 37.2a Implement HC-9 — stale lock file detection
+  - Call `detectStaleLocks(projectRoot, {userDir})` from [`packages/cli/src/lock-discipline.mjs`](../../packages/cli/src/lock-discipline.mjs) (shipped in PR-B per design §6.9); for each entry with `stale: true` surface the `recoveryCommand` in the diagnostic report. Non-fatal — report-only.
 - [ ] 37.3 Implement structured report output (per-check pass/fail/skip)
 - [ ] 37.4 Wire repair-command suggestions on failure
 - [ ] 37.5 Prompt user before invoking any install-requiring repair
 - [ ]* 37.6 Write unit tests for `cmk doctor`
-  - Test all 8 HCs run in order; report line per check (`PASS` / `FAIL` / `SKIP`)
+  - Test all 9 HCs run in order; report line per check (`PASS` / `FAIL` / `SKIP`)
   - Test full run completes within 5 s on 10k-observation fixture
   - Test failed HC (e.g., HC-2 missing hook): repair command in stderr
   - Test HC-8 with `~/.claude/projects/<slug>/memory/` populated: log shows `active: true` + file count + last_modified
   - Test HC-8 with empty auto-memory dir: log shows `active: false`
+  - Test HC-9 with a stale lock present: report includes the lock's `recoveryCommand` (the `lock-discipline.mjs` unit tests already pin the library; the doctor test pins the integration — that doctor invokes the library + surfaces the report correctly)
   - Test install-requiring repair: stub prompt; assert prompt shown before any install command
   - _Requirements: FR-22; design §14_
 
