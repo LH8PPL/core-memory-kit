@@ -11,11 +11,11 @@
 // a temp file, asks a sandboxed Haiku to identify durable facts per
 // the six writing triggers from design §6.4, then routes each
 // candidate by trust:
-//   high   → appended to context/MEMORY.md (Active Threads) via
-//            appendScratchpadBullet (the canonical scratchpad writer
-//            from Task 12). Task 24 will re-route this through the
-//            memory-write skill so Poison_Guard runs pre-write; until
-//            then, auto-extract writes go straight to MEMORY.md.
+//   high   → memoryWrite({action:'add', tier:'P', ...}) — same public
+//            boundary the user-explicit memory-write Skill uses. The
+//            write goes through Poison_Guard (design §6.7) before
+//            touching MEMORY.md (Active Threads). Task 24 closed the
+//            documented Poison_Guard bypass that Task 23 left open.
 //   medium → appended to context/queues/review.md (user reviews via
 //            `cmk queue review`).
 //   low    → discarded; logged as skipped_reason "nothing_durable".
@@ -47,10 +47,9 @@ import {
   unlinkSync,
   appendFileSync,
 } from 'node:fs';
-import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import { generateId } from '../../canonicalize/src/index.mjs';
-import { appendScratchpadBullet } from './scratchpad.mjs';
+import { memoryWrite } from './memory-write.mjs';
 import { nowIso } from './audit-log.mjs';
 import { ERROR_CATEGORIES } from './result-shapes.mjs';
 
@@ -373,35 +372,30 @@ function applyRetainOverride(candidates, retainSegments) {
 
 function routeHigh({ candidate, projectRoot, ts, sessionId }) {
   // Auto-extract writes go to the project tier's MEMORY.md, Active
-  // Threads section. The scratchpad writer enforces caps + dedup; this
-  // module passes the documented provenance fields per design §6.6.
+  // Threads section via memoryWrite() — the same public boundary the
+  // user-explicit Skill uses. This routes the auto-extract write
+  // through Poison_Guard (design §6.7), which was the KNOWN GAP
+  // documented in Task 23 (rejected secrets / injection patterns
+  // now blocked before they reach disk).
   //
-  // KNOWN GAP (closed by Task 24): this write bypasses Poison_Guard.
-  // Task 24 will route auto-extract through the memory-write skill,
-  // which applies the regex secret/injection filter before any disk
-  // write. Until then, auto-extracted high-trust content lands in
-  // MEMORY.md unfiltered. Users SHOULD NOT enable real auto-extract
-  // in committed-tier scenarios until Task 24 merges.
+  // memoryWrite() composes:
+  //   1. Poison_Guard regex filter (rejects secrets + injections,
+  //      logs to .locks/poison-guard.log with redacted excerpt).
+  //   2. appendScratchpadBullet (cap + dedup + audit + ID derivation).
   //
-  // Provenance sha1: real SHA-1 of the bullet text. The retain-vs-
-  // haiku origin is recorded on the in-memory result struct
-  // (candidate.retainOverride), not in provenance — sha1 is a
+  // The retain-vs-haiku origin is recorded on the in-memory result
+  // struct (candidate.retainOverride), not in provenance — sha1 is a
   // content hash, not an origin marker.
-  const sha1 = createHash('sha1').update(candidate.text, 'utf8').digest('hex');
-  return appendScratchpadBullet({
+  return memoryWrite({
+    action: 'add',
+    text: candidate.text,
     tier: 'P',
     scratchpad: 'MEMORY.md',
     section: 'Active Threads',
-    text: candidate.text,
+    source: 'auto-extract',
+    sessionId: sessionId ?? 'session',
+    trust: 'high',
     projectRoot,
-    provenance: {
-      source: `auto-extract-${sessionId ?? 'session'}`,
-      source_line: 1,
-      sha1,
-      write: 'auto-extract',
-      trust: 'high',
-      at: ts,
-    },
     now: ts,
   });
 }
@@ -605,14 +599,25 @@ export async function runAutoExtract({
       };
     }
 
-    // 6. Route each candidate. Low-trust candidates are discarded
-    //    (counted toward "nothing durable" if they were the only
-    //    output; otherwise just dropped from the writes).
+    // 6. Route each candidate. Low-trust candidates are discarded.
+    //    High-trust candidates go through memoryWrite() which may
+    //    REJECT them at the Poison_Guard / schema / cap_exceeded
+    //    layer — in that case the candidate is marked
+    //    written:'rejected' so it doesn't count toward
+    //    observation_count, and `rejected_category` carries the
+    //    distinguishing error category so analytics can separate
+    //    "secret leak averted" from "scratchpad full" from
+    //    "validation failed".
     const writes = [];
     for (const candidate of candidates) {
       if (candidate.trust === 'high') {
         const r = routeHigh({ candidate, projectRoot, ts, sessionId });
-        writes.push({ ...candidate, written: 'memory', result: r });
+        const written = r?.action === 'appended' ? 'memory' : 'rejected';
+        const writeRecord = { ...candidate, written, result: r };
+        if (written === 'rejected') {
+          writeRecord.rejected_category = r?.errorCategory ?? 'unknown';
+        }
+        writes.push(writeRecord);
       } else if (candidate.trust === 'medium') {
         const r = routeMedium({ candidate, projectRoot, ts });
         writes.push({ ...candidate, written: 'review', result: r });

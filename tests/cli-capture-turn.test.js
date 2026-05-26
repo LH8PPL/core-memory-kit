@@ -30,6 +30,7 @@ import {
   existsSync,
   mkdirSync,
   readdirSync,
+  statSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -77,6 +78,21 @@ async function pollFor(predicate, { timeoutMs = 3000, intervalMs = 50 } = {}) {
     await new Promise((res) => setTimeout(res, intervalMs));
   }
   return predicate();
+}
+
+// Stronger predicate for the detached-stub pattern: the lockFile
+// must EXIST AND have NON-ZERO SIZE. existsSync alone returns true
+// as soon as the detached child opened the file descriptor, but the
+// child's writeFileSync content may not yet be visible to the parent
+// on Windows (visibility race between create and content-flush).
+// Surfaced as "expected '' to contain 'DETACH_PROOF'" in 2/5 stress
+// runs during Task 24 full-suite validation. Pin the wait on the
+// actual content landing.
+async function pollForFileWithContent(path, opts) {
+  return pollFor(
+    () => existsSync(path) && statSync(path).size > 0,
+    opts,
+  );
 }
 
 describe('Task 21 — captureTurn() boundary', () => {
@@ -141,7 +157,7 @@ describe('Task 21 — captureTurn() boundary', () => {
       expect(r.action).toBe('captured');
       expect(r.spawned).toBe(true);
 
-      await pollFor(() => existsSync(stub.lockFile));
+      await pollForFileWithContent(stub.lockFile);
       expect(existsSync(stub.lockFile)).toBe(true);
       expect(existsSync(r.transcriptPath)).toBe(true);
     });
@@ -157,7 +173,7 @@ describe('Task 21 — captureTurn() boundary', () => {
       expect(r.action).toBe('captured');
       expect(r.spawned).toBe(true);
 
-      await pollFor(() => existsSync(stub.lockFile));
+      await pollForFileWithContent(stub.lockFile);
       expect(existsSync(stub.lockFile)).toBe(true);
     });
   });
@@ -227,7 +243,7 @@ describe('Task 21 — captureTurn() boundary', () => {
     // here — well below design §5.1's 30s hook timeout, and a value
     // that catches "I accidentally awaited the child" regressions
     // without being flaky on Windows.
-    it('captureTurn() returns fast (well under hook timeout) even when spawned subagent sleeps', () => {
+    it('captureTurn() returns fast (well under hook timeout) even when spawned subagent sleeps', async () => {
       const stub = writeAutoExtractStub(sandbox, { sleepMs: 500 });
       const t0 = Date.now();
       const r = captureTurn({
@@ -240,6 +256,14 @@ describe('Task 21 — captureTurn() boundary', () => {
       expect(r.action).toBe('captured');
       expect(r.spawned).toBe(true);
       expect(elapsed).toBeLessThan(250);
+      // Door 3 (external calls): the perf assertion alone could pass
+      // if spawn silently failed (`r.spawned` is set BEFORE the child
+      // exit). Pin that the spawned child actually ran by polling
+      // for its sentinel content. Without this, a spawn-broken
+      // regression on Windows .cmd shims would still pass the perf
+      // bound and ship undetected.
+      await pollForFileWithContent(stub.lockFile);
+      expect(readFileSync(stub.lockFile, 'utf8')).toContain('LOCK');
     });
 
     it('autoExtractPath missing: spawned:false, but transcript still appended', () => {
@@ -278,7 +302,7 @@ describe('Task 21 — captureTurn() boundary', () => {
       // Initially exists (the stub may delete it after reading; the
       // contract is "file exists at spawn time")
       // Wait briefly for spawn to run + then check the stub got the turnFile arg
-      await pollFor(() => existsSync(stub.lockFile));
+      await pollForFileWithContent(stub.lockFile);
       const lockContent = readFileSync(stub.lockFile, 'utf8');
       expect(lockContent).toContain('.extract-');
     });
@@ -472,7 +496,7 @@ describe('Task 21 — bin/cmk-capture-turn (hook bash wrapper)', () => {
     // flake" without fixing). 20s is two orders of magnitude below
     // the design §5.1 hook timeout (30s) so any case where the
     // sentinel genuinely never lands still fails fast.
-    await pollFor(() => existsSync(stub.lockFile), { timeoutMs: 20000 });
+    await pollForFileWithContent(stub.lockFile, { timeoutMs: 20000 });
     expect(existsSync(stub.lockFile)).toBe(true);
     expect(readFileSync(stub.lockFile, 'utf8')).toContain('DETACH_PROOF');
   });
