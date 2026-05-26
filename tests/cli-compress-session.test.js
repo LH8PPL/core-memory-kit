@@ -376,6 +376,36 @@ describe('Task 22 — compressSession() boundary', () => {
         error_category: 'compress_failed',
       });
     });
+
+    it('backend throws HaikuTimeoutError → error_category: haiku_timeout (Task 23.9 routing)', async () => {
+      // Pin the contract that compressSession distinguishes timeout
+      // from non-zero-exit at both the return struct AND the
+      // compress.log entry. The instanceof check in compress-session.mjs
+      // is the load-bearing routing decision; without this test, a
+      // regression to string-comparison would silently misroute
+      // timeout failures into compress_failed. Per design §8.5.
+      const { HaikuTimeoutError } = await import('../packages/cli/src/compressor.mjs');
+      writeNowMd(projectRoot, 'content that took too long\n');
+      const backend = new MockHaikuBackend({
+        throwError: new HaikuTimeoutError('subprocess did not return within 50000ms', { timeoutMs: 50_000 }),
+      });
+      const r = await compressSession({
+        projectRoot,
+        backend,
+        now: '2026-05-26T10:00:00Z',
+      });
+      // Door 1: return struct carries haiku_timeout.
+      expect(r.action).toBe('error');
+      expect(r.error_category).toBe('haiku_timeout');
+      // Door 2: now.md preserved (timeout case retries on next SessionEnd).
+      expect(readNowMd(projectRoot)).toContain('content that took too long');
+      expect(readTodayMd(projectRoot, '2026-05-26')).toBeNull();
+      // Door 5 cross-check: log entry matches the return struct.
+      const log = readCompressLog(projectRoot, '2026-05-26');
+      expect(log).toHaveLength(1);
+      expect(log[0].error_category).toBe('haiku_timeout');
+      expect(log[0].success).toBe(false);
+    });
   });
 
   describe('NDJSON compress.log (design §6.1 schema)', () => {

@@ -473,6 +473,8 @@ Command pattern: `${CLAUDE_PLUGIN_ROOT}/bin/cmk-<verb>` (kit-unique prefix dodge
 }
 ```
 
+**Hook timeouts compose with subprocess timeouts.** The `timeout` values above are the OUTER ceiling enforced by Claude Code (which SIGKILLs the parent on expiry without running cleanup). For hooks that spawn `claude --print` internally, the INNER subprocess timeout must be tight enough that the catch + finally + log-write all run before the outer fires. See **§8.5 "Subprocess timeout policy + cleanup contract"** for the composition rule and the caller-side values (auto-extract 25s under 30s Stop; compress-session 50s under 60s SessionEnd).
+
 ### 5.2 Hook responsibilities
 
 | Hook | Timeout | Async | Purpose | Source informing the choice |
@@ -565,6 +567,8 @@ Example auto-extract line:
 ```json
 {"ts":"2026-05-23T14:30:00Z","success":true,"error_category":null,"observation_count":1,"skipped_reason":null,"duration_ms":1842}
 ```
+
+**`error_category` values** in `extract.log` + `compress.log`: see [`packages/cli/src/result-shapes.mjs`](../../packages/cli/src/result-shapes.mjs) `ERROR_CATEGORIES`. `haiku_timeout` (subprocess exceeded caller-supplied `timeoutMs` per **§8.5**) is distinct from `haiku_failed` (non-zero exit / spawn ENOENT) so analytics can separate "Anthropic API was slow" from "the call rejected / config broken".
 
 Example audit-log line (canonical schema v1, per [`audit-log.mjs`](../../packages/cli/src/audit-log.mjs)):
 
@@ -955,6 +959,15 @@ interface CompressorBackend {
     maxOutputBytes: number;
     preserveCitationIds: boolean;
     instructions?: string;
+    // Subprocess timeout (design §8.5). Caller-supplied; the
+    // implementation MUST honor it by rejecting with a
+    // HaikuTimeoutError on expiry. Default behavior when omitted
+    // is no timeout (backwards-compatible for existing test
+    // fixtures); production callers MUST pass an explicit value.
+    timeoutMs?: number;
+    // Grace window between SIGTERM and SIGKILL escalation in the
+    // kill chain. Default 2000ms.
+    killGraceMs?: number;
   }): Promise<CompressorResult>;
 
   modelId(): string;
@@ -967,6 +980,13 @@ interface CompressorResult {
   outputTokens: number;
   costUSD: number;
   preservedIds: string[];
+}
+
+// Custom error class for timeout-path rejections — carries the
+// `category: 'haiku_timeout'` field that callers route on (see §8.5).
+class HaikuTimeoutError extends Error {
+  category: 'haiku_timeout';
+  timeoutMs: number;
 }
 
 // v0.1 implementation:
@@ -1009,6 +1029,64 @@ INPUT:
 Section structure adapted from Anthropic Claude Code's verified 9-section auto-compact pattern (per leaked source). Trimmed to 4 sections since we're compressing memory, not full sessions.
 
 **Implements**: FR-19, FR-20, FR-21, ADR-0008.
+
+### 8.5 Subprocess timeout policy + cleanup contract
+
+**Tail-appended 2026-05-26** (Task 23.9 retroactive) after the post-PR-31 audit surfaced that `HaikuViaAnthropicApi.compress()` had no inner timeout — relying entirely on Claude Code's hook ceiling to kill a hung subprocess, which killed the parent WITHOUT running the catch + finally + log-write paths.
+
+#### The composition gap
+
+Two layers were nominally bounding the subprocess invocation:
+
+1. **Outer ceiling** — Claude Code's hook timeout per [`plugin/hooks/hooks.json`](../../plugin/hooks/hooks.json): Stop = 30s, SessionEnd = 60s, others smaller. When this fires, Claude Code SIGKILLs the parent process with no cooperative cleanup.
+2. **Inner timeout** — *nothing*. `compress()` awaited `child.on('close', …)` indefinitely.
+
+The composition was broken: if the subprocess hung, the parent waited until the outer ceiling killed it — at which point the in-process try/catch + finally + NDJSON log-write never ran. Concrete consequences observed in the diagnosis:
+
+- Auto-extract (Stop hook, detached child): `auto-extract.lock` file stayed held until the detached node child was manually killed. Next Stop hook fire saw the held lock and returned `concurrent_run` forever.
+- Compress-session (SessionEnd, in-process): no `compress.log` entry written, cooldown marker not touched. User had zero visibility that anything happened.
+
+This is the **composition-verification rule** from CLAUDE.md — inner and outer bounds must compose. The class-1 audit (PR-A) found this is the only production-runtime spawn-call in the kit with the gap; [`packages/cli/src/capture-turn.mjs`](../../packages/cli/src/capture-turn.mjs)'s detached node spawn is correctly fire-and-forget (cannot have a parent-side timeout) and relies on the inner timeout being honored by the spawned child via its OWN call to `HaikuViaAnthropicApi.compress`.
+
+#### The contract
+
+Every `CompressorBackend` implementation (HaikuViaAnthropicApi v0.1; BedrockHaiku / LocalLlama v0.2) MUST honor a caller-supplied `timeoutMs` parameter on `compress()`. On timeout, the implementation must:
+
+1. **Send SIGTERM** to the subprocess.
+2. **Wait `killGraceMs`** (default 2000ms) for graceful exit.
+3. **Send SIGKILL** if still alive. Wait an additional 1s for the OS to deliver the `exit` event.
+4. **Reject the Promise** with a `HaikuTimeoutError` carrying `category: 'haiku_timeout'` and the originally-supplied `timeoutMs`.
+5. **Clean up** any subprocess-owned filesystem state (the MCP-config sandbox tempfile in HaikuViaAnthropicApi's case) regardless of timeout vs. clean-exit path.
+
+The Promise-rejection happens IMMEDIATELY when the timer fires — the caller does not wait for the kill chain to complete. The kill chain runs in the background to clean up the OS-level subprocess.
+
+The kill chain is exposed as `terminateSubprocess(child, { killGraceMs })` for separate testability — both the in-process kill-chain logic (mocked spawn that never closes) and the OS-level kill behavior (real-binary spawn-smoke against the `tests/fixtures/hang-forever.mjs` fixture) get pinned independently.
+
+#### Caller-side timeoutMs values
+
+Selected per the composition-verification rule: tight enough that the catch + finally + log-write all complete BEFORE the outer hook ceiling fires.
+
+| Caller | timeoutMs | Outer hook ceiling | Headroom |
+| --- | --- | --- | --- |
+| [`runAutoExtract`](../../packages/cli/src/auto-extract.mjs) (Stop hook → detached child) | 25,000 | 30s (Stop) | 5s for catch + finally + extract.log write + lock release |
+| [`compressSession`](../../packages/cli/src/compress-session.mjs) (SessionEnd, in-process) | 50,000 | 60s (SessionEnd) | 10s for catch + compress.log write + return path |
+
+Headroom is sized generously because catch/finally on Windows can include filesystem operations whose latency varies with disk state. The 5s lower bound for the Stop hook path is the binding constraint — auto-extract has more cleanup work (lock file, sandbox tempfile, NDJSON write) than compress-session.
+
+#### error_category disambiguation in logs
+
+`extract.log` and `compress.log` entries now distinguish `haiku_timeout` from `haiku_failed`:
+
+- **`haiku_failed`**: subprocess exited non-zero, or `spawn()` itself failed (ENOENT, EINVAL). Often actionable (flag rename, missing binary, auth failure).
+- **`haiku_timeout`**: subprocess was alive but didn't return within `timeoutMs`. Usually transient (slow Anthropic API). Retries naturally on the next hook invocation.
+
+Both are recorded in [`ERROR_CATEGORIES`](../../packages/cli/src/result-shapes.mjs).
+
+#### What this PR-A does NOT yet cover
+
+The class-1 audit also surfaced a door-5 (observability) gap in [`capture-turn.mjs`](../../packages/cli/src/capture-turn.mjs) — its `spawn-failed` catch returns a result struct but writes no log entry. Deferred to PR-D's broader observability sweep where the right log-surface design (new file? `phase` discriminator in extract.log? extension of audit.log purpose?) can be decided in context.
+
+**Implements**: Task 23.9. Cross-references: §5.1 (hook ceilings), §6.1 (log schema with `haiku_timeout`), §8.3 (CompressorBackend interface gains `timeoutMs` parameter).
 
 ---
 
@@ -1602,20 +1680,28 @@ v0.2 candidate. Inspired by Garry Tan's GBrain (research note: [`docs/research/2
 
 ## 17. Test discipline
 
-**Tail-appended 2026-05-26.** §17.2-17.6 originated from the live-test that surfaced a class of bug mocked-spawn tests could not catch (the Windows `.cmd`-shim ENOENT class). §17.1 was promoted in front of them after the PR-30 four-doors audit, because the doors checklist is the broader umbrella — spawn-smoke is the application of doors 3 + 4 to cross-process testing, not a peer discipline.
+**Tail-appended 2026-05-26.** §17.2-17.6 originated from the live-test that surfaced a class of bug mocked-spawn tests could not catch (the Windows `.cmd`-shim ENOENT class). §17.1 was promoted in front of them after the PR-30 exit-doors audit, because the doors checklist is the broader umbrella — spawn-smoke is the application of doors 3 + 4 to cross-process testing, not a peer discipline.
 
-### 17.1 The four exit doors (what every test must assert)
+### 17.1 The five exit doors (what every test must assert)
 
-Per Goldberg's [*nodejs-testing-best-practices*](https://github.com/goldbergyoni/nodejs-testing-best-practices) §1 ("the five exit doors of any function under test"). The fifth door (message queues) is N/A for the kit; the other four are load-bearing.
+The five exit doors framework is adopted from Yoni Goldberg's [*nodejs-testing-best-practices*](https://github.com/goldbergyoni/nodejs-testing-best-practices) (README.md §1, "Test the five known backend exit doors (outcomes)"). Citation in [`SOURCES.md`](../../docs/SOURCES.md). Idea-level absorption — no prose copied. The kit uses Goldberg's original numbering so traceability to the source is preserved.
 
-When writing a test — or opening an existing test file for any other reason — walk this checklist and pin every door that applies. Tests that miss door 3 or door 4 ship silent-failure bugs because the happy-path assertions on doors 1 + 2 still pass.
+**v0.1 caveat for Door 4 (Message queues)**: the kit has no general message-queue infrastructure. Two **named exceptions** apply Door 4 in primitive form today:
 
-| Door | What it is | Kit examples |
+- **Auto-extract's `capture-turn → temp-file → auto-extract` handoff** is a queue-of-one. `capture-turn.mjs` writes `transcripts/.extract-<ts>.tmp`; the detached auto-extract subprocess reads it. Tests for auto-extract MUST annotate Door 4 — the temp-file IPC contract (USER_TURN / ASSISTANT_TURN markers, routing on canonical-id dedup) IS the kit's message-passing surface.
+- **Task 31 (MCP stdio transport)** when it ships. MCP is full message-passing.
+
+For all other kit boundaries, Door 4 is N/A in v0.1. Re-evaluate at Checkpoint 27 (Layer 4 layer-wide review). **Discipline is never silent omission**: a test either asserts a door OR marks it N/A with a reason. Tests created or modified from the post-PR-31 audit campaign onward use the `@doors:` annotation header — PR-D adds the validator that enforces declared-vs-actual.
+
+When writing a test — or opening an existing test file for any other reason — walk this checklist and pin every door that applies. Tests that miss Door 3 or Door 5 ship silent-failure bugs because the happy-path assertions on doors 1 + 2 still pass.
+
+| Door | What it is | Kit examples / mapping |
 | --- | --- | --- |
-| **1. Response** | What the public function returned | `r.action === 'compressed'`, `r.errorCategory === 'poison_guard'`, `r.id` matches `ID_PATTERN`, `r.observation_count === 3` |
-| **2. State** | What changed on disk / in memory / in the audit trail | `MEMORY.md` contains the new bullet; `now.md` was truncated to 0 bytes; `archive/tombstones/<id>.md` exists with the documented frontmatter; the lock file was rewritten with the current pid |
-| **3. External calls** | What subprocesses got spawned with what argv + env; for mocked-spawn tests, what args the mock received | `mock.calls[0].input` contains the §8.4 prompt structure; the real-binary spawn-smoke (§17.3) actually invoked `claude --print` with the documented flags |
-| **4. Observability** | What NDJSON entry landed in the right log with the right shape | `extract.log` records `{success:false, error_category:'concurrent_run', observation_count:0}`; `compress.log` has matching `input_bytes` and `output_bytes` cross-checked against the return struct; `poison-guard.log` masked the matched secret with `***` and recorded the canonical `pattern_id` |
+| **1. Response** | What the public function returned (data, schema, errorCategory) | `r.action === 'compressed'`, `r.errorCategory === 'poison_guard'`, `r.id` matches `ID_PATTERN`, `r.observation_count === 3` |
+| **2. New state** | What changed on disk / in memory / in the audit trail (kit-adapted: disk vs DB) | `MEMORY.md` contains the new bullet; `now.md` was truncated to 0 bytes; `archive/tombstones/<id>.md` exists with the documented frontmatter; the lock file was rewritten with the current pid |
+| **3. External services** | Calls to subprocesses or external APIs (kit-adapted: subprocess spawn vs HTTP / SMS / payment) | `mock.calls[0].input` contains the §8.4 prompt structure; the real-binary spawn-smoke (§17.3) actually invoked `claude --print` with the documented flags |
+| **4. Message queues** | Message-passing IPC. **N/A by default in v0.1**; named exceptions: auto-extract temp-file IPC + Task 31 MCP | Auto-extract: turn-file written by `capture-turn`, read by detached auto-extract child; USER_TURN / ASSISTANT_TURN marker parsing pinned. Other boundaries: mark `// Door 4 N/A: no message-queue interaction.` |
+| **5. Observability** | Logs, metrics, errors — what NDJSON entry landed in the right log with the right shape | `extract.log` records `{success:false, error_category:'concurrent_run', observation_count:0}`; `compress.log` has matching `input_bytes` and `output_bytes` cross-checked against the return struct; `poison-guard.log` masked the matched secret with `***` and recorded the canonical `pattern_id` |
 
 **Common gap patterns** (each surfaced as a real finding in the PR-30 audit; preserved here so future tests pre-empt them):
 
@@ -1624,7 +1710,26 @@ When writing a test — or opening an existing test file for any other reason �
 - A test for a function that *mutates a subset of records* pins the mutation but not the non-mutation of siblings. (See the "over-mutation guard" rule in CLAUDE.md — Goldberg §6.)
 - A test that asserts a return-struct field has a value pins door 1 but doesn't cross-check that the corresponding log entry has the SAME value. **Separately-correct-jointly-broken** is a real failure class (CLAUDE.md "Composition verification" rule) and the return-vs-log cross-check is exactly where it hides.
 
-§17.2-§17.6 are specializations: §17.2-§17.5 are how to assert door 3 properly when the call is cross-process (real-binary spawn smoke), and §17.6 is the PR-level gate that catches concurrency-class door-3/door-4 flakes which a single test run misses.
+#### Annotation format
+
+Test files declare which doors they exercise via a `@doors:` header. Format:
+
+```js
+// @doors: 1, 2, 3, 5
+// Door 4 N/A: no message-queue interaction.
+```
+
+Or for the auto-extract case where temp-file IPC counts as Door 4:
+
+```js
+// @doors: 1, 2, 3, 4, 5
+// Door 4 (MQ) covered by temp-file IPC verification — the bi-turn
+// extraction tests assert USER_TURN/ASSISTANT_TURN parsing.
+```
+
+PR-D adds [`scripts/validate-exit-doors.mjs`](../../scripts/validate-exit-doors.mjs) which parses the `@doors:` declaration on each test file and heuristic-checks that the declared doors map to actual assertion patterns in the file body. Files without an annotation produce a warning during the PR-D rollout; at PR-D's final commit the validator flips to error-mode (all kit tests annotated, no perpetual-warning fallback).
+
+§17.2-§17.6 are specializations: §17.2-§17.5 are how to assert door 3 properly when the call is cross-process (real-binary spawn smoke), and §17.6 is the PR-level gate that catches concurrency-class door-3/door-5 flakes which a single test run misses.
 
 ### 17.2 Why mocked-spawn tests miss spawn-layer breakage
 

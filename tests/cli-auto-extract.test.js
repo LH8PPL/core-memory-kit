@@ -682,6 +682,35 @@ describe('Task 23 — runAutoExtract() boundary', () => {
       // so the caller (bin script) can log + exit 0.
     });
 
+    it('Haiku throws HaikuTimeoutError → action:error, error_category: haiku_timeout (Task 23.9 routing)', async () => {
+      // Pin the contract that runAutoExtract distinguishes timeout
+      // from non-zero-exit at the log layer. The instanceof check
+      // in auto-extract.mjs is the load-bearing routing decision;
+      // without this test, a regression to string-comparison would
+      // silently misroute timeout failures into the haiku_failed
+      // bucket (or vice versa). Per design §8.5.
+      const { HaikuTimeoutError } = await import('../packages/cli/src/compressor.mjs');
+      const failing = new MockHaikuBackend({
+        throwError: new HaikuTimeoutError('subprocess did not return within 25000ms', { timeoutMs: 25_000 }),
+      });
+      const turnFile = writeTurnFile(projectRoot, 'a turn');
+      const r = await runAutoExtract({
+        turnFile,
+        projectRoot,
+        haikuBackend: failing,
+        now: '2026-05-25T10:00:00Z',
+      });
+      expect(r.action).toBe('error');
+      expect(r.error_category).toBe('haiku_timeout');
+      expect(r.observation_count).toBe(0);
+      // Door 5 (observability) cross-check: the extract.log entry
+      // records the same error_category as the return struct.
+      const logLines = readFileSync(r.logPath, 'utf8').split('\n').filter(Boolean);
+      const entry = JSON.parse(logLines[0]);
+      expect(entry.error_category).toBe('haiku_timeout');
+      expect(entry.success).toBe(false);
+    });
+
     it('missing turnFile → action:error, error_category: missing_turn', async () => {
       const r = await runAutoExtract({
         turnFile: join(projectRoot, 'context', 'transcripts', '.extract-nope.tmp'),
