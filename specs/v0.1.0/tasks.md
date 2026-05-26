@@ -467,6 +467,71 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 - [x] 23.11.5 CLAUDE.md "primary-source verification" rule extended: internal cross-references (ADR-X / §X.Y / FR-N / Task NN) subject to same primary-source check as external citations
 - _Requirements: addresses post-PR-31 finding; campaign §"Audit findings" in journey log; PR-D's `validate-references.mjs` will enforce structurally_
 
+- [x] 23.12 Enforcement validators 1/2 — `validate-exit-doors.mjs` + `validate-references.mjs` (post-PR-31 audit campaign Part 4/7) _shipped 2026-05-26, PR #35, commit 059b2e1_
+  - PR-D originally one PR ("Part 4 of 5"); split mid-flight 2026-05-26 into D1 (this work) + D2 after the in-session scope audit surfaced realistic-session-budget as an unanticipated category — second firing of the campaign-rule "open another PR rather than bundle if audit surfaces an unanticipated category". Documentation: journey log §"PR-D mid-flight split" subsection.
+- [x] 23.12.1 `scripts/validate-exit-doors.mjs` NEW — enforces design §17.1 `@doors:` annotation discipline (header presence + silent-omission check). Warning mode by default; `CMK_DOORS_STRICT=1` promotes to errors. PR-D2b flips the default to strict.
+- [x] 23.12.2 `scripts/validate-references.mjs` NEW — internal-reference rot scanner. Resolves `[label](path)`, `ADR-NNNN`, `§N.N` (within design.md), `FR-N`, `NFR-N`, `Task N`. Skips fenced code blocks + inline-code spans + `docs/research/` + `docs/sources/` + `docs/conversation-log/`. Strict mode.
+- [x] 23.12.3 4 real link-rot fixes the references validator surfaced on first run: `docs/journey/v0.1.0-build-log.md` × 2 (`../../SOURCES.md` → `../SOURCES.md`), `docs/SOURCES.md` (`specs/v0.1.0/design.md` → `../specs/v0.1.0/design.md`), `specs/v0.1.0/design.md` × 2 (Cursor's external `FR-013` / `FR-052` wrapped in backticks since validator skips inline-code spans).
+- [x] 23.12.4 `package.json` — `npm test` prerun extended (after `validate-test-ids` + `validate-template`, before `vitest run`); standalone scripts `lint:exit-doors` + `lint:references`.
+- [x] 23.12.5 `CLAUDE.md` "Prose rules vs enforcement (binding)" section NEW — formalizes structural-rule-gets-validator vs judgment-rule-stays-prose split; inventories existing + planned validators; includes Adoption-verification sub-rule (audit-note template).
+- [x] 23.12.6 `design.md` §17.7 "Enforcement validators for §17 disciplines" NEW — source-of-truth table mapping each §17 discipline to its validator (or "judgment rule, stays prose").
+- [x] 23.12.7 Skill-experiment audit notes (Adoption-verification template applied): `lint-and-validate` not helpful (mismatch with kit's stack); `javascript-testing-patterns` neutral (existing test patterns stronger than defaults). Documented in PR-D1 journey log entry.
+- [x] 23.12.8 PR-D1 journey log entry + PR-D mid-flight split subsection + 10th cross-trigger-question instance + campaign-rule-fires-twice subdiscipline + stress-gate sub-rule for live-Haiku jitter class. Durability follow-up commit `72d6d19` on the PR-D1 branch (meta-documentation extracted after the main commit).
+- _Requirements: design §17.1, §17.7; CLAUDE.md "Internal cross-references" rule (10th verification rule from PR-C); CLAUDE.md "Prose rules vs enforcement" section_
+
+- [ ] 23.13 Enforcement validators 2/2 — spawn-discipline + numbering-gaps + composition + validator-self-tests + D1 deferrals + §17.7 footnote (post-PR-31 audit campaign Part 5/7)
+  - PR-D2 split proactively 2026-05-27 into D2a (this task; validator code) + D2b (rollout) — third firing of the campaign-rule and first PROACTIVE one (pre-launch scope audit, not mid-flight crisis). Documentation: journey log §"PR-D2 proactive split" subsection.
+- [ ] 23.13.1 `scripts/validate-spawn-discipline.mjs` NEW — every `spawn()` site in `packages/cli/src/` either passes `timeoutMs` + cleanup callback OR is suppressed with a documented reason (e.g. detached fire-and-forget where parent-side timeout is incorrect). Source rule: composition-verification instance #4 (PR-A subprocess timeout). Strict mode.
+- [ ] 23.13.2 `scripts/validate-numbering-gaps.mjs` NEW — ADR / §N / FR-N / Task NN ID sequences either have no gaps OR have explicit `reserved-not-yet-shipped` README marker. Source rule: backfilled from PR-C's missing-ADR finding. Strict mode.
+- [ ] 23.13.3 `scripts/validate-composition.mjs` NEW — documented composition invariants have asserted test pairs. Source rule: composition-verification 4-instance pattern (PR-14 / PR-22 / PR-25 / PR-A). Strict mode.
+- [ ] 23.13.4 Validator-self-tests: `tests/scripts-validate-test-ids.test.js` + `tests/scripts-validate-template.test.js` + `tests/scripts-validate-exit-doors.test.js` + `tests/scripts-validate-references.test.js` + `tests/scripts-validate-spawn-discipline.test.js` + `tests/scripts-validate-numbering-gaps.test.js` + `tests/scripts-validate-composition.test.js`. Fixture-driven; intentional-violation fixtures + assertions on the violation output. Not testing them recursively violates the campaign's own "structural rules get validators" rule applied to validator-quality itself.
+- [ ] 23.13.5 7 D1 deferrals (from PR #35 holistic code-review pass; labels addressable):
+  - **D1-IMP-A**: `validate-references.mjs` fenced-code-block tracking → handle multi-length fences (CommonMark allows 3+ backticks; nested `` ``` `` inside `` ```` `` toggles wrong)
+  - **D1-IMP-B**: `validate-references.mjs` heading-anchor check → on undefined slugs (target outside `mdFiles`), emit one-line debug note when an anchor is present so silent skip is auditable
+  - **D1-MIN-A**: `validate-references.mjs:51` strip unused `posix` import
+  - **D1-MIN-B**: `validate-references.mjs:64` drop dead `|| skip.has(entry.name)` branch (skip set holds full paths only)
+  - **D1-MIN-C**: `validate-exit-doors.mjs:83` document bare-line `@doors:` regex constraint in header docblock (or relax to ignore trailing prose after digits)
+  - **D1-MIN-D**: `validate-exit-doors.mjs:130` add comment naming the `@doors-ignore`-literal-in-prose false-suppress risk
+  - **D1-MIN-E**: `validate-references.mjs` FR/NFR indexer — add comment naming the leading-zero expectation (`FR-13` ≠ `FR-013` for the validator; Cursor's external IDs handled via backticks)
+- [ ] 23.13.6 `design.md` §17.7 footnote: "Validators marked PR-D2b are not yet shipped" so a reader between D2a-merge and D2b-open isn't confused.
+- _Requirements: PR-D1 deferrals labels; design §17.1, §17.7; composition-verification 4-instance pattern; CLAUDE.md "Prose rules vs enforcement"_
+
+- [ ] 23.14 Annotation rollout + class-5 audit + capture-turn observability + strict-mode flip + campaign wrap-up (post-PR-31 audit campaign Part 6/7)
+  - PR-D2b coheres around "rollout + final discipline pass" — review surface focuses on completeness, doc discipline, campaign closure.
+- [ ] 23.14.1 `// @doors:` annotation pass on all 27 currently-unannotated test files (canonicalize / cli-auto-extract / cli-capture-prompt / cli-capture-turn / cli-claude-md / cli-compress-session / cli-compressor / cli-forget / cli-hooks-scaffold / cli-inject-context / cli-install / cli-memory-write / cli-merge-facts / cli-observe-edit / cli-poison-guard / cli-poison-guard-log / cli-provenance / cli-reindex / cli-scaffold / cli-scratchpad / cli-seed-templates / cli-trust / cli-write-fact / layer-2-roundtrip / spawn-smoke-compress-session / spawn-smoke-haiku / template-scaffolding). Each file gets per-door declared/N-A reasoning matching design §17.1's format.
+- [ ] 23.14.2 Class-5 exit-doors audit on the same 27 files — find + fix missing Door 4/5 assertions where the rule-shape applies. Door 4 only applies to auto-extract temp-file IPC tests; everything else gets N/A. Door 5 (observability) applies wherever the test exercises NDJSON-log writes.
+- [ ] 23.14.3 `capture-turn.mjs` spawn-failed observability fix (structurally deferred from PR-A's class-1 audit). The `spawn-failed` catch currently returns the result struct without writing an NDJSON log entry — Door 5 gap. Design decision: new file, `phase` discriminator in `extract.log`, OR extend `audit.log` purpose. Decided in-context; the chosen surface determines the change.
+- [ ] 23.14.4 Flip `validate-exit-doors` to strict mode by default (post-annotation-pass). Remove the `CMK_DOORS_STRICT=1` opt-in; rename to `CMK_DOORS_LOOSE=1` (or similar) escape hatch for emergencies only.
+- [ ] 23.14.5 Campaign wrap-up journey-log entry (PR-D2b + PR-E together close the campaign; PR-E appends its own platform-discipline post-mortem so D2b writes the "campaign overall" entry).
+- _Requirements: design §17.1; PR-A's structural deferral on capture-turn observability; campaign §"Resume criteria for Task 25"_
+
+- [ ] 23.15 Cross-platform discipline sweep (post-PR-31 audit campaign Part 7/7; **v0.1.0 release blocker**)
+  - PR-E. Full scope inlined in journey-log §"PR-E §full-scope" subsection (verbatim phrasings captured for durability). Surfaced by PR-B's `recoveryCommand` finding — first firing of the campaign-rule.
+- [ ] 23.15.1 `validate-platform-commands.mjs` NEW — every user-facing shell command emission (programmatic via `recoveryCommand` / `cmk doctor` HC-* repair / `cmk repair` self-repair / error messages / audit-log action hints / install completion paths) detects `process.platform` and emits the right command per platform OR is suppressed with a documented reason.
+- [ ] 23.15.2 New shared helper `packages/cli/src/platform-commands.mjs` — single source for "remove file", "remove dir", "list dir", "run shell script", etc. Detects platform once.
+- [ ] 23.15.3 CLAUDE.md 10th meta-rule (verbatim text in journey log tracker): platform-aware emissions binding.
+- [ ] 23.15.4 design.md §18 or §17.8 "Cross-platform command discipline" — documents the rule + the helper + the validator.
+- [ ] 23.15.5 Live test on Windows PowerShell + Git Bash + macOS spot-check.
+- [ ] 23.15.6 HC-10 candidate evaluation (platform-portability self-check in `cmk doctor`).
+- [ ] 23.15.7 `.sh → .mjs` migration audit (any remaining bash scripts that should be node for portability).
+- _Requirements: PR-B's `recoveryCommand` finding; design §17.7 entry "Planned: validate-platform-commands"; v0.1.0 release blocker per Lior runs all three OSes_
+
+### Post-PR-31 audit campaign tracker (single source of truth)
+
+| Part | Task | Status |
+| --- | --- | --- |
+| 1/7 | **23.9** (subprocess timeout) | **MERGED** (PR #32) |
+| 2/7 | **23.10** (lock-file discipline) | **MERGED** (PR #33) |
+| 3/7 | **23.11** (cross-reference rot + ADR backfill) | **MERGED** (PR #34) |
+| 4/7 | **23.12** (validators 1/2 — exit-doors + references) | **MERGED** (PR #35) |
+| 5/7 | **23.13** (validators 2/2 — spawn-discipline + numbering-gaps + composition + self-tests + D1 deferrals) | **NEXT** (PR-D2a) |
+| 6/7 | **23.14** (annotation rollout + class-5 audit + capture-turn fix + strict-mode flip + wrap-up) | Queued behind 23.13 |
+| 7/7 | **23.15** (cross-platform discipline sweep) | Queued behind 23.14; v0.1.0 release blocker |
+
+**Campaign rules** (apply to any future multi-PR campaign): see CLAUDE.md "Engineering discipline" → campaign-rules section.
+
+**Detailed narrative + per-PR retrospectives**: `docs/journey/v0.1.0-build-log.md` §"Post-PR-31 audit campaign tracker".
+
 - [ ] 24. `memory-write` skill + Poison_Guard (T-021)
   - Estimate: L · Depends: 7, 9, 12, 13
   - **High-risk surface — individual PR review required** via the `code-review-excellence` skill. The Poison_Guard regex filter is the kit's last line of defense against secrets being committed to git via auto-extracted facts. False negatives = credentials in the repo. False positives = legitimate writes blocked. Pattern correctness has to be right. Review before merge
@@ -492,7 +557,7 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - _Requirements: FR-10, FR-11, FR-29; design §6.3, §6.5, §6.7_
 
 - [ ] 25. Conflict queue + `cmk queue conflicts` resolver (T-022)
-  - Estimate: M · Depends: 24; optional dep on 28 (FTS5)
+  - Estimate: M · Depends: 24; **PAUSED until 23.15 merges** (post-PR-31 audit campaign release blocker — see Post-PR-31 audit campaign tracker above); optional dep on 28 (FTS5)
 - [ ] 25.1 Implement similarity detection at write time
   - On every `memory-write add`: compare new vs. existing observations on same heading_path
 - [ ] 25.2 Implement substring-match fallback when Layer 5 not installed

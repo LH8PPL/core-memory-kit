@@ -44,6 +44,28 @@ The user (Lior) is direct and tight on time. Match the energy.
   2. **Context-pressure**: when a session notices context-tight signals (long conversation, low-context reminder from the harness, multiple PRs in flight), write a tracker-update commit BEFORE engaging with the next prompt. **Durable-state-first, then work.**
 
   References: 2026-05-26 audit campaign where the tracker initially lived only in session todos and would have died with the session — fixed via the post-PR-32 durable tracker write. PR-E was added to the campaign 2026-05-26 with its full scope landing in the tracker BEFORE any PR-E work began, exactly because of this discipline. An automatic Stop hook to enforce this was considered + decided against for v0.1.0 (every-turn firing would create noise even with conditional logic; the hook itself would need to honor all campaign audit classes — timeout / lock / four-doors / platform). Parked as v0.2 candidate if the manual disciplines prove insufficient.
+- **Single source of truth, always-on (binding).** Every piece of project state has exactly ONE authoritative file. When any state changes — task ships, sub-task completes, PR opens / merges, decision made, finding surfaced, deferral noted, dependency identified, research learned, ADR decided, meta-rule emerges — update the authoritative file in the SAME commit batch as the work that produced the change. **The agent's only durable memory is files; in-context knowledge dies at session end.** Never rely on "I'll write it later" or "I'll remember." This applies recursively: if you notice state living in the wrong file (e.g., progress in CLAUDE.md, deferrals in commit messages, decisions in transient PR comments), move it to the right one in the same commit batch.
+
+  **Source-of-truth table** (the authoritative home for each concern):
+
+  | Concern | Authoritative file |
+  | --- | --- |
+  | Every task + sub-task + checkbox state + dependencies + paused-conditions | [`specs/v0.1.0/tasks.md`](specs/v0.1.0/tasks.md) |
+  | Campaign-PR queue + per-PR status + scopes + deferrals (as sub-tasks) | [`specs/v0.1.0/tasks.md`](specs/v0.1.0/tasks.md) (Task 23 tracker section) |
+  | Per-PR narrative + meta-lessons + retrospectives | [`docs/journey/v0.1.0-build-log.md`](docs/journey/v0.1.0-build-log.md) |
+  | HOW things work (architecture, schemas, validators, v0.1.x candidates §16) | [`specs/v0.1.0/design.md`](specs/v0.1.0/design.md) |
+  | WHAT must ship (FRs, NFRs, acceptance criteria) | [`specs/v0.1.0/requirements.md`](specs/v0.1.0/requirements.md) and [`specs/v0.1.0/requirements-revisions-proposed.md`](specs/v0.1.0/requirements-revisions-proposed.md) (FR-28+) |
+  | Architectural decisions | [`docs/adr/`](docs/adr/) |
+  | External citations + verification status | [`docs/SOURCES.md`](docs/SOURCES.md) |
+  | Domain terms (glossary wins when docs disagree) | [`specs/v0.1.0/glossary.md`](specs/v0.1.0/glossary.md) |
+  | Diagnostic table | [`HEALTH-CHECKS.md`](HEALTH-CHECKS.md) |
+  | Research notes (one per finding) | [`docs/research/`](docs/research/) |
+  | Stable project rules + verification disciplines + working style + anti-patterns | this file (`CLAUDE.md`) |
+  | Test count / suite state | **Not tracked.** Derived from `npm test`. Snapshot, not state. |
+
+  **Things that are NOT state** (do not track in any file): test pass/fail counts, "we're at this PR right now" mid-session breadcrumbs, intermediate-todo lists. State has a half-life — if it's true forever it's a rule (`CLAUDE.md`), if it's true until-it-changes it's a tracked artifact (`tasks.md` / `design.md` / etc.), if it's only true this session it's not state at all.
+
+  References: 2026-05-27 methodology refactor when Lior surfaced the CLAUDE.md "Current state" section as volatile-state-in-a-rules-file (state had been duplicated across CLAUDE.md + tasks.md + journey log, with tasks.md lagging behind PR shipments). The refactor: tasks.md absorbed the campaign tracker as Task 23.9-23.15 sub-tasks; CLAUDE.md kept only RULES and pointed at tasks.md for status; the journey log kept narrative + retrospectives. **This is binding going forward**, not a one-time cleanup.
 - Verification status (`✓` / `~` / `✗`) is tracked in [`SOURCES.md`](SOURCES.md).
 
 ## Engineering discipline (binding)
@@ -218,14 +240,18 @@ The memory model the kit is building (and the model these notes are written unde
 - **User phrase triggers are an override**, for cases where the user wants immediate explicit capture.
 - **Until Tasks 21 + 23 ship**, this project doesn't have working auto-extract for itself. So the practical workaround during the build: when something genuinely durable comes up in conversation (architectural decision, design rationale, user preference, anti-pattern discovered), explicitly capture it into the journey log via an `Edit`. **Don't wait for the user to say "remember this"** — that's exactly the broken pattern the kit replaces.
 
-## Current state (update as we ship)
+## Current state
 
-- **Tasks 1-24 merged** (PRs #1-#30); Task 23 has 10 sub-tasks including 23.9 (subprocess timeout per design §8.5, PR #32) and 23.10 (lock-file discipline per design §6.9, PR #33), both retroactive from the post-PR-31 audit campaign
-- **775/775 tests green** with live-Haiku spawn-smokes enabled (~5% live-Haiku external-API jitter remains the only flake class — queued spawn-smoke retry-on-timeout followup tracked from PR #28)
-- **Post-PR-31 audit campaign in flight** — **7 PRs total**, converts prose-only verification rules into enforcement validators where shape admits. **Task 25 PAUSED** until PR-E merges (PR-E is a v0.1.0 release blocker — cross-platform discipline sweep — was promoted from 4 PRs to 5 after PR-B's `recoveryCommand` finding surfaced the platform class; PR-D was then split into D1 + D2 after the in-flight scope audit; PR-D2 was further split into D2a + D2b proactively after PR-D1 merged — the rule now firing for the third time, and the first time **before** mid-flight scope crisis forced it). Authoritative tracker: [`docs/journey/v0.1.0-build-log.md` §"Post-PR-31 audit campaign tracker"](docs/journey/v0.1.0-build-log.md). Read that section first if resuming work — it carries the queue status, structured deferrals from earlier PRs (capture-turn spawn-failed observability → PR-D2b), the skill-experiment audit-note discipline for PR-D, PR-E's full scope, and the resume criteria for Task 25.
-- **Campaign queue**: PR-A `[MERGED]` (#32) → PR-B `[MERGED]` (#33) → PR-C `[MERGED]` (#34) → PR-D1 `[MERGED]` (#35) → PR-D2a `audit-enforcement-validators-2a` `[NEXT]` (3 new validators + validator-self-tests + 7 D1 deferrals + design §17.7 footnote) → PR-D2b `audit-enforcement-validators-2b` (27-file `@doors:` annotation pass + class-5 audit + capture-turn observability fix + flip strict + campaign wrap-up) → PR-E `audit-cross-platform-portability`. Each PR runs `code-review-excellence` (ONE holistic pass per PR — see Skill agency section) before opening + `npm run stress` 5x before opening + names "Part N of 7 in the post-PR-31 audit campaign" in its description.
+**For status (task list, completion state, what's next, what's paused, why): see [`specs/v0.1.0/tasks.md`](specs/v0.1.0/tasks.md).** That file is the single source of truth for everything-task-related. Look at Task 23's sub-tasks (especially 23.9-23.15) and the "Post-PR-31 audit campaign tracker" section near Task 23 for the in-flight campaign.
+
+**For narrative (per-PR retrospectives, why decisions were made, meta-lessons): see [`docs/journey/v0.1.0-build-log.md`](docs/journey/v0.1.0-build-log.md).**
+
+**This file (CLAUDE.md)** holds the project's stable RULES — verification disciplines, engineering conventions, working style, anti-patterns, campaign rules that apply to any future multi-PR campaign. State that changes per-PR (tests-green count, what's merged, what's next) is intentionally NOT in this file; it would create commit noise on the rulebook every PR transition.
+
+## Campaign rules (apply to any future multi-PR audit campaign)
+
 - **No parallel campaign PRs.** Per the original campaign launch: *"Each PR opens AFTER the prior PR merges. No parallel work on this campaign — the audits in each class touch overlapping files and parallel PRs would conflict."* Sequencing is strict: PR-A merges → PR-B opens; PR-B merges → PR-C opens; etc. The only exception is direct-to-main docs commits (tracker updates, meta-rule additions, future-work entries) which are docs-only and don't touch the campaign-PR branches' diffs — those CAN happen while a campaign PR is in flight, as demonstrated by the post-PR-32 tracker write and the post-PR-C bundle (`dd1f25e`).
-- **If an audit surfaces an unanticipated category, open another PR in the campaign rather than bundling.** Per the original launch: *"If any PR's audit surfaces a class-7-class-8 unanticipated category, open a fifth PR in the campaign rather than bundling into the current one. Each PR stays focused."* This rule fired when PR-B surfaced the cross-platform class → PR-E added as Part 5/5 instead of folded into PR-D.
+- **If an audit surfaces an unanticipated category, open another PR in the campaign rather than bundling.** Per the original launch: *"If any PR's audit surfaces a class-7-class-8 unanticipated category, open a fifth PR in the campaign rather than bundling into the current one. Each PR stays focused."* This rule fired three times in the post-PR-31 audit campaign — twice reactively (PR-B → PR-E for cross-platform; PR-D → PR-D1 + PR-D2 for session budget) and once proactively (PR-D2 → PR-D2a + PR-D2b for session budget, pre-launch). Once a meta-rule is named explicitly, the next instance gets caught earlier.
 
 ## Working-product milestone
 
