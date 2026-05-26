@@ -1,0 +1,46 @@
+# GitGuardian / ggshield configuration.
+#
+# Scope: this file is read by the ggshield CLI (verified against
+# https://docs.gitguardian.com/ggshield-docs/configuration on
+# 2026-05-26). The GitGuardian GitHub App (which runs the
+# "GitGuardian Security Checks" PR check) does NOT reliably honor
+# this file — its path exclusions live in the workspace-level
+# dashboard settings. We ship this anyway as defense-in-depth for
+# anyone running ggshield locally + as documentation of which
+# strings are deliberate test fixtures.
+#
+# The authoritative dashboard configuration for the GitHub App is
+# tracked in the repo's GitGuardian workspace (only workspace admins
+# can edit it):
+#   Settings → Secrets detection → Excluded filepaths →
+#     tests/**/*.test.js
+# Any new incident raised against the strings below should be
+# resolved as "false positive — test fixture" in the dashboard.
+
+# --- Test files ---------------------------------------------------
+# These files contain deliberately-fake secret-shaped fixtures used
+# to verify the kit's own Poison_Guard regex catalog
+# (packages/cli/src/poison-guard.mjs, per design §6.7) rejects them
+# before any write reaches disk. The fixtures are required to
+# exercise the regex — replacing them with low-entropy stand-ins
+# would defeat the test contract.
+ignored_paths:
+  - 'tests/cli-poison-guard.test.js'
+  - 'tests/cli-poison-guard-log.test.js'
+  - 'tests/cli-memory-write.test.js'
+  - 'tests/cli-auto-extract.test.js'
+
+# --- Specific fixture strings -------------------------------------
+# Belt-and-suspenders: even with ignored_paths above, also list the
+# exact fixture strings so ggshield won't raise them if it scans
+# these files for any reason. The `name` annotations make the
+# intent obvious in any future diff of this file.
+ignored_matches:
+  - name: 'fixture: AWS example key (published by Amazon for docs use)'
+    match: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+  - name: 'fixture: monotonic GitHub PAT shape (1234567890abcdef…)'
+    match: 'ghp_1234567890abcdefghij1234567890abcdef12'
+  - name: 'fixture: bearer token pattern (abc123def456…stu)'
+    match: 'abc123def456ghi789jkl012mno345pqr678stu'
+  - name: 'fixture: generic api_key pattern (abc123def456…)'
+    match: 'abc123def456ghi789jkl012mno345pqr678'
