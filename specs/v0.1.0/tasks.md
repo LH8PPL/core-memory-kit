@@ -458,6 +458,14 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 - [x]* 23.10.6 Tests: unit (mock filesystem with held / stale / corrupted / mixed-with-non-lock files; assert correct categorization + `recoveryCommand` for staleness)
   - Implementation: [`packages/cli/src/lock-discipline.mjs`](../../packages/cli/src/lock-discipline.mjs), [`tests/cli-lock-discipline.test.js`](../../tests/cli-lock-discipline.test.js)
   - _Requirements: addresses post-PR-31 finding; design §6.9; HC-9 logic ready for Task 37 to consume_
+- [x] 23.11 Cross-reference rot audit + missing-ADR backfill from research base (post-PR-31 audit campaign Part 3/4)
+  - Retroactively added 2026-05-26. Exhaustive grep across the spec stack (~1087 cross-references). Findings: 2 reserved-but-never-written ADRs (0009 provenance + 0010 raw-transcripts — both decisions shipped 2026-05-22, files never created); 1 cite-vs-status drift on FR-28/29/30 + NFR-9 (defined in `requirements-revisions-proposed.md` whose status header said "Proposed, awaiting user approval" while design.md cited as approved); 1 self-correction (my PR-A claim that ADR-0008 was mis-cited was wrong — the ADR title compounds bank-airgap + pluggable-compressor; the citations were correct).
+- [x] 23.11.1 Backfill ADR-0009 from research-base evidence (provenance frontmatter — FR-29 + design §6.6 + `provenance.mjs`; evidence in `requirements-revisions-proposed.md` + `basic-memory-deep-dive.md`)
+- [x] 23.11.2 Backfill ADR-0010 from research-base evidence (raw transcripts preserved indefinitely — FR-28 + design §6.5; evidence in `requirements-revisions-proposed.md` + `SOURCES.md` Storage-Is-Not-Memory paper)
+- [x] 23.11.3 Update `requirements-revisions-proposed.md` status header to reflect approval state; add cross-pointer from `requirements.md` head so readers know where FR-28+ live
+- [x] 23.11.4 Update `docs/adr/README.md` index with 0009/0010/0011 rows + meta-note explaining the "reserved + shipped" backfill case
+- [x] 23.11.5 CLAUDE.md "primary-source verification" rule extended: internal cross-references (ADR-X / §X.Y / FR-N / Task NN) subject to same primary-source check as external citations
+- _Requirements: addresses post-PR-31 finding; campaign §"Audit findings" in journey log; PR-D's `validate-references.mjs` will enforce structurally_
 
 - [ ] 24. `memory-write` skill + Poison_Guard (T-021)
   - Estimate: L · Depends: 7, 9, 12, 13

@@ -1,13 +1,13 @@
 # Requirements revisions proposed — post Option A + Option B research
 
-**Status**: Proposed, awaiting user approval · **Date**: 2026-05-22 · **Author**: Claude Opus 4.7
+**Status**: **APPROVED** 2026-05-22 by Lior (per [`design.md`](design.md) §opening note: *"locked in tenets T7/T8, US-14/15, FR-28/29/30, NFR-9, OS-9..13, OQ-8"*). **The additions in this file are AUTHORITATIVE for FR-28, FR-29, FR-30, NFR-9, and the T7/T8/US-14/US-15/OS-9..13/OQ-8 entries — design.md and the rest of the spec stack cite them as if merged.** The mechanical merge of this content into `requirements.md` is queued as v0.1.x cleanup; until it lands, this file is the canonical source for the listed additions. PR-C of the post-PR-31 audit campaign (2026-05-26) surfaced this status-vs-citation drift and updated this header so future readers see the right state. · **Original draft date**: 2026-05-22 · **Author**: Claude Opus 4.7
 
-This document proposes specific revisions to [`requirements.md`](requirements.md) based on **combined** findings from:
+This document proposed specific revisions to [`requirements.md`](requirements.md) based on **combined** findings from:
 
 - [research/2026-05-21-claude-ai-deep-research-option-b.md](../../docs/research/2026-05-21-claude-ai-deep-research-option-b.md) (targeted)
 - [research/2026-05-22-chatgpt-deep-research-option-a.md](../../docs/research/2026-05-22-chatgpt-deep-research-option-a.md) (broad landscape)
 
-When you approve, I apply these to `requirements.md` as edits and commit. Until then, `requirements.md` remains the pre-research draft.
+The approved additions are listed below. The mechanical merge into `requirements.md` is queued as v0.1.x cleanup — until that ships, the additions in this file are the canonical source.
 
 ---
 
