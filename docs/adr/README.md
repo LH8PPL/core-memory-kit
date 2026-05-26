@@ -14,6 +14,11 @@ Each ADR captures one meaningful design decision: the context, what was decided,
 | [0006](0006-lifecycle-hooks-architecture.md) | Lifecycle hook architecture — initial 6 hooks, revised to 5+1 after Option-B research | accepted (revised 2026-05-22) | 2026-05-21 |
 | [0007](0007-content-addressed-citation-ids.md) | Content-addressed citation IDs — 8-char base32 SHA-256 with tier prefix | accepted | 2026-05-22 |
 | [0008](0008-bank-airgap-deferred-to-future-version.md) | Bank / air-gap deployment deferred to v0.2+ but compressor designed pluggably | accepted | 2026-05-22 |
+| [0009](0009-provenance-frontmatter-per-observation.md) | Provenance frontmatter on every observation (per FR-29) | accepted (file written retroactively 2026-05-26) | 2026-05-22 |
+| [0010](0010-raw-transcripts-preserved-indefinitely.md) | Raw transcripts preserved indefinitely (per FR-28) | accepted (file written retroactively 2026-05-26) | 2026-05-22 |
+| [0011](0011-coexistence-with-anthropic-auto-memory-OPEN.md) | Coexistence with Anthropic's native Auto Memory | OPEN | (in progress) |
+
+> **0009 and 0010 were "reserved + shipped" cases**: the decisions were made and implemented on 2026-05-22 (FR-29 + FR-28 in `requirements-revisions-proposed.md`; provenance and transcripts code in subsequent task PRs), but the ADR files themselves weren't written until the post-PR-31 audit campaign (PR-C, 2026-05-26) surfaced the gap. Both ADRs are backfilled from preserved evidence in the research base (`docs/sources/`, `docs/SOURCES.md`, `requirements-revisions-proposed.md`) — not reconstructed by inference. See each ADR's "Provenance of this ADR" meta-note for the specific evidence trail.
 
 ## ADR lifecycle
 
