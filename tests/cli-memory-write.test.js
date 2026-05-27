@@ -631,4 +631,57 @@ describe('Task 24 — memoryWrite() boundary', () => {
       expect(idsAfterMatch.length).toBe(3);
     });
   });
+
+  describe('conflict-queue integration (Task 25 + 25b regression test)', () => {
+    // This test exercises memory-write → detectConflicts → queue end-to-end.
+    // Catches latent bugs in the call-shape contract between layers (Task
+    // 25's `generateId({...})` named-args bug shipped to main because no
+    // integration test exercised this path — fixed in Task 25b).
+
+    it('routes to queues/conflicts.md when new.trust < existing.trust + similar text', () => {
+      // Seed MEMORY.md with an existing HIGH-trust bullet.
+      const existingBullet = '- (P-AAAAAAAA) we standardized on Python 3.13';
+      const existingProvenance = '<!-- source: user-explicit, at: 2026-05-26T10:00:00Z, trust: high -->';
+      writeFileSync(
+        join(projectRoot, 'context', 'MEMORY.md'),
+        `# MEMORY.md\n\n## Active Threads\n\n${existingBullet}\n${existingProvenance}\n\n`,
+        'utf8',
+      );
+
+      // Auto-extract proposes a MEDIUM-trust contradicting bullet on
+      // the same section. Should route to queues/conflicts.md, NOT
+      // append to MEMORY.md.
+      const r = memoryWrite({
+        action: 'add',
+        tier: 'P',
+        scratchpad: 'MEMORY.md',
+        section: 'Active Threads',
+        text: 'we standardized on Python 3.14',
+        source: 'auto-extract',
+        sessionId: 'session-test',
+        trust: 'medium',
+        projectRoot,
+        userDir,
+      });
+
+      // Door 1: response shape signals queue route, not normal append.
+      expect(r.action).toBe('queued');
+      expect(r.id).toMatch(/^P-[2345679ABCDEFGHJKLMNPQRSTUVWXYZa]{8}$/);
+      expect(r.conflictsWith).toBe('P-AAAAAAAA');
+
+      // Door 2: queue file exists with the proposed entry.
+      const queuePath = join(projectRoot, 'context', 'queues', 'conflicts.md');
+      expect(existsSync(queuePath)).toBe(true);
+      const queueText = readFileSync(queuePath, 'utf8');
+      expect(queueText).toContain(`- (proposed: ${r.id})`);
+      expect(queueText).toContain('conflicts_with: P-AAAAAAAA');
+      expect(queueText).toContain('resolution: pending');
+
+      // Door 2 (sibling): MEMORY.md is UNCHANGED — the proposed bullet
+      // was NOT appended to the canonical scratchpad.
+      const memoryText = readMemoryMd(projectRoot);
+      expect(memoryText).not.toContain('Python 3.14');
+      expect(memoryText).toContain('Python 3.13'); // existing preserved
+    });
+  });
 });

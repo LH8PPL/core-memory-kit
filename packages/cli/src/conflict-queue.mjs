@@ -51,6 +51,7 @@ import { join } from 'node:path';
 import { resolveTierRoot, VALID_TIERS } from './tier-paths.mjs';
 import { nowIso, appendAuditEntry, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
+import { generateId } from '../../canonicalize/src/index.mjs';
 
 // Trust ordering. Higher number = higher trust.
 const TRUST_LEVELS = Object.freeze({
@@ -566,4 +567,230 @@ function serializeEntry(entry) {
   }
   lines.push('');
   return lines.join('\n');
+}
+
+// --- Public: mergeScratchpadBullets (Task 25b) ---------------------
+//
+// Layer-3 scratchpad-bullet merger. Closes Task 25's cross-layer
+// composition gap: `mergeFacts` (Layer-2 per-fact files) cannot
+// operate on scratchpad bullets routed to `queues/conflicts.md`
+// without first materializing them as fact files. This function
+// stays at Layer 3 — it reads two bullets from a scratchpad, writes
+// a combined third bullet, and marks both originals with
+// `superseded_by: <newId>` in their provenance comments.
+//
+// Semantics per design §6.8 (updated by Task 25b):
+//   - Combined text: " | "-joined (`textA | textB`). Identical
+//     texts collapse to a single bullet (skipping the merge would
+//     be reasonable but doesn't fit the `merge-both` UX — the user
+//     asked to merge, so we still produce a unified bullet).
+//   - New canonical ID: `generateId(tier, combinedText)` per the
+//     kit's content-addressed convention.
+//   - New provenance: `source: merge-both, merged_from: [idA, idB],
+//     merged_at: <ISO>, trust: max(trustA, trustB)`.
+//   - Originals: existing provenance comments get `superseded_by:
+//     <newId>` appended (lighter than `forget`/tombstone; the
+//     bullets remain in the scratchpad but read as derived-from).
+//
+// Returns { action: 'merged', id, supersededIds: [idA, idB], path }
+// OR an errorResult if a bullet can't be located.
+
+const TRUST_MAX = ['low', 'medium', 'high']; // index = rank
+
+function pickHigherTrust(a, b) {
+  const ra = TRUST_MAX.indexOf(a);
+  const rb = TRUST_MAX.indexOf(b);
+  if (ra === -1 && rb === -1) return 'medium';
+  if (ra >= rb) return a ?? 'medium';
+  return b ?? 'medium';
+}
+
+function findBulletById(lines, id) {
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(BULLET_LINE_RE);
+    if (!m) continue;
+    if (`${m[1]}-${m[2]}` === id) {
+      return { bulletIdx: i, commentIdx: i + 1, tier: m[1], text: m[3] };
+    }
+  }
+  return null;
+}
+
+// Discover the section heading immediately above the bullet at
+// `bulletIdx`. Returns the heading title (e.g., "Decisions") or null
+// if the bullet is above any heading. Used by `mergeScratchpadBullets`
+// when the caller doesn't pass an explicit `section` (the conflict-
+// queue resolver doesn't store section in queue entries — see the
+// CLI mergeFn caller pattern).
+function discoverSectionAt(lines, bulletIdx) {
+  for (let i = bulletIdx - 1; i >= 0; i--) {
+    const m = lines[i].match(HEADING_LINE_RE);
+    if (m) return m[1].trim();
+  }
+  return null;
+}
+
+function injectSupersededBy(commentLine, newId) {
+  // Append `superseded_by: <newId>` to the existing provenance comment.
+  // If the comment already has a `superseded_by:`, replace it (last
+  // write wins). This is CORRECT for chained supersede graphs (A→C
+  // then C→E preserves traversability because A's marker still
+  // points at C, and C's marker points at E). The chain is
+  // discoverable by following supersede pointers forward without
+  // history loss.
+  const m = commentLine.match(PROVENANCE_RE);
+  if (!m) return commentLine; // not a provenance comment; leave untouched
+  const body = m[1];
+  if (/\bsuperseded_by\s*:/.test(body)) {
+    return commentLine.replace(/superseded_by\s*:\s*[\w-]+/, `superseded_by: ${newId}`);
+  }
+  return `<!-- ${body}, superseded_by: ${newId} -->`;
+}
+
+function parseProvenanceTrust(commentLine) {
+  const m = commentLine?.match(PROVENANCE_RE);
+  if (!m) return 'medium';
+  const tm = m[1].match(/trust\s*:\s*(high|medium|low)/);
+  return tm ? tm[1] : 'medium';
+}
+
+/**
+ * Merge two scratchpad bullets into a third combined bullet.
+ *
+ * Side effects:
+ *   - Mutates `scratchpadPath` (rewrites file in place)
+ *   - Appends an audit-log entry with reasonCode `CONFLICT_RESOLVED`
+ *     (extra: { decision: 'merge-both', merged_from: [idA, idB] })
+ *
+ * Pre-conditions:
+ *   - Both bullets exist in the scratchpad with matching IDs
+ *   - `tier` matches the bullets' tier prefix
+ *   - `section` is the heading the merged bullet belongs in (caller
+ *     supplies the same section used by detectConflicts)
+ *
+ * Returns:
+ *   - { action: 'merged', id, supersededIds, path } on success
+ *   - errorResult on missing bullet / invalid input
+ */
+export function mergeScratchpadBullets({
+  tier,
+  projectRoot,
+  userDir,
+  scratchpadPath,
+  section,
+  idA,
+  idB,
+  separator = ' | ',
+  now,
+} = {}) {
+  if (!VALID_TIERS.has(tier)) {
+    return errorResult({
+      category: ERROR_CATEGORIES.SCHEMA,
+      errors: [`mergeScratchpadBullets: tier must be one of P/U/L (got ${tier})`],
+    });
+  }
+  if (!idA || !idB) {
+    return errorResult({
+      category: ERROR_CATEGORIES.SCHEMA,
+      errors: ['mergeScratchpadBullets: idA and idB required'],
+    });
+  }
+  // Parallel to mergeFacts's same-id check — merging a bullet with
+  // itself would inject superseded_by twice on the same line and
+  // emit nonsense audit data (`merged_from: [idA, idA]`).
+  if (idA === idB) {
+    return errorResult({
+      category: ERROR_CATEGORIES.SCHEMA,
+      errors: [`mergeScratchpadBullets: idA and idB are the same (${idA}); cannot merge a bullet with itself`],
+    });
+  }
+  if (typeof scratchpadPath !== 'string') {
+    return errorResult({
+      category: ERROR_CATEGORIES.SCHEMA,
+      errors: ['mergeScratchpadBullets: scratchpadPath required (string)'],
+    });
+  }
+  if (!existsSync(scratchpadPath)) {
+    return errorResult({
+      category: ERROR_CATEGORIES.NOT_FOUND,
+      errors: [`mergeScratchpadBullets: scratchpad does not exist: ${scratchpadPath}`],
+    });
+  }
+
+  const text = readFileSync(scratchpadPath, 'utf8');
+  const lines = text.split(/\r?\n/);
+  const matchA = findBulletById(lines, idA);
+  const matchB = findBulletById(lines, idB);
+  if (!matchA || !matchB) {
+    return errorResult({
+      category: ERROR_CATEGORIES.NOT_FOUND,
+      errors: [
+        !matchA ? `idA not found in scratchpad: ${idA}` : null,
+        !matchB ? `idB not found in scratchpad: ${idB}` : null,
+      ].filter(Boolean),
+    });
+  }
+
+  // Compute combined text + new canonical ID.
+  const combinedText =
+    matchA.text === matchB.text ? matchA.text : `${matchA.text}${separator}${matchB.text}`;
+  let newId = generateId(tier, combinedText);
+  // Self-supersede prevention (code-review IMP-2): when both bullets
+  // have identical text (rare — manual edit, or two auto-extract turns
+  // producing the same canonicalized form), `combinedText` equals each
+  // original text, so `generateId(tier, combinedText) === idA === idB`.
+  // Injecting `superseded_by: <newId>` into idA's provenance would
+  // make the bullet supersede itself. Append a merge-discriminator
+  // so the canonical id differs from both inputs.
+  if (newId === idA || newId === idB) {
+    newId = generateId(tier, `${combinedText} [merge-of: ${idA},${idB}]`);
+  }
+  const ts = now ?? nowIso();
+
+  // Mutate the two originals' provenance comments to inject `superseded_by`.
+  const updatedLines = lines.slice();
+  updatedLines[matchA.commentIdx] = injectSupersededBy(updatedLines[matchA.commentIdx], newId);
+  updatedLines[matchB.commentIdx] = injectSupersededBy(updatedLines[matchB.commentIdx], newId);
+
+  // Pick the higher of the two originals' trust as the merged bullet's
+  // trust (cautious — caller can override via a second pass if needed).
+  const trustA = parseProvenanceTrust(lines[matchA.commentIdx]);
+  const trustB = parseProvenanceTrust(lines[matchB.commentIdx]);
+  const mergedTrust = pickHigherTrust(trustA, trustB);
+
+  // Append the new bullet + provenance to the section. If the caller
+  // didn't pass an explicit `section` (the CLI resolver path), discover
+  // it from idA's position in the scratchpad — the new bullet lands in
+  // the same heading as the originals it supersedes.
+  const effectiveSection = section ?? discoverSectionAt(lines, matchA.bulletIdx);
+  const range = effectiveSection ? findSectionRange(updatedLines, effectiveSection) : null;
+  const insertAt = range ? range.endIdx : updatedLines.length;
+  const newBullet = `- (${newId}) ${combinedText}`;
+  const newProvenance = `<!-- source: merge-both, merged_from: [${idA}, ${idB}], merged_at: ${ts}, trust: ${mergedTrust} -->`;
+  updatedLines.splice(insertAt, 0, newBullet, newProvenance, '');
+
+  writeFileSync(scratchpadPath, updatedLines.join('\n'), 'utf8');
+
+  // Audit-log entry.
+  const tierRoot = resolveTierRoot({ tier, projectRoot, userDir });
+  appendAuditEntry(tierRoot, {
+    ts,
+    action: 'merged',
+    tier,
+    id: newId,
+    reasonCode: REASON_CODES.CURATED_MERGE,
+    reasonText: `mergeScratchpadBullets: ${idA} + ${idB} → ${newId} (merge-both via conflict-queue)`,
+    extra: {
+      decision: 'merge-both',
+      merged_from: [idA, idB],
+      merged_trust: mergedTrust,
+    },
+  });
+
+  return {
+    action: 'merged',
+    id: newId,
+    supersededIds: [idA, idB],
+    path: scratchpadPath,
+  };
 }

@@ -34,6 +34,7 @@ import {
   writeConflictEntry,
   resolveConflictQueue,
   tokenJaccardSimilarity,
+  mergeScratchpadBullets,
 } from '../packages/cli/src/conflict-queue.mjs';
 
 function makeFixture() {
@@ -408,5 +409,205 @@ describe('resolveConflictQueue() — interactive walker (25.4)', () => {
     });
     expect(r.action).toBe('error');
     expect(r.errorCategory).toBe('schema');
+  });
+});
+
+describe('mergeScratchpadBullets() — Layer-3 merger (Task 25b)', () => {
+  let sandbox, projectRoot;
+  beforeEach(() => {
+    ({ sandbox, projectRoot } = makeFixture());
+  });
+  afterEach(() => {
+    rmSync(sandbox, { recursive: true, force: true });
+  });
+
+  it('combines two bullets into a third with " | " separator', () => {
+    const path = seedScratchpad(projectRoot, 'MEMORY.md', [
+      { section: 'Decisions', id: 'P-AAAAAAAA', text: 'we use Python 3.13', trust: 'high' },
+      { section: 'Decisions', id: 'P-BBBBBBBB', text: 'we are moving to 3.14', trust: 'medium' },
+    ]);
+    const r = mergeScratchpadBullets({
+      tier: 'P',
+      projectRoot,
+      scratchpadPath: path,
+      section: 'Decisions',
+      idA: 'P-AAAAAAAA',
+      idB: 'P-BBBBBBBB',
+    });
+    expect(r.action).toBe('merged');
+    expect(r.id).toMatch(/^P-[A-Za-z0-9]{8}$/);
+    expect(r.supersededIds).toEqual(['P-AAAAAAAA', 'P-BBBBBBBB']);
+    const text = readFileSync(path, 'utf8');
+    expect(text).toContain(`(${r.id}) we use Python 3.13 | we are moving to 3.14`);
+    expect(text).toContain('source: merge-both');
+    expect(text).toContain('merged_from: [P-AAAAAAAA, P-BBBBBBBB]');
+  });
+
+  it('mutates both originals to inject superseded_by:<newId>', () => {
+    const path = seedScratchpad(projectRoot, 'MEMORY.md', [
+      { section: 'Decisions', id: 'P-AAAAAAAA', text: 'first', trust: 'high' },
+      { section: 'Decisions', id: 'P-BBBBBBBB', text: 'second', trust: 'medium' },
+    ]);
+    const r = mergeScratchpadBullets({
+      tier: 'P',
+      projectRoot,
+      scratchpadPath: path,
+      section: 'Decisions',
+      idA: 'P-AAAAAAAA',
+      idB: 'P-BBBBBBBB',
+    });
+    const text = readFileSync(path, 'utf8');
+    const lines = text.split('\n');
+    const supersededComments = lines.filter((l) =>
+      l.includes(`superseded_by: ${r.id}`) && l.startsWith('<!--'),
+    );
+    expect(supersededComments.length).toBe(2);
+  });
+
+  it('picks max(trust) for the merged bullet', () => {
+    const path = seedScratchpad(projectRoot, 'MEMORY.md', [
+      { section: 'Decisions', id: 'P-AAAAAAAA', text: 'low-trust fact', trust: 'low' },
+      { section: 'Decisions', id: 'P-BBBBBBBB', text: 'high-trust fact', trust: 'high' },
+    ]);
+    mergeScratchpadBullets({
+      tier: 'P',
+      projectRoot,
+      scratchpadPath: path,
+      section: 'Decisions',
+      idA: 'P-AAAAAAAA',
+      idB: 'P-BBBBBBBB',
+    });
+    const text = readFileSync(path, 'utf8');
+    expect(text).toContain('trust: high');
+  });
+
+  it('writes an audit-log entry with reasonCode CURATED_MERGE + decision merge-both', () => {
+    const path = seedScratchpad(projectRoot, 'MEMORY.md', [
+      { section: 'Decisions', id: 'P-AAAAAAAA', text: 'first', trust: 'medium' },
+      { section: 'Decisions', id: 'P-BBBBBBBB', text: 'second', trust: 'medium' },
+    ]);
+    const r = mergeScratchpadBullets({
+      tier: 'P',
+      projectRoot,
+      scratchpadPath: path,
+      section: 'Decisions',
+      idA: 'P-AAAAAAAA',
+      idB: 'P-BBBBBBBB',
+    });
+    const auditPath = join(projectRoot, 'context', '.locks', 'audit.log');
+    expect(existsSync(auditPath)).toBe(true);
+    const lines = readFileSync(auditPath, 'utf8').trim().split('\n');
+    const entry = JSON.parse(lines[lines.length - 1]);
+    expect(entry.reasonCode).toBe('curated-merge');
+    expect(entry.action).toBe('merged');
+    expect(entry.id).toBe(r.id);
+    expect(entry.extra.decision).toBe('merge-both');
+    expect(entry.extra.merged_from).toEqual(['P-AAAAAAAA', 'P-BBBBBBBB']);
+  });
+
+  it('FAILS gracefully when idA is not found', () => {
+    const path = seedScratchpad(projectRoot, 'MEMORY.md', [
+      { section: 'Decisions', id: 'P-BBBBBBBB', text: 'only B', trust: 'high' },
+    ]);
+    const r = mergeScratchpadBullets({
+      tier: 'P',
+      projectRoot,
+      scratchpadPath: path,
+      section: 'Decisions',
+      idA: 'P-AAAAAAAA',
+      idB: 'P-BBBBBBBB',
+    });
+    expect(r.action).toBe('error');
+    expect(r.errorCategory).toBe('not-found');
+    expect(r.errors.some((e) => e.includes('P-AAAAAAAA'))).toBe(true);
+  });
+
+  it('FAILS gracefully when the scratchpad does not exist', () => {
+    const r = mergeScratchpadBullets({
+      tier: 'P',
+      projectRoot,
+      scratchpadPath: join(projectRoot, 'context', 'MISSING.md'),
+      section: 'Decisions',
+      idA: 'P-AAAAAAAA',
+      idB: 'P-BBBBBBBB',
+    });
+    expect(r.action).toBe('error');
+    expect(r.errorCategory).toBe('not-found');
+  });
+
+  it('errors on missing tier / scratchpadPath', () => {
+    const r1 = mergeScratchpadBullets({ projectRoot, scratchpadPath: 'foo', idA: 'P-AAAAAAAA', idB: 'P-BBBBBBBB' });
+    expect(r1.errorCategory).toBe('schema');
+    const r2 = mergeScratchpadBullets({ tier: 'P', projectRoot });
+    expect(r2.errorCategory).toBe('schema');
+  });
+
+  it('rejects merging a bullet with itself (idA === idB, code-review IMP-1)', () => {
+    const path = seedScratchpad(projectRoot, 'MEMORY.md', [
+      { section: 'Decisions', id: 'P-AAAAAAAA', text: 'only one', trust: 'medium' },
+    ]);
+    const r = mergeScratchpadBullets({
+      tier: 'P',
+      projectRoot,
+      scratchpadPath: path,
+      section: 'Decisions',
+      idA: 'P-AAAAAAAA',
+      idB: 'P-AAAAAAAA',
+    });
+    expect(r.action).toBe('error');
+    expect(r.errorCategory).toBe('schema');
+    expect(r.errors.some((e) => /same.*cannot merge a bullet with itself/.test(e))).toBe(true);
+  });
+
+  it('self-supersede prevention: identical texts get a merge-discriminator (code-review IMP-2)', () => {
+    // Two different IDs but identical text (rare — manual edit, or
+    // hash collision survivor). Without the discriminator, the
+    // canonical id of "combinedText" would equal idA AND idB, so
+    // injectSupersededBy would mark a bullet as "superseded_by itself".
+    const path = seedScratchpad(projectRoot, 'MEMORY.md', [
+      { section: 'Decisions', id: 'P-AAAAAAAA', text: 'duplicate text', trust: 'high' },
+      { section: 'Decisions', id: 'P-BBBBBBBB', text: 'duplicate text', trust: 'medium' },
+    ]);
+    const r = mergeScratchpadBullets({
+      tier: 'P',
+      projectRoot,
+      scratchpadPath: path,
+      section: 'Decisions',
+      idA: 'P-AAAAAAAA',
+      idB: 'P-BBBBBBBB',
+    });
+    expect(r.action).toBe('merged');
+    expect(r.id).not.toBe('P-AAAAAAAA');
+    expect(r.id).not.toBe('P-BBBBBBBB');
+    // Verify the two originals each got a superseded_by pointing at
+    // the new id (not at themselves).
+    const text = readFileSync(path, 'utf8');
+    expect(text).toContain(`superseded_by: ${r.id}`);
+  });
+
+  it('auto-discovers section from idA when caller passes no section', () => {
+    const path = seedScratchpad(projectRoot, 'MEMORY.md', [
+      { section: 'Decisions', id: 'P-AAAAAAAA', text: 'first', trust: 'high' },
+      { section: 'Decisions', id: 'P-BBBBBBBB', text: 'second', trust: 'medium' },
+    ]);
+    const r = mergeScratchpadBullets({
+      tier: 'P',
+      projectRoot,
+      scratchpadPath: path,
+      // section: undefined — CLI resolver path doesn't pass section
+      idA: 'P-AAAAAAAA',
+      idB: 'P-BBBBBBBB',
+    });
+    expect(r.action).toBe('merged');
+    const text = readFileSync(path, 'utf8');
+    // The new bullet should land in the "Decisions" section, not at EOF.
+    const lines = text.split('\n');
+    const decisionsIdx = lines.findIndex((l) => l.trim() === '## Decisions');
+    const newBulletIdx = lines.findIndex((l) => l.startsWith(`- (${r.id})`));
+    expect(newBulletIdx).toBeGreaterThan(decisionsIdx);
+    // No other heading should appear between Decisions and the new bullet.
+    for (let i = decisionsIdx + 1; i < newBulletIdx; i++) {
+      expect(lines[i]).not.toMatch(/^##\s/);
+    }
   });
 });

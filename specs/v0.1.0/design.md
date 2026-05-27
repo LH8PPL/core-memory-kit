@@ -791,7 +791,19 @@ IF new_write.trust >= existing_obs.trust:
   Both stay in archive (per §3.4 consolidation rules)
 ```
 
-User resolves via `cmk queue conflicts`: review each conflict; choose `keep-old`, `keep-new`, or `merge-both` (writes a third combined bullet that supersedes both originals).
+User resolves via `cmk queue conflicts`: review each conflict; choose `keep-old`, `keep-new`, `skip`, or `merge-both`.
+
+**`merge-both` semantics** (Task 25b — Layer-3 scratchpad merger; `mergeScratchpadBullets` in `conflict-queue.mjs`):
+
+1. Combine the two bullet texts with ` | ` separator: `<textA> | <textB>` (identical texts collapse to a single bullet).
+2. Generate a fresh canonical ID via `generateId(tier, combinedText)` per the kit's content-addressed convention.
+3. Auto-discover the section from idA's location (the new bullet lands in the same heading as the originals it supersedes).
+4. Pick the higher of the two originals' trust as the merged bullet's trust.
+5. Write the new bullet with provenance: `source: merge-both, merged_from: [idA, idB], merged_at: <ISO>, trust: <max>`.
+6. Mutate both originals' provenance comments to inject `superseded_by: <newId>` — lighter than `forget`/tombstone; the bullets stay in MEMORY.md but read as derived-from.
+7. Audit-log entry with `reasonCode: CURATED_MERGE`, `extra: {decision: 'merge-both', merged_from: [idA, idB], merged_trust}`.
+
+Stayed at Layer 3 (scratchpad bullets) rather than calling Task 10's `mergeFacts` (Layer 2 per-fact files) — the conflict-queue's proposed bullet was routed to `queues/conflicts.md` without being materialized as a fact file, so cross-layer composition wasn't viable. This was the 5th composition-verification instance in CLAUDE.md, closed by Task 25b.
 
 **Why separate from the review queue**: conflicts are higher-stakes than fresh medium-trust facts — they imply existing memory is wrong. Different queue, different UX, different urgency. Per ChatGPT spec convergence + user-locked decision on the every-observation provenance principle (conflicts must surface explicitly, not silently overwrite).
 
