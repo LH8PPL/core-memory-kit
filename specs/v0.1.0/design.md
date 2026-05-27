@@ -1205,17 +1205,29 @@ CREATE VIRTUAL TABLE observations_fts USING fts5(
   tokenize='porter unicode61'
 );
 
--- Sync triggers keep FTS5 mirror current
+-- FTS5 external-content sync triggers (sqlite.org/fts5 §4.4.3).
+-- The standard "DELETE FROM fts WHERE rowid = old.rowid" trigger
+-- does NOT work for external-content FTS5 (content='observations') —
+-- FTS5 needs the deleted content to remove it from the index, but
+-- the row is already gone by the time an AFTER DELETE trigger runs.
+-- The 'delete' sentinel command lets the trigger pass the old
+-- content explicitly so FTS5 can compute the delete without
+-- re-reading the source row. UPDATE = delete-old + insert-new for
+-- the same reason. Caught in Task 28 implementation against
+-- better-sqlite3 12.x; design correction reflected here.
 CREATE TRIGGER obs_after_insert AFTER INSERT ON observations BEGIN
   INSERT INTO observations_fts(rowid, body, heading_path, write_source)
   VALUES (new.rowid, new.body, new.heading_path, new.write_source);
 END;
 CREATE TRIGGER obs_after_update AFTER UPDATE ON observations BEGIN
-  UPDATE observations_fts SET body=new.body, heading_path=new.heading_path, write_source=new.write_source
-  WHERE rowid=new.rowid;
+  INSERT INTO observations_fts(observations_fts, rowid, body, heading_path, write_source)
+  VALUES ('delete', old.rowid, old.body, old.heading_path, old.write_source);
+  INSERT INTO observations_fts(rowid, body, heading_path, write_source)
+  VALUES (new.rowid, new.body, new.heading_path, new.write_source);
 END;
 CREATE TRIGGER obs_after_delete AFTER DELETE ON observations BEGIN
-  DELETE FROM observations_fts WHERE rowid=old.rowid;
+  INSERT INTO observations_fts(observations_fts, rowid, body, heading_path, write_source)
+  VALUES ('delete', old.rowid, old.body, old.heading_path, old.write_source);
 END;
 
 -- File-watcher checkpoint
@@ -1965,6 +1977,87 @@ No behavioral bug today — the looser regex's "tolerance" is benign (reading an
 v0.1.x candidate: extract `BULLET_LINE_RE` into a shared module — either `tier-paths.mjs` (which already owns scratchpad path resolution) or a new `bullet-format.mjs` if the kit grows more bullet-parsing primitives. Import from the three current consumers. The trigger to ship is adding a 4th consumer OR changing `ID_PATTERN`.
 
 Provenance: Task 27 code-review finding M1 (2026-05-27).
+
+### 16.30 Real-spawn integration test for `cmk-auto-extract.mjs` bin wrapper
+
+**v0.1.x candidate.** *Backfilled 2026-05-27 — this entry was claimed-but-never-added in PR #43's housekeeping commit; corrected during Task 28.*
+
+Surfaced by the Task 27 Layer-4 checkpoint review (2026-05-27) as Test Gap #2. The kit has per-module coverage of [`runAutoExtract`](../../packages/cli/src/auto-extract.mjs) (32 tests in `tests/cli-auto-extract.test.js` with MockHaikuBackend), and the bin wrapper [`plugin/bin/cmk-auto-extract.mjs`](../../plugin/bin/cmk-auto-extract.mjs) has a stub smoke test in `tests/cli-hooks-scaffold.test.js` that confirms it exits 0. Missing: a test that spawns `cmk-auto-extract.mjs` as a subprocess with a hanging Haiku fixture and asserts the kill chain catches it before the outer Stop-hook ceiling fires.
+
+Deferred to v0.1.x because:
+
+- The seam between `runAutoExtract` and the bin wrapper is thin (the wrapper imports + invokes + emits the hook envelope JSON); per-module + bin-stub tests give reasonable confidence
+- Writing the test requires a MockHaikuBackend injection hook into the spawned subprocess (env-var override OR argv flag) — a design choice, not a cheap test addition
+
+Ship trigger: a bug in the bin wrapper's stdin parsing or invocation contract that per-module tests don't catch.
+
+Provenance: Task 27 code-review Test Gap #2 (2026-05-27).
+
+### 16.31 Cross-platform runtime test for `recoveryCommand` strings
+
+**v0.1.x candidate.** *Backfilled 2026-05-27 — this entry was claimed-but-never-added in PR #43's housekeeping commit; corrected during Task 28.*
+
+Surfaced by the Task 27 Layer-4 checkpoint review (2026-05-27) as Test Gap #6. [`scripts/validate-platform-commands.mjs`](../../scripts/validate-platform-commands.mjs) structurally enforces that every user-facing shell-command emission goes through `platform-commands.mjs` OR carries an explicit `// platform-commands: ignore <reason>` marker. The validator runs at lint time on every `npm test`. Missing: a runtime test that exec's an emitted `recoveryCommand` string on the current platform's native shell and asserts the documented behavior.
+
+Deferred to v0.1.x because:
+
+- The structural validator + manual cross-OS test in PR-E gives reasonable confidence today
+- Proper coverage requires a GitHub Actions cross-OS matrix runner (queued for v0.1.x) OR a Windows-specific shell mock — neither is cheap
+
+Ship trigger: a user-reported bug where a `recoveryCommand` doesn't actually work when pasted into the native shell.
+
+Provenance: Task 27 code-review Test Gap #6 (2026-05-27).
+
+### 16.32 Route `getIndexDbPath` through `tier-paths.mjs`
+
+**v0.1.x candidate.**
+
+Surfaced by the Task 28 code-review-excellence pass (2026-05-27). [`packages/cli/src/index-db.mjs`](../../packages/cli/src/index-db.mjs) `getIndexDbPath(projectRoot)` joins `projectRoot + 'context' + '.index' + 'memory.db'` inline. The string `'context'` is the P-tier root that [`tier-paths.mjs`](../../packages/cli/src/tier-paths.mjs)'s `resolveTierRoot({tier:'P', projectRoot})` already owns. Today's literal happens to match; a future change to the P-tier root convention would silently drift.
+
+Deferred to v0.1.x because:
+
+- The literal is a single segment; duplication cost is small for v0.1.0
+- Design §9.1 documents the path literally — keeping production code obviously aligned with the spec has its own clarity benefit
+- Tasks 29-31 (reindex, search, MCP) will be the first multi-caller consumers; the refactor is more natural to do once those callers exist
+
+Ship trigger: a 2nd consumer needs the index DB path AND the kit grows a non-default P-tier root convention.
+
+Provenance: Task 28 code-review Minor #1 (2026-05-27).
+
+### 16.33 FTS5 availability probe in `openIndexDb`
+
+**v0.1.x candidate.**
+
+Surfaced by the Task 28 code-review-excellence pass (2026-05-27). `better-sqlite3` ships prebuilt binaries with FTS5 compiled in by default, so the kit's common-case install path always has FTS5. But a user who builds `better-sqlite3` from source against a custom libsqlite3 build could land a binary without FTS5. Today, the failure surfaces as a cryptic `SqliteError: no such module: fts5` at the `CREATE VIRTUAL TABLE ... USING fts5(...)` step.
+
+A friendly check would be: `try { db.prepare("SELECT fts5(?)").get('check'); } catch { return errorResult({category: ERROR_CATEGORIES.SCHEMA, errors: ['SQLite build missing FTS5 module — search layer disabled. Reinstall better-sqlite3 from prebuilt binaries: npm install --force better-sqlite3']}); }` before applying the schema.
+
+Deferred to v0.1.x because:
+
+- `cmk doctor` (Task 37) is the natural home for environment checks of this class — bundling the FTS5 probe into doctor's `HC-*` checks composes with the kit's broader diagnostic surface
+- The prebuilt-binary default makes the failure rare for the v0.1.0 audience
+
+Ship trigger: a user-reported build-from-source install path that lands without FTS5. Most likely along with `cmk doctor` HC implementation.
+
+Provenance: Task 28 code-review Minor #2 (2026-05-27).
+
+### 16.34 SQLite `busy_timeout` pragma for MCP-server + reindex composition
+
+**v0.1.x candidate.**
+
+Surfaced by the Task 28 code-review-excellence pass (2026-05-27) as a composition note for Task 31. The kit's index DB is opened with WAL + `synchronous=NORMAL` (design §9.1), which lets readers + one writer coexist. But the kit does NOT set `busy_timeout` — so a caller hitting database lock contention (e.g., MCP server holding a long read transaction while `cmk reindex` writes) gets an immediate `SQLITE_BUSY` instead of waiting for the lock to clear.
+
+Easy fix: `db.pragma('busy_timeout = 5000')` in `openIndexDb` adds 5s of patience before SQLITE_BUSY surfaces. Per sqlite.org/pragma, this is the recommended posture for WAL databases with multiple connections.
+
+Deferred to v0.1.x because:
+
+- Task 28 ships ONLY the schema + open function; concurrent-access pressure doesn't surface until Task 31 (MCP server) lands
+- The right composition pair is "MCP server + reindex" — Task 31's PR is the natural home for the busy_timeout fix
+- The kit's writes are short (reindex of a single markdown file = milliseconds), so SQLITE_BUSY surfacing is itself rare in v0.1.0
+
+Ship trigger: Task 31 implementation. Task 28's surface is forward-compatible — Task 31 amends `openIndexDb` to set the pragma alongside MCP server's own connection-management posture.
+
+Provenance: Task 28 code-review composition note for Task 31 (2026-05-27).
 
 ---
 
