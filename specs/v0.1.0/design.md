@@ -2059,6 +2059,45 @@ Ship trigger: Task 31 implementation. Task 28's surface is forward-compatible �
 
 Provenance: Task 28 code-review composition note for Task 31 (2026-05-27).
 
+### 16.35 Real concurrent-writer test for runtime watcher + reindex
+
+**v0.1.x candidate.**
+
+Surfaced by the Task 29 code-review-excellence pass (2026-05-27) as Important finding I3. The kit's runtime watcher and `reindexBoot` both write to the index DB. In v0.1.0 with better-sqlite3's sync API + JavaScript's single-threaded runtime, "concurrent" actually means "sequential at the JS level" — the watcher event handler doesn't fire DURING a `reindexBoot` transaction, only between transactions. Existing test 29.4 #5 pins this sequential composition (boot writes → watcher writes-on-top → DELETE-INSERT replace → no duplicates).
+
+A real mid-transaction race test would need:
+- A second process holding the DB while the test process runs boot
+- Timing fixtures to interleave operations
+- Windows-specific lock semantics for SQLITE_BUSY scenarios
+
+Deferred to v0.1.x because:
+
+- v0.1.0's single-process design makes real mid-transaction races structurally impossible — both watcher events and boot/full reindex run on the same Node event loop
+- The composition surface that DOES exist (watcher + boot sequential, separate transactions) is pinned by the renamed 29.4 #5 test
+- Multi-process pressure surfaces when Task 31 (MCP server) lands — its connection-management posture composes with §16.34's `busy_timeout=5000` plan
+
+Ship trigger: Task 31's MCP server creates a second process opening the same DB; the test pair becomes "boot in process A + MCP read transaction in process B" with timing fixtures that can be platform-specific.
+
+Provenance: Task 29 code-review finding I3 (2026-05-27).
+
+### 16.36 Stricter `userDir` boundary check in index-rebuild
+
+**v0.1.x candidate.**
+
+Surfaced by the Task 29 code-review-excellence pass (2026-05-27) as Important finding I1. `resolveTierRoot({tier:'U', userDir: undefined})` falls back to `homedir() + .claude-memory-kit`. If a future caller (e.g., a SessionStart hook handler) invokes `startRuntimeWatcher` or `reindexBoot` without passing `userDir`, the U-tier path silently resolves to the user's real home-dir kit installation. In production this is actually CORRECT (the user's home IS where U-tier lives), so the current behavior matches the kit's `tier-paths.mjs` convention. The risk is purely test-side: a future test that forgets to pass `userDir` would silently walk the developer's real home dir.
+
+Today's tests in `tests/cli-index-rebuild.test.js` all pass `userDir` explicitly (sandbox-rooted). `subcommands.mjs`'s `runReindex` also passes `userDir = join(homedir(), '.claude-memory-kit')` explicitly. The current production callers are safe.
+
+Deferred to v0.1.x because:
+
+- No current caller hits the fallback unsafely
+- The fallback IS the production-correct behavior — making it stricter would require a separate "test-only" vs "production" code path, which is worse than a documentation note
+- A v0.1.x audit could add a `require-explicit-userDir` mode for hardening test discipline if the issue recurs
+
+Ship trigger: a real-world bug where a caller forgot `userDir` and walked the developer's real home dir in CI.
+
+Provenance: Task 29 code-review finding I1 (2026-05-27).
+
 ---
 
 ## 17. Test discipline
