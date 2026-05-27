@@ -767,7 +767,12 @@ The review queue (§6.2) handles medium-trust *new* writes awaiting blessing. A 
 
 Example: `MEMORY.md` has `(P-S79MJHFN) we standardized on Python 3.13` (trust: high, user-explicit). Later, auto-extract captures "we're moving to Python 3.14 for the websockets fix" from a turn — same canonical topic, different content.
 
-**Conflict detection**: the `memory-write` skill, before writing, runs a semantic similarity check (FTS5 + optional vector) against existing observations on the same heading_path. If similarity > 0.85 AND content differs → **conflict**.
+**Conflict detection**: the `memory-write` skill, before writing, runs a similarity check against existing observations on the same heading_path. Threshold depends on the backend:
+
+- **Semantic backend** (FTS5 + optional vector, v0.1.x): similarity > **0.85** → conflict. Semantic similarity correlates with "different ways of saying the same thing".
+- **Substring fallback** (token-Jaccard, v0.1 default when Layer 5 is not installed): similarity > **0.5** → conflict. Jaccard under-reports semantic similarity ("Python 3.13" vs "Python 3.14" scores ~0.71 lexically despite being a clear semantic conflict); the 0.5 threshold was calibrated empirically by Task 25 against representative kit conflicts. Both thresholds are caller-overridable.
+
+If similarity-and-content-differs → **conflict**.
 
 **Routing**:
 

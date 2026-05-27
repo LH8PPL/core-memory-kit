@@ -557,17 +557,14 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - _Requirements: FR-10, FR-11, FR-29; design §6.3, §6.5, §6.7_
 
 - [ ] 25. Conflict queue + `cmk queue conflicts` resolver (T-022)
-  - Estimate: M · Depends: 24; **UNBLOCKED 2026-05-27** (PR-E merged; post-PR-31 audit campaign closed 7/7); optional dep on 28 (FTS5)
-- [ ] 25.1 Implement similarity detection at write time
-  - On every `memory-write add`: compare new vs. existing observations on same heading_path
-- [ ] 25.2 Implement substring-match fallback when Layer 5 not installed
-  - Logs `similarity_backend: "substring"` to audit.log
-- [ ] 25.3 Implement conflict-routing
-  - similarity > 0.85 + content differs + new.trust < existing.trust → `queues/conflicts.md`
-- [ ] 25.4 Implement `cmk queue conflicts` interactive resolver
-  - Walks pending one-at-a-time; accepts `keep-old` / `keep-new` / `merge-both` / `skip`
-- [ ] 25.5 Wire `merge-both` to task 10 mergeFacts
-- [ ]* 25.6 Write unit tests for conflict queue
+  - Estimate: M · Depends: 24; **UNBLOCKED 2026-05-27** (PR-E merged; post-PR-31 audit campaign closed 7/7); optional dep on 28 (FTS5). Parent flips on merge.
+- [x] 25.1 Implemented similarity detection at write time — `detectConflicts({newText, newTrust, scratchpadPath, sectionTitle, similarityFn?, similarityThreshold?})` in `packages/cli/src/conflict-queue.mjs`. Walks existing bullets in the same scratchpad+section, finds the highest-similarity candidate, routes by trust comparison (queue if new.trust < existing.trust; supersede otherwise). Injectable `similarityFn` hook for v0.1.x FTS5 integration. Hooked into `memory-write.mjs` `doAdd` before `appendBulletGuarded`.
+- [x] 25.2 Substring-match fallback — `tokenJaccardSimilarity(a, b)` (lowercase, split on punctuation+whitespace, Jaccard on token sets). Default threshold 0.5 for the substring backend (calibrated empirically; the Jaccard threshold differs from the semantic 0.85 because lexical similarity under-reports semantic similarity). Audit-log entry records `similarity_backend: 'substring' | 'custom'` so v0.1.x can compare backends.
+- [x] 25.3 Conflict-routing implemented — `writeConflictEntry({...})` appends a structured entry to `<tierRoot>/queues/conflicts.md` with `conflicts_with` / `existing_text` / `existing_trust` / `new_trust` / `similarity` / `similarity_backend` / `detected_at` / `resolution: pending` fields. First write seeds the file with `# Conflicts queue` header. Per-write audit-log entry with `reasonCode: CONFLICT_QUEUED` (added to `audit-log.mjs` REASON_CODES).
+- [x] 25.4 Interactive resolver — `resolveConflictQueue({tier, projectRoot, userDir, prompter, mergeFn})` walks pending entries one-at-a-time. Wired through `cmk queue conflicts` via `runQueueDispatch` in `subcommands.mjs` with a readline-based prompter that accepts `keep-old` / `keep-new` / `merge-both` / `skip`. Re-prompts on unknown answers. CLI scaffold test updated with `NON_STUB_CHILDREN` allowlist (the parent `queue` stays stubbed for `review` per Task 26).
+- [x] 25.5 merge-both wired to `mergeFacts({tier, projectRoot, userDir, idA: existingId, idB: proposedId})` — invoked by the CLI's `mergeFn` callback on `merge-both` decisions. The module's `mergeFn` parameter is injectable for test stubbing.
+- [x]* 25.6 Unit tests — `tests/cli-conflict-queue.test.js` (24 cases): Jaccard semantics (6) + `detectConflicts` (7 covering queue/supersede/no-conflict/injected-fn/error paths) + `writeConflictEntry` (3 covering first-write/append/audit-log) + `resolveConflictQueue` (8 covering empty/keep-old/keep-new/skip/merge-both/idempotency/audit-log/prompter-error). All passing.
+  - _Requirements: FR-10, FR-29; design §6.8_
   - Test add with similarity > 0.85 + content differs + lower trust: routed to `conflicts.md`; canonical unchanged
   - Test add with similarity > 0.85 + same-or-higher trust: canonical updated; existing marked `superseded_by`
   - Test add with similarity < 0.85: no conflict; routed to canonical normally
