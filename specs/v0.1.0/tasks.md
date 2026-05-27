@@ -556,8 +556,8 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Test user-visible rejection identifies category (e.g., "secret") without echoing matched text
   - _Requirements: FR-10, FR-11, FR-29; design §6.3, §6.5, §6.7_
 
-- [ ] 25. Conflict queue + `cmk queue conflicts` resolver (T-022)
-  - Estimate: M · Depends: 24; **UNBLOCKED 2026-05-27** (PR-E merged; post-PR-31 audit campaign closed 7/7); optional dep on 28 (FTS5). Parent flips on merge.
+- [x] 25. Conflict queue + `cmk queue conflicts` resolver (T-022) _shipped 2026-05-27, PR #39, commit `a0a5aa5`_
+  - First post-campaign PR. All 6 sub-tasks delivered. One documented limitation: `merge-both` invokes `mergeFacts` which can't operate on the un-materialized proposed bullet (cross-layer Layer-2/Layer-3 gap — 5th composition-verification instance, surfaced in CLAUDE.md). Task 25b (scratchpad-level merger) addresses the gap with a Layer-3 merge primitive. Suite grew 832 → 855 tests across 39 → 40 files.
 - [x] 25.1 Implemented similarity detection at write time — `detectConflicts({newText, newTrust, scratchpadPath, sectionTitle, similarityFn?, similarityThreshold?})` in `packages/cli/src/conflict-queue.mjs`. Walks existing bullets in the same scratchpad+section, finds the highest-similarity candidate, routes by trust comparison (queue if new.trust < existing.trust; supersede otherwise). Injectable `similarityFn` hook for v0.1.x FTS5 integration. Hooked into `memory-write.mjs` `doAdd` before `appendBulletGuarded`.
 - [x] 25.2 Substring-match fallback — `tokenJaccardSimilarity(a, b)` (lowercase, split on punctuation+whitespace, Jaccard on token sets). Default threshold 0.5 for the substring backend (calibrated empirically; the Jaccard threshold differs from the semantic 0.85 because lexical similarity under-reports semantic similarity). Audit-log entry records `similarity_backend: 'substring' | 'custom'` so v0.1.x can compare backends.
 - [x] 25.3 Conflict-routing implemented — `writeConflictEntry({...})` appends a structured entry to `<tierRoot>/queues/conflicts.md` with `conflicts_with` / `existing_text` / `existing_trust` / `new_trust` / `similarity` / `similarity_backend` / `detected_at` / `resolution: pending` fields. First write seeds the file with `# Conflicts queue` header. Per-write audit-log entry with `reasonCode: CONFLICT_QUEUED` (added to `audit-log.mjs` REASON_CODES).
@@ -565,13 +565,16 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 - [x] 25.5 merge-both wired to `mergeFacts({tier, projectRoot, userDir, idA: existingId, idB: proposedId})` — invoked by the CLI's `mergeFn` callback on `merge-both` decisions. The module's `mergeFn` parameter is injectable for test stubbing.
 - [x]* 25.6 Unit tests — `tests/cli-conflict-queue.test.js` (24 cases): Jaccard semantics (6) + `detectConflicts` (7 covering queue/supersede/no-conflict/injected-fn/error paths) + `writeConflictEntry` (3 covering first-write/append/audit-log) + `resolveConflictQueue` (8 covering empty/keep-old/keep-new/skip/merge-both/idempotency/audit-log/prompter-error). All passing.
   - _Requirements: FR-10, FR-29; design §6.8_
-  - Test add with similarity > 0.85 + content differs + lower trust: routed to `conflicts.md`; canonical unchanged
-  - Test add with similarity > 0.85 + same-or-higher trust: canonical updated; existing marked `superseded_by`
-  - Test add with similarity < 0.85: no conflict; routed to canonical normally
-  - Test fallback: Layer 5 not installed → substring match used; audit.log records backend name
-  - Test `cmk queue conflicts` shows pending; accepts all 4 actions; applies atomically
-  - Test `merge-both` invokes task 10 merge and produces a single canonical observation citing both originals
-  - _Requirements: FR-10, FR-29; design §6.8_
+
+- [ ] 25b. Scratchpad-level merger (closes Task 25's merge-both composition gap; 5th composition-verification instance)
+  - Estimate: S · Depends: 25; surfaced by Task 25's code-review IMP-1. The Layer-2 `mergeFacts` can't operate on Layer-3 scratchpad bullets that were routed to `queues/conflicts.md` without being materialized as per-fact files. Task 25b ships a Layer-3 merge primitive so `merge-both` completes end-to-end without crossing layers. Parent flips on merge.
+- [ ] 25b.1 New helper `mergeScratchpadBullets({textA, textB, idA, idB, scratchpadPath, section, projectRoot, userDir, tier})` — combines two bullet texts with " | " separator or `<A> [also: <B>]` shape (pick cleanest during impl), generates a fresh canonical ID via `generateId({text, tier})`, writes the new bullet to the scratchpad with provenance citing both source IDs.
+- [ ] 25b.2 Mutate both originals' provenance comments to inject `superseded_by: <newId>`. Per design §3.4 supersede is lighter than tombstone (Task 9's `forget`) — the bullets stay in MEMORY.md but their provenance marks them as derived-from.
+- [ ] 25b.3 Wire `runQueueConflicts.mergeFn` in `subcommands.mjs` to invoke the new merger instead of `mergeFacts`. Remove the "KNOWN LIMITATION" comment block.
+- [ ] 25b.4 Update `design §6.8` with the actual merge semantics — replace the "writes a third combined bullet" prose with concrete "merge primitive joins texts with separator, marks both originals as superseded_by the new bullet, cites both sources in new provenance".
+- [ ] 25b.5 Update CLAUDE.md's 5th composition-verification instance — change "v0.1.x followup" to "addressed by tests/cli-conflict-queue.test.js + packages/cli/src/conflict-queue.mjs (Task 25b)".
+- [ ]* 25b.6 Unit tests (~6 cases): simple merge / supersede mutation on both originals / new-bullet provenance / audit-log entry (reasonCode CONFLICT_RESOLVED extended for merge-both context) / re-runs are idempotent / error paths (missing bullet, scratchpad doesn't exist).
+  - _Requirements: design §3.4 + §6.8; closes CLAUDE.md 5th composition-verification instance_
 
 - [ ] 26. Review queue + `cmk queue review` resolver (T-023)
   - Estimate: M · Depends: 23, 24
