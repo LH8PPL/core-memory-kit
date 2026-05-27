@@ -65,6 +65,15 @@ function runCmk(args, { input } = {}) {
  */
 const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex', 'forget', 'init-user-tier', 'trust']);
 
+// Wired child sub-verbs (e.g. `cmk queue conflicts` shipped in Task 25).
+// Listed as "<parent>/<child>" so the generic child-stub assertion
+// can skip them. Parents themselves stay stubbed via the dispatcher
+// even when one of their children is wired (per Task 25 / Task 26
+// split for `queue review` vs `queue conflicts`).
+const NON_STUB_CHILDREN = new Set([
+  'queue/conflicts', // Task 25
+]);
+
 describe('Task 2 — cmk CLI scaffold', () => {
   describe('Package layout', () => {
     it('packages/cli/package.json exists and declares the cmk bin', () => {
@@ -178,6 +187,10 @@ describe('Task 2 — cmk CLI scaffold', () => {
 
       for (const child of group.children) {
         const headWord = child.name.split(' ')[0].replace(/[<[].*/, '');
+        // Skip the stub assertion for children that are wired up.
+        // Their own per-module test (e.g. tests/cli-conflict-queue.test.js
+        // for Task 25's `cmk queue conflicts`) covers behavior.
+        if (NON_STUB_CHILDREN.has(`${group.name}/${headWord}`)) continue;
         it(`\`cmk ${group.name} ${headWord}\` exits 0 and emits the notice`, () => {
           const placeholders = (child.argSpec || []).map((a) =>
             a.flags.includes('...') ? 'foo' : 'placeholder'

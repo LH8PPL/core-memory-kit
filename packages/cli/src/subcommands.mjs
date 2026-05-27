@@ -18,6 +18,9 @@ import { removeClaudeMdBlock } from './claude-md.mjs';
 import { reindex as reindexAction } from './reindex.mjs';
 import { forget as forgetAction } from './forget.mjs';
 import { overrideTrust as overrideTrustAction } from './trust.mjs';
+import { resolveConflictQueue } from './conflict-queue.mjs';
+import { mergeFacts } from './merge-facts.mjs';
+import { createInterface } from 'node:readline';
 import { resolve as resolvePath } from 'node:path';
 
 const NOTICE_PREFIX = 'not yet implemented in v0.1.0';
@@ -186,6 +189,137 @@ function runForget(idOrQuery, options /* , command */) {
   console.log('cmk forget: cancelled');
 }
 
+/**
+ * Real `cmk queue` dispatcher — Task 25. Routes by sub-verb:
+ *   - 'conflicts' → wire to resolveConflictQueue with a readline-based
+ *     interactive prompter. merge-both decisions dispatch to mergeFacts.
+ *   - 'review' → still stubbed (Task 26 / v0.1.x); print the standard
+ *     notice.
+ */
+async function runQueueDispatch(childName) {
+  if (childName === 'conflicts') {
+    return runQueueConflicts();
+  }
+  if (childName === 'review') {
+    console.log(`cmk queue review: ${NOTICE_PREFIX} (v0.1.x)`);
+    return;
+  }
+  console.log(`cmk queue: ${NOTICE_PREFIX} (unknown sub-verb '${childName}')`);
+  process.exitCode = 2;
+}
+
+/**
+ * Interactive resolver for `cmk queue conflicts`. Walks pending
+ * entries one-at-a-time, prints existing + proposed text, asks for
+ * one of `keep-old` / `keep-new` / `merge-both` / `skip`. Loops
+ * until the queue is empty or the user signals end-of-input.
+ *
+ * For v0.1.0 this resolves the PROJECT tier's conflicts queue (the
+ * canonical kit usage). User-tier / language-tier conflicts queues
+ * can be added when the kit's CLI gains explicit `--tier` selection.
+ */
+async function runQueueConflicts() {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const askOnce = (q) =>
+    new Promise((resolve) => {
+      rl.question(q, (answer) => resolve(answer));
+    });
+
+  const VALID_DECISIONS = new Set(['keep-old', 'keep-new', 'merge-both', 'skip']);
+
+  const prompter = async ({
+    proposedId,
+    proposedText,
+    proposedTrust,
+    existingId,
+    existingText,
+    existingTrust,
+    similarity,
+  }) => {
+    console.log('');
+    console.log('─── pending conflict ──────────────────────────────────────');
+    console.log(`existing  (${existingId}, trust=${existingTrust}): ${existingText}`);
+    console.log(`proposed  (${proposedId}, trust=${proposedTrust}): ${proposedText}`);
+    console.log(`similarity: ${Number(similarity).toFixed(4)}`);
+    let decision = '';
+    while (!VALID_DECISIONS.has(decision)) {
+      const answer = await askOnce(
+        `  [keep-old / keep-new / merge-both / skip]: `,
+      );
+      decision = String(answer).trim();
+      if (!VALID_DECISIONS.has(decision)) {
+        console.log(
+          `  unknown answer "${decision}" — please type one of: keep-old, keep-new, merge-both, skip`,
+        );
+      }
+    }
+    return decision;
+  };
+
+  // KNOWN LIMITATION (Task 25 PR review, Important #1; design §3.4 vs §6.8
+  // cross-layer composition gap):
+  //
+  // `mergeFacts` operates on Layer-2 per-fact files at
+  // `<tierRoot>/archive/canonical/<id>.md`. The conflict-queue stores
+  // Layer-3 SCRATCHPAD bullets — the proposed bullet was routed to
+  // `queues/conflicts.md` INSTEAD of being written to MEMORY.md, so
+  // its proposed id has no per-fact file. Calling mergeFacts(idA=
+  // existingId, idB=proposedId) will return `action: 'error'` with
+  // category `not-found` for the proposed id.
+  //
+  // Per task 25.5 the wiring is "merge-both → mergeFacts". The cross-
+  // layer composition gap is a v0.1.x followup (a scratchpad-level
+  // merger that takes two bullets and writes a combined third bullet).
+  // For v0.1.0: surface the error to the user with a clear next-step
+  // hint and leave the queue entry in its resolution=merge-both state
+  // (the audit log + queue file record the user's intent even though
+  // the merge didn't complete).
+  const mergeFn = async ({ tier, projectRoot, userDir, proposedId, existingId }) => {
+    const result = mergeFacts({
+      tier,
+      projectRoot,
+      userDir,
+      idA: existingId,
+      idB: proposedId,
+    });
+    if (result.action === 'error') {
+      console.error(
+        `cmk queue conflicts: merge-both for ${existingId} + ${proposedId} ` +
+          `cannot complete in v0.1.0 — the proposed bullet hasn't been ` +
+          `materialized as a per-fact file (cross-layer composition gap; ` +
+          `see design §6.8 v0.1.x followup). Error: ${result.errors.join('; ')}`,
+      );
+      console.error(
+        `  Workarounds: (1) pick keep-new instead and edit MEMORY.md manually, ` +
+          `(2) re-run after \`cmk write-fact <existing-text> + <proposed-text>\` ` +
+          `materializes both as per-fact files.`,
+      );
+    } else {
+      console.log(`  merge-both → mergeFacts(${existingId}, ${proposedId}) = ${result.action}`);
+    }
+  };
+
+  try {
+    const result = await resolveConflictQueue({
+      tier: 'P',
+      projectRoot: process.cwd(),
+      prompter,
+      mergeFn,
+    });
+    if (result.action === 'error') {
+      for (const e of result.errors) console.error(`cmk queue conflicts: ${e}`);
+      process.exitCode = 2;
+      return;
+    }
+    console.log('');
+    console.log(
+      `cmk queue conflicts: ${result.resolved} resolved (${result.kept_old} kept-old, ${result.kept_new} kept-new, ${result.merged} merged), ${result.skipped} skipped`,
+    );
+  } finally {
+    rl.close();
+  }
+}
+
 /** Helper: build a stub action that prints the standard notice + exits 0. */
 function stub(name, milestone, extra) {
   return function action(/* args, options */) {
@@ -340,12 +474,12 @@ export const subcommands = [
   {
     name: 'queue',
     description: 'review medium-trust auto-extracts and resolve conflicting observations',
-    milestone: 26,
+    milestone: 25,
     children: [
       { name: 'review', description: 'walk pending medium-trust auto-extracts; promote / discard / skip' },
       { name: 'conflicts', description: 'walk pending conflicts; keep-old / keep-new / merge-both / skip' },
     ],
-    action: stub('queue', 26),
+    action: runQueueDispatch,
   },
   {
     name: 'forget',

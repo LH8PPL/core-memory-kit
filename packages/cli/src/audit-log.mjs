@@ -36,6 +36,8 @@ export const REASON_CODES = Object.freeze({
   CURATED_MERGE: 'curated-merge', // mergeFacts: explicit merge of A + B → C
   SCRATCHPAD_APPEND: 'scratchpad-append', // scratchpad: appendScratchpadBullet (Task 12)
   TRUST_CHANGE: 'trust-change', // trust: overrideTrust (Task 15)
+  CONFLICT_QUEUED: 'conflict-queued', // conflict-queue: new write contradicts existing higher-trust fact, routed to queues/conflicts.md (Task 25, design §6.8)
+  CONFLICT_RESOLVED: 'conflict-resolved', // conflict-queue: user resolved a pending conflict via cmk queue conflicts (keep-old / keep-new / merge-both)
 });
 
 export function nowIso() {
@@ -67,6 +69,10 @@ export function appendAuditEntry(tierRoot, entry) {
   };
   if (entry.reasonText !== undefined) canonical.reasonText = entry.reasonText;
   if (entry.paths !== undefined) canonical.paths = entry.paths;
+  // Field name is `extra` (singular). Caller convention across the kit
+  // (memory-write, conflict-queue, etc.); plural `extras` is a common
+  // typo — caught in tests but worth naming here so future modules
+  // pick the right key.
   if (entry.extra !== undefined) canonical.extra = entry.extra;
 
   const locksDir = join(tierRoot, '.locks');

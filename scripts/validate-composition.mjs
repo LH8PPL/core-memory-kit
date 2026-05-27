@@ -77,22 +77,19 @@ if (!compositionMatch) {
 }
 const ruleText = compositionMatch[0];
 
-// Instances inside the rule appear inline as `PR-<id> (...) (<description>)`
-// where intermediate prose between `PR-id` and the parenthesized
-// description is allowed (e.g., "PR-A of the post-PR-31 audit campaign
-// (...)"). Each parenthesized description should contain a reference to
-// a kit artifact (test file or design section) OR a reserved marker.
-//
-// Intermediate-prose constraint (PR-D2a code-review Important #1):
-// the regex CAPS intermediate prose at 80 chars AND rejects another
-// `PR-` token within it. Without these guards, a future contributor
-// writing "Note: PR-X is similar to PR-Y (description)" in the same
-// paragraph would cause PR-X to absorb the prose up to PR-Y's parens,
-// falsely binding PR-X to PR-Y's description. The 80-char cap covers
-// the longest legitimate use today ("PR-A of the post-PR-31 audit
-// campaign" is ~40 chars) plus headroom.
+// Instances inside the rule appear inline as `<prefix>-<id> (...) (<description>)`
+// or `Task <num> (...)`. Two prefixes accepted:
+//   - `PR-<id>` for campaign-PR instances (PR-14, PR-22, PR-A, etc.)
+//   - `Task <num>` for post-campaign task-driven instances (Task 25
+//     was the first such, added 2026-05-27)
+// Intermediate prose between the id and the parenthesized description
+// is allowed (e.g., "PR-A of the post-PR-31 audit campaign (...)") but
+// capped at 80 chars + rejects another instance-prefix within it — see
+// PR-D2a code-review IMP-1 for the rationale (without the cap a future
+// contributor writing "PR-X is similar to PR-Y (...)" would falsely
+// bind PR-X to PR-Y's description).
 const instanceSegments = [];
-const INSTANCE_RE = /PR-(\w+)((?:(?!PR-)[^()\n]){0,80}?)\(([^()]+(?:\([^()]*\)[^()]*)*)\)/g;
+const INSTANCE_RE = /(?:PR-|Task\s+)(\w+)((?:(?!PR-|Task\s)[^()\n]){0,80}?)\(([^()]+(?:\([^()]*\)[^()]*)*)\)/g;
 for (const m of ruleText.matchAll(INSTANCE_RE)) {
   instanceSegments.push({ id: m[1], description: m[3] });
 }

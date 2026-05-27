@@ -56,6 +56,7 @@ import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { appendScratchpadBullet } from './scratchpad.mjs';
 import { parseBulletProvenance } from './provenance.mjs';
 import { checkPoisonGuard, logPoisonGuardRejection } from './poison-guard.mjs';
+import { detectConflicts, writeConflictEntry } from './conflict-queue.mjs';
 
 const VALID_ACTIONS = new Set(['add', 'replace', 'remove']);
 
@@ -249,6 +250,48 @@ function doAdd(opts) {
     now: opts.now,
   });
   if (poisonResult) return poisonResult;
+
+  // Conflict-queue check (Task 25, design §6.8). Runs BEFORE the append:
+  //   - new.trust < existing.trust → route to queues/conflicts.md
+  //   - new.trust >= existing.trust ('supersede' action) → for v0.1.0
+  //     this continues to normal append; auto-marking the existing
+  //     bullet's provenance with `superseded_by:` is deferred to v0.1.x
+  //     (callers can use the explicit `replace` action when they want
+  //     that semantics today).
+  const newTrust = opts.trust ?? 'high';
+  const scratchpadPath = resolveScratchpadPath({
+    tier: opts.tier,
+    scratchpad: opts.scratchpad,
+    projectRoot: opts.projectRoot,
+    userDir: opts.userDir,
+  });
+  const conflict = detectConflicts({
+    newText: opts.text,
+    newTrust,
+    scratchpadPath,
+    sectionTitle: opts.section,
+  });
+  if (conflict.conflict === true && conflict.action === 'queue') {
+    // Compute the proposed ID using the same canonical-id derivation
+    // appendScratchpadBullet would have used, then route to the queue.
+    const sha1 = createHash('sha1').update(opts.text, 'utf8').digest('hex');
+    const proposedId = generateId({ text: opts.text, tier: opts.tier });
+    const ts = opts.now ?? nowIso();
+    return writeConflictEntry({
+      tier: opts.tier,
+      projectRoot: opts.projectRoot,
+      userDir: opts.userDir,
+      newId: proposedId,
+      newText: opts.text,
+      newTrust,
+      existingId: conflict.existingId,
+      existingText: conflict.existingText,
+      existingTrust: conflict.existingTrust,
+      similarity: conflict.similarity,
+      similarityBackend: conflict.similarityBackend,
+      detectedAt: ts,
+    });
+  }
   return appendBulletGuarded(opts);
 }
 
