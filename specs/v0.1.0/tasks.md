@@ -602,19 +602,13 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 
 > If deferred, task 25 falls back to substring match for conflict detection; `cmk search` is unavailable.
 
-- [ ] 28. SQLite + FTS5 schema + WAL config (T-024)
+- [x] 28. SQLite + FTS5 schema + WAL config (T-024) _shipped 2026-05-27, PR #44_
   - Estimate: M · Depends: 2
-- [ ] 28.1 Implement `observations` table + indexes per design §9.1
-- [ ] 28.2 Implement FTS5 virtual table + sync triggers
-- [ ] 28.3 Implement `files` checkpoint table
-- [ ] 28.4 Configure WAL mode + synchronous=NORMAL pragmas
-- [ ]* 28.5 Write unit tests for SQLite schema
-  - Test `cmk reindex --boot` creates `memory.db` with all documented tables/indexes (inspect via `sqlite_master`)
-  - Test FTS5 virtual table exists with documented columns
-  - Test PRAGMA `journal_mode` == `wal`; `synchronous` == `NORMAL`
-  - Test insert into `observations`: FTS5 mirror row created via trigger
-  - Test update on `observations.body`: FTS5 mirror updated via trigger
-  - Test delete from `observations`: FTS5 mirror row deleted via trigger
+- [x] 28.1 Implement `observations` table + indexes per design §9.1
+- [x] 28.2 Implement FTS5 virtual table + sync triggers (external-content sentinel pattern; design §9.1 schema bug fixed in this PR)
+- [x] 28.3 Implement `files` checkpoint table
+- [x] 28.4 Configure WAL mode + synchronous=NORMAL pragmas
+- [x]* 28.5 Write unit tests for SQLite schema — `tests/cli-index-db.test.js` (11 cases). All six tasks.md asserts covered + over-mutation guard + reopen idempotency.
   - _Requirements: FR-16; design §9.1_
 
 - [ ] 29. Reindex strategy (boot / runtime / recovery) (T-025)
