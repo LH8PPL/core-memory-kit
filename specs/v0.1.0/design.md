@@ -1856,6 +1856,27 @@ Trigger to ship: a second `generateId`-style latent cross-module bug (named-args
 
 Provenance: Lior 2026-05-27 picked option #1 (move to design §17.8 now) + option #3 (write validator) as v0.1.x candidate, deferring #2 (fold into Composition verification as sub-bullet) and the immediate validator build.
 
+### 16.26 Integration tests for CLI subcommand stdin / readline glue
+
+**v0.1.x candidate.**
+
+Tracked from Task 25 + Task 26 code-review findings (the latter as Minor #5). The two interactive subcommand handlers — `runQueueConflicts` and `runQueueReview` in [`packages/cli/src/subcommands.mjs`](../../packages/cli/src/subcommands.mjs) — wrap their respective resolvers (`resolveConflictQueue`, `resolveReviewQueue`) with a readline-based prompter that reads from `process.stdin` and writes to `process.stdout`. Today's tests cover the resolvers via sandbox prompters that simulate decision arrays in-memory; the readline + stdin layer is uncovered.
+
+What's missing: a test that spawns `cmk queue conflicts` or `cmk queue review` as a real subprocess with seeded queue files, pipes decisions through stdin, and asserts the side effects landed (state on disk + audit-log entries). This is integration coverage for the spawn boundary at the CLI binary layer — same shape as the spawn-smoke discipline (§17.3) but for stdin-driven interactive subcommands rather than `claude --print` API calls.
+
+Deferred to v0.1.x because:
+
+- Both subcommands' resolvers are unit-tested thoroughly with sandbox prompters (8 cases each), so behavior beyond the readline glue is pinned.
+- The CLI glue is mechanically simple — `createInterface({input: process.stdin})` + a `rl.question` loop with validation against a fixed enum — so the regression surface is small.
+- Writing CLI stdin tests on Windows requires careful attention to line-ending and pipe-buffering quirks (CRLF vs LF in piped stdin; readline's interactive-mode auto-detection). The investment is real but not justified before the rest of v0.1.0 ships.
+- Per §17.8's principle — integration tests are required where modules COMPOSE. The CLI glue's composition is `subcommands.mjs → resolveXxx → {audit-log, conflict-queue, scratchpad}` — every downstream layer is already integration-tested via the resolvers' direct tests. The CLI glue is a single thin readline-prompt wrapper, not a composition point.
+
+Ship trigger: a bug surfaces in the readline-prompt layer that the per-module resolver tests + the cmk-scaffold tests don't catch (e.g., the prompter rejects valid-but-trimmed inputs, or readline's input encoding diverges from sandbox-prompter's plain-string inputs).
+
+Until then, the §6 / §6.8 conflict-queue + review-queue contracts are pinned by resolveConflictQueue / resolveReviewQueue unit tests, and `cmk queue {conflicts,review}` is wired through `subcommands.mjs` whose dispatch is pinned by [`tests/cli-scaffold.test.js`](../../tests/cli-scaffold.test.js) (NON_STUB_CHILDREN allowlist).
+
+Provenance: Task 25 + Task 26 code-review-excellence holistic-pass findings (2026-05-26, 2026-05-27). Both code-review writeups flagged the CLI glue as untested at the integration level, parking it as a v0.1.x candidate; this entry is the durable single-source-of-truth record.
+
 ---
 
 ## 17. Test discipline
