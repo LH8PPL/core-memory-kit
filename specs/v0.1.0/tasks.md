@@ -505,8 +505,8 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 - [x] 23.14.5 Campaign wrap-up journey-log entry written. Single entry "Post-PR-31 audit campaign Part 5/7 + 6/7 (2026-05-27, PR-D2a + PR-D2b)" covers both PRs (D2a's commit `0602af5` didn't touch the journey log — this entry covers D2a retroactively as part of D2b's wrap-up). Includes meta-observations on the campaign as a whole (campaign-rule-fires-N-times pattern; methodology refactor mid-campaign). PR-E appends its own platform-discipline post-mortem on top in Part 7/7.
 - _Requirements: design §17.1; PR-A's structural deferral on capture-turn observability; campaign §"Resume criteria for Task 25"_
 
-- [ ] 23.15 Cross-platform discipline sweep (post-PR-31 audit campaign Part 7/7; **v0.1.0 release blocker**)
-  - PR-E. Full scope inlined in journey-log §"PR-E §full-scope" subsection (verbatim phrasings captured for durability). Surfaced by PR-B's `recoveryCommand` finding — first firing of the campaign-rule.
+- [x] 23.15 Cross-platform discipline sweep (post-PR-31 audit campaign Part 7/7; **v0.1.0 release blocker**) _shipped 2026-05-27, PR #38, commit `d74d5e0`_
+  - PR-E. Full scope inlined in journey-log §"PR-E §full-scope" subsection. Surfaced by PR-B's `recoveryCommand` finding — first firing of the campaign-rule. **What shipped**: `platform-commands.mjs` 3-primitive helper + `validate-platform-commands.mjs` strict-mode validator + 15 new tests (8 unit + 7 self-test) + `lock-discipline.mjs` refactored to delegate (PR-B's inline switch removed) + CLAUDE.md 10th binding meta-rule + design §18 (6 sub-sections) + HC-10 in HEALTH-CHECKS.md + design §14 "Nine→Ten" updated + campaign close retrospective in journey log. Suite grew 817 → 832 tests across 37 → 39 files. Stress 5/5 first run. **Campaign closed (7/7 PRs); Task 25 now unblocked.**
 - [x] 23.15.1 `scripts/validate-platform-commands.mjs` NEW — scans `packages/cli/src/` + `plugin/bin/` for hardcoded POSIX-command tokens (`rm "..."`, `mkdir "..."`, `ls "..."`, etc. — 8 patterns). Three pass conditions per match: file imports from `./platform-commands.mjs` (helper-in-scope), per-line `// platform-commands: ignore <reason>` marker, or no match. Strict mode. 7 fixture-driven self-test cases pin the validator's heuristic against intentional violations + suppression paths + Node-API false-positives (e.g., `mkdirSync`) + comment-only mentions.
 - [x] 23.15.2 `packages/cli/src/platform-commands.mjs` NEW — shared helper with 3 primitives (`removeFile`, `removeDir`, `listDir`) returning copy-paste-ready commands in the user's native shell. `PLATFORM` constant exported. 8 unit-test cases pin both branches (Windows: `Remove-Item / Remove-Item -Recurse -Force / Get-ChildItem`; POSIX: `rm / rm -rf / ls`) + shape invariants (non-empty, quoted path). `lock-discipline.mjs`'s `recoveryCommandFor` refactored to delegate to `removeFile` — eliminates the inline `process.platform === 'win32'` switch PR-B established.
 - [x] 23.15.3 CLAUDE.md 10th binding meta-rule "Cross-platform command discipline (binding)" added — names the failure mode (Windows user on cmd.exe + POSIX command = "command not found"), the discipline (programmatic → helper or marker; docs → reviewer discipline), the validator, and the campaign-rule-fires-third-time provenance (PR-B surfaced the class; PR-E generalized it).
@@ -526,7 +526,7 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 | 4/7 | **23.12** (validators 1/2 — exit-doors + references) | **MERGED** (PR #35) |
 | 5/7 | **23.13** (validators 2/2 — spawn-discipline + numbering-gaps + composition + self-tests + D1 deferrals) | **MERGED** (PR #36) |
 | 6/7 | **23.14** (annotation rollout + class-5 audit + capture-turn fix + strict-mode flip + wrap-up) | **MERGED** (PR #37) |
-| 7/7 | **23.15** (cross-platform discipline sweep) | **NEXT** (PR-E); v0.1.0 release blocker |
+| 7/7 | **23.15** (cross-platform discipline sweep) | **MERGED** (PR #38); campaign closed |
 
 **Campaign rules** (apply to any future multi-PR campaign): see CLAUDE.md "Engineering discipline" → campaign-rules section.
 
@@ -557,7 +557,7 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - _Requirements: FR-10, FR-11, FR-29; design §6.3, §6.5, §6.7_
 
 - [ ] 25. Conflict queue + `cmk queue conflicts` resolver (T-022)
-  - Estimate: M · Depends: 24; **PAUSED until 23.15 merges** (post-PR-31 audit campaign release blocker — see Post-PR-31 audit campaign tracker above); optional dep on 28 (FTS5)
+  - Estimate: M · Depends: 24; **UNBLOCKED 2026-05-27** (PR-E merged; post-PR-31 audit campaign closed 7/7); optional dep on 28 (FTS5)
 - [ ] 25.1 Implement similarity detection at write time
   - On every `memory-write add`: compare new vs. existing observations on same heading_path
 - [ ] 25.2 Implement substring-match fallback when Layer 5 not installed
