@@ -29,5 +29,9 @@ plugin/milvus-deploy-template/volumes/
 *.log
 .extract-*.tmp
 
+# Per-run logs from `npm run stress` (scripts/stress-test.mjs).
+# Captures child stdout+stderr per iteration; never committed.
+.stress-logs/
+
 # canonicalize parity scratch dumps (Task 5)
 /tmp-parity-*.json
