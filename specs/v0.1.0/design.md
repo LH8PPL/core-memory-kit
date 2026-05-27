@@ -1205,17 +1205,29 @@ CREATE VIRTUAL TABLE observations_fts USING fts5(
   tokenize='porter unicode61'
 );
 
--- Sync triggers keep FTS5 mirror current
+-- FTS5 external-content sync triggers (sqlite.org/fts5 §4.4.3).
+-- The standard "DELETE FROM fts WHERE rowid = old.rowid" trigger
+-- does NOT work for external-content FTS5 (content='observations') —
+-- FTS5 needs the deleted content to remove it from the index, but
+-- the row is already gone by the time an AFTER DELETE trigger runs.
+-- The 'delete' sentinel command lets the trigger pass the old
+-- content explicitly so FTS5 can compute the delete without
+-- re-reading the source row. UPDATE = delete-old + insert-new for
+-- the same reason. Caught in Task 28 implementation against
+-- better-sqlite3 12.x; design correction reflected here.
 CREATE TRIGGER obs_after_insert AFTER INSERT ON observations BEGIN
   INSERT INTO observations_fts(rowid, body, heading_path, write_source)
   VALUES (new.rowid, new.body, new.heading_path, new.write_source);
 END;
 CREATE TRIGGER obs_after_update AFTER UPDATE ON observations BEGIN
-  UPDATE observations_fts SET body=new.body, heading_path=new.heading_path, write_source=new.write_source
-  WHERE rowid=new.rowid;
+  INSERT INTO observations_fts(observations_fts, rowid, body, heading_path, write_source)
+  VALUES ('delete', old.rowid, old.body, old.heading_path, old.write_source);
+  INSERT INTO observations_fts(rowid, body, heading_path, write_source)
+  VALUES (new.rowid, new.body, new.heading_path, new.write_source);
 END;
 CREATE TRIGGER obs_after_delete AFTER DELETE ON observations BEGIN
-  DELETE FROM observations_fts WHERE rowid=old.rowid;
+  INSERT INTO observations_fts(observations_fts, rowid, body, heading_path, write_source)
+  VALUES ('delete', old.rowid, old.body, old.heading_path, old.write_source);
 END;
 
 -- File-watcher checkpoint
