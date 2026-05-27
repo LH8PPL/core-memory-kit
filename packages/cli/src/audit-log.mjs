@@ -38,6 +38,8 @@ export const REASON_CODES = Object.freeze({
   TRUST_CHANGE: 'trust-change', // trust: overrideTrust (Task 15)
   CONFLICT_QUEUED: 'conflict-queued', // conflict-queue: new write contradicts existing higher-trust fact, routed to queues/conflicts.md (Task 25, design §6.8)
   CONFLICT_RESOLVED: 'conflict-resolved', // conflict-queue: user resolved a pending conflict via cmk queue conflicts (keep-old / keep-new / merge-both)
+  REVIEW_PROMOTED: 'review-promoted', // review-queue: user promoted a medium-trust auto-extract to MEMORY.md (Task 26, design §6.2)
+  REVIEW_DISCARDED: 'review-discarded', // review-queue: user discarded a medium-trust auto-extract via cmk queue review
 });
 
 export function nowIso() {
