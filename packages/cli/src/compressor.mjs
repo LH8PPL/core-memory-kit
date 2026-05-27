@@ -209,6 +209,7 @@ export class HaikuViaAnthropicApi extends CompressorBackend {
     // (CVE-2024-27980 hardening). On Linux/macOS shell:true is a
     // no-op for argv-style invocation when the arguments don't contain
     // shell metacharacters — ours don't (the prompt goes via stdin).
+    // spawn-discipline: caller-managed terminateSubprocess (kit's kill-chain helper) + setTimeout (per design §8.5; PR-A composition-verification instance #4; substance pinned by tests/cli-compressor-timeout.test.js + tests/spawn-smoke-kill-chain.test.js). The function signature `timeoutMs` parameter (line 162) is the caller-supplied bound; the setTimeout below (search "Timeout timer") fires the kill chain.
     const child = this._spawn(this._bin, args, {
       cwd: tmpdir(), // OS-native temp dir; replaces `/tmp` which fails to resolve on Windows
       env,

@@ -136,6 +136,7 @@ function spawnAutoExtract(autoExtractPath, turnFile, projectRoot) {
     return { spawned: false, reason: 'auto-extract-missing' };
   }
   try {
+    // spawn-discipline: ignore detached-fire-and-forget (the auto-extract child intentionally outlives this hook process — parent-side timeout is incorrect by design; the child carries its own internal timeout via auto-extract.mjs's runAutoExtract → HaikuViaAnthropicApi.compress({timeoutMs: 25_000}) chain. PR-A class-1 audit confirmed this is the correct posture; the structural gap is the spawn-failed observability surface deferred to PR-D2b / Task 23.14.3.)
     const child = spawn(
       'node',
       [autoExtractPath, turnFile],

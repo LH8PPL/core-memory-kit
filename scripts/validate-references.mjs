@@ -48,11 +48,16 @@
 // Wired into `npm test` as a pre-test step (after exit-doors).
 
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
-import { join, resolve, dirname, relative, sep, posix } from 'node:path';
+import { join, resolve, dirname, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
-const REPO_ROOT = resolve(dirname(__filename), '..');
+// REPO_ROOT defaults to scripts/'s parent; honors CMK_VALIDATOR_ROOT
+// env var for testability (sandboxed self-tests set this to point at
+// a fixture directory).
+const REPO_ROOT = process.env.CMK_VALIDATOR_ROOT
+  ? resolve(process.env.CMK_VALIDATOR_ROOT)
+  : resolve(dirname(__filename), '..');
 const SUPPRESSION = 'validate-references: ignore';
 
 // --- Corpus enumeration ---------------------------------------------
@@ -61,7 +66,7 @@ function walkMd(dir, results, skip) {
   if (!existsSync(dir)) return;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const path = join(dir, entry.name);
-    if (skip.has(path) || skip.has(entry.name)) continue;
+    if (skip.has(path)) continue;
     if (entry.isDirectory()) {
       walkMd(path, results, skip);
       continue;
@@ -123,6 +128,18 @@ const tasksText = readMdIfExists('specs/v0.1.0/tasks.md');
 // ANY occurrence as a definition for the purposes of "does this ID
 // exist in the corpus?" — link rot is "no occurrence anywhere", which
 // is the failure mode the validator catches.
+//
+// Leading-zero expectation (D1-MIN-E, deferred from PR-D1 code-review):
+// `FR-13` and `FR-013` produce DISTINCT keys here (the regex's `\d+`
+// captures the literal digits). The kit's own FRs are 1-2 digit
+// (FR-1..FR-31 ish); 3-digit IDs in the wild belong to external specs
+// (Cursor uses FR-001..FR-152). External-spec references should be
+// wrapped in backticks — inline-code spans are stripped before scanning
+// (see `scanLine` below). A future regression where someone writes
+// `FR-013` for the kit's FR-13 would falsely fail; the fix in that case
+// is the citing line, not the validator. Normalization (strip leading
+// zeros, treat 013 == 13) was considered + rejected because it would
+// silently coerce Cursor's FR-052 → kit FR-52 if that ID ever exists.
 function indexIds(text, prefix) {
   const ids = new Set();
   const re = new RegExp(`\\b${prefix}-(\\d+)\\b`, 'g');
@@ -206,17 +223,29 @@ for (const file of mdFiles) {
   const fileDir = dirname(file);
   const lines = text.split(/\r?\n/);
 
-  // Track fenced code block state. Skip line scanning inside ``` fences
-  // because illustrative examples (INDEX.md mockups, template snippets)
-  // contain link-shaped tokens that aren't real references.
-  let inFence = false;
+  // Track fenced code block state with fence-length tracking
+  // (D1-IMP-A, deferred from PR-D1 code-review). CommonMark allows
+  // fences of 3+ backticks; an opening fence is closed only by a
+  // same-language-or-longer same-character fence. This lets writers
+  // nest a `` ``` `` example INSIDE a `` ```` `` block without
+  // toggling the outer state. We capture the opening fence's exact
+  // length and only flip back to non-fence when we see a closing
+  // fence of length >= opener.
+  let fenceLen = 0; // 0 = not in a fence; >0 = inside a fence of this length
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (/^\s*```/.test(line)) {
-      inFence = !inFence;
+    const fenceMatch = line.match(/^\s*(`{3,})\s*\S*\s*$/);
+    if (fenceMatch) {
+      const len = fenceMatch[1].length;
+      if (fenceLen === 0) {
+        fenceLen = len; // opening fence
+      } else if (len >= fenceLen) {
+        fenceLen = 0; // closing fence (length >= opener)
+      }
+      // else: a shorter fence inside an open block — ignore, it's example content
       continue;
     }
-    if (inFence) continue;
+    if (fenceLen > 0) continue;
     if (line.includes(SUPPRESSION)) continue;
     const lineNumber = i + 1;
     // Strip inline-code spans (`...`) before scanning for links — examples
@@ -250,11 +279,24 @@ for (const file of mdFiles) {
       // Anchor check only when target is .md (we don't slugify other formats).
       if (anchor && resolved.endsWith('.md')) {
         const slugs = slugIndex.get(resolved);
-        if (slugs && !slugs.has(slugify(decodeURIComponent(anchor)))) {
-          recordViolation(
-            file,
-            lineNumber,
-            `anchor "${anchor}" not found in ${relative(REPO_ROOT, resolved).split(sep).join('/')}`,
+        if (slugs) {
+          if (!slugs.has(slugify(decodeURIComponent(anchor)))) {
+            recordViolation(
+              file,
+              lineNumber,
+              `anchor "${anchor}" not found in ${relative(REPO_ROOT, resolved).split(sep).join('/')}`,
+            );
+          }
+        } else if (process.env.CMK_REFS_DEBUG === '1') {
+          // D1-IMP-B (deferred from PR-D1 code-review): the target
+          // resolves to an .md file but isn't in our scanned corpus
+          // (e.g., template/ files referenced from CLAUDE.md). The
+          // anchor goes un-checked. Surface this as a debug note so
+          // a future maintainer can see "did we forget to index this
+          // file?" vs "deliberately not checked". Quiet by default;
+          // set CMK_REFS_DEBUG=1 to print.
+          console.error(
+            `validate-references: DEBUG anchor "${anchor}" on out-of-corpus target ${relative(REPO_ROOT, resolved).split(sep).join('/')} (skipped; set CMK_REFS_DEBUG=1 to see all such skips) — referenced from ${relative(REPO_ROOT, file).split(sep).join('/')}:${lineNumber}`,
           );
         }
       }
