@@ -115,12 +115,22 @@ function runPoisonGuard({ text, projectRoot, source, sessionId, now }) {
     source_line: 1,
     redacted_excerpt: result.redacted_excerpt,
   });
-  return {
-    action: 'error',
-    errorCategory: ERROR_CATEGORIES.POISON_GUARD,
+  // Route through errorResult() (not a hand-rolled object) so the result
+  // shape carries the `errors: [...]` array that downstream callers
+  // (review-queue.resolveReviewQueue → subcommands.runQueueReview's
+  // `err.errors.join('; ')`) expect. Without this, `cmk queue review`
+  // crashes with `TypeError: Cannot read properties of undefined`
+  // when the user promotes a candidate that contains a Poison_Guard
+  // pattern. The `pattern_id` + `redacted_excerpt` stay reachable on
+  // the returned object for analytics use.
+  return errorResult({
+    category: ERROR_CATEGORIES.POISON_GUARD,
+    errors: [
+      `Poison_Guard rejected write: pattern_id=${result.pattern_id}`,
+    ],
     pattern_id: result.pattern_id,
     redacted_excerpt: result.redacted_excerpt,
-  };
+  });
 }
 
 // --- Bullet search helpers (for replace + remove) -------------------
@@ -271,6 +281,16 @@ function doAdd(opts) {
     scratchpadPath,
     sectionTitle: opts.section,
   });
+  // Defensive guard against a future detectConflicts schema-error
+  // path. Today the upstream validator catches bad opts before this
+  // call, so action:'error' from detectConflicts is unreachable.
+  // The guard is brittleness insurance: a future change to
+  // detectConflicts that adds a new schema check (e.g., for malformed
+  // existing scratchpad bullets) would otherwise fall through to
+  // appendBulletGuarded and silently drop the error.
+  if (conflict.action === 'error') {
+    return conflict;
+  }
   if (conflict.conflict === true && conflict.action === 'queue') {
     // Compute the proposed ID using the same canonical-id derivation
     // appendScratchpadBullet would have used, then route to the queue.

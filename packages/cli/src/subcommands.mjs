@@ -266,11 +266,16 @@ async function runQueueConflicts() {
   // provenance to inject `superseded_by: <newId>`.
   //
   // For Task 25b's v0.1.0 ship, the merger assumes the kit's default
-  // scratchpad (MEMORY.md under `context/`) and the section in the
-  // queue entry's `existing_section` field (currently the merger
-  // accepts an explicit `section` arg; the resolver passes the
-  // section title from the original conflict so the new bullet lands
-  // in the same heading).
+  // scratchpad (MEMORY.md under `context/`). Section discovery: the
+  // queue entry written by `writeConflictEntry` does NOT capture the
+  // existing bullet's section heading — the merger receives `section`
+  // here as undefined from `resolveConflictQueue` (it doesn't pass
+  // through), and `mergeScratchpadBullets` falls back to
+  // `discoverSectionAt(lines, matchA.bulletIdx)` to find the heading
+  // by walking back from the existing bullet's position. That fallback
+  // is the documented contract for v0.1.0. Per-candidate section
+  // capture in `writeConflictEntry`'s queue entry is a v0.1.x
+  // candidate — see design §6.8 + §16.x notes for the trade-off.
   const mergeFn = async ({
     tier,
     projectRoot,
