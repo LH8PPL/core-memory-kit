@@ -586,11 +586,15 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 - [x]* 26.5 Unit tests — `tests/cli-review-queue.test.js` (13 cases): `parseReviewQueue` (4 covering empty/single/multiple/malformed) + `resolveReviewQueue` (8 covering empty-queue/promote/discard/skip/audit-log-shape/idempotency/mixed-decisions/prompter-error) + 1 supersede-contract lock (the rewritten IMP-1 test — pins v0.1.0 promote-into-high-trust-similar behavior: both bullets coexist in MEMORY.md, no conflict-queue intercept, no `rerouted_to` audit marker; defensive `rerouted_to` code in `review-queue.mjs` stays as future-compat for v0.1.x auto-supersede mutation). All passing.
   - _Requirements: FR-10, FR-29; design §6.2_
 
-- [ ] 27. Checkpoint — Layer 4 (Hooks + auto-extract + skill) complete
-  - All tests for tasks 1–26 green
-  - End-to-end: session starts → snapshot injected → user prompts trigger memory-write → Poison_Guard catches fake API key → review queue surfaces medium-trust output → conflict routed
-  - **Layer-wide code review pass** via the `code-review-excellence` skill across Tasks 17–26. **The most important review of the project** — Layer 4 has the heaviest interaction surface (six hooks + auto-extract subagent + memory-write skill + Poison_Guard + conflict/review queues). Focus: coupling between hooks, race conditions in subprocess spawning, security regex correctness, audit-log uniformity across the new write paths, error-handling consistency. Note that Tasks 23 (auto-extract) and 24 (memory-write + Poison_Guard) should already have had individual PR reviews; this is the cross-task layer review on top
-  - Agent confirms zero failures + zero blocking review issues before Layer 5 (or skipping to cross-cutting if Layer 5 deferred)
+- [x] 27. Checkpoint — Layer 4 (Hooks + auto-extract + skill) complete _shipped 2026-05-27, PR #43_
+  - [x] All tests for tasks 1–26 green (890 tests / 42 files / 8 validators)
+  - [x] End-to-end integration shape verified via the layer-wide review + per-module tests (true E2E in a real Claude Code session is a v0.1.0-release smoke deferred to Lior's local install + walkthrough; not gated on this checkpoint)
+  - [x] **Layer-wide code review pass** via `code-review-excellence` ONE holistic pass across Tasks 17–26 (subagent report 2026-05-27). Surfaced 2 blocking + 4 important + 5 minor findings. All addressed:
+    - **Blocking** B1 (Poison_Guard error shape missing `errors` field → CLI crash) + B2 (auto-extract not touching cooldown marker → ~2x Haiku cost) — both fixed inline in PR #43
+    - **Important** I1 (.extract-*.tmp leak) + I2 (routeHigh discriminator fragility) + I3 (capturePrompt→captureTurn integration test) — all fixed inline; I4 (PostToolUse vs SessionEnd race) deferred to design §16.27 with two new honesty tests pinning the benign-outcome contract
+    - **Minor** M2 (REASON_CODES enum use) + M3 (misleading comment) + M4 (defensive guard) — fixed inline; M1 (BULLET_LINE_RE consolidation) → §16.29; M5 (Windows grandchild reaping) → §16.28 with audited honest description (no "OS reaps eventually" lazy framing)
+    - **Test gaps** — 4 of 6 closed with new tests (I3 integration, B2 cooldown composition, §16.27 honesty pair); 2 deferred as §16.30 (cmk-auto-extract.mjs bin-wrapper real-spawn) + §16.31 (cross-platform recoveryCommand runtime)
+  - [x] Agent confirms zero failures + zero blocking review issues. 890 tests green, stress 5/5 first invocation. Layer 5 is OPTIONAL per the build plan — next-task choice is Layer 5 (search) OR skip to cross-cutting (Tasks 37-43).
 
 ---
 
