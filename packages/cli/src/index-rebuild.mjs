@@ -1,0 +1,597 @@
+// SQLite index rebuild + runtime file-watcher (Task 29, T-025).
+//
+// Composes on top of:
+//   - index-db.mjs       (Task 28) — schema + openIndexDb
+//   - provenance.mjs     (Task 13) — readBullet (parses bullet+comment pairs)
+//   - frontmatter.mjs    (Task 7)  — parse (YAML frontmatter for fact files)
+//   - tier-paths.mjs     — resolveTierRoot, resolveFactDir, ID_PATTERN
+//
+// Public surface:
+//   listObservationSources({projectRoot, userDir})
+//     Returns absolute paths of every markdown file the kit treats as a
+//     source of observations: <tier>/MEMORY.md + <tier>/memory/*.md
+//     across the P / L / U tiers. Caller-skipped: today-{date}.md
+//     compression archives (Haiku output isn't kit-canonical bullet+comment
+//     shape — see design §16.x as a v0.1.x candidate to index session
+//     compressions as observations once Haiku's output schema is pinned).
+//
+//   reindexBoot({projectRoot, userDir, db})
+//     Walk every source file. For each: compute sha1 of file content;
+//     compare against the `files` checkpoint table. Skip unchanged.
+//     Reindex changed: DELETE all rows where source_file = path, parse
+//     observations, INSERT, UPSERT files row. Atomic per-file via SQLite
+//     transaction so a partial reindex never leaves a half-written file.
+//
+//   reindexFull({projectRoot, userDir, db})
+//     DROP observations / observations_fts / files tables; re-apply
+//     INDEX_DB_SCHEMA; walk + reindex every source unconditionally.
+//     Faster than DELETE FROM observations for large indexes because
+//     the FTS5 delete trigger doesn't fire per row.
+//
+//   startRuntimeWatcher({projectRoot, userDir, db, debounceMs})
+//     chokidar watcher over the same source paths as listObservationSources.
+//     Debounced 500ms by default per design §9.2. Returns {close()} so the
+//     caller can shut down cleanly (tests, hook handlers).
+//
+// Design §9.2 reindex strategy:
+//   - Boot: walk + diff mtime+sha1 vs files table → reindex changed only
+//   - Runtime: chokidar 500ms debounce → reindex on FS event
+//   - Recovery: drop DB + rebuild from markdown
+//
+// Per CLAUDE.md "Shared modules" rule, this module imports from the
+// established sources of truth and does NOT re-implement bullet/frontmatter
+// parsing or path resolution.
+
+import { createHash } from 'node:crypto';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { basename, join, relative } from 'node:path';
+import chokidar from 'chokidar';
+import { INDEX_DB_SCHEMA } from './index-db.mjs';
+import { readBullet, parseBulletProvenance } from './provenance.mjs';
+import { parse as parseFrontmatter } from './frontmatter.mjs';
+import {
+  VALID_TIERS,
+  resolveTierRoot,
+  resolveFactDir,
+  ID_PATTERN,
+} from './tier-paths.mjs';
+
+// --- File listing -----------------------------------------------------
+
+/**
+ * Enumerate the observation-source files across all three tiers.
+ * Returns objects with absolute path + the tier it belongs to + the
+ * file kind ('scratchpad' or 'fact') so callers don't have to
+ * re-derive the parsing strategy.
+ */
+export function listObservationSources({ projectRoot, userDir }) {
+  const sources = [];
+  for (const tier of ['P', 'L', 'U']) {
+    const root = resolveTierRoot({ tier, projectRoot, userDir });
+    if (!existsSync(root)) continue;
+    // Scratchpad: <tier>/MEMORY.md
+    const scratchpad = join(root, 'MEMORY.md');
+    if (existsSync(scratchpad)) {
+      sources.push({ path: scratchpad, tier, kind: 'scratchpad' });
+    }
+    // Granular fact files: <tier>/memory/*.md (excluding INDEX.md)
+    const factDir = resolveFactDir(tier, root);
+    if (existsSync(factDir)) {
+      for (const entry of readdirSync(factDir, { withFileTypes: true })) {
+        if (!entry.isFile()) continue;
+        if (!entry.name.endsWith('.md')) continue;
+        if (entry.name === 'INDEX.md') continue;
+        sources.push({
+          path: join(factDir, entry.name),
+          tier,
+          kind: 'fact',
+        });
+      }
+    }
+  }
+  return sources;
+}
+
+// --- Helpers ----------------------------------------------------------
+
+function sha1OfContent(content) {
+  return createHash('sha1').update(content, 'utf8').digest('hex');
+}
+
+function isoToEpochMs(iso) {
+  const t = Date.parse(iso);
+  return Number.isFinite(t) ? t : 0;
+}
+
+function relativeSource(absPath, { projectRoot, userDir }) {
+  // Sibling-prefix guard: a naive startsWith() check would misclassify
+  // "/foo-other/x.md" as inside "/foo". The path-separator suffix
+  // ensures we only match true descendants. Surfaced as Important
+  // finding I2 by the Task 29 code-review.
+  const sep = process.platform === 'win32' ? /[\\/]/ : '/';
+  function isInside(parent, child) {
+    if (!parent) return false;
+    if (!child.startsWith(parent)) return false;
+    if (child.length === parent.length) return false;
+    const next = child.charAt(parent.length);
+    return process.platform === 'win32'
+      ? next === '\\' || next === '/'
+      : next === '/';
+  }
+  if (isInside(userDir, absPath)) {
+    return relative(userDir, absPath).replaceAll('\\', '/');
+  }
+  return relative(projectRoot, absPath).replaceAll('\\', '/');
+}
+
+// --- Parsing ----------------------------------------------------------
+
+/**
+ * Parse a scratchpad MEMORY.md into observations.
+ *
+ * Walks line-by-line tracking the most recent h2 heading. For each
+ * bullet+comment pair, calls readBullet() to extract id/text/provenance.
+ * Returns one row per bullet conforming to the observations schema.
+ *
+ * Tolerant: bullets without a following provenance comment are skipped
+ * (the kit's writeBullet always emits both). Bullets whose readBullet()
+ * returns null (malformed id, missing required provenance fields) are
+ * skipped — the broader markdown file still indexes its valid bullets.
+ */
+export function parseObservationsFromScratchpad({
+  path,
+  content,
+  tier,
+  projectRoot,
+  userDir,
+}) {
+  const lines = content.split('\n');
+  const sha1 = sha1OfContent(content);
+  const source_file = relativeSource(path, { projectRoot, userDir });
+  const baseName = basename(path);
+
+  const observations = [];
+  let currentHeading = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const headingMatch = /^##\s+(.+)$/.exec(line);
+    if (headingMatch) {
+      currentHeading = headingMatch[1].trim();
+      continue;
+    }
+    // Try to parse this line as a bullet, with line i+1 as the
+    // provenance comment.
+    const next = lines[i + 1] ?? '';
+    const bullet = readBullet({ bulletLine: line, commentLine: next });
+    if (!bullet) continue;
+    const { id, text, provenance } = bullet;
+    const heading_path = currentHeading
+      ? `${baseName} > ${currentHeading}`
+      : baseName;
+    observations.push({
+      id,
+      tier,
+      source_file,
+      source_line: i + 1,
+      source_sha1: sha1,
+      heading_path,
+      body: text,
+      write_source: provenance.write,
+      trust: provenance.trust,
+      created_at: isoToEpochMs(provenance.at),
+      superseded_by: provenance.superseded_by ?? null,
+      deleted_at: null, // scratchpads don't tombstone in place
+    });
+    // Skip the comment line so we don't try to parse it as a bullet.
+    i++;
+  }
+  return { observations, sha1 };
+}
+
+/**
+ * Parse a granular fact file into a single observation.
+ *
+ * Per-fact files have YAML frontmatter (id, type, title, source, sha1,
+ * write_source, trust, at, optional deleted_at + superseded_by) and a
+ * markdown body. The whole file = one observation row.
+ */
+export function parseObservationsFromFactFile({
+  path,
+  content,
+  tier,
+  projectRoot,
+  userDir,
+}) {
+  const sha1 = sha1OfContent(content);
+  const source_file = relativeSource(path, { projectRoot, userDir });
+  const baseName = basename(path);
+  const { frontmatter, body, parseError } = parseFrontmatter(content);
+  if (!frontmatter || parseError) {
+    return { observations: [], sha1, skipped: parseError ?? 'no frontmatter' };
+  }
+  if (!frontmatter.id || !ID_PATTERN.test(frontmatter.id)) {
+    return { observations: [], sha1, skipped: 'invalid or missing id' };
+  }
+  // Kit's writeFact (see packages/cli/src/write-fact.mjs:96-115) writes
+  // these field names: `created_at` (not `at`), `source_file` (not
+  // `source`), `source_sha1` (not `sha1`). An earlier draft of this
+  // parser used the shorter `at`/`source`/`sha1` names — surfaced by
+  // Task 29's code-review-excellence pass as a separately-correct-
+  // jointly-broken composition gap that would have made reindex a
+  // no-op for every kit-produced fact file. The fix here reads the
+  // canonical writer-emitted names; the test helper (seedFactFile)
+  // now uses writeFact() directly so this kind of drift surfaces at
+  // TDD time. Per CLAUDE.md "Integration-test coverage for cross-
+  // module flows".
+  if (!frontmatter.write_source || !frontmatter.trust || !frontmatter.created_at) {
+    return {
+      observations: [],
+      sha1,
+      skipped: 'missing write_source / trust / created_at',
+    };
+  }
+  // The kit's "type" field becomes the heading_path qualifier.
+  const heading_path = frontmatter.type
+    ? `${baseName} > ${frontmatter.type}`
+    : baseName;
+  // Important: the observations table's `source_file` field means
+  // "on-disk location of the markdown that holds this observation"
+  // (e.g., `memory/<fact>.md` for per-fact files, `MEMORY.md` for
+  // scratchpad bullets). It is NOT the frontmatter's `source_file`
+  // field, which is provenance — "where did this fact ORIGINATE
+  // from" (e.g., a MEMORY.md bullet that was promoted to a fact via
+  // `cmk promote`). The two concepts share a field name but have
+  // different semantics. The DELETE-then-INSERT pattern in
+  // replaceObservationsForFile keys on the on-disk location, so the
+  // index must use that interpretation. The provenance lineage is
+  // retrievable by reading the fact file's frontmatter when needed.
+  // source_sha1 is similarly the sha1 of the file being indexed —
+  // used as the diff key in reindexBoot's mtime+sha1 checkpoint.
+  const observation = {
+    id: frontmatter.id,
+    tier,
+    source_file,
+    source_line: 1, // frontmatter starts at line 1
+    source_sha1: sha1,
+    heading_path,
+    body: (body ?? '').trim() || (frontmatter.title ?? ''),
+    write_source: frontmatter.write_source,
+    trust: frontmatter.trust,
+    created_at: isoToEpochMs(frontmatter.created_at),
+    superseded_by: frontmatter.superseded_by ?? null,
+    deleted_at: frontmatter.deleted_at ? isoToEpochMs(frontmatter.deleted_at) : null,
+  };
+  return { observations: [observation], sha1 };
+}
+
+function parseSource(source, { projectRoot, userDir }) {
+  const content = readFileSync(source.path, 'utf8');
+  if (source.kind === 'scratchpad') {
+    return parseObservationsFromScratchpad({
+      path: source.path,
+      content,
+      tier: source.tier,
+      projectRoot,
+      userDir,
+    });
+  }
+  return parseObservationsFromFactFile({
+    path: source.path,
+    content,
+    tier: source.tier,
+    projectRoot,
+    userDir,
+  });
+}
+
+// --- DB write helpers -------------------------------------------------
+
+const INSERT_OBSERVATION_SQL = `
+INSERT INTO observations
+  (id, tier, source_file, source_line, source_sha1, heading_path, body,
+   write_source, trust, created_at, superseded_by, deleted_at)
+VALUES
+  (@id, @tier, @source_file, @source_line, @source_sha1, @heading_path, @body,
+   @write_source, @trust, @created_at, @superseded_by, @deleted_at)
+`;
+
+const UPSERT_FILE_SQL = `
+INSERT INTO files (path, mtime, sha1, indexed_at)
+VALUES (@path, @mtime, @sha1, @indexed_at)
+ON CONFLICT(path) DO UPDATE SET
+  mtime = excluded.mtime,
+  sha1 = excluded.sha1,
+  indexed_at = excluded.indexed_at
+`;
+
+const DELETE_OBSERVATIONS_FOR_PATH_SQL = `DELETE FROM observations WHERE source_file = ?`;
+
+/**
+ * Replace all observations for a single source file. Caller-wrapped
+ * in a transaction. The FTS5 delete-then-insert pattern fires the
+ * documented sync triggers (external-content sentinel + new insert).
+ */
+function replaceObservationsForFile(db, { source, observations, mtime, sha1, projectRoot, userDir, now }) {
+  const source_file = relativeSource(source.path, { projectRoot, userDir });
+  db.prepare(DELETE_OBSERVATIONS_FOR_PATH_SQL).run(source_file);
+  const insert = db.prepare(INSERT_OBSERVATION_SQL);
+  for (const obs of observations) {
+    insert.run(obs);
+  }
+  db.prepare(UPSERT_FILE_SQL).run({
+    path: source_file,
+    mtime,
+    sha1,
+    indexed_at: now,
+  });
+}
+
+// --- Public API: boot / full / watcher --------------------------------
+
+/**
+ * Boot reindex: walk source files; reindex only those whose sha1
+ * differs from the `files` checkpoint.
+ *
+ * @returns {object} {filesScanned, filesReindexed, observationsAffected,
+ *                    durationMs, skipped: [{path, reason}]}
+ */
+export function reindexBoot({ projectRoot, userDir, db, now }) {
+  const t0 = Date.now();
+  const ts = now ?? t0;
+  const sources = listObservationSources({ projectRoot, userDir });
+  const skipped = [];
+  let filesScanned = 0;
+  let filesReindexed = 0;
+  let observationsAffected = 0;
+
+  const txn = db.transaction((source) => {
+    const stat = statSync(source.path);
+    const mtime = Math.floor(stat.mtimeMs);
+    const result = parseSource(source, { projectRoot, userDir });
+    if (result.skipped) {
+      skipped.push({ path: source.path, reason: result.skipped });
+      return 0;
+    }
+    replaceObservationsForFile(db, {
+      source,
+      observations: result.observations,
+      mtime,
+      sha1: result.sha1,
+      projectRoot,
+      userDir,
+      now: ts,
+    });
+    return result.observations.length;
+  });
+
+  for (const source of sources) {
+    filesScanned++;
+    const content = readFileSync(source.path, 'utf8');
+    const sha1 = sha1OfContent(content);
+    const relPath = relativeSource(source.path, { projectRoot, userDir });
+    const existing = db
+      .prepare('SELECT sha1 FROM files WHERE path = ?')
+      .get(relPath);
+    if (existing && existing.sha1 === sha1) {
+      continue; // unchanged
+    }
+    const n = txn(source);
+    filesReindexed++;
+    observationsAffected += n;
+  }
+
+  return {
+    filesScanned,
+    filesReindexed,
+    observationsAffected,
+    durationMs: Date.now() - t0,
+    skipped,
+  };
+}
+
+/**
+ * Full reindex: drop observations + observations_fts + files tables,
+ * re-apply the schema, then walk + reindex every source.
+ *
+ * Faster than DELETE FROM observations for large indexes because the
+ * FTS5 sentinel triggers don't fire per row.
+ */
+export function reindexFull({ projectRoot, userDir, db, now }) {
+  const t0 = Date.now();
+  const ts = now ?? t0;
+  // Drop + recreate (faster than per-row DELETE).
+  db.exec(`
+    DROP TABLE IF EXISTS observations_fts;
+    DROP TRIGGER IF EXISTS obs_after_insert;
+    DROP TRIGGER IF EXISTS obs_after_update;
+    DROP TRIGGER IF EXISTS obs_after_delete;
+    DROP TABLE IF EXISTS observations;
+    DROP TABLE IF EXISTS files;
+  `);
+  db.exec(INDEX_DB_SCHEMA);
+
+  const sources = listObservationSources({ projectRoot, userDir });
+  const skipped = [];
+  let filesScanned = 0;
+  let observationsAffected = 0;
+
+  const txn = db.transaction((source, sha1) => {
+    // sha1 is passed in (not recomputed) so the file-read for sha1
+    // matches the content parseSource will read again inside this txn.
+    // Tiny TOCTOU window: if the file changes between the outer read
+    // (sha1) and parseSource's read, the next reindex picks up the
+    // newest content — acceptable for a regenerable read-cache.
+    // Surfaced as Important finding I5 (dead `content` arg) in the
+    // Task 29 code-review; removed in this commit.
+    const stat = statSync(source.path);
+    const mtime = Math.floor(stat.mtimeMs);
+    const result = parseSource(source, { projectRoot, userDir });
+    if (result.skipped) {
+      skipped.push({ path: source.path, reason: result.skipped });
+      return 0;
+    }
+    replaceObservationsForFile(db, {
+      source,
+      observations: result.observations,
+      mtime,
+      sha1,
+      projectRoot,
+      userDir,
+      now: ts,
+    });
+    return result.observations.length;
+  });
+
+  for (const source of sources) {
+    filesScanned++;
+    const content = readFileSync(source.path, 'utf8');
+    const sha1 = sha1OfContent(content);
+    observationsAffected += txn(source, sha1);
+  }
+
+  return {
+    filesScanned,
+    observationsAffected,
+    durationMs: Date.now() - t0,
+    skipped,
+  };
+}
+
+/**
+ * Runtime watcher. Returns a handle with .close() so the caller (tests,
+ * future hook handler) can shut it down cleanly.
+ *
+ * Debounce via chokidar's awaitWriteFinish (stability threshold = the
+ * caller's debounceMs, default 500ms per design §9.2). On `add` /
+ * `change` events: re-parse the touched file + replace its observations.
+ * On `unlink`: delete the file's observations (FTS5 sentinel trigger
+ * fires for each).
+ *
+ * Tier inference: paths are matched against the resolved tier roots —
+ * a path starting with the projectRoot's context/ is P; context.local/
+ * is L; userDir is U.
+ */
+export function startRuntimeWatcher({
+  projectRoot,
+  userDir,
+  db,
+  debounceMs = 500,
+}) {
+  // chokidar v5 dropped glob support (breaking change from v3). Watch
+  // the DIRECTORIES that contain observation-source files; filter events
+  // by extension + filename in the handlers. The MEMORY.md scratchpad
+  // is a single file so it can be watched directly; the memory/ fact
+  // directory is watched as a folder so chokidar receives 'add' events
+  // for newly-created per-fact files (e.g., from auto-extract's
+  // routeHigh writing a new fact).
+  const watchPaths = [];
+  const tierRoots = [];
+  for (const tier of ['P', 'L', 'U']) {
+    const root = resolveTierRoot({ tier, projectRoot, userDir });
+    if (!existsSync(root)) continue;
+    tierRoots.push({ tier, root });
+    const scratchpad = join(root, 'MEMORY.md');
+    if (existsSync(scratchpad)) watchPaths.push(scratchpad);
+    const factDir = resolveFactDir(tier, root);
+    if (existsSync(factDir)) watchPaths.push(factDir);
+  }
+  if (watchPaths.length === 0) {
+    return { close: async () => {}, watcher: null };
+  }
+
+  const watcher = chokidar.watch(watchPaths, {
+    ignoreInitial: true,
+    persistent: true,
+    awaitWriteFinish: {
+      stabilityThreshold: debounceMs,
+      pollInterval: 100,
+    },
+  });
+
+  function tierForPath(p) {
+    const np = p.replaceAll('\\', '/');
+    for (const { tier, root } of tierRoots) {
+      const nr = root.replaceAll('\\', '/');
+      // Sibling-prefix guard (I2): require a `/` after the root prefix
+      // so "/foo-other/..." doesn't match "/foo". Same logic as
+      // relativeSource's isInside helper.
+      if (np === nr || np.startsWith(nr + '/')) return tier;
+    }
+    return null;
+  }
+
+  function kindForPath(p) {
+    const np = p.replaceAll('\\', '/');
+    return /\/memory\/[^/]+\.md$/.test(np) ? 'fact' : 'scratchpad';
+  }
+
+  function isObservationSource(absPath) {
+    // Filter chokidar events. Watch is over directories; this filter
+    // drops non-.md files, INDEX.md (Task 8's pointer index — not an
+    // observation source), and anything outside the kit's tier roots.
+    if (!absPath.endsWith('.md')) return false;
+    if (basename(absPath) === 'INDEX.md') return false;
+    return VALID_TIERS.has(tierForPath(absPath));
+  }
+
+  function handleChange(absPath) {
+    if (!isObservationSource(absPath)) return;
+    const tier = tierForPath(absPath);
+    const kind = kindForPath(absPath);
+    const source = { path: absPath, tier, kind };
+    try {
+      const content = readFileSync(absPath, 'utf8');
+      const sha1 = sha1OfContent(content);
+      const result = parseSource(source, { projectRoot, userDir });
+      if (result.skipped) return;
+      const stat = statSync(absPath);
+      const mtime = Math.floor(stat.mtimeMs);
+      const txn = db.transaction(() => {
+        replaceObservationsForFile(db, {
+          source,
+          observations: result.observations,
+          mtime,
+          sha1,
+          projectRoot,
+          userDir,
+          now: Date.now(),
+        });
+      });
+      txn();
+    } catch (err) {
+      // Best-effort: a partial write or temp-file might trigger an event
+      // for a file that's already been replaced. Re-fire on the next event.
+      // Log to stderr with the file path so a poison-pill file doesn't
+      // fail silently — surfaced as Minor finding M4 by the Task 29
+      // code-review.
+      process.stderr.write(
+        `cmk runtime-watcher: skipped ${absPath}: ${err?.message ?? err}\n`,
+      );
+    }
+  }
+
+  function handleUnlink(absPath) {
+    if (!isObservationSource(absPath)) return;
+    const source_file = relativeSource(absPath, { projectRoot, userDir });
+    const txn = db.transaction(() => {
+      db.prepare(DELETE_OBSERVATIONS_FOR_PATH_SQL).run(source_file);
+      db.prepare('DELETE FROM files WHERE path = ?').run(source_file);
+    });
+    txn();
+  }
+
+  watcher.on('add', handleChange);
+  watcher.on('change', handleChange);
+  watcher.on('unlink', handleUnlink);
+
+  return {
+    watcher,
+    close: () => watcher.close(),
+  };
+}
+
+// `parseBulletProvenance` re-export so a future test can probe a comment
+// in isolation without re-importing from provenance.mjs. Kept narrow to
+// avoid widening the module's API beyond what callers need.
+export { parseBulletProvenance };
