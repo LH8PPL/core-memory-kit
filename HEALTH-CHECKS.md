@@ -1,6 +1,6 @@
 # Health checks
 
-Nine yes/no checks the kit runs at session start. Each has a self-repair path. Documented here for reference; the authoritative copy lives in each project's `context/SETUP.md` (so it travels with the project).
+Ten yes/no checks the kit runs at session start. Each has a self-repair path. Documented here for reference; the authoritative copy lives in each project's `context/SETUP.md` (so it travels with the project).
 
 | ID | Check | How to verify |
 |---|---|---|
@@ -13,6 +13,7 @@ Nine yes/no checks the kit runs at session start. Each has a self-repair path. D
 | HC-7 | memsearch backend reachable | `memsearch stats` exits 0 |
 | HC-8 | Native Anthropic Auto Memory status detected | Inspect `~/.claude/projects/<slug>/memory/` existence + contents; log to `context/.locks/native-memory-status.log` as `{active: true \| false \| unknown, last_modified: <ISO>, file_count: N}` (non-fatal informational — lets users see whether the kit is supplementing or substituting Anthropic's native memory) |
 | HC-9 | No stale lock files under `context/.locks/` + `<userDir>/.locks/` | `detectStaleLocks(projectRoot, {userDir})` from [packages/cli/src/lock-discipline.mjs](packages/cli/src/lock-discipline.mjs) returns no entries with `stale: true` |
+| HC-10 | Platform-aware emissions present + healthy on the current OS | `cmk doctor` emits a sample `recoveryCommand` via the `platform-commands.mjs` helper and confirms it matches the platform-expected shape (`Remove-Item "..."` on `process.platform === 'win32'`, `rm "..."` on POSIX). Non-fatal informational — if mismatched, surfaces "kit running on $PLATFORM but emitting commands for the other half" as a diagnostic hint. Per design §18. |
 
 ## Self-repair
 
@@ -109,6 +110,18 @@ Then re-run `memsearch stats`.
 ```bash
 memsearch config set milvus.uri "~/.memsearch/milvus.db"
 ```
+
+### HC-10 — platform-aware emissions mismatch
+
+Repair: this check is non-fatal and informational. If `cmk doctor` reports a mismatch, the kit's platform-detection (`process.platform`) disagrees with the emission shape — likely a misuse of `platform-commands.mjs` somewhere in the codebase. Run:
+
+```bash
+node scripts/validate-platform-commands.mjs
+```
+
+…to scan for hardcoded POSIX emissions outside the helper. The validator output names the offending file + line.
+
+If the validator passes but `cmk doctor` still reports a mismatch, the cause is likely an environment quirk (Git Bash on Windows reporting itself as `linux`-like, or vice versa). Document the case in a research note and file a v0.1.x candidate.
 
 ## Adding new health checks
 
