@@ -1900,13 +1900,59 @@ Provenance: Task 27 code-review finding I4 (2026-05-27).
 
 **v0.1.x candidate.**
 
-Surfaced by the Task 27 Layer-4 checkpoint review (2026-05-27). [`packages/cli/src/compressor.mjs`](../../packages/cli/src/compressor.mjs:213-224) spawns `claude.cmd` with `shell: true` on Windows (required to resolve .cmd shim extensions — CVE-2024-27980 hardening). The process tree becomes: parent node → cmd.exe (immediate child) → claude.cmd → node (grandchild running the real Anthropic API call). When the inner timeout fires, [`terminateSubprocess`](../../packages/cli/src/lock-discipline.mjs) kills the immediate child (cmd.exe) — but the grandchild node process can linger briefly before the OS reaps it via parent-process-exit. The `spawn-smoke-kill-chain.test.js` covers the SIGTERM/SIGKILL escalation against the immediate child only.
+Surfaced by the Task 27 Layer-4 checkpoint review (2026-05-27). [`packages/cli/src/compressor.mjs:213-224`](../../packages/cli/src/compressor.mjs) spawns `claude.cmd` with `shell: true` on Windows (required to resolve .cmd shim extensions — CVE-2024-27980 hardening). The Windows-specific process tree becomes:
 
-Documented in design §8.5 as acceptable for v0.1.0 ("OS reaps eventually"). No observed user-visible impact today. v0.1.x candidate: extend the kill chain to walk grandchildren via Windows job objects (or equivalent process-group semantics on POSIX) so terminate is structurally exhaustive.
+```text
+parent node (kit)
+  └─ cmd.exe              ← immediate child (shell:true)
+      └─ claude.cmd       ← .cmd shim
+          └─ node         ← grandchild running the actual Anthropic API call
+```
 
-Trigger to ship: a real instance of an orphaned grandchild causing a leak (zombie process, memory growth, or hung file handle).
+POSIX has no `shell: true` requirement — spawn is single-child, no grandchild surface.
 
-Provenance: Task 27 code-review finding M5 (2026-05-27).
+#### What the kill chain actually does
+
+[`terminateSubprocess`](../../packages/cli/src/compressor.mjs) at compressor.mjs:106-139 calls `child.kill('SIGTERM')` then `child.kill('SIGKILL')` against the **immediate child only**. On Windows, Node maps both signals to `TerminateProcess` against cmd.exe's PID. No `taskkill /T`, no Windows Job Objects, no tree-kill mechanism.
+
+[`tests/spawn-smoke-kill-chain.test.js`](../../tests/spawn-smoke-kill-chain.test.js) spawns its fixture via `spawn(process.execPath, [HANG_FIXTURE])` — a direct single-child tree. The test pins the immediate-child kill behavior but does NOT cover the production three-deep tree. The test's own comment acknowledges this scoping at line 22-24.
+
+#### Actual grandchild lifecycle when cmd.exe is killed
+
+When cmd.exe dies via `TerminateProcess`, the grandchild is NOT auto-reaped — Windows has no parent-death-cascades-to-descendants behavior without Job Objects. Node's `ChildProcess` emits 'exit' for cmd.exe, which causes the stdio pipes to be closed on the kit's side. The grandchild then exits via one of:
+
+1. **Pipe-write failure (most common)**: the grandchild's stdout was inherited through cmd.exe; when cmd.exe dies and the pipe is closed on the kit's read side, the grandchild's next write to stdout (writing the API response) fails with broken-pipe-equivalent, and the grandchild exits.
+2. **Anthropic API server timeout**: if the API is truly hung, the grandchild's internal HTTPS client eventually times out server-side; the grandchild exits via its own error-path.
+3. **Manual kill**: a user noticing the orphan in Task Manager runs `taskkill /PID <pid>`.
+
+In practice, path #1 fires within seconds of our kill — bounded by how long the API takes to produce a response once we've stopped waiting. The slow-API case (which is why our inner timeout fired in the first place) means the grandchild was already deep in the await; once the API responds (typically a few more seconds, sometimes longer), the broken-pipe-exit fires.
+
+#### Concrete impact in v0.1.0
+
+| Concern | Observed behavior |
+| --- | --- |
+| Kit functions correctly | Yes — kit settled the Promise rejection at timeout; no waiting on grandchild |
+| Data loss / corruption / crash | None |
+| Cost overhead | None (API call was already initiated server-side before our timeout; charged regardless) |
+| Brief orphan process | Yes — typically a few seconds bounded by API response time |
+| Rare truly-hung-API case | Orphan can persist longer; bounded by Anthropic's own server-side timeout |
+| Lock interference | None — kit's locks key on the parent kit PID, not the grandchild |
+| MCP-config tempfile cleanup race | `rmSync(sandbox)` runs before the kill chain; if the grandchild is mid-read, Windows can emit EBUSY which is swallowed by the existing catch |
+| User-visible | Mostly no — Task Manager would briefly show extra node processes |
+
+#### Why no v0.1.0 honesty test
+
+Unlike §16.27 (where two simple tests pin the benign-outcome contract without changing production code), §16.28's behavior is OS-level + non-deterministic timing-dependent. A proper test would exercise the production shell:true spawn shape with a hang fixture AND assert the grandchild's eventual lifecycle — real work that arguably belongs WITH the v0.1.x fix, since both touch the same surface. Pinning the immediate-child kill (which we already do) without pinning the grandchild lifecycle would give false confidence.
+
+#### v0.1.x fix sketch
+
+Extend the kill chain to walk grandchildren via Windows Job Objects (associate processes, terminate together) OR shell to `taskkill /T /F /PID <cmd.exe-pid>` (kills the tree). Either choice adds Windows-specific code + test surface. The kit's existing single-child kill-chain test would become a baseline; new tests would exercise the production three-deep tree.
+
+#### Trigger to ship
+
+A real instance of orphaned-grandchild causing observable user pain: zombie process accumulation across many sessions, memory growth pinned to claude.cmd children, hung file handle blocking a subsequent operation, OR Task Manager pollution noticed by a Windows user.
+
+Provenance: Task 27 code-review finding M5 (2026-05-27); empirical audit of `terminateSubprocess` + `spawn-smoke-kill-chain.test.js` (same day, Lior's "check please" verification).
 
 ### 16.29 Consolidate `BULLET_LINE_RE` across Layer 4 modules
 
