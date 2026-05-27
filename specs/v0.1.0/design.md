@@ -1877,6 +1877,95 @@ Until then, the §6 / §6.8 conflict-queue + review-queue contracts are pinned b
 
 Provenance: Task 25 + Task 26 code-review-excellence holistic-pass findings (2026-05-26, 2026-05-27). Both code-review writeups flagged the CLI glue as untested at the integration level, parking it as a v0.1.x candidate; this entry is the durable single-source-of-truth record.
 
+### 16.27 PostToolUse vs SessionEnd race on `now.md`
+
+**v0.1.x candidate.**
+
+Surfaced by the Task 27 Layer-4 checkpoint review (2026-05-27). PostToolUse is the only async hook in [`plugin/hooks/hooks.json`](../../plugin/hooks/hooks.json) (`"async": true, "timeout": 120`); its handler [`packages/cli/src/observe-edit.mjs`](../../packages/cli/src/observe-edit.mjs) appends Write/Edit/MultiEdit events to `context/sessions/now.md`. The SessionEnd hook's [`compressSession`](../../packages/cli/src/compress-session.mjs) truncates the same file after compression. Failure mode: a long-running PostToolUse append still in flight when the user types `/exit` races with `truncateSync`. On Windows this can throw EBUSY (mitigated by the existing `try { truncateSync; } catch {}` — documented in compress-session.mjs:188-193 as "best-effort"); on POSIX the failure mode is "truncate is lost, now.md contains compressed content PLUS new appends, next SessionEnd re-compresses material that was already compressed."
+
+The existing comment frames the failure as benign ("the next session compresses a slightly-larger buffer — not a data-loss event"). That framing IS correct — no data loss, no corruption — but the kit's "lazy-framing hides real bugs" rule cuts both ways. **Honesty check shipped in v0.1.0** ([`tests/cli-task27-checkpoint-fixes.test.js`](../../tests/cli-task27-checkpoint-fixes.test.js) `§16.27 honesty check` describe block): two tests pin the benign-outcome contract — (a) compress-session tolerates leftover content from a race and still produces a structurally valid today-{date}.md, (b) two successive compress-session runs across a simulated race day produce valid output with the documented "noisy duplicates" outcome. The tests will continue to pass after the v0.1.x file-rename fix lands because they pin the BENIGN OUTCOME contract, not the current implementation. They surface immediately if a future change makes the failure mode non-benign (e.g., a refactor that lets EBUSY propagate out as a crash, or a today-{date}.md format change that breaks under same-heading adjacent appends).
+
+Two fix candidates for v0.1.x:
+
+1. **File-rename pattern**: read `now.md` → atomically rename to `now.md.compressing-{ts}` → process the renamed file → unlink it. The rename is atomic on both POSIX (rename(2)) and NTFS (MoveFileEx); PostToolUse continues appending to a freshly-opened `now.md` without contention.
+2. **Add a test pinning the benign-failure mode**: assert that on truncate failure, the next `compressSession` call still produces valid output (no double-compress of already-compressed sections, OR if double-compress is accepted, no malformed today-{date}.md).
+
+Deferred to v0.1.x because: (a) no data-loss path; (b) the 120s cooldown (now correctly composed across auto-extract + compress-session per §8.5 / Task 27 B2 fix) prevents the double-compress from running back-to-back; (c) v0.1.0 has no test coverage gap relative to the existing "best-effort" contract — adding rename semantics is a real design change, not a hot-fix.
+
+Trigger to ship: a real instance of the race causing visible user pain (corrupted today-{date}.md OR cost-budget overrun from double-compress).
+
+Provenance: Task 27 code-review finding I4 (2026-05-27).
+
+### 16.28 Windows `shell: true` grandchild process reaping
+
+**v0.1.x candidate.**
+
+Surfaced by the Task 27 Layer-4 checkpoint review (2026-05-27). [`packages/cli/src/compressor.mjs:213-224`](../../packages/cli/src/compressor.mjs) spawns `claude.cmd` with `shell: true` on Windows (required to resolve .cmd shim extensions — CVE-2024-27980 hardening). The Windows-specific process tree becomes:
+
+```text
+parent node (kit)
+  └─ cmd.exe              ← immediate child (shell:true)
+      └─ claude.cmd       ← .cmd shim
+          └─ node         ← grandchild running the actual Anthropic API call
+```
+
+POSIX has no `shell: true` requirement — spawn is single-child, no grandchild surface.
+
+#### What the kill chain actually does
+
+[`terminateSubprocess`](../../packages/cli/src/compressor.mjs) at compressor.mjs:106-139 calls `child.kill('SIGTERM')` then `child.kill('SIGKILL')` against the **immediate child only**. On Windows, Node maps both signals to `TerminateProcess` against cmd.exe's PID. No `taskkill /T`, no Windows Job Objects, no tree-kill mechanism.
+
+[`tests/spawn-smoke-kill-chain.test.js`](../../tests/spawn-smoke-kill-chain.test.js) spawns its fixture via `spawn(process.execPath, [HANG_FIXTURE])` — a direct single-child tree. The test pins the immediate-child kill behavior but does NOT cover the production three-deep tree. The test's own comment acknowledges this scoping at line 22-24.
+
+#### Actual grandchild lifecycle when cmd.exe is killed
+
+When cmd.exe dies via `TerminateProcess`, the grandchild is NOT auto-reaped — Windows has no parent-death-cascades-to-descendants behavior without Job Objects. Node's `ChildProcess` emits 'exit' for cmd.exe, which causes the stdio pipes to be closed on the kit's side. The grandchild then exits via one of:
+
+1. **Pipe-write failure (most common)**: the grandchild's stdout was inherited through cmd.exe; when cmd.exe dies and the pipe is closed on the kit's read side, the grandchild's next write to stdout (writing the API response) fails with broken-pipe-equivalent, and the grandchild exits.
+2. **Anthropic API server timeout**: if the API is truly hung, the grandchild's internal HTTPS client eventually times out server-side; the grandchild exits via its own error-path.
+3. **Manual kill**: a user noticing the orphan in Task Manager runs `taskkill /PID <pid>`.
+
+In practice, path #1 fires within seconds of our kill — bounded by how long the API takes to produce a response once we've stopped waiting. The slow-API case (which is why our inner timeout fired in the first place) means the grandchild was already deep in the await; once the API responds (typically a few more seconds, sometimes longer), the broken-pipe-exit fires.
+
+#### Concrete impact in v0.1.0
+
+| Concern | Observed behavior |
+| --- | --- |
+| Kit functions correctly | Yes — kit settled the Promise rejection at timeout; no waiting on grandchild |
+| Data loss / corruption / crash | None |
+| Cost overhead | None (API call was already initiated server-side before our timeout; charged regardless) |
+| Brief orphan process | Yes — typically a few seconds bounded by API response time |
+| Rare truly-hung-API case | Orphan can persist longer; bounded by Anthropic's own server-side timeout |
+| Lock interference | None — kit's locks key on the parent kit PID, not the grandchild |
+| MCP-config tempfile cleanup race | `rmSync(sandbox)` runs before the kill chain; if the grandchild is mid-read, Windows can emit EBUSY which is swallowed by the existing catch |
+| User-visible | Mostly no — Task Manager would briefly show extra node processes |
+
+#### Why no v0.1.0 honesty test
+
+Unlike §16.27 (where two simple tests pin the benign-outcome contract without changing production code), §16.28's behavior is OS-level + non-deterministic timing-dependent. A proper test would exercise the production shell:true spawn shape with a hang fixture AND assert the grandchild's eventual lifecycle — real work that arguably belongs WITH the v0.1.x fix, since both touch the same surface. Pinning the immediate-child kill (which we already do) without pinning the grandchild lifecycle would give false confidence.
+
+#### v0.1.x fix sketch
+
+Extend the kill chain to walk grandchildren via Windows Job Objects (associate processes, terminate together) OR shell to `taskkill /T /F /PID <cmd.exe-pid>` (kills the tree). Either choice adds Windows-specific code + test surface. The kit's existing single-child kill-chain test would become a baseline; new tests would exercise the production three-deep tree.
+
+#### Trigger to ship
+
+A real instance of orphaned-grandchild causing observable user pain: zombie process accumulation across many sessions, memory growth pinned to claude.cmd children, hung file handle blocking a subsequent operation, OR Task Manager pollution noticed by a Windows user.
+
+Provenance: Task 27 code-review finding M5 (2026-05-27); empirical audit of `terminateSubprocess` + `spawn-smoke-kill-chain.test.js` (same day, Lior's "check please" verification).
+
+### 16.29 Consolidate `BULLET_LINE_RE` across Layer 4 modules
+
+**v0.1.x candidate.**
+
+Surfaced by the Task 27 Layer-4 checkpoint review (2026-05-27). Three modules — [`memory-write.mjs`](../../packages/cli/src/memory-write.mjs), [`conflict-queue.mjs`](../../packages/cli/src/conflict-queue.mjs), [`review-queue.mjs`](../../packages/cli/src/review-queue.mjs) — each declare their own `BULLET_LINE_RE` to parse scratchpad bullet lines. `memory-write.mjs` uses the tight base32 alphabet (matches `ID_PATTERN` from canonicalize); the other two use a looser `[A-Za-z0-9]{8}` that accepts the kit's IDs but also accepts malformed IDs (e.g., a hand-edited bullet with `O` or `I` in the ID).
+
+No behavioral bug today — the looser regex's "tolerance" is benign (reading an externally-edited bullet with a malformed ID is read-only; the kit never re-writes the bad ID). But the drift is a maintenance hazard: a future change to `ID_PATTERN` (e.g., adding a new character class) would need to land in three places.
+
+v0.1.x candidate: extract `BULLET_LINE_RE` into a shared module — either `tier-paths.mjs` (which already owns scratchpad path resolution) or a new `bullet-format.mjs` if the kit grows more bullet-parsing primitives. Import from the three current consumers. The trigger to ship is adding a 4th consumer OR changing `ID_PATTERN`.
+
+Provenance: Task 27 code-review finding M1 (2026-05-27).
+
 ---
 
 ## 17. Test discipline

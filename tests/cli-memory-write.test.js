@@ -118,6 +118,15 @@ describe('Task 24 — memoryWrite() boundary', () => {
       // The matched pattern_id surfaces so analytics can disambiguate
       // which secret family triggered the rejection.
       expect(r.pattern_id).toMatch(/^secret_/);
+      // Task 27 B1 fix: Poison_Guard rejection MUST carry an `errors`
+      // array. Downstream consumers (review-queue resolver → CLI
+      // handler) destructure `r.errors` and call `.join('; ')` on it.
+      // Before the fix, this returned `undefined.join(';')` and crashed
+      // `cmk queue review` with TypeError. Pinning the shape here so
+      // a regression surfaces at the unit-test layer, not at the CLI.
+      expect(Array.isArray(r.errors)).toBe(true);
+      expect(r.errors.length).toBeGreaterThan(0);
+      expect(r.errors[0]).toMatch(/Poison_Guard/);
       // Scratchpad must be untouched.
       const body = readMemoryMd(projectRoot);
       expect(body).not.toContain('wJalrXUtnFEMI');
