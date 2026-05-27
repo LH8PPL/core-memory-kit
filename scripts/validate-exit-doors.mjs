@@ -43,11 +43,13 @@
 // discipline (CLAUDE.md "Skill agency"); this validator pins the
 // procedural floor.
 //
-// Modes
-// -----
+// Mode
+// ----
 //
-//   Default: missing header = warning (PR-D rollout).
-//   CMK_DOORS_STRICT=1: missing header = error (PR-D final commit).
+// **Strict by default** (post-PR-D2b annotation rollout, 2026-05-27).
+// Missing header OR silent-omission of any door 1..5 OR out-of-range
+// door number = error, exit 1. No warning-mode opt-out: the per-file
+// `// @doors-ignore` marker is the emergency escape valve.
 //
 // Annotation-line shape (D1-MIN-C, deferred from PR-D1 code-review):
 // The `@doors:` regex (`/^\s*\/\/\s*@doors:\s*([0-9,\s]+)\s*$/`)
@@ -85,7 +87,9 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const TEST_DIR = 'tests';
-const STRICT = process.env.CMK_DOORS_STRICT === '1';
+// Strict mode is now the default (post-PR-D2b annotation rollout,
+// 2026-05-27). The `CMK_DOORS_STRICT` env-var opt-in from D1 rollout
+// is retired; the per-file `// @doors-ignore` marker is the escape.
 const SUPPRESSION_MARKER = '@doors-ignore';
 const HEADER_ZONE_LINES = 20;
 
@@ -133,7 +137,6 @@ function scan(dir, results) {
 }
 
 const violations = [];
-const warnings = [];
 const testFiles = [];
 try {
   statSync(TEST_DIR);
@@ -155,13 +158,11 @@ for (const path of testFiles) {
 
   const decl = parseDeclaration(text);
   if (!decl.doors) {
-    const msg = `${path}: missing \`// @doors: <list>\` header in first ${HEADER_ZONE_LINES} lines (design §17.1).`;
-    if (STRICT) violations.push(msg);
-    else warnings.push(msg);
+    violations.push(`${path}: missing \`// @doors: <list>\` header in first ${HEADER_ZONE_LINES} lines (design §17.1).`);
     continue;
   }
 
-  // Out-of-range declarations are always a violation regardless of mode.
+  // Out-of-range declarations.
   for (const d of decl.doors) {
     if (d < 1 || d > 5) {
       violations.push(`${path}: @doors declares door ${d}; valid range is 1..5 (Goldberg's five doors).`);
@@ -174,25 +175,10 @@ for (const path of testFiles) {
   for (const d of [1, 2, 3, 4, 5]) {
     if (decl.doors.has(d)) continue;
     if (!decl.naReasons[d]) {
-      const msg = `${path}: door ${d} (${DOOR_NAMES[d]}) is neither declared nor marked N/A. Per design §17.1, "Discipline is never silent omission" — add either \`// @doors: ${[...decl.doors, d].sort().join(', ')}\` or \`// Door ${d} N/A: <reason>\` to the header.`;
-      // Silent-omission graduates to violation in STRICT; warning otherwise.
-      if (STRICT) violations.push(msg);
-      else warnings.push(msg);
+      violations.push(`${path}: door ${d} (${DOOR_NAMES[d]}) is neither declared nor marked N/A. Per design §17.1, "Discipline is never silent omission" — add either \`// @doors: ${[...decl.doors, d].sort().join(', ')}\` or \`// Door ${d} N/A: <reason>\` to the header.`);
     }
   }
   annotated++;
-}
-
-if (warnings.length > 0 && !STRICT) {
-  console.error(
-    `validate-exit-doors: ${warnings.length} warning(s) — header / N/A discipline gaps`,
-  );
-  for (const w of warnings) console.error('  ' + w);
-  console.error('');
-  console.error(
-    '  Warnings will become errors when CMK_DOORS_STRICT=1 (final commit of PR-D flips the default).',
-  );
-  console.error('');
 }
 
 if (violations.length > 0) {
@@ -202,7 +188,6 @@ if (violations.length > 0) {
 }
 
 const skipMsg = suppressed > 0 ? `; ${suppressed} suppressed via // ${SUPPRESSION_MARKER}` : '';
-const warnMsg = warnings.length > 0 ? `; ${warnings.length} warning${warnings.length === 1 ? '' : 's'} (non-strict mode)` : '';
 console.log(
-  `validate-exit-doors: OK — ${annotated}/${testFiles.length} test files annotated${skipMsg}${warnMsg}`,
+  `validate-exit-doors: OK — ${annotated}/${testFiles.length} test files annotated${skipMsg}`,
 );

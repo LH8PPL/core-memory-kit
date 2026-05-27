@@ -1,3 +1,8 @@
+// @doors: 1, 2
+// Door 3 N/A: scratchpad writer is in-process; the consolidation pipeline it triggers is tested separately via cli-compress-session.
+// Door 4 N/A: no message-queue interaction.
+// Door 5 N/A: scratchpad-writer doesn't emit NDJSON; cap-enforcement decisions surface via the return value, not a log.
+
 // Tests for Task 12 — Bounded scratchpad writer + cap enforcement (T-010).
 // Per tasks.md 12.6:
 //   - Test write at 50% of cap: write succeeds; consolidator not invoked

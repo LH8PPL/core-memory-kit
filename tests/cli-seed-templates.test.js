@@ -1,3 +1,8 @@
+// @doors: 1, 2
+// Door 3 N/A: seed-template emission is in-process; no subprocess spawn.
+// Door 4 N/A: no message-queue interaction.
+// Door 5 N/A: seed-template emission doesn't write observability logs.
+
 // Tests for Task 14 — Seed scratchpad templates (T-012).
 // Per tasks.md 14.4:
 //   - Test cmk install produces every required project-tier file

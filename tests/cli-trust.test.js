@@ -1,3 +1,7 @@
+// @doors: 1, 2, 5
+// Door 3 N/A: trust override is in-process frontmatter rewrite + audit-log append; no subprocess spawn.
+// Door 4 N/A: no message-queue interaction.
+
 // Tests for Task 15 — cmk trust <id> <level> override (T-013).
 // Per tasks.md 15.4:
 //   - Test cmk trust <existing_id> high updates the field + writes one

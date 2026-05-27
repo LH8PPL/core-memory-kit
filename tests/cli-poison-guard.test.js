@@ -1,3 +1,9 @@
+// @doors: 1
+// Door 2 N/A: pure regex match function; no disk write or kit-state mutation.
+// Door 3 N/A: no subprocess spawn.
+// Door 4 N/A: no message-queue interaction.
+// Door 5 N/A: this module is the pattern-matching half of Poison_Guard; the NDJSON log surface is the cli-poison-guard-log.test.js boundary.
+
 // Tests for Task 24.5 — Poison_Guard regex filter.
 //
 // Public boundary: checkPoisonGuard(text) → {rejected, pattern_id,

@@ -1,3 +1,7 @@
+// @doors: 1, 2, 3
+// Door 4 N/A: capture-prompt writes the user-turn portion of the transcript that capture-turn (Door 4 IPC sender) later reads; THIS test boundary is the transcript writer itself, not the IPC surface. The IPC contract is pinned in cli-capture-turn.test.js + cli-auto-extract.test.js.
+// Door 5 N/A: capture-prompt doesn't emit NDJSON observability; the transcript write IS the observability surface for the user-turn capture.
+
 // Tests for Task 19 — cmk-capture-prompt UserPromptSubmit hook (T-016).
 // Per tasks.md 19.4:
 //   - Test prompt with <private>SENTINEL_STRING</private>: transcript

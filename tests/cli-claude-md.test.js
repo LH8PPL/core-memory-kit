@@ -1,3 +1,8 @@
+// @doors: 1, 2
+// Door 3 N/A: pure file-mutation logic; no subprocess spawn.
+// Door 4 N/A: no message-queue interaction.
+// Door 5 N/A: the CLAUDE.md loader-block writer doesn't emit observability output; callers (install / repair flows) handle logging.
+
 // Tests for Task 4 — CLAUDE.md loader block with versioned delimiters (T-004).
 // Per tasks.md 4.5:
 //   - Fresh install (no CLAUDE.md): file created with delimited block, nothing else

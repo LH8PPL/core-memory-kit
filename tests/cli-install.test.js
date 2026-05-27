@@ -1,3 +1,8 @@
+// @doors: 1, 2
+// Door 3 N/A: `cmk install` is a pure file-tree creation flow; no subprocess spawn under test (the bash bin wrapper is separately tested in cli-hooks-scaffold).
+// Door 4 N/A: no message-queue interaction.
+// Door 5 N/A: install doesn't emit NDJSON observability — it prints human-readable status to stdout.
+
 // Tests for Task 3 — `cmk install` cross-OS implementation (T-003).
 // Per tasks.md 3.5:
 //   - Test install in fresh tempdir produces expected file tree

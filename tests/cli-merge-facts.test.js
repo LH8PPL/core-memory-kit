@@ -1,3 +1,8 @@
+// @doors: 1, 2
+// Door 3 N/A: merge is in-process file rewrite; no subprocess spawn.
+// Door 4 N/A: no message-queue interaction.
+// Door 5 N/A: merge-facts doesn't emit NDJSON; the audit-log entry on consolidation is written by the higher-level memory-write skill, tested separately.
+
 // Tests for Task 10 — Consolidation / merge semantics (T-009).
 // Per tasks.md 10.5:
 //   - Test merging A + B with body "X. Y." produces C with id = generateId(canonical("x. y."))

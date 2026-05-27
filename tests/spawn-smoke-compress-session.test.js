@@ -1,3 +1,7 @@
+// @doors: 1, 2, 3
+// Door 4 N/A: no message-queue interaction.
+// Door 5 N/A: spawn-smoke pins the cross-process spawn boundary + the resulting disk-state mutation (Door 2); the NDJSON compress.log shape is pinned by cli-compress-session (in-process + mocked backend).
+
 // Real-binary spawn smoke test for the SessionEnd compression code
 // path (Task 22, retroactive). Per design §17 "Test discipline" —
 // specifically §17.3-§17.5 (§17.1 five-exit-doors umbrella covers WHAT
