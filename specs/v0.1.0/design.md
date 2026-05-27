@@ -1833,6 +1833,29 @@ Why not now: the kit's "deep modules with simple interfaces" rule (CLAUDE.md Eng
 
 Provenance: Task 26 code-review-excellence Suggestion (2026-05-27) — flagged by the holistic-pass review as "parser similarity worth noting; defer extraction to 3rd-instance rule."
 
+### 16.25 `validate-integration-coverage.mjs` — structural enforcement of §17.8
+
+**v0.1.x candidate.**
+
+Surfaced 2026-05-27 alongside the §17.8 rule. The "Integration-test coverage for cross-module flows" discipline (design §17.8) has a structural shape that admits validator enforcement: every `packages/cli/src/*.mjs` file that imports another kit-module's public function should have at least one test that exercises that call path through both modules' public surfaces (not mocked).
+
+Candidate validator design:
+
+1. Build a dependency graph from `packages/cli/src/`: which modules import which.
+2. For each (A, B) where A imports B, scan `tests/` for a test file that imports BOTH A and B (or imports A and asserts B's documented side effects — state in shared files, audit-log entries, etc.).
+3. Flag missing pairs as `(A → B): no integration test found`.
+4. Suppression marker: `// integration-coverage: <reason>` in the importing file (for cases where A's use of B is a leaf call that per-module tests cover sufficiently — e.g., a logger import).
+
+Deferred to v0.1.x because:
+
+- Heuristic depth — distinguishing "real integration test" from "mocked stand-in" requires reading test contents and identifying which imports are real vs `vi.mock`'d. The other kit validators (refs, gaps, exit-doors, composition, platform-commands) operate on syntactic / textual signal; this one needs semantic test introspection.
+- The rule's tactical force comes from the CLAUDE.md headline + design §17.8 prose, which the code-review-excellence ONE-holistic-pass discipline already enforces at PR time.
+- v0.1.0 has zero confirmed instances of the bug class beyond Task 25 → 25b (the rule's source case); the validator's value is in catching the SECOND instance, not the first.
+
+Trigger to ship: a second `generateId`-style latent cross-module bug (named-args mismatch, default-arg drift, return-shape contract slip) makes it past the code-review pass and the post-release campaign. At that point the validator's heuristics get calibrated against two real failures, not one.
+
+Provenance: Lior 2026-05-27 picked option #1 (move to design §17.8 now) + option #3 (write validator) as v0.1.x candidate, deferring #2 (fold into Composition verification as sub-bullet) and the immediate validator build.
+
 ---
 
 ## 17. Test discipline
@@ -1996,6 +2019,56 @@ Concrete checklist for the agent (Claude in this repo):
 | ID sequences (ADR / FR / NFR / Task) either have no gaps OR have an explicit `reserved` / `TODO` / `placeholder` / `not-yet` / `tail-appended` marker in the relevant file. PR-C found ADR-0009 + ADR-0010 missing for ~3 weeks because no validator caught the gap. | [`scripts/validate-numbering-gaps.mjs`](../../scripts/validate-numbering-gaps.mjs) | **Strict**. Markers parsed case-insensitively, in both directions (`reserved ADR-NNNN` or `ADR-NNNN ... reserved`). |
 | Every documented composition-verification instance in CLAUDE.md references at least one addressing artifact (test file, design section, or reserved marker). Catches the failure mode where a new instance gets enumerated but no corresponding test / design / reserved-marker is written. | [`scripts/validate-composition.mjs`](../../scripts/validate-composition.mjs) | **Strict**. Heuristic: instance descriptors are inline `PR-<id> (...)` parens within the rule body; each parenthesized description must match `tests/X.test.js` / `design §X.Y` / `reserved` / `v0.1.x` / `not-yet`. |
 | Every user-facing shell command emission in production code uses the `platform-commands.mjs` helper OR carries an explicit `// platform-commands: ignore <reason>` marker. Catches the failure mode PR-B surfaced (lock-discipline.mjs originally emitted hardcoded `rm` to Windows users on stock cmd.exe). | [`scripts/validate-platform-commands.mjs`](../../scripts/validate-platform-commands.mjs) | **Strict**. Scans `packages/cli/src/` + `plugin/bin/`. Three pass conditions: file imports from `./platform-commands.mjs` (helper-in-scope), per-line `// platform-commands: ignore <reason>` marker, or no hardcoded POSIX-command tokens at all. |
+
+### 17.8 Integration-test coverage for cross-module flows
+
+**Tail-appended 2026-05-27** after the Task 25 → 25b sequence surfaced the failure mode this rule prevents. Sister to §17.1 (the five exit doors) — same family of rules: doors check what each test pins, integration coverage checks what set of tests pins the composition. Sister to CLAUDE.md "Composition verification" — same family of disciplines: composition verification is the spec-author side (did the spec author consider the other surfaces?), integration coverage is the test-author side (did the test author exercise the call path between surfaces?).
+
+#### The rule
+
+When two kit modules compose at runtime, at least one test MUST exercise the full integration path through both modules' public surfaces — not mocked stand-ins.
+
+"Compose at runtime" means: module A's public function calls module B's public function (directly, via passed callback, or via shared state mutation that B then reads). Examples in v0.1.0:
+
+- `memory-write.doAdd` → `conflict-queue.detectConflicts` → `conflict-queue.writeConflictEntry`
+- `auto-extract.routeHigh` → `memory-write.doAdd`
+- `auto-extract.routeMedium` → review-queue file (queue-of-one IPC, Door 4)
+- `Stop hook` (capture-turn.mjs) → detached `auto-extract.mjs` child via temp-file IPC
+- `forget` → `audit-log.appendAuditEntry`
+
+Per-module tests answer **"does the surface work?"** — `writeConflictEntry({...})` writes the expected file when given the expected args. Integration tests answer **"do the surfaces COMPOSE?"** — calling `memory-write.doAdd` with a conflict scenario actually triggers `writeConflictEntry` with the right args. Both are required for cross-module flows.
+
+#### The precedent — Task 25 → 25b
+
+Task 25 shipped the conflict-queue with full per-module test coverage (24 tests on `conflict-queue.mjs`). The integration with `memory-write.doAdd` had ONE wiring point: the queue-route called `generateId({text: opts.text, tier: opts.tier})` (named-args object). The canonicalize module's signature is `generateId(tier, text)` (positional). Every test that asserted queue routing constructed `writeConflictEntry({newId, ...})` directly — bypassing `memory-write` entirely. The bug was latent for the full Task 25 ship.
+
+Task 25b's `mergeScratchpadBullets` work added the first test that called `memory-write.doAdd` with a conflict scenario end-to-end. The test failed immediately on `generateId` returning `undefined` because the named-args object collapsed under positional parameter destructuring. Fix: `generateId(opts.tier, opts.text)` in `memory-write.mjs`. The bug had been catchable on day one if the integration test had been written when the wiring shipped, not three weeks later.
+
+#### How to apply
+
+When wiring a new module A to an existing module B (or wiring an existing module A to a new module B), the PR MUST include at least one test that:
+
+1. **Calls A's public function** (not B's, not a helper inside A).
+2. **Asserts B's documented side effects** (state on disk, audit-log entries, files written, return-shape that propagates through A) — these are doors 2 and 5 from §17.1 applied at the integration layer.
+3. **Does NOT mock B**. If B is mocked, the test pins A's call shape to the mock, which is exactly the failure mode we're trying to catch (the named-args / positional-args contract drift).
+
+External-system mocking is fine — mocking the file system, mocking subprocess spawn, mocking time. The discipline is to NOT mock the kit modules under test.
+
+#### What about mock-heavy tests for other reasons?
+
+Some kit tests legitimately mock kit modules for isolation reasons (e.g., testing `subcommands.mjs` dispatch logic without running every subcommand's real implementation). Those tests are valid AND don't satisfy §17.8 — they're testing dispatch, not integration. The discipline is additive: keep the mock-heavy isolation tests AND add a non-mocked integration test per cross-module pair.
+
+#### Enforcement
+
+**Today: judgment rule.** The code-review-excellence ONE-holistic-pass discipline (CLAUDE.md skill-agency section) checks integration coverage as part of PR review. Reviewer asks: "this PR wires module A to module B — where's the test that exercises the call path?"
+
+**v0.1.x candidate: structural validator.** [`scripts/validate-integration-coverage.mjs`](../../scripts/validate-integration-coverage.mjs) — see §16.25 for the candidate validator design, deferral rationale, and ship trigger.
+
+#### Composition with §17.1 (the five exit doors)
+
+§17.8 and §17.1 compose. An integration test typically pins doors 1 (Response from A) + 2 (State from B's writes) + 5 (Observability from B's NDJSON entries). Door 3 (external calls) gets pinned by spawn-smoke tests (§17.3) on the few integration paths where A spawns B as a subprocess. Door 4 (message queues, N/A by default) applies to the two named exceptions in §17.1 — both of which are inherently integration tests (capture-turn → auto-extract temp-file IPC; MCP transport).
+
+The `@doors:` header for an integration test usually looks like `// @doors: 1, 2, 5` with Door 3 marked N/A unless subprocess composition is involved.
 
 ## 18. Cross-platform command discipline
 
