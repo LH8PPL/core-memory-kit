@@ -49,10 +49,31 @@
 //   Default: missing header = warning (PR-D rollout).
 //   CMK_DOORS_STRICT=1: missing header = error (PR-D final commit).
 //
+// Annotation-line shape (D1-MIN-C, deferred from PR-D1 code-review):
+// The `@doors:` regex (`/^\s*\/\/\s*@doors:\s*([0-9,\s]+)\s*$/`)
+// requires the WHOLE line after `// @doors:` to be digits + commas +
+// whitespace. Trailing inline prose like `// @doors: 1, 2, 3 — see
+// notes` will NOT match and the file is treated as un-annotated.
+// This is intentional — the @doors: header is meant to be a clean
+// declaration; per-door reasoning belongs in the subsequent `// Door
+// N N/A: <reason>` lines, NOT as inline comments on the @doors: line.
+// If you have something to say about an INCLUDED door (not an N/A
+// one), put it in the test body's comments or in a follow-up `//`
+// line right after the header.
+//
 // Suppression (use sparingly): `// @doors-ignore` anywhere in the
 // header zone (first 20 lines) skips the file entirely. The lock-
 // discipline self-test wouldn't need this; reserved for true edge
 // cases like meta-tests that test the validator itself.
+//
+// Suppression-marker prose-literal risk (D1-MIN-D, deferred from
+// PR-D1 code-review): the header-zone check uses
+// `headerZone.includes(SUPPRESSION_MARKER)`. If a test file's header
+// docstring quotes `@doors-ignore` as a literal in prose (e.g.,
+// "we don't use @doors-ignore here"), the file gets falsely
+// suppressed. Low-risk because the marker is intentionally unusual,
+// but if this ever fires, the fix is to rename the marker to
+// something stricter (e.g., `// @doors-ignore-this-file`).
 //
 // Run: `node scripts/validate-exit-doors.mjs`
 // Wired into `npm test` as a pre-test step.
