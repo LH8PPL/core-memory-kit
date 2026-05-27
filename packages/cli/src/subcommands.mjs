@@ -18,8 +18,7 @@ import { removeClaudeMdBlock } from './claude-md.mjs';
 import { reindex as reindexAction } from './reindex.mjs';
 import { forget as forgetAction } from './forget.mjs';
 import { overrideTrust as overrideTrustAction } from './trust.mjs';
-import { resolveConflictQueue } from './conflict-queue.mjs';
-import { mergeFacts } from './merge-facts.mjs';
+import { resolveConflictQueue, mergeScratchpadBullets } from './conflict-queue.mjs';
 import { createInterface } from 'node:readline';
 import { resolve as resolvePath } from 'node:path';
 
@@ -256,46 +255,52 @@ async function runQueueConflicts() {
     return decision;
   };
 
-  // KNOWN LIMITATION (Task 25 PR review, Important #1; design §3.4 vs §6.8
-  // cross-layer composition gap):
+  // merge-both wiring (Task 25b — closes Task 25's cross-layer
+  // composition gap). The proposed bullet from the conflict queue
+  // wasn't materialized as a Layer-2 per-fact file (it was routed to
+  // `queues/conflicts.md` instead of MEMORY.md). So we DON'T call
+  // `mergeFacts` (Layer 2); we call `mergeScratchpadBullets` (Layer 3)
+  // which operates directly on the scratchpad: combines the two
+  // bullet texts, writes a new merged bullet with a fresh canonical
+  // ID + provenance citing both sources, and mutates both originals'
+  // provenance to inject `superseded_by: <newId>`.
   //
-  // `mergeFacts` operates on Layer-2 per-fact files at
-  // `<tierRoot>/archive/canonical/<id>.md`. The conflict-queue stores
-  // Layer-3 SCRATCHPAD bullets — the proposed bullet was routed to
-  // `queues/conflicts.md` INSTEAD of being written to MEMORY.md, so
-  // its proposed id has no per-fact file. Calling mergeFacts(idA=
-  // existingId, idB=proposedId) will return `action: 'error'` with
-  // category `not-found` for the proposed id.
-  //
-  // Per task 25.5 the wiring is "merge-both → mergeFacts". The cross-
-  // layer composition gap is a v0.1.x followup (a scratchpad-level
-  // merger that takes two bullets and writes a combined third bullet).
-  // For v0.1.0: surface the error to the user with a clear next-step
-  // hint and leave the queue entry in its resolution=merge-both state
-  // (the audit log + queue file record the user's intent even though
-  // the merge didn't complete).
-  const mergeFn = async ({ tier, projectRoot, userDir, proposedId, existingId }) => {
-    const result = mergeFacts({
+  // For Task 25b's v0.1.0 ship, the merger assumes the kit's default
+  // scratchpad (MEMORY.md under `context/`) and the section in the
+  // queue entry's `existing_section` field (currently the merger
+  // accepts an explicit `section` arg; the resolver passes the
+  // section title from the original conflict so the new bullet lands
+  // in the same heading).
+  const mergeFn = async ({
+    tier,
+    projectRoot,
+    userDir,
+    proposedId,
+    proposedText,
+    existingId,
+    existingText,
+    section,
+  }) => {
+    // Default scratchpad is MEMORY.md at the project tier. Section
+    // comes from the queue entry (which captured it at detect time).
+    const scratchpadPath = resolvePath(projectRoot, 'context', 'MEMORY.md');
+    const result = mergeScratchpadBullets({
       tier,
       projectRoot,
       userDir,
+      scratchpadPath,
+      section,
       idA: existingId,
       idB: proposedId,
     });
     if (result.action === 'error') {
       console.error(
-        `cmk queue conflicts: merge-both for ${existingId} + ${proposedId} ` +
-          `cannot complete in v0.1.0 — the proposed bullet hasn't been ` +
-          `materialized as a per-fact file (cross-layer composition gap; ` +
-          `see design §6.8 v0.1.x followup). Error: ${result.errors.join('; ')}`,
-      );
-      console.error(
-        `  Workarounds: (1) pick keep-new instead and edit MEMORY.md manually, ` +
-          `(2) re-run after \`cmk write-fact <existing-text> + <proposed-text>\` ` +
-          `materializes both as per-fact files.`,
+        `cmk queue conflicts: merge-both for ${existingId} + ${proposedId} failed: ${result.errors.join('; ')}`,
       );
     } else {
-      console.log(`  merge-both → mergeFacts(${existingId}, ${proposedId}) = ${result.action}`);
+      console.log(
+        `  merge-both → ${existingId} + ${proposedId} merged into ${result.id}`,
+      );
     }
   };
 

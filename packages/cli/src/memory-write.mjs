@@ -274,8 +274,9 @@ function doAdd(opts) {
   if (conflict.conflict === true && conflict.action === 'queue') {
     // Compute the proposed ID using the same canonical-id derivation
     // appendScratchpadBullet would have used, then route to the queue.
-    const sha1 = createHash('sha1').update(opts.text, 'utf8').digest('hex');
-    const proposedId = generateId({ text: opts.text, tier: opts.tier });
+    // (Task 25b fix: generateId is positional `(tier, text)`, not
+    // named-args — Task 25 originally called it as an object.)
+    const proposedId = generateId(opts.tier, opts.text);
     const ts = opts.now ?? nowIso();
     return writeConflictEntry({
       tier: opts.tier,
