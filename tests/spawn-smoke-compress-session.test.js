@@ -68,8 +68,18 @@ describeMaybe(`spawn-smoke: compressSession (live: ${skipReason ?? 'enabled'})`,
   // ONE real-Haiku round-trip through the SessionEnd code path.
   // Consolidated (per the spawn-smoke-haiku pattern from PR-26) to
   // avoid multiplying API load under full-suite concurrency.
-  // 30s timeout: matches design §5.1 SessionEnd hook envelope.
-  it('compressSession invokes real claude --print and writes today-{date}.md', { timeout: 30_000 }, async () => {
+  //
+  // 60s test timeout: matches the SessionEnd hook envelope per design §5.1
+  // ([`plugin/hooks/hooks.json`] SessionEnd = 60s). MUST be >= the production
+  // inner subprocess timeout of 50_000ms (§8.5 cap composition for
+  // compressSession) so that on a slow-Haiku round-trip the production
+  // code's HAIKU_TIMEOUT path fires naturally BEFORE the vitest test budget
+  // expires. With a 30s test budget (the original mis-aligned value), a
+  // cold-start `claude --print` round-trip that would have legitimately
+  // resolved at 35-45s instead failed as a vitest timeout, masking the
+  // production behavior the smoke is supposed to pin. Cross-ref: design §8.5
+  // composition rule (inner timeoutMs < outer hook ceiling + headroom).
+  it('compressSession invokes real claude --print and writes today-{date}.md', { timeout: 60_000 }, async () => {
     const sandbox = mkdtempSync(join(tmpdir(), 'cmk-compress-session-smoke-'));
     const projectRoot = join(sandbox, 'proj');
     mkdirSync(join(projectRoot, 'context', 'sessions'), { recursive: true });

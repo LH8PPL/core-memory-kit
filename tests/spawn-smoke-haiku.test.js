@@ -74,11 +74,18 @@ describeMaybe(`spawn-smoke: HaikuViaAnthropicApi (live: ${skipReason ?? 'enabled
   // blocks to avoid 4× API load under full-suite concurrency (each
   // round-trip is ~5-7s; sequential rate-limits showed up when all
   // 4 ran back-to-back amid the rest of the 670+ test suite).
-  // 30s timeout per test: real Haiku round-trip is ~5-8s in isolation
-  // but can hit 10-15s under full-suite concurrency (API contention +
+  // 30s test budget: real Haiku round-trip is ~5-8s in isolation but
+  // can hit 10-15s under full-suite concurrency (API contention +
   // bash/node cold-start). 30s leaves headroom for occasional Anthropic
-  // server slowness without false-failing the smoke. Real prod hook
-  // timeout per design §5.1 is 30s; matching that envelope.
+  // server slowness without false-failing the smoke. This test pings
+  // HaikuViaAnthropicApi.compress() directly without setting timeoutMs,
+  // so it is NOT pinned to any specific hook envelope — compress() is
+  // called from BOTH auto-extract (Stop, 30s outer / 25s inner per §8.5)
+  // AND compress-session (SessionEnd, 60s outer / 50s inner per §8.5).
+  // The test budget here is "how long the vitest harness will wait on
+  // a tiny pong-roundtrip before failing", not a production envelope
+  // mirror. The compress-session-specific envelope is pinned by the
+  // sister smoke (spawn-smoke-compress-session.test.js, 60s).
   it('real-spawn round-trip covers all 4 bug classes the mock misses', { timeout: 30_000 }, async () => {
     const h = new HaikuViaAnthropicApi();
 
