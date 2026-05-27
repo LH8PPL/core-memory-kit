@@ -619,22 +619,14 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 - [x]* 29.4 Write unit tests for reindex — `tests/cli-index-rebuild.test.js` (11 cases): all 5 tasks.md asserts + over-mutation guard + chokidar v5 glob-drop regression + per-fact ADD watcher test + sequential composition (renamed from "concurrent" per code-review I3 honesty)
   - _Requirements: FR-16; design §9.2_
 
-- [ ] 30. `cmk search` hybrid CLI (T-026)
+- [x] 30. `cmk search` hybrid CLI (T-026) _shipped 2026-05-27, PR #48_
   - Estimate: M · Depends: 28, 29
-- [ ] 30.1 Implement keyword backend (FTS5 BM25)
-- [ ] 30.2 Implement semantic backend stub (gated on memsearch+Milvus install)
-  - Clear error + exit 2 when not installed (NO silent fallback)
-- [ ] 30.3 Implement hybrid mode (reciprocal-rank fusion 0.5/0.5)
-- [ ] 30.4 Implement filter flags: `--min-trust`, `--tier`, `--since`, `--limit`, `--include-tombstoned`
-- [ ]* 30.5 Write unit tests for `cmk search`
-  - Test keyword on 10k-observation fixture: results in <100 ms
-  - Test `--mode semantic` without Layer 5b: exit 2; stderr contains "memsearch not installed"
-  - Test `--mode hybrid` with both mocked: reciprocal-rank fusion (0.5/0.5)
-  - Test `--min-trust medium` excludes low-trust results
-  - Test `--tier P` excludes user/local results
-  - Test `--since 2026-05-01` excludes older observations
-  - Test tombstoned excluded by default; included with `--include-tombstoned`
-  - _Requirements: FR-16, FR-17, FR-18, FR-30; design §9.3_
+- [x] 30.1 Implement keyword backend (FTS5 BM25) — trust-ordinal CASE, since-epoch-ms filter, tombstoned default-excluded, typed FTS5ParseError class for grammar-violation queries
+- [x] 30.2 Implement semantic backend stub (gated on memsearch+Milvus install) — errors with `ERROR_CATEGORIES.SEMANTIC_UNAVAILABLE` + clear "memsearch not installed" hint; CLI exits 2 (verified via in-process AND spawnSync tests)
+- [x] 30.3 Implement hybrid mode (reciprocal-rank fusion 0.5/0.5) — exported `reciprocalRankFusion()` as a pure function; k=60 RRF constant; docs-missing-from-one-backend contribute 0
+- [x] 30.4 Implement filter flags: `--min-trust`, `--tier`, `--since`, `--limit`, `--include-tombstoned`
+- [x]* 30.5 Write unit tests for `cmk search` — `tests/cli-search.test.js` (25 cases): 7 tasks.md acceptance criteria + FTS5 parse-error class (3) + CLI spawnSync exit-2 + reindex→search composition + RRF unit (2) + schema validation (6) + extras
+  - _Requirements: FR-16, FR-17, FR-18, FR-30; design §9.3 (return shape clarified)_
 
 - [ ] 31. MCP server with 6 tools (stdio transport) (T-027)
   - Estimate: L · Depends: 28, 29, 30
