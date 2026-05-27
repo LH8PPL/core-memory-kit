@@ -57,6 +57,38 @@ function dateFromIso(iso) {
   return String(iso).slice(0, 10);
 }
 
+// Write a `phase: 'spawn'` NDJSON entry to `<projectRoot>/context/sessions/{date}.extract.log`
+// when the auto-extract spawn fails. This closes PR-A's class-1 audit
+// deferral (capture-turn Door 5 observability gap). Auto-extract's own
+// in-process log entries don't carry the `phase` field (default = extract);
+// the `phase: 'spawn'` discriminator lets log readers route capture-turn
+// failures distinct from extract-phase failures.
+function writeSpawnLogEntry({ projectRoot, ts, reason, error }) {
+  const date = dateFromIso(ts);
+  const logDir = join(projectRoot, 'context', 'sessions');
+  const logPath = join(logDir, `${date}.extract.log`);
+  try {
+    if (!existsSync(logDir)) mkdirSync(logDir, { recursive: true });
+    const entry = {
+      ts,
+      phase: 'spawn',
+      success: false,
+      error_category: 'spawn_failed',
+      reason,
+      ...(error ? { error } : {}),
+    };
+    appendFileSync(logPath, JSON.stringify(entry) + '\n', 'utf8');
+    return { logged: true, logPath };
+  } catch (logErr) {
+    // Logging failure must not crash the hook — emit to stderr so it
+    // surfaces in the Stop-hook stderr stream Claude Code captures.
+    process.stderr.write(
+      `cmk-capture-turn: failed to write spawn observability log: ${logErr?.message ?? logErr}\n`,
+    );
+    return { logged: false, error: logErr?.message ?? String(logErr) };
+  }
+}
+
 function extractTurnText(payload) {
   // Anthropic Stop hook payload spelling has shifted across Claude Code
   // versions. Probe the documented fields in priority order.
@@ -216,6 +248,21 @@ export function captureTurn({
   // 4. Spawn the auto-extract child (Task 23 fills in the script body).
   const path = autoExtractPath ?? defaultAutoExtractPath();
   const spawnResult = spawnAutoExtract(path, turnFile, projectRoot);
+
+  // 5. Door 5 (observability) — when the spawn doesn't succeed, write
+  //    an NDJSON entry to extract.log with `phase: 'spawn'`. Closes PR-A
+  //    class-1 audit deferral (Task 23.14.3). Successful spawns are NOT
+  //    logged here because their observability is provided by auto-
+  //    extract.mjs itself (the detached child writes its own entries
+  //    with `phase` absent, default = 'extract').
+  if (!spawnResult.spawned) {
+    writeSpawnLogEntry({
+      projectRoot,
+      ts,
+      reason: spawnResult.reason,
+      error: spawnResult.error,
+    });
+  }
 
   return {
     action: 'captured',

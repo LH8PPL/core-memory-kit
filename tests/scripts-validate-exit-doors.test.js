@@ -56,28 +56,30 @@ describe('validate-exit-doors', () => {
     expect(r.stdout).toMatch(/1\/1 test files annotated/);
   });
 
-  it('WARNs (non-strict) when a test file is missing the @doors header', () => {
+  it('FAILS when a test file is missing the @doors header (strict default, post-D2b)', () => {
     writeFileSync(
       join(sandbox, 'tests', 'naked.test.js'),
       'import {x} from "x";\n',
     );
     const r = runValidator(sandbox);
-    // Warning mode = exit 0 with stderr warning
-    expect(r.exitCode).toBe(0);
-    expect(r.stderr).toMatch(/missing `\/\/ @doors:/);
-  });
-
-  it('FAILs in strict mode when @doors header is missing', () => {
-    writeFileSync(
-      join(sandbox, 'tests', 'naked.test.js'),
-      'import {x} from "x";\n',
-    );
-    const r = runValidator(sandbox, { CMK_DOORS_STRICT: '1' });
     expect(r.exitCode).toBe(1);
     expect(r.stderr).toMatch(/missing `\/\/ @doors:/);
   });
 
-  it('FAILs on out-of-range door number (0 or 6) regardless of mode', () => {
+  it('FAILS on silent omission (door not declared and not marked N/A)', () => {
+    writeFileSync(
+      join(sandbox, 'tests', 'silent.test.js'),
+      '// @doors: 1, 2\nimport {x} from "x";\n',
+    );
+    const r = runValidator(sandbox);
+    expect(r.exitCode).toBe(1);
+    // Doors 3, 4, 5 are silent omissions — should fire 3 violations
+    expect(r.stderr).toMatch(/door 3.*neither declared nor marked N\/A/);
+    expect(r.stderr).toMatch(/door 4.*neither declared nor marked N\/A/);
+    expect(r.stderr).toMatch(/door 5.*neither declared nor marked N\/A/);
+  });
+
+  it('FAILs on out-of-range door number (0 or 6)', () => {
     writeFileSync(
       join(sandbox, 'tests', 'badrange.test.js'),
       '// @doors: 1, 6\n',

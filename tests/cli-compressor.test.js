@@ -1,3 +1,8 @@
+// @doors: 1, 3
+// Door 2 N/A: the compressor backend test uses an injectable spawnFn and asserts on its `.calls[0]` argument shape — no kit disk-state mutation under test (real spawns happen in spawn-smoke-haiku.test.js).
+// Door 4 N/A: no message-queue interaction.
+// Door 5 N/A: the compressor doesn't emit NDJSON observability; callers (auto-extract / compress-session) own the log surface, tested separately.
+
 // Tests for Task 23.6 — CompressorBackend interface + HaikuViaAnthropicApi
 // + MockHaikuBackend (T-020).
 //

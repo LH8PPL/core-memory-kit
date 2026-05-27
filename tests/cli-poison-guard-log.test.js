@@ -1,3 +1,7 @@
+// @doors: 1, 2, 5
+// Door 3 N/A: the NDJSON logger writes via fs.appendFile; no subprocess spawn.
+// Door 4 N/A: no message-queue interaction.
+
 // Tests for Task 24.6 — Poison_Guard NDJSON logger.
 //
 // Public boundary: logPoisonGuardRejection({projectRoot, ts,

@@ -1,3 +1,7 @@
+// @doors: 1, 2, 3
+// Door 4 N/A: no message-queue interaction.
+// Door 5 N/A: observe-edit returns the action struct (Door 1) + writes to sessions/now.md (Door 2); it doesn't emit a separate NDJSON observability log — the now.md write IS the observability surface.
+
 // Tests for Task 20 — cmk-observe-edit PostToolUse hook (T-017).
 // Per tasks.md 20.4:
 //   - Test invocation with 51-line Write output: sessions/now.md gets

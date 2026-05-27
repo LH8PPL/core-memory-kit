@@ -1,3 +1,7 @@
+// @doors: 1, 2, 3
+// Door 4 N/A: hooks.json scaffold + bash bin spawns don't exchange messages via queues; the bin scripts emit envelope JSON to stdout (Door 1).
+// Door 5 N/A: hooks-scaffold tests assert the scaffold's STRUCTURE (json parses, bash bins exec) — observability behavior of each hook is owned by that hook's own test file (cli-inject-context, cli-capture-prompt, cli-capture-turn, cli-observe-edit, cli-compress-session).
+
 // Tests for Task 17 — hooks.json + 6-hook scaffold (T-014).
 // Per tasks.md 17.3:
 //   - Test `hooks.json` parses as valid JSON

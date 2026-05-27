@@ -1,3 +1,7 @@
+// @doors: 1, 2, 5
+// Door 3 N/A: memoryWrite is the in-process public boundary that consolidates writes to MEMORY.md + archive/ + audit.log; no subprocess spawn under test.
+// Door 4 N/A: no message-queue interaction (auto-extract's temp-file IPC is a different boundary, tested in cli-auto-extract).
+
 // Tests for Task 24 — memoryWrite() public boundary.
 //
 // Three actions per design §6.3:

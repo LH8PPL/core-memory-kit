@@ -1,3 +1,7 @@
+// @doors: 1, 2, 5
+// Door 3 N/A: tombstone discipline is in-process file move + audit-log append; no subprocess spawn.
+// Door 4 N/A: no message-queue interaction.
+
 // Tests for Task 9 — Tombstone discipline (T-008).
 // Per tasks.md 9.5:
 //   - Test `cmk forget P-XXX --yes` moves file to archive/tombstones/<id>.md

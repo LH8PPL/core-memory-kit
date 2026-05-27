@@ -414,7 +414,13 @@ function writeExtractLogEntry({ projectRoot, ts, entry }) {
   const date = ts.slice(0, 10);
   const logPath = join(projectRoot, ...EXTRACT_LOG_DIR_RELATIVE, `${date}.extract.log`);
   mkdirSync(dirname(logPath), { recursive: true });
-  appendFileSync(logPath, JSON.stringify(entry) + '\n', 'utf8');
+  // `phase: 'extract'` discriminator added 2026-05-27 (PR-D2b) to
+  // compose with capture-turn.mjs's `phase: 'spawn'` spawn-failed
+  // entries. Both shapes coexist in the same NDJSON file; readers
+  // route by `phase`. Pre-D2b entries WITHOUT a `phase` field can be
+  // treated as `extract` by convention (the spawn-phase entries only
+  // exist post-D2b).
+  appendFileSync(logPath, JSON.stringify({ phase: 'extract', ...entry }) + '\n', 'utf8');
   return logPath;
 }
 

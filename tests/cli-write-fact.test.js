@@ -1,3 +1,8 @@
+// @doors: 1, 2
+// Door 3 N/A: writeFact is in-process file emission; no subprocess spawn.
+// Door 4 N/A: no message-queue interaction.
+// Door 5 N/A: writeFact returns the action+id+path struct (Door 1); the audit-log entry that accompanies a write is the caller's responsibility (memory-write skill / auto-extract).
+
 // Tests for Task 7 — Per-fact file format + writer (T-006).
 // Per tasks.md 7.5:
 //   - Test valid call creates file at expected path with all 9 frontmatter fields
