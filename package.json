@@ -8,13 +8,16 @@
     "packages/*"
   ],
   "scripts": {
-    "test": "node scripts/validate-test-ids.mjs && node scripts/validate-template.mjs && node scripts/validate-exit-doors.mjs && node scripts/validate-references.mjs && vitest run",
+    "test": "node scripts/validate-test-ids.mjs && node scripts/validate-template.mjs && node scripts/validate-exit-doors.mjs && node scripts/validate-references.mjs && node scripts/validate-spawn-discipline.mjs && node scripts/validate-numbering-gaps.mjs && node scripts/validate-composition.mjs && vitest run",
     "test:file": "node scripts/test-file.mjs",
     "test:watch": "vitest",
     "stress": "node scripts/stress-test.mjs",
     "lint:test-ids": "node scripts/validate-test-ids.mjs",
     "lint:exit-doors": "node scripts/validate-exit-doors.mjs",
     "lint:references": "node scripts/validate-references.mjs",
+    "lint:spawn-discipline": "node scripts/validate-spawn-discipline.mjs",
+    "lint:numbering-gaps": "node scripts/validate-numbering-gaps.mjs",
+    "lint:composition": "node scripts/validate-composition.mjs",
     "validate:template": "node scripts/validate-template.mjs"
   },
   "devDependencies": {
