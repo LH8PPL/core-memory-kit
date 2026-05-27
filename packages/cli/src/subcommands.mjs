@@ -18,6 +18,7 @@ import { removeClaudeMdBlock } from './claude-md.mjs';
 import { reindex as reindexAction } from './reindex.mjs';
 import { openIndexDb } from './index-db.mjs';
 import { reindexBoot, reindexFull } from './index-rebuild.mjs';
+import { search as searchAction, SEARCH_MODES } from './search.mjs';
 import { homedir } from 'node:os';
 import { forget as forgetAction } from './forget.mjs';
 import { overrideTrust as overrideTrustAction } from './trust.mjs';
@@ -121,6 +122,64 @@ function runTrust(id, level /* , options, command */) {
   if (result.action === 'error') {
     for (const e of result.errors) console.error(`cmk trust: ${e}`);
     process.exitCode = 2;
+  }
+}
+
+/**
+ * `cmk search` — Task 30. Hybrid keyword + optional semantic.
+ *
+ * v0.1.0 ships the keyword backend (FTS5 BM25 over the observations
+ * index). Semantic + hybrid modes require the Layer 5b memsearch+Milvus
+ * install which isn't bundled in v0.1.0; both error with exit code 2
+ * and a clear "memsearch not installed" hint per tasks.md 30.2.
+ *
+ * Filter flags (per tasks.md 30.4):
+ *   --mode <keyword|semantic|hybrid>   (default keyword)
+ *   --min-trust <low|medium|high>
+ *   --tier <U|P|L>
+ *   --since <ISO date>
+ *   --limit <N>                        (default 20)
+ *   --include-tombstoned               (default false)
+ */
+function runSearch(queryParts, options) {
+  const projectRoot = resolvePath(process.cwd());
+  const query = Array.isArray(queryParts) ? queryParts.join(' ') : queryParts;
+  const db = openIndexDb({ projectRoot });
+  try {
+    const r = searchAction({
+      db,
+      query,
+      mode: options?.mode ?? SEARCH_MODES.KEYWORD,
+      minTrust: options?.minTrust,
+      tier: options?.tier,
+      since: options?.since,
+      limit: options?.limit !== undefined ? Number(options.limit) : undefined,
+      includeTombstoned: options?.includeTombstoned === true,
+    });
+    if (r.action === 'error') {
+      for (const e of r.errors) console.error(`cmk search: ${e}`);
+      // Exit 2 per tasks.md 30.2 contract for semantic-unavailable; schema
+      // errors are exit 2 by general kit convention too.
+      process.exitCode = 2;
+      return;
+    }
+    if (r.results.length === 0) {
+      console.log('cmk search: no results');
+      return;
+    }
+    for (const hit of r.results) {
+      // Plain-text output suitable for terminal piping. Snippet uses
+      // FTS5's <b>...</b> markers; preserved as-is so callers can pipe
+      // to a TUI that renders them OR strip via sed.
+      console.log(
+        `${hit.id}\t${hit.tier}/${hit.trust}\t${hit.source_file}:${hit.source_line}\t${hit.snippet}`,
+      );
+    }
+    console.log(
+      `\ncmk search: ${r.results.length} result(s) (mode=${r.mode})`,
+    );
+  } finally {
+    db.close();
   }
 }
 
@@ -504,14 +563,14 @@ export const subcommands = [
     milestone: 30,
     argSpec: [{ flags: '<query...>', description: 'query terms' }],
     optionSpec: [
-      { flags: '--mode <mode>', description: 'keyword | semantic | hybrid (default: hybrid if available, else keyword)' },
+      { flags: '--mode <mode>', description: 'keyword | semantic | hybrid (default: keyword; semantic+hybrid need memsearch — Layer 5b install, not in v0.1.0)' },
       { flags: '--min-trust <level>', description: 'low | medium | high' },
       { flags: '--tier <tier>', description: 'U | P | L (filter to a single tier)' },
       { flags: '--since <date>', description: 'ISO date — exclude observations older than this' },
       { flags: '--limit <n>', description: 'max results (default: 20)' },
       { flags: '--include-tombstoned', description: 'include deleted observations in results' },
     ],
-    action: stub('search', 30),
+    action: runSearch,
   },
   {
     name: 'reindex',

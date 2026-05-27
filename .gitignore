@@ -35,3 +35,4 @@ plugin/milvus-deploy-template/volumes/
 
 # canonicalize parity scratch dumps (Task 5)
 /tmp-parity-*.json
+context/.index/

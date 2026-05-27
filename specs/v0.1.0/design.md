@@ -1266,7 +1266,7 @@ Two backends:
 - **Semantic (optional, Layer 5 install)**: memsearch + Milvus or milvus-lite. ~1s for same corpus.
 - **Hybrid (default when both available)**: reciprocal-rank fusion (0.5 keyword, 0.5 semantic).
 
-Returns: `[{id, snippet, source_file:source_line, trust, score}]`. Trust visible so users can filter via `--min-trust`.
+Returns: `[{id, snippet, source_file, source_line, tier, trust, score}]`. Trust visible so users can filter via `--min-trust`. Tier visible so MCP-tool callers can route on tier without re-querying. `source_file` + `source_line` are separate fields (not a colon-joined string) so callers don't need to split; the kit's existing `${file}:${line}` formatter (used in `cmk` CLI output) composes both on display.
 
 **Implements**: FR-16, FR-17, FR-18, FR-30, NFR-9.
 
@@ -2097,6 +2097,35 @@ Deferred to v0.1.x because:
 Ship trigger: a real-world bug where a caller forgot `userDir` and walked the developer's real home dir in CI.
 
 Provenance: Task 29 code-review finding I1 (2026-05-27).
+
+### 16.37 Hybrid mode over-fetching for better RRF quality
+
+**v0.1.x candidate.**
+
+Surfaced by the Task 30 code-review-excellence pass (2026-05-27) as Minor finding M2. The kit's hybrid mode fetches `limit` results from each of the keyword + semantic backends, then fuses via reciprocal-rank fusion (RRF) and slices to `limit`. Standard IR practice is to over-fetch 2-3× from each backend so good documents at rank `limit+1..3×limit` from one backend (that would have been promoted by their high rank in the OTHER backend) aren't dropped before fusion.
+
+Today's implementation: `runKeywordSearch(opts.db, opts)` uses `opts.limit ?? 20`; same for the semantic backend. Acceptable for v0.1.0 with single-process usage and the small ~10k corpus the kit indexes. Becomes noticeable when (a) the corpus grows to 100k+ observations, or (b) keyword + semantic rankings disagree heavily for a query (where one's top-20 has no overlap with the other's top-20 → RRF can't fuse what wasn't fetched).
+
+Deferred to v0.1.x because:
+
+- v0.1.0 doesn't ship the semantic backend at all (memsearch + Milvus is Layer 5b OPTIONAL)
+- Over-fetch tuning is more usefully calibrated against real corpora + real semantic embeddings — neither exists today
+
+Ship trigger: Task 31's MCP server with a live semantic backend + observed "missing-but-relevant-in-other-backend" complaints from users.
+
+Provenance: Task 30 code-review Minor #2 (2026-05-27).
+
+### 16.38 Best-column snippet rendering
+
+**v0.1.x candidate.**
+
+Surfaced by the Task 30 code-review-excellence pass (2026-05-27) as Minor finding M5. The kit's keyword backend uses SQLite's `snippet(observations_fts, 0, ...)` — column index `0` is hardcoded to `body`. When a query matches `heading_path` or `write_source` but not the body (e.g., a search for `Active Threads` finds bullets under that heading), the snippet returned is unhighlighted body text rather than a snippet of the matched column.
+
+v0.1.x candidate: detect which column matched (via FTS5's `highlight()` over all columns, or by inspecting the FTS5 match info) and render the snippet from the best-matching column. Acceptable degradation for v0.1.0 since the body column is what users care about in the common case; users searching by heading_path or write_source are typically power users who already know what they're looking for.
+
+Ship trigger: a v0.1.x audit of search-snippet quality + user feedback on "the snippet doesn't show me why this matched."
+
+Provenance: Task 30 code-review Minor #5 (2026-05-27).
 
 ---
 
