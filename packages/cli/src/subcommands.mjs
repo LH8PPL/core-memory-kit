@@ -16,12 +16,15 @@
 import { install as installAction, initUserTier as initUserTierAction } from './install.mjs';
 import { removeClaudeMdBlock } from './claude-md.mjs';
 import { reindex as reindexAction } from './reindex.mjs';
+import { openIndexDb } from './index-db.mjs';
+import { reindexBoot, reindexFull } from './index-rebuild.mjs';
+import { homedir } from 'node:os';
 import { forget as forgetAction } from './forget.mjs';
 import { overrideTrust as overrideTrustAction } from './trust.mjs';
 import { resolveConflictQueue, mergeScratchpadBullets } from './conflict-queue.mjs';
 import { resolveReviewQueue } from './review-queue.mjs';
 import { createInterface } from 'node:readline';
-import { resolve as resolvePath } from 'node:path';
+import { resolve as resolvePath, join } from 'node:path';
 
 const NOTICE_PREFIX = 'not yet implemented in v0.1.0';
 
@@ -122,18 +125,59 @@ function runTrust(id, level /* , options, command */) {
 }
 
 /**
- * `cmk reindex` — wired in Task 8. Walks the project tier's granular
- * archive (context/memory/*.md), rebuilds INDEX.md as a pointer index
- * per design §2.3. The SQLite + FTS5 cache rebuild (--boot / --full
- * flags) lands in Task 29; for now those flags are declared but no-op.
+ * `cmk reindex` — three modes.
+ *
+ *   no flag    Markdown INDEX.md rebuild only (Task 8 behavior). Backward-
+ *              compat for callers that haven't adopted the SQLite layer.
+ *   --boot     Same as no-flag PLUS SQLite boot diff (Task 29). Reindexes
+ *              only the source files whose sha1 differs from the `files`
+ *              checkpoint table. Fast on a warm cache.
+ *   --full    Same as no-flag PLUS SQLite full rebuild (Task 29). DROPs
+ *              observations / observations_fts / files; walks every source
+ *              and rebuilds. Recovery path for a corrupted index.
+ *
+ * Flag semantics per tasks.md 29.1 + 29.3. Markdown INDEX runs in every
+ * mode because (a) it's cheap (milliseconds to milliseconds-low-thousands),
+ * (b) keeping it always-current avoids users having to think about which
+ * index to rebuild when.
  */
-function runReindex(/* options, command */) {
+function runReindex(options /* , command */) {
   const projectRoot = resolvePath(process.cwd());
+  const userDir = join(homedir(), '.claude-memory-kit');
   const result = reindexAction({ tier: 'P', projectRoot });
   console.log(
     `cmk reindex: tier=${result.tier} facts=${result.factCount} bytes=${result.bytes} (${result.indexPath})`,
   );
-  // reindex() already emits warnings to stderr via its `warn` callback default.
+  const useBoot = options?.boot === true;
+  const useFull = options?.full === true;
+  if (!useBoot && !useFull) return;
+  if (useBoot && useFull) {
+    console.error('cmk reindex: --boot and --full are mutually exclusive');
+    process.exitCode = 2;
+    return;
+  }
+  const db = openIndexDb({ projectRoot });
+  try {
+    const r = useFull
+      ? reindexFull({ projectRoot, userDir, db })
+      : reindexBoot({ projectRoot, userDir, db });
+    if (useFull) {
+      console.log(
+        `cmk reindex --full: scanned=${r.filesScanned} observations=${r.observationsAffected} duration=${r.durationMs}ms`,
+      );
+    } else {
+      console.log(
+        `cmk reindex --boot: scanned=${r.filesScanned} reindexed=${r.filesReindexed} observations=${r.observationsAffected} duration=${r.durationMs}ms`,
+      );
+    }
+    if (r.skipped && r.skipped.length > 0) {
+      for (const s of r.skipped) {
+        console.error(`  skipped ${s.path}: ${s.reason}`);
+      }
+    }
+  } finally {
+    db.close();
+  }
 }
 
 /**
