@@ -19,6 +19,7 @@ import { reindex as reindexAction } from './reindex.mjs';
 import { forget as forgetAction } from './forget.mjs';
 import { overrideTrust as overrideTrustAction } from './trust.mjs';
 import { resolveConflictQueue, mergeScratchpadBullets } from './conflict-queue.mjs';
+import { resolveReviewQueue } from './review-queue.mjs';
 import { createInterface } from 'node:readline';
 import { resolve as resolvePath } from 'node:path';
 
@@ -200,8 +201,7 @@ async function runQueueDispatch(childName) {
     return runQueueConflicts();
   }
   if (childName === 'review') {
-    console.log(`cmk queue review: ${NOTICE_PREFIX} (v0.1.x)`);
-    return;
+    return runQueueReview();
   }
   console.log(`cmk queue: ${NOTICE_PREFIX} (unknown sub-verb '${childName}')`);
   process.exitCode = 2;
@@ -320,6 +320,71 @@ async function runQueueConflicts() {
     console.log(
       `cmk queue conflicts: ${result.resolved} resolved (${result.kept_old} kept-old, ${result.kept_new} kept-new, ${result.merged} merged), ${result.skipped} skipped`,
     );
+  } finally {
+    rl.close();
+  }
+}
+
+/**
+ * Interactive resolver for `cmk queue review` (Task 26). Walks
+ * pending medium-trust auto-extract candidates one-at-a-time, prints
+ * the candidate text + provenance, asks for one of `promote` /
+ * `discard` / `skip`. Loops until the queue is empty or user signals
+ * end-of-input.
+ *
+ * Resolves the PROJECT tier's review queue (the canonical kit usage).
+ */
+async function runQueueReview() {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const askOnce = (q) =>
+    new Promise((resolve) => {
+      rl.question(q, (answer) => resolve(answer));
+    });
+
+  const VALID_DECISIONS = new Set(['promote', 'discard', 'skip']);
+
+  const prompter = async ({ id, text, ts, provenance }) => {
+    console.log('');
+    console.log('─── pending review ────────────────────────────────────────');
+    console.log(`id:   ${id}`);
+    console.log(`ts:   ${ts}`);
+    console.log(`text: ${text}`);
+    if (provenance) console.log(`prov: ${provenance.trim()}`);
+    let decision = '';
+    while (!VALID_DECISIONS.has(decision)) {
+      const answer = await askOnce(`  [promote / discard / skip]: `);
+      decision = String(answer).trim();
+      if (!VALID_DECISIONS.has(decision)) {
+        console.log(
+          `  unknown answer "${decision}" — please type one of: promote, discard, skip`,
+        );
+      }
+    }
+    return decision;
+  };
+
+  try {
+    const result = await resolveReviewQueue({
+      tier: 'P',
+      projectRoot: process.cwd(),
+      prompter,
+    });
+    if (result.action === 'error') {
+      for (const e of result.errors) console.error(`cmk queue review: ${e}`);
+      process.exitCode = 2;
+      return;
+    }
+    console.log('');
+    console.log(
+      `cmk queue review: ${result.promoted} promoted, ${result.discarded} discarded, ${result.skipped} skipped${result.errors && result.errors.length ? `, ${result.errors.length} errored` : ''}`,
+    );
+    if (result.errors && result.errors.length) {
+      for (const err of result.errors) {
+        console.error(
+          `  error on ${err.id} (${err.decision}): ${err.errors.join('; ')}`,
+        );
+      }
+    }
   } finally {
     rl.close();
   }

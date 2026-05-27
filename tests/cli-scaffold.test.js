@@ -72,6 +72,7 @@ const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex', 'f
 // split for `queue review` vs `queue conflicts`).
 const NON_STUB_CHILDREN = new Set([
   'queue/conflicts', // Task 25
+  'queue/review',    // Task 26
 ]);
 
 describe('Task 2 — cmk CLI scaffold', () => {

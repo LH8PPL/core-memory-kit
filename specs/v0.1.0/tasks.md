@@ -578,21 +578,12 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - _Requirements: design §3.4 + §6.8; closes CLAUDE.md 5th composition-verification instance_
 
 - [ ] 26. Review queue + `cmk queue review` resolver (T-023)
-  - Estimate: M · Depends: 23, 24
-- [ ] 26.1 Implement medium-trust routing in auto-extract output handler
-  - Candidate appended to `queues/review.md` with full provenance; canonical untouched
-- [ ] 26.2 Implement `cmk queue review` interactive resolver
-  - Walks pending one-at-a-time; accepts `promote` / `discard` / `skip`
-- [ ] 26.3 Implement `promote` path
-  - Invokes memory-write `add` with `trust: high`; removes entry from review.md
-- [ ] 26.4 Implement `discard` path
-  - Removes entry from review.md; appends `audit.log` entry with `action: "review_discard"`
-- [ ]* 26.5 Write unit tests for review queue
-  - Test medium-trust auto-extract output: candidate in `queues/review.md` with provenance; canonical MEMORY.md unchanged
-  - Test `cmk queue review` walks entries one-at-a-time
-  - Test `promote`: candidate written to canonical with `trust: high`; removed from review.md
-  - Test `discard`: candidate removed; audit.log line with `action: "review_discard"`
-  - Test `skip`: candidate remains; no audit.log entry
+  - Estimate: M · Depends: 23, 24. Parent flips on merge.
+- [x] 26.1 Medium-trust routing in auto-extract output handler — **already shipped in Task 23's `routeMedium`** (`packages/cli/src/auto-extract.mjs:397`). Candidate appended to `<projectRoot>/context/queues/review.md` with `<!-- proposed_trust: medium, write: auto-extract, at: <ts> -->` provenance; canonical MEMORY.md untouched. Task 26 inherits this routing as-is; the new work is the resolver (26.2-26.4).
+- [x] 26.2 `cmk queue review` interactive resolver — `resolveReviewQueue({tier, projectRoot, userDir, prompter, scratchpad?, section?})` in `packages/cli/src/review-queue.mjs`. Walks pending entries one-at-a-time; on each, the caller-supplied `prompter` returns `'promote'` / `'discard'` / `'skip'`. Wired through `cmk queue review` via `runQueueReview` in `subcommands.mjs` with a readline-based interactive prompter; re-prompts on unknown answers. CLI scaffold test updated with `queue/review` in `NON_STUB_CHILDREN`.
+- [x] 26.3 `promote` path — delegates to `memoryWrite({action: 'add', trust: 'high', source: 'review-promote', text, ...})`. Removes the entry from review.md by rebuilding the file with `serializeReviewQueue` (kept-entries only). Audit-log entry with `reasonCode: REVIEW_PROMOTED`. If `memoryWrite` errors (e.g., Poison_Guard rejection), the entry is KEPT in the queue so the user can re-resolve; error is reported back through the `errors` array on the result.
+- [x] 26.4 `discard` path — removes entry from review.md (same file-rebuild as promote). Audit-log entry with `reasonCode: REVIEW_DISCARDED`, `action: 'discarded'`, `extra: {decision: 'discard', from_queue: 'review', original_ts}`.
+- [x]* 26.5 Unit tests — `tests/cli-review-queue.test.js` (12 cases): `parseReviewQueue` (4 covering empty/single/multiple/malformed) + `resolveReviewQueue` (8 covering empty-queue/promote/discard/skip/audit-log-shape/idempotency/mixed-decisions/prompter-error). All passing.
   - _Requirements: FR-10, FR-29; design §6.2_
 
 - [ ] 27. Checkpoint — Layer 4 (Hooks + auto-extract + skill) complete
