@@ -54,6 +54,7 @@ import { HaikuTimeoutError } from './compressor.mjs';
 import { pidIsAlive } from './lock-discipline.mjs';
 import { nowIso } from './audit-log.mjs';
 import { ERROR_CATEGORIES } from './result-shapes.mjs';
+import { touchCooldownMarker } from './cooldown.mjs';
 
 const LOCK_FILENAME = 'auto-extract.lock';
 const NOW_MD_RELATIVE = ['context', 'sessions', 'now.md'];
@@ -364,6 +365,33 @@ function applyRetainOverride(candidates, retainSegments) {
 
 // --- Routing --------------------------------------------------------
 
+// Classifies a memoryWrite result for observation-counting purposes.
+//
+// Three categories of memoryWrite outcome that auto-extract cares about:
+//   - 'memory'   — bullet appended to MEMORY.md (or other scratchpad)
+//   - 'conflict' — bullet routed to queues/conflicts.md (the queue-route
+//                  in memory-write.doAdd, when new.trust < existing.trust)
+//   - 'rejected' — Poison_Guard / schema / cap-exceeded rejection
+//
+// At trust:high (where auto-extract calls memoryWrite) the queue-route
+// is unreachable today: detectConflicts returns action:'supersede' when
+// new.trust >= existing.trust. The explicit 'conflict' branch is
+// defensive — if a v0.1.x change lowers auto-extract trust or alters
+// supersede semantics, a 'queued' return would otherwise be silently
+// misclassified as 'rejected'. observation_count counts both 'memory'
+// AND 'conflict' since both are successful writes (just to different
+// scratchpads).
+//
+// Exported for direct unit-testing — the queue-route is unreachable
+// from the live auto-extract flow today (see above), so pinning the
+// discriminator's behavior on each possible action value requires
+// calling it with literal inputs.
+export function classifyHighTrustWrite(r) {
+  if (r?.action === 'appended') return 'memory';
+  if (r?.action === 'queued') return 'conflict';
+  return 'rejected';
+}
+
 function routeHigh({ candidate, projectRoot, ts, sessionId }) {
   // Auto-extract writes go to the project tier's MEMORY.md, Active
   // Threads section via memoryWrite() — the same public boundary the
@@ -560,7 +588,18 @@ export async function runAutoExtract({
         preserveCitationIds: false,
         timeoutMs: 25_000,
       });
+      // Touch the cooldown marker IMMEDIATELY after the Haiku call
+      // resolves — this is the "we spent the budget" signal that
+      // compress-session.mjs reads to skip its own Haiku call within
+      // 120s of ours. Touching on success only (not in the catch below)
+      // would mean a failing Haiku in the auto-extract path doesn't
+      // block compress-session — which would then re-spend the budget
+      // on the failure. The catch path below also touches.
+      touchCooldownMarker({ projectRoot, now: ts });
     } catch (err) {
+      // Spent the Haiku budget (succeeded OR failed); touch the
+      // cooldown so compress-session skips within 120s.
+      touchCooldownMarker({ projectRoot, now: ts });
       // Route on the error TYPE — distinguishes "took too long"
       // (HAIKU_TIMEOUT) from "subprocess exited non-zero"
       // (HAIKU_FAILED). Using `instanceof HaikuTimeoutError`
@@ -631,7 +670,7 @@ export async function runAutoExtract({
     for (const candidate of candidates) {
       if (candidate.trust === 'high') {
         const r = routeHigh({ candidate, projectRoot, ts, sessionId });
-        const written = r?.action === 'appended' ? 'memory' : 'rejected';
+        const written = classifyHighTrustWrite(r);
         const writeRecord = { ...candidate, written, result: r };
         if (written === 'rejected') {
           writeRecord.rejected_category = r?.errorCategory ?? 'unknown';
@@ -646,7 +685,7 @@ export async function runAutoExtract({
     }
 
     const observation_count = writes.filter(
-      (w) => w.written === 'memory' || w.written === 'review',
+      (w) => w.written === 'memory' || w.written === 'review' || w.written === 'conflict',
     ).length;
 
     if (observation_count === 0) {
@@ -682,6 +721,22 @@ export async function runAutoExtract({
       candidates: writes,
     };
   } finally {
+    // Cleanup order: turn-file FIRST (frees disk), lock LAST (releases
+    // the mutex so a subsequent invocation can start). Both swallow
+    // errors — the lock release is best-effort because EEXIST on Windows
+    // can transiently fire if the watcher hasn't released the handle;
+    // the turn-file cleanup is best-effort because (a) the missing_turn
+    // path means it's already absent, (b) Windows can refuse unlink if
+    // a virus scanner has the file briefly open. The next Stop hook
+    // overwrites the path, so a leaked turn-file is harmless beyond
+    // disk noise.
+    if (existsSync(turnFile)) {
+      try {
+        unlinkSync(turnFile);
+      } catch {
+        // ignored — see comment above
+      }
+    }
     releaseLock(lockPath);
   }
 }

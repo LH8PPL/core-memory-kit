@@ -26,7 +26,7 @@ import {
   resolveTierRoot,
   resolveScratchpadPath,
 } from './tier-paths.mjs';
-import { appendAuditEntry, nowIso } from './audit-log.mjs';
+import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { writeBullet, parseBulletProvenance } from './provenance.mjs';
 
@@ -311,7 +311,7 @@ export function appendScratchpadBullet(opts = {}) {
     action: 'appended',
     tier,
     id,
-    reasonCode: 'scratchpad-append',
+    reasonCode: REASON_CODES.SCRATCHPAD_APPEND,
     paths: { after: path },
     extra: {
       scratchpad,

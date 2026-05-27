@@ -1877,6 +1877,49 @@ Until then, the §6 / §6.8 conflict-queue + review-queue contracts are pinned b
 
 Provenance: Task 25 + Task 26 code-review-excellence holistic-pass findings (2026-05-26, 2026-05-27). Both code-review writeups flagged the CLI glue as untested at the integration level, parking it as a v0.1.x candidate; this entry is the durable single-source-of-truth record.
 
+### 16.27 PostToolUse vs SessionEnd race on `now.md`
+
+**v0.1.x candidate.**
+
+Surfaced by the Task 27 Layer-4 checkpoint review (2026-05-27). PostToolUse is the only async hook in [`plugin/hooks/hooks.json`](../../plugin/hooks/hooks.json) (`"async": true, "timeout": 120`); its handler [`packages/cli/src/observe-edit.mjs`](../../packages/cli/src/observe-edit.mjs) appends Write/Edit/MultiEdit events to `context/sessions/now.md`. The SessionEnd hook's [`compressSession`](../../packages/cli/src/compress-session.mjs) truncates the same file after compression. Failure mode: a long-running PostToolUse append still in flight when the user types `/exit` races with `truncateSync`. On Windows this can throw EBUSY (mitigated by the existing `try { truncateSync; } catch {}` — documented in compress-session.mjs:188-193 as "best-effort"); on POSIX the failure mode is "truncate is lost, now.md contains compressed content PLUS new appends, next SessionEnd re-compresses material that was already compressed."
+
+The existing comment frames the failure as benign ("the next session compresses a slightly-larger buffer — not a data-loss event"). That framing IS correct — no data loss, no corruption — but no test pins the benign-failure mode, and the kit's "lazy-framing hides real bugs" rule cuts both ways: a test that asserts "truncate failure leaves a valid file" closes the framing's honesty.
+
+Two fix candidates for v0.1.x:
+
+1. **File-rename pattern**: read `now.md` → atomically rename to `now.md.compressing-{ts}` → process the renamed file → unlink it. The rename is atomic on both POSIX (rename(2)) and NTFS (MoveFileEx); PostToolUse continues appending to a freshly-opened `now.md` without contention.
+2. **Add a test pinning the benign-failure mode**: assert that on truncate failure, the next `compressSession` call still produces valid output (no double-compress of already-compressed sections, OR if double-compress is accepted, no malformed today-{date}.md).
+
+Deferred to v0.1.x because: (a) no data-loss path; (b) the 120s cooldown (now correctly composed across auto-extract + compress-session per §8.5 / Task 27 B2 fix) prevents the double-compress from running back-to-back; (c) v0.1.0 has no test coverage gap relative to the existing "best-effort" contract — adding rename semantics is a real design change, not a hot-fix.
+
+Trigger to ship: a real instance of the race causing visible user pain (corrupted today-{date}.md OR cost-budget overrun from double-compress).
+
+Provenance: Task 27 code-review finding I4 (2026-05-27).
+
+### 16.28 Windows `shell: true` grandchild process reaping
+
+**v0.1.x candidate.**
+
+Surfaced by the Task 27 Layer-4 checkpoint review (2026-05-27). [`packages/cli/src/compressor.mjs`](../../packages/cli/src/compressor.mjs:213-224) spawns `claude.cmd` with `shell: true` on Windows (required to resolve .cmd shim extensions — CVE-2024-27980 hardening). The process tree becomes: parent node → cmd.exe (immediate child) → claude.cmd → node (grandchild running the real Anthropic API call). When the inner timeout fires, [`terminateSubprocess`](../../packages/cli/src/lock-discipline.mjs) kills the immediate child (cmd.exe) — but the grandchild node process can linger briefly before the OS reaps it via parent-process-exit. The `spawn-smoke-kill-chain.test.js` covers the SIGTERM/SIGKILL escalation against the immediate child only.
+
+Documented in design §8.5 as acceptable for v0.1.0 ("OS reaps eventually"). No observed user-visible impact today. v0.1.x candidate: extend the kill chain to walk grandchildren via Windows job objects (or equivalent process-group semantics on POSIX) so terminate is structurally exhaustive.
+
+Trigger to ship: a real instance of an orphaned grandchild causing a leak (zombie process, memory growth, or hung file handle).
+
+Provenance: Task 27 code-review finding M5 (2026-05-27).
+
+### 16.29 Consolidate `BULLET_LINE_RE` across Layer 4 modules
+
+**v0.1.x candidate.**
+
+Surfaced by the Task 27 Layer-4 checkpoint review (2026-05-27). Three modules — [`memory-write.mjs`](../../packages/cli/src/memory-write.mjs), [`conflict-queue.mjs`](../../packages/cli/src/conflict-queue.mjs), [`review-queue.mjs`](../../packages/cli/src/review-queue.mjs) — each declare their own `BULLET_LINE_RE` to parse scratchpad bullet lines. `memory-write.mjs` uses the tight base32 alphabet (matches `ID_PATTERN` from canonicalize); the other two use a looser `[A-Za-z0-9]{8}` that accepts the kit's IDs but also accepts malformed IDs (e.g., a hand-edited bullet with `O` or `I` in the ID).
+
+No behavioral bug today — the looser regex's "tolerance" is benign (reading an externally-edited bullet with a malformed ID is read-only; the kit never re-writes the bad ID). But the drift is a maintenance hazard: a future change to `ID_PATTERN` (e.g., adding a new character class) would need to land in three places.
+
+v0.1.x candidate: extract `BULLET_LINE_RE` into a shared module — either `tier-paths.mjs` (which already owns scratchpad path resolution) or a new `bullet-format.mjs` if the kit grows more bullet-parsing primitives. Import from the three current consumers. The trigger to ship is adding a 4th consumer OR changing `ID_PATTERN`.
+
+Provenance: Task 27 code-review finding M1 (2026-05-27).
+
 ---
 
 ## 17. Test discipline

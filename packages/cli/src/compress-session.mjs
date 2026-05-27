@@ -30,20 +30,21 @@ import {
   readFileSync,
   writeFileSync,
   appendFileSync,
-  statSync,
-  utimesSync,
   truncateSync,
 } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { nowIso } from './audit-log.mjs';
 import { ERROR_CATEGORIES } from './result-shapes.mjs';
 import { HaikuTimeoutError } from './compressor.mjs';
+import {
+  DEFAULT_COOLDOWN_MS,
+  isCooldownActive,
+  touchCooldownMarker,
+} from './cooldown.mjs';
 
-const DEFAULT_COOLDOWN_MS = 120_000;
 const DEFAULT_MAX_OUTPUT_BYTES = 4096;
 
 const NOW_MD_RELATIVE = ['context', 'sessions', 'now.md'];
-const COOLDOWN_RELATIVE = ['context', '.locks', 'last-haiku-call.ts'];
 const SESSIONS_DIR_RELATIVE = ['context', 'sessions'];
 
 // Compression prompt (design §8.4). Written from scratch per the
@@ -113,10 +114,6 @@ function readNowMdPath(projectRoot) {
   return join(projectRoot, ...NOW_MD_RELATIVE);
 }
 
-function readCooldownMarkerPath(projectRoot) {
-  return join(projectRoot, ...COOLDOWN_RELATIVE);
-}
-
 function todayMdPath(projectRoot, date) {
   return join(projectRoot, ...SESSIONS_DIR_RELATIVE, `today-${date}.md`);
 }
@@ -138,35 +135,6 @@ function readNowBuffer(projectRoot) {
     return readFileSync(p, 'utf8');
   } catch {
     return '';
-  }
-}
-
-function isCooldownActive({ projectRoot, now, cooldownMs }) {
-  const marker = readCooldownMarkerPath(projectRoot);
-  if (!existsSync(marker)) return false;
-  let mtime;
-  try {
-    mtime = statSync(marker).mtimeMs;
-  } catch {
-    return false;
-  }
-  const nowMs = new Date(now).getTime();
-  return nowMs - mtime < cooldownMs;
-}
-
-function touchCooldownMarker({ projectRoot, now }) {
-  const marker = readCooldownMarkerPath(projectRoot);
-  mkdirSync(dirname(marker), { recursive: true });
-  if (!existsSync(marker)) {
-    writeFileSync(marker, '', 'utf8');
-  }
-  const ts = new Date(now);
-  try {
-    utimesSync(marker, ts, ts);
-  } catch {
-    // utimes can fail on exotic filesystems; the existence of the
-    // marker is the load-bearing signal — mtime drift by a few
-    // seconds doesn't break cooldown logic.
   }
 }
 
