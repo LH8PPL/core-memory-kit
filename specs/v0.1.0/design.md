@@ -1410,7 +1410,7 @@ The install paths above MUST inject the kit's CLAUDE.md content inside an idempo
 
 ## 14. Failure modes + health checks
 
-Nine yes/no checks at session start (HC-1..HC-7 from requirements.md, plus HC-8 added per ADR-0011 + HC-9 added per PR-B's class-2 lock audit). Each has a documented self-repair path.
+Ten yes/no checks at session start (HC-1..HC-7 from requirements.md, plus HC-8 added per ADR-0011 + HC-9 added per PR-B's class-2 lock audit + HC-10 added per PR-E's class-7 cross-platform audit). Each has a documented self-repair path.
 
 | ID | Check | Repair if failed |
 | --- | --- | --- |
@@ -1966,6 +1966,68 @@ Concrete checklist for the agent (Claude in this repo):
 | Internal cross-references resolve: file links, `ADR-NNNN`, `§N.N` (within design.md), `FR-N`, `NFR-N`, `Task N` — broken or dangling references fail the suite. Code blocks + inline-code spans + `docs/research/` + `docs/sources/` + `docs/conversation-log/` are skipped (research-base notes use third-party FR namespaces). | [`scripts/validate-references.mjs`](../../scripts/validate-references.mjs) | **Strict**. Suppression via `<!-- validate-references: ignore -->` on the same line — sparingly. Anchor-out-of-corpus debug surfaceable via `CMK_REFS_DEBUG=1`. |
 | ID sequences (ADR / FR / NFR / Task) either have no gaps OR have an explicit `reserved` / `TODO` / `placeholder` / `not-yet` / `tail-appended` marker in the relevant file. PR-C found ADR-0009 + ADR-0010 missing for ~3 weeks because no validator caught the gap. | [`scripts/validate-numbering-gaps.mjs`](../../scripts/validate-numbering-gaps.mjs) | **Strict**. Markers parsed case-insensitively, in both directions (`reserved ADR-NNNN` or `ADR-NNNN ... reserved`). |
 | Every documented composition-verification instance in CLAUDE.md references at least one addressing artifact (test file, design section, or reserved marker). Catches the failure mode where a new instance gets enumerated but no corresponding test / design / reserved-marker is written. | [`scripts/validate-composition.mjs`](../../scripts/validate-composition.mjs) | **Strict**. Heuristic: instance descriptors are inline `PR-<id> (...)` parens within the rule body; each parenthesized description must match `tests/X.test.js` / `design §X.Y` / `reserved` / `v0.1.x` / `not-yet`. |
+| Every user-facing shell command emission in production code uses the `platform-commands.mjs` helper OR carries an explicit `// platform-commands: ignore <reason>` marker. Catches the failure mode PR-B surfaced (lock-discipline.mjs originally emitted hardcoded `rm` to Windows users on stock cmd.exe). | [`scripts/validate-platform-commands.mjs`](../../scripts/validate-platform-commands.mjs) | **Strict**. Scans `packages/cli/src/` + `plugin/bin/`. Three pass conditions: file imports from `./platform-commands.mjs` (helper-in-scope), per-line `// platform-commands: ignore <reason>` marker, or no hardcoded POSIX-command tokens at all. |
+
+## 18. Cross-platform command discipline
+
+Tail-appended 2026-05-27 by PR-E (post-PR-31 audit campaign Part 7/7; v0.1.0 release blocker). The class surfaced when PR-B's `recoveryCommand` field in `lock-discipline.mjs` emitted a hardcoded `rm "..."` command — fine on macOS/Linux, broken on Windows stock cmd.exe (`rm` is not a builtin or PATH'd command; the user pasting the recovery hint gets "command not found"). The fix in PR-B was an inline `process.platform === 'win32'` switch. PR-E generalizes that pattern into a shared helper + a validator + this discipline.
+
+### 18.1 The rule
+
+Every user-facing shell command emission — whether emitted programmatically by kit code (`recoveryCommand`, `cmk doctor` repair output, `cmk repair` hints, error messages, audit-log action hints, install completion paths) OR written into docs (README install instructions, `SETUP.md` recovery, `HEALTH-CHECKS.md` repairs, design.md user-facing shell snippets) — must work on the user's native shell across **Windows + macOS + Linux**.
+
+### 18.2 The helper: `packages/cli/src/platform-commands.mjs`
+
+Single source of truth for the kit's primitive shell-command builders. One function per primitive; each returns a complete, copy-paste-ready shell command in the user's native shell, with the platform branch handled internally.
+
+Primitives currently exposed:
+
+- `removeFile(path)` — `Remove-Item "..."` on Windows, `rm "..."` on POSIX.
+- `removeDir(path)` — `Remove-Item -Recurse -Force "..."` on Windows, `rm -rf "..."` on POSIX.
+- `listDir(path)` — `Get-ChildItem "..."` on Windows, `ls "..."` on POSIX.
+
+Plus `PLATFORM` constant (`'win32'` or `'posix'`) for callers that need to branch explicitly.
+
+Adding a new primitive: add the function + a per-platform branch + a unit test in `tests/cli-platform-commands.test.js` asserting both branches' output shapes. Keep the helper module narrow (PR-E shipped 3 primitives; expand as the kit grows new emission sites).
+
+### 18.3 The validator: `scripts/validate-platform-commands.mjs`
+
+Structurally enforces "no hardcoded POSIX commands in user-facing emission paths" in `packages/cli/src/` + `plugin/bin/`. Three pass conditions per match:
+
+1. **Helper-in-scope** — the file imports from `./platform-commands.mjs`. The discipline is established at the file level; the validator assumes inline POSIX strings in such files live inside platform branches.
+2. **Per-line suppression** — `// platform-commands: ignore <reason>` on the same line OR the line above. Reserved for legitimate platform-specific contracts (e.g., a `.sh` script that already requires bash).
+3. **No match** — the file doesn't contain any hardcoded POSIX-command tokens (`rm "..."`, `mkdir "..."`, etc.).
+
+Scanned tokens: `rm`, `mkdir`, `ls`, `cat`, `cp`, `mv`, `chmod`, `chown`. Each requires a space + quoted path follow-up (or hyphen-arg) so the regex doesn't false-positive on Node identifiers like `mkdirSync` (where `mkdir` is at end of identifier with no following space).
+
+### 18.4 Doc-side emissions (out of scope for the validator)
+
+Docs (README / SETUP.md / design.md / HEALTH-CHECKS.md) emit shell snippets in markdown code blocks. The validator does NOT scan docs because:
+
+1. False positives are severe: legitimate code-block examples of POSIX commands in research notes, conversation logs, or "here's the Linux flow" sections would all flag.
+2. The right discipline for docs is "show both halves" — provide the Windows command + the POSIX command alongside each other where users need a copy-paste hint. Reviewer discipline catches missing halves at PR-review time.
+
+If doc-side hardcoded POSIX emissions become a recurring problem, the v0.1.x candidate is a markdown-aware validator that scans only fenced code blocks tagged as `bash`/`sh`/`shell`. Not in scope for v0.1.0.
+
+### 18.5 Legacy `.sh` references in docs
+
+The `.sh → .mjs` migration audit (Task 23.15.7) confirmed that `plugin/bin/auto-extract-memory.sh` (the legacy bash-based auto-extract) is dead code: Task 23 shipped `cmk-auto-extract.mjs` (node-based) which is the current runtime path. The kit's tests don't reference the .sh file. However, ~14 doc references remain (README.md, ARCHITECTURE.md, plugin/README.md, plugin/skills/bootstrap/SKILL.md, plugin/context-template/SETUP.md, install.sh/ps1, design.md §X, requirements.md, docs/adr/0011, conversation-log).
+
+**v0.1.x cleanup**: remove `auto-extract-memory.sh` from the repo + update the doc references to describe the node-based flow. Deferred from PR-E because:
+
+1. The .sh file is dead code, not a runtime hazard.
+2. Cleaning up 14 references is a small but spread-out doc refactor; bundling it into PR-E would dilute the cross-platform-discipline review surface.
+3. The kit's PRIMARY cross-platform risk is the runtime emission path, which PR-E closes structurally.
+
+### 18.6 Live-test plan
+
+PR-E's spot-check on **Windows PowerShell** (the development platform) confirmed `removeFile / removeDir / listDir` emit the documented PowerShell forms. **macOS + Linux** verification: deferred to install-time testing — when a user installs the kit on those platforms, the helper's POSIX branch is exercised on every `recoveryCommand` emission. The kit doesn't have CI matrix runners for macOS/Linux today (v0.1.x candidate: GitHub Actions cross-OS matrix).
+
+Live-test cross-OS validation is also covered by:
+
+- The lock-discipline.mjs unit tests (`tests/cli-lock-discipline.test.js`) — assert the `recoveryCommand` field shape in both branches via test-time platform detection.
+- The platform-commands unit tests (`tests/cli-platform-commands.test.js`) — assert each primitive's output for the current platform AND that the shape invariants hold (non-empty, quoted path argument).
+- The validator self-test (`tests/scripts-validate-platform-commands.test.js`) — sandboxed fixtures pin the helper-in-scope / suppression-marker / hardcoded-violation paths.
 
 ---
 

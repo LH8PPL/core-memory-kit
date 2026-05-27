@@ -45,18 +45,15 @@ import {
   readFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
+import { removeFile as removeFileCmd } from './platform-commands.mjs';
 
-// Cross-platform recovery command. The kit is Windows-first; stock
-// cmd.exe has no `rm` (and PowerShell users typically reach for
-// `Remove-Item` or its alias `del`). Linux/macOS users get the POSIX
-// `rm`. Either way the command is copy-paste-ready in the user's
-// native shell. Quoting handles paths with spaces (Windows program-
-// files, macOS user-folder display names, etc.).
+// Recovery command is delegated to the shared platform-commands
+// helper (PR-E generalized this inline pattern PR-B established;
+// see packages/cli/src/platform-commands.mjs + design §18).
+// `removeFile` returns a copy-paste-ready command in the user's
+// native shell — Remove-Item on Windows, rm on POSIX.
 function recoveryCommandFor(lockPath) {
-  if (process.platform === 'win32') {
-    return `Remove-Item "${lockPath}"`;
-  }
-  return `rm "${lockPath}"`;
+  return removeFileCmd(lockPath);
 }
 
 // Note on pid=0: POSIX defines kill(0, sig) as "signal every process
