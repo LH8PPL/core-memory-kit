@@ -1,3 +1,8 @@
+// @doors: 1, 3
+// Door 2 N/A: real-binary spawn smoke; the kit-disk-state surface (lock-file, log writes) is covered by the in-process auto-extract tests.
+// Door 4 N/A: no message-queue interaction; this test pins the cross-process spawn boundary itself, not the IPC contract.
+// Door 5 N/A: spawn-smoke pins that the OS-level spawn primitives work end-to-end; observability log shape is pinned in cli-compressor (mocked) + auto-extract / compress-session (composed).
+
 // Real-binary spawn smoke test for HaikuViaAnthropicApi (Task 23.8,
 // retroactive). Per design §17 "Test discipline" — specifically
 // the §17.3-§17.5 spawn-boundary subsections (§17.1 five-exit-doors

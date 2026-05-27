@@ -1,3 +1,9 @@
+// @doors: 1
+// Door 2 N/A: tests read fixture vectors from disk (`canonicalize-vectors.json`) but assert only on the canonicalize() return value — no kit disk-state mutation under test.
+// Door 3 N/A: pure in-process canonicalize() function; no subprocess spawn.
+// Door 4 N/A: no message-queue interaction.
+// Door 5 N/A: canonicalize() does not emit NDJSON observability output; logging belongs to its callers.
+
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

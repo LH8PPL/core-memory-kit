@@ -1,3 +1,7 @@
+// @doors: 1, 2, 3
+// Door 4 N/A: no message-queue interaction.
+// Door 5 N/A: template-scaffolding tests assert the manifest's structural shape (Door 1) + the kit's filesystem state matches (Door 2) + the validator subprocess runs correctly (Door 3); no NDJSON observability is produced by the template emission itself.
+
 // Tests for Task 1 — Repo scaffolding + template/ skeleton (T-001).
 // Per tasks.md 1.4:
 //   - Test every required file in template/ exists (manifest-driven)

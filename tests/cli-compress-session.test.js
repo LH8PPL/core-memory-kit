@@ -1,3 +1,6 @@
+// @doors: 1, 2, 3, 5
+// Door 4 N/A: compress-session reads now.md + writes to today's segment; no message-queue IPC.
+
 // Tests for Task 22 — cmk-compress-session SessionEnd hook (T-019).
 // Per tasks.md 22.6:
 //   - non-empty now.md → mocked backend invoked; output written to

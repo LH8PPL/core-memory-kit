@@ -1,3 +1,8 @@
+// @doors: 1, 2
+// Door 3 N/A: reindex is pure in-process file scanning + rewriting; no subprocess spawn.
+// Door 4 N/A: no message-queue interaction.
+// Door 5 N/A: reindex doesn't emit NDJSON; idempotent regeneration is verified by Door 1 + Door 2 assertions.
+
 // Tests for Task 8 — INDEX.md generation + maintenance (T-007).
 // Per tasks.md 8.4:
 //   - Test reindex with 0 facts produces header-only INDEX.md

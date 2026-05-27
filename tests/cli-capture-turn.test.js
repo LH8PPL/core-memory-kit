@@ -1,3 +1,7 @@
+// @doors: 1, 2, 3, 4, 5
+// Door 4 (Message queues): capture-turn writes the both-turns temp file `.extract-<ts>.tmp` containing USER_TURN: / ASSISTANT_TURN: markers — the kit's queue-of-one IPC surface for the detached auto-extract child (design §17.1 named exception #1). Tests assert the temp-file shape + the spawn args carrying the path.
+// Door 5 (Observability): on spawn-failed path, capture-turn now writes an NDJSON entry to `<projectRoot>/context/sessions/{date}.extract.log` with `phase: 'spawn'` + `error_category: 'spawn_failed'` + the failure reason (Task 23.14.3, closes PR-A class-1 audit deferral, 2026-05-27).
+
 // Tests for Task 21 — cmk-capture-turn Stop hook + stop_hook_active
 // guard + spawn auto-extract (T-018).
 // Per tasks.md 21.6:
@@ -401,6 +405,77 @@ describe('Task 21 — captureTurn() boundary', () => {
       const body = readFileSync(r.turnFile, 'utf8');
       expect(body).toContain('the most recent prompt');
       expect(body).not.toContain('first older prompt');
+    });
+  });
+
+  // Door 5 (observability) — PR-A class-1 audit deferral closed in Task 23.14.3.
+  // When the auto-extract spawn does NOT succeed (no path, missing path, or
+  // node-side spawn throw), capture-turn writes an NDJSON entry to
+  // sessions/{date}.extract.log with phase: 'spawn'.
+  describe('spawn-failed observability (Task 23.14.3)', () => {
+    it('writes a phase:spawn extract.log entry when autoExtractPath is null', () => {
+      const r = captureTurn({
+        payload: { assistant_message: 'turn body' },
+        projectRoot,
+        now: '2026-05-27T08:00:00Z',
+        autoExtractPath: null,
+      });
+      expect(r.spawned).toBe(false);
+      expect(r.reason).toBe('no-auto-extract-path');
+      const logPath = join(projectRoot, 'context', 'sessions', '2026-05-27.extract.log');
+      expect(existsSync(logPath)).toBe(true);
+      const entries = readFileSync(logPath, 'utf8').trim().split('\n').map(JSON.parse);
+      expect(entries).toHaveLength(1);
+      expect(entries[0]).toMatchObject({
+        ts: '2026-05-27T08:00:00Z',
+        phase: 'spawn',
+        success: false,
+        error_category: 'spawn_failed',
+        reason: 'no-auto-extract-path',
+      });
+    });
+
+    it('writes a phase:spawn entry when autoExtractPath does not exist', () => {
+      const r = captureTurn({
+        payload: { assistant_message: 'turn body' },
+        projectRoot,
+        now: '2026-05-27T08:01:00Z',
+        autoExtractPath: join(sandbox, 'does-not-exist.mjs'),
+      });
+      expect(r.spawned).toBe(false);
+      expect(r.reason).toBe('auto-extract-missing');
+      const logPath = join(projectRoot, 'context', 'sessions', '2026-05-27.extract.log');
+      const entries = readFileSync(logPath, 'utf8').trim().split('\n').map(JSON.parse);
+      const last = entries[entries.length - 1];
+      expect(last).toMatchObject({
+        phase: 'spawn',
+        success: false,
+        error_category: 'spawn_failed',
+        reason: 'auto-extract-missing',
+      });
+    });
+
+    it('does NOT write a spawn-phase entry when the spawn succeeds', () => {
+      const stubScript = join(sandbox, 'noop.mjs');
+      writeFileSync(stubScript, 'process.exit(0);\n');
+      const r = captureTurn({
+        payload: { assistant_message: 'turn body' },
+        projectRoot,
+        now: '2026-05-27T08:02:00Z',
+        autoExtractPath: stubScript,
+      });
+      expect(r.spawned).toBe(true);
+      const logPath = join(projectRoot, 'context', 'sessions', '2026-05-27.extract.log');
+      // The log file might not exist at all if no prior spawn-failed
+      // entry was written; if it does, none of its entries should have
+      // ts:2026-05-27T08:02:00Z + phase:'spawn'.
+      if (existsSync(logPath)) {
+        const entries = readFileSync(logPath, 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse);
+        const matching = entries.filter(
+          (e) => e.ts === '2026-05-27T08:02:00Z' && e.phase === 'spawn',
+        );
+        expect(matching).toHaveLength(0);
+      }
     });
   });
 });

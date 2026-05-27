@@ -1,3 +1,9 @@
+// @doors: 1
+// Door 2 N/A: tests assert on the return-value bullet text + provenance frontmatter string; no kit disk-state mutation under test (the frontmatter is rendered in-memory).
+// Door 3 N/A: no subprocess spawn.
+// Door 4 N/A: no message-queue interaction.
+// Door 5 N/A: provenance is a pure read/write helper; observability logs are the caller's responsibility.
+
 // Tests for Task 13 — Provenance frontmatter writer + reader (T-011).
 // Per tasks.md 13.4:
 //   - Test writeBullet({text, provenance}) produces two-line output: bullet,

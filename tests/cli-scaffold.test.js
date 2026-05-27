@@ -1,3 +1,8 @@
+// @doors: 1, 3
+// Door 2 N/A: scaffold tests invoke the `cmk` binary and assert on its stdout/exit — no kit disk-state mutation under test.
+// Door 4 N/A: no message-queue interaction.
+// Door 5 N/A: the scaffold CLI doesn't emit NDJSON logs — verb stubs print "not yet implemented" to stdout.
+
 // Tests for Task 2 — cmk Node CLI scaffold (T-002).
 // Per tasks.md 2.4:
 //   - Test `cmk --help` output contains every documented subcommand

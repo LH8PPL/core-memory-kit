@@ -1,3 +1,7 @@
+// @doors: 1, 2, 5
+// Door 3 N/A: inject-context is the in-process scratchpad reader + JSON emitter for SessionStart; the bash bin wrapper spawn is tested in cli-hooks-scaffold.
+// Door 4 N/A: no message-queue interaction.
+
 // Tests for Task 18 — cmk-inject-context SessionStart hook (T-015).
 // Per tasks.md 18.7:
 //   - Test on a 3-tier fixture project: output is valid JSON with the

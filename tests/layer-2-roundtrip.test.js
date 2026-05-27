@@ -1,3 +1,8 @@
+// @doors: 1, 2
+// Door 3 N/A: layer-2 round-trip is in-process file flow (writeFact → readBullet → mergeFacts → forget); no subprocess spawn.
+// Door 4 N/A: no message-queue interaction.
+// Door 5 N/A: layer-2 modules return their action structs (Door 1); audit-log writes are tested in the per-module test files (cli-write-fact, cli-merge-facts, cli-forget, cli-trust).
+
 // Layer-2 integration tests — added per the Layer-2 review's gap findings G1,
 // G2, G5. Single-task PRs cover each module in isolation; this file covers
 // the cross-module interactions that those structurally can't.
