@@ -1821,6 +1821,18 @@ Deferred to v0.1.x because: (a) low priority — the kit functions without it; (
 
 Provenance: [`docs/research/2026-05-26-claude-code-memory-guide-verification.md`](../../docs/research/2026-05-26-claude-code-memory-guide-verification.md) (side-finding #4).
 
+### 16.24 Shared queue-file parser primitive
+
+**v0.1.x candidate.**
+
+Surfaced by Task 26 (review-queue) code-review (2026-05-27). Both [`packages/cli/src/review-queue.mjs`](../../packages/cli/src/review-queue.mjs) and [`packages/cli/src/conflict-queue.mjs`](../../packages/cli/src/conflict-queue.mjs) parse the same shape of markdown queue file: `## <ts> — <header>` block + bullet + `<!-- provenance -->` HTML comment + blank-line separator. Each module has its own parser (`parseReviewQueue`, `parseConflictQueue`); the regex shape and block-walking logic are ~80% identical.
+
+Deferred to v0.1.x as **premature abstraction**: with only 2 callers the duplication is cheaper than the indirection. The extraction trigger is a 3rd queue-shaped file shipping (e.g., a `queues/distill.md` for Layer 6, or a `queues/lessons-promote.md` companion to `lessons-promote.mjs`). At that point: extract `parseMarkdownQueue({text, headerPattern, bulletExtractor})` into a shared `packages/cli/src/queue-format.mjs` module + migrate both existing callers + add the new caller.
+
+Why not now: the kit's "deep modules with simple interfaces" rule (CLAUDE.md Engineering discipline) cuts both ways. Two callers with co-located logic IS simple; one abstract parser with a parameterized configuration is shallower per-call but introduces a coordination point the kit doesn't need yet. The 3rd-instance rule defers the extraction to the moment it pays for itself.
+
+Provenance: Task 26 code-review-excellence Suggestion (2026-05-27) — flagged by the holistic-pass review as "parser similarity worth noting; defer extraction to 3rd-instance rule."
+
 ---
 
 ## 17. Test discipline
