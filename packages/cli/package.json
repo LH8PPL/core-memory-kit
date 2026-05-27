@@ -18,6 +18,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "better-sqlite3": "^12.10.0",
     "commander": "^12.1.0",
     "js-yaml": "^4.1.0"
   },
