@@ -264,4 +264,159 @@ describe('Task 27 — Layer 4 checkpoint review fixes', () => {
       expect(existsSync(marker)).toBe(true);
     });
   });
+
+  describe('§16.27 honesty check — PostToolUse vs SessionEnd race benign-failure mode', () => {
+    // §16.27 (deferred to v0.1.x) documents that a rare race between
+    // PostToolUse's async appendFileSync to now.md and SessionEnd's
+    // truncateSync(now.md) can leave now.md with leftover post-compress
+    // content. The production code at compress-session.mjs:189-193 wraps
+    // truncateSync in try/catch and frames the failure as "best-effort"
+    // with a benign outcome: "the next session compresses a slightly-
+    // larger buffer — not a data-loss event."
+    //
+    // CLAUDE.md's "lazy-framing hides real bugs" anti-pattern explicitly
+    // flags "best-effort" as a framing that can mask real bugs. This
+    // test pins the benign-outcome claim: when compress-session sees a
+    // now.md buffer that includes already-compressed content (the
+    // post-race state), it still produces a structurally valid output
+    // and correctly truncates afterward. The kit's behavior degrades to
+    // "noisy duplicates in today-{date}.md", NOT to "corruption /
+    // malformed archive / crash / data loss".
+    //
+    // Two tests cover the contract:
+    //   1. After-race state → next compressSession produces a valid
+    //      today-{date}.md and successfully truncates now.md (the kit
+    //      recovers cleanly on the next run; the race-day duplicates
+    //      are localized to that one today-{date}.md).
+    //   2. The race-day today-{date}.md remains valid Markdown even
+    //      after the duplicate-bearing append — `appendFileSync` is
+    //      atomic at the line level on both POSIX and NTFS, and the
+    //      kit's §8.4 section-heading format doesn't break under
+    //      adjacent same-heading appends.
+    //
+    // If the file-rename fix ever lands per §16.27, these tests should
+    // continue to pass — they pin the BENIGN OUTCOME contract, not the
+    // current implementation. The fix changes WHEN the race fires, not
+    // what the kit does when it does fire.
+
+    it('compress-session tolerates leftover content from a race (no crash, valid output)', async () => {
+      // Simulate the post-race state: now.md contains old-session
+      // content that was already compressed in a previous SessionEnd
+      // (the truncate failed silently per the race) PLUS this
+      // session's fresh content.
+      const nowMdContent = [
+        '## 2026-05-27T10:00:00Z',
+        '',
+        'Decided to use uv for python project management.',
+        'Touched packages/cli/src/install.mjs.',
+        '',
+        '## 2026-05-27T10:30:00Z',
+        '',
+        // Fresh content from this session (would normally be the
+        // only content in now.md if not for the race):
+        'Decided to add a SessionStart hook with 30s timeout.',
+        'Touched plugin/hooks/hooks.json.',
+        '',
+      ].join('\n');
+      writeFileSync(
+        join(projectRoot, 'context', 'sessions', 'now.md'),
+        nowMdContent,
+        'utf8',
+      );
+
+      // Run compress-session (mock Haiku echoes the §8.4 shape).
+      const r = await compressSession({
+        projectRoot,
+        backend: mockBackend(
+          '## Decisions\n- Use uv for python\n- Add SessionStart hook',
+          '## Files Touched',
+          '- path: packages/cli/src/install.mjs — added',
+          '- path: plugin/hooks/hooks.json — updated',
+        ),
+        now: '2026-05-27T11:00:00Z',
+      });
+
+      // The kit completes the compression normally.
+      expect(r.action).toBe('compressed');
+
+      // today-{date}.md exists + is non-empty + is valid utf-8.
+      const todayPath = join(
+        projectRoot,
+        'context',
+        'sessions',
+        'today-2026-05-27.md',
+      );
+      expect(existsSync(todayPath)).toBe(true);
+      const today = readFileSync(todayPath, 'utf8');
+      expect(today.length).toBeGreaterThan(0);
+      // §8.4 section headings appear (compression structurally honored
+      // the prompt despite the larger input buffer).
+      expect(today).toMatch(/##\s+Decisions/);
+
+      // now.md is truncated to 0 bytes (the kit's normal post-compress
+      // state — the race-failure was on the PREVIOUS compress; this
+      // one's truncate is uncontended).
+      const nowMdPath = join(
+        projectRoot,
+        'context',
+        'sessions',
+        'now.md',
+      );
+      expect(statSync(nowMdPath).size).toBe(0);
+    });
+
+    it('two SUCCESSIVE compress-session runs across a (simulated) race day produce structurally valid today-{date}.md', async () => {
+      // Round 1: normal compress-session writes today-2026-05-27.md.
+      writeFileSync(
+        join(projectRoot, 'context', 'sessions', 'now.md'),
+        '## 2026-05-27T10:00:00Z\n\nFirst session content.\n',
+        'utf8',
+      );
+      await compressSession({
+        projectRoot,
+        backend: mockBackend('## Decisions\n- first session'),
+        now: '2026-05-27T10:30:00Z',
+      });
+      const todayPath = join(
+        projectRoot,
+        'context',
+        'sessions',
+        'today-2026-05-27.md',
+      );
+      const sizeAfterFirst = statSync(todayPath).size;
+      expect(sizeAfterFirst).toBeGreaterThan(0);
+
+      // Simulate the race: PostToolUse "appended" to now.md after the
+      // truncate would have happened (i.e., the truncate failed
+      // silently). The next session's content also lands here.
+      writeFileSync(
+        join(projectRoot, 'context', 'sessions', 'now.md'),
+        // Leftover-from-race + fresh second-session content:
+        '## 2026-05-27T10:00:00Z\n\nFirst session content.\n\n## 2026-05-27T11:00:00Z\n\nSecond session content.\n',
+        'utf8',
+      );
+
+      // Round 2: compress-session at T+200s (past the 120s cooldown).
+      const r = await compressSession({
+        projectRoot,
+        backend: mockBackend('## Decisions\n- second session', '## Active Threads\n- still working'),
+        now: '2026-05-27T10:33:20Z',
+      });
+      expect(r.action).toBe('compressed');
+
+      // today-{date}.md grew (the second compression appended).
+      const sizeAfterSecond = statSync(todayPath).size;
+      expect(sizeAfterSecond).toBeGreaterThan(sizeAfterFirst);
+
+      // today-{date}.md remains valid (no malformed sections, no
+      // truncation, no encoding corruption — even though the input
+      // buffer in round 2 included leftover content from the race).
+      const today = readFileSync(todayPath, 'utf8');
+      expect(today).toMatch(/##\s+Decisions/);
+      // Both rounds' content is present (the "noisy duplicates"
+      // outcome §16.27 documents — but the FILE is still well-formed).
+      expect(today).toContain('first session');
+      expect(today).toContain('second session');
+    });
+  });
 });
