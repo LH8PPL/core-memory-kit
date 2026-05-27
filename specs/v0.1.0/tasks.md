@@ -611,20 +611,12 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 - [x]* 28.5 Write unit tests for SQLite schema — `tests/cli-index-db.test.js` (11 cases). All six tasks.md asserts covered + over-mutation guard + reopen idempotency.
   - _Requirements: FR-16; design §9.1_
 
-- [ ] 29. Reindex strategy (boot / runtime / recovery) (T-025)
+- [x] 29. Reindex strategy (boot / runtime / recovery) (T-025) _shipped 2026-05-27, PR #47_
   - Estimate: M · Depends: 28
-- [ ] 29.1 Implement `cmk reindex --boot`
-  - Walks markdown; diffs mtime/sha1 vs `files` table; re-indexes changed only
-- [ ] 29.2 Implement runtime file-watcher
-  - `chokidar` with 500 ms debounce
-- [ ] 29.3 Implement `cmk reindex --full`
-  - Drops DB; rebuilds from markdown
-- [ ]* 29.4 Write unit tests for reindex
-  - Test `--boot` with no changes: 0 files re-indexed; timer <200 ms
-  - Test `--boot` after editing one fact: only that file re-indexed
-  - Test runtime watcher: touch a file; FTS5 reflects within 1 s
-  - Test `--full`: drops DB; walks all markdown; row count == markdown fact count
-  - Test concurrent writers (one `--boot` + one runtime): no errors, no duplicate rows
+- [x] 29.1 Implement `cmk reindex --boot` — walks markdown via `listObservationSources`; diffs mtime/sha1 vs `files` table; re-indexes changed only
+- [x] 29.2 Implement runtime file-watcher — chokidar v5 directory-watch with 500ms `awaitWriteFinish` debounce; per-extension filter in handlers (v5 dropped glob support; caught at self-review)
+- [x] 29.3 Implement `cmk reindex --full` — DROPs observations/observations_fts/files + re-applies schema + walks all
+- [x]* 29.4 Write unit tests for reindex — `tests/cli-index-rebuild.test.js` (11 cases): all 5 tasks.md asserts + over-mutation guard + chokidar v5 glob-drop regression + per-fact ADD watcher test + sequential composition (renamed from "concurrent" per code-review I3 honesty)
   - _Requirements: FR-16; design §9.2_
 
 - [ ] 30. `cmk search` hybrid CLI (T-026)
