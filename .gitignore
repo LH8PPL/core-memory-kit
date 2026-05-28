@@ -35,4 +35,7 @@ plugin/milvus-deploy-template/volumes/
 
 # canonicalize parity scratch dumps (Task 5)
 /tmp-parity-*.json
+
+# Task 40 install-matrix smoke-test artifact (local-only; CI uploads to GHA artifacts)
+install-matrix-checksum.json
 context/.index/

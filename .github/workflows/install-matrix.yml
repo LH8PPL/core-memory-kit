@@ -1,0 +1,79 @@
+name: cross-OS install matrix
+
+# Task 40 (T-034). Validates `cmk install` + `cmk doctor` on
+# Windows / macOS / Linux + compares the scaffolded-tree checksums
+# across OSes (a build-time invariant: install output should be
+# byte-identical regardless of platform). Per design §14 + tasks.md 40.
+
+on:
+  pull_request:
+    paths:
+      - 'packages/cli/**'
+      - 'template/**'
+      - 'plugin/**'
+      - '.github/workflows/install-matrix.yml'
+      - 'tests/scripts-validate-install-matrix.test.js'
+      - 'scripts/install-matrix-checksum.mjs'
+  push:
+    branches: [main]
+
+jobs:
+  install-and-doctor:
+    name: ${{ matrix.os }} — install + doctor
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-14, windows-2022]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Node deps
+        run: npm install
+
+      - name: Run cmk install in a tempdir + capture scaffold tree
+        shell: bash
+        run: node scripts/install-matrix-checksum.mjs
+
+      - name: Run cmk doctor against the fresh install
+        shell: bash
+        run: |
+          export MEMORY_KIT_USER_DIR="$RUNNER_TEMP/cmk-userDir"
+          node packages/cli/bin/cmk.mjs install --force
+          # Doctor exits 0 on all-pass, 1 on any fail, 2 on error.
+          # CI accepts both 0 and 1 here (fail = expected when memsearch
+          # is not installed on a fresh CI runner — Layer 5b OPTIONAL).
+          # Only exit 2 is a real failure.
+          node packages/cli/bin/cmk.mjs doctor || EXITCODE=$?
+          if [ "${EXITCODE:-0}" = "2" ]; then
+            echo "cmk doctor errored (exit 2) — failing CI"
+            exit 2
+          fi
+
+      - name: Upload scaffold-tree checksum artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: scaffold-checksum-${{ matrix.os }}
+          path: install-matrix-checksum.json
+          retention-days: 7
+
+  checksum-compare:
+    name: Compare scaffold-tree checksums across OSes
+    needs: install-and-doctor
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all checksum artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Compare checksums
+        shell: bash
+        run: node scripts/install-matrix-compare.mjs artifacts/

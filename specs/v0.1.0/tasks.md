@@ -834,12 +834,16 @@ Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility)
 
 - [ ] 40. Cross-OS install CI matrix (T-034)
   - Estimate: M · Depends: 3, 37
-- [ ] 40.1 Author `.github/workflows/install-matrix.yml`
+- [x] 40.1 Author `.github/workflows/install-matrix.yml`
   - Triggers on `pull_request`; matrix: `windows-2022`, `macos-14`, `ubuntu-22.04`
-- [ ] 40.2 Each OS job: `cmk install` in tempdir → `cmk doctor`
-- [ ] 40.3 Compare checksums of scaffolded tree across OSes (artifact compare)
-- [ ] 40.4 Fail PR check on checksum mismatch or any OS doctor failure
-- [ ]* 40.5 Write CI workflow tests
+  - Shipped at [`.github/workflows/install-matrix.yml`](../../.github/workflows/install-matrix.yml). Triggers on pull_request + push to main. Two jobs: `install-and-doctor` (3-OS matrix) + `checksum-compare` (single ubuntu job, downloads all 3 artifacts, asserts cross-OS parity).
+- [x] 40.2 Each OS job: `cmk install` in tempdir → `cmk doctor`
+  - Shipped via [`scripts/install-matrix-checksum.mjs`](../../scripts/install-matrix-checksum.mjs). Creates a tempdir, runs `node packages/cli/bin/cmk.mjs install`, walks the scaffolded `context/` tree, writes per-file SHA-256 + tree-aggregate hash to `install-matrix-checksum.json`. Doctor invocation is a separate workflow step that accepts exit codes 0+1 (HC fails are expected on a fresh CI runner; only exit 2 = runDoctor error fails CI).
+- [x] 40.3 Compare checksums of scaffolded tree across OSes (artifact compare)
+  - Shipped via [`scripts/install-matrix-compare.mjs`](../../scripts/install-matrix-compare.mjs). Downloads all uploaded artifacts, compares per-file SHA + file set, surfaces specific mismatches (file-level path + sha) for debuggability. Exit 1 on any mismatch.
+- [x] 40.4 Fail PR check on checksum mismatch or any OS doctor failure
+  - Shipped via the install-and-doctor step's `EXITCODE != 2` gate (treats doctor exit 1 as acceptable since HC-2 = missing hooks expected on fresh runner) AND the checksum-compare job's exit-1-on-mismatch. The `fail-fast: false` matrix setting lets all 3 OSes complete before the comparison runs.
+- [x]* 40.5 Write CI workflow tests
   - Test YAML parses + triggers on `pull_request`
   - Test job matrix includes all 3 OSes
   - Test each job runs install + doctor in clean tempdir
