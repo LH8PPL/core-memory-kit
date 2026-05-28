@@ -33,11 +33,10 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { resolve as resolvePath, isAbsolute } from 'node:path';
-import { homedir } from 'node:os';
 import { openIndexDb } from './index-db.mjs';
 import { search, SEARCH_MODES } from './search.mjs';
 import { memoryWrite } from './memory-write.mjs';
-import { ID_PATTERN } from './tier-paths.mjs';
+import { ID_PATTERN, resolveTierRoot } from './tier-paths.mjs';
 
 // --- Path-traversal validation (design §10.2; tasks.md 31.2) ----------
 
@@ -65,10 +64,18 @@ export function validatePath(p, { projectRoot, userDir }) {
     throw new Error('validatePath: URL-encoded traversal rejected');
   }
   const canonical = isAbsolute(p) ? resolvePath(p) : resolvePath(projectRoot, p);
+  // Per CLAUDE.md "Shared modules" rule: derive every tier root from
+  // tier-paths.mjs's resolveTierRoot rather than re-deriving inline.
+  // The earlier draft constructed the user-tier root as
+  // `resolvePath(userDir ?? homedir() + '/.claude-memory-kit')` —
+  // which silently drifted from resolveTierRoot's posture (honoring
+  // env vars + path normalization). Surfaced as Layer-5 checkpoint
+  // finding L5-I1 (2026-05-28); fixed by going through the shared
+  // helper for all three roots.
   const roots = [
-    resolvePath(projectRoot, 'context'),
-    resolvePath(projectRoot, 'context.local'),
-    resolvePath(userDir ?? homedir() + '/.claude-memory-kit'),
+    resolvePath(resolveTierRoot({ tier: 'P', projectRoot, userDir })),
+    resolvePath(resolveTierRoot({ tier: 'L', projectRoot, userDir })),
+    resolvePath(resolveTierRoot({ tier: 'U', projectRoot, userDir })),
   ];
   for (const root of roots) {
     if (canonical === root || canonical.startsWith(root + (process.platform === 'win32' ? '\\' : '/'))) {
