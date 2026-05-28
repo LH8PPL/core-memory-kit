@@ -2066,6 +2066,7 @@ Provenance: Task 28 code-review composition note for Task 31 (2026-05-27).
 Surfaced by the Task 29 code-review-excellence pass (2026-05-27) as Important finding I3. The kit's runtime watcher and `reindexBoot` both write to the index DB. In v0.1.0 with better-sqlite3's sync API + JavaScript's single-threaded runtime, "concurrent" actually means "sequential at the JS level" — the watcher event handler doesn't fire DURING a `reindexBoot` transaction, only between transactions. Existing test 29.4 #5 pins this sequential composition (boot writes → watcher writes-on-top → DELETE-INSERT replace → no duplicates).
 
 A real mid-transaction race test would need:
+
 - A second process holding the DB while the test process runs boot
 - Timing fixtures to interleave operations
 - Windows-specific lock semantics for SQLITE_BUSY scenarios
@@ -2126,6 +2127,76 @@ v0.1.x candidate: detect which column matched (via FTS5's `highlight()` over all
 Ship trigger: a v0.1.x audit of search-snippet quality + user feedback on "the snippet doesn't show me why this matched."
 
 Provenance: Task 30 code-review Minor #5 (2026-05-27).
+
+### 16.39 mk_remember cites parameter — wire through memoryWrite provenance
+
+**v0.1.x candidate.**
+
+Surfaced by the Task 31 code-review-excellence pass (2026-05-28) as Important finding I1. The MCP tool `mk_remember`'s public surface documents a `cites?: string[]` parameter (design §10's tool table). The underlying [`memoryWrite`](../../packages/cli/src/memory-write.mjs) function doesn't accept `cites` today — its provenance frontmatter is generated from `source`, `at`, `sha1`, etc., not from a caller-supplied citation list.
+
+v0.1.0 ship: `mk_remember` rejects requests with non-empty `cites` and returns a clear "not yet supported" error. The Zod schema still accepts the parameter (so callers can pass empty arrays without error), but actual citation linking is deferred.
+
+v0.1.x candidate: wire `cites` through `memoryWrite` → provenance frontmatter as an optional `cites: [P-XXX, P-YYY, ...]` field. Then downstream (`mk_get`, the indexer) can surface citation relationships. Requires:
+
+1. `memoryWrite` parameter extension (optional `cites: string[]`)
+2. provenance.mjs `writeBullet` extension (optional 8th field)
+3. design §4 provenance schema update
+4. `mk_remember` removes the rejection guard
+
+Ship trigger: a user-facing need for citation linking. Most likely as part of v0.1.x's MCP server hardening or a Knowledge-Graph extraction layer.
+
+Provenance: Task 31 code-review Important #1 (2026-05-28).
+
+### 16.40 mk_remember tier U / L support
+
+**v0.1.x candidate.**
+
+Surfaced by the Task 31 code-review-excellence pass (2026-05-28) as Important finding I2. The MCP tool `mk_remember` accepts `tier: 'U' | 'P' | 'L'` per design §10, but v0.1.0's implementation only writes to tier P (project) — the user-tier templates (`USER.md`, `HABITS.md`, `LESSONS.md`) and local-tier templates don't have `MEMORY.md` with an `Active Threads` section, so `memoryWrite` would fail with `NOT_FOUND` when called with `tier: 'U'` or `tier: 'L'`.
+
+v0.1.0 ship: `mk_remember` validates the tier at the Zod boundary and rejects U/L with a clear "v0.1.0 only writes to tier P" message. Zod still accepts the enum (so a future caller could pass U/L without schema error), but the runtime rejection prevents the misleading NOT_FOUND.
+
+v0.1.x candidate: parameterize the scratchpad + section routing per tier. For tier U, write to `USER.md` § a real heading (TBD: which one — `Habits`? `Lessons`? Or a new `Notes` section). For tier L, similar decision for `context.local/MEMORY.md` (which DOES exist in the template).
+
+Ship trigger: a user-facing need for cross-tier writes from the MCP surface. Most likely after Task 26's review-queue + Task 25's conflict-queue gain "promote to user tier" or "demote to local" semantics.
+
+Provenance: Task 31 code-review Important #2 (2026-05-28).
+
+### 16.41 Structural stdout-purity validator for MCP server
+
+**v0.1.x candidate.**
+
+Surfaced by the Task 31 code-review-excellence pass (2026-05-28) as Important finding I5. The MCP server's correctness rests on "no `console.log` or `process.stdout.write` in the call graph of any tool callback" — stdout is reserved for SDK-emitted JSON-RPC messages per design §10.1. Today, the kit's call graph is clean (verified by grep across all modules transitively imported by [`mcp-server.mjs`](../../packages/cli/src/mcp-server.mjs)), but the discipline is prose-only. A future PR can add a `console.log` to `memory-write.mjs` or `search.mjs` and pollute stdout for the MCP server with no test catching it.
+
+v0.1.x candidate: `scripts/validate-mcp-stdout-purity.mjs` — walks the import graph from `mcp-server.mjs` (via a static-analysis traversal of `import` statements), then greps every reachable module for `console.log` / `process.stdout.write` / unbounded `console.*` calls. Per-line suppression marker (`// stdout-purity: ignore <reason>`) for legitimate cases (none currently exist).
+
+Deferred to v0.1.x because:
+
+- v0.1.0's call graph is verifiably clean (manual audit + the existing CLI tests would surface stdout drift indirectly)
+- The validator's import-graph traversal is non-trivial — needs to handle dynamic imports + side-effect-only imports + re-exports
+- More useful AFTER v0.1.x adds the cron compression layer (Task 33+) which expands the call graph
+
+Ship trigger: stdout drift surfaces in a real MCP session OR a future PR's diff touches MCP-reachable code.
+
+Provenance: Task 31 code-review Important #5 (2026-05-28).
+
+### 16.42 MCP path-traversal JSON-RPC error mapping
+
+**v0.1.x candidate.**
+
+Surfaced by the Task 31 code-review-excellence pass (2026-05-28) as Blocking finding B2 (partial — JSON-RPC `-32602` mapping). Tasks.md 31.6 #4 says "path traversal: arg with `..`, `%2e%2e`, or `/etc/passwd` → JSON-RPC error `code: -32602`". The [`validatePath`](../../packages/cli/src/mcp-server.mjs) helper is unit-tested in isolation, but no v0.1.0 tool surface accepts a user-provided path argument:
+
+- `mk_search`: query string + filter enums; no paths
+- `mk_get`: `ids[]` validated by `ID_PATTERN`; no paths
+- `mk_timeline`: anchor ID + depth numbers; no paths
+- `mk_cite`: ID; no paths
+- `mk_remember`: text + tier + cites (IDs); no paths
+- `mk_recent_activity`: window enum + limit; no paths
+
+So the criterion's literal test ("`..` arg → -32602") has no surface to fire against today. The `validatePath` helper is defensive readiness for v0.1.x tools that DO accept paths (likely candidates: an `mk_export(path)` for sending observations to an external system, or `mk_read_transcript(date)` for surfacing session transcripts).
+
+v0.1.x candidate: when the first path-accepting tool ships, wire `validatePath` into its callback AND add the JSON-RPC `-32602` mapping test that tasks.md 31.6 #4 documents. Until then, the helper passes its 6 unit tests and is exported, ready for use.
+
+Provenance: Task 31 code-review Blocking #2 (partial — 2026-05-28).
 
 ---
 

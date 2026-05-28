@@ -19,6 +19,7 @@ import { reindex as reindexAction } from './reindex.mjs';
 import { openIndexDb } from './index-db.mjs';
 import { reindexBoot, reindexFull } from './index-rebuild.mjs';
 import { search as searchAction, SEARCH_MODES } from './search.mjs';
+import { runMcpServer } from './mcp-server.mjs';
 import { homedir } from 'node:os';
 import { forget as forgetAction } from './forget.mjs';
 import { overrideTrust as overrideTrustAction } from './trust.mjs';
@@ -299,6 +300,30 @@ function runForget(idOrQuery, options /* , command */) {
  *   - 'review' → still stubbed (Task 26 / v0.1.x); print the standard
  *     notice.
  */
+/**
+ * `cmk mcp <child>` dispatcher (Task 31). Currently one child:
+ *   - 'serve' → start the stdio MCP server. Invoked by Claude Code as
+ *               a subprocess; runs until stdin closes.
+ */
+async function runMcpDispatch(childName) {
+  if (childName === 'serve') {
+    const projectRoot = resolvePath(process.cwd());
+    const userDir = join(homedir(), '.claude-memory-kit');
+    // ALL logs to stderr per design §10.1; stdout is reserved for
+    // JSON-RPC messages handled by the SDK's StdioServerTransport.
+    // Don't console.log() anything before/during the server's run.
+    try {
+      await runMcpServer({ projectRoot, userDir });
+    } catch (err) {
+      console.error(`cmk mcp serve: fatal — ${err?.message ?? err}`);
+      process.exitCode = 2;
+    }
+    return;
+  }
+  console.error(`cmk mcp: ${NOTICE_PREFIX} (unknown sub-verb '${childName}')`);
+  process.exitCode = 2;
+}
+
 async function runQueueDispatch(childName) {
   if (childName === 'conflicts') {
     return runQueueConflicts();
@@ -702,7 +727,7 @@ export const subcommands = [
     description: 'run the MCP server over stdio (invoked by Claude Code, not by humans)',
     milestone: 31,
     children: [{ name: 'serve', description: 'start the stdio MCP server; JSON-RPC on stdin/stdout' }],
-    action: stub('mcp', 31),
+    action: runMcpDispatch,
   },
   {
     name: 'version',
