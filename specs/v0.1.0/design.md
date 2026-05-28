@@ -1169,6 +1169,62 @@ The class-1 audit also surfaced a door-5 (observability) gap in [`capture-turn.m
 
 **Implements**: Task 23.9. Cross-references: §5.1 (hook ceilings), §6.1 (log schema with `haiku_timeout`), §8.3 (CompressorBackend interface gains `timeoutMs` parameter).
 
+### 8.6 Daily distill + cron registration architecture (Layer 6)
+
+**Tail-appended 2026-05-28** during Task 33 implementation. The pipeline shape was already documented in §1.4 + §8.1 + FR-19; this section adds the implementation-level architecture: which modules, which API contracts, which scheduler primitives, and the Node-vs-Python language decision.
+
+#### 8.6.1 `daily-distill.mjs` module
+
+Public boundary:
+
+```js
+async dailyDistill({projectRoot, backend, now, cooldownMs?, maxOutputBytes?})
+  → {action: 'distilled' | 'skipped' | 'error', ...}
+```
+
+Composition:
+
+- **Reads**: walks `<projectRoot>/context/sessions/today-{YYYY-MM-DD}.md` for the last 7 days (filtered by date math against `now`, NOT mtime — robust to fs clock drift)
+- **Sends to Haiku**: combined buffer through the `CompressorBackend` interface from §8.3 (same backend type that compress-session and auto-extract use; pluggable for v0.2)
+- **Honors §8.2 cooldown**: routes through the shared [`cooldown.mjs`](../../packages/cli/src/cooldown.mjs) module (Task 28 B2 split this out of `compress-session.mjs`); `isCooldownActive` gate before Haiku call, `touchCooldownMarker` after (success + error paths — fail-loud over re-cost)
+- **Composes timeout**: passes `timeoutMs: 50_000` to backend.compress() per §8.5 — cron isn't under a Claude Code hook ceiling, but the inner timeout still prevents a hung Haiku from blocking the next cron tick
+- **Writes**: `<projectRoot>/context/sessions/recent.md` (full overwrite — single-writer; atomic-rename hardening is a v0.1.x consideration if cron + `cmk roll` ever overlap)
+- **Logs**: NDJSON to `<projectRoot>/context/sessions/{date}.distill.log` with the same schema family as compress.log / extract.log
+
+#### 8.6.2 `register-crons.mjs` cross-platform shape
+
+Per-platform mapping:
+
+| Platform | Mechanism | Idempotency primitive |
+| --- | --- | --- |
+| Linux | `crontab` edit | `crontab -l \| (grep -v cmk-daily ; echo "0 23 * * * ...") \| crontab -` — the grep filter ensures the entry exists exactly once regardless of how many times the registration runs |
+| macOS | launchd plist | Write `~/Library/LaunchAgents/com.cmk.daily-distill.plist` (overwrite-on-existing is idempotent), then `launchctl bootstrap gui/$UID <plist>` (or `bootout` + `bootstrap` for true re-load) |
+| Windows | Task Scheduler | `schtasks /Create /TN cmk-daily-distill /SC DAILY /ST 23:00 /TR "node <path>" /F` — the `/F` flag forces overwrite if the task already exists |
+
+`--dry-run` flag prints the platform-detected command without executing — used by tests + by users who want to inspect before granting host permissions.
+
+`--unregister` flag removes the entry on each platform (`crontab -l | grep -v cmk-daily | crontab -`, `launchctl bootout` + `rm`, `schtasks /Delete /F`).
+
+#### 8.6.3 Node-vs-Python language decision
+
+Pre-2026-05-28 plan: `python scripts/register-crons.py`. Python was the assumed language because the predecessor product (claude-remember) used Python.
+
+Pivoted to Node.js 2026-05-28 (Lior + Claude joint decision). Rationale:
+
+1. **No new toolchain**: the kit is already Node-only. Python means new install dep + new test infra (pytest) + new platform concerns (Python install paths differ across OSes).
+2. **Existing kit pattern**: `register-crons` shells out to platform-native scheduler commands via `child_process.spawnSync`. The kit's other modules (compressor.mjs, capture-turn.mjs, auto-extract.mjs) already do this with shell:true on Windows for the `.cmd` shim case.
+3. **Single-language deploy**: v0.1.0 ships as one npm package; `npm install -g @claude-memory-kit/cli` is the whole install. Adding Python would force users to install Python too (or bundle it — much larger artifact).
+4. **Test surface fits**: vitest tests can spawn the script with `--dry-run` and assert output. No pytest infrastructure needed.
+
+The Python option is preserved in [`tasks.md`](../../specs/v0.1.0/tasks.md) Task 33.2 alongside the Node pivot so future contributors see the decision history.
+
+#### 8.6.4 Composition with §8.2 cooldown + §16.13 audit-log rotation
+
+- The 120s cooldown gate (§8.2) is shared with auto-extract + compress-session via `cooldown.mjs`. A `cron`-fired distill that happens to land within 120s of a hook-fired Haiku call legitimately skips with `skipped_reason: 'cooldown'` and retries on the next tick — same envelope as the SessionEnd cooldown semantics.
+- §16.13 (audit-log rotation v0.1.x candidate) lives in `register-crons.mjs` as an additional registered job. v0.1.0 ships ONLY the daily distill; v0.1.x extends `register-crons` with the rotation job once the audit log accumulates enough entries to need it.
+
+**Implements**: FR-19; Task 33 (Layer 6 daily distill cron). Cross-references: §1.4 (data flow includes Daily 23:00 cron), §8.1 (four-layer pipeline), §8.2 (cooldown), §8.5 (timeout composition), §16.13 (audit-log rotation v0.1.x).
+
 ---
 
 ## 9. Search layer (Layer 5 — optional)
