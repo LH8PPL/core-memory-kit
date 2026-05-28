@@ -1,0 +1,124 @@
+// @doors: 1, 2
+// Door 3 N/A: docs tests are pure file reads; no subprocess.
+// Door 4 N/A: no NDJSON observability surface.
+// Door 5 N/A: no message-queue interaction.
+
+// Tests for Task 41 — top-level docs structural shape.
+// Per tasks.md 41.5: README, QUICKSTART, INSTALL-{linux,macos,windows} must
+// exist, parse, and reference the v0.1.0 surface accurately. Catches stale
+// doc references early (the same drift class Task 36 swept manually).
+
+import { describe, it, expect } from 'vitest';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const repoRoot = join(__dirname, '..');
+
+const REQUIRED_DOCS = ['README.md', 'QUICKSTART.md', 'INSTALL-linux.md', 'INSTALL-macos.md', 'INSTALL-windows.md', 'ARCHITECTURE.md', 'HEALTH-CHECKS.md'];
+
+describe('Task 41 — top-level docs exist + structural shape', () => {
+  for (const doc of REQUIRED_DOCS) {
+    it(`${doc} exists`, () => {
+      expect(existsSync(join(repoRoot, doc))).toBe(true);
+    });
+  }
+});
+
+describe('Task 41 — README references v0.1.0 surface (no stale references)', () => {
+  let text;
+  it('parses', () => {
+    text = readFileSync(join(repoRoot, 'README.md'), 'utf8');
+    expect(text.length).toBeGreaterThan(500);
+  });
+
+  it('mentions the canonical install command (npm install -g)', () => {
+    text = readFileSync(join(repoRoot, 'README.md'), 'utf8');
+    expect(text).toMatch(/npm install -g @claude-memory-kit\/cli/);
+  });
+
+  it('references cmk install (not the legacy install.sh / install.ps1)', () => {
+    text = readFileSync(join(repoRoot, 'README.md'), 'utf8');
+    expect(text).toMatch(/cmk install/);
+    // Negative assertion: legacy install scripts removed in v0.1.0
+    expect(text).not.toMatch(/install\.sh\b/);
+    expect(text).not.toMatch(/install\.ps1\b/);
+  });
+
+  it('references the 9 health checks (HC-1..HC-9), not the legacy 7', () => {
+    text = readFileSync(join(repoRoot, 'README.md'), 'utf8');
+    expect(text).toMatch(/HC-1\.\.HC-9/);
+    expect(text).not.toMatch(/HC-1\.\.HC-7\b/);
+  });
+
+  it('references Node-based register-crons (not python scripts/register-crons.py)', () => {
+    text = readFileSync(join(repoRoot, 'README.md'), 'utf8');
+    expect(text).toMatch(/cmk register-crons/);
+    expect(text).not.toMatch(/python scripts\/register-crons\.py/);
+    expect(text).not.toMatch(/python3 scripts\/register-crons\.py/);
+  });
+
+  it('references the OS-specific install guides', () => {
+    text = readFileSync(join(repoRoot, 'README.md'), 'utf8');
+    expect(text).toContain('INSTALL-linux.md');
+    expect(text).toContain('INSTALL-macos.md');
+    expect(text).toContain('INSTALL-windows.md');
+  });
+
+  it('links to architectural docs (ARCHITECTURE.md + design.md)', () => {
+    text = readFileSync(join(repoRoot, 'README.md'), 'utf8');
+    expect(text).toContain('ARCHITECTURE.md');
+    expect(text).toContain('design.md');
+  });
+});
+
+describe('Task 41 — QUICKSTART.md walkthrough is complete', () => {
+  let text;
+  it('parses', () => {
+    text = readFileSync(join(repoRoot, 'QUICKSTART.md'), 'utf8');
+    expect(text.length).toBeGreaterThan(500);
+  });
+
+  it('walks user through prerequisites → install → scaffold → verify → first session', () => {
+    text = readFileSync(join(repoRoot, 'QUICKSTART.md'), 'utf8');
+    // The 7 numbered sections of the quickstart
+    expect(text).toMatch(/Prerequisites/);
+    expect(text).toMatch(/Install the CLI globally/);
+    expect(text).toMatch(/Scaffold the kit/);
+    expect(text).toMatch(/Verify the install/);
+    expect(text).toMatch(/Register the cron jobs/);
+    expect(text).toMatch(/Open a session/);
+    expect(text).toMatch(/verify memory persists/);
+  });
+
+  it('contains bash fenced blocks for each install step (executable by test-quickstart.sh)', () => {
+    text = readFileSync(join(repoRoot, 'QUICKSTART.md'), 'utf8');
+    // At minimum: npm install -g, cmk install, cmk doctor, cmk repair --hooks
+    expect(text).toMatch(/```bash[\s\S]*?npm install -g @claude-memory-kit\/cli[\s\S]*?```/);
+    expect(text).toMatch(/```bash[\s\S]*?cmk install[\s\S]*?```/);
+    expect(text).toMatch(/```bash[\s\S]*?cmk doctor[\s\S]*?```/);
+  });
+
+  it('includes a troubleshooting table for common failure modes', () => {
+    text = readFileSync(join(repoRoot, 'QUICKSTART.md'), 'utf8');
+    expect(text).toMatch(/Troubleshooting/);
+    expect(text).toMatch(/cmk: command not found/);
+    expect(text).toMatch(/HC-2/);
+  });
+});
+
+describe('Task 41 — INSTALL-{os}.md references current install path', () => {
+  for (const os of ['linux', 'macos', 'windows']) {
+    it(`INSTALL-${os}.md references cmk register-crons (post-Task-36 sweep)`, () => {
+      const text = readFileSync(join(repoRoot, `INSTALL-${os}.md`), 'utf8');
+      expect(text).toMatch(/cmk register-crons/);
+      // Negative assertion: the Task 33 Python pivot's decision-trail in
+      // CLAUDE.md keeps the original Python plan, but user-facing INSTALL
+      // docs should NOT direct users to the legacy command.
+      expect(text).not.toMatch(/^python3? scripts\/register-crons\.py/m);
+    });
+  }
+});
