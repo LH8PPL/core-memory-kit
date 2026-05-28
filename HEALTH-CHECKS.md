@@ -77,15 +77,15 @@ Where type is one of `user`, `feedback`, `project`, `reference`.
 
 ### HC-6 — Cron jobs missing
 
-Re-run the registration script (idempotent — only registers missing tasks):
+Re-run the registration command (idempotent — registers both daily-distill at 23:00 and weekly-curate at Sun 09:00):
 
 ```bash
-python scripts/register-crons.py
+cmk register-crons
 ```
 
-To see what it WOULD do without changing anything: `python scripts/register-crons.py --dry-run`.
+To see what it WOULD do without changing anything: `cmk register-crons --dry-run`.
 
-To remove a specific task: `python scripts/register-crons.py --unregister daily-memory-distillation`.
+To remove both entries: `cmk register-crons --unregister`.
 
 ### HC-7 — memsearch backend unreachable
 

@@ -32,7 +32,14 @@ try {
   process.exit(0);
 }
 
-const projectRoot = process.env.CMK_PROJECT_DIR ?? process.cwd();
+// Task 36 B1 fix: accept projectRoot via argv[2] (the registered cron
+// emits an absolute path here). Env var + cwd remain as fallbacks.
+// See cmk-daily-distill.mjs for rationale.
+const argvRoot = process.argv[2] && process.argv[2].length > 0 ? process.argv[2] : null;
+const envRoot = process.env.CMK_PROJECT_DIR && process.env.CMK_PROJECT_DIR.length > 0
+  ? process.env.CMK_PROJECT_DIR
+  : null;
+const projectRoot = argvRoot ?? envRoot ?? process.cwd();
 
 try {
   const backend = new HaikuViaAnthropicApi();

@@ -37,13 +37,12 @@ Scaffold the memory-system files into the user's current project. The plugin its
    - `memory/INDEX.md.template` → `context/memory/INDEX.md`
    - `SETUP.md`                 → `context/SETUP.md` (no substitution)
 
-4. **Copy operational scripts** from the plugin's `scripts/` (or `bin/`) into the user's `scripts/`:
-   - `auto-extract-memory.sh`
-   - `memsearch-index-with-flush.sh`
-   - `register-crons.py`
-   - `refresh-distill-timestamp.py`
-   - `run-daily-distill.sh`
-   - `run-weekly-curate.sh`
+4. **Operational scripts** — v0.1.0 ships these as Node bins inside the published `@claude-memory-kit/cli` npm package, NOT as plugin-copied scripts. Users invoke them via `cmk` subcommands:
+   - `cmk daily-distill` (was: `run-daily-distill.sh`)
+   - `cmk weekly-curate` (was: `run-weekly-curate.sh`)
+   - `cmk compress --lazy` (no-cron fallback; new in Task 35)
+   - `cmk register-crons` (was: `register-crons.py`)
+   - memsearch indexing — covered by Task 29's runtime watcher + `cmk reindex` (no separate script needed)
 
 5. **Copy cron job declarations** from the plugin's `cron-template/jobs/` into the user's `cron/jobs/`:
    - `daily-memory-distill.md`

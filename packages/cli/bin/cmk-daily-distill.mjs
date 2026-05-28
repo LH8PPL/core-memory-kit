@@ -39,7 +39,18 @@ try {
   process.exit(0);
 }
 
-const projectRoot = process.env.CMK_PROJECT_DIR ?? process.cwd();
+// Task 36 B1 fix: accept projectRoot via argv[2] (the registered cron
+// emits an absolute path here). Env var + cwd remain as fallbacks for
+// users invoking the bin manually. Host schedulers (cron / launchd /
+// schtasks) all have a non-kit default cwd, so argv-or-env is the
+// load-bearing source for cron-emitted invocations.
+// Treat empty-string env var as "missing" (?? falls through only on
+// null/undefined; empty strings would otherwise become invalid paths).
+const argvRoot = process.argv[2] && process.argv[2].length > 0 ? process.argv[2] : null;
+const envRoot = process.env.CMK_PROJECT_DIR && process.env.CMK_PROJECT_DIR.length > 0
+  ? process.env.CMK_PROJECT_DIR
+  : null;
+const projectRoot = argvRoot ?? envRoot ?? process.cwd();
 
 try {
   const backend = new HaikuViaAnthropicApi();

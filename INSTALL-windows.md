@@ -127,26 +127,25 @@ The first index downloads the bge-m3 ONNX model (~558MB) into the huggingface ca
 ## 5. Install Layer 6 (auto-curation crons)
 
 ```powershell
-python scripts/register-crons.py
+cmk register-crons
 ```
 
-This creates three Task Scheduler tasks:
+This creates two Task Scheduler tasks via `schtasks /Create /F`:
 
-- `<project>-daily-memory-distillation` (23:00 daily)
-- `<project>-nightly-memsearch-index` (02:00 daily)
-- `<project>-weekly-memory-curator` (Sundays 09:00)
+- `cmk-daily-distill` (23:00 daily)
+- `cmk-weekly-curate` (Sundays 09:00)
 
-Override the prefix with `$env:CMK_TASK_PREFIX = "mypfx-"` before running if you want custom naming.
+Preview the commands first with `cmk register-crons --dry-run` if you want to inspect before granting host permissions.
 
 Verify:
 
 ```powershell
-schtasks /query /fo csv /nh | Select-String "<project>-"
+schtasks /query /fo csv /nh | Select-String "cmk-"
 ```
 
 ## Windows-specific gotchas
 
-- **`bash` without quotes resolves to WSL**: Task Scheduler runs `cmd /c`, which has `C:\Windows\System32` high on PATH. A bare `bash` resolves to the WSL launcher, not Git Bash. `register-crons.py` handles this by rewriting `bash ...` invocations to `"C:\Program Files\Git\usr\bin\bash.exe" ...`. Don't edit it.
+- **Task Scheduler invokes the bin via absolute paths**: `cmk register-crons` emits the full `"<absolute-node-path>" "<absolute-bin-script>" "<absolute-project-root>"` triple as the task action — this sidesteps PATH issues under `cmd /c` (which has `C:\Windows\System32` high on PATH and won't find `cmk-daily-distill` otherwise). The kit handles this for you; don't edit the registered task action.
 - **NTFS rejects `<` and `>` in filenames**: matters when cloning Milvus docs (the Java SDK uses `R<T>.md`). See `template/context/SETUP.md` "Reference docs" for the sparse-checkout workaround.
 - **Docker Desktop must be running** for HC-7 to pass. The Milvus containers stop when Docker Desktop quits.
 
