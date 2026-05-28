@@ -44,6 +44,21 @@ The user (Lior) is direct and tight on time. Match the energy.
   2. **Context-pressure**: when a session notices context-tight signals (long conversation, low-context reminder from the harness, multiple PRs in flight), write a tracker-update commit BEFORE engaging with the next prompt. **Durable-state-first, then work.**
 
   References: 2026-05-26 audit campaign where the tracker initially lived only in session todos and would have died with the session — fixed via the post-PR-32 durable tracker write. PR-E was added to the campaign 2026-05-26 with its full scope landing in the tracker BEFORE any PR-E work began, exactly because of this discipline. An automatic Stop hook to enforce this was considered + decided against for v0.1.0 (every-turn firing would create noise even with conditional logic; the hook itself would need to honor all campaign audit classes — timeout / lock / four-doors / platform). Parked as v0.2 candidate if the manual disciplines prove insufficient.
+- **Decision-trail preservation (binding).** When a documented plan / design / implementation choice changes mid-build, the new path is APPENDED to the old, not substituted for it. The old plan stays visible (with the date + reason it was set aside); the new path lands alongside (with the date + reason it was chosen). Future contributors — including future-Claude after a context compact — need to understand WHY the build's current path differs from what an earlier spec/research note assumed.
+
+  Real precedent: **Task 33's Node-vs-Python pivot** (2026-05-28). The tasks.md entry originally read `python scripts/register-crons.py` because claude-remember's precedent used Python. The first attempt at the pivot wholesale-replaced the Python language with Node, erasing the decision history. Lior caught it: *"dont remove the python option, add that we are just not doing it and are using node js and why"*. Corrected: both options now visible in tasks.md 33.2 + design.md §8.6.3, with the 4-point rationale (no new toolchain / existing kit pattern / single-language deploy / fits test surface) explaining the choice.
+
+  **Why this matters**: a contributor reading tasks.md 6 months from now needs to understand whether the Python option was rejected on its merits OR whether we just hadn't tried it yet. Erasing the choice loses that signal. Same applies to:
+
+  - Schema design decisions (when a column gets renamed / removed)
+  - Library choices (when a dep gets swapped)
+  - Test-fixture approaches (when one pattern replaces another)
+  - Architectural splits (when one layer absorbs another)
+
+  **How to apply**: when changing a documented plan, find every authoritative reference (tasks.md / design.md / requirements.md / ADRs) and PRESERVE the old plan with a `**Original plan (pre-YYYY-MM-DD)**:` block, ADD the new path with a `**Implementation pivot YYYY-MM-DD**:` block, and document the rationale concretely (not "we changed our minds" — the actual concrete reasons).
+
+  This rule is itself a meta-instance of "decision trails matter": the rule emerged from a single concrete case, but it generalizes to every spec-stack change going forward.
+
 - **Single source of truth, always-on (binding).** Every piece of project state has exactly ONE authoritative file. When any state changes — task ships, sub-task completes, PR opens / merges, decision made, finding surfaced, deferral noted, dependency identified, research learned, ADR decided, meta-rule emerges — update the authoritative file in the SAME commit batch as the work that produced the change. **The agent's only durable memory is files; in-context knowledge dies at session end.** Never rely on "I'll write it later" or "I'll remember." This applies recursively: if you notice state living in the wrong file (e.g., progress in CLAUDE.md, deferrals in commit messages, decisions in transient PR comments), move it to the right one in the same commit batch.
 
   **Source-of-truth table** (the authoritative home for each concern):
