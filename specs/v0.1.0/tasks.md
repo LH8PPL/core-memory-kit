@@ -700,7 +700,7 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Shipped 18 tests in [`tests/cli-weekly-curate.test.js`](../../tests/cli-weekly-curate.test.js): boundary (3) + skip paths (2) + #1 archive+delete (2) + #2 dedup (2) + #3 recent rebuild (2) + #4 idempotency (1) + Door-5 NDJSON observability (2) + dedupBullets pure-function unit tests (4).
   - _Requirements: FR-19, FR-21; design §1.4, §8.1, §8.7_
 
-- [ ] 35. Lazy compression fallback for no-cron envs (T-030)
+- [x] 35. Lazy compression fallback for no-cron envs (T-030) _shipped 2026-05-28, PR #53_
   - Estimate: S · Depends: 18, 23
 - [x] 35.1 Implement SessionStart-side staleness detector
   - Checks `recent.md` mtime vs. cron schedule
