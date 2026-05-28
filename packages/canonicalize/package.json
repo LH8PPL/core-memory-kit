@@ -1,6 +1,6 @@
 {
   "name": "@cmk/canonicalize",
-  "version": "0.1.0-dev",
+  "version": "0.1.0",
   "description": "Deterministic text canonicalization + content-addressed ID generation for claude-memory-kit. Node + Python parity package; output is byte-identical across both implementations.",
   "type": "module",
   "exports": {

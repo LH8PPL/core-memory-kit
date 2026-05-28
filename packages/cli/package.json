@@ -1,6 +1,6 @@
 {
   "name": "@claude-memory-kit/cli",
-  "version": "0.1.0-dev",
+  "version": "0.1.0",
   "description": "cmk — the CLI for claude-memory-kit. Per-project, in-repo memory system for Claude Code.",
   "type": "module",
   "bin": {
@@ -12,15 +12,18 @@
   "files": [
     "bin/",
     "src/",
+    "template/",
     "README.md"
   ],
   "exports": {
     ".": "./src/index.mjs"
   },
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "node ../../scripts/prepublish-copy-template.mjs"
   },
   "dependencies": {
+    "@cmk/canonicalize": "0.1.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "better-sqlite3": "^12.10.0",
     "chokidar": "^5.0.0",

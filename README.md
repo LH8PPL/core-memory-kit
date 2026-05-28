@@ -6,7 +6,7 @@ Inspired by [Simon Scrapes' "Master Claude Memory"](https://www.youtube.com/watc
 
 ## Status
 
-**v0.1.0** — released [2026-MM-DD]. Architecture-first first release, ~55 dev days, 41 tasks, 1100+ tests, 8 structural validators, cross-OS CI matrix (Windows + macOS + Linux). See [`docs/journey/v0.1.0-build-log.md`](docs/journey/v0.1.0-build-log.md) for the full narrative.
+**v0.1.0** — released 2026-05-28. Architecture-first first release, ~55 dev days, 42 tasks shipped (45 task ledger; 3 deferred to v0.1.1), 1100+ tests, 8 structural validators, cross-OS CI matrix (Windows + macOS + Linux). See [`docs/journey/v0.1.0-build-log.md`](docs/journey/v0.1.0-build-log.md) for the full narrative.
 
 ## What it does
 
@@ -21,19 +21,27 @@ Inspired by [Simon Scrapes' "Master Claude Memory"](https://www.youtube.com/watc
 ```bash
 # 1. Install the CLI globally (Node 20+)
 npm install -g @claude-memory-kit/cli
+```
 
-# 2. Inside a project, scaffold the kit
+```text
+# 2. Inside Claude Code: install the kit as a plugin (registers the hooks)
+/plugin marketplace add LH8PPL/claude-memory-kit
+/plugin install claude-memory-kit
+```
+
+```bash
+# 3. Inside a project, scaffold the kit
 cd ~/my-project
 cmk install
 
-# 3. Register the cron jobs (optional; Layer 6 — falls back to lazy-on-read if not registered)
+# 4. Register the cron jobs (optional; Layer 6 — falls back to lazy-on-read if not registered)
 cmk register-crons
 
-# 4. Verify
+# 5. Verify
 cmk doctor
 ```
 
-Then open Claude Code on the project. Auto-extract fires on Stop. SessionStart injects the snapshot. `cmk search "<term>"` returns accumulated memory.
+Both halves are needed: the CLI scaffolds the project + runs cron; the plugin loads the hooks. Open Claude Code on the project — auto-extract fires on Stop. SessionStart injects the snapshot. `cmk search "<term>"` returns accumulated memory.
 
 Full walkthrough: [QUICKSTART.md](QUICKSTART.md).
 

@@ -1007,10 +1007,10 @@ function stub(name, milestone, extra) {
 export const subcommands = [
   {
     name: 'install',
-    description: 'cross-OS one-shot install — scaffold 3-tier dirs + inject .gitignore (CLAUDE.md block follows in Task 4)',
+    description: 'cross-OS one-shot install — scaffold 3-tier dirs + inject .gitignore + drop kit CLAUDE.md block',
     milestone: 3,
     optionSpec: [
-      { flags: '--force', description: 'allow downgrade of an existing newer-version block (reserved for Task 4)' },
+      { flags: '--force', description: 'allow downgrade of an existing newer-version CLAUDE.md block' },
     ],
     action: runInstall,
   },
@@ -1046,8 +1046,8 @@ export const subcommands = [
     description: 'rebuild the markdown INDEX.md pointer index for the project tier',
     milestone: 8,
     optionSpec: [
-      { flags: '--boot', description: 'incremental — re-index only changed files (Task 29; ignored for now)' },
-      { flags: '--full', description: 'drop the cache and rebuild from scratch (Task 29; ignored for now)' },
+      { flags: '--boot', description: 'incremental — re-index only changed files' },
+      { flags: '--full', description: 'drop the cache and rebuild from scratch' },
     ],
     action: runReindex,
   },
