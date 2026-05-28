@@ -832,7 +832,7 @@ Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility)
   - Test `cmk roll` default = `--scope now` (task 22 compress path)
   - _Requirements: FR-19, FR-22; design §8, §14_
 
-- [ ] 40. Cross-OS install CI matrix (T-034)
+- [x] 40. Cross-OS install CI matrix (T-034) _shipped 2026-05-28, PR #58_
   - Estimate: M · Depends: 3, 37
 - [x] 40.1 Author `.github/workflows/install-matrix.yml`
   - Triggers on `pull_request`; matrix: `windows-2022`, `macos-14`, `ubuntu-22.04`
