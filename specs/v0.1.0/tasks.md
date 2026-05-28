@@ -656,8 +656,10 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - **Pre-implementation: read [`docs/research/2026-05-25-claude-remember-code-dive.md`](../../docs/research/2026-05-25-claude-remember-code-dive.md)** for absorbed patterns — NDC compression structure (now.md → today-YYYY-MM-DD.md after 1h cooldown), 60-80% compression-target norm, background subshell with `set +e`, per-stage `noclobber` lock at `.locks/ndc.lock`, post-success truncation of `now.md`. **License caveat:** write our own prompt + code from scratch; the technique is absorbable but the implementation is under their Community License (see SOURCES.md).
 - [ ] 33.1 Implement `scripts/run-daily-distill.sh`
   - Reads last 7 days of `today-*.md`; writes fresh `sessions/recent.md`
-- [ ] 33.2 Implement `python scripts/register-crons.py` (idempotent across platforms)
-  - macOS launchd, Linux cron, Windows Task Scheduler
+- [ ] 33.2 Implement `scripts/register-crons.mjs` (Node, NOT Python — idempotent across platforms)
+  - macOS launchd (write `~/Library/LaunchAgents/com.cmk.daily-distill.plist`), Linux cron (`crontab -l | (grep -v cmk-daily ; echo "...") | crontab -`), Windows Task Scheduler (`schtasks /Create /TN ... /SC DAILY /TR ...`)
+  - **Lior 2026-05-28**: pivot from Python to Node.js. The kit is already Node-only; adding Python for one script means new test infrastructure (pytest), new install dep, new cross-platform concerns. Node can shell out to the platform-native scheduler commands and stay within the kit's existing test + validator surface. Tasks.md heading kept as "register-crons" for cross-doc continuity; implementation language is the only change.
+  - **Lior 2026-05-28 (Option A locked)**: v0.1.0 ships full cross-platform (Linux + macOS + Windows). "I need it to work on Windows and Mac out of the box, so adding Linux is a small thing." Task 35 (lazy fallback) is still the documented escape hatch for no-cron environments; both ship.
 - [ ] 33.3 Honor 120 s Haiku cooldown; defer + retry on next cron fire
 - [ ]* 33.4 Write unit tests for daily distill
   - Test fixture with 7 days of `today-*.md`: script produces single `recent.md` with compressed consolidation
