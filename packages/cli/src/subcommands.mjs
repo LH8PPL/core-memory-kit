@@ -20,6 +20,13 @@ import { openIndexDb } from './index-db.mjs';
 import { reindexBoot, reindexFull } from './index-rebuild.mjs';
 import { search as searchAction, SEARCH_MODES } from './search.mjs';
 import { runMcpServer } from './mcp-server.mjs';
+import { dailyDistill } from './daily-distill.mjs';
+import { registerCron, unregisterCron } from './register-crons.mjs';
+import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
+
+const __filename_subcommands = fileURLToPath(import.meta.url);
+const __dirname_subcommands = dirname(__filename_subcommands);
 import { homedir } from 'node:os';
 import { forget as forgetAction } from './forget.mjs';
 import { overrideTrust as overrideTrustAction } from './trust.mjs';
@@ -305,6 +312,67 @@ function runForget(idOrQuery, options /* , command */) {
  *   - 'serve' → start the stdio MCP server. Invoked by Claude Code as
  *               a subprocess; runs until stdin closes.
  */
+/**
+ * `cmk daily-distill` (Task 33) — runs the daily-distill pipeline once.
+ * Designed to be invoked by the host scheduler (cron / launchd /
+ * schtasks) registered via `cmk register-crons`. Humans normally don't
+ * call this directly; they run register-crons once at install time.
+ *
+ * Always exits 0 — same posture as cmk-compress-session per design §8.6.1.
+ */
+async function runDailyDistill(/* options */) {
+  const projectRoot = resolvePath(process.cwd());
+  // Lazy-load HaikuViaAnthropicApi (avoids the dep when running unit tests).
+  const { HaikuViaAnthropicApi } = await import('./compressor.mjs');
+  try {
+    const backend = new HaikuViaAnthropicApi();
+    const r = await dailyDistill({ projectRoot, backend });
+    if (r.action === 'error') {
+      console.error(
+        `cmk daily-distill: error (${r.error_category ?? 'unknown'})${r.errorMessage ? `: ${r.errorMessage}` : ''}`,
+      );
+    } else {
+      console.log(
+        `cmk daily-distill: ${r.action}${r.reason ? ` (${r.reason})` : ''}${r.bytesIn ? ` (in: ${r.bytesIn}b, out: ${r.bytesOut}b, days: ${r.sourceDays})` : ''}`,
+      );
+    }
+  } catch (err) {
+    console.error(`cmk daily-distill: unexpected error: ${err?.message ?? err}`);
+  }
+}
+
+/**
+ * `cmk register-crons [--dry-run] [--unregister]` (Task 33) — register
+ * the daily-distill cron entry on the current platform.
+ *
+ * Per design §8.6.2 cross-platform mapping. `--dry-run` prints the
+ * command without executing — recommended first run so the user
+ * sees what host-config will change before granting permissions.
+ */
+function runRegisterCrons(options /* , command */) {
+  const dryRun = options?.dryRun === true;
+  const unregister = options?.unregister === true;
+  // Use the npm-installed `cmk-daily-distill` bin (declared in
+  // packages/cli/package.json `bin:`). PATH-resolved by the shell on
+  // every platform — works on `npm install -g` (Task 33 B1 fix).
+  // Earlier draft pointed at plugin/bin/cmk-daily-distill.mjs which
+  // isn't in the published cli package; only worked in-repo.
+  const command = 'cmk-daily-distill';
+  const r = unregister
+    ? unregisterCron({ dryRun })
+    : registerCron({ command, dryRun });
+  if (r.action === 'error') {
+    console.error(`cmk register-crons: error — ${(r.errors ?? []).join('; ')}`);
+    if (r.error) console.error(`  ${r.error}`);
+    if (r.output) console.error(r.output);
+    process.exitCode = 2;
+    return;
+  }
+  console.log(`cmk register-crons: ${r.action} on ${r.platform}`);
+  console.log(`  command: ${r.command}`);
+  if (r.output) console.log(`  output: ${r.output.trim()}`);
+}
+
 async function runMcpDispatch(childName) {
   if (childName === 'serve') {
     const projectRoot = resolvePath(process.cwd());
@@ -721,6 +789,22 @@ export const subcommands = [
       { flags: '--index', description: 'invoke `cmk reindex --full`' },
     ],
     action: stub('repair', 39),
+  },
+  {
+    name: 'daily-distill',
+    description: 'run the daily-distill pipeline once (invoked by host scheduler; humans normally use `cmk register-crons`)',
+    milestone: 33,
+    action: runDailyDistill,
+  },
+  {
+    name: 'register-crons',
+    description: 'register the daily-distill cron job with the host scheduler (Linux crontab / macOS launchd / Windows Task Scheduler)',
+    milestone: 33,
+    optionSpec: [
+      { flags: '--dry-run', description: 'print the platform-detected command without executing' },
+      { flags: '--unregister', description: 'remove the cmk-daily-distill entry instead of adding it' },
+    ],
+    action: runRegisterCrons,
   },
   {
     name: 'mcp',
