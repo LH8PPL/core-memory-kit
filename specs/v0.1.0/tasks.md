@@ -1078,3 +1078,15 @@ Each parent task ships as a PR titled `[<task #>] <description>` (e.g., `[7] Per
 - [ ] 50.3 Auto-detect installed agents (e.g., `~/.gemini`, `~/.cursor`) like claude-mem does
 - [ ]* 50.4 Tests — per-agent settings-file wiring in sandbox; transcript-format adapters parse each agent's session format
   - _Requirements: T6 (revisited for v0.2); design §16.50, §16.6; ADR-0012_
+
+- [ ] 51. Index session-rollup + transcript files for search (T-039)
+  - Estimate: M · Depends: 28, 29 · **v0.2 candidate (LOW priority — see "is this even needed?" below)**
+  - **What**: extend `cmk search` / `cmk reindex` to index the session-compression files (`sessions/today-*.md`, `recent.md`, `archive.md`) and optionally `transcripts/*.md`, not just durable memory (`MEMORY.md` + `memory/*.md`). Today `index-rebuild.mjs::listObservationSources` deliberately skips these (line: `Caller-skipped: today-{date}.md`).
+  - **Why it surfaced**: 2026-05-29 live test — `cmk search "PostgreSQL"` returned nothing because those facts only lived in the session-rollup layer (`today.md`/`recent.md`), which isn't indexed. Full write-up: [`docs/journey/v0.1.0-live-test.md`](../../docs/journey/v0.1.0-live-test.md) Finding 1. Maps to requirements.md US-9 ("search across … sessions, and transcripts").
+  - **IS THIS EVEN NEEDED? (read before building)**: In real usage, durable facts stated in conversation are ALREADY searchable in v0.1.0 — auto-extract writes them to MEMORY.md (which IS indexed) on every Stop hook. The live-test gap was a test artifact (compression ran on that content, auto-extract did not). This task only adds value for content that lives SOLELY in session rollups and was never auto-extracted (e.g., narrative "what happened" summaries). Validate that gap is real with a user before building — it may be redundant with auto-extract coverage.
+  - **Design caution**: session rollups churn (now→today→recent→archive rotate constantly); indexing them means high index turnover. The chokidar watcher (Task 29) would re-index on every compression pass. Consider indexing only `archive.md` (stable) + `recent.md`, not the volatile `today-*.md`/`now.md`. Or gate behind a `--include-sessions` flag (off by default).
+- [ ] 51.1 Extend `listObservationSources` with an opt-in `includeSessions` flag covering `recent.md` + `archive.md` (NOT the volatile now/today files)
+- [ ] 51.2 Parse session-rollup bullets into observations (they're `## Week of`/`## Decisions` sections, not the per-bullet provenance shape — needs a session-aware parser)
+- [ ] 51.3 `cmk search --include-sessions` flag (off by default to avoid index churn)
+- [ ]* 51.4 Tests — seed recent.md/archive.md, reindex with includeSessions, assert session content is searchable; assert default (no flag) still excludes them
+  - _Requirements: US-9; design §9, §16; live-test Finding 1_
