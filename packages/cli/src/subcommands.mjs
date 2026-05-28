@@ -22,6 +22,11 @@ import { search as searchAction, SEARCH_MODES } from './search.mjs';
 import { runMcpServer } from './mcp-server.mjs';
 import { dailyDistill } from './daily-distill.mjs';
 import { weeklyCurate } from './weekly-curate.mjs';
+import { runLazyCompress } from './lazy-compress.mjs';
+import {
+  markCronRegistered,
+  unmarkCronRegistered,
+} from './lazy-compress.mjs';
 import {
   registerCron,
   unregisterCron,
@@ -406,6 +411,7 @@ function runRegisterCrons(options /* , command */) {
     },
   ];
   let anyError = false;
+  let anySuccess = false;
   for (const job of jobs) {
     const r = unregister
       ? unregisterCron({ entryName: job.entryName, dryRun })
@@ -424,11 +430,56 @@ function runRegisterCrons(options /* , command */) {
       if (r.output) console.error(r.output);
       continue;
     }
+    anySuccess = true;
     console.log(`cmk register-crons (${job.label}): ${r.action} on ${r.platform}`);
     console.log(`  command: ${r.command}`);
     if (r.output) console.log(`  output: ${r.output.trim()}`);
   }
+  // Task 35.3: maintain the cron-registered sentinel so lazy-compress
+  // can short-circuit when cron is active. Skip on --dry-run (no
+  // host-scheduler state changed, so kit state shouldn't either).
+  if (!dryRun) {
+    const projectRoot = resolvePath(process.cwd());
+    if (unregister) {
+      unmarkCronRegistered({ projectRoot });
+    } else if (anySuccess) {
+      markCronRegistered({ projectRoot });
+    }
+  }
   if (anyError) process.exitCode = 2;
+}
+
+/**
+ * `cmk compress --lazy` (Task 35) — runs the lazy-compress pipeline once.
+ * Designed to be invoked as a detached subprocess from inject-context.mjs
+ * (SessionStart hook) when staleness is detected and cron is NOT active.
+ * Humans normally don't invoke this directly.
+ */
+async function runCompress(options /* , command */) {
+  const lazy = options?.lazy === true;
+  if (!lazy) {
+    console.log(
+      `cmk compress: ${NOTICE_PREFIX} (the --lazy flag is required for v0.1.0; bare \`cmk compress\` is a v0.1.x candidate — see design §16)`,
+    );
+    return;
+  }
+  const projectRoot = resolvePath(process.cwd());
+  const { HaikuViaAnthropicApi } = await import('./compressor.mjs');
+  try {
+    const backend = new HaikuViaAnthropicApi();
+    const r = await runLazyCompress({ projectRoot, backend });
+    if (r.action === 'error') {
+      console.error(
+        `cmk compress --lazy: error (${r.errorCategory ?? 'unknown'})${(r.errors && r.errors.length) ? `: ${r.errors.join('; ')}` : ''}`,
+      );
+    } else {
+      console.log(
+        `cmk compress --lazy: ${r.action}${r.reason ? ` (${r.reason})` : ''}${r.delegatedTo ? ` → ${r.delegatedTo}` : ''}`,
+      );
+    }
+  } catch (err) {
+    console.error(`cmk compress --lazy: unexpected error: ${err?.message ?? err}`);
+  }
 }
 
 async function runMcpDispatch(childName) {
@@ -859,6 +910,15 @@ export const subcommands = [
     description: 'run the weekly-curate pipeline once: archive today-*.md older than 7 days, dedup bullets, rebuild recent.md (invoked by host scheduler)',
     milestone: 34,
     action: runWeeklyCurate,
+  },
+  {
+    name: 'compress',
+    description: 'lazy-on-read compression fallback for no-cron environments. Use `--lazy` to delegate to daily-distill or weekly-curate based on staleness (typically invoked detached from the SessionStart hook).',
+    milestone: 35,
+    optionSpec: [
+      { flags: '--lazy', description: 'run the lazy-compress cycle (the v0.1.0 supported invocation)' },
+    ],
+    action: runCompress,
   },
   {
     name: 'register-crons',

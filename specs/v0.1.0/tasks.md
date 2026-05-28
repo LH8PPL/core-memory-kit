@@ -702,18 +702,22 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 
 - [ ] 35. Lazy compression fallback for no-cron envs (T-030)
   - Estimate: S · Depends: 18, 23
-- [ ] 35.1 Implement SessionStart-side staleness detector
+- [x] 35.1 Implement SessionStart-side staleness detector
   - Checks `recent.md` mtime vs. cron schedule
-- [ ] 35.2 Implement `cmk compress --lazy` detached spawn
+  - Shipped as `detectStaleness({projectRoot, now, dailyTtlMs?, weeklyTtlMs?})` in [`packages/cli/src/lazy-compress.mjs`](../../packages/cli/src/lazy-compress.mjs). Cheap (<5ms) inline check: stat recent.md, check today-*.md ages by date stamp (not mtime — robust to fs touch drift). Returns `'fresh' | 'stale-daily' | 'stale-weekly' | 'cron-active' | 'no-context-dir'`. Per design §8.2.2.
+- [x] 35.2 Implement `cmk compress --lazy` detached spawn
   - Runs T-028 or T-029 work depending on what's stale
-- [ ] 35.3 Implement cron-detection sentinel
+  - Shipped as `runLazyCompress` in [`packages/cli/src/lazy-compress.mjs`](../../packages/cli/src/lazy-compress.mjs) (delegates to `dailyDistill` when only daily is stale, `weeklyCurate` when weekly is stale) + [`packages/cli/bin/cmk-compress-lazy.mjs`](../../packages/cli/bin/cmk-compress-lazy.mjs) bin wrapper + `cmk compress --lazy` subcommand in `subcommands.mjs`. Detached spawn fires from `inject-context.mjs` (SessionStart hook) via `spawn('cmk-compress-lazy', [], {detached: true, stdio: 'ignore', shell: true, unref()})` — same fire-and-forget posture as capture-turn's auto-extract spawn (Task 23). NFR-1 500ms budget held (staleness check ~5ms; spawn doesn't block the return).
+- [x] 35.3 Implement cron-detection sentinel
   - If `.locks/cron-registered` exists: skip + log `skipped: cron-active`
-- [ ]* 35.4 Write unit tests for lazy compression fallback
+  - Shipped as `markCronRegistered` / `unmarkCronRegistered` / `cronSentinelPath` helpers in [`packages/cli/src/lazy-compress.mjs`](../../packages/cli/src/lazy-compress.mjs). `runRegisterCrons` in subcommands.mjs writes the sentinel after at least one successful registration; `--unregister` removes it. `detectStaleness` checks sentinel as the first guard (cron-active takes precedence over all staleness verdicts). Sentinel skip is logged to `.locks/lazy-compress.log` NDJSON.
+- [x]* 35.4 Write unit tests for lazy compression fallback
   - Test SessionStart with stale `recent.md` (mtime 8d): `cmk compress --lazy` spawned; SessionStart hook still returns within 500 ms
   - Test SessionStart with fresh `recent.md`: no spawn
   - Test `cmk compress --lazy` runs daily-distill work when only daily is stale, weekly-curate work when weekly is stale
   - Test with cron-registered sentinel: lazy detector exits `skipped: cron-active`
-  - _Requirements: FR-19; design §8.2.1_
+  - Shipped 22 tests in [`tests/cli-lazy-compress.test.js`](../../tests/cli-lazy-compress.test.js): detectStaleness branches (cron-active short-circuit / no-context-dir / weekly precedence / daily / fresh — 9 cases) + runLazyCompress (boundary / cron-active / daily delegation / weekly delegation / fresh / Door 5 NDJSON — 7 cases) + inject-context spawn integration via testSpawnLazy dependency injection (35.4 #1 + #2 + #4 — 3 cases) + duplicates for completeness.
+  - _Requirements: FR-19; design §8.2.1, §8.2.2_
 
 - [ ] 36. Checkpoint — Layer 6 (Cron + Lazy) complete _(skip if Layer 6 deferred)_
   - All tests for tasks 1–35 green

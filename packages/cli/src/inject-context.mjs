@@ -27,10 +27,12 @@ import {
   appendFileSync,
   statSync,
 } from 'node:fs';
+import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { SCRATCHPADS_BY_TIER, resolveTierRoot } from './tier-paths.mjs';
 import { nowIso } from './audit-log.mjs';
+import { detectStaleness } from './lazy-compress.mjs';
 
 // 13,000 bytes = sum of all per-file caps (12,275 from Task 12/14) + 725
 // bytes of headroom for inter-tier markers + future modest growth.
@@ -319,7 +321,49 @@ function enforceCap(orderedBlocks, capBytes, ts) {
   };
 }
 
-export function injectContext({ cwd, userDir, now, capBytes } = {}) {
+/**
+ * Detached fire-and-forget spawn of the lazy-compress bin. Per design
+ * §8.2.2 — non-blocking, hook returns within its 500ms budget while the
+ * child runs ambiently. The bin is PATH-resolved when npm-installed
+ * globally (`cmk-compress-lazy` declared in package.json `bin:`).
+ *
+ * Exposed so injectContext can override via dependency injection in tests
+ * (testSpawnLazy parameter) — production callers pass nothing.
+ */
+function spawnLazyCompress(projectRoot) {
+  try {
+    // The lazy-compress child intentionally outlives this hook process;
+    // parent-side timeout is incorrect by design — the child carries its
+    // own internal timeout via runLazyCompress → daily-distill /
+    // weekly-curate → HaikuViaAnthropicApi.compress({timeoutMs: 50_000}).
+    // shell:true so the Windows .cmd shim is found via PATH (same pattern
+    // register-crons.mjs uses for cmk-daily-distill).
+    // spawn-discipline: ignore detached-fire-and-forget per design §8.5 — same posture as capture-turn.mjs's auto-extract spawn (Task 23).
+    const child = spawn('cmk-compress-lazy', [], {
+      detached: true,
+      stdio: 'ignore',
+      shell: true,
+      cwd: projectRoot,
+      windowsHide: true,
+      env: { ...process.env, CMK_PROJECT_DIR: projectRoot },
+    });
+    child.unref();
+    return { spawned: true, pid: child.pid };
+  } catch (err) {
+    return { spawned: false, reason: 'spawn-failed', error: err?.message ?? String(err) };
+  }
+}
+
+export function injectContext({
+  cwd,
+  userDir,
+  now,
+  capBytes,
+  // Test-only injection point per spawn-discipline (the production path
+  // uses spawnLazyCompress directly). Tests pass a fake to assert
+  // "lazy-compress was/was-not triggered" without touching the host.
+  testSpawnLazy,
+} = {}) {
   const ts = now ?? nowIso();
   const cap = typeof capBytes === 'number' ? capBytes : DEFAULT_CAP_BYTES;
   const startCwd = cwd ?? process.cwd();
@@ -377,7 +421,25 @@ export function injectContext({ cwd, userDir, now, capBytes } = {}) {
     }
   }
 
-  // 6. Emit the Anthropic SessionStart hook output shape (design §5.1 +
+  // 6. Task 35 lazy-compress trigger: cheap (<5ms) staleness check.
+  // When non-fresh + non-cron-active, detached-spawn `cmk-compress-lazy`
+  // so the hook can return within its 500ms NFR-1 budget while the
+  // child does the rollup work cron would have done.
+  let lazyTrigger = null;
+  try {
+    const verdict = detectStaleness({ projectRoot, now: ts });
+    lazyTrigger = { verdict: verdict.action, reason: verdict.reason };
+    if (verdict.action === 'stale-daily' || verdict.action === 'stale-weekly') {
+      const spawner = typeof testSpawnLazy === 'function' ? testSpawnLazy : spawnLazyCompress;
+      const spawnResult = spawner(projectRoot);
+      lazyTrigger = { ...lazyTrigger, ...spawnResult };
+    }
+  } catch (err) {
+    // detectStaleness should be defensive; if it throws, log + continue.
+    lazyTrigger = { verdict: 'error', error: err?.message ?? String(err) };
+  }
+
+  // 7. Emit the Anthropic SessionStart hook output shape (design §5.1 +
   // Anthropic hook protocol). When the snapshot is empty, we still emit
   // the shape so downstream tooling can rely on the field's presence.
   const hookOutput = {
@@ -392,6 +454,7 @@ export function injectContext({ cwd, userDir, now, capBytes } = {}) {
     hookOutput,
     shadowedEvents,
     truncationEvents,
+    lazyTrigger,
     bytes: Buffer.byteLength(snapshot, 'utf8'),
   };
 }
