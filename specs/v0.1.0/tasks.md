@@ -656,10 +656,19 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - **Pre-implementation: read [`docs/research/2026-05-25-claude-remember-code-dive.md`](../../docs/research/2026-05-25-claude-remember-code-dive.md)** for absorbed patterns — NDC compression structure (now.md → today-YYYY-MM-DD.md after 1h cooldown), 60-80% compression-target norm, background subshell with `set +e`, per-stage `noclobber` lock at `.locks/ndc.lock`, post-success truncation of `now.md`. **License caveat:** write our own prompt + code from scratch; the technique is absorbable but the implementation is under their Community License (see SOURCES.md).
 - [ ] 33.1 Implement `scripts/run-daily-distill.sh`
   - Reads last 7 days of `today-*.md`; writes fresh `sessions/recent.md`
-- [ ] 33.2 Implement `scripts/register-crons.mjs` (Node, NOT Python — idempotent across platforms)
-  - macOS launchd (write `~/Library/LaunchAgents/com.cmk.daily-distill.plist`), Linux cron (`crontab -l | (grep -v cmk-daily ; echo "...") | crontab -`), Windows Task Scheduler (`schtasks /Create /TN ... /SC DAILY /TR ...`)
-  - **Lior 2026-05-28**: pivot from Python to Node.js. The kit is already Node-only; adding Python for one script means new test infrastructure (pytest), new install dep, new cross-platform concerns. Node can shell out to the platform-native scheduler commands and stay within the kit's existing test + validator surface. Tasks.md heading kept as "register-crons" for cross-doc continuity; implementation language is the only change.
-  - **Lior 2026-05-28 (Option A locked)**: v0.1.0 ships full cross-platform (Linux + macOS + Windows). "I need it to work on Windows and Mac out of the box, so adding Linux is a small thing." Task 35 (lazy fallback) is still the documented escape hatch for no-cron environments; both ship.
+- [ ] 33.2 Implement `scripts/register-crons` (idempotent across platforms) — Linux cron + macOS launchd + Windows Task Scheduler
+  - **Original plan (pre-2026-05-28)**: `python scripts/register-crons.py`. Python was the assumed language because the predecessor product (claude-remember) used a Python register script.
+  - **Implementation pivot 2026-05-28 (Lior + Claude joint decision)**: `scripts/register-crons.mjs` in Node.js. Python option NOT removed from the spec history because the decision rationale matters and future contributors may need to understand WHY the language differs from claude-remember.
+  - **Why Node, not Python**:
+    1. **No new toolchain**. The kit is already Node-only. Adding Python means new install dep, new test infrastructure (pytest), new cross-platform concerns (Python install paths differ across Win/Mac/Linux), new validator surface.
+    2. **Existing kit modules are Node**. `register-crons` shells out to the platform-native scheduler commands (crontab / launchctl / schtasks); the Node `child_process.spawnSync` handles this exactly the way the kit's other modules already do.
+    3. **Tests fit existing surface**. vitest tests can spawn `node scripts/register-crons.mjs --dry-run` and assert output without bringing pytest.
+    4. **Single-language deploy**. v0.1.0 ships as one npm package; users `npm install -g @claude-memory-kit/cli` and have everything. Adding Python would force users to also install Python (or the kit to bundle it — much larger).
+  - **Cross-platform mapping**:
+    - macOS: write `~/Library/LaunchAgents/com.cmk.daily-distill.plist` + `launchctl load`
+    - Linux: `crontab -l | (grep -v cmk-daily ; echo "...") | crontab -` (pipe pattern for idempotency)
+    - Windows: `schtasks /Create /TN cmk-daily-distill /SC DAILY /TR "..."` with `/F` flag for idempotent re-creates
+  - **Option A confirmed 2026-05-28 (Lior)**: v0.1.0 ships full cross-platform (Linux + macOS + Windows). "I need it to work on Windows and Mac out of the box, so adding Linux is a small thing." Task 35 (lazy fallback) is still the documented escape hatch for no-cron environments; both ship.
 - [ ] 33.3 Honor 120 s Haiku cooldown; defer + retry on next cron fire
 - [ ]* 33.4 Write unit tests for daily distill
   - Test fixture with 7 days of `today-*.md`: script produces single `recent.md` with compressed consolidation
