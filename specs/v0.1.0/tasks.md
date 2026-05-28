@@ -808,16 +808,21 @@ Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility)
 
 - [ ] 39. `cmk repair` + `cmk roll` (T-033)
   - Estimate: M · Depends: 17, 22, 28, 33
-- [ ] 39.1 Implement `cmk repair --hooks`
+- [x] 39.1 Implement `cmk repair --hooks`
   - Re-registers from `hooks.json` template; idempotent
-- [ ] 39.2 Implement `cmk repair --locks`
+  - Shipped in [`packages/cli/src/repair.mjs`](../../packages/cli/src/repair.mjs) `repairHooks({projectRoot})`. Reads canonical `plugin/hooks/hooks.json`, deep-merges into `<projectRoot>/.claude/settings.json`. Preserves non-kit user-added hook entries (matched by command substring against KIT_COMMAND_TOKENS). Idempotent — second run is a no-op (mtime stable).
+- [x] 39.2 Implement `cmk repair --locks`
   - Removes stale locks (>1 h old); preserves live locks
-- [ ] 39.3 Implement `cmk repair --index`
+  - Shipped via `repairLocks({projectRoot, userDir, staleLockMs, now})`. Delegates to `lock-discipline.mjs::detectStaleLocks` for stale-detection; only removes locks where mtime ≤ now-staleLockMs (default 1h). Reports `removed[]` + `preserved[]` arrays.
+- [x] 39.3 Implement `cmk repair --index`
   - Invokes `cmk reindex --full` (task 29)
-- [ ] 39.4 Implement `cmk roll` with `--scope now|today|recent`
+  - Shipped via `repairIndex({projectRoot, userDir, reindexer})`. Lazy-loads `index-rebuild.mjs::reindexFull` (so tests can import repair.mjs without the better-sqlite3 binary). Test-injectable `reindexer` parameter for test fixtures.
+- [x] 39.4 Implement `cmk roll` with `--scope now|today|recent`
   - Invokes SessionEnd (task 22), daily-distill (task 33), or weekly-curate (task 34) internals on demand
-- [ ] 39.5 Default `cmk roll` (no scope) to `--scope now`
-- [ ]* 39.6 Write unit tests for repair + roll
+  - Shipped in [`packages/cli/src/roll.mjs`](../../packages/cli/src/roll.mjs) `runRoll({projectRoot, scope, backend, now})`. Dispatches via lazy-import to compress-session / dailyDistill / weeklyCurate based on scope. Passes `cooldownMs: 0` to underlying pipeline because `cmk roll` is explicit user invocation (the 120s gate shouldn't block a manual command).
+- [x] 39.5 Default `cmk roll` (no scope) to `--scope now`
+  - Shipped via `ROLL_SCOPES.NOW` default in `runRoll`. CLI handler also defaults to NOW when `--scope` flag omitted.
+- [x]* 39.6 Write unit tests for repair + roll
   - Test `cmk repair` twice in a row: second run produces no file changes (mtime check)
   - Test `--locks`: fresh 30-min lock NOT removed; stale 2-h lock removed
   - Test `--hooks` re-registers all 6 hooks; subsequent run is no-op
