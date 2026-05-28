@@ -17,6 +17,167 @@ When you come back, tell the AI: *"read docs/journey/RESUME-HERE-2026-05-28.md t
 
 ---
 
+## What we wanted to build and why (intentions)
+
+The full intent statement is in [`specs/v0.1.0/requirements.md` §1](../../specs/v0.1.0/requirements.md) — this is the executive summary so future-AI doesn't have to navigate first.
+
+### The problem we set out to solve
+
+> Claude Code starts every session with no memory of the last one. Without a system in place, the user must re-explain context — who they are, what they've been working on, what the project conventions are — at the start of every conversation. Over months, this re-explanation cost becomes significant and demoralizing.
+
+We built a persistent, in-repo memory layer that survives across sessions, machines, and `git clone`s. The user opens Claude Code, makes a request, and Claude already knows the answers to who/what/why without being told.
+
+### The 6 non-negotiable tenets (from requirements.md §1.4)
+
+If a requirement violates a tenet, the tenet wins.
+
+| ID | Tenet | Why |
+| --- | --- | --- |
+| **T1** | Markdown is the source of truth. SQLite, vector indexes are regenerable cache. | User opens MEMORY.md in VS Code, fixes a typo, system respects it. Opaque storage breaks this. |
+| **T2** | Per-project memory lives in `<repo>/context/` committed to git. | Memory travels with `git clone`. New dev / new laptop up-to-speed after one clone. |
+| **T3** | Cross-project user-tier memory lives in `~/.claude-memory-kit/`. | Some facts (your name, role, habits) are about *you*, not any project. |
+| **T4** | Capture is mostly automatic. User-explicit triggers still work but are not required. | "Make it automatic" — Lior's hard requirement, third strike on this. |
+| **T5** | Silent by default. No "I've saved that to memory" announcements. | Auto-capture should be invisible. Announcing breaks the illusion. |
+| **T6** | Claude Code first. Other agents (Codex, Gemini, Hermes, Copilot) explicitly out of scope. | Don't try to be claude-mem's cross-agent surface. v0.2 if it matters. |
+
+### Plus 2 amended tenets (added 2026-05-22, requirements-revisions-proposed.md)
+
+- **T7**: Trust hierarchy (high/medium/low) for every observation
+- **T8**: Provenance frontmatter on every bullet (~150 bytes/bullet acceptable cost for full audit trail)
+
+### What v0.0.1 already did (baseline before this build)
+
+The kit existed at v0.0.1 before this build started. Per-project `context/` directory, 3 bounded scratchpads (SOUL.md / USER.md / MEMORY.md), granular per-fact archive with INDEX.md, 2 Claude Code hooks (PreToolUse + Stop), `memory-write` skill that triggers on phrases, optional Layer 5 (memsearch + Milvus) for semantic recall, optional Layer 6 (cron jobs).
+
+### What v0.1.0 added (this build)
+
+Auto-extract subagent (Stop hook fires `claude --print` background), 3-tier memory (P/L/U), trust hierarchy + conflict queue + review queue, content-addressed citation IDs (base32, Node↔Python parity), 9 health checks (`cmk doctor`), MCP server with 6 tools, SQLite + FTS5 keyword search, hybrid search (BM25 + RRF), cross-platform cron registration (Linux/macOS/Windows), lazy compression fallback for no-cron environments, import bridge from Anthropic native auto-memory, transcripts extractor, repair + roll subcommands, cross-OS CI matrix, 1140+ tests, 8 structural validators.
+
+---
+
+## Full corpus navigator — where every kind of question is answered
+
+The kit's docs corpus is large (~7200 lines across the spec stack + 2625 lines of journey log + 11 ADRs + 2 conversation logs + per-task tests). This section maps question-type → file-location so the next AI doesn't have to grep blindly.
+
+### "What does the kit do? What is the user story?"
+
+→ [`specs/v0.1.0/requirements.md`](../../specs/v0.1.0/requirements.md) — 512 lines, the authoritative WHAT
+  - §1 Introduction (problem + tenets + baseline)
+  - §2 User Stories (US-1..US-15)
+  - §3 Functional Requirements (FR-1..FR-27 — plus FR-28..FR-30 in [`requirements-revisions-proposed.md`](../../specs/v0.1.0/requirements-revisions-proposed.md))
+  - §4 Non-Functional Requirements (NFR-1..NFR-8; NFR-9 in the revisions doc)
+  - §5 Acceptance criteria
+
+### "How does the kit work? What are the architectural decisions?"
+
+→ [`specs/v0.1.0/design.md`](../../specs/v0.1.0/design.md) — 2690 lines, the authoritative HOW
+  - §1 System overview + data flow
+  - §2 Per-fact file format
+  - §3 Three-tier model (P/L/U)
+  - §4 Trust hierarchy
+  - §5 Hook architecture
+  - §6 Auto-extract pipeline (subagent + memory-write skill + conflict/review queues)
+  - §7 Snapshot assembly
+  - §8 Compression pipeline (now → today → recent → archive) + cron + lazy + cooldown
+  - §9 SQLite + FTS5 index
+  - §10 MCP server
+  - §11 Import bridge (Anthropic + transcripts)
+  - §13 Install paths
+  - §14 Health checks
+  - §15 Trade-offs explicitly accepted
+  - §16 v0.1.x candidates (~48 deferred items, each with ship trigger)
+  - §17 Test discipline (five exit doors, spawn smokes, stress gate)
+  - §18 Cross-platform discipline + structural validators
+
+### "Why was decision X made? What was the rationale?"
+
+→ [`docs/adr/`](../../docs/adr/) — 11 ADRs
+  - ADR-0001: separate-project-not-fork-youtube-to-slide (why not extend youtube-to-slide's memory pattern)
+  - ADR-0002: markdown-source-of-truth-over-opaque-db (T1's deeper rationale)
+  - ADR-0003: per-project-with-future-cross-project-tier (T2 + T3's roadmap)
+  - ADR-0004: spec-driven-development-kiro-style (why requirements → design → tasks workflow)
+  - ADR-0005: three-install-paths (npm + plugin + manual)
+  - ADR-0006: lifecycle-hooks-architecture (which hooks to use + why)
+  - ADR-0007: content-addressed-citation-ids (base32 alphabet choice + 8-char rationale)
+  - ADR-0008: bank-airgap-deferred-to-future-version (Layer 5b semantic ships in v0.1.x, not v0.1.0)
+  - ADR-0009: provenance-frontmatter-per-observation (T8's deeper rationale)
+  - ADR-0010: raw-transcripts-preserved-indefinitely (audit trail discipline)
+  - ADR-0011: coexistence-with-anthropic-auto-memory-OPEN (still open; HC-8 surfaces detection)
+
+### "What was the full build journey? Per-task what happened?"
+
+→ [`docs/journey/v0.1.0-build-log.md`](../../docs/journey/v0.1.0-build-log.md) — 2625 lines, narrative
+  - §0 The frustration that started this (the kit's origin)
+  - §1 Starting state — v0.0.1 (May 21, 2026)
+  - §2 Phase 1 — Research (what we learned from competitors)
+  - §3 Phase 2 — Spec-driven development (the Kiro workflow adoption)
+  - §4 Phase 3 — The four-spec-generator experiment (4 AIs wrote competing specs; we picked the best fragments)
+  - §5 Phase 4 — Design decisions (the choices that shaped v0.1.0)
+  - §6 Phase 5 — What it's like to work with an AI on a spec
+  - §7 Phase 6 — Implementation kicks off (Tasks 1-2)
+  - §7.5 Side quest — Claude Code skills audit (between Tasks 3 and 4)
+  - Tasks 17-42 retrospectives (per-PR detail with skill-review findings + fix descriptions)
+  - §8 What's left to build (v0.1.0 remaining work — partially stale, see this doc)
+  - §9 Open questions and post-v0.1 candidates
+  - §10 The conversation as raw material — what we do with it
+  - §11 How to extend this file
+
+### "What were the EXACT conversations? What questions did Lior ask?"
+
+→ [`docs/conversation-log/`](../../docs/conversation-log/) — 2 raw conversation files
+  - `2026-05-21.md` — first day; the Hightower harness paper, structural-gravity debate
+  - `2026-05-22.md` — second day; tenant decisions, four-spec experiment kickoff
+
+→ This session's Q&A arc is captured in "This session's Q&A arc" section below.
+
+### "What's the work breakdown? What's shipped vs pending?"
+
+→ [`specs/v0.1.0/tasks.md`](../../specs/v0.1.0/tasks.md) — 1057 lines, the WHAT-WHEN
+  - 45 numbered tasks across Foundation / Layer 2-6 / Cross-cutting / Release / late additions
+  - Each task: scope + estimate + dependencies + sub-tasks + acceptance criteria
+  - Each shipped task has a `_shipped YYYY-MM-DD, PR #N_` annotation + `Shipped as ...` pointers per sub-task
+  - Pending items: 43.3-43.5 (publish), 44 (post-release verification + live-test), 45 (auto-persona v0.1.1), 46-48 (auto-install v0.1.x queue)
+
+### "What are the binding rules? What's project discipline?"
+
+→ [`CLAUDE.md`](../../CLAUDE.md) — 306 lines, the project rulebook (loaded at every Claude Code session)
+  - Memory routing rules
+  - LLM Wiki integration (Lior's personal knowledge base)
+  - Working style (Lior's preferences — terse, direct, no preamble)
+  - Verification rules (the "did you check?" discipline)
+  - Engineering discipline (TDD, boundary testing, five exit doors, shared modules)
+  - Workflow (two-pass code review, autopilot mode, PR conventions)
+  - Anti-patterns (over-engineering, ceremony, overstating commits, fix-the-test-not-the-code)
+  - Campaign rules (no parallel campaign PRs)
+  - Working-product milestone
+
+### "What research informed the kit? What sources are cited?"
+
+→ [`docs/SOURCES.md`](../../docs/SOURCES.md) — master sources index
+→ [`docs/research/`](../../docs/research/) — per-finding research notes (~20 files)
+  - Closest analogs: claude-mem, claude-remember, GBrain, Anthropic native auto-memory
+  - Pattern sources: Simon Scrapes, Hermes Agent, OpenClaw, ChatGPT spec
+  - Implementation studies: claude-remember code dive, Anthropic Auto Memory primary-source examination
+  - Tooling: chokidar, js-yaml, better-sqlite3 verifications
+
+### "What bugs were found? What were the fixes?"
+
+→ [`docs/journey/v0.1.0-build-log.md`](../../docs/journey/v0.1.0-build-log.md) — per-task retrospectives (Tasks 28-42 added this session) document every PR's bugs + fixes
+→ This doc's "Bugs found this session" table below covers PRs #44-#61
+→ GitHub PR descriptions (`gh pr view <N>`) have the canonical per-PR bug list
+
+### "What test discipline applies? How do tests work in this codebase?"
+
+→ [`specs/v0.1.0/design.md` §17](../../specs/v0.1.0/design.md) — full test discipline
+  - §17.1 Five exit doors framework (Response / State / External calls / Observability / Queues)
+  - §17.2-17.7 Spawn smokes for real-binary tests (the live-Haiku class)
+  - §17.8 Integration-test coverage for cross-module flows (the Task 25 generateId-named-args latent bug lesson)
+
+→ [`CLAUDE.md`](../../CLAUDE.md) "Engineering discipline" section
+→ Test files in `tests/` are the canonical examples of each pattern
+
+---
+
 ## State at pause (commit `f32bc78` on main)
 
 | Surface | State |
