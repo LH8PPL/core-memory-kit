@@ -957,3 +957,61 @@ Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility)
 44 top-level items · ~180 sub-tasks · TDD throughout · boundary tests · checkpoints between layers · glossary reference.
 
 Each parent task ships as a PR titled `[<task #>] <description>` (e.g., `[7] Per-fact file format + writer (T-006)`) with the task's sub-task checkboxes checked off in the PR description.
+
+---
+
+## Tail-appended v0.1.x candidates (post-v0.1.0 release)
+
+> Added 2026-05-28 after Lior's "look into what other products do" inquiry during Task 37. Auto-install patterns are appended here rather than slotted into v0.1.0 because they require new consent infrastructure (prompt + repair-yes flag) that's out of v0.1.0 scope. Each task here is a NEW PR after v0.1.0 ships.
+
+- [ ] 46. `cmk install --with-semantic` — opt-in semantic-backend bootstrap
+  - Estimate: M · Depends: 43 (v0.1.0 released)
+  - **Motivation**: matches claude-mem's install-time pattern (verified 2026-05-28 via WebFetch on github.com/thedotmack/claude-mem README). claude-mem auto-installs Bun + uv silently because user explicitly invoked `npx claude-mem install` — consent is implied by running the installer. We adopt the SAME pattern at the SAME entry point: `cmk install` is the consent surface, and `--with-semantic` is the explicit opt-in flag.
+  - **Important**: this does NOT change `cmk doctor` runtime behavior. Doctor continues to print the recovery command (matches claude-mem's runtime pattern of printing `npx claude-mem repair`). The install-time entry point is where consent is honored.
+- [ ] 46.1 Add `--with-semantic` flag to `cmk install`
+  - Detects if memsearch is already installed; if not, runs `python -m pip install "memsearch[onnx]"`
+  - On Windows: prompt for `winget install --id Python.Python.3.12` if Python missing
+  - Writes a marker to `<userDir>/.locks/semantic-install-attempted` so subsequent runs don't re-prompt
+- [ ] 46.2 Add `--no-semantic` flag for users who explicitly opt out
+  - Same marker mechanism; doctor HC-1 reports "user opted out, not failing"
+- [ ] 46.3 Document the prereq → feature mapping explicitly
+  - `cmk install --help` shows "without --with-semantic, you skip Layer 5b — semantic search disabled"
+  - README install section explains the trade-off
+- [ ]* 46.4 Tests
+  - Test `--with-semantic` invokes pip install in a sandboxed mock
+  - Test marker file prevents re-prompt
+  - Test doctor HC-1 reports user-opted-out distinctly
+  - _Requirements: forward-looking to a new NFR (see §16.48); design §14_
+
+- [ ] 47. `cmk doctor --repair` — prompt-then-install for individual failed HCs
+  - Estimate: M · Depends: 46
+  - **Motivation**: even with `cmk install --with-semantic` opt-in at install time, users who skipped it (or whose memsearch broke) need a runtime path to fix. Currently `cmk doctor` prints the command; user runs it manually. This task adds a prompt that the user can `[y/N]` to invoke the same install command.
+- [ ] 47.1 Add `--repair` flag to `cmk doctor`
+  - For each failed HC with `requiresInstall: true`: prompt user via readline interface
+  - Show the full impact ("Without this, X feature is disabled") before the prompt
+  - On y: invoke the recovery command via spawnSync; report result
+  - On n: continue with the next failed HC; record the skip
+- [ ] 47.2 Add `--yes` flag for non-interactive auto-repair
+  - Useful for CI/scripted environments where the user has already consented
+  - Logs every install to `.locks/doctor-repair.log` NDJSON for audit
+- [ ] 47.3 Wire the `promptUser` parameter that Task 37 dropped (M3 deferral)
+  - `runDoctor({...promptUser})` now actively used when `--repair` is passed
+  - Forward-compat hooks rot — adding the parameter alongside the actual consumer per CLAUDE.md
+- [ ]* 47.4 Tests
+  - Test `--repair` with mocked prompt: y triggers install, n skips
+  - Test `--yes` runs all install commands without prompting
+  - Test NDJSON audit-log entries for each repair attempt
+  - _Requirements: forward-looking to NFR (see §16.48); design §14_
+
+- [ ] 48. Promote ask-before-install rule to a proper NFR
+  - Estimate: S · Depends: 46, 47
+  - The "any repair requiring `pip install` / `npm install` MUST ASK the user first" rule currently lives in design §14 as an unsourced assertion. Task 37's skill-review (I1, 2026-05-28) flagged the citation drift (it was originally cited as NFR-9 which is actually "Memory poisoning defense baseline").
+- [ ] 48.1 Add the NFR to `requirements.md` (next available NFR number)
+  - Text: "Consent gate for system-level installs. The kit shall NEVER invoke a system-level install command (`pip install`, `npm install`, `winget install`, etc.) without explicit user consent. Consent is provided either at install-time via an opt-in flag (e.g., `cmk install --with-semantic`) OR at runtime via an interactive prompt (e.g., `cmk doctor --repair` y/N)."
+- [ ] 48.2 Update design §14 citation from "design §14 amendment" to the new NFR
+- [ ] 48.3 Add the rule to CLAUDE.md "Engineering discipline" binding rules
+  - Section: "Critical: never auto-invoke system installers — see NFR-N"
+- [ ]* 48.4 Tests
+  - Test that no production code path calls `pip install` / `npm install` / `winget install` without a consent gate above it
+  - Validator (`scripts/validate-install-consent.mjs`) — structural enforcement
+  - _Requirements: NFR-N (the new one); design §14_

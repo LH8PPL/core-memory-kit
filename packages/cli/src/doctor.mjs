@@ -84,11 +84,17 @@ async function hc1Memsearch() {
   } catch {
     // fall through to skip
   }
+  // Lior 2026-05-28: make the feature impact explicit so users
+  // understand WHAT THEY LOSE by skipping the install, not just that
+  // a check failed. Matches Lior's directive: "ask before we do
+  // anything, explain if they dont install they dont get certain
+  // features".
   return {
     id: 'HC-1',
     name: 'memsearch installed (semantic search backend)',
     status: 'skip',
-    message: 'memsearch not on PATH — semantic search unavailable (v0.1.0 ships keyword-only; Layer 5b is OPTIONAL)',
+    message:
+      'memsearch not on PATH — Layer 5b semantic backend disabled. Features unavailable: `cmk search --mode=semantic` (will error), `cmk search --mode=hybrid` (will error). Keyword search (`cmk search --mode=keyword`, default) still works fully.',
     recoveryCommand: 'python -m pip install "memsearch[onnx]"',
     requiresInstall: true,
   };
