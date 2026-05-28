@@ -1,0 +1,407 @@
+// @doors: 1, 2
+// Door 3 N/A: repair/roll use injected backend + injected reindexer; no subprocess at this boundary.
+// Door 4 N/A: no NDJSON observability — dispatcher modules return result structs (underlying compress-session / daily-distill / weekly-curate emit their own NDJSON).
+// Door 5 N/A: no message-queue interaction.
+
+// Tests for Task 39 — cmk repair + cmk roll (T-033).
+// Per tasks.md 39.6:
+//   - cmk repair twice in a row: second run produces no file changes (mtime check)
+//   - --locks: fresh 30-min lock NOT removed; stale 2-h lock removed
+//   - --hooks re-registers all kit hooks; subsequent run is no-op
+//   - --index invokes reindexFull
+//   - cmk roll --scope today invokes daily-distill path
+//   - cmk roll --scope recent invokes weekly-curate path
+//   - cmk roll default = --scope now (compress-session)
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { runRepair } from '../packages/cli/src/repair.mjs';
+import { runRoll, ROLL_SCOPES } from '../packages/cli/src/roll.mjs';
+import { MockHaikuBackend } from '../packages/cli/src/compressor.mjs';
+import { install } from '../packages/cli/src/install.mjs';
+import { readAuditLog } from '../packages/cli/src/audit-log.mjs';
+
+let sandbox;
+let projectRoot;
+let userDir;
+
+async function makeFixture() {
+  sandbox = mkdtempSync(join(tmpdir(), 'cmk-repair-roll-test-'));
+  projectRoot = join(sandbox, 'proj');
+  userDir = join(sandbox, 'user');
+  await install({ projectRoot, userTier: userDir });
+}
+
+function seedLock(name, ageMs) {
+  const dir = join(projectRoot, 'context', '.locks');
+  mkdirSync(dir, { recursive: true });
+  const path = join(dir, name);
+  writeFileSync(path, '999999\n', 'utf8'); // PID unlikely to be alive
+  if (ageMs !== undefined) {
+    const t = (Date.now() - ageMs) / 1000;
+    utimesSync(path, t, t);
+  }
+  return path;
+}
+
+function mockBackend(...outputs) {
+  return new MockHaikuBackend({
+    responses: outputs.map((outputText) => ({
+      outputText,
+      inputTokens: 50,
+      outputTokens: 25,
+      costUSD: 0.0001,
+      preservedIds: [],
+    })),
+  });
+}
+
+beforeEach(async () => {
+  await makeFixture();
+});
+
+afterEach(() => {
+  rmSync(sandbox, { recursive: true, force: true });
+});
+
+describe('Task 39 — runRepair', () => {
+  describe('Validation (Door 1)', () => {
+    it('rejects missing projectRoot', async () => {
+      const r = await runRepair({});
+      expect(r.action).toBe('error');
+      expect(r.errorCategory).toBe('missing_project_root');
+    });
+
+    it('rejects invalid scope', async () => {
+      const r = await runRepair({ projectRoot, scope: 'bogus' });
+      expect(r.action).toBe('error');
+      expect(r.errorCategory).toBe('schema');
+    });
+  });
+
+  describe('39.1 — --hooks merges canonical kit hooks into settings.json', () => {
+    it('creates .claude/settings.json with kit hooks when missing', async () => {
+      const settingsPath = join(projectRoot, '.claude', 'settings.json');
+      expect(existsSync(settingsPath)).toBe(false);
+      const r = await runRepair({ projectRoot, userDir, scope: 'hooks' });
+      expect(r.action).toBe('completed');
+      const hooks = r.repairs.find((x) => x.kind === 'hooks');
+      expect(hooks.changed).toBe(true);
+      const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+      expect(settings.hooks.SessionStart).toBeTruthy();
+      expect(JSON.stringify(settings.hooks)).toContain('cmk-inject-context');
+      expect(JSON.stringify(settings.hooks)).toContain('cmk-capture-turn');
+      expect(JSON.stringify(settings.hooks)).toContain('cmk-compress-session');
+    });
+
+    it('idempotent: second run produces no changes (mtime stable)', async () => {
+      const settingsPath = join(projectRoot, '.claude', 'settings.json');
+      await runRepair({ projectRoot, userDir, scope: 'hooks' });
+      const mtime1 = statSync(settingsPath).mtimeMs;
+
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      const r2 = await runRepair({ projectRoot, userDir, scope: 'hooks' });
+      const mtime2 = statSync(settingsPath).mtimeMs;
+      const hooks = r2.repairs.find((x) => x.kind === 'hooks');
+      expect(hooks.changed).toBe(false);
+      expect(mtime2).toBe(mtime1);
+    });
+
+    it('preserves non-kit user hook entries', async () => {
+      const settingsPath = join(projectRoot, '.claude', 'settings.json');
+      mkdirSync(join(projectRoot, '.claude'), { recursive: true });
+      writeFileSync(
+        settingsPath,
+        JSON.stringify({
+          permissions: { allow: ['Read'] },
+          hooks: {
+            SessionStart: [
+              { hooks: [{ command: 'my-custom-hook.sh' }] },
+            ],
+          },
+        }),
+        'utf8',
+      );
+      await runRepair({ projectRoot, userDir, scope: 'hooks' });
+      const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+      // User's custom hook preserved
+      expect(JSON.stringify(settings.hooks.SessionStart)).toContain('my-custom-hook.sh');
+      // Kit hook also present
+      expect(JSON.stringify(settings.hooks.SessionStart)).toContain('cmk-inject-context');
+      // permissions preserved
+      expect(settings.permissions.allow).toEqual(['Read']);
+    });
+  });
+
+  describe('39.2 — --locks removes stale > cutoff, preserves fresh', () => {
+    it('removes 2h-old stale lock, preserves 30min-old', async () => {
+      const stalePath = seedLock('stale.lock', 2 * 60 * 60 * 1000); // 2h old
+      const freshPath = seedLock('fresh.lock', 30 * 60 * 1000); // 30min old
+
+      const r = await runRepair({ projectRoot, userDir, scope: 'locks' });
+      const locks = r.repairs.find((x) => x.kind === 'locks');
+      expect(locks.changed).toBe(true);
+      expect(existsSync(stalePath)).toBe(false);
+      expect(existsSync(freshPath)).toBe(true);
+    });
+
+    it('changed:false when no stale locks present', async () => {
+      const r = await runRepair({ projectRoot, userDir, scope: 'locks' });
+      const locks = r.repairs.find((x) => x.kind === 'locks');
+      expect(locks.changed).toBe(false);
+    });
+  });
+
+  describe('39.3 — --index invokes reindexer', () => {
+    it('calls injected reindexer + reports changed:true', async () => {
+      let called = 0;
+      const reindexer = async () => {
+        called += 1;
+        return { observationsIndexed: 42 };
+      };
+      const r = await runRepair({
+        projectRoot,
+        userDir,
+        scope: 'index',
+        reindexer,
+      });
+      const index = r.repairs.find((x) => x.kind === 'index');
+      expect(called).toBe(1);
+      expect(index.changed).toBe(true);
+    });
+
+    it('captures reindex errors gracefully', async () => {
+      const reindexer = async () => {
+        throw new Error('db locked');
+      };
+      const r = await runRepair({
+        projectRoot,
+        userDir,
+        scope: 'index',
+        reindexer,
+      });
+      const index = r.repairs.find((x) => x.kind === 'index');
+      expect(index.changed).toBe(false);
+      expect(index.error).toMatch(/reindex failed: db locked/);
+      expect(r.errors).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('scope: all (default) runs all three', () => {
+    it('produces 3 repair entries: hooks, locks, index', async () => {
+      const reindexer = async () => ({ observationsIndexed: 0 });
+      const r = await runRepair({
+        projectRoot,
+        userDir,
+        scope: 'all',
+        reindexer,
+      });
+      const kinds = r.repairs.map((x) => x.kind);
+      expect(kinds).toEqual(['hooks', 'locks', 'index']);
+    });
+  });
+
+  describe('I1 fix — embedded KIT_HOOKS_BLOCK works without plugin/hooks/hooks.json', () => {
+    it('repairHooks succeeds even if plugin/hooks/hooks.json is absent (validates npm-install-g posture)', async () => {
+      // The test installs the kit to a tempdir which has NO plugin/ tree
+      // by definition — same shape as a `npm install -g` install. If
+      // repairHooks were still reading from plugin/hooks/hooks.json
+      // via __dirname walking, this would fail with "kit hooks template
+      // missing". After the I1 fix (inlined KIT_HOOKS_BLOCK), it
+      // succeeds regardless of plugin/ presence.
+      const r = await runRepair({ projectRoot, userDir, scope: 'hooks' });
+      expect(r.action).toBe('completed');
+      const hooks = r.repairs.find((x) => x.kind === 'hooks');
+      expect(hooks.error).toBeUndefined();
+      expect(hooks.changed).toBe(true);
+      expect(hooks.events).toEqual([
+        'Setup',
+        'SessionStart',
+        'UserPromptSubmit',
+        'PostToolUse',
+        'Stop',
+        'SessionEnd',
+      ]);
+    });
+  });
+
+  describe('I3 fix — Door-4 audit-log entries (REPAIR_HOOKS_APPLIED / REPAIR_LOCK_REMOVED)', () => {
+    it('emits REPAIR_HOOKS_APPLIED on changed=true', async () => {
+      await runRepair({ projectRoot, userDir, scope: 'hooks' });
+      const entries = readAuditLog(join(projectRoot, 'context'));
+      const hookEntry = entries.find(
+        (e) => e.reasonCode === 'repair-hooks-applied',
+      );
+      expect(hookEntry).toBeTruthy();
+      expect(hookEntry.schema).toBe(1);
+      expect(hookEntry.action).toBe('repair');
+      expect(hookEntry.tier).toBe('P');
+      expect(hookEntry.id).toBe('P-RPHKAPLD');
+      expect(hookEntry.extra?.events).toEqual(
+        expect.arrayContaining(['SessionStart', 'Stop', 'SessionEnd']),
+      );
+    });
+
+    it('emits REPAIR_HOOKS_NOOP on idempotent re-run', async () => {
+      await runRepair({ projectRoot, userDir, scope: 'hooks' });
+      await runRepair({ projectRoot, userDir, scope: 'hooks' });
+      const entries = readAuditLog(join(projectRoot, 'context'));
+      const noopEntry = entries.find(
+        (e) => e.reasonCode === 'repair-hooks-noop',
+      );
+      expect(noopEntry).toBeTruthy();
+    });
+
+    it('emits REPAIR_LOCK_REMOVED per removed stale lock', async () => {
+      seedLock('stale-a.lock', 2 * 60 * 60 * 1000);
+      seedLock('stale-b.lock', 2 * 60 * 60 * 1000);
+      await runRepair({ projectRoot, userDir, scope: 'locks' });
+      const entries = readAuditLog(join(projectRoot, 'context'));
+      const lockEntries = entries.filter(
+        (e) => e.reasonCode === 'repair-lock-removed',
+      );
+      expect(lockEntries.length).toBe(2);
+      expect(lockEntries.every((e) => e.id === 'P-RPLKRMVD')).toBe(true);
+    });
+  });
+
+  describe('M1 fix — preserved.ageMs uses injected `now`', () => {
+    it('reports ageMs against the injected now anchor, not Date.now()', async () => {
+      // Seed a stale-but-recent lock (30min old)
+      const lockPath = seedLock('recent-stale.lock', 30 * 60 * 1000);
+      // Inject a now that's 31 minutes after seed (just past the lock's mtime)
+      const lockMtimeMs = statSync(lockPath).mtimeMs;
+      const fakeNow = new Date(lockMtimeMs + 31 * 60 * 1000).toISOString();
+      const r = await runRepair({
+        projectRoot,
+        userDir,
+        scope: 'locks',
+        now: fakeNow,
+      });
+      const locks = r.repairs.find((x) => x.kind === 'locks');
+      // The lock should be preserved (still within 1h cutoff)
+      const preserved = locks.preserved.find((p) => p.path === lockPath);
+      expect(preserved).toBeTruthy();
+      // ageMs should be ~31 minutes (based on fakeNow), NOT real elapsed time
+      const expectedAgeMs = 31 * 60 * 1000;
+      expect(preserved.ageMs).toBeGreaterThan(expectedAgeMs - 1000);
+      expect(preserved.ageMs).toBeLessThan(expectedAgeMs + 1000);
+    });
+  });
+});
+
+describe('Task 39 — runRoll', () => {
+  describe('Validation (Door 1)', () => {
+    it('rejects missing projectRoot', async () => {
+      const r = await runRoll({ backend: mockBackend('x') });
+      expect(r.action).toBe('error');
+      expect(r.errorCategory).toBe('missing_project_root');
+    });
+
+    it('rejects missing backend', async () => {
+      const r = await runRoll({ projectRoot });
+      expect(r.action).toBe('error');
+      expect(r.errorCategory).toBe('missing_backend');
+    });
+
+    it('rejects invalid scope', async () => {
+      const r = await runRoll({
+        projectRoot,
+        backend: mockBackend('x'),
+        scope: 'bogus',
+      });
+      expect(r.action).toBe('error');
+      expect(r.errorCategory).toBe('schema');
+    });
+  });
+
+  describe('39.4/39.5 — scope dispatch', () => {
+    it('default scope is `now` and delegates to compress-session', async () => {
+      // Seed a now.md so compress-session has something to compress
+      const sessionsDir = join(projectRoot, 'context', 'sessions');
+      mkdirSync(sessionsDir, { recursive: true });
+      writeFileSync(join(sessionsDir, 'now.md'), '## Discussion\n- some content here that is long enough\n', 'utf8');
+      const backend = mockBackend('## Decisions\n- consolidated\n');
+      const r = await runRoll({
+        projectRoot,
+        backend,
+        now: '2026-05-28T10:00:00Z',
+      });
+      expect(r.action).toBe('completed');
+      expect(r.scope).toBe(ROLL_SCOPES.NOW);
+      expect(r.delegatedTo).toBe('compress-session');
+    });
+
+    it('--scope today delegates to daily-distill', async () => {
+      const sessionsDir = join(projectRoot, 'context', 'sessions');
+      mkdirSync(sessionsDir, { recursive: true });
+      writeFileSync(join(sessionsDir, 'today-2026-05-28.md'), '## Decisions\n- x\n', 'utf8');
+      const backend = mockBackend('## Decisions\n- distilled\n');
+      const r = await runRoll({
+        projectRoot,
+        backend,
+        scope: ROLL_SCOPES.TODAY,
+        now: '2026-05-28T10:00:00Z',
+      });
+      expect(r.action).toBe('completed');
+      expect(r.delegatedTo).toBe('daily-distill');
+      expect(r.result.action).toBe('distilled');
+    });
+
+    it('--scope recent delegates to weekly-curate', async () => {
+      const sessionsDir = join(projectRoot, 'context', 'sessions');
+      mkdirSync(sessionsDir, { recursive: true });
+      writeFileSync(join(sessionsDir, 'today-2026-05-10.md'), '## Decisions\n- old\n', 'utf8');
+      writeFileSync(join(sessionsDir, 'today-2026-05-28.md'), '## Decisions\n- current\n', 'utf8');
+      // weeklyCurate makes TWO Haiku calls: archive + inline daily rebuild
+      const backend = mockBackend(
+        '## Week of 2026-05-04\n\n- archived\n',
+        '## Decisions\n\n- current\n',
+      );
+      const r = await runRoll({
+        projectRoot,
+        backend,
+        scope: ROLL_SCOPES.RECENT,
+        now: '2026-05-28T10:00:00Z',
+      });
+      expect(r.action).toBe('completed');
+      expect(r.delegatedTo).toBe('weekly-curate');
+      expect(r.result.action).toBe('curated');
+    });
+
+    it('cooldownMs: 0 override — runs even when shared 120s marker active', async () => {
+      // Touch the cooldown marker
+      const { touchCooldownMarker } = await import('../packages/cli/src/cooldown.mjs');
+      const now = '2026-05-28T10:00:00Z';
+      touchCooldownMarker({ projectRoot, now });
+
+      // Seed a today file so daily-distill has input
+      const sessionsDir = join(projectRoot, 'context', 'sessions');
+      mkdirSync(sessionsDir, { recursive: true });
+      writeFileSync(join(sessionsDir, 'today-2026-05-28.md'), '## Decisions\n- x\n', 'utf8');
+
+      const backend = mockBackend('## Decisions\n- distilled\n');
+      const r = await runRoll({
+        projectRoot,
+        backend,
+        scope: ROLL_SCOPES.TODAY,
+        now,
+      });
+      // Without the override, daily-distill would return skipped:cooldown.
+      // With the override, runRoll explicitly bypasses the gate.
+      expect(r.result.action).toBe('distilled');
+    });
+  });
+});

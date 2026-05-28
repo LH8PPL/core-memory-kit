@@ -42,6 +42,9 @@ export const REASON_CODES = Object.freeze({
   REVIEW_DISCARDED: 'review-discarded', // review-queue: user discarded a medium-trust auto-extract via cmk queue review
   IMPORT_APPLIED: 'import-applied', // import-anthropic-memory: bullet applied to project MEMORY.md with write_source:imported (Task 38)
   IMPORT_SKIPPED_DUPLICATE: 'import-skipped-duplicate', // import-anthropic-memory: candidate canonicalize-matched existing fact, skipped (Task 38)
+  REPAIR_HOOKS_APPLIED: 'repair-hooks-applied', // cmk repair --hooks: settings.json updated with canonical kit hooks (Task 39)
+  REPAIR_HOOKS_NOOP: 'repair-hooks-noop', // cmk repair --hooks: settings.json already canonical, no-op (Task 39)
+  REPAIR_LOCK_REMOVED: 'repair-lock-removed', // cmk repair --locks: stale lock unlinked (Task 39)
 });
 
 export function nowIso() {
