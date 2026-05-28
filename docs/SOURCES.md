@@ -136,6 +136,12 @@ Numbers consistent with Anthropic's own page across all four sources.
 - **Milvus v2.6 release notes** — Woodpecker WAL backend change (replaces Pulsar in v2.5). Pulled from `milvus-io/web-content` repo on GitHub when the official docs site returned 403.
 - **Milvus standalone Docker install** — official multi-container compose pattern (etcd + MinIO + standalone). The `latest` tag is v3.0-beta and crashes; v2.6.16 is the current stable.
 
+## Host-scheduler references (Layer 6 cron registration)
+
+- ✓ **launchd.plist(5) — Apple developer docs** — used to verify the `StartCalendarInterval` dictionary key set + `<key>Weekday</key>` integer encoding (0=Sunday through 6=Saturday; 7 also accepted as Sunday for back-compat). Primary reference: Apple's "Scheduling Timed Jobs" guide ([archived version](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/ScheduledJobs.html)) + the `launchd.plist(5)` man page bundled with macOS. Cited by [`packages/cli/src/register-crons.mjs`](../packages/cli/src/register-crons.mjs) for macOS Task 33 + Task 34 cron registration. Verified 2026-05-28 during Task 34's code-review skill-pass S2 follow-up — primary source confirms 0=Sunday matches both cron + launchd conventions, addressing the verification concern flagged in the review.
+- ✓ **crontab(5) — POSIX cron man page** ([man7](https://man7.org/linux/man-pages/man5/crontab.5.html) is a representative public mirror). 5-field format: `minute hour day-of-month month day-of-week`. day-of-week 0-6 with Sunday=0 (7 also accepted as Sunday in some implementations). Used by [`packages/cli/src/register-crons.mjs`](../packages/cli/src/register-crons.mjs) Linux branch.
+- ✓ **schtasks /Create reference — Microsoft Learn** ([learn.microsoft.com](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/schtasks-create)) — `/SC DAILY`, `/SC WEEKLY /D <SUN|MON|...>`, `/F` (force overwrite), `/ST HH:mm` flags used by [`packages/cli/src/register-crons.mjs`](../packages/cli/src/register-crons.mjs) Windows branch. Verified 2026-05-28 during Task 33 + Task 34 Windows scheduler implementation.
+
 ## Per-OS install commands
 
 ### Windows

@@ -350,6 +350,112 @@ describe('Task 34 — weeklyCurate', () => {
       expect(entry.success).toBe(false);
       expect(entry.error_category).toBe('compress_failed');
     });
+
+    it('M6 fix: error path touches cooldown marker (fail-loud over re-cost)', async () => {
+      const now = '2026-05-28T09:00:00Z';
+      seedTodayFile('2026-05-10', '## Decisions\n- old\n');
+      const backend = new MockHaikuBackend({ throwError: new Error('haiku-crash') });
+      await weeklyCurate({ projectRoot, backend, now });
+      // Cooldown marker should exist after the failed Haiku call —
+      // analogous to daily-distill's documented "touch on success +
+      // error" contract per design §8.6.1.
+      const markerPath = join(projectRoot, 'context', '.locks', 'last-haiku-call.ts');
+      expect(existsSync(markerPath)).toBe(true);
+    });
+  });
+
+  describe('I2 fix: cooldown-skip NDJSON entry has null model_id (truth-in-logging)', () => {
+    it('does NOT record model_id when Haiku was never called', async () => {
+      const now = '2026-05-28T09:00:00Z';
+      touchCooldownMarker({ projectRoot, now });
+      seedTodayFile('2026-05-10', '## Decisions\n- old\n');
+      await weeklyCurate({
+        projectRoot,
+        backend: mockBackend('archive', 'recent'),
+        now,
+      });
+      const logPath = join(projectRoot, 'context', 'sessions', '2026-05-28.curate.log');
+      const entry = JSON.parse(readFileSync(logPath, 'utf8').trim().split('\n')[0]);
+      expect(entry.skipped_reason).toBe('cooldown');
+      expect(entry.model_id).toBeNull();
+    });
+  });
+
+  describe('M4 fix: recentMaxBytes plumbs through to inline dailyDistill', () => {
+    it('passes recentMaxBytes as maxOutputBytes to the inner dailyDistill call', async () => {
+      const now = '2026-05-28T09:00:00Z';
+      seedTodayFile('2026-05-10', '## Decisions\n- old\n');
+      seedTodayFile('2026-05-28', '## Decisions\n- current\n');
+      const backend = mockBackend('## Week of 2026-05-04\n\n- consolidated\n', '## Decisions\n- recent\n');
+      await weeklyCurate({
+        projectRoot, backend, now, recentMaxBytes: 1024,
+      });
+      // calls[0] = archive Haiku call; calls[1] = inline dailyDistill's Haiku call
+      expect(backend.calls.length).toBe(2);
+      expect(backend.calls[1].maxOutputBytes).toBe(1024);
+    });
+  });
+});
+
+describe('Task 34 — dedupBullets I1 contract: pre-section bullets pass through verbatim (no implicit-section dedup)', () => {
+  it('bullets BEFORE any `## Week of` heading pass through unchanged with no merged_from', () => {
+    const input = [
+      '- pre-header bullet A',
+      '- pre-header bullet B',
+      '## Week of 2026-05-11',
+      '- in-section bullet',
+    ].join('\n');
+    const out = dedupBullets(input, ['2026-05-11', '2026-05-12']);
+    expect(out).toContain('- pre-header bullet A');
+    expect(out).toContain('- pre-header bullet B');
+    expect(out).not.toContain('merged_from');
+  });
+
+  it('S5 fix: non-week `## ` headings reset section state (no false merge across section types)', () => {
+    const input = [
+      '## Week of 2026-05-11',
+      '- shared bullet',
+      '## Decisions',
+      '- shared bullet',
+    ].join('\n');
+    // The `## Decisions` heading resets inWeekSection=false; the
+    // second `- shared bullet` is in a non-week section and should
+    // NOT merge with the first.
+    const out = dedupBullets(input, ['2026-05-11', '2026-05-12']);
+    expect(out.match(/- shared bullet/g).length).toBe(2);
+    expect(out).not.toContain('merged_from');
+  });
+});
+
+describe('Task 34 — register-crons unregister idempotency (skill-review I3)', () => {
+  it('runRegisterCrons --unregister is idempotent in dry-run when only daily was registered', async () => {
+    // Cover the case where existing v0.1.0 users only had daily-distill
+    // registered (pre-Task-34). Re-running register-crons --unregister
+    // should produce TWO command lines (daily + weekly) without error.
+    const { unregisterCron, CRON_ENTRY_NAME, WEEKLY_ENTRY_NAME } = await import(
+      '../packages/cli/src/register-crons.mjs'
+    );
+    const r1 = unregisterCron({ entryName: CRON_ENTRY_NAME, dryRun: true });
+    const r2 = unregisterCron({ entryName: WEEKLY_ENTRY_NAME, dryRun: true });
+    expect(r1.action).toBe('dry-run');
+    expect(r2.action).toBe('dry-run');
+    // Two distinct entry-name interpolations
+    expect(r1.command).toContain(CRON_ENTRY_NAME);
+    expect(r2.command).toContain(WEEKLY_ENTRY_NAME);
+    expect(r1.command).not.toBe(r2.command);
+  });
+
+  it('registerCron rejects invalid entryName at validation boundary', async () => {
+    // Defensive: entryName goes into shell-line + plist label + schtasks
+    // identifier; non-trivial chars would break the platform commands.
+    const { registerCron } = await import('../packages/cli/src/register-crons.mjs');
+    const r = registerCron({
+      command: 'cmk-x',
+      entryName: 'bad name with spaces',
+      dryRun: true,
+    });
+    expect(r.action).toBe('error');
+    expect(r.errorCategory).toBe('schema');
   });
 });
 

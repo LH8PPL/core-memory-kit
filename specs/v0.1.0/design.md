@@ -2309,6 +2309,46 @@ v0.1.x candidate: when the first path-accepting tool ships, wire `validatePath` 
 
 Provenance: Task 31 code-review Blocking #2 (partial — 2026-05-28).
 
+### 16.43 `cmk register-crons --daily-only` / `--weekly-only` flags
+
+**v0.1.x candidate.**
+
+Surfaced by Task 34 code-review-excellence Minor #1 (2026-05-28). Task 34's PR made `cmk register-crons` dual-register both daily-distill (23:00 daily) AND weekly-curate (Sun 09:00) by default — the right v0.1.0 UX since v0.1.0 hasn't shipped yet, but post-v0.1.0 some users may want to register only one (e.g., running on a machine that's powered down at 09:00 Sunday, or where the user manages weekly via a different mechanism).
+
+v0.1.x candidate: add `--daily-only` / `--weekly-only` flags + matching `--unregister --daily-only` etc. Ship trigger: a user issue reporting "I only want one cron registered" or a v0.2 release that surfaces the flags via `cmk doctor` recommendation. Until then, users who want only one entry can `cmk register-crons --unregister && cmk register-crons` then manually `unregisterCron({entryName: 'cmk-weekly-curate'})` via a one-liner.
+
+Provenance: Task 34 code-review Minor #1 (2026-05-28).
+
+### 16.44 Per-bullet source-day attribution in `merged_from`
+
+**v0.1.x candidate.**
+
+Surfaced by Task 34 code-review-excellence Minor #2 (2026-05-28). The v0.1.0 `dedupBullets` pass writes `<!-- merged_from: ['YYYY-MM-DD', ...] -->` listing ALL sourceDates the curate call was given — not per-bullet attribution. The reason: today-*.md bullets have no inline day tags Haiku reliably preserves; the conservative attribution names "any of these days could have contributed" rather than "exactly these days contributed."
+
+v0.1.x candidate: change `dedupBullets` to require Haiku output to carry per-bullet day attribution (e.g., a `[YYYY-MM-DD]` tag at the end of each bullet) and have the dedup pass parse those tags. Ship trigger: when audit-trail use cases need bullet-level provenance (e.g., a user asks "when did we first decide X?" and the answer needs to be a specific day rather than "sometime in this week"). Cost: stricter Haiku prompt + parser + fallback for non-conforming Haiku output.
+
+Provenance: Task 34 code-review Minor #2 (2026-05-28).
+
+### 16.45 `archive.md` rotation policy
+
+**v0.1.x candidate.**
+
+Surfaced by Task 34 code-review-excellence Suggestion #1 (2026-05-28). v0.1.0 ships with archive.md growing unboundedly (audit-grade file, not surfaced via SessionStart). After ~1 year of weekly runs the file is ~50 sections × ~4KB = 200KB. Tolerable for v0.1.0; could become a problem for very-long-lived projects.
+
+v0.1.x candidate: when `archive.md` exceeds N MB (default 1MB), rotate to `archive-{YYYY-Q}.md` (quarterly archive partitions) keyed by ISO quarter. Ship trigger: a project that has run the kit for 6+ months reports archive.md exceeding 500KB. Until then, the file is small enough that manual cleanup via `cmk roll` (Task 39) is a sufficient escape hatch.
+
+Provenance: Task 34 code-review Suggestion #1 (2026-05-28).
+
+### 16.46 Direct unit test for `buildWindowsSchtasks` weekly branch
+
+**v0.1.x candidate.**
+
+Surfaced by Task 34 code-review-excellence Suggestion #3 (2026-05-28). The Windows `/SC WEEKLY /D <DAY>` branch in `buildWindowsSchtasks` is currently exercised only via the `runRegisterCrons` integration path. The unit test file `cli-register-crons.test.js` only hits `/SC DAILY`. Functional coverage is adequate (the integration path WILL fail loud if the branch is broken) but unit isolation would catch regressions earlier.
+
+v0.1.x candidate: export `buildWindowsSchtasks` (currently module-private) and add a unit test calling it with `dayOfWeek: 0` asserting output contains `/SC WEEKLY /D SUN`. Ship trigger: a regression class affecting Windows scheduling that the integration test happens to mask.
+
+Provenance: Task 34 code-review Suggestion #3 (2026-05-28).
+
 ---
 
 ## 17. Test discipline

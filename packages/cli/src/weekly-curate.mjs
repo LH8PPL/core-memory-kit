@@ -129,6 +129,15 @@ function readBuffer(files) {
 // Output: same shape, with consecutive same-canonical bullets within a
 // week collapsed and a `<!-- merged_from: ['YYYY-MM-DD', ...] -->`
 // comment line appended after the consolidated bullet.
+//
+// SCOPE CONTRACT (skill-review I1, 2026-05-28): dedup only triggers
+// INSIDE a `## Week of ...` section. Bullets that appear BEFORE the
+// first such heading (e.g., Haiku ignores the prompt format and emits
+// bullets without a week wrapper) pass through verbatim with NO dedup.
+// This is intentional: without a section to scope-attribute the merge,
+// the merged_from comment would lose its provenance meaning. If a
+// future Haiku response shape needs implicit-section dedup, lift this
+// behavior here + add a corresponding test pinning the new shape.
 export function dedupBullets(archiveText, sourceDates) {
   const lines = archiveText.split('\n');
   const out = [];
@@ -180,6 +189,16 @@ export function dedupBullets(archiveText, sourceDates) {
       flushBuffer();
       out.push(line);
       inWeekSection = true;
+      continue;
+    }
+    // S5 fix: any other `## ` heading (e.g., `## Decisions` if Haiku
+    // ignores the prompt format) ends the current week section. Without
+    // this reset, bullets under the non-week heading would still buffer
+    // into the prior week's dedup group — wrong attribution.
+    if (/^## /.test(line)) {
+      flushBuffer();
+      out.push(line);
+      inWeekSection = false;
       continue;
     }
     if (inWeekSection && /^-\s/.test(line)) {
@@ -268,8 +287,10 @@ export async function weeklyCurate({
         scope: 'weekly-curate',
         input_bytes: 0,
         output_bytes: 0,
-        model_id:
-          typeof backend.modelId === 'function' ? backend.modelId() : null,
+        // I2 fix: null model_id on the cooldown-skip path. Haiku was
+        // never called — recording the backend's modelId would
+        // mis-attribute the (non-existent) call in NDJSON analytics.
+        model_id: null,
         cost_usd: 0,
         duration_ms,
         success: true,
@@ -369,11 +390,16 @@ export async function weeklyCurate({
 
   // Delete OLD today-*.md files (audit retention via git history;
   // committed tier per .gitignore.fragment).
+  // M3 fix: track per-file deletion errors in the NDJSON entry so ops
+  // can detect partial-deletion events (Windows file lock, race
+  // condition). Self-healing — next week's curate re-archives any
+  // surviving OLD file — but observability matters.
+  const deletionErrors = [];
   for (const f of old) {
     try {
       unlinkSync(f.path);
-    } catch {
-      // Best-effort; if the file is locked / missing, log + continue.
+    } catch (err) {
+      deletionErrors.push({ path: f.path, error: err?.message ?? String(err) });
     }
   }
 
@@ -411,6 +437,7 @@ export async function weeklyCurate({
       archived_days: old.length,
       current_days: current.length,
       recent_rebuild_action: recentResult?.action ?? 'skipped',
+      ...(deletionErrors.length > 0 ? { deletion_errors: deletionErrors } : {}),
     },
   });
 
