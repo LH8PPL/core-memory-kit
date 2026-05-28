@@ -731,16 +731,22 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 
 - [ ] 37. `cmk doctor` health checks HC-1..HC-9 (T-031)
   - Estimate: M · Depends: 3
-- [ ] 37.1 Implement HC-1..HC-7 from design §14
+- [x] 37.1 Implement HC-1..HC-7 from design §14
   - memsearch installed; hooks registered; distill freshness; transcripts firing; INDEX consistency; cron registered; memsearch backend reachable
-- [ ] 37.2 Implement HC-8 — native Anthropic Auto Memory detector
+  - Shipped in [`packages/cli/src/doctor.mjs`](../../packages/cli/src/doctor.mjs). HC-1: `memsearch --version` spawn. HC-2: parse `.claude/settings.json` for hook references. HC-3: stat `recent.md` mtime against 2-day TTL. HC-4: walk `context/transcripts/*.md`, count files within 3-day window. HC-5: read `context/memory/INDEX.md`, diff against `*.md` in dir. HC-6: existsSync on cron sentinel. HC-7: short-circuits on HC-1 verdict (Milvus reachability deferred to Layer 5b/v0.1.x per ADR-0008).
+- [x] 37.2 Implement HC-8 — native Anthropic Auto Memory detector
   - Inspect `~/.claude/projects/<slug>/memory/`; log to `.locks/native-memory-status.log`
-- [ ] 37.2a Implement HC-9 — stale lock file detection
+  - Shipped: slug = `projectRoot.replace(/[^a-zA-Z0-9]/g, '-')` (per claude-remember research). Reads `~/.claude/projects/{slug}/memory/` if present, writes single-line JSON to `context/.locks/native-memory-status.log` with `{ts, active, last_modified, file_count}`. Status is always 'pass' (non-fatal, informational).
+- [x] 37.2a Implement HC-9 — stale lock file detection
   - Call `detectStaleLocks(projectRoot, {userDir})` from [`packages/cli/src/lock-discipline.mjs`](../../packages/cli/src/lock-discipline.mjs) (shipped in PR-B per design §6.9); for each entry with `stale: true` surface the `recoveryCommand` in the diagnostic report. Non-fatal — report-only.
-- [ ] 37.3 Implement structured report output (per-check pass/fail/skip)
-- [ ] 37.4 Wire repair-command suggestions on failure
-- [ ] 37.5 Prompt user before invoking any install-requiring repair
-- [ ]* 37.6 Write unit tests for `cmk doctor`
+  - Shipped via direct delegation: `hc9StaleLocks` filters `detectStaleLocks().filter(r => r.stale)` and surfaces the first lock's recoveryCommand (platform-aware via lock-discipline.mjs).
+- [x] 37.3 Implement structured report output (per-check pass/fail/skip)
+  - Shipped in `runDoctorCli` (subcommands.mjs): one line per check (`[STATUS] HC-N: name`), one indented line for the message, one indented line for `→ repair: <command>` on fail. Summary line with counts + duration. `process.exitCode = 1` on any fail, 2 on error.
+- [x] 37.4 Wire repair-command suggestions on failure
+  - Each HC result carries `recoveryCommand?` field. The CLI handler surfaces it on fail (and only on fail). Install-requiring commands carry `requiresInstall: true` + show a `(REQUIRES INSTALL — review before running)` annotation.
+- [x] 37.5 Prompt user before invoking any install-requiring repair
+  - v0.1.0 posture: NEVER auto-invoke install-requiring repairs. The CLI handler prints the recoveryCommand to stdout; the user runs it manually. Auto-repair with `--yes` is a v0.1.x candidate (would need the promptUser callback wired through). The `runDoctor` API takes a `promptUser` parameter for forward-compatibility — currently unused at the doctor layer.
+- [x]* 37.6 Write unit tests for `cmk doctor`
   - Test all 9 HCs run in order; report line per check (`PASS` / `FAIL` / `SKIP`)
   - Test full run completes within 5 s on 10k-observation fixture
   - Test failed HC (e.g., HC-2 missing hook): repair command in stderr

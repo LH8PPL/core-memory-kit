@@ -23,6 +23,7 @@ import { runMcpServer } from './mcp-server.mjs';
 import { dailyDistill } from './daily-distill.mjs';
 import { weeklyCurate } from './weekly-curate.mjs';
 import { runLazyCompress } from './lazy-compress.mjs';
+import { runDoctor } from './doctor.mjs';
 import {
   markCronRegistered,
   unmarkCronRegistered,
@@ -482,6 +483,54 @@ function runRegisterCrons(options /* , command */) {
  * (SessionStart hook) when staleness is detected and cron is NOT active.
  * Humans normally don't invoke this directly.
  */
+/**
+ * `cmk doctor` (Task 37) — runs the 9 health checks and prints a
+ * structured report with repair commands. Per design §14 + tasks.md 37.3.
+ *
+ * Per NFR-9 + tasks.md 37.5: any recoveryCommand whose underlying
+ * action requires a system-level install (pip install / npm install /
+ * docker compose up etc.) must NOT be auto-invoked. v0.1.0 surfaces
+ * the command to stdout — the user runs it themselves. Auto-repair
+ * with --yes is a v0.1.x candidate (design §16).
+ */
+async function runDoctorCli(/* options */) {
+  const projectRoot = resolvePath(process.cwd());
+  const userDir = join(homedir(), '.claude-memory-kit');
+  try {
+    const r = await runDoctor({ projectRoot, userDir });
+    if (r.action === 'error') {
+      console.error(`cmk doctor: error — ${(r.errors ?? []).join('; ')}`);
+      process.exitCode = 2;
+      return;
+    }
+    // Structured report: one line per check
+    const counts = { pass: 0, fail: 0, skip: 0 };
+    for (const c of r.checks) {
+      counts[c.status] += 1;
+      const statusLabel = c.status.toUpperCase().padEnd(4);
+      console.log(`[${statusLabel}] ${c.id}: ${c.name}`);
+      console.log(`         ${c.message}`);
+      if (c.status === 'fail' && c.recoveryCommand) {
+        // Repair-command surfaced for the user. Per 37.5 + NFR-9, we
+        // do NOT auto-invoke install-requiring repairs — the user
+        // copies the command.
+        const installNote = c.requiresInstall
+          ? ' (REQUIRES INSTALL — review before running)'
+          : '';
+        console.log(`         → repair: ${c.recoveryCommand}${installNote}`);
+      }
+    }
+    console.log('');
+    console.log(
+      `Summary: ${counts.pass} pass · ${counts.fail} fail · ${counts.skip} skip (${r.duration_ms}ms)`,
+    );
+    if (counts.fail > 0) process.exitCode = 1;
+  } catch (err) {
+    console.error(`cmk doctor: unexpected error: ${err?.message ?? err}`);
+    process.exitCode = 2;
+  }
+}
+
 async function runCompress(options /* , command */) {
   const lazy = options?.lazy === true;
   if (!lazy) {
@@ -817,9 +866,9 @@ export const subcommands = [
   },
   {
     name: 'doctor',
-    description: 'run health checks HC-1..HC-8; print structured report with self-repair commands',
+    description: 'run health checks HC-1..HC-9; print structured report with self-repair commands',
     milestone: 37,
-    action: stub('doctor', 37),
+    action: runDoctorCli,
   },
   {
     name: 'config',

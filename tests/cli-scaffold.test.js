@@ -63,7 +63,7 @@ function runCmk(args, { input } = {}) {
  *               --yes anyway and we don't want to maintain an "error-exits-2"
  *               leaf in the scaffold's exit-0 loop
  */
-const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex', 'forget', 'init-user-tier', 'trust', 'search', 'daily-distill', 'weekly-curate', 'register-crons', 'compress']);
+const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex', 'forget', 'init-user-tier', 'trust', 'search', 'daily-distill', 'weekly-curate', 'register-crons', 'compress', 'doctor']);
 
 // Wired child sub-verbs (e.g. `cmk queue conflicts` shipped in Task 25).
 // Listed as "<parent>/<child>" so the generic child-stub assertion
