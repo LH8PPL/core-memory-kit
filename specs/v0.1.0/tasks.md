@@ -1055,3 +1055,26 @@ Each parent task ships as a PR titled `[<task #>] <description>` (e.g., `[7] Per
   - Test that no production code path calls `pip install` / `npm install` / `winget install` without a consent gate above it
   - Validator (`scripts/validate-install-consent.mjs`) — structural enforcement
   - _Requirements: NFR-N (the new one); design §14_
+
+- [ ] 49. Unify install — `cmk install` wires hooks + first-class `/plugin` marketplace path (T-037)
+  - Estimate: M · Depends: 43 (v0.1.0 released) · **v0.1.1 HIGH priority — the install-UX wart from first real use**
+  - **Why**: v0.1.0 forces TWO mandatory steps where neither is complete alone — `cmk install` scaffolds `context/` but doesn't wire hooks (hook bins live in `plugin/bin/`, reference `${CLAUDE_PLUGIN_ROOT}`), so the user must ALSO `/plugin install`. claude-mem (verified: [`docs/research/2026-05-29-claude-mem-install-model.md`](../../docs/research/2026-05-29-claude-mem-install-model.md)) offers TWO *complete* entry points instead — `npx claude-mem install` (wires hooks) OR `/plugin` marketplace — pick one. We're the outlier. Per design §16.49 + §16.51 + Task 42 B4.
+  - **Fix is half-built**: Task 33/36 already de-plugin-ified the cron bins (moved into npm package + PATH-resolved commands instead of `${CLAUDE_PLUGIN_ROOT}`). Apply the identical pattern to the 5 hook bins.
+- [ ] 49.1 Ship the 5 hook bins in the npm package (`cmk-inject-context`, `cmk-capture-prompt`, `cmk-observe-edit`, `cmk-capture-turn`, `cmk-compress-session`) — they currently live only in `plugin/bin/`. Add to `packages/cli/package.json` `bin` + `files` (mirrors the 3 cron bins already shipped).
+- [ ] 49.2 `cmk install` writes the hooks into `<repo>/.claude/settings.json` with PATH-resolved commands (the `cmk repair --hooks` logic minus the `${CLAUDE_PLUGIN_ROOT}` dependency). After this, `npm install -g @lh8ppl/claude-memory-kit` + `cmk install` is a COMPLETE entry point.
+- [ ] 49.3 Make the `/plugin` marketplace route a verified complete parallel path (design §16.51): confirm `LH8PPL/claude-memory-kit` is registerable as a marketplace, `/plugin install` wires the hooks, and `/claude-memory-kit:bootstrap` scaffolds `context/`. Either route alone must be sufficient.
+- [ ] 49.4 Update README + QUICKSTART: present the two routes as "pick one" (Route A: `cmk install`; Route B: `/plugin` marketplace), each complete. Remove the current "you need BOTH" framing.
+- [ ]* 49.5 Tests
+  - `cmk install` in a sandbox writes settings.json with all 5 hooks at PATH-resolved (not `${CLAUDE_PLUGIN_ROOT}`) commands; idempotent re-run is a no-op
+  - The 5 hook bins are declared in package.json `bin` + present in `npm pack --dry-run` output
+  - spawn-smoke: a hook bin invoked via its PATH name (simulating Claude Code firing it) exits cleanly
+  - _Requirements: FR-22, FR-23; design §13, §16.49, §16.51; ADR-0005_
+
+- [ ] 50. Cross-agent install via `cmk install --ide <agent>` (T-038)
+  - Estimate: L · Depends: 49 · **v0.2 candidate**
+  - **Why**: cross-agent support (codex/cursor/kiro/gemini) — the question Lior raised at publish (ADR-0012). claude-mem's verified pattern: `npx claude-mem install --ide gemini-cli|opencode` auto-detects each agent's config dir. The kit's core is agent-neutral (tenet T1); only the hook layer is agent-specific. claude-mem kept its name while going multi-agent, reinforcing ADR-0012's "rename optional, not required". Per design §16.50 + §16.6.
+- [ ] 50.1 `cmk install --ide claude-code|cursor|codex|gemini-cli` flag; default `claude-code`
+- [ ] 50.2 Per-agent adapter modules: each knows (a) the agent's hook/lifecycle-event names, (b) its settings-file location + schema, (c) its session-transcript format. Memory store + compression + search + CLI stay identical.
+- [ ] 50.3 Auto-detect installed agents (e.g., `~/.gemini`, `~/.cursor`) like claude-mem does
+- [ ]* 50.4 Tests — per-agent settings-file wiring in sandbox; transcript-format adapters parse each agent's session format
+  - _Requirements: T6 (revisited for v0.2); design §16.50, §16.6; ADR-0012_
