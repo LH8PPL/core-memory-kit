@@ -17,8 +17,10 @@
 
 1. **Task 44 — real-usage live test** (Lior only): install on a REAL project + install the Claude Code **plugin** (`/plugin marketplace add LH8PPL/claude-memory-kit` then `/plugin install claude-memory-kit` — REQUIRED or hooks won't fire), use ~a week, log findings to `v0.1.0-live-test.md`.
 2. **Task 45 — auto-persona** (v0.1.1, next BUILD task): L-sized. Design A vs B in tasks.md 45.1 (recommend B — piggyback weekly consolidator).
-3. **Layer 5b — semantic search** (v0.1.x): memsearch+ONNX; seam in place (ADR-0008); unlocks US-9 search-over-sessions/transcripts.
-4. **Tasks 46-48** (v0.1.x): `cmk install --with-semantic` + `cmk doctor --repair` + promote ask-before-install to an NFR.
+3. **Task 49 — unify install** (v0.1.1, HIGH): `cmk install` should wire hooks (de-plugin-ify the 5 hook bins, Task 33/36 pattern) so the npm route is a COMPLETE entry point like `npx claude-mem install`; + make the `/plugin` marketplace route a complete parallel path. Today's two-step install (npm CLI **and** separate `/plugin install`) is a UX wart — neither step is complete alone. Verified vs claude-mem: research note [`docs/research/2026-05-29-claude-mem-install-model.md`](2026-05-29-claude-mem-install-model.md); design §16.49 + §16.51.
+4. **Layer 5b — semantic search** (v0.1.x): memsearch+ONNX; seam in place (ADR-0008); unlocks US-9 search-over-sessions/transcripts.
+5. **Tasks 46-48** (v0.1.x): `cmk install --with-semantic` + `cmk doctor --repair` + promote ask-before-install to an NFR.
+6. **Task 50 — cross-agent install** (v0.2): `cmk install --ide cursor|codex|gemini-cli` — claude-mem's verified `--ide` pattern. Core is agent-neutral (T1); only hooks are agent-specific. The "claude" name didn't block claude-mem from going multi-agent (ADR-0012). design §16.50.
 
 **To resume building**: read CLAUDE.md + tasks.md; next code task is 45; per-task ship cycle = TDD → self-review → code-review-excellence skill → stress 5/5 → PR → CI green → merge → housekeeping. Corpus navigator is below.
 

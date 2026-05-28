@@ -2406,6 +2406,48 @@ v0.1.x candidate: add a proper NFR (e.g., a new NFR like "Consent gate for syste
 
 Provenance: Task 37 code-review Important #1 (2026-05-28).
 
+### 16.49 Unify install — make `cmk install` a complete entry point (de-plugin-ify hook bins)
+
+**v0.1.x candidate (HIGH priority — UX wart surfaced at first real use).**
+
+Surfaced 2026-05-29 during the post-publish usage walkthrough + the claude-mem install-model comparison (research note [`docs/research/2026-05-29-claude-mem-install-model.md`](../../docs/research/2026-05-29-claude-mem-install-model.md)).
+
+**The problem.** v0.1.0 forces a TWO-step mandatory install: `npm install -g @lh8ppl/claude-memory-kit` + `cmk install` (scaffolds `context/`) **AND** a separate `/plugin marketplace add` + `/plugin install` (registers the hooks). Neither step alone is complete — `cmk install` scaffolds but does NOT wire the hooks, because the hook bins (`cmk-inject-context`, `cmk-capture-prompt`, `cmk-observe-edit`, `cmk-capture-turn`, `cmk-compress-session`) live in `plugin/bin/` and the hook commands reference `${CLAUDE_PLUGIN_ROOT}`, an env var only Claude Code's plugin loader sets. This was the Task 42 B4 finding ("hooks silently dead if you forget the plugin").
+
+**The comparison.** claude-mem makes the npm route COMPLETE: `npx claude-mem install` registers the plugin hooks + worker for you (its README explicitly notes `npm install -g claude-mem` is "SDK/library only" — the `install` subcommand is what wires everything). So claude-mem offers two *complete* entry points (pick one): `npx claude-mem install` OR `/plugin` marketplace. We offer two *partial* steps that must BOTH run. We're the outlier.
+
+**The fix (already half-built).** We solved this exact problem for the cron bins in Task 33/36 (the B1 fixes): we moved the cron bins out of `plugin/bin/` into the npm package and made `register-crons` emit PATH-resolved/absolute commands instead of `${CLAUDE_PLUGIN_ROOT}`. Apply the identical pattern to the 5 hook bins:
+
+1. Ship the 5 hook bins in the npm package (it already ships the 3 cron bins).
+2. Have `cmk install` write the hooks into `<repo>/.claude/settings.json` with PATH-resolved commands (`cmk-inject-context` etc., resolved via the global npm bin dir) — exactly what `cmk repair --hooks` does, minus the `${CLAUDE_PLUGIN_ROOT}` dependency.
+
+Result: `npm install -g @lh8ppl/claude-memory-kit` + `cmk install` becomes a complete, self-sufficient entry point (like `npx claude-mem install`). The `/plugin` route becomes optional-alternative (see §16.51), not mandatory-additional.
+
+Ship trigger: v0.1.1. This is the highest-value install-UX fix. Tracked as tasks.md Task 49.
+
+### 16.50 Cross-agent install via `cmk install --ide <agent>`
+
+**v0.2 candidate.**
+
+Surfaced 2026-05-29. Lior raised the cross-agent question (codex/cursor/kiro/gemini) at publish time (see ADR-0012). claude-mem's README shows the verified pattern: `npx claude-mem install --ide gemini-cli` / `--ide opencode` — a single installer with an `--ide` flag that auto-detects each agent's config dir and installs the hooks there. Notably claude-mem kept the name "claude-mem" while supporting Gemini + OpenCode, so the "claude" in a product name does not block multi-agent.
+
+For the kit: `cmk install --ide claude-code|cursor|codex|gemini-cli`. The kit's core is already agent-neutral (tenet T1 — markdown is the source of truth; `context/` doesn't care which agent reads it). Only the hook layer is agent-specific. So cross-agent = per-agent adapter modules that know each agent's (a) hook/lifecycle-event names, (b) settings-file location + schema, (c) session-transcript format. The memory store, compression, search, and CLI stay identical.
+
+This depends on §16.49 landing first (once `cmk install` owns hook-wiring for Claude Code, generalizing it to other agents via `--ide` is the natural extension). Ship trigger: v0.2, or earlier if a second-agent user materializes. Tracked as tasks.md Task 50. Cross-ref: ADR-0012 (cross-agent naming deferral), design §16.6 (IDE adapters seam).
+
+### 16.51 First-class `/plugin` marketplace path (parallel to `cmk install`)
+
+**v0.1.x candidate (pairs with §16.49).**
+
+Surfaced 2026-05-29 (Lior: "we also need to do something like this in parallel" — referring to claude-mem's `/plugin marketplace add thedotmack/claude-mem` + `/plugin install claude-mem`).
+
+claude-mem offers BOTH a complete npm-route installer AND a complete `/plugin` marketplace route — the user picks one. The kit should match: alongside the unified `cmk install` (§16.49), the `/plugin marketplace add LH8PPL/claude-memory-kit` + `/plugin install claude-memory-kit` flow must be a **complete, first-class entry point** that sets up everything (hooks via the plugin + a scaffold step). Today the kit references this flow in the README, and the plugin ships a `bootstrap` skill (`/claude-memory-kit:bootstrap`) that scaffolds `context/` — but the marketplace path needs to be verified end-to-end: (a) the GitHub repo is registerable as a marketplace, (b) `/plugin install` wires the hooks, (c) the bootstrap skill scaffolds the project tier. The two routes are equivalent and either alone is sufficient:
+
+- **Route A (terminal/npm)**: `npm install -g @lh8ppl/claude-memory-kit` → `cmk install` (§16.49 makes this wire hooks too)
+- **Route B (in-Claude-Code/plugin)**: `/plugin marketplace add LH8PPL/claude-memory-kit` → `/plugin install claude-memory-kit` → `/claude-memory-kit:bootstrap`
+
+Ship trigger: v0.1.1, alongside §16.49. Tracked as tasks.md Task 49 (sub-task). Cross-ref: ADR-0005 (three-install-paths), ADR-0012.
+
 ---
 
 ## 17. Test discipline
