@@ -756,7 +756,7 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Test install-requiring repair: stub prompt; assert prompt shown before any install command
   - _Requirements: FR-22; design §14_
 
-- [ ] 38. `cmk import-anthropic-memory` + `cmk transcripts extract` (T-032)
+- [x] 38. `cmk import-anthropic-memory` + `cmk transcripts extract` (T-032) _shipped 2026-05-28, PR #56_
   - Estimate: M · Depends: 5, 24
   - Scope expanded 2026-05-24 (post-bootstrap-test): both subcommands live at the same boundary (the harness's `~/.claude/projects/<slug>/` directory), share filesystem discovery logic, and together cover the full "mine pre-kit conversation history" workflow. Per design §16.8.
 
