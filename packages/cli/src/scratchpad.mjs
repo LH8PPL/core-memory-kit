@@ -18,7 +18,7 @@
 // only the location of the formatter moves.
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { generateId } from '../../canonicalize/src/index.mjs';
+import { generateId } from '@cmk/canonicalize';
 import {
   VALID_TIERS,
   SCRATCHPADS_BY_TIER,

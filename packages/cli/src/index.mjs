@@ -36,7 +36,7 @@ export function buildProgram() {
     .name('cmk')
     .description(
       'claude-memory-kit — per-project, in-repo memory system for Claude Code. ' +
-        'v0.1.0 is in active development; most subcommands print a "not yet implemented" notice.'
+        'Run `cmk install` to scaffold a project, `cmk doctor` to verify health.'
     )
     .version(readPackageVersion(), '-V, --version', 'print the cmk version + exit');
 
@@ -54,10 +54,21 @@ export function buildProgram() {
       for (const child of sub.children) {
         const childCmd = cmd
           .command(child.name)
-          .description(child.description)
-          .action(() => sub.action(child.name));
+          .description(child.description);
         if (child.argSpec) for (const a of child.argSpec) childCmd.argument(a.flags, a.description);
         if (child.optionSpec) for (const o of child.optionSpec) childCmd.addOption(new Option(o.flags, o.description));
+        // Task 42 B3 fix (skill-review 2026-05-28): when a child has
+        // its OWN action (Task 38 transcripts/extract is the precedent),
+        // wire that directly so its options propagate to its handler.
+        // Falling back to `sub.action(child.name)` was a stub-era
+        // pattern from Task 2 that broke once children grew real
+        // logic — `transcripts` has no parent action and `cmk
+        // transcripts extract` crashed with TypeError.
+        if (typeof child.action === 'function') {
+          childCmd.action((...cmdArgs) => child.action(...cmdArgs));
+        } else {
+          childCmd.action(() => sub.action(child.name));
+        }
       }
     } else {
       cmd.action((...cmdArgs) => sub.action(...cmdArgs));

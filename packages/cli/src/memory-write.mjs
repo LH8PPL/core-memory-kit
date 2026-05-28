@@ -44,7 +44,7 @@ import {
 } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
-import { generateId } from '../../canonicalize/src/index.mjs';
+import { generateId } from '@cmk/canonicalize';
 import {
   resolveTierRoot,
   resolveScratchpadPath,

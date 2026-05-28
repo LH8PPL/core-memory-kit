@@ -51,7 +51,7 @@ import { join } from 'node:path';
 import { resolveTierRoot, VALID_TIERS } from './tier-paths.mjs';
 import { nowIso, appendAuditEntry, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
-import { generateId } from '../../canonicalize/src/index.mjs';
+import { generateId } from '@cmk/canonicalize';
 
 // Trust ordering. Higher number = higher trust.
 const TRUST_LEVELS = Object.freeze({
