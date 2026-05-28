@@ -2,128 +2,137 @@
 
 A per-project, in-repo memory system for [Claude Code](https://docs.claude.com/en/docs/claude-code). Fixes Claude's per-session amnesia so you don't have to re-tell the backstory every time you start a new session.
 
-Inspired by [Simon Scrapes' "Master Claude Memory"](https://www.youtube.com/watch?v=rFWxRZ5D-lM) video.
+Inspired by [Simon Scrapes' "Master Claude Memory"](https://www.youtube.com/watch?v=rFWxRZ5D-lM) video. Independently converges with [Anthropic's native auto-memory](https://docs.anthropic.com/en/docs/claude-code/auto-memory) (Claude Code v2.1.59+) on the `<type>_<slug>.md` granular pattern.
+
+## Status
+
+**v0.1.0** — released [2026-MM-DD]. Architecture-first first release, ~55 dev days, 41 tasks, 1100+ tests, 8 structural validators, cross-OS CI matrix (Windows + macOS + Linux). See [`docs/journey/v0.1.0-build-log.md`](docs/journey/v0.1.0-build-log.md) for the full narrative.
 
 ## What it does
 
-- **Frozen snapshot loads at session start**: a small set of files (USER.md, MEMORY.md, SOUL.md, INDEX.md, today's session log) is injected once at the first tool call, giving Claude a static context that survives across sessions.
-- **Auto-extract Stop hook**: after every assistant turn, a background `claude --print` invocation reads the turn and saves any durable facts (decisions, preferences, environment changes) to memory. You don't have to flag things manually.
-- **`memory-write` skill**: when you say "remember this", "from now on", "we decided", or "forget about X", the skill triggers, dedups against existing memory, enforces char caps, and writes to the right file silently.
-- **Per-project, in-repo**: `context/` lives inside the project and travels with `git clone`. Multiple projects on the same machine each have their own memory. Nothing crosses boundaries.
-- **Optional Layer 5 (memsearch)**: hybrid vector + keyword search over your memory, sessions, and transcripts. Uses local ONNX embeddings (no API key needed).
-- **Optional Layer 6 (auto-curation)**: cron jobs that distill new facts daily, re-index for memsearch nightly, and consolidate the scratchpad weekly.
+- **Frozen snapshot at session start**: MEMORY.md + USER.md + SOUL.md + INDEX.md + today's session log inject once at first tool call. Claude sees this context every session without you re-telling it.
+- **Auto-extract on every assistant turn**: a background `claude --print` subagent reads the turn and saves durable facts (decisions, preferences, environment) to memory. No manual writes needed.
+- **`memory-write` skill**: when you say "remember this", "from now on", "we decided", or "forget X", the skill triggers — dedups against existing memory, enforces char caps, writes silently.
+- **Per-project, in-repo**: `context/` lives inside your project and travels with `git clone`. Multiple projects each have their own memory. Nothing crosses boundaries unless you promote via `cmk lessons promote`.
+- **9 health checks**: `cmk doctor` validates the install, settings.json hook wiring, distill freshness, transcript firing, INDEX consistency, cron registration, Anthropic auto-memory coexistence, and stale lock detection.
 
-## Three install paths
-
-Pick the one that fits.
-
-### 1. Script install — clone + run a script
+## Quickstart (60 seconds)
 
 ```bash
-git clone https://github.com/<your-username>/claude-memory-kit
-cd my-new-project
-bash /path/to/claude-memory-kit/install.sh   # Linux/macOS
-# or
-pwsh C:\path\to\claude-memory-kit\install.ps1   # Windows
+# 1. Install the CLI globally (Node 20+)
+npm install -g @claude-memory-kit/cli
+
+# 2. Inside a project, scaffold the kit
+cd ~/my-project
+cmk install
+
+# 3. Register the cron jobs (optional; Layer 6 — falls back to lazy-on-read if not registered)
+cmk register-crons
+
+# 4. Verify
+cmk doctor
 ```
 
-The script copies the template files into your project's `.claude/`, `context/`, `scripts/`, `milvus-deploy/`, and `cron/jobs/` directories. Existing files are never overwritten.
+Then open Claude Code on the project. Auto-extract fires on Stop. SessionStart injects the snapshot. `cmk search "<term>"` returns accumulated memory.
 
-### 2. Claude Code plugin
-
-In Claude Code:
-
-```text
-/plugin marketplace add <your-username>/claude-memory-kit
-/plugin install claude-memory-kit
-# Restart Claude Code, then in each project:
-/claude-memory-kit:bootstrap
-```
-
-The plugin ships the hooks and skill globally; the `bootstrap` skill scaffolds per-project files.
-
-### 3. Manual copy
-
-Clone the kit and copy `template/.claude`, `template/context`, `template/scripts`, etc. into your project by hand. See each `INSTALL-<os>.md` for the exact commands.
+Full walkthrough: [QUICKSTART.md](QUICKSTART.md).
 
 ## OS-specific install guides
 
-- [INSTALL-windows.md](INSTALL-windows.md) — winget, Docker Desktop, WSL 2
-- [INSTALL-macos.md](INSTALL-macos.md) — Homebrew, milvus-lite (no Docker needed)
-- [INSTALL-linux.md](INSTALL-linux.md) — apt, Docker Engine, milvus-lite
+- [INSTALL-linux.md](INSTALL-linux.md) — Node via NodeSource, optional Docker for Layer 5b
+- [INSTALL-macos.md](INSTALL-macos.md) — Homebrew, native launchd cron, milvus-lite (no Docker needed)
+- [INSTALL-windows.md](INSTALL-windows.md) — winget, Task Scheduler, optional Docker Desktop for Layer 5b
 
-## Architecture (six layers)
+## Three-tier model
 
-| Layer | What | Required? |
-|---|---|---|
-| 1 | In-repo location (`context/` directory tree) | Yes |
-| 2 | Granular archive + INDEX.md (typed durable facts) | Yes |
-| 3 | Bounded scratchpads (MEMORY.md, USER.md, SOUL.md) | Yes |
-| 4 | Auto-extract Stop hook + PreToolUse hook + memory-write skill | Recommended |
-| 5 | memsearch (semantic recall) | Optional |
-| 6 | Auto-curation crons (distill, index, curate) | Optional |
+| Tier | Location | Scope | What lives here |
+| --- | --- | --- | --- |
+| **P** (project) | `<repo>/context/` | committed to git, travels with `clone` | Project-specific facts: decisions, file purposes, conventions |
+| **L** (local) | `<repo>/context.local/` | gitignored | Per-machine paths: Tesseract install dir, Python version |
+| **U** (user) | `~/.claude-memory-kit/` | cross-project per-user | Persona, lessons learned, cross-project preferences |
 
-Layers 1-3 are pure file ops. Layer 4 makes memory writes automatic. Layer 5 lets you search older memories semantically. Layer 6 keeps the scratchpad from growing stale.
+Most user-facing commands operate on the project tier by default. `cmk init-user-tier` scaffolds the U tier on a new machine.
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the full picture.
+## Layers (6 total)
 
-## Health checks
+| Layer | Module(s) | Required? | Status |
+| --- | --- | --- | --- |
+| 1 | In-repo location + scaffolding | Yes | ✓ shipped |
+| 2 | Granular archive + INDEX.md (typed facts) | Yes | ✓ shipped |
+| 3 | Bounded scratchpads (MEMORY.md, USER.md, SOUL.md) | Yes | ✓ shipped |
+| 4 | Auto-extract Stop hook + memory-write skill | Recommended | ✓ shipped |
+| **5a** | **Keyword search (SQLite + FTS5)** | **Optional** | ✓ shipped |
+| 5b | Semantic search (memsearch + ONNX BGE-M3) | Optional | v0.1.x (forward-compat seam in place) |
+| 6 | Cron compression (daily-distill + weekly-curate + lazy fallback) | Optional | ✓ shipped |
 
-Seven yes/no checks run at session start. Each has a documented self-repair path. See [HEALTH-CHECKS.md](HEALTH-CHECKS.md).
+Layers 1-3 are pure file ops. Layer 4 makes memory writes automatic. Layer 5a (keyword) ships in v0.1.0; Layer 5b (semantic) plugs in via the existing `CompressorBackend` seam without breaking changes. Layer 6 keeps the scratchpad from growing stale; if you can't run cron, it falls back to lazy-on-read compression at SessionStart.
 
-## Repo layout
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the data-flow diagram and [`specs/v0.1.0/design.md`](specs/v0.1.0/design.md) for the full design.
 
-```
-claude-memory-kit/
-├── README.md                  ← this file
-├── ARCHITECTURE.md            ← six-layer design
-├── HEALTH-CHECKS.md           ← HC-1..HC-7 and self-repair
-├── INSTALL-windows.md
-├── INSTALL-macos.md
-├── INSTALL-linux.md
-├── install.sh                 ← script install (Linux/macOS/Git Bash)
-├── install.ps1                ← script install (PowerShell)
-├── LICENSE
-├── template/                  ← source files copied by install scripts
-│   ├── .claude/               ← settings.json, hooks/, skills/
-│   ├── context/               ← USER/MEMORY/SOUL templates + SETUP.md
-│   ├── scripts/               ← auto-extract, distill, curate, register-crons, etc.
-│   ├── milvus-deploy/         ← Docker compose for Milvus v2.6.16
-│   ├── cron/jobs/             ← cron job declarations (md frontmatter)
-│   └── CLAUDE.md.template     ← orchestrator block to merge into project CLAUDE.md
-├── plugin/                    ← Claude Code plugin distribution
-│   ├── .claude-plugin/plugin.json
-│   ├── hooks/                 ← hooks.json + JS handlers
-│   ├── skills/                ← memory-write + bootstrap
-│   ├── bin/                   ← auto-extract-memory.sh
-│   ├── context-template/      ← template files seeded by /bootstrap
-│   ├── cron-template/         ← cron jobs seeded by /bootstrap
-│   ├── milvus-deploy-template/← compose seeded by /bootstrap
-│   └── scripts/               ← scripts seeded by /bootstrap
-├── docs/                      ← (extended docs, ADRs, examples)
-└── examples/                  ← (sample projects using the kit)
-```
+## CLI
+
+Most-used commands (full list via `cmk --help`):
+
+| Command | Purpose |
+| --- | --- |
+| `cmk install` | Scaffold `context/` + add `.gitignore` lines + drop CLAUDE.md block |
+| `cmk doctor` | Run HC-1..HC-9 health checks, surface repair commands |
+| `cmk repair --hooks` / `--locks` / `--index` / `--all` | Idempotent self-repair |
+| `cmk roll --scope now\|today\|recent` | Manually trigger one of the compression pipelines |
+| `cmk search "<query>" [--mode keyword\|semantic\|hybrid]` | Search accumulated memory (keyword default; semantic via Layer 5b) |
+| `cmk daily-distill` / `cmk weekly-curate` | Manually run cron jobs (normally invoked by host scheduler) |
+| `cmk register-crons [--dry-run] [--unregister]` | Register daily + weekly jobs with Linux crontab / macOS launchd / Windows Task Scheduler |
+| `cmk forget <id>` | Tombstone a fact (preserves audit trail) |
+| `cmk import-anthropic-memory [--dry-run] [--yes]` | Merge useful bullets from Anthropic's native auto-memory into your project MEMORY.md |
+| `cmk transcripts extract --session <uuid> --slug <slug> --since <YYYY-MM-DD>` | Extract clean markdown transcripts from `~/.claude/projects/<slug>/<uuid>.jsonl` |
+| `cmk mcp serve` | Run the MCP server over stdio (invoked by Claude Code; not by humans) |
+
+## Health checks (HC-1..HC-9)
+
+`cmk doctor` runs nine checks per session start and reports each as PASS / FAIL / SKIP with a repair command on failure:
+
+| ID | Check | Repair |
+| --- | --- | --- |
+| HC-1 | memsearch installed (Layer 5b semantic backend) | `pip install memsearch[onnx]` — REQUIRES INSTALL (v0.1.0 doesn't auto-install per design §14) |
+| HC-2 | Stop + SessionStart hooks wired to .claude/settings.json | `cmk repair --hooks` |
+| HC-3 | Daily distill is fresh (≤2 days) | `cmk daily-distill` |
+| HC-4 | Transcripts firing (≤3 days) | reopen project as primary cwd in Claude Code |
+| HC-5 | INDEX.md matches `context/memory/` fact files | `cmk reindex` |
+| HC-6 | Cron jobs registered with host scheduler | `cmk register-crons` |
+| HC-7 | memsearch backend reachable | (depends on HC-1) |
+| HC-8 | Native Anthropic Auto Memory status detected | (informational; non-fatal) |
+| HC-9 | No stale lock files | platform-aware unlink command |
+
+See [HEALTH-CHECKS.md](HEALTH-CHECKS.md) for the detailed recovery paths.
+
+## Architecture (six layers + cross-cutting)
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the data-flow diagram, [`specs/v0.1.0/design.md`](specs/v0.1.0/design.md) for full design, and [`specs/v0.1.0/glossary.md`](specs/v0.1.0/glossary.md) for terminology.
 
 ## Development
 
-Contributing to claude-memory-kit itself (vs. installing it in your own project)? Tests are wired through npm scripts — **do not** invoke `vitest` directly, the scripts handle Windows .cmd shim resolution and suppress the cmd.exe popup that bare `npx` invocations cause.
+Contributing to claude-memory-kit itself (vs. installing it in your own project)? Tests are wired through npm scripts — **do not** invoke `vitest` directly, the scripts handle Windows `.cmd` shim resolution and suppress the cmd.exe popup that bare `npx` invocations cause.
 
 | Script | When to use |
 | --- | --- |
-| `npm test` | Single full-suite run with validate-test-ids + validate-template prerun. Live-Haiku spawn-smokes run by default (requires `claude` on PATH; gracefully skips if absent). |
+| `npm test` | Single full-suite run with 8 structural validators + 1100+ tests. Live-Haiku spawn-smokes run by default (requires `claude` on PATH; gracefully skips if absent). |
 | `npm run test:file -- <path>` | Iterate on a single test file. Pass `-t "test name"` after the path to target one test. Skips the slow prerun. |
 | `npm run test:watch` | Interactive vitest watcher. |
-| `npm run stress` | 5x full suite. Refuses to run if `CMK_SKIP_LIVE_HAIKU=1` — the point is to stress the live spawn boundaries, not to avoid them. **Run this before opening any PR that touches a spawn boundary, hook handler, or detached child.** |
+| `npm run stress` | 5x full suite. Gate before opening any PR that touches a spawn boundary, hook handler, or detached child. |
 | `npm run lint:test-ids` / `npm run validate:template` | Individual prerun pieces. |
 
-The full test discipline (real-binary spawn smokes, stress-run gate, what "concurrency-sensitive" means) is documented in [`specs/v0.1.0/design.md` §17](specs/v0.1.0/design.md).
+The full test discipline (real-binary spawn smokes, stress-run gate, five-exit-doors framework) is documented in [`specs/v0.1.0/design.md` §17](specs/v0.1.0/design.md).
+
+CI matrix runs on every PR against Windows / macOS / Linux: see [`.github/workflows/install-matrix.yml`](.github/workflows/install-matrix.yml).
 
 ## Credit
 
-- Based on the patterns Simon Scrapes documents in his "Master Claude Memory" video and Notion page.
-- Frozen-snapshot pattern adapted from [Hermes](https://github.com/anthropics) examples.
-- memsearch and the Milvus stack are open-source projects by [Zilliz](https://github.com/zilliztech/memsearch).
+- Pattern: Simon Scrapes' [Master Claude Memory](https://www.youtube.com/watch?v=rFWxRZ5D-lM) (the source pattern for layered per-project memory and the frozen-snapshot concept)
+- Frozen snapshot: [Hermes Agent](https://github.com/NousResearch/hermes-agent) (the closest production reference architecture; verified char-cap parity)
+- Architecture inspiration: [claude-mem](https://github.com/thedotmack/claude-mem), [claude-remember](https://github.com/Digital-Process-Tools/claude-remember), [GBrain](https://github.com/garrytan/gbrain)
+- memsearch and the Milvus stack (Layer 5b semantic backend) by [Zilliz](https://github.com/zilliztech/memsearch)
+- See [`docs/SOURCES.md`](docs/SOURCES.md) for the complete index of cited sources
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
