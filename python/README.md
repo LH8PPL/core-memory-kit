@@ -1,6 +1,6 @@
 # cmk-canonicalize (Python)
 
-Python parallel to the Node `@cmk/canonicalize` package. Same public API, byte-identical output against [`../fixtures/canonicalize-vectors.json`](../fixtures/canonicalize-vectors.json).
+Python parallel to the Node `@lh8ppl/cmk-canonicalize` package. Same public API, byte-identical output against [`../fixtures/canonicalize-vectors.json`](../fixtures/canonicalize-vectors.json).
 
 Used by Layer 4+ Python scripts (cron, auto-extract subagent) that need to compute the same content-addressed IDs as the Node CLI.
 

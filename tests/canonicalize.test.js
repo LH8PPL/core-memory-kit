@@ -21,7 +21,7 @@ const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'));
 
 const AMBIGUOUS_CHARS = ['0', 'O', '1', 'l', 'I', '8'];
 
-describe('@cmk/canonicalize — fixture-driven', () => {
+describe('@lh8ppl/cmk-canonicalize — fixture-driven', () => {
   it('has at least 30 vectors (FR-14 minimum)', () => {
     expect(fixture.vectors.length).toBeGreaterThanOrEqual(30);
   });
@@ -48,7 +48,7 @@ describe('@cmk/canonicalize — fixture-driven', () => {
   });
 });
 
-describe('@cmk/canonicalize — backref idempotency (FR-14)', () => {
+describe('@lh8ppl/cmk-canonicalize — backref idempotency (FR-14)', () => {
   it('adding a (P-XXXXXXXX) backref does not change the ID', () => {
     const base = 'we standardized on python 3.13';
     const withBackref = `(P-A8FN3MQ2) ${base}`; // validate-test-ids: ignore
@@ -63,7 +63,7 @@ describe('@cmk/canonicalize — backref idempotency (FR-14)', () => {
   });
 });
 
-describe('@cmk/canonicalize — tier prefix only affects ID prefix, not hash body', () => {
+describe('@lh8ppl/cmk-canonicalize — tier prefix only affects ID prefix, not hash body', () => {
   it('P/U/L IDs for same input share the 8-char hash body', () => {
     const input = 'shared canonical body';
     const p = generateId('P', input);
@@ -83,7 +83,7 @@ describe('@cmk/canonicalize — tier prefix only affects ID prefix, not hash bod
   });
 });
 
-describe('@cmk/canonicalize — base32 alphabet (FR-14)', () => {
+describe('@lh8ppl/cmk-canonicalize — base32 alphabet (FR-14)', () => {
   it('alphabet has exactly 32 chars', () => {
     expect(BASE32_ALPHABET.length).toBe(32);
   });
@@ -120,7 +120,7 @@ describe('@cmk/canonicalize — base32 alphabet (FR-14)', () => {
   });
 });
 
-describe('@cmk/canonicalize — canonicalize edge cases', () => {
+describe('@lh8ppl/cmk-canonicalize — canonicalize edge cases', () => {
   it('null/undefined → empty string', () => {
     expect(canonicalize(null)).toBe('');
     expect(canonicalize(undefined)).toBe('');

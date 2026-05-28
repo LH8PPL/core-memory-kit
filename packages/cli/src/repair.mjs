@@ -39,7 +39,7 @@ const SETTINGS_REL = ['.claude', 'settings.json'];
 // is embedded INLINE as a JS constant instead of being read from
 // plugin/hooks/hooks.json. Rationale: packages/cli/package.json `files`
 // lists ['bin/', 'src/', 'README.md'] — the plugin/ tree is OUTSIDE the
-// published @claude-memory-kit/cli tarball. Reading from plugin/ works
+// published @lh8ppl/claude-memory-kit tarball. Reading from plugin/ works
 // in-repo (where __dirname resolves up to the repo root) but breaks
 // post-`npm install -g` where plugin/ doesn't exist.
 //

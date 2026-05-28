@@ -44,8 +44,8 @@ Current state (update this section when new tasks ship):
 
 Next task: Task 5 — canonicalize() + ID generation (Node + Python parity).
 
-  Builds the @cmk/canonicalize package (a SECOND package in the workspaces
-  monorepo, separate from @claude-memory-kit/cli). Node + Python implementations
+  Builds the @lh8ppl/cmk-canonicalize package (a SECOND package in the workspaces
+  monorepo, separate from @lh8ppl/claude-memory-kit). Node + Python implementations
   must produce byte-identical output against a shared
   fixtures/canonicalize-vectors.json file (≥30 inputs). Base32 alphabet
   excludes ambiguous chars (0, O, 1, l, I, 8). Will introduce pytest to

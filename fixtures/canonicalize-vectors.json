@@ -1,6 +1,6 @@
 {
   "$schema_version": "0.1.0",
-  "description": "Canonical test vectors for canonicalize() + generateId(). Loaded by both Node (@cmk/canonicalize) and Python (cmk_canonicalize) test suites. Both implementations MUST produce byte-identical output against every vector. expected_id is computed for tier prefix 'P' (project); tier prefix only affects the ID prefix, not the hash.",
+  "description": "Canonical test vectors for canonicalize() + generateId(). Loaded by both Node (@lh8ppl/cmk-canonicalize) and Python (cmk_canonicalize) test suites. Both implementations MUST produce byte-identical output against every vector. expected_id is computed for tier prefix 'P' (project); tier prefix only affects the ID prefix, not the hash.",
   "canonicalize_rules": [
     "1. Strip HTML comments (<!--...-->), DOTALL semantics",
     "2. Strip citation backrefs (P-XXXXXXXX), (U-XXXXXXXX), (L-XXXXXXXX) where X is any [A-Za-z0-9]",

@@ -350,7 +350,7 @@ Cross-refs: [[Rolling-window compression]], [[SessionStart hook]]. Spec: design 
 
 ### `cmk`
 
-The Node binary that ships with the kit. Subcommands per design §12. Implementation: `@claude-memory-kit/cli` npm package.
+The Node binary that ships with the kit. Subcommands per design §12. Implementation: `@lh8ppl/claude-memory-kit` npm package.
 
 Spec: FR-22, FR-23; design §12.
 

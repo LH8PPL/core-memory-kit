@@ -37,7 +37,7 @@ describe('Task 41 — README references v0.1.0 surface (no stale references)', (
 
   it('mentions the canonical install command (npm install -g)', () => {
     text = readFileSync(join(repoRoot, 'README.md'), 'utf8');
-    expect(text).toMatch(/npm install -g @claude-memory-kit\/cli/);
+    expect(text).toMatch(/npm install -g @lh8ppl\/claude-memory-kit/);
   });
 
   it('references cmk install (not the legacy install.sh / install.ps1)', () => {
@@ -97,7 +97,7 @@ describe('Task 41 — QUICKSTART.md walkthrough is complete', () => {
   it('contains bash fenced blocks for each install step (executable by test-quickstart.sh)', () => {
     text = readFileSync(join(repoRoot, 'QUICKSTART.md'), 'utf8');
     // At minimum: npm install -g, cmk install, cmk doctor, cmk repair --hooks
-    expect(text).toMatch(/```bash[\s\S]*?npm install -g @claude-memory-kit\/cli[\s\S]*?```/);
+    expect(text).toMatch(/```bash[\s\S]*?npm install -g @lh8ppl\/claude-memory-kit[\s\S]*?```/);
     expect(text).toMatch(/```bash[\s\S]*?cmk install[\s\S]*?```/);
     expect(text).toMatch(/```bash[\s\S]*?cmk doctor[\s\S]*?```/);
   });

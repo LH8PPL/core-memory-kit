@@ -20,7 +20,7 @@ Inspired by [Simon Scrapes' "Master Claude Memory"](https://www.youtube.com/watc
 
 ```bash
 # 1. Install the CLI globally (Node 20+)
-npm install -g @claude-memory-kit/cli
+npm install -g @lh8ppl/claude-memory-kit
 ```
 
 ```text

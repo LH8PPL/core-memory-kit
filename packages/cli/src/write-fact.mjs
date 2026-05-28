@@ -14,7 +14,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { generateId } from '@cmk/canonicalize';
+import { generateId } from '@lh8ppl/cmk-canonicalize';
 import { VALID_TIERS, resolveTierRoot, resolveFactDir } from './tier-paths.mjs';
 import { parse, format } from './frontmatter.mjs';
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';

@@ -1,5 +1,5 @@
 {
-  "name": "@claude-memory-kit/cli",
+  "name": "@lh8ppl/claude-memory-kit",
   "version": "0.1.0",
   "description": "cmk — the CLI for claude-memory-kit. Per-project, in-repo memory system for Claude Code.",
   "type": "module",
@@ -23,7 +23,7 @@
     "prepublishOnly": "node ../../scripts/prepublish-copy-template.mjs"
   },
   "dependencies": {
-    "@cmk/canonicalize": "0.1.0",
+    "@lh8ppl/cmk-canonicalize": "0.1.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "better-sqlite3": "^12.10.0",
     "chokidar": "^5.0.0",

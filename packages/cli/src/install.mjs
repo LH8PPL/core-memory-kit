@@ -27,7 +27,7 @@
 //     without duplicating lines and without touching unrelated entries.
 //   - In dev (running from the cloned repo), the kit's template/ lives
 //     at repo root. When packaged for npm publish (Task 36), template/
-//     ships inside @claude-memory-kit/cli — `resolveTemplateDir()`
+//     ships inside @lh8ppl/claude-memory-kit — `resolveTemplateDir()`
 //     handles both.
 
 import {

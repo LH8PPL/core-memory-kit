@@ -35,7 +35,7 @@ import {
   unlinkSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { canonicalize } from '@cmk/canonicalize';
+import { canonicalize } from '@lh8ppl/cmk-canonicalize';
 import { nowIso } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { HaikuTimeoutError } from './compressor.mjs';
