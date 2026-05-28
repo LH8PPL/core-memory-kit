@@ -806,7 +806,7 @@ Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility)
   - Test boundary: extractor never writes outside the configured output directory (no path traversal via filename in jsonl)
   - _Requirements: FR-25 (broadened to cover both Anthropic-MEMORY and harness-jsonl import paths); design §11, §16.8_
 
-- [ ] 39. `cmk repair` + `cmk roll` (T-033)
+- [x] 39. `cmk repair` + `cmk roll` (T-033) _shipped 2026-05-28, PR #57_
   - Estimate: M · Depends: 17, 22, 28, 33
 - [x] 39.1 Implement `cmk repair --hooks`
   - Re-registers from `hooks.json` template; idempotent
