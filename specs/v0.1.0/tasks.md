@@ -762,11 +762,15 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 
 ### 38a. `cmk import-anthropic-memory` (Anthropic-managed `MEMORY.md` → kit MEMORY.md)
 
-- [ ] 38.1 Read `~/.claude/projects/<current-slug>/memory/MEMORY.md`
-- [ ] 38.2 Compute canonical IDs via task 5; dedup against existing project MEMORY.md
-- [ ] 38.3 Propose additions with `write_source: imported`, `trust: medium`
-- [ ] 38.4 Implement `--dry-run` and interactive confirmation modes
-- [ ]* 38.5 Write unit tests for import bridge
+- [x] 38.1 Read `~/.claude/projects/<current-slug>/memory/MEMORY.md`
+  - Shipped in [`packages/cli/src/import-anthropic-memory.mjs`](../../packages/cli/src/import-anthropic-memory.mjs) via `anthropicMemoryPath(projectRoot)` helper. Slug computation matches HC-8 + claude-remember's pattern: `projectRoot.replace(/[^a-zA-Z0-9]/g, '-')`.
+- [x] 38.2 Compute canonical IDs via task 5; dedup against existing project MEMORY.md
+  - Shipped via `canonicalize` + `generateId('P', text)` from the canonicalize package. Dedup pass reads existing `context/MEMORY.md`, canonicalizes every bullet, builds a Set, compares each candidate. Skipped candidates emit `import-skipped-duplicate` audit entries.
+- [x] 38.3 Propose additions with `write_source: imported`, `trust: medium`
+  - Shipped: applied entries land under `## Imported (Anthropic auto-memory, YYYY-MM-DD)` section with provenance comment `<!-- write_source: imported, trust: medium, source: anthropic-auto-memory, imported_at: ISO -->` per design §11.2.
+- [x] 38.4 Implement `--dry-run` and interactive confirmation modes
+  - `--dry-run` mode: prints proposals without modifying any file (Door 2 verified via mtime check). Default mode requires explicit `--yes` to apply — v0.1.0 interactive y/N is deferred to v0.1.x (CLI prints "Re-run with --yes" hint).
+- [x]* 38.5 Write unit tests for import bridge
   - Test `--dry-run` prints proposals; no file in `context/` modified (mtime check)
   - Test no-dry-run with mocked accept-all: every proposal applied with `write_source: imported`, `trust: medium`
   - Test duplicate detection: candidate with matching canonical ID skipped; audit.log has `skipped: duplicate`
@@ -777,20 +781,23 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 
 Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility) to a user-facing CLI subcommand. Lets users mine months of pre-kit conversation history at `~/.claude/projects/<slug>/<uuid>.jsonl` into clean markdown corpora they can curate from.
 
-- [ ] 38.6 Move filter logic from `scripts/extract-session-transcript.mjs` into `packages/cli/src/transcripts.mjs`
+- [x] 38.6 Move filter logic from `scripts/extract-session-transcript.mjs` into `packages/cli/src/transcripts.mjs`
   - Public boundary: `extractTranscript({ inputPath, outputPath, includeThinking }) → { turnsKept, outputSize, errors }`
   - Same filters as the existing script: keep user + assistant text; drop tool_use/tool_result/thinking blocks (unless `--include-thinking`); strip `<system-reminder>`, `<command-name>`, `<ide_*>`, `<local-command-*>` annotations
-- [ ] 38.7 Wire `cmk transcripts extract` subcommand in `subcommands.mjs`
+  - Shipped in [`packages/cli/src/transcripts.mjs`](../../packages/cli/src/transcripts.mjs) with the same filter regexes from the scripts version. The legacy script file is left in `scripts/` for kit-dev convenience but the user-facing path is `cmk transcripts extract`.
+- [x] 38.7 Wire `cmk transcripts extract` subcommand in `subcommands.mjs`
   - Args / flags: `--session <uuid>` | `--slug <slug>` (with `--all` for every session in the slug) | `--since YYYY-MM-DD`
   - `--output <dir>` defaults to `<cwd>/transcripts-extracted/` (created if missing)
   - `--include-thinking` flag for the rare case the user wants the agent's internal reasoning
   - On invocation: discover sessions, run extractor for each, print summary (sessions processed, total turns kept, output size)
-- [ ] 38.8 Implement session-discovery helper
+  - Shipped via `runTranscriptsExtract` → `discoverSessions` → `extractTranscript` per-session loop. Output structured as `<output-dir>/<slug>/<session-id>.md`.
+- [x] 38.8 Implement session-discovery helper
   - `--session <uuid>`: resolve to a specific jsonl by uuid suffix match across all slugs (or fail with a clear list of close matches)
   - `--slug <slug> --all`: walk `~/.claude/projects/<slug>/*.jsonl`, extract each
   - `--since YYYY-MM-DD`: filter jsonls by mtime, walk matching ones
   - Skip the `memory/` subdirectory + the session-directory siblings (those are not session jsonls)
-- [ ]* 38.9 Write unit tests for transcripts extraction
+  - Shipped as `discoverSessions({slug?, sessionUuidSuffix?, sinceIso?, harnessRoot?})` — uses a UUID regex on basenames to skip the `memory/` subdir + non-jsonl files automatically. Sorted newest-first. `harnessRoot` injection for tests so we don't need to touch the real `~/.claude/projects/`.
+- [x]* 38.9 Write unit tests for transcripts extraction
   - Test fixture jsonl (10 turns: user + assistant + tool_use + system_reminder mix) produces expected markdown (5 turns kept, filters applied)
   - Test `--include-thinking` retains thinking blocks; default drops them
   - Test session discovery: `--session <uuid>` resolves correctly; `--session <unknown>` exits non-zero with helpful error
