@@ -852,7 +852,7 @@ Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility)
   - Test PR check fails on any OS doctor failure
   - _Requirements: NFR-3; design §13_
 
-- [ ] 41. Documentation: README + INSTALL + QUICKSTART (T-035)
+- [x] 41. Documentation: README + INSTALL + QUICKSTART (T-035) _shipped 2026-05-28, PR #59_
   - Estimate: M · Depends: 3 through 37
 - [x] 41.1 Write top-level `README.md`
   - Pitch, three-tier diagram, install one-liner, links to specs/glossary
