@@ -5,7 +5,8 @@
   "type": "module",
   "bin": {
     "cmk": "./bin/cmk.mjs",
-    "cmk-daily-distill": "./bin/cmk-daily-distill.mjs"
+    "cmk-daily-distill": "./bin/cmk-daily-distill.mjs",
+    "cmk-weekly-curate": "./bin/cmk-weekly-curate.mjs"
   },
   "files": [
     "bin/",

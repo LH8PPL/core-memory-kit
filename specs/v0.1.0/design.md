@@ -1225,6 +1225,61 @@ The Python option is preserved in [`tasks.md`](../../specs/v0.1.0/tasks.md) Task
 
 **Implements**: FR-19; Task 33 (Layer 6 daily distill cron). Cross-references: §1.4 (data flow includes Daily 23:00 cron), §8.1 (four-layer pipeline), §8.2 (cooldown), §8.5 (timeout composition), §16.13 (audit-log rotation v0.1.x).
 
+### 8.7 Weekly curate architecture (Layer 6 — Task 34)
+
+**Tail-appended 2026-05-28** during Task 34 implementation. Companion to §8.6 (daily distill); same architectural envelope, different cadence + responsibility.
+
+#### 8.7.1 `weekly-curate.mjs` module
+
+Public boundary:
+
+```js
+async weeklyCurate({projectRoot, backend, now, cooldownMs?, archiveMaxBytes?, recentMaxBytes?, skipRecentRebuild?})
+  → {action: 'curated' | 'skipped' | 'error', archivedDays?, currentDays?, ...}
+```
+
+Responsibilities:
+
+1. **Rotate**: move every `<projectRoot>/context/sessions/today-{YYYY-MM-DD}.md` with date < `now - 7 days` into `<projectRoot>/context/sessions/archive.md` (APPEND, not overwrite).
+2. **Compress**: pass the OLD-files buffer to Haiku via the CompressorBackend interface (§8.3); prompt asks for `## Week of YYYY-MM-DD` (ISO Monday) section headers + bullet-level dedup hints.
+3. **Dedup deterministically**: after Haiku returns, run a `canonicalize`-based pass that detects exact-after-canonical-equal bullets across days. Merge duplicates into a single bullet with an HTML-comment `<!-- merged_from: ['YYYY-MM-DD', ...] -->` appended (one comment per merged bullet). This is the v0.1.0 reading of "merge via task 10" — Task 10's `mergeFacts` is for per-fact files, not scratchpad bullets; the kit reuses the `canonicalize` + `generateId` primitive (Task 5's shared infrastructure that Task 10 itself uses) at the bullet text level. Looser semantic-similarity dedup remains Haiku's responsibility in the prompt.
+4. **Delete**: remove the OLD `today-*.md` files. The in-repo memory model commits these files to git, so `git log` is the audit trail; no `.done.md` rename needed (the kit deliberately diverges from claude-remember's `.done.md` pattern, which existed because their `~/.claude-remember/` storage isn't git-tracked).
+5. **Rebuild recent.md**: after archive update, call `dailyDistill({projectRoot, backend, now, cooldownMs: 0, ...})` inline to refresh `recent.md` from the CURRENT week's files only. `cooldownMs: 0` overrides the shared 120s gate because both Haiku calls belong to a single curate cycle, not two independent invocations. Skippable via `skipRecentRebuild` for tests.
+6. **Audit + cooldown**: NDJSON entry to `<projectRoot>/context/sessions/{date}.curate.log` (same schema family as compress/extract/distill); touch `cooldown.mjs` marker on success + error.
+
+Idempotency: a second run with no OLD files present returns `action: 'skipped', reason: 'no-old-files'` and does not re-touch archive.md. Tests pin this contract.
+
+#### 8.7.2 Composition with daily-distill
+
+Weekly-curate REUSES `dailyDistill()` rather than duplicating the recent.md rebuild logic — the same code path that runs nightly also runs as the post-archive step. The composition is:
+
+- `dailyDistill(cooldownMs=120_000)` — nightly cron, gated by the shared cooldown
+- `weeklyCurate()` → archive step (Haiku call #1) → `dailyDistill(cooldownMs=0)` (Haiku call #2, same cycle)
+- Both touch the shared cooldown marker via `cooldown.mjs`
+
+This composition was flagged as a v0.1.0 invariant to verify (Composition verification rule, CLAUDE.md): the inner dailyDistill call must NOT skip on the cooldown that the curate cycle's own archive step just touched. The `cooldownMs: 0` override handles this — explicit + tested.
+
+#### 8.7.3 archive.md format
+
+```markdown
+## Week of 2026-05-18
+
+- <consolidated bullet 1>
+- <consolidated bullet 2 with merge>
+  <!-- merged_from: ['2026-05-18', '2026-05-19', '2026-05-20'] -->
+
+## Week of 2026-05-25
+...
+```
+
+ISO week start = Monday. Bullets within a week appear in chronological source order. The `merged_from` comment is on its own line immediately following the bullet (matches the kit's existing 2-line bullet+comment convention from §4 / `provenance.mjs`).
+
+#### 8.7.4 Cooldown table extension
+
+§8.2's cooldown table already lists weekly-curate at 7d cron cadence. The 7d cadence is HOST-SCHEDULER-managed (cron / launchd / Task Scheduler); the kit's shared 120s Haiku cooldown applies to each Haiku call within the cycle, not to the cycle itself.
+
+**Implements**: FR-19, FR-21; Task 34 (Layer 6 weekly curate). Cross-references: §1.4 (data flow includes Sun 09:00 cron), §8.1 (four-layer pipeline → archive.md), §8.2 (cooldown), §8.6 (daily-distill composition).
+
 ---
 
 ## 9. Search layer (Layer 5 — optional)
