@@ -71,7 +71,7 @@ Three scheduled jobs keep the system healthy without manual intervention:
 | Nightly memsearch index | 02:00 daily | Re-indexes `context/` for vector search. |
 | Weekly memory curator | Sun 09:00 | Prunes resolved threads, merges duplicates, drops stale entries. |
 
-Registered via `python scripts/register-crons.py`. Translates declarative `cron/jobs/*.md` specs to Task Scheduler tasks on Windows or crontab entries on Unix.
+Registered via `cmk register-crons`. Translates to crontab entries (Linux), LaunchAgents (macOS), or Task Scheduler tasks (Windows). Idempotent — re-running overwrites existing entries cleanly. See [`packages/cli/src/register-crons.mjs`](packages/cli/src/register-crons.mjs) for the platform mapping.
 
 ## Data flow
 

@@ -28,7 +28,7 @@ memsearch config set milvus.uri "http://localhost:19530"
 memsearch index context/memory context/sessions context/transcripts
 
 # 5. Register cron jobs (idempotent)
-python scripts/register-crons.py
+cmk register-crons
 ```
 
 That's the whole bootstrap. The directory tree, hooks file, scratchpad files, and granular memory are already in the repo from `git clone` — only the runtime state (memsearch index, scheduled tasks, Docker stack on Windows) needs to be created locally.
@@ -181,17 +181,15 @@ Three jobs run via the host scheduler:
 - **Nightly memsearch index** — 02:00 daily. Re-indexes context/ markdown files.
 - **Weekly memory curator** — Sunday 09:00. Prunes/merges/consolidates MEMORY.md.
 
-Job specs live in `cron/jobs/*.md`. Register them with:
+Register them with:
 
 ```bash
-python scripts/register-crons.py
+cmk register-crons
 ```
 
-The script reads each job, translates to Task Scheduler tasks on Windows or crontab entries on Unix, and creates them. Idempotent — re-running re-registers any missing tasks without disturbing existing ones.
+The command translates to crontab entries (Linux), LaunchAgents (macOS), or Task Scheduler tasks (Windows) and creates them. Idempotent — re-running overwrites existing entries cleanly. Entry names are kit-level constants (`cmk-daily-distill`, `cmk-weekly-curate`) — no per-project prefix in v0.1.0 (see design §16.43 for the v0.1.x `--daily-only` / `--weekly-only` flags).
 
-`scripts/register-crons.py --dry-run` previews the commands without running them. `--unregister NAME` removes a specific task.
-
-Task names are prefixed with the project directory basename by default. Override with `CMK_TASK_PREFIX=myprefix- python scripts/register-crons.py` if you want a custom prefix.
+`cmk register-crons --dry-run` previews the platform-detected commands without running them. `cmk register-crons --unregister` removes both entries.
 
 ## Health Checks (referenced by CLAUDE.md)
 
@@ -215,10 +213,10 @@ When a health check fails:
 |---|---|
 | HC-1 | Re-run Step 5a (ASK user to approve `python -m pip install "memsearch[onnx]"`). |
 | HC-2 | Re-run Step 4b (register the hook in `.claude/settings.json`). |
-| HC-3 | Run the distill script manually: `bash scripts/run-daily-distill.sh`. |
+| HC-3 | Run the distill once: `cmk daily-distill` (or `cmk compress --lazy` for the no-cron fallback). |
 | HC-4 | First check whether this project is the primary cwd in Claude Code. If yes, verify Node is installed and test the hook in isolation. |
 | HC-5 | Add missing files to INDEX.md, or remove stale entries. |
-| HC-6 | Run `python scripts/register-crons.py` (idempotent). |
+| HC-6 | Run `cmk register-crons` (idempotent — overwrites existing entries cleanly). |
 | HC-7 | **Windows**: ASK user to start Docker Desktop, then `cd milvus-deploy && docker compose up -d`. **Linux/Mac**: check that `~/.memsearch/milvus.db` is accessible. |
 
 **Rule**: any repair that requires running an install command MUST ASK the user first. Never invoke `pip install`, `npm install`, or system-level changes silently.

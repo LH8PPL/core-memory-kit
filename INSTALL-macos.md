@@ -95,16 +95,18 @@ Skip the `milvus-deploy/` directory on macOS — milvus-lite is bundled with `me
 
 ## 5. Install Layer 6 (auto-curation crons)
 
-macOS uses `crontab`:
+macOS uses `launchd` via the kit's cross-platform registration command:
 
 ```bash
-python3 scripts/register-crons.py
+cmk register-crons
 ```
 
-Verify:
+This registers both daily-distill (23:00 daily) and weekly-curate (Sun 09:00) jobs as user-level LaunchAgents (`~/Library/LaunchAgents/com.cmk.cmk-daily-distill.plist` + `~/Library/LaunchAgents/com.cmk.cmk-weekly-curate.plist`). Preview with `cmk register-crons --dry-run` first if you want to inspect the plists.
+
+Verify (replace YOUR_UID with `id -u`):
 
 ```bash
-crontab -l
+launchctl list | grep cmk
 ```
 
 You should see three entries with comments matching your project's name prefix.

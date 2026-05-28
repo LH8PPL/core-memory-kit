@@ -34,7 +34,15 @@ try {
   process.exit(0);
 }
 
-const projectRoot = process.env.CMK_PROJECT_DIR ?? process.cwd();
+// Task 36 B1 fix: accept projectRoot via argv[2]. Inject-context.mjs's
+// detached spawn passes CMK_PROJECT_DIR via env; accepting argv[2]
+// keeps the bin uniform with cmk-daily-distill / cmk-weekly-curate
+// and makes manual debugging (`node cmk-compress-lazy.mjs /path`) work.
+const argvRoot = process.argv[2] && process.argv[2].length > 0 ? process.argv[2] : null;
+const envRoot = process.env.CMK_PROJECT_DIR && process.env.CMK_PROJECT_DIR.length > 0
+  ? process.env.CMK_PROJECT_DIR
+  : null;
+const projectRoot = argvRoot ?? envRoot ?? process.cwd();
 
 try {
   const backend = new HaikuViaAnthropicApi();

@@ -719,10 +719,11 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Shipped 22 tests in [`tests/cli-lazy-compress.test.js`](../../tests/cli-lazy-compress.test.js): detectStaleness branches (cron-active short-circuit / no-context-dir / weekly precedence / daily / fresh — 9 cases) + runLazyCompress (boundary / cron-active / daily delegation / weekly delegation / fresh / Door 5 NDJSON — 7 cases) + inject-context spawn integration via testSpawnLazy dependency injection (35.4 #1 + #2 + #4 — 3 cases) + duplicates for completeness.
   - _Requirements: FR-19; design §8.2.1, §8.2.2_
 
-- [ ] 36. Checkpoint — Layer 6 (Cron + Lazy) complete _(skip if Layer 6 deferred)_
-  - All tests for tasks 1–35 green
-  - Cron registration idempotent on all 3 OSes
+- [x] 36. Checkpoint — Layer 6 (Cron + Lazy) complete _shipped 2026-05-28_
+  - All tests for tasks 1–35 green — 1036 tests / 51 files / 8 validators
+  - Cron registration idempotent on all 3 OSes — Linux crontab pipe pattern, macOS launchctl bootout+bootstrap, Windows schtasks /F. Verified via 12 register-crons tests + 3 cron-chain spawn-smoke tests (absolute-node + absolute-bin + absolute-projectRoot triple under restricted PATH).
   - Agent confirms zero failures before cross-cutting layer
+  - **Layer-wide review surfaced 2 Blocking + 1 Important + 3 Minor that per-PR reviews missed** (cross-task composition gaps); all fixed inline. Specifically: B1 (cron emits bare bin names; cwd/env can't reach projectRoot at fire time) + B2 (bare bin names won't PATH-resolve under cron/launchd) → both fixed via absolute-paths-and-argv emission in `runRegisterCrons` + bin wrappers accept argv[2] for projectRoot. I1 (stuck-stale recent.md infinite-spawn loop) → fixed in detectStaleness: zero today files → fresh regardless of recent.md mtime. M1 (stale `python register-crons.py` doc references) + M2 (--unregister description plurality) → swept. S1 (cron-chain spawn-smoke) → `tests/cli-cron-chain-smoke.test.js` (3 tests). Plus Door 4 fix: daily-distill no-input path now writes NDJSON entry (was silent).
 
 ---
 
