@@ -639,10 +639,11 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 - [x]* 31.6 Write unit tests for MCP server — `tests/cli-mcp-server.test.js` (29 cases): 5 of 6 acceptance criteria covered (path-traversal-JSON-RPC mapping deferred to §16.42 since no v0.1.0 tool accepts user paths); plus validatePath × 6, tool registration, each tool × 2-3, B1/I1/I2 contract locks
   - _Requirements: FR-26, NFR-6; design §10_
 
-- [ ] 32. Checkpoint — Layer 5 (Search) complete _(skip if Layer 5 deferred)_
-  - All tests for tasks 1–31 green
-  - End-to-end: index built → `cmk search` returns ranked hits → MCP server handles all 6 tools via stdio
-  - Agent confirms zero failures before Layer 6 (or skipping to cross-cutting if Layer 6 deferred)
+- [x] 32. Checkpoint — Layer 5 (Search) complete _shipped 2026-05-28, PR #50_
+  - [x] All tests for tasks 1–31 green (963 / 46 / 8 validators)
+  - [x] End-to-end shape verified — Task 30's reindexFull→search integration test (`cli-search.test.js:374-432`) + Task 31's MCP CLI integration tests (`cli-mcp-server.test.js:388-557`) jointly pin "index built → `cmk search` returns ranked hits → MCP server handles all 6 tools via stdio" per the checkpoint criterion
+  - [x] **Layer-wide code review pass** via `code-review-excellence` skill across Tasks 28-31 (subagent report 2026-05-28). Zero blocking; one Important (L5-I1: validatePath shared-module drift — using inline `homedir() + '/.claude-memory-kit'` instead of `resolveTierRoot({tier:'U'})`) **fixed inline** in this PR. L5-I2 already tracked as §16.34. 4 Minor findings → all already-tracked v0.1.x candidates OR stylistic-only (none new).
+  - [x] Agent confirms zero failures + zero blocking review issues. 963 tests / 46 files / 8 validators green; stress 5/5 first invocation. Layer 5 closed; next: Task 33 (Layer 6 — daily distill cron, OPTIONAL).
 
 ---
 
