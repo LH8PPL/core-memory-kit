@@ -73,6 +73,7 @@ const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex', 'f
 const NON_STUB_CHILDREN = new Set([
   'queue/conflicts', // Task 25
   'queue/review',    // Task 26
+  'mcp/serve',       // Task 31 — invoked by Claude Code; tested separately by cli-mcp-server.test.js
 ]);
 
 describe('Task 2 — cmk CLI scaffold', () => {
