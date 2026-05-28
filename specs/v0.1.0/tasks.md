@@ -651,12 +651,13 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 
 > If deferred, task 35 (lazy compression fallback) covers no-cron environments.
 
-- [ ] 33. Daily distill cron (T-028)
+- [x] 33. Daily distill cron (T-028) _shipped 2026-05-28, PR #51_
   - Estimate: M · Depends: 22, 23
   - **Pre-implementation: read [`docs/research/2026-05-25-claude-remember-code-dive.md`](../../docs/research/2026-05-25-claude-remember-code-dive.md)** for absorbed patterns — NDC compression structure (now.md → today-YYYY-MM-DD.md after 1h cooldown), 60-80% compression-target norm, background subshell with `set +e`, per-stage `noclobber` lock at `.locks/ndc.lock`, post-success truncation of `now.md`. **License caveat:** write our own prompt + code from scratch; the technique is absorbable but the implementation is under their Community License (see SOURCES.md).
-- [ ] 33.1 Implement `scripts/run-daily-distill.sh`
+- [x] 33.1 Implement `scripts/run-daily-distill.sh`
   - Reads last 7 days of `today-*.md`; writes fresh `sessions/recent.md`
-- [ ] 33.2 Implement `scripts/register-crons` (idempotent across platforms) — Linux cron + macOS launchd + Windows Task Scheduler
+  - Shipped as [`packages/cli/src/daily-distill.mjs`](../../packages/cli/src/daily-distill.mjs) (public `dailyDistill({projectRoot, backend, now, cooldownMs?, maxOutputBytes?})`) + [`packages/cli/bin/cmk-daily-distill.mjs`](../../packages/cli/bin/cmk-daily-distill.mjs) bin wrapper. Composes on `cooldown.mjs` (touch on success + error) + NDJSON `{date}.distill.log` per design §8.6.1.
+- [x] 33.2 Implement `scripts/register-crons` (idempotent across platforms) — Linux cron + macOS launchd + Windows Task Scheduler
   - **Original plan (pre-2026-05-28)**: `python scripts/register-crons.py`. Python was the assumed language because the predecessor product (claude-remember) used a Python register script.
   - **Implementation pivot 2026-05-28 (Lior + Claude joint decision)**: `scripts/register-crons.mjs` in Node.js. Python option NOT removed from the spec history because the decision rationale matters and future contributors may need to understand WHY the language differs from claude-remember.
   - **Why Node, not Python**:
@@ -669,12 +670,15 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
     - Linux: `crontab -l | (grep -v cmk-daily ; echo "...") | crontab -` (pipe pattern for idempotency)
     - Windows: `schtasks /Create /TN cmk-daily-distill /SC DAILY /TR "..."` with `/F` flag for idempotent re-creates
   - **Option A confirmed 2026-05-28 (Lior)**: v0.1.0 ships full cross-platform (Linux + macOS + Windows). "I need it to work on Windows and Mac out of the box, so adding Linux is a small thing." Task 35 (lazy fallback) is still the documented escape hatch for no-cron environments; both ship.
-- [ ] 33.3 Honor 120 s Haiku cooldown; defer + retry on next cron fire
-- [ ]* 33.4 Write unit tests for daily distill
+  - Shipped as [`packages/cli/src/register-crons.mjs`](../../packages/cli/src/register-crons.mjs) with `registerCron` / `unregisterCron` / `detectPlatform` exports. Linux uses `crontab -l | grep -v ... | crontab -` pipe pattern, macOS uses `~/Library/LaunchAgents/com.cmk.cmk-daily-distill.plist` + `launchctl bootstrap`, Windows uses `schtasks /Create /F` (`/F` flag is the idempotency primitive). All `spawnSync` sites carry `timeout: 10_000` per spawn-discipline rule. B2 fix: Windows `/TR` injects with `command.replace(/"/g, '\\"')` to avoid malformed nested quotes on paths with spaces.
+- [x] 33.3 Honor 120 s Haiku cooldown; defer + retry on next cron fire
+  - Shipped via `cooldown.mjs` composition in `dailyDistill`: check at start (returns `skipped: cooldown` if active), touch on both success + error so a crashed Haiku call still rotates the cooldown marker.
+- [x]* 33.4 Write unit tests for daily distill
   - Test fixture with 7 days of `today-*.md`: script produces single `recent.md` with compressed consolidation
-  - Test `register-crons.py` idempotency: re-run adds no duplicate entries (platform-specific check)
+  - Test `register-crons` idempotency: re-run adds no duplicate entries (platform-specific check via `--dry-run`)
   - Test cooldown active: script exits `skipped: cooldown`; no output
   - Test 0 `today-*.md` files: script exits 0 cleanly; recent.md unchanged
+  - Shipped 21 tests across [`tests/cli-daily-distill.test.js`](../../tests/cli-daily-distill.test.js) (9 cases) + [`tests/cli-register-crons.test.js`](../../tests/cli-register-crons.test.js) (12 cases). Stress 5/5 first invocation on `task-33-daily-distill` branch.
   - _Requirements: FR-19; design §1.4, §8.1_
 
 - [ ] 34. Weekly curate cron (T-029)
