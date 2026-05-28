@@ -858,8 +858,17 @@ Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility)
   - CI matrix green on all 3 OSes
   - `cmk doctor` reports green on fresh installs
   - Docs verified end-to-end
+  - **Live end-to-end acceptance test on a real project** (Lior 2026-05-28, blocking gate before Task 43 release). Pick a real project (NOT the kit's own repo — to avoid confusing kit-development memory with kit-user memory). Install the kit fresh via `cmk install`. Open Claude Code on the project, hold real sessions, verify:
+    - Auto-extract fires on Stop hook + bullets appear in MEMORY.md (no manual writes needed)
+    - SessionStart injection works (Claude sees the snapshot at session start)
+    - `cmk search "<term>"` returns relevant results from accumulated memory
+    - Cron registration takes effect (daily-distill ran overnight; `recent.md` is populated)
+    - Lazy-fallback fires when cron is unregistered (sentinel removed → SessionStart spawns `cmk-compress-lazy`)
+    - `cmk doctor` reports green
+    - At least one full week of usage to exercise weekly-curate
+  - Document the live-test findings in `docs/journey/v0.1.0-live-test.md` — bugs found, UX surprises, doc gaps. Any Blocking finding gates Task 43.
   - **Pre-release code review pass** via the `code-review-excellence` skill — final filter before the v0.1.0 release tag. Focus: anything missed at earlier layer reviews, ergonomics of the public CLI surface (`cmk` subcommand consistency), security surface review of the MCP server (Task 31, even if individually reviewed at PR time), `cmk doctor` health-check coverage. Output: blocking-issue list (must fix before release) + nice-to-have list (deferred to v0.1.x)
-  - Agent confirms zero failures + zero blocking review issues before task 43 (release)
+  - Agent confirms zero failures + zero blocking review issues + live-test passed before task 43 (release)
 
 ---
 
