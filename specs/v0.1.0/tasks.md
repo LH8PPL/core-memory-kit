@@ -628,24 +628,15 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 - [x]* 30.5 Write unit tests for `cmk search` — `tests/cli-search.test.js` (25 cases): 7 tasks.md acceptance criteria + FTS5 parse-error class (3) + CLI spawnSync exit-2 + reindex→search composition + RRF unit (2) + schema validation (6) + extras
   - _Requirements: FR-16, FR-17, FR-18, FR-30; design §9.3 (return shape clarified)_
 
-- [ ] 31. MCP server with 6 tools (stdio transport) (T-027)
+- [x] 31. MCP server with 6 tools (stdio transport) (T-027) _shipped 2026-05-28, PR #49_
   - Estimate: L · Depends: 28, 29, 30
-  - **High-risk surface — individual PR review required** via the `code-review-excellence` skill. MCP is a protocol implementation + a security boundary (stdio with path-traversal validation on every read/write). Subtle bugs in JSON-RPC framing, newline handling, or path validation can introduce real CVEs. Review before merge
-- [ ] 31.1 Implement stdio JSON-RPC transport per MCP 2025-06-18 spec
-  - newline-delimited; no embedded newlines; stdout for messages only
-- [ ] 31.2 Implement path-traversal validation
-  - Reject `..`, URL-encoded traversal (`%2e%2e`), any path outside `<repo>/context/` or `<repo>/context.local/` or `~/.claude-memory-kit/`
-- [ ] 31.3 Implement `mk_search`, `mk_get`, `mk_timeline`, `mk_cite`
-- [ ] 31.4 Implement `mk_remember`, `mk_recent_activity`
-- [ ] 31.5 Implement logging-to-stderr discipline
-  - All logs to stderr (or `sessions/{date}.mcp.log`); stdout pure
-- [ ]* 31.6 Write unit tests for MCP server
-  - Test `cmk mcp serve` reads valid `initialize` request from stdin → responds with valid `InitializeResult` on stdout
-  - Test stdout-purity: send 10 requests; stdout has exactly 10 JSON-RPC lines, no other content
-  - Test newline-delimited: split-on-newline yields valid JSON per line; no embedded newlines
-  - Test path traversal: arg with `..`, `%2e%2e`, or `/etc/passwd` → JSON-RPC error `code: -32602`
-  - Test each of the 6 tools returns documented response shape on valid input
-  - Test malformed JSON-RPC input → JSON-RPC parse error `code: -32700`; server keeps running
+  - **High-risk surface — individual PR review required** via the `code-review-excellence` skill. Two-pass code-review caught B1 (mk_remember accepted:true on queue route — same composition class as Task 25→25b) + B2 (missing tasks.md 31.6 #2/#6 tests) + I1-I4 + M1-M2 — all fixed inline. §16.39-42 v0.1.x candidates documented.
+- [x] 31.1 Implement stdio JSON-RPC transport per MCP 2025-06-18 spec — @modelcontextprotocol/sdk@1.29.0 handles framing; newline-delimited; stdout pure
+- [x] 31.2 Implement path-traversal validation — `validatePath` helper rejects `..`, `%2e%2e`, `%2f`, absolute paths outside kit roots (defensive readiness — no v0.1.0 tool accepts user paths; §16.42 covers the JSON-RPC -32602 mapping for v0.1.x's first path-accepting tool)
+- [x] 31.3 Implement `mk_search`, `mk_get`, `mk_timeline`, `mk_cite`
+- [x] 31.4 Implement `mk_remember`, `mk_recent_activity` (mk_remember: v0.1.0 tier-P-only + cites-not-yet-supported guards per §16.39 + §16.40)
+- [x] 31.5 Implement logging-to-stderr discipline — no console.log in mcp-server.mjs OR transitively-imported modules (verified by audit); §16.41 candidate for structural validator
+- [x]* 31.6 Write unit tests for MCP server — `tests/cli-mcp-server.test.js` (29 cases): 5 of 6 acceptance criteria covered (path-traversal-JSON-RPC mapping deferred to §16.42 since no v0.1.0 tool accepts user paths); plus validatePath × 6, tool registration, each tool × 2-3, B1/I1/I2 contract locks
   - _Requirements: FR-26, NFR-6; design §10_
 
 - [ ] 32. Checkpoint — Layer 5 (Search) complete _(skip if Layer 5 deferred)_
