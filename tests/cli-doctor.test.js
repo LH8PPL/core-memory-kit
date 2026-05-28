@@ -142,6 +142,37 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       expect(c2.status).toBe('pass');
     });
 
+    it('B1 fix: HC-2 detects hook in WRONG event array as fail (not false-pass)', async () => {
+      // Skill-review B1: previous substring-on-stringify implementation
+      // false-pass'd on hooks wired to wrong events OR mentioned in
+      // descriptions/TODOs. This test pins the actual structural walk.
+      seedSettingsJson({
+        // All three hook names appear, but in the WRONG event arrays.
+        hooks: {
+          SessionStart: [{ command: 'cmk-compress-session' }], // wrong
+          Stop: [{ command: 'cmk-inject-context' }], // wrong
+          SessionEnd: [{ command: 'cmk-capture-turn' }], // wrong
+        },
+      });
+      const r = await runDoctor({ projectRoot, userDir });
+      const c2 = r.checks.find((c) => c.id === 'HC-2');
+      expect(c2.status).toBe('fail');
+      // The message should call out missing hooks per their CORRECT event
+      expect(c2.message).toMatch(/SessionStart\.cmk-inject-context/);
+      expect(c2.message).toMatch(/Stop\.cmk-capture-turn/);
+      expect(c2.message).toMatch(/SessionEnd\.cmk-compress-session/);
+    });
+
+    it('B1 fix: HC-2 does NOT false-pass on TODO text mentioning the hook names', async () => {
+      seedSettingsJson({
+        description: 'TODO: wire cmk-inject-context cmk-capture-turn cmk-compress-session',
+        hooks: { SessionStart: [], Stop: [], SessionEnd: [] },
+      });
+      const r = await runDoctor({ projectRoot, userDir });
+      const c2 = r.checks.find((c) => c.id === 'HC-2');
+      expect(c2.status).toBe('fail');
+    });
+
     it('HC-3 missing recent.md → fail with `cmk daily-distill`', async () => {
       const r = await runDoctor({ projectRoot, userDir });
       const c3 = r.checks.find((c) => c.id === 'HC-3');
@@ -194,7 +225,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
   });
 
   describe('37.6 #4 + #5 — HC-8 native Anthropic Auto Memory detection logs structured entry', () => {
-    it('writes NDJSON to .locks/native-memory-status.log with active:false when no Anthropic dir exists', async () => {
+    it('writes single-line JSON snapshot to .locks/native-memory-status.log with active:false when no Anthropic dir exists', async () => {
       const r = await runDoctor({ projectRoot, userDir });
       const c8 = r.checks.find((c) => c.id === 'HC-8');
       expect(c8.status).toBe('pass');

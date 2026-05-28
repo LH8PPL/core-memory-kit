@@ -21,11 +21,14 @@
 //   - lock-discipline.mjs::detectStaleLocks (HC-9)
 //   - platform-commands.mjs — cross-platform repair command emission
 //
-// Critical rule per NFR-9: any repair requiring `pip install` /
-// `npm install` / system-level changes MUST ASK the user first
-// (37.5). runDoctor records `requiresInstall: true` on those HCResults
-// and the caller (cmk doctor CLI handler) handles the prompt; tests
-// pass a `promptUser` fake to assert the gate fires.
+// Critical rule per design §14 + tasks.md 37.5: any repair requiring
+// `pip install` / `npm install` / system-level changes MUST ASK the
+// user first. (I1 fix 2026-05-28: previously cited NFR-9 which is
+// actually "Memory poisoning defense baseline" per requirements-revisions-proposed.md
+// — the ask-before-install rule has no FR/NFR backing today; promoting
+// it is a v0.1.x candidate.) runDoctor records `requiresInstall: true`
+// on those HCResults and the CLI handler surfaces the command without
+// auto-invoking it.
 
 import {
   existsSync,
@@ -61,11 +64,13 @@ async function hc1Memsearch() {
   try {
     const r = spawnSync('memsearch', ['--version'], {
       encoding: 'utf8',
-      // 2s: memsearch --version should respond <500ms typical; longer
-      // means Python startup is sick or the host is heavily loaded. We
-      // treat timeout as "skip" so cmk doctor still completes under
-      // the 5s NFR budget per tasks.md 37.6 #2.
-      timeout: 2_000,
+      // M1 fix (skill-review 2026-05-28): 3.5s tolerates Windows
+      // cold-Python startup (AV scan + .pyc generation on first hit
+      // can push past 2s for a healthy install). HC-2..9 are file-
+      // system ops that complete in ≪100ms total, so HC-1 + the rest
+      // still fits comfortably inside the 5s NFR budget. Timeout →
+      // 'skip' so cmk doctor completes regardless.
+      timeout: 3_500,
       shell: process.platform === 'win32',
     });
     if (r.status === 0) {
@@ -116,9 +121,33 @@ function hc2Hooks({ projectRoot }) {
       recoveryCommand: 'cmk repair --hooks',
     };
   }
-  const required = ['cmk-inject-context', 'cmk-capture-turn', 'cmk-compress-session'];
-  const json = JSON.stringify(settings);
-  const missing = required.filter((h) => !json.includes(h));
+  // B1 fix (skill-review 2026-05-28): walk the actual hooks.<Event>[].command
+  // structure instead of substring-matching against JSON.stringify(settings).
+  // Substring-match false-positives on ANY occurrence (description text,
+  // env value, stale TODO comment) and doesn't verify each hook is wired
+  // to its CORRECT event array. The walk pins both contracts: hook
+  // present + hook in the right event.
+  const required = [
+    { event: 'SessionStart', command: 'cmk-inject-context' },
+    { event: 'Stop', command: 'cmk-capture-turn' },
+    { event: 'SessionEnd', command: 'cmk-compress-session' },
+  ];
+  const hooks = settings?.hooks ?? {};
+  const missing = [];
+  for (const { event, command } of required) {
+    const entries = Array.isArray(hooks[event]) ? hooks[event] : [];
+    // Each entry may be either a string command or {command: '...'}.
+    // Anthropic's hook format uses the object form; the kit's bin
+    // wrapper docs use it too. Accept both for resilience.
+    const found = entries.some((e) => {
+      if (typeof e === 'string') return e.includes(command);
+      if (e && typeof e === 'object' && typeof e.command === 'string') {
+        return e.command.includes(command);
+      }
+      return false;
+    });
+    if (!found) missing.push(`${event}.${command}`);
+  }
   if (missing.length > 0) {
     return {
       id: 'HC-2',
@@ -132,7 +161,7 @@ function hc2Hooks({ projectRoot }) {
     id: 'HC-2',
     name: 'Stop + SessionStart hooks registered',
     status: 'pass',
-    message: 'all kit hooks present in .claude/settings.json',
+    message: 'all kit hooks wired to their correct event arrays in .claude/settings.json',
   };
 }
 
@@ -270,11 +299,16 @@ function hc5IndexConsistency({ projectRoot }) {
       recoveryCommand: 'cmk reindex',
     };
   }
+  // M2 fix (skill-review 2026-05-28): constrain the regex to fact-file
+  // id shapes (`[PUL]-XXXXXXXX.md`) so unrelated markdown links inside
+  // INDEX.md (e.g., "see also design.md") don't false-positive as fact
+  // file references. Mirrors the kit's ID_PATTERN base32 alphabet
+  // (excluding 0/O/1/l/I/8).
   const indexEntries = new Set();
-  const re = /([A-Za-z0-9_.-]+\.md)/g;
+  const re = /\b([PUL]-[A-Za-z2-9]{8})\.md\b/g;
   let m;
   while ((m = re.exec(indexText)) !== null) {
-    if (m[1] !== 'INDEX.md') indexEntries.add(m[1]);
+    indexEntries.add(m[1] + '.md');
   }
   const factSet = new Set(factFiles);
   const inFactsNotIndex = [...factSet].filter((f) => !indexEntries.has(f));
@@ -382,7 +416,14 @@ function hc8NativeAutoMemory({ projectRoot, now }) {
       };
     }
   }
-  // Append the audit entry.
+  // Write the current-state SNAPSHOT (single line, overwritten each
+  // run). I2 fix (skill-review 2026-05-28): clarified — earlier
+  // comment said "Append the audit entry" but the code uses
+  // writeFileSync (overwrite). Snapshot semantics is the right v0.1.0
+  // contract because `cmk doctor` is intended for "what's true RIGHT
+  // NOW" checks, not trend analysis. Trend logging is a v0.1.x
+  // candidate (would require append + rotation or a separate
+  // history.ndjson file).
   const logPath = join(projectRoot, ...NATIVE_MEMORY_LOG_REL);
   try {
     mkdirSync(join(projectRoot, ...LOCKS_REL), { recursive: true });
@@ -414,15 +455,18 @@ function hc9StaleLocks({ projectRoot, userDir }) {
       message: 'all locks healthy',
     };
   }
-  // Surface the first lock's recoveryCommand. Multiple stale locks all
-  // get the same shape; users see them in subsequent runs after
-  // cleaning the first.
+  // Surface the first lock's recoveryCommand. M4 fix (skill-review
+  // 2026-05-28): when more than one stale lock exists, the message
+  // calls out the remaining count so the user knows to re-run.
   const first = stale[0];
+  const moreNote = stale.length > 1
+    ? ` (+ ${stale.length - 1} more — re-run after cleaning to surface)`
+    : '';
   return {
     id: 'HC-9',
     name: 'No stale lock files',
     status: 'fail',
-    message: `${stale.length} stale lock(s); first: ${first.path} (${first.reason})`,
+    message: `${stale.length} stale lock(s); first: ${first.path} (${first.reason})${moreNote}`,
     recoveryCommand: first.recoveryCommand,
   };
 }
@@ -434,16 +478,19 @@ function hc9StaleLocks({ projectRoot, userDir }) {
  * @param {string} opts.projectRoot
  * @param {string} [opts.userDir]
  * @param {string} [opts.now]
- * @param {Function} [opts.promptUser]  (msg) => Promise<boolean>; required if any HC's repair has requiresInstall:true AND caller wants auto-repair
  * @returns {Promise<{action, checks, duration_ms}>}
+ *
+ * Note: M3 fix (skill-review 2026-05-28) dropped the v0.1.0 `promptUser`
+ * forward-compat parameter. It was destructured-then-void-discarded; no
+ * caller passes it. When auto-repair with consent ships (v0.1.x), the
+ * parameter lands at that PR alongside the actual consent flow — not
+ * pre-empted in v0.1.0 to avoid the "forward-compat hooks rot" pattern.
  */
 export async function runDoctor({
   projectRoot,
   userDir,
   now,
-  promptUser, // currently unused at this layer — the CLI wrapper handles install-prompt gating per 37.5. We thread the param through so callers can pass a tester fake.
 } = {}) {
-  void promptUser; // future-use hook; documented above
   const t0 = Date.now();
   if (!projectRoot) {
     return {
