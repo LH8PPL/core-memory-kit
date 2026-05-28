@@ -26,30 +26,29 @@ import {
   anthropicSlugFor,
   anthropicMemoryPath,
 } from '../packages/cli/src/import-anthropic-memory.mjs';
+import { readAuditLog } from '../packages/cli/src/audit-log.mjs';
 import { install } from '../packages/cli/src/install.mjs';
 
 let sandbox;
 let projectRoot;
 let userDir;
-let fakeHomeAnthropicMemoryDir;
+let fakeHarnessRoot; // B2 fix: contains the sandbox's ~/.claude/projects/ analog
 
 async function makeFixture() {
   sandbox = mkdtempSync(join(tmpdir(), 'cmk-import-test-'));
   projectRoot = join(sandbox, 'proj');
   userDir = join(sandbox, 'user');
+  fakeHarnessRoot = join(sandbox, 'fake-harness', 'projects');
   await install({ projectRoot, userTier: userDir });
-  // Seed the Anthropic memory file at the real homedir-derived path.
-  // The module computes path via homedir() — we can't intercept; the
-  // existing implementation uses homedir() at call time. We seed the
-  // path the module computes for THIS project's slug.
-  const path = anthropicMemoryPath(projectRoot);
-  fakeHomeAnthropicMemoryDir = path.replace(/\/MEMORY\.md$/, '').replace(/\\MEMORY\.md$/, '');
 }
 
 function seedAnthropicMemory(bullets) {
-  mkdirSync(fakeHomeAnthropicMemoryDir, { recursive: true });
+  // B2 fix (skill-review 2026-05-28): write into the sandbox-contained
+  // harness root, NOT the user's real ~/.claude/projects/.
+  const memoryDir = join(fakeHarnessRoot, anthropicSlugFor(projectRoot), 'memory');
+  mkdirSync(memoryDir, { recursive: true });
   const text = '# Memory\n\n' + bullets.map((b) => `- ${b}`).join('\n') + '\n';
-  writeFileSync(join(fakeHomeAnthropicMemoryDir, 'MEMORY.md'), text, 'utf8');
+  writeFileSync(join(memoryDir, 'MEMORY.md'), text, 'utf8');
 }
 
 function seedTargetMemory(bullets) {
@@ -65,9 +64,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   rmSync(sandbox, { recursive: true, force: true });
-  if (fakeHomeAnthropicMemoryDir && existsSync(fakeHomeAnthropicMemoryDir)) {
-    rmSync(fakeHomeAnthropicMemoryDir, { recursive: true, force: true });
-  }
+  // B2 fix: no real ~/.claude/projects/ pollution to clean up
 });
 
 describe('Task 38a — importAnthropicMemory', () => {
@@ -81,7 +78,7 @@ describe('Task 38a — importAnthropicMemory', () => {
 
   describe('38.5 #4 — missing source → exit cleanly', () => {
     it('returns completed with reason:no-source when ~/.claude/projects/<slug>/memory/MEMORY.md missing', async () => {
-      const r = await importAnthropicMemory({ projectRoot });
+      const r = await importAnthropicMemory({ projectRoot, harnessRoot: fakeHarnessRoot });
       expect(r.action).toBe('completed');
       expect(r.reason).toBe('no-source');
       expect(r.accepted).toBe(0);
@@ -99,7 +96,7 @@ describe('Task 38a — importAnthropicMemory', () => {
       // Tiny wait so mtime would visibly change if anything wrote
       await new Promise((resolve) => setTimeout(resolve, 20));
 
-      const r = await importAnthropicMemory({ projectRoot, dryRun: true });
+      const r = await importAnthropicMemory({ projectRoot, harnessRoot: fakeHarnessRoot, dryRun: true });
       expect(r.action).toBe('completed');
       expect(r.mode).toBe('dry-run');
       expect(r.proposals.length).toBe(2);
@@ -115,7 +112,7 @@ describe('Task 38a — importAnthropicMemory', () => {
     it('appends bullets to context/MEMORY.md with imported provenance comment', async () => {
       seedTargetMemory(['existing']);
       seedAnthropicMemory(['imported A', 'imported B']);
-      const r = await importAnthropicMemory({ projectRoot, acceptAll: true });
+      const r = await importAnthropicMemory({ projectRoot, harnessRoot: fakeHarnessRoot, acceptAll: true });
       expect(r.action).toBe('completed');
       expect(r.mode).toBe('apply');
       expect(r.accepted).toBe(2);
@@ -133,28 +130,40 @@ describe('Task 38a — importAnthropicMemory', () => {
     it('canonicalize-equal candidates are skipped + counted', async () => {
       seedTargetMemory(['Shared decision']);
       seedAnthropicMemory(['shared decision', 'unique new fact']);
-      const r = await importAnthropicMemory({ projectRoot, acceptAll: true });
+      const r = await importAnthropicMemory({ projectRoot, harnessRoot: fakeHarnessRoot, acceptAll: true });
       expect(r.action).toBe('completed');
       expect(r.skipped).toBe(1); // "shared decision" canonicalize-matches "Shared decision"
       expect(r.accepted).toBe(1); // only "unique new fact" applied
 
-      // Audit log has the skipped: duplicate entry
-      const auditLog = join(projectRoot, 'context', '.locks', 'audit.log');
-      expect(existsSync(auditLog)).toBe(true);
-      const entries = readFileSync(auditLog, 'utf8')
-        .trim()
-        .split('\n')
-        .map((l) => JSON.parse(l));
-      const dupEntry = entries.find((e) => e.reason === 'import-skipped-duplicate');
+      // B1 fix: audit log entries land via appendAuditEntry (canonical
+      // schema). Verify via readAuditLog so the test pins the shape we
+      // actually parse downstream — not raw JSON parsing that masks
+      // schema drift.
+      const entries = readAuditLog(join(projectRoot, 'context'));
+      const dupEntry = entries.find(
+        (e) => e.reasonCode === 'import-skipped-duplicate',
+      );
       expect(dupEntry).toBeTruthy();
-      expect(dupEntry.source).toBe('import-anthropic-memory');
+      expect(dupEntry.schema).toBe(1);
+      expect(dupEntry.action).toBe('import');
+      expect(dupEntry.tier).toBe('P');
+      expect(dupEntry.id).toMatch(/^P-[A-Za-z2-9]{8}$/);
+      expect(dupEntry.extra?.source).toBe('anthropic-auto-memory');
+
+      // Apply path should have an IMPORT_APPLIED entry for the unique fact
+      const appliedEntry = entries.find(
+        (e) => e.reasonCode === 'import-applied',
+      );
+      expect(appliedEntry).toBeTruthy();
+      expect(appliedEntry.extra?.trust).toBe('medium');
+      expect(appliedEntry.extra?.write_source).toBe('imported');
     });
   });
 
   describe('default mode (no flags) requires explicit --yes confirmation', () => {
     it('returns requires-confirmation when proposals exist but neither dryRun nor acceptAll is set', async () => {
       seedAnthropicMemory(['fact A']);
-      const r = await importAnthropicMemory({ projectRoot });
+      const r = await importAnthropicMemory({ projectRoot, harnessRoot: fakeHarnessRoot });
       expect(r.action).toBe('completed');
       expect(r.mode).toBe('requires-confirmation');
       expect(r.accepted).toBe(0);

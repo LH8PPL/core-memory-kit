@@ -5,7 +5,7 @@
 //   extractTranscript({inputPath, outputPath, includeThinking?})
 //     → {turnsKept, rawLines, outputSize, sessionStart, sessionEnd}
 //
-//   discoverSessions({slug?, sessionUuidSuffix?, sinceIso?, userDir?})
+//   discoverSessions({slug?, sessionUuidSuffix?, sinceIso?, harnessRoot?})
 //     → Array<{slug, sessionId, jsonlPath, mtimeMs}>
 //
 // Promotes the existing `scripts/extract-session-transcript.mjs` (kit-

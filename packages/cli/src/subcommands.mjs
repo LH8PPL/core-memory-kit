@@ -535,11 +535,11 @@ async function runDoctorCli(/* options */) {
 
 async function runImportAnthropicMemory(options /* , command */) {
   const projectRoot = resolvePath(process.cwd());
-  const userDir = join(homedir(), '.claude-memory-kit');
   const dryRun = options?.dryRun === true;
   const acceptAll = options?.yes === true;
   try {
-    const r = await importAnthropicMemory({ projectRoot, userDir, dryRun, acceptAll });
+    // I1 fix (skill-review 2026-05-28): userDir was unused, dropped.
+    const r = await importAnthropicMemory({ projectRoot, dryRun, acceptAll });
     if (r.action === 'error') {
       console.error(`cmk import-anthropic-memory: error — ${(r.errors ?? []).join('; ')}`);
       process.exitCode = 2;
@@ -599,6 +599,15 @@ async function runTranscriptsExtract(options) {
     return;
   }
   if (sessions.length === 0) {
+    // S1 fix (Task 38 skill-review 2026-05-28): specialize the message
+    // for --session-not-found so the user sees the filter that failed.
+    if (options?.session) {
+      console.error(
+        `cmk transcripts extract: no session matching --session ${options.session}`,
+      );
+      process.exitCode = 2;
+      return;
+    }
     console.log('cmk transcripts extract: no sessions found matching filter');
     return;
   }

@@ -1,7 +1,7 @@
 // @doors: 1, 2
 // Door 3 N/A: transcripts module is pure-file-IO; no subprocess.
-// Door 4 N/A: no message-queue.
-// Door 5 N/A: extractTranscript returns its result struct rather than emitting NDJSON.
+// Door 4 N/A: no NDJSON observability — extractTranscript returns its result struct directly (the struct IS the observation). M1 fix (skill-review 2026-05-28): previously Door 4 + Door 5 N/A reasons were conflated; Door 5 = message queues per CLAUDE.md.
+// Door 5 N/A: no message-queue interaction.
 
 // Tests for Task 38b — cmk transcripts extract.
 // Per tasks.md 38.9 (cases):
