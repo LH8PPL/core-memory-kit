@@ -48,7 +48,7 @@ import {
   appendFileSync,
 } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { generateId } from '@cmk/canonicalize';
+import { generateId } from '@lh8ppl/cmk-canonicalize';
 import { memoryWrite } from './memory-write.mjs';
 import { HaikuTimeoutError } from './compressor.mjs';
 import { pidIsAlive } from './lock-discipline.mjs';

@@ -8,7 +8,7 @@
 //   - package.json version equals 0.1.0 (will match git tag once tagged)
 //   - CHANGELOG.md has `## [0.1.0] — YYYY-MM-DD` heading with non-empty body
 //   - GitHub Release exists for tag v0.1.0 (skipped pre-publish; runs post-publish manually)
-//   - Fresh install of @claude-memory-kit/cli@0.1.0 succeeds + cmk version outputs 0.1.0 (skipped pre-publish; the npm-pack smoke test below validates the equivalent)
+//   - Fresh install of @lh8ppl/claude-memory-kit@0.1.0 succeeds + cmk version outputs 0.1.0 (skipped pre-publish; the npm-pack smoke test below validates the equivalent)
 
 import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
@@ -36,11 +36,11 @@ describe('Task 43 — release verification (pre-publish gates)', () => {
       expect(pkg.version).toBe('0.1.0');
     });
 
-    it('packages/cli declares @cmk/canonicalize as a dependency at 0.1.0', () => {
+    it('packages/cli declares @lh8ppl/cmk-canonicalize as a dependency at 0.1.0', () => {
       const pkg = JSON.parse(
         readFileSync(join(repoRoot, 'packages', 'cli', 'package.json'), 'utf8'),
       );
-      expect(pkg.dependencies?.['@cmk/canonicalize']).toBe('0.1.0');
+      expect(pkg.dependencies?.['@lh8ppl/cmk-canonicalize']).toBe('0.1.0');
     });
   });
 

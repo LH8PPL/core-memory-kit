@@ -14,7 +14,7 @@ import { join } from 'node:path';
 
 export const VALID_TIERS = new Set(['U', 'P', 'L']);
 
-// Matches IDs produced by @cmk/canonicalize.generateId(). Tier prefix +
+// Matches IDs produced by @lh8ppl/cmk-canonicalize.generateId(). Tier prefix +
 // 8 chars from the custom 32-char base32 alphabet that excludes the six
 // ambiguous chars (0, O, 1, l, I, 8). See design §3.1.
 export const ID_PATTERN = /^[PUL]-[2345679ABCDEFGHJKLMNPQRSTUVWXYZa]{8}$/;

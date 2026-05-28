@@ -396,7 +396,7 @@ function generateId(tier: 'U' | 'P' | 'L', bullet_text: string): string {
 }
 ```
 
-Implementation lives in `cmk` CLI's shared library (`@cmk/canonicalize` package, MIT) so external tools (e.g. liorwiki ingest) can compute the same IDs deterministically.
+Implementation lives in `cmk` CLI's shared library (`@lh8ppl/cmk-canonicalize` package, MIT) so external tools (e.g. liorwiki ingest) can compute the same IDs deterministically.
 
 ### 3.4 Consolidation / merge semantics
 
@@ -1250,7 +1250,7 @@ Pivoted to Node.js 2026-05-28 (Lior + Claude joint decision). Rationale:
 
 1. **No new toolchain**: the kit is already Node-only. Python means new install dep + new test infra (pytest) + new platform concerns (Python install paths differ across OSes).
 2. **Existing kit pattern**: `register-crons` shells out to platform-native scheduler commands via `child_process.spawnSync`. The kit's other modules (compressor.mjs, capture-turn.mjs, auto-extract.mjs) already do this with shell:true on Windows for the `.cmd` shim case.
-3. **Single-language deploy**: v0.1.0 ships as one npm package; `npm install -g @claude-memory-kit/cli` is the whole install. Adding Python would force users to install Python too (or bundle it — much larger artifact).
+3. **Single-language deploy**: v0.1.0 ships as one npm package; `npm install -g @lh8ppl/claude-memory-kit` is the whole install. Adding Python would force users to install Python too (or bundle it — much larger artifact).
 4. **Test surface fits**: vitest tests can spawn the script with `--dry-run` and assert output. No pytest infrastructure needed.
 
 The Python option is preserved in [`tasks.md`](../../specs/v0.1.0/tasks.md) Task 33.2 alongside the Node pivot so future contributors see the decision history.
@@ -1539,7 +1539,7 @@ Single Node binary, ships with the kit. Subcommands:
 | `cmk repair` | Idempotent self-repair (re-install hooks, reset stale locks) |
 | `cmk version` | Print kit version + check for updates |
 
-CLI implemented in Node; ships as `@claude-memory-kit/cli` npm package + standalone binary via `pkg`.
+CLI implemented in Node; ships as `@lh8ppl/claude-memory-kit` npm package + standalone binary via `pkg`.
 
 **Implements**: FR-22, FR-23.
 
@@ -1553,7 +1553,7 @@ Per OQ-2 + verified plugin format from claude-mem (`plugin/.claude-plugin/plugin
 | --- | --- | --- |
 | `bash install.sh` | macOS / Linux / Git Bash | Reads `template/`, scaffolds into target, never overwrites |
 | `pwsh install.ps1` | Windows-native | PowerShell-native equivalent |
-| `npx claude-memory-kit install` | Cross-OS one-liner | Node-distributed (`@claude-memory-kit/cli`) |
+| `npx claude-memory-kit install` | Cross-OS one-liner | Node-distributed (`@lh8ppl/claude-memory-kit`) |
 | Claude Code plugin (`/plugin install claude-memory-kit` + `/claude-memory-kit:bootstrap`) | Claude Code users | Plugin manifest in `plugin/.claude-plugin/plugin.json`; `bootstrap` skill scaffolds per-project files |
 | Manual copy (documented in `INSTALL-{windows,macos,linux}.md`) | Offline / air-gapped | Direct copy of `template/` contents |
 

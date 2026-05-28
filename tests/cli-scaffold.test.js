@@ -83,7 +83,7 @@ describe('Task 2 — cmk CLI scaffold', () => {
       const pkgPath = join(REPO_ROOT, 'packages', 'cli', 'package.json');
       expect(existsSync(pkgPath)).toBe(true);
       const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
-      expect(pkg.name).toBe('@claude-memory-kit/cli');
+      expect(pkg.name).toBe('@lh8ppl/claude-memory-kit');
       expect(pkg.bin).toBeDefined();
       expect(pkg.bin.cmk).toBeTruthy();
     });

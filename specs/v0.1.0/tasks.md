@@ -64,7 +64,7 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 
 - [x] 2. `cmk` Node CLI scaffold (T-002) — _shipped 2026-05-23, PR #2_
   - Estimate: M · Depends: 1
-- [x] 2.1 Create `@claude-memory-kit/cli` npm package skeleton
+- [x] 2.1 Create `@lh8ppl/claude-memory-kit` npm package skeleton
   - `package.json`, `bin/cmk`, basic Node entry point
 - [x] 2.2 Wire `commander` or `cac` for arg parsing
   - One option chosen and locked in for v0.1
@@ -119,7 +119,7 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
   - Estimate: M · Depends: 2
 - [x] 5.1 Define `fixtures/canonicalize-vectors.json`
   - ≥30 representative inputs covering whitespace collapse, lowercase, backref strip, punctuation strip, HTML-comment strip, non-ASCII passthrough
-- [x] 5.2 Implement Node `@cmk/canonicalize` package
+- [x] 5.2 Implement Node `@lh8ppl/cmk-canonicalize` package
   - `canonicalize()` + `generateId(tier, text)`
 - [x] 5.3 Implement Python parallel implementation (for cron + auto-extract scripts)
   - Same function signatures; same outputs
@@ -664,7 +664,7 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
     1. **No new toolchain**. The kit is already Node-only. Adding Python means new install dep, new test infrastructure (pytest), new cross-platform concerns (Python install paths differ across Win/Mac/Linux), new validator surface.
     2. **Existing kit modules are Node**. `register-crons` shells out to the platform-native scheduler commands (crontab / launchctl / schtasks); the Node `child_process.spawnSync` handles this exactly the way the kit's other modules already do.
     3. **Tests fit existing surface**. vitest tests can spawn `node scripts/register-crons.mjs --dry-run` and assert output without bringing pytest.
-    4. **Single-language deploy**. v0.1.0 ships as one npm package; users `npm install -g @claude-memory-kit/cli` and have everything. Adding Python would force users to also install Python (or the kit to bundle it — much larger).
+    4. **Single-language deploy**. v0.1.0 ships as one npm package; users `npm install -g @lh8ppl/claude-memory-kit` and have everything. Adding Python would force users to also install Python (or the kit to bundle it — much larger).
   - **Cross-platform mapping**:
     - macOS: write `~/Library/LaunchAgents/com.cmk.daily-distill.plist` + `launchctl load`
     - Linux: `crontab -l | (grep -v cmk-daily ; echo "...") | crontab -` (pipe pattern for idempotency)
@@ -899,7 +899,7 @@ Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility)
   - Shipped at [`CHANGELOG.md`](../../CHANGELOG.md). Keep-a-Changelog 1.1.0 format. `## [0.1.0] — 2026-05-28` heading with Added (60+ bullets across Foundation/Auto-extract/Search/Cron/Cross-cutting/Quality), Deferred to v0.1.1 (Task 45 + Layer 5b + Tasks 46-48), Known limitations, Acknowledgements sections.
 - [ ] 43.3 Tag `v0.1.0` and push the tag
   - **Pending Lior's explicit consent** — `git tag v0.1.0` + `git push origin v0.1.0`. Per CLAUDE.md autopilot stop conditions (git tag push is irreversible).
-- [ ] 43.4 Publish `@claude-memory-kit/cli@0.1.0` to npm
+- [ ] 43.4 Publish `@lh8ppl/claude-memory-kit@0.1.0` to npm
   - **Pending Lior's explicit consent** — `cd packages/canonicalize && npm publish` (must publish first since cli depends on it), then `cd packages/cli && npm publish` (prepublishOnly copies template/ into the cli package). Per CLAUDE.md autopilot stop conditions (npm publish is irreversible).
 - [ ] 43.5 Publish GitHub Release with CHANGELOG-derived notes
   - **Pending Lior's explicit consent** — `gh release create v0.1.0 --notes-file CHANGELOG.md` (or `--notes` with extracted [0.1.0] section).
@@ -912,7 +912,7 @@ Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility)
   - Release published on npm + GitHub
   - Install verified from clean state on all 3 OSes
   - v0.1.0 is shipped
-  - **Live end-to-end acceptance test on a real project** _moved here from Task 42 on 2026-05-28 per Lior's autopilot-42→43→44→45 sequencing_. Pick a real project (NOT the kit's own repo). Install the kit fresh via `npm install -g @claude-memory-kit/cli` + `cmk install`. Open Claude Code on the project, hold real sessions, verify:
+  - **Live end-to-end acceptance test on a real project** _moved here from Task 42 on 2026-05-28 per Lior's autopilot-42→43→44→45 sequencing_. Pick a real project (NOT the kit's own repo). Install the kit fresh via `npm install -g @lh8ppl/claude-memory-kit` + `cmk install`. Open Claude Code on the project, hold real sessions, verify:
     - Auto-extract fires on Stop hook + bullets appear in MEMORY.md (no manual writes needed)
     - SessionStart injection works (Claude sees the snapshot at session start)
     - `cmk search "<term>"` returns relevant results from accumulated memory

@@ -14,7 +14,7 @@ The first public release of claude-memory-kit — a per-project, in-repo memory 
 
 - **3-tier memory model** (P/L/U): project tier in `<repo>/context/` (committed), local tier in `<repo>/context.local/` (gitignored), user tier in `~/.claude-memory-kit/` (cross-project per-user)
 - **`cmk install`** scaffolds the 3-tier layout into a project, drops a managed CLAUDE.md block, and adds `.gitignore` entries for regenerable + machine-local state
-- **Granular fact archive** with content-addressed 8-char base32 IDs (Node ⇔ Python parity package `@cmk/canonicalize`); INDEX.md pointer file walked at session start
+- **Granular fact archive** with content-addressed 8-char base32 IDs (Node ⇔ Python parity package `@lh8ppl/cmk-canonicalize`); INDEX.md pointer file walked at session start
 - **Bounded scratchpads** (MEMORY.md / USER.md / SOUL.md) with character caps + consolidation discipline
 - **Frontmatter-everything provenance**: every observation carries `created_at`, `source_file`, `source_sha1`, `write_source`, `trust` fields enforced by `writeFact()` boundary
 

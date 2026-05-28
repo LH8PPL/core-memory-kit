@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // One-shot script: load fixtures/canonicalize-vectors.json, compute expected_id_P
-// for every vector via @cmk/canonicalize, write the fixture back. Run once after
+// for every vector via @lh8ppl/cmk-canonicalize, write the fixture back. Run once after
 // authoring inputs to freeze IDs; re-run only if canonicalize rules change.
 
 import { readFileSync, writeFileSync } from 'node:fs';
