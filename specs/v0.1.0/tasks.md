@@ -729,7 +729,7 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 
 ## Cross-cutting
 
-- [ ] 37. `cmk doctor` health checks HC-1..HC-9 (T-031)
+- [x] 37. `cmk doctor` health checks HC-1..HC-9 (T-031) _shipped 2026-05-28, PR #55_
   - Estimate: M · Depends: 3
 - [x] 37.1 Implement HC-1..HC-7 from design §14
   - memsearch installed; hooks registered; distill freshness; transcripts firing; INDEX consistency; cron registered; memsearch backend reachable
