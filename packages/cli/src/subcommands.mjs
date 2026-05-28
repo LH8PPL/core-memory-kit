@@ -26,6 +26,8 @@ import { runLazyCompress } from './lazy-compress.mjs';
 import { runDoctor } from './doctor.mjs';
 import { importAnthropicMemory } from './import-anthropic-memory.mjs';
 import { extractTranscript, discoverSessions } from './transcripts.mjs';
+import { runRepair } from './repair.mjs';
+import { runRoll, ROLL_SCOPES } from './roll.mjs';
 import {
   markCronRegistered,
   unmarkCronRegistered,
@@ -529,6 +531,79 @@ async function runDoctorCli(/* options */) {
     if (counts.fail > 0) process.exitCode = 1;
   } catch (err) {
     console.error(`cmk doctor: unexpected error: ${err?.message ?? err}`);
+    process.exitCode = 2;
+  }
+}
+
+async function runRepairCli(options /* , command */) {
+  const projectRoot = resolvePath(process.cwd());
+  const userDir = join(homedir(), '.claude-memory-kit');
+  // Scope flags: --hooks / --locks / --index → run that one only.
+  // --all OR no flag → run all three.
+  let scope;
+  if (options?.hooks && !options?.locks && !options?.index) scope = 'hooks';
+  else if (options?.locks && !options?.hooks && !options?.index) scope = 'locks';
+  else if (options?.index && !options?.hooks && !options?.locks) scope = 'index';
+  else scope = 'all';
+
+  try {
+    const r = await runRepair({ projectRoot, userDir, scope });
+    if (r.action === 'error') {
+      console.error(`cmk repair: error — ${(r.errors ?? []).join('; ')}`);
+      process.exitCode = 2;
+      return;
+    }
+    for (const repair of r.repairs) {
+      if (repair.error) {
+        console.error(`cmk repair (${repair.kind}): error — ${repair.error}`);
+        continue;
+      }
+      const status = repair.changed ? 'fixed' : 'no-op';
+      console.log(`cmk repair (${repair.kind}): ${status}`);
+      if (repair.kind === 'hooks' && repair.changed) {
+        console.log(`  → updated ${repair.settingsPath}`);
+        console.log(`  events: ${repair.events.join(', ')}`);
+      }
+      if (repair.kind === 'locks') {
+        if (repair.removed && repair.removed.length > 0) {
+          for (const l of repair.removed) console.log(`  removed: ${l.path} (${l.reason})`);
+        }
+        if (repair.preserved && repair.preserved.length > 0) {
+          for (const l of repair.preserved) console.log(`  preserved: ${l.path} (${l.reason})`);
+        }
+      }
+      if (repair.kind === 'index' && repair.changed) {
+        console.log(`  → reindex completed`);
+      }
+    }
+    if (r.errors > 0) process.exitCode = 1;
+  } catch (err) {
+    console.error(`cmk repair: unexpected error: ${err?.message ?? err}`);
+    process.exitCode = 2;
+  }
+}
+
+async function runRollCli(options /* , command */) {
+  const projectRoot = resolvePath(process.cwd());
+  const scope = options?.scope ?? ROLL_SCOPES.NOW;
+  // I2 fix (Task 39 skill-review 2026-05-28): dropped unused userDir
+  // computation. runRoll's underlying pipelines (compress-session,
+  // daily-distill, weekly-curate) all operate purely on projectRoot —
+  // none take userDir. Same forward-compat-rot anti-pattern Task 37 M3
+  // + Task 38 I1 already removed.
+  const { HaikuViaAnthropicApi } = await import('./compressor.mjs');
+  try {
+    const backend = new HaikuViaAnthropicApi();
+    const r = await runRoll({ projectRoot, scope, backend });
+    if (r.action === 'error') {
+      console.error(`cmk roll: error — ${(r.errors ?? []).join('; ')}`);
+      process.exitCode = 2;
+      return;
+    }
+    const inner = r.result;
+    console.log(`cmk roll --scope ${scope} → ${r.delegatedTo}: ${inner?.action ?? 'unknown'}${inner?.reason ? ` (${inner.reason})` : ''}`);
+  } catch (err) {
+    console.error(`cmk roll: unexpected error: ${err?.message ?? err}`);
     process.exitCode = 2;
   }
 }
@@ -1099,19 +1174,20 @@ export const subcommands = [
     name: 'roll',
     description: 'force-roll the rolling-window pipeline (same internals as SessionEnd / cron)',
     milestone: 39,
-    optionSpec: [{ flags: '--scope <scope>', description: 'now (default) | today | recent' }],
-    action: stub('roll', 39),
+    optionSpec: [{ flags: '--scope <scope>', description: 'now (default — task 22 compress-session) | today (task 33 daily-distill) | recent (task 34 weekly-curate)' }],
+    action: runRollCli,
   },
   {
     name: 'repair',
     description: 'idempotent self-repair — re-register hooks, reset stale locks, rebuild index',
     milestone: 39,
     optionSpec: [
-      { flags: '--hooks', description: 're-register hooks from template' },
-      { flags: '--locks', description: 'clear stale locks (>1h old)' },
+      { flags: '--hooks', description: 're-register hooks from template (merges kit hooks into .claude/settings.json)' },
+      { flags: '--locks', description: 'clear stale locks (>1h old by default)' },
       { flags: '--index', description: 'invoke `cmk reindex --full`' },
+      { flags: '--all', description: 'run all three repairs in order (default if no scope flag given)' },
     ],
-    action: stub('repair', 39),
+    action: runRepairCli,
   },
   {
     name: 'daily-distill',
