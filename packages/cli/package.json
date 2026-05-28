@@ -6,7 +6,8 @@
   "bin": {
     "cmk": "./bin/cmk.mjs",
     "cmk-daily-distill": "./bin/cmk-daily-distill.mjs",
-    "cmk-weekly-curate": "./bin/cmk-weekly-curate.mjs"
+    "cmk-weekly-curate": "./bin/cmk-weekly-curate.mjs",
+    "cmk-compress-lazy": "./bin/cmk-compress-lazy.mjs"
   },
   "files": [
     "bin/",

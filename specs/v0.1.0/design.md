@@ -1029,6 +1029,43 @@ At SessionStart, after snapshot assembly:
 
 **Per HC-6**: `cmk doctor` detects no-cron mode and reports "running lazy compression — install cron for tighter schedules". Non-fatal.
 
+### 8.2.2 `lazy-compress.mjs` module shape (Task 35)
+
+**Tail-appended 2026-05-28** during Task 35 implementation. §8.2.1 documents the lazy-fallback policy at a high level; this section adds the implementation contract.
+
+Public boundary:
+
+```js
+detectStaleness({projectRoot, now, dailyTtlMs?, weeklyTtlMs?})
+  → {action: 'fresh' | 'stale-daily' | 'stale-weekly' | 'cron-active' | 'no-context-dir', reason}
+
+async runLazyCompress({projectRoot, backend, now, cooldownMs?, dailyTtlMs?, weeklyTtlMs?})
+  → {action: 'distilled' | 'curated' | 'skipped' | 'error', ...}
+```
+
+Composition:
+
+- **`detectStaleness`** is the cheap SessionStart-side check (called inline from `inject-context.mjs`; runs in <5ms — one stat + one existsSync per layer). It returns the work-needed verdict; the SessionStart hook then detaches `cmk compress --lazy` if non-fresh AND non-cron-active.
+- **`runLazyCompress`** is the actual work — composes on `dailyDistill` (Task 33) when only daily is stale OR `weeklyCurate` (Task 34) when weekly is stale. The verdict drives which path runs.
+- **Cron-detection sentinel**: `<projectRoot>/context/.locks/cron-registered` is a marker file written by `registerCron` (Task 33/34) and removed by `unregisterCron`. When present, `detectStaleness` returns `'cron-active'` — `cmk compress --lazy` becomes a no-op (the cron will handle staleness on its own schedule).
+- **Staleness thresholds**: `dailyTtlMs` defaults to 24h (matches daily-distill's 23:00 cadence + grace window); `weeklyTtlMs` defaults to 7d (matches weekly-curate's Sun cadence + grace). User can override via env vars (v0.1.x candidate) or function args (current shape).
+- **`inject-context.mjs` integration**: after snapshot assembly, calls `detectStaleness` synchronously. If non-fresh + non-cron-active, spawns `cmk compress --lazy` via `child_process.spawn` with `detached: true` + `stdio: 'ignore'` + `unref()`. The detached child's lifecycle is decoupled from the SessionStart hook — the hook returns its 500ms budget cleanly while the child runs in the background. The child writes to `<projectRoot>/context/.locks/lazy-compress.log` (NDJSON).
+- **Composition with shared cooldown**: `runLazyCompress` honors the 120s cooldown via the shared `cooldown.mjs` marker — same as `dailyDistill` / `weeklyCurate`. If multiple SessionStart fires happen within 120s (rapid-reopen scenario), only one Haiku call actually runs; the others see `skipped: cooldown`.
+
+`subcommands.mjs` wiring:
+
+- `cmk compress --lazy` invokes `runLazyCompress` (no other compress sub-verb exists in v0.1.0; the parent `compress` verb takes `--lazy` as the only documented flag).
+- Help shows `--lazy` as the required flag for v0.1.0; bare `cmk compress` emits help + exits 0 (Task 35 doesn't add a non-lazy compress path; that's where the Layer-2 `cmk roll` Task 39 sits).
+
+**Test contract** (tasks.md 35.4):
+
+1. SessionStart with `recent.md` mtime 8d old → `cmk compress --lazy` spawned; SessionStart still returns within 500ms.
+2. SessionStart with fresh `recent.md` (mtime <24h) → no spawn.
+3. `cmk compress --lazy` runs `dailyDistill` work when only daily is stale; runs `weeklyCurate` work when weekly is stale.
+4. With `.locks/cron-registered` sentinel present → `detectStaleness` returns `'cron-active'`; lazy detector exits skipped + logs.
+
+**Implements**: FR-19; Task 35 (Layer 6 lazy fallback). Cross-references: §1.4 (data flow), §8.1 (four-layer pipeline), §8.2 (cooldown), §8.6 (daily-distill composition), §8.7 (weekly-curate composition).
+
 ### 8.3 CompressorBackend interface (pluggable for v0.2)
 
 v0.1 ships one implementation. Interface defined now for v0.2 forward-compatibility (ADR-0008):
