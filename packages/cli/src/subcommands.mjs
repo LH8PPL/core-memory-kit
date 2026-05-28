@@ -24,6 +24,8 @@ import { dailyDistill } from './daily-distill.mjs';
 import { weeklyCurate } from './weekly-curate.mjs';
 import { runLazyCompress } from './lazy-compress.mjs';
 import { runDoctor } from './doctor.mjs';
+import { importAnthropicMemory } from './import-anthropic-memory.mjs';
+import { extractTranscript, discoverSessions } from './transcripts.mjs';
 import {
   markCronRegistered,
   unmarkCronRegistered,
@@ -531,6 +533,116 @@ async function runDoctorCli(/* options */) {
   }
 }
 
+async function runImportAnthropicMemory(options /* , command */) {
+  const projectRoot = resolvePath(process.cwd());
+  const dryRun = options?.dryRun === true;
+  const acceptAll = options?.yes === true;
+  try {
+    // I1 fix (skill-review 2026-05-28): userDir was unused, dropped.
+    const r = await importAnthropicMemory({ projectRoot, dryRun, acceptAll });
+    if (r.action === 'error') {
+      console.error(`cmk import-anthropic-memory: error — ${(r.errors ?? []).join('; ')}`);
+      process.exitCode = 2;
+      return;
+    }
+    if (r.reason === 'no-source') {
+      console.log(`cmk import-anthropic-memory: no Anthropic auto-memory found at ${r.sourcePath}`);
+      return;
+    }
+    if (r.mode === 'dry-run') {
+      console.log(`cmk import-anthropic-memory: dry-run — ${r.proposals.length} proposal(s), ${r.skipped} duplicate(s) skipped`);
+      for (const p of r.proposals) {
+        console.log(`  + ${p.id}: ${p.text}`);
+      }
+      return;
+    }
+    if (r.mode === 'requires-confirmation') {
+      console.log(`cmk import-anthropic-memory: ${r.proposals.length} proposal(s) ready to apply.`);
+      console.log('  Re-run with --yes to apply, or --dry-run to inspect.');
+      for (const p of r.proposals) {
+        console.log(`  + ${p.id}: ${p.text}`);
+      }
+      return;
+    }
+    console.log(`cmk import-anthropic-memory: applied ${r.accepted} proposal(s), skipped ${r.skipped} duplicate(s)`);
+  } catch (err) {
+    console.error(`cmk import-anthropic-memory: unexpected error: ${err?.message ?? err}`);
+    process.exitCode = 2;
+  }
+}
+
+async function runTranscriptsDispatch(childName, options) {
+  if (childName === 'extract') {
+    return runTranscriptsExtract(options);
+  }
+  console.error(`cmk transcripts: ${NOTICE_PREFIX} (unknown sub-verb '${childName}')`);
+  process.exitCode = 2;
+}
+
+async function runTranscriptsExtract(options) {
+  // Discover sessions per the flags + extract each into the output dir.
+  const projectRoot = resolvePath(process.cwd());
+  const outputDir = options?.output
+    ? resolvePath(options.output)
+    : join(projectRoot, 'transcripts-extracted');
+  const includeThinking = options?.includeThinking === true;
+  let sessions;
+  try {
+    sessions = discoverSessions({
+      slug: options?.slug,
+      sessionUuidSuffix: options?.session,
+      sinceIso: options?.since,
+    });
+  } catch (err) {
+    console.error(`cmk transcripts extract: discovery error: ${err?.message ?? err}`);
+    process.exitCode = 2;
+    return;
+  }
+  if (sessions.length === 0) {
+    // S1 fix (Task 38 skill-review 2026-05-28): specialize the message
+    // for --session-not-found so the user sees the filter that failed.
+    if (options?.session) {
+      console.error(
+        `cmk transcripts extract: no session matching --session ${options.session}`,
+      );
+      process.exitCode = 2;
+      return;
+    }
+    console.log('cmk transcripts extract: no sessions found matching filter');
+    return;
+  }
+  if (options?.session && sessions.length > 1) {
+    console.error(`cmk transcripts extract: ambiguous --session match (${sessions.length} candidates):`);
+    for (const s of sessions.slice(0, 10)) {
+      console.error(`  ${s.slug}/${s.sessionId}.jsonl`);
+    }
+    process.exitCode = 2;
+    return;
+  }
+  let totalTurns = 0;
+  let totalBytes = 0;
+  for (const s of sessions) {
+    const outputPath = join(outputDir, s.slug, `${s.sessionId}.md`);
+    try {
+      const r = extractTranscript({
+        inputPath: s.jsonlPath,
+        outputPath,
+        includeThinking,
+      });
+      if (r.action === 'error') {
+        console.error(`  ${s.sessionId}: error — ${(r.errors ?? []).join('; ')}`);
+        continue;
+      }
+      totalTurns += r.turnsKept;
+      totalBytes += r.outputSize;
+      console.log(`  ${s.slug}/${s.sessionId}: ${r.turnsKept} turn(s) → ${outputPath}`);
+    } catch (err) {
+      console.error(`  ${s.sessionId}: unexpected error: ${err?.message ?? err}`);
+    }
+  }
+  console.log(`cmk transcripts extract: processed ${sessions.length} session(s); ${totalTurns} total turns; ${(totalBytes / 1024 / 1024).toFixed(2)} MB written`);
+}
+
 async function runCompress(options /* , command */) {
   const lazy = options?.lazy === true;
   if (!lazy) {
@@ -905,8 +1017,30 @@ export const subcommands = [
     name: 'import-anthropic-memory',
     description: "merge useful bullets from Anthropic's auto-memory into this project's MEMORY.md",
     milestone: 38,
-    optionSpec: [{ flags: '--dry-run', description: 'print proposed additions without modifying files' }],
-    action: stub('import-anthropic-memory', 38),
+    optionSpec: [
+      { flags: '--dry-run', description: 'print proposed additions without modifying files' },
+      { flags: '--yes', description: 'apply every proposal without prompting (v0.1.0 requires explicit --yes; interactive y/N is v0.1.x)' },
+    ],
+    action: runImportAnthropicMemory,
+  },
+  {
+    name: 'transcripts',
+    description: "extract clean markdown transcripts from Claude Code session jsonls under ~/.claude/projects/",
+    milestone: 38,
+    children: [
+      {
+        name: 'extract',
+        description: 'extract one or more session jsonls into clean markdown',
+        optionSpec: [
+          { flags: '--session <uuid-suffix>', description: 'extract a specific session by uuid suffix (substring match across all slugs)' },
+          { flags: '--slug <slug>', description: 'extract all sessions under a specific Anthropic slug' },
+          { flags: '--since <YYYY-MM-DD>', description: 'extract only sessions with mtime >= this date' },
+          { flags: '--output <dir>', description: 'output directory (default: <cwd>/transcripts-extracted/)' },
+          { flags: '--include-thinking', description: 'retain the agent\'s [thinking] blocks (omitted by default)' },
+        ],
+        action: (options) => runTranscriptsDispatch('extract', options),
+      },
+    ],
   },
   {
     name: 'trust',

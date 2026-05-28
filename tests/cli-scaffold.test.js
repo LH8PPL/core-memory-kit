@@ -63,7 +63,7 @@ function runCmk(args, { input } = {}) {
  *               --yes anyway and we don't want to maintain an "error-exits-2"
  *               leaf in the scaffold's exit-0 loop
  */
-const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex', 'forget', 'init-user-tier', 'trust', 'search', 'daily-distill', 'weekly-curate', 'register-crons', 'compress', 'doctor']);
+const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex', 'forget', 'init-user-tier', 'trust', 'search', 'daily-distill', 'weekly-curate', 'register-crons', 'compress', 'doctor', 'import-anthropic-memory']);
 
 // Wired child sub-verbs (e.g. `cmk queue conflicts` shipped in Task 25).
 // Listed as "<parent>/<child>" so the generic child-stub assertion
@@ -71,9 +71,10 @@ const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex', 'f
 // even when one of their children is wired (per Task 25 / Task 26
 // split for `queue review` vs `queue conflicts`).
 const NON_STUB_CHILDREN = new Set([
-  'queue/conflicts', // Task 25
-  'queue/review',    // Task 26
-  'mcp/serve',       // Task 31 — invoked by Claude Code; tested separately by cli-mcp-server.test.js
+  'queue/conflicts',    // Task 25
+  'queue/review',       // Task 26
+  'mcp/serve',          // Task 31 — invoked by Claude Code; tested separately by cli-mcp-server.test.js
+  'transcripts/extract', // Task 38
 ]);
 
 describe('Task 2 — cmk CLI scaffold', () => {
