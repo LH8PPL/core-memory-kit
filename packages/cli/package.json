@@ -4,7 +4,8 @@
   "description": "cmk — the CLI for claude-memory-kit. Per-project, in-repo memory system for Claude Code.",
   "type": "module",
   "bin": {
-    "cmk": "./bin/cmk.mjs"
+    "cmk": "./bin/cmk.mjs",
+    "cmk-daily-distill": "./bin/cmk-daily-distill.mjs"
   },
   "files": [
     "bin/",
