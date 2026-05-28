@@ -226,17 +226,17 @@ git tag -a v0.1.0 -m "v0.1.0 — first release"
 git push origin v0.1.0
 ```
 
-### Step 2: publish @cmk/canonicalize FIRST
+### Step 2: publish @lh8ppl/cmk-canonicalize FIRST
 
-`@claude-memory-kit/cli` depends on `@cmk/canonicalize: "0.1.0"` (exact pin). The cli package's `npm publish` will FAIL if the canonicalize package isn't on npm yet — so publish that first:
+`@lh8ppl/claude-memory-kit` depends on `@lh8ppl/cmk-canonicalize: "0.1.0"` (exact pin). The cli package's `npm publish` will FAIL if the canonicalize package isn't on npm yet — so publish that first:
 
 ```bash
 cd packages/canonicalize
 npm publish --access public
-# Verify: npm view @cmk/canonicalize@0.1.0 version
+# Verify: npm view @lh8ppl/cmk-canonicalize@0.1.0 version
 ```
 
-### Step 3: publish @claude-memory-kit/cli SECOND
+### Step 3: publish @lh8ppl/claude-memory-kit SECOND
 
 ```bash
 cd ../cli
@@ -262,12 +262,12 @@ gh release create v0.1.0 \
 # In a temp shell
 mkdir -p /tmp/cmk-smoke && cd /tmp/cmk-smoke
 npm init -y
-npm install -g @claude-memory-kit/cli@0.1.0
+npm install -g @lh8ppl/claude-memory-kit@0.1.0
 cmk --version  # MUST print 0.1.0
 mkdir -p test-project && cd test-project
 cmk install    # MUST succeed (B1 fix verification)
 cmk doctor     # exits 1 (some HCs fail on fresh install — expected per QUICKSTART)
-node -e "import('@cmk/canonicalize').then(m => console.log('canonicalize OK', Object.keys(m)))"  # B2 fix verification
+node -e "import('@lh8ppl/cmk-canonicalize').then(m => console.log('canonicalize OK', Object.keys(m)))"  # B2 fix verification
 ```
 
 ### Step 6: flip tasks.md 43.3 / 43.4 / 43.5 to [x] + parent 43
@@ -289,7 +289,7 @@ Per Lior 2026-05-28 sequencing, Task 44 absorbed the live-test gate originally o
 **What Task 44 entails** (a multi-day activity Lior performs):
 
 1. Pick a real project (NOT this kit's repo — avoid kit-dev memory bleed)
-2. Fresh install: `npm install -g @claude-memory-kit/cli@0.1.0`, then `cmk install` in the project
+2. Fresh install: `npm install -g @lh8ppl/claude-memory-kit@0.1.0`, then `cmk install` in the project
 3. Install the kit as a Claude Code plugin (`/plugin marketplace add LH8PPL/claude-memory-kit` + `/plugin install claude-memory-kit`) — required for hooks to fire (Task 42 B4)
 4. `cmk register-crons` (or skip and let lazy-fallback handle it)
 5. `cmk doctor` — should report mostly green (HC-2 hooks will PASS after the plugin step; HC-3+HC-4 might fail until first session)
@@ -397,7 +397,7 @@ For per-task detail, see the journey log retrospectives (Tasks 28-42+43 prep are
 | #57 (T39) | I1 repairHooks reads plugin/hooks/hooks.json (not in tarball post-npm-install-g); I3 cmk repair has no audit trail | embedded KIT_HOOKS_BLOCK as JS constant; new REPAIR_HOOKS_APPLIED / REPAIR_LOCK_REMOVED reason codes |
 | #58 (T40) | macOS npm "Exit handler never called!" transient bug | switched to `npm ci --no-audit --no-fund` with retry |
 | #59 (T41) | Stale README references (install.sh, HC-1..HC-7, python register-crons) | full rewrite + negative-assertion tests to lock out future drift |
-| #60 (T42) | **5 BLOCKING release-shippers** all found by pre-release pass | template/ in tarball via prepublishOnly; @cmk/canonicalize as proper dep; child-action dispatch fix; plugin install documented; version 0.1.0-dev → 0.1.0 |
+| #60 (T42) | **5 BLOCKING release-shippers** all found by pre-release pass | template/ in tarball via prepublishOnly; @lh8ppl/cmk-canonicalize as proper dep; child-action dispatch fix; plugin install documented; version 0.1.0-dev → 0.1.0 |
 | #61 (T43 prep) | None — non-destructive | n/a |
 
 **Total**: 17 PRs, ~40 individual bugs found across self-review + skill-review, all fixed inline. Every PR ≥ 1 skill-review-only catch.
@@ -437,7 +437,7 @@ Things we haven't decided that may surface during publish or live-test:
 
 1. **Publish dry-run before real publish?** `npm publish --dry-run` would verify the tarball one more time before the irreversible action. Cheap insurance.
 
-2. **What happens if `npm publish` fails for the cli package after canonicalize succeeded?** The kit would be in a broken state — `@cmk/canonicalize@0.1.0` published but `@claude-memory-kit/cli@0.1.0` not. Recovery: fix the cli package's issue + re-run cli publish (canonicalize stays published).
+2. **What happens if `npm publish` fails for the cli package after canonicalize succeeded?** The kit would be in a broken state — `@lh8ppl/cmk-canonicalize@0.1.0` published but `@lh8ppl/claude-memory-kit@0.1.0` not. Recovery: fix the cli package's issue + re-run cli publish (canonicalize stays published).
 
 3. **GitHub Release notes — full CHANGELOG vs extracted section?** I drafted the playbook with `awk` extracting just the `[0.1.0]` section. Could also do `--notes-file CHANGELOG.md` for the entire file; pick one based on rendering preference.
 

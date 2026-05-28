@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Dump Node @cmk/canonicalize outputs for every fixture vector as a single
+// Dump Node @lh8ppl/cmk-canonicalize outputs for every fixture vector as a single
 // JSON document (sorted, deterministic). Pair with parity-dump-python.py and
 // compare the two outputs byte-for-byte to prove Node ≡ Python parity.
 

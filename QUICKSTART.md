@@ -16,7 +16,7 @@ Optional (Layer 5b — semantic search):
 ## 1. Install the CLI globally
 
 ```bash
-npm install -g @claude-memory-kit/cli
+npm install -g @lh8ppl/claude-memory-kit
 ```
 
 Verify:
@@ -144,7 +144,7 @@ Full reference: `cmk --help`.
 
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
-| `cmk: command not found` | Global install not on PATH | `npm install -g @claude-memory-kit/cli` (re-run); check `npm config get prefix` is on PATH |
+| `cmk: command not found` | Global install not on PATH | `npm install -g @lh8ppl/claude-memory-kit` (re-run); check `npm config get prefix` is on PATH |
 | `cmk doctor` shows HC-2 FAIL after install | Settings.json missing kit hooks | `cmk repair --hooks` |
 | `cmk doctor` shows HC-4 FAIL ("transcripts not firing") | Project not Claude Code's primary cwd | Reopen the project as primary cwd |
 | `cmk search` returns no results | Index never built | `cmk reindex --full` |

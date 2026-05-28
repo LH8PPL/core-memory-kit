@@ -9,7 +9,7 @@
 //                      resolveTierRoot, resolveScratchpadPath
 //   audit-log.mjs    — appendAuditEntry, nowIso, AUDIT_LOG_SCHEMA_VERSION
 //   result-shapes.mjs — ERROR_CATEGORIES, errorResult
-//   @cmk/canonicalize — generateId (citation IDs derived from the bullet text)
+//   @lh8ppl/cmk-canonicalize — generateId (citation IDs derived from the bullet text)
 //
 // Frontmatter (HTML-comment provenance below the bullet) is hand-formatted
 // inline for v0.1. Task 13 (Provenance frontmatter writer + reader) will
@@ -18,7 +18,7 @@
 // only the location of the formatter moves.
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { generateId } from '@cmk/canonicalize';
+import { generateId } from '@lh8ppl/cmk-canonicalize';
 import {
   VALID_TIERS,
   SCRATCHPADS_BY_TIER,

@@ -37,7 +37,7 @@ Scaffold the memory-system files into the user's current project. The plugin its
    - `memory/INDEX.md.template` → `context/memory/INDEX.md`
    - `SETUP.md`                 → `context/SETUP.md` (no substitution)
 
-4. **Operational scripts** — v0.1.0 ships these as Node bins inside the published `@claude-memory-kit/cli` npm package, NOT as plugin-copied scripts. Users invoke them via `cmk` subcommands:
+4. **Operational scripts** — v0.1.0 ships these as Node bins inside the published `@lh8ppl/claude-memory-kit` npm package, NOT as plugin-copied scripts. Users invoke them via `cmk` subcommands:
    - `cmk daily-distill` (was: `run-daily-distill.sh`)
    - `cmk weekly-curate` (was: `run-weekly-curate.sh`)
    - `cmk compress --lazy` (no-cron fallback; new in Task 35)

@@ -44,7 +44,7 @@ import {
 } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
-import { generateId } from '@cmk/canonicalize';
+import { generateId } from '@lh8ppl/cmk-canonicalize';
 import {
   resolveTierRoot,
   resolveScratchpadPath,
