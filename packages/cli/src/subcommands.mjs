@@ -438,6 +438,14 @@ function runRegisterCrons(options /* , command */) {
   // Task 35.3: maintain the cron-registered sentinel so lazy-compress
   // can short-circuit when cron is active. Skip on --dry-run (no
   // host-scheduler state changed, so kit state shouldn't either).
+  //
+  // M3 fix (skill-review 2026-05-28): anySuccess gates the sentinel
+  // write even on PARTIAL failure (one job registered, the other
+  // errored). Correct: at least one cron entry is now active, so
+  // detectStaleness SHOULD short-circuit to 'cron-active'. The
+  // partial failure surfaces to the user via process.exitCode=2 below
+  // — kit state (sentinel) and host-scheduler state (the registered
+  // job) stay coherent.
   if (!dryRun) {
     const projectRoot = resolvePath(process.cwd());
     if (unregister) {
@@ -458,9 +466,13 @@ function runRegisterCrons(options /* , command */) {
 async function runCompress(options /* , command */) {
   const lazy = options?.lazy === true;
   if (!lazy) {
-    console.log(
+    // S1 fix (skill-review 2026-05-28): exit 2 on missing --lazy so
+    // scripts can distinguish "command ran" from "command rejected its
+    // input". Matches NOTICE_PREFIX convention elsewhere in v0.1.0.
+    console.error(
       `cmk compress: ${NOTICE_PREFIX} (the --lazy flag is required for v0.1.0; bare \`cmk compress\` is a v0.1.x candidate — see design §16)`,
     );
+    process.exitCode = 2;
     return;
   }
   const projectRoot = resolvePath(process.cwd());

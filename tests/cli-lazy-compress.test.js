@@ -205,6 +205,57 @@ describe('Task 35 — runLazyCompress (delegates to daily-distill or weekly-cura
     });
   });
 
+  describe('I1 fix — cooldown gate composes with shared 120s marker', () => {
+    it('returns skipped:cooldown when last-haiku-call.ts marker is active', async () => {
+      // The load-bearing composition class — same shape as Task 25
+      // and the auto-extract / compress-session cooldown gating.
+      // Seed a stale fixture so we know the cooldown gate (not
+      // fresh-path) is what causes the skip.
+      seedTodayFile('2026-05-10');
+      const { touchCooldownMarker } = await import('../packages/cli/src/cooldown.mjs');
+      touchCooldownMarker({ projectRoot, now: '2026-05-28T10:00:00Z' });
+      const backend = mockBackend('should-not-be-called');
+      const r = await runLazyCompress({
+        projectRoot,
+        backend,
+        now: '2026-05-28T10:00:00Z',
+      });
+      // Door 1 — response shape
+      expect(r.action).toBe('skipped');
+      expect(r.reason).toBe('cooldown');
+      // Door 2 — state: backend NOT called, no delegation happened
+      expect(backend.calls.length).toBe(0);
+      // archive.md + recent.md untouched
+      expect(existsSync(join(projectRoot, 'context', 'sessions', 'archive.md'))).toBe(false);
+      // Door 4 — NDJSON shape: cooldown branch has stable schema with
+      // verdict + delegated_to null sentinels (M1 fix).
+      const logPath = join(projectRoot, 'context', '.locks', 'lazy-compress.log');
+      const entry = JSON.parse(readFileSync(logPath, 'utf8').trim().split('\n')[0]);
+      expect(entry.scope).toBe('lazy-compress');
+      expect(entry.action).toBe('skipped');
+      expect(entry.reason).toBe('cooldown');
+      expect(entry.verdict).toBeNull();
+      expect(entry.delegated_to).toBeNull();
+    });
+
+    it('overrides cooldown when caller passes cooldownMs: 0 (allows inner-cycle composition)', async () => {
+      // The cooldownMs override path — used by inner-cycle callers
+      // that have already gated above (parallel to weekly-curate's
+      // inline dailyDistill call per §8.7.2).
+      seedTodayFile('2026-05-28');
+      const { touchCooldownMarker } = await import('../packages/cli/src/cooldown.mjs');
+      touchCooldownMarker({ projectRoot, now: '2026-05-28T10:00:00Z' });
+      const r = await runLazyCompress({
+        projectRoot,
+        backend: mockBackend('## Decisions\n- x\n'),
+        now: '2026-05-28T10:00:00Z',
+        cooldownMs: 0,
+      });
+      // With cooldownMs: 0 the gate is effectively disabled
+      expect(r.action).toBe('distilled');
+    });
+  });
+
   describe('35.4 #3 — delegates to daily-distill when only daily is stale', () => {
     it('runs dailyDistill and recent.md is rebuilt', async () => {
       seedTodayFile('2026-05-28');

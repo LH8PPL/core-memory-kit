@@ -350,6 +350,30 @@ function spawnLazyCompress(projectRoot) {
     child.unref();
     return { spawned: true, pid: child.pid };
   } catch (err) {
+    // M2 fix: emit a Door-4 NDJSON entry on spawn failure (PATH miss,
+    // EACCES) so users have observability when lazy-compress can't
+    // fire. Without this, the only signal is the lazyTrigger.spawned
+    // field on the return struct, which Claude Code's hook subsystem
+    // doesn't persist. Best-effort write — if the log directory
+    // doesn't exist or is unwritable, silently continue (we don't want
+    // the hook to fail because we couldn't log a spawn failure).
+    try {
+      const locksDir = join(projectRoot, 'context', '.locks');
+      mkdirSync(locksDir, { recursive: true });
+      appendFileSync(
+        join(locksDir, 'lazy-compress.log'),
+        JSON.stringify({
+          ts: nowIso(),
+          scope: 'lazy-compress',
+          action: 'spawn-failed',
+          reason: 'spawn-failed',
+          error: err?.message ?? String(err),
+        }) + '\n',
+        'utf8',
+      );
+    } catch {
+      // best-effort
+    }
     return { spawned: false, reason: 'spawn-failed', error: err?.message ?? String(err) };
   }
 }

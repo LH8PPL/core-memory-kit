@@ -222,6 +222,13 @@ export async function runLazyCompress({
         scope: 'lazy-compress',
         action: 'skipped',
         reason: 'cooldown',
+        // M1 fix: include verdict + delegated_to with null sentinels so
+        // every NDJSON entry shares the same schema (downstream `cmk
+        // doctor` HC-6 parsing can rely on key presence). The Haiku
+        // call was gated, so verdict was never computed and delegation
+        // never happened.
+        verdict: null,
+        delegated_to: null,
         duration_ms,
       },
     });
