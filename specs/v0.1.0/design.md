@@ -1596,12 +1596,12 @@ Ten yes/no checks at session start (HC-1..HC-7 from requirements.md, plus HC-8 a
 | HC-3 | MEMORY.md distill is fresh (≤2 days) | Manual `bash scripts/run-daily-distill.sh` |
 | HC-4 | Transcripts firing (≤3 days) | Root cause: project not primary cwd in Claude Code. Fix: reopen project as primary |
 | HC-5 | INDEX.md matches `context/memory/` files | `cmk reindex` rebuilds |
-| HC-6 | Cron jobs registered with host scheduler | `python scripts/register-crons.py` (idempotent) |
+| HC-6 | Cron jobs registered with host scheduler | `cmk register-crons` (idempotent — registers daily-distill + weekly-curate via Task 33's Node implementation; design §8.6.3 documents the Python → Node pivot) |
 | HC-7 | memsearch backend reachable (Layer 5) | Windows: start Docker Desktop, `docker compose up -d` in `milvus-deploy/`. macOS/Linux: check `~/.memsearch/milvus.db` |
 | **HC-8** | **[CHANGE]** Native Anthropic Auto Memory status detected | **Inspect `~/.claude/projects/<slug>/memory/` existence + contents. Log result to `context/.locks/native-memory-status.log` as `{active: true \| false \| unknown, last_modified: <ISO>, file_count: N}`. Non-fatal — informational only, lets users see whether their kit is supplementing or substituting Anthropic's. Per Kiro's spec-pattern of explicit detection + audit logging.** |
 | **HC-9** | **Stale lock files under `context/.locks/` + `<userDir>/.locks/`** | **Per-stale-lock recoveryCommand emitted in the report (e.g. `rm "<path>"`). Library: [`packages/cli/src/lock-discipline.mjs`](../../packages/cli/src/lock-discipline.mjs) `detectStaleLocks(projectRoot, {userDir})`. Closes the residual leak window left after PR-A's subprocess timeout (external SIGKILL / OS OOM / hardware failure — see §6.9 for the composition). Non-fatal — `cmk doctor` reports + the next auto-extract invocation's in-band stale-recovery also handles it.** |
 
-**Critical rule** (per NFR-9): any repair requiring `pip install` / `npm install` / system-level changes MUST ASK the user first.
+**Critical rule** (per design §14, 2026-05-28 amendment): any repair requiring `pip install` / `npm install` / system-level changes MUST ASK the user first. Previously cited as "NFR-9" — NFR-9 is actually "Memory poisoning defense baseline" per [`requirements-revisions-proposed.md:125`](requirements-revisions-proposed.md). The ask-before-install rule has no FR/NFR backing today; promoting it to a proper requirements entry is a v0.1.x cleanup.
 
 **Implements**: FR-22, all NFRs.
 
@@ -2385,6 +2385,26 @@ Surfaced by Task 34 code-review-excellence Suggestion #3 (2026-05-28). The Windo
 v0.1.x candidate: export `buildWindowsSchtasks` (currently module-private) and add a unit test calling it with `dayOfWeek: 0` asserting output contains `/SC WEEKLY /D SUN`. Ship trigger: a regression class affecting Windows scheduling that the integration test happens to mask.
 
 Provenance: Task 34 code-review Suggestion #3 (2026-05-28).
+
+### 16.47 `cmk doctor --json` flag
+
+**v0.1.x candidate.**
+
+Surfaced by Task 37 code-review-excellence Suggestion #1 (2026-05-28). The v0.1.0 `cmk doctor` prints a human-readable structured report (one `[STATUS] HC-N: name` line per check). For automation use cases (CI/CD pipelines, monitoring dashboards, scripted health checks), a machine-readable `--json` flag would emit the full `runDoctor` result struct (with `checks[]` array including all fields).
+
+v0.1.x candidate: add `--json` flag that prints `JSON.stringify(r, null, 2)` instead of the human-readable report. Ship trigger: user-facing automation use case (CI workflow asking "is the kit healthy?", monitoring dashboard polling). Until then, automated consumers can call `runDoctor()` directly from Node code.
+
+Provenance: Task 37 code-review Suggestion #1 (2026-05-28).
+
+### 16.48 Promote ask-before-install rule to a proper FR/NFR
+
+**v0.1.x candidate.**
+
+Surfaced by Task 37 code-review-excellence Important #1 (2026-05-28). The "any repair requiring `pip install` / `npm install` / system-level changes MUST ASK the user first" rule lives in design §14 as an unsourced design assertion. The original citation was "NFR-9" but NFR-9 (per [`requirements-revisions-proposed.md:125`](requirements-revisions-proposed.md)) is "Memory poisoning defense baseline" — different rule entirely. Task 37 PR corrected the citation to "design §14" but the rule still lacks a backing FR/NFR.
+
+v0.1.x candidate: add a proper NFR (e.g., a new NFR like "Consent gate for system-level installs") in `requirements.md`. Ship trigger: an audit campaign verifying every design.md assertion has a backing FR/NFR (parallel to PR-D1's validate-references.mjs but for assertion provenance). <!-- validate-references: ignore (next-NFR placeholder; not yet assigned) -->
+
+Provenance: Task 37 code-review Important #1 (2026-05-28).
 
 ---
 

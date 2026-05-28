@@ -731,16 +731,22 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 
 - [ ] 37. `cmk doctor` health checks HC-1..HC-9 (T-031)
   - Estimate: M · Depends: 3
-- [ ] 37.1 Implement HC-1..HC-7 from design §14
+- [x] 37.1 Implement HC-1..HC-7 from design §14
   - memsearch installed; hooks registered; distill freshness; transcripts firing; INDEX consistency; cron registered; memsearch backend reachable
-- [ ] 37.2 Implement HC-8 — native Anthropic Auto Memory detector
+  - Shipped in [`packages/cli/src/doctor.mjs`](../../packages/cli/src/doctor.mjs). HC-1: `memsearch --version` spawn. HC-2: parse `.claude/settings.json` for hook references. HC-3: stat `recent.md` mtime against 2-day TTL. HC-4: walk `context/transcripts/*.md`, count files within 3-day window. HC-5: read `context/memory/INDEX.md`, diff against `*.md` in dir. HC-6: existsSync on cron sentinel. HC-7: short-circuits on HC-1 verdict (Milvus reachability deferred to Layer 5b/v0.1.x per ADR-0008).
+- [x] 37.2 Implement HC-8 — native Anthropic Auto Memory detector
   - Inspect `~/.claude/projects/<slug>/memory/`; log to `.locks/native-memory-status.log`
-- [ ] 37.2a Implement HC-9 — stale lock file detection
+  - Shipped: slug = `projectRoot.replace(/[^a-zA-Z0-9]/g, '-')` (per claude-remember research). Reads `~/.claude/projects/{slug}/memory/` if present, writes single-line JSON to `context/.locks/native-memory-status.log` with `{ts, active, last_modified, file_count}`. Status is always 'pass' (non-fatal, informational).
+- [x] 37.2a Implement HC-9 — stale lock file detection
   - Call `detectStaleLocks(projectRoot, {userDir})` from [`packages/cli/src/lock-discipline.mjs`](../../packages/cli/src/lock-discipline.mjs) (shipped in PR-B per design §6.9); for each entry with `stale: true` surface the `recoveryCommand` in the diagnostic report. Non-fatal — report-only.
-- [ ] 37.3 Implement structured report output (per-check pass/fail/skip)
-- [ ] 37.4 Wire repair-command suggestions on failure
-- [ ] 37.5 Prompt user before invoking any install-requiring repair
-- [ ]* 37.6 Write unit tests for `cmk doctor`
+  - Shipped via direct delegation: `hc9StaleLocks` filters `detectStaleLocks().filter(r => r.stale)` and surfaces the first lock's recoveryCommand (platform-aware via lock-discipline.mjs).
+- [x] 37.3 Implement structured report output (per-check pass/fail/skip)
+  - Shipped in `runDoctorCli` (subcommands.mjs): one line per check (`[STATUS] HC-N: name`), one indented line for the message, one indented line for `→ repair: <command>` on fail. Summary line with counts + duration. `process.exitCode = 1` on any fail, 2 on error.
+- [x] 37.4 Wire repair-command suggestions on failure
+  - Each HC result carries `recoveryCommand?` field. The CLI handler surfaces it on fail (and only on fail). Install-requiring commands carry `requiresInstall: true` + show a `(REQUIRES INSTALL — review before running)` annotation.
+- [x] 37.5 Prompt user before invoking any install-requiring repair
+  - v0.1.0 posture: NEVER auto-invoke install-requiring repairs. The CLI handler prints the recoveryCommand to stdout; the user runs it manually. Auto-repair with `--yes` is a v0.1.x candidate (would need the promptUser callback wired through). The `runDoctor` API takes a `promptUser` parameter for forward-compatibility — currently unused at the doctor layer.
+- [x]* 37.6 Write unit tests for `cmk doctor`
   - Test all 9 HCs run in order; report line per check (`PASS` / `FAIL` / `SKIP`)
   - Test full run completes within 5 s on 10k-observation fixture
   - Test failed HC (e.g., HC-2 missing hook): repair command in stderr
@@ -852,8 +858,17 @@ Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility)
   - CI matrix green on all 3 OSes
   - `cmk doctor` reports green on fresh installs
   - Docs verified end-to-end
+  - **Live end-to-end acceptance test on a real project** (Lior 2026-05-28, blocking gate before Task 43 release). Pick a real project (NOT the kit's own repo — to avoid confusing kit-development memory with kit-user memory). Install the kit fresh via `cmk install`. Open Claude Code on the project, hold real sessions, verify:
+    - Auto-extract fires on Stop hook + bullets appear in MEMORY.md (no manual writes needed)
+    - SessionStart injection works (Claude sees the snapshot at session start)
+    - `cmk search "<term>"` returns relevant results from accumulated memory
+    - Cron registration takes effect (daily-distill ran overnight; `recent.md` is populated)
+    - Lazy-fallback fires when cron is unregistered (sentinel removed → SessionStart spawns `cmk-compress-lazy`)
+    - `cmk doctor` reports green
+    - At least one full week of usage to exercise weekly-curate
+  - Document the live-test findings in `docs/journey/v0.1.0-live-test.md` — bugs found, UX surprises, doc gaps. Any Blocking finding gates Task 43.
   - **Pre-release code review pass** via the `code-review-excellence` skill — final filter before the v0.1.0 release tag. Focus: anything missed at earlier layer reviews, ergonomics of the public CLI surface (`cmk` subcommand consistency), security surface review of the MCP server (Task 31, even if individually reviewed at PR time), `cmk doctor` health-check coverage. Output: blocking-issue list (must fix before release) + nice-to-have list (deferred to v0.1.x)
-  - Agent confirms zero failures + zero blocking review issues before task 43 (release)
+  - Agent confirms zero failures + zero blocking review issues + live-test passed before task 43 (release)
 
 ---
 
@@ -951,3 +966,61 @@ Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility)
 44 top-level items · ~180 sub-tasks · TDD throughout · boundary tests · checkpoints between layers · glossary reference.
 
 Each parent task ships as a PR titled `[<task #>] <description>` (e.g., `[7] Per-fact file format + writer (T-006)`) with the task's sub-task checkboxes checked off in the PR description.
+
+---
+
+## Tail-appended v0.1.x candidates (post-v0.1.0 release)
+
+> Added 2026-05-28 after Lior's "look into what other products do" inquiry during Task 37. Auto-install patterns are appended here rather than slotted into v0.1.0 because they require new consent infrastructure (prompt + repair-yes flag) that's out of v0.1.0 scope. Each task here is a NEW PR after v0.1.0 ships.
+
+- [ ] 46. `cmk install --with-semantic` — opt-in semantic-backend bootstrap
+  - Estimate: M · Depends: 43 (v0.1.0 released)
+  - **Motivation**: matches claude-mem's install-time pattern (verified 2026-05-28 via WebFetch on github.com/thedotmack/claude-mem README). claude-mem auto-installs Bun + uv silently because user explicitly invoked `npx claude-mem install` — consent is implied by running the installer. We adopt the SAME pattern at the SAME entry point: `cmk install` is the consent surface, and `--with-semantic` is the explicit opt-in flag.
+  - **Important**: this does NOT change `cmk doctor` runtime behavior. Doctor continues to print the recovery command (matches claude-mem's runtime pattern of printing `npx claude-mem repair`). The install-time entry point is where consent is honored.
+- [ ] 46.1 Add `--with-semantic` flag to `cmk install`
+  - Detects if memsearch is already installed; if not, runs `python -m pip install "memsearch[onnx]"`
+  - On Windows: prompt for `winget install --id Python.Python.3.12` if Python missing
+  - Writes a marker to `<userDir>/.locks/semantic-install-attempted` so subsequent runs don't re-prompt
+- [ ] 46.2 Add `--no-semantic` flag for users who explicitly opt out
+  - Same marker mechanism; doctor HC-1 reports "user opted out, not failing"
+- [ ] 46.3 Document the prereq → feature mapping explicitly
+  - `cmk install --help` shows "without --with-semantic, you skip Layer 5b — semantic search disabled"
+  - README install section explains the trade-off
+- [ ]* 46.4 Tests
+  - Test `--with-semantic` invokes pip install in a sandboxed mock
+  - Test marker file prevents re-prompt
+  - Test doctor HC-1 reports user-opted-out distinctly
+  - _Requirements: forward-looking to a new NFR (see §16.48); design §14_
+
+- [ ] 47. `cmk doctor --repair` — prompt-then-install for individual failed HCs
+  - Estimate: M · Depends: 46
+  - **Motivation**: even with `cmk install --with-semantic` opt-in at install time, users who skipped it (or whose memsearch broke) need a runtime path to fix. Currently `cmk doctor` prints the command; user runs it manually. This task adds a prompt that the user can `[y/N]` to invoke the same install command.
+- [ ] 47.1 Add `--repair` flag to `cmk doctor`
+  - For each failed HC with `requiresInstall: true`: prompt user via readline interface
+  - Show the full impact ("Without this, X feature is disabled") before the prompt
+  - On y: invoke the recovery command via spawnSync; report result
+  - On n: continue with the next failed HC; record the skip
+- [ ] 47.2 Add `--yes` flag for non-interactive auto-repair
+  - Useful for CI/scripted environments where the user has already consented
+  - Logs every install to `.locks/doctor-repair.log` NDJSON for audit
+- [ ] 47.3 Wire the `promptUser` parameter that Task 37 dropped (M3 deferral)
+  - `runDoctor({...promptUser})` now actively used when `--repair` is passed
+  - Forward-compat hooks rot — adding the parameter alongside the actual consumer per CLAUDE.md
+- [ ]* 47.4 Tests
+  - Test `--repair` with mocked prompt: y triggers install, n skips
+  - Test `--yes` runs all install commands without prompting
+  - Test NDJSON audit-log entries for each repair attempt
+  - _Requirements: forward-looking to NFR (see §16.48); design §14_
+
+- [ ] 48. Promote ask-before-install rule to a proper NFR
+  - Estimate: S · Depends: 46, 47
+  - The "any repair requiring `pip install` / `npm install` MUST ASK the user first" rule currently lives in design §14 as an unsourced assertion. Task 37's skill-review (I1, 2026-05-28) flagged the citation drift (it was originally cited as NFR-9 which is actually "Memory poisoning defense baseline").
+- [ ] 48.1 Add the NFR to `requirements.md` (next available NFR number)
+  - Text: "Consent gate for system-level installs. The kit shall NEVER invoke a system-level install command (`pip install`, `npm install`, `winget install`, etc.) without explicit user consent. Consent is provided either at install-time via an opt-in flag (e.g., `cmk install --with-semantic`) OR at runtime via an interactive prompt (e.g., `cmk doctor --repair` y/N)."
+- [ ] 48.2 Update design §14 citation from "design §14 amendment" to the new NFR
+- [ ] 48.3 Add the rule to CLAUDE.md "Engineering discipline" binding rules
+  - Section: "Critical: never auto-invoke system installers — see NFR-N"
+- [ ]* 48.4 Tests
+  - Test that no production code path calls `pip install` / `npm install` / `winget install` without a consent gate above it
+  - Validator (`scripts/validate-install-consent.mjs`) — structural enforcement
+  - _Requirements: NFR-N (the new one); design §14_
