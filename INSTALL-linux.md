@@ -117,8 +117,10 @@ milvus-lite is bundled with `memsearch[onnx]` and works natively on Linux. Skip 
 ## 5. Install Layer 6 (auto-curation crons)
 
 ```bash
-python3 scripts/register-crons.py
+cmk register-crons
 ```
+
+This registers both daily-distill (23:00 daily) and weekly-curate (Sun 09:00) jobs. Preview the commands first with `cmk register-crons --dry-run` if you want to inspect before granting host permissions.
 
 Verify:
 
@@ -126,7 +128,7 @@ Verify:
 crontab -l
 ```
 
-You should see three entries with comments matching your project's name prefix.
+You should see two entries with trailing `# cmk-daily-distill` and `# cmk-weekly-curate` comments.
 
 If your system uses `systemd` timers instead of cron (some servers do), you'll need to convert the cron entries to `.timer` units — but cron works fine for desktop/dev use.
 

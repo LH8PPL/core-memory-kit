@@ -157,14 +157,22 @@ export function detectStaleness({
     return { action: 'stale-weekly', reason: 'today-file-older-than-7d' };
   }
 
+  // Task 36 I1 fix: if there are NO today-*.md files at all, the
+  // pipeline has nothing to compress — return fresh regardless of
+  // recent.md mtime. Previously this check only fired when recent.md
+  // was MISSING; for the stale-but-no-input case (e.g., right after
+  // weeklyCurate archived every today file), the daily-stale branch
+  // would fire and the SessionStart hook would spawn lazy-compress
+  // forever (no new today file means no work; dailyDistill would
+  // return skipped:no-input but not touch recent.md, so the next
+  // SessionStart sees the same stale verdict).
+  if (files.length === 0) {
+    return { action: 'fresh', reason: 'no-input' };
+  }
+
   // Daily check: recent.md missing OR older than dailyTtlMs.
   const mtimeMs = recentMdMtimeMs(projectRoot);
   if (mtimeMs === null) {
-    // recent.md missing AND we have today-*.md files → daily-distill needed.
-    // If we also have no today files, there's nothing to compress.
-    if (files.length === 0) {
-      return { action: 'fresh', reason: 'no-input' };
-    }
     return { action: 'stale-daily', reason: 'recent-md-missing' };
   }
   if (nowMs - mtimeMs > dailyTtlMs) {

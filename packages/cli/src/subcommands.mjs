@@ -390,22 +390,41 @@ async function runWeeklyCurate(/* options */) {
 function runRegisterCrons(options /* , command */) {
   const dryRun = options?.dryRun === true;
   const unregister = options?.unregister === true;
-  // Use the npm-installed `cmk-daily-distill` + `cmk-weekly-curate` bins
-  // (declared in packages/cli/package.json `bin:`). PATH-resolved by
-  // the shell on every platform — works on `npm install -g` (Task 33 B1).
-  // Both entries register by default (Task 34): one cron call from the
-  // user gets both schedules; their cadences are distinct (daily 23:00,
-  // weekly Sun 09:00) so there's no scheduling overlap.
+  // Task 36 B1+B2 fix: emit the FULL cron command as
+  //   "<absolute-node-path>" "<absolute-bin-script-path>" "<absolute-project-root>"
+  // Rationale (from the layer-wide review):
+  //   B1 — Cron / launchd / schtasks have non-kit default cwd ($HOME, /,
+  //   C:\Windows\System32). The bin needs projectRoot resolved AT
+  //   registration time, not via cwd at fire time.
+  //   B2 — Bare bin names ('cmk-daily-distill') don't PATH-resolve under
+  //   the scheduler's restricted PATH (/usr/bin:/bin for launchd; varies
+  //   for cron). Emitting absolute paths sidesteps PATH entirely.
+  // This also bypasses the npm-installed bin shim (.cmd on Windows;
+  // symlink on POSIX) — `node <abs-script>` works directly on every
+  // platform regardless of how the kit was installed (npm global,
+  // npm link, vendored).
+  const nodePath = process.execPath;
+  const binDir = join(fileURLToPath(new URL('.', import.meta.url)), '..', 'bin');
+  const projectRoot = resolvePath(process.cwd());
+
+  // Helper: quote a path for the platform's cron-line shell.
+  // Linux + macOS: double-quote (the cron line is single-quoted around the
+  // whole `echo '...'`; double-quotes inside are safe).
+  // Windows: the schtasks /TR value is already double-quoted by registerCron,
+  // with `\"` escaping for inner quotes — registerCron's existing
+  // escapedCommand handles this.
+  const quote = (s) => `"${s}"`;
+
   const jobs = [
     {
       label: 'daily-distill',
-      command: 'cmk-daily-distill',
+      command: `${quote(nodePath)} ${quote(join(binDir, 'cmk-daily-distill.mjs'))} ${quote(projectRoot)}`,
       entryName: CRON_ENTRY_NAME,
       schedule: undefined, // registerCron default = daily 23:00
     },
     {
       label: 'weekly-curate',
-      command: 'cmk-weekly-curate',
+      command: `${quote(nodePath)} ${quote(join(binDir, 'cmk-weekly-curate.mjs'))} ${quote(projectRoot)}`,
       entryName: WEEKLY_ENTRY_NAME,
       schedule: DEFAULT_WEEKLY_SCHEDULE,
     },
@@ -938,7 +957,7 @@ export const subcommands = [
     milestone: 33,
     optionSpec: [
       { flags: '--dry-run', description: 'print the platform-detected command without executing' },
-      { flags: '--unregister', description: 'remove the cmk-daily-distill entry instead of adding it' },
+      { flags: '--unregister', description: 'remove both daily-distill and weekly-curate entries instead of adding them' },
     ],
     action: runRegisterCrons,
   },

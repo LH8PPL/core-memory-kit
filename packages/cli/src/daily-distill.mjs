@@ -159,7 +159,28 @@ export async function dailyDistill({
   // Read last 7 days of today-*.md.
   const files = listTodayFiles(projectRoot, ts);
   if (files.length === 0) {
-    return { action: 'skipped', reason: 'no-input', duration_ms: Date.now() - t0 };
+    // Task 36 Door-4 fix (skill-review during checkpoint, 2026-05-28):
+    // emit an NDJSON entry on the no-input skip path so ops have
+    // observability + so the spawn-smoke chain test can prove
+    // projectRoot was correctly resolved from argv. Same posture as
+    // weekly-curate's no-old-files path.
+    const duration_ms = Date.now() - t0;
+    writeDistillLogEntry({
+      projectRoot,
+      date,
+      entry: {
+        ts,
+        scope: 'daily-distill',
+        input_bytes: 0,
+        output_bytes: 0,
+        model_id: null,
+        cost_usd: 0,
+        duration_ms,
+        success: true,
+        skipped_reason: 'no-input',
+      },
+    });
+    return { action: 'skipped', reason: 'no-input', duration_ms };
   }
 
   const buffer = readBuffer(files);
