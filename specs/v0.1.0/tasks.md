@@ -893,16 +893,18 @@ Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility)
   - Estimate: S · Depends: ALL prior tasks + checkpoint 42 _(Task 45 dependency removed 2026-05-28 — auto-persona moved to v0.1.1 per Lior's autopilot-42→43→44→45 sequencing)_
   - **Original plan (2026-05-24)**: Task 45 (auto-persona) was tail-appended as a release blocker before v0.1.0 could ship.
   - **Re-prioritization 2026-05-28 (Lior)**: Task 45 moved to post-v0.1.0 (v0.1.1 release). Rationale: kit ships v0.1.0 with current feature set, auto-persona arrives in v0.1.1 as a follow-up. Decision-trail per CLAUDE.md "Decision-trail preservation" rule.
-- [ ] 43.1 Bump `package.json` to `0.1.0`
-- [ ] 43.2 Write `CHANGELOG.md` entry for `[0.1.0] — YYYY-MM-DD`
+- [x] 43.1 Bump `package.json` to `0.1.0`
+  - Already shipped in Task 42's B5 fix (packages/cli + packages/canonicalize both at 0.1.0; `cmk --version` outputs `0.1.0`).
+- [x] 43.2 Write `CHANGELOG.md` entry for `[0.1.0] — YYYY-MM-DD`
+  - Shipped at [`CHANGELOG.md`](../../CHANGELOG.md). Keep-a-Changelog 1.1.0 format. `## [0.1.0] — 2026-05-28` heading with Added (60+ bullets across Foundation/Auto-extract/Search/Cron/Cross-cutting/Quality), Deferred to v0.1.1 (Task 45 + Layer 5b + Tasks 46-48), Known limitations, Acknowledgements sections.
 - [ ] 43.3 Tag `v0.1.0` and push the tag
+  - **Pending Lior's explicit consent** — `git tag v0.1.0` + `git push origin v0.1.0`. Per CLAUDE.md autopilot stop conditions (git tag push is irreversible).
 - [ ] 43.4 Publish `@claude-memory-kit/cli@0.1.0` to npm
+  - **Pending Lior's explicit consent** — `cd packages/canonicalize && npm publish` (must publish first since cli depends on it), then `cd packages/cli && npm publish` (prepublishOnly copies template/ into the cli package). Per CLAUDE.md autopilot stop conditions (npm publish is irreversible).
 - [ ] 43.5 Publish GitHub Release with CHANGELOG-derived notes
-- [ ]* 43.6 Write release verification tests
-  - Test `package.json` version equals `0.1.0` and matches latest git tag
-  - Test CHANGELOG.md has `## [0.1.0] — YYYY-MM-DD` heading with non-empty body
-  - Test GitHub Release exists for tag `v0.1.0` with body derived from CHANGELOG
-  - Test on fresh CI runner: `npm install -g @claude-memory-kit/cli@0.1.0` exits 0; `cmk version` outputs `0.1.0`
+  - **Pending Lior's explicit consent** — `gh release create v0.1.0 --notes-file CHANGELOG.md` (or `--notes` with extracted [0.1.0] section).
+- [x]* 43.6 Write release verification tests
+  - Shipped at [`tests/release-verification.test.js`](../../tests/release-verification.test.js) (11 tests). Pre-publish gates: 43.1 versions match 0.1.0 + canonicalize dep declared; 43.2 CHANGELOG shape (heading with ISO date, ≥10 bullets in Added, deferred items mentioned, release URL); 43.4 tarball includes template/ + bin/ + src/ + README.md + prepublishOnly script + 4 bins declared. Post-publish gates (43.3 git tag, 43.5 GitHub release exists, fresh install smoke) noted as manual-verification post-publish.
   - _Requirements: NFR-2_
 
 - [ ] 44. Checkpoint — v0.1.0 released
