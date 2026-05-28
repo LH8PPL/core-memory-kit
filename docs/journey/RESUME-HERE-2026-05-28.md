@@ -1,8 +1,34 @@
-# Resume here — 2026-05-28 session pause
+# Resume here
+
+> **2026-05-29 UPDATE — v0.1.0 IS SHIPPED + LIVE-TESTED.** The status block immediately below supersedes the original pre-publish playbook (preserved further down for the decision-trail). Read this block first.
+
+## STATUS AS OF 2026-05-29 (read first)
+
+**v0.1.0 is published, tagged, released, and proven workable.** Done today:
+
+- ✅ Renamed to `@lh8ppl` scope (ADR-0012, PR #62). Cross-agent naming deferred to v0.2 — the `claude-memory-kit` name gets reconsidered when multi-agent (codex/cursor/kiro) support lands. Core is agent-neutral (tenet T1); only the hook layer is Claude-specific.
+- ✅ Published to npm: **`@lh8ppl/claude-memory-kit@0.1.0`** + **`@lh8ppl/cmk-canonicalize@0.1.0`** (both live).
+- ✅ git tag `v0.1.0` pushed; GitHub release: <https://github.com/LH8PPL/claude-memory-kit/releases/tag/v0.1.0>
+- ✅ npm 2FA was a WebAuthn security key (can't make a CLI OTP) → used a granular bypass-2FA token, since **revoked** by Lior.
+- ✅ **Live test passed** (published package + real Haiku): session compression → auto-extract captures facts to MEMORY.md at trust:high WITHOUT "remember this" → session-2 snapshot surfaces them → search retrieves. Full report: [`v0.1.0-live-test.md`](v0.1.0-live-test.md).
+- main HEAD `9a00a5f`; all committed + pushed; working tree clean.
+
+**What's left (v0.1.1 / real-usage queue):**
+
+1. **Task 44 — real-usage live test** (Lior only): install on a REAL project + install the Claude Code **plugin** (`/plugin marketplace add LH8PPL/claude-memory-kit` then `/plugin install claude-memory-kit` — REQUIRED or hooks won't fire), use ~a week, log findings to `v0.1.0-live-test.md`.
+2. **Task 45 — auto-persona** (v0.1.1, next BUILD task): L-sized. Design A vs B in tasks.md 45.1 (recommend B — piggyback weekly consolidator).
+3. **Layer 5b — semantic search** (v0.1.x): memsearch+ONNX; seam in place (ADR-0008); unlocks US-9 search-over-sessions/transcripts.
+4. **Tasks 46-48** (v0.1.x): `cmk install --with-semantic` + `cmk doctor --repair` + promote ask-before-install to an NFR.
+
+**To resume building**: read CLAUDE.md + tasks.md; next code task is 45; per-task ship cycle = TDD → self-review → code-review-excellence skill → stress 5/5 → PR → CI green → merge → housekeeping. Corpus navigator is below.
+
+---
+
+# Original pre-publish handoff (2026-05-28)
 
 **Stop reason**: Lior is updating VS Code + Claude Code. This is a clean handoff doc so the next AI session has everything it needs.
 
-**Resume mandate (Lior)**: *"i want to finish all tasks and have a working memory-kit, there is nothing to choose"*. The path is clear: ship v0.1.0 (Task 43 publish actions), do live-test (Task 44), build auto-persona (Task 45 for v0.1.1). No decisions to surface; just execute.
+**Resume mandate (Lior)**: *"i want to finish all tasks and have a working memory-kit, there is nothing to choose"*. The path: ship v0.1.0, live-test, build auto-persona. _[2026-05-29: publish DONE — see status block at top.]_
 
 ---
 
