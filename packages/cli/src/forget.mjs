@@ -16,7 +16,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { canonicalize } from '../../canonicalize/src/index.mjs';
+import { canonicalize } from '@cmk/canonicalize';
 import {
   VALID_TIERS,
   ID_PATTERN,

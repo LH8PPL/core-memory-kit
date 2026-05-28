@@ -1,19 +1,18 @@
 # Health checks
 
-Ten yes/no checks the kit runs at session start. Each has a self-repair path. Documented here for reference; the authoritative copy lives in each project's `context/SETUP.md` (so it travels with the project).
+Nine yes/no checks `cmk doctor` runs against the kit installation. Each has a self-repair path. (HC-10 was scoped but not shipped in v0.1.0 — design §18 deferred to v0.1.x as a structural-validator extension rather than a doctor surface; remove the row to avoid drift.)
 
 | ID | Check | How to verify |
-|---|---|---|
-| HC-1 | memsearch installed | `pip show memsearch` exits 0 (or `memsearch --version` succeeds) |
-| HC-2 | Stop hook registered | `.claude/settings.json` (or the plugin's `hooks/hooks.json`) contains `transcript-capture.js` |
-| HC-3 | MEMORY.md distill is fresh (≤ 2 days) | Parse `<!-- Last distilled: YYYY-MM-DD -->` from `context/MEMORY.md` |
-| HC-4 | Transcripts are firing (≤ 3 days) | `ls context/transcripts/*.md` — newest mtime within 3 days |
-| HC-5 | INDEX.md matches `context/memory/` | Files listed in INDEX = files present on disk (excluding INDEX itself) |
-| HC-6 | Cron jobs registered with host scheduler | Windows: `schtasks /query` returns Ready for every active job. Unix: `crontab -l` contains matching comment line. |
-| HC-7 | memsearch backend reachable | `memsearch stats` exits 0 |
-| HC-8 | Native Anthropic Auto Memory status detected | Inspect `~/.claude/projects/<slug>/memory/` existence + contents; log to `context/.locks/native-memory-status.log` as `{active: true \| false \| unknown, last_modified: <ISO>, file_count: N}` (non-fatal informational — lets users see whether the kit is supplementing or substituting Anthropic's native memory) |
-| HC-9 | No stale lock files under `context/.locks/` + `<userDir>/.locks/` | `detectStaleLocks(projectRoot, {userDir})` from [packages/cli/src/lock-discipline.mjs](packages/cli/src/lock-discipline.mjs) returns no entries with `stale: true` |
-| HC-10 | Platform-aware emissions present + healthy on the current OS | `cmk doctor` emits a sample `recoveryCommand` via the `platform-commands.mjs` helper and confirms it matches the platform-expected shape (`Remove-Item "..."` on `process.platform === 'win32'`, `rm "..."` on POSIX). Non-fatal informational — if mismatched, surfaces "kit running on $PLATFORM but emitting commands for the other half" as a diagnostic hint. Per design §18. |
+| --- | --- | --- |
+| HC-1 | memsearch installed (Layer 5b semantic backend) | `memsearch --version` succeeds within 3.5s |
+| HC-2 | Stop + SessionStart hooks registered | `.claude/settings.json` contains `cmk-inject-context` in SessionStart, `cmk-capture-turn` in Stop, `cmk-compress-session` in SessionEnd (structural walk, not substring match) |
+| HC-3 | Daily distill is fresh (≤ 2 days) | `context/sessions/recent.md` mtime is within 2 days of `now` |
+| HC-4 | Transcripts are firing (≤ 3 days) | At least one `context/transcripts/*.md` has mtime within 3 days |
+| HC-5 | INDEX.md matches `context/memory/` | `[PUL]-XXXXXXXX.md` filenames in INDEX = fact files on disk (excluding INDEX itself) |
+| HC-6 | Cron jobs registered with host scheduler | `context/.locks/cron-registered` sentinel exists (written by `cmk register-crons`) |
+| HC-7 | memsearch backend reachable | Short-circuits on HC-1 verdict (Milvus reachability deferred to Layer 5b / v0.1.x per ADR-0008) |
+| HC-8 | Native Anthropic Auto Memory status detected | Inspect `~/.claude/projects/<slug>/memory/`; write single-line JSON snapshot to `context/.locks/native-memory-status.log`. Non-fatal informational. |
+| HC-9 | No stale lock files | `detectStaleLocks(projectRoot, {userDir})` from [packages/cli/src/lock-discipline.mjs](packages/cli/src/lock-discipline.mjs) returns no entries with `stale: true` |
 
 ## Self-repair
 

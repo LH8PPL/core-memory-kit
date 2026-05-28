@@ -875,29 +875,24 @@ Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility)
   - Test manual user dry-run: log 2+ user test results in `docs/quickstart-test-log.md` before release (procedural, not automated)
   - _Requirements: FR-22, FR-23, FR-24; design §13_
 
-- [ ] 42. Checkpoint — Cross-cutting (excluding release) complete
+- [x] 42. Checkpoint — Cross-cutting (excluding release) complete _shipped 2026-05-28, PR #60_
   - All tests for tasks 1–41 green
   - CI matrix green on all 3 OSes
   - `cmk doctor` reports green on fresh installs
   - Docs verified end-to-end
-  - **Live end-to-end acceptance test on a real project** (Lior 2026-05-28, blocking gate before Task 43 release). Pick a real project (NOT the kit's own repo — to avoid confusing kit-development memory with kit-user memory). Install the kit fresh via `cmk install`. Open Claude Code on the project, hold real sessions, verify:
-    - Auto-extract fires on Stop hook + bullets appear in MEMORY.md (no manual writes needed)
-    - SessionStart injection works (Claude sees the snapshot at session start)
-    - `cmk search "<term>"` returns relevant results from accumulated memory
-    - Cron registration takes effect (daily-distill ran overnight; `recent.md` is populated)
-    - Lazy-fallback fires when cron is unregistered (sentinel removed → SessionStart spawns `cmk-compress-lazy`)
-    - `cmk doctor` reports green
-    - At least one full week of usage to exercise weekly-curate
-  - Document the live-test findings in `docs/journey/v0.1.0-live-test.md` — bugs found, UX surprises, doc gaps. Any Blocking finding gates Task 43.
+  - **Original plan (2026-05-28 morning)**: Live end-to-end acceptance test on a real project as a binding gate before Task 43 release. The test would install fresh on a non-kit project, hold real sessions for ≥1 week, verify auto-extract/SessionStart/search/cron/lazy-fallback in the wild.
+  - **Re-prioritization 2026-05-28 evening (Lior + Claude)**: live-test deferred from Task 42 (pre-release gate) to Task 44 (post-release verification). The kit ships v0.1.0 first; the live-test happens against the released version. Rationale: (1) CI matrix (Task 40) already proves cross-OS install correctness; (2) the kit's structural test surface (1100+ tests, 8 validators) catches the contract-class bugs the live-test would surface; (3) shipping v0.1.0 unblocks Task 45 (auto-persona) which was originally tail-appended as a release blocker but now moves to v0.1.1 candidate. Decision-trail per CLAUDE.md "Decision-trail preservation" rule.
   - **Pre-release code review pass** via the `code-review-excellence` skill — final filter before the v0.1.0 release tag. Focus: anything missed at earlier layer reviews, ergonomics of the public CLI surface (`cmk` subcommand consistency), security surface review of the MCP server (Task 31, even if individually reviewed at PR time), `cmk doctor` health-check coverage. Output: blocking-issue list (must fix before release) + nice-to-have list (deferred to v0.1.x)
-  - Agent confirms zero failures + zero blocking review issues + live-test passed before task 43 (release)
+  - Agent confirms zero failures + zero blocking review issues before task 43 (release). Live-test gate moved to Task 44.
 
 ---
 
 ## Release
 
 - [ ] 43. v0.1.0 release — version, CHANGELOG, npm publish, GitHub release (T-036)
-  - Estimate: S · Depends: ALL prior tasks + checkpoint 42 + Task 45 (auto-persona — tail-appended 2026-05-24; logically gates this release)
+  - Estimate: S · Depends: ALL prior tasks + checkpoint 42 _(Task 45 dependency removed 2026-05-28 — auto-persona moved to v0.1.1 per Lior's autopilot-42→43→44→45 sequencing)_
+  - **Original plan (2026-05-24)**: Task 45 (auto-persona) was tail-appended as a release blocker before v0.1.0 could ship.
+  - **Re-prioritization 2026-05-28 (Lior)**: Task 45 moved to post-v0.1.0 (v0.1.1 release). Rationale: kit ships v0.1.0 with current feature set, auto-persona arrives in v0.1.1 as a follow-up. Decision-trail per CLAUDE.md "Decision-trail preservation" rule.
 - [ ] 43.1 Bump `package.json` to `0.1.0`
 - [ ] 43.2 Write `CHANGELOG.md` entry for `[0.1.0] — YYYY-MM-DD`
 - [ ] 43.3 Tag `v0.1.0` and push the tag
@@ -915,15 +910,27 @@ Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility)
   - Release published on npm + GitHub
   - Install verified from clean state on all 3 OSes
   - v0.1.0 is shipped
+  - **Live end-to-end acceptance test on a real project** _moved here from Task 42 on 2026-05-28 per Lior's autopilot-42→43→44→45 sequencing_. Pick a real project (NOT the kit's own repo). Install the kit fresh via `npm install -g @claude-memory-kit/cli` + `cmk install`. Open Claude Code on the project, hold real sessions, verify:
+    - Auto-extract fires on Stop hook + bullets appear in MEMORY.md (no manual writes needed)
+    - SessionStart injection works (Claude sees the snapshot at session start)
+    - `cmk search "<term>"` returns relevant results from accumulated memory
+    - Cron registration takes effect (daily-distill ran overnight; `recent.md` is populated)
+    - Lazy-fallback fires when cron is unregistered (sentinel removed → SessionStart spawns `cmk-compress-lazy`)
+    - `cmk doctor` reports green
+    - At least one full week of usage to exercise weekly-curate
+  - Document the live-test findings in `docs/journey/v0.1.0-live-test.md` — bugs found, UX surprises, doc gaps. Any Blocking finding gates the v0.1.1 release that's already queued (Task 45 ships in v0.1.1).
 
 ---
 
-## Late v0.1.0 addition (promoted from §16 v0.1.x candidate on 2026-05-24)
+## Late v0.1.0 addition → v0.1.1 (re-prioritized 2026-05-28)
 
-> **Numbering note**: Task 45 is appended at the tail rather than slotted after Task 23 because mid-stream insertion would renumber Tasks 24-44. The numbering reflects authoring order, not execution order: Task 45 logically depends on Task 23 and must ship before Task 43 (release). The Task 43 release-task entry has been updated to add Task 45 to its `Depends:` list.
+> **Numbering + scope history**:
+>
+> - 2026-05-24: Task 45 was promoted from §16 v0.1.x candidate → release blocker for v0.1.0. The numbering reflects authoring order; Task 45 was tail-appended rather than slotted after Task 23 to avoid renumbering Tasks 24-44.
+> - 2026-05-28: Re-prioritized to v0.1.1. Lior's autopilot sequencing is 42 → 43 → 44 → 45 — meaning v0.1.0 ships WITHOUT auto-persona, and Task 45 lands in v0.1.1. The original 2026-05-24 entry is preserved below per CLAUDE.md "Decision-trail preservation" rule.
 
-- [ ] 45. Auto-persona generation (T-014)
-  - Estimate: L · Depends: 7, 12, 13, 22, 23, 34 · Must ship before Task 43 (release)
+- [ ] 45. Auto-persona generation (T-014) _moved to v0.1.1 release on 2026-05-28_
+  - Estimate: L · Depends: 7, 12, 13, 22, 23, 34 · Original plan: "Must ship before Task 43 (release)" — superseded 2026-05-28; ships AFTER Task 43 as the v0.1.1 release.
   - Uses shared modules from `packages/cli/src/{tier-paths,audit-log,frontmatter,result-shapes}.mjs` + scratchpad.mjs (Task 12) + provenance.mjs (Task 13). Consumes auto-extract output from Task 23. See design.md §16.16 for full motivation + design.
   - **Pre-implementation: read [`docs/research/2026-05-24-tencentdb-agent-memory.md`](../../docs/research/2026-05-24-tencentdb-agent-memory.md) (auto-persona-every-N-facts source pattern) + [`docs/research/2026-05-25-claude-remember-code-dive.md`](../../docs/research/2026-05-25-claude-remember-code-dive.md) (identity-candidates inline-surfacing pattern — architectural simplification, see 45.1 below).** License: TencentDB is MIT (port freely with attribution); claude-remember is Community License (absorb idea, write our own).
 - [ ] 45.1 Implement persona-candidate surfacing — **two design choices**

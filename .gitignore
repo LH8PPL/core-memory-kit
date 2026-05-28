@@ -38,4 +38,9 @@ plugin/milvus-deploy-template/volumes/
 
 # Task 40 install-matrix smoke-test artifact (local-only; CI uploads to GHA artifacts)
 install-matrix-checksum.json
+
+# Task 42 B1 fix: packages/cli/template/ is generated at publish time by
+# scripts/prepublish-copy-template.mjs from the canonical template/ at
+# repo root. Don't commit the generated copy.
+packages/cli/template/
 context/.index/

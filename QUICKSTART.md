@@ -27,6 +27,19 @@ cmk --version
 
 You should see something like `0.1.0`.
 
+### Also install the Claude Code plugin
+
+The kit's hooks (auto-extract, SessionStart injection, etc.) load via Claude Code's plugin system. The CLI is the project-scaffolder + cron-job runner; the plugin is the hooks-into-Claude-Code half. **You need both** for the kit to work end-to-end.
+
+In Claude Code:
+
+```text
+/plugin marketplace add LH8PPL/claude-memory-kit
+/plugin install claude-memory-kit
+```
+
+Restart Claude Code after the install. The plugin sets `${CLAUDE_PLUGIN_ROOT}` and registers the hooks per `plugin/hooks/hooks.json`. Without this step, `cmk doctor` HC-2 will report PASS (the strings are in your settings.json after Step 3 below) but the hooks will never fire — auto-extract is silently dead.
+
 ## 2. Scaffold the kit into your project
 
 ```bash

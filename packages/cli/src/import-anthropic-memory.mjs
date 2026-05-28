@@ -32,7 +32,7 @@ import {
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { canonicalize, generateId } from '../../canonicalize/src/index.mjs';
+import { canonicalize, generateId } from '@cmk/canonicalize';
 import {
   appendAuditEntry,
   nowIso,
