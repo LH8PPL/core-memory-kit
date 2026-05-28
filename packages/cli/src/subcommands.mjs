@@ -21,7 +21,14 @@ import { reindexBoot, reindexFull } from './index-rebuild.mjs';
 import { search as searchAction, SEARCH_MODES } from './search.mjs';
 import { runMcpServer } from './mcp-server.mjs';
 import { dailyDistill } from './daily-distill.mjs';
-import { registerCron, unregisterCron } from './register-crons.mjs';
+import { weeklyCurate } from './weekly-curate.mjs';
+import {
+  registerCron,
+  unregisterCron,
+  CRON_ENTRY_NAME,
+  WEEKLY_ENTRY_NAME,
+  DEFAULT_WEEKLY_SCHEDULE,
+} from './register-crons.mjs';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 
@@ -342,6 +349,32 @@ async function runDailyDistill(/* options */) {
 }
 
 /**
+ * `cmk weekly-curate` (Task 34) — runs the weekly-curate pipeline once.
+ * Designed to be invoked by the host scheduler registered via
+ * `cmk register-crons` (which registers both daily + weekly entries
+ * by default). Humans normally don't invoke this directly.
+ */
+async function runWeeklyCurate(/* options */) {
+  const projectRoot = resolvePath(process.cwd());
+  const { HaikuViaAnthropicApi } = await import('./compressor.mjs');
+  try {
+    const backend = new HaikuViaAnthropicApi();
+    const r = await weeklyCurate({ projectRoot, backend });
+    if (r.action === 'error') {
+      console.error(
+        `cmk weekly-curate: error (${r.errorCategory ?? 'unknown'})${(r.errors && r.errors.length) ? `: ${r.errors.join('; ')}` : ''}`,
+      );
+    } else {
+      console.log(
+        `cmk weekly-curate: ${r.action}${r.reason ? ` (${r.reason})` : ''}${r.archivedDays ? ` (archived: ${r.archivedDays}d, current: ${r.currentDays}d, in: ${r.bytesIn}b, out: ${r.bytesOut}b)` : ''}`,
+      );
+    }
+  } catch (err) {
+    console.error(`cmk weekly-curate: unexpected error: ${err?.message ?? err}`);
+  }
+}
+
+/**
  * `cmk register-crons [--dry-run] [--unregister]` (Task 33) — register
  * the daily-distill cron entry on the current platform.
  *
@@ -352,25 +385,50 @@ async function runDailyDistill(/* options */) {
 function runRegisterCrons(options /* , command */) {
   const dryRun = options?.dryRun === true;
   const unregister = options?.unregister === true;
-  // Use the npm-installed `cmk-daily-distill` bin (declared in
-  // packages/cli/package.json `bin:`). PATH-resolved by the shell on
-  // every platform — works on `npm install -g` (Task 33 B1 fix).
-  // Earlier draft pointed at plugin/bin/cmk-daily-distill.mjs which
-  // isn't in the published cli package; only worked in-repo.
-  const command = 'cmk-daily-distill';
-  const r = unregister
-    ? unregisterCron({ dryRun })
-    : registerCron({ command, dryRun });
-  if (r.action === 'error') {
-    console.error(`cmk register-crons: error — ${(r.errors ?? []).join('; ')}`);
-    if (r.error) console.error(`  ${r.error}`);
-    if (r.output) console.error(r.output);
-    process.exitCode = 2;
-    return;
+  // Use the npm-installed `cmk-daily-distill` + `cmk-weekly-curate` bins
+  // (declared in packages/cli/package.json `bin:`). PATH-resolved by
+  // the shell on every platform — works on `npm install -g` (Task 33 B1).
+  // Both entries register by default (Task 34): one cron call from the
+  // user gets both schedules; their cadences are distinct (daily 23:00,
+  // weekly Sun 09:00) so there's no scheduling overlap.
+  const jobs = [
+    {
+      label: 'daily-distill',
+      command: 'cmk-daily-distill',
+      entryName: CRON_ENTRY_NAME,
+      schedule: undefined, // registerCron default = daily 23:00
+    },
+    {
+      label: 'weekly-curate',
+      command: 'cmk-weekly-curate',
+      entryName: WEEKLY_ENTRY_NAME,
+      schedule: DEFAULT_WEEKLY_SCHEDULE,
+    },
+  ];
+  let anyError = false;
+  for (const job of jobs) {
+    const r = unregister
+      ? unregisterCron({ entryName: job.entryName, dryRun })
+      : registerCron({
+          command: job.command,
+          entryName: job.entryName,
+          schedule: job.schedule,
+          dryRun,
+        });
+    if (r.action === 'error') {
+      anyError = true;
+      console.error(
+        `cmk register-crons (${job.label}): error — ${(r.errors ?? []).join('; ')}`,
+      );
+      if (r.error) console.error(`  ${r.error}`);
+      if (r.output) console.error(r.output);
+      continue;
+    }
+    console.log(`cmk register-crons (${job.label}): ${r.action} on ${r.platform}`);
+    console.log(`  command: ${r.command}`);
+    if (r.output) console.log(`  output: ${r.output.trim()}`);
   }
-  console.log(`cmk register-crons: ${r.action} on ${r.platform}`);
-  console.log(`  command: ${r.command}`);
-  if (r.output) console.log(`  output: ${r.output.trim()}`);
+  if (anyError) process.exitCode = 2;
 }
 
 async function runMcpDispatch(childName) {
@@ -797,8 +855,14 @@ export const subcommands = [
     action: runDailyDistill,
   },
   {
+    name: 'weekly-curate',
+    description: 'run the weekly-curate pipeline once: archive today-*.md older than 7 days, dedup bullets, rebuild recent.md (invoked by host scheduler)',
+    milestone: 34,
+    action: runWeeklyCurate,
+  },
+  {
     name: 'register-crons',
-    description: 'register the daily-distill cron job with the host scheduler (Linux crontab / macOS launchd / Windows Task Scheduler)',
+    description: 'register both daily-distill (23:00) and weekly-curate (Sun 09:00) cron jobs with the host scheduler',
     milestone: 33,
     optionSpec: [
       { flags: '--dry-run', description: 'print the platform-detected command without executing' },

@@ -39,46 +39,66 @@ import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 // Windows. Single source of truth — never construct ad-hoc names.
 export const CRON_ENTRY_NAME = 'cmk-daily-distill';
 
+// Task 34: second entry for weekly curate. Same naming convention.
+export const WEEKLY_ENTRY_NAME = 'cmk-weekly-curate';
+
 // Default schedule: 23:00 local time. Matches design §1.4 ("Daily 23:00
 // scripts/run-daily-distill.sh") + tasks.md 33.
 export const DEFAULT_SCHEDULE = { hour: 23, minute: 0 };
+
+// Default weekly schedule: Sunday 09:00 local time. Matches design §1.4
+// + tasks.md 34. dayOfWeek: 0=Sunday, 1=Monday, ..., 6=Saturday (cron + launchd convention).
+export const DEFAULT_WEEKLY_SCHEDULE = { hour: 9, minute: 0, dayOfWeek: 0 };
+
+// Map dayOfWeek (0-6, Sun=0) to schtasks /D abbreviation.
+const WIN_DAY_MAP = { 0: 'SUN', 1: 'MON', 2: 'TUE', 3: 'WED', 4: 'THU', 5: 'FRI', 6: 'SAT' };
 
 export function detectPlatform() {
   return process.platform; // 'linux' | 'darwin' | 'win32' (other: bsd etc.)
 }
 
-function buildLinuxCronLine({ command, hour, minute }) {
+function buildLinuxCronLine({ command, entryName, hour, minute, dayOfWeek }) {
   // Standard 5-field cron syntax: minute hour day-of-month month day-of-week
-  // The `# cmk-daily-distill` trailing comment is what makes the entry
+  // The trailing `# <entry-name>` comment is what makes the entry
   // grep-able for idempotency + unregistration.
-  return `${minute} ${hour} * * * ${command} # ${CRON_ENTRY_NAME}`;
+  // Task 34: dayOfWeek (0-6, Sun=0) optional. When set, restricts the
+  // job to that weekday; when omitted, runs every day (`*`).
+  const dow = dayOfWeek === undefined || dayOfWeek === null ? '*' : String(dayOfWeek);
+  return `${minute} ${hour} * * ${dow} ${command} # ${entryName}`;
 }
 
-function macOsPlistPath() {
-  return join(homedir(), 'Library', 'LaunchAgents', `com.cmk.${CRON_ENTRY_NAME}.plist`);
+function macOsPlistPath(entryName) {
+  return join(homedir(), 'Library', 'LaunchAgents', `com.cmk.${entryName}.plist`);
 }
 
-function buildMacOsPlist({ command, hour, minute }) {
+function buildMacOsPlist({ command, entryName, hour, minute, dayOfWeek }) {
   // Split command on whitespace for the ProgramArguments array.
   // launchd doesn't honor shell quoting — each arg is its own element.
   const args = command.split(/\s+/).filter(Boolean);
   const argXml = args
     .map((a) => `    <string>${escapeXml(a)}</string>`)
     .join('\n');
+  const calendarLines = [
+    `    <key>Hour</key><integer>${hour}</integer>`,
+    `    <key>Minute</key><integer>${minute}</integer>`,
+  ];
+  if (dayOfWeek !== undefined && dayOfWeek !== null) {
+    // launchd Weekday: 0=Sunday, 1=Monday, ..., 6=Saturday (same as cron).
+    calendarLines.push(`    <key>Weekday</key><integer>${dayOfWeek}</integer>`);
+  }
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyLists-1.0.dtd">',
     '<plist version="1.0">',
     '<dict>',
-    `  <key>Label</key><string>com.cmk.${CRON_ENTRY_NAME}</string>`,
+    `  <key>Label</key><string>com.cmk.${entryName}</string>`,
     '  <key>ProgramArguments</key>',
     '  <array>',
     argXml,
     '  </array>',
     '  <key>StartCalendarInterval</key>',
     '  <dict>',
-    `    <key>Hour</key><integer>${hour}</integer>`,
-    `    <key>Minute</key><integer>${minute}</integer>`,
+    ...calendarLines,
     '  </dict>',
     '  <key>RunAtLoad</key><false/>',
     '</dict>',
@@ -96,7 +116,7 @@ function escapeXml(s) {
     .replace(/'/g, '&apos;');
 }
 
-function buildWindowsSchtasks({ command, hour, minute }) {
+function buildWindowsSchtasks({ command, entryName, hour, minute, dayOfWeek }) {
   // schtasks accepts /ST as HH:mm. /F forces re-create if the task
   // already exists (idempotency primitive). /RL LIMITED (not HIGHEST)
   // because daily distill doesn't need admin.
@@ -108,15 +128,27 @@ function buildWindowsSchtasks({ command, hour, minute }) {
   // this; the test fixture (cli-register-crons.test.js) didn't surface
   // it because earlier tests only passed `'node bin.mjs'` (no quotes).
   const escapedCommand = command.replace(/"/g, '\\"');
-  return `schtasks /Create /TN "${CRON_ENTRY_NAME}" /SC DAILY /ST ${time} /TR "${escapedCommand}" /RL LIMITED /F`;
+  // Task 34: /SC WEEKLY /D <SUN|MON|...> for weekly cadence; /SC DAILY otherwise.
+  let scheduleFlags;
+  if (dayOfWeek !== undefined && dayOfWeek !== null) {
+    const day = WIN_DAY_MAP[dayOfWeek];
+    if (!day) {
+      throw new Error(`buildWindowsSchtasks: invalid dayOfWeek ${dayOfWeek}`);
+    }
+    scheduleFlags = `/SC WEEKLY /D ${day}`;
+  } else {
+    scheduleFlags = '/SC DAILY';
+  }
+  return `schtasks /Create /TN "${entryName}" ${scheduleFlags} /ST ${time} /TR "${escapedCommand}" /RL LIMITED /F`;
 }
 
 /**
- * Register the daily-distill cron entry on the current platform.
+ * Register a cron entry on the current platform.
  *
  * @param {object} opts
- * @param {string} opts.command  the command to run (typically `node <bin-path>`)
- * @param {object} [opts.schedule]  {hour, minute} — defaults to {23,0}
+ * @param {string} opts.command  the command to run (typically a PATH-resolved bin name)
+ * @param {string} [opts.entryName]  the entry identifier — defaults to CRON_ENTRY_NAME ('cmk-daily-distill')
+ * @param {object} [opts.schedule]  {hour, minute, dayOfWeek?} — defaults to {23,0}; dayOfWeek (0-6, Sun=0) restricts to that weekday
  * @param {boolean} [opts.dryRun]  if true, return the command(s) without executing
  * @returns {object} {action, platform, executed, command, output, error?}
  */
@@ -134,13 +166,25 @@ export function registerCron(opts = {}) {
     // we extend this helper with a sanitizer (v0.1.x candidate).
     errors.push("command: must not contain single quotes (Linux cron-line shell-quoting contract)");
   }
-  const { hour = DEFAULT_SCHEDULE.hour, minute = DEFAULT_SCHEDULE.minute } =
-    opts.schedule ?? {};
+  const entryName = opts.entryName ?? CRON_ENTRY_NAME;
+  if (!entryName || typeof entryName !== 'string' || !/^[a-zA-Z0-9_.-]+$/.test(entryName)) {
+    errors.push("entryName: must match /^[a-zA-Z0-9_.-]+$/ (used in shell + plist + schtasks identifiers)");
+  }
+  const {
+    hour = DEFAULT_SCHEDULE.hour,
+    minute = DEFAULT_SCHEDULE.minute,
+    dayOfWeek,
+  } = opts.schedule ?? {};
   if (
     !Number.isInteger(hour) || hour < 0 || hour > 23 ||
     !Number.isInteger(minute) || minute < 0 || minute > 59
   ) {
     errors.push('schedule: {hour: 0-23, minute: 0-59}');
+  }
+  if (dayOfWeek !== undefined && dayOfWeek !== null) {
+    if (!Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6) {
+      errors.push('schedule.dayOfWeek: must be integer 0-6 (Sun=0)');
+    }
   }
   if (errors.length > 0) {
     return errorResult({ category: ERROR_CATEGORIES.SCHEMA, errors });
@@ -150,10 +194,10 @@ export function registerCron(opts = {}) {
   const dryRun = opts.dryRun === true;
 
   if (platform === 'linux') {
-    const line = buildLinuxCronLine({ command: opts.command, hour, minute });
-    // Idempotent: list current crontab, strip any pre-existing cmk-daily
-    // entry, append the new line, pipe back.
-    const shellCmd = `(crontab -l 2>/dev/null | grep -v '${CRON_ENTRY_NAME}' ; echo '${line}') | crontab -`;
+    const line = buildLinuxCronLine({ command: opts.command, entryName, hour, minute, dayOfWeek });
+    // Idempotent: list current crontab, strip any pre-existing entry
+    // by name, append the new line, pipe back.
+    const shellCmd = `(crontab -l 2>/dev/null | grep -v '${entryName}' ; echo '${line}') | crontab -`;
     if (dryRun) {
       return {
         action: 'dry-run',
@@ -177,8 +221,8 @@ export function registerCron(opts = {}) {
   }
 
   if (platform === 'darwin') {
-    const plistPath = macOsPlistPath();
-    const plistContent = buildMacOsPlist({ command: opts.command, hour, minute });
+    const plistPath = macOsPlistPath(entryName);
+    const plistContent = buildMacOsPlist({ command: opts.command, entryName, hour, minute, dayOfWeek });
     if (dryRun) {
       return {
         action: 'dry-run',
@@ -193,7 +237,7 @@ export function registerCron(opts = {}) {
     // bootout first (in case a stale entry exists), then bootstrap.
     // bootout exit code is non-zero if no entry is loaded — that's
     // fine, we ignore it.
-    spawnSync('launchctl', ['bootout', `gui/${process.getuid?.() ?? ''}/com.cmk.${CRON_ENTRY_NAME}`], { encoding: 'utf8', timeout: 10_000 });
+    spawnSync('launchctl', ['bootout', `gui/${process.getuid?.() ?? ''}/com.cmk.${entryName}`], { encoding: 'utf8', timeout: 10_000 });
     const r = spawnSync('launchctl', ['bootstrap', `gui/${process.getuid?.() ?? ''}`, plistPath], { encoding: 'utf8', timeout: 10_000 });
     return {
       action: r.status === 0 ? 'registered' : 'error',
@@ -206,7 +250,7 @@ export function registerCron(opts = {}) {
   }
 
   if (platform === 'win32') {
-    const cmd = buildWindowsSchtasks({ command: opts.command, hour, minute });
+    const cmd = buildWindowsSchtasks({ command: opts.command, entryName, hour, minute, dayOfWeek });
     if (dryRun) {
       return {
         action: 'dry-run',
@@ -236,14 +280,25 @@ export function registerCron(opts = {}) {
 }
 
 /**
- * Remove the daily-distill cron entry on the current platform.
+ * Remove a cron entry on the current platform.
+ *
+ * @param {object} [opts]
+ * @param {string} [opts.entryName]  the entry to remove — defaults to CRON_ENTRY_NAME
+ * @param {boolean} [opts.dryRun]
  */
 export function unregisterCron(opts = {}) {
+  const entryName = opts.entryName ?? CRON_ENTRY_NAME;
+  if (!entryName || typeof entryName !== 'string' || !/^[a-zA-Z0-9_.-]+$/.test(entryName)) {
+    return errorResult({
+      category: ERROR_CATEGORIES.SCHEMA,
+      errors: ["entryName: must match /^[a-zA-Z0-9_.-]+$/"],
+    });
+  }
   const platform = detectPlatform();
   const dryRun = opts.dryRun === true;
 
   if (platform === 'linux') {
-    const shellCmd = `(crontab -l 2>/dev/null | grep -v '${CRON_ENTRY_NAME}') | crontab -`;
+    const shellCmd = `(crontab -l 2>/dev/null | grep -v '${entryName}') | crontab -`;
     if (dryRun) {
       return { action: 'dry-run', platform, executed: false, command: shellCmd, output: '' };
     }
@@ -259,14 +314,14 @@ export function unregisterCron(opts = {}) {
   }
 
   if (platform === 'darwin') {
-    const plistPath = macOsPlistPath();
+    const plistPath = macOsPlistPath(entryName);
     if (dryRun) {
       return {
         action: 'dry-run', platform, executed: false,
         command: `launchctl bootout + rm ${plistPath}`, output: '',
       };
     }
-    spawnSync('launchctl', ['bootout', `gui/${process.getuid?.() ?? ''}/com.cmk.${CRON_ENTRY_NAME}`], { encoding: 'utf8', timeout: 10_000 });
+    spawnSync('launchctl', ['bootout', `gui/${process.getuid?.() ?? ''}/com.cmk.${entryName}`], { encoding: 'utf8', timeout: 10_000 });
     if (existsSync(plistPath)) {
       try { unlinkSync(plistPath); } catch { /* best-effort */ }
     }
@@ -277,7 +332,7 @@ export function unregisterCron(opts = {}) {
   }
 
   if (platform === 'win32') {
-    const cmd = `schtasks /Delete /TN "${CRON_ENTRY_NAME}" /F`;
+    const cmd = `schtasks /Delete /TN "${entryName}" /F`;
     if (dryRun) {
       return { action: 'dry-run', platform, executed: false, command: cmd, output: '' };
     }

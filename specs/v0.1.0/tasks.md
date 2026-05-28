@@ -684,17 +684,21 @@ Optional layers ship if time permits; otherwise they roll forward into v0.1.x pa
 - [ ] 34. Weekly curate cron (T-029)
   - Estimate: M · Depends: 10, 33
   - **Pre-implementation: read [`docs/research/2026-05-25-claude-remember-code-dive.md`](../../docs/research/2026-05-25-claude-remember-code-dive.md)** for absorbed patterns — single-pass two-stage consolidation prompt (Step 1: each `today-*.md` → ONE entry in recent.md with 2-4-sentence body; Step 2: rotate entries older than 3 days into archive.md grouped by `## Week of YYYY-MM-DD` with 3-5 sentences/week), delimited response format (`===RECENT===` / `===ARCHIVE===`) with graceful-degradation fallback, token caps (600 recent / 400 archive), `.done.md` rename for processed staging files (audit retention, never delete), per-stage `noclobber` lock. **License caveat:** write our own prompt from scratch — claude-remember's prompt text is under Community License and is creative expression (the technique is absorbable, the text is not).
-- [ ] 34.1 Implement `scripts/run-weekly-curate.sh`
+- [x] 34.1 Implement `scripts/run-weekly-curate.sh`
   - Moves `today-*.md` >7d into `archive.md` (appended); deletes originals
-- [ ] 34.2 Merge high-similarity bullets across days via task 10
+  - Shipped as [`packages/cli/src/weekly-curate.mjs`](../../packages/cli/src/weekly-curate.mjs) (public `weeklyCurate({projectRoot, backend, now, cooldownMs?, archiveMaxBytes?, recentMaxBytes?, skipRecentRebuild?})`) + [`packages/cli/bin/cmk-weekly-curate.mjs`](../../packages/cli/bin/cmk-weekly-curate.mjs) bin wrapper. Per design §8.7.1. Deletes (not `.done.md` rename) because the in-repo memory model commits today-*.md to git; `git log` is the audit trail.
+- [x] 34.2 Merge high-similarity bullets across days via task 10
   - Records `merged_from` correctly
-- [ ] 34.3 Rebuild `recent.md` from current week's files
-- [ ]* 34.4 Write unit tests for weekly curate
+  - Shipped as the `dedupBullets()` pure-function pass in `weekly-curate.mjs` that runs after Haiku's output. Uses Task 5's `canonicalize` primitive (which Task 10's `mergeFacts` itself uses) to detect canonical-equal bullets across days; collapses duplicates with `<!-- merged_from: ['YYYY-MM-DD', ...] -->` comment lines. The v0.1.0 reading of "via task 10": today-*.md bullets have no per-bullet ids, so Task 10's fact-file `mergeFacts` API isn't the right tool; we reuse the dedup heuristic at the scratchpad bullet level. Looser semantic-similarity dedup remains Haiku's responsibility per the prompt.
+- [x] 34.3 Rebuild `recent.md` from current week's files
+  - Shipped via inline `dailyDistill({cooldownMs: 0, ...})` call from `weeklyCurate` after the archive step. Per design §8.7.2 composition (cooldownMs=0 override because both Haiku calls belong to a single curate cycle).
+- [x]* 34.4 Write unit tests for weekly curate
   - Test fixture with 14 days of files: first 7 moved chronologically to `archive.md`; originals deleted; recent week untouched
-  - Test bullets across days with similarity > 0.85: merged via task 10; `merged_from` populated correctly
+  - Test bullets across days with similarity > 0.85: merged via task 10's canonicalize primitive; `merged_from` populated correctly
   - Test `recent.md` rebuilt from current 7 days
   - Test idempotency: second run is no-op (archive doesn't grow further)
-  - _Requirements: FR-19, FR-21; design §1.4, §8.1_
+  - Shipped 18 tests in [`tests/cli-weekly-curate.test.js`](../../tests/cli-weekly-curate.test.js): boundary (3) + skip paths (2) + #1 archive+delete (2) + #2 dedup (2) + #3 recent rebuild (2) + #4 idempotency (1) + Door-5 NDJSON observability (2) + dedupBullets pure-function unit tests (4).
+  - _Requirements: FR-19, FR-21; design §1.4, §8.1, §8.7_
 
 - [ ] 35. Lazy compression fallback for no-cron envs (T-030)
   - Estimate: S · Depends: 18, 23
