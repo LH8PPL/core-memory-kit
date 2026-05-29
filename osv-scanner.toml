@@ -1,0 +1,20 @@
+# osv-scanner config (Task 53). Auto-detected by osv-scanner for the
+# package-lock.json in this directory.
+#
+# Ignores advisories confined to the DEV/test toolchain (vitest → vite →
+# esbuild). These are devDependencies — NEVER shipped in the npm tarball
+# (packages/cli `files`: bin/, src/, template/, README.md). This mirrors the
+# `npm audit --omit=dev` hard gate in .github/workflows/security.yml and the
+# "accepted, non-shipping findings" note in SECURITY.md. The fix for these is
+# the vitest major bump, which Dependabot will propose as a reviewable PR.
+#
+# IMPORTANT: a new advisory in a SHIPPED (production) dependency is NOT listed
+# here and will still fail the scan — the gate stays real.
+
+[[IgnoredVulns]]
+id = "GHSA-67mh-4wv8-2f99"
+reason = "esbuild is a dev/test-toolchain dependency (via vitest); never in the published package"
+
+[[IgnoredVulns]]
+id = "GHSA-4w7w-66w2-5vf9"
+reason = "vite is a dev/test-toolchain dependency (via vitest); never in the published package"
