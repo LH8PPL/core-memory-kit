@@ -46,9 +46,20 @@ execSync(`node "${cmkBin}" install`, {
 // Walk the scaffolded context/ tree
 const contextDir = join(projectRoot, 'context');
 
+// Runtime/gitignored dirs that are NOT part of the deterministic scaffold
+// and must be excluded from the cross-OS byte-identical comparison:
+//   - .locks/  : audit.log carries per-run timestamps + absolute tempdir
+//                paths (since Task 49, `cmk install` writes an
+//                INSTALL_HOOKS_WIRED audit entry) — inherently non-deterministic.
+//   - .index/  : regenerable SQLite cache.
+// Both are gitignored (never committed), so the scaffold-determinism
+// guarantee (design §14) was never about them.
+const RUNTIME_DIRS = new Set(['.locks', '.index']);
+
 function walk(dir) {
   const entries = [];
   for (const name of readdirSync(dir).sort()) {
+    if (RUNTIME_DIRS.has(name)) continue;
     const full = join(dir, name);
     let st;
     try {
