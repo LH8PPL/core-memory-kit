@@ -39,6 +39,8 @@ The short version: Claude starts every session already knowing your project, and
 
 ### Route A — npm (recommended)
 
+*Recommended because it gives you the full `cmk` toolset — including `cmk doctor` to confirm it's actually working (plus search, self-repair, and cron) — and it's the most battle-tested path. Not a terminal person? You don't have to be — see the note below.*
+
 ```bash
 # 1. Install the CLI globally (Node 20+)
 npm install -g @lh8ppl/claude-memory-kit
