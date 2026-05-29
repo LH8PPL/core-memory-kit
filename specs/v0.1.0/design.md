@@ -2448,6 +2448,18 @@ claude-mem offers BOTH a complete npm-route installer AND a complete `/plugin` m
 
 Ship trigger: v0.1.1, alongside §16.49. Tracked as tasks.md Task 49 (sub-task). Cross-ref: ADR-0005 (three-install-paths), ADR-0012.
 
+### 16.52 Behavioral pattern detection + promotion ("learn how I work," not just facts)
+
+**v0.2 candidate (Lior endorsed 2026-05-29: "I want this feature… a clean refinement of what we have, so we just do it").**
+
+Today the kit captures **facts** (decisions, preferences, environment) and already records *some* working-style as facts — `USER.md`, `HABITS.md`, `SOUL.md` scratchpads, trust:high "from now on…" memories, and the auto-persona synthesizer (Task 45). This candidate is the **clean refinement**: have auto-extract actively *detect recurring behavioral patterns* across turns/sessions ("Lior always wants X format," "always runs tests before commit," "prefers terse replies") and **promote** them — into `HABITS.md` / the persona — rather than leaving them as scattered one-off facts. It's a ranking/promotion step on top of the existing extract→trust→scratchpad pipeline, reusing the trust hierarchy + review queue; no new storage model.
+
+Distinct from the *bigger* swing it's often conflated with: ECC-style **procedural memory** that turns observed patterns into *actionable reusable skills/procedures* (a new capability, larger product direction). That bigger version is explicitly **out of scope here** — parked as a separate, evidence-gated consideration (revisit if real usage shows facts+habits are insufficient). This candidate is only the refinement: detect + promote behavioral patterns as memory.
+
+Mechanism sketch: (1) a lightweight recurrence signal in auto-extract (same observation canonicalized/seen N times, or an explicit "always/usually/prefer" cue); (2) promote to `HABITS.md` (project) or user-tier persona with a `pattern_count` / confidence field — a numeric refinement of the categorical trust level (the one idea worth borrowing from ECC's confidence scoring); (3) surface in the frozen snapshot like other high-trust memory. Composes with: Task 45 auto-persona (shared promotion target), the trust hierarchy, the review queue (medium-confidence patterns route there for confirmation).
+
+Ship trigger: v0.2. Tracked as tasks.md Task 55. Cross-ref: Task 45 (auto-persona), §6 (auto-extract pipeline), §4 (trust hierarchy).
+
 ---
 
 ## 17. Test discipline

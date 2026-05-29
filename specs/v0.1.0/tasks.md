@@ -1117,3 +1117,14 @@ Each parent task ships as a PR titled `[<task #>] <description>` (e.g., `[7] Per
   - **Why**: Task 53 covers security (SCA/SAST/secrets) but not code-quality / maintainability / **test coverage** / quality gates — the things Lior's team gets from SonarQube. Distinct concern from security; kept out of Task 53 to stay focused.
   - **Options**: (A) **SonarCloud** (free for public repos; hosted SonarQube — quality + maintainability + coverage + quality gates; needs a `SONAR_TOKEN` GH secret); (B) zero-service: Vitest `--coverage` (`@vitest/coverage-v8`) gate in CI + optional **Codecov** (free OSS) dashboard; (C) **CodeClimate** free OSS tier. Pick one — don't run redundant quality tools (anti-bloat).
   - _Requirements: NFR-8 (docs/quality); decide tool with Lior before building_
+
+- [ ] 55. Behavioral pattern detection + promotion — "learn how I work," not just facts (T-043)
+  - Estimate: M · Depends: 45 (auto-persona) · **v0.2 — Lior endorsed 2026-05-29 ("I want this feature… a clean refinement of what we have, so we just do it")**
+  - **Why**: the kit captures facts (decisions/preferences/environment) and records *some* working-style as facts (`USER.md`/`HABITS.md`/`SOUL.md`, "from now on…" memories, auto-persona Task 45). This adds the refinement: auto-extract actively **detects recurring behavioral patterns** ("always wants X format", "runs tests before commit", "prefers terse replies") and **promotes** them into `HABITS.md` / the persona, instead of leaving them as scattered one-off facts. A ranking/promotion step on the existing extract→trust→scratchpad pipeline — no new storage model.
+  - **Scope boundary**: this is ONLY the clean refinement (detect + promote behavioral patterns as memory). The bigger ECC-style **procedural memory** (turn patterns into actionable reusable *skills/procedures*) is a separate, larger direction — explicitly OUT of scope, evidence-gated to a later call. Don't conflate.
+  - **Sketch** (design §16.52): (1) recurrence signal in auto-extract (same canonicalized observation seen N times, or an "always/usually/prefer" cue); (2) promote to `HABITS.md` / user-tier persona with a `pattern_count`/confidence field (numeric refinement of the categorical trust level — the one idea worth borrowing from ECC); (3) surface in the frozen snapshot like other high-trust memory. Composes with Task 45 (shared promotion target), trust hierarchy (§4), review queue (medium-confidence → confirm).
+  - [ ] 55.1 Recurrence/cue detection in auto-extract
+  - [ ] 55.2 Promotion to HABITS.md / persona with pattern_count + confidence field
+  - [ ] 55.3 Snapshot surfacing + review-queue routing for medium-confidence patterns
+  - [ ]* 55.4 Tests — recurrence detection; promotion lands in the right tier; medium-confidence routes to review; over-mutation guard
+  - _Requirements: US-1/US-5 (the kit's thesis, behavioral slice); design §16.52, §6 (auto-extract), §4 (trust); Task 45_
