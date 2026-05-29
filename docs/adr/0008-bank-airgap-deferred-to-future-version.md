@@ -33,9 +33,9 @@ Option-B Deep Research (Claude.ai) repeatedly framed `claude-memory-kit` as if i
 - Audit log (`memkit audit`) covering every export.
 - Internal security review for MCP exfiltration vectors.
 
-The user clarified that Claude.ai's research mode had **injected this context unprompted** because Claude.ai's memory feature stores the fact that the user has a regulated/air-gapped deployment context and applies that context to research even when the current task is personal. The user explicitly stated this is a recurring problem with Claude.ai's research mode.
+The user clarified that Claude.ai's research mode had **injected this context unprompted** because Claude.ai's memory feature had stored a work-context detail (a regulated / air-gapped deployment assumption) and applies that context to research even when the current task is personal. The user explicitly stated this is a recurring problem with Claude.ai's research mode.
 
-The user's actual position: `claude-memory-kit` is a **personal open-source project**. Bank/air-gap context is a "maybe later, but not v0.1" concern.
+The user's actual position: `claude-memory-kit` is a **personal open-source project**. Regulated / air-gap context is a "maybe later, but not v0.1" concern.
 
 ## Decision
 
@@ -73,7 +73,7 @@ However, the v0.1 *architecture* must not preclude bank/air-gap deployment in v0
 
 - v0.1 scope stays tight. No Bedrock SDK dependency, no Llama runtime, no AWS credentials surface.
 - The architectural seam (pluggable compressor interface) means v0.2 is a feature addition, not a rewrite.
-- The user, who has a regulated-deployment context, has a future path if they later want to deploy this at work — but it's not blocking v0.1.
+- If this is ever deployed into a regulated / air-gapped environment, the seam provides a future path — but that's not blocking v0.1.
 
 ### Negative
 
@@ -88,9 +88,9 @@ However, the v0.1 *architecture* must not preclude bank/air-gap deployment in v0
 
 | Alternative | Why rejected |
 |---|---|
-| Build bank/air-gap features in v0.1 | Scope explosion. The user has no regulated/air-gapped deployment target in 2026; building the feature now is speculative. |
+| Build bank/air-gap features in v0.1 | Scope explosion. There's no regulated/air-gapped deployment target in 2026; building the feature now is speculative. |
 | Hardcode Anthropic API and never abstract | If we later add a Bedrock or local backend, every call site has to change. The interface is one file; the abstraction is cheap. |
-| Drop bank/air-gap entirely from the roadmap | The user actually has that deployment context. A future contribution path matters. v0.2+ is the right time. |
+| Drop bank/air-gap entirely from the roadmap | A regulated/air-gapped deployment is a plausible future target; a contribution path matters. v0.2+ is the right time. |
 | Ship Bedrock support too in v0.1 | Adds AWS SDK dependency, IAM credential handling, region selection, billing surface — none of which the v0.1 personal use needs. |
 
 ## References

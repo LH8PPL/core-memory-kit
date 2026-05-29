@@ -19,7 +19,7 @@ tags:
 
 ## Note on bank / air-gap framing in this report
 
-This research output assumes a "regulated bank / air-gapped" deployment context throughout, despite the prompt being scoped to a personal open-source project. This is a known Claude.ai memory-injection artifact (a stored work-context detail; Claude.ai's memory feature pulled that context into research mode unprompted).
+This research output assumes a "regulated / air-gapped" deployment context throughout, despite the prompt being scoped to a personal open-source project. This is a known Claude.ai memory-injection artifact (a stored work-context detail that Claude.ai's memory feature pulled into research mode unprompted).
 
 **Where the bank framing taints the output:**
 

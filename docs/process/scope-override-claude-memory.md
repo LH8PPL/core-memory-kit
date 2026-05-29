@@ -16,9 +16,9 @@ tags:
 
 Claude.ai has a persistent memory feature that stores user context across conversations. In Deep Research mode this memory is **actively pulled** by the research model to "be helpful" — and the model often applies stored context to research even when the current task is unrelated.
 
-Concrete example from `claude-memory-kit`: the user has a regulated-deployment context. Claude.ai's memory knows this. When the user asked Claude.ai to research memory systems for a **personal open-source project**, the research output assumed bank/air-gap context throughout — recommending Bedrock adapters, audit logs, machine-pinned tiers, none of which the personal project needs.
+Concrete example from `claude-memory-kit`: Claude.ai's memory had stored a work-context detail (a regulated / air-gapped deployment assumption). When the user asked Claude.ai to research memory systems for a **personal open-source project**, the research output assumed that regulated/air-gap context throughout — recommending Bedrock adapters, audit logs, machine-pinned tiers, none of which the personal project needs.
 
-The user identified this as a recurring pattern: *"claude ai research does that all the time to me because he know i work at an [redacted work-context], and sometimes he makes assumptions that i didn't ask him to do."*
+The user identified this as a recurring pattern: Claude.ai's research mode keeps applying a stored work-context assumption (a regulated / air-gapped deployment) to unrelated personal-project research, making assumptions that weren't asked for.
 
 ## The fix
 
@@ -57,7 +57,7 @@ This gives the model a concrete frame to hold onto, rather than just an empty sp
 If a specific memory entry keeps causing problems:
 
 1. Go to **Claude.ai → Settings → Profile → Manage memories**.
-2. Find the specific entry ("a stored work-context detail" or similar).
+2. Find the specific entry (the stored work-context / deployment-environment detail).
 3. Delete just that entry. Other memories stay.
 
 Alternatively, Claude.ai has a temporary chat / "Don't remember" toggle (UI varies by interface version) that disables memory read AND write for that conversation. Useful for one-off personal-project research without permanently deleting work-context memory.

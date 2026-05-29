@@ -42,7 +42,7 @@ This catches the difference between a researcher who *read the source* and one w
 
 ### Rule 3 — Override Claude.ai's memory bias
 
-Claude.ai's memory feature stores user context across conversations. When the stored memory holds a regulated-deployment assumption, the research mode often injects "regulated environment" framing into every research output — even when the current task is personal. See [scope-override-claude-memory.md](scope-override-claude-memory.md) for the full workaround.
+Claude.ai's memory feature stores user context across conversations. When the memory holds a work-context detail (e.g. a regulated-environment deployment assumption), the research mode often injects that framing into every research output — even when the current task is personal. See [scope-override-claude-memory.md](scope-override-claude-memory.md) for the full workaround.
 
 Short version: include a **scope-override sentence** at the top of every Claude.ai research prompt:
 
