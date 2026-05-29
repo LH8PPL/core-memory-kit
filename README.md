@@ -52,13 +52,14 @@ cmk install            # scaffolds context/ AND wires the hooks into .claude/set
 # 3. (optional) Register cron jobs — Layer 6 falls back to lazy-on-read if skipped
 cmk register-crons
 
-# 4. Verify, then restart Claude Code
+# 4. Verify, then restart Claude Code so the new hooks load:
+#    inside Claude Code type  /exit  (or /quit), then run  claude  again.
 cmk doctor
 ```
 
 `cmk install` is a complete entry point: it scaffolds `context/` and writes the 5 lifecycle hooks (PATH-resolved, cross-OS) into the project's `.claude/settings.json`. No separate `/plugin` step needed.
 
-> **Not comfortable in a terminal?** You don't have to be. Open your project in Claude Code and just say: *"install claude-memory-kit and set it up in this project."* Claude will run the commands above for you — you only approve them. Or skip the terminal entirely with **Route B** below. Either way, **restart Claude Code once** when it's done so the memory turns on.
+> **Not comfortable in a terminal?** You don't have to be. Open your project in Claude Code and just say: *"install claude-memory-kit and set it up in this project."* Claude will run the commands above for you — you only approve them. Or skip the terminal entirely with **Route B** below. Either way, **restart Claude Code once** when it's done so the memory turns on — there's no "restart" button: type **`/exit`** in Claude Code, then run **`claude`** again.
 
 ### Route B — Claude Code plugin marketplace
 
@@ -70,7 +71,7 @@ Type these slash commands inside a Claude Code session:
 /claude-memory-kit:bootstrap        ← scaffolds this project's context/
 ```
 
-`/claude-memory-kit:bootstrap` runs the bundled bootstrap skill (you can also just ask Claude in plain language: *"set up the memory system here"*). The plugin bundles the hooks + the `bootstrap` and `memory-write` skills, so it's complete on its own. If you also want the `cmk` CLI for search / doctor / cron, `npm install -g @lh8ppl/claude-memory-kit` adds it — but you don't need it for the plugin to work.
+`/claude-memory-kit:bootstrap` runs the bundled bootstrap skill (you can also just ask Claude in plain language: *"set up the memory system here"*). The plugin bundles the hooks + the `bootstrap` and `memory-write` skills, so it's complete on its own. After installing, run **`/reload-plugins`** (or restart with `/exit` then `claude`) to activate the hooks. If you also want the `cmk` CLI for search / doctor / cron, `npm install -g @lh8ppl/claude-memory-kit` adds it — but you don't need it for the plugin to work.
 
 Either way: open Claude Code on the project — auto-extract fires on Stop, SessionStart injects the snapshot, and (with the CLI) `cmk search "<term>"` returns accumulated memory.
 
