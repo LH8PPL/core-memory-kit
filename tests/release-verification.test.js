@@ -22,14 +22,14 @@ const repoRoot = join(__dirname, '..');
 
 describe('Task 43 — release verification (pre-publish gates)', () => {
   describe('43.1 — package versions match 0.1.0', () => {
-    it('packages/cli/package.json version is 0.1.0', () => {
+    it('packages/cli/package.json version is 0.1.1 (Task 49 unify-install release)', () => {
       const pkg = JSON.parse(
         readFileSync(join(repoRoot, 'packages', 'cli', 'package.json'), 'utf8'),
       );
-      expect(pkg.version).toBe('0.1.0');
+      expect(pkg.version).toBe('0.1.1');
     });
 
-    it('packages/canonicalize/package.json version is 0.1.0', () => {
+    it('packages/canonicalize/package.json stays 0.1.0 (unchanged in v0.1.1; not republished)', () => {
       const pkg = JSON.parse(
         readFileSync(join(repoRoot, 'packages', 'canonicalize', 'package.json'), 'utf8'),
       );
@@ -52,15 +52,21 @@ describe('Task 43 — release verification (pre-publish gates)', () => {
       text = readFileSync(path, 'utf8');
     });
 
-    it('has [0.1.0] heading with ISO release date', () => {
+    it('has both [0.1.0] and [0.1.1] headings with ISO release dates', () => {
       text = readFileSync(join(repoRoot, 'CHANGELOG.md'), 'utf8');
       expect(text).toMatch(/##\s*\[0\.1\.0\]\s*[—\-]\s*\d{4}-\d{2}-\d{2}/);
+      expect(text).toMatch(/##\s*\[0\.1\.1\]\s*[—\-]\s*\d{4}-\d{2}-\d{2}/);
     });
 
-    it('has non-empty Added section with at least 10 bullets', () => {
+    it('the [0.1.0] release section has a non-empty Added with at least 10 bullets', () => {
       text = readFileSync(join(repoRoot, 'CHANGELOG.md'), 'utf8');
-      // Match `### Added` up to the next top-level heading (### or ##).
-      const addedMatch = text.match(/### Added\b[\s\S]*?(?=^##\s|^###\s(?!#))/m);
+      // Slice the [0.1.0] section (from its heading to the next ## version
+      // heading), then count its Added bullets. Targeting 0.1.0 explicitly
+      // keeps this assertion meaningful now that 0.1.1 (a small release)
+      // sits above it.
+      const section = text.match(/##\s*\[0\.1\.0\][\s\S]*?(?=^##\s*\[|\Z)/m);
+      expect(section).toBeTruthy();
+      const addedMatch = section[0].match(/### Added\b[\s\S]*?(?=^##\s|^###\s(?!#))/m);
       expect(addedMatch).toBeTruthy();
       const bulletCount = (addedMatch[0].match(/^- /gm) || []).length;
       expect(bulletCount).toBeGreaterThan(10);
@@ -96,16 +102,110 @@ describe('Task 43 — release verification (pre-publish gates)', () => {
       expect(pkg.scripts?.prepublishOnly).toMatch(/prepublish-copy-template/);
     });
 
-    it('all 4 bins are declared (cmk + 3 cron entrypoints)', () => {
+    it('packages/cli/README.md exists (the npm package landing page)', () => {
+      // npm reads the README from the PACKAGE dir, not the repo root. A
+      // missing packages/cli/README.md is why the npm page showed "This
+      // package does not have a README" after the 0.1.0 publish.
+      const path = join(repoRoot, 'packages', 'cli', 'README.md');
+      expect(existsSync(path)).toBe(true);
+      const text = readFileSync(path, 'utf8');
+      expect(text.length).toBeGreaterThan(500);
+      expect(text).toMatch(/npm install -g @lh8ppl\/claude-memory-kit/);
+    });
+
+    it('all 9 bins are declared (cmk + 3 cron entrypoints + 5 hook bins as of Task 49)', () => {
       const pkg = JSON.parse(
         readFileSync(join(repoRoot, 'packages', 'cli', 'package.json'), 'utf8'),
       );
       expect(Object.keys(pkg.bin).sort()).toEqual([
         'cmk',
+        'cmk-capture-prompt',
+        'cmk-capture-turn',
         'cmk-compress-lazy',
+        'cmk-compress-session',
         'cmk-daily-distill',
+        'cmk-inject-context',
+        'cmk-observe-edit',
         'cmk-weekly-curate',
       ]);
+    });
+
+    it('every declared bin points at a file that exists on disk', () => {
+      const pkg = JSON.parse(
+        readFileSync(join(repoRoot, 'packages', 'cli', 'package.json'), 'utf8'),
+      );
+      for (const rel of Object.values(pkg.bin)) {
+        const abs = join(repoRoot, 'packages', 'cli', rel);
+        expect(existsSync(abs), `declared bin missing on disk: ${rel}`).toBe(true);
+      }
+    });
+
+    it('cmk-auto-extract.mjs ships in bin/ (spawned by the Stop hook; not a declared bin)', () => {
+      // Not in package.json `bin` (Claude Code never invokes it directly —
+      // cmk-capture-turn spawns it by absolute path), but it MUST ship so
+      // the auto-extract chain works post-`npm install -g`. `files`
+      // includes bin/, so any .mjs in bin/ is packed.
+      const abs = join(repoRoot, 'packages', 'cli', 'bin', 'cmk-auto-extract.mjs');
+      expect(existsSync(abs)).toBe(true);
+    });
+  });
+
+  describe('Task 49 — plugin marketplace route (Route B) is registerable', () => {
+    // Per Anthropic's plugin-marketplace docs (verified 2026-05-29):
+    // `/plugin marketplace add LH8PPL/claude-memory-kit` requires a
+    // `.claude-plugin/marketplace.json` at the REPOSITORY ROOT listing the
+    // plugin + its source path. This pins that Route B is a complete
+    // parallel install path to Route A (`cmk install`).
+    let mkt;
+    it('.claude-plugin/marketplace.json exists at repo root + parses', () => {
+      const path = join(repoRoot, '.claude-plugin', 'marketplace.json');
+      expect(existsSync(path)).toBe(true);
+      mkt = JSON.parse(readFileSync(path, 'utf8'));
+    });
+
+    it('has required name + owner + a plugins array', () => {
+      mkt = JSON.parse(
+        readFileSync(join(repoRoot, '.claude-plugin', 'marketplace.json'), 'utf8'),
+      );
+      expect(typeof mkt.name).toBe('string');
+      expect(mkt.owner?.name).toBeTruthy();
+      expect(Array.isArray(mkt.plugins)).toBe(true);
+      expect(mkt.plugins.length).toBeGreaterThan(0);
+    });
+
+    it('lists the claude-memory-kit plugin whose source resolves to a real plugin dir', () => {
+      mkt = JSON.parse(
+        readFileSync(join(repoRoot, '.claude-plugin', 'marketplace.json'), 'utf8'),
+      );
+      const entry = mkt.plugins.find((p) => p.name === 'claude-memory-kit');
+      expect(entry).toBeTruthy();
+      expect(typeof entry.source).toBe('string');
+      // source is a relative path to the co-located plugin; resolve + verify
+      // its manifest exists (so the marketplace entry isn't a dangling ref).
+      const manifest = join(repoRoot, entry.source, '.claude-plugin', 'plugin.json');
+      expect(existsSync(manifest), `plugin manifest missing at ${manifest}`).toBe(true);
+    });
+
+    it('the referenced plugin manifest has no <your-username> placeholder URLs', () => {
+      const manifest = JSON.parse(
+        readFileSync(join(repoRoot, 'plugin', '.claude-plugin', 'plugin.json'), 'utf8'),
+      );
+      expect(JSON.stringify(manifest)).not.toContain('<your-username>');
+      expect(manifest.repository).toContain('LH8PPL/claude-memory-kit');
+    });
+
+    it('the plugin route ships its hooks.json + bin hooks (complete on its own)', () => {
+      expect(existsSync(join(repoRoot, 'plugin', 'hooks', 'hooks.json'))).toBe(true);
+      for (const bin of [
+        'cmk-inject-context',
+        'cmk-capture-turn',
+        'cmk-compress-session',
+      ]) {
+        expect(
+          existsSync(join(repoRoot, 'plugin', 'bin', bin)),
+          `plugin bin wrapper missing: ${bin}`,
+        ).toBe(true);
+      }
     });
   });
 });

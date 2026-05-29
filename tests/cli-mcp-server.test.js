@@ -412,8 +412,15 @@ describe('Task 31 — MCP server', () => {
       };
       child.stdin.write(JSON.stringify(initReq) + '\n');
 
-      // Wait for the response.
-      const deadline = Date.now() + 4000;
+      // Wait for the response. Generous deadline: under stress (5x full
+      // suite, CPU saturated, many parallel spawns), the `cmk mcp serve`
+      // subprocess's cold start — Node init + better-sqlite3 native load +
+      // commander parse — can exceed a tight budget, intermittently
+      // producing 0 captured lines. This is purely a startup-timing budget,
+      // not a stdout-purity relaxation; the assertions below are unchanged.
+      // (Surfaced as a 4/5 stress flake during Task 49, which adds
+      // spawn-heavy tests that raise full-suite load.)
+      const deadline = Date.now() + 10000;
       while (Date.now() < deadline) {
         if (stdout.includes('"jsonrpc"') && stdout.includes('"id":1')) break;
         await new Promise((res) => setTimeout(res, 50));
@@ -440,7 +447,7 @@ describe('Task 31 — MCP server', () => {
         const parsed = JSON.parse(line);
         expect(typeof parsed.jsonrpc).toBe('string');
       }
-    }, 10_000);
+    }, 20_000);
 
     // tasks.md 31.6 #2 — stdout-purity with 10 messages:
     // "send 10 requests; stdout has exactly 10 JSON-RPC lines, no
@@ -481,8 +488,10 @@ describe('Task 31 — MCP server', () => {
         }) + '\n');
       }
 
-      // Wait for the 10th response.
-      const deadline = Date.now() + 8000;
+      // Wait for the 10th response. Generous deadline for the same
+      // under-stress cold-start reason as the init-purity test above
+      // (timing budget only; the line-count + id assertions are unchanged).
+      const deadline = Date.now() + 12000;
       while (Date.now() < deadline) {
         if (stdout.includes('"id":10')) break;
         await new Promise((res) => setTimeout(res, 50));
@@ -498,7 +507,7 @@ describe('Task 31 — MCP server', () => {
       // Every line parses as a JSON-RPC response.
       const ids = lines.map((l) => JSON.parse(l).id);
       expect(ids.sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-    }, 15_000);
+    }, 25_000);
 
     // tasks.md 31.6 #6 — malformed JSON-RPC input → -32700 parse error;
     // server keeps running. Tests the server's resilience to bad
@@ -541,7 +550,12 @@ describe('Task 31 — MCP server', () => {
       child.stdin.write(JSON.stringify({
         jsonrpc: '2.0', id: 3, method: 'tools/list',
       }) + '\n');
-      const deadline = Date.now() + 3000;
+      // Generous deadline for the same under-stress cold-start reason as
+      // the purity tests above (the 3000ms budget here was the tightest of
+      // the three `cmk mcp serve` spawn tests and flaked on a saturated 5x
+      // stress run — empty stdout, server hadn't responded in time). Timing
+      // budget only; the assertions below are unchanged.
+      const deadline = Date.now() + 10000;
       while (Date.now() < deadline) {
         if (stdout.includes('"id":3')) break;
         await new Promise((res) => setTimeout(res, 50));
@@ -553,6 +567,6 @@ describe('Task 31 — MCP server', () => {
 
       expect(stdout).toContain('"id":3'); // valid request after malformed got a response
       expect(alive).toBe(false); // (child exited after our kill, not before)
-    }, 10_000);
+    }, 20_000);
   });
 });

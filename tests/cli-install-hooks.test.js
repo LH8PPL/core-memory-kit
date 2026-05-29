@@ -1,0 +1,345 @@
+// @doors: 1, 2, 3, 4
+// Door 5 N/A: no message-queue interaction.
+
+// Tests for Task 49 — unify install: `cmk install` wires the npm-route
+// hooks into <projectRoot>/.claude/settings.json so a tester only needs
+// `npm install -g @lh8ppl/claude-memory-kit && cmk install` (no separate
+// `/plugin install` step). Per tasks.md 49.5:
+//   - `cmk install` writes settings.json with all 5 hooks at PATH-resolved
+//     (not ${CLAUDE_PLUGIN_ROOT}) commands; idempotent re-run is a no-op
+//   - the 5 hook bins are declared in package.json bin (covered in
+//     release-verification.test.js) + this file spawn-smokes one
+//   - spawn-smoke: a hook bin invoked via node exits cleanly with a
+//     parseable hook envelope
+//
+// Boundary-test discipline: assert the install() + writeKitHooks() public
+// contracts (what lands in settings.json, what the result reports, what a
+// re-run does, what an audit entry records) — not the internal merge
+// helpers.
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { spawnSync } from 'node:child_process';
+import {
+  mkdtempSync,
+  rmSync,
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { install } from '../packages/cli/src/install.mjs';
+import {
+  writeKitHooks,
+  KIT_HOOKS_BLOCK,
+  KIT_COMMAND_TOKENS,
+} from '../packages/cli/src/settings-hooks.mjs';
+import { readAuditLog } from '../packages/cli/src/audit-log.mjs';
+
+const __filename = fileURLToPath(import.meta.url);
+const REPO_ROOT = join(dirname(__filename), '..');
+const BIN_DIR = join(REPO_ROOT, 'packages', 'cli', 'bin');
+
+const EXPECTED_EVENTS = [
+  'SessionStart',
+  'UserPromptSubmit',
+  'PostToolUse',
+  'Stop',
+  'SessionEnd',
+];
+const EXPECTED_COMMANDS = {
+  SessionStart: 'cmk-inject-context',
+  UserPromptSubmit: 'cmk-capture-prompt',
+  PostToolUse: 'cmk-observe-edit',
+  Stop: 'cmk-capture-turn',
+  SessionEnd: 'cmk-compress-session',
+};
+
+let sandbox;
+let projectRoot;
+let userTier;
+let settingsPath;
+
+beforeEach(() => {
+  sandbox = mkdtempSync(join(tmpdir(), 'cmk-install-hooks-'));
+  projectRoot = join(sandbox, 'proj');
+  userTier = join(sandbox, 'user');
+  settingsPath = join(projectRoot, '.claude', 'settings.json');
+});
+
+afterEach(() => {
+  rmSync(sandbox, { recursive: true, force: true });
+});
+
+describe('Task 49 — cmk install wires hooks (Door 1: result contract)', () => {
+  it('reports hooks.action === "wired" + the 5 events on a fresh install', async () => {
+    const r = await install({ projectRoot, userTier });
+    expect(r.hooks.action).toBe('wired');
+    expect(r.hooks.path).toBe(settingsPath);
+    expect(r.hooks.events).toEqual(EXPECTED_EVENTS);
+    expect(r.errors).toEqual([]);
+  });
+
+  it('reports hooks.action === "unchanged" on idempotent re-run', async () => {
+    await install({ projectRoot, userTier });
+    const second = await install({ projectRoot, userTier });
+    expect(second.hooks.action).toBe('unchanged');
+  });
+
+  it('--no-hooks (noHooks:true) skips wiring: action "skipped", no settings.json', async () => {
+    const r = await install({ projectRoot, userTier, noHooks: true });
+    expect(r.hooks.action).toBe('skipped');
+    expect(existsSync(settingsPath)).toBe(false);
+  });
+});
+
+describe('Task 49 — settings.json content (Door 2: state)', () => {
+  it('writes all 5 hooks at PATH-resolved bare bin names — NOT ${CLAUDE_PLUGIN_ROOT}, NO bash wrapper', async () => {
+    await install({ projectRoot, userTier });
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    for (const event of EXPECTED_EVENTS) {
+      const cmd = settings.hooks[event][0].hooks[0].command;
+      expect(cmd).toBe(EXPECTED_COMMANDS[event]);
+    }
+    const blob = JSON.stringify(settings.hooks);
+    expect(blob).not.toContain('CLAUDE_PLUGIN_ROOT');
+    expect(blob).not.toContain('bash ');
+  });
+
+  it('uses SHELL form — no `args` key (exec form would break on Windows npm .cmd shims)', async () => {
+    await install({ projectRoot, userTier });
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    for (const event of EXPECTED_EVENTS) {
+      expect(settings.hooks[event][0].hooks[0].args).toBeUndefined();
+    }
+  });
+
+  it('PostToolUse carries the Write|Edit|MultiEdit matcher + async:true', async () => {
+    await install({ projectRoot, userTier });
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    expect(settings.hooks.PostToolUse[0].matcher).toBe('Write|Edit|MultiEdit');
+    expect(settings.hooks.PostToolUse[0].hooks[0].async).toBe(true);
+  });
+
+  it('does NOT register a Setup hook (cmk-version-check is plugin-route only)', async () => {
+    await install({ projectRoot, userTier });
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    expect(settings.hooks.Setup).toBeUndefined();
+    expect(JSON.stringify(settings.hooks)).not.toContain('cmk-version-check');
+  });
+
+  it('idempotent: second install leaves settings.json byte-identical', async () => {
+    await install({ projectRoot, userTier });
+    const first = readFileSync(settingsPath, 'utf8');
+    await install({ projectRoot, userTier });
+    const second = readFileSync(settingsPath, 'utf8');
+    expect(second).toBe(first);
+  });
+
+  it('over-mutation guard: preserves a user-authored hook + non-hook keys', async () => {
+    // Seed a settings.json with the user's own hook + an unrelated key.
+    mkdirSync(dirname(settingsPath), { recursive: true });
+    writeFileSync(
+      settingsPath,
+      JSON.stringify({
+        model: 'claude-opus-4-8',
+        hooks: {
+          SessionStart: [{ hooks: [{ type: 'command', command: 'my-own-hook.sh' }] }],
+          PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'guard.sh' }] }],
+        },
+      }),
+      'utf8',
+    );
+    await install({ projectRoot, userTier });
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    // Unrelated top-level key preserved
+    expect(settings.model).toBe('claude-opus-4-8');
+    // User's own non-kit hook preserved alongside the kit's
+    const ssCommands = JSON.stringify(settings.hooks.SessionStart);
+    expect(ssCommands).toContain('my-own-hook.sh');
+    expect(ssCommands).toContain('cmk-inject-context');
+    // User's PreToolUse guard (an event the kit doesn't manage) untouched
+    expect(JSON.stringify(settings.hooks.PreToolUse)).toContain('guard.sh');
+  });
+
+  it('prunes a stale plugin-form Setup → cmk-version-check the npm route no longer emits', async () => {
+    // A project whose settings.json carries a leftover Setup hook from a
+    // pre-0.1.1 `cmk repair --hooks` (plugin form, 6 events incl. Setup)
+    // must have it REMOVED on install — on the npm route there is no
+    // ${CLAUDE_PLUGIN_ROOT}/bash, so that hook would fail every session.
+    mkdirSync(dirname(settingsPath), { recursive: true });
+    writeFileSync(
+      settingsPath,
+      JSON.stringify({
+        hooks: {
+          Setup: [{ hooks: [{ type: 'command', command: 'bash "${CLAUDE_PLUGIN_ROOT}/bin/cmk-version-check"', timeout: 30 }] }],
+        },
+      }),
+      'utf8',
+    );
+    await install({ projectRoot, userTier });
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    expect(settings.hooks.Setup).toBeUndefined();
+    expect(JSON.stringify(settings.hooks)).not.toContain('cmk-version-check');
+    // ...and the 5 real hooks are present
+    expect(settings.hooks.SessionStart[0].hooks[0].command).toBe('cmk-inject-context');
+  });
+
+  it('does NOT touch a purely-user event (even an empty array the user authored)', async () => {
+    mkdirSync(dirname(settingsPath), { recursive: true });
+    writeFileSync(
+      settingsPath,
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [], // user-authored empty array, no kit entry
+          Notification: [{ hooks: [{ type: 'command', command: 'notify-me.sh' }] }],
+        },
+      }),
+      'utf8',
+    );
+    await install({ projectRoot, userTier });
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    // Empty user array preserved (not pruned), unrelated user hook intact
+    expect(settings.hooks.PreToolUse).toEqual([]);
+    expect(JSON.stringify(settings.hooks.Notification)).toContain('notify-me.sh');
+  });
+
+  it('upgrades plugin-form kit hooks to npm-form in place (no duplicate kit entries)', async () => {
+    // A project that previously had plugin-route hooks (bash + plugin root)
+    // should get them REPLACED by npm-form on `cmk install`, not duplicated.
+    mkdirSync(dirname(settingsPath), { recursive: true });
+    writeFileSync(
+      settingsPath,
+      JSON.stringify({
+        hooks: {
+          SessionStart: [
+            { hooks: [{ type: 'command', command: 'bash "${CLAUDE_PLUGIN_ROOT}/bin/cmk-inject-context"', timeout: 30 }] },
+          ],
+        },
+      }),
+      'utf8',
+    );
+    await install({ projectRoot, userTier });
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    expect(settings.hooks.SessionStart).toHaveLength(1);
+    expect(settings.hooks.SessionStart[0].hooks[0].command).toBe('cmk-inject-context');
+    expect(JSON.stringify(settings.hooks.SessionStart)).not.toContain('CLAUDE_PLUGIN_ROOT');
+  });
+});
+
+describe('Task 49 — writeKitHooks boundary (the shared install/repair seam)', () => {
+  it('returns {changed:false, error} WITHOUT clobbering an unparseable settings.json', () => {
+    mkdirSync(dirname(settingsPath), { recursive: true });
+    const broken = '{ this is not valid json ';
+    writeFileSync(settingsPath, broken, 'utf8');
+    const r = writeKitHooks(settingsPath);
+    expect(r.changed).toBe(false);
+    expect(r.error).toMatch(/parse error/);
+    // File left exactly as the user had it — never silently overwritten.
+    expect(readFileSync(settingsPath, 'utf8')).toBe(broken);
+  });
+
+  it('KIT_HOOKS_BLOCK + KIT_COMMAND_TOKENS stay in sync with the 5 bins', () => {
+    expect(Object.keys(KIT_HOOKS_BLOCK)).toEqual(EXPECTED_EVENTS);
+    for (const cmd of Object.values(EXPECTED_COMMANDS)) {
+      expect(KIT_COMMAND_TOKENS).toContain(cmd);
+    }
+  });
+
+  it('drift guard: every command in KIT_HOOKS_BLOCK is a declared bin in package.json', () => {
+    // If a hook is added to the block but its bin isn't declared (or vice
+    // versa), `cmk install` would write a hook command that doesn't resolve
+    // on PATH. Cross-check the block against the actual package.json `bin`.
+    const pkg = JSON.parse(
+      readFileSync(join(REPO_ROOT, 'packages', 'cli', 'package.json'), 'utf8'),
+    );
+    const declaredBins = new Set(Object.keys(pkg.bin));
+    for (const entries of Object.values(KIT_HOOKS_BLOCK)) {
+      for (const entry of entries) {
+        for (const h of entry.hooks) {
+          expect(
+            declaredBins.has(h.command),
+            `hook command "${h.command}" is not a declared bin in package.json`,
+          ).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('writeKitHooks does not leak nested mutations back into the shared KIT_HOOKS_BLOCK', () => {
+    // The block is only shallow-frozen; writeKitHooks must deep-clone its
+    // entries so a mutation of the written settings can't corrupt the
+    // constant for the next call.
+    const before = JSON.parse(JSON.stringify(KIT_HOOKS_BLOCK));
+    mkdirSync(dirname(settingsPath), { recursive: true });
+    writeKitHooks(settingsPath);
+    const written = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    // Mutate the written structure aggressively...
+    written.hooks.SessionStart[0].hooks[0].command = 'HACKED';
+    written.hooks.SessionStart[0].hooks[0].timeout = 99999;
+    // ...the shared constant is unchanged.
+    expect(JSON.parse(JSON.stringify(KIT_HOOKS_BLOCK))).toEqual(before);
+  });
+});
+
+describe('Task 49 — audit trail (Door 4: observability)', () => {
+  it('emits one INSTALL_HOOKS_WIRED audit entry on a fresh install', async () => {
+    await install({ projectRoot, userTier });
+    const entries = readAuditLog(join(projectRoot, 'context'));
+    const wired = entries.filter((e) => e.reasonCode === 'install-hooks-wired');
+    expect(wired).toHaveLength(1);
+    expect(wired[0].action).toBe('install');
+    expect(wired[0].tier).toBe('P');
+    expect(wired[0].id).toBe('P-NSTLHKWR');
+    expect(wired[0].extra?.events).toEqual(EXPECTED_EVENTS);
+  });
+
+  it('emits NO additional audit entry on an idempotent (no-op) re-install', async () => {
+    await install({ projectRoot, userTier });
+    await install({ projectRoot, userTier });
+    const entries = readAuditLog(join(projectRoot, 'context'));
+    const wired = entries.filter((e) => e.reasonCode === 'install-hooks-wired');
+    // Still exactly one — the no-op re-run must not append (keeps the
+    // append-only audit.log from breaking install's byte-idempotency).
+    expect(wired).toHaveLength(1);
+  });
+});
+
+describe('Task 49 — hook bins spawn cleanly (Door 3: external calls)', () => {
+  // The real cross-process surface: Claude Code fires a hook by resolving
+  // the bare bin name on PATH and running it (shell form). Here we spawn
+  // the bin file directly via node (the npm shim's effect) with hook-shaped
+  // stdin and assert the envelope contract: exit 0 + parseable JSON. cwd is
+  // a context-less temp dir, so handlers take their empty-state path.
+  function spawnBin(name, input) {
+    return spawnSync(process.execPath, [join(BIN_DIR, name)], {
+      input,
+      encoding: 'utf8',
+      cwd: sandbox,
+    });
+  }
+
+  it('cmk-inject-context.mjs exits 0 + emits SessionStart hookSpecificOutput JSON', () => {
+    const r = spawnBin('cmk-inject-context.mjs', '{}');
+    expect(r.status).toBe(0);
+    const parsed = JSON.parse(r.stdout);
+    expect(parsed.hookSpecificOutput?.hookEventName).toBe('SessionStart');
+  });
+
+  it('cmk-capture-turn.mjs exits 0 + emits {"continue": true}', () => {
+    const r = spawnBin(
+      'cmk-capture-turn.mjs',
+      JSON.stringify({ hook_event_name: 'Stop', stop_hook_active: false }),
+    );
+    expect(r.status).toBe(0);
+    expect(JSON.parse(r.stdout)).toMatchObject({ continue: true });
+  });
+
+  it('cmk-capture-prompt.mjs exits 0 + emits {"continue": true} on empty stdin', () => {
+    const r = spawnBin('cmk-capture-prompt.mjs', '');
+    expect(r.status).toBe(0);
+    expect(JSON.parse(r.stdout)).toMatchObject({ continue: true });
+  });
+});

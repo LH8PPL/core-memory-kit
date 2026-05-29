@@ -4,6 +4,26 @@ All notable changes to claude-memory-kit are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] — 2026-05-29
+
+Unify install (Task 49): a tester now needs a **single** complete entry point — `npm install -g @lh8ppl/claude-memory-kit && cmk install` — with no separate `/plugin install` step. Both install routes are now complete on their own; pick one.
+
+### Added
+
+- **`cmk install` now wires the lifecycle hooks** into `<repo>/.claude/settings.json` (PATH-resolved bare bin names, cross-OS shell form), making the npm route a complete entry point. `--no-hooks` opts out for scaffold-only installs.
+- **5 hook bins shipped in the npm package** (`cmk-inject-context`, `cmk-capture-prompt`, `cmk-observe-edit`, `cmk-capture-turn`, `cmk-compress-session`) plus the spawned `cmk-auto-extract.mjs` — de-plugin-ified twins of the `plugin/bin/` handlers (Task 33/36 pattern), so the hooks resolve after `npm install -g` without `${CLAUDE_PLUGIN_ROOT}`.
+- **`.claude-plugin/marketplace.json`** at the repo root makes the plugin route registerable via `/plugin marketplace add LH8PPL/claude-memory-kit` — a complete parallel entry point to `cmk install`.
+- **Shared `settings-hooks.mjs`** boundary (`writeKitHooks`) used by both `cmk install` and `cmk repair --hooks`, so the two never drift.
+
+### Changed
+
+- **`cmk repair --hooks` now writes the npm-route hook form** (PATH-resolved bare bin names, 5 functional events) instead of the plugin form (`bash "${CLAUDE_PLUGIN_ROOT}/bin/..."`, 6 events incl. the `Setup`/`cmk-version-check` stub) — so repaired hooks work with no plugin loaded. The plugin form still lives in `plugin/hooks/hooks.json` for the plugin route.
+- **README + QUICKSTART** reframed to present the two install routes as "pick one, each complete" (was: "you need both").
+
+### Fixed
+
+- **`cmk doctor` HC-2** now traverses the canonical nested hooks shape (`{hooks:[{command}]}`) that `cmk install` / `cmk repair` actually write — previously it only inspected a flat top-level `command`, so `cmk install` followed by `cmk doctor` reported HC-2 fail on hooks the kit itself had just written (a latent install→doctor composition gap surfaced while shipping Task 49).
+
 ## [0.1.0] — 2026-05-28
 
 The first public release of claude-memory-kit — a per-project, in-repo memory system for Claude Code that fixes per-session amnesia by storing durable facts as markdown inside `<repo>/context/` (committed) + `<repo>/context.local/` (gitignored) + `~/.claude-memory-kit/` (user-tier). Architecture-first first release: ~55 dev days, 42 tasks shipped (45-task ledger; 3 deferred to v0.1.1).

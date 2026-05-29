@@ -30,16 +30,21 @@ If `memsearch --help` fails after install on Windows, check that `where memsearc
 
 ### HC-2 — Stop hook not registered
 
-Repair: Re-run Step 4b from `context/SETUP.md`. The hooks block in `.claude/settings.json` should contain:
+Repair: run **`cmk repair --hooks`** — it idempotently merges the kit's canonical hooks block into `.claude/settings.json`, preserving any of your own hooks and other keys. (`cmk install` writes the same block; repair is the targeted re-apply.) After repairing, restart Claude Code.
+
+As of v0.1.1 the block uses PATH-resolved bare bin names (shell form), which resolve the `npm install -g @lh8ppl/claude-memory-kit` global shims on every OS:
 
 ```json
 "hooks": {
-  "Stop":        [ { "hooks": [ { "type": "command", "command": "node .claude/hooks/transcript-capture.js" } ] } ],
-  "PreToolUse":  [ { "hooks": [ { "type": "command", "command": "node .claude/hooks/pre-tool-memory.js" } ] } ]
+  "SessionStart":     [ { "hooks": [ { "type": "command", "command": "cmk-inject-context",   "timeout": 30 } ] } ],
+  "UserPromptSubmit": [ { "hooks": [ { "type": "command", "command": "cmk-capture-prompt",    "timeout": 10 } ] } ],
+  "PostToolUse":      [ { "matcher": "Write|Edit|MultiEdit", "hooks": [ { "type": "command", "command": "cmk-observe-edit", "async": true, "timeout": 120 } ] } ],
+  "Stop":             [ { "hooks": [ { "type": "command", "command": "cmk-capture-turn",      "timeout": 30 } ] } ],
+  "SessionEnd":       [ { "hooks": [ { "type": "command", "command": "cmk-compress-session",  "timeout": 60 } ] } ]
 }
 ```
 
-Preserve any existing `permissions` allowlist.
+(If you installed via the `/plugin` marketplace route instead, the hooks come from the plugin's own `hooks.json` using `${CLAUDE_PLUGIN_ROOT}` — you don't wire settings.json yourself on that route.) Preserve any existing `permissions` allowlist.
 
 ### HC-3 — Distill timestamp stale
 

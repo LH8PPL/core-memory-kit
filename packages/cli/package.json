@@ -1,13 +1,18 @@
 {
   "name": "@lh8ppl/claude-memory-kit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "cmk — the CLI for claude-memory-kit. Per-project, in-repo memory system for Claude Code.",
   "type": "module",
   "bin": {
     "cmk": "./bin/cmk.mjs",
     "cmk-daily-distill": "./bin/cmk-daily-distill.mjs",
     "cmk-weekly-curate": "./bin/cmk-weekly-curate.mjs",
-    "cmk-compress-lazy": "./bin/cmk-compress-lazy.mjs"
+    "cmk-compress-lazy": "./bin/cmk-compress-lazy.mjs",
+    "cmk-inject-context": "./bin/cmk-inject-context.mjs",
+    "cmk-capture-prompt": "./bin/cmk-capture-prompt.mjs",
+    "cmk-observe-edit": "./bin/cmk-observe-edit.mjs",
+    "cmk-capture-turn": "./bin/cmk-capture-turn.mjs",
+    "cmk-compress-session": "./bin/cmk-compress-session.mjs"
   },
   "files": [
     "bin/",

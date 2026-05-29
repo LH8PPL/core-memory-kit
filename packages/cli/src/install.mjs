@@ -43,6 +43,8 @@ import { homedir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { injectClaudeMdBlock } from './claude-md.mjs';
+import { writeKitHooks } from './settings-hooks.mjs';
+import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const CLI_SRC_DIR = dirname(__filename);
@@ -295,7 +297,53 @@ export async function install(options = {}) {
     });
   }
 
-  return { projectRoot, userTier, created, skipped, gitignore, claudeMd, errors };
+  // Hook wiring — Task 49. This is what makes `npm install -g
+  // @lh8ppl/claude-memory-kit` + `cmk install` a COMPLETE entry point
+  // (no separate `/plugin install` step needed). Writes the npm-route
+  // hooks block (PATH-resolved bare bin names, shell form) into
+  // <projectRoot>/.claude/settings.json via the shared writeKitHooks
+  // boundary — same boundary `cmk repair --hooks` uses, so install and
+  // repair never drift. Idempotent: a re-run with already-canonical
+  // hooks is a no-op. Opt out with {noHooks:true} (CLI: --no-hooks) for
+  // scaffold-only installs.
+  let hooks = { action: 'skipped', path: join(projectRoot, '.claude', 'settings.json') };
+  if (!options.noHooks) {
+    const settingsPath = join(projectRoot, '.claude', 'settings.json');
+    const r = writeKitHooks(settingsPath);
+    if (r.error) {
+      errors.push({ path: settingsPath, error: r.error });
+      hooks = { action: 'error', path: settingsPath, error: r.error };
+    } else {
+      hooks = {
+        action: r.changed ? 'wired' : 'unchanged',
+        path: settingsPath,
+        events: r.events,
+      };
+      // Door-4 audit entry — install wires user-visible Claude Code
+      // config; a "cmk install changed my settings.json" report needs a
+      // trail. Emitted ONLY when something actually changed: a no-op
+      // re-install has nothing to audit, and emitting on no-op would make
+      // the append-only audit.log grow on every run, breaking install's
+      // idempotency guarantee (re-run = byte-identical project tree).
+      // Best-effort: never block install on an audit-log failure.
+      if (r.changed) {
+        try {
+          appendAuditEntry(join(projectRoot, 'context'), {
+            ts: nowIso(),
+            action: 'install',
+            tier: 'P',
+            id: 'P-NSTLHKWR', // synthetic stable id for install-hooks events (base32 alphabet)
+            reasonCode: REASON_CODES.INSTALL_HOOKS_WIRED,
+            extra: { settingsPath, events: r.events },
+          });
+        } catch {
+          // best-effort
+        }
+      }
+    }
+  }
+
+  return { projectRoot, userTier, created, skipped, gitignore, claudeMd, hooks, errors };
 }
 
 /**
