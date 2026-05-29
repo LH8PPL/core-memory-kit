@@ -127,7 +127,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the data-flow diagram and [`specs/v0.
 
 ## CLI
 
-Most-used commands (full list via `cmk --help`):
+Most-used commands below; **full reference with examples: [`docs/CLI.md`](docs/CLI.md)** (or `cmk --help`).
 
 | Command | Purpose |
 | --- | --- |
