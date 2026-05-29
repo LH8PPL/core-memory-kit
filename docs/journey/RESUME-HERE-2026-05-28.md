@@ -1,5 +1,31 @@
 # Resume here
 
+> **2026-05-29 (LATE) UPDATE — v0.1.1 IS SHIPPED PUBLIC WITH PROVENANCE. This block supersedes everything below it. Read it first.**
+
+## STATUS AS OF 2026-05-29 (late) — read this first
+
+**v0.1.1 is published, public, and provenance-signed. Tasks 49 + 53 shipped. Repo is now PUBLIC.**
+
+- ✅ **Task 49 (unify install)** merged (PR #63): `npm install -g @lh8ppl/claude-memory-kit && cmk install` is one complete entry point (`cmk install` wires the 5 hooks into `.claude/settings.json`, bare-name shell-form, cross-OS). `/plugin` marketplace is the parallel route (`.claude-plugin/marketplace.json` at repo root; `claude plugin validate` passes both manifests). Fixed install→doctor HC-2 composition bug (doctor now reads the nested `{hooks:[{command}]}` shape).
+- ✅ **Task 53 (security)** merged (PR #64): CI gates on every push/PR — gitleaks (+`.gitleaks.toml` allowlists poison-guard fixtures), osv-scanner (+`osv-scanner.toml` ignores 2 dev-only advisories: esbuild/vite via vitest), `npm audit --omit=dev --audit-level=high`, CodeQL, Dependabot. `ci.yml` runs the full suite. `SECURITY.md` + ADR-0013. `bugs` URL on both packages.
+- ✅ **CI provenance publish**: `publish.yml` publishes on a `v*` tag via OIDC + `npm publish --provenance`. **`@lh8ppl/claude-memory-kit@0.1.1` is LIVE on npm** with a SLSA provenance attestation (`predicateType: slsa.dev/provenance/v1`). GitHub Release v0.1.1 created. The npm token lives ONLY as the `NPM_TOKEN` GitHub Actions secret (granular, scoped, expiring) — **nothing to revoke**, not on disk. canonicalize stays 0.1.0.
+- ✅ **Repo PUBLIC** (decision: "accept-and-go-public"). Pre-public privacy scrub + **git history rewrite** (`git filter-repo`) removed the regulated/banking/`tamir.bn-sh` disclosures from `main`/tags (verified 0 hits). **Accepted residual**: old closed-PR commits still pin pre-scrub copies (sector-level only, not employer name) — kept the PRs as the build paper-trail. Backup bundle: `C:/tmp/cmk-pre-rewrite-backup.bundle`.
+- ✅ **README**: full professional pass — badges, TOC, "what's installed" file-tree, collapsible FAQ, Route A/B clarity + restart commands, "let Claude run it" note, slim Acknowledgments. **`docs/CLI.md`** (full command reference) + linked from README.
+
+### ⏳ IN FLIGHT / NEXT (do in this order)
+
+1. **★ Lior is running the in-session self-test RIGHT NOW** — building a mini FastAPI web-UI across 2 sessions per **[`docs/journey/v0.1.1-self-test-guide.md`](v0.1.1-self-test-guide.md)** to validate hooks-fire / auto-capture / recall / Route-B before handing to a friend. (CLI half already green — see [`v0.1.1-scenario-test.md`](v0.1.1-scenario-test.md).) **When he reports results: fix any findings, then it's friend-ready.**
+2. **Task 54 (coverage) — IN FLIGHT**: branch **`task-54-coverage`** (pushed) has `@vitest/coverage-v8` + vitest coverage config + `test:coverage` script; measured **85.7% stmts / 78.81% branches** (>70 ratchet). **NEXT**: add a coverage job to `.github/workflows/ci.yml` (`npm run test:coverage`), optional Codecov (public repo, no token), maybe raise thresholds toward actuals, then open PR. (This is option B = vitest coverage; SonarCloud = option A, needs Lior's SonarCloud account + `SONAR_TOKEN`.) Lior wanted Task 54 done **before the friend**.
+3. **Task 55 (behavioral pattern detection → habits/persona)** — v0.2 candidate, Lior endorsed. design §16.52 + tasks.md Task 55. The "clean refinement" only (NOT the bigger ECC-style procedural-skills swing).
+4. **Task 44** — Lior's full real-usage live test (subsumed by the scenario self-test above).
+
+### Decisions locked this session
+Keep `@lh8ppl/claude-memory-kit` name (trademark-safe nominative; ADR-0012) · CodeQL over SonarCloud for SAST · accept-and-go-public · osv/gitleaks dev-fixture ignores documented. Dropped: adopting ECC repo or its tech (different product; redundant).
+
+main HEAD after this: latest docs commit. All committed + pushed.
+
+---
+
 > **2026-05-29 UPDATE — v0.1.0 IS SHIPPED + LIVE-TESTED.** The status block immediately below supersedes the original pre-publish playbook (preserved further down for the decision-trail). Read this block first.
 
 ## STATUS AS OF 2026-05-29 (read first)
