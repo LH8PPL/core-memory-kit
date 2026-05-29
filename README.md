@@ -1,14 +1,31 @@
 # claude-memory-kit
 
-A per-project, in-repo memory system for [Claude Code](https://docs.claude.com/en/docs/claude-code). Fixes Claude's per-session amnesia so you don't have to re-tell the backstory every time you start a new session.
+[![npm](https://img.shields.io/npm/v/@lh8ppl/claude-memory-kit)](https://www.npmjs.com/package/@lh8ppl/claude-memory-kit) [![CI](https://github.com/LH8PPL/claude-memory-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/LH8PPL/claude-memory-kit/actions/workflows/ci.yml) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) ![Node ≥20](https://img.shields.io/badge/node-%E2%89%A520-brightgreen)
 
-Inspired by [Simon Scrapes' "Master Claude Memory"](https://www.youtube.com/watch?v=rFWxRZ5D-lM) video. Independently converges with [Anthropic's native auto-memory](https://docs.anthropic.com/en/docs/claude-code/auto-memory) (Claude Code v2.1.59+) on the `<type>_<slug>.md` granular pattern.
+**Persistent, per-project memory for [Claude Code](https://docs.claude.com/en/docs/claude-code).**
 
-## Status
+Claude forgets everything the moment a session ends — so every new chat, you re-explain who you are, what you're building, and how you like things done. claude-memory-kit fixes that. It quietly remembers your decisions, preferences, and project context and hands them back to Claude at the start of each session, so you never have to re-brief it again. Everything is plain text living inside your project, and it travels with the code (`git clone` brings the memory along).
 
-**v0.1.1** — released 2026-05-29. Unify install: `cmk install` now wires the lifecycle hooks itself, so a single complete entry point (`npm install -g @lh8ppl/claude-memory-kit && cmk install`) is all you need — no separate `/plugin` step (Task 49). Builds on **v0.1.0** (2026-05-28): architecture-first first release, ~55 dev days, 1160+ tests, structural validators, cross-OS CI matrix (Windows + macOS + Linux). See [`docs/journey/v0.1.0-build-log.md`](docs/journey/v0.1.0-build-log.md) for the full narrative.
+**Do I need to be a developer to use this?** No. If you can open a project in Claude Code, you're set — you can even let Claude run the setup for you (see [Quickstart](#quickstart)).
+
+> **Status:** `v0.1.0` is on npm; `v0.1.1` (one-step install + CI security & signed provenance) publishes shortly. What changed: [CHANGELOG.md](CHANGELOG.md).
+
+## Contents
+
+- [What it does](#what-it-does)
+- [Quickstart](#quickstart)
+- [Install guides (per OS)](#os-specific-install-guides)
+- [Three-tier model](#three-tier-model)
+- [Layers](#layers)
+- [CLI](#cli)
+- [Health checks](#health-checks)
+- [Architecture](#architecture)
+- [Security](#security)
+- [FAQ](#faq)
 
 ## What it does
+
+The short version: Claude starts every session already knowing your project, and keeps learning as you work — automatically, no buttons to press. Under the hood:
 
 - **Frozen snapshot at session start**: MEMORY.md + USER.md + SOUL.md + INDEX.md + today's session log inject once at first tool call. Claude sees this context every session without you re-telling it.
 - **Auto-extract on every assistant turn**: a background `claude --print` subagent reads the turn and saves durable facts (decisions, preferences, environment) to memory. No manual writes needed.
@@ -16,11 +33,13 @@ Inspired by [Simon Scrapes' "Master Claude Memory"](https://www.youtube.com/watc
 - **Per-project, in-repo**: `context/` lives inside your project and travels with `git clone`. Multiple projects each have their own memory. Nothing crosses boundaries unless you promote via `cmk lessons promote`.
 - **9 health checks**: `cmk doctor` validates the install, settings.json hook wiring, distill freshness, transcript firing, INDEX consistency, cron registration, Anthropic auto-memory coexistence, and stale lock detection.
 
-## Quickstart (60 seconds)
+## Quickstart
 
 **Pick ONE route. Each is complete on its own** — both wire the same hooks, so running both would double-wire them.
 
 ### Route A — npm (recommended)
+
+*Recommended because it gives you the full `cmk` toolset — including `cmk doctor` to confirm it's actually working (plus search, self-repair, and cron) — and it's the most battle-tested path. Not a terminal person? You don't have to be — see the note below.*
 
 ```bash
 # 1. Install the CLI globally (Node 20+)
@@ -33,23 +52,26 @@ cmk install            # scaffolds context/ AND wires the hooks into .claude/set
 # 3. (optional) Register cron jobs — Layer 6 falls back to lazy-on-read if skipped
 cmk register-crons
 
-# 4. Verify, then restart Claude Code
+# 4. Verify, then restart Claude Code so the new hooks load:
+#    inside Claude Code type  /exit  (or /quit), then run  claude  again.
 cmk doctor
 ```
 
 `cmk install` is a complete entry point: it scaffolds `context/` and writes the 5 lifecycle hooks (PATH-resolved, cross-OS) into the project's `.claude/settings.json`. No separate `/plugin` step needed.
 
+> **Not comfortable in a terminal?** You don't have to be. Open your project in Claude Code and just say: *"install claude-memory-kit and set it up in this project."* Claude will run the commands above for you — you only approve them. Or skip the terminal entirely with **Route B** below. Either way, **restart Claude Code once** when it's done so the memory turns on — there's no "restart" button: type **`/exit`** in Claude Code, then run **`claude`** again.
+
 ### Route B — Claude Code plugin marketplace
 
+Type these slash commands inside a Claude Code session:
+
 ```text
-# Inside Claude Code:
 /plugin marketplace add LH8PPL/claude-memory-kit
 /plugin install claude-memory-kit
-# then scaffold this project's context/ (the bootstrap skill):
-"bootstrap the memory system"
+/claude-memory-kit:bootstrap        ← scaffolds this project's context/
 ```
 
-The plugin bundles the hooks + the `bootstrap` and `memory-write` skills, so it's also complete on its own. (If you also want the `cmk` CLI for search / doctor / cron, `npm install -g @lh8ppl/claude-memory-kit` adds it — but you do **not** need it to make the plugin work.)
+`/claude-memory-kit:bootstrap` runs the bundled bootstrap skill (you can also just ask Claude in plain language: *"set up the memory system here"*). The plugin bundles the hooks + the `bootstrap` and `memory-write` skills, so it's complete on its own. After installing, run **`/reload-plugins`** (or restart with `/exit` then `claude`) to activate the hooks. If you also want the `cmk` CLI for search / doctor / cron, `npm install -g @lh8ppl/claude-memory-kit` adds it — but you don't need it for the plugin to work.
 
 Either way: open Claude Code on the project — auto-extract fires on Stop, SessionStart injects the snapshot, and (with the CLI) `cmk search "<term>"` returns accumulated memory.
 
@@ -73,7 +95,21 @@ Full walkthrough: [QUICKSTART.md](QUICKSTART.md).
 
 Most user-facing commands operate on the project tier by default. `cmk init-user-tier` scaffolds the U tier on a new machine.
 
-## Layers (6 total)
+What `cmk install` drops into your project:
+
+```text
+context/
+├── MEMORY.md          ← bounded scratchpad, injected every session
+├── SOUL.md            ← agent disposition / working style
+├── memory/
+│   ├── INDEX.md       ← pointer index, walked at session start
+│   └── <type>_<slug>.md   ← granular, content-addressed fact files
+├── sessions/          ← rolling compression: now → today → recent → archive
+├── transcripts/       ← raw Stop-hook session captures
+└── .locks/, .index/   ← gitignored runtime (audit log, SQLite cache)
+```
+
+## Layers
 
 | Layer | Module(s) | Required? | Status |
 | --- | --- | --- | --- |
@@ -107,9 +143,9 @@ Most-used commands (full list via `cmk --help`):
 | `cmk transcripts extract --session <uuid> --slug <slug> --since <YYYY-MM-DD>` | Extract clean markdown transcripts from `~/.claude/projects/<slug>/<uuid>.jsonl` |
 | `cmk mcp serve` | Run the MCP server over stdio (invoked by Claude Code; not by humans) |
 
-## Health checks (HC-1..HC-9)
+## Health checks
 
-`cmk doctor` runs nine checks per session start and reports each as PASS / FAIL / SKIP with a repair command on failure:
+`cmk doctor` runs nine checks (HC-1..HC-9) and reports each as PASS / FAIL / SKIP with a repair command on failure:
 
 | ID | Check | Repair |
 | --- | --- | --- |
@@ -125,7 +161,7 @@ Most-used commands (full list via `cmk --help`):
 
 See [HEALTH-CHECKS.md](HEALTH-CHECKS.md) for the detailed recovery paths.
 
-## Architecture (six layers + cross-cutting)
+## Architecture
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the data-flow diagram, [`specs/v0.1.0/design.md`](specs/v0.1.0/design.md) for full design, and [`specs/v0.1.0/glossary.md`](specs/v0.1.0/glossary.md) for terminology.
 
@@ -145,13 +181,55 @@ The full test discipline (real-binary spawn smokes, stress-run gate, five-exit-d
 
 CI matrix runs on every PR against Windows / macOS / Linux: see [`.github/workflows/install-matrix.yml`](.github/workflows/install-matrix.yml).
 
-## Credit
+## Security
 
-- Pattern: Simon Scrapes' [Master Claude Memory](https://www.youtube.com/watch?v=rFWxRZ5D-lM) (the source pattern for layered per-project memory and the frozen-snapshot concept)
-- Frozen snapshot: [Hermes Agent](https://github.com/NousResearch/hermes-agent) (the closest production reference architecture; verified char-cap parity)
-- Architecture inspiration: [claude-mem](https://github.com/thedotmack/claude-mem), [claude-remember](https://github.com/Digital-Process-Tools/claude-remember), [GBrain](https://github.com/garrytan/gbrain)
-- memsearch and the Milvus stack (Layer 5b semantic backend) by [Zilliz](https://github.com/zilliztech/memsearch)
-- See [`docs/SOURCES.md`](docs/SOURCES.md) for the complete index of cited sources
+Every push + PR runs SCA + SAST + secret scanning (the same shape as Artifactory Xray + SonarQube, built from the free GitHub-native/OSS stack):
+
+- **Secrets** — `gitleaks` ([`.github/workflows/security.yml`](.github/workflows/security.yml)) + GitGuardian.
+- **Known CVEs / supply chain** — `osv-scanner` + `npm audit` (hard gate on high/critical) + weekly **Dependabot** PRs.
+- **SAST** — `CodeQL` ([`.github/workflows/codeql.yml`](.github/workflows/codeql.yml)) on the kit's JavaScript.
+
+Releases publish from CI on a `v*` tag with a **signed npm provenance attestation** ([`.github/workflows/publish.yml`](.github/workflows/publish.yml)). Threat model + responsible-disclosure policy: [`SECURITY.md`](SECURITY.md). Verify what you install:
+
+```bash
+npm view @lh8ppl/claude-memory-kit dist.attestations
+```
+
+## FAQ
+
+<details>
+<summary><b>Does this send my code or memory anywhere?</b></summary>
+
+No silent network calls (NFR-5). Your memory is plain markdown stored locally in your repo. The only outbound requests are the Haiku compression/auto-extract calls the kit makes on your behalf (documented), and nothing leaves unless you commit + push it yourself.
+</details>
+
+<details>
+<summary><b>How is this different from Anthropic's native auto-memory (Claude Code v2.1.59+)?</b></summary>
+
+They converge on the same granular `<type>_<slug>.md` pattern. The kit adds a three-tier *committed* scope (so memory travels with `git clone`), content-addressed citation IDs, a trust hierarchy + conflict/review queues, provenance on every fact, keyword search, and an MCP server. It also *coexists* with native auto-memory and can pull useful bullets in via `cmk import-anthropic-memory`.
+</details>
+
+<details>
+<summary><b>How is it different from claude-mem?</b></summary>
+
+claude-mem is global, OS-level memory in an opaque SQLite store you manage across all projects. The kit is per-project *intent* stored as readable markdown committed to your repo — a different design choice (project-scoped + git-portable vs. global + opaque). Both are defensible; pick what fits.
+</details>
+
+<details>
+<summary><b>What if I can't run cron / a scheduler?</b></summary>
+
+Layer 6 falls back to lazy-on-read compression at SessionStart, so the scratchpad still stays bounded without any scheduler. Cron just makes it proactive instead of on-demand.
+</details>
+
+<details>
+<summary><b>Is my memory portable to a new machine or teammate?</b></summary>
+
+Project memory (`context/`) is committed to git — clone the repo and it's there. Cross-project user-tier memory lives in `~/.claude-memory-kit/`; run `cmk init-user-tier` to scaffold it on a new machine.
+</details>
+
+## Acknowledgments
+
+See [`docs/SOURCES.md`](docs/SOURCES.md) for the complete index of cited sources and inspirations.
 
 ## License
 

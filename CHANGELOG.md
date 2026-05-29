@@ -24,6 +24,12 @@ Unify install (Task 49): a tester now needs a **single** complete entry point �
 
 - **`cmk doctor` HC-2** now traverses the canonical nested hooks shape (`{hooks:[{command}]}`) that `cmk install` / `cmk repair` actually write — previously it only inspected a flat top-level `command`, so `cmk install` followed by `cmk doctor` reported HC-2 fail on hooks the kit itself had just written (a latent install→doctor composition gap surfaced while shipping Task 49).
 
+### Security (Task 53)
+
+- **CI security scanning** on every push + PR: `gitleaks` (secrets), `osv-scanner` + `npm audit --audit-level=high` (CVEs/supply-chain, hard gate on high/critical), `CodeQL` (SAST, JavaScript), and weekly **Dependabot** PRs. Same SCA/SAST/secrets shape as Artifactory Xray + SonarQube, built from the free GitHub-native/OSS stack.
+- **CI publish with signed provenance** (`.github/workflows/publish.yml`): releases now publish on a `v*` tag from GitHub Actions via OIDC + `npm publish --provenance`, with the npm credential stored only as the encrypted `NPM_TOKEN` secret — replacing the local-publish flow whose on-disk token was the v0.1.0 leak vector.
+- **`SECURITY.md`** threat model + responsible-disclosure policy; `bugs` URL added to both packages.
+
 ## [0.1.0] — 2026-05-28
 
 The first public release of claude-memory-kit — a per-project, in-repo memory system for Claude Code that fixes per-session amnesia by storing durable facts as markdown inside `<repo>/context/` (committed) + `<repo>/context.local/` (gitignored) + `~/.claude-memory-kit/` (user-tier). Architecture-first first release: ~55 dev days, 42 tasks shipped (45-task ledger; 3 deferred to v0.1.1).

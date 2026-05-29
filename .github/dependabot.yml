@@ -1,0 +1,21 @@
+# Dependabot (Task 53). Weekly dependency-update PRs so CVE fixes land as
+# reviewable changes rather than forcing risky bumps by hand. Covers the
+# npm workspace (root lockfile spans packages/*) + the GitHub Actions pins
+# used by the security/publish/install-matrix workflows.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions

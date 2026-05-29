@@ -1,0 +1,49 @@
+# CI provenance publish (Task 53). Replaces the local `npm publish` flow.
+#
+# Triggers on a `v*` tag (or manual dispatch). Runs the full test suite as
+# a gate, then publishes @lh8ppl/claude-memory-kit with a SIGNED PROVENANCE
+# attestation (OIDC `id-token: write`) — proving the tarball was built from
+# THIS repo + commit. The npm token lives ONLY as the encrypted GitHub
+# secret NPM_TOKEN (a least-privilege granular token), never on a laptop —
+# that storage, not the token type, is what leaked in the local flow.
+#
+# canonicalize is unchanged at 0.1.0 (already on npm) and is NOT republished
+# here; when it changes, publish it the same way (it must publish before cli,
+# which depends on it).
+#
+# Decision trail (CLAUDE.md): this supersedes the local-publish playbook
+# (preserved in docs as the pre-Task-53 path). See SECURITY.md + the publish
+# section of docs for the contributor steps + the required NPM_TOKEN secret.
+name: Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish cli (npm provenance)
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # OIDC — required for `npm publish --provenance`
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm ci --no-audit --no-fund
+      # Full-suite gate before anything reaches the registry. Live-Haiku
+      # spawn-smokes auto-skip in CI (no `claude` binary on PATH).
+      - run: npm test
+      - name: Publish @lh8ppl/claude-memory-kit with provenance
+        working-directory: packages/cli
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

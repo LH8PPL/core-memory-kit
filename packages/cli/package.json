@@ -45,6 +45,9 @@
     "url": "https://github.com/LH8PPL/claude-memory-kit.git",
     "directory": "packages/cli"
   },
+  "bugs": {
+    "url": "https://github.com/LH8PPL/claude-memory-kit/issues"
+  },
   "keywords": [
     "claude",
     "claude-code",
