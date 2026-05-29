@@ -40,7 +40,12 @@ async function makeFixture() {
   sandbox = mkdtempSync(join(tmpdir(), 'cmk-repair-roll-test-'));
   projectRoot = join(sandbox, 'proj');
   userDir = join(sandbox, 'user');
-  await install({ projectRoot, userTier: userDir });
+  // noHooks: scaffold-only. As of Task 49 `install` wires hooks by
+  // default; the --hooks repair tests below need settings.json to start
+  // ABSENT (or stale) so repair has something to do. (install→repair
+  // sharing the same writeKitHooks boundary is its own contract; the
+  // install-side wiring is covered in cli-install-hooks.test.js.)
+  await install({ projectRoot, userTier: userDir, noHooks: true });
 }
 
 function seedLock(name, ageMs) {
@@ -221,19 +226,39 @@ describe('Task 39 — runRepair', () => {
       // via __dirname walking, this would fail with "kit hooks template
       // missing". After the I1 fix (inlined KIT_HOOKS_BLOCK), it
       // succeeds regardless of plugin/ presence.
+      //
+      // Task 49 (2026-05-29): the block moved to settings-hooks.mjs and
+      // switched from the plugin form (6 events incl. Setup) to the
+      // npm-route form (5 functional events, bare PATH-resolved bin names)
+      // so repaired hooks work with no plugin loaded — matching
+      // `cmk install`. Setup/cmk-version-check is intentionally dropped
+      // (not-yet-implemented stub; no node bin ships for it). The plugin
+      // form still lives in plugin/hooks/hooks.json for the plugin route.
       const r = await runRepair({ projectRoot, userDir, scope: 'hooks' });
       expect(r.action).toBe('completed');
       const hooks = r.repairs.find((x) => x.kind === 'hooks');
       expect(hooks.error).toBeUndefined();
       expect(hooks.changed).toBe(true);
       expect(hooks.events).toEqual([
-        'Setup',
         'SessionStart',
         'UserPromptSubmit',
         'PostToolUse',
         'Stop',
         'SessionEnd',
       ]);
+    });
+
+    it('repaired hook commands are PATH-resolved bare bin names (npm route), NOT ${CLAUDE_PLUGIN_ROOT}', async () => {
+      const settingsPath = join(projectRoot, '.claude', 'settings.json');
+      await runRepair({ projectRoot, userDir, scope: 'hooks' });
+      const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+      const allCommands = JSON.stringify(settings.hooks);
+      expect(allCommands).toContain('cmk-inject-context');
+      // npm route uses bare names in shell form — no plugin-root, no bash wrapper
+      expect(allCommands).not.toContain('CLAUDE_PLUGIN_ROOT');
+      expect(settings.hooks.SessionStart[0].hooks[0].command).toBe('cmk-inject-context');
+      // shell form: no `args` key (exec form would break on Windows npm shims)
+      expect(settings.hooks.SessionStart[0].hooks[0].args).toBeUndefined();
     });
   });
 

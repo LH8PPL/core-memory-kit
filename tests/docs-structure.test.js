@@ -84,9 +84,12 @@ describe('Task 41 — QUICKSTART.md walkthrough is complete', () => {
 
   it('walks user through prerequisites → install → scaffold → verify → first session', () => {
     text = readFileSync(join(repoRoot, 'QUICKSTART.md'), 'utf8');
-    // The 7 numbered sections of the quickstart
+    // The numbered sections of the quickstart. Task 49 restructured §1
+    // from "Install the CLI globally" into "Install — pick ONE route"
+    // (npm route OR plugin-marketplace route, each complete); accept either
+    // phrasing so the walk asserts an install step without pinning wording.
     expect(text).toMatch(/Prerequisites/);
-    expect(text).toMatch(/Install the CLI globally/);
+    expect(text).toMatch(/Install (the CLI globally|— pick ONE route)/);
     expect(text).toMatch(/Scaffold the kit/);
     expect(text).toMatch(/Verify the install/);
     expect(text).toMatch(/Register the cron jobs/);

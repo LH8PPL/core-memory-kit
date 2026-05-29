@@ -1,0 +1,186 @@
+// settings-hooks.mjs — the canonical npm-route hooks block + the
+// read-merge-write logic that wires it into a project's
+// <projectRoot>/.claude/settings.json. (Task 49, T-037.)
+//
+// SINGLE SOURCE OF TRUTH for the npm-route hook wiring. Both
+// `cmk install` (install.mjs — the complete npm entry point) and
+// `cmk repair --hooks` (repair.mjs) import from here. Before Task 49
+// the block lived inline in repair.mjs as `KIT_HOOKS_BLOCK`; it was
+// extracted + de-plugin-ified here so install can share it.
+//
+// ─────────────────────────────────────────────────────────────────────
+// Command form: SHELL form (no `args`), bare bin name. WHY (verified
+// against Anthropic's hooks docs, https://code.claude.com/docs/en/hooks,
+// 2026-05-29):
+//
+//   - Hook commands with `args` present run in EXEC form (no shell). On
+//     Windows, exec form requires `command` to resolve to a REAL
+//     executable (.exe) — the docs explicitly warn that the `.cmd`/`.ps1`
+//     shims npm installs for `bin` entries "cannot be spawned without a
+//     shell". So exec form + a bare `cmk-inject-context` would FAIL on
+//     Windows.
+//   - Hook commands WITHOUT `args` run in SHELL form: `sh -c "<command>"`
+//     on macOS/Linux, Git Bash (or PowerShell) on Windows. The shell
+//     resolves the bare name on PATH — picking up npm's global shim on
+//     every OS. So we deliberately OMIT `args` and emit a bare bin name.
+//
+// This is why the block below has no `args` and a bare command string.
+// `npm install -g @lh8ppl/claude-memory-kit` puts these 5 bins on PATH
+// (declared in packages/cli/package.json `bin`); the hook commands then
+// resolve the same way `cmk` itself does.
+//
+// ─────────────────────────────────────────────────────────────────────
+// Decision trail (CLAUDE.md "Decision-trail preservation"):
+//
+//   **Original block (pre-2026-05-29, repair.mjs)**: the PLUGIN form,
+//   `bash "${CLAUDE_PLUGIN_ROOT}/bin/<name>"`, 6 events incl. Setup →
+//   cmk-version-check. That form is correct ONLY when the plugin is
+//   loaded (CLAUDE_PLUGIN_ROOT is set + bash is present). It still lives
+//   in plugin/hooks/hooks.json for the PLUGIN route (Route B), unchanged.
+//
+//   **Task 49 (2026-05-29)**: the npm route (Route A) needs hooks that
+//   work with NO plugin loaded. This block is that form. It drops the
+//   Setup → cmk-version-check hook: version-check is a not-yet-implemented
+//   bash stub (no node bin ships for it — see tasks.md 49.1, which lists
+//   exactly the 5 functional hooks), and `Setup` is not in Anthropic's
+//   documented common-events set. Porting version-check to a node bin is
+//   a v0.1.x item if a real Setup-time check is wanted. The 5 functional
+//   hooks below are the complete auto-memory loop.
+
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname } from 'node:path';
+
+/**
+ * Canonical npm-route hooks block. Shell form (no `args`), PATH-resolved
+ * bare bin names. Keep in sync with packages/cli/package.json `bin` and
+ * (modulo command form) plugin/hooks/hooks.json.
+ */
+export const KIT_HOOKS_BLOCK = Object.freeze({
+  SessionStart: [{ hooks: [{ type: 'command', command: 'cmk-inject-context', timeout: 30 }] }],
+  UserPromptSubmit: [{ hooks: [{ type: 'command', command: 'cmk-capture-prompt', timeout: 10 }] }],
+  PostToolUse: [{ matcher: 'Write|Edit|MultiEdit', hooks: [{ type: 'command', command: 'cmk-observe-edit', async: true, timeout: 120 }] }],
+  Stop: [{ hooks: [{ type: 'command', command: 'cmk-capture-turn', timeout: 30 }] }],
+  SessionEnd: [{ hooks: [{ type: 'command', command: 'cmk-compress-session', timeout: 60 }] }],
+});
+
+/**
+ * Substrings that identify a kit-owned hook entry, so re-runs replace the
+ * kit's entries in place while preserving the user's own hooks. Covers
+ * BOTH command forms (npm-route bare names AND the plugin-route
+ * `${CLAUDE_PLUGIN_ROOT}/bin/<name>` form) so a project that previously
+ * had plugin-form kit hooks gets them cleanly upgraded to npm-form rather
+ * than duplicated.
+ */
+export const KIT_COMMAND_TOKENS = Object.freeze([
+  'cmk-version-check',
+  'cmk-inject-context',
+  'cmk-capture-prompt',
+  'cmk-observe-edit',
+  'cmk-capture-turn',
+  'cmk-compress-session',
+]);
+
+/** True if a hooks-array entry references any kit bin. */
+function isKitEntry(entry) {
+  if (!entry || typeof entry !== 'object') return false;
+  const cmds = [];
+  if (typeof entry.command === 'string') cmds.push(entry.command);
+  if (Array.isArray(entry.hooks)) {
+    for (const h of entry.hooks) if (typeof h.command === 'string') cmds.push(h.command);
+  }
+  return cmds.some((c) => KIT_COMMAND_TOKENS.some((t) => c.includes(t)));
+}
+
+/**
+ * Read-merge-write the canonical kit hooks block into the settings.json
+ * at `settingsPath`. Idempotent. Preserves any non-kit top-level keys and
+ * any non-kit hook entries under the same events.
+ *
+ * Public boundary (install.mjs + repair.mjs depend on this shape):
+ *   writeKitHooks(settingsPath) → {
+ *     changed: boolean,            // did the file content change?
+ *     settingsPath: string,
+ *     events: string[],            // kit events written
+ *     error?: string,             // present iff the existing file was unparseable
+ *   }
+ *
+ * On a JSON parse error of an existing settings.json, returns
+ * {changed:false, error} WITHOUT overwriting — never clobber a file the
+ * user may have hand-broken; surface it so they can fix it.
+ */
+export function writeKitHooks(settingsPath) {
+  const events = Object.keys(KIT_HOOKS_BLOCK);
+
+  let settings = {};
+  if (existsSync(settingsPath)) {
+    try {
+      settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    } catch (err) {
+      return {
+        changed: false,
+        settingsPath,
+        events,
+        error: `${settingsPath} parse error: ${err?.message ?? err}`,
+      };
+    }
+  }
+
+  const before = JSON.stringify(settings);
+  if (!settings.hooks || typeof settings.hooks !== 'object') {
+    settings.hooks = {};
+  }
+
+  // Walk the UNION of existing events + kit events. For each event, strip
+  // any kit-owned entries (matched by KIT_COMMAND_TOKENS), preserving the
+  // user's own entries; then re-add the canonical kit entries for events
+  // the kit manages. Walking existing events too (not just the 5 kit
+  // events) is what PRUNES a stale plugin-form hook the kit no longer
+  // emits — e.g. a leftover `Setup → cmk-version-check` written by a
+  // pre-0.1.1 `cmk repair --hooks`: it's a kit entry under an event NOT in
+  // KIT_HOOKS_BLOCK, so it gets removed rather than left to fail on the
+  // npm route (no ${CLAUDE_PLUGIN_ROOT}, no bash).
+  const allEvents = new Set([
+    ...Object.keys(settings.hooks),
+    ...Object.keys(KIT_HOOKS_BLOCK),
+  ]);
+  for (const eventName of allEvents) {
+    const existing = Array.isArray(settings.hooks[eventName])
+      ? settings.hooks[eventName]
+      : [];
+    const isKitEvent = Object.prototype.hasOwnProperty.call(KIT_HOOKS_BLOCK, eventName);
+    const hadKitEntry = existing.some(isKitEntry);
+    // Leave purely-user events untouched (don't even rewrite an empty
+    // array the user authored) — only manage events the kit owns OR that
+    // currently carry a stale kit entry to prune.
+    if (!isKitEvent && !hadKitEntry) continue;
+    const userEntries = existing.filter((e) => !isKitEntry(e));
+    // Deep-clone the kit entries before inserting: KIT_HOOKS_BLOCK is only
+    // shallow-frozen, so inserting its nested objects by reference would let
+    // a later mutation of `settings` leak back into the shared constant.
+    const kitEntries = isKitEvent ? structuredClone(KIT_HOOKS_BLOCK[eventName]) : [];
+    const next = [...userEntries, ...kitEntries];
+    if (next.length > 0) {
+      settings.hooks[eventName] = next;
+    } else {
+      // Event held only kit entries the kit no longer emits (e.g. a stale
+      // plugin-form Setup → cmk-version-check): drop the now-empty array
+      // instead of leaving `"Setup": []` behind.
+      delete settings.hooks[eventName];
+    }
+  }
+
+  const after = JSON.stringify(settings);
+  const changed = before !== after;
+
+  if (changed) {
+    mkdirSync(dirname(settingsPath), { recursive: true });
+    writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
+  }
+
+  return { changed, settingsPath, events };
+}

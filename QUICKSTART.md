@@ -13,23 +13,22 @@ Optional (Layer 5b — semantic search):
 - Python 3.12+ and `pip` (for memsearch)
 - ~600MB free disk (for the ONNX BGE-M3 model)
 
-## 1. Install the CLI globally
+## 1. Install — pick ONE route
+
+Each route is complete on its own. **Don't run both** — they wire the same hooks, so doing both would double-wire them.
+
+### Route A — npm (recommended)
 
 ```bash
 npm install -g @lh8ppl/claude-memory-kit
+cmk --version          # should print 0.1.0
 ```
 
-Verify:
+This installs the `cmk` CLI **and** the 5 lifecycle hook bins. The `cmk install` step (§2) then scaffolds `context/` **and** wires those hooks into the project's `.claude/settings.json` — making it a complete entry point. Nothing else to install.
 
-```bash
-cmk --version
-```
+> The bare `npm install -g` adds the CLI + installer; it's the `cmk install` *subcommand* that wires the hooks (mirroring claude-mem's library-vs-installer split). You never need a separate `/plugin` step on this route.
 
-You should see something like `0.1.0`.
-
-### Also install the Claude Code plugin
-
-The kit's hooks (auto-extract, SessionStart injection, etc.) load via Claude Code's plugin system. The CLI is the project-scaffolder + cron-job runner; the plugin is the hooks-into-Claude-Code half. **You need both** for the kit to work end-to-end.
+### Route B — Claude Code plugin marketplace
 
 In Claude Code:
 
@@ -38,16 +37,16 @@ In Claude Code:
 /plugin install claude-memory-kit
 ```
 
-Restart Claude Code after the install. The plugin sets `${CLAUDE_PLUGIN_ROOT}` and registers the hooks per `plugin/hooks/hooks.json`. Without this step, `cmk doctor` HC-2 will report PASS (the strings are in your settings.json after Step 3 below) but the hooks will never fire — auto-extract is silently dead.
+Restart Claude Code. The plugin bundles the hooks (it sets `${CLAUDE_PLUGIN_ROOT}` and loads `plugin/hooks/hooks.json`) plus the `bootstrap` and `memory-write` skills. To scaffold this project's `context/`, run the bootstrap skill — say *"bootstrap the memory system"*. This route does **not** require the npm CLI; add it later (`npm install -g @lh8ppl/claude-memory-kit`) only if you want `cmk search` / `cmk doctor` / cron.
 
-## 2. Scaffold the kit into your project
+## 2. Scaffold the kit into your project (Route A)
 
 ```bash
 cd ~/my-project
 cmk install
 ```
 
-`cmk install` is idempotent — re-running on an existing kit-enabled project is safe.
+`cmk install` is idempotent — re-running on an existing kit-enabled project is safe. It scaffolds `context/`, updates `.gitignore`, drops the CLAUDE.md loader block, and wires the hooks into `.claude/settings.json`. Restart Claude Code afterward so the new hooks load. Use `cmk install --no-hooks` for a scaffold-only install (e.g. if you wire hooks another way).
 
 What it creates:
 

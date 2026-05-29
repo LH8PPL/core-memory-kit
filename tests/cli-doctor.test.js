@@ -36,7 +36,12 @@ async function makeFixture() {
   sandbox = mkdtempSync(join(tmpdir(), 'cmk-doctor-test-'));
   projectRoot = join(sandbox, 'proj');
   userDir = join(sandbox, 'user');
-  await install({ projectRoot, userTier: userDir });
+  // noHooks: scaffold-only. As of Task 49 `install` wires hooks into
+  // .claude/settings.json by default; the HC-2 unit tests below want to
+  // control the settings.json shape themselves (absent / empty / flat /
+  // nested), so the fixture must NOT pre-write hooks. The install→doctor
+  // integration (hooks ON → HC-2 pass) is its own test below.
+  await install({ projectRoot, userTier: userDir, noHooks: true });
 }
 
 function seedRecentMd(ageMs) {
@@ -129,7 +134,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       expect(c2.message).toMatch(/missing hook references/);
     });
 
-    it('HC-2 settings.json with all hooks → pass', async () => {
+    it('HC-2 settings.json with all hooks (flat form) → pass', async () => {
       seedSettingsJson({
         hooks: {
           SessionStart: [{ command: 'cmk-inject-context' }],
@@ -140,6 +145,41 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       const r = await runDoctor({ projectRoot, userDir });
       const c2 = r.checks.find((c) => c.id === 'HC-2');
       expect(c2.status).toBe('pass');
+    });
+
+    it('HC-2 settings.json with NESTED-form hooks (the real cmk install / repair shape) → pass', async () => {
+      // Regression for the install→doctor composition bug found in Task 49:
+      // cmk install + cmk repair --hooks write the canonical nested
+      // Anthropic shape `{hooks:[{type,command}]}`, but HC-2 used to only
+      // inspect a top-level `e.command`, so it reported fail on hooks the
+      // kit itself just wrote. HC-2 now traverses `e.hooks[]`.
+      seedSettingsJson({
+        hooks: {
+          SessionStart: [{ hooks: [{ type: 'command', command: 'cmk-inject-context', timeout: 30 }] }],
+          Stop: [{ hooks: [{ type: 'command', command: 'cmk-capture-turn', timeout: 30 }] }],
+          SessionEnd: [{ hooks: [{ type: 'command', command: 'cmk-compress-session', timeout: 60 }] }],
+        },
+      });
+      const r = await runDoctor({ projectRoot, userDir });
+      const c2 = r.checks.find((c) => c.id === 'HC-2');
+      expect(c2.status).toBe('pass');
+    });
+
+    it('integration: cmk install (hooks ON) → cmk doctor → HC-2 passes', async () => {
+      // The full composition: a default `cmk install` wires hooks, and a
+      // subsequent `cmk doctor` must report HC-2 pass (not send the user
+      // chasing `cmk repair --hooks` on hooks that are already correct).
+      const freshSandbox = mkdtempSync(join(tmpdir(), 'cmk-doctor-int-'));
+      try {
+        const proj = join(freshSandbox, 'proj');
+        const usr = join(freshSandbox, 'user');
+        await install({ projectRoot: proj, userTier: usr }); // hooks ON (default)
+        const r = await runDoctor({ projectRoot: proj, userDir: usr });
+        const c2 = r.checks.find((c) => c.id === 'HC-2');
+        expect(c2.status).toBe('pass');
+      } finally {
+        rmSync(freshSandbox, { recursive: true, force: true });
+      }
     });
 
     it('B1 fix: HC-2 detects hook in WRONG event array as fail (not false-pass)', async () => {

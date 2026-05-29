@@ -142,13 +142,24 @@ function hc2Hooks({ projectRoot }) {
   const missing = [];
   for (const { event, command } of required) {
     const entries = Array.isArray(hooks[event]) ? hooks[event] : [];
-    // Each entry may be either a string command or {command: '...'}.
-    // Anthropic's hook format uses the object form; the kit's bin
-    // wrapper docs use it too. Accept both for resilience.
+    // An entry may be (a) a bare string command, (b) a flat object
+    // {command: '...'}, or (c) the canonical Anthropic / kit nested shape
+    // {hooks: [{type, command}, ...]}. The kit's own writers (cmk install
+    // + cmk repair --hooks via settings-hooks.mjs) emit form (c), so HC-2
+    // MUST traverse the nested hooks[] array — otherwise `cmk install`
+    // followed by `cmk doctor` reports HC-2 fail on hooks the kit itself
+    // just wrote (a separately-correct-jointly-broken composition bug
+    // caught while shipping Task 49; pre-Task-49 the doctor test only ever
+    // fed form (b), so the gap stayed latent).
     const found = entries.some((e) => {
       if (typeof e === 'string') return e.includes(command);
-      if (e && typeof e === 'object' && typeof e.command === 'string') {
-        return e.command.includes(command);
+      if (e && typeof e === 'object') {
+        if (typeof e.command === 'string' && e.command.includes(command)) return true;
+        if (Array.isArray(e.hooks)) {
+          return e.hooks.some(
+            (h) => h && typeof h.command === 'string' && h.command.includes(command),
+          );
+        }
       }
       return false;
     });

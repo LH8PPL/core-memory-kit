@@ -62,14 +62,24 @@ const NOTICE_PREFIX = 'not yet implemented in v0.1.0';
  * replaced / upgraded / downgrade-blocked / forced-downgrade / unchanged).
  */
 async function runInstall(options /* , command */) {
-  const result = await installAction({ force: !!(options && options.force) });
+  // commander maps `--no-hooks` to options.hooks === false.
+  const noHooks = !!(options && options.hooks === false);
+  const result = await installAction({ force: !!(options && options.force), noHooks });
   const parts = [
     `scaffolded ${result.created.length} file(s)`,
     result.skipped.length ? `skipped ${result.skipped.length} existing` : null,
     `.gitignore=${result.gitignore.action}`,
     `CLAUDE.md=${result.claudeMd.action}`,
+    `hooks=${result.hooks.action}`,
   ].filter(Boolean);
   console.log('cmk install: ' + parts.join(', '));
+
+  if (result.hooks.action === 'wired' || result.hooks.action === 'unchanged') {
+    console.log(
+      '  hooks wired into .claude/settings.json — restart Claude Code to activate. ' +
+        'This is a COMPLETE install; no separate /plugin step is needed.',
+    );
+  }
 
   if (result.claudeMd.action === 'downgrade-blocked') {
     console.error(
@@ -1007,10 +1017,11 @@ function stub(name, milestone, extra) {
 export const subcommands = [
   {
     name: 'install',
-    description: 'cross-OS one-shot install — scaffold 3-tier dirs + inject .gitignore + drop kit CLAUDE.md block',
+    description: 'cross-OS one-shot install — scaffold 3-tier dirs + inject .gitignore + drop kit CLAUDE.md block + wire Claude Code hooks',
     milestone: 3,
     optionSpec: [
       { flags: '--force', description: 'allow downgrade of an existing newer-version CLAUDE.md block' },
+      { flags: '--no-hooks', description: 'scaffold only; do NOT wire hooks into .claude/settings.json' },
     ],
     action: runInstall,
   },

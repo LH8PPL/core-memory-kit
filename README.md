@@ -6,7 +6,7 @@ Inspired by [Simon Scrapes' "Master Claude Memory"](https://www.youtube.com/watc
 
 ## Status
 
-**v0.1.0** — released 2026-05-28. Architecture-first first release, ~55 dev days, 42 tasks shipped (45 task ledger; 3 deferred to v0.1.1), 1100+ tests, 8 structural validators, cross-OS CI matrix (Windows + macOS + Linux). See [`docs/journey/v0.1.0-build-log.md`](docs/journey/v0.1.0-build-log.md) for the full narrative.
+**v0.1.1** — released 2026-05-29. Unify install: `cmk install` now wires the lifecycle hooks itself, so a single complete entry point (`npm install -g @lh8ppl/claude-memory-kit && cmk install`) is all you need — no separate `/plugin` step (Task 49). Builds on **v0.1.0** (2026-05-28): architecture-first first release, ~55 dev days, 1160+ tests, structural validators, cross-OS CI matrix (Windows + macOS + Linux). See [`docs/journey/v0.1.0-build-log.md`](docs/journey/v0.1.0-build-log.md) for the full narrative.
 
 ## What it does
 
@@ -18,30 +18,42 @@ Inspired by [Simon Scrapes' "Master Claude Memory"](https://www.youtube.com/watc
 
 ## Quickstart (60 seconds)
 
+**Pick ONE route. Each is complete on its own** — both wire the same hooks, so running both would double-wire them.
+
+### Route A — npm (recommended)
+
 ```bash
 # 1. Install the CLI globally (Node 20+)
 npm install -g @lh8ppl/claude-memory-kit
-```
 
-```text
-# 2. Inside Claude Code: install the kit as a plugin (registers the hooks)
-/plugin marketplace add LH8PPL/claude-memory-kit
-/plugin install claude-memory-kit
-```
-
-```bash
-# 3. Inside a project, scaffold the kit
+# 2. Inside a project, scaffold + wire hooks in one step
 cd ~/my-project
-cmk install
+cmk install            # scaffolds context/ AND wires the hooks into .claude/settings.json
 
-# 4. Register the cron jobs (optional; Layer 6 — falls back to lazy-on-read if not registered)
+# 3. (optional) Register cron jobs — Layer 6 falls back to lazy-on-read if skipped
 cmk register-crons
 
-# 5. Verify
+# 4. Verify, then restart Claude Code
 cmk doctor
 ```
 
-Both halves are needed: the CLI scaffolds the project + runs cron; the plugin loads the hooks. Open Claude Code on the project — auto-extract fires on Stop. SessionStart injects the snapshot. `cmk search "<term>"` returns accumulated memory.
+`cmk install` is a complete entry point: it scaffolds `context/` and writes the 5 lifecycle hooks (PATH-resolved, cross-OS) into the project's `.claude/settings.json`. No separate `/plugin` step needed.
+
+### Route B — Claude Code plugin marketplace
+
+```text
+# Inside Claude Code:
+/plugin marketplace add LH8PPL/claude-memory-kit
+/plugin install claude-memory-kit
+# then scaffold this project's context/ (the bootstrap skill):
+"bootstrap the memory system"
+```
+
+The plugin bundles the hooks + the `bootstrap` and `memory-write` skills, so it's also complete on its own. (If you also want the `cmk` CLI for search / doctor / cron, `npm install -g @lh8ppl/claude-memory-kit` adds it — but you do **not** need it to make the plugin work.)
+
+Either way: open Claude Code on the project — auto-extract fires on Stop, SessionStart injects the snapshot, and (with the CLI) `cmk search "<term>"` returns accumulated memory.
+
+> **npm note:** `npm install -g @lh8ppl/claude-memory-kit` installs the CLI + the installer. It is the `cmk install` *subcommand* (not the bare `npm install`) that wires the hooks — mirroring claude-mem's library-vs-installer split.
 
 Full walkthrough: [QUICKSTART.md](QUICKSTART.md).
 
@@ -83,7 +95,7 @@ Most-used commands (full list via `cmk --help`):
 
 | Command | Purpose |
 | --- | --- |
-| `cmk install` | Scaffold `context/` + add `.gitignore` lines + drop CLAUDE.md block |
+| `cmk install` | Scaffold `context/` + add `.gitignore` lines + drop CLAUDE.md block + wire hooks into `.claude/settings.json` (complete entry point; `--no-hooks` for scaffold-only) |
 | `cmk doctor` | Run HC-1..HC-9 health checks, surface repair commands |
 | `cmk repair --hooks` / `--locks` / `--index` / `--all` | Idempotent self-repair |
 | `cmk roll --scope now\|today\|recent` | Manually trigger one of the compression pipelines |
