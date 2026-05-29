@@ -2,7 +2,11 @@
 
 [![npm](https://img.shields.io/npm/v/@lh8ppl/claude-memory-kit)](https://www.npmjs.com/package/@lh8ppl/claude-memory-kit) [![CI](https://github.com/LH8PPL/claude-memory-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/LH8PPL/claude-memory-kit/actions/workflows/ci.yml) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) ![Node ≥20](https://img.shields.io/badge/node-%E2%89%A520-brightgreen)
 
-**Persistent, per-project memory for [Claude Code](https://docs.claude.com/en/docs/claude-code).** Claude remembers your decisions, preferences, and project context across every session — captured automatically, stored as plain markdown in your repo, and carried along with `git clone`. No more re-explaining the backstory each time you open a session.
+**Persistent, per-project memory for [Claude Code](https://docs.claude.com/en/docs/claude-code).**
+
+Claude forgets everything the moment a session ends — so every new chat, you re-explain who you are, what you're building, and how you like things done. claude-memory-kit fixes that. It quietly remembers your decisions, preferences, and project context and hands them back to Claude at the start of each session, so you never have to re-brief it again. Everything is plain text living inside your project, and it travels with the code (`git clone` brings the memory along).
+
+**Do I need to be a developer to use this?** No. If you can open a project in Claude Code, you're set — you can even let Claude run the setup for you (see [Quickstart](#quickstart)).
 
 > **Status:** `v0.1.0` is on npm; `v0.1.1` (one-step install + CI security & signed provenance) publishes shortly. What changed: [CHANGELOG.md](CHANGELOG.md).
 
@@ -20,6 +24,8 @@
 - [FAQ](#faq)
 
 ## What it does
+
+The short version: Claude starts every session already knowing your project, and keeps learning as you work — automatically, no buttons to press. Under the hood:
 
 - **Frozen snapshot at session start**: MEMORY.md + USER.md + SOUL.md + INDEX.md + today's session log inject once at first tool call. Claude sees this context every session without you re-telling it.
 - **Auto-extract on every assistant turn**: a background `claude --print` subagent reads the turn and saves durable facts (decisions, preferences, environment) to memory. No manual writes needed.
@@ -49,6 +55,8 @@ cmk doctor
 ```
 
 `cmk install` is a complete entry point: it scaffolds `context/` and writes the 5 lifecycle hooks (PATH-resolved, cross-OS) into the project's `.claude/settings.json`. No separate `/plugin` step needed.
+
+> **Not comfortable in a terminal?** You don't have to be. Open your project in Claude Code and just say: *"install claude-memory-kit and set it up in this project."* Claude will run the commands above for you — you only approve them. Or skip the terminal entirely with **Route B** below. Either way, **restart Claude Code once** when it's done so the memory turns on.
 
 ### Route B — Claude Code plugin marketplace
 
