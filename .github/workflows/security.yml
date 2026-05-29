@@ -1,0 +1,53 @@
+# Security scanning (Task 53). Three gates, run on every push + PR:
+#   - secrets : gitleaks (in-repo, config-controlled; complements the
+#               GitGuardian app already installed on the repo)
+#   - audit   : `npm audit` HARD-GATE on high/critical (dev-only moderates
+#               in the vitest/vite/esbuild toolchain don't block; they land
+#               as Dependabot PRs — see .github/dependabot.yml)
+#   - osv     : osv-scanner (OSV.dev DB, broader than npm advisories);
+#               reports SARIF to the Security tab
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so gitleaks scans every commit
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  audit:
+    name: Dependency audit (npm audit, high/critical)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci --no-audit --no-fund
+      # Hard-gate on high/critical in SHIPPED (production) deps only:
+      # `--omit=dev` excludes the vitest/vite/esbuild test toolchain, so a
+      # dev-only advisory never blocks a release — Dependabot tracks those
+      # as routine update PRs. What users install must stay clean.
+      - run: npm audit --omit=dev --audit-level=high
+
+  osv:
+    name: CVE scan (osv-scanner)
+    permissions:
+      actions: read
+      security-events: write
+      contents: read
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.3.8

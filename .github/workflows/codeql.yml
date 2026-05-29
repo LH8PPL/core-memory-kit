@@ -1,0 +1,34 @@
+# CodeQL SAST (Task 53). Scans the kit's own JavaScript (~30 modules
+# under packages/cli/src + the bins) for vulnerable code patterns —
+# injection, unsafe spawn/exec, path traversal, etc. Matters because the
+# kit executes hooks + spawns subprocesses on users' machines. JS is
+# interpreted, so no build step is needed (init → analyze).
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '27 3 * * 1' # weekly, Monday 03:27 UTC — catches newly-published queries
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (JavaScript)
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:javascript'

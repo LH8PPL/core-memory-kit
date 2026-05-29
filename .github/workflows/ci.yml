@@ -1,0 +1,30 @@
+# Full test-suite CI (added with Task 53). Until now only install-matrix +
+# canonicalize-parity ran in CI — the full vitest suite (validators + 1190+
+# tests) never did. This job closes that gap AND proves `npm test` passes on
+# a clean Linux runner, which is the exact gate publish.yml runs before it
+# publishes — so the release gate is validated on every PR, not first
+# exercised at tag time.
+#
+# Live-Haiku spawn-smokes auto-skip here (no `claude` binary on PATH).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Full test suite (ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci --no-audit --no-fund
+      - run: npm test

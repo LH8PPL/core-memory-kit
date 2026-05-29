@@ -1,0 +1,34 @@
+# gitleaks config (Task 53). Read automatically by gitleaks/gitleaks-action
+# at the repo root. Keeps the default ruleset and allowlists the kit's
+# DELIBERATE secret-shaped test fixtures + poison-guard examples — the same
+# set excluded in .gitguardian.yaml. These are required to exercise the
+# Poison_Guard regex catalog (packages/cli/src/poison-guard.mjs, design §6.7);
+# none are real credentials (verified: git history carries no live secret).
+title = "claude-memory-kit"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Deliberate test fixtures + poison-guard examples (not real secrets)"
+# File paths whose secret-shaped content is intentional (regex-matched).
+paths = [
+  '''tests/cli-poison-guard\.test\.js''',
+  '''tests/cli-poison-guard-log\.test\.js''',
+  '''tests/cli-memory-write\.test\.js''',
+  '''tests/cli-auto-extract\.test\.js''',
+  '''tests/security-posture\.test\.js''',
+  '''packages/cli/src/poison-guard\.mjs''',
+  '''\.gitguardian\.yaml''',
+  '''\.gitleaks\.toml''',
+  '''SECURITY\.md''',
+]
+# Belt-and-suspenders: exact fixture strings, allowlisted even if they
+# appear elsewhere. Mirrors .gitguardian.yaml ignored_matches.
+regexes = [
+  '''ghp_1234567890abcdefghij1234567890abcdef12''',
+  '''AKIAIOSFODNN7EXAMPLE''',
+  '''wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY''',
+  '''abc123def456ghi789jkl012mno345pqr678''',
+  '''xoxb-1234567890''',
+]

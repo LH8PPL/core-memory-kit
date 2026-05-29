@@ -145,6 +145,20 @@ The full test discipline (real-binary spawn smokes, stress-run gate, five-exit-d
 
 CI matrix runs on every PR against Windows / macOS / Linux: see [`.github/workflows/install-matrix.yml`](.github/workflows/install-matrix.yml).
 
+## Security
+
+Every push + PR runs SCA + SAST + secret scanning (the same shape as Artifactory Xray + SonarQube, built from the free GitHub-native/OSS stack):
+
+- **Secrets** — `gitleaks` ([`.github/workflows/security.yml`](.github/workflows/security.yml)) + GitGuardian.
+- **Known CVEs / supply chain** — `osv-scanner` + `npm audit` (hard gate on high/critical) + weekly **Dependabot** PRs.
+- **SAST** — `CodeQL` ([`.github/workflows/codeql.yml`](.github/workflows/codeql.yml)) on the kit's JavaScript.
+
+Releases publish from CI on a `v*` tag with a **signed npm provenance attestation** ([`.github/workflows/publish.yml`](.github/workflows/publish.yml)). Threat model + responsible-disclosure policy: [`SECURITY.md`](SECURITY.md). Verify what you install:
+
+```bash
+npm view @lh8ppl/claude-memory-kit dist.attestations
+```
+
 ## Credit
 
 - Pattern: Simon Scrapes' [Master Claude Memory](https://www.youtube.com/watch?v=rFWxRZ5D-lM) (the source pattern for layered per-project memory and the frozen-snapshot concept)
