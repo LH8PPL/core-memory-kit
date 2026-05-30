@@ -8,7 +8,7 @@ Claude forgets everything the moment a session ends — so every new chat, you r
 
 **Do I need to be a developer to use this?** No. If you can open a project in Claude Code, you're set — you can even let Claude run the setup for you (see [Quickstart](#quickstart)).
 
-> **Status:** `v0.1.0` is on npm; `v0.1.1` (one-step install + CI security & signed provenance) publishes shortly. What changed: [CHANGELOG.md](CHANGELOG.md).
+> **Status:** `v0.1.2` is live on npm (provenance-signed) — one-step install, CI security, and the full recall→capture→search loop. `v0.2` (automatic cross-project persona + "Claude stays consistent") is in progress. What changed: [CHANGELOG.md](CHANGELOG.md).
 
 ## Contents
 
