@@ -28,6 +28,7 @@
 // never needs Read either — the turn content arrives in the prompt).
 
 import { spawn as defaultSpawn } from 'node:child_process';
+import { spawnBin } from './spawn-bin.mjs';
 import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -203,25 +204,24 @@ export class HaikuViaAnthropicApi extends CompressorBackend {
     const env = { ...process.env };
     delete env.CLAUDECODE;
 
-    // shell:true required on Windows so that .cmd shims (claude.cmd)
-    // resolve through cmd.exe. Without it, node's spawn fails with
-    // EINVAL/ENOENT because it won't auto-resolve .cmd extensions
-    // (CVE-2024-27980 hardening). On Linux/macOS shell:true is a
-    // no-op for argv-style invocation when the arguments don't contain
-    // shell metacharacters — ours don't (the prompt goes via stdin).
+    // spawnBin handles the Windows .cmd-shim problem WITHOUT the
+    // `shell:true` + args-array combo that broke paths with spaces (#4):
+    // POSIX spawns argv-style (shell:false); Windows builds a single
+    // pre-quoted command string so `--mcp-config C:\Users\First Last\…`
+    // survives cmd.exe tokenization. See spawn-bin.mjs. `windowsHide`
+    // still suppresses the transient cmd.exe console flash on Windows.
     // spawn-discipline: caller-managed terminateSubprocess (kit's kill-chain helper) + setTimeout (per design §8.5; PR-A composition-verification instance #4; substance pinned by tests/cli-compressor-timeout.test.js + tests/spawn-smoke-kill-chain.test.js). The function signature `timeoutMs` parameter (line 162) is the caller-supplied bound; the setTimeout below (search "Timeout timer") fires the kill chain.
-    const child = this._spawn(this._bin, args, {
-      cwd: tmpdir(), // OS-native temp dir; replaces `/tmp` which fails to resolve on Windows
-      env,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      shell: true,
-      // Suppress the transient cmd.exe console window on Windows —
-      // every shell:true spawn flashes a window otherwise (visible
-      // to the user when auto-extract / compress-session fires
-      // dozens of times per session). stdio is piped so we still
-      // capture the child's output through the regular handlers.
-      windowsHide: true,
-    });
+    const child = spawnBin(
+      this._bin,
+      args,
+      {
+        cwd: tmpdir(), // OS-native temp dir; replaces `/tmp` which fails to resolve on Windows
+        env,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true,
+      },
+      { spawnImpl: this._spawn },
+    );
 
     const cleanupSandbox = () => {
       // Single-use sandbox: the directory and the empty-mcp.json file
