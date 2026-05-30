@@ -84,17 +84,20 @@ const TIER_BUDGETS = Object.freeze({
 });
 
 // Per-tier reading plan. The hook reads the scratchpads allowed at that
-// tier (per SCRATCHPADS_BY_TIER) plus the tier's INDEX file, plus — for
-// the project tier — the most recent rolling-window day file.
+// tier (per SCRATCHPADS_BY_TIER) plus — for the project tier — the most
+// recent rolling-window day file.
+//
+// INDEX.md is deliberately NOT in the snapshot (#R, 2026-05-30). It is a
+// pointer/reference doc that self-declares "NOT auto-loaded at session
+// start" in its own template body — injecting it both violated that
+// contract and pushed ~2 KB of reference prose into Claude's context,
+// crowding out real facts. It stays on disk for lookup via `cmk search` /
+// the granular archive; it is not session-start content.
 function plannedFilesForTier(tier, tierRoot) {
   const files = [];
   for (const name of SCRATCHPADS_BY_TIER[tier]) {
     files.push(join(tierRoot, name));
   }
-  // INDEX: P/L use memory/INDEX.md; U uses fragments/INDEX.md (per
-  // resolveFactDir asymmetry in tier-paths.mjs).
-  const indexDir = tier === 'U' ? 'fragments' : 'memory';
-  files.push(join(tierRoot, indexDir, 'INDEX.md'));
   if (tier === 'P') {
     const sessionsDir = join(tierRoot, 'sessions');
     const latest = latestDaySession(sessionsDir);
@@ -138,10 +141,118 @@ function tierDirExists(tier, tierRoot) {
   return existsSync(tierRoot) && statSync(tierRoot).isDirectory();
 }
 
+// The all-zero sha1 is the kit's template-seed sentinel: every scaffolded
+// placeholder bullet (in machine-paths/overrides/SOUL/USER/HABITS/LESSONS)
+// carries `sha1: 0000…0000` + `at: 2020-01-01T…`. A real captured fact
+// always has a real content sha1. We use this to distinguish "scaffolding
+// the user never replaced" from "a fact worth injecting".
+const SEED_SHA1_RE = /sha1:\s*0{40}/;
+
+// Is `bulletLine` a placeholder/seed bullet that should NOT be injected?
+// Primary signal: a following provenance comment carrying the all-zero seed
+// sha1 (every scaffolded template bullet has it; a real captured fact never
+// does). Secondary: the `(example)` marker — but ONLY in the template's
+// exact `(P-XXXXXXXX) (example) …` shape (right after the citation id), so a
+// real fact whose text merely mentions "(example)" is not mis-dropped.
+function isSeedBullet(bulletLine, nextLine) {
+  if (/^\s*-\s+\([PUL]-[A-Za-z0-9]{8}\)\s+\(example\)/.test(bulletLine)) {
+    return true;
+  }
+  const prov =
+    typeof nextLine === 'string' && /^\s*<!--.*-->\s*$/.test(nextLine)
+      ? nextLine
+      : '';
+  return SEED_SHA1_RE.test(prov);
+}
+
+// Remove HTML comments robustly, including the kit templates' multi-line
+// format-explanation headers that ILLUSTRATIVELY embed a single-line
+// `<!-- source… -->` example inside the outer `<!-- … -->` block. A plain
+// non-greedy regex closes on that inner `-->` and orphans the tail, so we
+// strip inline comments first (killing the nested one) and only then walk
+// the now-cleanly-delimited multi-line blocks.
+function stripHtmlComments(text) {
+  // Pass 1 — remove every self-contained `<!-- … -->` on a single line.
+  const lines = text.split('\n').map((l) => l.replace(/<!--.*?-->/g, ''));
+  // Pass 2 — remove multi-line blocks (each now free of any inner `-->`).
+  const out = [];
+  let inBlock = false;
+  for (let line of lines) {
+    if (inBlock) {
+      const close = line.indexOf('-->');
+      if (close === -1) continue; // still inside the block; drop the line
+      inBlock = false;
+      line = line.slice(close + 3);
+    }
+    const open = line.indexOf('<!--');
+    if (open !== -1) {
+      inBlock = true;
+      line = line.slice(0, open);
+    }
+    if (line.trim() !== '' || out.length === 0 || out[out.length - 1] !== '') {
+      out.push(line.replace(/[ \t]+$/, ''));
+    }
+  }
+  return out.join('\n');
+}
+
+// Clean a scratchpad body for INJECTION (not for on-disk storage — the
+// files keep their human-editing headers). Self-test finding #R: the raw
+// bodies are ~70% template-comment noise + placeholder seed bullets that
+// bury (and crowd out) the real captured facts, so the model concludes
+// "no real facts populated yet". This strips:
+//   1. placeholder seed bullets (all-zero sha1 / `(example)`) + their
+//      provenance comment line, and
+//   2. ALL remaining `<!-- -->` comments (multi-line format-explanation
+//      headers AND per-bullet provenance — the fact text + its `(P-…)`
+//      citation id carry everything the model needs to read & cite).
+// Whitespace is normalized so stripped regions don't leave holes.
+//
+// Known limitation (rare): a captured fact whose TEXT contains a literal
+// `<!--`/`-->` (e.g. a note about HTML/templating) has that fragment
+// stripped from the INJECTED view. The on-disk fact and the search index
+// are unaffected — only the session-start snapshot loses the literal
+// comment markers. Accepted as a rare edge vs. the cost of distinguishing
+// real comments from comment-shaped fact text.
+function cleanScratchpadBody(body) {
+  // Normalize CRLF so user-edited (Windows) scratchpads don't leave stray
+  // \r after comment/seed stripping.
+  const lines = body.replace(/\r\n/g, '\n').split('\n');
+  const kept = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (
+      /^\s*-\s/.test(line) &&
+      ID_TOKEN_RE.test(line) &&
+      isSeedBullet(line, lines[i + 1])
+    ) {
+      if (/^\s*<!--.*-->\s*$/.test(lines[i + 1] ?? '')) i++;
+      continue;
+    }
+    kept.push(line);
+  }
+  // Step 2 — strip all remaining comments (format headers + real-bullet
+  // provenance), then normalize whitespace.
+  return stripHtmlComments(kept.join('\n'))
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/^\n+|\n+$/g, '');
+}
+
+// After cleaning, does a body carry any real content — i.e. a non-blank
+// line that isn't a markdown heading? A body of only headings (every
+// bullet was a stripped seed) is pure scaffolding and must NOT contribute
+// a tier block (otherwise the model sees an empty "## …" skeleton).
+function hasRealContent(cleaned) {
+  return cleaned
+    .split('\n')
+    .some((l) => l.trim() !== '' && !/^#{1,6}\s/.test(l));
+}
+
 // Read the snapshot-eligible content for one tier as a single string. If
-// no tier files exist (or the tier dir itself is absent), returns ''. The
-// per-file content is wrapped in a fenced header so the snapshot is
-// self-describing to whoever reads Claude's context window.
+// no tier files exist (or the tier dir itself is absent), returns ''. Each
+// file body is cleaned for injection (see cleanScratchpadBody); files that
+// reduce to scaffolding-only contribute nothing, and a tier whose every
+// file is scaffolding-only is excluded entirely (no header, no skeleton).
 function readTierBlock(tier, tierRoot) {
   if (!tierDirExists(tier, tierRoot)) return '';
   const sections = [];
@@ -154,7 +265,9 @@ function readTierBlock(tier, tierRoot) {
       continue;
     }
     if (body.trim() === '') continue;
-    sections.push(body);
+    const cleaned = cleanScratchpadBody(body);
+    if (!hasRealContent(cleaned)) continue;
+    sections.push(cleaned);
   }
   if (sections.length === 0) return '';
   const header = `<!-- cmk: ${TIER_LABELS[tier]} tier (${tier}) -->`;

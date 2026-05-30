@@ -322,6 +322,115 @@ describe('Task 18 — injectContext() boundary', () => {
     });
   });
 
+  describe('snapshot cleaning — strip template noise so real facts surface (#R, 2026-05-30)', () => {
+    // Self-test finding #R: the injected snapshot was ~70% template-comment
+    // noise + placeholder seed bullets, with real captured facts buried
+    // behind them — so the agent read a wall of scaffolding and concluded
+    // "no real facts populated yet." injectContext must inject ONLY real
+    // captured facts: strip <!-- --> format/provenance comments, drop seed
+    // bullets (all-zero sha1 sentinel or `(example)` marker), and exclude
+    // tiers that become empty after cleaning.
+
+    // A realistic template-shaped MEMORY.md: a multi-line format-explanation
+    // comment header + a real auto-extract bullet (real sha1) + empty
+    // trailing sections.
+    const realMemoryMd = [
+      '<!-- Cap: 2500 chars · Last distilled: {{TODAY}} -->',
+      '',
+      '<!--',
+      'MEMORY.md is the working scratchpad. Consolidation triggers at >95%.',
+      'Bullet+provenance format (universal across all scratchpads):',
+      '- (P-XXXXXXXX) the bullet text on one line',
+      '-->',
+      '',
+      '# Working Memory',
+      '',
+      '## Active Threads',
+      '',
+      '- (P-B2MAHQ2L) Never install Python packages globally; use .venv on Python 3.13 only',
+      '  <!-- source: auto-extract-session, source_line: 1, sha1: 52dd2873ba037c7c9e913817f69650708b5810df, write: auto-extract, trust: high, at: 2026-05-29T22:14:22Z -->',
+      '',
+      '## Environment Notes',
+      '',
+      '## Pending Decisions',
+      '',
+    ].join('\n');
+
+    // A template-shaped local tier that is ALL placeholder seed bullets
+    // (all-zero sha1 + `(example)` marker) — never populated with real facts.
+    const seedOnlyMachinePaths = [
+      '<!--',
+      'machine-paths.md = absolute paths specific to THIS machine for THIS project.',
+      'Local tier (gitignored — never committed).',
+      '-->',
+      '',
+      '# Machine paths (local tier)',
+      '',
+      '## Tool Paths',
+      '',
+      '<!-- Tool/binary paths. -->',
+      '',
+      '- (L-aVFaHNDV) (example) node binary at /usr/local/bin/node',
+      '  <!-- source: machine-paths.md, source_line: 19, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->',
+      '',
+    ].join('\n');
+
+    function seedTemplateLikeFixture() {
+      writeFile(join(projectRoot, 'context', 'MEMORY.md'), realMemoryMd);
+      writeFile(join(projectRoot, 'context.local', 'machine-paths.md'), seedOnlyMachinePaths);
+    }
+
+    it('strips the multi-line <!-- format-explanation --> header from the snapshot', () => {
+      seedTemplateLikeFixture();
+      const r = injectContext({ cwd: projectRoot, userDir });
+      expect(r.snapshot).not.toContain('MEMORY.md is the working scratchpad');
+      expect(r.snapshot).not.toContain('Bullet+provenance format');
+    });
+
+    it('drops placeholder seed bullets (all-zero sha1 / (example) marker) and their content', () => {
+      seedTemplateLikeFixture();
+      const r = injectContext({ cwd: projectRoot, userDir });
+      expect(r.snapshot).not.toContain('(example)');
+      expect(r.snapshot).not.toContain('node binary at /usr/local/bin/node');
+    });
+
+    it('strips per-bullet provenance comments (sha1/source/trust) — only the fact + id remain', () => {
+      seedTemplateLikeFixture();
+      const r = injectContext({ cwd: projectRoot, userDir });
+      expect(r.snapshot).not.toContain('sha1: 52dd2873');
+      expect(r.snapshot).not.toContain('write: auto-extract');
+    });
+
+    it('KEEPS real captured facts (real sha1) verbatim with their citation id', () => {
+      seedTemplateLikeFixture();
+      const r = injectContext({ cwd: projectRoot, userDir });
+      expect(r.snapshot).toContain('Never install Python packages globally');
+      expect(r.snapshot).toContain('(P-B2MAHQ2L)');
+    });
+
+    it('excludes a tier whose content is entirely seed/placeholder after cleaning', () => {
+      seedTemplateLikeFixture();
+      const r = injectContext({ cwd: projectRoot, userDir });
+      // The local tier was 100% seeds → no tier header, no content from it.
+      expect(r.snapshot).not.toContain('cmk: local tier');
+      expect(r.snapshot).not.toContain('Machine paths (local tier)');
+      // The project tier (real facts) survives.
+      expect(r.snapshot).toContain('cmk: project tier');
+    });
+
+    it('shrinks the snapshot to mostly real content (noise no longer dominates)', () => {
+      seedTemplateLikeFixture();
+      const r = injectContext({ cwd: projectRoot, userDir });
+      // Before the fix this fixture injected ~1KB+ of comments/seeds with the
+      // real fact buried; after, the snapshot is small and the real fact is
+      // near the front.
+      const idxFact = r.snapshot.indexOf('Never install Python packages globally');
+      expect(idxFact).toBeGreaterThanOrEqual(0);
+      expect(idxFact).toBeLessThan(200); // real fact is near the top, not buried
+      expect(Buffer.byteLength(r.snapshot, 'utf8')).toBeLessThan(600);
+    });
+  });
+
   describe('cap enforcement + truncation (18.5)', () => {
     it('oversized fixture: snapshot ≤ capBytes; truncation event logged; lowest-tier dropped first', () => {
       // Build a fixture deliberately over 1 KB cap by stuffing each tier
@@ -434,48 +543,50 @@ describe('Task 18 — injectContext() boundary', () => {
       expect(tierEvt.sections_dropped).toBeGreaterThanOrEqual(1);
     });
 
-    it('default install seed-content fixture → ALL 3 tiers reach the snapshot, no drops', async () => {
-      // Use the real install module so we test against the actual
-      // seed-template byte sizes shipped in template/ — this pins the
-      // "user tier survives default install" contract.
+    it('default install (seeds only) injects NO placeholder seed bullets or scaffolding (#R)', async () => {
+      // Decision-trail (CLAUDE.md "Decision-trail preservation"):
+      //
+      // **Original plan (PR-25, 2026-05-26)**: this test asserted that the
+      // frozen user-tier SEED bullets (U-PRNQKRaC / U-CEKUY3H4 / U-RDBNQSL7)
+      // REACH Claude on a default install — a regression guard against the
+      // user tier being dropped wholesale by cap miscomposition.
+      //
+      // **Revision 2026-05-30 (self-test finding #R)**: the live self-test
+      // proved that injecting those very seed bullets is what made a fresh
+      // session report "no real facts populated yet" — the placeholder
+      // scaffolding crowded out / masked the real captured facts. So the
+      // CORRECT contract flipped: a default install (which has NO real
+      // captured facts yet) must inject ~nothing — never the placeholder
+      // seeds. PR-25's REAL concern (cap composition; no wholesale tier
+      // drop of genuine content) is preserved by the other budget tests in
+      // this describe block, which use non-seed markers.
       const { install } = await import('../packages/cli/src/install.mjs');
       await install({ projectRoot, userTier: userDir });
 
-      // No explicit capBytes — exercises the default cap (13000 per
-      // PR-B's coordination fix). The contract that matters:
-      // - All 3 tier markers present
-      // - User-tier seed bullets reach Claude (the load-bearing
-      //   regression test for the PR-25 finding)
-      // - NO whole-tier drops (no legacy dropped_tiers events)
-      //
-      // Note: tier_truncated_to_budget events ARE acceptable on the P
-      // tier in default install — memory/INDEX.md.template (~1963 bytes
-      // of reference documentation) is NOT a per-file-capped scratchpad
-      // per Task 12, so it isn't counted in the P=4300 budget. It gets
-      // section-truncated from the tail per design §7.1's section-
-      // granular truncator, which preserves SOUL.md and MEMORY.md
-      // intact. INDEX itself is reference text the user can read on
-      // demand if needed; cap pressure on it is acceptable. Future
-      // work may move INDEX out of the snapshot composition entirely.
       const r = injectContext({ cwd: projectRoot, userDir });
 
-      // All three tier markers present in the snapshot.
-      expect(r.snapshot).toContain('<!-- cmk: local tier (L) -->');
-      expect(r.snapshot).toContain('<!-- cmk: project tier (P) -->');
-      expect(r.snapshot).toContain('<!-- cmk: user tier (U) -->');
+      // No placeholder seed bullets reach Claude (any tier).
+      for (const seedId of [
+        'U-PRNQKRaC', // USER.md About
+        'U-CEKUY3H4', // HABITS.md Iteration Cadence
+        'U-RDBNQSL7', // LESSONS.md Tooling Lessons
+        'P-T6M95JXF', // MEMORY.md Active Threads (example)
+        'L-aVFaHNDV', // machine-paths.md (example)
+      ]) {
+        expect(r.snapshot).not.toContain(seedId);
+      }
+      // No `(example)` markers and no all-zero seed sha1 leak through.
+      expect(r.snapshot).not.toContain('(example)');
+      expect(r.snapshot).not.toContain(
+        'sha1: 0000000000000000000000000000000000000000',
+      );
+      // No format-explanation comment headers reach Claude.
+      expect(r.snapshot).not.toContain('MEMORY.md is the working scratchpad');
+      // A seeds-only install injects essentially nothing (honest: the kit
+      // doesn't know you yet). Real facts appear only once captured.
+      expect(Buffer.byteLength(r.snapshot, 'utf8')).toBeLessThan(200);
 
-      // Substantive USER-tier content reaches Claude — at least one of
-      // the frozen seed bullets from each user-tier scratchpad. This is
-      // the PR-25 regression test: pre-PR-25, the user tier was dropped
-      // wholesale on every default install.
-      expect(r.snapshot).toContain('U-PRNQKRaC'); // USER.md About
-      expect(r.snapshot).toContain('U-CEKUY3H4'); // HABITS.md Iteration Cadence
-      expect(r.snapshot).toContain('U-RDBNQSL7'); // LESSONS.md Tooling Lessons
-
-      // PR-B contract: NO legacy whole-tier drops on default install.
-      // Per-tier section-truncations (graceful degradation) are
-      // acceptable on the P tier due to INDEX content; see comment
-      // above.
+      // PR-B contract preserved: NO legacy whole-tier drops.
       const wholeDrops = r.truncationEvents.filter((e) => e.dropped_tiers);
       expect(wholeDrops).toEqual([]);
     });
