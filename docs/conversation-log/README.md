@@ -1,5 +1,13 @@
 # Conversation log
 
+> **⛔ RETIRED 2026-05-30.** No longer maintained. It went dormant after 2026-05-22 (the whole v0.1.x → v0.2 stretch was never logged here), and its role is now covered by two **live** surfaces:
+> - **[`docs/journey/DECISION-LOG.md`](../journey/DECISION-LOG.md)** — *what was decided + why* (append-only, per CLAUDE.md "Decision-log discipline").
+> - **[`docs/journey/v0.1.0-build-log.md`](../journey/v0.1.0-build-log.md)** — *narrative / messy path / per-PR retrospectives*.
+>
+> The two `2026-05-2x.md` files are kept as the historical trail. **Do not add new entries here** — use the two surfaces above and **keep THOSE current.** The lesson of this retirement: a doc surface left to go dormant becomes a liability. If you ever reach for a third narrative surface, use the two above — don't start a newer one.
+
+---
+
 Session-by-session narrative of the development of `claude-memory-kit`. Where ADRs capture *what was decided*, the conversation log captures *what was discussed* — in what order, with what tangents, with what corrections, with what realizations.
 
 ## Why keep this

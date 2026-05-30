@@ -1157,3 +1157,9 @@ Each parent task ships as a PR titled `[<task #>] <description>` (e.g., `[7] Per
   - [ ] 55.3 Snapshot surfacing + review-queue routing for medium-confidence patterns
   - [ ]* 55.4 Tests — recurrence detection; promotion lands in the right tier; medium-confidence routes to review; over-mutation guard
   - _Requirements: US-1/US-5 (the kit's thesis, behavioral slice); design §16.52, §6 (auto-extract), §4 (trust); Task 45_
+
+- [ ] 56. Upgrade vitest 2.x → 4.x (+ `@vitest/coverage-v8` in lockstep) — **maintenance; Dependabot PR #71**
+  - Estimate: S/M · **v0.2-era chore; do when convenient (no feature depends on it).** Not a feature — a dev-toolchain major bump.
+  - **Context**: Dependabot opened PR #71 bumping `vitest` **2.1.9 → 4.1.7** (a TWO-major jump: 2→3→4). It bumps ONLY `vitest`, leaving `@vitest/coverage-v8` at `^2.1.9` → **version mismatch that breaks the `Coverage` CI job**. Do NOT merge #71 as-is.
+  - **What this entails**: (1) bump BOTH `vitest` + `@vitest/coverage-v8` to the matching 4.x in `package.json`; (2) read the vitest 3.0 + 4.0 migration notes for breaking changes (config shape, coverage provider, snapshot format, `environment` API); (3) run the full suite (1262 tests) + `npm run test:coverage` + the 8 validators; fix breakages; (4) confirm the 70% coverage ratchet still computes; (5) close/supersede Dependabot #71. TDD-not-applicable (toolchain); the gate is the existing suite passing on the new major.
+  - _Why it's tracked, not auto-merged_: a test-framework two-major bump can silently change test/coverage behavior; it earns a deliberate pass, not a rubber-stamp (the design §16 / Task 53 "let Dependabot PR the dev-only bumps, don't force the major inside a feature task" note).
