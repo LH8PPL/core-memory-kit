@@ -51,7 +51,7 @@ import { overrideTrust as overrideTrustAction } from './trust.mjs';
 import { resolveConflictQueue, mergeScratchpadBullets } from './conflict-queue.mjs';
 import { resolveReviewQueue } from './review-queue.mjs';
 import { createInterface } from 'node:readline';
-import { resolve as resolvePath, join } from 'node:path';
+import { resolve as resolvePath, join, basename } from 'node:path';
 
 const NOTICE_PREFIX = 'not yet implemented in v0.1.0';
 
@@ -65,20 +65,49 @@ const NOTICE_PREFIX = 'not yet implemented in v0.1.0';
 async function runInstall(options /* , command */) {
   // commander maps `--no-hooks` to options.hooks === false.
   const noHooks = !!(options && options.hooks === false);
+  const verbose = !!(options && options.verbose);
   const result = await installAction({ force: !!(options && options.force), noHooks });
-  const parts = [
-    `scaffolded ${result.created.length} file(s)`,
-    result.skipped.length ? `skipped ${result.skipped.length} existing` : null,
-    `.gitignore=${result.gitignore.action}`,
-    `CLAUDE.md=${result.claudeMd.action}`,
-    `hooks=${result.hooks.action}`,
-  ].filter(Boolean);
-  console.log('cmk install: ' + parts.join(', '));
 
-  if (result.hooks.action === 'wired' || result.hooks.action === 'unchanged') {
+  // Outcome over inventory (self-test UX finding): state the resulting state +
+  // next action, not a file tally. The old "scaffolded 5, skipped 4 existing"
+  // read like a problem on a FRESH folder — the "skipped" are the cross-project
+  // user tier at ~/.claude-memory-kit/ (OUTSIDE this folder), already on disk.
+  // The full per-tier breakdown is --verbose only.
+  const projectName = basename(resolvePath(process.cwd()));
+  const wired =
+    result.hooks.action === 'wired' || result.hooks.action === 'unchanged';
+  const broughtSomethingNew =
+    result.created.length > 0 ||
+    result.gitignore.action === 'created' ||
+    result.claudeMd.action === 'created';
+
+  if (broughtSomethingNew) {
     console.log(
-      '  hooks wired into .claude/settings.json — restart Claude Code to activate. ' +
-        'This is a COMPLETE install; no separate /plugin step is needed.',
+      `cmk install: ${projectName} ready — context/ scaffolded${
+        wired ? ', hooks wired' : ''
+      }.`,
+    );
+  } else {
+    console.log(
+      `cmk install: ${projectName} already set up (your edits preserved)${
+        wired ? ', hooks refreshed' : ''
+      }.`,
+    );
+  }
+  if (wired) {
+    console.log(
+      '  Restart Claude Code to activate. Complete install — no separate /plugin step needed.',
+    );
+  }
+  if (verbose) {
+    console.log(
+      `  files: ${result.created.length} created, ${result.skipped.length} already present` +
+        (result.skipped.length
+          ? ' (incl. the cross-project user tier at ~/.claude-memory-kit/, outside this folder)'
+          : ''),
+    );
+    console.log(
+      `  .gitignore=${result.gitignore.action} · CLAUDE.md=${result.claudeMd.action} · hooks=${result.hooks.action}`,
     );
   }
 
@@ -1103,6 +1132,7 @@ export const subcommands = [
     optionSpec: [
       { flags: '--force', description: 'allow downgrade of an existing newer-version CLAUDE.md block' },
       { flags: '--no-hooks', description: 'scaffold only; do NOT wire hooks into .claude/settings.json' },
+      { flags: '--verbose', description: 'show the per-tier created/skipped file breakdown' },
     ],
     action: runInstall,
   },

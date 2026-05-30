@@ -1,5 +1,7 @@
-// @doors: 1, 2
-// Door 3 N/A: `cmk install` is a pure file-tree creation flow; no subprocess spawn under test (the bash bin wrapper is separately tested in cli-hooks-scaffold).
+// @doors: 1, 2, 3
+// Door 3: the CLI-output describe spawns the real `cmk install` binary to pin
+//   the human-readable status message (the in-process install() tests cover the
+//   file-tree contract; the message lives in the CLI handler, runInstall).
 // Door 4 N/A: no message-queue interaction.
 // Door 5 N/A: install doesn't emit NDJSON observability — it prints human-readable status to stdout.
 
@@ -32,11 +34,21 @@ import {
   mkdirSync,
   readdirSync,
 } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { install } from '../packages/cli/src/install.mjs';
+
+const CMK_BIN = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  'packages',
+  'cli',
+  'bin',
+  'cmk.mjs',
+);
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = join(dirname(__filename), '..');
@@ -189,6 +201,47 @@ describe('Task 3 — cmk install', () => {
       expect(claudeMd).not.toContain(
         'create `context/memory/<type>_<slug>.md` with full YAML frontmatter',
       );
+    });
+  });
+
+  describe('CLI output message — outcome over inventory (#UX)', () => {
+    function runCli(args, cwd, userDir) {
+      return spawnSync(process.execPath, [CMK_BIN, 'install', ...args], {
+        cwd,
+        encoding: 'utf8',
+        env: { ...process.env, MEMORY_KIT_USER_DIR: userDir },
+      });
+    }
+
+    it('fresh install: reports the project is ready, NOT a scary "skipped N existing" tally', () => {
+      const sandbox = mkdtempSync(join(tmpdir(), 'cmk-install-msg-'));
+      try {
+        const proj = join(sandbox, 'proj');
+        mkdirSync(proj, { recursive: true });
+        const r = runCli([], proj, join(sandbox, 'user'));
+        expect(r.status ?? 0).toBe(0);
+        expect(r.stdout).toMatch(/ready — context\/ scaffolded/);
+        // The old confusing inventory must NOT appear by default (the "skipped"
+        // were the user-tier files outside the folder — read like a problem).
+        expect(r.stdout).not.toMatch(/skipped \d+ existing/);
+        expect(r.stdout).not.toMatch(/scaffolded \d+ file/);
+      } finally {
+        rmSync(sandbox, { recursive: true, force: true });
+      }
+    });
+
+    it('--verbose: shows the per-tier created/already-present breakdown', () => {
+      const sandbox = mkdtempSync(join(tmpdir(), 'cmk-install-msgv-'));
+      try {
+        const proj = join(sandbox, 'proj');
+        mkdirSync(proj, { recursive: true });
+        const r = runCli(['--verbose'], proj, join(sandbox, 'user'));
+        expect(r.status ?? 0).toBe(0);
+        expect(r.stdout).toMatch(/files: \d+ created, \d+ already present/);
+        expect(r.stdout).toMatch(/\.gitignore=.*CLAUDE\.md=.*hooks=/);
+      } finally {
+        rmSync(sandbox, { recursive: true, force: true });
+      }
     });
   });
 

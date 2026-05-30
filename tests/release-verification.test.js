@@ -22,14 +22,14 @@ const repoRoot = join(__dirname, '..');
 
 describe('Task 43 — release verification (pre-publish gates)', () => {
   describe('43.1 — package versions match 0.1.0', () => {
-    it('packages/cli/package.json version is 0.1.1 (Task 49 unify-install release)', () => {
+    it('packages/cli/package.json version is 0.1.2 (self-test fixes release)', () => {
       const pkg = JSON.parse(
         readFileSync(join(repoRoot, 'packages', 'cli', 'package.json'), 'utf8'),
       );
-      expect(pkg.version).toBe('0.1.1');
+      expect(pkg.version).toBe('0.1.2');
     });
 
-    it('packages/canonicalize/package.json stays 0.1.0 (unchanged in v0.1.1; not republished)', () => {
+    it('packages/canonicalize/package.json stays 0.1.0 (unchanged; not republished)', () => {
       const pkg = JSON.parse(
         readFileSync(join(repoRoot, 'packages', 'canonicalize', 'package.json'), 'utf8'),
       );
@@ -52,10 +52,11 @@ describe('Task 43 — release verification (pre-publish gates)', () => {
       text = readFileSync(path, 'utf8');
     });
 
-    it('has both [0.1.0] and [0.1.1] headings with ISO release dates', () => {
+    it('has [0.1.0], [0.1.1], and the current [0.1.2] headings with ISO release dates', () => {
       text = readFileSync(join(repoRoot, 'CHANGELOG.md'), 'utf8');
       expect(text).toMatch(/##\s*\[0\.1\.0\]\s*[—\-]\s*\d{4}-\d{2}-\d{2}/);
       expect(text).toMatch(/##\s*\[0\.1\.1\]\s*[—\-]\s*\d{4}-\d{2}-\d{2}/);
+      expect(text).toMatch(/##\s*\[0\.1\.2\]\s*[—\-]\s*\d{4}-\d{2}-\d{2}/);
     });
 
     it('the [0.1.0] release section has a non-empty Added with at least 10 bullets', () => {
