@@ -38,7 +38,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { spawnBinSync } from './spawn-bin.mjs';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import { nowIso } from './audit-log.mjs';
@@ -62,7 +62,10 @@ async function hc1Memsearch() {
   // semantic requires a separate `pip install memsearch[onnx]`.
   // `requiresInstall: true` so the CLI prompts before auto-installing.
   try {
-    const r = spawnSync('memsearch', ['--version'], {
+    // spawnBinSync resolves the Windows .cmd shim without `shell:true`+args
+    // (no DEP0190; #4). memsearch's only arg is `--version` (no spaces), so
+    // the quoting is a no-op here — the win is dropping the deprecated combo.
+    const r = spawnBinSync('memsearch', ['--version'], {
       encoding: 'utf8',
       // M1 fix (skill-review 2026-05-28): 3.5s tolerates Windows
       // cold-Python startup (AV scan + .pyc generation on first hit
@@ -71,7 +74,6 @@ async function hc1Memsearch() {
       // still fits comfortably inside the 5s NFR budget. Timeout →
       // 'skip' so cmk doctor completes regardless.
       timeout: 3_500,
-      shell: process.platform === 'win32',
     });
     if (r.status === 0) {
       return {
