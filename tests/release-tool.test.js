@@ -1,7 +1,7 @@
-// @doors: 1
-// Door 2 N/A: assembleRelease is a PURE function (text in → text out); the fs
-//   write + package.json bump live in the thin CLI wrapper (scripts/release.mjs),
-//   exercised by the release-verification suite + a real release.
+// @doors: 1, 2
+// Door 1 (Response): assembleRelease/extractReleaseNotes return values.
+// Door 2 (State): prepareReleaseFiles writes the finalized CHANGELOG + the
+//   bumped packages/cli/package.json under a sandbox repoRoot.
 // Door 3 N/A: no subprocess at this boundary.
 // Door 4 N/A: no NDJSON observability.
 // Door 5 N/A: no message queue.
@@ -12,8 +12,11 @@
 // section + a fresh empty [Unreleased] + the extracted GitHub release notes,
 // and computes the bumped semver. One file in → CHANGELOG + version + notes out.
 
-import { describe, it, expect } from 'vitest';
-import { assembleRelease, extractReleaseNotes } from '../scripts/lib/changelog-release.mjs';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { assembleRelease, extractReleaseNotes, prepareReleaseFiles } from '../scripts/lib/changelog-release.mjs';
 
 const SAMPLE = `# Changelog
 
@@ -88,6 +91,22 @@ describe('assembleRelease() — generate a release from the [Unreleased] section
     expect(assembleRelease({ changelogText: SAMPLE, currentVersion: '0.1.2', version: '0.5.0', date: '2026-06-15' }).newVersion).toBe('0.5.0');
   });
 
+  it('handles an [Unreleased]-only changelog (no prior releases — EOF body path)', () => {
+    const firstRelease = `# Changelog
+
+## [Unreleased]
+
+### Added
+
+- first ever feature ([#1](https://github.com/LH8PPL/claude-memory-kit/pull/1)).
+`;
+    const r = assembleRelease({ changelogText: firstRelease, currentVersion: '0.0.1', bump: 'minor', date: '2026-06-15' });
+    expect(r.newVersion).toBe('0.1.0');
+    expect(r.changelog).toMatch(/## \[0\.1\.0\] — 2026-06-15/);
+    expect(r.changelog).toMatch(/## \[Unreleased\]/);
+    expect(r.notes).toMatch(/first ever feature/);
+  });
+
   it('refuses to release when [Unreleased] has no real entries (only the placeholder comment)', () => {
     const empty = `# Changelog
 
@@ -125,5 +144,51 @@ describe('extractReleaseNotes() — CI builds the GitHub release from CHANGELOG'
 
   it('throws when the version section is absent', () => {
     expect(() => extractReleaseNotes(SAMPLE, '9.9.9')).toThrow(/no "## \[9\.9\.9\]"/);
+  });
+});
+
+describe('prepareReleaseFiles() — Door 2: writes CHANGELOG + bumps package.json', () => {
+  let root;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'cmk-release-'));
+    writeFileSync(join(root, 'CHANGELOG.md'), SAMPLE, 'utf8');
+    mkdirSync(join(root, 'packages', 'cli'), { recursive: true });
+    writeFileSync(
+      join(root, 'packages', 'cli', 'package.json'),
+      JSON.stringify({ name: '@lh8ppl/claude-memory-kit', version: '0.1.2' }, null, 2) + '\n',
+      'utf8',
+    );
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('writes the finalized CHANGELOG and the bumped version in lockstep', () => {
+    const r = prepareReleaseFiles({ repoRoot: root, target: 'minor', date: '2026-06-15' });
+    expect(r.newVersion).toBe('0.2.0');
+    expect(r.wrote).toBe(true);
+
+    const changelog = readFileSync(join(root, 'CHANGELOG.md'), 'utf8');
+    expect(changelog).toMatch(/## \[0\.2\.0\] — 2026-06-15/);
+    expect(changelog).toMatch(/## \[Unreleased\]/); // fresh skeleton remains
+
+    const pkg = JSON.parse(readFileSync(join(root, 'packages', 'cli', 'package.json'), 'utf8'));
+    expect(pkg.version).toBe('0.2.0');
+    expect(pkg.name).toBe('@lh8ppl/claude-memory-kit'); // other fields untouched
+  });
+
+  it('dry mode computes the version but does NOT write either file', () => {
+    const before = readFileSync(join(root, 'CHANGELOG.md'), 'utf8');
+    const r = prepareReleaseFiles({ repoRoot: root, target: 'minor', date: '2026-06-15', dry: true });
+    expect(r.newVersion).toBe('0.2.0');
+    expect(r.wrote).toBe(false);
+    expect(readFileSync(join(root, 'CHANGELOG.md'), 'utf8')).toBe(before);
+    expect(JSON.parse(readFileSync(join(root, 'packages', 'cli', 'package.json'), 'utf8')).version).toBe('0.1.2');
+  });
+
+  it('propagates the empty-[Unreleased] guard (refuses + leaves files untouched)', () => {
+    writeFileSync(join(root, 'CHANGELOG.md'), '# Changelog\n\n## [Unreleased]\n\n<!-- empty -->\n\n## [0.1.2] — 2026-05-30\n\n- prior.\n', 'utf8');
+    const before = readFileSync(join(root, 'CHANGELOG.md'), 'utf8');
+    expect(() => prepareReleaseFiles({ repoRoot: root, target: 'minor', date: '2026-06-15' })).toThrow(/nothing to release/i);
+    expect(readFileSync(join(root, 'CHANGELOG.md'), 'utf8')).toBe(before); // no partial write
+    expect(JSON.parse(readFileSync(join(root, 'packages', 'cli', 'package.json'), 'utf8')).version).toBe('0.1.2');
   });
 });

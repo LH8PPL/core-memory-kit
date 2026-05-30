@@ -14,6 +14,9 @@
 // assembler/output contract stays the same. We adopt that ceremony only when the
 // conflict problem it solves actually exists.
 
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 const UNRELEASED_RE = /^##\s*\[Unreleased\]\s*$/im;
 const VERSION_HEADING_RE = /^##\s*\[\d+\.\d+\.\d+\]/m;
 
@@ -135,4 +138,40 @@ export function extractReleaseNotes(changelogText, version) {
   const next = /^##\s*\[/m.exec(after);
   const body = next ? after.slice(0, next.index) : after;
   return body.replace(/<!--[\s\S]*?-->/g, '').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/**
+ * fs orchestrator behind `npm run release`: read CHANGELOG.md + the cli
+ * package.json under `repoRoot`, assemble the release, and (unless `dry`)
+ * write both back — the finalized CHANGELOG + the bumped version in lockstep.
+ * Separated from the CLI so the State door (the writes) is testable against a
+ * sandbox repoRoot.
+ *
+ * @returns {{newVersion, notes, changelogPath, pkgPath, wrote: boolean}}
+ */
+export function prepareReleaseFiles({ repoRoot, target, date, dry = false } = {}) {
+  if (!repoRoot) throw new Error('prepareReleaseFiles: repoRoot is required');
+  if (!target) throw new Error('prepareReleaseFiles: target (patch|minor|major|X.Y.Z) is required');
+  const changelogPath = join(repoRoot, 'CHANGELOG.md');
+  const pkgPath = join(repoRoot, 'packages', 'cli', 'package.json');
+
+  const changelogText = readFileSync(changelogPath, 'utf8');
+  const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+  const isExplicit = /^\d+\.\d+\.\d+$/.test(target);
+
+  const { newVersion, changelog, notes } = assembleRelease({
+    changelogText,
+    currentVersion: pkg.version,
+    bump: isExplicit ? undefined : target,
+    version: isExplicit ? target : undefined,
+    date,
+  });
+
+  if (!dry) {
+    writeFileSync(changelogPath, changelog, 'utf8');
+    pkg.version = newVersion;
+    writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf8');
+  }
+
+  return { newVersion, notes, changelogPath, pkgPath, wrote: !dry };
 }

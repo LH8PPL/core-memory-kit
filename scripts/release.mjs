@@ -11,14 +11,11 @@
 // push (your outward-facing step) triggers publish.yml, which publishes to npm
 // AND creates the GitHub Release from the same CHANGELOG section.
 
-import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { assembleRelease } from './lib/changelog-release.mjs';
+import { prepareReleaseFiles } from './lib/changelog-release.mjs';
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
-const changelogPath = join(repoRoot, 'CHANGELOG.md');
-const pkgPath = join(repoRoot, 'packages', 'cli', 'package.json');
+const repoRoot = process.env.CMK_REPO_ROOT ?? join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const args = process.argv.slice(2);
 const dry = args.includes('--dry');
@@ -31,34 +28,20 @@ if (!target) {
   process.exit(2);
 }
 
-const changelogText = readFileSync(changelogPath, 'utf8');
-const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
-const isExplicit = /^\d+\.\d+\.\d+$/.test(target);
-
 let result;
 try {
-  result = assembleRelease({
-    changelogText,
-    currentVersion: pkg.version,
-    bump: isExplicit ? undefined : target,
-    version: isExplicit ? target : undefined,
-    date,
-  });
+  result = prepareReleaseFiles({ repoRoot, target, date, dry });
 } catch (err) {
   process.stderr.write(`release: ${err?.message ?? err}\n`);
   process.exit(1);
 }
 
-const { newVersion, changelog, notes } = result;
+const { newVersion, notes } = result;
 
 if (dry) {
   process.stdout.write(`[dry-run] would release v${newVersion}\n\n--- release notes ---\n${notes}\n`);
   process.exit(0);
 }
-
-writeFileSync(changelogPath, changelog, 'utf8');
-pkg.version = newVersion;
-writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf8');
 
 process.stdout.write(
   [
