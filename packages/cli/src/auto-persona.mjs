@@ -46,6 +46,7 @@ import { parse } from './frontmatter.mjs';
 import { memoryWrite } from './memory-write.mjs';
 import { detectConflicts } from './conflict-queue.mjs';
 import { appendAuditEntry, REASON_CODES } from './audit-log.mjs';
+import { DEFAULT_COOLDOWN_MS, isCooldownActive, touchCooldownMarker } from './cooldown.mjs';
 
 // User-tier scratchpads auto-persona is allowed to promote into. A
 // classifier-named target outside this set is dropped defensively (the
@@ -133,7 +134,7 @@ function parseCandidates(outputText) {
  */
 export async function autoPersona(opts = {}) {
   const t0 = Date.now();
-  const { projectRoot, userDir, backend, now, settings } = opts;
+  const { projectRoot, userDir, backend, now, settings, cooldownMs = DEFAULT_COOLDOWN_MS } = opts;
 
   if (!projectRoot) {
     return errorResult({
@@ -159,6 +160,14 @@ export async function autoPersona(opts = {}) {
 
   const ts = now ?? new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
 
+  // Shared 120s Haiku cooldown (same marker daily-distill / weekly-curate /
+  // auto-extract touch). cooldownMs:0 override lets a caller run auto-persona
+  // inside an already-gated cycle (e.g. weekly-curate, per §8.7.2 — both Haiku
+  // calls belong to one cycle, not two independent invocations).
+  if (cooldownMs > 0 && isCooldownActive({ projectRoot, now: ts, cooldownMs })) {
+    return { action: 'skipped', reason: 'cooldown', promoted: [], queued: [], duration_ms: Date.now() - t0 };
+  }
+
   const corpus = assembleProjectCorpus({ projectRoot, userDir });
   if (!corpus) {
     return { action: 'skipped', reason: 'no-facts', promoted: [], queued: [], duration_ms: Date.now() - t0 };
@@ -173,7 +182,12 @@ export async function autoPersona(opts = {}) {
       maxOutputBytes: 4096,
       timeoutMs: 50_000,
     });
+    // Spent a Haiku call — refresh the shared cooldown marker so the next
+    // gated caller backs off. (touch even on cooldownMs:0 cycles: the call
+    // happened, so the marker should reflect it for any LATER gated caller.)
+    touchCooldownMarker({ projectRoot, now: ts });
   } catch (err) {
+    touchCooldownMarker({ projectRoot, now: ts });
     return errorResult({
       category: ERROR_CATEGORIES.COMPRESS_FAILED,
       errors: [err?.message ?? String(err)],

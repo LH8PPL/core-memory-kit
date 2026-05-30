@@ -17,6 +17,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { autoPersona } from '../packages/cli/src/auto-persona.mjs';
 import { appendScratchpadBullet } from '../packages/cli/src/scratchpad.mjs';
+import { touchCooldownMarker } from '../packages/cli/src/cooldown.mjs';
+import { weeklyCurate } from '../packages/cli/src/weekly-curate.mjs';
 
 /** Seed a pre-existing user-tier bullet at a given trust (for conflict tests). */
 function seedUserBullet({ scratchpad, section, text, trust }) {
@@ -293,6 +295,117 @@ describe('Task 45 — auto-supersede + conflict staging', () => {
     const conflictsQueue = join(userDir, 'queues', 'conflicts.md');
     expect(existsSync(conflictsQueue), 'conflict queue file should exist').toBe(true);
     expect(readFileSync(conflictsQueue, 'utf8')).toMatch(/preamble/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cooldown gate (I-3) — shares the 120s Haiku marker with the other backends
+// ---------------------------------------------------------------------------
+
+describe('Task 45 — cooldown gate', () => {
+  it('skips without calling the backend when the shared cooldown is active', async () => {
+    seedUserTier();
+    seedFact({ slug: 'feedback_venv', id: 'P-WGQAZFVC', type: 'feedback', title: 'venv', body: 'venv doctrine.' });
+    // Another Haiku caller just ran in this project → cooldown is active.
+    touchCooldownMarker({ projectRoot, now: NOW });
+
+    let called = false;
+    const backend = classifierBackend(
+      ['PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=high | x'],
+      { onCompress: () => { called = true; } },
+    );
+
+    const r = await autoPersona({ projectRoot, userDir, backend, now: NOW });
+    expect(r.action).toBe('skipped');
+    expect(r.reason).toBe('cooldown');
+    expect(called, 'backend.compress must NOT be called during cooldown').toBe(false);
+  });
+
+  it('cooldownMs:0 override runs even with an active marker (single-cycle composition, like dailyDistill)', async () => {
+    seedUserTier();
+    seedFact({ slug: 'feedback_venv', id: 'P-WGQAZFVC', type: 'feedback', title: 'venv', body: 'venv doctrine.' });
+    touchCooldownMarker({ projectRoot, now: NOW });
+    const backend = classifierBackend([
+      'PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=high | Uses a Python 3.13 venv on every project',
+    ]);
+    const r = await autoPersona({ projectRoot, userDir, backend, now: NOW, cooldownMs: 0 });
+    expect(r.action).toBe('promoted');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Design-B integration — weekly-curate triggers auto-persona (D-14/D-15)
+// ---------------------------------------------------------------------------
+
+describe('Task 45 — weekly-curate hook (Design B)', () => {
+  // A backend that serves BOTH callers in one weekly cycle: the persona
+  // classifier (its prompt says "persona archivist") and the curate
+  // consolidator (everything else).
+  function dualBackend(personaLines) {
+    return {
+      modelId: () => 'mock-haiku',
+      async compress({ instructions }) {
+        if (/persona archivist/i.test(instructions)) {
+          return { outputText: personaLines.join('\n'), modelId: 'mock-haiku', costUSD: 0 };
+        }
+        return { outputText: '## Week of 2026-05-01\n- consolidated archive bullet', modelId: 'mock-haiku', costUSD: 0 };
+      },
+    };
+  }
+
+  it('auto-promotes persona facts to the user tier as part of the weekly cycle', async () => {
+    seedUserTier();
+    seedFact({
+      slug: 'feedback_venv',
+      id: 'P-WGQAZFVC',
+      type: 'feedback',
+      title: 'venv',
+      body: 'Across every project I use a Python 3.13 venv.',
+    });
+    // An old session file (>7 days before NOW) so curate has work to do too.
+    const sessionsDir = join(projectRoot, 'context', 'sessions');
+    mkdirSync(sessionsDir, { recursive: true });
+    writeFileSync(join(sessionsDir, 'today-2026-05-01.md'), '- did some work on 2026-05-01\n', 'utf8');
+
+    const backend = dualBackend([
+      'PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=high | Always uses a Python 3.13 venv on every project',
+    ]);
+
+    const r = await weeklyCurate({ projectRoot, userDir, backend, now: NOW });
+
+    // Curate ran (old file archived) AND persona promoted in the same cycle.
+    expect(r.action).toBe('curated');
+    expect(r.persona).toBeTruthy();
+    expect(r.persona.action).toBe('promoted');
+    expect(readFileSync(join(userDir, 'HABITS.md'), 'utf8')).toMatch(/Python 3\.13 venv/);
+  });
+
+  it('runs persona even when there are no old session files to archive', async () => {
+    seedUserTier();
+    seedFact({ slug: 'feedback_venv', id: 'P-WGQAZFVC', type: 'feedback', title: 'venv', body: 'Across every project I use a 3.13 venv.' });
+    // sessions dir exists but only a CURRENT (not old) file → no-old-files path.
+    const sessionsDir = join(projectRoot, 'context', 'sessions');
+    mkdirSync(sessionsDir, { recursive: true });
+    writeFileSync(join(sessionsDir, 'today-2026-05-30.md'), '- today\n', 'utf8');
+
+    const backend = dualBackend([
+      'PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=high | Always uses a Python 3.13 venv on every project',
+    ]);
+
+    const r = await weeklyCurate({ projectRoot, userDir, backend, now: NOW });
+    expect(r.action).toBe('skipped');
+    expect(r.reason).toBe('no-old-files');
+    expect(r.persona?.action).toBe('promoted'); // persona still ran
+    expect(readFileSync(join(userDir, 'HABITS.md'), 'utf8')).toMatch(/Python 3\.13 venv/);
+  });
+
+  it('does not run persona when userDir is absent (project-only callers unaffected)', async () => {
+    const sessionsDir = join(projectRoot, 'context', 'sessions');
+    mkdirSync(sessionsDir, { recursive: true });
+    writeFileSync(join(sessionsDir, 'today-2026-05-30.md'), '- today\n', 'utf8');
+    const backend = dualBackend(['PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=high | x']);
+    const r = await weeklyCurate({ projectRoot, backend, now: NOW });
+    expect(r.persona).toBeUndefined();
   });
 });
 
