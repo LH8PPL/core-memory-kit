@@ -16,6 +16,29 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { autoPersona } from '../packages/cli/src/auto-persona.mjs';
+import { appendScratchpadBullet } from '../packages/cli/src/scratchpad.mjs';
+
+/** Seed a pre-existing user-tier bullet at a given trust (for conflict tests). */
+function seedUserBullet({ scratchpad, section, text, trust }) {
+  const r = appendScratchpadBullet({
+    tier: 'U',
+    scratchpad,
+    section,
+    text,
+    provenance: {
+      source: 'seed',
+      source_line: 1,
+      sha1: 'c'.repeat(40),
+      write: trust === 'high' ? 'user-explicit' : 'compressor',
+      trust,
+      at: '2026-05-29T00:00:00Z',
+    },
+    userDir,
+    now: '2026-05-29T00:00:00Z',
+  });
+  if (r.action !== 'appended') throw new Error(`seedUserBullet failed: ${JSON.stringify(r)}`);
+  return r;
+}
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -188,6 +211,88 @@ describe('Task 45 — auto-persona optimistic auto-promote', () => {
     expect(r.promoted ?? []).toHaveLength(0);
     // No spurious writes into the user tier.
     expect(readFileSync(join(userDir, 'HABITS.md'), 'utf8')).not.toMatch(/^- \(/m);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Auto-supersede on contradiction + high-trust conflict staging (45.6)
+// ---------------------------------------------------------------------------
+
+describe('Task 45 — auto-supersede + conflict staging', () => {
+  function countBullets(text) {
+    return (text.match(/^- \(/gm) || []).length;
+  }
+
+  it('auto-supersedes a same-topic trust:medium persona fact (no duplicate — finding #3 Gap B)', async () => {
+    seedUserTier();
+    // An existing, system-promoted persona fact about the venv habit.
+    seedUserBullet({
+      scratchpad: 'HABITS.md',
+      section: 'Iteration Cadence',
+      text: 'Always uses a Python 3.13 venv across every project',
+      trust: 'medium',
+    });
+    seedFact({
+      slug: 'feedback_venv',
+      id: 'P-WGQAZFVC',
+      type: 'feedback',
+      title: 'venv',
+      body: 'venv doctrine, updated.',
+    });
+    // Classifier surfaces an UPDATED, near-identical version (same topic).
+    const backend = classifierBackend([
+      'PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=high | Always uses a Python 3.13 venv across every project, never the system Python',
+    ]);
+
+    const r = await autoPersona({ projectRoot, userDir, backend, now: NOW });
+
+    // Door 1 — the contradiction was resolved by supersede, not coexist.
+    expect(r.superseded).toHaveLength(1);
+    expect(r.superseded[0]).toMatchObject({ target: 'HABITS.md' });
+
+    // Door 2 / over-mutation guard — exactly ONE venv bullet remains in the
+    // Iteration Cadence section (the new one), the stale one is gone.
+    const habits = readFileSync(join(userDir, 'HABITS.md'), 'utf8');
+    const section = habits.slice(habits.indexOf('## Iteration Cadence'));
+    const venvBullets = section.split('\n').filter((l) => /^- \(.*venv/i.test(l) || /venv/i.test(l) && /^- \(/.test(l));
+    expect(venvBullets.length).toBe(1);
+    expect(habits).toMatch(/never the system Python/);
+  });
+
+  it('does NOT overwrite a trust:high hand-curated entry — stages in the conflict queue (45.4 invariant)', async () => {
+    seedUserTier();
+    const handCurated = 'Prefers terse direct replies with no filler';
+    seedUserBullet({
+      scratchpad: 'HABITS.md',
+      section: 'Communication Style',
+      text: handCurated,
+      trust: 'high',
+    });
+    seedFact({
+      slug: 'feedback_comms',
+      id: 'P-CMMSTYLE',
+      type: 'feedback',
+      title: 'comms',
+      body: 'communication preference.',
+    });
+    // A medium-trust persona candidate that CONTRADICTS the hand-curated rule.
+    const backend = classifierBackend([
+      'PERSONA CANDIDATE | target=HABITS.md | section=Communication Style | confidence=high | Prefers terse direct replies with no filler or preamble',
+    ]);
+
+    const r = await autoPersona({ projectRoot, userDir, backend, now: NOW });
+
+    // The hand-curated trust:high bullet is untouched.
+    const habits = readFileSync(join(userDir, 'HABITS.md'), 'utf8');
+    expect(habits).toMatch(/Prefers terse direct replies with no filler\b/);
+    expect(habits).toMatch(/trust:\s*high/);
+
+    // The candidate was staged, not promoted.
+    expect(r.conflicts).toHaveLength(1);
+    expect(r.promoted ?? []).toHaveLength(0);
+    const conflictsQueue = join(userDir, 'queues', 'conflicts.md');
+    expect(existsSync(conflictsQueue), 'conflict queue file should exist').toBe(true);
+    expect(readFileSync(conflictsQueue, 'utf8')).toMatch(/preamble/);
   });
 });
 

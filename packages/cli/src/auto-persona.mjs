@@ -39,12 +39,12 @@
 // Per design §16.16 + §6.2 (conflict) + §6.8 (auto-drain) + §8.3 + tasks.md 45.
 
 import { readFileSync } from 'node:fs';
-import { createHash } from 'node:crypto';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
-import { resolveTierRoot } from './tier-paths.mjs';
+import { resolveTierRoot, resolveScratchpadPath } from './tier-paths.mjs';
 import { listObservationSources } from './index-rebuild.mjs';
 import { parse } from './frontmatter.mjs';
-import { appendScratchpadBullet } from './scratchpad.mjs';
+import { memoryWrite } from './memory-write.mjs';
+import { detectConflicts } from './conflict-queue.mjs';
 import { appendAuditEntry, REASON_CODES } from './audit-log.mjs';
 
 // User-tier scratchpads auto-persona is allowed to promote into. A
@@ -58,10 +58,6 @@ const VALID_TARGETS = new Set(['USER.md', 'HABITS.md', 'LESSONS.md']);
 // surfaced. Free text is the trailing group (may contain '=' / '|').
 const CANDIDATE_RE =
   /^PERSONA CANDIDATE \| target=(.+?) \| section=(.+?) \| confidence=(\w+) \| (.+)$/;
-
-function sha1Hex(text) {
-  return createHash('sha1').update(text, 'utf8').digest('hex');
-}
 
 // Assemble the PROJECT-tier captured facts (granular fact files +
 // MEMORY.md scratchpad bullets) into one corpus the backend classifies.
@@ -190,6 +186,8 @@ export async function autoPersona(opts = {}) {
 
   const promoted = [];
   const queued = [];
+  const superseded = [];
+  const conflicts = [];
   for (const c of candidates) {
     if (!VALID_TARGETS.has(c.target)) continue; // defensive: drop bad routing
     if (c.confidence !== 'high') {
@@ -201,30 +199,69 @@ export async function autoPersona(opts = {}) {
       continue;
     }
 
-    const provenance = {
-      source: 'persona-synthesis',
-      source_line: 1,
-      sha1: sha1Hex(c.text),
-      write: 'compressor', // Haiku-backend synthesis (valid write-source enum)
-      trust: 'medium', // system-derived, not user-attested (45.6)
-      at: ts,
-    };
+    // D-13: promote THROUGH memoryWrite so the write inherits home-path
+    // sanitization (privacy — finding #1 class), Poison_Guard, dedup,
+    // cap/consolidation, and audit — none of which a raw scratchpad
+    // append would carry. We pre-detect conflicts ourselves only to pick
+    // the verb: memoryWrite's v0.1.0 'supersede' path merely appends, so
+    // for the auto-supersede contract (45.6) we issue an explicit
+    // `replace`; the `queue` case (new<existing, e.g. vs a trust:high
+    // hand-curated rule — the 45.4 invariant) is left to memoryWrite's
+    // own conflict-queue routing via a plain `add`.
+    const scratchpadPath = resolveScratchpadPath({ tier: 'U', scratchpad: c.target, userDir });
+    const conflict = detectConflicts({
+      newText: c.text,
+      newTrust: 'medium',
+      scratchpadPath,
+      sectionTitle: c.section,
+    });
 
-    const res = appendScratchpadBullet({
+    const common = {
       tier: 'U',
       scratchpad: c.target,
       section: c.section,
       text: c.text,
-      provenance,
+      trust: 'medium', // system-derived, not user-attested (45.6)
+      source: 'persona-synthesis',
       userDir,
       now: ts,
       settings,
-    });
+    };
 
+    if (conflict.conflict === true && conflict.action === 'supersede') {
+      // New medium-trust persona fact contradicts an existing same-or-
+      // lower-trust one → replace it (no duplicate; closes finding #3
+      // Gap B). doReplace needs the old bullet's exact text.
+      // doReplace returns {action:'replaced', oldId, newId, path}.
+      const res = memoryWrite({ action: 'replace', oldText: conflict.existingText, ...common });
+      if (res.action !== 'replaced') {
+        queued.push({ target: c.target, section: c.section, text: c.text, reason: `not-superseded-${res.errorCategory ?? res.action}` });
+        continue;
+      }
+      appendAuditEntry(userTierRoot, {
+        ts,
+        action: 'persona-supersede',
+        tier: 'U',
+        id: res.newId,
+        reasonCode: REASON_CODES.PERSONA_SUPERSEDED,
+        reasonText: `${c.target} § ${c.section} (superseded ${res.oldId})`,
+        paths: { after: res.path },
+      });
+      superseded.push({ oldId: res.oldId, newId: res.newId, target: c.target, section: c.section });
+      continue;
+    }
+
+    const res = memoryWrite({ action: 'add', ...common });
+
+    if (res.action === 'queued') {
+      // memoryWrite routed to queues/conflicts.md (new<existing trust —
+      // never overwrite a hand-curated trust:high rule, the 45.4 invariant).
+      conflicts.push({ id: res.id, target: c.target, section: c.section, text: c.text, conflictsWith: res.conflictsWith });
+      continue;
+    }
     if (res.action !== 'appended') {
-      // A bad section / cap / missing file — skip this candidate, keep
-      // going. Surfaced via queued[] so it isn't silently lost.
-      queued.push({ target: c.target, section: c.section, text: c.text, reason: `not-promoted-${res.errorCategory ?? 'unknown'}` });
+      // Bad section / cap / dedup-skip — surface, don't silently lose.
+      queued.push({ target: c.target, section: c.section, text: c.text, reason: `not-promoted-${res.errorCategory ?? res.action}` });
       continue;
     }
 
@@ -235,15 +272,18 @@ export async function autoPersona(opts = {}) {
       id: res.id,
       reasonCode: REASON_CODES.PERSONA_PROMOTED,
       reasonText: `${c.target} § ${c.section}`,
-      paths: [res.path],
+      paths: { after: res.path },
     });
 
     promoted.push({ id: res.id, target: c.target, section: c.section, text: c.text, trust: 'medium' });
   }
 
   const duration_ms = Date.now() - t0;
-  if (promoted.length === 0) {
-    return { action: 'skipped', reason: 'no-promotions', promoted, queued, duration_ms };
+  // A supersede IS a promotion outcome (the user tier changed). 'promoted'
+  // when anything landed in the tier; otherwise 'skipped' (candidates may
+  // still have been staged as conflicts / queued — surfaced in the arrays).
+  if (promoted.length === 0 && superseded.length === 0) {
+    return { action: 'skipped', reason: 'no-promotions', promoted, queued, superseded, conflicts, duration_ms };
   }
-  return { action: 'promoted', promoted, queued, superseded: [], conflicts: [], duration_ms };
+  return { action: 'promoted', promoted, queued, superseded, conflicts, duration_ms };
 }

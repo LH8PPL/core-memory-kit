@@ -111,7 +111,13 @@ export function tokenJaccardSimilarity(a, b) {
 
 const BULLET_LINE_RE = /^- \(([PUL])-([A-Za-z0-9]{8})\)\s+(.+)$/;
 const HEADING_LINE_RE = /^##\s+(.+?)\s*$/;
-const PROVENANCE_RE = /^<!--\s*(.*?)\s*-->\s*$/;
+// Leading `\s*` is load-bearing: scratchpad provenance comments are written
+// INDENTED (`  <!-- … trust: high … -->`) by writeBullet/appendScratchpadBullet.
+// Without the leading-whitespace tolerance, collectExistingBullets failed to
+// parse trust and defaulted EVERY existing bullet to 'medium' — so a new
+// medium fact would wrongly 'supersede' an existing trust:high hand-curated
+// bullet instead of routing to the conflict queue (B-1, surfaced by Task 45).
+const PROVENANCE_RE = /^\s*<!--\s*(.*?)\s*-->\s*$/;
 
 function findSectionRange(lines, sectionTitle) {
   let startIdx = -1;
@@ -244,6 +250,7 @@ export function detectConflicts({
       conflict: true,
       action: 'supersede',
       existingId: best.id,
+      existingText: best.text,
       similarity: best.similarity,
       similarityBackend,
     };
