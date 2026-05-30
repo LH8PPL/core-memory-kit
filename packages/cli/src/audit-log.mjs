@@ -46,6 +46,8 @@ export const REASON_CODES = Object.freeze({
   REPAIR_HOOKS_NOOP: 'repair-hooks-noop', // cmk repair --hooks: settings.json already canonical, no-op (Task 39)
   INSTALL_HOOKS_WIRED: 'install-hooks-wired', // cmk install: settings.json wired with npm-route hooks (Task 49). NOTE: no NOOP counterpart — install audits only on change, to keep re-runs byte-idempotent (the audit.log is append-only).
   REPAIR_LOCK_REMOVED: 'repair-lock-removed', // cmk repair --locks: stale lock unlinked (Task 39)
+  PERSONA_PROMOTED: 'persona-promoted', // auto-persona: cross-project doctrine auto-promoted into a user-tier scratchpad at trust:medium (Task 45, design §16.16)
+  PERSONA_SUPERSEDED: 'persona-superseded', // auto-persona: a promoted persona fact auto-superseded a contradicting existing one (Task 45.6, reuses Task 25 conflict detection)
 });
 
 export function nowIso() {
