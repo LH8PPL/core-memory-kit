@@ -429,6 +429,53 @@ describe('Task 30 — cmk search', () => {
         rmSync(sandbox, { recursive: true, force: true });
       }
     });
+
+    it('cmk search auto-reindexes — finds a fact with NO manual reindex (#0, fresh install)', async () => {
+      // Self-test finding #0 (2026-05-30): on a fresh install the FTS5 index
+      // is never built — runSearch did openIndexDb → searchAction with no
+      // reindex, and the runtime chokidar watcher isn't running for a
+      // one-shot CLI call. So `cmk search` returned "no results" even though
+      // the fact was sitting in MEMORY.md (it only worked after a manual
+      // `cmk reindex --full`). runSearch must reindexBoot before querying.
+      // This spawns the REAL cmk bin (Door 3) with NO prior reindex — the
+      // exact user-reported path.
+      const sandbox = mkdtempSync(join(tmpdir(), 'cmk-search-autoreindex-'));
+      const projectRoot = join(sandbox, 'proj');
+      const userDir = join(sandbox, 'user');
+      try {
+        await install({ projectRoot, userTier: userDir });
+        const r1 = writeBullet({
+          id: 'P-AAAAAAAA',
+          text: 'standardized on pnpm for new node projects',
+          provenance: {
+            source: 'MEMORY.md', source_line: 5,
+            sha1: 'c'.repeat(40), write: 'user-explicit',
+            trust: 'high', at: '2026-05-27T10:00:00Z',
+          },
+        });
+        writeFileSync(
+          join(projectRoot, 'context', 'MEMORY.md'),
+          ['# MEMORY.md', '', '## Active Threads', '', r1.bullet, r1.comment, ''].join('\n'),
+          'utf8',
+        );
+        // NO manual reindex. Spawn the real binary exactly as a user would.
+        const r = spawnSync(
+          process.execPath,
+          [CMK_BIN, 'search', 'pnpm'],
+          {
+            cwd: projectRoot,
+            encoding: 'utf8',
+            env: { ...process.env, MEMORY_KIT_USER_DIR: userDir },
+          },
+        );
+        expect(r.status ?? 0).toBe(0);
+        expect(r.stdout).toContain('P-AAAAAAAA');
+        expect(r.stdout).toContain('pnpm');
+        expect(r.stdout).not.toContain('no results');
+      } finally {
+        rmSync(sandbox, { recursive: true, force: true });
+      }
+    });
   });
 
   describe('Schema-error validation', () => {

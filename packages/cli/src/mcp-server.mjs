@@ -34,6 +34,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { resolve as resolvePath, isAbsolute } from 'node:path';
 import { openIndexDb } from './index-db.mjs';
+import { reindexBoot } from './index-rebuild.mjs';
 import { search, SEARCH_MODES } from './search.mjs';
 import { memoryWrite } from './memory-write.mjs';
 import { ID_PATTERN, resolveTierRoot } from './tier-paths.mjs';
@@ -451,6 +452,22 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
  */
 export async function runMcpServer({ projectRoot, userDir, db: dbOverride, semanticBackend } = {}) {
   const db = dbOverride ?? openIndexDb({ projectRoot });
+  // Refresh the index at server startup so mk_search sees facts already on
+  // disk — same fresh-install gap as `cmk search` (self-test finding #0):
+  // nothing reindexes for a just-installed project, so without this the
+  // model's first mk_search returns empty for facts sitting in the
+  // scratchpads. Incremental (mtime/sha1 diff) + best-effort; in-session
+  // freshness for facts written AFTER startup is the runtime watcher's job
+  // (future). The in-process buildMcpServer tests bypass this path.
+  if (projectRoot) {
+    try {
+      reindexBoot({ projectRoot, userDir, db });
+    } catch (err) {
+      process.stderr.write(
+        `cmk-mcp-server: startup index refresh failed: ${err?.message ?? err}\n`,
+      );
+    }
+  }
   const server = buildMcpServer({ projectRoot, userDir, db, semanticBackend });
   const transport = new StdioServerTransport();
 
