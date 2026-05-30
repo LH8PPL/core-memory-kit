@@ -931,8 +931,10 @@ Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility)
 > - 2026-05-24: Task 45 was promoted from §16 v0.1.x candidate → release blocker for v0.1.0. The numbering reflects authoring order; Task 45 was tail-appended rather than slotted after Task 23 to avoid renumbering Tasks 24-44.
 > - 2026-05-28: Re-prioritized to v0.1.1. Lior's autopilot sequencing is 42 → 43 → 44 → 45 — meaning v0.1.0 ships WITHOUT auto-persona, and Task 45 lands in v0.1.1. The original 2026-05-24 entry is preserved below per CLAUDE.md "Decision-trail preservation" rule.
 
-- [ ] 45. Auto-persona generation (T-014) _moved to v0.1.1 release on 2026-05-28_
-  - Estimate: L · Depends: 7, 12, 13, 22, 23, 34 · Original plan: "Must ship before Task 43 (release)" — superseded 2026-05-28; ships AFTER Task 43 as the v0.1.1 release.
+- [ ] 45. Auto-persona generation (T-014) — **v0.2 Phase 2; the friend-handoff gate (self-test finding #2, 2026-05-30)**
+  - Estimate: L · Depends: 7, 12, 13, 22, 23, 34 · Original plan: "Must ship before Task 43 (release)" — superseded 2026-05-28; ships AFTER Task 43.
+  - **Home history (decision-trail):** 2026-05-24 promoted to v0.1.0 in-scope → 2026-05-28 re-prioritized to v0.1.1 → **2026-05-30 re-homed to v0.2 Phase 2.** v0.1.1 shipped (security + install-unify) WITHOUT it; the 2026-05-30 self-test then **empirically reproduced the §16.16 failure mode** (cross-project doctrine captured but filed project-tier; user tier empty — finding #2). Lior 2026-05-30: *"we have to have task 45 and i need v0.2 … i dont think i can send this to my friend without it."* This task is the gate on the friend handoff.
+  - **Posture pivot (decision-trail) — manual gate → optimistic auto-promote.** The original design below (45.1 Design A/B + 45.2 manual `cmk persona accept/reject` + 45.3 `--auto` opt-in **default-off**) is a MANUAL-confirmation shape. It is **superseded for v0.2** by Lior's 2026-05-30 automatic-memory decision (*"i dont want to do anything, i want it to be automatic"*; chose **Optimistic**). New default posture (see 45.6 below): auto-promote cross-project doctrine to the user tier without a manual accept step; route only LOW-confidence candidates to the auto-drained review queue; auto-supersede on contradiction (reuse Task 25 conflict detection). The original 45.1-45.5 manual design is **preserved** as the decision-trail and as the fallback if optimistic auto-promote proves too aggressive in real use.
   - Uses shared modules from `packages/cli/src/{tier-paths,audit-log,frontmatter,result-shapes}.mjs` + scratchpad.mjs (Task 12) + provenance.mjs (Task 13). Consumes auto-extract output from Task 23. See design.md §16.16 for full motivation + design.
   - **Pre-implementation: read [`docs/research/2026-05-24-tencentdb-agent-memory.md`](../../docs/research/2026-05-24-tencentdb-agent-memory.md) (auto-persona-every-N-facts source pattern) + [`docs/research/2026-05-25-claude-remember-code-dive.md`](../../docs/research/2026-05-25-claude-remember-code-dive.md) (identity-candidates inline-surfacing pattern — architectural simplification, see 45.1 below).** License: TencentDB is MIT (port freely with attribution); claude-remember is Community License (absorb idea, write our own).
 - [ ] 45.1 Implement persona-candidate surfacing — **two design choices**
@@ -959,6 +961,33 @@ Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility)
   - Test conflict-with-hand-curated: high-trust entry NOT overwritten; candidate staged in `persona-conflict.md`
   - Test 120s Haiku cooldown honored
   - _Requirements: FR-3, FR-10, FR-29; design §16.16 + §6.2 + §8.3_
+- [ ] 45.6 **v0.2 posture — optimistic auto-promote (supersedes 45.2/45.3's manual gate; decision-trail preserved above)**
+  - **Trigger**: piggyback Task 34's weekly-curate consolidator (Design B, chosen) — it already runs the CompressorBackend over recent content with no extra API call. Auto-persona synthesis runs there.
+  - **Cross-project routing (the finding #2 fix)**: a synthesized doctrine that applies beyond the current project (the "how I work everywhere" class — venv-3.13, layered-backend) is **auto-promoted to the user tier** (`<userDir>/` USER.md / HABITS.md / LESSONS.md) at `trust: medium`, NOT staged behind a manual `cmk persona accept`. This is the structural fix for the empty-user-tier failure the self-test reproduced.
+  - **Confidence gate, not a manual gate**: HIGH-confidence candidates (recurrence ≥ N, or explicit "always/everywhere/from now on" cue) auto-promote directly; LOW-confidence candidates route to the **review queue** which the daily-distill / weekly-curate passes **auto-drain** (no manual `cmk queue review` step — Lior 2026-05-30). The queue stays a safety net for the uncertain, never a required step for the obvious.
+  - **Auto-supersede on contradiction**: when a promoted persona fact contradicts an existing one, reuse Task 25 conflict detection to atomically supersede (close old, write new) rather than silent coexist — closes self-test finding #3 Gap B (no cross-store dedup).
+  - **Never silently demote `trust: high` hand-curated entries** (45.4's invariant still holds): a contradiction against a high-trust hand-curated fact stages in `persona-conflict.md`, it does not auto-overwrite.
+  - **Manual override still works**: `cmk persona accept/reject` (45.2) and `cmk lessons promote` remain available for users who want explicit control; they're just no longer REQUIRED for the common case.
+  - [ ]* 45.7 Tests — cross-project doctrine auto-promotes to user tier at trust:medium (finding #2); high-confidence bypasses queue; low-confidence routes to auto-drained queue; auto-supersede on contradiction (over-mutation guard: other persona facts untouched); high-trust hand-curated NOT auto-overwritten (stages in persona-conflict.md). Five doors incl. Door 4 (audit-log entry per promotion with source-fact IDs).
+  - _Requirements: US-2 (cross-project persona), FR-3, FR-10, FR-29; design §16.16 + §6.2 (conflict) + §6.8 (auto-drain) + §8.3; supersedes 45.2/45.3 default for v0.2_
+
+---
+
+## v0.2 — Automatic memory + "Claude stays consistent" (the kit's core vision)
+
+> Formalized 2026-05-30 from [`docs/journey/v0.1.1-self-test-findings.md`](../../docs/journey/v0.1.1-self-test-findings.md) §"COMMITTED ROADMAP" after the Phase-1 self-test sweep landed (v0.1.2 shipped). Lior: *"this was an integral part of the kit … if it's somewhere in the future I want to be there in that future, and now."* Dependency-ordered phases; **the friend handoff can happen after Phase 2 lands** (user tier finally populates), Phase 3 is the headline value.
+
+**Phase 2 — Automatic memory (kill every manual step).** Make capture→promotion fully hands-off.
+- **Task 45 (auto-persona, optimistic auto-promote — 45.6 above)** — the friend-handoff gate. Cross-project doctrine auto-lands in the user tier.
+- **Auto-drain the review/conflict queues** — the daily-distill (Task 33) + weekly-curate (Task 34) passes drain `queues/review.md` + `queues/conflicts.md` automatically (optimistic auto-promote + auto-supersede). No manual `cmk queue *` step in the common case. _Tracked as a Task 45-adjacent behavior change; formal sub-tasks added when Phase 2 implementation opens._
+
+**Phase 3 — The heart: "Claude remembers its own positions and stays consistent."** The FastAPI scenario (*"2 days ago you said X was a mistake; now you say the opposite"*). Three pieces (findings doc §"v0.2 headline capability"):
+1. **AI-side position capture** — capture Claude's stated positions ("recommended X", "advised against Y") as timestamped, contradiction-checkable decision-facts (today only user prefs + project facts are captured; the assistant's own positions are not).
+2. **Recall the dialogue** — index `context/transcripts/{date}.md` for search (today transcripts are captured to disk but NOT indexed and NOT injected) + inject a compact "recent decisions" digest at SessionStart. **Subsumes Task 51** (index session-rollup + transcript files for search).
+3. **Contradiction-awareness/reconciliation** — prior position in context so Claude notices a reversal and reconciles (explain the change or self-correct). Reuses the optimistic auto-promote + auto-supersede engine from Phase 2.
+- **Task 55 (behavioral pattern detection)** — extends into Phase 3; detect + promote recurring working-style patterns (depends on Task 45).
+
+_Design home: design §16.16 (auto-persona), §16.18 (temporal/validity-windows — serves contradiction reconciliation), §16.52 (behavioral patterns). Each Phase-2/3 task gets full sub-tasks + tests when its implementation PR opens, per the per-task ship cycle._
 
 ---
 
@@ -1112,11 +1141,11 @@ Each parent task ships as a PR titled `[<task #>] <description>` (e.g., `[7] Per
 - [x]* 53.6 Tests — `tests/security-posture.test.js` (21 cases): all four config artifacts exist + parse + carry load-bearing refs (gitleaks/osv/audit-level/codeql init+analyze/provenance/id-token/NPM_TOKEN-not-literal); SECURITY.md sections + disclosure; bugs URLs. "Gate bites" is proven by the scan jobs running on the PR itself.
   - _Requirements: NFR-5, NFR-6, NFR-9; design §16 (new security-hardening entry); ADR (new — "package security posture")_
 
-- [ ] 54. Code-quality + coverage CI (T-042) — **candidate (Lior raised 2026-05-29; reprioritizable)**
+- [x] 54. Code-quality + coverage CI (T-042) _shipped 2026-05-30, PRs #75 (coverage) + #78 (SonarCloud)_
   - Estimate: S/M · Depends: 53 · **v0.1.x — the SonarQube-equivalent dimension CodeQL doesn't cover**
   - **Why**: Task 53 covers security (SCA/SAST/secrets) but not code-quality / maintainability / **test coverage** / quality gates — the things Lior's team gets from SonarQube. Distinct concern from security; kept out of Task 53 to stay focused.
-  - **Options**: (A) **SonarCloud** (free for public repos; hosted SonarQube — quality + maintainability + coverage + quality gates; needs a `SONAR_TOKEN` GH secret); (B) zero-service: Vitest `--coverage` (`@vitest/coverage-v8`) gate in CI + optional **Codecov** (free OSS) dashboard; (C) **CodeClimate** free OSS tier. Pick one — don't run redundant quality tools (anti-bloat).
-  - _Requirements: NFR-8 (docs/quality); decide tool with Lior before building_
+  - **Decision (2026-05-30): Lior chose "Both" — coverage now + SonarCloud.** Shipped: (B) Vitest v8 coverage gate (`@vitest/coverage-v8`, 70% ratchet thresholds, lcov reporter, `coverage` job in `ci.yml`) — PR #75; AND (A) **SonarCloud** CI-based analysis with coverage (`org lh8ppl`, `sonar-project.properties` + `sonarcloud.yml`, `SONAR_TOKEN` secret) — PR #78. SonarCloud **Automatic Analysis disabled 2026-05-30** so the CI-based scan is the sole analyzer (the two are mutually exclusive). Decision-trail: option (C) CodeClimate not pursued.
+  - _Requirements: NFR-8 (docs/quality)_
 
 - [ ] 55. Behavioral pattern detection + promotion — "learn how I work," not just facts (T-043)
   - Estimate: M · Depends: 45 (auto-persona) · **v0.2 — Lior endorsed 2026-05-29 ("I want this feature… a clean refinement of what we have, so we just do it")**
