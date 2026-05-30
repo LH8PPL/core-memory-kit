@@ -1,5 +1,31 @@
 # Resume here
 
+> **2026-05-30 UPDATE — SELF-TEST DONE + PHASE-1 BUG SWEEP COMPLETE (7 PRs merged). This block supersedes everything below it. Read it first.**
+
+## STATUS AS OF 2026-05-30 — read this first
+
+Lior ran the in-session self-test (build a mini app across 2 sessions, in `C:\Temp\lior-test-1`). It surfaced real findings; an autopilot sweep fixed them all. **Findings + the committed v0.2 roadmap live in [`docs/journey/v0.1.1-self-test-findings.md`](v0.1.1-self-test-findings.md).**
+
+**7 PRs merged to main this run (#72–78):**
+- **#R recall (PR #72)** — the headline bug. The SessionStart snapshot was ~70% template-comment noise + placeholder seed bullets, real facts buried at byte 5,244 of 11,288 → a fresh session reported "no real facts populated yet." Fixed in `inject-context.mjs` (strip comments + seed bullets, drop INDEX from snapshot, exclude scaffolding-only tiers). lior-test-1 snapshot now **660 bytes, 4 real facts on top**.
+- **#0 search (PR #73)** — `cmk search` returned "no results" on fresh install (index never built). Now `reindexBoot` before search (+ mtime fast-path; + MCP startup reindex).
+- **#0b/#1/#3 write-path (PR #74 + #76)** — the agent freehand-wrote `feedback_*.md` with the wrong schema (unindexable) + leaked the username via an abs path in the committed tier. Fix: `sanitize.mjs` (home-path → `~`), Poison_Guard on `writeFact`, NEW **`cmk remember`** CLI, rewrote the canonical CLAUDE.md capture guidance + a regression guard.
+- **#4 spawn (PR #77)** — `shell:true`+args broke Windows paths-with-spaces (DEP0190). NEW `spawn-bin.mjs` (POSIX `shell:false` / Windows single quoted command string). stress 5/5.
+- **Task 54 (PR #75)** — vitest v8 coverage gate (85.6% stmts; 70% ratchet thresholds).
+- **SonarCloud (PR #78)** — CI-based analysis with coverage (`org lh8ppl`, `sonar-project.properties` + `sonarcloud.yml`).
+
+**#2 (cross-project → user-tier routing) intentionally deferred to Task 45 / Phase 2.**
+
+### ⏳ DECISION POINTS (waiting on Lior)
+1. **Republish v0.1.2** — fixes are in `main` but **npm still serves v0.1.1 (buggy)**. STOP-for-Lior (npm publish + git tag). Needs a version bump + CHANGELOG, then push `v0.1.2` → publish.yml ships it with provenance.
+2. **Disable SonarCloud "Automatic Analysis"** (redundant now with the CI-based scan).
+3. **Phase 2/3** = the committed v0.2 roadmap (auto-drain review queue → Task 45 auto-persona → "Claude remembers its own positions"). Big feature build; paused before launching.
+
+### Remaining small Phase-1 item
+- `cmk install` over-shares bookkeeping ("skipped 4 existing" reads like a problem) — outcome-over-inventory message cleanup. Print-layer only (`subcommands.mjs`); `install()` already returns `created`/`skipped`. Batch into v0.1.2.
+
+---
+
 > **2026-05-29 (LATE) UPDATE — v0.1.1 IS SHIPPED PUBLIC WITH PROVENANCE. This block supersedes everything below it. Read it first.**
 
 ## STATUS AS OF 2026-05-29 (late) — read this first
