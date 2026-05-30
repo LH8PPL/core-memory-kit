@@ -399,6 +399,27 @@ describe('Task 45 — weekly-curate hook (Design B)', () => {
     expect(readFileSync(join(userDir, 'HABITS.md'), 'utf8')).toMatch(/Python 3\.13 venv/);
   });
 
+  it('creates the user tier if absent, then promotes (friend never ran `cmk init-user-tier`)', async () => {
+    // Deliberately do NOT seedUserTier() — simulate a fresh machine where the
+    // cross-project tier has never been scaffolded. Before the fix this
+    // silently no-op'd (every promotion → NOT_FOUND → queued[]).
+    seedFact({ slug: 'feedback_venv', id: 'P-WGQAZFVC', type: 'feedback', title: 'venv', body: 'Across every project I use a 3.13 venv.' });
+    const sessionsDir = join(projectRoot, 'context', 'sessions');
+    mkdirSync(sessionsDir, { recursive: true });
+    writeFileSync(join(sessionsDir, 'today-2026-05-30.md'), '- today\n', 'utf8');
+    expect(existsSync(join(userDir, 'HABITS.md'))).toBe(false); // tier absent
+
+    const backend = dualBackend([
+      'PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=high | Always uses a Python 3.13 venv on every project',
+    ]);
+
+    const r = await weeklyCurate({ projectRoot, userDir, backend, now: NOW });
+    // The hook scaffolded the user tier, then auto-persona promoted into it.
+    expect(existsSync(join(userDir, 'HABITS.md'))).toBe(true);
+    expect(r.persona?.action).toBe('promoted');
+    expect(readFileSync(join(userDir, 'HABITS.md'), 'utf8')).toMatch(/Python 3\.13 venv/);
+  });
+
   it('does not run persona when userDir is absent (project-only callers unaffected)', async () => {
     const sessionsDir = join(projectRoot, 'context', 'sessions');
     mkdirSync(sessionsDir, { recursive: true });
