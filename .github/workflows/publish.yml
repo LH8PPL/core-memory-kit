@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write # OIDC — required for `npm publish --provenance`
-      contents: read
+      contents: write # create the GitHub Release from the changelog
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -47,3 +47,17 @@ jobs:
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Create the GitHub Release from the CHANGELOG section the release
+      # mechanic finalized (scripts/print-release-notes.mjs). One file
+      # (CHANGELOG.md) drives npm + the GitHub Release — no hand-written
+      # notes. Tag-push only (workflow_dispatch has no tag to release).
+      - name: Create GitHub Release from CHANGELOG
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          node scripts/print-release-notes.mjs "$VERSION" > /tmp/release-notes.md
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file /tmp/release-notes.md

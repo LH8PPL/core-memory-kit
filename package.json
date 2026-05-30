@@ -13,6 +13,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "stress": "node scripts/stress-test.mjs",
+    "release": "node scripts/release.mjs",
+    "release:notes": "node scripts/print-release-notes.mjs",
     "lint:test-ids": "node scripts/validate-test-ids.mjs",
     "lint:exit-doors": "node scripts/validate-exit-doors.mjs",
     "lint:references": "node scripts/validate-references.mjs",
