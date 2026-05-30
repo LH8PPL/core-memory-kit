@@ -9,8 +9,8 @@
 //
 // Upgrade path (documented, not built): if the kit ever gets many parallel
 // contributors and this one `[Unreleased]` section starts merge-conflicting,
-// swap the INPUT to per-PR `.changes/*.yaml` fragments (chloggen-style) and feed
-// their concatenation in here as `changelogText`'s unreleased body — the
+// swap the INPUT to per-PR `.changes/*.yaml` fragment files and feed their
+// concatenation in here as `changelogText`'s unreleased body — the
 // assembler/output contract stays the same. We adopt that ceremony only when the
 // conflict problem it solves actually exists.
 
