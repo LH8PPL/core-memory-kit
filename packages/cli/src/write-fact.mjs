@@ -19,6 +19,8 @@ import { VALID_TIERS, resolveTierRoot, resolveFactDir } from './tier-paths.mjs';
 import { parse, format } from './frontmatter.mjs';
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
+import { sanitizeHomePaths } from './sanitize.mjs';
+import { checkPoisonGuard, logPoisonGuardRejection } from './poison-guard.mjs';
 
 const VALID_TYPES = new Set(['user', 'feedback', 'project', 'reference']);
 const VALID_WRITE_SOURCES = new Set([
@@ -148,7 +150,48 @@ export function writeFact(opts = {}) {
     });
   }
 
-  const id = opts.id ?? generateId(opts.tier, opts.body);
+  // Privacy (write-path fix #1): abstract absolute home-dir paths to `~` in
+  // committed/shared tiers (P/U) so a fact never ships the local username
+  // and stays portable. Local tier (L) keeps machine-specific paths verbatim
+  // — that's its purpose. The id hashes the SANITIZED body, so dedup keys on
+  // what actually lands on disk.
+  let { body, title } = opts;
+  if (opts.tier === 'P' || opts.tier === 'U') {
+    body = sanitizeHomePaths(body);
+    title = sanitizeHomePaths(title);
+  }
+
+  // Poison_Guard (write-path fix #1): fact files previously bypassed the
+  // secret/poison screen that scratchpad writes get via memoryWrite. Screen
+  // the (sanitized) body before any disk write; a rejection logs the redacted
+  // excerpt to .locks/poison-guard.log and returns a poison_guard error.
+  const guard = checkPoisonGuard(body);
+  if (guard.rejected) {
+    // Best-effort log; guard on projectRoot so a U-tier write with no
+    // project context can't turn a clean rejection into a crash.
+    if (guard.pattern_id !== 'schema' && opts.projectRoot) {
+      logPoisonGuardRejection({
+        projectRoot: opts.projectRoot,
+        ts: opts.createdAt ?? nowIso(),
+        pattern_id: guard.pattern_id,
+        source_file: `write-fact:${opts.type}_${opts.slug}`,
+        source_line: 1,
+        redacted_excerpt: guard.redacted_excerpt,
+      });
+    }
+    return errorResult({
+      category: ERROR_CATEGORIES.POISON_GUARD,
+      errors: [`Poison_Guard rejected write: pattern_id=${guard.pattern_id}`],
+      pattern_id: guard.pattern_id,
+      redacted_excerpt: guard.redacted_excerpt,
+      id: null,
+      path: null,
+    });
+  }
+
+  // Use the sanitized body/title for id, frontmatter, and the file body.
+  const factOpts = { ...opts, body, title };
+  const id = opts.id ?? generateId(opts.tier, body);
   const createdAt = opts.createdAt ?? nowIso();
   const tierRoot = resolveTierRoot(opts);
   const factDir = resolveFactDir(opts.tier, tierRoot);
@@ -198,8 +241,8 @@ export function writeFact(opts = {}) {
   }
 
   mkdirSync(factDir, { recursive: true });
-  const frontmatter = buildFrontmatterObject(opts, { id, createdAt });
-  writeFileSync(path, format({ frontmatter, body: `\n${opts.body}\n` }), 'utf8');
+  const frontmatter = buildFrontmatterObject(factOpts, { id, createdAt });
+  writeFileSync(path, format({ frontmatter, body: `\n${factOpts.body}\n` }), 'utf8');
 
   return { action: 'created', id, path };
 }

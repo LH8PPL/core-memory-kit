@@ -57,6 +57,7 @@ import { appendScratchpadBullet } from './scratchpad.mjs';
 import { parseBulletProvenance } from './provenance.mjs';
 import { checkPoisonGuard, logPoisonGuardRejection } from './poison-guard.mjs';
 import { detectConflicts, writeConflictEntry } from './conflict-queue.mjs';
+import { sanitizeHomePaths } from './sanitize.mjs';
 
 const VALID_ACTIONS = new Set(['add', 'replace', 'remove']);
 
@@ -252,8 +253,20 @@ function doAdd(opts) {
   if (errors.length > 0) {
     return errorResult({ category: ERROR_CATEGORIES.SCHEMA, errors });
   }
+  // Privacy (write-path fix #1): abstract home-dir paths to `~` for
+  // committed/shared tiers (P/U) BEFORE the bullet is screened, conflict-
+  // checked, dedup-keyed, and written — so a captured fact never ships the
+  // local username and stays portable. Local tier (L) keeps machine paths
+  // verbatim (its purpose). Everything downstream uses `addOpts`.
+  const sanitizedText =
+    opts.tier === 'P' || opts.tier === 'U'
+      ? sanitizeHomePaths(opts.text)
+      : opts.text;
+  const addOpts =
+    sanitizedText === opts.text ? opts : { ...opts, text: sanitizedText };
+
   const poisonResult = runPoisonGuard({
-    text: opts.text,
+    text: addOpts.text,
     projectRoot: opts.projectRoot,
     source: opts.source,
     sessionId: opts.sessionId,
@@ -276,7 +289,7 @@ function doAdd(opts) {
     userDir: opts.userDir,
   });
   const conflict = detectConflicts({
-    newText: opts.text,
+    newText: addOpts.text,
     newTrust,
     scratchpadPath,
     sectionTitle: opts.section,
@@ -296,14 +309,14 @@ function doAdd(opts) {
     // appendScratchpadBullet would have used, then route to the queue.
     // (Task 25b fix: generateId is positional `(tier, text)`, not
     // named-args — Task 25 originally called it as an object.)
-    const proposedId = generateId(opts.tier, opts.text);
+    const proposedId = generateId(addOpts.tier, addOpts.text);
     const ts = opts.now ?? nowIso();
     return writeConflictEntry({
       tier: opts.tier,
       projectRoot: opts.projectRoot,
       userDir: opts.userDir,
       newId: proposedId,
-      newText: opts.text,
+      newText: addOpts.text,
       newTrust,
       existingId: conflict.existingId,
       existingText: conflict.existingText,
@@ -313,7 +326,7 @@ function doAdd(opts) {
       detectedAt: ts,
     });
   }
-  return appendBulletGuarded(opts);
+  return appendBulletGuarded(addOpts);
 }
 
 function appendBulletGuarded(opts) {

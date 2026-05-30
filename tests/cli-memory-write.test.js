@@ -100,6 +100,26 @@ describe('Task 24 — memoryWrite() boundary', () => {
       expect(body).toContain('We standardized on Python 3.13.');
     });
 
+    it('abstracts home-dir paths to ~ in committed tier P; username never lands (#1)', () => {
+      const r = memoryWrite({
+        action: 'add',
+        text: 'use the venv at C:\\Users\\someuser\\AppData\\Local\\Programs\\Python\\Python313\\python.exe',
+        tier: 'P',
+        scratchpad: 'MEMORY.md',
+        section: 'Active Threads',
+        source: 'user-explicit',
+        projectRoot,
+        userDir,
+        now: '2026-05-25T10:00:00Z',
+      });
+      expect(r.action).toBe('appended');
+      const body = readMemoryMd(projectRoot);
+      expect(body).not.toContain('someuser');
+      expect(body).toContain(
+        '~\\AppData\\Local\\Programs\\Python\\Python313\\python.exe',
+      );
+    });
+
     it('Poison_Guard rejection: secret → action error, scratchpad untouched', () => {
       const r = memoryWrite({
         action: 'add',

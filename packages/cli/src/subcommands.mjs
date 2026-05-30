@@ -19,6 +19,7 @@ import { reindex as reindexAction } from './reindex.mjs';
 import { openIndexDb } from './index-db.mjs';
 import { reindexBoot, reindexFull } from './index-rebuild.mjs';
 import { search as searchAction, SEARCH_MODES } from './search.mjs';
+import { memoryWrite } from './memory-write.mjs';
 import { runMcpServer } from './mcp-server.mjs';
 import { dailyDistill } from './daily-distill.mjs';
 import { weeklyCurate } from './weekly-curate.mjs';
@@ -254,6 +255,67 @@ function runSearch(queryParts, options) {
  * (b) keeping it always-current avoids users having to think about which
  * index to rebuild when.
  */
+/**
+ * `cmk remember <text...>` — explicit durable capture (write-path fix #0b).
+ *
+ * Writes a provenance-tracked bullet to MEMORY.md (the session-start-recalled
+ * layer) through the SAME hardened path as auto-extract: Poison_Guard +
+ * home-path abstraction (#1) + conflict detection + dedup. This is the entry
+ * the scaffolded CLAUDE.md points the agent at INSTEAD of freehand-writing
+ * fact files — which produced wrong-schema, unindexable, username-leaking
+ * files in the self-test. Guaranteed-correct because it never touches raw
+ * frontmatter.
+ *
+ * Tier: v0.1.0 writes tier P (project MEMORY.md). U/L need per-tier scratchpad
+ * routing (same deferral as mk_remember, design §16) — the always-on home-path
+ * abstraction is the privacy net regardless of tier.
+ */
+function runRemember(textParts, options) {
+  const projectRoot = resolvePath(process.cwd());
+  const userDir =
+    process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+  const text = Array.isArray(textParts) ? textParts.join(' ') : textParts;
+  const tier = options?.tier ?? 'P';
+  if (tier !== 'P') {
+    console.error(
+      `cmk remember: tier '${tier}' not yet supported — v0.1.0 writes the project tier (P). ` +
+        'For machine-only config, edit context.local/machine-paths.md directly (v0.1.x will add --tier routing).',
+    );
+    process.exitCode = 2;
+    return;
+  }
+  const trust = options?.trust ?? 'high';
+  const section = options?.section ?? 'Active Threads';
+  const r = memoryWrite({
+    action: 'add',
+    text,
+    tier,
+    scratchpad: 'MEMORY.md',
+    section,
+    trust,
+    source: 'user-explicit',
+    projectRoot,
+    userDir,
+  });
+  if (r.action === 'error') {
+    for (const e of r.errors ?? [`error (${r.errorCategory})`]) {
+      console.error(`cmk remember: ${e}`);
+    }
+    process.exitCode = 2;
+    return;
+  }
+  if (r.action === 'queued') {
+    console.log(
+      `cmk remember: queued for review — a higher-trust fact already covers this. ` +
+        `Resolve with \`cmk queue conflicts\` (${r.path}).`,
+    );
+    return;
+  }
+  console.log(
+    `cmk remember: saved to P/MEMORY.md (${section})${r.id ? ` [${r.id}]` : ''}`,
+  );
+}
+
 function runReindex(options /* , command */) {
   const projectRoot = resolvePath(process.cwd());
   const userDir = join(homedir(), '.claude-memory-kit');
@@ -1055,6 +1117,18 @@ export const subcommands = [
     description: 'scaffold ~/.claude-memory-kit/ (honors $MEMORY_KIT_USER_DIR override)',
     milestone: 14,
     action: runInitUserTier,
+  },
+  {
+    name: 'remember',
+    description: 'explicitly capture a durable fact to MEMORY.md (Poison_Guard + home-path abstraction + dedup; the safe alternative to hand-writing fact files)',
+    milestone: 24,
+    argSpec: [{ flags: '<text...>', description: 'the fact to remember' }],
+    optionSpec: [
+      { flags: '--tier <tier>', description: 'P (default; U/L are v0.1.x)' },
+      { flags: '--trust <level>', description: 'high | medium | low (default: high)' },
+      { flags: '--section <name>', description: 'MEMORY.md section (default: Active Threads)' },
+    ],
+    action: runRemember,
   },
   {
     name: 'search',
