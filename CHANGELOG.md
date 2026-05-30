@@ -4,6 +4,12 @@ All notable changes to claude-memory-kit are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+v0.2 — automatic memory + "Claude stays consistent." Entries accrue here as features merge to `main`; they ship when v0.2 is published.
+
+<!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
+
 ## [0.1.2] — 2026-05-30
 
 First real-world self-test (build a small app across two sessions) surfaced that the kit **captured** facts but couldn't **recall** them, plus a cluster of write-path and Windows issues. This release fixes the whole loop end-to-end and adds the code-quality gate.

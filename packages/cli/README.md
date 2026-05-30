@@ -6,7 +6,9 @@
 
 - **Frozen snapshot at session start** — MEMORY.md + USER.md + SOUL.md + INDEX.md + today's session log inject once at the first tool call, so Claude sees your context every session without you re-telling it.
 - **Auto-extract on every assistant turn** — a background `claude --print` subagent reads each turn and saves durable facts (decisions, preferences, environment) to memory. No manual writes needed.
-- **`memory-write` skill** — say "remember this", "from now on", "we decided", or "forget X" and the skill dedups, caps, and writes silently.
+- **Explicit capture when you want it** — say "remember this" / "from now on" / "we decided" / "forget X" (the `memory-write` skill), or run `cmk remember "<fact>"`. Both dedup, screen for secrets, abstract machine paths to `~`, and write silently.
+- **Search + MCP** — `cmk search "<term>"` (keyword/hybrid over facts + scratchpads); `cmk mcp` exposes the same to Claude Code as tools.
+- **Bounded by compression** — session → daily → weekly Haiku rollups (cron or lazy-on-read) keep the snapshot small as history grows.
 - **Per-project, in-repo** — `context/` lives inside your project and travels with `git clone`. Each project keeps its own memory.
 - **9 health checks** — `cmk doctor` validates install, hook wiring, distill freshness, INDEX consistency, cron registration, and stale locks.
 

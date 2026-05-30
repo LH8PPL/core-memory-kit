@@ -29,7 +29,9 @@ The short version: Claude starts every session already knowing your project, and
 
 - **Frozen snapshot at session start**: MEMORY.md + USER.md + SOUL.md + INDEX.md + today's session log inject once at first tool call. Claude sees this context every session without you re-telling it.
 - **Auto-extract on every assistant turn**: a background `claude --print` subagent reads the turn and saves durable facts (decisions, preferences, environment) to memory. No manual writes needed.
-- **`memory-write` skill**: when you say "remember this", "from now on", "we decided", or "forget X", the skill triggers — dedups against existing memory, enforces char caps, writes silently.
+- **Explicit capture when you want it**: say "remember this" / "from now on" / "we decided" / "forget X" (the `memory-write` skill), or run **`cmk remember "<fact>"`** — both dedup against existing memory, screen for secrets (Poison_Guard), abstract machine paths to `~`, and write silently with the correct schema.
+- **Search your memory**: `cmk search "<term>"` does keyword (FTS5) / hybrid retrieval over facts + scratchpads; an **MCP server** (`cmk mcp`) exposes the same to Claude Code as tools (`mk_search`, `mk_remember`, …).
+- **Compression that keeps memory bounded**: session → daily → weekly rollups via a background Haiku pass (cron, or lazy-on-read when no scheduler), so the snapshot stays small as history grows.
 - **Per-project, in-repo**: `context/` lives inside your project and travels with `git clone`. Multiple projects each have their own memory. Nothing crosses boundaries unless you promote via `cmk lessons promote`.
 - **9 health checks**: `cmk doctor` validates the install, settings.json hook wiring, distill freshness, transcript firing, INDEX consistency, cron registration, Anthropic auto-memory coexistence, and stale lock detection.
 

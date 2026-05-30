@@ -76,6 +76,8 @@ The user (Lior) is direct and tight on time. Match the energy.
   | Diagnostic table | [`HEALTH-CHECKS.md`](HEALTH-CHECKS.md) |
   | Research notes (one per finding) | [`docs/research/`](docs/research/) |
   | Chronological decision/issue/bug/fix paper trail (the spine that ties the others together) | [`docs/journey/DECISION-LOG.md`](docs/journey/DECISION-LOG.md) |
+  | **User-facing capability surface (what the kit can do, for a new user)** | [`README.md`](README.md) "What it does" + "CLI" sections AND [`packages/cli/README.md`](packages/cli/README.md) (the npm landing page) |
+  | **Per-release "what shipped" record** | [`CHANGELOG.md`](CHANGELOG.md) |
   | Stable project rules + verification disciplines + working style + anti-patterns | this file (`CLAUDE.md`) |
   | Test count / suite state | **Not tracked.** Derived from `npm test`. Snapshot, not state. |
 
@@ -235,6 +237,7 @@ Applies beyond skills — to libraries, tools, conventions, anything the kit ado
   - **Do not** type `npx vitest run …` directly; use `test:file`. **Do not** type `for i in 1..5; do npm test; done`; use `stress`. **Do not** set `CMK_SKIP_LIVE_HAIKU=1` to save round-trips; if a script's too slow, fix the script. The rule's job is to make the next-session-me invoke the same flow as this-session-me, without re-deriving it. New common invocations get a new `npm run` script, not a new shell habit.
 - **PR title format**: `[N] <description> (T-NNN)` (T-NNN is the legacy ID; current convention is the bare number).
 - **PR description ends with**: `_Implements: FR-X; design §Y_` traceability footer.
+- **Document user-facing capabilities in the same PR that ships them (binding).** Any PR that adds or changes something a USER can see or run — a new `cmk` subcommand/flag, a new automatic behavior, a new capability — MUST update, in that same PR: (a) the **README capability surface** ([`README.md`](README.md) "What it does" + "CLI", and the npm-landing [`packages/cli/README.md`](packages/cli/README.md)), and (b) the **CHANGELOG** under a `## [Unreleased]` (or the next version) heading. The README is the kit's front door + npm landing page; a capability that ships without a README line is invisible to the people it's for. **Timing nuance (the honesty half):** the README describes what the *published/shipping* version does — document the feature as it merges (README-on-main reflects merged-pending-release; the npm page catches up at publish), but never write up an unshipped/unmerged feature in the README as if it's already live (same class as the lazy-framing rule, applied to docs). Internal-only changes (refactors, validators, test scaffolding, shared-module plumbing) do NOT need a README line — only user-visible capability does. Precedent: Lior 2026-05-30 — *"if we add new feature and capabilities to our kit we should put it in readme… features in readme as an explanation what the kit can do"*; surfaced live drift (v0.1.2 shipped `cmk remember` but the README "What it does" still only named the old `memory-write` skill). D-17.
 - **After merge**:
   1. Pull main locally.
   2. Flip the task's checkboxes in `tasks.md` from `[ ]` to `[x]`. Annotate the parent task with `_shipped YYYY-MM-DD, PR #N_`.
