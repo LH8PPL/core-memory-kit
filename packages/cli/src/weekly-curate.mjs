@@ -45,6 +45,8 @@ import {
   touchCooldownMarker,
 } from './cooldown.mjs';
 import { dailyDistill } from './daily-distill.mjs';
+import { autoPersona } from './auto-persona.mjs';
+import { initUserTier } from './install.mjs';
 
 const DEFAULT_ARCHIVE_MAX_BYTES = 4096;
 const DEFAULT_RECENT_MAX_BYTES = 4096;
@@ -242,6 +244,7 @@ function writeCurateLogEntry({ projectRoot, date, entry }) {
  */
 export async function weeklyCurate({
   projectRoot,
+  userDir,
   backend,
   now,
   cooldownMs = DEFAULT_COOLDOWN_MS,
@@ -300,6 +303,37 @@ export async function weeklyCurate({
     return { action: 'skipped', reason: 'cooldown', duration_ms };
   }
 
+  // Design-B auto-persona hook (Task 45). The weekly cycle is the natural
+  // trigger: once past the shared cooldown gate, synthesize cross-project
+  // doctrine from the granular fact archive and auto-promote it into the
+  // user tier. cooldownMs:0 — this Haiku call belongs to the SAME weekly
+  // cycle as the curate compress below (per §8.7.2, like the inline
+  // dailyDistill call). Skipped silently if userDir wasn't supplied (so
+  // existing project-only callers/tests are unaffected). D-14/D-15.
+  let persona;
+  if (userDir) {
+    // Ensure the user tier exists before auto-persona tries to promote into
+    // it. Without this, a user who never ran `cmk init-user-tier` has no
+    // USER.md/HABITS.md/LESSONS.md, so every promotion would silently route
+    // to `queued[]` (NOT_FOUND) and the cross-project tier would stay empty
+    // — the exact friend-handoff failure auto-persona exists to fix.
+    // initUserTier is idempotent (skips existing files).
+    try {
+      initUserTier({ userTier: userDir });
+    } catch {
+      // Best-effort: if scaffolding fails (perms, etc.), autoPersona still
+      // degrades gracefully (promotions route to queued[]); don't abort the
+      // whole curate cycle over a user-tier scaffold hiccup.
+    }
+    persona = await autoPersona({
+      projectRoot,
+      userDir,
+      backend,
+      now: ts,
+      cooldownMs: 0,
+    });
+  }
+
   const files = listAllTodayFiles(projectRoot);
   const { old, current } = splitByAge(files, ts);
 
@@ -329,6 +363,7 @@ export async function weeklyCurate({
       action: 'skipped',
       reason: 'no-old-files',
       currentDays: current.length,
+      persona,
       duration_ms,
     };
   }
@@ -449,6 +484,7 @@ export async function weeklyCurate({
     recentPath,
     bytesIn: input_bytes,
     bytesOut: output_bytes,
+    persona,
     duration_ms,
   };
 }

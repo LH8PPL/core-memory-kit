@@ -188,6 +188,43 @@ describe('detectConflicts() — pre-write conflict detection (25.1, 25.2)', () =
     expect(r.action).toBe('error');
     expect(r.errorCategory).toBe('schema');
   });
+
+  // B-1 regression (surfaced by Task 45, 2026-05-30): scratchpad provenance
+  // comments are written INDENTED by writeBullet/appendScratchpadBullet
+  // (`  <!-- … trust: high … -->`). collectExistingBullets parsed trust via a
+  // `^<!--`-anchored regex that missed the indentation and defaulted EVERY
+  // existing bullet to 'medium' — so a new medium fact wrongly 'superseded' a
+  // trust:high hand-curated bullet instead of routing to the conflict queue.
+  // The earlier tests passed only because their fixture wrote NON-indented
+  // comments (fixture-diverges-from-production). This pins the real format.
+  it('reads trust from an INDENTED provenance comment (production format) — medium vs high → queue not supersede', () => {
+    const path = join(projectRoot, 'context', 'MEMORY.md');
+    mkdirSync(join(projectRoot, 'context'), { recursive: true });
+    const text = [
+      '# Test scratchpad',
+      '',
+      '## Active Threads',
+      '',
+      '- (P-WGQAZFVC) Prefers terse direct replies with no filler',
+      // INDENTED comment, exactly as appendScratchpadBullet emits it:
+      '  <!-- source: seed, source_line: 1, sha1: cccccccccccccccccccccccccccccccccccccccc, write: user-explicit, trust: high, at: 2026-05-29T00:00:00Z -->',
+      '',
+    ].join('\n');
+    writeFileSync(path, text, 'utf8');
+
+    const r = detectConflicts({
+      newText: 'Prefers terse direct replies with no filler or preamble',
+      newTrust: 'medium',
+      scratchpadPath: path,
+      sectionTitle: 'Active Threads',
+    });
+
+    expect(r.conflict).toBe(true);
+    // The existing bullet is trust:high → a new medium fact must NOT supersede
+    // it; it routes to the conflict queue for the user to resolve.
+    expect(r.action).toBe('queue');
+    expect(r.existingTrust).toBe('high');
+  });
 });
 
 describe('writeConflictEntry() — append to queues/conflicts.md (25.3)', () => {

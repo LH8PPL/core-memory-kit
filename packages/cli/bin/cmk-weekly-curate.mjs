@@ -12,6 +12,7 @@
 // cooldown marker are the load-bearing observability surfaces.
 
 import { dirname, join } from 'node:path';
+import { homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -41,11 +42,22 @@ const envRoot = process.env.CMK_PROJECT_DIR && process.env.CMK_PROJECT_DIR.lengt
   : null;
 const projectRoot = argvRoot ?? envRoot ?? process.cwd();
 
+// User tier (cross-project) lives at ~/.claude-memory-kit. Passing it
+// activates the Design-B auto-persona hook (Task 45): the weekly cycle
+// synthesizes cross-project doctrine from the project's fact archive and
+// auto-promotes it into the user tier. Without userDir the curate runs
+// project-only (backward-compatible).
+const userDir = join(homedir(), '.claude-memory-kit');
+
 try {
   const backend = new HaikuViaAnthropicApi();
-  const r = await weeklyCurate({ projectRoot, backend });
+  const r = await weeklyCurate({ projectRoot, userDir, backend });
+  const p = r.persona;
+  const personaNote = p
+    ? ` | persona: ${p.action}${p.promoted?.length ? ` (+${p.promoted.length})` : ''}${p.superseded?.length ? ` (~${p.superseded.length})` : ''}`
+    : '';
   process.stderr.write(
-    `cmk-weekly-curate: ${r.action}${r.reason ? ` (${r.reason})` : ''}${r.archivedDays ? ` (archived: ${r.archivedDays}d, current: ${r.currentDays}d, in: ${r.bytesIn}b, out: ${r.bytesOut}b)` : ''} ms: ${r.duration_ms ?? 0}\n`,
+    `cmk-weekly-curate: ${r.action}${r.reason ? ` (${r.reason})` : ''}${r.archivedDays ? ` (archived: ${r.archivedDays}d, current: ${r.currentDays}d, in: ${r.bytesIn}b, out: ${r.bytesOut}b)` : ''}${personaNote} ms: ${r.duration_ms ?? 0}\n`,
   );
 } catch (err) {
   process.stderr.write(
