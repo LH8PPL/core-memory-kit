@@ -16,6 +16,9 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+// Reuse the linear, ReDoS-safe comment stripper (NOT a `/<!--.*-->/` regex —
+// that trips CodeQL js/polynomial-redos + js/incomplete-multi-character-sanitization).
+import { stripHtmlComments } from '../../packages/canonicalize/src/index.mjs';
 
 const UNRELEASED_RE = /^##\s*\[Unreleased\]\s*$/im;
 const VERSION_HEADING_RE = /^##\s*\[\d+\.\d+\.\d+\]/m;
@@ -100,7 +103,7 @@ export function assembleRelease({ changelogText, currentVersion, bump, version, 
   const rawBody = changelogText.slice(bodyStart, bodyEnd);
 
   // Notes = body with HTML guidance comments stripped, trimmed.
-  const notes = rawBody.replace(/<!--[\s\S]*?-->/g, '').replace(/\n{3,}/g, '\n\n').trim();
+  const notes = stripHtmlComments(rawBody).replace(/\n{3,}/g, '\n\n').trim();
 
   // Refuse to cut a release with no real entries (a bullet line). The v0.2
   // summary prose alone is not a release.
@@ -137,7 +140,7 @@ export function extractReleaseNotes(changelogText, version) {
   const after = changelogText.slice(bodyStart);
   const next = /^##\s*\[/m.exec(after);
   const body = next ? after.slice(0, next.index) : after;
-  return body.replace(/<!--[\s\S]*?-->/g, '').replace(/\n{3,}/g, '\n\n').trim();
+  return stripHtmlComments(body).replace(/\n{3,}/g, '\n\n').trim();
 }
 
 /**
