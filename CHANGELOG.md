@@ -4,6 +4,28 @@ All notable changes to claude-memory-kit are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] — 2026-05-30
+
+First real-world self-test (build a small app across two sessions) surfaced that the kit **captured** facts but couldn't **recall** them, plus a cluster of write-path and Windows issues. This release fixes the whole loop end-to-end and adds the code-quality gate.
+
+### Fixed
+
+- **Session-start recall (the headline).** The injected memory snapshot was ~70% template-comment noise + placeholder seed bullets, with the real captured facts buried mid-payload — so a fresh session reported "no real facts populated yet" and re-derived everything from the codebase. `inject-context` now strips format-comment headers + placeholder seed bullets, drops the reference `INDEX.md` (which self-declares "NOT auto-loaded"), and excludes scaffolding-only tiers. A real project's snapshot dropped from ~11 KB of noise to a few hundred bytes of just-the-facts.
+- **`cmk search` returned "no results" on a fresh install** even for facts sitting in `MEMORY.md` — the FTS5 index was never built (nothing reindexed for a one-shot CLI call). `cmk search` (and the MCP `mk_search`) now reindex before querying; `reindexBoot` gained an mtime fast-path so the per-search cost stays flat as memory grows.
+- **Durable-fact writes could leak your username + ship the wrong schema.** Hand-written fact files used a frontmatter schema the index couldn't read, and an absolute interpreter path (`C:\Users\<you>\…`) landed in the **committed** project tier. Fact-file + scratchpad writes now run through home-path abstraction (`C:\Users\you\…` → `~`, case-insensitive, all OSes) **and** Poison_Guard (fact files previously bypassed the secret screen).
+- **Windows: compression/auto-extract silently failed for usernames with a space.** `spawn(..., {shell:true})` with an args array (a) emitted Node's DEP0190 and (b) concatenated argv unescaped, so a temp path under `C:\Users\First Last\…` broke cmd.exe tokenization. New `spawn-bin` helper never pairs `shell:true` with an args array (POSIX argv-style; Windows single pre-quoted command string).
+
+### Added
+
+- **`cmk remember "<fact>"`** — explicit, safe durable capture (Poison_Guard + home-path abstraction + dedup + correct schema). The agent uses this instead of hand-writing files under `context/memory/`. `--trust`, `--section`; `cmk remember --help` for details.
+- **Coverage gate (Task 54):** `npm run test:coverage` (vitest v8) with 70% ratchet thresholds enforced in CI; **SonarQube Cloud** CI-based analysis (maintainability / reliability / security-hotspots + coverage) on every PR.
+- **`cmk install --verbose`** for the full per-tier file breakdown.
+
+### Changed
+
+- **`cmk install` output is outcome-first** — "`<project> ready — context/ scaffolded, hooks wired`" instead of a confusing file tally ("skipped 4 existing" read like a problem; those were the cross-project user-tier files *outside* the folder). The breakdown moved to `--verbose`.
+- The scaffolded `CLAUDE.md` capture guidance now routes durable writes through `cmk remember` and never tells the agent to hand-write fact files.
+
 ## [0.1.1] — 2026-05-29
 
 Unify install (Task 49): a tester now needs a **single** complete entry point — `npm install -g @lh8ppl/claude-memory-kit && cmk install` — with no separate `/plugin install` step. Both install routes are now complete on their own; pick one.
