@@ -184,7 +184,7 @@ describe('Task 2 — cmk CLI scaffold', () => {
         const r = runCmk([group.name, '--help']);
         expect(r.status).toBe(0);
         for (const child of group.children) {
-          const headWord = child.name.split(' ')[0].replace(/[<[].*/, '');
+          const headWord = child.name.split(' ')[0].split(/[<[]/)[0];
           expect(
             r.stdout + r.stderr,
             `${group.name} --help missing child: ${headWord}`
@@ -193,7 +193,7 @@ describe('Task 2 — cmk CLI scaffold', () => {
       });
 
       for (const child of group.children) {
-        const headWord = child.name.split(' ')[0].replace(/[<[].*/, '');
+        const headWord = child.name.split(' ')[0].split(/[<[]/)[0];
         // Skip the stub assertion for children that are wired up.
         // Their own per-module test (e.g. tests/cli-conflict-queue.test.js
         // for Task 25's `cmk queue conflicts`) covers behavior.
