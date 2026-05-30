@@ -462,4 +462,74 @@ describe('Task 7 — writeFact() boundary', () => {
       expect(text).toMatch(/related:\s*\[\s*P-A8FN3MQ2\s*\]/); // validate-test-ids: ignore
     });
   });
+
+  describe('write-path hardening — privacy sanitize + Poison_Guard (#1)', () => {
+    const WIN_PATH =
+      'C:\\Users\\someuser\\AppData\\Local\\Programs\\Python\\Python313\\python.exe';
+
+    it('P tier: abstracts a home-dir path in the body; username never lands on disk', () => {
+      const result = writeFact(
+        validOptions({ projectRoot, slug: 'venv', body: `Always use ${WIN_PATH}` }),
+      );
+      expect(result.action).toBe('created');
+      const text = readFileSync(result.path, 'utf8');
+      expect(text).not.toContain('someuser');
+      expect(text).toContain('~\\AppData\\Local\\Programs\\Python\\Python313\\python.exe');
+    });
+
+    it('P tier: abstracts a home-dir path in the title too', () => {
+      const result = writeFact(
+        validOptions({ projectRoot, slug: 'paths', title: `python at ${WIN_PATH}` }),
+      );
+      const { frontmatter } = parseFrontmatter(result.path);
+      expect(frontmatter.title).not.toContain('someuser');
+      expect(frontmatter.title).toContain('~\\AppData');
+    });
+
+    it('U tier: abstracts a home-dir path (user tier is shared/portable)', () => {
+      const result = writeFact(
+        validOptions({
+          userDir,
+          tier: 'U',
+          slug: 'venv',
+          body: 'venv at /home/someuser/.venv/bin/python',
+        }),
+      );
+      const text = readFileSync(result.path, 'utf8');
+      expect(text).not.toContain('/home/someuser');
+      expect(text).toContain('~/.venv/bin/python');
+    });
+
+    it('L tier: KEEPS machine-specific paths verbatim (the local-tier purpose)', () => {
+      const result = writeFact(
+        validOptions({
+          projectRoot,
+          tier: 'L',
+          slug: 'node_path',
+          body: `node at ${WIN_PATH}`,
+        }),
+      );
+      const text = readFileSync(result.path, 'utf8');
+      expect(text).toContain('C:\\Users\\someuser');
+    });
+
+    it('Poison_Guard: a secret in the body → rejected, NO file written (over-mutation guard)', () => {
+      const result = writeFact(
+        validOptions({
+          projectRoot,
+          slug: 'leak',
+          // Allowlisted poison-guard fixture (also in .gitleaks.toml).
+          body: 'token is ghp_1234567890abcdefghij1234567890abcdef12',
+        }),
+      );
+      expect(result.action).toBe('error');
+      expect(result.errorCategory).toBe('poison_guard');
+      expect(result.pattern_id).toMatch(/^secret_/);
+      const factDir = join(projectRoot, 'context', 'memory');
+      const files = existsSync(factDir)
+        ? readdirSync(factDir).filter((f) => f !== 'INDEX.md')
+        : [];
+      expect(files).toHaveLength(0);
+    });
+  });
 });

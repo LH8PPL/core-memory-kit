@@ -25,6 +25,21 @@ Scaffold the cross-project user tier at `~/.claude-memory-kit/` (honors `$MEMORY
 
 ---
 
+## Capture
+
+### `cmk remember <text…> [--trust <level>] [--section <name>]`
+Explicitly capture a durable fact to the project `MEMORY.md` (the layer recalled at session start). Routes through the kit's safe write path — **Poison_Guard** (rejects secrets), **home-path abstraction** (`C:\Users\you\…` → `~\…` so a committed fact never leaks your username), **dedup**, and correct provenance. This is the safe alternative to hand-writing files under `context/memory/` (which bypasses all of the above).
+- `--trust high|medium|low` — default `high`.
+- `--section <name>` — MEMORY.md section, default `Active Threads`.
+- `--tier P` — v0.1.0 writes the project tier; `U`/`L` are v0.1.x. For machine-only paths, edit `context.local/machine-paths.md` directly.
+```bash
+cmk remember "We deploy with Kamal to Hetzner; never to Vercel."
+cmk remember "Prefers terse responses, no preamble." --trust high
+```
+Most capture is automatic (the Stop hook extracts facts each turn) — use `cmk remember` when you want an explicit, immediate write.
+
+---
+
 ## Inspect & search
 
 ### `cmk search <query…> [flags]`
