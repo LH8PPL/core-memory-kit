@@ -26,17 +26,21 @@ Health checks (HC-1..HC-8) verify each layer is wired correctly: install integri
 
 ### Memory write rules (for Claude)
 
-When you learn something durable about this project or the user:
+Most capture is automatic — the Stop hook extracts durable facts each turn, no action needed. When you want to capture something **explicitly**:
 
-1. **Working state** (current threads, today's environment, open decisions) → write to `context/MEMORY.md` (≤2,500 chars). Consolidate at the cap.
-2. **Typed durable fact** (user role / project decision / feedback / external reference) → create `context/memory/<type>_<slug>.md` with full YAML frontmatter; add a one-line entry to `context/memory/INDEX.md`.
-3. **Cross-project lesson** → user-tier `~/.claude-memory-kit/LESSONS.md` (via `cmk lessons promote`).
-4. **Never duplicate** between scratchpad and granular archive. If a working-state item becomes durable, MOVE it.
-5. **Confirm silently.** Frozen-snapshot semantics mean the write takes effect next session.
+1. **Use `cmk remember "<the fact>"`** — do NOT hand-write files under `context/memory/`. The command routes through the kit's safe write path: it screens for secrets (Poison_Guard), abstracts machine-specific home paths to `~` (so a committed fact never leaks the local username), dedups, and writes the correct schema. Hand-writing fact files bypasses all of that and produces files the index can't read.
+   ```bash
+   cmk remember "We deploy with Kamal to Hetzner; never to Vercel."
+   cmk remember "Lior prefers terse responses, no preamble." --trust high
+   ```
+2. **Machine-specific config** (absolute tool paths that only make sense on this machine) → put it in `context.local/machine-paths.md` (gitignored, never committed). `cmk remember` writes the committed project tier; for machine-only paths, edit the local tier directly.
+3. **Cross-project lesson** (true on every project, not just this one) → `cmk lessons promote <id>` moves a project fact to the user tier (`~/.claude-memory-kit/`).
+4. **Confirm silently.** Don't announce captures. Frozen-snapshot semantics mean a write takes effect next session.
 
 ### Privacy
 
-Anything inside `<private>...</private>` tags in a user prompt is stripped before any disk write — never persisted in any form. Per-fact `private: true` frontmatter excludes a fact from the session-start digest.
+- Anything inside `<private>...</private>` tags in a user prompt is stripped before any disk write — never persisted in any form.
+- `cmk remember` (and auto-extract) abstract absolute home-dir paths (`C:\Users\you\…`, `/home/you/…`, `/Users/you/…`) to `~` before writing to a committed/shared tier, so a fact never ships your username and stays portable across machines. Genuinely machine-specific paths belong in `context.local/` (gitignored).
 
 ### Uninstall / remove this block
 

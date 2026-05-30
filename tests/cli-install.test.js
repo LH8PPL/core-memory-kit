@@ -174,6 +174,22 @@ describe('Task 3 — cmk install', () => {
       // Sanity check on size — we expect roughly a dozen files across 3 tiers
       expect(result.created.length).toBeGreaterThanOrEqual(8);
     });
+
+    it('scaffolds CLAUDE.md with the `cmk remember` capture guidance, not the old hand-write instruction (#0b regression guard)', async () => {
+      // Guards the write-path fix: the scaffolded CLAUDE.md must route durable
+      // captures through `cmk remember` (the safe path — Poison_Guard +
+      // home-path abstraction + dedup + correct schema), NOT tell the agent to
+      // hand-write fact files (which produced wrong-schema, unindexable,
+      // username-leaking files in the self-test). Also catches the
+      // canonical-vs-generated template drift that let the first fix land in
+      // the gitignored copy instead of template/CLAUDE.md.template.
+      await install({ projectRoot, userTier });
+      const claudeMd = readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8');
+      expect(claudeMd).toContain('cmk remember');
+      expect(claudeMd).not.toContain(
+        'create `context/memory/<type>_<slug>.md` with full YAML frontmatter',
+      );
+    });
   });
 
   describe('Re-install (idempotency)', () => {
