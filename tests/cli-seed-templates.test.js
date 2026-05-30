@@ -29,6 +29,7 @@ import {
   SCRATCHPAD_DOCUMENTED_SECTIONS,
   DEFAULT_SCRATCHPAD_CAPS,
 } from '../packages/cli/src/tier-paths.mjs';
+import { stripHtmlComments } from '../packages/canonicalize/src/index.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = join(dirname(__filename), '..');
@@ -104,7 +105,7 @@ describe('Task 14 — Seed scratchpad templates', () => {
         // Count bullet lines that match the kit's id pattern. Excludes
         // anything inside <!-- ... --> blocks (which can contain tutorial
         // bullets with placeholder ids).
-        const noComments = text.replace(/<!--[\s\S]*?-->/g, '');
+        const noComments = stripHtmlComments(text);
         const bullets = noComments.match(
           /^- \([PUL]-[2345679ABCDEFGHJKLMNPQRSTUVWXYZa]{8}\)/gm,
         );
@@ -120,7 +121,7 @@ describe('Task 14 — Seed scratchpad templates', () => {
               ? 'L'
               : 'U';
         const text = readFileSync(TEMPLATE_PATHS[scratchpad], 'utf8');
-        const noComments = text.replace(/<!--[\s\S]*?-->/g, '');
+        const noComments = stripHtmlComments(text);
         const bullets = noComments.match(
           /^- \(([PUL])-[2345679ABCDEFGHJKLMNPQRSTUVWXYZa]{8}\)/gm,
         );
