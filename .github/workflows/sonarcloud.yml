@@ -1,0 +1,42 @@
+# SonarQube Cloud (SonarCloud) CI-based analysis — code-quality / maintainability
+# / reliability / security-hotspots + coverage. Adapted from SonarCloud's
+# generated "With GitHub Actions" snippet, with the npm + coverage steps added
+# so the lcov report (sonar.javascript.lcov.reportPaths in sonar-project.properties)
+# exists before the scan.
+#
+# NOTE: CI-based analysis is mutually exclusive with SonarCloud "Automatic
+# Analysis" — the latter must be OFF in the project settings (the GitHub-Action
+# onboarding turns it off). SONAR_TOKEN is a repo Actions secret.
+name: SonarCloud
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  sonarcloud:
+    name: SonarQube Cloud
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history for accurate blame / new-code detection
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci --no-audit --no-fund
+      # Generate coverage/lcov.info for Sonar to ingest. `|| true` so a coverage
+      # threshold miss doesn't block the Sonar scan (the `coverage` job in ci.yml
+      # is the hard threshold gate; here we only need the lcov for Sonar).
+      - run: npm run test:coverage || true
+      - name: SonarQube Cloud Scan
+        # SHA-pinned (v8.1.0) per SonarCloud's generated snippet — supply-chain
+        # hardening (Task 53), and the ref is verified to exist.
+        uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
