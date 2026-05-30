@@ -28,7 +28,7 @@ import {
 } from './tier-paths.mjs';
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
-import { writeBullet, parseBulletProvenance } from './provenance.mjs';
+import { writeBullet, parseBulletProvenance, isProvenanceCommentLine } from './provenance.mjs';
 
 const VALID_TRUST = new Set(['high', 'medium', 'low']);
 const VALID_WRITE_SOURCES = new Set([
@@ -199,7 +199,7 @@ function consolidate(text, { nowDate }) {
     const bulletLine = lines[i];
     const commentLine = lines[i + 1];
     if (!bulletLine.startsWith('- (')) continue;
-    if (!commentLine || !/^\s*<!--.*-->\s*$/.test(commentLine)) continue;
+    if (!isProvenanceCommentLine(commentLine)) continue;
 
     const prov = parseBulletProvenance(commentLine);
     if (!prov || !prov.at || !prov.trust) continue;

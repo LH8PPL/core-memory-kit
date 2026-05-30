@@ -45,6 +45,18 @@ describe('Task 33 — register-crons', () => {
       expect(r.errorCategory).toBe('schema');
     });
 
+    it('rejects a command containing a single quote (Linux cron-line quoting contract)', () => {
+      const r = registerCron({ command: "node 'x'.mjs", dryRun: true });
+      expect(r.action).toBe('error');
+      expect(r.errorCategory).toBe('schema');
+    });
+
+    it('rejects a command containing a double quote (Windows schtasks /TR quoting contract)', () => {
+      const r = registerCron({ command: 'node "x".mjs', dryRun: true });
+      expect(r.action).toBe('error');
+      expect(r.errorCategory).toBe('schema');
+    });
+
     it('rejects invalid hour (>23)', () => {
       const r = registerCron({
         command: 'node x.mjs',

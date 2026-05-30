@@ -75,8 +75,27 @@ const BULLET_RE = new RegExp(
   `^- \\((${ID_PATTERN.source.replace(/^\^/, '').replace(/\$$/, '')})\\)\\s+(.+)$`,
 );
 
-// Match a provenance comment, tolerant of leading indentation.
-const COMMENT_RE = /^\s*<!--.*-->\s*$/;
+// Is `line` a single-line HTML comment (the shape the kit writes provenance
+// in: `  <!-- source: …, trust: … -->`), tolerant of leading indentation?
+// String-scanning, NOT a regex, on purpose: a `/<!--.*-->/` regex trips
+// CodeQL js/bad-tag-filter (`.` skips newlines; ignores the `--!>` end-tag
+// variant). Our provenance comments are always single-line, so a literal
+// prefix/suffix check is equivalent AND clears the alert (the PR #72
+// pattern). Shared so scratchpad / memory-write / inject-context don't each
+// re-roll the flagged regex.
+export function isProvenanceCommentLine(line) {
+  if (typeof line !== 'string') return false;
+  const t = line.trim();
+  return t.length >= 7 && t.startsWith('<!--') && t.endsWith('-->');
+}
+
+// Strip the `<!--` (4 chars) / `-->` (3 chars) delimiters from a line already
+// confirmed by isProvenanceCommentLine. Slicing, not a regex, for the same
+// js/bad-tag-filter reason.
+function stripCommentDelimiters(line) {
+  const t = line.trim();
+  return t.slice(4, t.length - 3);
+}
 
 function validateBulletInput({ id, text, provenance }) {
   const errors = [];
@@ -183,10 +202,9 @@ export function writeBullet(opts = {}) {
 }
 
 export function parseBulletProvenance(line) {
-  if (typeof line !== 'string') return null;
-  if (!COMMENT_RE.test(line)) return null;
+  if (!isProvenanceCommentLine(line)) return null;
 
-  const inner = line.replace(/^\s*<!--/, '').replace(/-->\s*$/, '');
+  const inner = stripCommentDelimiters(line);
   const fields = {};
   for (const part of inner.split(',')) {
     const idx = part.indexOf(':');

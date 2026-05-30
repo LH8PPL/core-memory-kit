@@ -48,8 +48,10 @@ describe('Task 13 — writeBullet() / readBullet() / parseBulletProvenance()', (
       const r = writeBullet(validBulletInput());
       expect(r.action).toBe('formatted');
       expect(r.bullet).toBe('- (P-S79MJHFN) we standardized on python 3.13');
-      expect(r.comment).toMatch(/^  <!--/);
-      expect(r.comment).toMatch(/-->$/);
+      // String checks (not /<!--/ or /-->$/ regexes) — those trip CodeQL
+      // js/bad-tag-filter even in tests; the assertion is the same.
+      expect(r.comment.startsWith('  <!--')).toBe(true);
+      expect(r.comment.endsWith('-->')).toBe(true);
       expect(r.lines).toBe(`${r.bullet}\n${r.comment}`);
     });
 

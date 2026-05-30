@@ -75,7 +75,7 @@ const POSIX_COMMAND_PATTERNS = [
   { name: 'cat', re: /\bcat\s+["'][^"']/ },
   { name: 'cp', re: /\bcp\s+(-[rR]\s+)?["'][^"']/ },
   { name: 'mv', re: /\bmv\s+["'][^"']/ },
-  { name: 'chmod', re: /\bchmod\s+(\d|[+-=ugoarwx])/ },
+  { name: 'chmod', re: /\bchmod\s+(\d|[-+=ugoarwx])/ },
   { name: 'chown', re: /\bchown\s+/ },
 ];
 const IGNORE_MARKER = /\/\/\s*platform-commands:\s*ignore\s+(.+)/;
