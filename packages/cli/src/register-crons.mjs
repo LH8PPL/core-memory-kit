@@ -121,13 +121,17 @@ function buildWindowsSchtasks({ command, entryName, hour, minute, dayOfWeek }) {
   // already exists (idempotency primitive). /RL LIMITED (not HIGHEST)
   // because daily distill doesn't need admin.
   const time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-  // Escape inner double-quotes per schtasks /TR convention: `\"`.
-  // Task 33 B2 fix — pre-fix `/TR "${command}"` produced malformed
-  // nested quotes for any command containing `"` (typical when the
-  // command points at a Windows path with spaces). Skill-review caught
-  // this; the test fixture (cli-register-crons.test.js) didn't surface
-  // it because earlier tests only passed `'node bin.mjs'` (no quotes).
-  const escapedCommand = command.replace(/"/g, '\\"');
+  // The command is wrapped in `/TR "${command}"`. cmd.exe/schtasks treats
+  // backslash as a PATH separator, not an escape character, so the only
+  // char that can break out of the quotes is a literal `"` — and that is
+  // rejected at the registerCron boundary (see the validation below), the
+  // same way an embedded `'` is rejected for the Linux cron line. So no
+  // escaping is applied here. (The earlier `command.replace(/"/g, '\\"')`
+  // was both unnecessary — controlled bin-name+path commands never contain
+  // `"` — and CodeQL-flagged js/incomplete-sanitization, since it didn't
+  // escape backslashes; but `\"`/`\\` is not how cmd.exe quotes anyway, and
+  // doubling backslashes would corrupt Windows paths. Reject-at-boundary is
+  // the correct, safe contract.)
   // Task 34: /SC WEEKLY /D <SUN|MON|...> for weekly cadence; /SC DAILY otherwise.
   let scheduleFlags;
   if (dayOfWeek !== undefined && dayOfWeek !== null) {
@@ -139,7 +143,7 @@ function buildWindowsSchtasks({ command, entryName, hour, minute, dayOfWeek }) {
   } else {
     scheduleFlags = '/SC DAILY';
   }
-  return `schtasks /Create /TN "${entryName}" ${scheduleFlags} /ST ${time} /TR "${escapedCommand}" /RL LIMITED /F`;
+  return `schtasks /Create /TN "${entryName}" ${scheduleFlags} /ST ${time} /TR "${command}" /RL LIMITED /F`;
 }
 
 /**
@@ -165,6 +169,11 @@ export function registerCron(opts = {}) {
     // cron command needs to either escape POSIX-style ('\'') or
     // we extend this helper with a sanitizer (v0.1.x candidate).
     errors.push("command: must not contain single quotes (Linux cron-line shell-quoting contract)");
+  } else if (opts.command.includes('"')) {
+    // Windows schtasks /TR wraps the command in double-quotes; an embedded
+    // `"` would break out of the quoting. Reject at the boundary (cmd.exe
+    // has no usable in-quote escape for `"`), mirroring the `'` contract.
+    errors.push('command: must not contain double quotes (Windows schtasks /TR quoting contract)');
   }
   const entryName = opts.entryName ?? CRON_ENTRY_NAME;
   if (!entryName || typeof entryName !== 'string' || !/^[a-zA-Z0-9_.-]+$/.test(entryName)) {

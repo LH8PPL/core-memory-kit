@@ -54,7 +54,7 @@ import {
 import { nowIso, appendAuditEntry, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { appendScratchpadBullet } from './scratchpad.mjs';
-import { parseBulletProvenance } from './provenance.mjs';
+import { parseBulletProvenance, isProvenanceCommentLine } from './provenance.mjs';
 import { checkPoisonGuard, logPoisonGuardRejection } from './poison-guard.mjs';
 import { detectConflicts, writeConflictEntry } from './conflict-queue.mjs';
 import { sanitizeHomePaths } from './sanitize.mjs';
@@ -190,7 +190,7 @@ function findMatchingBullet({ lines, substring, sectionTitle }) {
     const [, tier, idShort, bulletText] = m;
     if (!bulletText.includes(substring)) continue;
     const commentLine = lines[i + 1];
-    if (!commentLine || !/^\s*<!--.*-->\s*$/.test(commentLine)) continue;
+    if (!isProvenanceCommentLine(commentLine)) continue;
     return {
       bulletIdx: i,
       commentIdx: i + 1,

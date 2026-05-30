@@ -33,6 +33,7 @@ import { homedir } from 'node:os';
 import { SCRATCHPADS_BY_TIER, resolveTierRoot } from './tier-paths.mjs';
 import { nowIso } from './audit-log.mjs';
 import { detectStaleness } from './lazy-compress.mjs';
+import { isProvenanceCommentLine } from './provenance.mjs';
 
 // 13,000 bytes = sum of all per-file caps (12,275 from Task 12/14) + 725
 // bytes of headroom for inter-tier markers + future modest growth.
@@ -318,8 +319,7 @@ function stripShadowedIds(tier, block, seenIds, shadowedEvents, ts) {
       if (prior && prior !== tier) {
         // Drop this line + (if next is the indented provenance) the next.
         const next = lines[i + 1];
-        const isComment =
-          typeof next === 'string' && /^\s*<!--.*-->\s*$/.test(next);
+        const isComment = isProvenanceCommentLine(next);
         // Record the shadowing once per (id, shadowed-tier).
         let event = shadowedEvents.find((e) => e.id === id);
         if (!event) {
