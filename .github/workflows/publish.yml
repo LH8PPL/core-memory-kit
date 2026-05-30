@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write # OIDC — required for `npm publish --provenance`
-      contents: read
+      contents: write # create the GitHub Release from the changelog
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -42,8 +42,23 @@ jobs:
       # Full-suite gate before anything reaches the registry. Live-Haiku
       # spawn-smokes auto-skip in CI (no `claude` binary on PATH).
       - run: npm test
+      # Extract the GitHub Release notes from the CHANGELOG section the
+      # release mechanic finalized (scripts/print-release-notes.mjs)
+      # BEFORE publishing — so a missing/empty section fails the run
+      # before the IRREVERSIBLE npm publish, instead of marking a
+      # successful publish as failed. Tag-push only (workflow_dispatch
+      # has no tag to release). One file (CHANGELOG.md) drives npm + the
+      # GitHub Release — no hand-written notes.
+      - name: Extract release notes from CHANGELOG (fail-fast pre-publish)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: node scripts/print-release-notes.mjs "${GITHUB_REF_NAME#v}" > /tmp/release-notes.md
       - name: Publish @lh8ppl/claude-memory-kit with provenance
         working-directory: packages/cli
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file /tmp/release-notes.md
