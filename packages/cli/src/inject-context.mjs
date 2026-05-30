@@ -148,6 +148,36 @@ function tierDirExists(tier, tierRoot) {
 // the user never replaced" from "a fact worth injecting".
 const SEED_SHA1_RE = /sha1:\s*0{40}/;
 
+// All HTML-comment handling below uses STRING SCANNING (indexOf/startsWith),
+// never a regex tag-filter. Regex-based HTML-comment stripping is fragile by
+// nature (it can't see newlines, leaves partial `<!--`, etc. — flagged by
+// CodeQL's js/bad-tag-filter). String scanning is both more robust and not a
+// tag-filter, so it sidesteps that whole class.
+
+// True if `line`, ignoring surrounding whitespace, is exactly one self-
+// contained HTML comment (`<!-- … -->`) — e.g. a per-bullet provenance line.
+function isCommentOnlyLine(line) {
+  if (typeof line !== 'string') return false;
+  const t = line.trim();
+  return t.startsWith('<!--') && t.endsWith('-->') && t.length >= 7;
+}
+
+// Remove every self-contained `<!-- … -->` span WITHIN a single line, by
+// scanning for delimiter pairs. An unterminated `<!--` (no `-->` on this
+// line) is left in place for the multi-line state machine to handle.
+function stripInlineComments(line) {
+  let out = '';
+  let i = 0;
+  for (;;) {
+    const open = line.indexOf('<!--', i);
+    if (open === -1) return out + line.slice(i);
+    const close = line.indexOf('-->', open + 4);
+    if (close === -1) return out + line.slice(i); // unterminated; leave it
+    out += line.slice(i, open);
+    i = close + 3;
+  }
+}
+
 // Is `bulletLine` a placeholder/seed bullet that should NOT be injected?
 // Primary signal: a following provenance comment carrying the all-zero seed
 // sha1 (every scaffolded template bullet has it; a real captured fact never
@@ -158,22 +188,19 @@ function isSeedBullet(bulletLine, nextLine) {
   if (/^\s*-\s+\([PUL]-[A-Za-z0-9]{8}\)\s+\(example\)/.test(bulletLine)) {
     return true;
   }
-  const prov =
-    typeof nextLine === 'string' && /^\s*<!--.*-->\s*$/.test(nextLine)
-      ? nextLine
-      : '';
+  const prov = isCommentOnlyLine(nextLine) ? nextLine : '';
   return SEED_SHA1_RE.test(prov);
 }
 
 // Remove HTML comments robustly, including the kit templates' multi-line
 // format-explanation headers that ILLUSTRATIVELY embed a single-line
-// `<!-- source… -->` example inside the outer `<!-- … -->` block. A plain
-// non-greedy regex closes on that inner `-->` and orphans the tail, so we
-// strip inline comments first (killing the nested one) and only then walk
-// the now-cleanly-delimited multi-line blocks.
+// `<!-- source… -->` example inside the outer `<!-- … -->` block (a naive
+// "first <!-- to first -->" pass closes on that inner `-->` and orphans the
+// tail). We strip inline comments first (killing the nested one) and only
+// then walk the now-cleanly-delimited multi-line blocks. All string-scan.
 function stripHtmlComments(text) {
   // Pass 1 — remove every self-contained `<!-- … -->` on a single line.
-  const lines = text.split('\n').map((l) => l.replace(/<!--.*?-->/g, ''));
+  const lines = text.split('\n').map(stripInlineComments);
   // Pass 2 — remove multi-line blocks (each now free of any inner `-->`).
   const out = [];
   let inBlock = false;
@@ -226,7 +253,7 @@ function cleanScratchpadBody(body) {
       ID_TOKEN_RE.test(line) &&
       isSeedBullet(line, lines[i + 1])
     ) {
-      if (/^\s*<!--.*-->\s*$/.test(lines[i + 1] ?? '')) i++;
+      if (isCommentOnlyLine(lines[i + 1])) i++;
       continue;
     }
     kept.push(line);
