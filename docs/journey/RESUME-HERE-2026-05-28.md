@@ -1,6 +1,33 @@
 # Resume here
 
-> **2026-05-30 UPDATE — SELF-TEST DONE + PHASE-1 BUG SWEEP COMPLETE (7 PRs merged). This block supersedes everything below it. Read it first.**
+> **2026-05-30 (LATE) UPDATE — v0.2 LAUNCHED; Task 45 (the friend-gate) SHIPPED. This block supersedes everything below it. Read it first, then the decision log.**
+
+## STATUS AS OF 2026-05-30 (late) — read this first
+
+**First stop now: [`docs/journey/DECISION-LOG.md`](DECISION-LOG.md)** — the new append-only paper trail (D-1…D-18). Every settled decision + bug/fix lives there; **read it before re-opening any decision** (CLAUDE.md "Decision-log discipline"). It exists because a decision got re-litigated from faded memory this session — don't repeat that.
+
+**v0.1.2 shipped to npm; v0.2 is in progress. Merged to main this run:**
+
+- **Task 45 — auto-persona (PR #83), the friend-handoff gate.** Cross-project doctrine ("how I work everywhere") now **auto-promotes into the user tier** (trust:medium) during the weekly pass — auto-supersedes on contradiction, never overwrites hand-curated `trust:high`, and the weekly hook **scaffolds the user tier first** so it works on a fresh machine. This is v0.2 Phase 2's headline + what Lior said he couldn't send the friend without. _Shipped the complete **automatic** path; deferred to 45 follow-ups: the manual `cmk persona generate` wrapper + writing low/medium-confidence candidates to a review-queue **file** (currently response-only `queued[]`)._ Posture = **optimistic auto-promote** (D-4 pivot from the original manual gate).
+- **Release tooling (PR #80).** `npm run release -- <patch|minor|major|X.Y.Z>` finalizes `CHANGELOG.md [Unreleased]` → versioned section, bumps `packages/cli/package.json` in lockstep; on tag push `publish.yml` publishes npm **and** auto-creates the GitHub Release. **Cut every release with this — do NOT hand-edit the version or notes** (CLAUDE.md "Cutting a release").
+- **14 CodeQL alerts cleared (PRs #81, #82); 0 open.** bad-tag-filter / ReDoS / incomplete-sanitization → string-scanning replacements (e.g. `stripHtmlComments` in canonicalize, `isProvenanceCommentLine` in provenance.mjs), all output-identical (parity preserved).
+- **New binding rules** (CLAUDE.md): document user-facing capability in README+CHANGELOG per PR (D-17); use the release mechanic (D-18); decision-log discipline incl. "record the decision, not the conversational trigger" (don't over-attribute).
+
+### ⏳ NEXT (in queue order)
+
+1. **Task 45 follow-ups** — `cmk persona generate` manual wrapper + low/medium-confidence → review-queue FILE write (tasks.md 45.6 notes them).
+2. **Phase 2** — auto-drain the review/conflict queues in the daily/weekly passes (optimistic auto-promote + auto-supersede; no manual `cmk queue *`).
+3. **Phase 3 (the v0.2 heart)** — "Claude remembers its own positions": AI-side position capture + transcript indexing + recent-decisions injection at SessionStart + contradiction reconciliation (+ Task 55). See [`v0.1.1-self-test-findings.md`](v0.1.1-self-test-findings.md) §"v0.2 headline capability".
+
+### ⏳ WAITING ON LIOR
+
+- **Branch protection** — main is unprotected; enabling it (require the real checks, NOT the flaky "SonarCloud Code Analysis" Automatic one) would enforce the no-merge-over-red discipline. Ask for the exact required-checks list.
+- **Dependabot vitest 4.x major-bump PR** — left un-merged (a test-framework major could break the suite; vet separately).
+- **Conversation-log** (`docs/conversation-log/`) — dormant since 2026-05-22; decide revive vs retire (overlaps the new decision-log).
+
+---
+
+> **2026-05-30 UPDATE — SELF-TEST DONE + PHASE-1 BUG SWEEP COMPLETE (7 PRs merged). This block superseded by the one above; kept for the trail.**
 
 ## STATUS AS OF 2026-05-30 — read this first
 

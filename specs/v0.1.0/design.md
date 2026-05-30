@@ -2460,6 +2460,16 @@ Mechanism sketch: (1) a lightweight recurrence signal in auto-extract (same obse
 
 Ship trigger: v0.2. Tracked as tasks.md Task 55. Cross-ref: Task 45 (auto-persona), §6 (auto-extract pipeline), §4 (trust hierarchy).
 
+### 16.53 Auto-persona hardening (deferred from Task 45 PR #83 skill-review)
+
+**v0.1.x / v0.2 candidates.** Surfaced by the code-review-excellence pass on the auto-persona core (PR #83). None block the feature (the automatic path ships + works); each has a trigger:
+
+1. **Re-apply `privacy.mjs` to the classification corpus.** `autoPersona` sends project-tier fact bodies to the [[CompressorBackend]] for classification + promotes the result to the (cross-project) user tier. Today it relies on capture-time `<private>` filtering (verified present in `auto-extract` + `write-fact`), so committed facts are already private-stripped. Defense-in-depth: re-run the corpus through `privacy.mjs` before classification, so a private fact that slipped capture-time filtering can't be promoted cross-project. Trigger: any evidence private content reaches a committed fact file.
+2. **Bound the classification corpus.** `assembleProjectCorpus` concatenates all project-tier facts + `MEMORY.md` with no size cap before sending to the backend. Fine for normal projects; a very large fact archive could exceed a sensible input budget (cost/quality). Trigger: a project whose corpus exceeds N KB → truncate/window (most-recent or highest-trust first).
+3. **Live-Haiku spawn smoke for the classifier prompt (Door 3).** `autoPersona`'s tests use mock backends; the real Haiku call uses the *classifier* prompt, which has no live spawn-smoke (the weekly-curate live smoke exercises the *curate* prompt). The spawn mechanism is identical (`HaikuViaAnthropicApi`, already smoke-tested), so this is a prompt-shape gap, not a spawn gap. Trigger: a classifier-prompt regression the mock tests can't catch.
+
+The two **product** follow-ups (manual `cmk persona generate` wrapper; low/medium-confidence → review-queue *file* write, currently response-only `queued[]`) are tracked in tasks.md 45.6, not here.
+
 ---
 
 ## 17. Test discipline

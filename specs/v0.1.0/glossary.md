@@ -226,9 +226,13 @@ Cross-refs: [[Memory-write skill]]. Spec: FR-11; design §6.3.
 
 ### Auto-persona
 
-System-derived synthesis of user-tier scratchpads (`USER.md`, `HABITS.md`, `LESSONS.md`) from accumulated granular-archive facts. Triggered manually via `cmk persona generate` or automatically by the [[Auto-extract subagent]] every N captured facts (default 50). Synthesized via the [[CompressorBackend]] (Haiku per design §8.3). Two modes: **stage** (default — proposals land in `<userDir>/queues/persona-review.md` for user `accept`/`reject` via `cmk persona accept|reject <id>`) and **auto-apply** (opt-in via `settings.json` — direct writes at `trust: medium`).
+System-derived synthesis of user-tier scratchpads (`USER.md`, `HABITS.md`, `LESSONS.md`) from accumulated granular-archive facts. Synthesized via the [[CompressorBackend]] (Haiku per design §8.3).
 
-Replaces the hand-curated user-tier failure mode the kit was originally going to ship with. Promoted from v0.1.x candidate to v0.1.0 in-scope on 2026-05-24 (see [[Task 45]] in tasks.md). Conflicts with existing `trust: high` hand-curated entries route through `<userDir>/queues/persona-conflict.md` — never silent-overwrite.
+**Shipped posture — optimistic auto-promote** (PR #83, → v0.2; the 2026-05-30 pivot, decision-log D-4): the [[CompressorBackend]] classifies each project-tier fact as cross-project doctrine or not; **high-confidence doctrine auto-promotes into the user tier at `trust: medium` with NO manual accept step** (written *through* [[memoryWrite]], so it inherits home-path sanitization, [[Poison_Guard]], dedup, cap, and audit). It **auto-supersedes** a same-or-lower-trust persona fact on contradiction (no duplicate), and **never overwrites** a `trust: high` hand-curated entry (those route to the conflict queue). Low/medium-confidence candidates route to the auto-drained review queue. Triggered automatically by the weekly-curate pass (Design B), which **scaffolds the user tier first** if absent.
+
+**Original manual design (pre-2026-05-30, preserved as decision-trail):** two modes — **stage** (proposals → `<userDir>/queues/persona-review.md` for `cmk persona accept|reject <id>`) and **auto-apply** (opt-in). Superseded by the optimistic posture above per Lior's "i want it to be automatic"; the `cmk persona generate` / `accept` / `reject` manual surface is a deferred 45 follow-up, not the default path.
+
+Replaces the hand-curated user-tier failure mode the kit was originally going to ship with (design §16.16; self-test finding #2). See [[Task 45]] in tasks.md.
 
 Cross-refs: [[Auto-extract subagent]], [[Memory-write skill]], [[Trust]], [[Review queue]]. Spec: design §16.16; tasks.md Task 45.
 
