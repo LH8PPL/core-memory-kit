@@ -12,6 +12,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { autoDrainQueues } from '../packages/cli/src/auto-drain.mjs';
 import { writeConflictEntry } from '../packages/cli/src/conflict-queue.mjs';
+import { dailyDistill } from '../packages/cli/src/daily-distill.mjs';
+import { weeklyCurate } from '../packages/cli/src/weekly-curate.mjs';
+
+const mockBackend = { modelId: () => 'mock', async compress() { return { outputText: '' }; } };
 
 let projectRoot;
 
@@ -104,5 +108,40 @@ describe('autoDrainQueues() — Phase 2 optimistic auto-drain', () => {
     expect(r.review.promoted).toBe(1);
     expect(r.conflict.kept_old).toBe(1);
     expect(readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8')).toMatch(/prefer pnpm/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Wired into the maintenance passes — the drain runs automatically
+// ---------------------------------------------------------------------------
+
+describe('auto-drain wired into daily-distill + weekly-curate', () => {
+  it('dailyDistill drains the project queue even on the no-input path', async () => {
+    mkdirSync(join(projectRoot, 'context', 'sessions'), { recursive: true }); // context exists, but no today-*.md → no-input
+    seedMemory();
+    seedReviewQueue([{ id: 'P-WGQAZFVC', text: 'we use esbuild', ts: '2026-05-30T10:00:00Z' }]);
+
+    const r = await dailyDistill({ projectRoot, backend: mockBackend, now: '2026-05-30T12:00:00Z' });
+
+    expect(r.action).toBe('skipped');
+    expect(r.reason).toBe('no-input');
+    // The drain still ran (it's before the no-input return).
+    expect(r.drained.review.promoted).toBe(1);
+    expect(readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8')).toMatch(/we use esbuild/);
+  });
+
+  it('weeklyCurate drains project + user tiers as part of the weekly pass', async () => {
+    const userDir = join(projectRoot, '..', `user-${Date.now()}`);
+    mkdirSync(join(projectRoot, 'context', 'sessions'), { recursive: true });
+    writeFileSync(join(projectRoot, 'context', 'sessions', 'today-2026-05-30.md'), '- today\n', 'utf8'); // current → no-old-files
+    seedMemory();
+    seedReviewQueue([{ id: 'P-WGQAZFVC', text: 'we run CI on push', ts: '2026-05-30T10:00:00Z' }]);
+
+    const r = await weeklyCurate({ projectRoot, userDir, backend: mockBackend, now: '2026-05-30T12:00:00Z' });
+
+    expect(r.drained.P.review.promoted).toBe(1);
+    expect(r.drained.U).toBeTruthy(); // user-tier drain ran (empty queues → zero counts, no error)
+    expect(readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8')).toMatch(/we run CI on push/);
+    rmSync(userDir, { recursive: true, force: true });
   });
 });

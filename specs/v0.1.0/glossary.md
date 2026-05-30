@@ -234,6 +234,10 @@ System-derived synthesis of user-tier scratchpads (`USER.md`, `HABITS.md`, `LESS
 
 Replaces the hand-curated user-tier failure mode the kit was originally going to ship with (design §16.16; self-test finding #2). See [[Task 45]] in tasks.md.
 
+### Auto-drain
+
+The v0.2 Phase 2 behavior (decision-log D-6) where the daily-distill + weekly-curate maintenance passes resolve the [[Review queue]] and [[Conflict queue]] **automatically**, with no manual `cmk queue review|conflicts` step. Optimistic resolvers (`packages/cli/src/auto-drain.mjs`): review-queue entries → **promote** (trust the medium-trust capture; a later contradicting fact auto-supersedes, and the 14-day medium-trust staleness drop cleans noise); conflict-queue entries → **keep-old** (the only writes that reach the conflict queue are lower-trust than the existing fact they contradict, so keep-old protects the established/hand-curated fact and discards the lower-trust contradiction). The manual `cmk queue *` verbs still work for explicit control. Per Lior's "i dont want to do anything, i want it to be automatic."
+
 Cross-refs: [[Auto-extract subagent]], [[Memory-write skill]], [[Trust]], [[Review queue]]. Spec: design §16.16; tasks.md Task 45.
 
 ---

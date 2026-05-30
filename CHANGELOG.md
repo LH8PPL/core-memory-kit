@@ -13,6 +13,7 @@ v0.2 — automatic memory + "Claude stays consistent." Entries accrue here as fe
 ### Added
 
 - **Auto-persona — the user tier fills itself (Task 45).** The weekly maintenance pass now synthesizes your **cross-project doctrine** ("how I work everywhere" — tooling habits, architecture preferences) from a project's captured facts and **auto-promotes it into the user tier** (`~/.claude-memory-kit/`) at `trust: medium` — no manual step. It auto-supersedes a stale persona fact when an updated one arrives, and never overwrites a `trust: high` hand-curated entry (those stage in the conflict queue). Fixes the self-test gap where cross-project preferences were captured but stranded in the project tier, leaving the cross-project memory empty.
+- **The review + conflict queues now drain themselves.** The daily-distill and weekly-curate maintenance passes automatically resolve the queues — medium-trust auto-extractions are **promoted** into `MEMORY.md`, and a lower-trust write that conflicts with an existing higher-trust fact is **auto-resolved in favor of the higher-trust fact** — so you no longer have to run `cmk queue review` / `cmk queue conflicts` by hand (those still work if you want manual control). Mistakes self-correct: a later, better fact auto-supersedes, and stale medium-trust entries age out.
 
 ## [0.1.2] — 2026-05-30
 

@@ -979,7 +979,7 @@ Promotes the existing `scripts/extract-session-transcript.mjs` (kit-dev utility)
 
 **Phase 2 — Automatic memory (kill every manual step).** Make capture→promotion fully hands-off.
 - **Task 45 (auto-persona, optimistic auto-promote — 45.6 above)** — the friend-handoff gate. Cross-project doctrine auto-lands in the user tier.
-- **Auto-drain the review/conflict queues** — the daily-distill (Task 33) + weekly-curate (Task 34) passes drain `queues/review.md` + `queues/conflicts.md` automatically (optimistic auto-promote + auto-supersede). No manual `cmk queue *` step in the common case. _Tracked as a Task 45-adjacent behavior change; formal sub-tasks added when Phase 2 implementation opens._
+- **Auto-drain the review/conflict queues** — the daily-distill (Task 33) + weekly-curate (Task 34) passes drain `queues/review.md` + `queues/conflicts.md` automatically (optimistic auto-promote + auto-supersede). No manual `cmk queue *` step in the common case. ✅ _Shipped 2026-05-30, PR #84: `packages/cli/src/auto-drain.mjs` (`autoDrainQueues` — review→promote, conflict→keep-old) wired into both passes (daily drains P-tier; weekly drains P + U); the manual `cmk queue *` verbs still work. Glossary: [[Auto-drain]]; decision-log D-6._
 
 **Phase 3 — The heart: "Claude remembers its own positions and stays consistent."** The FastAPI scenario (*"2 days ago you said X was a mistake; now you say the opposite"*). Three pieces (findings doc §"v0.2 headline capability"):
 1. **AI-side position capture** — capture Claude's stated positions ("recommended X", "advised against Y") as timestamped, contradiction-checkable decision-facts (today only user prefs + project facts are captured; the assistant's own positions are not).
