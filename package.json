@@ -11,6 +11,7 @@
     "test": "node scripts/validate-test-ids.mjs && node scripts/validate-template.mjs && node scripts/validate-exit-doors.mjs && node scripts/validate-references.mjs && node scripts/validate-spawn-discipline.mjs && node scripts/validate-numbering-gaps.mjs && node scripts/validate-composition.mjs && node scripts/validate-platform-commands.mjs && vitest run",
     "test:file": "node scripts/test-file.mjs",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "stress": "node scripts/stress-test.mjs",
     "lint:test-ids": "node scripts/validate-test-ids.mjs",
     "lint:exit-doors": "node scripts/validate-exit-doors.mjs",
@@ -22,6 +23,7 @@
     "validate:template": "node scripts/validate-template.mjs"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.9",
     "vitest": "^2.1.0"
   },
   "engines": {
