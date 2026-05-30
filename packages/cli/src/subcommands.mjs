@@ -178,9 +178,28 @@ function runTrust(id, level /* , options, command */) {
  */
 function runSearch(queryParts, options) {
   const projectRoot = resolvePath(process.cwd());
+  const userDir =
+    process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
   const query = Array.isArray(queryParts) ? queryParts.join(' ') : queryParts;
   const db = openIndexDb({ projectRoot });
   try {
+    // Refresh the index before querying. On a fresh install the FTS5 index
+    // is empty (auto-extract writes facts to MEMORY.md but doesn't reindex,
+    // and the runtime chokidar watcher isn't running for a one-shot CLI
+    // call), so without this `cmk search` returns "no results" for facts
+    // that are sitting right there in the scratchpads (self-test finding
+    // #0). reindexBoot is incremental — mtime/sha1 diff, only changed files
+    // — so it's cheap to run on every search. Degrade gracefully: a reindex
+    // failure falls back to whatever's already indexed rather than crashing
+    // the query.
+    try {
+      reindexBoot({ projectRoot, userDir, db });
+    } catch (err) {
+      console.error(
+        `cmk search: index refresh failed (${err?.message ?? err}); ` +
+          'searching the existing index. Run `cmk reindex --full` if results look stale.',
+      );
+    }
     const r = searchAction({
       db,
       query,

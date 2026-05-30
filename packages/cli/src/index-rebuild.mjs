@@ -367,14 +367,36 @@ export function reindexBoot({ projectRoot, userDir, db, now }) {
 
   for (const source of sources) {
     filesScanned++;
-    const content = readFileSync(source.path, 'utf8');
-    const sha1 = sha1OfContent(content);
     const relPath = relativeSource(source.path, { projectRoot, userDir });
     const existing = db
-      .prepare('SELECT sha1 FROM files WHERE path = ?')
+      .prepare('SELECT mtime, sha1 FROM files WHERE path = ?')
       .get(relPath);
+    // Fast path: if the file's mtime matches the checkpoint, the content is
+    // unchanged — skip the read + sha1 entirely. This realizes design §9.2's
+    // "mtime+sha1 diff" intent (the prior impl sha1'd every file on every
+    // call) and is what makes reindexBoot cheap enough to run before every
+    // `cmk search` (finding #0) even as the memory corpus grows.
+    let mtime = null;
+    try {
+      mtime = Math.floor(statSync(source.path).mtimeMs);
+    } catch {
+      // stat failed (file vanished mid-walk); fall through to the read,
+      // which surfaces the error naturally.
+    }
+    if (existing && mtime !== null && existing.mtime === mtime) {
+      continue; // unchanged (mtime match — no read needed)
+    }
+    // Caveat: a content change that PRESERVES the old mtime (e.g. a restore
+    // tool that sets --times) is missed until the next real change or a
+    // `reindex --full`. Negligible in practice — the kit always writes a
+    // fresh mtime after the indexed one — and standard for mtime-based diffs.
+    //
+    // mtime differs (or no checkpoint) — confirm via sha1 so a mere mtime
+    // touch (content identical) doesn't trigger a needless reindex.
+    const content = readFileSync(source.path, 'utf8');
+    const sha1 = sha1OfContent(content);
     if (existing && existing.sha1 === sha1) {
-      continue; // unchanged
+      continue; // content unchanged despite mtime touch
     }
     const n = txn(source);
     filesReindexed++;
