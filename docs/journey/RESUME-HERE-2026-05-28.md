@@ -17,14 +17,15 @@ Lior ran the in-session self-test (build a mini app across 2 sessions, in `C:\Te
 **#2 (cross-project → user-tier routing) intentionally deferred to Task 45 / Phase 2.**
 
 ### ⏳ DECISION POINTS (waiting on Lior)
-1. **Republish v0.1.2** — fixes are in `main` but **npm still serves v0.1.1 (buggy)**. STOP-for-Lior (npm publish + git tag). Needs a version bump + CHANGELOG, then push `v0.1.2` → publish.yml ships it with provenance.
-2. **Disable SonarCloud "Automatic Analysis"** (redundant now with the CI-based scan).
+1. **Ship v0.1.2** — version bump + CHANGELOG + fixes are now **MERGED to main (PR #79, 2026-05-30)**. npm still serves v0.1.1 (buggy). **ONLY remaining step (Lior's, outward-facing):** `git checkout main && git pull && git tag v0.1.2 && git push origin v0.1.2` → `publish.yml` ships `@lh8ppl/claude-memory-kit@0.1.2` with provenance. After push: verify `npm view @lh8ppl/claude-memory-kit@0.1.2 version` + provenance badge.
+2. ✅ **DONE — SonarCloud "Automatic Analysis" disabled** (2026-05-30); CI-based "SonarQube Cloud" scan is the sole analyzer. The stale "SonarCloud Code Analysis" red check on #79 was a dead context (disabled method, never re-runs) — #79 merged over it intentionally; real scan passed.
 3. **Phase 2/3** = the committed v0.2 roadmap (auto-drain review queue → Task 45 auto-persona → "Claude remembers its own positions"). Big feature build; paused before launching.
    - **Phase 2 STEP 1 (do first, before any feature) = triage the v0.1.x backlog.** Open `design.md §16` ("v0.1.x candidates", each has a ship-trigger) + `tasks.md` (OPTIONAL Layer-5/6 tasks + deferrals). For EACH deferred item decide: (a) fold into v0.2, (b) ship as a small v0.1.3 patch now while cheap, or (c) drop with a documented reason. Nothing gets silently dropped. Lior's open question (unanswered at compact): **quick v0.1.3 patch-sweep of the small deferred items first, OR fold them straight into v0.2?**
    - Open (minor): Lior asked whether to dial live spawn-smokes to live-only-on-final-gate to save quota (spawn surface is stable, stress 5/5) — re-raise post-compact.
 
-### v0.1.2 release status (in flight)
-- **PR #79** open = version bump 0.1.1→0.1.2 + CHANGELOG [0.1.2] + install-message polish (outcome-over-inventory) + release-verification updated. 90 CI checks green EXCEPT the **redundant "SonarCloud Code Analysis" (Automatic)** which conflicts with the now-active CI-based scan (the "SonarQube Cloud" job, with coverage, PASSED). To ship: (1) SonarCloud → Administration → Analysis Method → **disable Automatic Analysis** (PR #79 goes green); (2) merge #79; (3) `git tag v0.1.2 && git push origin v0.1.2` → publish.yml ships with provenance (Lior's step — outward-facing).
+### v0.1.2 release status — MERGED, awaiting tag-push
+- **PR #79 MERGED to main 2026-05-30** (`abcb118`) = version bump 0.1.1→0.1.2 + CHANGELOG [0.1.2] + install-message polish (outcome-over-inventory) + release-verification updated. Automatic Analysis disabled; merged over the stale Automatic red check (dead context).
+- **Remaining: the tag-push** (Lior's outward-facing step) — `git tag v0.1.2 && git push origin v0.1.2` triggers `publish.yml` (OIDC + `npm publish --provenance`). That's the ONLY thing standing between main and npm serving the fixes.
 
 ### Remaining small Phase-1 item
 - `cmk install` over-shares bookkeeping ("skipped 4 existing" reads like a problem) — outcome-over-inventory message cleanup. Print-layer only (`subcommands.mjs`); `install()` already returns `created`/`skipped`. Batch into v0.1.2.
