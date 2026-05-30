@@ -16,6 +16,8 @@ paths = [
   '''tests/cli-poison-guard\.test\.js''',
   '''tests/cli-poison-guard-log\.test\.js''',
   '''tests/cli-memory-write\.test\.js''',
+  '''tests/cli-write-fact\.test\.js''',
+  '''tests/cli-remember\.test\.js''',
   '''tests/cli-auto-extract\.test\.js''',
   '''tests/security-posture\.test\.js''',
   '''packages/cli/src/poison-guard\.mjs''',
