@@ -67,7 +67,7 @@ function runCmk(args, { input } = {}) {
  *               tempdir sandboxes — never invoked from the repo cwd here because
  *               it requires a scaffolded context/MEMORY.md (errors exit-2 otherwise)
  */
-const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex', 'forget', 'init-user-tier', 'trust', 'search', 'remember', 'daily-distill', 'weekly-curate', 'register-crons', 'compress', 'doctor', 'import-anthropic-memory', 'repair', 'roll']);
+const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex', 'forget', 'init-user-tier', 'trust', 'search', 'remember', 'daily-distill', 'weekly-curate', 'register-crons', 'compress', 'doctor', 'import-anthropic-memory', 'repair', 'roll', 'disable-native-memory', 'enable-native-memory']);
 
 // Wired child sub-verbs (e.g. `cmk queue conflicts` shipped in Task 25).
 // Listed as "<parent>/<child>" so the generic child-stub assertion

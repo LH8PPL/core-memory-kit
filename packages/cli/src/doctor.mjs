@@ -44,6 +44,7 @@ import { basename, join } from 'node:path';
 import { nowIso } from './audit-log.mjs';
 import { detectStaleLocks } from './lock-discipline.mjs';
 import { cronSentinelPath } from './lazy-compress.mjs';
+import { getNativeAutoMemoryState } from './native-memory.mjs';
 
 const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -443,6 +444,13 @@ function hc8NativeAutoMemory({ projectRoot, now }) {
   // NOW" checks, not trend analysis. Trend logging is a v0.1.x
   // candidate (would require append + rotation or a separate
   // history.ndjson file).
+  // ADR-0011 / Task 60: the project's committable `autoMemoryEnabled` setting
+  // is what actually governs native memory going forward. Fold it into both
+  // the snapshot log (Door 4 observability) and the message so the
+  // `cmk disable-native-memory` opt-in is DISCOVERABLE here, not just at install.
+  const { state: settingState } = getNativeAutoMemoryState({ projectRoot });
+  entry.setting_state = settingState;
+
   const logPath = join(projectRoot, ...NATIVE_MEMORY_LOG_REL);
   try {
     mkdirSync(join(projectRoot, ...LOCKS_REL), { recursive: true });
@@ -450,16 +458,26 @@ function hc8NativeAutoMemory({ projectRoot, now }) {
   } catch {
     // best-effort
   }
+
+  let message;
+  if (settingState === 'disabled') {
+    // The user opted out — native won't write here regardless of any old files.
+    message = 'Anthropic auto-memory DISABLED for this project via .claude/settings.json — the kit is the sole memory layer.';
+  } else if (entry.active === true) {
+    // Native is writing AND not disabled → both layers run (context bloat).
+    // Surface the one-command opt-out (the coexistence choice, discoverable late).
+    message = `Anthropic auto-memory ACTIVE (${entry.file_count} files; last: ${entry.last_modified ?? 'unknown'}) — running ALONGSIDE the kit (both inject at session start). Run \`cmk disable-native-memory\` to use one lean layer.`;
+  } else if (entry.active === false) {
+    message = 'Anthropic auto-memory not active for this project (kit is the sole memory source).';
+  } else {
+    message = 'Anthropic auto-memory state unknown (directory unreadable).';
+  }
+
   return {
     id: 'HC-8',
     name: 'Native Anthropic Auto Memory status detected',
     status: 'pass',
-    message:
-      entry.active === true
-        ? `Anthropic auto-memory ACTIVE (${entry.file_count} files; last: ${entry.last_modified ?? 'unknown'})`
-        : entry.active === false
-          ? 'Anthropic auto-memory not active for this project (kit is the sole memory source)'
-          : 'Anthropic auto-memory state unknown (directory unreadable)',
+    message,
   };
 }
 
