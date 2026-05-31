@@ -21,7 +21,7 @@
 // buildClassifierInstructions + PERSONA_CANDIDATE_RE + promote-to-user-tier path.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync, readFileSync, readdirSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, readdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runAutoExtract } from '../packages/cli/src/auto-extract.mjs';
@@ -57,8 +57,15 @@ describe('Task 61 — inline cross-project promotion (TDD: RED until implemented
     sandbox = mkdtempSync(join(tmpdir(), 'cmk-inline-persona-'));
     projectRoot = join(sandbox, 'proj');
     userDir = join(sandbox, 'user');
-    // Scaffold the project tier + user tier from the kit's own installer.
+    // Scaffold the project tier from the kit's own installer.
     install({ projectRoot, userDir });
+    // Scaffold the user-tier scratchpads with their real section headings
+    // (the promotion targets a section that must exist) — mirrors the
+    // cli-auto-persona.test.js setup.
+    mkdirSync(userDir, { recursive: true });
+    writeFileSync(join(userDir, 'USER.md'), '# User\n\n## About\n\n## Preferences\n\n## Working Style\n', 'utf8');
+    writeFileSync(join(userDir, 'HABITS.md'), '# Habits\n\n## Iteration Cadence\n\n## Destructive Operations\n\n## Communication Style\n', 'utf8');
+    writeFileSync(join(userDir, 'LESSONS.md'), '# Lessons\n\n## Tooling Lessons\n\n## Process Lessons\n\n## Anti-patterns\n', 'utf8');
   });
   afterEach(() => rmSync(sandbox, { recursive: true, force: true }));
 
@@ -74,7 +81,7 @@ describe('Task 61 — inline cross-project promotion (TDD: RED until implemented
       userDir, // ← Task 61: runAutoExtract must accept userDir
       haikuBackend: mockBackend(
         'TRUST_HIGH user:this project uses Postgres',
-        'PERSONA CANDIDATE | target=HABITS.md | section=Tooling | confidence=high | Always uses pnpm, never npm',
+        'PERSONA CANDIDATE | target=HABITS.md | section=Communication Style | confidence=high | Always uses pnpm, never npm',
       ),
       now: '2026-05-31T10:00:00Z',
     });
