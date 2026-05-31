@@ -1,14 +1,13 @@
-// @doors: 1, 2
+// @doors: 1, 2, 4
 // Door 3 N/A: the single Haiku call is mocked here; the "no second LLM call"
-//   guarantee (Door 3) is pinned in the main cli-auto-extract spawn-smoke when
-//   Task 61 lands — see tasks.md 61.4.
-// Door 4 N/A: extract.log observability for the inline promotion is added with
-//   the implementation (61.4); this file pins the routing contract (Doors 1+2).
+//   guarantee (Door 3 — exactly ONE backend.compress) is asserted via the
+//   mock's call count below, and the real-binary side stays in the main
+//   cli-auto-extract spawn-smoke.
 // Door 5 N/A: no message queue.
 //
-// TDD CONTRACT for Task 61 — inline cross-project promotion (auto-persona fires
-// at capture time, not weekly). This test is RED until Task 61 is implemented;
-// that is intentional (test-first). The contract it locks:
+// CONTRACT for Task 61 — inline cross-project promotion (auto-persona fires
+// at capture time, not weekly). Written test-first (was RED until 61.2/61.3
+// landed). The contract it locks:
 //
 //   When auto-extract's backend emits a `PERSONA CANDIDATE | target=… | …` line
 //   (the exact format auto-persona.mjs already parses) alongside the normal
@@ -29,8 +28,22 @@ import { install } from '../packages/cli/src/install.mjs';
 
 // Mirrors the mockBackend in cli-auto-extract.test.js: compress() returns the
 // given lines verbatim as outputText so we control exactly what Haiku "emits".
+// `.calls` counts invocations — Door 3 guarantee that inline promotion reuses
+// the SAME Haiku call (no second LLM round-trip).
 function mockBackend(...lines) {
-  return { modelId: () => 'mock', async compress() { return { outputText: lines.join('\n') }; } };
+  const backend = {
+    calls: 0,
+    modelId: () => 'mock',
+    async compress() { backend.calls++; return { outputText: lines.join('\n') }; },
+  };
+  return backend;
+}
+
+// Read all NDJSON extract.log entries for the given ISO date under projectRoot.
+function readExtractLog(projectRoot, date) {
+  const p = join(projectRoot, 'context', 'sessions', `${date}.extract.log`);
+  if (!existsSync(p)) return [];
+  return readFileSync(p, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
 }
 
 function writeTurnFile(projectRoot, content) {
@@ -50,7 +63,7 @@ function treeContains(dir, needle) {
   return false;
 }
 
-describe('Task 61 — inline cross-project promotion (TDD: RED until implemented)', () => {
+describe('Task 61 — inline cross-project promotion', () => {
   let sandbox, projectRoot, userDir;
 
   beforeEach(() => {
@@ -75,19 +88,27 @@ describe('Task 61 — inline cross-project promotion (TDD: RED until implemented
       'USER_TURN:\nwe use Postgres here, and btw I always use pnpm not npm in every project\n\nASSISTANT_TURN:\nnoted',
     );
 
+    const backend = mockBackend(
+      'TRUST_HIGH user:this project uses Postgres',
+      'PERSONA CANDIDATE | target=HABITS.md | section=Communication Style | confidence=high | Always uses pnpm, never npm',
+    );
     const r = await runAutoExtract({
       turnFile,
       projectRoot,
       userDir, // ← Task 61: runAutoExtract must accept userDir
-      haikuBackend: mockBackend(
-        'TRUST_HIGH user:this project uses Postgres',
-        'PERSONA CANDIDATE | target=HABITS.md | section=Communication Style | confidence=high | Always uses pnpm, never npm',
-      ),
+      haikuBackend: backend,
       now: '2026-05-31T10:00:00Z',
     });
 
-    // Door 1 — the run reports a promotion happened.
+    // Door 1 — the run reports a promotion happened, and surfaces the
+    // user-tier persona result on the return struct.
     expect(r.action).toBe('extracted');
+    expect(r.persona).toBeTruthy();
+    expect(r.persona.promoted.map((p) => p.text)).toContain('Always uses pnpm, never npm');
+
+    // Door 3 — exactly ONE Haiku call: the inline persona promotion reuses
+    // the same extraction output, no second LLM round-trip.
+    expect(backend.calls).toBe(1);
 
     // Door 2a — project-specific fact landed in the PROJECT tier.
     const projMemory = readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8');
@@ -100,5 +121,68 @@ describe('Task 61 — inline cross-project promotion (TDD: RED until implemented
     // Over-mutation guard — the project MEMORY.md must NOT contain the
     // cross-project bullet (it went to the user tier, not duplicated here).
     expect(projMemory).not.toContain('pnpm');
+
+    // Door 4 — the extract.log entry records the inline promotion count.
+    const entries = readExtractLog(projectRoot, '2026-05-31');
+    const extracted = entries.find((e) => e.observation_count >= 1);
+    expect(extracted).toBeTruthy();
+    expect(extracted.persona_promoted).toBe(1);
+  });
+
+  it('persona-only turn: no project fact, but cross-project doctrine still promotes this run (action=extracted, persona surfaced)', async () => {
+    const turnFile = writeTurnFile(
+      projectRoot,
+      'USER_TURN:\nfrom now on, in every project, always run the linter before committing\n\nASSISTANT_TURN:\nunderstood',
+    );
+
+    const backend = mockBackend(
+      'SKIP',
+      'PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=high | Always run the linter before committing, in every project',
+    );
+    const r = await runAutoExtract({
+      turnFile,
+      projectRoot,
+      userDir,
+      haikuBackend: backend,
+      now: '2026-05-31T11:00:00Z',
+    });
+
+    // Door 1 — even with zero project candidates, a landed persona promotion
+    // is a durable extraction (NOT skipped/nothing_durable).
+    expect(r.action).toBe('extracted');
+    expect(r.observation_count).toBe(0);
+    expect(r.persona.promoted).toHaveLength(1);
+
+    // Door 2 — it reached the user tier.
+    expect(treeContains(userDir, 'linter before committing')).toBe(true);
+
+    // Door 4 — log entry reflects the promotion.
+    const entries = readExtractLog(projectRoot, '2026-05-31');
+    const withPersona = entries.find((e) => e.persona_promoted === 1);
+    expect(withPersona).toBeTruthy();
+  });
+
+  it('no userDir → no inline promotion attempted (back-compat: project extraction unaffected)', async () => {
+    const turnFile = writeTurnFile(
+      projectRoot,
+      'USER_TURN:\nwe use Postgres here, and I always use pnpm everywhere\n\nASSISTANT_TURN:\nnoted',
+    );
+    const r = await runAutoExtract({
+      turnFile,
+      projectRoot,
+      // no userDir
+      haikuBackend: mockBackend(
+        'TRUST_HIGH user:this project uses Postgres',
+        'PERSONA CANDIDATE | target=HABITS.md | section=Communication Style | confidence=high | Always uses pnpm, never npm',
+      ),
+      now: '2026-05-31T12:00:00Z',
+    });
+
+    expect(r.action).toBe('extracted');
+    expect(r.persona).toBeNull();
+    const projMemory = readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8');
+    expect(projMemory).toContain('Postgres');
+    // Nothing promoted to the user tier (no userDir given this run).
+    expect(treeContains(userDir, 'pnpm')).toBe(false);
   });
 });

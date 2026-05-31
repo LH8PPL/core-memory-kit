@@ -660,17 +660,39 @@ export async function runAutoExtract({
     // turn that is ONLY cross-project doctrine still promotes.
     let persona = null;
     if (userDir) {
-      const personaCandidates = parsePersonaCandidates(haikuResult.outputText);
-      if (personaCandidates.length > 0) {
-        persona = promoteCandidatesToUserTier({ candidates: personaCandidates, userDir, now: ts, settings });
+      // Inline persona promotion is SECONDARY to project extraction — a bug in
+      // the cross-project path must never take down the primary job (project
+      // facts + extract.log). Isolate it: on throw, record the error on the
+      // result and continue routing project candidates normally.
+      try {
+        const personaCandidates = parsePersonaCandidates(haikuResult.outputText);
+        if (personaCandidates.length > 0) {
+          persona = promoteCandidatesToUserTier({ candidates: personaCandidates, userDir, now: ts, settings });
+        }
+      } catch (err) {
+        persona = { promoted: [], queued: [], superseded: [], conflicts: [], error: err?.message ?? String(err) };
       }
     }
     const personaLanded =
       !!persona && ((persona.promoted?.length ?? 0) + (persona.superseded?.length ?? 0)) > 0;
+    // Door 4 (observability): when the inline persona pass ran, the
+    // extract.log entry carries the promotion counts so a later debugger
+    // can see cross-project doctrine landed in the user tier without
+    // re-running the turn. Empty object when no userDir / no persona pass.
+    const personaLogFields = persona
+      ? {
+          persona_promoted: persona.promoted?.length ?? 0,
+          persona_superseded: persona.superseded?.length ?? 0,
+          persona_queued: persona.queued?.length ?? 0,
+          persona_conflicts: persona.conflicts?.length ?? 0,
+          ...(persona.error ? { persona_error: persona.error } : {}),
+        }
+      : {};
 
     if (candidates.length === 0 && !personaLanded) {
       const entry = {
         ...baseEntry,
+        ...personaLogFields,
         success: true,
         skipped_reason: 'nothing_durable',
         duration_ms: Date.now() - t0,
@@ -683,6 +705,7 @@ export async function runAutoExtract({
         duration_ms: entry.duration_ms,
         logPath,
         candidates: [],
+        persona,
       };
     }
 
@@ -717,9 +740,14 @@ export async function runAutoExtract({
       (w) => w.written === 'memory' || w.written === 'review' || w.written === 'conflict',
     ).length;
 
-    if (observation_count === 0) {
+    // Persona-only turn: no project candidate landed, but cross-project
+    // doctrine promoted to the user tier this run. That IS a durable
+    // extraction — fall through to the 'extracted' return (observation_count
+    // stays 0; `persona` carries the user-tier result + Door 4 log fields).
+    if (observation_count === 0 && !personaLanded) {
       const entry = {
         ...baseEntry,
+        ...personaLogFields,
         success: true,
         skipped_reason: 'nothing_durable',
         duration_ms: Date.now() - t0,
@@ -732,11 +760,13 @@ export async function runAutoExtract({
         duration_ms: entry.duration_ms,
         logPath,
         candidates: writes,
+        persona,
       };
     }
 
     const entry = {
       ...baseEntry,
+      ...personaLogFields,
       success: true,
       observation_count,
       duration_ms: Date.now() - t0,
@@ -748,6 +778,7 @@ export async function runAutoExtract({
       duration_ms: entry.duration_ms,
       logPath,
       candidates: writes,
+      persona,
     };
   } finally {
     // Cleanup order: turn-file FIRST (frees disk), lock LAST (releases

@@ -241,14 +241,18 @@ describe('Task 21 — captureTurn() boundary', () => {
   });
 
   describe('detached spawn (21.3 + 21.4 + 21.5)', () => {
-    // NFR-1 budget for the Stop hook is 50ms. On Linux/macOS the
-    // in-process spawn() returns sub-millisecond; on Windows node's
-    // spawn has measurable overhead (~30-80ms cold). We assert <250ms
-    // here — well below design §5.1's 30s hook timeout, and a value
-    // that catches "I accidentally awaited the child" regressions
-    // without being flaky on Windows.
-    it('captureTurn() returns fast (well under hook timeout) even when spawned subagent sleeps', async () => {
-      const stub = writeAutoExtractStub(sandbox, { sleepMs: 500 });
+    // The Stop hook must NOT block on the auto-extract child (design §5.1
+    // gives a 30s envelope, NFR-1 budgets ~50ms for the in-process work).
+    // We test this LOAD-INDEPENDENTLY: the stub child sleeps before writing
+    // its lock, so at the instant captureTurn() returns the lock must not
+    // exist yet — if the parent had awaited the child, it would already be
+    // there. (The earlier formulation asserted an absolute wall-clock bound
+    // `elapsed < 250ms`; that flaked under machine load — 371ms in a stress
+    // run — without indicating any regression, because it tested a relative
+    // property with an absolute threshold. Replaced 2026-05-31.)
+    it('captureTurn() returns without blocking on the spawned subagent (detach)', async () => {
+      const sleepMs = 2000;
+      const stub = writeAutoExtractStub(sandbox, { sleepMs });
       const t0 = Date.now();
       const r = captureTurn({
         payload: { assistant_message: 'parent returns fast' },
@@ -259,14 +263,19 @@ describe('Task 21 — captureTurn() boundary', () => {
       const elapsed = Date.now() - t0;
       expect(r.action).toBe('captured');
       expect(r.spawned).toBe(true);
-      expect(elapsed).toBeLessThan(250);
-      // Door 3 (external calls): the perf assertion alone could pass
-      // if spawn silently failed (`r.spawned` is set BEFORE the child
-      // exit). Pin that the spawned child actually ran by polling
-      // for its sentinel content. Without this, a spawn-broken
-      // regression on Windows .cmd shims would still pass the perf
-      // bound and ship undetected.
-      await pollForFileWithContent(stub.lockFile);
+      // Primary (load-independent): the parent returned BEFORE the child's
+      // post-sleep lock write, so it did not block on the child. The child
+      // opens the lock file only after `sleepMs`, so existsSync can't trip
+      // on the fd-open-before-content-flush race either.
+      expect(existsSync(stub.lockFile)).toBe(false);
+      // Backstop: even a heavily-loaded detached spawn() returns far below
+      // the child's sleep; a full await would show ~sleepMs.
+      expect(elapsed).toBeLessThan(sleepMs);
+      // Door 3 (external calls): the assertions above could pass if spawn
+      // silently failed (`r.spawned` is set BEFORE the child exit). Pin that
+      // the spawned child actually ran by polling for its sentinel content.
+      // Wide poll window: child cold-start (~0.5-1.5s on Windows) + sleepMs.
+      await pollForFileWithContent(stub.lockFile, { timeoutMs: 20000 });
       expect(readFileSync(stub.lockFile, 'utf8')).toContain('LOCK');
     });
 
