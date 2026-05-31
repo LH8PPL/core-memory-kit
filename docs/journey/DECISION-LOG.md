@@ -28,7 +28,9 @@
 2. Fold PHASE-3-PLAN into the spine + `tasks.md` "Current state — what's next" (cold-restart-sufficient) ✓
 3. Merge `requirements-revisions-proposed.md` → `requirements.md` ✓
 4. Demote RESUME-HERE + BOOTSTRAP to pointers + refresh stale indexes (docs/README 3-zone rewrite, adr/README +0013, research/INDEX completed, process/README +live-test-plan) ✓
-5. Archive the dead surfaces into `archive/` (pending)
+5. Reclassify (live-test scripts → `process/`, bootstrap-test → `research/`; #88 5a) + archive the clearly-retired/superseded (conversation-log, merged proposed file, PHASE-3-PLAN husk → `archive/`; #88 5b). **Refined scope** after the read showed most "dead" docs are cited provenance, not orphans — cited findings kept as labeled History. ✓
+
+**Restructure complete 2026-05-31** (PRs #87 + #88 merged to main). The documentation now has one current-state home (the spine), enforced structurally by `validate-doc-registry` — the cross-session-amnesia failure, fixed for our own build process.
 
 ### Pre-archive read audit (2026-05-31) — findings from actually reading the archive candidates + all ADRs
 
