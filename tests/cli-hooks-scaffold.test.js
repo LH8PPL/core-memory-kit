@@ -1,6 +1,6 @@
 // @doors: 1, 2, 3
-// Door 4 N/A: hooks.json scaffold + bash bin spawns don't exchange messages via queues; the bin scripts emit envelope JSON to stdout (Door 1).
-// Door 5 N/A: hooks-scaffold tests assert the scaffold's STRUCTURE (json parses, bash bins exec) — observability behavior of each hook is owned by that hook's own test file (cli-inject-context, cli-capture-prompt, cli-capture-turn, cli-observe-edit, cli-compress-session).
+// Door 4 N/A: hooks.json scaffold + node bin spawns don't exchange messages via queues; the bin scripts emit envelope JSON to stdout (Door 1).
+// Door 5 N/A: hooks-scaffold tests assert the scaffold's STRUCTURE (json parses, node bins exec) — observability behavior of each hook is owned by that hook's own test file (cli-inject-context, cli-capture-prompt, cli-capture-turn, cli-observe-edit, cli-compress-session).
 
 // Tests for Task 17 — hooks.json + 6-hook scaffold (T-014).
 // Per tasks.md 17.3:
@@ -19,10 +19,11 @@
 //     implemented" notice or which language it's written in — those are
 //     implementation details that change when the real handlers ship in
 //     Tasks 18-24.
-//   - The bash invocation pattern is part of the design.md §5.1 contract
-//     (the kit ships its hooks under the documented bash-wrapped path so
-//     they work uniformly across Anthropic's plugin loader); assert the
-//     command string matches the documented shape.
+//   - The node invocation pattern is part of the design.md §5.1 contract
+//     (Task 62: the kit ships its hooks as node `.mjs` invoked via
+//     `node "${CLAUDE_PLUGIN_ROOT}/bin/<stub>.mjs"`, so they run on node
+//     alone — no bash — across every OS); assert the command string
+//     matches the documented shape.
 
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
@@ -112,11 +113,11 @@ describe('Task 17 — hooks.json scaffold', () => {
           expect(entry.hooks[0].type).toBe('command');
         });
 
-        it(`command targets bin/${expected.stub} via the documented bash + CLAUDE_PLUGIN_ROOT pattern`, () => {
+        it(`command targets bin/${expected.stub}.mjs via the node + CLAUDE_PLUGIN_ROOT pattern (Task 62 — node-only, no bash)`, () => {
           const obj = loadHooksJson();
           const cmd = obj.hooks[expected.event][0].hooks[0].command;
           expect(cmd).toBe(
-            `bash "\${CLAUDE_PLUGIN_ROOT}/bin/${expected.stub}"`,
+            `node "\${CLAUDE_PLUGIN_ROOT}/bin/${expected.stub}.mjs"`,
           );
         });
 
@@ -160,7 +161,10 @@ describe('Task 17 — hooks.json scaffold', () => {
 describe('Task 17 — bin/cmk-<verb> hook scripts', () => {
   for (const { stub, isStub } of EXPECTED_HOOKS) {
     describe(`bin/${stub}${isStub ? '' : ' (real handler)'}`, () => {
-      const stubPath = join(BIN_DIR, stub);
+      // Task 62: the hooks are node `.mjs` files invoked via
+      // `node "${CLAUDE_PLUGIN_ROOT}/bin/<stub>.mjs"` (asserted by the
+      // hooks.json suite above) — node alone, no bash, on every OS.
+      const stubPath = join(BIN_DIR, `${stub}.mjs`);
 
       it('exists on disk', () => {
         expect(existsSync(stubPath)).toBe(true);
@@ -170,20 +174,18 @@ describe('Task 17 — bin/cmk-<verb> hook scripts', () => {
         expect(statSync(stubPath).isFile()).toBe(true);
       });
 
-      // POSIX execute bit is not reliably preserved on Windows checkouts. The
-      // claude-mem / claude-remember pattern is to ship as bash scripts under
-      // `bash "${CLAUDE_PLUGIN_ROOT}/bin/<stub>"` — bash interprets the file
-      // regardless of the +x bit. The hooks.json command therefore wraps each
-      // stub in `bash "..."` (asserted by the hooks.json suite above). What we
-      // can portably check here is that the file starts with a `#!` shebang
-      // referencing bash/sh, signaling the documented run-mode.
-      it('begins with a bash/sh shebang', () => {
+      // The bins run via `node <file>` (npm-route PATH shim or the plugin
+      // route's `node "${CLAUDE_PLUGIN_ROOT}/bin/<stub>.mjs"`), so node — not
+      // bash — is the only runtime dependency. We assert the node shebang as
+      // the documented run-mode (and `node <file>` ignores the +x bit, so the
+      // Windows-checkout exec-bit problem is moot).
+      it('begins with a node shebang', () => {
         const head = readFileSync(stubPath, 'utf8').slice(0, 32);
-        expect(head).toMatch(/^#!\s*(\/usr\/bin\/env\s+bash|\/bin\/bash|\/bin\/sh|\/usr\/bin\/env\s+sh)\b/);
+        expect(head).toMatch(/^#!\s*(\/usr\/bin\/env\s+node|\/usr\/bin\/node|\/usr\/local\/bin\/node)\b/);
       });
 
-      it('exits 0 when invoked via bash with empty stdin', () => {
-        const r = spawnSync('bash', [stubPath], {
+      it('exits 0 when invoked via node with empty stdin', () => {
+        const r = spawnSync(process.execPath, [stubPath], {
           input: '',
           encoding: 'utf8',
         });
@@ -191,7 +193,7 @@ describe('Task 17 — bin/cmk-<verb> hook scripts', () => {
       });
 
       it('stdout parses as JSON', () => {
-        const r = spawnSync('bash', [stubPath], {
+        const r = spawnSync(process.execPath, [stubPath], {
           input: '',
           encoding: 'utf8',
         });
@@ -200,7 +202,7 @@ describe('Task 17 — bin/cmk-<verb> hook scripts', () => {
 
       if (isStub) {
         it('stub JSON contains continue: true', () => {
-          const r = spawnSync('bash', [stubPath], {
+          const r = spawnSync(process.execPath, [stubPath], {
             input: '',
             encoding: 'utf8',
           });
@@ -209,7 +211,7 @@ describe('Task 17 — bin/cmk-<verb> hook scripts', () => {
         });
 
         it('stub stdout (or stderr) contains the documented "not yet implemented" notice', () => {
-          const r = spawnSync('bash', [stubPath], {
+          const r = spawnSync(process.execPath, [stubPath], {
             input: '',
             encoding: 'utf8',
           });
@@ -226,7 +228,7 @@ describe('Task 17 — bin/cmk-<verb> hook scripts', () => {
         // still emits parseable JSON and exits 0 — i.e., that it
         // honors the hook-protocol envelope regardless of payload.
         it('real handler emits parseable JSON (envelope contract)', () => {
-          const r = spawnSync('bash', [stubPath], {
+          const r = spawnSync(process.execPath, [stubPath], {
             input: '',
             encoding: 'utf8',
           });
@@ -240,7 +242,7 @@ describe('Task 17 — bin/cmk-<verb> hook scripts', () => {
           stop_hook_active: false,
           session_id: 'test-session',
         });
-        const r = spawnSync('bash', [stubPath], {
+        const r = spawnSync(process.execPath, [stubPath], {
           input: fakePayload,
           encoding: 'utf8',
         });

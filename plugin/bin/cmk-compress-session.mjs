@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// SessionEnd hook real handler (Task 22, T-019). The bash wrapper at
-// plugin/bin/cmk-compress-session execs this file.
+// SessionEnd hook real handler (Task 22, T-019). node-only since Task 62: hooks.json invokes this directly via
+// node "${CLAUDE_PLUGIN_ROOT}/bin/cmk-compress-session.mjs" (no bash wrapper).
 //
 // Protocol: payload arrives on stdin as JSON ({session_id, ...} per
 // Anthropic hook spec). The hook fires when the user ends the session

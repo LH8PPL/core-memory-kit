@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-# cmk-capture-prompt — UserPromptSubmit hook (Task 19 real handler).
-#
-# hooks.json invokes this via `bash "${CLAUDE_PLUGIN_ROOT}/bin/cmk-capture-prompt"`,
-# so the entrypoint must be a bash script. The actual handler lives in
-# the sibling .mjs file (same pattern as cmk-inject-context per Task 18).
-
-script_dir="$(cd "$(dirname "$0")" && pwd)"
-exec node "${script_dir}/cmk-capture-prompt.mjs"

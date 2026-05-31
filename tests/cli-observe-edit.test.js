@@ -40,7 +40,7 @@ import { observeEdit } from '../packages/cli/src/observe-edit.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = join(dirname(__filename), '..');
-const BIN_PATH = join(REPO_ROOT, 'plugin', 'bin', 'cmk-observe-edit');
+const BIN_PATH = join(REPO_ROOT, 'plugin', 'bin', 'cmk-observe-edit' + '.mjs');
 const HOOKS_JSON_PATH = join(
   REPO_ROOT,
   'plugin',
@@ -257,7 +257,7 @@ describe('Task 20 — observeEdit() boundary', () => {
   });
 });
 
-describe('Task 20 — bin/cmk-observe-edit (hook bash wrapper)', () => {
+describe('Task 20 — bin/cmk-observe-edit (hook handler — node bin)', () => {
   let sandbox;
   let projectRoot;
 
@@ -272,7 +272,7 @@ describe('Task 20 — bin/cmk-observe-edit (hook bash wrapper)', () => {
   });
 
   it('exits 0 immediately with {"continue": true} even with large payload', () => {
-    const r = spawnSync('bash', [BIN_PATH], {
+    const r = spawnSync(process.execPath, [BIN_PATH], {
       input: JSON.stringify({
         hook_event_name: 'PostToolUse',
         tool_name: 'Write',
@@ -289,7 +289,7 @@ describe('Task 20 — bin/cmk-observe-edit (hook bash wrapper)', () => {
 
   it('detached append: parent exits fast, summary line lands later (mtime watch)', async () => {
     const t0 = Date.now();
-    const r = spawnSync('bash', [BIN_PATH], {
+    const r = spawnSync(process.execPath, [BIN_PATH], {
       input: JSON.stringify({
         hook_event_name: 'PostToolUse',
         tool_name: 'Write',

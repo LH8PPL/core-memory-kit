@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// SessionStart hook real handler (Task 18). The bash wrapper at
-// plugin/bin/cmk-inject-context execs this file.
+// SessionStart hook real handler (Task 18). node-only since Task 62: hooks.json invokes this directly via
+// node "${CLAUDE_PLUGIN_ROOT}/bin/cmk-inject-context.mjs" (no bash wrapper).
 //
 // Protocol: payload arrives on stdin as JSON (we drain it but don't
 // currently consume any fields). Emit the Anthropic SessionStart

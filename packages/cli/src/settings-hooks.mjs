@@ -34,9 +34,12 @@
 //
 //   **Original block (pre-2026-05-29, repair.mjs)**: the PLUGIN form,
 //   `bash "${CLAUDE_PLUGIN_ROOT}/bin/<name>"`, 6 events incl. Setup →
-//   cmk-version-check. That form is correct ONLY when the plugin is
-//   loaded (CLAUDE_PLUGIN_ROOT is set + bash is present). It still lives
-//   in plugin/hooks/hooks.json for the PLUGIN route (Route B), unchanged.
+//   cmk-version-check. That form required bash to be present. It lives in
+//   plugin/hooks/hooks.json for the PLUGIN route (Route B) — and as of
+//   Task 62 (2026-05-31) that route was converted to the node form
+//   `node "${CLAUDE_PLUGIN_ROOT}/bin/<name>.mjs"`, so BOTH routes are now
+//   bash-free (node-only, cross-OS). version-check was ported to a node
+//   .mjs stub at that point (see below).
 //
 //   **Task 49 (2026-05-29)**: the npm route (Route A) needs hooks that
 //   work with NO plugin loaded. This block is that form. It drops the

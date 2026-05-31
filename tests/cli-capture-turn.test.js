@@ -43,7 +43,7 @@ import { captureTurn } from '../packages/cli/src/capture-turn.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = join(dirname(__filename), '..');
-const BIN_PATH = join(REPO_ROOT, 'plugin', 'bin', 'cmk-capture-turn');
+const BIN_PATH = join(REPO_ROOT, 'plugin', 'bin', 'cmk-capture-turn' + '.mjs');
 
 function makeFixture() {
   const sandbox = mkdtempSync(join(tmpdir(), 'cmk-capture-turn-test-'));
@@ -489,7 +489,7 @@ describe('Task 21 — captureTurn() boundary', () => {
   });
 });
 
-describe('Task 21 — bin/cmk-capture-turn (hook bash wrapper)', () => {
+describe('Task 21 — bin/cmk-capture-turn (hook handler — node bin)', () => {
   let sandbox;
   let projectRoot;
 
@@ -513,7 +513,7 @@ describe('Task 21 — bin/cmk-capture-turn (hook bash wrapper)', () => {
   });
 
   it('exits 0 with continue:true on a valid Stop payload', () => {
-    const r = spawnSync('bash', [BIN_PATH], {
+    const r = spawnSync(process.execPath, [BIN_PATH], {
       input: JSON.stringify({
         hook_event_name: 'Stop',
         assistant_message: 'bin wrapper smoke',
@@ -528,7 +528,7 @@ describe('Task 21 — bin/cmk-capture-turn (hook bash wrapper)', () => {
   });
 
   it('writes the transcript to context/transcripts/<today>.md', () => {
-    spawnSync('bash', [BIN_PATH], {
+    spawnSync(process.execPath, [BIN_PATH], {
       input: JSON.stringify({
         assistant_message: 'wrapper-turn-marker',
         stop_hook_active: false,
@@ -556,7 +556,7 @@ describe('Task 21 — bin/cmk-capture-turn (hook bash wrapper)', () => {
     // captureTurn() proper.
     const stub = writeAutoExtractStub(sandbox, { sleepMs: 600, sentinel: 'DETACH_PROOF' });
 
-    const r = spawnSync('bash', [BIN_PATH], {
+    const r = spawnSync(process.execPath, [BIN_PATH], {
       input: JSON.stringify({
         assistant_message: 'detach proof',
         stop_hook_active: false,
@@ -587,7 +587,7 @@ describe('Task 21 — bin/cmk-capture-turn (hook bash wrapper)', () => {
 
   it('stop_hook_active:true short-circuits: no transcript, no spawn', async () => {
     const stub = writeAutoExtractStub(sandbox);
-    const r = spawnSync('bash', [BIN_PATH], {
+    const r = spawnSync(process.execPath, [BIN_PATH], {
       input: JSON.stringify({
         assistant_message: 'should-not-be-saved',
         stop_hook_active: true,
