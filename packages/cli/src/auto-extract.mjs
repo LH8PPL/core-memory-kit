@@ -55,6 +55,11 @@ import { pidIsAlive } from './lock-discipline.mjs';
 import { nowIso } from './audit-log.mjs';
 import { ERROR_CATEGORIES } from './result-shapes.mjs';
 import { touchCooldownMarker } from './cooldown.mjs';
+// Task 61 — inline cross-project promotion. Reuse auto-persona's classifier
+// directive, parser, and promote-to-user-tier path so the SAME per-turn Haiku
+// call that extracts project facts ALSO promotes cross-project doctrine to the
+// user tier immediately (vs waiting for the weekly auto-persona janitor).
+import { parsePersonaCandidates, promoteCandidatesToUserTier } from './auto-persona.mjs';
 
 const LOCK_FILENAME = 'auto-extract.lock';
 const NOW_MD_RELATIVE = ['context', 'sessions', 'now.md'];
@@ -272,6 +277,13 @@ function buildExtractionInstructions() {
     '  - If a previous-entry context is included below, do NOT re-emit facts already in it.',
     '',
     'Note: assistant-origin candidates are auto-demoted one trust level before routing (HIGH → MEDIUM → LOW → discarded). This is intentional — assistant inferences need user review. Emit your honest trust assessment; the routing layer handles demotion.',
+    '',
+    'ALSO — cross-project doctrine: if a fact expresses how this user works in EVERY project (tooling habits, architecture preferences, communication/process style — NOT this-project specifics like a port number or file name), emit one ADDITIONAL line for it (in addition to its TRUST_ line above), in this EXACT format:',
+    '  PERSONA CANDIDATE | target=<HABITS.md|LESSONS.md|USER.md> | section=<Section> | confidence=<high|medium|low> | <one-line restatement>',
+    '    - HABITS.md  → sections: Iteration Cadence | Destructive Operations | Communication Style',
+    '    - LESSONS.md → sections: Tooling Lessons | Process Lessons | Anti-patterns',
+    '    - USER.md    → sections: About | Preferences | Working Style',
+    '  confidence=high ONLY when it clearly generalizes beyond this project ("always" / "every project" / "from now on" cues, or an unmistakable working-style rule). Emit no PERSONA CANDIDATE line if nothing is cross-project.',
   ].join('\n');
 }
 
@@ -460,6 +472,8 @@ export async function runAutoExtract({
   haikuBackend,
   now,
   sessionId,
+  userDir, // Task 61: when present, cross-project candidates promote to the user tier inline
+  settings,
 } = {}) {
   const ts = now ?? nowIso();
   const t0 = Date.now();
@@ -639,9 +653,46 @@ export async function runAutoExtract({
     candidates = applyRetainOverride(candidates, retainSegments);
     candidates = dedupByCanonicalId(candidates);
 
-    if (candidates.length === 0) {
+    // Task 61 — inline cross-project promotion. The SAME Haiku output may
+    // carry PERSONA CANDIDATE lines (cross-project doctrine); promote them to
+    // the user tier THIS run (vs the weekly auto-persona janitor). No second
+    // LLM call — same outputText. Runs BEFORE the project-empty check so a
+    // turn that is ONLY cross-project doctrine still promotes.
+    let persona = null;
+    if (userDir) {
+      // Inline persona promotion is SECONDARY to project extraction — a bug in
+      // the cross-project path must never take down the primary job (project
+      // facts + extract.log). Isolate it: on throw, record the error on the
+      // result and continue routing project candidates normally.
+      try {
+        const personaCandidates = parsePersonaCandidates(haikuResult.outputText);
+        if (personaCandidates.length > 0) {
+          persona = promoteCandidatesToUserTier({ candidates: personaCandidates, userDir, now: ts, settings });
+        }
+      } catch (err) {
+        persona = { promoted: [], queued: [], superseded: [], conflicts: [], error: err?.message ?? String(err) };
+      }
+    }
+    const personaLanded =
+      !!persona && ((persona.promoted?.length ?? 0) + (persona.superseded?.length ?? 0)) > 0;
+    // Door 4 (observability): when the inline persona pass ran, the
+    // extract.log entry carries the promotion counts so a later debugger
+    // can see cross-project doctrine landed in the user tier without
+    // re-running the turn. Empty object when no userDir / no persona pass.
+    const personaLogFields = persona
+      ? {
+          persona_promoted: persona.promoted?.length ?? 0,
+          persona_superseded: persona.superseded?.length ?? 0,
+          persona_queued: persona.queued?.length ?? 0,
+          persona_conflicts: persona.conflicts?.length ?? 0,
+          ...(persona.error ? { persona_error: persona.error } : {}),
+        }
+      : {};
+
+    if (candidates.length === 0 && !personaLanded) {
       const entry = {
         ...baseEntry,
+        ...personaLogFields,
         success: true,
         skipped_reason: 'nothing_durable',
         duration_ms: Date.now() - t0,
@@ -654,6 +705,7 @@ export async function runAutoExtract({
         duration_ms: entry.duration_ms,
         logPath,
         candidates: [],
+        persona,
       };
     }
 
@@ -688,9 +740,14 @@ export async function runAutoExtract({
       (w) => w.written === 'memory' || w.written === 'review' || w.written === 'conflict',
     ).length;
 
-    if (observation_count === 0) {
+    // Persona-only turn: no project candidate landed, but cross-project
+    // doctrine promoted to the user tier this run. That IS a durable
+    // extraction — fall through to the 'extracted' return (observation_count
+    // stays 0; `persona` carries the user-tier result + Door 4 log fields).
+    if (observation_count === 0 && !personaLanded) {
       const entry = {
         ...baseEntry,
+        ...personaLogFields,
         success: true,
         skipped_reason: 'nothing_durable',
         duration_ms: Date.now() - t0,
@@ -703,11 +760,13 @@ export async function runAutoExtract({
         duration_ms: entry.duration_ms,
         logPath,
         candidates: writes,
+        persona,
       };
     }
 
     const entry = {
       ...baseEntry,
+      ...personaLogFields,
       success: true,
       observation_count,
       duration_ms: Date.now() - t0,
@@ -719,6 +778,7 @@ export async function runAutoExtract({
       duration_ms: entry.duration_ms,
       logPath,
       candidates: writes,
+      persona,
     };
   } finally {
     // Cleanup order: turn-file FIRST (frees disk), lock LAST (releases

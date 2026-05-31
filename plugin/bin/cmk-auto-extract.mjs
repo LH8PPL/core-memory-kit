@@ -14,6 +14,7 @@
 
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { existsSync } from 'node:fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -44,18 +45,36 @@ const compressorModulePath = join(
   'src',
   'compressor.mjs',
 );
+const tierPathsModulePath = join(
+  __dirname,
+  '..',
+  '..',
+  'packages',
+  'cli',
+  'src',
+  'tier-paths.mjs',
+);
 
 let runAutoExtract;
 let HaikuViaAnthropicApi;
+let resolveTierRoot;
 try {
   ({ runAutoExtract } = await import(pathToFileURL(autoExtractModulePath).href));
   ({ HaikuViaAnthropicApi } = await import(pathToFileURL(compressorModulePath).href));
+  ({ resolveTierRoot } = await import(pathToFileURL(tierPathsModulePath).href));
 } catch (err) {
   process.stderr.write(
     `cmk-auto-extract: failed to load modules: ${err?.message ?? err}\n`,
   );
   process.exit(0);
 }
+
+// Task 61 — inline cross-project promotion: pass the user-tier dir so
+// cross-project doctrine promotes immediately. Resolve the base via the
+// shared tier-paths resolver (never re-derive ~/.claude-memory-kit inline —
+// CLAUDE.md shared-modules rule), and only when the user tier exists.
+const userDirBase = resolveTierRoot({ tier: 'U' });
+const userDir = existsSync(userDirBase) ? userDirBase : undefined;
 
 try {
   const haikuBackend = new HaikuViaAnthropicApi();
@@ -64,6 +83,7 @@ try {
     projectRoot,
     haikuBackend,
     sessionId: process.env.CMK_SESSION_ID,
+    userDir,
   });
   // Diagnostic log to stderr (parent already exited; nothing reads stdout).
   process.stderr.write(

@@ -57,7 +57,7 @@ const VALID_TARGETS = new Set(['USER.md', 'HABITS.md', 'LESSONS.md']);
 // (Design B) emits, for each captured fact that is cross-project
 // doctrine, a line of this exact shape. Project-specific facts are NOT
 // surfaced. Free text is the trailing group (may contain '=' / '|').
-const CANDIDATE_RE =
+export const PERSONA_CANDIDATE_RE =
   /^PERSONA CANDIDATE \| target=(.+?) \| section=(.+?) \| confidence=(\w+) \| (.+)$/;
 
 // Assemble the PROJECT-tier captured facts (granular fact files +
@@ -87,7 +87,7 @@ function assembleProjectCorpus({ projectRoot, userDir }) {
   return parts.filter(Boolean).join('\n\n');
 }
 
-function buildClassifierInstructions() {
+export function buildClassifierInstructions() {
   return [
     'You are a persona archivist for claude-memory-kit. The input below is a set of facts captured while the user worked on ONE project.',
     '',
@@ -109,11 +109,11 @@ function buildClassifierInstructions() {
   ].join('\n');
 }
 
-function parseCandidates(outputText) {
+export function parsePersonaCandidates(outputText) {
   const candidates = [];
   for (const raw of (outputText ?? '').split('\n')) {
     const line = raw.trim();
-    const m = CANDIDATE_RE.exec(line);
+    const m = PERSONA_CANDIDATE_RE.exec(line);
     if (!m) continue;
     const [, target, section, confidence, text] = m;
     candidates.push({
@@ -195,9 +195,34 @@ export async function autoPersona(opts = {}) {
     });
   }
 
-  const candidates = parseCandidates(result?.outputText);
-  const userTierRoot = resolveTierRoot({ tier: 'U', userDir });
+  const candidates = parsePersonaCandidates(result?.outputText);
+  const { promoted, queued, superseded, conflicts } = promoteCandidatesToUserTier({
+    candidates,
+    userDir,
+    now: ts,
+    settings,
+  });
 
+  const duration_ms = Date.now() - t0;
+  // A supersede IS a promotion outcome (the user tier changed).
+  if (promoted.length === 0 && superseded.length === 0) {
+    return { action: 'skipped', reason: 'no-promotions', promoted, queued, superseded, conflicts, duration_ms };
+  }
+  return { action: 'promoted', promoted, queued, superseded, conflicts, duration_ms };
+}
+
+/**
+ * Promote classified PERSONA CANDIDATE rows into the user tier. Shared by
+ * autoPersona (the weekly janitor) and auto-extract (Task 61 — inline at
+ * capture time). High-confidence → memoryWrite to the user-tier scratchpad
+ * (auto-supersede on conflict; never overwrite a hand-curated trust:high rule
+ * — the 45.4 invariant); low/medium → surfaced in `queued`.
+ *
+ * @returns {{promoted:Array, queued:Array, superseded:Array, conflicts:Array}}
+ */
+export function promoteCandidatesToUserTier({ candidates, userDir, now, settings }) {
+  const ts = now ?? new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const userTierRoot = resolveTierRoot({ tier: 'U', userDir });
   const promoted = [];
   const queued = [];
   const superseded = [];
@@ -292,12 +317,5 @@ export async function autoPersona(opts = {}) {
     promoted.push({ id: res.id, target: c.target, section: c.section, text: c.text, trust: 'medium' });
   }
 
-  const duration_ms = Date.now() - t0;
-  // A supersede IS a promotion outcome (the user tier changed). 'promoted'
-  // when anything landed in the tier; otherwise 'skipped' (candidates may
-  // still have been staged as conflicts / queued — surfaced in the arrays).
-  if (promoted.length === 0 && superseded.length === 0) {
-    return { action: 'skipped', reason: 'no-promotions', promoted, queued, superseded, conflicts, duration_ms };
-  }
-  return { action: 'promoted', promoted, queued, superseded, conflicts, duration_ms };
+  return { promoted, queued, superseded, conflicts };
 }
