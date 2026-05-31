@@ -14,6 +14,8 @@ Nine yes/no checks `cmk doctor` runs against the kit installation. Each has a se
 | HC-8 | Native Anthropic Auto Memory status detected | Inspect `~/.claude/projects/<slug>/memory/`; write single-line JSON snapshot to `context/.locks/native-memory-status.log`. Non-fatal informational. |
 | HC-9 | No stale lock files | `detectStaleLocks(projectRoot, {userDir})` from [packages/cli/src/lock-discipline.mjs](packages/cli/src/lock-discipline.mjs) returns no entries with `stale: true` |
 
+**Severity on a fresh project (v0.2.0):** HC-3, HC-4, and HC-6 report **SKIP**, not FAIL, when there's simply nothing to check yet — no distill built (HC-3), no Claude Code session captured here yet (HC-4), or cron not registered (HC-6, which is *optional*: the kit falls back to lazy-on-read compression). A clean install therefore reads `pass · 0 fail · skip` and `cmk doctor` exits `0`. These flip to **FAIL** only on a genuine problem: a *stale* distill (recent.md exists but > 2 days old), or transcripts that exist but stopped firing (> 3 days).
+
 ## Self-repair
 
 When a check fails, route to its repair step. **Never run install commands silently** — always ASK the user first.

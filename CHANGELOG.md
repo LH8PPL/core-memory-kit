@@ -23,6 +23,7 @@ v0.2 — automatic memory + "Claude stays consistent." Entries accrue here as fe
 ### Changed
 
 - **The kit's hooks now run on Node alone — no bash, on any OS (Task 62).** Both install routes now invoke the lifecycle hooks directly with `node` (the plugin route via `node "${CLAUDE_PLUGIN_ROOT}/bin/<hook>.mjs"`; the npm route already used PATH-resolved node bins). Previously the plugin route shipped bash wrapper scripts, which required a POSIX shell (Git Bash or WSL) on Windows — a hidden dependency that could fail on a machine without a real bash. Node is the only runtime requirement now, exactly like Claude Code itself. No action needed; install and hooks work the same on Windows, macOS, and Linux.
+- **`cmk doctor` no longer reports a healthy fresh install as broken.** On a brand-new project, three checks were marked **FAIL** when they were really "nothing's happened yet" or "optional": distill freshness (HC-3) and transcript firing (HC-4) before you've had a session, and cron registration (HC-6) — which is optional, since the kit falls back to lazy-on-read compression. These are now **SKIP** on a fresh project (matching how the README already describes cron), so a clean install reads `6 pass · 0 fail · 3 skip` and `cmk doctor` exits `0` instead of `1`. The genuine failure cases still FAIL: a *stale* distill, and transcripts that exist but stopped firing.
 
 ## [0.1.2] — 2026-05-30
 
