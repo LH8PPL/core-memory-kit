@@ -30,6 +30,20 @@
 4. Demote RESUME-HERE + BOOTSTRAP to pointers + refresh stale indexes (docs/README 3-zone rewrite, adr/README +0013, research/INDEX completed, process/README +live-test-plan) ✓
 5. Archive the dead surfaces into `archive/` (pending)
 
+### Pre-archive read audit (2026-05-31) — findings from actually reading the archive candidates + all ADRs
+
+Lior pushed back that an earlier "I went over all the docs" was overstated (inferred from filenames, not read). Re-read for real. What it surfaced:
+
+- **NOTE — 2 archive candidates are NOT dead; they're reusable test scripts.** `v0.1.1-self-test-guide.md` (the build-FastAPI-across-2-sessions script) + `v0.1.1-scenario-test.md` (the 13-scenario matrix) are the basis for the next live test → route to `docs/process/`, NOT `archive/`. `2026-05-23-bootstrap-test.md` is cold-start A/B *research* → `docs/research/`. `v0.1.0-requirements-coverage.md` is a useful 28/30-FR coverage audit → keep as history. Blanket-archiving-from-filenames would have buried all four.
+- **ISSUE — 4 orphaned conclusions** (durable, verified NOT in the spine; must extract before archiving the docs that hold them):
+  1. **#3 Gap A** — auto-extract captures *intermediate* not *final* state (self-test-findings) → design §16.54.
+  2. **`degraded_input` flag** — silent inter-hook degradation when capture-prompt fails (2026-05-26 findings) → design §16.55.
+  3. **`cmk checkpoint <n>`** — programmatic checkpoint verification (bootstrap-test) → design §16.56.
+  4. **"Checkpoint marked but not verified" anti-pattern** — flip a checkpoint box only after re-running its criteria from current main (bootstrap-test) → CLAUDE.md rule.
+- **NOTE — ADR-0011 is a genuinely OPEN decision.** "Coexistence with Anthropic's built-in Auto Memory" has been `proposed` since 2026-05-22; default = Option A (`autoMemoryEnabled: false`) but never formally decided; has 3 investigation questions. Surface it as a pending decision (it currently lives only in the `-OPEN` ADR).
+- **NOTE — everything else is captured** (safe to archive): cap-coordination + user-tier fixes → design §7.1/§7.1.1 + validate-template cap check; NFR-1 amendment → requirements.md; the Phase-1 bugs → PRs #72-79; the conversation-logs' decisions → ADRs 0001-0011. **Link cost:** ~10 ADRs cite `conversation-log/2026-05-2x.md` → archiving it needs those link rewrites.
+- **Read status:** genuinely read = all archive candidates + all 13 ADRs + the spine spec files + governance/index docs. NOT yet read in full = the ~30 research notes + sources/ + process/ + the full design.md/build-log line-by-line (in progress, per Lior "finish reading everything first").
+
 ---
 
 ## 2026-05-30 — v0.1.2 shipped; v0.2 launched; Task 45 started

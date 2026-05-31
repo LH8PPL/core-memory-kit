@@ -2470,6 +2470,18 @@ Ship trigger: v0.2. Tracked as tasks.md Task 55. Cross-ref: Task 45 (auto-person
 
 The two **product** follow-ups (manual `cmk persona generate` wrapper; low/medium-confidence → review-queue *file* write, currently response-only `queued[]`) are tracked in tasks.md 45.6, not here.
 
+### 16.54 Final-state vs intermediate-state auto-extraction (self-test finding #3 Gap A)
+
+**v0.2 candidate.** Auto-extract captures observations per-turn, reflecting that turn's understanding — which a later turn in the same session may supersede. The v0.1.1 self-test surfaced this: turn-1 queued a Python pip/3.13 version-mismatch "workaround" (reinstall deps / explicit interpreter path); the session later corrected the real fix (VS Code `settings.json` PATH + venv). By `cmk queue review` time the queued entry is factually stale — discarded only because the reviewer happens to know the later correction. **Question:** should auto-extract prefer end-of-turn/end-of-session state, or weight later turns over earlier when the same canonical topic recurs within a session? Composes with conflict-detection (Task 25) + the bi-turn extraction shape (§6.4). Trigger: evidence that stale intermediate captures are a recurring review-queue burden. _(Extracted from the v0.1.1 self-test findings during the 2026-05-31 doc-governance read, before that findings doc was archived.)_
+
+### 16.55 `degraded_input` observability flag for silent inter-hook degradation
+
+**v0.1.x candidate.** `capture-turn` reads the most-recent user entry `capture-prompt` wrote to today's transcript (the bi-turn dependency, §6.4). In production the chain holds (UserPromptSubmit fires before Stop), but if `capture-prompt` is disabled / errors / hits a lock, `capture-turn` silently reads no USER_TURN section and auto-extract reverts to assistant-only — the exact bug §6.4 fixed, but **silently degraded** rather than failing loudly. The empty-string fallback is correct (crashing the Stop hook would interrupt the user). Candidate: `extract.log` gains a `degraded_input: true` field when the USER_TURN section is empty AND a user prompt was expected, so `cmk doctor` can surface "N degraded extracts this week" and flag a misconfigured capture-prompt. Same shape as the Poison_Guard-blocked-write counter (§6.7). Trigger: a report of silently-degraded capture. _(Extracted from the 2026-05-26 live-test parked observations during the doc-governance read.)_
+
+### 16.56 `cmk checkpoint <n>` — programmatic checkpoint verification
+
+**v0.1.x candidate.** The 2026-05-23 cold-start bootstrap test surfaced a failure mode docs didn't prevent: a fresh session flipped a checkpoint checkbox using fresh-looking-but-stale PR-branch test numbers, without re-running the criteria from current main ("checkpoint marked but not verified"). The behavioral guard is a CLAUDE.md rule (checkpoint-verification: never flip on stale numbers); the structural fix is a `cmk checkpoint <n>` subcommand that programmatically runs the checkpoint's criteria (full suite from main + the named smoke checks) and only then flips the box — removing the temptation to shortcut. Same "prose-rule → tool" graduation pattern as the other §16 enforcement candidates. Trigger: the manual rule proving insufficient (a second checkpoint-not-verified incident). _(Extracted from the 2026-05-23 bootstrap-test research during the doc-governance read.)_
+
 ---
 
 ## 17. Test discipline
