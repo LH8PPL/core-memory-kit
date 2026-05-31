@@ -16,10 +16,10 @@ This is the **actionable implementation plan**. A numbered, hierarchical checkli
 
 - **▶ THE PLAN (agreed 2026-05-31; v0.2.0 scope expanded by Lior 2026-05-31) — ship v0.2.0 to the friend soon. Order:**
   1. ~~**Build `Task 61`** (inline cross-project promotion).~~ ✅ **DONE — shipped #90** (TDD-first, 1276/1276, stress 5/5, two-pass review). This is what makes v0.2.0 worth shipping.
-  2. **▶ NEXT — build the rest of the v0.2.0 scope, in tasks.md order, TDD-first + two-pass review + per-task PR:**
-     - **Task 45 follow-ups** (the open 45.x): `cmk persona generate` manual wrapper (Lior: *"can help us in tests"*) + low/medium-confidence candidates → a review-queue **FILE** write (Lior: *"response object can get lost — i dont like it"*).
+  2. **build the rest of the v0.2.0 scope, TDD-first + two-pass review + per-task PR:**
+     - ~~**Task 62** — node-only hooks / retire bash.~~ ✅ **DONE — shipped #91** (pulled forward as a problem-forced detour to clear the bash dev-friction; full suite 1276/1276 bash-free, stress 5/5, CI cross-OS green).
+     - **▶ NEXT — Task 45 follow-ups** (the open 45.x): `cmk persona generate` manual wrapper (Lior: *"can help us in tests"*) + low/medium-confidence candidates → a review-queue **FILE** write (Lior: *"response object can get lost — i dont like it"*).
      - **Task 60** — `cmk disable-native-memory` command + install/doctor wiring (ADR-0011 opt-in; D-21).
-     - **Task 62** — node-only hook execution / retire the bash dependency (cross-OS parity; Lior: *"sounds like a small job"*).
   3. **Fresh live test** — run the `docs/process/` scripts against **local `main`** (NOT npm — npm is still v0.1.2). The **v0.2.0 release gate**. Claude drives the automatable half (sandbox install + `--plugin-dir` + CLI); Lior drives the fresh-session recall half.
   4. **Cut v0.2.0** — `npm run release -- minor` (0.1.2 → 0.2.0), tag → `publish.yml`. Then friend installs `npm install -g @lh8ppl/claude-memory-kit`.
 - **Strategic context (why ship now):** Lior voiced real doubt — *"maybe nobody needs this… maybe i am working for naught."* Resolution: it's a contested **niche** (Anthropic ships native auto-memory now; our edge = **committed/in-repo + cross-project**); "nobody needs it" is an **untested hypothesis** and the cure is real feedback, which only shipping gives. **Do NOT build Phase 3 (Tasks 57–59) before the friend validates Phase 1+2** — bet the big consistency-engine bet after demand is real, not before.
