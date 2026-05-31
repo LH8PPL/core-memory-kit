@@ -2,8 +2,8 @@
 // Door 3 N/A: the single Haiku call is mocked here; the "no second LLM call"
 //   guarantee (Door 3) is pinned in the main cli-auto-extract spawn-smoke when
 //   Task 61 lands — see tasks.md 61.4.
-// Door 4 N/A here: extract.log observability for the inline promotion is added
-//   with the implementation (61.4); this file pins the routing contract (Doors 1+2).
+// Door 4 N/A: extract.log observability for the inline promotion is added with
+//   the implementation (61.4); this file pins the routing contract (Doors 1+2).
 // Door 5 N/A: no message queue.
 //
 // TDD CONTRACT for Task 61 — inline cross-project promotion (auto-persona fires
