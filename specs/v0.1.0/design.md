@@ -1422,6 +1422,24 @@ Returns: `[{id, snippet, source_file, source_line, tier, trust, score}]`. Trust 
 
 **Implements**: FR-16, FR-17, FR-18, FR-30, NFR-9.
 
+#### 9.3.1 Layer 5b backend — RECONSIDER before building (open, 2026-05-31)
+
+> **Original pick:** `memsearch + Milvus` (the §9.3 "Semantic" line above). **Status: reconsider before any Layer-5b build.**
+>
+> Two independent evidence sources now argue `memsearch + Milvus` is the **wrong weight class** for what the kit is (single-user, local, per-project markdown):
+> 1. **Lior's liorwiki search decision record** (`C:/Projects/liorwiki/docs/search-architecture.md`, 2026-05-31) — same profile as the kit; explicitly **rejected Milvus as "overkill for <10K docs, requires a server"** and chose **Chroma** (pure-Python, embedded, metadata filtering) for filtered-semantic + kept **qmd** (Node, MCP-native, GGUF embeddinggemma) for pure-semantic.
+> 2. **Our own research base** ([`docs/research/2026-05-21-claude-ai-deep-research-option-b.md`](../../docs/research/2026-05-21-claude-ai-deep-research-option-b.md)) — the markdown-memory consensus is **SQLite FTS5** (claude-mem, Noema, knowledge-base-server). Projects that add semantic split into **light embedded** (`sqlite-vec` / sqliteai's `sqlite-memory` = hybrid vector+FTS5 in ONE SQLite extension, local llama.cpp embeddings) vs **heavy server** (memsearch+Milvus). `doobidoo/mcp-memory-service` offers SQLite-vec OR Milvus as a *choice*.
+>
+> This also collides with the kit's hardened **node-only / no-server ethos** (Task 62 — D-23): bolting Milvus (Docker/K8s) back on for search would reintroduce exactly the heavyweight platform dependency we just removed.
+>
+> **Candidate shortlist, lightest → heaviest:**
+> 1. **`sqlite-vec`** — vector similarity *inside the kit's existing SQLite index*; no server, no second process; hybrid FTS5+vector in one place (sqlite-memory pattern). **Best architectural fit** (we already run SQLite). Cost: a local embedding model (sentence-transformers / a small GGUF; **note — Anthropic has NO embeddings API**, so Claude can't supply vectors).
+> 2. **`qmd`** (Node, markdown-native, MCP-native, zero-server) — easiest bolt-on (register its own MCP server, or wire behind the `semanticBackend` seam in [`search.mjs`](../../packages/cli/src/search.mjs)). Cost: separate index + **file/chunk granularity ≠ our per-bullet granularity**; ~1.6 GB model.
+> 3. **Chroma** (pure-Python, embedded, filtering) — but Python dep + separate index; our FTS5 already does the metadata filtering Chroma's filtering would add, so we need *less* than the wiki did.
+> 4. **memsearch + Milvus** (the original pick) — most "designed-for-agent-memory" but needs a server; the outlier in weight.
+>
+> **Decision deferred to Layer-5b build (post-v0.2, post-friend-validation).** Recommended evaluation: a **bake-off** — ~30–50 memory-shaped facts + ~10 queries (incl. synonym/paraphrase queries where keyword *should* miss and semantic *should* hit), indexed into FTS5 + sqlite-vec + qmd + Chroma; compare recall@5 + latency. The kit already exposes the `semanticBackend` DI seam + `reciprocalRankFusion`, so any winner drops in without re-plumbing. See DECISION-LOG (2026-05-31 search thread).
+
 ---
 
 ## 10. MCP server (Layer 4b — optional)
