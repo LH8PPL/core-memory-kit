@@ -340,6 +340,17 @@ export function runRememberRich(text, options = {}, deps = {}) {
   const logError = deps.logError ?? console.error;
   const write = deps.writeFact ?? writeFact;
 
+  // M2: rich capture writes the project tier (P) in v0.1.x — same deferral as
+  // the terse path + mk_remember (U/L need per-tier scratchpad routing, design
+  // §16). Terse mode ERRORS on a non-P --tier; rich mode notes it and proceeds
+  // (a no-write surprise is worse than a captured-to-P note). Surface it so the
+  // divergence isn't silent.
+  if (options.tier && options.tier !== 'P') {
+    log(
+      `cmk remember: --tier '${options.tier}' is v0.1.x — rich capture writes the project tier (P) for now.`,
+    );
+  }
+
   const headline = String(text).trim();
   const title = (options.title && String(options.title).trim()) || headline.split('\n')[0].slice(0, 80);
   const body = buildRichFactBody({ text: headline, why: options.why, how: options.how });
@@ -363,6 +374,17 @@ export function runRememberRich(text, options = {}, deps = {}) {
   });
 
   if (r.action === 'error') {
+    // M1: a collision means a fact file with this title (→ slug) already exists
+    // but with different content (different id). Give an actionable hint rather
+    // than the raw "refusing overwrite" — the user almost certainly wants to
+    // edit the existing fact or pick a new --title.
+    if (r.errorCategory === 'collision') {
+      logError(
+        `cmk remember: a fact titled "${title}" already exists with different content. ` +
+          `Edit it directly, or capture under a new --title.`,
+      );
+      return r;
+    }
     logError(`cmk remember: ${(r.errors ?? [r.errorCategory ?? 'error']).join('; ')}`);
     return r;
   }
@@ -380,7 +402,10 @@ function runRemember(textParts, options) {
     process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
   const text = Array.isArray(textParts) ? textParts.join(' ') : textParts;
   // Rich mode: any of --why/--how/--type/--title/--links → write a real fact
-  // file (the F1 fix) instead of a terse MEMORY.md bullet.
+  // file (the F1 fix) instead of a terse MEMORY.md bullet. M3: --trust and
+  // --section are intentionally NOT triggers — --trust is shared by both forms
+  // (rich reads it too), and --section is terse-only (a MEMORY.md heading, no
+  // meaning for a granular fact file). So `--trust high` alone stays terse.
   if (options?.why || options?.how || options?.type || options?.title || options?.links) {
     runRememberRich(text, options, { projectRoot });
     return;
