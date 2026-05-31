@@ -24,6 +24,7 @@ import { runMcpServer } from './mcp-server.mjs';
 import { dailyDistill } from './daily-distill.mjs';
 import { weeklyCurate } from './weekly-curate.mjs';
 import { autoPersona } from './auto-persona.mjs';
+import { setNativeAutoMemory, nativeMemoryInstallNote } from './native-memory.mjs';
 import { runLazyCompress } from './lazy-compress.mjs';
 import { runDoctor } from './doctor.mjs';
 import { importAnthropicMemory } from './import-anthropic-memory.mjs';
@@ -100,6 +101,11 @@ async function runInstall(options /* , command */) {
       '  Restart Claude Code to activate. Complete install — no separate /plugin step needed.',
     );
   }
+  // Task 60 / ADR-0011 heads-up: the kit coexists with Claude Code's native
+  // Auto Memory by default; surface the one-command opt-out (null when already
+  // opted out, so we don't nag).
+  const nativeNote = nativeMemoryInstallNote(result.projectRoot);
+  if (nativeNote) console.log(nativeNote);
   if (verbose) {
     console.log(
       `  files: ${result.created.length} created, ${result.skipped.length} already present` +
@@ -547,6 +553,35 @@ export async function runPersonaGenerate(opts = {}) {
   } catch (err) {
     logError(`cmk persona generate: unexpected error: ${err?.message ?? err}`);
   }
+}
+
+/**
+ * `cmk disable-native-memory` / `cmk enable-native-memory` (Task 60, ADR-0011)
+ * — write `autoMemoryEnabled` into the project's committable
+ * `.claude/settings.json`. Default install does NOT touch it (coexist); this
+ * is the one-command opt-in/out. `opts` carries injection seams for testing.
+ */
+export function runSetNativeMemory(enabled, opts = {}) {
+  const projectRoot = opts.projectRoot ?? resolvePath(process.cwd());
+  const log = opts.log ?? console.log;
+  const logError = opts.logError ?? console.error;
+  const cmd = enabled ? 'enable-native-memory' : 'disable-native-memory';
+  const r = setNativeAutoMemory({ projectRoot, enabled });
+  if (r.action === 'error') {
+    logError(`cmk ${cmd}: ${(r.errors && r.errors.join('; ')) || 'could not update settings.json'}`);
+    return r;
+  }
+  const verb = enabled ? 'enabled' : 'disabled';
+  if (r.action === 'unchanged') {
+    log(`cmk ${cmd}: Anthropic native Auto Memory already ${verb} for this project (no change).`);
+  } else if (enabled) {
+    log('Anthropic native Auto Memory re-enabled for this project — native + kit memory will coexist again.');
+    log(`  → ${r.settingsPath}  (reverse with \`cmk disable-native-memory\`)`);
+  } else {
+    log('Anthropic native Auto Memory disabled for this project — the kit is now the sole memory layer (one lean snapshot at session start).');
+    log(`  → ${r.settingsPath}  (committable: travels with \`git clone\`; reverse with \`cmk enable-native-memory\`)`);
+  }
+  return r;
 }
 
 /**
@@ -1391,6 +1426,18 @@ export const subcommands = [
         action: runPersonaGenerate,
       },
     ],
+  },
+  {
+    name: 'disable-native-memory',
+    description: 'opt out of Anthropic\'s native Auto Memory for THIS project (writes autoMemoryEnabled:false to the committable .claude/settings.json) so only the kit\'s memory runs — avoids the both-layers context bloat (ADR-0011)',
+    milestone: 60,
+    action: () => runSetNativeMemory(false),
+  },
+  {
+    name: 'enable-native-memory',
+    description: 're-enable Anthropic\'s native Auto Memory for this project (reverses cmk disable-native-memory)',
+    milestone: 60,
+    action: () => runSetNativeMemory(true),
   },
   {
     name: 'compress',

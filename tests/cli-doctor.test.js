@@ -287,6 +287,24 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       expect(entry.active).toBe(false);
       expect(entry.file_count).toBe(0);
     });
+
+    it('Task 60: when autoMemoryEnabled:false is set, HC-8 reports DISABLED + records setting_state (the opt-out is discoverable here)', async () => {
+      // Write the committable opt-out into the project settings.json.
+      const claudeDir = join(projectRoot, '.claude');
+      mkdirSync(claudeDir, { recursive: true });
+      writeFileSync(join(claudeDir, 'settings.json'), JSON.stringify({ autoMemoryEnabled: false }, null, 2), 'utf8');
+
+      const r = await runDoctor({ projectRoot, userDir });
+      const c8 = r.checks.find((c) => c.id === 'HC-8');
+      expect(c8.status).toBe('pass');
+      expect(c8.message).toMatch(/disabled/i);
+      expect(c8.message).toMatch(/sole memory layer/i);
+
+      // Door 4 — the snapshot log records the setting state.
+      const logPath = join(projectRoot, 'context', '.locks', 'native-memory-status.log');
+      const entry = JSON.parse(readFileSync(logPath, 'utf8').trim().split('\n')[0]);
+      expect(entry.setting_state).toBe('disabled');
+    });
   });
 
   describe('37.6 #6 — HC-9 stale locks surface recoveryCommand', () => {

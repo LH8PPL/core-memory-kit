@@ -19,8 +19,8 @@ This is the **actionable implementation plan**. A numbered, hierarchical checkli
   2. **build the rest of the v0.2.0 scope, TDD-first + two-pass review + per-task PR:**
      - ~~**Task 62** — node-only hooks / retire bash.~~ ✅ **DONE — shipped #91** (full suite 1276/1276 bash-free, stress 5/5, CI cross-OS green).
      - ~~**Task 45 follow-ups**.~~ ✅ **DONE — shipped #92** (`cmk persona generate` + durable `queues/persona-review.md` write; the "response can get lost" gap closed).
-     - **▶ NEXT — Task 60** — `cmk disable-native-memory` command + install/doctor wiring (ADR-0011 opt-in; D-21).
-  3. **Fresh live test** — run the `docs/process/` scripts against **local `main`** (NOT npm — npm is still v0.1.2). The **v0.2.0 release gate**. Claude drives the automatable half (sandbox install + `--plugin-dir` + CLI); Lior drives the fresh-session recall half.
+     - ~~**Task 60** — `cmk disable-native-memory`.~~ ✅ **DONE — shipped #93** (disable/enable commands + install heads-up + doctor HC-8 enhancement; ADR-0011 opt-in). **v0.2.0 feature scope COMPLETE.**
+  3. **▶ NEXT — Fresh live test** — run the `docs/process/` scripts against **local `main`** (NOT npm — npm is still v0.1.2). The **v0.2.0 release gate**. Claude drives the automatable half (sandbox install + `--plugin-dir` + CLI); Lior drives the fresh-session recall half.
   4. **Cut v0.2.0** — `npm run release -- minor` (0.1.2 → 0.2.0), tag → `publish.yml`. Then friend installs `npm install -g @lh8ppl/claude-memory-kit`.
 - **Strategic context (why ship now):** Lior voiced real doubt — *"maybe nobody needs this… maybe i am working for naught."* Resolution: it's a contested **niche** (Anthropic ships native auto-memory now; our edge = **committed/in-repo + cross-project**); "nobody needs it" is an **untested hypothesis** and the cure is real feedback, which only shipping gives. **Do NOT build Phase 3 (Tasks 57–59) before the friend validates Phase 1+2** — bet the big consistency-engine bet after demand is real, not before.
 - **Deferred chores (NOT in v0.2.0):** Task 56 (vitest 2→4, Dependabot #71); Phase 3 (Tasks 57–59, gated on friend validation).
@@ -1211,13 +1211,13 @@ Each parent task ships as a PR titled `[<task #>] <description>` (e.g., `[7] Per
 
 ---
 
-- [ ] 60. Native-auto-memory coexistence — `cmk disable-native-memory` opt-in (ADR-0011)
-  - Estimate: S · Depends: 3 (install), 37 (doctor) · **v0.1.x — user-facing; ADR-0011 accepted 2026-05-31 (Option C default + one-command opt-in to A)**
+- [x] 60. Native-auto-memory coexistence — `cmk disable-native-memory` opt-in (ADR-0011) _shipped 2026-05-31, PR #93_
+  - Estimate: S · Depends: 3 (install), 37 (doctor) · **v0.2.0 — user-facing; ADR-0011 accepted 2026-05-31 (Option C default + one-command opt-in to A)**
   - **Why**: Claude Code ships its own native Auto Memory (v2.1.59+, ON by default), which writes machine-local `~/.claude/projects/<slug>/memory/` in the SAME `MEMORY.md + <type>_<slug>.md` shape the kit uses in-repo. With the kit installed, BOTH inject at session start (~25 KB native + ~13 KB kit snapshot) → context bloat. Per ADR-0011 the kit is **additive, not enforcing**: it does NOT touch the user's native setting by default — it informs + offers a one-command opt-out.
-  - [ ] 60.1 `cmk disable-native-memory` — write `autoMemoryEnabled: false` into the project's `.claude/settings.json` (committable → travels with `git clone`); idempotent; preserves other settings. Plus `cmk enable-native-memory` (or `--enable`) to reverse.
-  - [ ] 60.2 `cmk install` heads-up line — after scaffolding, note that native + kit memory now coexist (bloat as both fill) and surface `cmk disable-native-memory` to run a single lean layer. Outcome-over-inventory tone (the v0.1.1 install-message lesson).
-  - [ ] 60.3 `cmk doctor` HC — detect "native auto-memory ON (no `autoMemoryEnabled:false`) + kit installed" → info-level finding with the disable command, so the choice is discoverable later (not just a skimmed install line).
-  - [ ]* 60.4 Tests — `disable`/`enable` write the right key + preserve siblings (over-mutation guard); install message fires only when relevant; doctor HC detects both states. Doors 1 (return) + 2 (settings.json state) + 4 (doctor NDJSON/finding).
+  - [x] 60.1 `cmk disable-native-memory` / `cmk enable-native-memory` — `setNativeAutoMemory({projectRoot, enabled})` in [`native-memory.mjs`](../../packages/cli/src/native-memory.mjs) writes `autoMemoryEnabled: false|true` into the project's `.claude/settings.json` (committable → travels with `git clone`); idempotent (no-op write reports `unchanged`, file byte-identical); preserves every sibling key; errors WITHOUT clobbering an unparseable file. CLI via `runSetNativeMemory` (injection seams).
+  - [x] 60.2 `cmk install` heads-up line — `nativeMemoryInstallNote(projectRoot)` returns the coexistence note + `cmk disable-native-memory` pointer, or `null` once the user has opted out (no nag). Outcome-over-inventory tone.
+  - [x] 60.3 `cmk doctor` HC-8 enhanced — reads the project's `autoMemoryEnabled` state (`getNativeAutoMemoryState`): `disabled` → "kit is sole layer"; native ACTIVE + not disabled → surfaces `cmk disable-native-memory` (the both-layers bloat heads-up); records `setting_state` in the NDJSON snapshot. (No new HC — stays HC-1..HC-9.)
+  - [x]* 60.4 Tests — `tests/cli-native-memory.test.js` (11): disable/enable write the right key + preserve siblings (over-mutation guard) + idempotent + no-clobber-on-broken-json + state reporting + CLI glue + install-note fires-only-when-relevant. `cli-doctor.test.js` +1: HC-8 reports DISABLED + records `setting_state` (Door 4). Doors 1 (return) + 2 (settings.json state) + 4 (doctor NDJSON).
   - **Docs-in-PR**: README + `docs/CLI.md` + CHANGELOG (new user-facing command).
   - _Requirements: ADR-0011; design §11 (Anthropic coexistence); Task 3 (install), Task 37 (doctor)_
 
