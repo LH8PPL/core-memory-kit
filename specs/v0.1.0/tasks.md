@@ -1241,3 +1241,24 @@ Each parent task ships as a PR titled `[<task #>] <description>` (e.g., `[7] Per
   - [x] 62.3 `plugin/hooks/hooks.json` → node form (`node "${CLAUDE_PLUGIN_ROOT}/bin/<name>.mjs"`); retired the 6 extensionless bash wrappers + legacy `auto-extract-memory.sh`; ported `cmk-version-check` to a node `.mjs` stub; `cmk-observe-edit.mjs` absorbed its wrapper's hook-envelope contract (emit `{"continue": true}` first, then the fire-and-forget append — the bash detach was unnecessary under `async: true`). Decision-trail preserved in design §5.1 + settings-hooks.mjs.
   - [x] 62.4 Shebang test now asserts the node shebang on the `.mjs` bins; CHANGELOG `[Unreleased]` ### Changed entry (node-only, no bash, cross-OS). README/INSTALL needed no change — the bash dependency was never a documented Windows prerequisite (only the optional Docker/memsearch Layer 5b mentions bash, where it's available).
   - _Requirements: NFR (cross-OS portability); design §5.1 (hook envelope), §18 (legacy cleanup); ADR-0008-class (cross-platform command discipline)_
+
+---
+
+## v0.2.0 BLOCKERS — surfaced by the 2026-05-31 live test (must land before the v0.2.0 tag)
+
+Full diagnosis + detailed specs: [`docs/journey/v0.2.0-live-test-findings.md`](../../docs/journey/v0.2.0-live-test-findings.md) (history). These task entries are the SPINE record (per DOCUMENTATION-MAP D-19 — a fix isn't real until it's a task here).
+
+- [ ] 63. **Rich-capture fix (F1 — the headline).** v0.1.2 routed all captures through `cmk remember` (sanitized but TERSE one-line MEMORY.md bullets) + told scaffolded CLAUDE.md to never hand-write fact files → v0.2.0 captures one-liners where v0.1.1 captured rich doctrine fact files. Restore richness THROUGH the safe path.
+  - [ ] 63.1 `cmk remember` rich mode (or new `cmk fact`): `--why`/`--how`/`--title`/`--type`/`--links` or stdin body → write a **granular fact file** via `writeFact()` ([write-fact.mjs](../../packages/cli/src/write-fact.mjs)) THROUGH home-path sanitizer + Poison_Guard + correct schema. Terse mode unchanged.
+  - [ ] 63.2 Update scaffolded `template/` CLAUDE.md → capture RICHLY via the safe command (the behavior lever); never hand-write `context/memory/` files.
+  - [ ] 63.3 Rich cross-project facts also feed `promoteCandidatesToUserTier` (closes F3 — `cmk remember` bypassing Task-61 promotion).
+  - [ ] 63.4* Tests: rich capture → granular fact file with Why/How + sanitized home path (leak guard); index parses it; terse unchanged; CLAUDE.md guidance asserted.
+  - _Requirements: US (durable rich capture); design §2.2/§4/§6; the v0.1.1→v0.1.2 decision trail._
+- [ ] 64. **Cross-project promotion section fix (F2).** Auto-extract emitted a `confidence:high` PERSONA CANDIDATE targeting `HABITS.md § Architecture Preferences` (not a fixed section) → schema error → queued, not promoted → HABITS.md empty (same symptom Tasks 45+61 meant to fix).
+  - [ ] 64.1 `promoteCandidatesToUserTier` (auto-persona.mjs): **create the section if missing** in the target scratchpad (guard name) instead of schema-failing to the queue.
+  - [ ] 64.2 Tighten `buildExtractionInstructions` routing so Haiku prefers an existing valid section.
+  - [ ] 64.3* Test: candidate with a non-existent section → asserts section CREATED + promoted (NOT queued) — the case the live test exposed + unit tests missed (hard-coded valid sections + confidence=high).
+  - _Requirements: US-2 (cross-project persona); design §16.16; Tasks 45 + 61._
+- [ ] 65. **Layer 5b semantic recall — backend bake-off THEN build** (the video's "most important" piece; deferred). Candidates sqlite-vec / qmd / Chroma / memsearch+Milvus; bake-off (recall@5 + latency + install weight) before picking. Detail: design §9.3.1 + findings doc. Post-F1/F2, post-friend-validation.
+
+> **v0.2.0 GATE:** Tasks 63 + 64 must land + the live test re-run (HABITS.md fills, MEMORY.md/fact-files rich) BEFORE pushing the `v0.2.0` tag. `main` is at 0.2.0, un-tagged. Task 65 is post-v0.2.
