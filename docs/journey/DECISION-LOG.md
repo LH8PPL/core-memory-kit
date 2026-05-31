@@ -10,6 +10,28 @@
 
 ---
 
+## 2026-05-31 — documentation-governance restructure (3-zone spine + registry harness)
+
+### Settled decisions (do NOT re-open without new evidence)
+
+- **D-19 DECISION — Documentation has ONE current-state home: the spine (requirements/design/tasks). SETTLED.** Across the build, every "document this" demand spawned a new/different surface instead of reusing the existing one — ~7 overlapping state surfaces (conversation-log → build-log → BOOTSTRAP → RESUME-HERE → findings-roadmap → DECISION-LOG → PHASE-3-PLAN) plus a spec spine split since day one (requirements vs requirements-revisions-proposed, both born 2026-05-22). The model: three zones — **Spine** (requirements/design/tasks = the only current state, must be cold-restart-sufficient), **Product** docs (for kit users), **History** (everything else, append-only, never current state). Registry + routing rules: [`../DOCUMENTATION-MAP.md`](../DOCUMENTATION-MAP.md). **Why structural, not just a rule:** consistency must survive a context-compact without relying on Claude's memory — the very thing that fails at every compact. Enforced by `scripts/validate-doc-registry.mjs` (dev-only, not shipped to kit users): a new unregistered doc surface fails `npm test`.
+- **D-20 PIVOT — "don't archive anything" → "archive the dead/orphaned; keep living history."** Lior said don't archive earlier this session, then reversed: files "just hanging there" (retired / superseded / closed) move to `archive/` so the working tree foregrounds the spine. Living history (DECISION-LOG, build-log, ADRs, research, sources) stays in place; only dead surfaces archive (conversation-log, closed v0.1.x findings, the PHASE-3-PLAN husk, the merged proposed file). Old path preserved per the decision-trail rule.
+
+### Issues / fixes
+
+- **FIX — main's `npm test` had been red since 529769b.** `validate-references` failed on PHASE-3-PLAN.md (a rogue plan surface created outside the spine) citing `Task 57-59` + `FR-31` that never existed; the docs-only commit skipped the suite. Folding the plan into the spine (Tasks 57-59 proposed + FR-31 reserved in requirements) + demoting the husk to a pointer greened it. Live proof of D-19's problem.
+- **FIX — day-one requirements split healed.** FR-28/29/30, NFR-9, T7/T8, US-14/15, OS-9..13, OQ-8 merged from `requirements-revisions-proposed.md` into `requirements.md` (sole authoritative home); proposed file banner → SUPERSEDED. Also fixed dangling US-13 ref `FR-32`→`FR-25`.
+
+### Execution (controlled increments, branch `docs-governance-map`)
+
+1. Harness — `DOCUMENTATION-MAP.md` + `validate-doc-registry.mjs` + self-test + `npm test` wiring ✓
+2. Fold PHASE-3-PLAN into the spine + `tasks.md` "Current state — what's next" (cold-restart-sufficient) ✓
+3. Merge `requirements-revisions-proposed.md` → `requirements.md` ✓
+4. Demote RESUME-HERE + BOOTSTRAP to pointers + refresh stale indexes (docs/README 3-zone rewrite, adr/README +0013, research/INDEX completed, process/README +live-test-plan) ✓
+5. Archive the dead surfaces into `archive/` (pending)
+
+---
+
 ## 2026-05-30 — v0.1.2 shipped; v0.2 launched; Task 45 started
 
 ### Settled decisions (do NOT re-open without new evidence)

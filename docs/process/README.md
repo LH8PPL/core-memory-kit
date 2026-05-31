@@ -10,6 +10,7 @@ How we work on `claude-memory-kit`. Each process doc is a self-contained markdow
 | [research-prompt-design.md](research-prompt-design.md) | How to write Deep Research prompts that surface novel work, not just anchor on known systems |
 | [scope-override-claude-memory.md](scope-override-claude-memory.md) | Workaround for Claude.ai's memory feature injecting unwanted prior context (e.g., bank/airgap framing) into responses |
 | [git-and-versioning.md](git-and-versioning.md) | Commit message conventions, tag discipline, semver policy, ADR lifecycle |
+| [live-test-plan.md](live-test-plan.md) | The plan for the in-session live tests — scenarios to run, what to capture as findings |
 
 ## When to add a new process doc
 
