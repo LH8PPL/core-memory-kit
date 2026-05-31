@@ -16,6 +16,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { autoPersona } from '../packages/cli/src/auto-persona.mjs';
+import { runPersonaGenerate } from '../packages/cli/src/subcommands.mjs';
 import { appendScratchpadBullet } from '../packages/cli/src/scratchpad.mjs';
 import { touchCooldownMarker } from '../packages/cli/src/cooldown.mjs';
 import { weeklyCurate } from '../packages/cli/src/weekly-curate.mjs';
@@ -504,5 +505,54 @@ describe('Task 45 follow-up — low/medium-confidence candidates persist to a re
     const body = readFileSync(join(userDir, 'queues', 'persona-review.md'), 'utf8');
     const occurrences = body.split('Reaches for ripgrep instead of grep').length - 1;
     expect(occurrences).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// `cmk persona generate` (runPersonaGenerate) — the manual trigger. Injection
+// seams (projectRoot/userDir/backend/log) let us exercise it without a live
+// `claude --print` spawn.
+// ---------------------------------------------------------------------------
+describe('Task 45 follow-up — cmk persona generate (runPersonaGenerate)', () => {
+  it('promotes high-confidence to the user tier, queues the rest, and reports counts', async () => {
+    seedUserTier();
+    seedFact({ slug: 'feedback_venv', id: 'P-WGQAZFVC', type: 'feedback', title: 'venv', body: 'Always a 3.13 venv everywhere.' });
+    const backend = classifierBackend([
+      'PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=high | Always uses a Python 3.13 venv on every project',
+      'PERSONA CANDIDATE | target=LESSONS.md | section=Tooling Lessons | confidence=medium | Reaches for ripgrep over grep',
+    ]);
+    const out = [];
+    await runPersonaGenerate({
+      projectRoot,
+      userDir,
+      backend,
+      log: (m) => out.push(m),
+      logError: (m) => out.push(`ERR: ${m}`),
+    });
+    const text = out.join('\n');
+
+    // Door 1 — reports the action + counts (promoted high, queued medium).
+    expect(text).toMatch(/cmk persona generate:/);
+    expect(text).toMatch(/promoted: 1/);
+    expect(text).toMatch(/saved for review/);
+
+    // Door 2 — high-confidence landed in the user tier; medium went to the queue file.
+    expect(readFileSync(join(userDir, 'HABITS.md'), 'utf8')).toContain('Python 3.13 venv');
+    expect(existsSync(join(userDir, 'queues', 'persona-review.md'))).toBe(true);
+  });
+
+  it('reports the error action (logError path) when the backend fails', async () => {
+    seedUserTier();
+    seedFact({ slug: 'x', id: 'P-WGQAZFVC', type: 'feedback', title: 't', body: 'A cross-project habit.' });
+    const backend = { modelId: () => 'mock', async compress() { throw new Error('boom'); } };
+    const out = [];
+    await runPersonaGenerate({
+      projectRoot,
+      userDir,
+      backend,
+      log: (m) => out.push(m),
+      logError: (m) => out.push(`ERR: ${m}`),
+    });
+    expect(out.join('\n')).toMatch(/ERR: cmk persona generate: error/);
   });
 });

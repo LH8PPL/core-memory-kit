@@ -514,16 +514,22 @@ async function runWeeklyCurate(/* options */) {
  * automatically — this is the manual trigger (a deterministic hook for the
  * fresh-session live test, and for users who want to fill the user tier now).
  */
-async function runPersonaGenerate(/* options */) {
-  const projectRoot = resolvePath(process.cwd());
+// `opts` is the Commander options object in production (no relevant keys →
+// every field falls back to its default). The injection seams (projectRoot,
+// userDir, backend, log, logError) keep the wrapper unit-testable without a
+// live `claude --print` spawn — see cli-auto-persona.test.js.
+export async function runPersonaGenerate(opts = {}) {
+  const projectRoot = opts.projectRoot ?? resolvePath(process.cwd());
   const userDir =
-    process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
-  const { HaikuViaAnthropicApi } = await import('./compressor.mjs');
+    opts.userDir ?? process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+  const log = opts.log ?? console.log;
+  const logError = opts.logError ?? console.error;
   try {
-    const backend = new HaikuViaAnthropicApi();
+    const backend =
+      opts.backend ?? new (await import('./compressor.mjs')).HaikuViaAnthropicApi();
     const r = await autoPersona({ projectRoot, userDir, backend });
     if (r.action === 'error') {
-      console.error(
+      logError(
         `cmk persona generate: error (${r.errorCategory ?? 'unknown'})${(r.errors && r.errors.length) ? `: ${r.errors.join('; ')}` : ''}`,
       );
       return;
@@ -532,16 +538,14 @@ async function runPersonaGenerate(/* options */) {
     const superseded = r.superseded?.length ?? 0;
     const queued = r.queued?.length ?? 0;
     const conflicts = r.conflicts?.length ?? 0;
-    console.log(
+    log(
       `cmk persona generate: ${r.action}${r.reason ? ` (${r.reason})` : ''} — promoted: ${promoted}, superseded: ${superseded}, queued: ${queued}, conflicts: ${conflicts}`,
     );
     if (queued > 0 && r.reviewQueuePath) {
-      console.log(
-        `  ${queued} lower-confidence candidate(s) saved for review → ${r.reviewQueuePath}`,
-      );
+      log(`  ${queued} lower-confidence candidate(s) saved for review → ${r.reviewQueuePath}`);
     }
   } catch (err) {
-    console.error(`cmk persona generate: unexpected error: ${err?.message ?? err}`);
+    logError(`cmk persona generate: unexpected error: ${err?.message ?? err}`);
   }
 }
 
