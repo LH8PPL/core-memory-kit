@@ -71,8 +71,13 @@ describe('Task 43 — release verification (pre-publish gates)', () => {
       const pkg = JSON.parse(
         readFileSync(join(repoRoot, 'packages', 'cli', 'package.json'), 'utf8'),
       );
-      const v = pkg.version.replace(/\./g, '\\.');
-      expect(text).toMatch(new RegExp(`##\\s*\\[${v}\\]\\s*[—\\-]\\s*\\d{4}-\\d{2}-\\d{2}`));
+      // Collect every dated release-heading version with a STATIC regex, then
+      // membership-check — never build a regex from the version string (avoids
+      // incomplete-escaping; CodeQL js/incomplete-sanitization).
+      const datedVersions = [
+        ...text.matchAll(/^##\s*\[(\d+\.\d+\.\d+)\]\s*[—\-]\s*\d{4}-\d{2}-\d{2}/gm),
+      ].map((m) => m[1]);
+      expect(datedVersions).toContain(pkg.version);
     });
 
     it('the [0.1.0] release section has a non-empty Added with at least 10 bullets', () => {
