@@ -1,11 +1,12 @@
 ---
 adr: 0011
 title: Coexistence strategy with Anthropic's built-in Auto Memory (Claude Code v2.1.59+)
-status: proposed
+status: accepted
 date: 2026-05-22
+decision_date: 2026-05-31
 deciders:
-  - Lior Hollander (decision pending)
-  - Claude Opus 4.7 (proposing)
+  - Lior Hollander
+  - Claude Opus 4.7 (proposing) / Claude Opus 4.8 (resolving)
 supersedes: null
 superseded_by: null
 related:
@@ -16,14 +17,14 @@ tags:
   - coexistence
   - anthropic-native
   - critical-decision
-  - open
+  - accepted
 ---
 
 # ADR-0011 — Coexistence strategy with Anthropic's built-in Auto Memory (Claude Code v2.1.59+)
 
 ## Status
 
-**Proposed.** Awaiting user decision. Three options on the table; user requested investigation before deciding.
+**Accepted 2026-05-31.** **Option C (coexist) is the default; Option A (disable native) is a one-command, committable, user-invoked opt-in.** Originally proposed 2026-05-22 with a default of Option A; revised to non-enforcement after Lior's 2026-05-31 review. See "Decision" below.
 
 ## Context
 
@@ -99,6 +100,25 @@ Anthropic writes to `~/.claude/projects/<slug>/memory/` as designed. Our hooks w
 - Token budget at session start grows — two snapshots loaded at session open.
 - Potential redundant captures: both writers may save the same fact in different places.
 
+## Decision (accepted 2026-05-31)
+
+**Option C is the default — the kit coexists and does NOT touch the user's native Auto Memory. Option A is offered as a one-command, committable, user-invoked opt-in.**
+
+**Rationale** (Lior, 2026-05-31): the kit must be **additive, not enforcing**. Silently reaching into a user's Claude Code to disable a native feature is the wrong posture (the original default-A). Default to non-interference; inform; let the user choose.
+
+Concretely:
+
+1. **Default = coexist (C).** `cmk install` does NOT change `autoMemoryEnabled`. The kit adds its in-repo `context/` layer; Anthropic's machine-local auto-memory keeps running untouched.
+2. **Transparency.** `cmk install` prints a heads-up: two memory layers are now active; as both accumulate they inflate the session-start context (≈25 KB native `MEMORY.md` + ≈13 KB kit snapshot); to run a single lean layer, disable the native one with `cmk disable-native-memory`.
+3. **`cmk disable-native-memory` (the opt-in to A).** Writes `autoMemoryEnabled: false` into the project's `.claude/settings.json` — which IS committable, so the choice **travels with `git clone`** (unlike Option B's user-only `autoMemoryDirectory`). Reversible via `cmk enable-native-memory` (or editing the file).
+4. **Discoverability via `cmk doctor`.** A health-check detects "native auto-memory ON + kit installed" and surfaces the bloat + the disable command — so the choice is discoverable later, not just a skimmed install line (the install-message-gets-ignored UX lesson from the v0.1.1 self-test).
+
+**Why not A as the default:** silent enforcement of the kit's memory over the user's native one — Lior rejected this 2026-05-31. **Why not B:** `autoMemoryDirectory` is user-level-only (not committable → breaks git-clone portability) AND Anthropic writes its own `<type>_<slug>.md` format, not the kit's citation-ID / provenance / trust schema (so redirected files wouldn't index with `cmk`). Both are detailed under Options above.
+
+**Investigation status:** Q1 (does native fire with our hooks installed?) — confirmed **YES**; native auto-memory is ON by default (verified 2026-05-31: no `autoMemoryEnabled` in user settings + env unset → Anthropic default = enabled; it had been writing to ClawdBot/liorpedia/liorwiki). Q2/Q3 are folded into the non-enforcement principle above.
+
+Implementation: [`tasks.md`](../../specs/v0.1.0/tasks.md) Task 60.
+
 ## Decision criteria (what would tip the choice)
 
 Before resolving, we need to know:
@@ -116,11 +136,9 @@ Before resolving, we need to know:
    - "Single source of truth" → Option A.
    - "Minimize our maintenance burden" → Option B (if the per-user-setup cost is acceptable).
 
-## Default if no decision is made
+## Original default (superseded 2026-05-31)
 
-If we have to ship v0.1 without a decision, **the default is Option A**: our installer sets `autoMemoryEnabled: false` in the project's `.claude/settings.json`. This is reversible (user can re-enable) and avoids the two-MEMORY.md-files confusion.
-
-A future ADR may revise based on real-world usage.
+_Originally: if shipping without a decision, default to **Option A** (the installer sets `autoMemoryEnabled: false`). **Superseded by the Decision above** — the default is now Option C (coexist), with A as a one-command opt-in. The original A-default is preserved here per the decision-trail rule: it was set aside because silently disabling a user's native feature is enforcement — NOT because A's mechanics were wrong (those mechanics now power `cmk disable-native-memory`)._
 
 ## What's NOT being decided here
 
@@ -142,5 +160,5 @@ This ADR is narrowly about Anthropic-coexistence, not about our core architectur
 
 | Date | Reviewer | Action |
 |---|---|---|
-| 2026-05-22 | Claude (proposing) | Drafted; status proposed |
-| YYYY-MM-DD | Lior | (pending) |
+| 2026-05-22 | Claude (proposing) | Drafted; status proposed (default-A if undecided) |
+| 2026-05-31 | Lior | **Accepted** — Option C default (coexist, non-enforcement) + `cmk disable-native-memory` as a committable, user-invoked opt-in to A. Implementation tracked as Task 60. |

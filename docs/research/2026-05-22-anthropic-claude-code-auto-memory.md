@@ -3,7 +3,7 @@ date: 2026-05-22
 topic: Anthropic Claude Code Auto Memory (v2.1.59+) — separate from the API Memory tool
 source: WebFetch of <https://code.claude.com/docs/en/memory> + Bash inspection of ~/.claude/projects/ on this machine
 status: complete (informs ADR-0011 which is in "proposed" status)
-informed_adrs: [0011-coexistence-with-anthropic-auto-memory-OPEN]
+informed_adrs: [0011-coexistence-with-anthropic-auto-memory]
 tags:
   - anthropic-auto-memory
   - claude-code
@@ -130,7 +130,7 @@ Open as ADR-0011 (`status: proposed`). Three options:
 - **B**: Redirect Anthropic's auto-memory to write into our `context/` (`autoMemoryDirectory` in user settings — per-user, not commitable).
 - **C**: Layer them; two memories at two locations.
 
-User decision pending. See [adr/0011-coexistence-with-anthropic-auto-memory-OPEN.md](../adr/0011-coexistence-with-anthropic-auto-memory-OPEN.md) for the full context and decision criteria.
+User decision pending. See [adr/0011-coexistence-with-anthropic-auto-memory.md](../adr/0011-coexistence-with-anthropic-auto-memory.md) for the full context and decision criteria.
 
 ## Investigation to do before deciding
 
@@ -148,4 +148,4 @@ User decision pending. See [adr/0011-coexistence-with-anthropic-auto-memory-OPEN
 - Anthropic Claude Code Memory docs (canonical): <https://code.claude.com/docs/en/memory>
 - The Plain English article that surfaced this: <https://ai.plainenglish.io/give-claude-permanentmemory-7b4343de2d7e>
 - Related: [research/2026-05-21-anthropic-memory-tool.md](2026-05-21-anthropic-memory-tool.md) — the API-level Memory tool (different feature, same company, related design language)
-- Related: [adr/0011-coexistence-with-anthropic-auto-memory-OPEN.md](../adr/0011-coexistence-with-anthropic-auto-memory-OPEN.md) — the decision this research informs
+- Related: [adr/0011-coexistence-with-anthropic-auto-memory.md](../adr/0011-coexistence-with-anthropic-auto-memory.md) — the decision this research informs

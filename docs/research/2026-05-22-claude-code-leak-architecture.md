@@ -3,7 +3,7 @@ date: 2026-05-22
 topic: Claude Code architecture revealed by accidentally-published v2.1.88 source map
 source: Anubhav, *"Inside Claude Code's Leak: 8 Compaction Modes, 3 Memory Tiers, 44 Flags Anthropic Never Talked About"* (Medium / Data Science Collective, 2026-05-08)
 status: external article verified by Claude (Opus 4.7) 2026-05-22 via Read of liorwiki/raw/. Source map itself was Anthropic's accidental packaging mistake — content quoted is from an article reporting on it.
-informed_adrs: [0006-lifecycle-hooks-architecture, 0011-coexistence-with-anthropic-auto-memory-OPEN]
+informed_adrs: [0006-lifecycle-hooks-architecture, 0011-coexistence-with-anthropic-auto-memory]
 tags:
   - claude-code-internals
   - leak
@@ -158,5 +158,5 @@ The leak's `tool_result_budget` spilling content to disk while keeping a 2KB pre
 - Source article: <https://medium.com/data-science-collective/inside-claude-codes-leak-8-compaction-modes-3-memory-tiers-44-flags-anthropic-never-talked-c9740c501e63> (Anubhav, 2026-05-08)
 - Anthropic's postmortem on the leak: published April 23, 2026 (linked from article)
 - The npm package version that shipped the source map: `@anthropic-ai/claude-code` v2.1.88
-- Related ADRs: [0006-lifecycle-hooks-architecture.md](../adr/0006-lifecycle-hooks-architecture.md), [0011-coexistence-with-anthropic-auto-memory-OPEN.md](../adr/0011-coexistence-with-anthropic-auto-memory-OPEN.md)
+- Related ADRs: [0006-lifecycle-hooks-architecture.md](../adr/0006-lifecycle-hooks-architecture.md), [0011-coexistence-with-anthropic-auto-memory.md](../adr/0011-coexistence-with-anthropic-auto-memory.md)
 - Related research: [2026-05-22-anthropic-claude-code-auto-memory.md](2026-05-22-anthropic-claude-code-auto-memory.md)
