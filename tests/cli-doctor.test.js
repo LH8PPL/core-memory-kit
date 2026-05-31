@@ -223,11 +223,14 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       expect(c2.status).toBe('fail');
     });
 
-    it('HC-3 missing recent.md → fail with `cmk daily-distill`', async () => {
+    // v0.2.0 severity fix: on a FRESH project (nothing distilled yet), a
+    // never-built recent.md is "not yet", not a failure — SKIP (lazy-on-read
+    // builds it once there's session content). A STALE recent.md is still FAIL.
+    it('HC-3 missing recent.md (fresh project) → skip, no repair command', async () => {
       const r = await runDoctor({ projectRoot, userDir });
       const c3 = r.checks.find((c) => c.id === 'HC-3');
-      expect(c3.status).toBe('fail');
-      expect(c3.recoveryCommand).toBe('cmk daily-distill');
+      expect(c3.status).toBe('skip');
+      expect(c3.recoveryCommand).toBeUndefined();
     });
 
     it('HC-3 fresh recent.md → pass', async () => {
@@ -237,7 +240,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       expect(c3.status).toBe('pass');
     });
 
-    it('HC-3 stale recent.md (>2d) → fail', async () => {
+    it('HC-3 stale recent.md (>2d) → fail (still a real signal)', async () => {
       seedRecentMd(3 * 24 * 60 * 60 * 1000); // 3 days old
       const r = await runDoctor({ projectRoot, userDir });
       const c3 = r.checks.find((c) => c.id === 'HC-3');
@@ -245,10 +248,19 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       expect(c3.recoveryCommand).toBe('cmk daily-distill');
     });
 
-    it('HC-4 no transcripts → fail', async () => {
+    // v0.2.0 severity fix: no transcripts yet (fresh project) → SKIP, not FAIL.
+    it('HC-4 no transcripts (fresh project) → skip', async () => {
+      const r = await runDoctor({ projectRoot, userDir });
+      const c4 = r.checks.find((c) => c.id === 'HC-4');
+      expect(c4.status).toBe('skip');
+    });
+
+    it('HC-4 transcripts EXIST but all stale (>3d) → fail (hook may have stopped)', async () => {
+      seedTranscript('2026-05-20.md', 5 * 24 * 60 * 60 * 1000); // 5 days old
       const r = await runDoctor({ projectRoot, userDir });
       const c4 = r.checks.find((c) => c.id === 'HC-4');
       expect(c4.status).toBe('fail');
+      expect(c4.recoveryCommand).toBeTruthy();
     });
 
     it('HC-4 transcript within 3d → pass', async () => {
@@ -259,11 +271,13 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       expect(c4.message).toMatch(/1 transcript/);
     });
 
-    it('HC-6 no cron sentinel → fail with `cmk register-crons`', async () => {
+    // v0.2.0 severity fix: cron is optional (lazy-on-read fallback), so its
+    // absence is SKIP, not FAIL — a healthy fresh install shouldn't read as broken.
+    it('HC-6 no cron sentinel → skip (optional; fallback active)', async () => {
       const r = await runDoctor({ projectRoot, userDir });
       const c6 = r.checks.find((c) => c.id === 'HC-6');
-      expect(c6.status).toBe('fail');
-      expect(c6.recoveryCommand).toBe('cmk register-crons');
+      expect(c6.status).toBe('skip');
+      expect(c6.message).toMatch(/register-crons/); // command still surfaced, as info
     });
 
     it('HC-6 cron sentinel present → pass', async () => {

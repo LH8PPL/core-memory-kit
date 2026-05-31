@@ -189,12 +189,15 @@ function hc2Hooks({ projectRoot }) {
 function hc3DistillFreshness({ projectRoot, now }) {
   const recentPath = join(projectRoot, ...RECENT_MD_REL);
   if (!existsSync(recentPath)) {
+    // Not a failure: on a fresh project there's nothing distilled yet, and
+    // when there is, the lazy-on-read path runs the distill at SessionStart
+    // (or `cmk daily-distill`). "Stale recent.md" below IS a real fail; a
+    // never-built one is just "not yet" — mirror HC-5's skip-on-fresh.
     return {
       id: 'HC-3',
       name: 'Daily distill is fresh (≤2 days)',
-      status: 'fail',
-      message: 'context/sessions/recent.md missing — distill never ran',
-      recoveryCommand: 'cmk daily-distill',
+      status: 'skip',
+      message: 'recent.md not built yet — nothing to distill. Runs automatically (lazy-on-read at SessionStart, or `cmk daily-distill`) once there is session content.',
     };
   }
   let mtimeMs;
@@ -232,19 +235,22 @@ function hc3DistillFreshness({ projectRoot, now }) {
 function hc4Transcripts({ projectRoot, now }) {
   const transcriptsDir = join(projectRoot, ...TRANSCRIPTS_REL);
   if (!existsSync(transcriptsDir)) {
+    // Fresh project, never had a Claude Code session here → nothing to fire
+    // yet. Skip, don't fail (the dir + first transcript appear on the first turn).
     return {
       id: 'HC-4',
       name: 'Transcripts firing (≤3 days)',
-      status: 'fail',
-      message: 'context/transcripts/ missing — kit not capturing turn transcripts',
-      recoveryCommand: 'check that this project is the primary cwd in Claude Code, then reopen the project',
+      status: 'skip',
+      message: 'no transcripts yet — they appear after your first Claude Code turn in this project.',
     };
   }
   const nowMs = new Date(now ?? nowIso()).getTime();
   const cutoffMs = nowMs - THREE_DAYS_MS;
+  let totalCount = 0;
   let recentCount = 0;
   for (const name of readdirSync(transcriptsDir)) {
     if (!/\.md$/.test(name)) continue;
+    totalCount += 1;
     try {
       const mtimeMs = statSync(join(transcriptsDir, name)).mtimeMs;
       if (mtimeMs >= cutoffMs) recentCount += 1;
@@ -252,12 +258,24 @@ function hc4Transcripts({ projectRoot, now }) {
       // skip unreadable
     }
   }
+  if (totalCount === 0) {
+    // Dir exists (scaffolded) but no transcripts captured yet → still "not
+    // yet", not a failure.
+    return {
+      id: 'HC-4',
+      name: 'Transcripts firing (≤3 days)',
+      status: 'skip',
+      message: 'no transcripts yet — they appear after your first Claude Code turn in this project.',
+    };
+  }
   if (recentCount === 0) {
+    // Transcripts EXIST but none recent → the kit was capturing and stopped.
+    // That IS a real signal (the Stop hook may not be firing here).
     return {
       id: 'HC-4',
       name: 'Transcripts firing (≤3 days)',
       status: 'fail',
-      message: 'no transcripts within 3 days — likely this project is not Claude Code\'s primary cwd',
+      message: 'transcripts exist but none within 3 days — the Stop hook may have stopped firing (is this project Claude Code\'s primary cwd?)',
       recoveryCommand: 'reopen this project as the primary cwd in Claude Code',
     };
   }
@@ -363,12 +381,15 @@ function hc6CronRegistered({ projectRoot }) {
       message: 'cron-registered sentinel present',
     };
   }
+  // Cron is OPTIONAL by design (README + design §… the lazy-on-read fallback
+  // compresses at SessionStart without any scheduler). Absence is therefore a
+  // SKIP, not a FAIL — flagging an optional, working-by-fallback feature as a
+  // failure made a healthy fresh install read as broken.
   return {
     id: 'HC-6',
     name: 'Cron jobs registered with host scheduler',
-    status: 'fail',
-    message: 'no cron-registered sentinel — kit will use lazy-on-read fallback (still functional, slower)',
-    recoveryCommand: 'cmk register-crons',
+    status: 'skip',
+    message: 'cron not registered (optional) — using the lazy-on-read fallback (compresses at SessionStart). Run `cmk register-crons` for scheduled background compression.',
   };
 }
 

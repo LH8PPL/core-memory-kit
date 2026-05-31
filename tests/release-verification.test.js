@@ -21,12 +21,22 @@ const __dirname = dirname(__filename);
 const repoRoot = join(__dirname, '..');
 
 describe('Task 43 — release verification (pre-publish gates)', () => {
-  describe('43.1 — package versions match 0.1.0', () => {
-    it('packages/cli/package.json version is 0.1.2 (self-test fixes release)', () => {
+  describe('43.1 — package version ↔ CHANGELOG lockstep', () => {
+    it('packages/cli/package.json version is valid semver AND matches the latest CHANGELOG release heading', () => {
+      // Read the version dynamically and assert it equals the newest released
+      // `## [X.Y.Z] — date` heading (skipping the dateless [Unreleased]). This
+      // is the invariant `npm run release` guarantees — bumping package.json
+      // and finalizing the CHANGELOG in lockstep — so the test never needs a
+      // manual edit per release (the hardcoded-version version of this test
+      // broke on every bump; v0.2.0 release prep fixed it).
       const pkg = JSON.parse(
         readFileSync(join(repoRoot, 'packages', 'cli', 'package.json'), 'utf8'),
       );
-      expect(pkg.version).toBe('0.1.2');
+      expect(pkg.version).toMatch(/^\d+\.\d+\.\d+$/);
+      const changelog = readFileSync(join(repoRoot, 'CHANGELOG.md'), 'utf8');
+      const latest = changelog.match(/^##\s*\[(\d+\.\d+\.\d+)\]\s*[—\-]\s*\d{4}-\d{2}-\d{2}/m);
+      expect(latest, 'CHANGELOG has a dated release heading').toBeTruthy();
+      expect(pkg.version).toBe(latest[1]);
     });
 
     it('packages/canonicalize/package.json stays 0.1.0 (unchanged; not republished)', () => {
@@ -52,11 +62,22 @@ describe('Task 43 — release verification (pre-publish gates)', () => {
       text = readFileSync(path, 'utf8');
     });
 
-    it('has [0.1.0], [0.1.1], and the current [0.1.2] headings with ISO release dates', () => {
+    it('has the historical [0.1.0]/[0.1.1] headings + a dated heading for the current package version', () => {
       text = readFileSync(join(repoRoot, 'CHANGELOG.md'), 'utf8');
       expect(text).toMatch(/##\s*\[0\.1\.0\]\s*[—\-]\s*\d{4}-\d{2}-\d{2}/);
       expect(text).toMatch(/##\s*\[0\.1\.1\]\s*[—\-]\s*\d{4}-\d{2}-\d{2}/);
-      expect(text).toMatch(/##\s*\[0\.1\.2\]\s*[—\-]\s*\d{4}-\d{2}-\d{2}/);
+      // The CURRENT version's heading, read dynamically from package.json so
+      // this doesn't rot on the next release.
+      const pkg = JSON.parse(
+        readFileSync(join(repoRoot, 'packages', 'cli', 'package.json'), 'utf8'),
+      );
+      // Collect every dated release-heading version with a STATIC regex, then
+      // membership-check — never build a regex from the version string (avoids
+      // incomplete-escaping; CodeQL js/incomplete-sanitization).
+      const datedVersions = [
+        ...text.matchAll(/^##\s*\[(\d+\.\d+\.\d+)\]\s*[—\-]\s*\d{4}-\d{2}-\d{2}/gm),
+      ].map((m) => m[1]);
+      expect(datedVersions).toContain(pkg.version);
     });
 
     it('the [0.1.0] release section has a non-empty Added with at least 10 bullets', () => {
