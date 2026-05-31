@@ -1260,6 +1260,40 @@ Full diagnosis + detailed specs: [`docs/journey/v0.2.0-live-test-findings.md`](.
   - [ ] 64.3* Test: candidate with a non-existent section → asserts section CREATED + promoted (NOT queued) — the case the live test exposed + unit tests missed (hard-coded valid sections + confidence=high).
   - [ ] 64.4 **(moved from 63.3 — F3)** Inline cross-project promotion on `cmk remember` rich capture: classify the rich fact + run `promoteCandidatesToUserTier` so the explicit-capture reflex no longer routes around the Task-61 cross-project layer. (Lower-risk partial close already shipped in 63.1 — rich facts are real fact files the existing `persona generate`/weekly path promotes; 64.4 adds the inline-synchronous path.)
   - _Requirements: US-2 (cross-project persona); design §16.16; Tasks 45 + 61._
-- [ ] 65. **Layer 5b semantic recall — backend bake-off THEN build** (the video's "most important" piece; deferred). Candidates sqlite-vec / qmd / Chroma / memsearch+Milvus; bake-off (recall@5 + latency + install weight) before picking. Detail: design §9.3.1 + findings doc. Post-F1/F2, post-friend-validation.
+- [ ] 65. **Layer 5b semantic recall — deep research → backend bake-off → build** (the video's "most important" piece; deferred). = **wow #2 (recall with reasoning); reaching it = video parity (D-25).** Post-F1/F2, post-friend-validation (0.3.0).
+  - [ ] 65.0 **Deep research FIRST** (Lior 2026-06-01: *"if we are not sure what is the best for where we are we could do another deep research"*). We have a lean (sqlite-vec/qmd over Chroma/Milvus) but not certainty, and the **local embedding model** choice is genuinely open (Anthropic has NO embeddings API → recall quality rides a local embedder). Run the decision-grade brief in [`docs/research/2026-06-01-memory-lifecycle-and-competitive-position.md`](../../docs/research/2026-06-01-memory-lifecycle-and-competitive-position.md) §"Layer 5 deep-research brief" before committing.
+  - [ ] 65.1 Bake-off on OUR data: index ~30–50 memory-shaped facts + ~10 queries incl. synonym/paraphrase (where keyword misses, semantic should hit); compare recall@5 + latency + install weight across the shortlist the research confirms. The `semanticBackend` DI seam + `reciprocalRankFusion` ([search.mjs](../../packages/cli/src/search.mjs)) are built → winner drops in.
+  - _Detail: design §9.3.1; D-26 NOTE. Candidates sqlite-vec / qmd / Chroma / memsearch+Milvus._
 
-> **v0.2.0 GATE:** Tasks 63 + 64 must land + the live test re-run (HABITS.md fills, MEMORY.md/fact-files rich) BEFORE pushing the `v0.2.0` tag. `main` is at 0.2.0, un-tagged. Task 65 is post-v0.2.
+> **v0.2.0 GATE (binding — D-24/Lior 2026-06-01: *"dont cut to 0.2.0 until we fix the problems and then do live test again, on a new project"*):** do NOT push the `v0.2.0` tag until ALL of — (1) Task 63 (F1) merged, (2) Task 64 (F2) merged, (3) a **fresh live test on a NEW project** confirms MEMORY.md/fact-files are rich AND HABITS.md fills. `main` is at 0.2.0, un-tagged. Task 65 is post-v0.2.
+
+## Road to 1.0 — video parity (the "worth giving to a friend" bar)
+
+_Per D-24/D-25/D-26 (DECISION-LOG 2026-06-01). The bar for handing it to a friend = everything the Simon Scrapes video described ([source](../../docs/sources/simon-scrapes-master-claude-memory.md)). Cadence: **one wow → live test → publish a version → next**; never shelve until "finished." 1.0 is a **feel** call (Lior), not a date._
+
+**Video-layer parity scorecard** (the concrete done-bar):
+
+| Video layer | Status | Gap → task |
+| --- | --- | --- |
+| L1 — in-repo location (`context/`, travels with git) | ✅ built | — |
+| L2 — granular per-fact archive + INDEX | ✅ built | — |
+| L3 — bounded scratchpads (hot state, caps) | ✅ built | — |
+| L4 — memory-aware hooks (Stop capture / SessionStart inject / auto-extract) | ✅ built | — |
+| L5 — **memsearch / semantic Recall** | ⚠️ **keyword FTS5 only** | **Task 65 (the one true parity gap)** |
+| L6 — cron self-curation (distill / curate) | ✅ built | — |
+| Frozen-snapshot inject | ✅ built | — |
+| _Beyond video — cross-project persona FILLS_ (our wedge, D-27) | ⚠️ F2-broken | **Task 64** |
+| _Beyond video — temporal currency_ (facts stay true as they age) | ⚠️ not built | **Task 66** |
+
+**Release sequence (each = build → fresh live test → publish):**
+
+- **0.2.0** — Task 63 (F1 ✅) + Task 64 (F2) → **wow #1 cross-project cold-open**. Gated above.
+- **0.3.0** — Task 65 (L5b semantic recall) → **wow #2 recall-with-reasoning** = **video parity reached**.
+- **0.4.0+** — Task 66 (temporal validity) → **wow #3 currency / contradiction-catch** = past-the-video differentiator.
+
+- [ ] 66. **Temporal validity — facts stay TRUE as they age (§16.18 implementation).** Today the kit knows a fact's *age* but not its *currency*: "we use Postgres" (March) and "moved to SQLite" (May) can both sit in the archive; keyword recall may surface the stale one. Designed in [design §16.18](../../specs/v0.1.0/design.md) (from the Chandra "Beyond the Log" research note); not implemented. = **wow #3 (currency / contradiction-catch)**, beyond video parity. Post-0.3.0.
+  - [ ] 66.1 `shape:` provenance field (optional, default `State`): `State`/`Event`/`Plan`/`Relationship`/`Preference`/`Absence`/`Timeless` — extend `provenance.mjs` validation + fact-file frontmatter + auto-extract classification. Smallest absorb; `Absence` (negative facts) pays off immediately.
+  - [ ] 66.2 Validity windows on `State` facts (`started_at`/`ended_at`/`status`): when `mergeFacts()` detects a `state_key` match with `ended_at: null`, atomically close the old (`status: completed`) + open the new (`status: ongoing`). `superseded_by` stays as backward-compat link; point-in-time queries fall out for free.
+  - [ ] 66.3 **Enforce `expires_at`** (currently a defined frontmatter field with ZERO enforcement — verified 2026-06-01): a curate-time sweep tombstones/expires facts past their `expires_at`. Closes the gap surfaced by the "what happens to memory over time" question.
+  - [ ] 66.4 (stretch) Contradiction-catch surface: when auto-extract sees a `State` fact contradicting a live `ended_at: null` fact on the same `state_key`, surface "X was Y, now Z — supersede?" (the demo moment).
+  - _Requirements: temporal currency (US, to add); design §16.18; research [`2026-05-24-beyond-the-log-time-aware-memory.md`](../../docs/research/2026-05-24-beyond-the-log-time-aware-memory.md)._
