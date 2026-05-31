@@ -2,7 +2,7 @@
 
 **Status**: Draft for review · **Author**: Claude (Opus 4.7) + Lior Hollander · **Date**: 2026-05-21
 
-> **FR-28, FR-29, FR-30, and NFR-9 are NOT in this file.** They were approved 2026-05-22 and live in [`requirements-revisions-proposed.md`](requirements-revisions-proposed.md) which is authoritative for those entries pending v0.1.x cleanup that merges them into this file. The rest of the spec stack (design.md, tasks.md, ADRs 0009/0010) cites them as if merged. PR-C of the post-PR-31 audit campaign (2026-05-26) surfaced this gap and added this pointer.
+> **Merged 2026-05-31:** T7/T8, US-14/15/16, FR-28/29/30/31, NFR-9, OS-9..13, and OQ-8 are now defined IN THIS FILE. They were approved 2026-05-22 but had lived (unmerged) in `requirements-revisions-proposed.md` for 9 days — a single-source-of-truth gap healed by the documentation-governance restructure. `requirements-revisions-proposed.md` is now a superseded historical record (the original research-driven proposal); this file is the sole authoritative requirements source.
 
 ---
 
@@ -45,6 +45,8 @@ These constrain every decision below. If a requirement violates a tenet, the ten
 | **T4**: Capture is mostly automatic. User-explicit triggers ("remember this") still work but are not required for the system to be useful. | The third strike on "make it automatic" — the user has been clear this is a hard requirement. |
 | **T5**: Silent by default. No "I've saved that to memory" announcements unless the user explicitly asked. | Auto-capture should be invisible. Announcing breaks the illusion. |
 | **T6**: Claude Code first. Other agents (Codex, Gemini, Hermes, Copilot) are explicitly out of scope for v0.1.0. | Don't try to be claude-mem's cross-agent surface. We can revisit in v0.2 if it matters. |
+| **T7**: Raw evidentiary archive is preserved indefinitely. Compressed summaries are derivative and lossy; the source transcripts are authoritative. | True Memory (arXiv) argues "extraction at ingest is the wrong primitive." Our rolling-window pattern keeps raw `transcripts/` AND compressed summaries: the compressed layer is searchable cache, the raw layer is the audit trail. |
+| **T8**: Every observation carries provenance. Source file, source line, source SHA, write source (user-explicit / auto-extracted / compressed-from-summary), and trust level are required frontmatter, not optional. | Graphiti's episodes, Nautilus Compass's Merkle log, and MemLineage all point to provenance becoming an architectural requirement. Our citation IDs give a unique anchor; provenance fields make each observation auditable. |
 
 ---
 
@@ -128,7 +130,25 @@ Maps to: FR-24, FR-25, FR-26.
 
 > As a developer who sometimes opens projects as added/additional directories in VS Code workspaces, I want the memory system to either (a) work in additional-cwd mode OR (b) give a clear error telling me to reopen as primary — so that I'm not silently running with broken hooks.
 
-Maps to: FR-27, FR-32.
+Maps to: FR-25.
+
+### US-14 — Raw evidence preservation
+
+> As a developer who needs to verify a memory entry months later, I want the raw transcript that produced the observation to remain searchable and intact, even after it has been summarized into the rolling-window archive — so that I can audit "is this auto-extract correct?" against the original conversation.
+
+Maps to: T7, FR-19, FR-28.
+
+### US-15 — Observation provenance audit
+
+> As a developer reviewing what Claude knows, I want every memory bullet to record (a) where it came from (file:line), (b) who wrote it (user vs auto-extract vs compressor), and (c) when — so that I can distinguish "user explicitly said this" from "model summarized this from a long conversation."
+
+Maps to: T8, FR-29.
+
+### US-16 — AI-side position consistency
+
+> As a developer who has long technical discussions with Claude across many sessions, I want Claude to remember the positions IT took ("X is the right approach", "doing Y is a mistake") and to notice when a new session is about to contradict an earlier stated position — so that Claude stays consistent with its own advice, and when it does change its mind it says so explicitly and explains why, instead of silently flip-flopping.
+
+Maps to: T7, T8, FR-29, FR-31. _(Phase 3 — the v0.2 heart; see [`tasks.md`](tasks.md) Tasks 57–59.)_
 
 ---
 
@@ -366,7 +386,24 @@ The kit shall ship `cmk view` that starts a local static HTTP server (default po
 
 Acceptance: When the user runs `cmk view`, a browser at `http://localhost:37778` shall display a directory listing and clicking any `.md` file shall render its content with syntax highlighting.
 
-### 3.12 AI-side position consistency (Phase 3 — reserved)
+### 3.12 Raw retention, provenance & trust-aware search
+
+**FR-28 — Raw transcripts are append-only, never compressed away**
+The kit shall preserve `context/transcripts/{YYYY-MM-DD}.md` files **indefinitely** unless the user explicitly deletes them. Compressed summaries (`today-*.md`, `recent.md`, `archive.md`) are derivatives; they do not replace the source transcripts. A future `cmk transcripts gc --before <date>` command may allow age-based deletion, but `cmk` itself shall never delete transcripts automatically.
+
+Acceptance: When 6 months have passed since a transcript was created, the file shall still exist in `context/transcripts/`. Compressed summaries shall reference back to the source transcripts they were derived from via the citation IDs in their frontmatter.
+
+**FR-29 — Observation provenance frontmatter**
+Every memory bullet (in `MEMORY.md`, `USER.md`, granular `memory/<type>_*.md` files) shall carry frontmatter or inline metadata with these required fields: `id` (citation ID, FR-14), `source_file`, `source_line`, `source_sha1`, `write_source` (`user-explicit` | `auto-extract` | `compressor` | `manual-edit`), `trust` (`high` | `medium` | `low`), and `created_at`. `write_source: user-explicit` is high trust; `auto-extract` is medium; `compressor` is medium-low; `manual-edit` is high (user hand-edited the markdown directly).
+
+Acceptance: When `cmk get-observation <id>` is invoked, the response shall include all six provenance fields. When the source file is modified after capture, `source_sha1` allows detection that the original context has drifted.
+
+**FR-30 — Trust-aware search**
+Search results from `cmk search` and the MCP `mk_search` tool shall include trust level in the returned metadata. Future versions may weight scoring by trust; v0.1 reports trust but does not weight.
+
+Acceptance: When the user runs `cmk search "milvus"`, each returned hit shall include `trust:` alongside the bullet text and citation ID.
+
+### 3.13 AI-side position consistency (Phase 3 — reserved)
 
 **FR-31 — AI-side position capture, recall, and reconciliation** _(reserved for Phase 3; full acceptance criteria land when Phase 3 starts — see [`tasks.md`](tasks.md) Tasks 57–59 and the proposed user story US-16)_
 
@@ -376,7 +413,7 @@ The kit shall treat Claude's own stated positions as first-class, contradiction-
 - **Recall** — recent decision-facts are injected at SessionStart as a compact "recent decisions" digest, within the snapshot budget (NFR-2), so a fresh session has Claude's current positions in context.
 - **Reconcile** — when a new position contradicts an existing decision-fact, the change is recorded as temporal supersession (old validity window closed, new opened, `superseded_by` linked) rather than silently overwritten; the digest surfaces the current position AND flags the reversal, citing the raw transcript (per T7: the raw transcript is authoritative, the decision-fact derivative).
 
-_This is the only Phase-3 requirement reserved ahead of its detailed spec; FR-28/29/30 + NFR-9 are being merged into this file from `requirements-revisions-proposed.md` (documentation-governance restructure, Increment 3)._
+_This is the only Phase-3 requirement reserved ahead of its detailed spec._
 
 ---
 
@@ -444,6 +481,17 @@ The kit shall ship:
 - `specs/v0.1.0/{requirements,design,tasks}.md` — this spec set.
 - `CHANGELOG.md` — semver-tracked changes from v0.0.1 onward.
 
+### NFR-9 — Memory poisoning defense (baseline)
+
+The kit shall implement v0.1 baseline defenses against memory poisoning, recognizing this is a known attack class (A-MemGuard, MemLineage research):
+
+- `<private>` tags strip content before any write (NFR-6).
+- Auto-extract is **conservative** — designed to produce frequent "skip: nothing durable" outcomes (FR-10).
+- Provenance fields (FR-29) let users audit `write_source: auto-extract` entries.
+- A future `cmk verify` command (v0.2+) may consensus-validate observations against multiple sessions before promoting to durable; not required for v0.1.
+
+Acceptance: When an auto-extracted observation has `write_source: auto-extract` AND `trust: low`, the user shall be able to filter it out of search results with `cmk search --min-trust medium`.
+
 ---
 
 ## 5. Out of scope (explicit non-goals for v0.1.0)
@@ -458,6 +506,11 @@ The following are deferred to v0.2 or later:
 - **OS-6**: Multilingual support / translation cache.
 - **OS-7**: Replacement of `memsearch` + `Milvus` with a different vector backend. We continue to use memsearch.
 - **OS-8**: Public marketplace distribution. v0.1 stays in a private GitHub repo. v0.2 may publish to npm + the Claude Code plugins marketplace.
+- **OS-9**: Session-state virtualization (Claude Code CMV style snapshot/branch/trim primitives). Rolling-window compression covers most of the use case for v0.1; CMV-style versioning is v0.2+.
+- **OS-10**: Structural code memory subsystem (Codebase-Memory style Tree-Sitter knowledge graph via MCP). Project-fact memory is in scope; code-structure memory is a separate concern, possible v0.2+ as a sister package.
+- **OS-11**: Tamper-evident Merkle-chained audit log of memory mutations (Nautilus Compass style). Append-only `transcripts/` + content-addressed IDs (FR-14) gives most of the audit value for v0.1; cryptographic chaining is v0.2+.
+- **OS-12**: Cross-LLM portable memory (Supermemory MCP style). Our markdown format is portable, but explicit adapters for Codex / Gemini / etc. are deferred to v0.2+ (consistent with T6, OS-1).
+- **OS-13**: Memory operation policies via RL (Agentic Memory research direction). Far-frontier; not v0.1.
 
 ---
 
@@ -501,17 +554,23 @@ Windows: Task Scheduler via `schtasks`. macOS/Linux: `crontab`. User works on bo
 
 `launchd` (macOS-native) and `systemd timers` (Linux-server-native) are deferred to v0.2 as enhancements. Cron works fine for desktop/dev use.
 
+### OQ-8 — How aggressive should auto-extract be?: **RESOLVED → conservative**
+
+Auto-extract is designed to fail-closed: most turns produce `skip: nothing durable`. Aggressive extraction (à la Mem0) risks accumulating memory that wasn't actually decided. Conservative extraction trusts the rolling-window compressor to re-surface latent decisions when they actually become load-bearing — consistent with the True Memory paper's "prefer retrieval-over-preserved-events over write-time extraction" argument. We extract sparingly; we preserve transcripts indefinitely (T7); the retrieval path can always find what we didn't pre-extract.
+
 ---
 
 ## 7. Review checklist
 
 Before approving this requirements doc, verify each:
 
-- [ ] T1-T6 design tenets are correct and complete.
-- [ ] US-1 through US-13 cover the user needs the user actually has.
+- [ ] T1-T8 design tenets are correct and complete.
+- [ ] US-1 through US-16 cover the user needs the user actually has.
 - [ ] No FR violates any tenet.
-- [ ] OQ-1 through OQ-7 are resolved with concrete answers.
-- [ ] Out-of-scope list is correct — nothing important got deferred by accident.
+- [ ] FR-28/29/30 (raw retention, provenance, trust-aware search) + FR-31 (AI-side position consistency, reserved) match the design intent.
+- [ ] NFR-9 (memory poisoning defense baseline) is appropriate scope.
+- [ ] OQ-1 through OQ-8 are resolved with concrete answers.
+- [ ] OS-1 through OS-13 (deferred features) are correctly deferred — nothing important got deferred by accident.
 - [ ] NFRs are realistic (performance budgets achievable, OS support feasible).
 
 ---
