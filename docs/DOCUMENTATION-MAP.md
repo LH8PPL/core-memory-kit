@@ -45,6 +45,7 @@ A session that has lost all memory must be able to read **only the three spine f
 | --- | --- |
 | [`docs/journey/DECISION-LOG.md`](journey/DECISION-LOG.md) | Chronological decisions / pivots / issues / bugs / fixes (why & when). Append-only. |
 | [`docs/journey/v0.1.0-build-log.md`](journey/v0.1.0-build-log.md) | Full narrative + per-PR retrospectives + meta-lessons. |
+| [`docs/journey/v0.2.0-live-test-findings.md`](journey/v0.2.0-live-test-findings.md) | v0.2.0 self-test findings (F1 capture-richness regression, F2 section-promotion) + Task 63/64 fix specs. The v0.2.0 release gate. |
 | `docs/journey/` dated findings & test docs | Session artifacts (history). See Registry. |
 | [`docs/adr/`](adr/) | Architectural Decision Records — deep "why," append-only, superseded-never-deleted. Index: [`adr/README.md`](adr/README.md). |
 | [`docs/research/`](research/) | Dated research notes + competitor spec dumps. Inputs to the Spine, not part of it. Index: [`research/INDEX.md`](research/INDEX.md). |
