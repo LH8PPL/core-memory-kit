@@ -11,6 +11,8 @@ How we work on `claude-memory-kit`. Each process doc is a self-contained markdow
 | [scope-override-claude-memory.md](scope-override-claude-memory.md) | Workaround for Claude.ai's memory feature injecting unwanted prior context (e.g., bank/airgap framing) into responses |
 | [git-and-versioning.md](git-and-versioning.md) | Commit message conventions, tag discipline, semver policy, ADR lifecycle |
 | [live-test-plan.md](live-test-plan.md) | The plan for the in-session live tests — scenarios to run, what to capture as findings |
+| [v0.1.1-self-test-guide.md](v0.1.1-self-test-guide.md) | Reusable live-test **script** — build a small app across 2 sessions to exercise capture + recall organically (update per version) |
+| [v0.1.1-scenario-test.md](v0.1.1-scenario-test.md) | Reusable 13-scenario test **matrix** (CLI half + in-session half) — the friend/tester walkthrough |
 
 ## When to add a new process doc
 

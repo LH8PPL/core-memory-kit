@@ -235,7 +235,7 @@ Long-horizon task suite + baseline-vs-with-kit measurement. Candidate benchmarks
 - [`2026-05-24-openclaw-templates.md`](2026-05-24-openclaw-templates.md) — sibling project's template design
 - [`2026-05-21-claude-remember-architecture.md`](2026-05-21-claude-remember-architecture.md) — rolling-window pattern source
 - [`2026-05-22-primary-source-examination.md`](2026-05-22-primary-source-examination.md) — verification discipline
-- [`../journey/2026-05-23-bootstrap-test.md`](../journey/2026-05-23-bootstrap-test.md) — doc-based context transfer experiment
+- [`2026-05-23-bootstrap-test.md`](2026-05-23-bootstrap-test.md) — doc-based context transfer experiment
 
 ## Key takeaway
 

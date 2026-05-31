@@ -156,4 +156,4 @@ All five are post-bootstrap-test + OpenClaw-research v0.1.x / v0.2 candidates. N
 - [`2026-05-21-claude-remember-architecture.md`](2026-05-21-claude-remember-architecture.md) — rolling-window pattern source
 - [`2026-05-22-primary-source-examination.md`](2026-05-22-primary-source-examination.md) — verification discipline
 - [`cursor-design.md`](cursor-design.md) — fourth spec-generator data point
-- [`../journey/2026-05-23-bootstrap-test.md`](../journey/2026-05-23-bootstrap-test.md) — doc-based context transfer experiment
+- [`2026-05-23-bootstrap-test.md`](2026-05-23-bootstrap-test.md) — doc-based context transfer experiment

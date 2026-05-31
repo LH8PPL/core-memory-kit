@@ -23,7 +23,7 @@ A session that has lost all memory must be able to read **only the three spine f
 | The PLAN — task state, what's-next, the phase roadmap | [`specs/v0.1.0/tasks.md`](../specs/v0.1.0/tasks.md) |
 | Domain terms (glossary wins when docs disagree) | [`specs/v0.1.0/glossary.md`](../specs/v0.1.0/glossary.md) — Spine support |
 
-`requirements-revisions-proposed.md` is a **historical** 2026-05-22 staging file; its approved content is being merged into `requirements.md` (Increment 3). It is not a second requirements source.
+`requirements-revisions-proposed.md` was a 2026-05-22 staging file; its approved content was merged into `requirements.md` (2026-05-31) and it now lives at [`archive/specs/v0.1.0/requirements-revisions-proposed.md`](../archive/specs/v0.1.0/requirements-revisions-proposed.md) as a superseded historical record. `requirements.md` is the sole requirements source.
 
 ## Zone 2 — Product docs (for users of the kit; active; kept current per docs-in-PR)
 
@@ -52,14 +52,18 @@ A session that has lost all memory must be able to read **only the three spine f
 | [`docs/process/`](process/) | How we work (repeated practices). Index: [`process/README.md`](process/README.md). |
 | [`docs/SOURCES.md`](SOURCES.md) | Master flat citation index + verification status. |
 | [`docs/README.md`](README.md) | Orientation for the `docs/` tree. |
-| [`docs/conversation-log/`](conversation-log/) | **RETIRED** narrative (2026-05-21/22). Do not add. |
+| [`archive/docs/conversation-log/`](../archive/docs/conversation-log/) | **RETIRED + ARCHIVED** narrative (2026-05-21/22). Do not add. |
 
-**Session handoff — pointers only, no state** (their state is being folded into `tasks.md`, Increment 2):
-[`docs/journey/RESUME-HERE-2026-05-28.md`](journey/RESUME-HERE-2026-05-28.md) · [`docs/BOOTSTRAP.md`](BOOTSTRAP.md) · [`docs/journey/PHASE-3-PLAN.md`](journey/PHASE-3-PLAN.md).
+**Session handoff — pointers only, no state** (their state lives in `tasks.md`):
+[`docs/journey/RESUME-HERE-2026-05-28.md`](journey/RESUME-HERE-2026-05-28.md) · [`docs/BOOTSTRAP.md`](BOOTSTRAP.md). _(The PHASE-3-PLAN husk was folded into `tasks.md` and archived at `archive/docs/journey/PHASE-3-PLAN.md`.)_
+
+### Zone 4 — `archive/` (frozen; superseded/retired; never current state, never ref-validated)
+
+Holds docs that are genuinely done and were cited as provenance but are no longer live: `archive/docs/conversation-log/` (retired), `archive/specs/v0.1.0/requirements-revisions-proposed.md` (merged into requirements.md), `archive/docs/journey/PHASE-3-PLAN.md` (husk, folded into tasks.md). Inbound citations point here; the files themselves are excluded from `validate-references` (see its SKIP set).
 
 ### Not policed by the registry validator
 
-`template/`, `plugin/`, `packages/**` (the npm READMEs excepted, listed above), `python/`, `node_modules/`, `.claude/` — these are the **shipped kit or third-party**, not our working documentation.
+`template/`, `plugin/`, `packages/**` (the npm READMEs excepted, listed above), `python/`, `node_modules/`, `.claude/`, `archive/` — these are the **shipped kit, third-party, or frozen history**, not our live working documentation.
 
 ---
 
@@ -97,10 +101,12 @@ When you add a doc, add its path to the Registry in the same commit, or the buil
 `README.md` · `QUICKSTART.md` · `ARCHITECTURE.md` · `CHANGELOG.md` · `SECURITY.md` · `HEALTH-CHECKS.md` · `INSTALL-windows.md` · `INSTALL-macos.md` · `INSTALL-linux.md` · `CLAUDE.md`
 
 **Spine (`specs/v0.1.0/`):**
-`specs/v0.1.0/requirements.md` · `specs/v0.1.0/requirements-revisions-proposed.md` · `specs/v0.1.0/design.md` · `specs/v0.1.0/tasks.md` · `specs/v0.1.0/glossary.md`
+`specs/v0.1.0/requirements.md` · `specs/v0.1.0/design.md` · `specs/v0.1.0/tasks.md` · `specs/v0.1.0/glossary.md`
 
 **`docs/` top level:**
 `docs/DOCUMENTATION-MAP.md` · `docs/README.md` · `docs/SOURCES.md` · `docs/BOOTSTRAP.md` · `docs/CLI.md` · `docs/Claude Code Memory Management The Complete Guide (2026).md`
 
 **`docs/journey/`:**
-`docs/journey/DECISION-LOG.md` · `docs/journey/v0.1.0-build-log.md` · `docs/journey/RESUME-HERE-2026-05-28.md` · `docs/journey/PHASE-3-PLAN.md` · `docs/journey/v0.1.0-live-test.md` · `docs/journey/v0.1.0-requirements-coverage.md` · `docs/journey/v0.1.1-self-test-findings.md` · `docs/journey/v0.1.1-self-test-guide.md` · `docs/journey/v0.1.1-scenario-test.md` · `docs/journey/2026-05-23-bootstrap-test.md` · `docs/journey/2026-05-26-live-test-findings.md` · `docs/journey/2026-05-26-live-test-findings-scenarios-3-7.md` · `docs/journey/2026-05-26-snapshot-cap-coordination.md` · `docs/journey/2026-05-26-user-tier-cap-fix.md`
+`docs/journey/DECISION-LOG.md` · `docs/journey/v0.1.0-build-log.md` · `docs/journey/RESUME-HERE-2026-05-28.md` · `docs/journey/PHASE-3-PLAN.md` · `docs/journey/v0.1.0-live-test.md` · `docs/journey/v0.1.0-requirements-coverage.md` · `docs/journey/v0.1.1-self-test-findings.md` · `docs/journey/2026-05-26-live-test-findings.md` · `docs/journey/2026-05-26-live-test-findings-scenarios-3-7.md` · `docs/journey/2026-05-26-snapshot-cap-coordination.md` · `docs/journey/2026-05-26-user-tier-cap-fix.md`
+
+_Reclassified 2026-05-31 (out of the high-risk journey zone into bulk-registered zones): the live-test **scripts** `docs/process/v0.1.1-self-test-guide.md` + `docs/process/v0.1.1-scenario-test.md` (reusable methodology → `process/`); the cold-start A/B `docs/research/2026-05-23-bootstrap-test.md` (research → `research/`)._

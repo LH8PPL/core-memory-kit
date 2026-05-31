@@ -90,7 +90,7 @@ Neither pure global nor pure per-project covers all four. Three-tier covers them
 - Direnv cautionary tale (no cascade → users surprised; informed our "first-match-wins + show-origin" choice): [direnv issue #111](https://github.com/direnv/direnv/issues/111)
 - `chezmoi` machine-specific templating (informed our `local` tier rationale): <https://www.chezmoi.io/>
 - Research source: [research/2026-05-21-claude-ai-deep-research-option-b.md](../research/2026-05-21-claude-ai-deep-research-option-b.md), Q6
-- Conversation context: [conversation-log/2026-05-21.md](../conversation-log/2026-05-21.md), thread "Per-project vs cross-project"
+- Conversation context: [conversation-log/2026-05-21.md](../../archive/docs/conversation-log/2026-05-21.md), thread "Per-project vs cross-project"
 
 ## Review history
 

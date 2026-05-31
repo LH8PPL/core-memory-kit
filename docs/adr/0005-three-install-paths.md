@@ -85,7 +85,7 @@ All three paths are idempotent: re-running them on a project that already has th
 - Plugin manifest: [plugin/.claude-plugin/plugin.json](../../plugin/.claude-plugin/plugin.json)
 - Per-OS install docs: [INSTALL-windows.md](../../INSTALL-windows.md), [INSTALL-macos.md](../../INSTALL-macos.md), [INSTALL-linux.md](../../INSTALL-linux.md)
 - Claude Code plugin docs (verified 2026-05-21): <https://code.claude.com/docs/en/plugins>
-- Conversation context: [conversation-log/2026-05-21.md](../conversation-log/2026-05-21.md), thread "Install path scope"
+- Conversation context: [conversation-log/2026-05-21.md](../../archive/docs/conversation-log/2026-05-21.md), thread "Install path scope"
 
 ## Review history
 

@@ -136,7 +136,7 @@ This ADR is narrowly about Anthropic-coexistence, not about our core architectur
 - Research: [research/2026-05-22-anthropic-claude-code-auto-memory.md](../research/2026-05-22-anthropic-claude-code-auto-memory.md)
 - Anthropic docs: <https://code.claude.com/docs/en/memory>
 - Article that triggered this: <https://ai.plainenglish.io/give-claude-permanentmemory-7b4343de2d7e>
-- Conversation context: [conversation-log/2026-05-22.md](../conversation-log/2026-05-22.md) (will be updated to reflect this thread)
+- Conversation context: [conversation-log/2026-05-22.md](../../archive/docs/conversation-log/2026-05-22.md) (will be updated to reflect this thread)
 
 ## Review history
 

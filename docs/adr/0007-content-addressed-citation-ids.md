@@ -112,7 +112,7 @@ Citation: Nima Karimian Kakolaki, *A Comparative Analysis of Identifier Schemes:
 - ID scheme comparison paper: Karimian Kakolaki, *A Comparative Analysis of Identifier Schemes* (arXiv:2509.08969) — <https://arxiv.org/abs/2509.08969>
 - Base32 alphabet (RFC 4648): <https://datatracker.ietf.org/doc/html/rfc4648>
 - DOI deprecation model (the inspiration for the `merged_from` / `superseded_by` pattern): <https://www.doi.org/the-identifier/resources/factsheets/key-facts-on-digital-object-identifier-system/>
-- Conversation context: [conversation-log/2026-05-22.md](../conversation-log/2026-05-22.md), thread "Option-B research applied — citation IDs"
+- Conversation context: [conversation-log/2026-05-22.md](../../archive/docs/conversation-log/2026-05-22.md), thread "Option-B research applied — citation IDs"
 
 ## Review history
 

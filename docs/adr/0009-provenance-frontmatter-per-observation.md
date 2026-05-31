@@ -29,7 +29,7 @@ written_retroactively: 2026-05-26 (post-PR-31 audit campaign PR-C)
 
 This ADR was reserved during the requirements-revisions-proposed.md drafting on 2026-05-22 ("Write ADR-0009 (provenance) and ADR-0010 (raw archives)") but the file itself was never written — the decision shipped (FR-29 in `requirements-revisions-proposed.md`, design §6.6, `packages/cli/src/provenance.mjs`, full regression test coverage) without the ADR being created. The post-PR-31 cross-reference audit (PR-C, 2026-05-26) surfaced the gap. This ADR is reconstructed from the preserved evidence:
 
-- [`specs/v0.1.0/requirements-revisions-proposed.md`](../../specs/v0.1.0/requirements-revisions-proposed.md) §"Section 2 — Promote two user stories" + "FR-29 — Observation provenance frontmatter" (the canonical schema).
+- [`specs/v0.1.0/requirements-revisions-proposed.md`](../../archive/specs/v0.1.0/requirements-revisions-proposed.md) §"Section 2 — Promote two user stories" + "FR-29 — Observation provenance frontmatter" (the canonical schema).
 - [`docs/sources/basic-memory-deep-dive.md`](../sources/basic-memory-deep-dive.md) §6 ("Provenance frontmatter per ADR-0009 proposal. Basic Memory has frontmatter but not the specific `write_source` + `trust` + `source_sha1` schema").
 - [`packages/cli/src/provenance.mjs`](../../packages/cli/src/provenance.mjs) — the implementation (Task 13, T-011).
 - [`specs/v0.1.0/design.md`](../../specs/v0.1.0/design.md) §6.6 — privacy + provenance integration.
@@ -112,7 +112,7 @@ For granular per-fact files in `context/memory/<type>_<slug>.md`, the metadata l
 
 ## References
 
-- [`specs/v0.1.0/requirements-revisions-proposed.md`](../../specs/v0.1.0/requirements-revisions-proposed.md) §FR-29 — the canonical schema.
+- [`specs/v0.1.0/requirements-revisions-proposed.md`](../../archive/specs/v0.1.0/requirements-revisions-proposed.md) §FR-29 — the canonical schema.
 - [`packages/cli/src/provenance.mjs`](../../packages/cli/src/provenance.mjs) — the writer + parser implementation.
 - [`packages/cli/src/scratchpad.mjs`](../../packages/cli/src/scratchpad.mjs) — caller (every bullet write goes through `writeBullet`).
 - [`tests/cli-provenance.test.js`](../../tests/cli-provenance.test.js) — boundary tests pinning the schema.

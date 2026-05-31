@@ -59,7 +59,7 @@ The final "stop and re-read" sentence is the part most people miss — it interr
 
 ## Prompt templates
 
-The current canonical prompts for `claude-memory-kit` live in [../conversation-log/2026-05-21.md](../conversation-log/2026-05-21.md), thread "Research prompts designed for Option A and Option B." Copy from there for future research runs.
+The current canonical prompts for `claude-memory-kit` live in [../conversation-log/2026-05-21.md](../../archive/docs/conversation-log/2026-05-21.md), thread "Research prompts designed for Option A and Option B." Copy from there for future research runs.
 
 When you copy them, update:
 
@@ -102,4 +102,4 @@ Deep Research costs 15-30 minutes per run plus the user's time to read the outpu
 - ChatGPT Deep Research mode: <https://help.openai.com/en/articles/8554407-deep-research-faqs>
 - Claude.ai Deep Research mode docs: <https://support.claude.com/en/articles/12198133-using-research-and-extended-research-on-claude-ai>
 - Our Option-B research output: [../research/2026-05-21-claude-ai-deep-research-option-b.md](../research/2026-05-21-claude-ai-deep-research-option-b.md)
-- Conversation context: [../conversation-log/2026-05-21.md](../conversation-log/2026-05-21.md), threads on research prompt design
+- Conversation context: [../conversation-log/2026-05-21.md](../../archive/docs/conversation-log/2026-05-21.md), threads on research prompt design
