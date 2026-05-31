@@ -4,6 +4,8 @@
 
 ## STATUS AS OF 2026-05-30 (late) — read this first
 
+**▶ ACTIVE: Phase 2 COMPLETE (Task 45 #83 + auto-drain #86). Next = Phase 3 — full plan in [`docs/journey/PHASE-3-PLAN.md`](PHASE-3-PLAN.md) (presented to Lior, awaiting "go" to start P3.0). The v0.2 heart: "Claude remembers its own positions and stays consistent."**
+
 **First stop now: [`docs/journey/DECISION-LOG.md`](DECISION-LOG.md)** — the new append-only paper trail (D-1…D-18). Every settled decision + bug/fix lives there; **read it before re-opening any decision** (CLAUDE.md "Decision-log discipline"). It exists because a decision got re-litigated from faded memory this session — don't repeat that.
 
 **v0.1.2 shipped to npm; v0.2 is in progress. Merged to main this run:**
