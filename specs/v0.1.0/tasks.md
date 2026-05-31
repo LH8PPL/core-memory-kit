@@ -15,8 +15,7 @@ This is the **actionable implementation plan**. A numbered, hierarchical checkli
 - **▶ ACTIVE / NEXT — pick one:**
   - **(a) Fresh live test** — re-run the `docs/process/` scripts (self-test-guide + scenario-test) on the current build to validate the v0.1.2 fixes + Phase 2 auto-persona/auto-drain together (none have been live-tested as a whole). I drive the automatable half (`claude --print` sandbox + CLI + weekly pass); you drive the genuinely-fresh-session recall half. Findings route through the new governance (bugs → PRs, durable conclusions → spine), not a new orphan doc.
   - **(b) Phase 3 (the v0.2 heart)** — "Claude remembers its own positions and stays consistent." Proposed as Tasks 57–59 below; **awaiting explicit go to start P3.0.**
-- **⏳ Pending decision (surfaced 2026-05-31):** **ADR-0011** (coexistence with Anthropic's built-in Auto Memory) has been `proposed` since 2026-05-22 — default is Option A (`autoMemoryEnabled: false`), never formally decided. Needs a call (or a deliberate "default A holds").
-- **Deferred chores:** Task 45 follow-ups (`cmk persona generate` + review-queue file write); Task 56 (vitest 2→4, Dependabot #71).
+- **Deferred chores / small tasks:** **Task 60** (ADR-0011 — `cmk disable-native-memory` opt-in; decided 2026-05-31: coexist by default, non-enforcement); Task 45 follow-ups (`cmk persona generate` + review-queue file write); Task 56 (vitest 2→4, Dependabot #71).
 
 ## How to read this file
 
@@ -1201,3 +1200,15 @@ Each parent task ships as a PR titled `[<task #>] <description>` (e.g., `[7] Per
   - When a newly-captured position contradicts an existing decision-fact (`detectConflicts`), apply the §16.18 minimal temporal slice (`shape: decision`, `started_at`/`ended_at`): close the old window, open the new, link `superseded_by` → the decision history becomes a timeline. The Task 58 digest surfaces the CURRENT position AND flags the reversal ("you said X on the 28th; current is Y as of the 30th") + cites the raw transcript (T7: raw transcript authoritative, decision-fact derivative). Reuses `detectConflicts` + auto-supersede (Task 25). Adjacent: Task 55 (behavioral patterns) follows, not on the critical path.
   - [ ]* 59.4 Tests — contradiction closes old window + opens new + links superseded_by; digest flags the reversal; raw transcript cited
   - _Requirements: US-16, FR-31; design §16.18 (temporal); Task 25, Task 55_
+
+---
+
+- [ ] 60. Native-auto-memory coexistence — `cmk disable-native-memory` opt-in (ADR-0011)
+  - Estimate: S · Depends: 3 (install), 37 (doctor) · **v0.1.x — user-facing; ADR-0011 accepted 2026-05-31 (Option C default + one-command opt-in to A)**
+  - **Why**: Claude Code ships its own native Auto Memory (v2.1.59+, ON by default), which writes machine-local `~/.claude/projects/<slug>/memory/` in the SAME `MEMORY.md + <type>_<slug>.md` shape the kit uses in-repo. With the kit installed, BOTH inject at session start (~25 KB native + ~13 KB kit snapshot) → context bloat. Per ADR-0011 the kit is **additive, not enforcing**: it does NOT touch the user's native setting by default — it informs + offers a one-command opt-out.
+  - [ ] 60.1 `cmk disable-native-memory` — write `autoMemoryEnabled: false` into the project's `.claude/settings.json` (committable → travels with `git clone`); idempotent; preserves other settings. Plus `cmk enable-native-memory` (or `--enable`) to reverse.
+  - [ ] 60.2 `cmk install` heads-up line — after scaffolding, note that native + kit memory now coexist (bloat as both fill) and surface `cmk disable-native-memory` to run a single lean layer. Outcome-over-inventory tone (the v0.1.1 install-message lesson).
+  - [ ] 60.3 `cmk doctor` HC — detect "native auto-memory ON (no `autoMemoryEnabled:false`) + kit installed" → info-level finding with the disable command, so the choice is discoverable later (not just a skimmed install line).
+  - [ ]* 60.4 Tests — `disable`/`enable` write the right key + preserve siblings (over-mutation guard); install message fires only when relevant; doctor HC detects both states. Doors 1 (return) + 2 (settings.json state) + 4 (doctor NDJSON/finding).
+  - **Docs-in-PR**: README + `docs/CLI.md` + CHANGELOG (new user-facing command).
+  - _Requirements: ADR-0011; design §11 (Anthropic coexistence); Task 3 (install), Task 37 (doctor)_
