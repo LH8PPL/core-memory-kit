@@ -10,6 +10,42 @@
 
 ---
 
+## 2026-05-31 — documentation-governance restructure (3-zone spine + registry harness)
+
+### Settled decisions (do NOT re-open without new evidence)
+
+- **D-19 DECISION — Documentation has ONE current-state home: the spine (requirements/design/tasks). SETTLED.** Across the build, every "document this" demand spawned a new/different surface instead of reusing the existing one — ~7 overlapping state surfaces (conversation-log → build-log → BOOTSTRAP → RESUME-HERE → findings-roadmap → DECISION-LOG → PHASE-3-PLAN) plus a spec spine split since day one (requirements vs requirements-revisions-proposed, both born 2026-05-22). The model: three zones — **Spine** (requirements/design/tasks = the only current state, must be cold-restart-sufficient), **Product** docs (for kit users), **History** (everything else, append-only, never current state). Registry + routing rules: [`../DOCUMENTATION-MAP.md`](../DOCUMENTATION-MAP.md). **Why structural, not just a rule:** consistency must survive a context-compact without relying on Claude's memory — the very thing that fails at every compact. Enforced by `scripts/validate-doc-registry.mjs` (dev-only, not shipped to kit users): a new unregistered doc surface fails `npm test`.
+- **D-20 PIVOT — "don't archive anything" → "archive the dead/orphaned; keep living history."** Lior said don't archive earlier this session, then reversed: files "just hanging there" (retired / superseded / closed) move to `archive/` so the working tree foregrounds the spine. Living history (DECISION-LOG, build-log, ADRs, research, sources) stays in place; only dead surfaces archive (conversation-log, closed v0.1.x findings, the PHASE-3-PLAN husk, the merged proposed file). Old path preserved per the decision-trail rule.
+
+### Issues / fixes
+
+- **FIX — main's `npm test` had been red since 529769b.** `validate-references` failed on PHASE-3-PLAN.md (a rogue plan surface created outside the spine) citing `Task 57-59` + `FR-31` that never existed; the docs-only commit skipped the suite. Folding the plan into the spine (Tasks 57-59 proposed + FR-31 reserved in requirements) + demoting the husk to a pointer greened it. Live proof of D-19's problem.
+- **FIX — day-one requirements split healed.** FR-28/29/30, NFR-9, T7/T8, US-14/15, OS-9..13, OQ-8 merged from `requirements-revisions-proposed.md` into `requirements.md` (sole authoritative home); proposed file banner → SUPERSEDED. Also fixed dangling US-13 ref `FR-32`→`FR-25`.
+
+### Execution (controlled increments, branch `docs-governance-map`)
+
+1. Harness — `DOCUMENTATION-MAP.md` + `validate-doc-registry.mjs` + self-test + `npm test` wiring ✓
+2. Fold PHASE-3-PLAN into the spine + `tasks.md` "Current state — what's next" (cold-restart-sufficient) ✓
+3. Merge `requirements-revisions-proposed.md` → `requirements.md` ✓
+4. Demote RESUME-HERE + BOOTSTRAP to pointers + refresh stale indexes (docs/README 3-zone rewrite, adr/README +0013, research/INDEX completed, process/README +live-test-plan) ✓
+5. Archive the dead surfaces into `archive/` (pending)
+
+### Pre-archive read audit (2026-05-31) — findings from actually reading the archive candidates + all ADRs
+
+Lior pushed back that an earlier "I went over all the docs" was overstated (inferred from filenames, not read). Re-read for real. What it surfaced:
+
+- **NOTE — 2 archive candidates are NOT dead; they're reusable test scripts.** `v0.1.1-self-test-guide.md` (the build-FastAPI-across-2-sessions script) + `v0.1.1-scenario-test.md` (the 13-scenario matrix) are the basis for the next live test → route to `docs/process/`, NOT `archive/`. `2026-05-23-bootstrap-test.md` is cold-start A/B *research* → `docs/research/`. `v0.1.0-requirements-coverage.md` is a useful 28/30-FR coverage audit → keep as history. Blanket-archiving-from-filenames would have buried all four.
+- **ISSUE — 4 orphaned conclusions** (durable, verified NOT in the spine; must extract before archiving the docs that hold them):
+  1. **#3 Gap A** — auto-extract captures *intermediate* not *final* state (self-test-findings) → design §16.54.
+  2. **`degraded_input` flag** — silent inter-hook degradation when capture-prompt fails (2026-05-26 findings) → design §16.55.
+  3. **`cmk checkpoint <n>`** — programmatic checkpoint verification (bootstrap-test) → design §16.56.
+  4. **"Checkpoint marked but not verified" anti-pattern** — flip a checkpoint box only after re-running its criteria from current main (bootstrap-test) → CLAUDE.md rule.
+- **NOTE — ADR-0011 is a genuinely OPEN decision.** "Coexistence with Anthropic's built-in Auto Memory" has been `proposed` since 2026-05-22; default = Option A (`autoMemoryEnabled: false`) but never formally decided; has 3 investigation questions. Surface it as a pending decision (it currently lives only in the `-OPEN` ADR).
+- **NOTE — everything else is captured** (safe to archive): cap-coordination + user-tier fixes → design §7.1/§7.1.1 + validate-template cap check; NFR-1 amendment → requirements.md; the Phase-1 bugs → PRs #72-79; the conversation-logs' decisions → ADRs 0001-0011. **Link cost:** ~10 ADRs cite `conversation-log/2026-05-2x.md` → archiving it needs those link rewrites.
+- **Read status:** genuinely read = all archive candidates + all 13 ADRs + the spine spec files + governance/index docs. NOT yet read in full = the ~30 research notes + sources/ + process/ + the full design.md/build-log line-by-line (in progress, per Lior "finish reading everything first").
+
+---
+
 ## 2026-05-30 — v0.1.2 shipped; v0.2 launched; Task 45 started
 
 ### Settled decisions (do NOT re-open without new evidence)

@@ -1,0 +1,106 @@
+# DOCUMENTATION-MAP — the three files that matter, and everything that orbits them
+
+> **The kernel:** only **three files carry the project's current truth** — [`requirements.md`](../specs/v0.1.0/requirements.md) (WHAT) · [`design.md`](../specs/v0.1.0/design.md) (HOW) · [`tasks.md`](../specs/v0.1.0/tasks.md) (PLAN + what's-next). Everything else **orbits** them as either *product docs* (for users) or *history* (the paper trail). This map exists because, across the build, documentation was repeatedly written to a new or different file under pressure instead of its home — spawning ~7 overlapping state surfaces (see [build-log](journey/v0.1.0-build-log.md)). The cure is one map + a validator, so consistency survives a context-compact without relying on Claude's memory (the thing that fails at every compact).
+>
+> Binding rule lives in [`CLAUDE.md`](../CLAUDE.md) ("Documentation routing"). This file is the registry it points to. **Read this + the three spine files at session start.**
+
+## The one rule
+
+**Before writing documentation, find its home below. Do not create a new file or repurpose an old one.** Current state lives ONLY in the Spine (the three). Everything else is product or history and is **never authoritative for "what is true now."** **A decision isn't done until its effect lands in the Spine** — the DECISION-LOG records the *why/when*, but the *effect* (a changed requirement, design, or task) must land in requirements/design/tasks, or it isn't real. If you're tempted to start a new plan / findings / handoff / roadmap file: **stop** — it routes into the Spine. New files get created only by adding them to the Registry below in the same change (the validator enforces this).
+
+## The cold-restart test
+
+A session that has lost all memory must be able to read **only the three spine files** and know the whole project *and the next action*. If `tasks.md` alone can't answer "what's next," the Spine has leaked state into an orbit file — fix that, don't add another surface.
+
+---
+
+## Zone 1 — The Spine (current state; read first; cold-restart-sufficient)
+
+| Concern — "where does X go?" | File |
+| --- | --- |
+| WHAT must ship — requirements (FR / NFR / US) | [`specs/v0.1.0/requirements.md`](../specs/v0.1.0/requirements.md) |
+| HOW it works — architecture, schemas, validators, forward-compat candidates (§16) | [`specs/v0.1.0/design.md`](../specs/v0.1.0/design.md) |
+| The PLAN — task state, what's-next, the phase roadmap | [`specs/v0.1.0/tasks.md`](../specs/v0.1.0/tasks.md) |
+| Domain terms (glossary wins when docs disagree) | [`specs/v0.1.0/glossary.md`](../specs/v0.1.0/glossary.md) — Spine support |
+
+`requirements-revisions-proposed.md` is a **historical** 2026-05-22 staging file; its approved content is being merged into `requirements.md` (Increment 3). It is not a second requirements source.
+
+## Zone 2 — Product docs (for users of the kit; active; kept current per docs-in-PR)
+
+| File | Job |
+| --- | --- |
+| [`README.md`](../README.md) | Repo front door + npm landing summary. |
+| [`packages/cli/README.md`](../packages/cli/README.md) | npm package landing page. |
+| [`QUICKSTART.md`](../QUICKSTART.md) | 5-minute zero-to-working. |
+| [`ARCHITECTURE.md`](../ARCHITECTURE.md) | Six-layer design, for users. |
+| [`docs/CLI.md`](CLI.md) | Full `cmk` command reference. |
+| [`CHANGELOG.md`](../CHANGELOG.md) | Per-release "what shipped" (cut via `npm run release`). |
+| [`SECURITY.md`](../SECURITY.md) | Threat model + disclosure contact. |
+| [`HEALTH-CHECKS.md`](../HEALTH-CHECKS.md) | HC-* diagnostics + self-repair. |
+| [`INSTALL-windows.md`](../INSTALL-windows.md) · [`INSTALL-macos.md`](../INSTALL-macos.md) · [`INSTALL-linux.md`](../INSTALL-linux.md) | Per-OS install guides. |
+
+## Zone 3 — History / paper trail (append-only; explains the Spine; NEVER current state)
+
+| Location | Job |
+| --- | --- |
+| [`docs/journey/DECISION-LOG.md`](journey/DECISION-LOG.md) | Chronological decisions / pivots / issues / bugs / fixes (why & when). Append-only. |
+| [`docs/journey/v0.1.0-build-log.md`](journey/v0.1.0-build-log.md) | Full narrative + per-PR retrospectives + meta-lessons. |
+| `docs/journey/` dated findings & test docs | Session artifacts (history). See Registry. |
+| [`docs/adr/`](adr/) | Architectural Decision Records — deep "why," append-only, superseded-never-deleted. Index: [`adr/README.md`](adr/README.md). |
+| [`docs/research/`](research/) | Dated research notes + competitor spec dumps. Inputs to the Spine, not part of it. Index: [`research/INDEX.md`](research/INDEX.md). |
+| [`docs/sources/`](sources/) | Deep-dive notes on external sources. Index: [`sources/README.md`](sources/README.md). |
+| [`docs/process/`](process/) | How we work (repeated practices). Index: [`process/README.md`](process/README.md). |
+| [`docs/SOURCES.md`](SOURCES.md) | Master flat citation index + verification status. |
+| [`docs/README.md`](README.md) | Orientation for the `docs/` tree. |
+| [`docs/conversation-log/`](conversation-log/) | **RETIRED** narrative (2026-05-21/22). Do not add. |
+
+**Session handoff — pointers only, no state** (their state is being folded into `tasks.md`, Increment 2):
+[`docs/journey/RESUME-HERE-2026-05-28.md`](journey/RESUME-HERE-2026-05-28.md) · [`docs/BOOTSTRAP.md`](BOOTSTRAP.md) · [`docs/journey/PHASE-3-PLAN.md`](journey/PHASE-3-PLAN.md).
+
+### Not policed by the registry validator
+
+`template/`, `plugin/`, `packages/**` (the npm READMEs excepted, listed above), `python/`, `node_modules/`, `.claude/` — these are the **shipped kit or third-party**, not our working documentation.
+
+---
+
+## Routing table — "I want to record X, where does it go?"
+
+| You want to record… | Put it in… |
+| --- | --- |
+| A decision / pivot / issue / bug / fix | [`DECISION-LOG.md`](journey/DECISION-LOG.md) (append) + its *effect* in the Spine + an [ADR](adr/) if architectural |
+| A task, sub-task, what's-next, a phase/roadmap change | [`tasks.md`](../specs/v0.1.0/tasks.md) |
+| A new requirement (FR/NFR/US) | [`requirements.md`](../specs/v0.1.0/requirements.md) |
+| A design / architecture / schema detail or deferred candidate | [`design.md`](../specs/v0.1.0/design.md) |
+| A stable rule / working-style / discipline | [`CLAUDE.md`](../CLAUDE.md) (rules only) |
+| Per-PR narrative, retrospective, meta-lesson | [`v0.1.0-build-log.md`](journey/v0.1.0-build-log.md) |
+| A research finding | a dated note in [`docs/research/`](research/) **+ update [`research/INDEX.md`](research/INDEX.md)** |
+| A deep-dive on an external source | [`docs/sources/`](sources/) **+ update [`SOURCES.md`](SOURCES.md)** |
+| A user-facing capability (CLI/flag/behavior) | [`README.md`](../README.md) + [`packages/cli/README.md`](../packages/cli/README.md) + [`CHANGELOG.md`](../CHANGELOG.md) (same PR) |
+| "Where do I resume next session?" | [`RESUME-HERE-2026-05-28.md`](journey/RESUME-HERE-2026-05-28.md) — a **pointer** to here + the Spine; no state |
+| Tempted to make a NEW kind of doc? | **Stop.** It goes above. If it genuinely doesn't, add it to the Registry here in the same change. |
+
+---
+
+## Enforcement (dev-process only — not part of the shipped kit)
+
+[`scripts/validate-doc-registry.mjs`](../scripts/validate-doc-registry.mjs), wired into `npm test`, **fails the build if any working-doc markdown file in a high-risk zone (`specs/`, `docs/` top level, `docs/journey/`, repo-root `*.md`) is not listed in the Registry below** — i.e., a new rogue surface cannot appear without being registered here. Bulk history dirs (`docs/research/`, `docs/sources/`, `docs/process/`, `docs/adr/`, `docs/conversation-log/`, `archive/`) are registered by zone. This is the across-compaction guarantee: it does not rely on Claude remembering the rule. It is a tool for *our* work — users of the kit never run it and it ships nothing.
+
+When you add a doc, add its path to the Registry in the same commit, or the build goes red.
+
+---
+
+## Registry (machine-checked — every high-risk working-doc file)
+
+> The validator checks each file under the high-risk zones appears here. Bulk history dirs are zone-registered (above) and not listed file-by-file.
+
+**Repo-root guides + rules:**
+`README.md` · `QUICKSTART.md` · `ARCHITECTURE.md` · `CHANGELOG.md` · `SECURITY.md` · `HEALTH-CHECKS.md` · `INSTALL-windows.md` · `INSTALL-macos.md` · `INSTALL-linux.md` · `CLAUDE.md`
+
+**Spine (`specs/v0.1.0/`):**
+`specs/v0.1.0/requirements.md` · `specs/v0.1.0/requirements-revisions-proposed.md` · `specs/v0.1.0/design.md` · `specs/v0.1.0/tasks.md` · `specs/v0.1.0/glossary.md`
+
+**`docs/` top level:**
+`docs/DOCUMENTATION-MAP.md` · `docs/README.md` · `docs/SOURCES.md` · `docs/BOOTSTRAP.md` · `docs/CLI.md` · `docs/Claude Code Memory Management The Complete Guide (2026).md`
+
+**`docs/journey/`:**
+`docs/journey/DECISION-LOG.md` · `docs/journey/v0.1.0-build-log.md` · `docs/journey/RESUME-HERE-2026-05-28.md` · `docs/journey/PHASE-3-PLAN.md` · `docs/journey/v0.1.0-live-test.md` · `docs/journey/v0.1.0-requirements-coverage.md` · `docs/journey/v0.1.1-self-test-findings.md` · `docs/journey/v0.1.1-self-test-guide.md` · `docs/journey/v0.1.1-scenario-test.md` · `docs/journey/2026-05-23-bootstrap-test.md` · `docs/journey/2026-05-26-live-test-findings.md` · `docs/journey/2026-05-26-live-test-findings-scenarios-3-7.md` · `docs/journey/2026-05-26-snapshot-cap-coordination.md` · `docs/journey/2026-05-26-user-tier-cap-fix.md`

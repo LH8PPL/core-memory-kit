@@ -1,6 +1,8 @@
 # Requirements revisions proposed — post Option A + Option B research
 
-**Status**: **APPROVED** 2026-05-22 by Lior (per [`design.md`](design.md) §opening note: *"locked in tenets T7/T8, US-14/15, FR-28/29/30, NFR-9, OS-9..13, OQ-8"*). **The additions in this file are AUTHORITATIVE for FR-28, FR-29, FR-30, NFR-9, and the T7/T8/US-14/US-15/OS-9..13/OQ-8 entries — design.md and the rest of the spec stack cite them as if merged.** The mechanical merge of this content into `requirements.md` is queued as v0.1.x cleanup; until it lands, this file is the canonical source for the listed additions. PR-C of the post-PR-31 audit campaign (2026-05-26) surfaced this status-vs-citation drift and updated this header so future readers see the right state. · **Original draft date**: 2026-05-22 · **Author**: Claude Opus 4.7
+> **⛔ SUPERSEDED 2026-05-31 — MERGED INTO [`requirements.md`](requirements.md).** T7/T8, US-14/15, FR-28/29/30, NFR-9, OS-9..13, and OQ-8 now live in `requirements.md`, which is the sole authoritative requirements source. This file is kept ONLY as the historical research-driven *proposal* (the original Option-A + Option-B synthesis). **Do not cite this file as authoritative; do not edit it as current state.** (Slated for `archive/` in the documentation-governance restructure, Increment 5.)
+
+**Status**: Historical proposal (superseded 2026-05-31) · **Original draft date**: 2026-05-22 · **Author**: Claude Opus 4.7
 
 This document proposed specific revisions to [`requirements.md`](requirements.md) based on **combined** findings from:
 

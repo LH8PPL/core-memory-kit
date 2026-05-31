@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "scripts": {
-    "test": "node scripts/validate-test-ids.mjs && node scripts/validate-template.mjs && node scripts/validate-exit-doors.mjs && node scripts/validate-references.mjs && node scripts/validate-spawn-discipline.mjs && node scripts/validate-numbering-gaps.mjs && node scripts/validate-composition.mjs && node scripts/validate-platform-commands.mjs && vitest run",
+    "test": "node scripts/validate-test-ids.mjs && node scripts/validate-template.mjs && node scripts/validate-exit-doors.mjs && node scripts/validate-references.mjs && node scripts/validate-spawn-discipline.mjs && node scripts/validate-numbering-gaps.mjs && node scripts/validate-composition.mjs && node scripts/validate-platform-commands.mjs && node scripts/validate-doc-registry.mjs && vitest run",
     "test:file": "node scripts/test-file.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -22,6 +22,7 @@
     "lint:numbering-gaps": "node scripts/validate-numbering-gaps.mjs",
     "lint:composition": "node scripts/validate-composition.mjs",
     "lint:platform-commands": "node scripts/validate-platform-commands.mjs",
+    "lint:doc-registry": "node scripts/validate-doc-registry.mjs",
     "validate:template": "node scripts/validate-template.mjs"
   },
   "devDependencies": {

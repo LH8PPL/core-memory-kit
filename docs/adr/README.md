@@ -18,6 +18,7 @@ Each ADR captures one meaningful design decision: the context, what was decided,
 | [0010](0010-raw-transcripts-preserved-indefinitely.md) | Raw transcripts preserved indefinitely (per FR-28) | accepted (file written retroactively 2026-05-26) | 2026-05-22 |
 | [0011](0011-coexistence-with-anthropic-auto-memory-OPEN.md) | Coexistence with Anthropic's native Auto Memory | OPEN | (in progress) |
 | [0012](0012-npm-publish-name-and-cross-agent-future.md) | Publish v0.1.0 under `@lh8ppl` scope; defer the cross-agent product name to v0.2 | accepted | 2026-05-29 |
+| [0013](0013-package-security-posture-and-ci-provenance-publish.md) | Package security posture + CI provenance publish (osv/gitleaks/CodeQL/Dependabot + signed npm publish) | accepted | 2026-05-29 |
 
 > **0009 and 0010 were "reserved + shipped" cases**: the decisions were made and implemented on 2026-05-22 (FR-29 + FR-28 in `requirements-revisions-proposed.md`; provenance and transcripts code in subsequent task PRs), but the ADR files themselves weren't written until the post-PR-31 audit campaign (PR-C, 2026-05-26) surfaced the gap. Both ADRs are backfilled from preserved evidence in the research base (`docs/sources/`, `docs/SOURCES.md`, `requirements-revisions-proposed.md`) — not reconstructed by inference. See each ADR's "Provenance of this ADR" meta-note for the specific evidence trail.
 

@@ -4,6 +4,18 @@
 
 This is the **actionable implementation plan**. A numbered, hierarchical checklist of concrete coding steps that build incrementally from an empty repo to a working v0.1.0 release. The bridge between [`requirements.md`](requirements.md) (WHAT v0.1.0 must do), [`design.md`](design.md) (HOW v0.1.0 is built), and [`glossary.md`](glossary.md) (canonical definitions for every domain term).
 
+---
+
+## ▶ Current state — what's next (read this first)
+
+> **This section is the single source of "what we are doing now."** No other file holds it — per [`docs/DOCUMENTATION-MAP.md`](../../docs/DOCUMENTATION-MAP.md), the spine (requirements/design/tasks) is the only current state. A session that lost all memory reads this + the task list below and knows the next action. If you ever find "what's next" written somewhere else, fold it here and delete it there.
+
+- **Shipped:** v0.1.2 on npm (provenance-signed). **v0.2 in progress.**
+- **Done:** Phase 1 (foundation bug-sweep, PRs #72–79); Phase 2 (automatic memory — Task 45 auto-persona #83 + auto-drain #86).
+- **▶ ACTIVE — documentation-governance restructure** (branch `docs-governance-map`). Establishing the 3-zone spine + a registry validator and collapsing the ~7 overlapping state surfaces into the spine, so consistency survives a context-compact (structural, not memory). Plan + rationale: [`docs/DOCUMENTATION-MAP.md`](../../docs/DOCUMENTATION-MAP.md); decisions D-19/D-20 in [`DECISION-LOG.md`](../../docs/journey/DECISION-LOG.md). Increments: (1) harness — map + `validate-doc-registry.mjs` ✓ · (2) fold PHASE-3-PLAN + cold-restart state ✓ · (3) merge `requirements-revisions-proposed.md` → `requirements.md` (+ fix a dangling `FR-32`→`FR-25` ref) ✓ · (4) demote RESUME-HERE/BOOTSTRAP to pointers + refresh stale indexes ✓ · (5) archive dead surfaces (conversation-log, closed v0.1.x findings, PHASE-3-PLAN husk, merged proposed file) — **pending**.
+- **NEXT after the restructure — Phase 3 (the v0.2 heart):** "Claude remembers its own positions and stays consistent." Proposed as Tasks 57–59 below; **awaiting explicit go to start.**
+- **Deferred chores:** Task 45 follow-ups (`cmk persona generate` + review-queue file write); Task 56 (vitest 2→4, Dependabot #71).
+
 ## How to read this file
 
 Tasks follow Kiro convention:
@@ -1163,3 +1175,27 @@ Each parent task ships as a PR titled `[<task #>] <description>` (e.g., `[7] Per
   - **Context**: Dependabot opened PR #71 bumping `vitest` **2.1.9 → 4.1.7** (a TWO-major jump: 2→3→4). It bumps ONLY `vitest`, leaving `@vitest/coverage-v8` at `^2.1.9` → **version mismatch that breaks the `Coverage` CI job**. Do NOT merge #71 as-is.
   - **What this entails**: (1) bump BOTH `vitest` + `@vitest/coverage-v8` to the matching 4.x in `package.json`; (2) read the vitest 3.0 + 4.0 migration notes for breaking changes (config shape, coverage provider, snapshot format, `environment` API); (3) run the full suite (1262 tests) + `npm run test:coverage` + the 8 validators; fix breakages; (4) confirm the 70% coverage ratchet still computes; (5) close/supersede Dependabot #71. TDD-not-applicable (toolchain); the gate is the existing suite passing on the new major.
   - _Why it's tracked, not auto-merged_: a test-framework two-major bump can silently change test/coverage behavior; it earns a deliberate pass, not a rubber-stamp (the design §16 / Task 53 "let Dependabot PR the dev-only bumps, don't force the major inside a feature task" note).
+
+---
+
+## Phase 3 — AI-side position consistency (the v0.2 heart) — PROPOSED, not started
+
+> Folded into the spine 2026-05-31 from the former `docs/journey/PHASE-3-PLAN.md` per the documentation-governance restructure: a working plan is "what's next," which lives in `tasks.md`, not a separate journey file. **Status: PROPOSED — awaiting explicit go to begin.** Target scenario: a new session where _"2 days ago you said X was a mistake; now you're saying the opposite"_ — Claude knows it, owns it, reconciles. Adds **US-16** (AI-side position consistency) + **FR-31** (capture / recall / reconcile) — see [`requirements.md`](requirements.md). (Numbering note: the pre-fold plan said "US-14/FR-31"; US-14/15 were already taken, so the new story is **US-16**.) Design calls (recommended; revisit at go): positions live as `type: decision` fact files in the project tier; capture by extending the existing auto-extract pass (no new spawn); adopt the minimal §16.18 temporal slice (`shape` + `started_at`/`ended_at`), not the full retrieval classifier.
+
+- [ ] 57. Capture Claude's stated positions as `type: decision` facts (Phase 3 / P3.1) — PROPOSED
+  - Estimate: M · Depends: 23 (auto-extract), 25 (conflict-detect) · **Phase 3 go required**
+  - Extend the auto-extract subagent prompt with a `POSITION:` candidate pattern (same shape as Task 45's `PERSONA CANDIDATE`): capture durable positions ("I recommend X", "X is a mistake", "don't Y") as `type: decision` fact files, project tier, `write_source: auto-extract` (→ trust medium), with the source-transcript citation + timestamp. `<private>` stripped at capture. Reuses the bi-turn temp file + `writeFact` + trust hierarchy. Name carefully — distinct from MEMORY.md `## Pending Decisions` (open questions for the user), which these are not.
+  - [ ]* 57.4 Tests — position capture lands a decision-fact with citation + trust=medium; over-mutation guard
+  - _Requirements: US-16, FR-31; design §6 (auto-extract), §4 (trust); Task 45 precedent_
+
+- [ ] 58. Inject a "recent decisions" digest at SessionStart (Phase 3 / P3.3) — PROPOSED
+  - Estimate: S/M · Depends: 57 · **Phase 3 go required**
+  - New frozen-snapshot section listing recent `decision`-facts (current positions), with its own byte budget composing with the per-tier caps (design §7.1). This is what makes reconciliation possible — the prior position is in front of Claude. Indexing transcripts for search is the **transcript half of Task 51** (the session-rollup half stays deferred per Task 51's own caveat).
+  - [ ]* 58.4 Tests — digest surfaces recent decision-facts within budget; composes with the §7.1 caps
+  - _Requirements: US-16, FR-31; design §7.1 (caps); Task 51 (transcript half)_
+
+- [ ] 59. Contradiction reconciliation via temporal validity windows (Phase 3 / P3.4) — PROPOSED
+  - Estimate: M · Depends: 57, 58 · **Phase 3 go required**
+  - When a newly-captured position contradicts an existing decision-fact (`detectConflicts`), apply the §16.18 minimal temporal slice (`shape: decision`, `started_at`/`ended_at`): close the old window, open the new, link `superseded_by` → the decision history becomes a timeline. The Task 58 digest surfaces the CURRENT position AND flags the reversal ("you said X on the 28th; current is Y as of the 30th") + cites the raw transcript (T7: raw transcript authoritative, decision-fact derivative). Reuses `detectConflicts` + auto-supersede (Task 25). Adjacent: Task 55 (behavioral patterns) follows, not on the critical path.
+  - [ ]* 59.4 Tests — contradiction closes old window + opens new + links superseded_by; digest flags the reversal; raw transcript cited
+  - _Requirements: US-16, FR-31; design §16.18 (temporal); Task 25, Task 55_
