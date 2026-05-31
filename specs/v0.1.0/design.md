@@ -1670,7 +1670,7 @@ v0.1.x patch candidate. Third tag alongside `<private>` and `<retain>` for sessi
 
 ### 16.8 `cmk transcripts extract` subcommand
 
-v0.1.x or v0.2 candidate. Fell out of the bootstrap-test experiment on 2026-05-23 (see [`docs/journey/2026-05-23-bootstrap-test.md`](../../docs/journey/2026-05-23-bootstrap-test.md)): we wrote `scripts/extract-session-transcript.mjs` as a kit-dev utility to convert harness session jsonls (`~/.claude/projects/<slug>/<uuid>.jsonl`) into clean human-readable markdown, and realized this is useful for kit *users* too.
+v0.1.x or v0.2 candidate. Fell out of the bootstrap-test experiment on 2026-05-23 (see [`docs/research/2026-05-23-bootstrap-test.md`](../../docs/research/2026-05-23-bootstrap-test.md)): we wrote `scripts/extract-session-transcript.mjs` as a kit-dev utility to convert harness session jsonls (`~/.claude/projects/<slug>/<uuid>.jsonl`) into clean human-readable markdown, and realized this is useful for kit *users* too.
 
 Concrete shape:
 
@@ -1702,7 +1702,7 @@ Files in scope for enrichment:
 
 Each template should include 200-400 chars of inline coaching above the section headings: what belongs in this file, what good content looks like, what to avoid. Models for the coaching voice: the journey log's "Working-style preferences for future-Claude" section + the kit's own [`CLAUDE.md`](../../CLAUDE.md).
 
-Outcome: a user running `cmk install` gets templates that teach them what to write, not just where to write it. Reduces activation energy + carries calibration the bootstrap-test (see [`docs/journey/2026-05-23-bootstrap-test.md`](../../docs/journey/2026-05-23-bootstrap-test.md)) showed transfers behavior, not just knowledge.
+Outcome: a user running `cmk install` gets templates that teach them what to write, not just where to write it. Reduces activation energy + carries calibration the bootstrap-test (see [`docs/research/2026-05-23-bootstrap-test.md`](../../docs/research/2026-05-23-bootstrap-test.md)) showed transfers behavior, not just knowledge.
 
 Files **explicitly NOT** in scope (out-of-scope by product boundary, not by oversight):
 

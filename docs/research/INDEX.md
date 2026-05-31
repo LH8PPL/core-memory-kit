@@ -22,6 +22,7 @@ Outputs from research sessions. Each file is a dated, self-contained markdown re
 | 2026-05-22 | [Claude Code leak — architecture](2026-05-22-claude-code-leak-architecture.md) | Manual survey | Complete |
 | 2026-05-22 | [Primary-source examination](2026-05-22-primary-source-examination.md) | Verification pass | Complete |
 | 2026-05-22 | [ChatGPT bibliography](2026-05-22-chatgpt-bibliography.md) · [Claude.ai bibliography](2026-05-22-claude-ai-bibliography.md) | Deep Research bibliographies | Complete |
+| 2026-05-23 | [Cold-start bootstrap A/B test](2026-05-23-bootstrap-test.md) | In-session doc-transfer experiment | Complete |
 | 2026-05-24 | [Beyond the log — time-aware memory](2026-05-24-beyond-the-log-time-aware-memory.md) | Paper/article notes | Complete |
 | 2026-05-24 | [GBrain architecture](2026-05-24-gbrain-architecture.md) | Manual survey | Complete |
 | 2026-05-24 | [OpenClaw templates](2026-05-24-openclaw-templates.md) | Manual survey | Complete |
