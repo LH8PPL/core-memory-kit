@@ -48,3 +48,5 @@ install-matrix-checksum.json
 # repo root. Don't commit the generated copy.
 packages/cli/template/
 context/.index/
+
+*.tgz
