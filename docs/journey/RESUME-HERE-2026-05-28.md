@@ -16,7 +16,7 @@
 ### ⏳ NEXT (in queue order)
 
 1. **Task 45 follow-ups** — `cmk persona generate` manual wrapper + low/medium-confidence → review-queue FILE write (tasks.md 45.6 notes them).
-2. **Phase 2 — auto-drain the queues. ⏳ IN PROGRESS on branch [`phase2-auto-drain`].** The core `autoDrainQueues()` is **built + tested** (`packages/cli/src/auto-drain.mjs` + `tests/cli-auto-drain.test.js`, 4 green): review queue → auto-promote (optimistic), conflict queue → keep-old (protect higher-trust). **It is NOT yet wired into production** — the function exists but nothing calls it. **Resume here:** wire `autoDrainQueues({tier, projectRoot, userDir})` into the `daily-distill` + `weekly-curate` passes (call it from those modules / the `cmk-daily-distill` + `cmk-weekly-curate` bins, draining P-tier + U-tier), add the wiring tests, then full suite + stress + 2-pass review + PR. (D-6 set the posture; the keep-old-for-conflict + promote-for-review resolver choices are in the module header.)
+2. ✅ **Phase 2 — auto-drain the queues. SHIPPED (PR #86, 2026-05-30).** `autoDrainQueues()` (`packages/cli/src/auto-drain.mjs`) is wired into `dailyDistill` (project tier) + `weeklyCurate` (project + user tiers): review queue → auto-promote, conflict queue → keep-old. Manual `cmk queue *` still works. Full suite 1268 green; stress 5/5. Glossary `[[Auto-drain]]`; D-6.
 3. **Phase 3 (the v0.2 heart)** — "Claude remembers its own positions": AI-side position capture + transcript indexing + recent-decisions injection at SessionStart + contradiction reconciliation (+ Task 55). See [`v0.1.1-self-test-findings.md`](v0.1.1-self-test-findings.md) §"v0.2 headline capability".
 
 ### ⏳ WAITING ON LIOR
