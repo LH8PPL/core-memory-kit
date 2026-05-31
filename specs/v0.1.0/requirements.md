@@ -366,6 +366,18 @@ The kit shall ship `cmk view` that starts a local static HTTP server (default po
 
 Acceptance: When the user runs `cmk view`, a browser at `http://localhost:37778` shall display a directory listing and clicking any `.md` file shall render its content with syntax highlighting.
 
+### 3.12 AI-side position consistency (Phase 3 — reserved)
+
+**FR-31 — AI-side position capture, recall, and reconciliation** _(reserved for Phase 3; full acceptance criteria land when Phase 3 starts — see [`tasks.md`](tasks.md) Tasks 57–59 and the proposed user story US-16)_
+
+The kit shall treat Claude's own stated positions as first-class, contradiction-checkable memory:
+
+- **Capture** — durable positions Claude states ("I recommend X", "X is a mistake", "don't Y") are persisted as `type: decision` fact files (project tier, `write_source: auto-extract` → trust medium, with source-transcript citation + timestamp). `<private>` stripped at capture (NFR-6).
+- **Recall** — recent decision-facts are injected at SessionStart as a compact "recent decisions" digest, within the snapshot budget (NFR-2), so a fresh session has Claude's current positions in context.
+- **Reconcile** — when a new position contradicts an existing decision-fact, the change is recorded as temporal supersession (old validity window closed, new opened, `superseded_by` linked) rather than silently overwritten; the digest surfaces the current position AND flags the reversal, citing the raw transcript (per T7: the raw transcript is authoritative, the decision-fact derivative).
+
+_This is the only Phase-3 requirement reserved ahead of its detailed spec; FR-28/29/30 + NFR-9 are being merged into this file from `requirements-revisions-proposed.md` (documentation-governance restructure, Increment 3)._
+
 ---
 
 ## 4. Non-functional requirements
