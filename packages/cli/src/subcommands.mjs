@@ -23,6 +23,7 @@ import { memoryWrite } from './memory-write.mjs';
 import { runMcpServer } from './mcp-server.mjs';
 import { dailyDistill } from './daily-distill.mjs';
 import { weeklyCurate } from './weekly-curate.mjs';
+import { autoPersona } from './auto-persona.mjs';
 import { runLazyCompress } from './lazy-compress.mjs';
 import { runDoctor } from './doctor.mjs';
 import { importAnthropicMemory } from './import-anthropic-memory.mjs';
@@ -501,6 +502,46 @@ async function runWeeklyCurate(/* options */) {
     }
   } catch (err) {
     console.error(`cmk weekly-curate: unexpected error: ${err?.message ?? err}`);
+  }
+}
+
+/**
+ * `cmk persona generate` (Task 45 follow-up) — run cross-project persona
+ * synthesis ON DEMAND. Classifies this project's captured facts, auto-promotes
+ * the high-confidence cross-project doctrine into the user tier (trust:medium),
+ * and saves the low/medium-confidence candidates to
+ * <userDir>/queues/persona-review.md. Same pipeline weekly-curate runs
+ * automatically — this is the manual trigger (a deterministic hook for the
+ * fresh-session live test, and for users who want to fill the user tier now).
+ */
+async function runPersonaGenerate(/* options */) {
+  const projectRoot = resolvePath(process.cwd());
+  const userDir =
+    process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+  const { HaikuViaAnthropicApi } = await import('./compressor.mjs');
+  try {
+    const backend = new HaikuViaAnthropicApi();
+    const r = await autoPersona({ projectRoot, userDir, backend });
+    if (r.action === 'error') {
+      console.error(
+        `cmk persona generate: error (${r.errorCategory ?? 'unknown'})${(r.errors && r.errors.length) ? `: ${r.errors.join('; ')}` : ''}`,
+      );
+      return;
+    }
+    const promoted = r.promoted?.length ?? 0;
+    const superseded = r.superseded?.length ?? 0;
+    const queued = r.queued?.length ?? 0;
+    const conflicts = r.conflicts?.length ?? 0;
+    console.log(
+      `cmk persona generate: ${r.action}${r.reason ? ` (${r.reason})` : ''} — promoted: ${promoted}, superseded: ${superseded}, queued: ${queued}, conflicts: ${conflicts}`,
+    );
+    if (queued > 0 && r.reviewQueuePath) {
+      console.log(
+        `  ${queued} lower-confidence candidate(s) saved for review → ${r.reviewQueuePath}`,
+      );
+    }
+  } catch (err) {
+    console.error(`cmk persona generate: unexpected error: ${err?.message ?? err}`);
   }
 }
 
@@ -1334,6 +1375,18 @@ export const subcommands = [
     description: 'run the weekly-curate pipeline once: archive today-*.md older than 7 days, dedup bullets, rebuild recent.md (invoked by host scheduler)',
     milestone: 34,
     action: runWeeklyCurate,
+  },
+  {
+    name: 'persona',
+    description: 'cross-project persona — synthesize "how you work everywhere" into the user tier',
+    milestone: 45,
+    children: [
+      {
+        name: 'generate',
+        description: 'synthesize cross-project doctrine from this project\'s captured facts now: auto-promote high-confidence to the user tier, save the rest to queues/persona-review.md',
+        action: runPersonaGenerate,
+      },
+    ],
   },
   {
     name: 'compress',

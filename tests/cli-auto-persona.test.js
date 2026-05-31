@@ -448,3 +448,61 @@ describe('Task 45 — auto-persona guards', () => {
     expect(r.action).toBe('error');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Task 45 follow-up — low/medium-confidence candidates must be DURABLE, not
+// merely returned in the response (Lior 2026-05-31: "response object can get
+// lost — i dont like it"). They persist to <userDir>/queues/persona-review.md
+// so a later (manual or auto-drain) pass can act on them.
+// ---------------------------------------------------------------------------
+describe('Task 45 follow-up — low/medium-confidence candidates persist to a review-queue FILE', () => {
+  it('writes queued candidates to <userDir>/queues/persona-review.md with provenance; does NOT promote them', async () => {
+    seedUserTier();
+    seedFact({
+      slug: 'feedback_ripgrep',
+      id: 'P-WGQAZFVC',
+      type: 'feedback',
+      title: 'reaches for ripgrep',
+      body: 'Tends to reach for ripgrep instead of grep.',
+    });
+    // confidence=medium → the confidence gate routes it to the review queue,
+    // NOT an auto-promotion.
+    const backend = classifierBackend([
+      'PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=medium | Reaches for ripgrep instead of grep',
+    ]);
+
+    const r = await autoPersona({ projectRoot, userDir, backend, now: NOW });
+
+    // Door 1 — surfaced in the response AND the queue-file path is returned.
+    expect(r.queued.length).toBeGreaterThanOrEqual(1);
+    expect(r.reviewQueuePath).toBeTruthy();
+
+    // Door 2 (State) — the candidate is durable on disk (the "can get lost" fix).
+    const queueFile = join(userDir, 'queues', 'persona-review.md');
+    expect(existsSync(queueFile)).toBe(true);
+    const body = readFileSync(queueFile, 'utf8');
+    expect(body).toContain('Reaches for ripgrep instead of grep');
+    expect(body).toMatch(/confidence:\s*medium/);
+    expect(body).toContain('HABITS.md');
+
+    // Over-mutation — a medium candidate must NOT auto-promote into the scratchpad.
+    const habits = readFileSync(join(userDir, 'HABITS.md'), 'utf8');
+    expect(habits).not.toContain('Reaches for ripgrep instead of grep');
+  });
+
+  it('does not duplicate an already-queued candidate across runs (dedup by id)', async () => {
+    seedUserTier();
+    seedFact({ slug: 'feedback_rg', id: 'P-WGQAZFVC', type: 'feedback', title: 't', body: 'Reaches for ripgrep.' });
+    const mk = () =>
+      classifierBackend([
+        'PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=medium | Reaches for ripgrep instead of grep',
+      ]);
+    await autoPersona({ projectRoot, userDir, backend: mk(), now: NOW });
+    // Second run, cooldown bypassed — must NOT re-append the same candidate.
+    await autoPersona({ projectRoot, userDir, backend: mk(), now: NOW, cooldownMs: 0 });
+
+    const body = readFileSync(join(userDir, 'queues', 'persona-review.md'), 'utf8');
+    const occurrences = body.split('Reaches for ripgrep instead of grep').length - 1;
+    expect(occurrences).toBe(1);
+  });
+});

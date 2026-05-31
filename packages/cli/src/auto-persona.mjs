@@ -38,7 +38,9 @@
 // promotion primitive), audit-log, result-shapes, cooldown, compressor.
 // Per design §16.16 + §6.2 (conflict) + §6.8 (auto-drain) + §8.3 + tasks.md 45.
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, appendFileSync, mkdirSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { generateId } from '@lh8ppl/cmk-canonicalize';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { resolveTierRoot, resolveScratchpadPath } from './tier-paths.mjs';
 import { listObservationSources } from './index-rebuild.mjs';
@@ -196,7 +198,7 @@ export async function autoPersona(opts = {}) {
   }
 
   const candidates = parsePersonaCandidates(result?.outputText);
-  const { promoted, queued, superseded, conflicts } = promoteCandidatesToUserTier({
+  const { promoted, queued, superseded, conflicts, reviewQueuePath } = promoteCandidatesToUserTier({
     candidates,
     userDir,
     now: ts,
@@ -206,9 +208,9 @@ export async function autoPersona(opts = {}) {
   const duration_ms = Date.now() - t0;
   // A supersede IS a promotion outcome (the user tier changed).
   if (promoted.length === 0 && superseded.length === 0) {
-    return { action: 'skipped', reason: 'no-promotions', promoted, queued, superseded, conflicts, duration_ms };
+    return { action: 'skipped', reason: 'no-promotions', promoted, queued, superseded, conflicts, reviewQueuePath, duration_ms };
   }
-  return { action: 'promoted', promoted, queued, superseded, conflicts, duration_ms };
+  return { action: 'promoted', promoted, queued, superseded, conflicts, reviewQueuePath, duration_ms };
 }
 
 /**
@@ -220,6 +222,42 @@ export async function autoPersona(opts = {}) {
  *
  * @returns {{promoted:Array, queued:Array, superseded:Array, conflicts:Array}}
  */
+// Persist low/medium-confidence (and otherwise-not-promoted) candidates to a
+// durable review-queue FILE at <userDir>/queues/persona-review.md, so they are
+// not lost when only returned in the response (Lior 2026-05-31: "response
+// object can get lost — i dont like it"). Dedup by canonical id against what's
+// already in the file so repeated synthesis passes don't pile up duplicates.
+// Returns the queue path (or null when there's nothing to write).
+export function appendPersonaReviewQueue({ userDir, entries, now }) {
+  if (!entries || entries.length === 0) return null;
+  const ts = now ?? new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const userTierRoot = resolveTierRoot({ tier: 'U', userDir });
+  const queuePath = join(userTierRoot, 'queues', 'persona-review.md');
+  mkdirSync(dirname(queuePath), { recursive: true });
+
+  let existing = '';
+  try {
+    existing = readFileSync(queuePath, 'utf8');
+  } catch {
+    // file not created yet — fine.
+  }
+
+  const blocks = [];
+  for (const e of entries) {
+    const id = generateId('U', e.text);
+    if (existing.includes(`(${id})`)) continue; // already queued in a prior pass
+    blocks.push(
+      `- (${id}) [${e.target} § ${e.section}] ${e.text}\n` +
+        `  <!-- target: ${e.target}, section: ${e.section}, confidence: ${e.confidence ?? 'unknown'}, reason: ${e.reason ?? 'pending-review'}, source: persona-synthesis, at: ${ts} -->`,
+    );
+  }
+  if (blocks.length === 0) return queuePath;
+
+  const header = `## ${ts} — persona-synthesis (pending review)`;
+  appendFileSync(queuePath, `${header}\n${blocks.join('\n')}\n\n`, 'utf8');
+  return queuePath;
+}
+
 export function promoteCandidatesToUserTier({ candidates, userDir, now, settings }) {
   const ts = now ?? new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
   const userTierRoot = resolveTierRoot({ tier: 'U', userDir });
@@ -230,11 +268,11 @@ export function promoteCandidatesToUserTier({ candidates, userDir, now, settings
   for (const c of candidates) {
     if (!VALID_TARGETS.has(c.target)) continue; // defensive: drop bad routing
     if (c.confidence !== 'high') {
-      // Confidence gate (not a manual gate): low/medium route to the
-      // auto-drained review queue. Queue-file write lands in the next
-      // increment (45.6 queue routing); for now we surface them in the
-      // response so callers + tests see the routing decision.
-      queued.push({ target: c.target, section: c.section, text: c.text, reason: `confidence-${c.confidence}` });
+      // Confidence gate (not a manual gate): low/medium route to the review
+      // queue. They are returned in `queued` AND written to the durable
+      // queue FILE below (appendPersonaReviewQueue) so they survive past the
+      // response — the daily/weekly auto-drain (or a manual review) acts on them.
+      queued.push({ target: c.target, section: c.section, text: c.text, confidence: c.confidence, reason: `confidence-${c.confidence}` });
       continue;
     }
 
@@ -274,7 +312,7 @@ export function promoteCandidatesToUserTier({ candidates, userDir, now, settings
       // doReplace returns {action:'replaced', oldId, newId, path}.
       const res = memoryWrite({ action: 'replace', oldText: conflict.existingText, ...common });
       if (res.action !== 'replaced') {
-        queued.push({ target: c.target, section: c.section, text: c.text, reason: `not-superseded-${res.errorCategory ?? res.action}` });
+        queued.push({ target: c.target, section: c.section, text: c.text, confidence: c.confidence, reason: `not-superseded-${res.errorCategory ?? res.action}` });
         continue;
       }
       appendAuditEntry(userTierRoot, {
@@ -300,7 +338,7 @@ export function promoteCandidatesToUserTier({ candidates, userDir, now, settings
     }
     if (res.action !== 'appended') {
       // Bad section / cap / dedup-skip — surface, don't silently lose.
-      queued.push({ target: c.target, section: c.section, text: c.text, reason: `not-promoted-${res.errorCategory ?? res.action}` });
+      queued.push({ target: c.target, section: c.section, text: c.text, confidence: c.confidence, reason: `not-promoted-${res.errorCategory ?? res.action}` });
       continue;
     }
 
@@ -317,5 +355,9 @@ export function promoteCandidatesToUserTier({ candidates, userDir, now, settings
     promoted.push({ id: res.id, target: c.target, section: c.section, text: c.text, trust: 'medium' });
   }
 
-  return { promoted, queued, superseded, conflicts };
+  // Persist the queued (low/medium-confidence + not-promoted) candidates to
+  // the durable review-queue file so they survive past this response.
+  const reviewQueuePath = appendPersonaReviewQueue({ userDir, entries: queued, now: ts });
+
+  return { promoted, queued, superseded, conflicts, reviewQueuePath };
 }
