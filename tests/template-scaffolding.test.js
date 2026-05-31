@@ -16,7 +16,7 @@
 //     details that may change.
 
 import { describe, it, expect } from 'vitest';
-import { existsSync, statSync, mkdtempSync, cpSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, statSync, mkdtempSync, cpSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -111,6 +111,30 @@ describe('Task 1 — template/ scaffolding', () => {
       } finally {
         rmSync(sandbox, { recursive: true, force: true });
       }
+    });
+  });
+
+  // Task 63 (F1) — the behavior lever. The v0.2.0 live test found the agent
+  // wrote terse one-line bullets because the scaffolded CLAUDE.md told it to
+  // "use cmk remember "<the fact>"" (terse) and "never hand-write fact files".
+  // This guards the flipped guidance: recommend RICH capture (--why/--how) so
+  // the agent produces granular fact files again. If this regresses, the kit
+  // silently goes back to losing the *why* on every capture.
+  describe('Task 63 — CLAUDE.md template recommends RICH capture (the F1 behavior lever)', () => {
+    const tpl = () =>
+      readFileSync(join(REPO_ROOT, 'template', 'CLAUDE.md.template'), 'utf8');
+
+    it('tells the agent to capture richly via --why / --how', () => {
+      const text = tpl();
+      expect(text).toMatch(/--why/);
+      expect(text).toMatch(/--how/);
+      expect(text).toMatch(/rich/i);
+    });
+
+    it('still warns against hand-writing fact files (the v0.1.2 safety guard stays)', () => {
+      // Rich capture must go THROUGH cmk remember (sanitizer + Poison_Guard),
+      // not by hand-writing files under context/memory/ (the username-leak class).
+      expect(tpl()).toMatch(/NOT hand-write files under `context\/memory\/`/i);
     });
   });
 });

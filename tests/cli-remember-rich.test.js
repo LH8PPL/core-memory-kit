@@ -1,6 +1,7 @@
 // @doors: 1, 2
-// Door 3 N/A: no subprocess. Door 4: writeFact's audit entry is covered by
-//   cli-write-fact.test.js. Door 5 N/A.
+// Door 3 N/A: no subprocess spawned by runRememberRich.
+// Door 4 N/A: no message queue at this boundary.
+// Door 5 N/A: writeFact's audit-log append is covered by cli-write-fact.test.js.
 //
 // Task 63 (F1) — restore RICH capture through the safe path. The v0.1.2 fix
 // routed all captures through `cmk remember` → terse one-line MEMORY.md bullets
