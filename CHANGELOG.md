@@ -6,9 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
-v0.2 — automatic memory + "Claude stays consistent." Entries accrue here as features merge to `main`; they ship when v0.2 is published.
-
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
+
+## [0.2.0] — 2026-05-31
+
+v0.2 — automatic memory + "Claude stays consistent." Entries accrue here as features merge to `main`; they ship when v0.2 is published.
 
 ### Added
 
