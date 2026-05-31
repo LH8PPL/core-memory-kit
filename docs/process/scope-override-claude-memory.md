@@ -83,7 +83,7 @@ This process documented 2026-05-22 after the Option-B Deep Research run on `clau
 
 ## References
 
-- Conversation discussing the issue: [../conversation-log/2026-05-22.md](../conversation-log/2026-05-22.md), thread "Claude.ai memory injection"
+- Conversation discussing the issue: [../conversation-log/2026-05-22.md](../../archive/docs/conversation-log/2026-05-22.md), thread "Claude.ai memory injection"
 - Option-B research output (showing the symptom): [../research/2026-05-21-claude-ai-deep-research-option-b.md](../research/2026-05-21-claude-ai-deep-research-option-b.md)
 - Claude.ai memory feature docs: <https://support.claude.com/en/articles/10185728-about-memory-on-claude-ai>
 - ChatGPT memory feature docs: <https://help.openai.com/en/articles/8590148-memory-faq>

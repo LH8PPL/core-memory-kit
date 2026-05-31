@@ -84,7 +84,7 @@ Specifically:
 
 - Original `youtube-to-slide` memory system: <https://github.com/LH8PPL/youtube-to-slide> (in the `context/`, `.claude/`, `scripts/` directories at commit `15dcc2e` and later)
 - `claude-memory-kit` v0.0.1 baseline: <https://github.com/LH8PPL/claude-memory-kit/releases/tag/v0.0.1> (commit `5d9933e`, 56 files, 4,119 lines)
-- Conversation context: [conversation-log/2026-05-21.md](../conversation-log/2026-05-21.md), thread "Q2 — portable memory kit"
+- Conversation context: [conversation-log/2026-05-21.md](../../archive/docs/conversation-log/2026-05-21.md), thread "Q2 — portable memory kit"
 
 ## Review history
 

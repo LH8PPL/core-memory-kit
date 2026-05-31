@@ -92,6 +92,10 @@ const SKIP = new Set([
   join(REPO_ROOT, 'docs', 'research'),
   join(REPO_ROOT, 'docs', 'sources'),
   join(REPO_ROOT, 'docs', 'conversation-log'),
+  // archive/ holds frozen, superseded/retired docs (moved here by the
+  // documentation-governance restructure, 2026-05-31). Their internal +
+  // outbound links are not ref-validated — they're history, not live.
+  join(REPO_ROOT, 'archive'),
 ]);
 
 const mdFiles = [];

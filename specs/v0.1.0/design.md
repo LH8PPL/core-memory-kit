@@ -6,7 +6,7 @@ This document specifies **HOW** v0.1.0 is built.
 The companion [`requirements.md`](requirements.md) specifies **WHAT** v0.1.0 must do.
 Every section here cites the FRs it implements.
 
-The design assumes [`requirements-revisions-proposed.md`](requirements-revisions-proposed.md) is approved (it is, per user 2026-05-22 — locked in tenets T7/T8, US-14/15, FR-28/29/30, NFR-9, OS-9..13, OQ-8).
+The design assumes [`requirements-revisions-proposed.md`](../../archive/specs/v0.1.0/requirements-revisions-proposed.md) is approved (it is, per user 2026-05-22 — locked in tenets T7/T8, US-14/15, FR-28/29/30, NFR-9, OS-9..13, OQ-8).
 
 ---
 
@@ -1601,7 +1601,7 @@ Ten yes/no checks at session start (HC-1..HC-7 from requirements.md, plus HC-8 a
 | **HC-8** | **[CHANGE]** Native Anthropic Auto Memory status detected | **Inspect `~/.claude/projects/<slug>/memory/` existence + contents. Log result to `context/.locks/native-memory-status.log` as `{active: true \| false \| unknown, last_modified: <ISO>, file_count: N}`. Non-fatal — informational only, lets users see whether their kit is supplementing or substituting Anthropic's. Per Kiro's spec-pattern of explicit detection + audit logging.** |
 | **HC-9** | **Stale lock files under `context/.locks/` + `<userDir>/.locks/`** | **Per-stale-lock recoveryCommand emitted in the report (e.g. `rm "<path>"`). Library: [`packages/cli/src/lock-discipline.mjs`](../../packages/cli/src/lock-discipline.mjs) `detectStaleLocks(projectRoot, {userDir})`. Closes the residual leak window left after PR-A's subprocess timeout (external SIGKILL / OS OOM / hardware failure — see §6.9 for the composition). Non-fatal — `cmk doctor` reports + the next auto-extract invocation's in-band stale-recovery also handles it.** |
 
-**Critical rule** (per design §14, 2026-05-28 amendment): any repair requiring `pip install` / `npm install` / system-level changes MUST ASK the user first. Previously cited as "NFR-9" — NFR-9 is actually "Memory poisoning defense baseline" per [`requirements-revisions-proposed.md:125`](requirements-revisions-proposed.md). The ask-before-install rule has no FR/NFR backing today; promoting it to a proper requirements entry is a v0.1.x cleanup.
+**Critical rule** (per design §14, 2026-05-28 amendment): any repair requiring `pip install` / `npm install` / system-level changes MUST ASK the user first. Previously cited as "NFR-9" — NFR-9 is actually "Memory poisoning defense baseline" per [`requirements-revisions-proposed.md:125`](../../archive/specs/v0.1.0/requirements-revisions-proposed.md). The ask-before-install rule has no FR/NFR backing today; promoting it to a proper requirements entry is a v0.1.x cleanup.
 
 **Implements**: FR-22, all NFRs.
 
@@ -2400,7 +2400,7 @@ Provenance: Task 37 code-review Suggestion #1 (2026-05-28).
 
 **v0.1.x candidate.**
 
-Surfaced by Task 37 code-review-excellence Important #1 (2026-05-28). The "any repair requiring `pip install` / `npm install` / system-level changes MUST ASK the user first" rule lives in design §14 as an unsourced design assertion. The original citation was "NFR-9" but NFR-9 (per [`requirements-revisions-proposed.md:125`](requirements-revisions-proposed.md)) is "Memory poisoning defense baseline" — different rule entirely. Task 37 PR corrected the citation to "design §14" but the rule still lacks a backing FR/NFR.
+Surfaced by Task 37 code-review-excellence Important #1 (2026-05-28). The "any repair requiring `pip install` / `npm install` / system-level changes MUST ASK the user first" rule lives in design §14 as an unsourced design assertion. The original citation was "NFR-9" but NFR-9 (per [`requirements-revisions-proposed.md:125`](../../archive/specs/v0.1.0/requirements-revisions-proposed.md)) is "Memory poisoning defense baseline" — different rule entirely. Task 37 PR corrected the citation to "design §14" but the rule still lacks a backing FR/NFR.
 
 v0.1.x candidate: add a proper NFR (e.g., a new NFR like "Consent gate for system-level installs") in `requirements.md`. Ship trigger: an audit campaign verifying every design.md assertion has a backing FR/NFR (parallel to PR-D1's validate-references.mjs but for assertion provenance). <!-- validate-references: ignore (next-NFR placeholder; not yet assigned) -->
 

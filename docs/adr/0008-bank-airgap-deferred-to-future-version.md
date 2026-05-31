@@ -99,7 +99,7 @@ However, the v0.1 *architecture* must not preclude bank/air-gap deployment in v0
 - Process doc on Claude.ai memory injection: [process/scope-override-claude-memory.md](../process/scope-override-claude-memory.md)
 - Anthropic Claude on Bedrock GA notes: <https://aws.amazon.com/bedrock/anthropic/> (verified 2026-05-22)
 - KVzip paper (informs local-LLM compression option): Kim et al., arXiv:2505.23416 — <https://arxiv.org/abs/2505.23416>
-- Conversation context: [conversation-log/2026-05-22.md](../conversation-log/2026-05-22.md), thread "Bank/air-gap context decision"
+- Conversation context: [conversation-log/2026-05-22.md](../../archive/docs/conversation-log/2026-05-22.md), thread "Bank/air-gap context decision"
 
 ## Review history
 

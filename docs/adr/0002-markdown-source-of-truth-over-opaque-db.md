@@ -88,7 +88,7 @@ Specifically:
 - Anthropic Memory tool docs: <https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool> (retrieved 2026-05-21)
 - thedotmack/claude-mem repo: <https://github.com/thedotmack/claude-mem> (commit verified 2026-05-21; 77,244 stars)
 - Fail-Safe/Noema architecture quote: from Claude.ai Deep Research report dated 2026-05-21, see [research/2026-05-21-claude-ai-deep-research-option-b.md](../research/2026-05-21-claude-ai-deep-research-option-b.md)
-- Conversation context: [conversation-log/2026-05-21.md](../conversation-log/2026-05-21.md)
+- Conversation context: [conversation-log/2026-05-21.md](../../archive/docs/conversation-log/2026-05-21.md)
 - Original framing of the markdown-vs-DB question: this conversation, user prompt of 2026-05-21 *"5. sqllite storage - please explain more"*.
 
 ## Review history

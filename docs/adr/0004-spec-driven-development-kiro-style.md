@@ -105,7 +105,7 @@ For everything else, the spec flow is mandatory.
 - AWS Kiro "From Chat to Specs": <https://kiro.dev/blog/from-chat-to-specs-deep-dive/>
 - Detailed notes on Kiro: [sources/kiro-spec-driven-deep-dive.md](../sources/kiro-spec-driven-deep-dive.md)
 - v0.1.0 spec set: [specs/v0.1.0/](../../specs/v0.1.0/) — requirements.md is in progress, design.md and tasks.md pending research
-- Conversation context: [conversation-log/2026-05-21.md](../conversation-log/2026-05-21.md), thread "Adopting Kiro-style flow"
+- Conversation context: [conversation-log/2026-05-21.md](../../archive/docs/conversation-log/2026-05-21.md), thread "Adopting Kiro-style flow"
 
 ## Review history
 

@@ -14,7 +14,7 @@ This `docs/` tree captures the **full provenance** of the kit: every decision, e
 | [research/](research/) | Outputs from research sessions — own Claude/ChatGPT Deep Research runs, manual architecture surveys, paper notes | Before you make a design decision that the research already covered |
 | [sources/](sources/) | Deep-dive notes on individual external sources (articles, videos, papers) — distilled for liorwiki ingest | When you need the substance of a source without re-reading the original |
 | [SOURCES.md](SOURCES.md) | Master index of every URL, paper, repo, video, blog post we've cited | When you need a citation or want to verify a claim |
-| ~~[conversation-log/](conversation-log/)~~ | **RETIRED 2026-05-30** — early session narrative (2026-05-21/22 only); role taken over by `journey/` | Historical only — do not add entries |
+| ~~[conversation-log/](../archive/docs/conversation-log/)~~ | **RETIRED 2026-05-30** — early session narrative (2026-05-21/22 only); role taken over by `journey/` | Historical only — do not add entries |
 
 ## Reading order for a new contributor
 
