@@ -16,6 +16,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { autoPersona } from '../packages/cli/src/auto-persona.mjs';
+import { runPersonaGenerate } from '../packages/cli/src/subcommands.mjs';
 import { appendScratchpadBullet } from '../packages/cli/src/scratchpad.mjs';
 import { touchCooldownMarker } from '../packages/cli/src/cooldown.mjs';
 import { weeklyCurate } from '../packages/cli/src/weekly-curate.mjs';
@@ -446,5 +447,112 @@ describe('Task 45 — auto-persona guards', () => {
     const backend = classifierBackend([]);
     const r = await autoPersona({ projectRoot, backend, now: NOW });
     expect(r.action).toBe('error');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 45 follow-up — low/medium-confidence candidates must be DURABLE, not
+// merely returned in the response (Lior 2026-05-31: "response object can get
+// lost — i dont like it"). They persist to <userDir>/queues/persona-review.md
+// so a later (manual or auto-drain) pass can act on them.
+// ---------------------------------------------------------------------------
+describe('Task 45 follow-up — low/medium-confidence candidates persist to a review-queue FILE', () => {
+  it('writes queued candidates to <userDir>/queues/persona-review.md with provenance; does NOT promote them', async () => {
+    seedUserTier();
+    seedFact({
+      slug: 'feedback_ripgrep',
+      id: 'P-WGQAZFVC',
+      type: 'feedback',
+      title: 'reaches for ripgrep',
+      body: 'Tends to reach for ripgrep instead of grep.',
+    });
+    // confidence=medium → the confidence gate routes it to the review queue,
+    // NOT an auto-promotion.
+    const backend = classifierBackend([
+      'PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=medium | Reaches for ripgrep instead of grep',
+    ]);
+
+    const r = await autoPersona({ projectRoot, userDir, backend, now: NOW });
+
+    // Door 1 — surfaced in the response AND the queue-file path is returned.
+    expect(r.queued.length).toBeGreaterThanOrEqual(1);
+    expect(r.reviewQueuePath).toBeTruthy();
+
+    // Door 2 (State) — the candidate is durable on disk (the "can get lost" fix).
+    const queueFile = join(userDir, 'queues', 'persona-review.md');
+    expect(existsSync(queueFile)).toBe(true);
+    const body = readFileSync(queueFile, 'utf8');
+    expect(body).toContain('Reaches for ripgrep instead of grep');
+    expect(body).toMatch(/confidence:\s*medium/);
+    expect(body).toContain('HABITS.md');
+
+    // Over-mutation — a medium candidate must NOT auto-promote into the scratchpad.
+    const habits = readFileSync(join(userDir, 'HABITS.md'), 'utf8');
+    expect(habits).not.toContain('Reaches for ripgrep instead of grep');
+  });
+
+  it('does not duplicate an already-queued candidate across runs (dedup by id)', async () => {
+    seedUserTier();
+    seedFact({ slug: 'feedback_rg', id: 'P-WGQAZFVC', type: 'feedback', title: 't', body: 'Reaches for ripgrep.' });
+    const mk = () =>
+      classifierBackend([
+        'PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=medium | Reaches for ripgrep instead of grep',
+      ]);
+    await autoPersona({ projectRoot, userDir, backend: mk(), now: NOW });
+    // Second run, cooldown bypassed — must NOT re-append the same candidate.
+    await autoPersona({ projectRoot, userDir, backend: mk(), now: NOW, cooldownMs: 0 });
+
+    const body = readFileSync(join(userDir, 'queues', 'persona-review.md'), 'utf8');
+    const occurrences = body.split('Reaches for ripgrep instead of grep').length - 1;
+    expect(occurrences).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// `cmk persona generate` (runPersonaGenerate) — the manual trigger. Injection
+// seams (projectRoot/userDir/backend/log) let us exercise it without a live
+// `claude --print` spawn.
+// ---------------------------------------------------------------------------
+describe('Task 45 follow-up — cmk persona generate (runPersonaGenerate)', () => {
+  it('promotes high-confidence to the user tier, queues the rest, and reports counts', async () => {
+    seedUserTier();
+    seedFact({ slug: 'feedback_venv', id: 'P-WGQAZFVC', type: 'feedback', title: 'venv', body: 'Always a 3.13 venv everywhere.' });
+    const backend = classifierBackend([
+      'PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=high | Always uses a Python 3.13 venv on every project',
+      'PERSONA CANDIDATE | target=LESSONS.md | section=Tooling Lessons | confidence=medium | Reaches for ripgrep over grep',
+    ]);
+    const out = [];
+    await runPersonaGenerate({
+      projectRoot,
+      userDir,
+      backend,
+      log: (m) => out.push(m),
+      logError: (m) => out.push(`ERR: ${m}`),
+    });
+    const text = out.join('\n');
+
+    // Door 1 — reports the action + counts (promoted high, queued medium).
+    expect(text).toMatch(/cmk persona generate:/);
+    expect(text).toMatch(/promoted: 1/);
+    expect(text).toMatch(/saved for review/);
+
+    // Door 2 — high-confidence landed in the user tier; medium went to the queue file.
+    expect(readFileSync(join(userDir, 'HABITS.md'), 'utf8')).toContain('Python 3.13 venv');
+    expect(existsSync(join(userDir, 'queues', 'persona-review.md'))).toBe(true);
+  });
+
+  it('reports the error action (logError path) when the backend fails', async () => {
+    seedUserTier();
+    seedFact({ slug: 'x', id: 'P-WGQAZFVC', type: 'feedback', title: 't', body: 'A cross-project habit.' });
+    const backend = { modelId: () => 'mock', async compress() { throw new Error('boom'); } };
+    const out = [];
+    await runPersonaGenerate({
+      projectRoot,
+      userDir,
+      backend,
+      log: (m) => out.push(m),
+      logError: (m) => out.push(`ERR: ${m}`),
+    });
+    expect(out.join('\n')).toMatch(/ERR: cmk persona generate: error/);
   });
 });
