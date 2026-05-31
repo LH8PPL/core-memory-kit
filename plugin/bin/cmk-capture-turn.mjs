@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Stop hook real handler (Task 21). The bash wrapper at
-// plugin/bin/cmk-capture-turn execs this file.
+// Stop hook real handler (Task 21). node-only since Task 62: hooks.json invokes this directly via
+// node "${CLAUDE_PLUGIN_ROOT}/bin/cmk-capture-turn.mjs" (no bash wrapper).
 //
 // Protocol: payload arrives on stdin as JSON. Honor stop_hook_active
 // guard, append to transcripts, spawn detached auto-extract subagent,

@@ -195,16 +195,18 @@ describe('Task 43 — release verification (pre-publish gates)', () => {
       expect(manifest.repository).toContain('LH8PPL/claude-memory-kit');
     });
 
-    it('the plugin route ships its hooks.json + bin hooks (complete on its own)', () => {
+    it('the plugin route ships its hooks.json + node bin handlers (complete on its own)', () => {
       expect(existsSync(join(repoRoot, 'plugin', 'hooks', 'hooks.json'))).toBe(true);
+      // Task 62: the plugin hooks are node `.mjs` invoked via
+      // `node "${CLAUDE_PLUGIN_ROOT}/bin/<name>.mjs"` — no bash wrappers.
       for (const bin of [
-        'cmk-inject-context',
-        'cmk-capture-turn',
-        'cmk-compress-session',
+        'cmk-inject-context.mjs',
+        'cmk-capture-turn.mjs',
+        'cmk-compress-session.mjs',
       ]) {
         expect(
           existsSync(join(repoRoot, 'plugin', 'bin', bin)),
-          `plugin bin wrapper missing: ${bin}`,
+          `plugin bin handler missing: ${bin}`,
         ).toBe(true);
       }
     });

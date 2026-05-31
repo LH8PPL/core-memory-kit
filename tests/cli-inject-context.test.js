@@ -43,7 +43,7 @@ import { injectContext } from '../packages/cli/src/inject-context.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = join(dirname(__filename), '..');
-const BIN_PATH = join(REPO_ROOT, 'plugin', 'bin', 'cmk-inject-context');
+const BIN_PATH = join(REPO_ROOT, 'plugin', 'bin', 'cmk-inject-context' + '.mjs');
 
 function makeFixture() {
   const sandbox = mkdtempSync(join(tmpdir(), 'cmk-inject-test-'));
@@ -664,7 +664,7 @@ describe('Task 18 — injectContext() boundary', () => {
   });
 });
 
-describe('Task 18 — bin/cmk-inject-context (hook bash wrapper)', () => {
+describe('Task 18 — bin/cmk-inject-context (hook handler — node bin)', () => {
   let sandbox;
   let projectRoot;
   let userDir;
@@ -682,7 +682,7 @@ describe('Task 18 — bin/cmk-inject-context (hook bash wrapper)', () => {
   });
 
   it('exits 0 and stdout parses as the documented hookOutput JSON', () => {
-    const r = spawnSync('bash', [BIN_PATH], {
+    const r = spawnSync(process.execPath, [BIN_PATH], {
       input: JSON.stringify({ hook_event_name: 'SessionStart' }),
       encoding: 'utf8',
       cwd: projectRoot,

@@ -458,17 +458,21 @@ Optional fields: `merged_from` (for consolidation), `superseded_by` (when replac
 
 > **Historical note (2026-05-26):** an earlier draft of this section placed `hooks.json` under `plugin/.claude-plugin/hooks/`. That path does not load in Claude Code 2.1.140 — the canonical Anthropic layout puts `hooks/` at the plugin root, NOT under `.claude-plugin/`. The mismatch was caught by the working-product live test (see [`docs/journey/2026-05-26-live-test-findings.md`](../../docs/journey/2026-05-26-live-test-findings.md)). The earlier mistake came from verifying against two third-party plugins (claude-mem, claude-remember) instead of Anthropic's primary docs — both third-party plugins had the right layout (`plugin/hooks/hooks.json`), but the verification chain stopped at convergent secondary sources without checking the upstream Anthropic docs once.
 
-Command pattern: `${CLAUDE_PLUGIN_ROOT}/bin/cmk-<verb>` (kit-unique prefix dodges Anthropic bug [#29724](https://github.com/anthropics/claude-code/issues/29724)). Both claude-mem (`thedotmack/claude-mem/plugin/hooks/hooks.json`) and claude-remember (`Digital-Process-Tools/claude-remember/hooks/hooks.json`) implement the same layout, matching Anthropic's docs.
+Command pattern: `node "${CLAUDE_PLUGIN_ROOT}/bin/cmk-<verb>.mjs"` (kit-unique prefix dodges Anthropic bug [#29724](https://github.com/anthropics/claude-code/issues/29724)).
+
+> **Original pattern (pre-2026-05-31)**: `bash "${CLAUDE_PLUGIN_ROOT}/bin/cmk-<verb>"` — the hooks shipped as bash scripts that `exec node` on their `.mjs` twin (claude-mem / claude-remember precedent; POSIX exec-bit isn't preserved on Windows checkouts, so `bash "<script>"` ran them regardless of the `+x` bit).
+>
+> **Implementation pivot 2026-05-31 (Task 62 — node-only hooks)**: switched the command to invoke the `.mjs` directly via `node`. **Why:** the kit must run on Windows/macOS/Linux on **node alone**, like Claude Code itself — the bash form required a POSIX shell (Git Bash or WSL) on Windows, and on a machine whose default `bash.exe` points at Docker Desktop's bash-less distro it failed outright. The primary-source check (Anthropic's [plugins-reference](https://code.claude.com/docs/en/plugins-reference): path vars are *"substituted inline … in hook commands"*) confirmed Claude Code expands `${CLAUDE_PLUGIN_ROOT}` itself before the command runs, so the substituted `node "C:\…\x.mjs"` runs under any shell on any OS — no bash. The extensionless bash wrappers + `auto-extract-memory.sh` were retired; `cmk-observe-edit.mjs` absorbed its wrapper's hook-envelope contract (emit `{"continue": true}` first, then the fire-and-forget append — `async: true` already makes it non-blocking, so the bash detach pattern was unnecessary). The npm route (Route A) was already node-only (bare PATH-resolved bin names, no bash); this aligns the plugin route (Route B) with it.
 
 ```json
 {
   "hooks": {
-    "Setup": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/bin/cmk-version-check\"", "timeout": 30 }] }],
-    "SessionStart": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/bin/cmk-inject-context\"", "timeout": 30 }] }],
-    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/bin/cmk-capture-prompt\"", "timeout": 10 }] }],
-    "PostToolUse": [{ "matcher": "Write|Edit|MultiEdit", "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/bin/cmk-observe-edit\"", "async": true, "timeout": 120 }] }],
-    "Stop": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/bin/cmk-capture-turn\"", "timeout": 30 }] }],
-    "SessionEnd": [{ "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/bin/cmk-compress-session\"", "timeout": 60 }] }]
+    "Setup": [{ "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/cmk-version-check.mjs\"", "timeout": 30 }] }],
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/cmk-inject-context.mjs\"", "timeout": 30 }] }],
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/cmk-capture-prompt.mjs\"", "timeout": 10 }] }],
+    "PostToolUse": [{ "matcher": "Write|Edit|MultiEdit", "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/cmk-observe-edit.mjs\"", "async": true, "timeout": 120 }] }],
+    "Stop": [{ "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/cmk-capture-turn.mjs\"", "timeout": 30 }] }],
+    "SessionEnd": [{ "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/cmk-compress-session.mjs\"", "timeout": 60 }] }]
   }
 }
 ```

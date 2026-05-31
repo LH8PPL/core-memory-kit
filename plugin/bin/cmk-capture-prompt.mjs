@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// UserPromptSubmit hook real handler (Task 19). The bash wrapper at
-// plugin/bin/cmk-capture-prompt execs this file.
+// UserPromptSubmit hook real handler (Task 19). node-only since Task 62: hooks.json invokes this directly via
+// node "${CLAUDE_PLUGIN_ROOT}/bin/cmk-capture-prompt.mjs" (no bash wrapper).
 //
 // Protocol: payload arrives on stdin as JSON ({prompt, session_id, ...}
 // per Anthropic hook spec). Sanitize <private> blocks, preserve

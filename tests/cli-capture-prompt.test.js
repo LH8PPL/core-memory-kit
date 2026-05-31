@@ -39,7 +39,7 @@ import { capturePrompt } from '../packages/cli/src/capture-prompt.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = join(dirname(__filename), '..');
-const BIN_PATH = join(REPO_ROOT, 'plugin', 'bin', 'cmk-capture-prompt');
+const BIN_PATH = join(REPO_ROOT, 'plugin', 'bin', 'cmk-capture-prompt' + '.mjs');
 
 function walkContextForSentinel(root, needle) {
   const hits = [];
@@ -276,7 +276,7 @@ describe('Task 19 — capturePrompt() boundary', () => {
   });
 });
 
-describe('Task 19 — bin/cmk-capture-prompt (hook bash wrapper)', () => {
+describe('Task 19 — bin/cmk-capture-prompt (hook handler — node bin)', () => {
   let sandbox;
   let projectRoot;
 
@@ -292,7 +292,7 @@ describe('Task 19 — bin/cmk-capture-prompt (hook bash wrapper)', () => {
   });
 
   it('exits 0 with continue:true on a valid prompt payload', () => {
-    const r = spawnSync('bash', [BIN_PATH], {
+    const r = spawnSync(process.execPath, [BIN_PATH], {
       input: JSON.stringify({
         hook_event_name: 'UserPromptSubmit',
         prompt: 'bin wrapper test prompt',
@@ -306,7 +306,7 @@ describe('Task 19 — bin/cmk-capture-prompt (hook bash wrapper)', () => {
   });
 
   it('writes the transcript to context/transcripts/<today>.md', () => {
-    spawnSync('bash', [BIN_PATH], {
+    spawnSync(process.execPath, [BIN_PATH], {
       input: JSON.stringify({
         hook_event_name: 'UserPromptSubmit',
         prompt: 'wrapper-prompt-marker',
@@ -323,7 +323,7 @@ describe('Task 19 — bin/cmk-capture-prompt (hook bash wrapper)', () => {
   });
 
   it('malformed stdin JSON: exits 0, logs error to stderr, no file written', () => {
-    const r = spawnSync('bash', [BIN_PATH], {
+    const r = spawnSync(process.execPath, [BIN_PATH], {
       input: 'not valid json {{{',
       encoding: 'utf8',
       cwd: projectRoot,

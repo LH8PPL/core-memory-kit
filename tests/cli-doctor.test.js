@@ -109,10 +109,20 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
     });
   });
 
-  describe('37.6 #2 — full run completes within 5s on a typical fixture', () => {
-    it('finishes inside the NFR budget', async () => {
+  describe('37.6 #2 — full run completes promptly (regression guard, not a production-timing measurement)', () => {
+    it('finishes well inside a non-pathological ceiling', async () => {
       const r = await runDoctor({ projectRoot, userDir });
-      expect(r.duration_ms).toBeLessThan(5_000);
+      // The production NFR is ~5s (design §5/§14), but this test runs
+      // alongside 700+ concurrent vitest files (and under `npm run stress`,
+      // 5× back-to-back) where doctor's subprocess spawns (HC-1/HC-7
+      // `memsearch --version`, etc.) contend for the CPU — a borderline
+      // `< 5000` assertion flaked at 5028ms under that load (2026-05-31),
+      // an absolute wall-clock threshold on an inherently load-variable
+      // measurement (same class as the captureTurn detach fix in Task 61).
+      // We assert a 10s "not pathological" ceiling instead: it still catches
+      // a real regression (a hung HC or a missing subprocess timeout blows
+      // far past 10s), without flaking on test-harness concurrency noise.
+      expect(r.duration_ms).toBeLessThan(10_000);
     });
   });
 
