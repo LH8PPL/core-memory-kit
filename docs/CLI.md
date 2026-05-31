@@ -111,6 +111,9 @@ Hard-delete an observation (irreversible; `--hard` required).
 ### `cmk lessons promote <id>`
 Promote a project-tier lesson to the cross-project user tier.
 
+### `cmk persona generate`
+Synthesize your **cross-project doctrine** ("how you work everywhere") from this project's captured facts right now, instead of waiting for the weekly pass: high-confidence doctrine auto-promotes into the user tier (`~/.claude-memory-kit/`), and lower-confidence candidates are saved to `queues/persona-review.md`. A manual trigger for the pipeline `weekly-curate` runs automatically.
+
 ### `cmk queue review` · `cmk queue conflicts`
 Walk pending items interactively. `review` = medium-trust auto-extracts (promote/discard/skip). `conflicts` = contradictions vs. existing high-trust facts (keep-old/keep-new/merge-both/skip).
 
@@ -120,6 +123,9 @@ Walk pending items interactively. `review` = medium-trust auto-extracts (promote
 
 ### `cmk import-anthropic-memory [--dry-run] [--yes]`
 Merge useful bullets from Anthropic's native auto-memory into the project MEMORY.md. `--dry-run` previews; `--yes` applies.
+
+### `cmk disable-native-memory` · `cmk enable-native-memory`
+Opt this project out of (or back into) Claude Code's **native** Auto Memory. `disable` writes `autoMemoryEnabled: false` into the committable `.claude/settings.json` (travels with `git clone`) so only the kit's memory runs — avoids the context bloat of both layers injecting at session start. The kit coexists with native memory by default; this is the one-command opt-out (ADR-0011). `enable` reverses it.
 
 ### `cmk transcripts extract [flags]`
 Extract clean markdown transcripts from `~/.claude/projects/<slug>/<uuid>.jsonl`.

@@ -62,6 +62,8 @@ cmk doctor
 
 `cmk install` is a complete entry point: it scaffolds `context/` and writes the 5 lifecycle hooks (PATH-resolved, cross-OS) into the project's `.claude/settings.json`. No separate `/plugin` step needed.
 
+Step 3 (cron) is **optional** — skip it and the kit falls back to lazy-on-read compression on its own. For that and every other command — search, self-repair, `cmk persona generate`, native-memory coexistence (`cmk disable-native-memory`), and more — see the **[full CLI reference → `docs/CLI.md`](docs/CLI.md)**.
+
 > **Not comfortable in a terminal?** You don't have to be. Open your project in Claude Code and just say: *"install claude-memory-kit and set it up in this project."* Claude will run the commands above for you — you only approve them. Or skip the terminal entirely with **Route B** below. Either way, **restart Claude Code once** when it's done so the memory turns on — there's no "restart" button: type **`/exit`** in Claude Code, then run **`claude`** again.
 
 ### Route B — Claude Code plugin marketplace
