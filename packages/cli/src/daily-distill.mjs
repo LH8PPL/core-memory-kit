@@ -126,6 +126,7 @@ export async function dailyDistill({
   now,
   cooldownMs = DEFAULT_COOLDOWN_MS,
   maxOutputBytes = DEFAULT_MAX_OUTPUT_BYTES,
+  skipDrain = false,
 } = {}) {
   const ts = now ?? nowIso();
   const date = ts.slice(0, 10);
@@ -147,7 +148,9 @@ export async function dailyDistill({
   // Auto-drain the project-tier review + conflict queues (v0.2 Phase 2, D-6).
   // Non-Haiku file IO — runs on EVERY pass regardless of the Haiku cooldown
   // below, so queues drain even when the distill itself is cooled down.
-  const drained = await autoDrainQueues({ tier: 'P', projectRoot });
+  // skipDrain: weeklyCurate calls dailyDistill internally AFTER it already
+  // drained, so it passes skipDrain to avoid a redundant (idempotent) drain.
+  const drained = skipDrain ? null : await autoDrainQueues({ tier: 'P', projectRoot });
 
   // Cooldown gate per design §8.2.
   if (isCooldownActive({ projectRoot, now: ts, cooldownMs })) {

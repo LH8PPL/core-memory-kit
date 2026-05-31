@@ -458,6 +458,7 @@ export async function weeklyCurate({
       now: ts,
       cooldownMs: 0,
       maxOutputBytes: recentMaxBytes,
+      skipDrain: true, // weeklyCurate already drained above; don't double-drain
     });
     if (recentResult?.outputPath) recentPath = recentResult.outputPath;
   }
