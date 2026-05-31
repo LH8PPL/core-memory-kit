@@ -47,6 +47,7 @@ import {
 import { dailyDistill } from './daily-distill.mjs';
 import { autoPersona } from './auto-persona.mjs';
 import { initUserTier } from './install.mjs';
+import { autoDrainQueues } from './auto-drain.mjs';
 
 const DEFAULT_ARCHIVE_MAX_BYTES = 4096;
 const DEFAULT_RECENT_MAX_BYTES = 4096;
@@ -280,6 +281,12 @@ export async function weeklyCurate({
     };
   }
 
+  // Auto-drain the review + conflict queues (v0.2 Phase 2, D-6) — project
+  // tier always, user tier when a userDir is supplied (persona queues).
+  // Non-Haiku file IO; runs every weekly pass regardless of the cooldown.
+  const drained = { P: await autoDrainQueues({ tier: 'P', projectRoot }) };
+  if (userDir) drained.U = await autoDrainQueues({ tier: 'U', userDir });
+
   if (isCooldownActive({ projectRoot, now: ts, cooldownMs })) {
     const duration_ms = Date.now() - t0;
     writeCurateLogEntry({
@@ -300,7 +307,7 @@ export async function weeklyCurate({
         skipped_reason: 'cooldown',
       },
     });
-    return { action: 'skipped', reason: 'cooldown', duration_ms };
+    return { action: 'skipped', reason: 'cooldown', drained, duration_ms };
   }
 
   // Design-B auto-persona hook (Task 45). The weekly cycle is the natural
@@ -364,6 +371,7 @@ export async function weeklyCurate({
       reason: 'no-old-files',
       currentDays: current.length,
       persona,
+      drained,
       duration_ms,
     };
   }
@@ -450,6 +458,7 @@ export async function weeklyCurate({
       now: ts,
       cooldownMs: 0,
       maxOutputBytes: recentMaxBytes,
+      skipDrain: true, // weeklyCurate already drained above; don't double-drain
     });
     if (recentResult?.outputPath) recentPath = recentResult.outputPath;
   }
@@ -485,6 +494,7 @@ export async function weeklyCurate({
     bytesIn: input_bytes,
     bytesOut: output_bytes,
     persona,
+    drained,
     duration_ms,
   };
 }
