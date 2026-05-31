@@ -14,12 +14,16 @@ This is the **actionable implementation plan**. A numbered, hierarchical checkli
 - **Done:** Phase 1 (foundation bug-sweep, PRs #72–79); Phase 2 (automatic memory — Task 45 auto-persona #83 + auto-drain #86); **documentation-governance restructure (PRs #87 + #88)** — 3-zone spine + `validate-doc-registry` harness, spine split healed, ~7 overlapping state surfaces collapsed into the spine, retired docs archived. Consistency now survives a context-compact structurally, not by memory. See [`docs/DOCUMENTATION-MAP.md`](../../docs/DOCUMENTATION-MAP.md) + D-19/D-20 in [`DECISION-LOG.md`](../../docs/journey/DECISION-LOG.md).
 - **Also done 2026-05-31:** ADR-0011 resolved (#89) — coexist with Anthropic's native auto-memory by default + `cmk disable-native-memory` as a committable opt-in (D-21). **Task 61 SHIPPED (#90)** — inline cross-project auto-persona (the differentiator now fills the user tier at capture time, not weekly; D-22). **Task 60 NOT built** (the `cmk disable-native-memory` command + install/doctor wiring). **Task 62 NEW, not built** — node-only hook execution (retire the bash dependency; surfaced by the cross-OS question, dev-test-only, not a v0.2.0 blocker).
 
-- **▶ THE PLAN (agreed 2026-05-31) — ship v0.2.0 to the friend soon. Order:**
+- **▶ THE PLAN (agreed 2026-05-31; v0.2.0 scope expanded by Lior 2026-05-31) — ship v0.2.0 to the friend soon. Order:**
   1. ~~**Build `Task 61`** (inline cross-project promotion).~~ ✅ **DONE — shipped #90** (TDD-first, 1276/1276, stress 5/5, two-pass review). This is what makes v0.2.0 worth shipping.
-  2. **▶ NEXT — Fresh live test** — run the `docs/process/` scripts against **local `main`** (NOT npm — npm is still v0.1.2; main has the unreleased Phase 2 + Task 61). This is the **v0.2.0 release gate**. Claude drives the automatable half (sandbox install from the repo + `--plugin-dir` + CLI); Lior drives the fresh-session recall half.
-  3. **Cut v0.2.0** — `npm run release -- minor` (0.1.2 → 0.2.0), tag → `publish.yml`. Then friend installs `npm install -g @lh8ppl/claude-memory-kit`. (Task 60 can ride along or wait for v0.2.1 — not a blocker.)
+  2. **▶ NEXT — build the rest of the v0.2.0 scope, in tasks.md order, TDD-first + two-pass review + per-task PR:**
+     - **Task 45 follow-ups** (the open 45.x): `cmk persona generate` manual wrapper (Lior: *"can help us in tests"*) + low/medium-confidence candidates → a review-queue **FILE** write (Lior: *"response object can get lost — i dont like it"*).
+     - **Task 60** — `cmk disable-native-memory` command + install/doctor wiring (ADR-0011 opt-in; D-21).
+     - **Task 62** — node-only hook execution / retire the bash dependency (cross-OS parity; Lior: *"sounds like a small job"*).
+  3. **Fresh live test** — run the `docs/process/` scripts against **local `main`** (NOT npm — npm is still v0.1.2). The **v0.2.0 release gate**. Claude drives the automatable half (sandbox install + `--plugin-dir` + CLI); Lior drives the fresh-session recall half.
+  4. **Cut v0.2.0** — `npm run release -- minor` (0.1.2 → 0.2.0), tag → `publish.yml`. Then friend installs `npm install -g @lh8ppl/claude-memory-kit`.
 - **Strategic context (why ship now):** Lior voiced real doubt — *"maybe nobody needs this… maybe i am working for naught."* Resolution: it's a contested **niche** (Anthropic ships native auto-memory now; our edge = **committed/in-repo + cross-project**); "nobody needs it" is an **untested hypothesis** and the cure is real feedback, which only shipping gives. **Do NOT build Phase 3 (Tasks 57–59) before the friend validates Phase 1+2** — bet the big consistency-engine bet after demand is real, not before.
-- **Deferred chores:** Task 60 (could ship in v0.2.0); Task 45 follow-ups; Task 56 (vitest 2→4, Dependabot #71).
+- **Deferred chores (NOT in v0.2.0):** Task 56 (vitest 2→4, Dependabot #71); Phase 3 (Tasks 57–59, gated on friend validation).
 
 ## How to read this file
 
