@@ -37,10 +37,9 @@ import {
   readdirSync,
   statSync,
   writeFileSync,
-  copyFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join, relative, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { injectClaudeMdBlock } from './claude-md.mjs';
 import { writeKitHooks } from './settings-hooks.mjs';
@@ -155,7 +154,18 @@ function targetName(srcName) {
  *   - Writes new files
  *   - Mutates the supplied `created` / `skipped` / `errors` arrays
  */
-function installTier(srcDir, destDir, { created, skipped, errors }) {
+// Substitute the kit's template placeholders. Templates ship with
+// `{{TODAY}}` / `{{PROJECT_NAME}}` / `{{VERSION}}`; without this, the
+// scaffolded scratchpads leaked a literal `{{TODAY}}` into MEMORY.md et al.
+// (live-test finding #4). Only the three known tokens are replaced.
+function renderTemplate(content, vars) {
+  return content
+    .replaceAll('{{TODAY}}', vars.today)
+    .replaceAll('{{PROJECT_NAME}}', vars.projectName)
+    .replaceAll('{{VERSION}}', vars.version);
+}
+
+function installTier(srcDir, destDir, { created, skipped, errors, vars }) {
   if (!existsSync(srcDir)) {
     errors.push({ path: srcDir, error: 'template tier missing from kit' });
     return;
@@ -182,7 +192,10 @@ function installTier(srcDir, destDir, { created, skipped, errors }) {
 
     try {
       mkdirSync(dirname(targetAbs), { recursive: true });
-      copyFileSync(file.absSrc, targetAbs);
+      // Read → render placeholders → write (was a raw copyFileSync, which left
+      // `{{TODAY}}` literal in the scaffolded scratchpads). All template files
+      // are text (.gitkeep is handled above), so utf8 round-trip is safe.
+      writeFileSync(targetAbs, renderTemplate(readFileSync(file.absSrc, 'utf8'), vars), 'utf8');
       created.push(targetAbs);
     } catch (err) {
       errors.push({ path: targetAbs, error: err && err.message ? err.message : String(err) });
@@ -269,9 +282,15 @@ export async function install(options = {}) {
   const skipped = [];
   const errors = [];
 
-  installTier(join(templateDir, 'project'), join(projectRoot, 'context'), { created, skipped, errors });
-  installTier(join(templateDir, 'local'), join(projectRoot, 'context.local'), { created, skipped, errors });
-  installTier(join(templateDir, 'user'), userTier, { created, skipped, errors });
+  const vars = {
+    today: new Date().toISOString().slice(0, 10), // YYYY-MM-DD
+    projectName: basename(projectRoot),
+    version,
+  };
+
+  installTier(join(templateDir, 'project'), join(projectRoot, 'context'), { created, skipped, errors, vars });
+  installTier(join(templateDir, 'local'), join(projectRoot, 'context.local'), { created, skipped, errors, vars });
+  installTier(join(templateDir, 'user'), userTier, { created, skipped, errors, vars });
 
   const gitignore = injectGitignore(projectRoot, buildGitignoreBlock(templateDir));
 
