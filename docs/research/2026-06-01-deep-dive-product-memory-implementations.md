@@ -64,6 +64,23 @@ Read the **actual source** (cloned, not WebFetch summaries). Organized by the li
 - **#2 external-drift detection** is the cleanest near-term win and it *directly reinforces Task 69.0*: the system we modeled on (Hermes) treats hand-editing memory as corruption to detect + refuse. We should (a) finish 69.0 (skill routes through `cmk`, never hand-edit) and (b) consider a lightweight drift guard (warn if `MEMORY.md`/fact files were edited outside `cmk`).
 - **#1 inject/output injection-defense** is the highest-security gap. The kit's whole value is *committed, shared* memory — which makes a poisoned fact a supply-chain vector (it travels with `git clone`). Hermes scans at three points (write/inject/output) + fences recalled memory as non-authoritative. We scan only at write. Worth a real task post-v0.2.
 
+## Where we DIVERGE from them — keep or change?
+
+Lior asked the sharper question: not just what we lack, but where we do it *differently*, and whether ours is right.
+
+| Dimension | Them | Us | Verdict |
+| --- | --- | --- | --- |
+| **Storage location** | **All machine-local / user-home** — Hermes `~/.hermes`, gstack `~/.gstack`, claude-mem global, memsearch a memory dir. **None commit to git.** | **In-repo `context/`, committed, travels with `git clone`** (T2). | **KEEP — this is the wedge.** Nobody else has portable, team-shareable, version-controlled memory. *But it raises the security bar* — committed memory = supply-chain surface → Task 70 matters more for us. |
+| **Source of truth** | Mixed: Hermes markdown, gstack JSONL, claude-mem/memsearch SQLite/DB | Markdown, with SQLite/FTS5 as a *regenerable* index | **KEEP.** Markdown-first is auditable + diff-able + committable. claude-mem keeps SQLite as truth; we keep markdown as truth + SQLite as cache — better for a committed, human-readable store. |
+| **Vector search** | claude-mem: SQLite truth + **optional, opt-out-able** vector. memsearch: **always** Milvus+ONNX. Hermes/gstack: **none** (memory small enough). | FTS5 keyword default + **optional** Layer 5b vector (planned) | **KEEP the model** (claude-mem validates "optional vector"). **Change the backend pick:** reject Milvus (Windows-hostile — `milvus-lite` excludes win32); lean **sqlite-vec + ONNX bge-m3** (cross-platform, in-DB, local, no API). |
+| **Cap behavior** | Hermes: **hard-reject** at cap (no consolidate) | **Consolidate at 95% → then reject** | **KEEP ours — it's better** (auto-frees space vs forcing the user to prune). |
+| **Fact identity** | Hermes: **substring match, no IDs** (multi-match → ask user) | **Content-addressed IDs** | **KEEP ours — better.** Borrow their multi-match-disambiguation UX for replace/remove. |
+| **Tiers** | Single store (memory + user) | **3-tier: project / user(cross-project) / local** | **KEEP — the cross-project user tier is the persona wedge** (the cold-open none of them do). |
+| **Auto-extract engine** | Hermes: **forks the full agent** (full context, can also create skills); memsearch: Haiku-compress | **Focused Haiku** (cheaper, isolated) | **KEEP for v0.x** (cost-conscious, deterministic). Fork-full-agent = richer extraction + agent-created-skills — a **v0.3+ consideration**, not now. |
+| **Curation trigger** | Hermes curator: **inactivity-triggered, no cron daemon** | weekly cron + **lazy-on-read fallback** | **Consider making lazy-on-read the PRIMARY** (Hermes proves no-cron works) → could simplify the Tasks 33–35 cron layer. Note for Task 68. |
+
+**Net:** our *core architecture is sound and in several places better* (caps, IDs, markdown-truth, 3-tier, committed). The deltas worth acting on are **security** (Tasks 70/71 — amplified by our committed-to-git wedge) and **recall** (Layer 5b with the *right* backend — sqlite-vec + bge-m3, NOT Milvus). Nothing in the deep dive says "change our foundations."
+
 ## Cross-link
 
 - [`2026-06-01-how-products-implement-skills.md`](2026-06-01-how-products-implement-skills.md) — the skills-delivery survey (the SKILL.md / CLAUDE.md question) this deep dive complements.
