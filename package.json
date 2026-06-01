@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^2.1.9",
-    "vitest": "^2.1.0"
+    "vitest": "^4.1.8"
   },
   "engines": {
     "node": ">=20"
