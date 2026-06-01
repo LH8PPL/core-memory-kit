@@ -32,6 +32,7 @@ Outputs from research sessions. Each file is a dated, self-contained markdown re
 | 2026-05-29 | [claude-mem install model](2026-05-29-claude-mem-install-model.md) | Manual survey | Complete |
 | 2026-05-30 | [gstack skill layer](2026-05-30-gstack-skill-layer.md) | Manual survey | Complete |
 | 2026-06-01 | [memory lifecycle + competitive position + Layer 5 deep-research brief](2026-06-01-memory-lifecycle-and-competitive-position.md) | Synthesis + brief | Complete |
+| 2026-06-01 | [how researched products implement skills (survey → Task 69.0)](2026-06-01-how-products-implement-skills.md) | Survey (gstack/claude-mem/antigravity) | Complete |
 
 ### Competitor spec stacks (raw research inputs — requirements / design / tasks as written by each system)
 
