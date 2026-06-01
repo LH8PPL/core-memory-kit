@@ -166,6 +166,15 @@ function renderTemplate(content, vars) {
 }
 
 function installTier(srcDir, destDir, { created, skipped, errors, vars }) {
+  // Self-sufficient default so no caller can crash renderTemplate by omitting
+  // vars (e.g. initUserTier). install() passes an explicit vars with the real
+  // projectName; standalone callers fall back to a sensible default (the user
+  // tier's scratchpads only carry {{TODAY}} anyway).
+  const v = vars ?? {
+    today: new Date().toISOString().slice(0, 10),
+    projectName: basename(destDir),
+    version: getKitVersion(),
+  };
   if (!existsSync(srcDir)) {
     errors.push({ path: srcDir, error: 'template tier missing from kit' });
     return;
@@ -195,7 +204,7 @@ function installTier(srcDir, destDir, { created, skipped, errors, vars }) {
       // Read → render placeholders → write (was a raw copyFileSync, which left
       // `{{TODAY}}` literal in the scaffolded scratchpads). All template files
       // are text (.gitkeep is handled above), so utf8 round-trip is safe.
-      writeFileSync(targetAbs, renderTemplate(readFileSync(file.absSrc, 'utf8'), vars), 'utf8');
+      writeFileSync(targetAbs, renderTemplate(readFileSync(file.absSrc, 'utf8'), v), 'utf8');
       created.push(targetAbs);
     } catch (err) {
       errors.push({ path: targetAbs, error: err && err.message ? err.message : String(err) });
