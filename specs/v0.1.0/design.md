@@ -1902,6 +1902,15 @@ Not direct comparables — they're integration-specific (OpenClaw + Hermes) and 
 
 **Honest acknowledgement to v0.1.0 users.** Until v0.2 ships benchmarks, the README's effectiveness claims must say "expected behavior, not measured." The kit is structurally sound (architecture-first decision per §1.4); the empirical case follows.
 
+### 16.19 Competitive deep-dive conclusions — skills delivery, storage/search, security defense-in-depth (2026-06-01)
+
+Source-level dive of Hermes / memsearch / gstack / claude-mem / antigravity / Honcho (cloned + read). Full analysis: research notes [`how-products-implement-skills`](../../docs/research/2026-06-01-how-products-implement-skills.md) + [`deep-dive-product-memory-implementations`](../../docs/research/2026-06-01-deep-dive-product-memory-implementations.md); settled in [DECISION-LOG D-28 + D-29](../../docs/journey/DECISION-LOG.md). HOW decisions that land here:
+
+- **Skills are the delivery mechanism (Task 69).** Memory guidance ships as a Claude Code **skill** that routes through `cmk remember` (safe path: Poison_Guard + sanitization), `allowed-tools: Bash(cmk*) Read`, NEVER hand-edits — the universal pattern (Hermes refuses hand-edits; gstack/memsearch call the CLI). `cmk install` scaffolds skills into `<project>/.claude/skills/` (route-equivalence with the plugin). The scaffolded `CLAUDE.md` block slims to facts + a skill pointer — no product injects a procedure into the user's CLAUDE.md (Anthropic docs: <200 lines, procedures→skills).
+- **Storage/search (Task 65): keep markdown-truth + FTS5-first + optional vector** (claude-mem validates; Hermes `session_search` is SQLite FTS not vector). Layer-5b backend lean: **`sqlite-vec` + ONNX `bge-m3`** (cross-platform, local, no API); **reject Milvus** (`milvus-lite` excludes win32). Chunk by `##` headings, ≤1500 chars, clean-before-embed.
+- **Security defense-in-depth (Tasks 70/71) — amplified by committed-to-git memory (supply-chain vector).** Poison_Guard at WRITE is not enough: re-scan at inject (`[BLOCKED]`), fence recalled memory as non-authoritative, scrub spoofed system-notes (Hermes scans write+inject+output); add invisible-Unicode patterns (70.4); detect+refuse external hand-edits with `.bak` backup (71).
+- **Don't-adopt:** Milvus (Windows-hostile), Honcho (AGPL + async-worker service; its reasoning-first user-modeling is a v0.3+ persona direction), GBrain entity-graph — all wrong weight class for a local-first markdown kit.
+
 ### 16.18 Temporal awareness — fact shapes + validity windows + mode-aware retrieval
 
 v0.2 candidate. Inspired by Indranil Chandra's "Beyond the Log: Time-Aware Blueprint for AI Agent Memory" (research note: [`docs/research/2026-05-24-beyond-the-log-time-aware-memory.md`](../../docs/research/2026-05-24-beyond-the-log-time-aware-memory.md)).
