@@ -98,7 +98,7 @@ Full walkthrough: [QUICKSTART.md](QUICKSTART.md).
 | **L** (local) | `<repo>/context.local/` | gitignored | Per-machine paths: Tesseract install dir, Python version |
 | **U** (user) | `~/.claude-memory-kit/` | cross-project per-user | Persona, lessons learned, cross-project preferences |
 
-Most user-facing commands operate on the project tier by default. `cmk init-user-tier` scaffolds the U tier on a new machine.
+Most user-facing commands operate on the project tier by default. `cmk install` already scaffolds the user tier (`~/.claude-memory-kit/`) too; `cmk init-user-tier` exists for an explicit user-tier-only re-init.
 
 What `cmk install` drops into your project:
 
@@ -231,7 +231,7 @@ Layer 6 falls back to lazy-on-read compression at SessionStart, so the scratchpa
 <details>
 <summary><b>Is my memory portable to a new machine or teammate?</b></summary>
 
-Project memory (`context/`) is committed to git — clone the repo and it's there. Cross-project user-tier memory lives in `~/.claude-memory-kit/`; run `cmk init-user-tier` to scaffold it on a new machine.
+Project memory (`context/`) is committed to git — clone the repo and it's there. Cross-project user-tier memory (your persona) lives in `~/.claude-memory-kit/` — `cmk install` scaffolds it. It's machine-local (private, not committed), so on a new machine the persona starts fresh; copy/sync the folder to carry it (portable persona export/sync is tracked in tasks.md Task 72).
 </details>
 
 ## Acknowledgments
