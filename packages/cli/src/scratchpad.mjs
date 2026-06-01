@@ -201,7 +201,7 @@ export function ensureSectionExists(scratchpadPath, sectionTitle) {
   if (!existsSync(scratchpadPath)) return { created: false, error: 'no-file' };
   const text = readFileSync(scratchpadPath, 'utf8');
   if (findSectionRange(text.split('\n'), sectionTitle)) return { created: false };
-  const body = text.replace(/\s+$/, ''); // drop trailing whitespace/blank lines
+  const body = text.trimEnd(); // drop trailing whitespace/blank lines (no `\s+$` regex — trips ReDoS heuristics)
   // No leading blank lines for an empty/whitespace-only file (the scaffolded
   // scratchpads are never empty, but keep the output clean if one ever is).
   const prefix = body ? `${body}\n\n` : '';
