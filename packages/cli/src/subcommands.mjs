@@ -314,7 +314,11 @@ function slugifyFact(s) {
   const base = String(s)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+    // Trim leading/trailing dashes with two anchored single-pass replaces
+    // (not `/^-+|-+$/g` — the alternation trips static-analysis ReDoS heuristics;
+    // these anchored forms are unambiguously linear).
+    .replace(/^-+/, '')
+    .replace(/-+$/, '')
     .slice(0, 60);
   return base || 'fact';
 }
@@ -368,7 +372,12 @@ export function runRememberRich(text, options = {}, deps = {}) {
     trust: options.trust ?? 'high',
     sourceFile: 'user-explicit',
     sourceLine: 1,
-    sourceSha1: createHash('sha1').update(body).digest('hex'),
+    // Content fingerprint for provenance/dedup — NOT a security context.
+    // Matches the kit's sha1-of-content convention (memory-write.mjs,
+    // index-rebuild.mjs); writeFact dedups by content-addressed id, this is
+    // just the source_sha1 provenance field. // NOSONAR
+    sourceSha1: createHash('sha1').update(body).digest('hex'), // NOSONAR
+
     related,
     projectRoot,
   });

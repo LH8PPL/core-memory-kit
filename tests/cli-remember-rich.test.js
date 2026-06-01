@@ -83,4 +83,53 @@ describe('Task 63 — cmk remember rich mode (restore rich capture through the s
     expect(factFiles(projectRoot)).toHaveLength(0);
     expect(out.join('\n')).toMatch(/cmk remember:/);
   });
+
+  it('a non-P --tier notes it and still captures to P (M2 — no silent forcing)', () => {
+    const out = [];
+    const r = runRememberRich(
+      'cross-project preference about terse responses',
+      { why: 'reads faster', tier: 'U' },
+      { projectRoot, log: (m) => out.push(m), logError: (m) => out.push('ERR: ' + m) },
+    );
+    expect(r.action).toBe('created'); // captured, not refused
+    expect(out.join('\n')).toMatch(/--tier 'U' is v0\.1\.x/); // surfaced, not silent
+  });
+
+  it('a second capture of the SAME content is skipped as duplicate (Door 1 + 2)', () => {
+    const args = ['we deploy with kamal to hetzner', { type: 'feedback', title: 'deploy-target', why: 'simple + cheap' }];
+    const first = runRememberRich(...args, { projectRoot, log: () => {} });
+    expect(first.action).toBe('created');
+    const out = [];
+    const second = runRememberRich(...args, { projectRoot, log: (m) => out.push(m) });
+    expect(second.action).toBe('skipped');
+    expect(out.join('\n')).toMatch(/already captured/);
+    expect(factFiles(projectRoot)).toHaveLength(1); // no duplicate file
+  });
+
+  it('same title + DIFFERENT content → collision with an actionable message (M1)', () => {
+    runRememberRich('first content', { title: 'shared-title', why: 'a' }, { projectRoot, log: () => {} });
+    const out = [];
+    const r = runRememberRich(
+      'totally different content', { title: 'shared-title', why: 'b' },
+      { projectRoot, log: () => {}, logError: (m) => out.push(m) },
+    );
+    expect(r.action).toBe('error');
+    expect(r.errorCategory).toBe('collision');
+    expect(out.join('\n')).toMatch(/already exists with different content/);
+    expect(out.join('\n')).toMatch(/new --title/);
+  });
+
+  it('an all-punctuation title falls back to a valid slug (slugifyFact guard)', () => {
+    const r = runRememberRich('a fact with a junk title', { title: '!!! @@@ ###', why: 'x' }, { projectRoot, log: () => {} });
+    expect(r.action).toBe('created');
+    expect(factFiles(projectRoot)).toContain('feedback_fact.md'); // slug fell back to 'fact'
+  });
+
+  it('rich capture with neither --why nor --how writes a plain typed fact (no Why/How blocks)', () => {
+    runRememberRich('FastAPI on port 8000 for this project', { type: 'project', title: 'env-port' }, { projectRoot, log: () => {} });
+    const content = readFileSync(join(projectRoot, 'context', 'memory', 'project_env-port.md'), 'utf8');
+    expect(content).toContain('FastAPI on port 8000');
+    expect(content).not.toContain('**Why:**');
+    expect(content).not.toContain('**How to apply:**');
+  });
 });
