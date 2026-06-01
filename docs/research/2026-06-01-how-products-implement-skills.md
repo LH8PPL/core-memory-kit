@@ -29,11 +29,24 @@ Lior 2026-06-01: after we found the kit's own `memory-write` skill is stale + un
 | **gstack** (`/learn`) — closest analog to memory-write | YES — manages structured "learnings" (type/key/insight/confidence) | **Calls a BINARY**: `~/.claude/skills/gstack/bin/gstack-learnings-log '{json}'` via `Bash`. Does NOT hand-edit for adds. (Prune re-writes via Edit.) | `name`, `description`, `triggers: [list]`, `allowed-tools: [Bash, Read, Write, Edit, AskUserQuestion, Glob, Grep]`, `version`, `preamble-tier` |
 | **gstack** (`/context-save`) | freeform checkpoint dump (not structured facts) | Hand-writes a markdown checkpoint via `Write`, but **sanitizes the slug in bash first** + a body gate "HARD GATE: Do NOT implement code changes." | `name`, `description`, `allowed-tools: [Bash, Read, Write, Glob, Grep, AskUserQuestion]` |
 | **claude-mem** (`mem-search`) | YES — but **RECALL, not write** ("the canonical memory skill"); ~15 skills total, only 2-3 memory | capture is via hooks/MCP, not the skill | (MCP-backed) |
+| **memsearch** (`memory-recall`) — our Layer-5b lineage, a real Claude Code plugin | YES — **RECALL** (search→expand→transcript, progressive L1/L2/L3) | **`allowed-tools: Bash` ONLY** — invokes `memsearch search/expand` CLI; read-only, never Edit/Write. Runs in a **forked subagent** (`context: fork`) so recall doesn't pollute main context. | `name`, `description` (embeds the when-to-use heuristic — "use when 'what did I decide about X'… skip when purely current code"), `context: fork`, `allowed-tools: Bash` |
 | **antigravity-awesome-skills** (`agent-memory-systems`) | reference/teaching skill (how to build memory: semantic/episodic/procedural) — not a write-tool | delegates to libraries/services (LangMem, vector DBs); does not hand-edit | `name`, `description`, `risk: safe`, `source`, `date_added` |
 | **antigravity-awesome-skills** (`agent-memory-mcp`, `mesh-memory`) | recall/search over a hybrid store | MCP / mesh workflow | community `risk/source/date_added` |
 | **claude-remember** (`/remember`) | a slash command to save | we **rejected** the slash-command in favor of phrase-triggers (research 2026-05-21) | — |
-| **Hermes** (`memory` tool) | add/replace/remove tool | tool-backed (our memory-write's action model echoes this) | (tool, not a SKILL.md) |
+| **Hermes** (`tools/memory_tool.py`) — the system we modeled on (162K★) | add/replace/remove **function-calling TOOL** (no memory SKILL.md; its `skills/` are all domain skills) | **ALL writes go through the tool**: caps (MEMORY 2200 / USER 1375 — our USER cap came from here) + dedup + **threat-scan for injection/exfiltration before write (= our Poison_Guard)** + **external-drift detection that REFUSES hand-edits not round-tripping its parser** (backs up to `.bak`). System prompt gets a frozen snapshot; tool returns live state. | function tool, args `action`/`target`/`content`/`old_text`; routing via `target` (memory or user) |
 | **basic-memory** | user-explicit capture via `<retain>` tag | tool/tag | — |
+
+## The biggest finding — read their actual CLAUDE.md files (not just SKILL.md)
+
+Lior pushed: *"did you read the claude.md AND skill.md of the other products?"* — so I read the real files, not our notes. The decisive insight is in the **CLAUDE.md** side:
+
+| Product | Its CLAUDE.md | Does it inject into the USER's CLAUDE.md? |
+| --- | --- | --- |
+| **memsearch** | ~240 lines, facts+pointers, "a reference map not a procedural manual" — points to the `memory-recall` skill + `memsearch` CLI | **NO** — delivers via the plugin (hooks + skill); the user's CLAUDE.md is untouched |
+| **gstack** | **~2,800 lines** — heavy monorepo dev doc (CI contracts, invariants) | **NO** — installs skills to `~/.claude/skills/gstack/`; doesn't touch the user's CLAUDE.md |
+| **claude-mem** | present at root (dev doc) | **NO** — delivers the `mem-search` skill + MCP tools via the plugin |
+
+**Every product's CLAUDE.md is its OWN development documentation** (length varies wildly — 240 to 2,800 lines — because it's *their* repo, not a user artifact). **None of them write anything into a user's project CLAUDE.md.** They deliver memory capability to users **exclusively via skills + hooks (the plugin)**. → **Our kit's npm route, which appends a ~60-line memory-write procedure into the user's CLAUDE.md, is the outlier — nobody else does this.** This is the clinching argument for Task 69.3: deliver via the skill, leave the user's CLAUDE.md alone (the kit's own scaffolded `CLAUDE.md` loader block should shrink to a few facts + a pointer, or move to `.claude/rules/`).
 
 ## Cross-product patterns (the actionable signal)
 
