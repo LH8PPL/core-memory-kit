@@ -125,6 +125,13 @@ Most kit tests assert (1) and (2). The ones that miss (3) or (4) are the ones wh
 
 **Integration-test coverage for cross-module flows** — when two kit modules compose at runtime (e.g., `memory-write` → `conflict-queue`; `auto-extract` → `memory-write`; `Stop hook` → `capture-turn` → detached `auto-extract`), at least one test MUST exercise the full integration path. Per-module unit tests verify each surface in isolation but routinely miss call-shape contracts at the boundary. Precedent: Task 25's `generateId({text, tier})` named-args bug shipped latent because every queue-route test bypassed `memory-write` and constructed `writeConflictEntry` directly; Task 25b's `mergeScratchpadBullets` integration test was the first to exercise the real call chain. Full content + the v0.1.x validator candidate in [`design.md §17.8`](specs/v0.1.0/design.md).
 
+**Caller-map BOTH ways before changing a shared function (binding).** Before editing any function used outside its own file — signature, required args, return shape, OR behavior — build the impact map in **both directions, first**, and update everything in the SAME change:
+
+- **TO it (callers)** — `grep "fnName("` across `src/` (minus the definition). These break if you change the *contract*. Every caller gets updated or the change isn't done.
+- **FROM it (callees)** — what the new body now depends on (new imports, helpers, globals). These must exist + be in scope.
+
+Do this **before** the edit, not after a red suite. Precedent (2026-06-01): the `installTier` placeholder fix added a required `vars` arg but missed the `initUserTier` caller → `cmk init-user-tier` crashed; the full suite caught it, which is the expensive path. The retroactive caller-map confirmed the break — but run upfront it would have caught it for free. (And the verification grep itself had a multi-line-import false-negative — a token grep is a starting point, not proof; read the actual call sites.) This is the same class as the composition rules above, applied at edit time rather than test time.
+
 **Deep modules with simple interfaces:**
 
 - Wrap related code into broad modules that expose narrow surfaces.

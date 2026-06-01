@@ -116,6 +116,16 @@ describe('Task 2 — cmk CLI scaffold', () => {
       expect(r.stdout.trim()).toMatch(/^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/);
     });
 
+    it('the `version` verb prints the SAME bare version as `--version` (not a punt)', () => {
+      // Live-test finding (2026-06-01): `cmk version` printed "see `cmk --version`"
+      // — unhelpful friction. It must print the real version, same source.
+      const verb = runCmk(['version']);
+      const flag = runCmk(['--version']);
+      expect(verb.status ?? 0).toBe(0);
+      expect(verb.stdout.trim()).toMatch(/^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/);
+      expect(verb.stdout.trim()).toBe(flag.stdout.trim());
+    });
+
     it('--help output lists every registered subcommand by name', () => {
       const r = runCmk(['--help']);
       expect(r.status).toBe(0);

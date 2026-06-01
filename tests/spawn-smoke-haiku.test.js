@@ -86,7 +86,15 @@ describeMaybe(`spawn-smoke: HaikuViaAnthropicApi (live: ${skipReason ?? 'enabled
   // a tiny pong-roundtrip before failing", not a production envelope
   // mirror. The compress-session-specific envelope is pinned by the
   // sister smoke (spawn-smoke-compress-session.test.js, 60s).
-  it('real-spawn round-trip covers all 4 bug classes the mock misses', { timeout: 30_000 }, async () => {
+  //
+  // 90s, not 30s: this spawns the REAL `claude --print` CLI against the live
+  // Anthropic API. p50 is ~10s, but cold-start + API queue/network jitter
+  // routinely pushed past a 30s ceiling — a recurring full-suite flake that
+  // "corrupted" green runs (3+ false failures during the v0.2.0 self-test,
+  // each clearing at ~10s on isolated re-run). A generous ceiling absorbs the
+  // external-API tail without masking a genuine hang (a real hang blows 90s
+  // too). The flakiness was the timeout, not the kit.
+  it('real-spawn round-trip covers all 4 bug classes the mock misses', { timeout: 90_000 }, async () => {
     const h = new HaikuViaAnthropicApi();
 
     // The act of constructing + invoking compress() exercises:

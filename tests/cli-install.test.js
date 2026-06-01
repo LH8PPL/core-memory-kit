@@ -127,6 +127,24 @@ describe('Task 3 — cmk install', () => {
       expect(existsSync(join(projectRoot, 'context.local', 'overrides.md'))).toBe(true);
     });
 
+    it('substitutes template placeholders — no literal {{TODAY}} leaks into scaffolded files (finding #4)', async () => {
+      await install({ projectRoot, userTier });
+      const today = new Date().toISOString().slice(0, 10);
+      // Every scratchpad that ships a `Last distilled: {{TODAY}}` header.
+      for (const p of [
+        join(projectRoot, 'context', 'MEMORY.md'),
+        join(projectRoot, 'context', 'SOUL.md'),
+        join(projectRoot, 'context.local', 'machine-paths.md'),
+        join(userTier, 'HABITS.md'),
+        join(userTier, 'USER.md'),
+        join(userTier, 'LESSONS.md'),
+      ]) {
+        const text = readFileSync(p, 'utf8');
+        expect(text, `${p} still has an unrendered placeholder`).not.toMatch(/\{\{[A-Z_]+\}\}/);
+        expect(text, `${p} should carry the install date`).toContain(today);
+      }
+    });
+
     it('creates the user tier at the supplied path', async () => {
       await install({ projectRoot, userTier });
       expect(existsSync(userTier)).toBe(true);
