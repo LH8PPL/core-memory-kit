@@ -10,7 +10,7 @@
 // Empirically verified via `npm pack --dry-run` showing zero template
 // entries in the tarball.
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -39,5 +39,11 @@ function copyRecursive(src, dest) {
   return count;
 }
 
+// MIRROR, not accumulate: clear the destination first so a file DELETED from
+// the source template (e.g. a retired script) doesn't linger in the packaged
+// copy and keep shipping. copyRecursive alone is additive — without this, the
+// packaged template only ever grows. (destTemplate is a gitignored build
+// artifact, so clearing it is safe.)
+rmSync(destTemplate, { recursive: true, force: true });
 const fileCount = copyRecursive(sourceTemplate, destTemplate);
-console.log(`prepublish-copy-template: copied ${fileCount} file(s) from ${relative(repoRoot, sourceTemplate)} to ${relative(repoRoot, destTemplate)}`);
+console.log(`prepublish-copy-template: mirrored ${fileCount} file(s) from ${relative(repoRoot, sourceTemplate)} to ${relative(repoRoot, destTemplate)}`);
