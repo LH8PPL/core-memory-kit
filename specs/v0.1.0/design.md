@@ -979,6 +979,15 @@ Direnv lesson: without `--show-origin`, users rage-quit when settings appear fro
 
 ## 8. Rolling-window compression
 
+### 8.0 The two-track mental model (what happens to memory over time)
+
+Memory ages along **two independent tracks** — conflating them is the usual confusion ("why is MEMORY.md empty / why does it grow"). Full synthesis + cross-system comparison: [`docs/research/2026-06-01-memory-lifecycle-and-competitive-position.md`](../../docs/research/2026-06-01-memory-lifecycle-and-competitive-position.md).
+
+- **Track A — the session diary (this §8).** Time-ordered "what happened when." Progressive compression: `now.md → today-{date}.md → recent.md (7d) → archive.md (forever)`. Nothing deleted; each stage denser than the last.
+- **Track B — the durable fact store (§2.2 + §3).** "What's true." `MEMORY.md` is the byte-capped HOT index; durable facts **graduate** out of it into granular `context/memory/*.md` fact files (the permanent brain, INDEX'd). MEMORY.md stays small via cap + stale-drop (>14d unreferenced) + graduation.
+
+**What neither track solves: currency.** Track A handles volume, Track B handles durability — but "is this fact still TRUE now?" (Postgres-then-SQLite) needs **temporal validity** → [§16.18](#1618-temporal-awareness--fact-shapes--validity-windows--mode-aware-retrieval). NB: `expires_at` is a defined provenance field with **no enforcement yet** (tasks.md Task 66.3).
+
 ### 8.1 The four-layer pipeline
 
 ```text

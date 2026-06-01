@@ -28,11 +28,18 @@ Health checks (HC-1..HC-8) verify each layer is wired correctly: install integri
 
 Most capture is automatic — the Stop hook extracts durable facts each turn, no action needed. When you want to capture something **explicitly**:
 
-1. **Use `cmk remember "<the fact>"`** — do NOT hand-write files under `context/memory/`. The command routes through the kit's safe write path: it screens for secrets (Poison_Guard), abstracts machine-specific home paths to `~` (so a committed fact never leaks the local username), dedups, and writes the correct schema. Hand-writing fact files bypasses all of that and produces files the index can't read.
-   ```bash
-   cmk remember "We deploy with Kamal to Hetzner; never to Vercel."
-   cmk remember "Lior prefers terse responses, no preamble." --trust high
-   ```
+1. **Use `cmk remember` — and capture RICHLY for anything durable.** Do NOT hand-write files under `context/memory/`; the command routes through the kit's safe write path (Poison_Guard secret screen, home-path → `~` abstraction so a committed fact never leaks your username, dedup, correct schema). Two forms:
+   - **Rich (preferred for a real preference / convention / lesson / decision)** — add the rationale; this writes a full **fact file** with `**Why:**` + `**How to apply:**`, the kind of memory that's actually useful later. Capture richly by DEFAULT whenever the user states *how they work* or *why* they chose something — a one-line bullet loses the why, which is the part worth keeping:
+     ```bash
+     cmk remember "FastAPI is the delivery layer: thin routes, logic in services, data in repositories, Pydantic at the boundary" \
+       --type feedback --title "layered-backend-architecture" \
+       --why "rather pay the structure cost up front than fight a tangled app in six months" \
+       --how "default to app/{api,services,repositories,schemas}/; push logic out of routes"
+     ```
+   - **Terse (a passing scratchpad note that needs no rationale):**
+     ```bash
+     cmk remember "We deploy with Kamal to Hetzner; never to Vercel."
+     ```
 2. **Machine-specific config** (absolute tool paths that only make sense on this machine) → put it in `context.local/machine-paths.md` (gitignored, never committed). `cmk remember` writes the committed project tier; for machine-only paths, edit the local tier directly.
 3. **Cross-project lesson** (true on every project, not just this one) → `cmk lessons promote <id>` moves a project fact to the user tier (`~/.claude-memory-kit/`).
 4. **Confirm silently.** Don't announce captures. Frozen-snapshot semantics mean a write takes effect next session.

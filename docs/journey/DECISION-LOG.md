@@ -10,6 +10,28 @@
 
 ---
 
+## 2026-06-01 — the road to a product: ship-one-wow-at-a-time, video-parity is the done-bar
+
+### Settled decisions (do NOT re-open without new evidence)
+
+- **D-24 DECISION — Release cadence: ONE differentiator → live test → publish → next. Never shelve. SETTLED.** Lior 2026-06-01, after the v0.1.1 + v0.2.0 self-tests: *"this is still a model of a car and not a car… but if i just shelf it until we 'finish' this will never go out."* So we do NOT wait for full completion to release. Each wow feature ships as its own version: build it → live-test it → publish the version → start the next. Incremental, always-shippable, never a big-bang. Resolves the build-vs-ship tension by doing both.
+- **D-25 DECISION — The "worth giving to a friend" bar = everything the Simon Scrapes video described (video parity). SETTLED.** Lior: *"until i have everything that the youtube video talked about, this is not good enough."* The bar is a **feel** bar, not a time bar — *"i will give this to my friend when it feels right and not because we are working on it a long time."* Concrete parity checklist = the video's 6 layers ([`docs/sources/simon-scrapes-master-claude-memory.md`](../sources/simon-scrapes-master-claude-memory.md)): L1 in-repo location ✅ · L2 granular archive ✅ · L3 bounded scratchpads ✅ · L4 memory-aware hooks ✅ · **L5 memsearch / semantic *Recall* ⚠️ (keyword FTS5 built; semantic Layer 5b NOT — Task 65)** · L6 cron self-curation ✅ · frozen-snapshot ✅. **The single true gap to video parity is L5b semantic recall** — the video's own headline ("recall is the most important function"). Everything else the video described is built.
+- **D-26 DECISION — Why it doesn't excite yet (and the fix). SETTLED framing.** Lior: *"when i give it to somebody i want him to be excited as me, and i am not excited at all."* Diagnosis: we built the **skeleton**, and skeletons don't demo. Excitement lives in the *wow moment* — the thing no other tool does, in front of you, unprompted. Three identified wows, sequenced by shippability: **(1) cross-project cold-open** — open Claude on a brand-new project and it already knows how you work (our *wedge*; nobody else does it; unlock = F2/Task 64, nearly the next task); **(2) recall with reasoning** — "what did we decide about X 3 weeks ago and why" → the answer + rationale (needs L5b/Task 65); **(3) currency / contradiction-catch** — kit notices "you said Postgres, now SQLite — which is current?" (needs temporal-validity §16.18, beyond-video). The roadmap delivers these *one at a time*, each felt before moving on — not a feature checklist.
+- **D-27 NOTE — The niche wedge (why anyone picks us over more-mature tools). SETTLED positioning.** claude-mem = single-user local capture+recall; native Auto Memory = single-project, opaque, Anthropic-controlled; GBrain = enterprise entity-graph, heavy. **Nobody owns "your coding persona + project memory, committed to git, portable across machines, shareable with your team, that gets sharper the more you use it."** That is the kit's reason to exist. It only pays off once recall is good (L5b) AND the persona tier actually fills (F2) — which is exactly why those two are the front of the roadmap. See the cross-system competitive + lifecycle synthesis: [`docs/research/2026-06-01-memory-lifecycle-and-competitive-position.md`](../research/2026-06-01-memory-lifecycle-and-competitive-position.md).
+
+### Roadmap (the cadence, concrete — also a milestone in [`tasks.md`](../../specs/v0.1.0/tasks.md) "Road to 1.0")
+
+- **0.2.0** — **GATED (binding, Lior 2026-06-01: *"dont cut to 0.2.0 until we fix the problems and then do live test again, on a new project"*):** do NOT push the `v0.2.0` tag until ALL of — (1) F1 rich capture done (✅ Task 63), (2) F2 persona-fill done (Task 64), (3) a **fresh live test on a NEW project** confirms MEMORY.md/fact-files are rich AND HABITS.md fills. Only then cut + publish. Delivers **wow #1 (cross-project cold-open)** + kills the empty-MEMORY.md feel.
+- **0.3.0** — L5b semantic recall (Task 65) → live test → publish. Delivers **wow #2 (recall with reasoning)** = **video parity reached**.
+- **0.4.0+** — temporal validity / §16.18 (shape field + validity windows + `expires_at` enforcement) → **wow #3 (currency / contradiction-catch)** = past-the-video differentiator.
+- **1.0** — video parity complete + it *feels right* to hand to a friend (Lior's call, not a date).
+
+### Issues / notes
+
+- **ISSUE — `expires_at` is a defined provenance frontmatter field with ZERO enforcement (verified 2026-06-01).** No code under `packages/cli/src/` references `expires_at`/`expiresAt`. Facts that should age out don't. Folded into the §16.18 temporal-validity task (0.4.0+). Surfaced while answering Lior's "what happens to memory after days/weeks/months/years" — which the two-track lifecycle (session-diary rolling-window + durable fact archive) answers for *volume* but not for *currency*.
+
+---
+
 ## 2026-05-31 — documentation-governance restructure (3-zone spine + registry harness)
 
 ### Settled decisions (do NOT re-open without new evidence)

@@ -10,7 +10,7 @@
 // the self-test bug was that the *agent's own writes* bypassed the safe path.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -89,5 +89,56 @@ describe('cmk remember — durable capture CLI', () => {
     const r = cmk(['remember', '--tier', 'U', 'cross project pref']);
     expect(r.status).toBe(2);
     expect(r.stderr).toMatch(/not yet supported|v0\.1\.x/);
+  });
+
+  // Task 63 (F1) — Door 3: the CLI arg-parser must actually wire --why/--how
+  // through commander to runRememberRich. The unit tests call runRememberRich
+  // directly; only this real-binary path proves the registry optionSpec flags
+  // reach it (and that rich mode writes a FACT FILE, not a MEMORY.md bullet).
+  function factFiles() {
+    return readdirSync(join(projectRoot, 'context', 'memory')).filter(
+      (f) => f.endsWith('.md') && f !== 'INDEX.md',
+    );
+  }
+
+  it('rich mode (--why/--how) writes a granular fact file, not a MEMORY.md bullet', () => {
+    const r = cmk([
+      'remember',
+      'FastAPI is the delivery layer; logic lives in services',
+      '--type', 'feedback',
+      '--title', 'layered-backend',
+      '--why', 'pay the structure cost up front',
+      '--how', 'thin routes; push logic into app/services',
+    ]);
+    expect(r.status ?? 0).toBe(0);
+    expect(r.stdout).toMatch(/saved rich fact/);
+
+    const files = factFiles();
+    expect(files).toContain('feedback_layered-backend.md');
+    const content = readFileSync(
+      join(projectRoot, 'context', 'memory', 'feedback_layered-backend.md'),
+      'utf8',
+    );
+    expect(content).toContain('**Why:** pay the structure cost up front');
+    expect(content).toContain('**How to apply:** thin routes; push logic into app/services');
+    // Routing boundary: rich capture must NOT also drop a terse MEMORY.md bullet.
+    expect(readMemory()).not.toContain('FastAPI is the delivery layer');
+  });
+
+  it('--links lands as related cross-links in the fact frontmatter', () => {
+    const r = cmk([
+      'remember', 'use ruff for lint + format',
+      '--title', 'ruff-tooling',
+      '--why', 'one tool replaces black+isort+flake8',
+      '--links', 'python-tooling, uv-package-manager',
+    ]);
+    expect(r.status ?? 0).toBe(0);
+    const content = readFileSync(
+      join(projectRoot, 'context', 'memory', 'feedback_ruff-tooling.md'),
+      'utf8',
+    );
+    expect(content).toMatch(/related:/);
+    expect(content).toContain('python-tooling');
+    expect(content).toContain('uv-package-manager');
   });
 });
