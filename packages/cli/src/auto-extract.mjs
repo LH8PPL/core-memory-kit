@@ -601,7 +601,14 @@ export async function runAutoExtract({
         instructions,
         maxOutputBytes: 2000,
         preserveCitationIds: false,
-        timeoutMs: 25_000,
+        // 90s, not 25s: the real `claude --print` extraction (full turn +
+        // instructions) consistently exceeded a 25s ceiling on a live machine
+        // and was KILLED mid-call (extract.log: success:false, haiku_timeout,
+        // duration ≈ 25000ms = hitting the cap, not finishing) → automatic
+        // capture + persona promotion (F2) silently never ran. This call is
+        // DETACHED (fire-and-forget, never blocks the session), so a generous
+        // ceiling is free. Live-test finding (2026-06-01, lior-test-4 baseline).
+        timeoutMs: 90_000,
       });
       // Touch the cooldown marker IMMEDIATELY after the Haiku call
       // resolves — this is the "we spent the budget" signal that
