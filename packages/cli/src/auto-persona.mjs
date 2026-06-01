@@ -43,6 +43,7 @@ import { join, dirname } from 'node:path';
 import { generateId } from '@lh8ppl/cmk-canonicalize';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { resolveTierRoot, resolveScratchpadPath } from './tier-paths.mjs';
+import { ensureSectionExists } from './scratchpad.mjs';
 import { listObservationSources } from './index-rebuild.mjs';
 import { parse } from './frontmatter.mjs';
 import { memoryWrite } from './memory-write.mjs';
@@ -54,6 +55,13 @@ import { DEFAULT_COOLDOWN_MS, isCooldownActive, touchCooldownMarker } from './co
 // classifier-named target outside this set is dropped defensively (the
 // backend is Haiku — never trust its routing blindly; §NFR-9 spirit).
 const VALID_TARGETS = new Set(['USER.md', 'HABITS.md', 'LESSONS.md']);
+
+// F2 (Task 64): a section name we're willing to CREATE on the user tier. Must
+// read like a heading — starts with a letter, then letters/digits/spaces and a
+// few mild separators (& / -), bounded length. Rejects path traversal, markdown
+// metachars (`#`), punctuation noise, and overlong strings so Haiku can't inject
+// a junk or unsafe heading. (c.section is already `.trim()`-ed by the parser.)
+const SAFE_SECTION_NAME = /^[A-Za-z][A-Za-z0-9 &/-]{1,48}$/;
 
 // One classifier candidate per line. The consolidator's Haiku Step-3
 // (Design B) emits, for each captured fact that is cross-project
@@ -102,6 +110,7 @@ export function buildClassifierInstructions() {
     '  - target=HABITS.md  → working-style habits. sections: Iteration Cadence | Destructive Operations | Communication Style',
     '  - target=LESSONS.md → cross-project lessons. sections: Tooling Lessons | Process Lessons | Anti-patterns',
     '  - target=USER.md    → identity/preferences. sections: About | Preferences | Working Style',
+    '  PREFER an existing section above — route to the closest fit. Only if NONE genuinely fits may you name a new short Title-Case section (2-4 words, letters/spaces only). Never invent a new section when an existing one fits.',
     '',
     'confidence=high only when the fact clearly generalizes beyond this project (explicit "always/every project/from now on" cues, or an unmistakable working-style rule). Otherwise medium/low.',
     '',
@@ -286,6 +295,43 @@ export function promoteCandidatesToUserTier({ candidates, userDir, now, settings
     // hand-curated rule — the 45.4 invariant) is left to memoryWrite's
     // own conflict-queue routing via a plain `add`.
     const scratchpadPath = resolveScratchpadPath({ tier: 'U', scratchpad: c.target, userDir });
+
+    // F2 (Task 64): the user tier grows sections organically. If Haiku routes a
+    // candidate to a sane-but-not-yet-existing section (the live test: HABITS.md
+    // § "Architecture Preferences"), CREATE the heading instead of letting
+    // memoryWrite schema-fail to the review queue → empty HABITS.md. Guard the
+    // name first so a malformed/unsafe section can't inject a junk heading.
+    // NB: the guard also gates an *existing* but unsafe-named section (e.g. a
+    // hand-edited weird heading) → such a candidate queues rather than promotes;
+    // acceptable, since every section the kit itself creates is guard-valid.
+    if (!SAFE_SECTION_NAME.test(c.section)) {
+      queued.push({ target: c.target, section: c.section, text: c.text, confidence: c.confidence, reason: 'not-promoted-bad-section-name' });
+      continue;
+    }
+    // Heading-creation is intentionally cap-exempt: it's ~30 bytes and the
+    // memoryWrite below enforces the scratchpad byte cap on the bullet (§7.1).
+    const ensured = ensureSectionExists(scratchpadPath, c.section);
+    if (ensured.error) {
+      queued.push({ target: c.target, section: c.section, text: c.text, confidence: c.confidence, reason: `not-promoted-${ensured.error}` });
+      continue;
+    }
+    if (ensured.created) {
+      // Door 4: a new section is a structural change to a committed/shared
+      // scratchpad — record it so "why did HABITS.md grow this section?" is
+      // answerable from the audit log, not just inferred from the bullet below.
+      appendAuditEntry(userTierRoot, {
+        ts,
+        action: 'persona-section-created',
+        tier: 'U',
+        // A deterministic id for the structural event (there's no bullet id yet
+        // — the bullet is written below); audit-log requires a non-null id.
+        id: generateId('U', `section:${c.target}:${c.section}`),
+        reasonCode: REASON_CODES.PERSONA_SECTION_CREATED,
+        reasonText: `${c.target} § ${c.section}`,
+        paths: { after: scratchpadPath },
+      });
+    }
+
     const conflict = detectConflicts({
       newText: c.text,
       newTrust: 'medium',

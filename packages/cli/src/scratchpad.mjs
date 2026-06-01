@@ -188,6 +188,27 @@ function insertIntoSection(text, sectionTitle, bullet) {
   return lines.join('\n');
 }
 
+/**
+ * Ensure a `## <sectionTitle>` heading exists in a scratchpad file, creating
+ * it (appended at EOF, with clean spacing) if absent. Used by the persona
+ * promoter (Task 64 / F2) so a cross-project candidate routed to a sane-but-
+ * new section lands instead of schema-failing to the review queue. The CALLER
+ * owns the name-safety guard — this only writes the heading.
+ *
+ * @returns {{created: boolean, error?: string}}
+ */
+export function ensureSectionExists(scratchpadPath, sectionTitle) {
+  if (!existsSync(scratchpadPath)) return { created: false, error: 'no-file' };
+  const text = readFileSync(scratchpadPath, 'utf8');
+  if (findSectionRange(text.split('\n'), sectionTitle)) return { created: false };
+  const body = text.trimEnd(); // drop trailing whitespace/blank lines (no `\s+$` regex — trips ReDoS heuristics)
+  // No leading blank lines for an empty/whitespace-only file (the scaffolded
+  // scratchpads are never empty, but keep the output clean if one ever is).
+  const prefix = body ? `${body}\n\n` : '';
+  writeFileSync(scratchpadPath, `${prefix}## ${sectionTitle}\n`, 'utf8');
+  return { created: true };
+}
+
 function consolidate(text, { nowDate }) {
   const lines = text.split('\n');
   const removeIdx = new Set();

@@ -15,7 +15,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { autoPersona } from '../packages/cli/src/auto-persona.mjs';
+import { autoPersona, promoteCandidatesToUserTier } from '../packages/cli/src/auto-persona.mjs';
 import { runPersonaGenerate } from '../packages/cli/src/subcommands.mjs';
 import { appendScratchpadBullet } from '../packages/cli/src/scratchpad.mjs';
 import { touchCooldownMarker } from '../packages/cli/src/cooldown.mjs';
@@ -554,5 +554,115 @@ describe('Task 45 follow-up — cmk persona generate (runPersonaGenerate)', () =
       logError: (m) => out.push(`ERR: ${m}`),
     });
     expect(out.join('\n')).toMatch(/ERR: cmk persona generate: error/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 64 (F2) — create the section if missing instead of dropping to the queue
+// ---------------------------------------------------------------------------
+
+describe('Task 64 — section-promotion (F2): create the section if it does not pre-exist', () => {
+  it('high-confidence candidate to a NEW section → section CREATED + promoted (NOT queued)', () => {
+    // The exact live-test failure: Haiku targeted HABITS.md § "Architecture
+    // Preferences" — a sane section, but not one of HABITS.md's seeded headings
+    // (Iteration Cadence / Destructive Operations / Communication Style). Old
+    // behavior: schema error → queued → HABITS.md stayed empty. New: create it.
+    seedUserTier();
+    const r = promoteCandidatesToUserTier({
+      candidates: [{
+        target: 'HABITS.md',
+        section: 'Architecture Preferences',
+        confidence: 'high',
+        text: 'Builds every backend in layers: thin routes, services, repositories',
+      }],
+      userDir,
+      now: NOW,
+    });
+
+    // Door 1 — Response: promoted, not queued.
+    expect(r.promoted).toHaveLength(1);
+    expect(r.promoted[0]).toMatchObject({ target: 'HABITS.md', section: 'Architecture Preferences' });
+    expect(r.queued).toHaveLength(0);
+
+    // Door 2 — State: the section heading was created AND the bullet landed under it.
+    const habits = readFileSync(join(userDir, 'HABITS.md'), 'utf8');
+    expect(habits).toMatch(/^## Architecture Preferences$/m);
+    const afterHeading = habits.slice(habits.indexOf('## Architecture Preferences'));
+    expect(afterHeading).toMatch(/thin routes, services, repositories/);
+    // Over-mutation guard: appending a new section must NOT drop the existing
+    // headings (seed-N, add-one, assert the originals survive).
+    expect(habits).toMatch(/^## Iteration Cadence$/m);
+    expect(habits).toMatch(/^## Destructive Operations$/m);
+    expect(habits).toMatch(/^## Communication Style$/m);
+
+    // Door 4 (I1) — the structural section-creation is recorded in the audit
+    // log, so "why did HABITS.md grow this section?" is answerable.
+    const audit = readFileSync(join(userDir, '.locks', 'audit.log'), 'utf8');
+    expect(audit).toMatch(/"action":"persona-section-created"/);
+    expect(audit).toMatch(/Architecture Preferences/);
+  });
+
+  it('no-file (target scratchpad absent) → queued not-promoted-no-file, nothing created', () => {
+    // Deliberately do NOT seedUserTier → HABITS.md doesn't exist.
+    const r = promoteCandidatesToUserTier({
+      candidates: [{ target: 'HABITS.md', section: 'Iteration Cadence', confidence: 'high', text: 'x' }],
+      userDir,
+      now: NOW,
+    });
+    expect(r.promoted).toHaveLength(0);
+    expect(r.queued).toHaveLength(1);
+    expect(r.queued[0].reason).toBe('not-promoted-no-file');
+    expect(existsSync(join(userDir, 'HABITS.md'))).toBe(false);
+  });
+
+  it('a guard-rejected candidate is persisted to the durable persona-review queue (Door 4)', () => {
+    seedUserTier();
+    const r = promoteCandidatesToUserTier({
+      candidates: [{ target: 'HABITS.md', section: 'bad/../name #', confidence: 'high', text: 'keep me somewhere durable' }],
+      userDir,
+      now: NOW,
+    });
+    expect(r.queued).toHaveLength(1);
+    // The queued candidate survives past the response object in a durable file.
+    const queue = readFileSync(join(userDir, 'queues', 'persona-review.md'), 'utf8');
+    expect(queue).toMatch(/keep me somewhere durable/);
+  });
+
+  it('a garbage / unsafe section name is NOT created — stays queued (name guard)', () => {
+    seedUserTier();
+    const r = promoteCandidatesToUserTier({
+      candidates: [{
+        target: 'HABITS.md',
+        section: '../../etc/passwd #!! ',
+        confidence: 'high',
+        text: 'should not create a junk heading',
+      }],
+      userDir,
+      now: NOW,
+    });
+    expect(r.promoted).toHaveLength(0);
+    expect(r.queued).toHaveLength(1);
+    expect(r.queued[0].reason).toMatch(/section/i);
+    // No junk heading written.
+    expect(readFileSync(join(userDir, 'HABITS.md'), 'utf8')).not.toMatch(/passwd/);
+  });
+
+  it('an EXISTING section still promotes without duplicating the heading (no regression)', () => {
+    seedUserTier();
+    const r = promoteCandidatesToUserTier({
+      candidates: [{
+        target: 'HABITS.md',
+        section: 'Iteration Cadence',
+        confidence: 'high',
+        text: 'Works tasks strictly in order, one PR per task',
+      }],
+      userDir,
+      now: NOW,
+    });
+    expect(r.promoted).toHaveLength(1);
+    const habits = readFileSync(join(userDir, 'HABITS.md'), 'utf8');
+    // Exactly one "## Iteration Cadence" heading (not duplicated by ensure-section).
+    expect(habits.match(/^## Iteration Cadence$/gm)).toHaveLength(1);
+    expect(habits).toMatch(/one PR per task/);
   });
 });

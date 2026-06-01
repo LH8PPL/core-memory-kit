@@ -29,6 +29,7 @@
 ### Issues / notes
 
 - **ISSUE — `expires_at` is a defined provenance frontmatter field with ZERO enforcement (verified 2026-06-01).** No code under `packages/cli/src/` references `expires_at`/`expiresAt`. Facts that should age out don't. Folded into the §16.18 temporal-validity task (0.4.0+). Surfaced while answering Lior's "what happens to memory after days/weeks/months/years" — which the two-track lifecycle (session-diary rolling-window + durable fact archive) answers for *volume* but not for *currency*.
+- **ISSUE — user-tier scratchpad writes are not lock-serialized (pre-existing class, widened slightly by Task 64).** `promoteCandidatesToUserTier` writes the shared `~/.claude-memory-kit/*.md` scratchpads via `memoryWrite` (and now `ensureSectionExists`) with no cross-process lock. Two auto-extracts firing inline (Task 61) from *different projects* against the same user-tier file could interleave (read-old → both append). The window is narrow (detached, short writes) and pre-dates Task 64 (memoryWrite already wrote the user tier unlocked); Task 64's `ensureSectionExists` adds one more unlocked write. **Deferred:** the real fix is a user-tier lock-discipline sweep (the project tier already has `.locks/`); track for v0.2.x alongside the broader lock audit. Surfaced by the Task 64 code-review (M4).
 
 ---
 
