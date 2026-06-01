@@ -46,6 +46,7 @@ import {
 } from './register-crons.mjs';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
+import { readFileSync } from 'node:fs';
 
 const __filename_subcommands = fileURLToPath(import.meta.url);
 const __dirname_subcommands = dirname(__filename_subcommands);
@@ -1582,15 +1583,12 @@ export const subcommands = [
     description: 'print the cmk version (alias for --version)',
     milestone: 'always',
     action: function action() {
-      // version is special — never a stub. Print and continue.
-      // The shared --version flag is wired in index.mjs; this verb
-      // exists for parity with design §12 and prints the same string.
-      // Implementation note: we resolve the version from package.json
-      // already done at program-build time, so this can simply call into
-      // the main flag handler via process.exit after printing.
-      // For v0.1.0 stub-only milestone, defer the actual print to the
-      // top-level --version handler.
-      console.log(`cmk version: see \`cmk --version\``);
+      // Print the same bare version string as `cmk --version`, resolved from
+      // package.json (the single source). Was a v0.1.0 stub that punted to
+      // `cmk --version`; the live test surfaced that as unhelpful friction.
+      const pkgRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
+      const { version } = JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf8'));
+      console.log(version);
     },
   },
 ];
