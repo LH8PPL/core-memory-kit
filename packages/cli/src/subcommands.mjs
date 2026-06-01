@@ -311,15 +311,13 @@ function runSearch(queryParts, options) {
 // Task 63 (F1): a slug derived from the title — lowercased, non-alphanumerics
 // collapsed to '-', trimmed, capped. Always passes writeFact's SLUG_PATTERN.
 function slugifyFact(s) {
-  const base = String(s)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    // Trim leading/trailing dashes with two anchored single-pass replaces
-    // (not `/^-+|-+$/g` — the alternation trips static-analysis ReDoS heuristics;
-    // these anchored forms are unambiguously linear).
-    .replace(/^-+/, '')
-    .replace(/-+$/, '')
-    .slice(0, 60);
+  // Collapse every run of non-alphanumerics to a single '-' (so dashes are
+  // never doubled), cap, then trim a leading/trailing dash without a regex
+  // quantifier (static analysis flags trailing `-+$` as ReDoS-prone; a single
+  // dash is all that can remain after the collapse, so string ops suffice).
+  let base = String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60);
+  if (base.startsWith('-')) base = base.slice(1);
+  if (base.endsWith('-')) base = base.slice(0, -1);
   return base || 'fact';
 }
 
