@@ -1,5 +1,6 @@
-// @doors: 1, 2
-// Door 3 N/A: release verification reads files; no subprocess spawn at this boundary.
+// @doors: 1, 2, 3
+// Door 3: the template-freshness test spawns the prepublish-copy-template script
+//   (the same copy prepack runs) and asserts the packaged output matches source.
 // Door 4 N/A: no NDJSON observability.
 // Door 5 N/A: no message-queue.
 
@@ -12,6 +13,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
@@ -117,11 +119,35 @@ describe('Task 43 — release verification (pre-publish gates)', () => {
       );
     });
 
-    it('packages/cli has prepublishOnly script that copies template/ before publish', () => {
+    it('packages/cli copies template/ at PACK time, not just publish (prepack)', () => {
+      // Live-test finding #3 (2026-06-01): the copy was wired to
+      // `prepublishOnly`, which runs ONLY on `npm publish` — so `npm pack`
+      // shipped the STALE template from the last publish (the F1 rich-capture
+      // guidance never reached pack-based tests). `prepack` runs before BOTH
+      // pack and publish, so the tarball is always built from current source.
       const pkg = JSON.parse(
         readFileSync(join(repoRoot, 'packages', 'cli', 'package.json'), 'utf8'),
       );
-      expect(pkg.scripts?.prepublishOnly).toMatch(/prepublish-copy-template/);
+      expect(pkg.scripts?.prepack, 'prepack must run the template copy (pack==publish)').toMatch(
+        /prepublish-copy-template/,
+      );
+    });
+
+    it('the packaged template (after the copy runs) matches the source template', () => {
+      // Run the copy the way prepack does, then assert packages/cli/template
+      // is byte-identical to the repo-root source for the load-bearing
+      // CLAUDE.md.template (the F1 behavior lever). Catches a stale packaged
+      // copy regardless of when/whether the lifecycle hook fired.
+      execFileSync(process.execPath, [join(repoRoot, 'scripts', 'prepublish-copy-template.mjs')], {
+        cwd: repoRoot,
+      });
+      const src = readFileSync(join(repoRoot, 'template', 'CLAUDE.md.template'), 'utf8');
+      const packaged = readFileSync(
+        join(repoRoot, 'packages', 'cli', 'template', 'CLAUDE.md.template'),
+        'utf8',
+      );
+      expect(packaged).toBe(src);
+      expect(packaged).toMatch(/capture RICHLY/); // the F1 lever is present
     });
 
     it('packages/cli/README.md exists (the npm package landing page)', () => {

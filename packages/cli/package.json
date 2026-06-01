@@ -25,6 +25,7 @@
   },
   "scripts": {
     "test": "vitest run",
+    "prepack": "node ../../scripts/prepublish-copy-template.mjs",
     "prepublishOnly": "node ../../scripts/prepublish-copy-template.mjs"
   },
   "dependencies": {
