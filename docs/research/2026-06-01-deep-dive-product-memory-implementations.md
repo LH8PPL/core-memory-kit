@@ -81,6 +81,18 @@ Lior asked the sharper question: not just what we lack, but where we do it *diff
 
 **Net:** our *core architecture is sound and in several places better* (caps, IDs, markdown-truth, 3-tier, committed). The deltas worth acting on are **security** (Tasks 70/71 — amplified by our committed-to-git wedge) and **recall** (Layer 5b with the *right* backend — sqlite-vec + bge-m3, NOT Milvus). Nothing in the deep dive says "change our foundations."
 
+## Two more sources (Lior 2026-06-01): Hermes user-docs + Honcho
+
+### Hermes memory user-guide ([docs](https://hermes-agent.nousresearch.com/docs/user-guide/features/memory)) — confirms + 3 new facts
+- **`session_search` is SQLite FULL-TEXT, not vector** — recall over "unlimited historical conversations" uses SQLite FTS, not an embedding DB. **Even Hermes doesn't vector its history.** → *further validates our FTS5-first design*; vector (Layer 5b) is the optional quality layer, not the baseline.
+- **Poison_Guard gap — invisible Unicode.** Hermes scans entries for injection, credential-exfil, **AND invisible/zero-width Unicode** before accepting. **We do NOT** (verified: `poison-guard.mjs` covers secrets + injection, no zero-width/bidi/homoglyph patterns). → **fold into Task 70** (a hidden-instruction vector in committed memory).
+- **User-adjustable caps + component disable** via `~/.hermes/config.yaml`. Minor config-surface idea.
+
+### Honcho ([plastic-labs/honcho](https://github.com/plastic-labs/honcho)) — a genuinely different paradigm
+**What it is:** "reasoning-first memory" — instead of storing facts, it **extracts conclusions** from conversations and **builds an evolving model of the user** (theory-of-mind / peer-centric: tracks users, agents, groups, ideas as entities that change over time; can model "what one peer knows about another"). Surfaces **Conclusions / Representations / Peer Cards / chat answers**. Architecture: a **Storage** service + an async **Insights** pipeline ("derivers" — background reasoning workers) over vector-embedded collections. Hosted (`api.honcho.dev`) or self-host (Docker/FastAPI), **AGPL-3.0**.
+
+**Verdict — don't adopt, but note the direction.** Wrong weight class for a local-first markdown kit (a service with async workers, same class as Milvus) **and AGPL-3.0** (copyleft — adoption-hostile). BUT the *paradigm* is the deep version of our persona tier: we store **flat facts** about the user (USER.md / HABITS.md bullets) + light cross-project inference (Tasks 45/61 persona-promotion); Honcho **reasons** about the user and models change-over-time. Our `cmk persona generate` ≈ a shallow "Peer Card." **Candidate (v0.3+):** a "reasoning-first persona synthesis" — infer conclusions ("user prefers X" from N turns) + a synthesized identity card, NOT a flat bullet list. Pairs with temporal validity (Task 66) applied to the *user model*. Filed as a direction, not a task — we're not building a reasoning service.
+
 ## Cross-link
 
 - [`2026-06-01-how-products-implement-skills.md`](2026-06-01-how-products-implement-skills.md) — the skills-delivery survey (the SKILL.md / CLAUDE.md question) this deep dive complements.
