@@ -48,6 +48,7 @@ export const REASON_CODES = Object.freeze({
   REPAIR_LOCK_REMOVED: 'repair-lock-removed', // cmk repair --locks: stale lock unlinked (Task 39)
   PERSONA_PROMOTED: 'persona-promoted', // auto-persona: cross-project doctrine auto-promoted into a user-tier scratchpad at trust:medium (Task 45, design §16.16)
   PERSONA_SUPERSEDED: 'persona-superseded', // auto-persona: a promoted persona fact auto-superseded a contradicting existing one (Task 45.6, reuses Task 25 conflict detection)
+  PERSONA_SECTION_CREATED: 'persona-section-created', // auto-persona: a new `## ` section was created on a user-tier scratchpad to land a candidate (Task 64 / F2)
 });
 
 export function nowIso() {

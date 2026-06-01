@@ -283,6 +283,7 @@ function buildExtractionInstructions() {
     '    - HABITS.md  → sections: Iteration Cadence | Destructive Operations | Communication Style',
     '    - LESSONS.md → sections: Tooling Lessons | Process Lessons | Anti-patterns',
     '    - USER.md    → sections: About | Preferences | Working Style',
+    '  PREFER an existing section above — route to the closest fit. Only if NONE genuinely fits may you name a new short Title-Case section (2-4 words, letters/spaces only, e.g. "Architecture Preferences"). Never invent a new section when an existing one fits.',
     '  confidence=high ONLY when it clearly generalizes beyond this project ("always" / "every project" / "from now on" cues, or an unmistakable working-style rule). Emit no PERSONA CANDIDATE line if nothing is cross-project.',
   ].join('\n');
 }
