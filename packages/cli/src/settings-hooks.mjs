@@ -177,6 +177,24 @@ export function writeKitHooks(settingsPath) {
     }
   }
 
+  // Task 79: allow-list the kit's own CLI so the agent's EXPLICIT captures
+  // (`cmk remember`, `cmk lessons promote`, … — Bash tool calls) don't trip
+  // Claude Code's per-command "Allow this bash command?" prompt. The AUTO path
+  // (hooks above) is already seamless; this makes the explicit half seamless
+  // too. Idempotent + over-mutation safe: preserve the user's existing allow
+  // entries; only append ours if absent. `Bash(cmk:*)` is Claude Code's
+  // prefix-wildcard form — matches any `cmk <subcommand> …`.
+  const CMK_ALLOW = 'Bash(cmk:*)';
+  if (!settings.permissions || typeof settings.permissions !== 'object') {
+    settings.permissions = {};
+  }
+  if (!Array.isArray(settings.permissions.allow)) {
+    settings.permissions.allow = [];
+  }
+  if (!settings.permissions.allow.includes(CMK_ALLOW)) {
+    settings.permissions.allow.push(CMK_ALLOW);
+  }
+
   const after = JSON.stringify(settings);
   const changed = before !== after;
 

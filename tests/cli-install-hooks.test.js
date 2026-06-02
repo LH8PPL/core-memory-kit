@@ -108,6 +108,28 @@ describe('Task 49 — settings.json content (Door 2: state)', () => {
     expect(blob).not.toContain('bash ');
   });
 
+  it('allow-lists Bash(cmk:*) in permissions.allow, idempotently + preserving the user list (Task 79)', () => {
+    // First write → permissions.allow gains Bash(cmk:*) (so the agent's explicit
+    // cmk captures don't trip Claude Code's per-command permission prompt).
+    const r1 = writeKitHooks(settingsPath);
+    expect(r1.changed).toBe(true);
+    let settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    expect(settings.permissions.allow).toContain('Bash(cmk:*)');
+
+    // Idempotent: a second write doesn't duplicate it (over-mutation guard).
+    const r2 = writeKitHooks(settingsPath);
+    settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    expect(settings.permissions.allow.filter((a) => a === 'Bash(cmk:*)')).toHaveLength(1);
+
+    // Over-mutation: a user's pre-existing allow entry survives.
+    settings.permissions.allow.push('Bash(npm test)');
+    writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
+    writeKitHooks(settingsPath);
+    settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    expect(settings.permissions.allow).toContain('Bash(npm test)');
+    expect(settings.permissions.allow).toContain('Bash(cmk:*)');
+  });
+
   it('uses SHELL form — no `args` key (exec form would break on Windows npm .cmd shims)', async () => {
     await install({ projectRoot, userTier });
     const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
