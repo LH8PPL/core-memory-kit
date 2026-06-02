@@ -24,6 +24,16 @@ Precedence at session start: local > project > user (most-specific wins, others 
 
 Health checks (HC-1..HC-8) verify each layer is wired correctly: install integrity, hook registration, transcript capture freshness, INDEX accuracy, cron registration, semantic search backend, native Auto Memory coexistence. See [`docs/adr/`](docs/adr/) and [`specs/v0.1.0/design.md`](specs/v0.1.0/design.md) for the full contract.
 
+### Recalling memory (for Claude)
+
+The snapshot injected at session start is a **bounded hot index, not everything** — there is a deeper, queryable archive. When a question is "what did we decide / what's our X / how does the user work / what's the config," **query your memory instead of re-deriving it from the codebase**:
+
+- **`cmk search "<topic>"`** — find any captured fact (decisions, preferences, config, lessons) across the project + user tiers.
+- **`context/memory/<type>_<slug>.md`** — the granular fact archive with full **Why / How** rationale (`context/memory/INDEX.md` lists them).
+- **`~/.claude-memory-kit/` (`USER.md` / `HABITS.md` / `LESSONS.md`)** — how this user works across *all* their projects.
+
+Reach for these *first* — re-reading the code to answer "what port / how is this structured" wastes the memory that exists precisely so you don't have to. Recalling from memory, then verifying against code if needed, is the right order.
+
 ### Memory write rules (for Claude)
 
 Most capture is automatic — the Stop hook extracts durable facts each turn, no action needed. When you want to capture something **explicitly**:
