@@ -59,7 +59,7 @@ import { touchCooldownMarker } from './cooldown.mjs';
 // directive, parser, and promote-to-user-tier path so the SAME per-turn Haiku
 // call that extracts project facts ALSO promotes cross-project doctrine to the
 // user tier immediately (vs waiting for the weekly auto-persona janitor).
-import { parsePersonaCandidates, promoteCandidatesToUserTier } from './auto-persona.mjs';
+import { parsePersonaCandidates, promoteCandidatesToUserTier, PERSONA_CONFIDENCE_RULE } from './auto-persona.mjs';
 
 const LOCK_FILENAME = 'auto-extract.lock';
 const NOW_MD_RELATIVE = ['context', 'sessions', 'now.md'];
@@ -243,7 +243,7 @@ function parseTurnFile(rawTurn) {
 // Written from scratch per design §6.4 — no text copied from claude-
 // remember's prompts. Output format encodes origin so the routing
 // layer can apply the assistant-demotion rule (§6.4 amendment, 2026-05-26).
-function buildExtractionInstructions() {
+export function buildExtractionInstructions() {
   return [
     'You are a memory-extraction agent for claude-memory-kit.',
     'You read a captured turn pair (the user prompt + the assistant response) and identify durable facts worth saving.',
@@ -284,7 +284,8 @@ function buildExtractionInstructions() {
     '    - LESSONS.md → sections: Tooling Lessons | Process Lessons | Anti-patterns',
     '    - USER.md    → sections: About | Preferences | Working Style',
     '  PREFER an existing section above — route to the closest fit. Only if NONE genuinely fits may you name a new short Title-Case section (2-4 words, letters/spaces only, e.g. "Architecture Preferences"). Never invent a new section when an existing one fits.',
-    '  confidence=high ONLY when it clearly generalizes beyond this project ("always" / "every project" / "from now on" cues, or an unmistakable working-style rule). Emit no PERSONA CANDIDATE line if nothing is cross-project.',
+    PERSONA_CONFIDENCE_RULE,
+    '  Emit no PERSONA CANDIDATE line if nothing is cross-project.',
   ].join('\n');
 }
 
@@ -675,7 +676,22 @@ export async function runAutoExtract({
       try {
         const personaCandidates = parsePersonaCandidates(haikuResult.outputText);
         if (personaCandidates.length > 0) {
-          persona = promoteCandidatesToUserTier({ candidates: personaCandidates, userDir, now: ts, settings });
+          // Task 78 — the wedge's AUTO half. Only confidence=high candidates
+          // clear the promote gate, and (post-Task-78 grading) confidence=high
+          // means the user EXPLICITLY STATED a standing rule THIS turn → it is
+          // user-attested, so promote at trust:high (durable; won't be clobbered
+          // by a later inferred-medium entry). Inferred (medium) candidates still
+          // queue to persona-review. The weekly janitor stays at the default
+          // medium (45.6) — it synthesizes from accumulated facts, not a fresh
+          // statement.
+          persona = promoteCandidatesToUserTier({
+            candidates: personaCandidates,
+            userDir,
+            now: ts,
+            settings,
+            trust: 'high',
+            source: 'user-explicit',
+          });
         }
       } catch (err) {
         persona = { promoted: [], queued: [], superseded: [], conflicts: [], error: err?.message ?? String(err) };

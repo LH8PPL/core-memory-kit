@@ -97,6 +97,22 @@ function assembleProjectCorpus({ projectRoot, userDir }) {
   return parts.filter(Boolean).join('\n\n');
 }
 
+// Shared persona grading rule (Task 78 — the wedge's AUTO half). The
+// `confidence` axis encodes EXPLICIT-vs-INFERRED, which drives BOTH the promote
+// gate (only `high` promotes; medium/low queue) AND the write trust on the
+// inline path (an explicitly-stated rule is user-attested → trust:high). The
+// live-test gap (D-30): the user STATED a universal rule but the classifier
+// under-graded it to medium → it queued instead of landing in the user tier, so
+// the cross-project persona never filled on its own. This rule makes the
+// stated-vs-observed distinction explicit. Kept in ONE place so the inline
+// (auto-extract) and weekly (classifier) prompts can never drift apart.
+export const PERSONA_CONFIDENCE_RULE = [
+  'GRADE confidence by whether the user STATED it as a standing rule vs you INFERRED it from behavior:',
+  '  - confidence=high   → the user EXPLICITLY STATED a standing, cross-project rule: an imperative with universal scope — "always …", "never …", "in every project", "from now on", "going forward, in all my projects", "as a rule I …". Use high ONLY for a rule the user actually stated.',
+  '  - confidence=medium → you are INFERRING the doctrine from how they worked this session (they did it, but did NOT declare it as a standing rule).',
+  '  - When unsure whether it was stated-as-a-rule or merely-observed, use medium.',
+].join('\n');
+
 export function buildClassifierInstructions() {
   return [
     'You are a persona archivist for claude-memory-kit. The input below is a set of facts captured while the user worked on ONE project.',
@@ -112,7 +128,7 @@ export function buildClassifierInstructions() {
     '  - target=USER.md    → identity/preferences. sections: About | Preferences | Working Style',
     '  PREFER an existing section above — route to the closest fit. Only if NONE genuinely fits may you name a new short Title-Case section (2-4 words, letters/spaces only). Never invent a new section when an existing one fits.',
     '',
-    'confidence=high only when the fact clearly generalizes beyond this project (explicit "always/every project/from now on" cues, or an unmistakable working-style rule). Otherwise medium/low.',
+    PERSONA_CONFIDENCE_RULE,
     '',
     'Output ONLY PERSONA CANDIDATE lines. No preamble, no commentary. If nothing is cross-project, output nothing.',
     '',

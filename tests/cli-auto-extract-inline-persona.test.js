@@ -23,7 +23,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, readdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runAutoExtract } from '../packages/cli/src/auto-extract.mjs';
+import { runAutoExtract, buildExtractionInstructions } from '../packages/cli/src/auto-extract.mjs';
+import { buildClassifierInstructions, PERSONA_CONFIDENCE_RULE } from '../packages/cli/src/auto-persona.mjs';
 import { install } from '../packages/cli/src/install.mjs';
 
 // Mirrors the mockBackend in cli-auto-extract.test.js: compress() returns the
@@ -184,5 +185,69 @@ describe('Task 61 — inline cross-project promotion', () => {
     expect(projMemory).toContain('Postgres');
     // Nothing promoted to the user tier (no userDir given this run).
     expect(treeContains(userDir, 'pnpm')).toBe(false);
+  });
+
+  // --- Task 78 — the wedge's AUTO half: explicit (high) promotes durably; ----
+  // --- inferred (medium) queues for review. -----------------------------------
+
+  it('both persona prompts carry the SAME explicit-vs-inferred grading rule (drift guard, Task 78)', () => {
+    // The grading rule lives in ONE shared constant so the inline (auto-extract)
+    // and weekly (classifier) prompts can't drift. Both prompts must include it,
+    // and it must actually encode the stated-vs-observed distinction (the D-30
+    // fix: an explicitly-stated rule grades high → promotes; inferred → medium).
+    expect(PERSONA_CONFIDENCE_RULE).toMatch(/EXPLICITLY STATED/);
+    expect(PERSONA_CONFIDENCE_RULE).toMatch(/INFERRING/);
+    expect(buildClassifierInstructions()).toContain(PERSONA_CONFIDENCE_RULE);
+    expect(buildExtractionInstructions()).toContain(PERSONA_CONFIDENCE_RULE);
+  });
+
+  it('an EXPLICITLY-stated rule (confidence=high) promotes at trust:high — durable, user-attested (Task 78)', async () => {
+    const turnFile = writeTurnFile(
+      projectRoot,
+      'USER_TURN:\nfrom now on, in every project, always squash-merge\n\nASSISTANT_TURN:\nok',
+    );
+    const backend = mockBackend(
+      'PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=high | Always squash-merge, in every project',
+    );
+    const r = await runAutoExtract({
+      turnFile, projectRoot, userDir, haikuBackend: backend, now: '2026-05-31T13:00:00Z',
+    });
+
+    expect(r.action).toBe('extracted');
+    expect(r.persona.promoted).toHaveLength(1);
+
+    // Door 2 — the bullet landed in the user tier AND its provenance is
+    // trust:high (an explicit statement is user-attested → won't be aged out /
+    // clobbered by a later inferred-medium entry). This is the durability the
+    // wedge needs: medium would let the persona decay like a guess.
+    const habits = readFileSync(join(userDir, 'HABITS.md'), 'utf8');
+    expect(habits).toMatch(/Always squash-merge[^\n]*\n\s*<!--[^>]*trust: high/);
+    // And the provenance marks it user-explicit (not system-synthesis).
+    expect(habits).toMatch(/Always squash-merge[^\n]*\n\s*<!--[^>]*user-explicit/);
+  });
+
+  it('an INFERRED preference (confidence=medium) queues for review — does NOT land in the persona scratchpad (Task 78)', async () => {
+    const turnFile = writeTurnFile(
+      projectRoot,
+      'USER_TURN:\n(used tabs throughout the session, never said anything about it)\n\nASSISTANT_TURN:\nok',
+    );
+    const backend = mockBackend(
+      'PERSONA CANDIDATE | target=HABITS.md | section=Communication Style | confidence=medium | Seems to prefer tabs over spaces',
+    );
+    const r = await runAutoExtract({
+      turnFile, projectRoot, userDir, haikuBackend: backend, now: '2026-05-31T14:00:00Z',
+    });
+
+    // Door 1 — not promoted; queued for review.
+    expect(r.persona.promoted).toHaveLength(0);
+    expect(r.persona.queued.length).toBeGreaterThanOrEqual(1);
+
+    // Door 2 — it is durably parked in the review queue, NOT written into the
+    // persona scratchpad (an inference must be confirmed before it shapes the
+    // cross-project persona).
+    const habits = readFileSync(join(userDir, 'HABITS.md'), 'utf8');
+    expect(habits).not.toContain('tabs over spaces');
+    const reviewQueue = readFileSync(join(userDir, 'queues', 'persona-review.md'), 'utf8');
+    expect(reviewQueue).toContain('tabs over spaces');
   });
 });
