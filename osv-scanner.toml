@@ -18,3 +18,13 @@ reason = "esbuild is a dev/test-toolchain dependency (via vitest); never in the 
 [[IgnoredVulns]]
 id = "GHSA-4w7w-66w2-5vf9"
 reason = "vite is a dev/test-toolchain dependency (via vitest); never in the published package"
+
+# TEMPORARY BRIDGE (2026-06-02) — remove when the vitest 2 -> 4 bump lands.
+# vitest itself (the test runner) is a root devDependency, never in the
+# published package. Same dev-only rationale as esbuild/vite above. Unlike
+# those, the REAL fix (the major bump) is being taken immediately as the next
+# task, not deferred — this entry exists only to unblock the wedge merge (#100)
+# in the meantime, and MUST be deleted once the suite is green on vitest 4.x.
+[[IgnoredVulns]]
+id = "GHSA-5xrq-8626-4rwp"
+reason = "vitest is a dev/test-toolchain dependency; never in the published package. TEMPORARY — fixed by the vitest 4.x bump in progress; remove this entry when that lands."
