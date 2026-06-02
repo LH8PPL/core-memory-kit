@@ -145,8 +145,10 @@ describe('Task 39 — runRepair', () => {
       expect(JSON.stringify(settings.hooks.SessionStart)).toContain('my-custom-hook.sh');
       // Kit hook also present
       expect(JSON.stringify(settings.hooks.SessionStart)).toContain('cmk-inject-context');
-      // permissions preserved
-      expect(settings.permissions.allow).toEqual(['Read']);
+      // User's permissions preserved AND the kit's own allow-list added (Task 79:
+      // cmk install/repair allow-lists Bash(cmk:*) so explicit captures don't prompt).
+      expect(settings.permissions.allow).toContain('Read');
+      expect(settings.permissions.allow).toContain('Bash(cmk:*)');
     });
   });
 
