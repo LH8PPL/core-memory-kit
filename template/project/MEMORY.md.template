@@ -1,47 +1,26 @@
 <!-- Cap: 2500 chars · Last distilled: {{TODAY}} · Last health check: {{TODAY}} -->
 
-<!--
-MEMORY.md is the working scratchpad. Cap measured by `wc -c` over the whole
-file (header + comments + bullets). Consolidation triggers at >95% (Task 12);
-stale bullets (>14d without `trust: high`) drop on consolidate. Three fixed
-sections per design §2.1.
-
-Bullet+provenance format (universal across all scratchpads):
-- (P-XXXXXXXX) the bullet text on one line
-  <!-- source: <file>, source_line: <int>, sha1: <40-hex>, write: <enum>, trust: <enum>, at: <ISO 8601> -->
-
-Each section ships with a placeholder seed bullet — replace with real project
-state. Empty sections are fine if you haven't captured anything yet.
--->
-
 # Working Memory
+
+<!-- Your project's working scratchpad. Replace the example bullets with real state; empty sections are fine. -->
 
 ## Active Threads
 
-<!--
-Current work in progress. Drop bullets when work resolves. Auto-extract
-(Task 23) writes here; manual edits welcome too.
--->
+<!-- Current work in progress. Drop bullets as work resolves. -->
 
 - (P-T6M95JXF) (example) reviewing PR #142 for the auth refactor
   <!-- source: MEMORY.md, source_line: 22, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Environment Notes
 
-<!--
-Tool versions, paths, URLs, env state. Update on change. Auto-extract picks
-these up from PostToolUse hook events; manual edits welcome.
--->
+<!-- Tool versions, paths, URLs, env state. -->
 
 - (P-R662a95Y) (example) Node 20.x; Python 3.13; Postgres 16 in the test environment
   <!-- source: MEMORY.md, source_line: 30, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
 
 ## Pending Decisions
 
-<!--
-Things the user still has to decide. Remove when resolved. Auto-populated by
-`cmk persona generate` (Task N, design §16.16); empty is fine.
--->
+<!-- Things still to decide. Remove when resolved. -->
 
 - (P-KU3aNBX9) (example) decide whether to deprecate /api/v1 by Q3 2026
   <!-- source: MEMORY.md, source_line: 38, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
