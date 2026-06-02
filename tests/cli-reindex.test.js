@@ -242,7 +242,9 @@ describe('Task 8 — reindex() boundary', () => {
       expect(warnings.some((w) => /25|consolidat/i.test(w))).toBe(true);
       expect(result.warnings.length).toBeGreaterThan(0);
       expect(result.warnings.some((w) => /25|consolidat/i.test(w))).toBe(true);
-    });
+    }, 120_000); // 200 real writeFact calls to exceed 25 KB — heavy (super-linear)
+    // I/O that runs ~20s plain and ~100s under --coverage on Windows; assertions
+    // unchanged, this is only the time budget for legitimate bulk I/O under v4.
 
     it('small INDEX → no size warning', () => {
       writeFact(validFactOpts({ projectRoot, slug: 'tiny' }));

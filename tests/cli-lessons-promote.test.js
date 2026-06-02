@@ -11,7 +11,7 @@
 // confidence:'high' (promotes, not queues), and leaves neighbors intact.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { lessonsPromote } from '../packages/cli/src/lessons-promote.mjs';
@@ -180,6 +180,18 @@ describe('cmk lessons promote (Task 76)', () => {
     const res = lessonsPromote({ id: w.id, projectRoot, userDir, to: '../etc/passwd' });
     expect(res.action).toBe('error');
     expect(res.errorCategory).toBe('schema');
+  });
+
+  it('queues (not promoted) when the target user-tier scratchpad does not exist', () => {
+    // beforeEach scaffolds LESSONS.md + HABITS.md but NOT USER.md → the promote
+    // path can't create a section in a missing file (ensureSectionExists no-file)
+    // → the candidate is queued for review rather than promoted or lost.
+    const w = writeFact(validFactOpts({ projectRoot }));
+    const res = lessonsPromote({ id: w.id, projectRoot, userDir, to: 'USER.md' });
+    expect(res.action).toBe('queued');
+    expect(res.reason).toMatch(/no-file|not-promoted/);
+    // USER.md still absent — nothing written.
+    expect(existsSync(join(userDir, 'USER.md'))).toBe(false);
   });
 
   it('rejects a non-project (U / L tier) source id (no write)', () => {
