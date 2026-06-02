@@ -176,6 +176,11 @@ function spawnAutoExtract(autoExtractPath, turnFile, projectRoot) {
         detached: true,
         stdio: 'ignore',
         cwd: projectRoot,
+        // Task 81: suppress the Windows console window the detached child
+        // would otherwise flash. (This site spawns `node` directly already,
+        // so windowsHide is effective here — unlike the legacy shell:true
+        // lazy-compress spawn, which also needed the node-direct fix.)
+        windowsHide: true,
         env: { ...process.env, CMK_PROJECT_DIR: projectRoot },
       },
     );

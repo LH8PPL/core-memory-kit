@@ -14,7 +14,7 @@
 // unconditionally — a throwing SessionStart hook would interrupt
 // session start, worse than an empty additionalContext.
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -28,6 +28,16 @@ try {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const modulePath = join(__dirname, '..', 'src', 'inject-context.mjs');
+
+// Resolve the sibling lazy-compress bin (ships in this same bin/ dir) so
+// inject-context can spawn `node <path>` directly instead of the shell:true
+// `.cmd` shim — the Windows console-popup fix (Task 81). Env override first;
+// null in a corrupt install → graceful shell:true fallback in spawnLazyCompress.
+const compressLazyPath =
+  process.env.CMK_COMPRESS_LAZY_PATH ??
+  (existsSync(join(__dirname, 'cmk-compress-lazy.mjs'))
+    ? join(__dirname, 'cmk-compress-lazy.mjs')
+    : null);
 
 let injectContext;
 try {
@@ -50,7 +60,7 @@ try {
 }
 
 try {
-  const r = injectContext({ cwd: process.cwd() });
+  const r = injectContext({ cwd: process.cwd(), compressLazyPath });
   process.stdout.write(JSON.stringify(r.hookOutput));
   process.exit(0);
 } catch (err) {

@@ -470,23 +470,52 @@ function enforceCap(orderedBlocks, capBytes, ts) {
  * Exposed so injectContext can override via dependency injection in tests
  * (testSpawnLazy parameter) — production callers pass nothing.
  */
-function spawnLazyCompress(projectRoot) {
+/**
+ * Pure spawn descriptor for the lazy-compress child (Task 81). Separated so the
+ * Door-3 contract (node-direct + windowsHide, no shell, when the path is known)
+ * is unit-assertable without a real spawn. Path known + present → `node <path>`
+ * directly; otherwise the PATH-resolved `.cmd` bin via shell:true (the corrupt-
+ * install fallback that may still flash a console on Windows).
+ */
+export function lazyCompressSpawnDescriptor(projectRoot, compressLazyPath) {
+  const baseEnv = { ...process.env, CMK_PROJECT_DIR: projectRoot };
+  if (compressLazyPath && existsSync(compressLazyPath)) {
+    return {
+      command: process.execPath,
+      args: [compressLazyPath],
+      options: { detached: true, stdio: 'ignore', cwd: projectRoot, windowsHide: true, env: baseEnv },
+    };
+  }
+  return {
+    command: 'cmk-compress-lazy',
+    args: [],
+    options: { detached: true, stdio: 'ignore', shell: true, cwd: projectRoot, windowsHide: true, env: baseEnv },
+  };
+}
+
+function spawnLazyCompress(projectRoot, compressLazyPath) {
   try {
     // The lazy-compress child intentionally outlives this hook process;
     // parent-side timeout is incorrect by design — the child carries its
     // own internal timeout via runLazyCompress → daily-distill /
     // weekly-curate → HaikuViaAnthropicApi.compress({timeoutMs: 50_000}).
-    // shell:true so the Windows .cmd shim is found via PATH (same pattern
-    // register-crons.mjs uses for cmk-daily-distill).
     // spawn-discipline: ignore detached-fire-and-forget per design §8.5 — same posture as capture-turn.mjs's auto-extract spawn (Task 23).
-    const child = spawn('cmk-compress-lazy', [], {
-      detached: true,
-      stdio: 'ignore',
-      shell: true,
-      cwd: projectRoot,
-      windowsHide: true,
-      env: { ...process.env, CMK_PROJECT_DIR: projectRoot },
-    });
+    //
+    // Task 81 (Windows console-popup fix): spawn `node` DIRECTLY on the
+    // resolved .mjs. The legacy `shell:true` path resolved the npm `.cmd`
+    // shim via cmd.exe (cmd.exe → cmk-compress-lazy.cmd → node), and on
+    // Windows `windowsHide:true` hid only the cmd.exe window — NOT the
+    // detached `node` grandchild the shim launched, which flashed a visible
+    // console at every SessionStart. `process.execPath` + `windowsHide`
+    // suppresses it. The shell:true bin-name spawn survives only as a
+    // fallback when the path is unknown (corrupt install) — better the
+    // legacy popup than losing compression entirely.
+    const { command, args, options } = lazyCompressSpawnDescriptor(
+      projectRoot,
+      compressLazyPath,
+    );
+    // spawn-discipline: ignore detached fire-and-forget per design §8.5 — the child carries its own internal timeout (runLazyCompress → compress({timeoutMs})); parent-side timeout is incorrect by design.
+    const child = spawn(command, args, options);
     child.unref();
     return { spawned: true, pid: child.pid };
   } catch (err) {
@@ -527,6 +556,11 @@ export function injectContext({
   // uses spawnLazyCompress directly). Tests pass a fake to assert
   // "lazy-compress was/was-not triggered" without touching the host.
   testSpawnLazy,
+  // Resolved path to cmk-compress-lazy.mjs (passed by the bin wrapper, which
+  // knows the install layout). Lets spawnLazyCompress run `node <path>`
+  // directly instead of the shell:true `.cmd` shim — the Windows
+  // console-popup fix (Task 81). Absent → graceful shell:true fallback.
+  compressLazyPath,
 } = {}) {
   const ts = now ?? nowIso();
   const cap = typeof capBytes === 'number' ? capBytes : DEFAULT_CAP_BYTES;
@@ -595,7 +629,7 @@ export function injectContext({
     lazyTrigger = { verdict: verdict.action, reason: verdict.reason };
     if (verdict.action === 'stale-daily' || verdict.action === 'stale-weekly') {
       const spawner = typeof testSpawnLazy === 'function' ? testSpawnLazy : spawnLazyCompress;
-      const spawnResult = spawner(projectRoot);
+      const spawnResult = spawner(projectRoot, compressLazyPath);
       lazyTrigger = { ...lazyTrigger, ...spawnResult };
     }
   } catch (err) {
