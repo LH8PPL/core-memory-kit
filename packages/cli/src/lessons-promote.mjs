@@ -65,19 +65,42 @@ export function lessonsPromote({ id, projectRoot, userDir, to = 'LESSONS.md', se
     target: to,
     section: section || DEFAULT_SECTION[to],
     text,
-    confidence: 'high', // explicit user action → highest trust → promotes, not queued
+    confidence: 'high', // explicit user action → clears the confidence gate (promotes, not queued)
   };
 
-  const res = promoteCandidatesToUserTier({ candidates: [candidate], userDir, now });
+  // trust:'high' + source:'user-explicit' — a user-attested promotion is durable
+  // (never aged out / auto-superseded by the maintenance passes — the 45.4
+  // invariant). The auto path leaves these at the default medium.
+  const res = promoteCandidatesToUserTier({
+    candidates: [candidate],
+    userDir,
+    now,
+    trust: 'high',
+    source: 'user-explicit',
+  });
 
   const promotedHit = res.promoted.find((p) => p.target === to);
   if (promotedHit) {
-    return { action: 'promoted', id, target: to, section: candidate.section, path: promotedHit.path ?? null };
+    return { action: 'promoted', id, target: to, section: candidate.section, newId: promotedHit.id ?? null };
+  }
+  // A supersede is ALSO success: the promotion replaced an existing same-topic
+  // lesson with this updated one (common when the user re-promotes a refined rule).
+  const supersededHit = res.superseded.find((s) => s.target === to);
+  if (supersededHit) {
+    return { action: 'promoted', id, target: to, section: candidate.section, newId: supersededHit.newId, superseded: supersededHit.oldId };
+  }
+  // Routed to the conflict queue (e.g. it clashes with a hand-curated entry the
+  // kit won't silently overwrite) or otherwise didn't land — surface honestly.
+  const conflictHit = res.conflicts.find((q) => q.target === to);
+  if (conflictHit) {
+    return { action: 'queued', id, target: to, section: candidate.section, reason: 'conflict' };
   }
   const queuedHit = res.queued.find((q) => q.target === to);
-  if (queuedHit) {
-    return { action: 'queued', id, target: to, section: candidate.section, reason: queuedHit.reason };
-  }
-  // conflict / superseded — surface as queued so the caller knows it didn't land cleanly
-  return { action: 'queued', id, target: to, section: candidate.section, reason: 'not-promoted' };
+  return {
+    action: 'queued',
+    id,
+    target: to,
+    section: candidate.section,
+    reason: queuedHit?.reason ?? 'not-promoted',
+  };
 }

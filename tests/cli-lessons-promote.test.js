@@ -21,6 +21,7 @@ import { join } from 'node:path';
 import { lessonsPromote } from '../packages/cli/src/lessons-promote.mjs';
 import { writeFact } from '../packages/cli/src/write-fact.mjs';
 import { forget } from '../packages/cli/src/forget.mjs';
+import { appendScratchpadBullet, ensureSectionExists } from '../packages/cli/src/scratchpad.mjs';
 
 let projectRoot;
 let userDir;
@@ -72,6 +73,10 @@ describe('cmk lessons promote (Task 76)', () => {
     const lessons = readFileSync(join(userDir, 'LESSONS.md'), 'utf8');
     expect(lessons).toContain('## Cross-Project Lessons');
     expect(lessons).toContain('Always pin the venv path before installing deps.');
+    // Durability: an EXPLICIT promote is user-attested → trust:high (the
+    // maintenance passes never age it out / auto-supersede it). A medium write
+    // here would let the persona decay like an inferred preference.
+    expect(lessons).toMatch(/trust: high/);
     // Over-mutation guard: the pre-existing section + bullet survive untouched
     expect(lessons).toContain('## Existing Section');
     expect(lessons).toContain('- pre-existing lesson');
@@ -98,6 +103,37 @@ describe('cmk lessons promote (Task 76)', () => {
     expect(res.action).toBe('promoted');
     expect(res.section).toBe('Tooling Lessons');
     expect(readFileSync(join(userDir, 'LESSONS.md'), 'utf8')).toContain('## Tooling Lessons');
+  });
+
+  it('a supersede (updated lesson replaces a same-topic one) reports promoted, not queued', () => {
+    // Seed an existing Cross-Project Lessons bullet at trust:medium.
+    ensureSectionExists(join(userDir, 'LESSONS.md'), 'Cross-Project Lessons');
+    appendScratchpadBullet({
+      tier: 'U',
+      scratchpad: 'LESSONS.md',
+      section: 'Cross-Project Lessons',
+      text: 'Always pin the venv path before installing dependencies',
+      provenance: {
+        source: 'seed',
+        source_line: 1,
+        sha1: 'c'.repeat(40),
+        write: 'compressor',
+        trust: 'medium',
+        at: '2026-05-29T00:00:00Z',
+      },
+      userDir,
+      now: '2026-05-29T00:00:00Z',
+    });
+    // A refined version of the same rule (Jaccard ≈0.78 ≥ 0.5 → conflict;
+    // high ≥ medium → supersede, not queue).
+    const w = writeFact(validFactOpts({ projectRoot, body: 'Always pin the venv path before installing deps' }));
+    const res = lessonsPromote({ id: w.id, projectRoot, userDir });
+    expect(res.action).toBe('promoted');
+    expect(res.superseded).toBeTruthy();
+    // State: the old wording is gone, the new one is present (replaced, not duplicated).
+    const lessons = readFileSync(join(userDir, 'LESSONS.md'), 'utf8');
+    expect(lessons).toContain('installing deps');
+    expect(lessons).not.toContain('installing dependencies');
   });
 
   it('returns not-found for an unknown id (no write)', () => {
