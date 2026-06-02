@@ -254,7 +254,7 @@ export function buildExtractionInstructions() {
     'Save when EITHER turn reveals any of the six writing triggers:',
     '  1. User corrections — "don\'t do that again", "use this instead".',
     '  2. Discovered preferences — patterns across multiple turns.',
-    '  3. Environment facts — tool versions, paths, configurations.',
+    '  3. Environment / config facts — the project\'s concrete runtime config: ports it runs on (e.g. "runs on port 8000"), language/runtime + key package versions (e.g. "Python 3.13", "claude-agent-sdk 0.2.87"), database names, base URLs, key tool paths. **Capture these even when they surface from the WORK itself, not only from a stated preference** — "what port / what version / what DB are we on" is exactly what the next session needs to recall from memory instead of re-reading the code.',
     '  4. Project conventions — discovered through code inspection.',
     '  5. Completed complex workflows — 5+ tool calls; the approach is worth recording.',
     '  6. Tool quirks and workarounds — non-obvious findings.',
