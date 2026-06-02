@@ -41,7 +41,7 @@ Most capture is automatic — the Stop hook extracts durable facts each turn, no
      cmk remember "We deploy with Kamal to Hetzner; never to Vercel."
      ```
 2. **Machine-specific config** (absolute tool paths that only make sense on this machine) → put it in `context.local/machine-paths.md` (gitignored, never committed). `cmk remember` writes the committed project tier; for machine-only paths, edit the local tier directly.
-3. **Cross-project lesson** (true on every project, not just this one) → `cmk lessons promote <id>` moves a project fact to the user tier (`~/.claude-memory-kit/`).
+3. **Cross-project lesson** (true on every project, not just this one) → `cmk lessons promote <id>` moves a project fact to the user tier (`~/.claude-memory-kit/`). **Never hand-edit the user-tier files** (`LESSONS.md` / `HABITS.md` / `USER.md`) — route through the command so the write is home-path-sanitized, Poison_Guard-screened, deduped, and audited.
 4. **Confirm silently.** Don't announce captures. Frozen-snapshot semantics mean a write takes effect next session.
 
 ### Privacy
