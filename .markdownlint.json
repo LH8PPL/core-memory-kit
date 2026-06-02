@@ -1,0 +1,17 @@
+{
+  "//": "Repo markdownlint config. The docs (tasks.md, DECISION-LOG.md, design.md, the journey logs) use deliberate, established styles that several default rules flag as 'errors' but are intentional house style — so they're disabled here to stop the recurring editor noise. Functional doc integrity is enforced by scripts/validate-references.mjs + validate-doc-registry.mjs (wired into npm test), not by markdownlint.",
+  "default": true,
+  "MD013": false,
+  "MD024": false,
+  "MD033": false,
+  "MD049": false,
+  "MD050": false,
+  "MD031": false,
+  "MD032": false,
+  "MD009": false,
+  "MD041": false,
+  "MD036": false,
+  "MD038": false,
+  "MD026": false,
+  "MD040": false
+}
