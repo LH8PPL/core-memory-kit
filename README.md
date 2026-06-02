@@ -143,6 +143,7 @@ Most-used commands below; **full reference with examples: [`docs/CLI.md`](docs/C
 | `cmk search "<query>" [--mode keyword\|semantic\|hybrid]` | Search accumulated memory (keyword default; semantic via Layer 5b) |
 | `cmk daily-distill` / `cmk weekly-curate` | Manually run cron jobs (normally invoked by host scheduler) |
 | `cmk persona generate` | Synthesize your cross-project doctrine from this project's captured facts now — promote high-confidence "how I work everywhere" into the user tier, queue the rest to `queues/persona-review.md` (normally automatic; this is the manual trigger) |
+| `cmk lessons promote <id> [--to HABITS.md\|USER.md] [--section <title>]` | Carry one project fact into your user tier so it applies on **every** project (defaults to `LESSONS.md`) — routed through the safe path (home-path sanitization + Poison_Guard + dedup + audit). Never hand-edit `~/.claude-memory-kit/` |
 | `cmk register-crons [--dry-run] [--unregister]` | Register daily + weekly jobs with Linux crontab / macOS launchd / Windows Task Scheduler |
 | `cmk forget <id>` | Tombstone a fact (preserves audit trail) |
 | `cmk import-anthropic-memory [--dry-run] [--yes]` | Merge useful bullets from Anthropic's native auto-memory into your project MEMORY.md |

@@ -267,7 +267,12 @@ export function appendPersonaReviewQueue({ userDir, entries, now }) {
   return queuePath;
 }
 
-export function promoteCandidatesToUserTier({ candidates, userDir, now, settings }) {
+export function promoteCandidatesToUserTier({ candidates, userDir, now, settings, trust = 'medium', source = 'persona-synthesis' }) {
+  // `trust`/`source` default to the AUTO-persona posture (medium, system-derived
+  // — 45.6). The EXPLICIT path (`cmk lessons promote`) passes trust:'high' +
+  // source:'user-explicit' so a user-attested promotion is durable (the
+  // maintenance passes never age out / auto-supersede a trust:high entry — the
+  // 45.4 invariant) instead of decaying like an inferred preference.
   const ts = now ?? new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
   const userTierRoot = resolveTierRoot({ tier: 'U', userDir });
   const promoted = [];
@@ -334,7 +339,7 @@ export function promoteCandidatesToUserTier({ candidates, userDir, now, settings
 
     const conflict = detectConflicts({
       newText: c.text,
-      newTrust: 'medium',
+      newTrust: trust,
       scratchpadPath,
       sectionTitle: c.section,
     });
@@ -344,8 +349,8 @@ export function promoteCandidatesToUserTier({ candidates, userDir, now, settings
       scratchpad: c.target,
       section: c.section,
       text: c.text,
-      trust: 'medium', // system-derived, not user-attested (45.6)
-      source: 'persona-synthesis',
+      trust, // 'medium' (auto, 45.6) | 'high' (explicit `cmk lessons promote`)
+      source, // 'persona-synthesis' (auto) | 'user-explicit' (explicit promote)
       userDir,
       now: ts,
       settings,
@@ -367,7 +372,9 @@ export function promoteCandidatesToUserTier({ candidates, userDir, now, settings
         tier: 'U',
         id: res.newId,
         reasonCode: REASON_CODES.PERSONA_SUPERSEDED,
-        reasonText: `${c.target} § ${c.section} (superseded ${res.oldId})`,
+        // Carry `source` so the audit trail distinguishes an explicit
+        // `cmk lessons promote` (user-explicit) from an auto-synthesis promote.
+        reasonText: `${c.target} § ${c.section} (superseded ${res.oldId}; ${source})`,
         paths: { after: res.path },
       });
       superseded.push({ oldId: res.oldId, newId: res.newId, target: c.target, section: c.section });
@@ -394,11 +401,13 @@ export function promoteCandidatesToUserTier({ candidates, userDir, now, settings
       tier: 'U',
       id: res.id,
       reasonCode: REASON_CODES.PERSONA_PROMOTED,
-      reasonText: `${c.target} § ${c.section}`,
+      // Carry `source` so the audit trail distinguishes an explicit
+      // `cmk lessons promote` (user-explicit) from an auto-synthesis promote.
+      reasonText: `${c.target} § ${c.section} (${source})`,
       paths: { after: res.path },
     });
 
-    promoted.push({ id: res.id, target: c.target, section: c.section, text: c.text, trust: 'medium' });
+    promoted.push({ id: res.id, target: c.target, section: c.section, text: c.text, trust });
   }
 
   // Persist the queued (low/medium-confidence + not-promoted) candidates to

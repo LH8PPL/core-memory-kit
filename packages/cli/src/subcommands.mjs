@@ -33,6 +33,7 @@ import { importAnthropicMemory } from './import-anthropic-memory.mjs';
 import { extractTranscript, discoverSessions } from './transcripts.mjs';
 import { runRepair } from './repair.mjs';
 import { runRoll, ROLL_SCOPES } from './roll.mjs';
+import { lessonsPromote } from './lessons-promote.mjs';
 import {
   markCronRegistered,
   unmarkCronRegistered,
@@ -196,6 +197,49 @@ function runTrust(id, level /* , options, command */) {
   }
   if (result.action === 'error') {
     for (const e of result.errors) console.error(`cmk trust: ${e}`);
+    process.exitCode = 2;
+  }
+}
+
+/**
+ * `cmk lessons promote <id> [--to <file>] [--section <title>]` — Task 76.
+ *
+ * The explicit half of the wedge: carry a project observation across ALL your
+ * projects. Routes through the safe promote path (home-path sanitization,
+ * Poison_Guard, dedup, audit trail) — never hand-edits the user-tier files.
+ */
+function runLessonsPromote(id, options = {}) {
+  const projectRoot = resolvePath(process.cwd());
+  const userDir =
+    process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+  const result = lessonsPromote({
+    id,
+    projectRoot,
+    userDir,
+    to: options.to,
+    section: options.section,
+  });
+  if (result.action === 'promoted') {
+    console.log(`cmk lessons promote: ${result.id} → ${result.target} § ${result.section}`);
+    return;
+  }
+  if (result.action === 'queued') {
+    // Exit 3 (not 2): the fact is durably SAVED to the review queue — it didn't
+    // fail, it just needs a `cmk queue review` to land in the persona. Distinct
+    // from the genuine-error exits (2) so scripts can tell them apart.
+    console.error(
+      `cmk lessons promote: saved to the user-tier review queue (${result.reason}) — run \`cmk queue review\` to land it`,
+    );
+    process.exitCode = 3;
+    return;
+  }
+  if (result.action === 'not-found') {
+    console.error(`cmk lessons promote: ${result.errors[0]}`);
+    process.exitCode = 2;
+    return;
+  }
+  if (result.action === 'error') {
+    for (const e of result.errors) console.error(`cmk lessons promote: ${e}`);
     process.exitCode = 2;
   }
 }
@@ -1456,16 +1500,20 @@ export const subcommands = [
   },
   {
     name: 'lessons',
-    description: 'promote project-tier observations to the user-tier LESSONS.md',
-    milestone: 'v0.1.x',
+    description: 'promote a project-tier observation to the user tier (carry it across all your projects)',
+    milestone: 76,
     children: [
       {
         name: 'promote',
-        description: 'move a project observation to ~/.claude-memory-kit/LESSONS.md',
-        argSpec: [{ flags: '<id>', description: 'citation ID' }],
+        description: 'move a project observation to the user tier through the safe promote path',
+        argSpec: [{ flags: '<id>', description: 'citation ID (e.g. P-S79MJHFN)' }],
+        optionSpec: [
+          { flags: '--to <file>', description: 'target user-tier file: LESSONS.md (default) | HABITS.md | USER.md' },
+          { flags: '--section <title>', description: 'landing section (default per-target)' },
+        ],
+        action: (id, options) => runLessonsPromote(id, options),
       },
     ],
-    action: stub('lessons', 'v0.1.x'),
   },
   {
     name: 'queue',
