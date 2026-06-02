@@ -1,16 +1,6 @@
 <!-- Cap: 1500 chars · Last distilled: {{TODAY}} · Last health check: {{TODAY}} -->
 
-<!--
-overrides.md = machine-specific overrides of preferences declared elsewhere.
-Local tier (gitignored). Highest precedence in the 3-tier model.
-3 fixed sections per design §2.1.
-
-Bullet+provenance format (universal — see provenance.mjs):
-  - (L-XXXXXXXX) the bullet text on one line
-    <!-- source, source_line, sha1, write, trust, at -->
-
-Auto-populated by `cmk persona generate` (Task N, design §16.16); empty is fine.
--->
+<!-- overrides.md = machine-specific overrides of preferences declared elsewhere (local tier — gitignored, highest precedence). Replace the examples; empty sections are fine. -->
 
 # Machine-specific overrides (local tier)
 

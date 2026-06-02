@@ -1,17 +1,6 @@
 <!-- Cap: 1500 chars · Last distilled: {{TODAY}} · Last health check: {{TODAY}} -->
 
-<!--
-machine-paths.md = absolute paths specific to THIS machine for THIS project.
-Local tier (gitignored — never committed). Highest priority in the 3-tier
-precedence model — overrides anything in context/ or ~/.claude-memory-kit/.
-3 fixed sections per design §2.1.
-
-Bullet+provenance format (universal — see provenance.mjs):
-  - (L-XXXXXXXX) the bullet text on one line
-    <!-- source, source_line, sha1, write, trust, at -->
-
-Auto-populated by `cmk persona generate` (Task N, design §16.16); empty is fine.
--->
+<!-- machine-paths.md = absolute tool/project paths specific to THIS machine (local tier — gitignored, highest precedence). Replace the examples; empty sections are fine. -->
 
 # Machine paths (local tier)
 

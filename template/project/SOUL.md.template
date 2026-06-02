@@ -1,15 +1,6 @@
 <!-- Cap: 1800 chars · Last distilled: {{TODAY}} · Last health check: {{TODAY}} -->
 
-<!--
-SOUL.md = project persona / disposition / norms. Where USER.md = "who the user
-is", SOUL.md = "how Claude should show up". 3 fixed sections per design §2.1.
-
-Bullet+provenance format (universal — see provenance.mjs):
-  - (P-XXXXXXXX) the bullet text on one line
-    <!-- source, source_line, sha1, write, trust, at -->
-
-Auto-populated by `cmk persona generate` (Task N, design §16.16); empty is fine.
--->
+<!-- SOUL.md = how Claude should show up in this project (tone, defaults, boundaries). Replace the example bullets; empty sections are fine. -->
 
 # Project Soul
 
