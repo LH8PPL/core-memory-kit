@@ -242,8 +242,23 @@ export async function autoPersona(opts = {}) {
  * Promote classified PERSONA CANDIDATE rows into the user tier. Shared by
  * autoPersona (the weekly janitor) and auto-extract (Task 61 — inline at
  * capture time). High-confidence → memoryWrite to the user-tier scratchpad
- * (auto-supersede on conflict; never overwrite a hand-curated trust:high rule
- * — the 45.4 invariant); low/medium → surfaced in `queued`.
+ * (auto-supersede on conflict); low/medium → surfaced in `queued`.
+ *
+ * Trust posture (the `trust`/`source` params):
+ *   - DEFAULT (no params) → trust:'medium', source:'persona-synthesis'. The
+ *     SYSTEM-DERIVED posture (45.6) used by the weekly janitor and any
+ *     inferred promotion. **45.4 invariant (original, pre-2026-06-02):** a
+ *     medium write never overwrites a hand-curated trust:high rule — a
+ *     same-topic collision against a high entry routes to the review queue
+ *     (medium < high → queue), so hand-curated highs are protected from
+ *     inferred noise. This still holds for every medium/inferred write.
+ *   - trust:'high' (explicit path — Task 76 `cmk lessons promote` + Task 78
+ *     inline grading of an EXPLICITLY-STATED rule). **45.4 REFINEMENT
+ *     (2026-06-02, D-32 — Lior chose "latest explicit wins"):** an explicit,
+ *     user-attested rule at trust:high MAY supersede an equal-trust same-topic
+ *     entry (high >= high → supersede). The newest explicit statement wins,
+ *     even over a hand-curated high. The original protection is unchanged for
+ *     non-explicit (medium) writes; only an explicit high can replace a high.
  *
  * @returns {{promoted:Array, queued:Array, superseded:Array, conflicts:Array}}
  */
