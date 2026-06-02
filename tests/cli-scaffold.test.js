@@ -80,6 +80,7 @@ const NON_STUB_CHILDREN = new Set([
   'mcp/serve',          // Task 31 — invoked by Claude Code; tested separately by cli-mcp-server.test.js
   'transcripts/extract', // Task 38
   'persona/generate',   // Task 45 follow-up — wired; logic tested by cli-auto-persona.test.js
+  'lessons/promote',    // Task 76 — wired; logic tested by cli-lessons-promote.test.js
 ]);
 
 describe('Task 2 — cmk CLI scaffold', () => {
