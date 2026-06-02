@@ -47,6 +47,18 @@ export function lessonsPromote({ id, projectRoot, userDir, to = 'LESSONS.md', se
   if (!VALID_TARGETS.has(to)) {
     return errorResult({ category: 'schema', errors: [`invalid target '${to}' (expected USER.md | HABITS.md | LESSONS.md)`] });
   }
+  // `lessons promote` carries a PROJECT observation to the user tier. Reject a
+  // U-tier id (already user-tier — nothing to promote) and an L-tier id (local
+  // is gitignored/machine-specific on purpose — promoting it to the
+  // machine-global user tier would surface deliberately-unshared content in
+  // every project's persona). Source must be the committed project tier.
+  if (typeof id === 'string' && (id[0] === 'U' || id[0] === 'L')) {
+    return errorResult({
+      category: 'schema',
+      errors: [`lessons promote moves a PROJECT-tier (P-) fact; got a ${id[0]}-tier id '${id}'`],
+      id,
+    });
+  }
 
   const found = resolveFact({ id, projectRoot, userDir });
   if (found.state === 'not-found') {

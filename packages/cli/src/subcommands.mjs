@@ -224,10 +224,13 @@ function runLessonsPromote(id, options = {}) {
     return;
   }
   if (result.action === 'queued') {
+    // Exit 3 (not 2): the fact is durably SAVED to the review queue — it didn't
+    // fail, it just needs a `cmk queue review` to land in the persona. Distinct
+    // from the genuine-error exits (2) so scripts can tell them apart.
     console.error(
-      `cmk lessons promote: not promoted (${result.reason}) — routed to the user-tier review queue; run \`cmk queue review\``,
+      `cmk lessons promote: saved to the user-tier review queue (${result.reason}) — run \`cmk queue review\` to land it`,
     );
-    process.exitCode = 2;
+    process.exitCode = 3;
     return;
   }
   if (result.action === 'not-found') {

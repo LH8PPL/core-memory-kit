@@ -372,7 +372,9 @@ export function promoteCandidatesToUserTier({ candidates, userDir, now, settings
         tier: 'U',
         id: res.newId,
         reasonCode: REASON_CODES.PERSONA_SUPERSEDED,
-        reasonText: `${c.target} § ${c.section} (superseded ${res.oldId})`,
+        // Carry `source` so the audit trail distinguishes an explicit
+        // `cmk lessons promote` (user-explicit) from an auto-synthesis promote.
+        reasonText: `${c.target} § ${c.section} (superseded ${res.oldId}; ${source})`,
         paths: { after: res.path },
       });
       superseded.push({ oldId: res.oldId, newId: res.newId, target: c.target, section: c.section });
@@ -399,7 +401,9 @@ export function promoteCandidatesToUserTier({ candidates, userDir, now, settings
       tier: 'U',
       id: res.id,
       reasonCode: REASON_CODES.PERSONA_PROMOTED,
-      reasonText: `${c.target} § ${c.section}`,
+      // Carry `source` so the audit trail distinguishes an explicit
+      // `cmk lessons promote` (user-explicit) from an auto-synthesis promote.
+      reasonText: `${c.target} § ${c.section} (${source})`,
       paths: { after: res.path },
     });
 

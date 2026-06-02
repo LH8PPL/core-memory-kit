@@ -1,10 +1,6 @@
-// @doors: 1, 2
+// @doors: 1, 2, 4
 // Door 3 N/A: lessonsPromote routes through memoryWrite (in-process file
 //   write) — no subprocess spawn at this boundary.
-// Door 4 N/A: the audit-log entry is memoryWrite's contract, asserted in
-//   tests/cli-memory-write.test.js. This boundary asserts routing + on-disk
-//   state (the fact lands in the right user-tier file/section, untouched
-//   neighbors), which is what Task 76 adds.
 // Door 5 N/A: no message-queue surface.
 //
 // Tests for Task 76 — `cmk lessons promote <id>`: the EXPLICIT half of the
@@ -82,6 +78,12 @@ describe('cmk lessons promote (Task 76)', () => {
     expect(lessons).toContain('- pre-existing lesson');
     // HABITS.md was not touched
     expect(readFileSync(join(userDir, 'HABITS.md'), 'utf8')).not.toContain('venv');
+
+    // Door 4 — Observability: the audit trail distinguishes an EXPLICIT promote
+    // (source: user-explicit) from an auto-synthesis one (persona-synthesis).
+    const audit = readFileSync(join(userDir, '.locks', 'audit.log'), 'utf8');
+    expect(audit).toMatch(/"action":"persona-promote"/);
+    expect(audit).toContain('user-explicit');
   });
 
   it('routes to HABITS.md when --to HABITS.md is given', () => {
@@ -178,6 +180,18 @@ describe('cmk lessons promote (Task 76)', () => {
     const res = lessonsPromote({ id: w.id, projectRoot, userDir, to: '../etc/passwd' });
     expect(res.action).toBe('error');
     expect(res.errorCategory).toBe('schema');
+  });
+
+  it('rejects a non-project (U / L tier) source id (no write)', () => {
+    const before = readFileSync(join(userDir, 'LESSONS.md'), 'utf8');
+    const u = lessonsPromote({ id: 'U-S79MJHFN', projectRoot, userDir });
+    expect(u.action).toBe('error');
+    expect(u.errorCategory).toBe('schema');
+    const l = lessonsPromote({ id: 'L-S79MJHFN', projectRoot, userDir });
+    expect(l.action).toBe('error');
+    expect(l.errorCategory).toBe('schema');
+    // State: nothing written
+    expect(readFileSync(join(userDir, 'LESSONS.md'), 'utf8')).toBe(before);
   });
 
   it('requires userDir (writes to the user tier)', () => {
