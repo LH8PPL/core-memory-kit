@@ -39,7 +39,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { injectContext } from '../packages/cli/src/inject-context.mjs';
+import { injectContext, lazyCompressSpawnDescriptor } from '../packages/cli/src/inject-context.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = join(dirname(__filename), '..');
@@ -711,4 +711,33 @@ describe('Task 18 — bin/cmk-inject-context (hook handler — node bin)', () =>
   // accommodates the cold-start envelope. If the wrapper ever started
   // looping or doing real work, the JSON-shape test above would catch
   // it long before a wall-clock budget would.
+});
+
+describe('Task 81 — lazy-compress spawn descriptor (Windows console-popup fix)', () => {
+  it('with a present .mjs path → `node <path>` directly, windowsHide, NO shell (the popup fix)', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'cmk-lz-'));
+    const mjs = join(tmp, 'cmk-compress-lazy.mjs');
+    writeFileSync(mjs, '// stub\n');
+    const d = lazyCompressSpawnDescriptor('/proj', mjs);
+    // node binary, not the npm `.cmd` shim → no cmd.exe → no leaked console.
+    expect(d.command).toBe(process.execPath);
+    expect(d.args).toEqual([mjs]);
+    expect(d.options.windowsHide).toBe(true);
+    // shell:true is the popup cause — it MUST be absent on the direct path.
+    expect(d.options.shell).toBeUndefined();
+    expect(d.options.detached).toBe(true);
+    expect(d.options.stdio).toBe('ignore');
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it('with no/absent path → graceful shell:true bin fallback (corrupt install)', () => {
+    const dNull = lazyCompressSpawnDescriptor('/proj', null);
+    expect(dNull.command).toBe('cmk-compress-lazy');
+    expect(dNull.options.shell).toBe(true);
+    expect(dNull.options.windowsHide).toBe(true);
+    // A path that doesn't exist also falls back (not just null).
+    const dMissing = lazyCompressSpawnDescriptor('/proj', '/no/such/cmk-compress-lazy.mjs');
+    expect(dMissing.command).toBe('cmk-compress-lazy');
+    expect(dMissing.options.shell).toBe(true);
+  });
 });
