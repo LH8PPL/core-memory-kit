@@ -201,6 +201,17 @@ describe('Task 61 — inline cross-project promotion', () => {
     expect(buildExtractionInstructions()).toContain(PERSONA_CONFIDENCE_RULE);
   });
 
+  it('the extraction prompt explicitly directs capture of ENV/config facts incl. ports + versions (Task 80)', () => {
+    // lior-test-5: the port/SDK version were never captured (Environment Notes
+    // stayed empty), so Session-2 recall re-read config.py. The trigger must
+    // name concrete config + say to capture it from the WORK, not just stated
+    // preferences — so "what port / what version" is recallable from memory.
+    const prompt = buildExtractionInstructions();
+    expect(prompt).toMatch(/port 8000/);
+    expect(prompt).toMatch(/version/i);
+    expect(prompt).toMatch(/from the WORK/i);
+  });
+
   it('an EXPLICITLY-stated rule (confidence=high) promotes at trust:high — durable, user-attested (Task 78)', async () => {
     const turnFile = writeTurnFile(
       projectRoot,
