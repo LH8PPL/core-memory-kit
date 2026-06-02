@@ -56,7 +56,14 @@ export function lessonsPromote({ id, projectRoot, userDir, to = 'LESSONS.md', se
     return notFoundResult({ errors: [`fact '${id}' is tombstoned (forgotten); cannot promote`], id });
   }
 
-  const text = (found.body ?? '').trim();
+  // A scratchpad bullet is single-line (the provenance HTML-comment must sit on
+  // the very next line). A RICH fact body is multi-line — `headline\n\n**Why:**
+  // …\n\n**How to apply:** …` — which writeBullet rejects outright (newlines
+  // break the 2-line bullet+comment shape). Flatten all whitespace to single
+  // spaces so the rule + its rationale promote as one well-formed bullet (the
+  // primary wedge case: an explicitly-captured rich architecture rule). The
+  // scratchpad byte cap still applies downstream via memoryWrite.
+  const text = (found.body ?? '').replace(/\s+/g, ' ').trim();
   if (!text) {
     return errorResult({ category: 'schema', errors: [`fact '${id}' has no body to promote`], id });
   }

@@ -136,6 +136,27 @@ describe('cmk lessons promote (Task 76)', () => {
     expect(lessons).not.toContain('installing dependencies');
   });
 
+  it('promotes a RICH (multi-line --why/--how) fact — flattened to one well-formed bullet (B1)', () => {
+    // The primary wedge case: an explicitly-captured rich rule. resolveFact
+    // returns the multi-line body; a raw multi-line bullet would be rejected
+    // by writeBullet (newline guard) → queued. lessonsPromote must flatten it.
+    const richBody = 'Use the repository pattern.\n\n**Why:** keeps data access out of route handlers.\n\n**How to apply:** put queries in app/repositories/.';
+    const w = writeFact(validFactOpts({ projectRoot, title: 'Repository pattern', body: richBody }));
+
+    const res = lessonsPromote({ id: w.id, projectRoot, userDir });
+    expect(res.action).toBe('promoted');
+
+    const lessons = readFileSync(join(userDir, 'LESSONS.md'), 'utf8');
+    // The rule + its rationale landed, on a SINGLE bullet line (no raw newlines
+    // splitting the body across lines / detaching the provenance comment).
+    expect(lessons).toContain('Use the repository pattern.');
+    expect(lessons).toContain('**Why:** keeps data access out of route handlers.');
+    expect(lessons).toContain('**How to apply:** put queries in app/repositories/.');
+    const bulletLine = lessons.split('\n').find((l) => l.includes('Use the repository pattern.'));
+    expect(bulletLine).toMatch(/keeps data access/); // Why/How on the SAME line
+    expect(bulletLine).toMatch(/put queries in app\/repositories/);
+  });
+
   it('returns not-found for an unknown id (no write)', () => {
     const before = readFileSync(join(userDir, 'LESSONS.md'), 'utf8');
     const res = lessonsPromote({ id: 'P-S79MJHFN', projectRoot, userDir });
