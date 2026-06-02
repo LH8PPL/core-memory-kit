@@ -1141,9 +1141,6 @@ following Markdown structure:
 ## Open Questions
 - <≤80 chars>
 
-## Files Touched
-- path: <relative> — <verb> (cites: [#P-XXXXXXXX])
-
 ## Active Threads
 - <≤80 chars>
 
@@ -1157,7 +1154,9 @@ INPUT:
 <the rolling-window transcript>
 ```
 
-Section structure adapted from Anthropic Claude Code's verified 9-section auto-compact pattern (per leaked source). Trimmed to 4 sections since we're compressing memory, not full sessions.
+Section structure adapted from Anthropic Claude Code's verified 9-section auto-compact pattern (per leaked source). Trimmed to **3 sections** since we're compressing memory, not full sessions.
+
+**Original schema (pre-Task-83):** 4 sections — Decisions / Open Questions / **Files Touched** / Active Threads. **Task 83 (2026-06-02) dropped "Files Touched"**: the lior-test-5 live test showed it accumulating as a file-write LOG across compressions (seven un-deduped `## Files Touched` blocks made up ~50% of the injected SessionStart snapshot, burying the persona). A log of file operations is transient, low-signal, and doesn't belong in durable working memory — it degraded recall (the model re-read code instead of trusting the noisy snapshot). Removed from both `compress-session` + `daily-distill` prompts. The other three sections carry the durable signal.
 
 **Implements**: FR-19, FR-20, FR-21, ADR-0008.
 

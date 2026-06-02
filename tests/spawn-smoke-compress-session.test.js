@@ -152,12 +152,12 @@ describeMaybe(`spawn-smoke: compressSession (live: ${skipReason ?? 'enabled'})`,
 
       // Assertion #3 — output follows the §8.4 structure. We can't
       // guarantee which sections Haiku populates (it omits empty
-      // ones per rule 3), but at least one of the four section
-      // headings should appear in a substantive compression.
+      // ones per rule 3), but at least one of the three section
+      // headings should appear in a substantive compression. (Task 83
+      // dropped "Files Touched" — a file-write log doesn't belong in memory.)
       const hasAnySectionHeading =
         today.includes('## Decisions') ||
         today.includes('## Open Questions') ||
-        today.includes('## Files Touched') ||
         today.includes('## Active Threads');
       expect(hasAnySectionHeading, `today-{date}.md missing §8.4 section heading; got: ${today}`)
         .toBe(true);

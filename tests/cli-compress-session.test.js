@@ -472,12 +472,14 @@ describe('Task 22 — compressSession() boundary', () => {
       });
       expect(backend.calls).toHaveLength(1);
       const call = backend.calls[0];
-      // The compression prompt structure (design §8.4): 4 section
+      // The compression prompt structure (design §8.4): 3 section
       // headings + the "preserve citation IDs" rule.
       const prompt = (call.instructions ?? '') + '\n' + (call.input ?? '');
       expect(prompt).toContain('## Decisions');
       expect(prompt).toContain('## Open Questions');
-      expect(prompt).toContain('## Files Touched');
+      // Task 83: the "Files Touched" section was dropped (a file-write log
+      // doesn't belong in working memory — it bloated the injected snapshot).
+      expect(prompt).not.toContain('## Files Touched');
       expect(prompt).toContain('## Active Threads');
       expect(prompt).toMatch(/preserve.*citation/i);
       // preserveCitationIds flag passed through
