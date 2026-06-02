@@ -1145,16 +1145,21 @@ following Markdown structure:
 - <≤80 chars>
 
 Hard rules:
-1. Preserve any citation ID matching /#[ULP]-[A-Z0-9]{6,8}/ verbatim.
-2. Total output ≤ <maxOutputBytes> bytes.
-3. If a section has no entries, omit the heading.
-4. Never invent new IDs.
+1. Every bullet must be grounded in the INPUT below. Do not infer or guess
+   any fact not explicitly stated. Do not carry forward earlier summaries.
+   If unsure, omit it.
+2. Preserve any citation ID matching /#[ULP]-[A-Z0-9]{6,8}/ verbatim.
+3. Total output ≤ <maxOutputBytes> bytes.
+4. If a section has no entries, omit the heading.
+5. Never invent new IDs.
 
 INPUT:
 <the rolling-window transcript>
 ```
 
 Section structure adapted from Anthropic Claude Code's verified 9-section auto-compact pattern (per leaked source). Trimmed to **3 sections** since we're compressing memory, not full sessions.
+
+**Faithfulness/grounding rule (Task 84, 2026-06-02):** Hard rule #1 is a general anti-hallucination guard. lior-test-6's R3 recall test surfaced the Haiku compressor **inventing a fact the buffer never contained** — it wrote *"Building Claude agent Flask application"* for a project that was always FastAPI, and kept a superseded early-stage file (`app.py` after the project moved to `app/main.py`). That hallucinated summary is injected at SessionStart, so the next session reads a snapshot that **contradicts** the (correct) granular fact memory → the agent distrusts memory and re-derives the answer, defeating the whole point of recall. The original Hard rules protected citation IDs (`never invent new IDs`) but said **nothing about content faithfulness** — nothing forbade emitting facts absent from the buffer. The fix is deliberately **example-free**: naming specific categories to preserve ("framework / port / path") would only guard the one scenario that surfaced it and re-anchor the model on those types (rejected per D-36 — Lior: *"this will only work for that scenario … we are suppose to be working on a general solution"*). One general rule — *grounded in the input, never infer, never carry forward, omit if unsure* — covers every invented-fact class. The phrasing is also **domain-neutral** (no "code" assumption): the kit serves non-coding work too, so the rule and the recall instructions say "re-derive" / "from scratch", not "re-read the code". **The same rule is mirrored across all THREE compression layers** — `compress-session` (grounded in the session buffer), `daily-distill` and `weekly-curate` (grounded in the daily summaries). The third layer (`weekly-curate` → `archive.md`) was found by a full read-through of every LLM prompt, NOT by the live test — the lior-test-6 Flask hallucination only exercised the first two layers, but the weekly consolidator has the same power to invent facts, so it gets the same guard (D-36: a grep-for-symptoms audit misses prompts phrased differently; read every guardrail in full). The remaining half of Task 84 — **stale-stage supersession** (the compressor refreshing rather than accumulating superseded state) — is tracked separately in Task 84(b).
 
 **Original schema (pre-Task-83):** 4 sections — Decisions / Open Questions / **Files Touched** / Active Threads. **Task 83 (2026-06-02) dropped "Files Touched"**: the lior-test-5 live test showed it accumulating as a file-write LOG across compressions (seven un-deduped `## Files Touched` blocks made up ~50% of the injected SessionStart snapshot, burying the persona). A log of file operations is transient, low-signal, and doesn't belong in durable working memory — it degraded recall (the model re-read code instead of trusting the noisy snapshot). Removed from both `compress-session` + `daily-distill` prompts. The other three sections carry the durable signal.
 

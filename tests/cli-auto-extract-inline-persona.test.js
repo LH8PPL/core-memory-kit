@@ -201,15 +201,29 @@ describe('Task 61 — inline cross-project promotion', () => {
     expect(buildExtractionInstructions()).toContain(PERSONA_CONFIDENCE_RULE);
   });
 
-  it('the extraction prompt explicitly directs capture of ENV/config facts incl. ports + versions (Task 80)', () => {
-    // lior-test-5: the port/SDK version were never captured (Environment Notes
-    // stayed empty), so Session-2 recall re-read config.py. The trigger must
-    // name concrete config + say to capture it from the WORK, not just stated
-    // preferences — so "what port / what version" is recallable from memory.
+  it('the extraction prompt directs capture of the ENV/config-fact CLASS by its recall property, not by example (Task 80 / 80b)', () => {
+    // lior-test-5: env/config facts (the port, the SDK version) were never
+    // captured (Environment Notes stayed empty), so Session-2 recall re-read
+    // config.py. The trigger must name the CLASS — concrete config the next
+    // session would otherwise re-read the code to recover — and direct capture
+    // from the WORK, not only stated preferences.
+    //
+    // 80b / D-36: assert the general DIRECTIVE, not a literal example value.
+    // The old test matched /port 8000/ — tautological (it only checked the
+    // example string I typed was still present, asserting nothing about
+    // behavior) AND it anchored the prompt on the scenario's own values. The
+    // prompt now defines the class by property and names NO example values, so
+    // the scenario's literals must be ABSENT.
     const prompt = buildExtractionInstructions();
-    expect(prompt).toMatch(/port 8000/);
-    expect(prompt).toMatch(/version/i);
-    expect(prompt).toMatch(/from the WORK/i);
+    expect(prompt).toMatch(/setup \/ configuration facts/i); // the class is named
+    expect(prompt).toMatch(/re-derive/i);                    // defined by recall property
+    expect(prompt).toMatch(/from the WORK/i);                // capture-from-work directive
+    // No scenario-specific example values leaked back in (the over-fit guard):
+    expect(prompt).not.toMatch(/port 8000/);
+    expect(prompt).not.toMatch(/claude-agent-sdk/);
+    expect(prompt).not.toMatch(/Python 3\.13/);
+    // Domain-neutral: the kit serves non-coding work too — no "code" assumption (D-36).
+    expect(prompt).not.toMatch(/re-read the code|code re-read/i);
   });
 
   it('an EXPLICITLY-stated rule (confidence=high) promotes at trust:high — durable, user-attested (Task 78)', async () => {

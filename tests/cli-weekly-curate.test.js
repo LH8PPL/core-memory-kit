@@ -126,6 +126,23 @@ describe('Task 34 — weeklyCurate', () => {
     });
   });
 
+  describe('faithfulness/grounding rule (Task 84 / D-36)', () => {
+    it('the curate prompt carries the anti-hallucination grounding rule', async () => {
+      // weekly-curate is the THIRD compressor layer (compress-session →
+      // daily-distill → weekly-curate). The lior-test-6 Flask hallucination
+      // only exercised the first two, but this consolidator has the same
+      // power to invent facts into archive.md → it gets the same general,
+      // example-free grounding rule.
+      const now = '2026-05-28T09:00:00Z';
+      seedTodayFile('2026-05-10', '## Decisions\n- Old decision #P-A2B2C3D4\n');
+      const backend = mockBackend('## Week of 2026-05-04\n- summary', 'recent');
+      await weeklyCurate({ projectRoot, backend, now });
+      const instructions = backend.calls[0].instructions ?? '';
+      expect(instructions).toMatch(/grounded in the daily summaries/i);
+      expect(instructions).toMatch(/do not infer or add any fact not explicitly present/i);
+    });
+  });
+
   describe('34.4 #1 — 14-day fixture: first 7 moved to archive, last 7 untouched, originals deleted', () => {
     it('archives old today-*.md (>7d) and preserves current week', async () => {
       const now = '2026-05-28T09:00:00Z';

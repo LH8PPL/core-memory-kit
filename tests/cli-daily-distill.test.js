@@ -92,6 +92,19 @@ describe('Task 33 — dailyDistill', () => {
       expect(content).toContain('consolidated 7-day summary');
     });
 
+    it('the distill prompt carries the faithfulness/grounding rule (Task 84 / D-36)', async () => {
+      // Same anti-hallucination guard as compress-session: the consolidator
+      // must not invent facts absent from the daily summaries it consolidates.
+      // General rule — no example categories.
+      const now = '2026-05-28T23:00:00Z';
+      seedTodayFile(projectRoot, '2026-05-28', '## 2026-05-28\n- Decision: ship X');
+      const backend = mockBackend('## Decisions\n- summary\n');
+      await dailyDistill({ projectRoot, backend, now });
+      const instructions = backend.calls[0].instructions ?? '';
+      expect(instructions).toMatch(/grounded in the daily summaries/i);
+      expect(instructions).toMatch(/do not infer or add any fact not explicitly present/i);
+    });
+
     it('excludes today-*.md files older than 7 days', async () => {
       const now = '2026-05-28T23:00:00Z';
       // 8 days old — should be EXCLUDED.

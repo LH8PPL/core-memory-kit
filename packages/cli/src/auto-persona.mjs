@@ -117,7 +117,7 @@ export function buildClassifierInstructions() {
   return [
     'You are a persona archivist for claude-memory-kit. The input below is a set of facts captured while the user worked on ONE project.',
     '',
-    'Your job: identify ONLY the facts that express CROSS-PROJECT doctrine — how this user works EVERYWHERE (tooling habits, architecture preferences, communication style, process rules). IGNORE anything project-specific (this app\'s port, this repo\'s file names, one-off task state).',
+    'Your job: identify ONLY the facts that express CROSS-PROJECT doctrine — how this user works EVERYWHERE (tooling habits, how they structure their work, communication style, process rules). IGNORE anything specific to this ONE project (a particular value, name, or detail that would not carry to their other projects; one-off task state).',
     '',
     'For EACH cross-project fact, emit exactly one line, nothing else, in this EXACT format:',
     'PERSONA CANDIDATE | target=<FILE> | section=<SECTION> | confidence=<high|medium|low> | <one-line restatement>',
