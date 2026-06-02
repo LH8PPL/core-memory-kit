@@ -116,6 +116,27 @@ describeMaybe(`spawn-smoke: compressSession (live: ${skipReason ?? 'enabled'})`,
       throw err;
     }
 
+    // Live-jitter tolerance + graceful-degradation contract. A HAIKU_TIMEOUT
+    // means the real Anthropic API didn't return within the 50s ceiling — and
+    // that ceiling CANNOT be raised: compress runs inside the 60s SessionEnd
+    // hook (design §8.5), unlike the detached 90s auto-extract path. This is the
+    // documented live-Haiku jitter class, NOT a code regression. So instead of
+    // asserting a single live call always wins (flaky) OR ignoring the timeout
+    // (hides bugs), assert the degradation CONTRACT: on timeout the kit must
+    // leave now.md INTACT so the next session-end retries (compress-session.mjs
+    // "the next session-end retries naturally"). A genuine spawn/contract bug
+    // still fails — those surface as ENOENT/invalid-flag in the catch above, or
+    // as a non-timeout error_category here.
+    if (result.action === 'error' && result.error_category === 'haiku_timeout') {
+      const nowMdPath = join(projectRoot, 'context', 'sessions', 'now.md');
+      expect(
+        statSync(nowMdPath).size,
+        'now.md must be preserved on HAIKU_TIMEOUT so the next session-end retries',
+      ).toBeGreaterThan(0);
+      rmSync(sandbox, { recursive: true, force: true });
+      return;
+    }
+
     try {
       // Assertion #1 — action is 'compressed' (not 'error').
       // If real Haiku rejected the prompt for any reason, this fails
