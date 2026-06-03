@@ -337,20 +337,28 @@ function hc5IndexConsistency({ projectRoot }) {
       recoveryCommand: 'cmk reindex',
     };
   }
-  // Fact-file references in INDEX.md are markdown LINK TARGETS: the kit names
-  // fact files `<type>_<slug>.md` (e.g. feedback_layered.md), NOT `<id>.md`, and
-  // `cmk reindex`'s formatIndexLine writes `[slug](type_slug.md)`. Match the link
-  // target's *.md basename. (Task 85 fix: the earlier regex matched an id-shaped
-  // `[PUL]-XXXXXXXX.md` filename the kit NEVER generates, so HC-5 false-failed on
-  // every real fact file the moment one existed — surfaced lior-test-7 2026-06-03.
-  // Restricting to `](...)` link targets keeps the original intent of not
-  // false-positiving on bare prose mentions like "see also design.md".)
+  // Fact-file references in INDEX.md are markdown LINK TARGETS whose filename
+  // follows the kit's `<type>_<slug>.md` convention (e.g. feedback_layered.md) —
+  // that's what `cmk reindex`'s formatIndexLine writes: `[slug](type_slug.md)`.
+  // Match the link target's *.md basename, THEN keep only fact-file-shaped names.
+  //
+  // Two false-positives this must avoid (both real):
+  //   1. id-shaped names — the pre-Task-85 regex matched `[PUL]-XXXXXXXX.md`,
+  //      which the kit NEVER generates, so HC-5 false-FAILED "missing" on every
+  //      real fact the moment one existed (lior-test-7 2026-06-03).
+  //   2. non-fact links — a broad `](...md)` match also catches the scaffold's
+  //      own example `- [type] [Title](filename.md)` (inside an HTML comment) and
+  //      any prose link like `(design.md)`, which would false-FAIL "stale" on a
+  //      FRESH install (skill-review 2026-06-03). The `<type>_<slug>` shape
+  //      (a `type_` underscore prefix) excludes `filename.md` / `design.md` /
+  //      `0001.md` while matching every real fact file.
+  const FACT_FILE_RE = /^[a-z]+_[a-z0-9][a-z0-9-]*\.md$/i;
   const indexEntries = new Set();
   const re = /\]\(([^)]+\.md)\)/g;
   let m;
   while ((m = re.exec(indexText)) !== null) {
     const fname = m[1].split(/[\\/]/).pop(); // basename, tolerate ./ or path-prefixed links
-    if (fname && fname !== 'INDEX.md') indexEntries.add(fname);
+    if (fname && fname !== 'INDEX.md' && FACT_FILE_RE.test(fname)) indexEntries.add(fname);
   }
   const factSet = new Set(factFiles);
   const inFactsNotIndex = [...factSet].filter((f) => !indexEntries.has(f));

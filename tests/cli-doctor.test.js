@@ -377,6 +377,18 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
   });
 
   describe('HC-5 INDEX.md consistency', () => {
+    it('PASS on a freshly-scaffolded project (real INDEX.md template, 0 facts) — Task 85 regression guard', async () => {
+      // projectRoot is install()'d in beforeEach, so context/memory/INDEX.md is
+      // the REAL scaffold template — which contains an example markdown link
+      // `[Title](filename.md)` inside an HTML comment. A too-broad HC-5 regex
+      // matches that and false-fails "stale in INDEX" on a clean install. This
+      // test exercises the actual scaffold (the hand-written fixtures below do
+      // not), which is how the skill-review caught the regression.
+      const r = await runDoctor({ projectRoot, userDir });
+      const c5 = r.checks.find((c) => c.id === 'HC-5');
+      expect(c5.status).toBe('pass');
+    });
+
     it('skip when context/memory/ doesn\'t exist', async () => {
       // install() creates context/memory/ — let's remove it explicitly
       rmSync(join(projectRoot, 'context', 'memory'), { recursive: true, force: true });
