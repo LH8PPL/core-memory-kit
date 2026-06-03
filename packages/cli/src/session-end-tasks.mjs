@@ -51,7 +51,10 @@ export async function runSessionEndTasks({ projectRoot, userDir, makeBackend, no
     compressSession({ projectRoot, backend: makeBackend(), now }),
     // cooldownMs:0 — compressSession runs concurrently and would otherwise trip the
     // shared 120s Haiku cooldown gate; at SessionEnd we explicitly want persona to run.
-    autoPersona({ projectRoot, userDir, backend: makeBackend(), cooldownMs: 0, now }),
+    // source:'transcript' (Task 86c / D-44) — classify the RAW recent conversation,
+    // where standing-rule statements survive verbatim, NOT the distilled fact corpus
+    // (which strips the cross-project signal). This is what makes the cold-open work.
+    autoPersona({ projectRoot, userDir, backend: makeBackend(), cooldownMs: 0, now, source: 'transcript' }),
   ]);
   return { compressOutcome, personaOutcome };
 }

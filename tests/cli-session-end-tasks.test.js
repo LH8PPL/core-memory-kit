@@ -111,12 +111,15 @@ describe('runSessionEndTasks — concurrency (D-42 composition fix)', () => {
     );
     // cooldownMs:0 is load-bearing — without it the shared 120s Haiku cooldown
     // (touched by the concurrent compress pass) would skip persona at SessionEnd.
+    // source:'transcript' (Task 86c) — classify the raw conversation, not the
+    // distilled fact corpus.
     expect(personaMock).toHaveBeenCalledWith(
       expect.objectContaining({
         projectRoot: '/proj',
         userDir: '/userdir',
         cooldownMs: 0,
         now: '2026-06-03T00:00:00Z',
+        source: 'transcript',
       }),
     );
   });
