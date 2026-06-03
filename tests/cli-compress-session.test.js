@@ -488,6 +488,11 @@ describe('Task 22 — compressSession() boundary', () => {
       expect(prompt).toMatch(/grounded in the session buffer/i);
       expect(prompt).toMatch(/do not infer or guess any fact not explicitly stated/i);
       expect(prompt).toMatch(/do not carry forward content from earlier summaries/i);
+      // Task 84b: supersede-on-change — when the buffer corrects/replaces/reverses
+      // an earlier statement, keep ONLY the latest (don't accumulate stale state,
+      // e.g. an early-stage file path the project later moved off). Domain-neutral.
+      expect(prompt).toMatch(/corrects, replaces, or reverses/i);
+      expect(prompt).toMatch(/keep ONLY the latest version/i);
       // preserveCitationIds flag passed through
       expect(call.preserveCitationIds).toBe(true);
     });

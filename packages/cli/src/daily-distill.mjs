@@ -61,7 +61,7 @@ function buildDistillInstructions(maxOutputBytes) {
     '- <one bullet per active work-in-progress thread, ≤80 chars>',
     '',
     'HARD RULES:',
-    '  1. Every bullet must be grounded in the daily summaries below. Do not infer or add any fact not explicitly present in them. If unsure, omit it.',
+    '  1. Every bullet must be grounded in the daily summaries below. Do not infer or add any fact not explicitly present in them. When the summaries show a fact was later corrected, replaced, or reversed, keep ONLY the latest version of that fact — never list the superseded one alongside it (this resolves contradictions, NOT coexisting facts on different points). If unsure, omit it.',
     '  2. Preserve every citation ID matching /#[ULP]-[A-Z0-9]{6,8}/ verbatim. Never invent new IDs.',
     `  3. Total output ≤ ${maxOutputBytes} bytes.`,
     '  4. If a section has no entries, omit the heading entirely.',
