@@ -1,7 +1,9 @@
-// @doors: 1, 2, 4
-// Door 3 N/A: autoPersona's backend is an injected CompressorBackend (no
-//   real subprocess spawn at this boundary; the live-Haiku spawn smoke
-//   lives in the compressor's own tests + the weekly-curate hook test).
+// @doors: 1, 2, 3, 4
+// Door 3 (external calls) is asserted at the INJECTED-backend boundary: the
+//   Task 86c tests capture backend.compress's args (via classifierBackend's
+//   onCompress) to pin WHAT reached the classifier — the transcript window vs the
+//   fact corpus, and the matching framing. The REAL subprocess-spawn Door 3 lives
+//   in the compressor's own spawn-smoke + the weekly-curate hook test.
 // Door 5 N/A: no message-queue surface.
 //
 // Tests for Task 45 (auto-persona) — v0.2 Phase 2. The optimistic
