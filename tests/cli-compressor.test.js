@@ -163,7 +163,8 @@ describe('Task 23.6 — HaikuViaAnthropicApi', () => {
       expect(cmd.startsWith('claude.cmd')).toBe(true);
       expect(cmd).toContain('--print');
       expect(cmd).toMatch(/--max-turns 1\b/);
-      expect(cmd).toContain('--allowed-tools ""'); // empty arg → explicit empty token
+      expect(cmd).toContain('--tools ""'); // Task 88/D-43: the real disable-all sandbox flag
+      expect(cmd).toContain('--allowed-tools ""'); // empty arg → explicit empty token (auto-approve allowlist, defense-in-depth)
       expect(cmd).toContain('empty-mcp.json'); // MCP via tempfile path
       expect(cmd).not.toContain('{"mcpServers":{}}'); // not inline JSON
       expect(cmd).toContain('--strict-mcp-config');
@@ -176,7 +177,8 @@ describe('Task 23.6 — HaikuViaAnthropicApi', () => {
       expect(opts.shell).toBe(false); // no shell on POSIX — Node resolves PATH, args safe
       expect(args).toContain('--print');
       expect(args[args.indexOf('--max-turns') + 1]).toBe('1');
-      expect(args[args.indexOf('--allowed-tools') + 1]).toBe(''); // tightened from §6.1's "Read" to empty
+      expect(args[args.indexOf('--tools') + 1]).toBe(''); // Task 88/D-43: the real disable-all sandbox flag
+      expect(args[args.indexOf('--allowed-tools') + 1]).toBe(''); // auto-approve allowlist empty (defense-in-depth)
       const mcpConfigArg = args[args.indexOf('--mcp-config') + 1];
       expect(mcpConfigArg).not.toBe('{"mcpServers":{}}'); // file path, not inline JSON
       expect(mcpConfigArg).toMatch(/empty-mcp\.json$/);
