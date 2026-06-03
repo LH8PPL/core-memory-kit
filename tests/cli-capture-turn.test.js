@@ -602,3 +602,127 @@ describe('Task 21 — bin/cmk-capture-turn (hook handler — node bin)', () => {
     expect(existsSync(join(projectRoot, 'context', 'transcripts'))).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Task 87 — capture-turn buffers the CONVERSATION into now.md for compression
+// (the real Task 84 root). Before this, now.md was fed ONLY by observe-edit's
+// file-write lines ([ts] Write file=X lines=N), so the SessionEnd compressor
+// summarized a list of filenames → hallucinated a framework ("Flask app: app.py").
+// Now the dialogue itself reaches the compression buffer, so the summary reflects
+// what was DISCUSSED, not what files were written.
+// ---------------------------------------------------------------------------
+
+describe('Task 87 — conversation buffered to now.md', () => {
+  let sandbox;
+  let projectRoot;
+
+  beforeEach(() => {
+    const f = makeFixture();
+    sandbox = f.sandbox;
+    projectRoot = f.projectRoot;
+  });
+
+  afterEach(async () => {
+    await new Promise((res) => setTimeout(res, 300));
+    try {
+      rmSync(sandbox, { recursive: true, force: true });
+    } catch {
+      // detached child may still hold a handle — leave for the OS.
+    }
+  });
+
+  const NOW_MD = (root) => join(root, 'context', 'sessions', 'now.md');
+
+  /** Seed the prior user turn the way capture-prompt (UserPromptSubmit) would. */
+  function seedUserTurn(root, { ts, body }) {
+    const dir = join(root, 'context', 'transcripts');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, `${ts.slice(0, 10)}.md`), `## ${ts} — user\n\n${body}\n\n`, 'utf8');
+  }
+
+  it('appends BOTH the user and assistant turn text to now.md (Door 2)', () => {
+    const stub = writeAutoExtractStub(sandbox);
+    seedUserTurn(projectRoot, { ts: '2026-05-25T10:00:00Z', body: 'build a PDF converter with Docling, not Flask' });
+
+    const r = captureTurn({
+      payload: { assistant_message: 'Created convert.py using Docling DocumentConverter' },
+      projectRoot,
+      autoExtractPath: stub.path,
+      now: '2026-05-25T10:01:00Z',
+    });
+    expect(r.action).toBe('captured');
+
+    const buf = readFileSync(NOW_MD(projectRoot), 'utf8');
+    // The DIALOGUE reaches the buffer — the thing the compressor summarizes.
+    expect(buf).toMatch(/build a PDF converter with Docling/);
+    expect(buf).toMatch(/Created convert\.py using Docling/);
+    // And it carries the speaker attribution so the compressor reads it as a turn.
+    expect(buf).toMatch(/—\s*user/);
+    expect(buf).toMatch(/—\s*assistant/);
+  });
+
+  it('APPENDS to now.md without clobbering prior buffered content (over-mutation guard)', () => {
+    const stub = writeAutoExtractStub(sandbox);
+    mkdirSync(join(projectRoot, 'context', 'sessions'), { recursive: true });
+    writeFileSync(NOW_MD(projectRoot), 'PRIOR-BUFFER-CONTENT\n', 'utf8');
+    seedUserTurn(projectRoot, { ts: '2026-05-25T11:00:00Z', body: 'second turn question' });
+
+    captureTurn({
+      payload: { assistant_message: 'second turn answer' },
+      projectRoot,
+      autoExtractPath: stub.path,
+      now: '2026-05-25T11:01:00Z',
+    });
+
+    const buf = readFileSync(NOW_MD(projectRoot), 'utf8');
+    expect(buf).toMatch(/PRIOR-BUFFER-CONTENT/); // prior content preserved
+    expect(buf).toMatch(/second turn question/);
+    expect(buf).toMatch(/second turn answer/);
+  });
+
+  it('still buffers the assistant turn when no prior user turn exists (no crash)', () => {
+    const stub = writeAutoExtractStub(sandbox);
+    const r = captureTurn({
+      payload: { assistant_message: 'standalone assistant turn' },
+      projectRoot,
+      autoExtractPath: stub.path,
+      now: '2026-05-25T12:00:00Z',
+    });
+    expect(r.action).toBe('captured');
+    const buf = readFileSync(NOW_MD(projectRoot), 'utf8');
+    expect(buf).toMatch(/standalone assistant turn/);
+  });
+
+  it('caps the assistant contribution but keeps the FULL user turn (skill-review I1)', () => {
+    const stub = writeAutoExtractStub(sandbox);
+    const longAssistant = 'A'.repeat(9000); // far over the 4000 cap
+    const longUserDecision =
+      'from now on always use uv, never pip — ' + 'context '.repeat(800) + ' END-OF-USER-RULE';
+    seedUserTurn(projectRoot, { ts: '2026-05-25T14:00:00Z', body: longUserDecision });
+
+    captureTurn({
+      payload: { assistant_message: longAssistant },
+      projectRoot,
+      autoExtractPath: stub.path,
+      now: '2026-05-25T14:01:00Z',
+    });
+
+    const buf = readFileSync(NOW_MD(projectRoot), 'utf8');
+    // Assistant turn is bounded (cap + marker), so one verbose response can't bloat now.md.
+    expect(buf).toMatch(/assistant turn truncated for the session buffer/);
+    expect(buf.match(/A+/)[0].length).toBeLessThanOrEqual(4000);
+    // The USER turn is preserved IN FULL — the standing rule must never be truncated.
+    expect(buf).toMatch(/from now on always use uv, never pip/);
+    expect(buf).toMatch(/END-OF-USER-RULE/);
+  });
+
+  it('does NOT write now.md on the stop_hook_active short-circuit', () => {
+    const r = captureTurn({
+      payload: { stop_hook_active: true, assistant_message: 'should not capture' },
+      projectRoot,
+      now: '2026-05-25T13:00:00Z',
+    });
+    expect(r.action).toBe('noop');
+    expect(existsSync(NOW_MD(projectRoot))).toBe(false);
+  });
+});

@@ -139,6 +139,50 @@ function readLastUserTurnFromTranscript(transcriptPath) {
   return body.join('\n');
 }
 
+// Task 87: append the turn's CONVERSATION to the compression buffer
+// (context/sessions/now.md). Before this, now.md was fed ONLY by observe-edit's
+// file-write lines ("[ts] Write file=X lines=N"), so the SessionEnd compressor
+// summarized a list of filenames and hallucinated content the dialogue never
+// contained (lior-test-6: "Flask app: app.py" — inferred a framework from a
+// filename). Buffering the actual user+assistant turns here means the summary
+// reflects what was DISCUSSED. Same `## <ts> — speaker` shape as the transcript
+// so the compressor reads it as dialogue; now.md is truncated after each compress
+// (compress-session), so this is a transient session buffer, not a second store.
+// Best-effort: a now.md write failure must not abort the capture (the transcript
+// is already the durable record).
+// Per-turn cap on the ASSISTANT contribution to now.md (skill-review I1). compress
+// returns on cooldown BEFORE truncating now.md (compress-session §8.2), and
+// auto-extract refreshes the shared cooldown every turn — so during an active
+// session now.md is NOT truncated and accumulates. A verbose assistant response
+// (code dumps, long explanations) is far larger than the old file-write line, so
+// we bound each assistant turn's footprint. The USER turn is left FULL — it's
+// short and carries the standing rules/decisions we must not truncate. The
+// residual many-short-turns growth is bounded by the eventual truncate +
+// compress's 50s-timeout/degradation backstop; offset-based compression is the
+// v0.2.x escalation if mega-sessions ever bite.
+const NOW_MD_ASSISTANT_CAP = 4000;
+
+function appendConversationToNowMd({ projectRoot, ts, userTurn, assistantTurn }) {
+  const sessionsDir = join(projectRoot, 'context', 'sessions');
+  const nowMdPath = join(sessionsDir, 'now.md');
+  const blocks = [];
+  if (userTurn && userTurn.trim() !== '') {
+    blocks.push(`## ${ts} — user\n\n${userTurn}\n`);
+  }
+  let asst = assistantTurn ?? '';
+  if (asst.length > NOW_MD_ASSISTANT_CAP) {
+    asst = asst.slice(0, NOW_MD_ASSISTANT_CAP) + '\n…[assistant turn truncated for the session buffer]';
+  }
+  blocks.push(`## ${ts} — assistant\n\n${asst}\n`);
+  try {
+    if (!existsSync(sessionsDir)) mkdirSync(sessionsDir, { recursive: true });
+    appendFileSync(nowMdPath, blocks.join('\n') + '\n', 'utf8');
+  } catch {
+    // Best-effort — the transcript is the durable record; a missing now.md
+    // entry only means this turn isn't in the next session summary.
+  }
+}
+
 // Assemble the both-turns temp-file body. Both turns are sanitized
 // upstream — the user body comes from the transcript (which
 // capture-prompt sanitized when writing it) and the assistant body
@@ -232,6 +276,11 @@ export function captureTurn({
   //    wrote it before this Stop fired); the assistant portion is the
   //    `sanitized` text we just appended above.
   const userTurn = readLastUserTurnFromTranscript(transcriptPath);
+
+  // Task 87: buffer the conversation into now.md so the SessionEnd compressor
+  // summarizes the DIALOGUE, not observe-edit's filename log. Best-effort.
+  appendConversationToNowMd({ projectRoot, ts, userTurn, assistantTurn: sanitized });
+
   const turnFile = join(transcriptsDir, `.extract-${Date.now()}.tmp`);
   try {
     writeFileSync(
