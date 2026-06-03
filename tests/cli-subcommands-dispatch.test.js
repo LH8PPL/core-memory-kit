@@ -1,0 +1,185 @@
+// @doors: 1, 2
+// Door 3 N/A: these handlers delegate to in-process module functions. The
+//   handlers that spawn subprocesses (doctor/daily-distill/weekly-curate/
+//   compress/persona-generate/register-crons/mcp) are intentionally NOT
+//   exercised here — they have their own spawn-smoke suites — so this file
+//   stays hermetic and fast.
+// Door 4 N/A: no message-queue boundary (the interactive `queue` dispatcher
+//   uses readline and is excluded).
+// Door 5 N/A: the audit-log / NDJSON observability these handlers emit is
+//   asserted in each module's OWN suite (cli-memory-write, cli-write-fact,
+//   cli-forget, cli-trust, cli-lessons-promote); this dispatch file pins the
+//   Response + State doors of the CLI wiring.
+//
+// Task 85 follow-up: exercise the `cmk` subcommand HANDLERS in-process. The
+// dispatch layer (subcommands.mjs) is otherwise only reached by the integration
+// tests that SPAWN the real `cmk` binary, so v8 in-process coverage couldn't see
+// it (it read ~14%). These tests invoke the array's `.action` directly against a
+// sandbox, asserting the real side effects (the five-doors Response + State).
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdtempSync, rmSync, readFileSync, readdirSync, existsSync } from 'node:fs';
+import { tmpdir, homedir } from 'node:os';
+import { join } from 'node:path';
+import { subcommands } from '../packages/cli/src/subcommands.mjs';
+import { install } from '../packages/cli/src/install.mjs';
+
+const cmd = (name) => subcommands.find((s) => s.name === name);
+const child = (name, c) => cmd(name).children.find((x) => x.name === c);
+
+let sandbox, projectRoot, userDir, prevCwd, prevUserEnv, logs, errs, origLog, origErr;
+
+function memoryMd() {
+  return readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8');
+}
+function factFiles() {
+  return readdirSync(join(projectRoot, 'context', 'memory')).filter(
+    (f) => f.endsWith('.md') && f !== 'INDEX.md',
+  );
+}
+function firstFactId() {
+  const f = factFiles()[0];
+  const m = readFileSync(join(projectRoot, 'context', 'memory', f), 'utf8').match(/id:\s*([PUL]-\w+)/);
+  return m && m[1];
+}
+
+beforeEach(async () => {
+  sandbox = mkdtempSync(join(tmpdir(), 'cmk-dispatch-'));
+  projectRoot = join(sandbox, 'proj');
+  userDir = join(sandbox, 'user');
+  await install({ projectRoot, userTier: userDir, noHooks: true });
+  prevCwd = process.cwd();
+  process.chdir(projectRoot); // handlers resolve projectRoot from process.cwd()
+  prevUserEnv = process.env.MEMORY_KIT_USER_DIR;
+  process.env.MEMORY_KIT_USER_DIR = userDir; // handlers read the user tier from here
+  logs = [];
+  errs = [];
+  origLog = console.log;
+  origErr = console.error;
+  console.log = (...a) => logs.push(a.join(' '));
+  console.error = (...a) => errs.push(a.join(' '));
+  process.exitCode = 0;
+});
+
+afterEach(() => {
+  console.log = origLog;
+  console.error = origErr;
+  process.chdir(prevCwd);
+  if (prevUserEnv === undefined) delete process.env.MEMORY_KIT_USER_DIR;
+  else process.env.MEMORY_KIT_USER_DIR = prevUserEnv;
+  process.exitCode = 0;
+  rmSync(sandbox, { recursive: true, force: true });
+});
+
+describe('Task 85 — cmk subcommand handlers (in-process dispatch coverage)', () => {
+  it('remember (terse) → appends a MEMORY.md bullet', () => {
+    cmd('remember').action(['We deploy with Kamal to Hetzner, never Vercel'], {});
+    expect(memoryMd()).toContain('Kamal to Hetzner');
+    expect(logs.join('\n')).toMatch(/cmk remember/i);
+  });
+
+  it('remember (rich) → writes a granular fact file with Why/How + keeps INDEX current', () => {
+    cmd('remember').action(['FastAPI is the delivery layer; logic in services'], {
+      why: 'pay the structure cost up front',
+      how: 'thin routes; push logic into services',
+      type: 'feedback',
+      title: 'layered-architecture',
+    });
+    const files = factFiles();
+    expect(files).toHaveLength(1);
+    const content = readFileSync(join(projectRoot, 'context', 'memory', files[0]), 'utf8');
+    expect(content).toContain('**Why:**');
+    expect(content).toContain('**How to apply:**');
+    // Task 85: INDEX stays in sync on capture.
+    const index = readFileSync(join(projectRoot, 'context', 'memory', 'INDEX.md'), 'utf8');
+    expect(index).toContain(`(${files[0]})`);
+  });
+
+  it('reindex → rebuilds INDEX.md to reference existing fact files', () => {
+    cmd('remember').action(['x'], { type: 'feedback', title: 'pin-versions', why: 'a', how: 'b' });
+    const fname = factFiles()[0];
+    cmd('reindex').action({});
+    const index = readFileSync(join(projectRoot, 'context', 'memory', 'INDEX.md'), 'utf8');
+    expect(index).toContain(fname);
+  });
+
+  it('search (keyword) → finds a captured fact', () => {
+    cmd('remember').action(['We deploy with Kamal to Hetzner'], {});
+    cmd('search').action(['Kamal'], { mode: 'keyword' });
+    expect(process.exitCode ?? 0).toBe(0);
+    expect(logs.join('\n')).toMatch(/Kamal/);
+  });
+
+  it('trust → updates a fact\'s trust level', () => {
+    cmd('remember').action(['y'], { type: 'feedback', title: 'a-rule', why: 'a', how: 'b' });
+    const id = firstFactId();
+    cmd('trust').action(id, 'medium');
+    expect(logs.join('\n')).toMatch(/trust/i);
+    expect(process.exitCode ?? 0).toBe(0);
+  });
+
+  it('forget --yes → tombstones a fact', () => {
+    cmd('remember').action(['z'], { type: 'feedback', title: 'to-forget', why: 'a', how: 'b' });
+    const id = firstFactId();
+    cmd('forget').action(id, { yes: true });
+    expect(logs.join('\n')).toMatch(/tombstoned/i);
+    expect(existsSync(join(projectRoot, 'context', 'memory', 'archive', 'tombstones'))).toBe(true);
+  });
+
+  it('forget WITHOUT --yes → refuses (exit 2), nothing tombstoned', () => {
+    cmd('remember').action(['w'], { type: 'feedback', title: 'keep-me', why: 'a', how: 'b' });
+    const id = firstFactId();
+    cmd('forget').action(id, {});
+    expect(errs.join('\n')).toMatch(/--yes is required/);
+    expect(process.exitCode).toBe(2);
+    expect(factFiles()).toHaveLength(1); // untouched
+  });
+
+  it('lessons promote → routes a project fact to the user tier (promoted or queued, never hand-edit)', () => {
+    cmd('remember').action(['Always pin exact dependency versions'], {
+      type: 'feedback', title: 'pin-exact', why: 'reproducible', how: 'use ==',
+    });
+    const id = firstFactId();
+    child('lessons', 'promote').action(id, {});
+    // Either it promoted (exit 0) or queued for review (exit 3) — both are the
+    // safe path; what must NOT happen is an error/not-found.
+    expect([0, 3]).toContain(process.exitCode ?? 0);
+    expect((logs.join('\n') + errs.join('\n'))).toMatch(/lessons promote/i);
+  });
+
+  it('disable-native-memory / enable-native-memory → toggle the committable setting', () => {
+    cmd('disable-native-memory').action();
+    const settingsPath = join(projectRoot, '.claude', 'settings.json');
+    expect(JSON.parse(readFileSync(settingsPath, 'utf8')).autoMemoryEnabled).toBe(false);
+    cmd('enable-native-memory').action();
+    expect(JSON.parse(readFileSync(settingsPath, 'utf8')).autoMemoryEnabled).toBe(true);
+  });
+
+  // --- error / guard branches (cheap, but they're new code too) ---
+
+  it('remember --tier U (terse) → refuses with exit 2 (v0.1.0 writes project tier only)', () => {
+    cmd('remember').action(['a project note'], { tier: 'U' });
+    expect(errs.join('\n')).toMatch(/tier 'U' not yet supported|project tier/i);
+    expect(process.exitCode).toBe(2);
+  });
+
+  it('trust with an unknown id → not-found, exit 2', () => {
+    cmd('trust').action('P-ZZZZZZZZ', 'medium'); // validate-test-ids: ignore
+    expect(errs.join('\n')).toMatch(/cmk trust/i);
+    expect(process.exitCode).toBe(2);
+  });
+
+  it('lessons promote with an unknown id → not-found, exit 2', () => {
+    child('lessons', 'promote').action('P-ZZZZZZZZ', {}); // validate-test-ids: ignore
+    expect(errs.join('\n')).toMatch(/cmk lessons promote/i);
+    expect(process.exitCode).toBe(2);
+  });
+
+  it('reindex --full → rebuilds from scratch without error', () => {
+    cmd('remember').action(['q'], { type: 'feedback', title: 'full-reindex', why: 'a', how: 'b' });
+    cmd('reindex').action({ full: true });
+    expect(process.exitCode ?? 0).toBe(0);
+    const index = readFileSync(join(projectRoot, 'context', 'memory', 'INDEX.md'), 'utf8');
+    expect(index).toContain(factFiles()[0]);
+  });
+});
