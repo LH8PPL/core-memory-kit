@@ -31,17 +31,15 @@ void rawInput;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const compressSessionModulePath = join(__dirname, '..', 'src', 'compress-session.mjs');
+const sessionEndTasksModulePath = join(__dirname, '..', 'src', 'session-end-tasks.mjs');
 const compressorModulePath = join(__dirname, '..', 'src', 'compressor.mjs');
-const autoPersonaModulePath = join(__dirname, '..', 'src', 'auto-persona.mjs');
 
-let compressSession;
+let runSessionEndTasks;
+let summarizeSessionEnd;
 let HaikuViaAnthropicApi;
-let autoPersona;
 try {
-  ({ compressSession } = await import(pathToFileURL(compressSessionModulePath).href));
+  ({ runSessionEndTasks, summarizeSessionEnd } = await import(pathToFileURL(sessionEndTasksModulePath).href));
   ({ HaikuViaAnthropicApi } = await import(pathToFileURL(compressorModulePath).href));
-  ({ autoPersona } = await import(pathToFileURL(autoPersonaModulePath).href));
 } catch (err) {
   process.stderr.write(
     `cmk-compress-session: failed to load modules: ${err?.message ?? err}\n`,
@@ -53,32 +51,23 @@ try {
 const projectRoot = process.env.CMK_PROJECT_DIR ?? process.cwd();
 
 try {
-  const backend = new HaikuViaAnthropicApi();
-  const r = await compressSession({ projectRoot, backend });
-  process.stderr.write(
-    `cmk-compress-session: ${r.action}${r.reason ? ` (${r.reason})` : ''}${r.bytesIn ? ` (in: ${r.bytesIn}b, out: ${r.bytesOut}b)` : ''} ms: ${r.duration_ms ?? 0}\n`,
-  );
-
-  // Task 86b (D-41): run the DEDICATED persona classifier at SessionEnd over the
-  // accumulated fact list. This is the RELIABLE cross-project promotion path — a
-  // focused, single-purpose Haiku pass on the clean fact corpus, not the busy
-  // per-turn extraction call (which drops persona under load on multi-rule turns;
-  // verified lior-test-8). Primary-source pattern: Hermes runs its dedicated
-  // memory/persona review on a frequent trigger, never piggybacked. SessionEnd is
-  // the boundary so project-A's persona fills BEFORE a cold-open in project-B.
-  // cooldownMs:0 — compressSession above just touched the shared Haiku cooldown,
-  // so the default gate would skip this; at SessionEnd we explicitly want it to run.
-  // Best-effort: a failure here must never block the user closing the session.
-  try {
-    const userDir = process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
-    const p = await autoPersona({ projectRoot, userDir, backend, cooldownMs: 0 });
-    process.stderr.write(
-      `cmk-compress-session: persona ${p.action} (promoted: ${p.promoted?.length ?? 0}, queued: ${p.queued?.length ?? 0})\n`,
-    );
-  } catch (perr) {
-    process.stderr.write(`cmk-compress-session: persona refresh failed: ${perr?.message ?? perr}\n`);
+  // Task 86b + D-42: run compressSession and the dedicated autoPersona classifier
+  // CONCURRENTLY (they have disjoint inputs/outputs, so they don't race), keeping
+  // the SessionEnd wall-clock at max(~50s) under the 60s hook ceiling instead of
+  // the sequential sum (~100s). See session-end-tasks.mjs for the full rationale.
+  const userDir = process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+  const outcomes = await runSessionEndTasks({
+    projectRoot,
+    userDir,
+    makeBackend: () => new HaikuViaAnthropicApi(),
+  });
+  for (const line of summarizeSessionEnd(outcomes)) {
+    process.stderr.write(line);
   }
 } catch (err) {
+  // Defensive backstop: runSessionEndTasks uses allSettled so it should never
+  // reject, but a synchronous throw (e.g. resolving userDir) must not block the
+  // user from closing their terminal.
   process.stderr.write(
     `cmk-compress-session: unexpected error: ${err?.message ?? err}\n`,
   );
