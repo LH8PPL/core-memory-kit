@@ -24,8 +24,8 @@ The differentiator is the wedge; the rest are the quality fixes that make it *fe
 - [x] **88** — compressor `--tools ''` sandbox flag — _shipped #110_
 - [ ] **name de-identification sweep** — replace the maintainer's name in public docs before the repo gets more visible (privacy; pre-publish)
 - [ ] **manual live test** — the maintainer's clean-slate run on a fresh project (pre-tag; the cut gate per D-24)
-- [ ] **44 — CLOSE (obsolete)** — the "v0.1.0 released" checkpoint is moot (v0.1.1/0.1.2 already shipped); close during cut housekeeping
-- [ ] **status audit** — flip the stale checkboxes for already-shipped tasks so `tasks.md` reflects reality: **56** (vitest 2→4, shipped via D-33), **76 + 78** (the wedge halves — shipped), **84** parent (84a/84b done), and verify **67 / 69 / 24 / 34**
+- [x] **status audit DONE** (D-47) — flipped verified-done: **24, 34, 56, 76, 78**; closed obsolete **44**; confirmed OPEN: **67, 69, 41.4, 45.2, 47, 51** (+ 84 stays open: 84c deferred). Methodology: evidence per task, not memory.
+- [ ] **69 — skills-as-delivery / de-bloat CLAUDE.md (PULLED INTO v0.2.0; D-48)** — 5 sub-tasks: 69.0 rewrite the stale+UNSAFE memory-write skill (it hand-edits MEMORY.md, bypassing Poison_Guard = F1 leak class — **security**) · 69.1 `cmk install` scaffolds skills (route-equivalence) · 69.2 one source + drift validator · 69.3 slim the CLAUDE.md block (Anthropic <200-line; the clutter is real + user-facing) · 69.4 tests. The "test-first-then-move" precondition is MET (wedge live-verified with current CLAUDE.md). Needs a live-verify re-check (changes the delivery layer).
 
 ## v0.2.x — wedge polish (patch, no new differentiator)
 
