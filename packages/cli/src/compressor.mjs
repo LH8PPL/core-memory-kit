@@ -14,7 +14,7 @@
 // v0.2 candidates per ADR-0008: BedrockHaiku, LocalLlama; selected via
 // settings.json (`compressor.backend`).
 //
-// Sandbox flags (cd /tmp, env -u CLAUDECODE, --allowed-tools "",
+// Sandbox flags (cd /tmp, env -u CLAUDECODE, --tools "" + --allowed-tools "",
 // --max-turns 1, --mcp-config '{"mcpServers":{}}' --strict-mcp-config,
 // stdin from temp file) are absorbed from claude-remember's verified
 // pattern (see docs/research/2026-05-25-claude-remember-code-dive.md
@@ -180,13 +180,28 @@ export class HaikuViaAnthropicApi extends CompressorBackend {
     const mcpConfigPath = join(sandbox, 'empty-mcp.json');
     writeFileSync(mcpConfigPath, JSON.stringify({ mcpServers: {} }), 'utf8');
 
-    // Build claude --print invocation with the documented sandbox flags.
-    // Empty allowedTools + empty MCP config = tightest possible sandbox;
-    // the sub-Claude can only respond, not act.
+    // Build claude --print invocation with the documented sandbox flags (D-43,
+    // verified against code.claude.com/docs/en/cli-reference, Task 88).
+    //   --tools ""          → disables ALL built-in tools. This is the flag that
+    //                         actually restricts what the sub-Claude can DO ("Use
+    //                         `""` to disable all" per the CLI reference). It is the
+    //                         real sandbox: the model can only emit text.
+    //   --allowed-tools ""  → an AUTO-APPROVE allowlist (tools that run WITHOUT a
+    //                         permission prompt), NOT an availability restriction.
+    //                         Empty = nothing auto-approves; kept as defense-in-depth
+    //                         (redundant once --tools "" removes all tools, harmless).
+    //   --max-turns 1 + empty --mcp-config + --strict-mcp-config → one turn, no MCP
+    //                         tools, so even absent an approver the model can't act.
+    // (Earlier this relied on `--allowed-tools ""` alone with a comment claiming it
+    //  was the sandbox — wrong per primary source: that flag is the allowlist, not
+    //  the restriction. Live exposure was ~nil under --print+--max-turns 1, but the
+    //  flag now matches the stated intent.)
     const args = [
       '--print',
       '--model',
       this._model,
+      '--tools',
+      '',
       '--allowed-tools',
       '',
       '--max-turns',
