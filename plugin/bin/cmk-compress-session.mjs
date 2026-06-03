@@ -16,6 +16,7 @@
 //      will be compressed at the next session end).
 
 import { readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -58,11 +59,15 @@ const compressorModulePath = join(
   'compressor.mjs',
 );
 
+const autoPersonaModulePath = join(__dirname, '..', '..', 'packages', 'cli', 'src', 'auto-persona.mjs');
+
 let compressSession;
 let HaikuViaAnthropicApi;
+let autoPersona;
 try {
   ({ compressSession } = await import(pathToFileURL(compressSessionModulePath).href));
   ({ HaikuViaAnthropicApi } = await import(pathToFileURL(compressorModulePath).href));
+  ({ autoPersona } = await import(pathToFileURL(autoPersonaModulePath).href));
 } catch (err) {
   process.stderr.write(
     `cmk-compress-session: failed to load modules: ${err?.message ?? err}\n`,
@@ -79,6 +84,20 @@ try {
   process.stderr.write(
     `cmk-compress-session: ${r.action}${r.reason ? ` (${r.reason})` : ''}${r.bytesIn ? ` (in: ${r.bytesIn}b, out: ${r.bytesOut}b)` : ''} ms: ${r.duration_ms ?? 0}\n`,
   );
+
+  // Task 86b (D-41): dedicated persona classifier at SessionEnd over the clean
+  // fact list — the reliable cross-project promotion path (the per-turn extraction
+  // call drops persona under load; verified lior-test-8). cooldownMs:0 because
+  // compressSession just touched the shared Haiku cooldown. Best-effort.
+  try {
+    const userDir = process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+    const p = await autoPersona({ projectRoot, userDir, backend, cooldownMs: 0 });
+    process.stderr.write(
+      `cmk-compress-session: persona ${p.action} (promoted: ${p.promoted?.length ?? 0}, queued: ${p.queued?.length ?? 0})\n`,
+    );
+  } catch (perr) {
+    process.stderr.write(`cmk-compress-session: persona refresh failed: ${perr?.message ?? perr}\n`);
+  }
 } catch (err) {
   // Defensive: compressSession is expected to swallow backend errors
   // into the return struct, but any unanticipated throw lands here so
