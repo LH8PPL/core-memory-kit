@@ -17,6 +17,7 @@ import { join } from 'node:path';
 import { generateId } from '@lh8ppl/cmk-canonicalize';
 import { VALID_TIERS, resolveTierRoot, resolveFactDir } from './tier-paths.mjs';
 import { parse, format } from './frontmatter.mjs';
+import { reindex } from './reindex.mjs';
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { sanitizeHomePaths } from './sanitize.mjs';
@@ -243,6 +244,19 @@ export function writeFact(opts = {}) {
   mkdirSync(factDir, { recursive: true });
   const frontmatter = buildFrontmatterObject(factOpts, { id, createdAt });
   writeFileSync(path, format({ frontmatter, body: `\n${factOpts.body}\n` }), 'utf8');
+
+  // Keep INDEX.md consistent on every create — the index is a derived view of
+  // the fact files, so the writer owns keeping it current. Without this, a fresh
+  // `cmk remember` left INDEX.md stale until a manual `cmk reindex`, and
+  // `cmk doctor` HC-5 failed from the first capture (Task 85; lior-test-7
+  // 2026-06-03 — "users should get it working from the start"). Best-effort: the
+  // fact is already durably on disk, so an index-rebuild hiccup must not turn a
+  // successful capture into an error — the next reindex/search self-heals.
+  try {
+    reindex({ tier: opts.tier, projectRoot: opts.projectRoot, userDir: opts.userDir, warn: () => {} });
+  } catch {
+    // index rebuild is best-effort; capture already succeeded
+  }
 
   return { action: 'created', id, path };
 }

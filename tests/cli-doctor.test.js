@@ -385,10 +385,16 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       expect(c5.status).toBe('skip');
     });
 
+    // NOTE (Task 85): these fixtures use the kit's REAL fact-file naming
+    // `<type>_<slug>.md` (e.g. feedback_layered.md), NOT `<id>.md`. The
+    // earlier tests fixtured `P-AAAAAAAA.md` — a name the kit never generates —
+    // which is exactly why HC-5's old id-shaped regex passed CI yet false-failed
+    // on every real fact file (surfaced lior-test-7 2026-06-03). The INDEX line
+    // form matches `cmk reindex`'s formatIndexLine: `[slug](type_slug.md)`.
     it('fail when INDEX.md is missing but memory/ has fact files', async () => {
       const memoryDir = join(projectRoot, 'context', 'memory');
       mkdirSync(memoryDir, { recursive: true });
-      writeFileSync(join(memoryDir, 'P-AAAAAAAA.md'), '---\nid: P-AAAAAAAA\n---\n\nfact\n', 'utf8');
+      writeFileSync(join(memoryDir, 'feedback_layered.md'), '---\nid: P-Q7K2M9XR\n---\n\nfact\n', 'utf8');
       // No INDEX.md
       const r = await runDoctor({ projectRoot, userDir });
       const c5 = r.checks.find((c) => c.id === 'HC-5');
@@ -396,20 +402,28 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       expect(c5.recoveryCommand).toBe('cmk reindex');
     });
 
-    it('pass when INDEX.md references all fact files', async () => {
+    it('pass when INDEX.md references all fact files (real <type>_<slug>.md naming)', async () => {
       const memoryDir = join(projectRoot, 'context', 'memory');
       mkdirSync(memoryDir, { recursive: true });
-      writeFileSync(join(memoryDir, 'P-AAAAAAAA.md'), '---\nid: P-AAAAAAAA\n---\n\nfact\n', 'utf8');
-      writeFileSync(join(memoryDir, 'INDEX.md'), '# Index\n- [fact A](P-AAAAAAAA.md)\n', 'utf8');
+      writeFileSync(join(memoryDir, 'feedback_layered.md'), '---\nid: P-Q7K2M9XR\n---\n\nfact\n', 'utf8');
+      writeFileSync(
+        join(memoryDir, 'INDEX.md'),
+        '# Granular memory index — Project (P)\n\n## Files\n\n- (P-Q7K2M9XR) [feedback] [layered](feedback_layered.md) — a hook\n',
+        'utf8',
+      );
       const r = await runDoctor({ projectRoot, userDir });
       const c5 = r.checks.find((c) => c.id === 'HC-5');
       expect(c5.status).toBe('pass');
     });
 
-    it('fail when INDEX.md is stale (references missing files)', async () => {
+    it('fail when INDEX.md is stale (references a deleted fact file)', async () => {
       const memoryDir = join(projectRoot, 'context', 'memory');
       mkdirSync(memoryDir, { recursive: true });
-      writeFileSync(join(memoryDir, 'INDEX.md'), '# Index\n- [missing](P-BBBBBBBB.md)\n', 'utf8');
+      writeFileSync(
+        join(memoryDir, 'INDEX.md'),
+        '# Granular memory index — Project (P)\n\n## Files\n\n- (P-Q7K2M9XR) [feedback] [gone](feedback_gone.md) — a hook\n',
+        'utf8',
+      );
       const r = await runDoctor({ projectRoot, userDir });
       const c5 = r.checks.find((c) => c.id === 'HC-5');
       expect(c5.status).toBe('fail');

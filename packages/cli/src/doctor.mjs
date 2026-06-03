@@ -337,16 +337,20 @@ function hc5IndexConsistency({ projectRoot }) {
       recoveryCommand: 'cmk reindex',
     };
   }
-  // M2 fix (skill-review 2026-05-28): constrain the regex to fact-file
-  // id shapes (`[PUL]-XXXXXXXX.md`) so unrelated markdown links inside
-  // INDEX.md (e.g., "see also design.md") don't false-positive as fact
-  // file references. Mirrors the kit's ID_PATTERN base32 alphabet
-  // (excluding 0/O/1/l/I/8).
+  // Fact-file references in INDEX.md are markdown LINK TARGETS: the kit names
+  // fact files `<type>_<slug>.md` (e.g. feedback_layered.md), NOT `<id>.md`, and
+  // `cmk reindex`'s formatIndexLine writes `[slug](type_slug.md)`. Match the link
+  // target's *.md basename. (Task 85 fix: the earlier regex matched an id-shaped
+  // `[PUL]-XXXXXXXX.md` filename the kit NEVER generates, so HC-5 false-failed on
+  // every real fact file the moment one existed — surfaced lior-test-7 2026-06-03.
+  // Restricting to `](...)` link targets keeps the original intent of not
+  // false-positiving on bare prose mentions like "see also design.md".)
   const indexEntries = new Set();
-  const re = /\b([PUL]-[A-Za-z2-9]{8})\.md\b/g;
+  const re = /\]\(([^)]+\.md)\)/g;
   let m;
   while ((m = re.exec(indexText)) !== null) {
-    indexEntries.add(m[1] + '.md');
+    const fname = m[1].split(/[\\/]/).pop(); // basename, tolerate ./ or path-prefixed links
+    if (fname && fname !== 'INDEX.md') indexEntries.add(fname);
   }
   const factSet = new Set(factFiles);
   const inFactsNotIndex = [...factSet].filter((f) => !indexEntries.has(f));

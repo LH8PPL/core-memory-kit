@@ -60,6 +60,24 @@ describe('Task 63 — cmk remember rich mode (restore rich capture through the s
     expect(content).toContain('business logic in services');
   });
 
+  it('keeps INDEX.md current on capture — no manual `cmk reindex` needed (Task 85)', () => {
+    // Bug A (lior-test-7 2026-06-03): cmk remember wrote the fact file but left
+    // INDEX.md stale, so `cmk doctor` HC-5 failed until a manual `cmk reindex`.
+    // Capture must leave the index consistent from the first write.
+    runRememberRich(
+      'Pin exact dependency versions; never floating ranges',
+      { type: 'feedback', title: 'pin-exact-versions', why: 'reproducible builds', how: 'use == not >=' },
+      { projectRoot, log: () => {}, logError: () => {} },
+    );
+    const files = factFiles(projectRoot);
+    expect(files).toHaveLength(1);
+    const indexPath = join(projectRoot, 'context', 'memory', 'INDEX.md');
+    const index = readFileSync(indexPath, 'utf8');
+    // The INDEX must reference the real fact filename as a markdown link target.
+    expect(index).toContain(`(${files[0]})`);
+    expect(index).toContain('## Files');
+  });
+
   it('sanitizes home paths in the rich fact — the v0.1.2 leak guard still holds', () => {
     const home = homedir();
     runRememberRich(
