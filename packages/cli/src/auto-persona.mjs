@@ -100,9 +100,22 @@ function assembleProjectCorpus({ projectRoot, userDir }) {
 // Default size of the recent-transcript window handed to the SessionEnd persona
 // classifier (Task 86c / D-44). Bounded — like hermes' "conversation snapshot"
 // and claude-mem's last-message — so the focused Haiku call stays cheap and the
-// MOST RECENT turns (where standing-rule statements like "from now on …" live)
-// dominate. The classifier maxOutputBytes is 4096; the input may be larger.
-export const TRANSCRIPT_WINDOW_BYTES = 12_000;
+// MOST RECENT turns dominate. The classifier maxOutputBytes is 4096; input larger.
+//
+// RECALL vs PRECISION tradeoff (86c skill-review I1): a standing rule stated EARLY
+// in a long session ("from now on …" at turn 2, then 40 more turns) can scroll out
+// of the window — and the usual backstops don't recover it (the inline per-turn
+// path is what drops under load, the reason this dedicated pass exists; the fact
+// corpus already lost the cross-project signal per D-44). So the window must be
+// generous enough to hold a typical full session, not just the last few turns.
+// 40k chars ≈ a long session's worth of turns ≈ ~10k tokens — trivial cost for a
+// once-per-session call, and the classifier prompt's "IGNORE anything specific to
+// this ONE project" instruction guards precision at the larger size (live test:
+// clean 2/2, no false promotes). The exact bound is a lior-test-9 tuning item.
+// KNOWN LIMITATION (documented, not yet fixed): only the most-recent date-named
+// file is read, so a session spanning midnight loses the pre-midnight turns. Rare;
+// a multi-file read is the follow-up if it bites.
+export const TRANSCRIPT_WINDOW_BYTES = 40_000;
 
 // Assemble the recent-conversation window for the persona classifier (Task 86c).
 // Reads the most-recent date-named transcript (`context/transcripts/{date}.md`,
@@ -117,6 +130,14 @@ export const TRANSCRIPT_WINDOW_BYTES = 12_000;
 // project") survives only in the transcript. hermes' background_review reviews
 // "the conversation above"; claude-mem's summarize reads transcriptPath — both
 // classify the raw conversation, never distilled memory.
+//
+// Injection posture (86c skill-review NOTE): the transcript is privacy-sanitized
+// at write time (capture-turn → sanitizePrivacyTags) but NOT prompt-structure
+// sanitized, so a user could type a literal "PERSONA CANDIDATE | …" line that the
+// classifier echoes. The blast radius is bounded: it's the user's OWN single-user
+// conversation, and the promote path (promoteCandidatesToUserTier → memoryWrite)
+// is gated by VALID_TARGETS + the section-name guard + the confidence gate. A
+// self-authored persona entry is the feature, not a third-party threat.
 export function assembleTranscriptWindow({ projectRoot, maxBytes = TRANSCRIPT_WINDOW_BYTES }) {
   const dir = join(projectRoot, 'context', 'transcripts');
   if (!existsSync(dir)) return '';
