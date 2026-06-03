@@ -245,7 +245,22 @@ async function main() {
     if (KEEP) {
       log(`--keep set; sandbox preserved at ${root}`);
     } else {
-      rmSync(root, { recursive: true, force: true });
+      // Best-effort cleanup. A detached hook child (auto-extract, spawned by the
+      // Stop hook) can still hold a file handle inside the sandbox at this point,
+      // and Windows then refuses the recursive delete with EPERM. A cleanup
+      // failure must NEVER mask the wedge verdict (it threw out of finally and
+      // turned a PASS into exit 2). Retry once after a short settle, then leave
+      // the temp dir for the OS to reclaim.
+      try {
+        rmSync(root, { recursive: true, force: true });
+      } catch {
+        await new Promise((r) => setTimeout(r, 2500));
+        try {
+          rmSync(root, { recursive: true, force: true });
+        } catch (e) {
+          log(`cleanup: could not remove ${root} (${e?.code ?? e?.message}); OS will reclaim tmpdir`);
+        }
+      }
     }
   }
 
