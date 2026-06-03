@@ -147,7 +147,11 @@ describe('Task 43 — release verification (pre-publish gates)', () => {
         'utf8',
       );
       expect(packaged).toBe(src);
-      expect(packaged).toMatch(/capture RICHLY/); // the F1 lever is present
+      // The F1 rich-capture lever is present. Pin the actual flags (--why/--how)
+      // rather than a prose phrase — the wording was slimmed in Task 69.3 (the
+      // full procedure moved into the memory-write skill) but the lever stays.
+      expect(packaged).toMatch(/--why/);
+      expect(packaged).toMatch(/--how/);
     });
 
     it('packages/cli/README.md exists (the npm package landing page)', () => {

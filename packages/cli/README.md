@@ -21,11 +21,11 @@ Each route is complete on its own. **Don't run both** — they wire the same hoo
 ```bash
 npm install -g @lh8ppl/claude-memory-kit
 cd ~/my-project
-cmk install        # scaffolds context/ AND wires the lifecycle hooks into .claude/settings.json
+cmk install        # scaffolds context/ + the memory-write skill AND wires the lifecycle hooks into .claude/settings.json
 cmk doctor         # verify, then restart Claude Code
 ```
 
-`cmk install` is a complete entry point: it scaffolds `context/` and writes the 5 lifecycle hooks (PATH-resolved, cross-OS) into the project's `.claude/settings.json`. No separate `/plugin` step needed. Use `cmk install --no-hooks` for a scaffold-only install.
+`cmk install` is a complete entry point: it scaffolds `context/`, drops the `memory-write` skill into `.claude/skills/` (committed — travels with `git clone`), and writes the 5 lifecycle hooks (PATH-resolved, cross-OS) into the project's `.claude/settings.json`. No separate `/plugin` step needed. Use `cmk install --no-hooks` for a scaffold-only install.
 
 > Installing the package globally adds the `cmk` CLI **and** the installer. It's the `cmk install` *subcommand* that wires the hooks — not the bare `npm install`.
 
@@ -46,7 +46,7 @@ Most-used commands (full list via `cmk --help`):
 
 | Command | Purpose |
 | --- | --- |
-| `cmk install` | Scaffold `context/` + `.gitignore` + CLAUDE.md block + wire hooks (`--no-hooks` for scaffold-only) |
+| `cmk install` | Scaffold `context/` + the `memory-write` skill + `.gitignore` + CLAUDE.md block + wire hooks (`--no-hooks` for scaffold-only) |
 | `cmk doctor` | Run HC-1..HC-9 health checks, surface repair commands |
 | `cmk repair --hooks` / `--locks` / `--index` / `--all` | Idempotent self-repair |
 | `cmk search "<query>" [--mode keyword\|semantic\|hybrid]` | Search accumulated memory (keyword default) |

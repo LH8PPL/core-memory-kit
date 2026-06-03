@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Added
+
+- **`cmk install` now scaffolds the `memory-write` skill into your project (Task 69).** Both delivery routes — the npm `cmk install` and the Claude Code plugin — now ship the same Claude Code skill at `.claude/skills/memory-write/`, so it travels with `git clone`. The skill is what makes explicit capture work: when you say "remember this", "from now on…", "I prefer…", or "we decided…", Claude saves it through `cmk remember` (the safe path — Poison_Guard secret-screen, home-path sanitization, dedup, audit). A drift guard (`validate-skill-sources.mjs`, run on every test) keeps the two routes byte-identical.
+
+### Changed
+
+- **The scaffolded `memory-write` skill is now safe, and the scaffolded `CLAUDE.md` is leaner (Task 69, security).** The old skill granted itself `Edit`/`Write` and told Claude to **hand-edit** `MEMORY.md`/`USER.md` directly — bypassing the secret-screen and home-path sanitization (the same class as the v0.1.2 username-leak). The rewritten skill grants only `Bash(cmk remember *)` / `Bash(cmk forget *)` / `Read`, routes every write through `cmk`, and carries a hard "NEVER hand-edit memory files" gate. The memory-write *procedure* moved out of the appended `CLAUDE.md` block (now 4 invariant facts + a pointer to the skill) and into the skill itself, where it loads only when needed — your `CLAUDE.md` stays shorter and the kit stops competing with your own instructions.
+
 ## [0.2.0] — 2026-05-31
 
 v0.2 — automatic memory + "Claude stays consistent." Entries accrue here as features merge to `main`; they ship when v0.2 is published.

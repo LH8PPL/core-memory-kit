@@ -1,41 +1,76 @@
 ---
-description: Save a durable fact to MEMORY.md (Active Threads / Environment Notes / Pending Decisions) or USER.md (About / Preferences / Working Style). Calls memoryWrite() which gates writes through Poison_Guard and enforces the per-file cap.
-when_to_use: |
-  Phrase triggers from the user — "remember this", "remember that", "note this", "note that", "save this", "save that", "update memory", "forget about", "from now on", "going forward", "i prefer", "i don't like", "we decided", "we agreed".
-  Action inferred from context:
-    add     → save a new fact (default)
-    replace → "update memory: X is now Y" / "change X to Y"
-    remove  → "forget about X" (requires confirmation)
-allowed-tools: Read Edit Write
+name: memory-write
+description: Captures a durable fact to project memory by running `cmk remember`, the kit's safe write path (Poison_Guard secret/injection screening + home-path sanitization + dedup + conflict detection). Use when the user says "remember this", "note this", "save this", "from now on", "going forward", "I prefer", "I don't like", "we decided", "we agreed", or otherwise states a durable preference, decision, or environment fact worth carrying across sessions. Also covers correcting a saved fact ("update memory: X is now Y") and removing one ("forget about X"). Skip throwaway chatter and facts that only matter to the current task.
+allowed-tools: Bash(cmk remember *) Bash(cmk forget *) Read
 ---
 
-# memory-write
+# Capturing durable memory
 
-Invokes the `memoryWrite()` module (`packages/cli/src/memory-write.mjs`) — the same public boundary the auto-extract subagent uses. Both paths run through Poison_Guard (`packages/cli/src/poison-guard.mjs`) before any write touches disk.
+Durable facts — preferences, decisions, environment state — are saved by running
+the kit's CLI. The CLI is the only safe way to write memory.
 
-## Routing
+## MUST / NEVER
 
-| Content | File | Section |
-|---|---|---|
-| In-flight work, recent decisions | `context/MEMORY.md` | `## Active Threads` |
-| Tool versions, paths, config | `context/MEMORY.md` | `## Environment Notes` |
-| Unresolved questions | `context/MEMORY.md` | `## Pending Decisions` |
-| Who the user is | `context/USER.md` | `## About` |
-| What the user prefers | `context/USER.md` | `## Preferences` |
-| How the user works | `context/USER.md` | `## Working Style` |
+- **MUST** capture every durable fact by running `cmk remember` (or `cmk forget`
+  to remove). Run the command as shown; do not modify its shape.
+- **NEVER** hand-edit `context/MEMORY.md`, `context/USER.md`, or any file under
+  `context/memory/`. Direct edits bypass secret screening and home-path
+  sanitization and can leak a credential or a local path into a committed file.
+- **Silent on success.** Do not announce "saved to memory" unless the user asked.
 
-Default if unsure: `MEMORY.md § Active Threads`.
+## Capture a fact (default)
 
-## Actions
+```
+cmk remember "<the fact, one sentence>"
+```
 
-- **add** — append a new bullet under the resolved section.
-- **replace** — find existing bullet by substring (`oldText`), strip it, append the new text. Atomic: rollback if Poison_Guard rejects the new text.
-- **remove** — find by substring, tombstone to `archive/tombstones/<id>.md`, strip from the scratchpad. `confirmRemove: true` is required — silent default-true would be an accident-prone footgun.
+Writes a bullet to `context/MEMORY.md`. Use it for in-flight work, decisions,
+tool versions, paths, and environment facts.
 
-## Constraints
+When the fact is not active work, pick its section:
 
-- ≤200 chars per bullet.
-- Poison_Guard rejects secrets and prompt-injection patterns before write; the rejection is logged with the cleartext redacted.
-- The per-file cap is enforced by `appendScratchpadBullet`. At >95% utilization it consolidates stale low-trust bullets first; if the result still exceeds the cap, the write fails with `errorCategory: 'cap_exceeded'` rather than silently truncating.
-- Silent on success — no confirmation message unless the user explicitly asked.
-- For typed durable facts that need rationale (`**Why:**` + `**How to apply:**`), use a granular file at `context/memory/<type>_<slug>.md` instead — `memoryWrite()` is for scratchpad bullets.
+```
+cmk remember "<fact>" --section "Environment Notes"
+```
+
+Sections: `Active Threads` (default), `Environment Notes`, `Pending Decisions`.
+
+## Capture a fact WITH rationale (preferences, working style, lasting rules)
+
+When the fact carries a reason or a how-to — a user preference, a working-style
+rule, a project constraint — capture it richly so the reasoning survives:
+
+```
+cmk remember "<headline>" --type <type> --why "<why it holds>" --how "<how to apply it>" --title "<short title>"
+```
+
+`--type` is one of:
+
+- `feedback` — how the user wants you to work
+- `user` — who the user is (role, expertise)
+- `project` — an ongoing goal or constraint
+- `reference` — a pointer to an external resource (URL, ticket, dashboard)
+
+This writes a granular fact file with the rationale attached, not just a bullet.
+
+## Correct a fact
+
+Capture the corrected version with `cmk remember`, then remove the stale entry
+with `cmk forget` (below) if it is now wrong. Do not hand-edit the old bullet.
+
+## Remove a fact
+
+After confirming with the user (never remove a fact they did not ask to forget):
+
+```
+cmk forget "<substring or citation id>" --yes --reason "<why>"
+```
+
+Tombstones the fact — it keeps an audit trail and is never a silent delete.
+
+## What NOT to capture
+
+- Throwaway chatter ("user said hi").
+- Facts about the current task only — those die with the task; they are not memory.
+- Anything you would not want committed to git. Poison_Guard screens secrets, but
+  do not lean on it as the first line of defense.

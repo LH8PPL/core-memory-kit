@@ -50,7 +50,7 @@ npm install -g @lh8ppl/claude-memory-kit
 
 # 2. Inside a project, scaffold + wire hooks in one step
 cd ~/my-project
-cmk install            # scaffolds context/ AND wires the hooks into .claude/settings.json
+cmk install            # scaffolds context/ + the memory-write skill AND wires the hooks into .claude/settings.json
 
 # 3. (optional) Register cron jobs — Layer 6 falls back to lazy-on-read if skipped
 cmk register-crons
@@ -60,7 +60,7 @@ cmk register-crons
 cmk doctor
 ```
 
-`cmk install` is a complete entry point: it scaffolds `context/` and writes the 5 lifecycle hooks (PATH-resolved, cross-OS) into the project's `.claude/settings.json`. No separate `/plugin` step needed.
+`cmk install` is a complete entry point: it scaffolds `context/`, drops the `memory-write` skill into `.claude/skills/` (committed — it travels with `git clone`), and writes the 5 lifecycle hooks (PATH-resolved, cross-OS) into the project's `.claude/settings.json`. No separate `/plugin` step needed.
 
 Step 3 (cron) is **optional** — skip it and the kit falls back to lazy-on-read compression on its own. For that and every other command — search, self-repair, `cmk persona generate`, native-memory coexistence (`cmk disable-native-memory`), and more — see the **[full CLI reference → `docs/CLI.md`](docs/CLI.md)**.
 
@@ -112,6 +112,11 @@ context/
 ├── sessions/          ← rolling compression: now → today → recent → archive
 ├── transcripts/       ← raw Stop-hook session captures
 └── .locks/, .index/   ← gitignored runtime (audit log, SQLite cache)
+
+.claude/
+├── settings.json      ← the 5 lifecycle hooks (PATH-resolved, cross-OS)
+└── skills/
+    └── memory-write/SKILL.md   ← safe capture skill — routes writes through `cmk` (committed, travels with git clone)
 ```
 
 ## Layers
@@ -136,7 +141,7 @@ Most-used commands below; **full reference with examples: [`docs/CLI.md`](docs/C
 
 | Command | Purpose |
 | --- | --- |
-| `cmk install` | Scaffold `context/` + add `.gitignore` lines + drop CLAUDE.md block + wire hooks into `.claude/settings.json` (complete entry point; `--no-hooks` for scaffold-only) |
+| `cmk install` | Scaffold `context/` + the `memory-write` skill (`.claude/skills/`) + add `.gitignore` lines + drop CLAUDE.md block + wire hooks into `.claude/settings.json` (complete entry point; `--no-hooks` for scaffold-only) |
 | `cmk doctor` | Run HC-1..HC-9 health checks, surface repair commands |
 | `cmk repair --hooks` / `--locks` / `--index` / `--all` | Idempotent self-repair |
 | `cmk roll --scope now\|today\|recent` | Manually trigger one of the compression pipelines |

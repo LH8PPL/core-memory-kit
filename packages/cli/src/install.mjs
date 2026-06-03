@@ -301,6 +301,23 @@ export async function install(options = {}) {
   installTier(join(templateDir, 'local'), join(projectRoot, 'context.local'), { created, skipped, errors, vars });
   installTier(join(templateDir, 'user'), userTier, { created, skipped, errors, vars });
 
+  // Skills — Task 69. Scaffold the kit's Claude Code skills from
+  // template/.claude/skills/ into <projectRoot>/.claude/skills/. This is what
+  // makes model-invoked capture (the memory-write skill) ship with the npm
+  // `cmk install` route, not only the plugin route — route-equivalence per
+  // design §1.3. Same boundary as the tiers: idempotent skip-existing +
+  // over-mutation-safe (a hand-edited skill survives a re-install). The skill
+  // files carry no {{placeholders}}, so renderTemplate is a byte-passthrough.
+  const skillsSrc = join(templateDir, '.claude', 'skills');
+  if (existsSync(skillsSrc)) {
+    installTier(skillsSrc, join(projectRoot, '.claude', 'skills'), {
+      created,
+      skipped,
+      errors,
+      vars,
+    });
+  }
+
   const gitignore = injectGitignore(projectRoot, buildGitignoreBlock(templateDir));
 
   // CLAUDE.md loader block — Task 4. Read the block content from the kit's

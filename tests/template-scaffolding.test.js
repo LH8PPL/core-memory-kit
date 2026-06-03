@@ -134,7 +134,9 @@ describe('Task 1 — template/ scaffolding', () => {
     it('still warns against hand-writing fact files (the v0.1.2 safety guard stays)', () => {
       // Rich capture must go THROUGH cmk remember (sanitizer + Poison_Guard),
       // not by hand-writing files under context/memory/ (the username-leak class).
-      expect(tpl()).toMatch(/NOT hand-write files under `context\/memory\/`/i);
+      // Wording slimmed in Task 69.3 (the full procedure moved into the
+      // memory-write skill); the hand-edit warning + the path stay.
+      expect(tpl()).toMatch(/never hand-write[^\n]*context\/memory\//i);
     });
   });
 });
