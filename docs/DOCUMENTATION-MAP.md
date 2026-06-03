@@ -35,6 +35,7 @@ A session that has lost all memory must be able to read **only the three spine f
 | [`ARCHITECTURE.md`](../ARCHITECTURE.md) | Six-layer design, for users. |
 | [`docs/CLI.md`](CLI.md) | Full `cmk` command reference. |
 | [`CHANGELOG.md`](../CHANGELOG.md) | Per-release "what shipped" (cut via `npm run release`). |
+| [`docs/RELEASE-PLAN.md`](RELEASE-PLAN.md) | Forward complement to CHANGELOG: which version each task ships in (release lanes + the one-differentiator-per-minor rule). |
 | [`SECURITY.md`](../SECURITY.md) | Threat model + disclosure contact. |
 | [`HEALTH-CHECKS.md`](../HEALTH-CHECKS.md) | HC-* diagnostics + self-repair. |
 | [`INSTALL-windows.md`](../INSTALL-windows.md) · [`INSTALL-macos.md`](../INSTALL-macos.md) · [`INSTALL-linux.md`](../INSTALL-linux.md) | Per-OS install guides. |

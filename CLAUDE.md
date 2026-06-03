@@ -80,6 +80,7 @@ The user (Lior) is direct and tight on time. Match the energy.
   | Chronological decision/issue/bug/fix paper trail (the spine that ties the others together) | [`docs/journey/DECISION-LOG.md`](docs/journey/DECISION-LOG.md) |
   | **User-facing capability surface (what the kit can do, for a new user)** | [`README.md`](README.md) "What it does" + "CLI" sections AND [`packages/cli/README.md`](packages/cli/README.md) (the npm landing page) |
   | **Per-release "what shipped" record** | [`CHANGELOG.md`](CHANGELOG.md) |
+  | **Which version each task ships in (release lanes + the one-differentiator-per-minor rule)** | [`docs/RELEASE-PLAN.md`](docs/RELEASE-PLAN.md) |
   | Stable project rules + verification disciplines + working style + anti-patterns | this file (`CLAUDE.md`) |
   | Test count / suite state | **Not tracked.** Derived from `npm test`. Snapshot, not state. |
 

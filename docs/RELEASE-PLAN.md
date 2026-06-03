@@ -1,0 +1,67 @@
+# Release plan — task → version map
+
+> **Single source of truth for WHICH version each task ships in.** When deciding "what version does task X go in?", this file answers it. `tasks.md` holds task DETAIL + checkbox state; this file holds the version LANE. Update it in the same batch whenever a task's target version changes.
+
+## How we decide version (the rule — D-24)
+
+Each **MINOR** version (0.X.0) ships exactly **ONE differentiator** — a "wow" a user can feel — then: build → live-test (`npm run live-verify` + a manual run) → publish → next. **PATCH** versions (0.2.X) are polish / fixes / follow-ups to the *current* wow, with **no** new differentiator. **Breadth** features (other agents, team features) are valuable but off the wow-path → a later minor.
+
+The wows, in order (D-25 video-parity, D-26 the three wows):
+
+- **v0.2.0 — THE WEDGE**: cross-project persona cold-open. Open Claude on a brand-new project and it already knows how you work.
+- **v0.3.0 — RECALL + CONSISTENCY**: "what did we decide & why, weeks ago?" + Claude notices and reconciles when it contradicts itself (D-26 #2 + #3).
+- **v0.4.0+ — BREADTH**: other coding agents, team/shared features.
+
+---
+
+## v0.2.0 — the wedge (cutting now)
+
+The differentiator is the wedge; the rest are the quality fixes that make it *feel* right (D-25).
+
+- [x] **86** — wedge multi-rule promote (concurrent SessionEnd + transcript classifier) — _shipped #107_
+- [x] **87** — compression input = the conversation, not file-write logs — _shipped #108_
+- [x] **84b** — supersede stale state across the 3 compression layers — _shipped #109_
+- [x] **88** — compressor `--tools ''` sandbox flag — _shipped #110_
+- [ ] **name de-identification sweep** — replace the maintainer's name in public docs before the repo gets more visible (privacy; pre-publish)
+- [ ] **manual live test** — the maintainer's clean-slate run on a fresh project (pre-tag; the cut gate per D-24)
+- [ ] **44 — CLOSE (obsolete)** — the "v0.1.0 released" checkpoint is moot (v0.1.1/0.1.2 already shipped); close during cut housekeeping
+- [ ] **status audit** — flip the stale checkboxes for already-shipped tasks so `tasks.md` reflects reality: **56** (vitest 2→4, shipped via D-33), **76 + 78** (the wedge halves — shipped), **84** parent (84a/84b done), and verify **67 / 69 / 24 / 34**
+
+## v0.2.x — wedge polish (patch, no new differentiator)
+
+- **84c** — de-bias scaffold seed examples (cosmetic; seed-ID regen ripple)
+- **72** — user-tier portability across machines (the wedge's cross-machine half)
+- **73** — upgrade/repair: re-render stale placeholders in existing tiers
+- **68** — weekly-curate LLM-semantic scratchpad pruning
+- **70** — inject/output injection-defense (memory-poisoning defense-in-depth)
+- **47** — `cmk doctor --repair` (prompt-then-install per failed HC)
+- **52** — dogfood the kit on its own repo (the meta-fix for "we kept losing context")
+- **48** — promote ask-before-install rule to a proper NFR (doc/requirements housekeeping)
+- **77** — rename `specs/v0.1.0/` → `specs/` (the version-named folder is a misnomer; touches many links)
+- **45.1–45.4** — persona manual controls (surface / `cmk persona accept|reject` / auto-apply / hand-curated conflict — verify which already shipped via the wedge work)
+- **live-verify `--permission-mode`** — let project-A actually write files in the harness (Task 89 enhancement)
+
+## v0.3.0 — recall + consistency (the next wow)
+
+- **65** — Layer-5b semantic recall (the video's "recall is the most important function")
+- **75** — recall TRIGGER: make the agent actively USE memory when it needs old context (D-35 active recall)
+- **51** — index session-rollup + transcript files for search
+- **57 / 58 / 59** — capture Claude's stated positions as decision-facts + inject a "recent decisions" digest + contradiction reconciliation (Phase 3)
+- **F-D** — fact-layer auto-supersede (semantic contradiction between captured facts, e.g. uv-vs-venv)
+- **66** — temporal validity (facts stay true / age out correctly)
+- **71** — external-drift guard (detect + refuse hand-edits to memory)
+- **74** — re-inject memory after compaction (PreCompact hook)
+- **46** — `cmk install --with-semantic` (semantic-backend bootstrap; pairs with 65)
+
+## v0.4.0+ — breadth
+
+- **50** — cross-agent install (`cmk install --ide cursor|codex|gemini-cli`)
+- **55** — behavioral pattern detection + promotion ("learn how I work," not just facts)
+
+---
+
+## Notes
+
+- **This file is authoritative for the version LANE.** A task's full detail + checkbox state lives in [`specs/v0.1.0/tasks.md`](../specs/v0.1.0/tasks.md); its narrative in the journey log; its version assignment here.
+- **F-D and 84c were deferred from v0.2.0** (2026-06-03): F-D is the v0.3 semantic-contradiction engine (didn't break recall; 84b covers the summary layer); 84c is cosmetic placeholder text. Both are zero-ripple leaves — nothing depends on them.
+- When a new finding/task appears, assign it a lane HERE in the same batch, so version decisions stop being ad-hoc.
