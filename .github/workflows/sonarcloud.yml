@@ -7,6 +7,14 @@
 # NOTE: CI-based analysis is mutually exclusive with SonarCloud "Automatic
 # Analysis" — the latter must be OFF in the project settings (the GitHub-Action
 # onboarding turns it off). SONAR_TOKEN is a repo Actions secret.
+#
+# KNOWN-RED (D-39): the "SonarCloud Code Analysis" gate check stays ERROR on
+# `new_security_hotspots_reviewed` — 27 false-positive hotspots (internal-only
+# regexes / provenance sha1 / fixed-binary spawns). ACCEPTED as cosmetic: it never
+# blocks a merge, and real security is gated green by CodeQL + gitleaks +
+# osv-scanner + npm-audit. The clean fix (remove that one gate condition) is
+# paywalled on SonarCloud's free tier. Do NOT NOSONAR-sweep or upgrade to green it.
+# See docs/journey/DECISION-LOG.md D-39.
 name: SonarCloud
 
 on:
