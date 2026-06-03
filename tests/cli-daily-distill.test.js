@@ -103,6 +103,11 @@ describe('Task 33 — dailyDistill', () => {
       const instructions = backend.calls[0].instructions ?? '';
       expect(instructions).toMatch(/grounded in the daily summaries/i);
       expect(instructions).toMatch(/do not infer or add any fact not explicitly present/i);
+      // Task 84b: supersede-on-change at the rollup layer — when daily summaries
+      // show a fact was later corrected/replaced/reversed, keep ONLY the latest
+      // (don't accumulate cross-day stale state). Domain-neutral, example-free.
+      expect(instructions).toMatch(/corrected, replaced, or reversed/i);
+      expect(instructions).toMatch(/keep ONLY the latest version/i);
     });
 
     it('excludes today-*.md files older than 7 days', async () => {

@@ -140,6 +140,10 @@ describe('Task 34 — weeklyCurate', () => {
       const instructions = backend.calls[0].instructions ?? '';
       expect(instructions).toMatch(/grounded in the daily summaries/i);
       expect(instructions).toMatch(/do not infer or add any fact not explicitly present/i);
+      // Task 84b: supersede-on-change at the archive layer — keep ONLY the latest
+      // when a fact was later corrected/replaced/reversed across days. Example-free.
+      expect(instructions).toMatch(/corrected, replaced, or reversed/i);
+      expect(instructions).toMatch(/keep ONLY the latest version/i);
     });
   });
 

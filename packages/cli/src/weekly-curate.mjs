@@ -72,7 +72,7 @@ function buildCurateInstructions(archiveMaxBytes) {
     'Under each week heading, emit bullets that summarize the work across the days in that week. Each bullet is a single line ≤120 chars. Bullets within a week appear in chronological order.',
     '',
     'HARD RULES:',
-    '  1. Every bullet must be grounded in the daily summaries below. Do not infer or add any fact not explicitly present in them. If unsure, omit it.',
+    '  1. Every bullet must be grounded in the daily summaries below. Do not infer or add any fact not explicitly present in them. When the summaries show a fact was later corrected, replaced, or reversed, keep ONLY the latest version of that fact — never list the superseded one alongside it (this resolves contradictions, NOT coexisting facts on different points). If unsure, omit it.',
     '  2. Preserve every citation ID matching /#[ULP]-[A-Z0-9]{6,8}/ verbatim. Never invent new IDs.',
     `  3. Total output ≤ ${archiveMaxBytes} bytes.`,
     '  4. Deduplicate aggressively: if the same fact appears across multiple days, emit it ONCE. The deterministic dedup pass after your output will collapse exact-after-canonical duplicates; YOUR job is to catch the looser semantic duplicates (paraphrases, restatements).',

@@ -93,7 +93,7 @@ function buildCompressionInstructions(maxOutputBytes) {
     '- <one bullet per work-in-progress thread the next session should resume, ≤80 chars>',
     '',
     'HARD RULES:',
-    '  1. Every bullet must be grounded in the session buffer below. Do not infer or guess any fact not explicitly stated in the buffer. Do not carry forward content from earlier summaries. If unsure, omit it.',
+    '  1. Every bullet must be grounded in the session buffer below. Do not infer or guess any fact not explicitly stated in the buffer. Do not carry forward content from earlier summaries. When the buffer corrects, replaces, or reverses something stated earlier, keep ONLY the latest version of that fact — never list the superseded one alongside it (this resolves contradictions, NOT coexisting facts on different points). If unsure, omit it.',
     '  2. Preserve every citation ID matching /#[ULP]-[A-Z0-9]{6,8}/ verbatim. Never invent new IDs.',
     `  3. Total output ≤ ${maxOutputBytes} bytes.`,
     '  4. If a section has no entries, omit the heading entirely (do not emit an empty heading).',
