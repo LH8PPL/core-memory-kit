@@ -1208,6 +1208,22 @@ Selected per the composition-verification rule: tight enough that the catch + fi
 
 Headroom is sized generously because catch/finally on Windows can include filesystem operations whose latency varies with disk state. The 5s lower bound for the Stop hook path is the binding constraint — auto-extract has more cleanup work (lock file, sandbox tempfile, NDJSON write) than compress-session.
 
+#### Two Haiku calls under ONE ceiling — the SessionEnd composition (Task 86b / D-42)
+
+**Tail-appended 2026-06-03.** Task 86b added a SECOND `claude --print` call inside the SessionEnd hook — the dedicated `autoPersona` classifier (D-41) runs alongside `compressSession`. Both carry the same 50,000ms inner `timeoutMs`. Naively chaining them is a **composition bug**: `50s + 50s = 100s` worst-case sequential wall-clock blows the 60s SessionEnd ceiling, so the OS SIGKILLs the parent mid-`autoPersona` — dropping `{"continue": true}` AND risking a half-written **user-tier** INDEX (HC-5 corruption, shared across every project). Each call is correct against the ceiling alone (50 < 60); only their sequential *composition* is broken — the same separately-correct-jointly-broken class this whole section exists for.
+
+**Resolution: run them CONCURRENTLY, not sequentially.** [`session-end-tasks.mjs`](../../packages/cli/src/session-end-tasks.mjs) `runSessionEndTasks()` fires both via `Promise.allSettled`, so the wall-clock is `max(50s, 50s) ≈ 50s` — back under the 60s ceiling with the same 10s headroom as the single-call case. This is safe because the two passes are **independent** (verified, not assumed):
+
+| | `compressSession` | `autoPersona` |
+| --- | --- | --- |
+| Reads | `sessions/now.md` (session buffer) | `context/memory/*.md` fact corpus (written per-turn by auto-extract, NOT by compress) |
+| Writes | `sessions/today-*.md`, `compress.log`, truncates `now.md` | user-tier scratchpads (USER/HABITS/LESSONS), `audit.log`, review queue |
+| Locks | none on the persona tree | none on the session tree |
+
+Disjoint inputs, disjoint outputs, no shared lock → no race. Each pass gets its OWN `HaikuViaAnthropicApi` instance (a `makeBackend` factory) so there is zero shared mutable state across the concurrent calls. `autoPersona` is invoked with `cooldownMs: 0` because the concurrent `compressSession` touches the shared 120s Haiku cooldown marker, which would otherwise gate persona out at SessionEnd. `allSettled` (not `all`) keeps both best-effort: a failure in one never discards the other's result and never rejects up into the hook (a thrown SessionEnd hook blocks the user from closing their terminal).
+
+**Why concurrent-in-hook over the originally-planned detached spawn (D-41 → D-42 pivot):** a detached child would dodge the ceiling but (1) re-introduces the [Task 81](tasks.md) Windows console-flash class, (2) gives no completion guarantee before a cold-open in the next project — the persona must be on disk when project-B opens — and (3) adds an untestable detached-bin surface. Concurrency gets the ceiling-fit without any of those costs. Deterministic concurrency proof (event-ordering, not wall-clock) in [`tests/cli-session-end-tasks.test.js`](../../tests/cli-session-end-tasks.test.js).
+
 #### error_category disambiguation in logs
 
 `extract.log` and `compress.log` entries now distinguish `haiku_timeout` from `haiku_failed`:
