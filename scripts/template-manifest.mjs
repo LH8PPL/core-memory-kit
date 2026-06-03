@@ -36,6 +36,9 @@ export const requiredDirs = [
   { path: 'template/support/scripts', description: 'shipped scripts (auto-extract, register-crons, etc.)' },
   { path: 'template/support/cron-jobs', description: 'cron job definitions for daily/weekly/nightly' },
   { path: 'template/support/milvus-deploy', description: 'optional Milvus vector store deploy' },
+  { path: 'template/.claude', description: 'Claude Code config scaffolded into <project>/.claude/' },
+  { path: 'template/.claude/skills', description: 'skills scaffolded by cmk install (Task 69)' },
+  { path: 'template/.claude/skills/memory-write', description: 'the memory-write skill (canonical source)' },
 ];
 
 /** @type {ManifestFile[]} */
@@ -64,6 +67,12 @@ export const requiredFiles = [
   { path: 'template/user/HABITS.md.template', description: 'cross-project working style (≤1,800 chars)' },
   { path: 'template/user/LESSONS.md.template', description: 'cross-project lessons (≤1,800 chars)' },
   { path: 'template/user/fragments/INDEX.md.template', description: 'user-tier pointer index' },
+
+  // Skills (Task 69) — scaffolded by cmk install into <project>/.claude/skills/.
+  // Plain .md (no .template suffix; no placeholders). Canonical source mirrored
+  // to plugin/skills/ by scripts/sync-plugin-skills.mjs; guarded by
+  // scripts/validate-skill-sources.mjs.
+  { path: 'template/.claude/skills/memory-write/SKILL.md', description: 'memory-write skill — safe cmk-routed capture' },
 ];
 
 /** Flatten to absolute-like paths for grep-friendly output. */
