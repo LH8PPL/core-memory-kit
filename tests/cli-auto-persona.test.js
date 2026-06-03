@@ -1,7 +1,9 @@
-// @doors: 1, 2, 4
-// Door 3 N/A: autoPersona's backend is an injected CompressorBackend (no
-//   real subprocess spawn at this boundary; the live-Haiku spawn smoke
-//   lives in the compressor's own tests + the weekly-curate hook test).
+// @doors: 1, 2, 3, 4
+// Door 3 (external calls) is asserted at the INJECTED-backend boundary: the
+//   Task 86c tests capture backend.compress's args (via classifierBackend's
+//   onCompress) to pin WHAT reached the classifier — the transcript window vs the
+//   fact corpus, and the matching framing. The REAL subprocess-spawn Door 3 lives
+//   in the compressor's own spawn-smoke + the weekly-curate hook test.
 // Door 5 N/A: no message-queue surface.
 //
 // Tests for Task 45 (auto-persona) — v0.2 Phase 2. The optimistic
@@ -15,7 +17,13 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { autoPersona, promoteCandidatesToUserTier } from '../packages/cli/src/auto-persona.mjs';
+import {
+  autoPersona,
+  promoteCandidatesToUserTier,
+  assembleTranscriptWindow,
+  buildClassifierInstructions,
+  PERSONA_CONFIDENCE_RULE,
+} from '../packages/cli/src/auto-persona.mjs';
 import { runPersonaGenerate } from '../packages/cli/src/subcommands.mjs';
 import { appendScratchpadBullet } from '../packages/cli/src/scratchpad.mjs';
 import { touchCooldownMarker } from '../packages/cli/src/cooldown.mjs';
@@ -664,5 +672,106 @@ describe('Task 64 — section-promotion (F2): create the section if it does not 
     // Exactly one "## Iteration Cadence" heading (not duplicated by ensure-section).
     expect(habits.match(/^## Iteration Cadence$/gm)).toHaveLength(1);
     expect(habits).toMatch(/one PR per task/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 86c — classify over the RAW TRANSCRIPT, not the distilled fact corpus
+// (D-44). Primary-source: hermes background_review reviews "the conversation
+// above"; claude-mem summarize reads transcriptPath. Distilled facts lose the
+// cross-project signal ("from now on" → "in this project"); the transcript keeps
+// it verbatim, so the SessionEnd persona pass must read the transcript window.
+// ---------------------------------------------------------------------------
+
+/** Seed a date-named transcript at context/transcripts/{date}.md */
+function seedTranscript({ date = '2026-05-30', body }) {
+  const dir = join(projectRoot, 'context', 'transcripts');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, `${date}.md`), body, 'utf8');
+}
+
+describe('Task 86c — autoPersona classifies the raw transcript (D-44)', () => {
+  it('assembleTranscriptWindow returns the most-recent transcript, tailed to maxBytes at a turn boundary', () => {
+    // An OLDER date file must be ignored (only the latest session's transcript).
+    seedTranscript({ date: '2026-05-29', body: '## 2026-05-29T09:00:00Z — user\nOLD-CONTENT should be ignored\n' });
+    const big = [
+      '## 2026-05-30T10:00:00Z — user',
+      'EARLY filler turn '.repeat(50),
+      '## 2026-05-30T11:00:00Z — user',
+      'from now on always use uv in every project',
+      '',
+    ].join('\n');
+    seedTranscript({ date: '2026-05-30', body: big });
+
+    const win = assembleTranscriptWindow({ projectRoot, maxBytes: 120 });
+    expect(win).toMatch(/from now on always use uv/); // recent content kept
+    expect(win).not.toMatch(/OLD-CONTENT/); // only the latest date file
+    expect(win).not.toMatch(/EARLY filler/); // early content tailed off
+    expect(win.length).toBeLessThanOrEqual(120);
+    expect(win.startsWith('## ')).toBe(true); // window snaps to a turn boundary
+  });
+
+  it('assembleTranscriptWindow returns "" when no transcript exists', () => {
+    expect(assembleTranscriptWindow({ projectRoot, maxBytes: 1000 })).toBe('');
+  });
+
+  it('buildClassifierInstructions("transcript") frames the input as the conversation; default frames it as facts', () => {
+    const t = buildClassifierInstructions('transcript');
+    expect(t).toMatch(/RECENT CONVERSATION/);
+    expect(t).toContain(PERSONA_CONFIDENCE_RULE); // confidence rule shared across both framings
+    const f = buildClassifierInstructions();
+    expect(f).toMatch(/CAPTURED PROJECT FACTS/);
+    expect(f).not.toMatch(/RECENT CONVERSATION/);
+  });
+
+  it('source:"transcript" feeds the transcript window to the backend and promotes a high candidate (Door 2 + Door 3)', async () => {
+    seedUserTier();
+    seedTranscript({
+      date: '2026-05-30',
+      body: [
+        '## 2026-05-30T11:00:00Z — user',
+        'i want that from now on create .venv and use uv in every project',
+        '',
+      ].join('\n'),
+    });
+    let seen;
+    const backend = classifierBackend(
+      ['PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=high | Always uses uv + a project .venv, in every project'],
+      { onCompress: (args) => { seen = args; } },
+    );
+
+    const r = await autoPersona({ projectRoot, userDir, backend, now: NOW, source: 'transcript' });
+
+    // Door 3 — the classifier received the TRANSCRIPT text + the conversation framing
+    expect(seen.input).toMatch(/from now on create \.venv/);
+    expect(seen.instructions).toMatch(/RECENT CONVERSATION/);
+    // Door 1 + Door 2 — promoted, landed in the user tier
+    expect(r.action).toBe('promoted');
+    const habits = readFileSync(join(userDir, 'HABITS.md'), 'utf8');
+    expect(habits).toMatch(/uv \+ a project \.venv/);
+  });
+
+  it('source:"transcript" with NO transcript skips cleanly without calling the backend', async () => {
+    seedUserTier();
+    let called = false;
+    const backend = classifierBackend([], { onCompress: () => { called = true; } });
+    const r = await autoPersona({ projectRoot, userDir, backend, now: NOW, source: 'transcript' });
+    expect(r.action).toBe('skipped');
+    expect(r.reason).toBe('no-transcript');
+    expect(called).toBe(false);
+  });
+
+  it('default source still classifies the fact corpus (backward compat)', async () => {
+    seedUserTier();
+    seedFact({ slug: 'feedback_x', id: 'P-WGQAZFVC', type: 'feedback', title: 'X', body: 'Across every project: do X.' });
+    let seen;
+    const backend = classifierBackend(
+      ['PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=high | Does X across every project'],
+      { onCompress: (args) => { seen = args; } },
+    );
+    const r = await autoPersona({ projectRoot, userDir, backend, now: NOW }); // no source param
+    expect(seen.instructions).toMatch(/CAPTURED PROJECT FACTS/);
+    expect(seen.input).toMatch(/do X/);
+    expect(r.action).toBe('promoted');
   });
 });

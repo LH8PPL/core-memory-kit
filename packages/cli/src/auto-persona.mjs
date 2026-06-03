@@ -38,7 +38,7 @@
 // promotion primitive), audit-log, result-shapes, cooldown, compressor.
 // Per design §16.16 + §6.2 (conflict) + §6.8 (auto-drain) + §8.3 + tasks.md 45.
 
-import { readFileSync, appendFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, appendFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { generateId } from '@lh8ppl/cmk-canonicalize';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
@@ -97,6 +97,74 @@ function assembleProjectCorpus({ projectRoot, userDir }) {
   return parts.filter(Boolean).join('\n\n');
 }
 
+// Default size of the recent-transcript window handed to the SessionEnd persona
+// classifier (Task 86c / D-44). Bounded — like hermes' "conversation snapshot"
+// and claude-mem's last-message — so the focused Haiku call stays cheap and the
+// MOST RECENT turns dominate. The classifier maxOutputBytes is 4096; input larger.
+//
+// RECALL vs PRECISION tradeoff (86c skill-review I1): a standing rule stated EARLY
+// in a long session ("from now on …" at turn 2, then 40 more turns) can scroll out
+// of the window — and the usual backstops don't recover it (the inline per-turn
+// path is what drops under load, the reason this dedicated pass exists; the fact
+// corpus already lost the cross-project signal per D-44). So the window must be
+// generous enough to hold a typical full session, not just the last few turns.
+// 40k chars ≈ a long session's worth of turns ≈ ~10k tokens — trivial cost for a
+// once-per-session call, and the classifier prompt's "IGNORE anything specific to
+// this ONE project" instruction guards precision at the larger size (live test:
+// clean 2/2, no false promotes). The exact bound is a lior-test-9 tuning item.
+// KNOWN LIMITATION (documented, not yet fixed): only the most-recent date-named
+// file is read, so a session spanning midnight loses the pre-midnight turns. Rare;
+// a multi-file read is the follow-up if it bites.
+export const TRANSCRIPT_WINDOW_BYTES = 40_000;
+
+// Assemble the recent-conversation window for the persona classifier (Task 86c).
+// Reads the most-recent date-named transcript (`context/transcripts/{date}.md`,
+// written per-turn by capture-turn) and returns its tail, snapped FORWARD to a
+// `## ` turn boundary so the window never starts mid-line. Returns '' when no
+// transcript exists (a no-turn session — nothing to classify).
+//
+// WHY the transcript, not the fact corpus (D-44, primary-source-verified):
+// auto-extract distills a user's universal rule into project-scoped fact text
+// ("Use uv … pip is not used in THIS PROJECT"), stripping the cross-project
+// signal the classifier needs. The verbatim signal ("from now on …", "in every
+// project") survives only in the transcript. hermes' background_review reviews
+// "the conversation above"; claude-mem's summarize reads transcriptPath — both
+// classify the raw conversation, never distilled memory.
+//
+// Injection posture (86c skill-review NOTE): the transcript is privacy-sanitized
+// at write time (capture-turn → sanitizePrivacyTags) but NOT prompt-structure
+// sanitized, so a user could type a literal "PERSONA CANDIDATE | …" line that the
+// classifier echoes. The blast radius is bounded: it's the user's OWN single-user
+// conversation, and the promote path (promoteCandidatesToUserTier → memoryWrite)
+// is gated by VALID_TARGETS + the section-name guard + the confidence gate. A
+// self-authored persona entry is the feature, not a third-party threat.
+export function assembleTranscriptWindow({ projectRoot, maxBytes = TRANSCRIPT_WINDOW_BYTES }) {
+  const dir = join(projectRoot, 'context', 'transcripts');
+  if (!existsSync(dir)) return '';
+  let files;
+  try {
+    files = readdirSync(dir).filter((f) => f.endsWith('.md')).sort();
+  } catch {
+    return '';
+  }
+  if (files.length === 0) return '';
+  // Date-named (YYYY-MM-DD) → lexical sort = chronological; take the latest.
+  const latest = files[files.length - 1];
+  let text;
+  try {
+    text = readFileSync(join(dir, latest), 'utf8');
+  } catch {
+    return '';
+  }
+  if (!text.trim()) return '';
+  if (text.length <= maxBytes) return text;
+  let tail = text.slice(text.length - maxBytes);
+  // Snap forward to the first whole turn so we don't begin mid-sentence.
+  const boundary = tail.indexOf('\n## ');
+  if (boundary !== -1) tail = tail.slice(boundary + 1);
+  return tail;
+}
+
 // Shared persona grading rule (Task 78 — the wedge's AUTO half). The
 // `confidence` axis encodes EXPLICIT-vs-INFERRED, which drives BOTH the promote
 // gate (only `high` promotes; medium/low queue) AND the write trust on the
@@ -113,11 +181,32 @@ export const PERSONA_CONFIDENCE_RULE = [
   '  - When unsure whether it was stated-as-a-rule or merely-observed, use medium.',
 ].join('\n');
 
-export function buildClassifierInstructions() {
+// `source` selects the INPUT framing (Task 86c / D-44):
+//   - 'transcript' (SessionEnd path): the input is the raw recent conversation,
+//     where standing-rule statements ("from now on …", "in every project") are
+//     verbatim — the reliable cross-project signal. This is the mature-product
+//     shape (hermes reviews "the conversation above"; claude-mem reads the
+//     transcript).
+//   - 'facts' (default; weekly-curate + manual `cmk persona generate`): the input
+//     is the distilled project fact corpus — appropriate for a whole-project
+//     sweep, but lossy for cross-project signal (D-44), so NOT used at SessionEnd.
+// Only the framing lines differ; the routing + confidence rule are shared so the
+// two paths can never drift apart.
+export function buildClassifierInstructions(source = 'facts') {
+  const isTranscript = source === 'transcript';
+  const opener = isTranscript
+    ? 'You are a persona archivist for claude-memory-kit. The input below is the RECENT CONVERSATION (user and assistant turns) from ONE project session.'
+    : 'You are a persona archivist for claude-memory-kit. The input below is a set of facts captured while the user worked on ONE project.';
+  const jobLine = isTranscript
+    ? 'Your job: identify ONLY the things the user REVEALED or STATED that express CROSS-PROJECT doctrine — how this user works EVERYWHERE (tooling habits, how they structure their work, communication style, process rules). IGNORE anything specific to this ONE project (a particular value, name, or detail that would not carry to their other projects; one-off task state).'
+    : 'Your job: identify ONLY the facts that express CROSS-PROJECT doctrine — how this user works EVERYWHERE (tooling habits, how they structure their work, communication style, process rules). IGNORE anything specific to this ONE project (a particular value, name, or detail that would not carry to their other projects; one-off task state).';
+  const beginMarker = isTranscript
+    ? '=== BEGIN RECENT CONVERSATION ==='
+    : '=== BEGIN CAPTURED PROJECT FACTS ===';
   return [
-    'You are a persona archivist for claude-memory-kit. The input below is a set of facts captured while the user worked on ONE project.',
+    opener,
     '',
-    'Your job: identify ONLY the facts that express CROSS-PROJECT doctrine — how this user works EVERYWHERE (tooling habits, how they structure their work, communication style, process rules). IGNORE anything specific to this ONE project (a particular value, name, or detail that would not carry to their other projects; one-off task state).',
+    jobLine,
     '',
     'For EACH cross-project fact, emit exactly one line, nothing else, in this EXACT format:',
     'PERSONA CANDIDATE | target=<FILE> | section=<SECTION> | confidence=<high|medium|low> | <one-line restatement>',
@@ -132,7 +221,7 @@ export function buildClassifierInstructions() {
     '',
     'Output ONLY PERSONA CANDIDATE lines. No preamble, no commentary. If nothing is cross-project, output nothing.',
     '',
-    '=== BEGIN CAPTURED PROJECT FACTS ===',
+    beginMarker,
   ].join('\n');
 }
 
@@ -161,7 +250,7 @@ export function parsePersonaCandidates(outputText) {
  */
 export async function autoPersona(opts = {}) {
   const t0 = Date.now();
-  const { projectRoot, userDir, backend, now, settings, cooldownMs = DEFAULT_COOLDOWN_MS } = opts;
+  const { projectRoot, userDir, backend, now, settings, cooldownMs = DEFAULT_COOLDOWN_MS, source = 'facts' } = opts;
 
   if (!projectRoot) {
     return errorResult({
@@ -195,16 +284,22 @@ export async function autoPersona(opts = {}) {
     return { action: 'skipped', reason: 'cooldown', promoted: [], queued: [], duration_ms: Date.now() - t0 };
   }
 
-  const corpus = assembleProjectCorpus({ projectRoot, userDir });
+  // Task 86c (D-44): the SessionEnd path classifies the RAW TRANSCRIPT (where a
+  // user's standing rule survives verbatim); the default 'facts' path classifies
+  // the distilled project corpus (whole-project sweep — weekly/manual).
+  const corpus = source === 'transcript'
+    ? assembleTranscriptWindow({ projectRoot })
+    : assembleProjectCorpus({ projectRoot, userDir });
   if (!corpus) {
-    return { action: 'skipped', reason: 'no-facts', promoted: [], queued: [], duration_ms: Date.now() - t0 };
+    const reason = source === 'transcript' ? 'no-transcript' : 'no-facts';
+    return { action: 'skipped', reason, promoted: [], queued: [], duration_ms: Date.now() - t0 };
   }
 
   let result;
   try {
     result = await backend.compress({
       input: corpus,
-      instructions: buildClassifierInstructions(),
+      instructions: buildClassifierInstructions(source),
       preserveCitationIds: false,
       maxOutputBytes: 4096,
       timeoutMs: 50_000,

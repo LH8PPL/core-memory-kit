@@ -12,6 +12,7 @@
 // block the user from closing their terminal.
 
 import { readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -30,13 +31,14 @@ void rawInput;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const compressSessionModulePath = join(__dirname, '..', 'src', 'compress-session.mjs');
+const sessionEndTasksModulePath = join(__dirname, '..', 'src', 'session-end-tasks.mjs');
 const compressorModulePath = join(__dirname, '..', 'src', 'compressor.mjs');
 
-let compressSession;
+let runSessionEndTasks;
+let summarizeSessionEnd;
 let HaikuViaAnthropicApi;
 try {
-  ({ compressSession } = await import(pathToFileURL(compressSessionModulePath).href));
+  ({ runSessionEndTasks, summarizeSessionEnd } = await import(pathToFileURL(sessionEndTasksModulePath).href));
   ({ HaikuViaAnthropicApi } = await import(pathToFileURL(compressorModulePath).href));
 } catch (err) {
   process.stderr.write(
@@ -49,12 +51,23 @@ try {
 const projectRoot = process.env.CMK_PROJECT_DIR ?? process.cwd();
 
 try {
-  const backend = new HaikuViaAnthropicApi();
-  const r = await compressSession({ projectRoot, backend });
-  process.stderr.write(
-    `cmk-compress-session: ${r.action}${r.reason ? ` (${r.reason})` : ''}${r.bytesIn ? ` (in: ${r.bytesIn}b, out: ${r.bytesOut}b)` : ''} ms: ${r.duration_ms ?? 0}\n`,
-  );
+  // Task 86b + D-42: run compressSession and the dedicated autoPersona classifier
+  // CONCURRENTLY (they have disjoint inputs/outputs, so they don't race), keeping
+  // the SessionEnd wall-clock at max(~50s) under the 60s hook ceiling instead of
+  // the sequential sum (~100s). See session-end-tasks.mjs for the full rationale.
+  const userDir = process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+  const outcomes = await runSessionEndTasks({
+    projectRoot,
+    userDir,
+    makeBackend: () => new HaikuViaAnthropicApi(),
+  });
+  for (const line of summarizeSessionEnd(outcomes)) {
+    process.stderr.write(line);
+  }
 } catch (err) {
+  // Defensive backstop: runSessionEndTasks uses allSettled so it should never
+  // reject, but a synchronous throw (e.g. resolving userDir) must not block the
+  // user from closing their terminal.
   process.stderr.write(
     `cmk-compress-session: unexpected error: ${err?.message ?? err}\n`,
   );

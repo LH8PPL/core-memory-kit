@@ -226,6 +226,22 @@ describe('Task 61 — inline cross-project promotion', () => {
     expect(prompt).not.toMatch(/re-read the code|code re-read/i);
   });
 
+  it('the persona-candidate instruction is REQUIRED + PER-FACT (Task 86 — multi-rule turns must emit one line per rule)', () => {
+    // lior-test-8: a turn bundling several universal rules ("type hints AND
+    // tests first", "uv, ruff, secrets") promoted ZERO to the persona — Haiku
+    // dropped the trailing singular "emit one ADDITIONAL line" addendum under
+    // load (extract.log: obs=3 -> persona_promoted:0). The parser + promote
+    // path were correct (both loop over all candidates); the prompt was the
+    // weak link. The instruction must be REQUIRED and PER-FACT so several rules
+    // in one turn each get their own line. Live-verified: the rewritten prompt
+    // emits 3/3 candidates for a 3-rule turn across repeated real-Haiku runs.
+    const prompt = buildExtractionInstructions();
+    expect(prompt).toMatch(/per-fact/i);                       // explicitly per-fact
+    expect(prompt).toMatch(/required/i);                       // not an optional addendum
+    expect(prompt).toMatch(/for each/i);                       // one per cross-project fact
+    expect(prompt).toMatch(/three|never skip|never collapse/i); // multi-rule emphasis
+  });
+
   it('an EXPLICITLY-stated rule (confidence=high) promotes at trust:high — durable, user-attested (Task 78)', async () => {
     const turnFile = writeTurnFile(
       projectRoot,
