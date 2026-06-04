@@ -50,3 +50,6 @@ packages/cli/template/
 context/.index/
 
 *.tgz
+
+# live-test harness per-run findings (generated artifact, not state)
+docs/journey/live-test-auto-*.md

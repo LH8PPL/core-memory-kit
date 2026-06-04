@@ -14,6 +14,7 @@
     "test:coverage": "vitest run --coverage",
     "stress": "node scripts/stress-test.mjs",
     "live-verify": "node scripts/live-verify.mjs",
+    "live-test": "node scripts/live-test.mjs",
     "release": "node scripts/release.mjs",
     "release:notes": "node scripts/print-release-notes.mjs",
     "lint:test-ids": "node scripts/validate-test-ids.mjs",
