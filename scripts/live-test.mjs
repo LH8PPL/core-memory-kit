@@ -299,13 +299,18 @@ async function main() {
     const head = `# live-test findings — ${TODAY}\n\n**${ok} pass · ${fail} fail · ${skip} skip** ` +
       `(gate-fail ${gateFail}; ${probeFail} known-variable recall probe fail — Task 75) · claude ${(ver.stdout || '').trim()}\n\n` +
       checks.map((c) => `- [${c.ok === null ? '~' : c.ok ? 'x' : ' '}] **${c.id}**${c.probe ? ' _(probe·Task75)_' : ''} — ${c.detail || ''}`).join('\n') + '\n';
-    // Findings are a TRACKED, committed record (git history = run history). A
-    // STABLE filename avoids per-date churn AND lets validate-doc-registry
-    // (which scans docs/) resolve a single registered entry instead of failing
-    // on an ever-changing filename.
+    // Findings are a TRACKED record, one TIMESTAMPED file PER RUN (never
+    // overwritten) so the run-to-run history is preserved — e.g. the recall
+    // probe's variance is only visible across runs. They live in
+    // docs/journey/live-test-runs/, a SUBDIR that validate-doc-registry scans
+    // non-recursively (line 100 of that validator), so per-run files need no
+    // registration and don't break `npm test`.
     try {
-      writeFileSync(join(REPO_ROOT, 'docs', 'journey', 'live-test-latest.md'), head + findings, 'utf8');
-      log('findings → docs/journey/live-test-latest.md (commit it as the run record)');
+      const runsDir = join(REPO_ROOT, 'docs', 'journey', 'live-test-runs');
+      mkdirSync(runsDir, { recursive: true });
+      const stamp = new Date().toISOString().replace(/:/g, '').replace(/\.\d+Z$/, 'Z'); // 2026-06-04T084312Z
+      writeFileSync(join(runsDir, `live-test-${stamp}.md`), head + findings, 'utf8');
+      log(`findings → docs/journey/live-test-runs/live-test-${stamp}.md (timestamped — commit to keep the run)`);
     } catch (e) { log(`findings write failed: ${e.message}`); }
     if (KEEP) log(`--keep; sandbox at ${root}`);
     else {

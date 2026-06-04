@@ -109,6 +109,8 @@ When you add a doc, add its path to the Registry in the same commit, or the buil
 `docs/DOCUMENTATION-MAP.md` · `docs/README.md` · `docs/SOURCES.md` · `docs/BOOTSTRAP.md` · `docs/CLI.md` · `docs/Claude Code Memory Management The Complete Guide (2026).md`
 
 **`docs/journey/`:**
-`docs/journey/DECISION-LOG.md` · `docs/journey/v0.1.0-build-log.md` · `docs/journey/RESUME-HERE-2026-05-28.md` · `docs/journey/PHASE-3-PLAN.md` · `docs/journey/v0.1.0-live-test.md` · `docs/journey/v0.1.0-requirements-coverage.md` · `docs/journey/v0.1.1-self-test-findings.md` · `docs/journey/2026-05-26-live-test-findings.md` · `docs/journey/2026-05-26-live-test-findings-scenarios-3-7.md` · `docs/journey/2026-05-26-snapshot-cap-coordination.md` · `docs/journey/2026-05-26-user-tier-cap-fix.md` · `docs/journey/live-test-latest.md`
+`docs/journey/DECISION-LOG.md` · `docs/journey/v0.1.0-build-log.md` · `docs/journey/RESUME-HERE-2026-05-28.md` · `docs/journey/PHASE-3-PLAN.md` · `docs/journey/v0.1.0-live-test.md` · `docs/journey/v0.1.0-requirements-coverage.md` · `docs/journey/v0.1.1-self-test-findings.md` · `docs/journey/2026-05-26-live-test-findings.md` · `docs/journey/2026-05-26-live-test-findings-scenarios-3-7.md` · `docs/journey/2026-05-26-snapshot-cap-coordination.md` · `docs/journey/2026-05-26-user-tier-cap-fix.md`
+
+**`docs/journey/live-test-runs/`** — per-run `npm run live-test` findings, one TIMESTAMPED file per run (a run-to-run trail to spot drift/regressions). A SUBDIR, so the registry validator (which scans `docs/journey/` non-recursively) does not police it file-by-file — no per-run registration needed.
 
 _Reclassified 2026-05-31 (out of the high-risk journey zone into bulk-registered zones): the live-test **scripts** `docs/process/v0.1.1-self-test-guide.md` + `docs/process/v0.1.1-scenario-test.md` (reusable methodology → `process/`); the cold-start A/B `docs/research/2026-05-23-bootstrap-test.md` (research → `research/`)._
