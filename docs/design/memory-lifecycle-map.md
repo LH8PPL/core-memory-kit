@@ -55,7 +55,7 @@ Legend: ✓ intent matches code · ✗ gap (design says X, code does Y) · ~ par
 | 2 | **explicit `cmk remember`** | terse→bullet, rich→fact file | bullet hits MEMORY.md cap | fact: by-ID; bullet: scratchpad | n/a | ✗ **no cross-store dedup** → bullet + fact file double-capture (G3) |
 | 3 | **route → MEMORY.md** (appendScratchpadBullet) | high only (from auto-extract) | **2500B**, trigger 95% | none at append | consolidate, then CAP_EXCEEDED | ✗ no append-time content dedup |
 | 4 | **MEMORY.md consolidate()** | drops **L/M only** | runs only on cap-trip | none | **HARD-DELETE, no tombstone** | ✗ violates §6.5 tombstone rule (G2) |
-| 5 | **MEMORY.md → fact file (graduation)** | high-trust only | cap-pressure trigger | cross-store by content-id (writeFact) | bullet removed from hot index | ~ **BUILT as a cap-pressure safety valve** (Task 91, branch task-91-graduation) — project MEMORY.md only, search-only (recall = Task 75); user-tier graduation still deferred (G1 addressing) |
+| 5 | **MEMORY.md → fact file (graduation)** | high-trust only | cap-pressure trigger | cross-store by content-id (writeFact) | bullet removed from hot index | ✓ **BUILT — cap-pressure safety valve, transactional** (Task 91, shipped PR #113) — project MEMORY.md only, search-only (recall = Task 75); user-tier graduation still deferred |
 | 6 | **high-trust supersede** | high ≥ high = "supersede" | — | — | **"continues to normal append"** | ✗ stale highs coexist forever (G4; design line 1956 admits "drops by AGE not VALIDITY") |
 | 7 | **fact file store** (write-fact) | — | **none** | by-ID, refuse-overwrite on id-mismatch; reindex after | n/a | ~ correct dedup, but **unbounded** (disk-only, search-only) (G10) |
 | 8 | **fact/scratchpad → index** (FTS5) | — | — | — | — | ✓ index can be transiently stale (consolidate() doesn't reindex), but `cmk search`/`mk_search` run **`reindexBoot` (mtime+sha1 diff) BEFORE querying** → no user-visible stale hit (G9 verified NOT a gap, 2026-06-04) |
@@ -73,7 +73,7 @@ Legend: ✓ intent matches code · ✗ gap (design says X, code does Y) · ~ par
 
 | Gap | What | Severity | Home |
 |---|---|---|---|
-| **G1** | ~~Graduation unbuilt → write-lock~~ — **project MEMORY.md graduation BUILT** (Task 91, branch; cap-pressure safety valve, search-only); user-tier graduation still deferred | resolving | Task 91 (in PR) |
+| **G1** | ~~Graduation unbuilt → write-lock~~ — **project MEMORY.md graduation SHIPPED** (Task 91, PR #113; cap-pressure safety valve, transactional, search-only); user-tier graduation still deferred | shipped | Task 91 (#113) |
 | **G2** | consolidate() hard-deletes L/M >14d, no tombstone (violates §6.5) | High | Task 91.2 (filed) |
 | **G3** | No cross-store dedup → bullet + fact-file double-capture | High | Task 91.1 (filed) |
 | **G4** | high-trust "supersede" just appends → stale highs coexist forever (drop-by-age-not-validity) | Med (v0.3) | F-D + temporal-validity §16.18 |
