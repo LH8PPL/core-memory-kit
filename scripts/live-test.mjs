@@ -299,7 +299,14 @@ async function main() {
     const head = `# live-test findings — ${TODAY}\n\n**${ok} pass · ${fail} fail · ${skip} skip** ` +
       `(gate-fail ${gateFail}; ${probeFail} known-variable recall probe fail — Task 75) · claude ${(ver.stdout || '').trim()}\n\n` +
       checks.map((c) => `- [${c.ok === null ? '~' : c.ok ? 'x' : ' '}] **${c.id}**${c.probe ? ' _(probe·Task75)_' : ''} — ${c.detail || ''}`).join('\n') + '\n';
-    try { writeFileSync(join(REPO_ROOT, 'docs', 'journey', `live-test-auto-${TODAY}.md`), head + findings, 'utf8'); log(`findings → docs/journey/live-test-auto-${TODAY}.md`); } catch (e) { log(`findings write failed: ${e.message}`); }
+    // Findings are a TRACKED, committed record (git history = run history). A
+    // STABLE filename avoids per-date churn AND lets validate-doc-registry
+    // (which scans docs/) resolve a single registered entry instead of failing
+    // on an ever-changing filename.
+    try {
+      writeFileSync(join(REPO_ROOT, 'docs', 'journey', 'live-test-latest.md'), head + findings, 'utf8');
+      log('findings → docs/journey/live-test-latest.md (commit it as the run record)');
+    } catch (e) { log(`findings write failed: ${e.message}`); }
     if (KEEP) log(`--keep; sandbox at ${root}`);
     else {
       try { run('npm', ['uninstall', '-g', '--prefix', prefix, '@lh8ppl/claude-memory-kit'], { timeoutMs: 60_000 }); } catch {}
