@@ -37,7 +37,7 @@ The differentiator is the wedge; the rest are the quality fixes that make it *fe
 - **47** — `cmk doctor --repair` (prompt-then-install per failed HC)
 - **52** — dogfood the kit on its own repo (the meta-fix for "we kept losing context")
 - **48** — promote ask-before-install rule to a proper NFR (doc/requirements housekeeping)
-- **77** — rename `specs/v0.1.0/` → `specs/` (the version-named folder is a misnomer; touches many links)
+- **77** — rename version-named-but-general docs → version-agnostic (the misnomer class): `specs/v0.1.0/` → `specs/` **and** `docs/journey/v0.1.0-build-log.md` → `build-log.md` (both already hold v0.2 content; one atomic refactor PR; touches many links)
 - **45.1–45.4** — persona manual controls (surface / `cmk persona accept|reject` / auto-apply / hand-curated conflict — verify which already shipped via the wedge work)
 - **live-verify `--permission-mode`** — let project-A actually write files in the harness (Task 89 enhancement)
 
