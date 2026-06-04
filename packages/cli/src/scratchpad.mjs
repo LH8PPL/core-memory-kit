@@ -29,6 +29,7 @@ import {
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { writeBullet, parseBulletProvenance, isProvenanceCommentLine } from './provenance.mjs';
+import { graduateForCapRelief } from './graduation.mjs';
 
 const VALID_TRUST = new Set(['high', 'medium', 'low']);
 const VALID_WRITE_SOURCES = new Set([
@@ -307,20 +308,42 @@ export function appendScratchpadBullet(opts = {}) {
     finalContent = consolidated.text;
   }
 
-  // 3. Post-consolidation cap check
-  const finalBytes = Buffer.byteLength(finalContent, 'utf8');
+  // 2b. Graduation (Task 91 / D-54). If still over cap after stale-drop — which
+  // is exactly what happens when the bullets are high-trust (consolidate() never
+  // drops those) — graduate the oldest high-trust bullets OUT of the hot index
+  // into the permanent fact store, so the write lands instead of CAP_EXCEEDED.
+  // PROJECT MEMORY.md ONLY (D-57): the user-tier persona scratchpads have no
+  // per-fact store + their own promotion path, so graduation must not fire there.
+  let bulletsGraduated = 0;
+  let finalBytes = Buffer.byteLength(finalContent, 'utf8');
+  if (finalBytes > cap && tier === 'P' && scratchpad === 'MEMORY.md') {
+    const grad = graduateForCapRelief({
+      text: finalContent,
+      capBytes: cap,
+      tier,
+      projectRoot,
+      userDir,
+      now,
+    });
+    finalContent = grad.text;
+    bulletsGraduated = grad.graduated.length;
+    finalBytes = Buffer.byteLength(finalContent, 'utf8');
+  }
+
+  // 3. Post-relief cap check
   if (finalBytes > cap) {
     // File untouched. The original on-disk content is preserved verbatim.
     return errorResult({
       category: ERROR_CATEGORIES.CAP_EXCEEDED,
       errors: [
-        `scratchpad cap exceeded: ${finalBytes} bytes would exceed cap of ${cap} bytes for ${scratchpad} (consolidator dropped ${bulletsConsolidated} bullet(s), still over). No silent truncation; resolve by raising the cap in settings.json or manually distilling.`,
+        `scratchpad cap exceeded: ${finalBytes} bytes would exceed cap of ${cap} bytes for ${scratchpad} (consolidator dropped ${bulletsConsolidated} bullet(s), graduated ${bulletsGraduated}, still over). No silent truncation; resolve by raising the cap in settings.json or manually distilling.`,
       ],
       path,
       cap,
       bytes: finalBytes,
       consolidationRan,
       bulletsConsolidated,
+      bulletsGraduated,
     });
   }
 
@@ -341,6 +364,7 @@ export function appendScratchpadBullet(opts = {}) {
       bytes: finalBytes,
       consolidationRan,
       bulletsConsolidated,
+      bulletsGraduated,
     },
   });
 
@@ -352,5 +376,6 @@ export function appendScratchpadBullet(opts = {}) {
     bytes: finalBytes,
     consolidationRan,
     bulletsConsolidated,
+    bulletsGraduated,
   };
 }

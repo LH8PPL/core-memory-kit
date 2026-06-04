@@ -130,8 +130,9 @@ checkRequirementIds('NFR', 'Non-Functional Requirement');
 const tasksPath = join(REPO_ROOT, 'specs/v0.1.0/tasks.md');
 if (existsSync(tasksPath)) {
   const tasksText = readFileSync(tasksPath, 'utf8');
-  // Parent tasks appear as `- [x] N. ...` or `- [ ] N. ...` at line start.
-  const taskDefRe = /^- \[[ x]\]\s+(\d{1,3})\.\s/gm;
+  // Parent tasks appear as `- [x] N. ...`, `- [ ] N. ...`, or `- [~] N. ...`
+  // (the `[~]` partial-completion state, e.g. Task 80 reopened per D-56).
+  const taskDefRe = /^- \[[ x~]\]\s+(\d{1,3})\.\s/gm;
   const ids = new Set();
   for (const m of tasksText.matchAll(taskDefRe)) ids.add(parseInt(m[1], 10));
 
