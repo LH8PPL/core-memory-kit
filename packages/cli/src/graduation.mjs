@@ -16,7 +16,9 @@
 //   - home-path sanitization + Poison_Guard (the safe write path),
 //   - reindex-on-write (the FTS5/INDEX.md view stays consistent — map edge #8).
 
+import { unlinkSync } from 'node:fs';
 import { writeFact } from './write-fact.mjs';
+import { reindex } from './reindex.mjs';
 import { parseBulletProvenance, isProvenanceCommentLine } from './provenance.mjs';
 
 // Loose enough to match whatever id a bullet carries (graduation moves the
@@ -120,6 +122,7 @@ export function graduateForCapRelief({
 
   const removeIdx = new Set();
   const graduated = [];
+  const createdPaths = []; // files writeFact NEWLY created (for transactional rollback)
   let curBytes = Buffer.byteLength(text, 'utf8');
   for (const e of entries) {
     if (curBytes <= capBytes) break;
@@ -133,13 +136,38 @@ export function graduateForCapRelief({
       now,
     });
     if (res.action === 'error') continue; // couldn't store → keep the bullet
+    // 'created' made a NEW file (track for rollback); 'skipped' deduped against
+    // a pre-existing fact file (don't track — deleting it would lose a real fact).
+    if (res.action === 'created' && res.path) createdPaths.push(res.path);
     removeIdx.add(e.bulletIdx);
     removeIdx.add(e.commentIdx);
     graduated.push(e.id);
-    curBytes -= Buffer.byteLength(
-      `${lines[e.bulletIdx]}\n${lines[e.commentIdx]}\n`,
-      'utf8',
-    );
+    curBytes -= bulletBytes(e);
+  }
+
+  // Transactional guard (composition safety): the feasibility gate assumed every
+  // eligible bullet would graduate. If a graduateOne unexpectedly errored
+  // (poison/schema on a resident bullet) we may still be over cap — the append
+  // will then CAP_EXCEEDED and leave MEMORY.md unchanged, which would STRAND the
+  // fact files we created (the bullets stay live AND now exist as facts = the
+  // double-capture this task kills). Roll the created files back so the failure
+  // path has zero side effects, and let CAP_EXCEEDED fire cleanly.
+  if (curBytes > capBytes) {
+    for (const p of createdPaths) {
+      try {
+        unlinkSync(p);
+      } catch {
+        // best-effort; a leaked fact file is recoverable, a lost bullet is not
+      }
+    }
+    if (createdPaths.length > 0) {
+      try {
+        reindex({ tier, projectRoot, userDir, warn: () => {} });
+      } catch {
+        // index rebuild is best-effort; the next reindex/search self-heals
+      }
+    }
+    return { text, graduated: [] };
   }
 
   if (removeIdx.size === 0) return { text, graduated: [] };

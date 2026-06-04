@@ -29,6 +29,7 @@ import {
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { appendScratchpadBullet } from '../packages/cli/src/scratchpad.mjs';
+import { graduateForCapRelief } from '../packages/cli/src/graduation.mjs';
 
 // A MEMORY.md full of RECENT + HIGH-trust bullets — exactly the accumulation
 // consolidate() refuses to drop (high-trust is preserved regardless of age),
@@ -222,5 +223,40 @@ describe('Task 91 — MEMORY.md graduation (safety valve)', () => {
     );
     expect(existsSync(archivePath)).toBe(true);
     expect(readFileSync(archivePath, 'utf8')).toContain('P-PAD00000'); // validate-test-ids: ignore (helper id)
+  });
+
+  it('rollback (double-capture guard): a bullet that fails writeFact mid-graduation strands NO fact file', () => {
+    // Two high-trust bullets; the second carries a secret that writeFact's
+    // Poison_Guard rejects. The cap is tuned so BOTH must graduate to fit — so
+    // the poison failure leaves graduation short of the cap, which must trigger
+    // the transactional rollback: the clean fact file it already created gets
+    // unlinked, and graduateForCapRelief returns the original text with nothing
+    // committed (zero side effects), so the failed append leaves no double-capture.
+    const mk = (id, text) =>
+      `- (${id}) ${text}\n  <!-- source: x.md, source_line: 1, sha1: ${'a'.repeat(40)}, write: manual-edit, trust: high, at: 2026-05-24T10:00:00Z -->`;
+    const clean = mk('P-CLEANFCT', 'a clean durable architecture decision worth keeping around');
+    const poison = mk(
+      'P-PSNFACTV',
+      'leaked sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA end',
+    );
+    const text = `# Working Memory\n\n## Active Threads\n${clean}\n${poison}\n\n## Pending Decisions\n`;
+    const startBytes = Buffer.byteLength(text, 'utf8');
+    const cleanBytes = Buffer.byteLength(`${clean}\n`, 'utf8');
+    // capBytes < (start - cleanBytes) so graduating the clean bullet alone is NOT
+    // enough; ≥ (start - clean - poison) so the gate deems "both fit" feasible.
+    const capBytes = startBytes - cleanBytes - 1;
+
+    const r = graduateForCapRelief({
+      text,
+      capBytes,
+      tier: 'P',
+      projectRoot,
+      userDir: join(sandbox, 'user-tier'),
+      now: '2026-05-24T12:00:00Z',
+    });
+
+    expect(r.graduated).toEqual([]); // couldn't relieve → nothing committed
+    expect(r.text).toBe(text); // original returned unchanged
+    expect(factFiles(projectRoot)).toHaveLength(0); // the clean file was rolled back
   });
 });
