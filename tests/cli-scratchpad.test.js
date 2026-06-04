@@ -434,38 +434,47 @@ describe('Task 12 — appendScratchpadBullet() boundary', () => {
     });
   });
 
-  describe('rejection: still over cap after consolidation (task 12.5)', () => {
-    it('all-recent-high-trust scratchpad pushed over cap → error_category cap_exceeded, file unchanged', () => {
-      // Build a scratchpad full of recent + high-trust padding — consolidator
-      // can't drop anything. Then append one more bullet to push over the cap.
+  describe('cap relief: consolidation, then graduation (task 12.5 + Task 91)', () => {
+    it('all-recent-high-trust scratchpad over cap → GRADUATION relieves it (Task 91), append succeeds', () => {
+      // CONTRACT CHANGE (Task 91): pre-graduation this returned cap_exceeded —
+      // consolidate() can't drop recent high-trust bullets. Task 91 graduates the
+      // oldest high-trust bullets into the permanent fact store instead, freeing
+      // the hot index so the append lands. Full graduation contract +
+      // cross-store dedup live in cli-graduation.test.js.
       const original = buildMemoryMd({
         targetBytes: 2480, // close to 2500 default cap
         paddingDate: '2026-05-24T11:00:00Z', // recent
-        paddingTrust: 'high', // protected
+        paddingTrust: 'high', // protected from consolidate → only graduation can free
       });
       writeFileSync(memoryMd, original, 'utf8');
 
       const r = appendScratchpadBullet(validBulletOpts({ projectRoot }));
-      expect(r.action).toBe('error');
-      expect(r.errorCategory).toBe('cap_exceeded');
-      expect(r.errors.join(' ')).toMatch(/cap|exceeded/i);
-
-      // File untouched
-      expect(readFileSync(memoryMd, 'utf8')).toBe(original);
+      expect(r.action).toBe('appended');
+      expect(r.bulletsGraduated).toBeGreaterThan(0);
+      expect(r.bytes).toBeLessThanOrEqual(r.cap);
     });
 
-    it('settings.json override creates an artificially low cap → rejection fires earlier', () => {
-      writeFileSync(memoryMd, buildMemoryMd({ targetBytes: 800 }), 'utf8');
+    it('cap so low that even graduating everything cannot fit → cap_exceeded, file + store unchanged', () => {
+      // The genuine rejection path survives Task 91: graduation has a feasibility
+      // gate — if graduating EVERY eligible bullet still wouldn't fit, it
+      // graduates NOTHING (no stranded fact files) and CAP_EXCEEDED fires cleanly.
+      const original = buildMemoryMd({ targetBytes: 800 });
+      writeFileSync(memoryMd, original, 'utf8');
+      // Cap below the empty-scaffold floor (~135B) — even graduating EVERY
+      // bullet leaves header+sections+footer over cap, so it's truly infeasible.
       writeFileSync(
         join(projectRoot, 'context', 'settings.json'),
         JSON.stringify({
-          scratchpads: { 'MEMORY.md': { max_chars: 750 } },
+          scratchpads: { 'MEMORY.md': { max_chars: 100 } },
         }),
         'utf8',
       );
       const r = appendScratchpadBullet(validBulletOpts({ projectRoot }));
       expect(r.action).toBe('error');
       expect(r.errorCategory).toBe('cap_exceeded');
+      expect(r.bulletsGraduated).toBe(0); // feasibility gate → nothing graduated
+      // File untouched AND no fact files stranded (the double-capture guard).
+      expect(readFileSync(memoryMd, 'utf8')).toBe(original);
     });
   });
 });

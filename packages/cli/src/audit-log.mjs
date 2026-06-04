@@ -35,6 +35,8 @@ export const REASON_CODES = Object.freeze({
   USER_REQUESTED: 'user-requested', // forget: user-initiated tombstone
   CURATED_MERGE: 'curated-merge', // mergeFacts: explicit merge of A + B → C
   SCRATCHPAD_APPEND: 'scratchpad-append', // scratchpad: appendScratchpadBullet (Task 12)
+  SCRATCHPAD_GRADUATED: 'scratchpad-graduated', // graduation: high-trust bullet moved out to a fact file under cap pressure (Task 91.1)
+  SCRATCHPAD_EVICTED: 'scratchpad-evicted', // consolidate: stale low/medium bullet dropped under cap pressure, archived to memory/archive/evicted-bullets.md (Task 91.2)
   TRUST_CHANGE: 'trust-change', // trust: overrideTrust (Task 15)
   CONFLICT_QUEUED: 'conflict-queued', // conflict-queue: new write contradicts existing higher-trust fact, routed to queues/conflicts.md (Task 25, design §6.8)
   CONFLICT_RESOLVED: 'conflict-resolved', // conflict-queue: user resolved a pending conflict via cmk queue conflicts (keep-old / keep-new / merge-both)

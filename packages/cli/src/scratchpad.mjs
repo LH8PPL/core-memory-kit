@@ -17,7 +17,14 @@
 // this module will call instead. The handoff is clean: format stays identical;
 // only the location of the formatter moves.
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  appendFileSync,
+  mkdirSync,
+} from 'node:fs';
+import { join } from 'node:path';
 import { generateId } from '@lh8ppl/cmk-canonicalize';
 import {
   VALID_TIERS,
@@ -29,6 +36,7 @@ import {
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { writeBullet, parseBulletProvenance, isProvenanceCommentLine } from './provenance.mjs';
+import { graduateForCapRelief } from './graduation.mjs';
 
 const VALID_TRUST = new Set(['high', 'medium', 'low']);
 const VALID_WRITE_SOURCES = new Set([
@@ -209,9 +217,12 @@ export function ensureSectionExists(scratchpadPath, sectionTitle) {
   return { created: true };
 }
 
+const EVICTED_ID_RE = /^- \(([PUL]-[A-Za-z0-9]+)\)/;
+
 function consolidate(text, { nowDate }) {
   const lines = text.split('\n');
   const removeIdx = new Set();
+  const evicted = [];
   const staleCutoff = new Date(nowDate.getTime() - STALE_AFTER_DAYS * 24 * 60 * 60 * 1000);
   let bulletsRemoved = 0;
 
@@ -232,14 +243,47 @@ function consolidate(text, { nowDate }) {
 
     removeIdx.add(i);
     removeIdx.add(i + 1);
+    // Task 91.2: capture the dropped bullet so the caller can ARCHIVE it
+    // (recoverable, per the §6.5 tombstone principle) instead of hard-deleting.
+    const idMatch = bulletLine.match(EVICTED_ID_RE);
+    evicted.push({ id: idMatch ? idMatch[1] : 'unknown', block: `${bulletLine}\n${commentLine}` });
     bulletsRemoved++;
   }
 
   if (removeIdx.size === 0) {
-    return { text, bulletsRemoved: 0 };
+    return { text, bulletsRemoved: 0, evicted: [] };
   }
   const out = lines.filter((_, i) => !removeIdx.has(i)).join('\n');
-  return { text: out, bulletsRemoved };
+  return { text: out, bulletsRemoved, evicted };
+}
+
+// Task 91.2: archive bullets that consolidate() dropped, so eviction is
+// recoverable rather than silent (mirrors `cmk forget`'s tombstone, §6.5).
+// Append-only log under the tier's archive dir; one audit entry per bullet.
+const EVICTED_ARCHIVE_HEADER =
+  '# Evicted scratchpad bullets\n\n<!-- Bullets dropped by cap-consolidation (low/medium trust, >14 days old). Kept here so eviction is recoverable, not silent. To restore one, re-capture it via `cmk remember`. -->\n\n';
+
+function archiveEvictedBullets({ tierRoot, tier, scratchpad, evicted, now }) {
+  const archiveDir = join(tierRoot, 'memory', 'archive');
+  mkdirSync(archiveDir, { recursive: true });
+  const archivePath = join(archiveDir, 'evicted-bullets.md');
+  const ts = now ?? nowIso();
+  const header = existsSync(archivePath) ? '' : EVICTED_ARCHIVE_HEADER;
+  const block = `## Evicted ${ts} — consolidate(${scratchpad})\n${evicted
+    .map((e) => e.block)
+    .join('\n')}\n\n`;
+  appendFileSync(archivePath, header + block, 'utf8');
+  for (const e of evicted) {
+    appendAuditEntry(tierRoot, {
+      ts,
+      action: 'evicted',
+      tier,
+      id: e.id,
+      reasonCode: REASON_CODES.SCRATCHPAD_EVICTED,
+      paths: { archive: archivePath },
+      extra: { scratchpad },
+    });
+  }
 }
 
 export function appendScratchpadBullet(opts = {}) {
@@ -296,6 +340,7 @@ export function appendScratchpadBullet(opts = {}) {
   // 2. Cap check: would the write push to >95%? If yes, consolidate.
   let consolidationRan = false;
   let bulletsConsolidated = 0;
+  let evictedBullets = [];
   let finalContent = candidate;
   const candidateBytes = Buffer.byteLength(candidate, 'utf8');
 
@@ -305,28 +350,75 @@ export function appendScratchpadBullet(opts = {}) {
     const consolidated = consolidate(candidate, { nowDate });
     bulletsConsolidated = consolidated.bulletsRemoved;
     finalContent = consolidated.text;
+    evictedBullets = consolidated.evicted ?? [];
   }
 
-  // 3. Post-consolidation cap check
-  const finalBytes = Buffer.byteLength(finalContent, 'utf8');
+  // 2b. Graduation (Task 91 / D-54). If still over cap after stale-drop — which
+  // is exactly what happens when the bullets are high-trust (consolidate() never
+  // drops those) — graduate the oldest high-trust bullets OUT of the hot index
+  // into the permanent fact store, so the write lands instead of CAP_EXCEEDED.
+  // PROJECT MEMORY.md ONLY (D-57): the user-tier persona scratchpads have no
+  // per-fact store + their own promotion path, so graduation must not fire there.
+  let bulletsGraduated = 0;
+  let graduatedIds = [];
+  let finalBytes = Buffer.byteLength(finalContent, 'utf8');
+  if (finalBytes > cap && tier === 'P' && scratchpad === 'MEMORY.md') {
+    const grad = graduateForCapRelief({
+      text: finalContent,
+      capBytes: cap,
+      tier,
+      projectRoot,
+      userDir,
+      now,
+    });
+    finalContent = grad.text;
+    graduatedIds = grad.graduated;
+    bulletsGraduated = graduatedIds.length;
+    finalBytes = Buffer.byteLength(finalContent, 'utf8');
+  }
+
+  // 3. Post-relief cap check
   if (finalBytes > cap) {
     // File untouched. The original on-disk content is preserved verbatim.
     return errorResult({
       category: ERROR_CATEGORIES.CAP_EXCEEDED,
       errors: [
-        `scratchpad cap exceeded: ${finalBytes} bytes would exceed cap of ${cap} bytes for ${scratchpad} (consolidator dropped ${bulletsConsolidated} bullet(s), still over). No silent truncation; resolve by raising the cap in settings.json or manually distilling.`,
+        `scratchpad cap exceeded: ${finalBytes} bytes would exceed cap of ${cap} bytes for ${scratchpad} (consolidator dropped ${bulletsConsolidated} bullet(s), graduated ${bulletsGraduated}, still over). No silent truncation; resolve by raising the cap in settings.json or manually distilling.`,
       ],
       path,
       cap,
       bytes: finalBytes,
       consolidationRan,
       bulletsConsolidated,
+      bulletsGraduated,
     });
   }
 
   // 4. Write + audit
   writeFileSync(path, finalContent, 'utf8');
   const ts = now ?? nowIso();
+
+  // 4a. Task 91.2 — archive evicted bullets now that the drop is durable on
+  // disk (only on the success path, so we never archive a bullet that's still
+  // live in the unchanged on-disk scratchpad).
+  if (evictedBullets.length > 0) {
+    archiveEvictedBullets({ tierRoot, tier, scratchpad, evicted: evictedBullets, now: ts });
+  }
+  // 4b. Task 91.4 (Door 4) — one audit entry per graduated bullet, so the
+  // bullet→fact-file move is traceable in the audit log (writeFact also logs
+  // the fact create; this records the graduation that triggered it).
+  for (const gid of graduatedIds) {
+    appendAuditEntry(tierRoot, {
+      ts,
+      action: 'graduated',
+      tier,
+      id: gid,
+      reasonCode: REASON_CODES.SCRATCHPAD_GRADUATED,
+      paths: { after: path },
+      extra: { scratchpad },
+    });
+  }
+
   appendAuditEntry(tierRoot, {
     ts,
     action: 'appended',
@@ -341,6 +433,7 @@ export function appendScratchpadBullet(opts = {}) {
       bytes: finalBytes,
       consolidationRan,
       bulletsConsolidated,
+      bulletsGraduated,
     },
   });
 
@@ -352,5 +445,6 @@ export function appendScratchpadBullet(opts = {}) {
     bytes: finalBytes,
     consolidationRan,
     bulletsConsolidated,
+    bulletsGraduated,
   };
 }
