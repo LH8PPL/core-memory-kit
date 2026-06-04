@@ -20,7 +20,7 @@ A session that has lost all memory must be able to read **only the three spine f
 | --- | --- |
 | WHAT must ship — requirements (FR / NFR / US) | [`specs/v0.1.0/requirements.md`](../specs/v0.1.0/requirements.md) |
 | HOW it works — architecture, schemas, validators, forward-compat candidates (§16) | [`specs/v0.1.0/design.md`](../specs/v0.1.0/design.md) |
-| WHERE memory can be lost/duplicated/blocked — intent-vs-code per lifecycle edge | [`docs/design/memory-lifecycle-map.md`](design/memory-lifecycle-map.md) — Spine support (pins design.md intent against code reality) |
+| WHERE memory can be lost/duplicated/blocked — intent-vs-code per lifecycle edge | [`specs/v0.1.0/memory-lifecycle-map.md`](../specs/v0.1.0/memory-lifecycle-map.md) — Spine support (pins design.md intent against code reality) |
 | The PLAN — task state, what's-next, the phase roadmap | [`specs/v0.1.0/tasks.md`](../specs/v0.1.0/tasks.md) |
 | Domain terms (glossary wins when docs disagree) | [`specs/v0.1.0/glossary.md`](../specs/v0.1.0/glossary.md) — Spine support |
 
