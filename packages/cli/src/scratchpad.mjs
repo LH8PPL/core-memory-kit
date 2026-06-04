@@ -360,9 +360,10 @@ export function appendScratchpadBullet(opts = {}) {
   // fact store, keeping the injected slice small (the write already succeeded
   // via the load-cap; graduation is about injection budget, not write success).
   // ALL FACT-BEARING TIERS (D-61): project (MEMORY.md + SOUL.md) AND the user-
-  // tier persona (USER/HABITS/LESSONS) — which gets its own fact store at
-  // <userDir>/memory/ (94.2). Local tier (machine-paths/overrides) is excluded:
-  // it's machine-specific config, not durable facts.
+  // tier persona (USER/HABITS/LESSONS) — graduating into the tier's existing
+  // fact store (project context/memory/, user <userDir>/fragments/; writeFact
+  // already routes tier-U facts there). Local tier (machine-paths/overrides) is
+  // excluded: it's machine-specific config, not durable facts.
   let bulletsGraduated = 0;
   let graduatedIds = [];
   let finalBytes = Buffer.byteLength(finalContent, 'utf8');

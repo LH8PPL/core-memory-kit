@@ -29,6 +29,7 @@ import {
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { appendScratchpadBullet } from '../packages/cli/src/scratchpad.mjs';
+import { memoryWrite } from '../packages/cli/src/memory-write.mjs';
 
 function buildMemoryMd({ targetBytes, paddingDate = '2026-05-24T10:00:00Z', paddingTrust = 'high' }) {
   const header = [
@@ -187,5 +188,35 @@ describe('Task 94 — load-cap, not write-cap (§19 / D-61)', () => {
     expect(userFacts.length).toBeGreaterThan(0);
     // The new bullet still landed (never lost).
     expect(readFileSync(join(userDir, 'LESSONS.md'), 'utf8')).toContain('always run the linter before pushing');
+  });
+
+  it('94.2 integration: memoryWrite (the persona-promote primitive) on a FULL persona tier LANDS, not queues', () => {
+    // The cut-gate persona lock (D-60) was `cmk lessons promote` → memoryWrite →
+    // appendScratchpadBullet returning cap_exceeded → routed to the review queue
+    // (`not-promoted-cap_exceeded`). With load-cap + user-tier graduation, the
+    // SAME primitive the promote path uses now LANDS instead of queuing.
+    const userDir = join(sandbox, 'user-tier');
+    mkdirSync(userDir, { recursive: true });
+    writeFileSync(join(userDir, 'LESSONS.md'), buildLessonsMd({ targetBytes: 1100 }), 'utf8');
+    writeFileSync(
+      join(userDir, 'settings.json'),
+      JSON.stringify({ scratchpads: { 'LESSONS.md': { max_chars: 800 } } }),
+      'utf8',
+    );
+
+    const r = memoryWrite({
+      action: 'add',
+      tier: 'U',
+      scratchpad: 'LESSONS.md',
+      section: 'Cross-Project Lessons',
+      text: 'FastAPI is the delivery layer — thin routes, services, repos',
+      trust: 'high',
+      source: 'user-explicit',
+      userDir,
+      now: '2026-05-24T12:00:00Z',
+    });
+
+    expect(r.action).toBe('appended'); // LANDS — not 'error'/cap_exceeded, not 'queued'
+    expect(r.errorCategory).toBeUndefined();
   });
 });
