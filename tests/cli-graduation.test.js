@@ -189,4 +189,38 @@ describe('Task 91 — MEMORY.md graduation (safety valve)', () => {
     const after = readFileSync(memoryMd, 'utf8');
     expect(after).toContain('P-PAD00000'); // validate-test-ids: ignore (helper-generated 0-padded id); nothing graduated away
   });
+
+  it('91.2 eviction archives, does not vanish: a consolidate()-dropped stale bullet is recoverable', () => {
+    // Near default cap with STALE MEDIUM padding → consolidate() drops them
+    // (low/medium AND >14d). Pre-Task-91 those were hard-deleted with no trace.
+    writeFileSync(
+      memoryMd,
+      buildMemoryMd({
+        targetBytes: 2400, // > 95% of the 2500 default cap
+        paddingDate: '2026-04-01T00:00:00Z', // >14d old
+        paddingTrust: 'medium', // droppable by consolidate
+      }),
+      'utf8',
+    );
+
+    const r = appendScratchpadBullet(validBulletOpts({ projectRoot }));
+    expect(r.action).toBe('appended');
+    expect(r.bulletsConsolidated).toBeGreaterThan(0);
+
+    // Dropped from the live hot index...
+    const after = readFileSync(memoryMd, 'utf8');
+    expect(after).not.toContain('P-PAD00000'); // validate-test-ids: ignore (helper id)
+
+    // ...but ARCHIVED, not vanished (the §6.5 tombstone principle applied to the
+    // eviction edge — Door 2 state + Door 4 recoverability).
+    const archivePath = join(
+      projectRoot,
+      'context',
+      'memory',
+      'archive',
+      'evicted-bullets.md',
+    );
+    expect(existsSync(archivePath)).toBe(true);
+    expect(readFileSync(archivePath, 'utf8')).toContain('P-PAD00000'); // validate-test-ids: ignore (helper id)
+  });
 });
