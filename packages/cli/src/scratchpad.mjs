@@ -377,22 +377,14 @@ export function appendScratchpadBullet(opts = {}) {
     finalBytes = Buffer.byteLength(finalContent, 'utf8');
   }
 
-  // 3. Post-relief cap check
-  if (finalBytes > cap) {
-    // File untouched. The original on-disk content is preserved verbatim.
-    return errorResult({
-      category: ERROR_CATEGORIES.CAP_EXCEEDED,
-      errors: [
-        `scratchpad cap exceeded: ${finalBytes} bytes would exceed cap of ${cap} bytes for ${scratchpad} (consolidator dropped ${bulletsConsolidated} bullet(s), graduated ${bulletsGraduated}, still over). No silent truncation; resolve by raising the cap in settings.json or manually distilling.`,
-      ],
-      path,
-      cap,
-      bytes: finalBytes,
-      consolidationRan,
-      bulletsConsolidated,
-      bulletsGraduated,
-    });
-  }
+  // 3. Load-cap, NOT write-cap (Task 94 / D-61 / design §19). The write ALWAYS
+  // succeeds — the cap governs only how much is injected, never whether content
+  // can be saved (the never-lose-memory invariant). When consolidate + graduation
+  // can't bring the file under cap (e.g. an absurdly small cap, or a single large
+  // bullet), the file is allowed to GROW past the inject budget; inject-context
+  // load-caps the snapshot (§7.1.1) and the overflow stays searchable on disk.
+  // The old `cap_exceeded` reject path was removed here — see §19.5 for the
+  // superseded write-cap design and why it changed.
 
   // 4. Write + audit
   writeFileSync(path, finalContent, 'utf8');
