@@ -51,12 +51,17 @@ function seedTodayFile(date, body = `## Decisions\n- ${date}\n`) {
   return path;
 }
 
-function seedRecentMd(body, ageMs) {
+function seedRecentMd(body, ageMs, baseMs = Date.now()) {
   const path = join(projectRoot, 'context', 'sessions', 'recent.md');
   mkdirSync(join(projectRoot, 'context', 'sessions'), { recursive: true });
   writeFileSync(path, body, 'utf8');
   if (ageMs !== undefined) {
-    const t = (Date.now() - ageMs) / 1000;
+    // baseMs lets a test that passes a FIXED `now` to detectStaleness seed the
+    // mtime relative to THAT instant (not real wall-clock) — otherwise the
+    // computed age drifts with real time and a staleness assertion eventually
+    // flips. Defaults to Date.now() for tests where the age sign is all that
+    // matters (fresh = "future relative to a past fixed now").
+    const t = (baseMs - ageMs) / 1000;
     utimesSync(path, t, t);
   }
   return path;
@@ -145,7 +150,10 @@ describe('Task 35 — detectStaleness (cheap inline staleness check)', () => {
 
     it('returns stale-daily when recent.md mtime > 24h', () => {
       seedTodayFile('2026-05-28');
-      seedRecentMd('## stale\n', 8 * 24 * 60 * 60 * 1000); // 8d old
+      // Seed mtime against the SAME fixed `now` (not real wall-clock) so the
+      // 8d age is deterministic — this test tripped 2026-06-04 when real time
+      // marched past the point where (realNow − 8d) sat <24h before the fixed now.
+      seedRecentMd('## stale\n', 8 * 24 * 60 * 60 * 1000, Date.parse('2026-05-28T10:00:00Z'));
       const v = detectStaleness({ projectRoot, now: '2026-05-28T10:00:00Z' });
       // Note: this fires stale-DAILY because no OLD today file exists
       // (only 2026-05-28 which is current). The recent.md mtime > 24h

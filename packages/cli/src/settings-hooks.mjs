@@ -177,22 +177,31 @@ export function writeKitHooks(settingsPath) {
     }
   }
 
-  // Task 79: allow-list the kit's own CLI so the agent's EXPLICIT captures
-  // (`cmk remember`, `cmk lessons promote`, … — Bash tool calls) don't trip
-  // Claude Code's per-command "Allow this bash command?" prompt. The AUTO path
-  // (hooks above) is already seamless; this makes the explicit half seamless
-  // too. Idempotent + over-mutation safe: preserve the user's existing allow
-  // entries; only append ours if absent. `Bash(cmk:*)` is Claude Code's
-  // prefix-wildcard form — matches any `cmk <subcommand> …`.
-  const CMK_ALLOW = 'Bash(cmk:*)';
+  // Task 79 + 90: allow-list the kit's own surfaces so the agent's EXPLICIT
+  // captures stay seamless (the AUTO hook path already is). Two prompts to
+  // suppress, because Task 69 made the SKILL the capture delivery path:
+  //   - `Bash(cmk:*)` (Task 79) — stops "Allow this bash command?" when the
+  //     agent runs `cmk remember` / `cmk lessons promote` (prefix-wildcard;
+  //     matches any `cmk <subcommand> …`).
+  //   - `Skill(memory-write)` (Task 90) — stops "Use skill /memory-write?" when
+  //     the model INVOKES the capture skill. The bash rule alone doesn't cover
+  //     this: the skill-invocation gate is a separate Claude Code permission
+  //     surface (`Skill(<name>)` rule, per code.claude.com/docs/en/permissions).
+  //     Surfaced by the v0.2.0 cut-gate live run — the friction Task 79 killed
+  //     returned one layer up once capture moved into the skill.
+  // Idempotent + over-mutation safe: preserve the user's existing allow entries;
+  // only append ours if absent.
+  const KIT_ALLOW = ['Bash(cmk:*)', 'Skill(memory-write)'];
   if (!settings.permissions || typeof settings.permissions !== 'object') {
     settings.permissions = {};
   }
   if (!Array.isArray(settings.permissions.allow)) {
     settings.permissions.allow = [];
   }
-  if (!settings.permissions.allow.includes(CMK_ALLOW)) {
-    settings.permissions.allow.push(CMK_ALLOW);
+  for (const rule of KIT_ALLOW) {
+    if (!settings.permissions.allow.includes(rule)) {
+      settings.permissions.allow.push(rule);
+    }
   }
 
   const after = JSON.stringify(settings);
