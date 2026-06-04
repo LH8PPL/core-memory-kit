@@ -353,16 +353,20 @@ export function appendScratchpadBullet(opts = {}) {
     evictedBullets = consolidated.evicted ?? [];
   }
 
-  // 2b. Graduation (Task 91 / D-54). If still over cap after stale-drop — which
-  // is exactly what happens when the bullets are high-trust (consolidate() never
-  // drops those) — graduate the oldest high-trust bullets OUT of the hot index
-  // into the permanent fact store, so the write lands instead of CAP_EXCEEDED.
-  // PROJECT MEMORY.md ONLY (D-57): the user-tier persona scratchpads have no
-  // per-fact store + their own promotion path, so graduation must not fire there.
+  // 2b. Graduation (Task 91, generalized to all tiers by Task 94 / §19.2). If
+  // still over the LOAD-cap after stale-drop — which is what happens when the
+  // bullets are high-trust (consolidate() never drops those) — graduate the
+  // oldest high-trust bullets OUT of the hot index into the tier's permanent
+  // fact store, keeping the injected slice small (the write already succeeded
+  // via the load-cap; graduation is about injection budget, not write success).
+  // ALL FACT-BEARING TIERS (D-61): project (MEMORY.md + SOUL.md) AND the user-
+  // tier persona (USER/HABITS/LESSONS) — which gets its own fact store at
+  // <userDir>/memory/ (94.2). Local tier (machine-paths/overrides) is excluded:
+  // it's machine-specific config, not durable facts.
   let bulletsGraduated = 0;
   let graduatedIds = [];
   let finalBytes = Buffer.byteLength(finalContent, 'utf8');
-  if (finalBytes > cap && tier === 'P' && scratchpad === 'MEMORY.md') {
+  if (finalBytes > cap && (tier === 'P' || tier === 'U')) {
     const grad = graduateForCapRelief({
       text: finalContent,
       capBytes: cap,

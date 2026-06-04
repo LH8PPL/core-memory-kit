@@ -66,6 +66,27 @@ function validBulletOpts(overrides = {}) {
   };
 }
 
+function buildLessonsMd({ targetBytes }) {
+  const header = [
+    '<!--', 'Cap: 1800 chars.', 'Last distilled: 2026-05-24.', 'Last health check: 2026-05-24.', '-->',
+    '', '# Lessons (cross-project)', '', '## Tooling Lessons', '', '## Process Lessons',
+    '', '## Anti-patterns', '', '## Cross-Project Lessons', '',
+  ].join('\n');
+  const lines = [header];
+  let i = 0;
+  while (true) {
+    const id = `U-PAD${String(i).padStart(5, '0')}`;
+    const bullet = `- (${id}) cross-project lesson number ${i} that should persist across every project`;
+    const comment = `  <!-- source: pad/${i}.md, source_line: 1, sha1: ${'a'.repeat(40)}, write: user-explicit, trust: high, at: 2026-05-24T10:00:00Z -->`;
+    const candidate = lines.join('\n') + '\n' + bullet + '\n' + comment;
+    if (Buffer.byteLength(candidate, 'utf8') >= targetBytes) break;
+    lines.push(bullet);
+    lines.push(comment);
+    i++;
+  }
+  return lines.join('\n') + '\n';
+}
+
 function setCap(projectRoot, maxChars) {
   writeFileSync(
     join(projectRoot, 'context', 'settings.json'),
@@ -131,5 +152,40 @@ describe('Task 94 — load-cap, not write-cap (§19 / D-61)', () => {
     for (const t of texts) {
       expect(corpus).toContain(t);
     }
+  });
+
+  it('94.2: a USER-tier scratchpad that fills GRADUATES to the user-tier fact store (not just project)', () => {
+    // The persona write-lock from cut-gate2 §6 (D-60): graduation was project-
+    // MEMORY.md-only. 94.2 lifts the gate so the user tier graduates too, into
+    // its OWN fact store (userDir/memory/), keeping the never-lose invariant.
+    const userDir = join(sandbox, 'user-tier');
+    mkdirSync(userDir, { recursive: true });
+    writeFileSync(join(userDir, 'LESSONS.md'), buildLessonsMd({ targetBytes: 1100 }), 'utf8');
+
+    const r = appendScratchpadBullet({
+      tier: 'U',
+      scratchpad: 'LESSONS.md',
+      section: 'Cross-Project Lessons',
+      userDir,
+      settings: { scratchpads: { 'LESSONS.md': { max_chars: 800 } } },
+      text: 'always run the linter before pushing — a durable cross-project rule',
+      provenance: {
+        source: 'transcripts/x.md', source_line: 1, sha1: 'b'.repeat(40),
+        write: 'user-explicit', trust: 'high', at: '2026-05-24T12:00:00Z',
+      },
+      now: '2026-05-24T12:00:00Z',
+    });
+
+    expect(r.action).toBe('appended');
+    expect(r.bulletsGraduated).toBeGreaterThan(0); // graduation FIRED on the user tier
+
+    // Door 2: graduated to the USER-tier fact store (userDir/fragments/ — the
+    // user-tier equivalent of the project's context/memory/), not the project one.
+    const userFactDir = join(userDir, 'fragments');
+    expect(existsSync(userFactDir)).toBe(true);
+    const userFacts = readdirSync(userFactDir).filter((f) => f.endsWith('.md') && f !== 'INDEX.md');
+    expect(userFacts.length).toBeGreaterThan(0);
+    // The new bullet still landed (never lost).
+    expect(readFileSync(join(userDir, 'LESSONS.md'), 'utf8')).toContain('always run the linter before pushing');
   });
 });
