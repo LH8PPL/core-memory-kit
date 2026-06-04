@@ -5,7 +5,7 @@ companion_url: https://scrapeshq.notion.site/claude-memory-systems
 source_type: video + companion Notion writeup
 source_date: 2026 (specific date on the YouTube upload page)
 consulted_date: 2026-05-20 (during youtube-to-slide work) and 2026-05-21 (re-consulted for kit)
-consulted_by: Claude Opus 4.7 + Lior Hollander
+consulted_by: Claude Opus 4.7 + the maintainer
 informed_adrs: [0002-markdown-source-of-truth-over-opaque-db.md, 0003-per-project-with-future-cross-project-tier.md, 0006-lifecycle-hooks-architecture.md]
 tags:
   - simon-scrapes

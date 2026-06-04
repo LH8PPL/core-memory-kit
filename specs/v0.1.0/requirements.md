@@ -1,6 +1,6 @@
 # Requirements — claude-memory-kit v0.1.0
 
-**Status**: Draft for review · **Author**: Claude (Opus 4.7) + Lior Hollander · **Date**: 2026-05-21
+**Status**: Draft for review · **Author**: Claude (Opus 4.7) + the maintainer · **Date**: 2026-05-21
 
 > **Merged 2026-05-31:** T7/T8, US-14/15/16, FR-28/29/30/31, NFR-9, OS-9..13, and OQ-8 are now defined IN THIS FILE. They were approved 2026-05-22 but had lived (unmerged) in `requirements-revisions-proposed.md` for 9 days — a single-source-of-truth gap healed by the documentation-governance restructure. `requirements-revisions-proposed.md` is now a superseded historical record (the original research-driven proposal); this file is the sole authoritative requirements source.
 
@@ -42,7 +42,7 @@ These constrain every decision below. If a requirement violates a tenet, the ten
 | **T1**: Markdown is the source of truth. Everything else (SQLite, vector indexes) is regenerable cache. | A user must be able to open `MEMORY.md` in VS Code, edit a typo, and have the system respect it. Opaque storage breaks this. |
 | **T2**: Per-project memory lives in `<repo>/context/` and is committed to git. | Memory must travel with `git clone`. A new dev / new laptop is up-to-speed after one clone, no export/import. |
 | **T3**: Cross-project user-tier memory lives in `~/.claude-memory-kit/` and is global. | Some facts (your name, your role, your habits) are about *you*, not any one project. Forcing them into every project is silly. |
-| **T4**: Capture is mostly automatic. User-explicit triggers ("remember this") still work but are not required for the system to be useful. | The third strike on "make it automatic" — the user has been clear this is a hard requirement. |
+| **T4**: Capture is mostly automatic. User-explicit triggers ("remember this") still work but are not required for the system to be useful. | The third strike on "make it automatic" — The user has been clear this is a hard requirement. |
 | **T5**: Silent by default. No "I've saved that to memory" announcements unless the user explicitly asked. | Auto-capture should be invisible. Announcing breaks the illusion. |
 | **T6**: Claude Code first. Other agents (Codex, Gemini, Hermes, Copilot) are explicitly out of scope for v0.1.0. | Don't try to be claude-mem's cross-agent surface. We can revisit in v0.2 if it matters. |
 | **T7**: Raw evidentiary archive is preserved indefinitely. Compressed summaries are derivative and lossy; the source transcripts are authoritative. | True Memory (arXiv) argues "extraction at ingest is the wrong primitive." Our rolling-window pattern keeps raw `transcripts/` AND compressed summaries: the compressed layer is searchable cache, the raw layer is the audit trail. |
@@ -62,7 +62,7 @@ Maps to: FR-1, FR-2, FR-3, FR-7, FR-12.
 
 ### US-2 — Cross-project continuity for user identity
 
-> As a developer who is the same person across multiple projects, I want my universal identity (name, role, preferences, working style) to be known to Claude regardless of which project I'm in — so that I don't have to repeat "I'm Lior, I prefer terse responses, I work on Windows" in every project's USER.md.
+> As a developer who is the same person across multiple projects, I want my universal identity (name, role, preferences, working style) to be known to Claude regardless of which project I'm in — so that I don't have to repeat "I'm the user, I prefer terse responses, I work on Windows" in every project's USER.md.
 
 Maps to: FR-4, FR-7, FR-13.
 
@@ -344,7 +344,7 @@ Each shall scaffold the project tier into the current directory.
 Acceptance: When the user runs `bash install.sh` from a project root, the system shall complete bootstrap in under 10 seconds with zero errors on a machine where prerequisites are met.
 
 **FR-23 — Dependency check at install time**
-The installers shall check for prerequisites (Node ≥ 18, Python ≥ 3.10, optionally Docker) and report clearly what's missing. The check shall NOT install missing prerequisites silently — the user must approve each install.
+The installers shall check for prerequisites (Node ≥ 18, Python ≥ 3.10, optionally Docker) and report clearly what's missing. The check shall NOT install missing prerequisites silently — The user must approve each install.
 
 Acceptance: When `install.sh` runs on a machine without Node, the script shall print `"ERROR: Node >= 18 required, install via <OS-specific command>"` and exit non-zero.
 

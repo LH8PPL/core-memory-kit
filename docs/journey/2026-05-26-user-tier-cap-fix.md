@@ -23,7 +23,7 @@ Live-test scenario 4 (see [2026-05-26-live-test-findings-scenarios-3-7.md](2026-
 - **(A)** Tighten user-tier seed templates by ~45% (USER.md 1227→812, HABITS.md 1779→934, LESSONS.md 1701→851). Bullet text preserved verbatim so Task 14's frozen IDs remain valid.
 - **(C)** Per-tier byte budgets in `enforceCap()`, with section-granular truncation per tier BEFORE the legacy whole-tier-drop fallback fires. Budgets: L=1500, P=4500, U=4000 (Σ=10000 ≈ 10240 default cap).
 
-**(A) alone postpones the inevitable** (user grows their notes over time → eventually hits cap again → tier dropped). **(C) is the structural fix** — the user tier can never be dropped to zero regardless of how project-tier facts accumulate. Both together ship a kit that works correctly at install AND after months of accumulated use.
+**(A) alone postpones the inevitable** (user grows their notes over time → eventually hits cap again → tier dropped). **(C) is the structural fix** — The user tier can never be dropped to zero regardless of how project-tier facts accumulate. Both together ship a kit that works correctly at install AND after months of accumulated use.
 
 ## The finding (math + log evidence)
 
@@ -164,7 +164,7 @@ When two specs declare caps / budgets / quotas that COMPOSE (sum into a total), 
 
 - **Local-tier seed-content also exceeds its 1500-byte budget** (~2917 actual). Truncated section-granularly in the live run, but the same coordination problem applies to L tier too. The fix is identical (tighten machine-paths + overrides seed templates), separate scope from this PR. Filed as a follow-up.
 - **`SessionEnd hook cancelled` messages** continue to surface on scenario 2's terminal output. Same Claude Code race that scenario 5 surfaced — stub SessionEnd hook gets killed during clean shutdown. Investigated when Task 22 wires the real SessionEnd handler.
-- **Build plan resumption** (Task 22 / Task 24) — paused per Lior's gate; resumes after this PR + the PR-24 follow-up traceability items merge.
+- **Build plan resumption** (Task 22 / Task 24) — paused per the user's gate; resumes after this PR + the PR-24 follow-up traceability items merge.
 
 ## Stats
 

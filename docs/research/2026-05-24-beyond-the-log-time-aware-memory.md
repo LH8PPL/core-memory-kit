@@ -17,7 +17,7 @@ tags:
 
 ## Why this research
 
-Lior surfaced [Indranil Chandra's "Beyond the Log"](https://indranildchandra.medium.com/beyond-the-log-time-aware-blueprint-for-ai-agent-memory-8eb59a23b487) (published 2026-05-19) on 2026-05-24. Worth a deep look because:
+The user surfaced [Indranil Chandra's "Beyond the Log"](https://indranildchandra.medium.com/beyond-the-log-time-aware-blueprint-for-ai-agent-memory-8eb59a23b487) (published 2026-05-19) on 2026-05-24. Worth a deep look because:
 
 1. **It is a direct polemic against the `MEMORY.md` pattern.** The article names the pattern explicitly (citing Hermes and "local coding assistants" — exactly the territory claude-memory-kit operates in) and labels it a "dangerous anti-pattern" for enterprise systems. Worth understanding the critique on its own terms even though our scope is deliberately the case the author concedes is appropriate for it.
 2. **It surfaces a genuine architectural gap in our design: temporal blindness.** Our scratchpads carry `at:` timestamps and we drop stale-medium-trust bullets at 14 days, but we don't have validity windows, fact shapes, or mode-aware retrieval. The article diagnoses this gap precisely.
@@ -175,7 +175,7 @@ Compose-not-replace: keeps our content-addressed ID system intact; adds temporal
 
 **Verdict:** small absorb. Add a way to capture negative facts ("user does NOT want X").
 
-Currently we'd express "Lior doesn't want emoji in responses" as a bullet under USER.md `Preferences`, but the *negation* is implicit in the wording. If a future LLM reads the bullet without parsing carefully, it might extract "wants emoji" by topic match.
+Currently we'd express "the user doesn't want emoji in responses" as a bullet under USER.md `Preferences`, but the *negation* is implicit in the wording. If a future LLM reads the bullet without parsing carefully, it might extract "wants emoji" by topic match.
 
 Concrete shape: shape:Absence as a value on the `shape:` field (per #2). Or: a `negation: true` boolean for v0.1.x as a smaller version of #2. Cheap; high pedagogical value.
 

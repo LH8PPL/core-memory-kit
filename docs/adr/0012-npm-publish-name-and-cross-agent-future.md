@@ -4,7 +4,7 @@ title: Publish v0.1.0 under @lh8ppl scope; defer the cross-agent product name to
 status: accepted
 date: 2026-05-29
 deciders:
-  - Lior Hollander
+  - the maintainer
   - Claude Opus 4.8
 supersedes: null
 superseded_by: null
@@ -33,7 +33,7 @@ At v0.1.0 publish time, two naming questions converged:
    - The `claude-memory-kit` org does **not exist** (404).
    - The `@cmk` scope is **not cleanly owned** by `lh8ppl` — `npm org ls cmk lh8ppl` returned empty (not a listed member), while `npm access list packages cmk` showed pre-existing `@cmk/fe_utils` + `react-techchart`. The 3-letter `@cmk` scope is desirable and likely tangled with other ownership. Publishing the kit's canonicalize package into `@cmk` could not be done safely on a guess.
 
-2. **The product name itself.** Lior raised the strategic question: *"we are calling it 'claude-memory-kit' because at first we thought about making this for claude, but what happens when i want to use it for other ai like codex/kiro/cursor/etc., like we plan to do?"*
+2. **The product name itself.** The user raised the strategic question: *"we are calling it 'claude-memory-kit' because at first we thought about making this for claude, but what happens when i want to use it for other ai like codex/kiro/cursor/etc., like we plan to do?"*
 
    This is a real tension. The name bakes in "claude", but:
    - Tenet **T6** (requirements.md §1.4) explicitly scopes v0.1.0 to Claude Code only.
@@ -63,7 +63,7 @@ The name itself is under reconsideration (point 2 above). Creating org infrastru
 - **Cross-agent support is genuinely v0.2+ work**, not imminent — each agent (Codex, Cursor, Gemini, Kiro) has a different hook system + session-transcript format, requiring new adapter modules. Renaming now is naming for a future that may shift.
 - **A full project rename is out of scope for "finish v0.1.0."** It would touch the repo name, every doc, CLAUDE.md, the plugin manifest, the GitHub marketplace ref — days of work + re-testing. That is squarely a v0.2 undertaking.
 - **npm has a clean rename story** (publish the new name, deprecate the old with a pointer). The cost of renaming later is bounded and is paid only IF cross-agent actually ships.
-- Per CLAUDE.md anti-patterns: naming-for-a-hypothetical-future is the over-engineering trap Lior has pushed back on before ("what if we also add X").
+- Per CLAUDE.md anti-patterns: naming-for-a-hypothetical-future is the over-engineering trap the user has pushed back on before ("what if we also add X").
 
 ### What the v0.2 cross-agent name decision looks like (when it arrives)
 
@@ -100,7 +100,7 @@ The `cmk` CLI command (three letters, barely Claude-branded in daily use) can su
 | Publish `@cmk/canonicalize` into the existing `@cmk` scope | `@cmk` ownership by `lh8ppl` could not be confirmed (org-membership query came back empty). Betting the release on an ambiguous scope is reckless. |
 | Rename the whole project to an agent-neutral name now | Days of work (repo + every doc + CLAUDE.md + plugin manifest + marketplace ref) + re-testing. Out of scope for finishing v0.1.0. Naming for a future that may shift. |
 | Unscoped names (`claude-memory-kit`, `cmk-canonicalize`) | Cleanest install, but both names must be globally free on npm (unverified) and it still bakes "claude" into the published name. |
-| Keep `@claude-memory-kit/cli` and just don't publish | Defeats the entire point — Lior's mandate is a working, installable kit. |
+| Keep `@claude-memory-kit/cli` and just don't publish | Defeats the entire point — The user's mandate is a working, installable kit. |
 
 ## References
 
@@ -114,4 +114,4 @@ The `cmk` CLI command (three letters, barely Claude-branded in daily use) can su
 
 | Date | Reviewer | Action |
 |---|---|---|
-| 2026-05-29 | Lior | Raised the cross-agent naming tension; chose `@lh8ppl` scope for v0.1.0 + defer permanent name to v0.2 |
+| 2026-05-29 | the user | Raised the cross-agent naming tension; chose `@lh8ppl` scope for v0.1.0 + defer permanent name to v0.2 |

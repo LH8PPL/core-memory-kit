@@ -4,7 +4,7 @@ title: Raw transcripts preserved indefinitely (per FR-28)
 status: accepted
 date: 2026-05-22
 deciders:
-  - Lior Hollander
+  - the maintainer
   - Claude Opus 4.7
 supersedes: null
 superseded_by: null
@@ -34,7 +34,7 @@ This ADR was reserved during the requirements-revisions-proposed.md drafting on 
 - [`specs/v0.1.0/design.md`](../../specs/v0.1.0/design.md) §6.5 — tombstone discipline (the kit never silently deletes; even removals are auditable).
 - [`packages/cli/src/capture-prompt.mjs`](../../packages/cli/src/capture-prompt.mjs) + [`packages/cli/src/capture-turn.mjs`](../../packages/cli/src/capture-turn.mjs) — the transcript-append implementation.
 
-This is the evidence-driven backfill case Lior described in the campaign plan.
+This is the evidence-driven backfill case the user described in the campaign plan.
 
 ## Context
 
@@ -104,6 +104,6 @@ The 6-month acceptance criterion (per FR-28): when 6 months have passed since a 
 
 | Date | Reviewer | Action |
 |---|---|---|
-| 2026-05-22 | Lior | Decided per requirements-revisions-proposed.md approval (FR-28) |
+| 2026-05-22 | the user | Decided per requirements-revisions-proposed.md approval (FR-28) |
 | 2026-05-25 | (implementation) | Tasks 19, 21 shipped `capture-prompt.mjs` + `capture-turn.mjs` (transcripts captured to `context/transcripts/{date}.md`) |
-| 2026-05-26 | Lior + Claude (PR-C audit) | ADR file backfilled retroactively from preserved evidence after the post-PR-31 cross-reference audit surfaced the gap |
+| 2026-05-26 | the user + Claude (PR-C audit) | ADR file backfilled retroactively from preserved evidence after the post-PR-31 cross-reference audit surfaced the gap |

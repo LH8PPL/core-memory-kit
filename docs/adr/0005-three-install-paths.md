@@ -4,7 +4,7 @@ title: Ship three install paths — bash script, PowerShell script, Claude Code 
 status: accepted
 date: 2026-05-21
 deciders:
-  - Lior Hollander
+  - the maintainer
   - Claude Opus 4.7
 supersedes: null
 superseded_by: null
@@ -58,7 +58,7 @@ All three paths are idempotent: re-running them on a project that already has th
 
 - Each install path matches a real user's workflow — no one has to context-switch into an unfamiliar tool.
 - The plugin path is the lowest-friction for new users — discoverable from within Claude Code itself.
-- The script paths are the most transparent — the user can read what they're about to run.
+- The script paths are the most transparent — The user can read what they're about to run.
 - Idempotency means re-installing after kit updates is safe.
 
 ### Negative
@@ -91,4 +91,4 @@ All three paths are idempotent: re-running them on a project that already has th
 
 | Date | Reviewer | Action |
 |---|---|---|
-| 2026-05-21 | Lior | All three approved (OQ-2 in requirements.md) |
+| 2026-05-21 | the user | All three approved (OQ-2 in requirements.md) |

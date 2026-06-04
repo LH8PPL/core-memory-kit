@@ -4,7 +4,7 @@ source_url: https://kiro.dev/blog/from-chat-to-specs-deep-dive/
 source_type: blog
 source_date: 2025 (specific date not stated on page)
 consulted_date: 2026-05-21
-consulted_by: Claude Opus 4.7 (with Lior Hollander)
+consulted_by: Claude Opus 4.7 (with the maintainer)
 informed_adrs: [0004-spec-driven-development-kiro-style.md]
 tags:
   - methodology

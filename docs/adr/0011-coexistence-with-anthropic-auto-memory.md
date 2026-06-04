@@ -5,7 +5,7 @@ status: accepted
 date: 2026-05-22
 decision_date: 2026-05-31
 deciders:
-  - Lior Hollander
+  - the maintainer
   - Claude Opus 4.7 (proposing) / Claude Opus 4.8 (resolving)
 supersedes: null
 superseded_by: null
@@ -24,7 +24,7 @@ tags:
 
 ## Status
 
-**Accepted 2026-05-31.** **Option C (coexist) is the default; Option A (disable native) is a one-command, committable, user-invoked opt-in.** Originally proposed 2026-05-22 with a default of Option A; revised to non-enforcement after Lior's 2026-05-31 review. See "Decision" below.
+**Accepted 2026-05-31.** **Option C (coexist) is the default; Option A (disable native) is a one-command, committable, user-invoked opt-in.** Originally proposed 2026-05-22 with a default of Option A; revised to non-enforcement after the user's 2026-05-31 review. See "Decision" below.
 
 ## Context
 
@@ -104,7 +104,7 @@ Anthropic writes to `~/.claude/projects/<slug>/memory/` as designed. Our hooks w
 
 **Option C is the default — the kit coexists and does NOT touch the user's native Auto Memory. Option A is offered as a one-command, committable, user-invoked opt-in.**
 
-**Rationale** (Lior, 2026-05-31): the kit must be **additive, not enforcing**. Silently reaching into a user's Claude Code to disable a native feature is the wrong posture (the original default-A). Default to non-interference; inform; let the user choose.
+**Rationale** (the user, 2026-05-31): the kit must be **additive, not enforcing**. Silently reaching into a user's Claude Code to disable a native feature is the wrong posture (the original default-A). Default to non-interference; inform; let the user choose.
 
 Concretely:
 
@@ -113,7 +113,7 @@ Concretely:
 3. **`cmk disable-native-memory` (the opt-in to A).** Writes `autoMemoryEnabled: false` into the project's `.claude/settings.json` — which IS committable, so the choice **travels with `git clone`** (unlike Option B's user-only `autoMemoryDirectory`). Reversible via `cmk enable-native-memory` (or editing the file).
 4. **Discoverability via `cmk doctor`.** A health-check detects "native auto-memory ON + kit installed" and surfaces the bloat + the disable command — so the choice is discoverable later, not just a skimmed install line (the install-message-gets-ignored UX lesson from the v0.1.1 self-test).
 
-**Why not A as the default:** silent enforcement of the kit's memory over the user's native one — Lior rejected this 2026-05-31. **Why not B:** `autoMemoryDirectory` is user-level-only (not committable → breaks git-clone portability) AND Anthropic writes its own `<type>_<slug>.md` format, not the kit's citation-ID / provenance / trust schema (so redirected files wouldn't index with `cmk`). Both are detailed under Options above.
+**Why not A as the default:** silent enforcement of the kit's memory over the user's native one — The user rejected this 2026-05-31. **Why not B:** `autoMemoryDirectory` is user-level-only (not committable → breaks git-clone portability) AND Anthropic writes its own `<type>_<slug>.md` format, not the kit's citation-ID / provenance / trust schema (so redirected files wouldn't index with `cmk`). Both are detailed under Options above.
 
 **Investigation status:** Q1 (does native fire with our hooks installed?) — confirmed **YES**; native auto-memory is ON by default (verified 2026-05-31: no `autoMemoryEnabled` in user settings + env unset → Anthropic default = enabled; it had been writing to ClawdBot/liorpedia/liorwiki). Q2/Q3 are folded into the non-enforcement principle above.
 
@@ -161,4 +161,4 @@ This ADR is narrowly about Anthropic-coexistence, not about our core architectur
 | Date | Reviewer | Action |
 |---|---|---|
 | 2026-05-22 | Claude (proposing) | Drafted; status proposed (default-A if undecided) |
-| 2026-05-31 | Lior | **Accepted** — Option C default (coexist, non-enforcement) + `cmk disable-native-memory` as a committable, user-invoked opt-in to A. Implementation tracked as Task 60. |
+| 2026-05-31 | the user | **Accepted** — Option C default (coexist, non-enforcement) + `cmk disable-native-memory` as a committable, user-invoked opt-in to A. Implementation tracked as Task 60. |

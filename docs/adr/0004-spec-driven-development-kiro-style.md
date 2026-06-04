@@ -4,7 +4,7 @@ title: Spec-driven development using a Kiro-adapted workflow (requirements → d
 status: accepted
 date: 2026-05-21
 deciders:
-  - Lior Hollander
+  - the maintainer
   - Claude Opus 4.7
 supersedes: null
 superseded_by: null
@@ -111,5 +111,5 @@ For everything else, the spec flow is mandatory.
 
 | Date | Reviewer | Action |
 |---|---|---|
-| 2026-05-21 | Lior | Adopted; first spec (`v0.1.0/requirements.md`) started immediately |
-| 2026-05-21 | Lior | Chose strict Kiro: one doc at a time |
+| 2026-05-21 | the user | Adopted; first spec (`v0.1.0/requirements.md`) started immediately |
+| 2026-05-21 | the user | Chose strict Kiro: one doc at a time |

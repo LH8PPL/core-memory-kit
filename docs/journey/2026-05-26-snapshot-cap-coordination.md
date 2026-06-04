@@ -14,7 +14,7 @@ tags:
 
 ## TL;DR
 
-PR-25 (the user-tier cap fix) tightened user-tier seed templates and introduced per-tier byte budgets. Lior's review afterward called the seed-tightening a "bandaid" and the per-tier budgets only half the structural fix: **the snapshot cap and per-file caps were still specified independently, so the composition still didn't hold under realistic user growth.** PR-B (this PR) is the rest of the structural fix.
+PR-25 (the user-tier cap fix) tightened user-tier seed templates and introduced per-tier byte budgets. The user's review afterward called the seed-tightening a "bandaid" and the per-tier budgets only half the structural fix: **the snapshot cap and per-file caps were still specified independently, so the composition still didn't hold under realistic user growth.** PR-B (this PR) is the rest of the structural fix.
 
 ## Math
 
@@ -90,7 +90,7 @@ The structural fix is complete. Per-file caps + per-tier budgets + snapshot cap 
 
 ## What didn't ship — local-tier seed shrink
 
-Lior's original PR-B spec was a corollary: "Local-tier seed shrink: NOT NEEDED with the new L=3000 budget. The ~2917-byte seeds fit cleanly." Verified live — the local-tier seed (machine-paths.md.template + overrides.md.template ≈ 2917 bytes) fits cleanly under L=3000 with no truncation. The PR-25 follow-up filed as "local-tier seed shrink needed" can be closed.
+The user's original PR-B spec was a corollary: "Local-tier seed shrink: NOT NEEDED with the new L=3000 budget. The ~2917-byte seeds fit cleanly." Verified live — the local-tier seed (machine-paths.md.template + overrides.md.template ≈ 2917 bytes) fits cleanly under L=3000 with no truncation. The PR-25 follow-up filed as "local-tier seed shrink needed" can be closed.
 
 ## Meta-lesson — composition verification
 

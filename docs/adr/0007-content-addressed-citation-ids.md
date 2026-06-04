@@ -4,7 +4,7 @@ title: Content-addressed citation IDs — 8-char base32 SHA-256 with tier prefix
 status: accepted
 date: 2026-05-22
 deciders:
-  - Lior Hollander
+  - the maintainer
   - Claude Opus 4.7
 supersedes: null
 superseded_by: null
@@ -118,5 +118,5 @@ Citation: Nima Karimian Kakolaki, *A Comparative Analysis of Identifier Schemes:
 
 | Date | Reviewer | Action |
 |---|---|---|
-| 2026-05-21 | Lior | OQ-4 first-draft answer: namespaced random base32 (placeholder) |
-| 2026-05-22 | Lior | Revised to content-addressed 8-char base32 after Option-B research |
+| 2026-05-21 | the user | OQ-4 first-draft answer: namespaced random base32 (placeholder) |
+| 2026-05-22 | the user | Revised to content-addressed 8-char base32 after Option-B research |

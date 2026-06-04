@@ -10,9 +10,9 @@ Worth documenting as a standalone artifact because the result was surprising, th
 
 ## The setup
 
-Lior had been working with one Claude session (call it "warm Claude") for ~3 days on the spec + implementation of claude-memory-kit v0.1.0. Tasks 1–4 had shipped (PRs #1–#4 merged, 127/127 tests green, project on `main`).
+The user had been working with one Claude session (call it "warm Claude") for ~3 days on the spec + implementation of claude-memory-kit v0.1.0. Tasks 1–4 had shipped (PRs #1–#4 merged, 127/127 tests green, project on `main`).
 
-Late on 2026-05-23, after committing a substantial pile of documentation infrastructure — `CLAUDE.md`, `docs/BOOTSTRAP.md`, working-style preferences captured in `docs/journey/v0.1.0-build-log.md` — Lior proposed a parallel test. He'd:
+Late on 2026-05-23, after committing a substantial pile of documentation infrastructure — `CLAUDE.md`, `docs/BOOTSTRAP.md`, working-style preferences captured in `docs/journey/v0.1.0-build-log.md` — The user proposed a parallel test. He'd:
 
 1. Keep the warm session open
 2. Open a second VS Code window with `C:\Projects\claude-memory-kit` as primary workspace
@@ -66,7 +66,7 @@ The new Claude, before writing any code, paused and flagged:
 
 The spec was wrong. RFC 4648 base32 is `A-Z2-7`, minus `I` and `O` leaves 30 chars — not 32. To preserve 5 bits per char, you need 32 distinct characters, so a custom alphabet is required. New Claude caught this by **actually checking the RFC** rather than assuming the spec was correct.
 
-This is the "did you check?" pattern from the journey log being applied **to the docs I wrote**, by a Claude that just bootstrapped from cold. It generalizes: a fresh perspective reading the docs carefully will surface real errors that the original author (warm Claude + Lior) had missed. The docs train the *behavior* of verification, not just the *knowledge*.
+This is the "did you check?" pattern from the journey log being applied **to the docs I wrote**, by a Claude that just bootstrapped from cold. It generalizes: a fresh perspective reading the docs carefully will surface real errors that the original author (warm Claude + the user) had missed. The docs train the *behavior* of verification, not just the *knowledge*.
 
 (There's a meta-irony here: the docs successfully transferred the discipline that caught the docs being wrong. The pattern recursively validates itself.)
 
@@ -102,7 +102,7 @@ Ran a diagnostic node command, found the cwd was wrong, ran again from the right
 
 > False alarm — I was remembering pre-fix values. Current fixture has `P-S79MJHFN`, Python and Node match. Parity already works at the smoke level.
 
-Lior didn't prompt this self-correction. New Claude caught its own confusion, ran the diagnostic, and acknowledged the false alarm without burying it. This is what "honest acknowledgment of mistakes" looks like at session-1.
+The user didn't prompt this self-correction. New Claude caught its own confusion, ran the diagnostic, and acknowledged the false alarm without burying it. This is what "honest acknowledgment of mistakes" looks like at session-1.
 
 ---
 
@@ -175,7 +175,7 @@ Total: ~810 lines. Read in about 10 minutes by the new Claude. Output quality: s
 
 Honest about the limits of the experiment:
 
-- **"Missing the point" pattern not directly tested.** Lior didn't inject a substantive observation that didn't fit the task flow. So we don't know if new Claude would have routed around it or engaged. The doc says "stop, engage, decide if it changes anything, then move" — but that's a behavior under stress that needs adversarial testing.
+- **"Missing the point" pattern not directly tested.** The user didn't inject a substantive observation that didn't fit the task flow. So we don't know if new Claude would have routed around it or engaged. The doc says "stop, engage, decide if it changes anything, then move" — but that's a behavior under stress that needs adversarial testing.
 - **Long-horizon memory.** The test was one task (5). We don't know if the calibration holds across 10 tasks, or if the new Claude would drift back toward defaults under load.
 - **Genuine ambiguity.** Task 5 had relatively clear requirements (fixture-driven parity, six rules well-specified). Tasks with more design-judgment-required (e.g., Task 23, auto-extract subagent design) would be a harder test of working-style transfer.
 - **Skill content quality.** We tested whether new Claude *invoked* the skills proactively. We didn't deeply audit whether the python-pro / python-testing-patterns guidance changed the output meaningfully. (Worth a follow-up: compare Python idiom quality before/after skill invocation.)
@@ -230,7 +230,7 @@ If you write a standalone essay on this topic, the angle is **"calibrated implic
 
 ## Raw evidence quoted in this note
 
-For completeness, the specific moments quoted above (all from the parallel session transcript Lior captured + relayed):
+For completeness, the specific moments quoted above (all from the parallel session transcript the user captured + relayed):
 
 - Opening orientation: "Oriented. Tasks 1–4 shipped, 127/127 tests green, working tree clean on main. Starting Task 5..."
 - Skill invocation events: "Invoking python-pro per skill-agency rule before writing the Python parallel impl" / "Writing the pytest suite... [invokes python-testing-patterns]"
@@ -238,7 +238,7 @@ For completeness, the specific moments quoted above (all from the parallel sessi
 - TDD bug acknowledgment: "TDD caught two real bugs. Reading them honestly: Alphabet has 33 chars and contains 8 — I miscounted."
 - Self-correction: "Wait — Node says P-R78LHGEM... False alarm — I was remembering pre-fix values."
 
-All of these came in the **first ~30 minutes** of the new session, before any prompting from Lior. Pure bootstrap.
+All of these came in the **first ~30 minutes** of the new session, before any prompting from the user. Pure bootstrap.
 
 ---
 
@@ -250,7 +250,7 @@ After the initial test wrote up well, the cold session continued through Task 5 
 
 When the cold session marked Checkpoint 6 (Layer 1 complete) in the post-merge docs commit, it lifted the test numbers from the PR-branch run (218/140/38) into the checkpoint annotation **without re-running from main, without doing the end-to-end `cmk install` smoke test, and without grepping `--help`**. The checkbox got flipped; the verification work did not happen.
 
-Lior caught it with the right question:
+The user caught it with the right question:
 
 > *"did you do it? not just marked it as finished?"*
 
@@ -299,7 +299,7 @@ Pattern reinforced. When you challenged the checkpoint, cold Claude said *"I fli
 
 #### Pragmatism on inconsequential decisions
 
-When cold Claude asked about PR numbering ([6] vs [7]), Lior's response was *"i couldnt care less about the numbering, what makes sense to you"*. Cold Claude's response: *"Going with [7]."* and moved. No further discussion, no over-justification, no AskUserQuestion ceremony.
+When cold Claude asked about PR numbering ([6] vs [7]), the user's response was *"i couldnt care less about the numbering, what makes sense to you"*. Cold Claude's response: *"Going with [7]."* and moved. No further discussion, no over-justification, no AskUserQuestion ceremony.
 
 **Verdict**: the "one recommendation > four options" doctrine held even when explicitly given permission to use ceremony.
 

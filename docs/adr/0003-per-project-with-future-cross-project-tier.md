@@ -4,7 +4,7 @@ title: Per-project memory in v0.1; three-tier scope (user / project / local) lan
 status: accepted
 date: 2026-05-21
 deciders:
-  - Lior Hollander
+  - the maintainer
   - Claude Opus 4.7
 supersedes: null
 superseded_by: null
@@ -96,5 +96,5 @@ Neither pure global nor pure per-project covers all four. Three-tier covers them
 
 | Date | Reviewer | Action |
 |---|---|---|
-| 2026-05-21 | Lior | Initial decision: yes to three-tier model |
-| 2026-05-22 | Lior | Confirmed via Option-B research; first-match-wins precedence locked in |
+| 2026-05-21 | the user | Initial decision: yes to three-tier model |
+| 2026-05-22 | the user | Confirmed via Option-B research; first-match-wins precedence locked in |

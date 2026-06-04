@@ -151,7 +151,7 @@ This matches the PR-18 prediction: "the bash + node cold-start envelope on the w
 
 ### Proposed NFR-1 amendment
 
-Per Lior's PR-18 review of this same timing concern + scenario 7's data:
+Per the user's PR-18 review of this same timing concern + scenario 7's data:
 
 **Option (a) — clarify NFR-1 as in-process compute time.** Update design.md's NFR section to specify that the 500ms target applies to the kit's in-process work (`injectContext()` body, capture-prompt body, etc.), measured from the moment the kit's code starts executing. Bash + node startup + module loading is documented as hosting overhead outside the kit's contract; the 30s hook timeout (design §5.1) is the actual production envelope that absorbs cold-start.
 

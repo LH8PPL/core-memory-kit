@@ -131,7 +131,7 @@ The project's working-style document (project-CLAUDE.md) frames the trade-off ex
 
 > Architecture-first v0.1 (~50 dev-days, 36 tasks). Not Cursor's MVP shape — we're laying foundations first.
 
-And the journey log records that Lior accepted this trade-off knowingly:
+And the journey log records that the user accepted this trade-off knowingly:
 
 > The kit doesn't become usable until **Task 23** (auto-extract subagent + memory-write skill). Tasks 1-22 lay foundations. Honest with the user about this — they accepted the trade-off (architecture-first vs Cursor's MVP-first ~22-hour scope).
 
@@ -297,11 +297,11 @@ NOT fixing in this PR.
 
 Future task candidate (parking, not for this PR): extract.log gains a `degraded_input` field set to `true` when the USER_TURN section is empty AND it shouldn't be (i.e., a non-system-initiated turn that expected a user prompt to exist). Surfaces silent degradation in the audit log so `cmk doctor` can detect "N degraded extracts this week" and flag a misconfigured capture-prompt. Same shape as the existing Poison_Guard-blocked-write counter (design §6.7).
 
-## What's NOT in this PR (per Lior's gate)
+## What's NOT in this PR (per the user's gate)
 
 This PR fixes only the immediate path mismatch + the CLAUDE.md discipline note + the Windows spawn bug surfaced during live testing. It does NOT:
 
-- Continue to live-test scenarios 3–7. Those remain gated on Lior's review of this fix + a green re-run of scenarios 1 + 2 on the fix branch.
+- Continue to live-test scenarios 3–7. Those remain gated on the user's review of this fix + a green re-run of scenarios 1 + 2 on the fix branch.
 - Resume Tasks 22 (SessionEnd CompressorBackend invocation) or 24 (memory-write skill + Poison_Guard). Both stay paused until live-test findings inform their specs.
 - Modify any other part of design.md, CLAUDE.md, or the architecture. Only the §5.1 path correction + the convention-convergence verification rule.
 

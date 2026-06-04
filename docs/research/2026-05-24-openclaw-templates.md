@@ -15,7 +15,7 @@ tags:
 
 ## Why this research
 
-Lior pointed at OpenClaw on 2026-05-24 while discussing whether the kit's seed templates should include richer guided comments à la "give you a default in the files as a starter." Worth a deep look because OpenClaw has clearly thought about this pattern at the file-format level.
+The user pointed at OpenClaw on 2026-05-24 while discussing whether the kit's seed templates should include richer guided comments à la "give you a default in the files as a starter." Worth a deep look because OpenClaw has clearly thought about this pattern at the file-format level.
 
 Captured here as a research artifact so future-Claude (and the article) can reference the comparison.
 
@@ -82,7 +82,7 @@ And includes inline coaching:
 
 > "Be genuinely helpful, not performatively helpful. Skip the 'Great question!'"
 
-This is **exactly the pattern Lior named**: starter files that include comments explaining how to fill them in AND demonstrate the desired style. The template doesn't just list section headings — it carries voice.
+This is **exactly the pattern the user named**: starter files that include comments explaining how to fill them in AND demonstrate the desired style. The template doesn't just list section headings — it carries voice.
 
 OpenClaw's BOOTSTRAP.md uses conversational prompts:
 

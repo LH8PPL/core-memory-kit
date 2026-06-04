@@ -17,7 +17,7 @@ tags:
 
 ## Why this research
 
-Lior surfaced GBrain on 2026-05-24 via [Tort Mario's affiliate-marketing puff piece](https://medium.com/@tort_mario/give-your-ai-agent-36-superpowers-long-term-memory-in-minutes-with-gbrain-open-source-bc2ddfdea97c) (5k stars claim, VPS promo code at the bottom, classic content-farm signals). The article overhypes, but the underlying project is real and serious.
+The user surfaced GBrain on 2026-05-24 via [Tort Mario's affiliate-marketing puff piece](https://medium.com/@tort_mario/give-your-ai-agent-36-superpowers-long-term-memory-in-minutes-with-gbrain-open-source-bc2ddfdea97c) (5k stars claim, VPS promo code at the bottom, classic content-farm signals). The article overhypes, but the underlying project is real and serious.
 
 The honest question: **have we built a worse version of something Garry Tan already shipped?**
 
@@ -56,7 +56,7 @@ GBrain is more mature, more sophisticated, more complete. By a lot.
 These are the differentiators that justify continuing:
 
 1. **3-tier scope (user / project / local).** GBrain is single-brain-per-workspace with team federation as an add-on. A developer running Claude Code on 8 repos with GBrain has to either run 8 brains (no cross-project memory) or one shared brain (no per-project isolation). The kit's tier model handles this natively — user-tier facts persist across projects, project-tier facts stay per-repo, local-tier facts stay per-machine.
-2. **Auto-persona generation** (the Lior-prioritized v0.1.0 commitment per design.md §16.16). GBrain has entity extraction at the page level — it builds graphs of people/companies. It does NOT have user-profile-level inference ("this developer prefers terse responses, test-driven workflow, one-PR-per-task"). That's a real gap GBrain doesn't fill.
+2. **Auto-persona generation** (the the user-prioritized v0.1.0 commitment per design.md §16.16). GBrain has entity extraction at the page level — it builds graphs of people/companies. It does NOT have user-profile-level inference ("this developer prefers terse responses, test-driven workflow, one-PR-per-task"). That's a real gap GBrain doesn't fill.
 3. **Claude-Code-native by construction.** GBrain works *with* Claude Code via MCP — generic MCP tools. The kit is built around Claude Code's specific lifecycle (SessionStart hook, Stop hook, auto-extract subagent). Tighter integration; lower install bar; pure-markdown viable (FTS5 as only optional dep).
 4. **Smaller surface area.** GBrain is 1949 files, ~36 MB, requires understanding 6 layers (brain repo, skills, core, retrieval, eval, MCP). The kit is targeting ~36 implementation tasks total, with a focused mental model (3 tiers × 4 file types × 1 install).
 

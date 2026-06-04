@@ -1,6 +1,6 @@
 # Design — claude-memory-kit v0.1.0
 
-**Status**: Draft, section 1-3 of N · **Author**: Claude (Opus 4.7) + Lior Hollander · **Date started**: 2026-05-22
+**Status**: Draft, section 1-3 of N · **Author**: Claude (Opus 4.7) + the maintainer · **Date started**: 2026-05-22
 
 This document specifies **HOW** v0.1.0 is built.
 The companion [`requirements.md`](requirements.md) specifies **WHAT** v0.1.0 must do.
@@ -1159,9 +1159,9 @@ INPUT:
 
 Section structure adapted from Anthropic Claude Code's verified 9-section auto-compact pattern (per leaked source). Trimmed to **3 sections** since we're compressing memory, not full sessions.
 
-**Faithfulness/grounding rule (Task 84, 2026-06-02):** Hard rule #1 is a general anti-hallucination guard. lior-test-6's R3 recall test surfaced the Haiku compressor **inventing a fact the buffer never contained** — it wrote *"Building Claude agent Flask application"* for a project that was always FastAPI, and kept a superseded early-stage file (`app.py` after the project moved to `app/main.py`). That hallucinated summary is injected at SessionStart, so the next session reads a snapshot that **contradicts** the (correct) granular fact memory → the agent distrusts memory and re-derives the answer, defeating the whole point of recall. The original Hard rules protected citation IDs (`never invent new IDs`) but said **nothing about content faithfulness** — nothing forbade emitting facts absent from the buffer. The fix is deliberately **example-free**: naming specific categories to preserve ("framework / port / path") would only guard the one scenario that surfaced it and re-anchor the model on those types (rejected per D-36 — Lior: *"this will only work for that scenario … we are suppose to be working on a general solution"*). One general rule — *grounded in the input, never infer, never carry forward, omit if unsure* — covers every invented-fact class. The phrasing is also **domain-neutral** (no "code" assumption): the kit serves non-coding work too, so the rule and the recall instructions say "re-derive" / "from scratch", not "re-read the code". **The same rule is mirrored across all THREE compression layers** — `compress-session` (grounded in the session buffer), `daily-distill` and `weekly-curate` (grounded in the daily summaries). The third layer (`weekly-curate` → `archive.md`) was found by a full read-through of every LLM prompt, NOT by the live test — the lior-test-6 Flask hallucination only exercised the first two layers, but the weekly consolidator has the same power to invent facts, so it gets the same guard (D-36: a grep-for-symptoms audit misses prompts phrased differently; read every guardrail in full). The remaining half of Task 84 — **stale-stage supersession** (the compressor refreshing rather than accumulating superseded state) — is tracked separately in Task 84(b).
+**Faithfulness/grounding rule (Task 84, 2026-06-02):** Hard rule #1 is a general anti-hallucination guard. live-test-6's R3 recall test surfaced the Haiku compressor **inventing a fact the buffer never contained** — it wrote *"Building Claude agent Flask application"* for a project that was always FastAPI, and kept a superseded early-stage file (`app.py` after the project moved to `app/main.py`). That hallucinated summary is injected at SessionStart, so the next session reads a snapshot that **contradicts** the (correct) granular fact memory → the agent distrusts memory and re-derives the answer, defeating the whole point of recall. The original Hard rules protected citation IDs (`never invent new IDs`) but said **nothing about content faithfulness** — nothing forbade emitting facts absent from the buffer. The fix is deliberately **example-free**: naming specific categories to preserve ("framework / port / path") would only guard the one scenario that surfaced it and re-anchor the model on those types (rejected per D-36 — The user: *"this will only work for that scenario … we are suppose to be working on a general solution"*). One general rule — *grounded in the input, never infer, never carry forward, omit if unsure* — covers every invented-fact class. The phrasing is also **domain-neutral** (no "code" assumption): the kit serves non-coding work too, so the rule and the recall instructions say "re-derive" / "from scratch", not "re-read the code". **The same rule is mirrored across all THREE compression layers** — `compress-session` (grounded in the session buffer), `daily-distill` and `weekly-curate` (grounded in the daily summaries). The third layer (`weekly-curate` → `archive.md`) was found by a full read-through of every LLM prompt, NOT by the live test — the live-test-6 Flask hallucination only exercised the first two layers, but the weekly consolidator has the same power to invent facts, so it gets the same guard (D-36: a grep-for-symptoms audit misses prompts phrased differently; read every guardrail in full). The remaining half of Task 84 — **stale-stage supersession** (the compressor refreshing rather than accumulating superseded state) — is tracked separately in Task 84(b).
 
-**Original schema (pre-Task-83):** 4 sections — Decisions / Open Questions / **Files Touched** / Active Threads. **Task 83 (2026-06-02) dropped "Files Touched"**: the lior-test-5 live test showed it accumulating as a file-write LOG across compressions (seven un-deduped `## Files Touched` blocks made up ~50% of the injected SessionStart snapshot, burying the persona). A log of file operations is transient, low-signal, and doesn't belong in durable working memory — it degraded recall (the model re-read code instead of trusting the noisy snapshot). Removed from both `compress-session` + `daily-distill` prompts. The other three sections carry the durable signal.
+**Original schema (pre-Task-83):** 4 sections — Decisions / Open Questions / **Files Touched** / Active Threads. **Task 83 (2026-06-02) dropped "Files Touched"**: the live-test-5 live test showed it accumulating as a file-write LOG across compressions (seven un-deduped `## Files Touched` blocks made up ~50% of the injected SessionStart snapshot, burying the persona). A log of file operations is transient, low-signal, and doesn't belong in durable working memory — it degraded recall (the model re-read code instead of trusting the noisy snapshot). Removed from both `compress-session` + `daily-distill` prompts. The other three sections carry the durable signal.
 
 **Implements**: FR-19, FR-20, FR-21, ADR-0008.
 
@@ -1279,7 +1279,7 @@ Per-platform mapping:
 
 Pre-2026-05-28 plan: `python scripts/register-crons.py`. Python was the assumed language because the predecessor product (claude-remember) used Python.
 
-Pivoted to Node.js 2026-05-28 (Lior + Claude joint decision). Rationale:
+Pivoted to Node.js 2026-05-28 (the user + Claude joint decision). Rationale:
 
 1. **No new toolchain**: the kit is already Node-only. Python means new install dep + new test infra (pytest) + new platform concerns (Python install paths differ across OSes).
 2. **Existing kit pattern**: `register-crons` shells out to platform-native scheduler commands via `child_process.spawnSync`. The kit's other modules (compressor.mjs, capture-turn.mjs, auto-extract.mjs) already do this with shell:true on Windows for the `.cmd` shim case.
@@ -1456,7 +1456,7 @@ Returns: `[{id, snippet, source_file, source_line, tier, trust, score}]`. Trust 
 > **Original pick:** `memsearch + Milvus` (the §9.3 "Semantic" line above). **Status: reconsider before any Layer-5b build.**
 >
 > Two independent evidence sources now argue `memsearch + Milvus` is the **wrong weight class** for what the kit is (single-user, local, per-project markdown):
-> 1. **Lior's liorwiki search decision record** (`C:/Projects/liorwiki/docs/search-architecture.md`, 2026-05-31) — same profile as the kit; explicitly **rejected Milvus as "overkill for <10K docs, requires a server"** and chose **Chroma** (pure-Python, embedded, metadata filtering) for filtered-semantic + kept **qmd** (Node, MCP-native, GGUF embeddinggemma) for pure-semantic.
+> 1. **the user's liorwiki search decision record** (`C:/Projects/liorwiki/docs/search-architecture.md`, 2026-05-31) — same profile as the kit; explicitly **rejected Milvus as "overkill for <10K docs, requires a server"** and chose **Chroma** (pure-Python, embedded, metadata filtering) for filtered-semantic + kept **qmd** (Node, MCP-native, GGUF embeddinggemma) for pure-semantic.
 > 2. **Our own research base** ([`docs/research/2026-05-21-claude-ai-deep-research-option-b.md`](../../docs/research/2026-05-21-claude-ai-deep-research-option-b.md)) — the markdown-memory consensus is **SQLite FTS5** (claude-mem, Noema, knowledge-base-server). Projects that add semantic split into **light embedded** (`sqlite-vec` / sqliteai's `sqlite-memory` = hybrid vector+FTS5 in ONE SQLite extension, local llama.cpp embeddings) vs **heavy server** (memsearch+Milvus). `doobidoo/mcp-memory-service` offers SQLite-vec OR Milvus as a *choice*.
 >
 > This also collides with the kit's hardened **node-only / no-server ethos** (Task 62 — D-23): bolting Milvus (Docker/K8s) back on for search would reintroduce exactly the heavyweight platform dependency we just removed.
@@ -1792,7 +1792,7 @@ Cost: ~50 lines of README. No code change.
 
 ### 16.12 HEARTBEAT-pattern primitive (OpenClaw-style) — REJECTED, out of scope
 
-**Decision (2026-05-24, Lior)**: this pattern is out of scope for the kit. Recorded here as a considered-and-rejected entry so future contributors don't re-propose it.
+**Decision (2026-05-24, the user)**: this pattern is out of scope for the kit. Recorded here as a considered-and-rejected entry so future contributors don't re-propose it.
 
 OpenClaw's `HEARTBEAT.md` is *"empty by default; user adds tasks; the agent runs them periodically"* — a lightweight scheduling primitive for the **agent** to run during sessions. It's agent-orchestration territory: telling the agent what to do periodically.
 
@@ -1847,13 +1847,13 @@ v0.2 candidate (lower priority). Inspired by TencentDB's 4-tier pyramid (researc
 
 **Revisit timing.** After §16.16 auto-persona ships and we see whether mid-level groupings emerge naturally from the auto-extract subagent's behavior.
 
-### 16.16 Auto-persona generation (Lior-prioritized 2026-05-24)
+### 16.16 Auto-persona generation (the user-prioritized 2026-05-24)
 
 **v0.1.0 in-scope** (promoted from v0.1.x candidate on 2026-05-24, immediately after Task 14's seed-template work landed). Implemented as [Task 45](../v0.1.0/tasks.md) (appended at the tasks.md tail to avoid renumbering 24+ existing tasks; depends on Task 23 / consumes its output; must ship before the v0.1.0 release tag). Replaces hand-curated user-tier files (`USER.md`, `HABITS.md`, `LESSONS.md`) with auto-generated content driven by the auto-extract subagent (Task 23).
 
 **Promotion rationale.** Shipping with hand-curated user-tier means shipping with a structurally broken third of the value proposition on day one. Hand-curation is a known failure mode; "v0.1.x patch" assumes users stick around long enough to receive it — they won't, if their first experience is empty `USER.md` / `HABITS.md` / `LESSONS.md`. The auto-persona path closes the loop: user uses kit → auto-extract captures durable facts → auto-persona synthesizes them into user-tier scratchpads → user benefits from cross-project memory automatically. Removing any link in that chain breaks the value prop.
 
-**Why this matters (the failure mode it fixes).** The 3-tier scope (user / project / local) only delivers value if all three tiers actually fill up. The project + local tiers fill organically via the auto-extract subagent. The user tier was specced as hand-curated, which is exactly the same failure-mode pattern the kit was built to fix everywhere else: don't make the user do work the system should do automatically. Lior's direct feedback (2026-05-24, captured verbatim in [`docs/research/2026-05-24-tencentdb-agent-memory.md`](../../docs/research/2026-05-24-tencentdb-agent-memory.md)):
+**Why this matters (the failure mode it fixes).** The 3-tier scope (user / project / local) only delivers value if all three tiers actually fill up. The project + local tiers fill organically via the auto-extract subagent. The user tier was specced as hand-curated, which is exactly the same failure-mode pattern the kit was built to fix everywhere else: don't make the user do work the system should do automatically. The user's direct feedback (2026-05-24, captured verbatim in [`docs/research/2026-05-24-tencentdb-agent-memory.md`](../../docs/research/2026-05-24-tencentdb-agent-memory.md)):
 
 > *"i dont like the hand-curated user-tier files, i know that i myself will not fill them up if i have to do it manually as a user/developer using our kit, it's too much of a hassle."*
 
@@ -1905,7 +1905,7 @@ Not direct comparables — they're integration-specific (OpenClaw + Hermes) and 
 
 **Harness architecture (port from GBrain).** GBrain's `gbrain eval longmemeval` harness (research note: [`docs/research/2026-05-24-gbrain-architecture.md`](../../docs/research/2026-05-24-gbrain-architecture.md), Pattern 3) is the right shape to mirror. Six properties worth copying directly:
 
-1. **Hermetic by default.** When the benchmark CLI is invoked, the kit's normal `connectEngine()` is skipped — the user's actual brain is never touched. Tests stub the LLM client so the full pipeline runs without an API key. Critical property: the benchmark must NEVER mutate user-facing state.
+1. **Hermetic by default.** When the benchmark CLI is invoked, the kit's normal `connectEngine()` is skipped — The user's actual brain is never touched. Tests stub the LLM client so the full pipeline runs without an API key. Critical property: the benchmark must NEVER mutate user-facing state.
 2. **Reset-in-place between questions.** Sequential 500-question benchmark uses ONE in-memory state. Between questions: clear all content tables/files (enumerated at runtime) except a `PRESERVE` allow-list (config, locks, infrastructure). Avoids snapshot/restore complexity. For our markdown-based kit: between-question reset wipes `<sandbox>/context/{memory,scratchpads,transcripts}/` while preserving the manifest + `.locks/` state.
 3. **Resume-from-path.** `--resume-from <hypothesis.jsonl>` reads a previous run's output, skips question IDs already processed, appends new ones. Recovery path for mid-run aborts (rate-limit, cost-cap, OS interrupt). Production-grade benchmark UX.
 4. **Mode flags.** `--retrieval-only` (skip LLM, score retrieval alone), `--keyword-only` (skip vector path), `--expansion` (query rewriting on/off), `--mode conservative|balanced|tokenmax`. Lets the same harness produce comparable scores across configuration variations.
@@ -1967,7 +1967,7 @@ v0.2 candidate. Inspired by Garry Tan's GBrain (research note: [`docs/research/2
 
 2. **Verb-based type inference** for the edge type (`works_at`, `invested_in`, `founded`, `advises`, `mentions`). When a link is found, run the ~240-char context window through a per-edge-type regex catalog. GBrain's catalog is calibrated to VC/business prose; ours would need a developer-prose catalog (`works_on`, `owns`, `reviewed`, `merged_by`, `depends_on`, `replaces`, etc.). The technique adapts; the specific catalogs we write from scratch.
 
-3. **Page-role prior layer.** When per-edge inference falls through to generic `mentions`, check whether the source page itself has a role descriptor (e.g. a person-page that establishes "Lior is the engineer working on claude-memory-kit" — outbound refs to projects then default to `works_on` even when individual link contexts lack the verb). Catches narrative prose where the verb appears once and downstream references rely on it being implied.
+3. **Page-role prior layer.** When per-edge inference falls through to generic `mentions`, check whether the source page itself has a role descriptor (e.g. a person-page that establishes "the user is the engineer working on claude-memory-kit" — outbound refs to projects then default to `works_on` even when individual link contexts lack the verb). Catches narrative prose where the verb appears once and downstream references rely on it being implied.
 
 **Companion subcommand:** `cmk graph-query <slug> --type <edge-type>` for multi-hop traversal. Edge storage: every typed edge writes both directions (`from → to` AND `to ← from`) so traversal is symmetric. Per-page backlink count feeds §16.17's retrieval ranking (also informed by GBrain) when we add hybrid search.
 
@@ -1982,7 +1982,7 @@ v0.2 candidate. Inspired by Garry Tan's GBrain (research note: [`docs/research/2
 
 **v0.1.x candidate.**
 
-The kit's auto-extract + SessionStart + scratchpads exist and ship in v0.1.0. Cold session, Lior, and Claude (reviewer) have been managing campaign state via manual journey log + design.md + tasks.md updates — the durable spec stack working as designed. But the kit's own scratchpads at `c:/Projects/claude-memory-kit/context/` are not loaded at session start; we've been treating `context/` as test-target output rather than as the kit's own memory.
+The kit's auto-extract + SessionStart + scratchpads exist and ship in v0.1.0. Cold session, the user, and Claude (reviewer) have been managing campaign state via manual journey log + design.md + tasks.md updates — the durable spec stack working as designed. But the kit's own scratchpads at `c:/Projects/claude-memory-kit/context/` are not loaded at session start; we've been treating `context/` as test-target output rather than as the kit's own memory.
 
 **Soft dogfooding** (read side only — install SessionStart hook on the kit's own `context/`, leave auto-extract write side OFF during active kit development to avoid recursive modification) would absorb some of the manual discipline. Auto-load campaign state at session start; no recursive write-during-modification risk.
 
@@ -2074,7 +2074,7 @@ Deferred to v0.1.x because:
 
 Trigger to ship: a second `generateId`-style latent cross-module bug (named-args mismatch, default-arg drift, return-shape contract slip) makes it past the code-review pass and the post-release campaign. At that point the validator's heuristics get calibrated against two real failures, not one.
 
-Provenance: Lior 2026-05-27 picked option #1 (move to design §17.8 now) + option #3 (write validator) as v0.1.x candidate, deferring #2 (fold into Composition verification as sub-bullet) and the immediate validator build.
+Provenance: the user 2026-05-27 picked option #1 (move to design §17.8 now) + option #3 (write validator) as v0.1.x candidate, deferring #2 (fold into Composition verification as sub-bullet) and the immediate validator build.
 
 ### 16.26 Integration tests for CLI subcommand stdin / readline glue
 
@@ -2172,7 +2172,7 @@ Extend the kill chain to walk grandchildren via Windows Job Objects (associate p
 
 A real instance of orphaned-grandchild causing observable user pain: zombie process accumulation across many sessions, memory growth pinned to claude.cmd children, hung file handle blocking a subsequent operation, OR Task Manager pollution noticed by a Windows user.
 
-Provenance: Task 27 code-review finding M5 (2026-05-27); empirical audit of `terminateSubprocess` + `spawn-smoke-kill-chain.test.js` (same day, Lior's "check please" verification).
+Provenance: Task 27 code-review finding M5 (2026-05-27); empirical audit of `terminateSubprocess` + `spawn-smoke-kill-chain.test.js` (same day, the user's "check please" verification).
 
 ### 16.29 Consolidate `BULLET_LINE_RE` across Layer 4 modules
 
@@ -2359,7 +2359,7 @@ Provenance: Task 31 code-review Important #1 (2026-05-28).
 
 **v0.1.x candidate.**
 
-Surfaced by the Task 31 code-review-excellence pass (2026-05-28) as Important finding I2. The MCP tool `mk_remember` accepts `tier: 'U' | 'P' | 'L'` per design §10, but v0.1.0's implementation only writes to tier P (project) — the user-tier templates (`USER.md`, `HABITS.md`, `LESSONS.md`) and local-tier templates don't have `MEMORY.md` with an `Active Threads` section, so `memoryWrite` would fail with `NOT_FOUND` when called with `tier: 'U'` or `tier: 'L'`.
+Surfaced by the Task 31 code-review-excellence pass (2026-05-28) as Important finding I2. The MCP tool `mk_remember` accepts `tier: 'U' | 'P' | 'L'` per design §10, but v0.1.0's implementation only writes to tier P (project) — The user-tier templates (`USER.md`, `HABITS.md`, `LESSONS.md`) and local-tier templates don't have `MEMORY.md` with an `Active Threads` section, so `memoryWrite` would fail with `NOT_FOUND` when called with `tier: 'U'` or `tier: 'L'`.
 
 v0.1.0 ship: `mk_remember` validates the tier at the Zod boundary and rejects U/L with a clear "v0.1.0 only writes to tier P" message. Zod still accepts the enum (so a future caller could pass U/L without schema error), but the runtime rejection prevents the misleading NOT_FOUND.
 
@@ -2489,7 +2489,7 @@ Ship trigger: v0.1.1. This is the highest-value install-UX fix. Tracked as tasks
 
 **v0.2 candidate.**
 
-Surfaced 2026-05-29. Lior raised the cross-agent question (codex/cursor/kiro/gemini) at publish time (see ADR-0012). claude-mem's README shows the verified pattern: `npx claude-mem install --ide gemini-cli` / `--ide opencode` — a single installer with an `--ide` flag that auto-detects each agent's config dir and installs the hooks there. Notably claude-mem kept the name "claude-mem" while supporting Gemini + OpenCode, so the "claude" in a product name does not block multi-agent.
+Surfaced 2026-05-29. The user raised the cross-agent question (codex/cursor/kiro/gemini) at publish time (see ADR-0012). claude-mem's README shows the verified pattern: `npx claude-mem install --ide gemini-cli` / `--ide opencode` — a single installer with an `--ide` flag that auto-detects each agent's config dir and installs the hooks there. Notably claude-mem kept the name "claude-mem" while supporting Gemini + OpenCode, so the "claude" in a product name does not block multi-agent.
 
 For the kit: `cmk install --ide claude-code|cursor|codex|gemini-cli`. The kit's core is already agent-neutral (tenet T1 — markdown is the source of truth; `context/` doesn't care which agent reads it). Only the hook layer is agent-specific. So cross-agent = per-agent adapter modules that know each agent's (a) hook/lifecycle-event names, (b) settings-file location + schema, (c) session-transcript format. The memory store, compression, search, and CLI stay identical.
 
@@ -2499,9 +2499,9 @@ This depends on §16.49 landing first (once `cmk install` owns hook-wiring for C
 
 **v0.1.x candidate (pairs with §16.49).**
 
-Surfaced 2026-05-29 (Lior: "we also need to do something like this in parallel" — referring to claude-mem's `/plugin marketplace add thedotmack/claude-mem` + `/plugin install claude-mem`).
+Surfaced 2026-05-29 (the user: "we also need to do something like this in parallel" — referring to claude-mem's `/plugin marketplace add thedotmack/claude-mem` + `/plugin install claude-mem`).
 
-claude-mem offers BOTH a complete npm-route installer AND a complete `/plugin` marketplace route — the user picks one. The kit should match: alongside the unified `cmk install` (§16.49), the `/plugin marketplace add LH8PPL/claude-memory-kit` + `/plugin install claude-memory-kit` flow must be a **complete, first-class entry point** that sets up everything (hooks via the plugin + a scaffold step). Today the kit references this flow in the README, and the plugin ships a `bootstrap` skill (`/claude-memory-kit:bootstrap`) that scaffolds `context/` — but the marketplace path needs to be verified end-to-end: (a) the GitHub repo is registerable as a marketplace, (b) `/plugin install` wires the hooks, (c) the bootstrap skill scaffolds the project tier. The two routes are equivalent and either alone is sufficient:
+claude-mem offers BOTH a complete npm-route installer AND a complete `/plugin` marketplace route — The user picks one. The kit should match: alongside the unified `cmk install` (§16.49), the `/plugin marketplace add LH8PPL/claude-memory-kit` + `/plugin install claude-memory-kit` flow must be a **complete, first-class entry point** that sets up everything (hooks via the plugin + a scaffold step). Today the kit references this flow in the README, and the plugin ships a `bootstrap` skill (`/claude-memory-kit:bootstrap`) that scaffolds `context/` — but the marketplace path needs to be verified end-to-end: (a) the GitHub repo is registerable as a marketplace, (b) `/plugin install` wires the hooks, (c) the bootstrap skill scaffolds the project tier. The two routes are equivalent and either alone is sufficient:
 
 - **Route A (terminal/npm)**: `npm install -g @lh8ppl/claude-memory-kit` → `cmk install` (§16.49 makes this wire hooks too)
 - **Route B (in-Claude-Code/plugin)**: `/plugin marketplace add LH8PPL/claude-memory-kit` → `/plugin install claude-memory-kit` → `/claude-memory-kit:bootstrap`
@@ -2510,9 +2510,9 @@ Ship trigger: v0.1.1, alongside §16.49. Tracked as tasks.md Task 49 (sub-task).
 
 ### 16.52 Behavioral pattern detection + promotion ("learn how I work," not just facts)
 
-**v0.2 candidate (Lior endorsed 2026-05-29: "I want this feature… a clean refinement of what we have, so we just do it").**
+**v0.2 candidate (the user endorsed 2026-05-29: "I want this feature… a clean refinement of what we have, so we just do it").**
 
-Today the kit captures **facts** (decisions, preferences, environment) and already records *some* working-style as facts — `USER.md`, `HABITS.md`, `SOUL.md` scratchpads, trust:high "from now on…" memories, and the auto-persona synthesizer (Task 45). This candidate is the **clean refinement**: have auto-extract actively *detect recurring behavioral patterns* across turns/sessions ("Lior always wants X format," "always runs tests before commit," "prefers terse replies") and **promote** them — into `HABITS.md` / the persona — rather than leaving them as scattered one-off facts. It's a ranking/promotion step on top of the existing extract→trust→scratchpad pipeline, reusing the trust hierarchy + review queue; no new storage model.
+Today the kit captures **facts** (decisions, preferences, environment) and already records *some* working-style as facts — `USER.md`, `HABITS.md`, `SOUL.md` scratchpads, trust:high "from now on…" memories, and the auto-persona synthesizer (Task 45). This candidate is the **clean refinement**: have auto-extract actively *detect recurring behavioral patterns* across turns/sessions ("the user always wants X format," "always runs tests before commit," "prefers terse replies") and **promote** them — into `HABITS.md` / the persona — rather than leaving them as scattered one-off facts. It's a ranking/promotion step on top of the existing extract→trust→scratchpad pipeline, reusing the trust hierarchy + review queue; no new storage model.
 
 Distinct from the *bigger* swing it's often conflated with: ECC-style **procedural memory** that turns observed patterns into *actionable reusable skills/procedures* (a new capability, larger product direction). That bigger version is explicitly **out of scope here** — parked as a separate, evidence-gated consideration (revisit if real usage shows facts+habits are insufficient). This candidate is only the refinement: detect + promote behavioral patterns as memory.
 

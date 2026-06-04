@@ -1,6 +1,6 @@
 ---
 date: 2026-05-26
-source: docs/Claude Code Memory Management The Complete Guide (2026).md (dropped into the repo by Lior via IDE; article from Medium / Data Science Collective, Gul Jabeen, 2026-03-17, https://medium.com/data-science-collective/claude-code-memory-management-the-complete-guide-2026-b0df6300c4e8)
+source: docs/Claude Code Memory Management The Complete Guide (2026).md (dropped into the repo by the user via IDE; article from Medium / Data Science Collective, Gul Jabeen, 2026-03-17, https://medium.com/data-science-collective/claude-code-memory-management-the-complete-guide-2026-b0df6300c4e8)
 method: primary-source verification per CLAUDE.md "Did you check?" rule. Each factual claim about Claude Code cross-checked against code.claude.com/docs/en/memory (the canonical Anthropic source after the docs.claude.com → code.claude.com migration) + the kit's existing research base (Anthropic memory tool docs, claude-mem deep-dive, hook payload research).
 verdict: ~ (PARTIAL) — broadly accurate on the 4-layer architecture, file paths, and core commands; specific numbers fabricated; factually wrong on the claude-mem description.
 ---
@@ -9,7 +9,7 @@ verdict: ~ (PARTIAL) — broadly accurate on the 4-layer architecture, file path
 
 ## Why this verification exists
 
-Lior dropped the article into the repo between PR-D1's merge and PR-D2's start. The verification is a direct application of CLAUDE.md's primary-source rule + the campaign's verification meta-rules (rules #1, #2, #6 specifically — "Did you check?", "convention-convergence is not primary-source verification", "lazy framing hides real bugs"). The article is the kind of secondary source those rules were written to catch.
+The user dropped the article into the repo between PR-D1's merge and PR-D2's start. The verification is a direct application of CLAUDE.md's primary-source rule + the campaign's verification meta-rules (rules #1, #2, #6 specifically — "Did you check?", "convention-convergence is not primary-source verification", "lazy framing hides real bugs"). The article is the kind of secondary source those rules were written to catch.
 
 ## Verified against Anthropic primary docs
 
@@ -99,7 +99,7 @@ Working through Anthropic's actual memory docs to verify the article surfaced fo
 ## Outcome
 
 - **Catalogue**: SOURCES.md entry with `~` marker (partial verification, factual errors noted). The article is a reasonable beginner guide for the 4-layer architecture; not authoritative on specific limits or claude-mem.
-- **v0.1.x candidates not opened in this session** (per Lior's scope choice for this verification): items #1 (InstructionsLoaded hook), #3 (MEMORY.md 25KB ceiling vs kit cap composition), #4 (HTML-comment stripping). Linked from here for future capture.
+- **v0.1.x candidates not opened in this session** (per the user's scope choice for this verification): items #1 (InstructionsLoaded hook), #3 (MEMORY.md 25KB ceiling vs kit cap composition), #4 (HTML-comment stripping). Linked from here for future capture.
 - **No action on the claude-mem mischaracterization** beyond this research note (kit's own claude-mem citations live in `docs/research/2026-05-21-claude-ai-deep-research-option-b.md` and are independently verified — no rot to fix).
 
 ## Resumes

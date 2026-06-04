@@ -4,7 +4,7 @@ source_url: https://github.com/NousResearch/hermes-agent
 source_type: open-source project + accompanying article
 source_date: released February 2026; v0.9.0 reached 64,000+ ⭐ by April; verified 162,547 ⭐ on 2026-05-22
 consulted_date: 2026-05-22
-consulted_by: Claude Opus 4.7 + Lior Hollander
+consulted_by: Claude Opus 4.7 + the maintainer
 informed_adrs: [0002-markdown-source-of-truth-over-opaque-db, 0003-per-project-with-future-cross-project-tier, 0006-lifecycle-hooks-architecture]
 tags:
   - hermes-agent

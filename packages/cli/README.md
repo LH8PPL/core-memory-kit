@@ -76,4 +76,4 @@ Full docs, architecture, and design live in the repository:
 
 ## License
 
-MIT © Lior Hollander
+MIT © the maintainer

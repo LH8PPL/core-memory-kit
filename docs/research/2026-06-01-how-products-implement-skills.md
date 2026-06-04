@@ -20,7 +20,7 @@ tags:
 
 ## Why this research
 
-Lior 2026-06-01: after we found the kit's own `memory-write` skill is stale + unsafe (D-28 / Task 69.0 — it grants `Read Edit Write` and tells Claude to **hand-edit** MEMORY.md, bypassing Poison_Guard + home-path sanitization = the F1 leak class), he asked: *"go over every product we researched/checked, for skills, see if any of them have similar skills and how they do it. you can also check antigravity-awesome-skills."* Goal: extract the right SKILL.md pattern for the rewrite.
+The user 2026-06-01: after we found the kit's own `memory-write` skill is stale + unsafe (D-28 / Task 69.0 — it grants `Read Edit Write` and tells Claude to **hand-edit** MEMORY.md, bypassing Poison_Guard + home-path sanitization = the F1 leak class), he asked: *"go over every product we researched/checked, for skills, see if any of them have similar skills and how they do it. you can also check antigravity-awesome-skills."* Goal: extract the right SKILL.md pattern for the rewrite.
 
 ## Per-product findings
 
@@ -38,7 +38,7 @@ Lior 2026-06-01: after we found the kit's own `memory-write` skill is stale + un
 
 ## The biggest finding — read their actual CLAUDE.md files (not just SKILL.md)
 
-Lior pushed: *"did you read the claude.md AND skill.md of the other products?"* — so I read the real files, not our notes. The decisive insight is in the **CLAUDE.md** side:
+The user pushed: *"did you read the claude.md AND skill.md of the other products?"* — so I read the real files, not our notes. The decisive insight is in the **CLAUDE.md** side:
 
 | Product | Its CLAUDE.md | Does it inject into the USER's CLAUDE.md? |
 | --- | --- | --- |

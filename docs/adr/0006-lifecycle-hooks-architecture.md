@@ -5,7 +5,7 @@ status: accepted (revised)
 date: 2026-05-21
 revision_date: 2026-05-22
 deciders:
-  - Lior Hollander
+  - the maintainer
   - Claude Opus 4.7
 supersedes: null
 superseded_by: null
@@ -97,5 +97,5 @@ Option-B Deep Research (2026-05-21) surfaced two empirical considerations that r
 
 | Date | Reviewer | Action |
 |---|---|---|
-| 2026-05-21 | Lior | Initial 6-hook design accepted (OQ-3 in requirements.md) |
-| 2026-05-22 | Lior | Revised to 5+1 after Option-B research; PreToolUse dropped, PostToolUse narrowed to Write/Edit/MultiEdit |
+| 2026-05-21 | the user | Initial 6-hook design accepted (OQ-3 in requirements.md) |
+| 2026-05-22 | the user | Revised to 5+1 after Option-B research; PreToolUse dropped, PostToolUse narrowed to Write/Edit/MultiEdit |

@@ -16,7 +16,7 @@ tags:
 
 ## Why this research
 
-Lior surfaced [Tencent's TencentDB Agent Memory](https://github.com/Tencent/TencentDB-Agent-Memory) on 2026-05-24, an MIT-licensed open-source memory system that integrates with OpenClaw and Hermes. Worth a deep look because:
+The user surfaced [Tencent's TencentDB Agent Memory](https://github.com/Tencent/TencentDB-Agent-Memory) on 2026-05-24, an MIT-licensed open-source memory system that integrates with OpenClaw and Hermes. Worth a deep look because:
 
 1. It's **the most recent comparable project** (released 2026-05-23 — one day before this note).
 2. It has **published empirical benchmarks** (SWE-bench, WideSearch, AA-LCR, PersonaMem) on long-horizon agent tasks — something we lack entirely.
@@ -115,9 +115,9 @@ Measured over **continuous long-horizon sessions** (e.g. SWE-bench runs 50 conse
 
 ## What's worth absorbing (and why)
 
-### 1. Auto-persona generation — v0.1.x candidate ← **Lior's explicit request**
+### 1. Auto-persona generation — v0.1.x candidate ← **the user's explicit request**
 
-User-tier files (`USER.md`, `HABITS.md`, `LESSONS.md`) in the kit are currently **hand-curated**. Lior's feedback on 2026-05-24, captured verbatim because it's a real design insight:
+User-tier files (`USER.md`, `HABITS.md`, `LESSONS.md`) in the kit are currently **hand-curated**. The user's feedback on 2026-05-24, captured verbatim because it's a real design insight:
 
 > *"i dont like the hand-curated user-tier files, i know that i myself will not fill them up if i have to do it manually as a user/developer using our kit, it's too much of a hassle."*
 
@@ -212,7 +212,7 @@ Inspired by TencentDB Agent Memory. For long-running agent sessions with high to
 
 Tencent's 4-tier pyramid has a middle layer for mid-level summaries. Our scratchpads' "Active Threads" sections cover some of this informally; an explicit retrieval tier could improve drill-down ergonomics. Lower priority — revisit after auto-persona ships.
 
-### §16.16 Auto-persona generation (v0.1.x candidate — **Lior-prioritized 2026-05-24**)
+### §16.16 Auto-persona generation (v0.1.x candidate — **the user-prioritized 2026-05-24**)
 
 Replace hand-curated user-tier files (`USER.md`, `HABITS.md`, `LESSONS.md`) with auto-generated content driven by the auto-extract subagent. Triggered every N captured facts (Tencent uses 50; we'd default to similar). Output staged in `queues/persona-review.md` for user confirmation OR auto-applied with full audit trail. **Rationale**: hand-curation is a failure mode — users won't do it; the user tier ends up empty; the 3-tier scope's value collapses. Same principle as the memory-write trigger-phrase critique.
 
@@ -241,4 +241,4 @@ Long-horizon task suite + baseline-vs-with-kit measurement. Candidate benchmarks
 
 Tencent has independently converged on several decisions we made (markdown source-of-truth, hybrid BM25+vector retrieval, local-first storage, plugin-integration model) — validating our direction. Their two genuinely novel contributions (the 4-tier abstraction pyramid + the Mermaid task canvas) are worth examining as v0.2 enhancements. The benchmarks gap is real and needs closing before v0.2.
 
-**Highest-priority absorb**: auto-persona generation, on Lior's explicit ask. The hand-curated user tier is a real product failure mode and Tencent's pattern is the right structural fix.
+**Highest-priority absorb**: auto-persona generation, on the user's explicit ask. The hand-curated user tier is a real product failure mode and Tencent's pattern is the right structural fix.

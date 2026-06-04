@@ -2,7 +2,7 @@
 date: 2026-06-01
 topic: "Deep dive (source-level): how Hermes / memsearch / gstack / claude-mem implement the memory lifecycle — what they do that we do, and what they do that we DON'T"
 status: complete
-method: "Shallow-cloned all four repos (C:/tmp/skill-research) and read the actual source — not summaries. Lior: 'depth, not breadth — how they do the things we do, and things we don't.'"
+method: "Shallow-cloned all four repos (C:/tmp/skill-research) and read the actual source — not summaries. The user: 'depth, not breadth — how they do the things we do, and things we don't.'"
 informed_sections: [tasks.md Task 69, candidate features below → new tasks/§16, DECISION-LOG D-28]
 sources:
   - https://github.com/NousResearch/hermes-agent (agent/memory_manager.py, agent/curator.py, agent/background_review.py, tools/memory_tool.py)
@@ -66,7 +66,7 @@ Read the **actual source** (cloned, not WebFetch summaries). Organized by the li
 
 ## Where we DIVERGE from them — keep or change?
 
-Lior asked the sharper question: not just what we lack, but where we do it *differently*, and whether ours is right.
+The user asked the sharper question: not just what we lack, but where we do it *differently*, and whether ours is right.
 
 | Dimension | Them | Us | Verdict |
 | --- | --- | --- | --- |
@@ -81,7 +81,7 @@ Lior asked the sharper question: not just what we lack, but where we do it *diff
 
 **Net:** our *core architecture is sound and in several places better* (caps, IDs, markdown-truth, 3-tier, committed). The deltas worth acting on are **security** (Tasks 70/71 — amplified by our committed-to-git wedge) and **recall** (Layer 5b with the *right* backend — sqlite-vec + bge-m3, NOT Milvus). Nothing in the deep dive says "change our foundations."
 
-## Two more sources (Lior 2026-06-01): Hermes user-docs + Honcho
+## Two more sources (the user 2026-06-01): Hermes user-docs + Honcho
 
 ### Hermes memory user-guide ([docs](https://hermes-agent.nousresearch.com/docs/user-guide/features/memory)) — confirms + 3 new facts
 - **`session_search` is SQLite FULL-TEXT, not vector** — recall over "unlimited historical conversations" uses SQLite FTS, not an embedding DB. **Even Hermes doesn't vector its history.** → *further validates our FTS5-first design*; vector (Layer 5b) is the optional quality layer, not the baseline.

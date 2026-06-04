@@ -2,7 +2,7 @@
 title: claude-mem install model — single complete entry point + --ide multi-agent
 date: 2026-05-29
 status: complete
-source: claude-mem README Quick Start (pasted by Lior 2026-05-29 from the live repo)
+source: claude-mem README Quick Start (pasted by the user 2026-05-29 from the live repo)
 related_research:
   - 2026-05-21-claude-mem-architecture.md
 informed:
@@ -27,7 +27,7 @@ At v0.1.0 publish + first-usage walkthrough, two questions surfaced:
 1. Why does our kit need a **two-step** install (`npm install -g` + `cmk install`, AND separately `/plugin install`)? Is that a must?
 2. (Earlier, ADR-0012) What happens when we want cross-agent support (codex/cursor/kiro/gemini)?
 
-I initially answered #1 from memory of the older claude-mem research note and got the nuance wrong. Lior pasted claude-mem's actual README Quick Start, which is the primary source captured below. This corrects + sharpens the comparison.
+I initially answered #1 from memory of the older claude-mem research note and got the nuance wrong. The user pasted claude-mem's actual README Quick Start, which is the primary source captured below. This corrects + sharpens the comparison.
 
 ## Primary source — claude-mem README "Quick Start" (verbatim, pasted 2026-05-29)
 

@@ -4,7 +4,7 @@ source_url: https://github.com/basicmachines-co/basic-memory
 source_type: open-source project (repo + docs)
 source_date: ongoing; latest release 2026-05-16, latest commit 2026-05-19
 consulted_date: 2026-05-22
-consulted_by: Claude Opus 4.7 + Lior Hollander
+consulted_by: Claude Opus 4.7 + the maintainer
 informed_adrs: [0002-markdown-source-of-truth-over-opaque-db.md]
 tags:
   - basic-memory

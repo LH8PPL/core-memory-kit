@@ -1,6 +1,6 @@
 # gstack — Garry Tan's skill layer over GBrain (the other half of a store we already studied)
 
-**Source:** <https://github.com/garrytan/gstack> (MIT). Read 2026-05-30 (primary-source: README + 4 of 23 SKILL.md files — `context-save`, `context-restore`, `learn`, `review`). Prompted by Lior: *"would any of these skills help you?"*
+**Source:** <https://github.com/garrytan/gstack> (MIT). Read 2026-05-30 (primary-source: README + 4 of 23 SKILL.md files — `context-save`, `context-restore`, `learn`, `review`). Prompted by the user: *"would any of these skills help you?"*
 
 **What it is.** An opinionated "software factory" — 23+ skills turning Claude Code into a virtual eng team (CEO/eng-manager/designer/QA/release-manager roles). Each skill is a top-level dir with a `SKILL.md` + backing `bin/` binaries; state under `~/.gstack/projects/{slug}/`.
 

@@ -4,7 +4,7 @@ title: Provenance frontmatter on every observation (per FR-29)
 status: accepted
 date: 2026-05-22
 deciders:
-  - Lior Hollander
+  - the maintainer
   - Claude Opus 4.7
 supersedes: null
 superseded_by: null
@@ -34,11 +34,11 @@ This ADR was reserved during the requirements-revisions-proposed.md drafting on 
 - [`packages/cli/src/provenance.mjs`](../../packages/cli/src/provenance.mjs) — the implementation (Task 13, T-011).
 - [`specs/v0.1.0/design.md`](../../specs/v0.1.0/design.md) §6.6 — privacy + provenance integration.
 
-This is the evidence-driven backfill case Lior described in the campaign plan: *"decision-made-with-evidence → write ADR from real evidence."*
+This is the evidence-driven backfill case the user described in the campaign plan: *"decision-made-with-evidence → write ADR from real evidence."*
 
 ## Context
 
-Memory writes come from heterogeneous sources — the user typing "remember this", the auto-extract subagent firing on Stop, the compressor's session-end rollup, manual edits to the markdown files. Without provenance metadata, a reader looking at a bullet in `MEMORY.md` cannot distinguish "user explicitly stated this fact" from "an LLM summarized it from a longer conversation" from "I hand-edited this last week."
+Memory writes come from heterogeneous sources — The user typing "remember this", the auto-extract subagent firing on Stop, the compressor's session-end rollup, manual edits to the markdown files. Without provenance metadata, a reader looking at a bullet in `MEMORY.md` cannot distinguish "user explicitly stated this fact" from "an LLM summarized it from a longer conversation" from "I hand-edited this last week."
 
 Three concrete consequences of un-provenanced storage observed in predecessor systems:
 
@@ -123,6 +123,6 @@ For granular per-fact files in `context/memory/<type>_<slug>.md`, the metadata l
 
 | Date | Reviewer | Action |
 |---|---|---|
-| 2026-05-22 | Lior | Decided per requirements-revisions-proposed.md approval (FR-29) |
+| 2026-05-22 | the user | Decided per requirements-revisions-proposed.md approval (FR-29) |
 | 2026-05-23 | (implementation) | Task 13 shipped `provenance.mjs` |
-| 2026-05-26 | Lior + Claude (PR-C audit) | ADR file backfilled retroactively from preserved evidence after the post-PR-31 cross-reference audit surfaced the gap |
+| 2026-05-26 | the user + Claude (PR-C audit) | ADR file backfilled retroactively from preserved evidence after the post-PR-31 cross-reference audit surfaced the gap |

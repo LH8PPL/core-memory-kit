@@ -604,7 +604,7 @@ in `.memory/` for full detail.
 |---|---|
 | Directory separation | Memory Kit uses `.memory/`, auto-memory uses `~/.claude/projects/<id>/memory/` |
 | CLAUDE.md | Memory Kit's additions are delimited; auto-memory doesn't modify CLAUDE.md |
-| Duplicate facts | Both systems may store the same fact; this is acceptable — the user can curate |
+| Duplicate facts | Both systems may store the same fact; this is acceptable — The user can curate |
 | Disable collision | Memory Kit works whether auto-memory is enabled or disabled |
 | Token budget | Memory Kit's 5K token budget is set assuming auto-memory may also inject ~2K tokens |
 

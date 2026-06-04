@@ -17,7 +17,7 @@ tags:
 
 ## Why this doc
 
-2026-06-01, Lior asked three questions in sequence that all point at the same thing — *is this a real product, and what makes it worth someone's time*:
+2026-06-01, the user asked three questions in sequence that all point at the same thing — *is this a real product, and what makes it worth someone's time*:
 
 1. *"What do we do with memory history? what happens after a few days / a week / a month / a year?"*
 2. *"How do we do weekly-curate? daily? do we create daily files and keep MEMORY.md minimal with links to other days? what is the solution here?"*
@@ -55,7 +55,7 @@ context/memory/*.md      ← one typed fact per file (permanent brain), INDEX.md
 
 `MEMORY.md` stays small via **three mechanisms together**: (1) byte cap → consolidates at >95%; (2) stale-drop → bullets >14d old with no recent reference fall off; (3) **graduation** → durable facts move *out* into granular fact files, day-to-day churn moves *out* into the diary. MEMORY.md is the **hot index**, not the archive.
 
-### Lior's instinct vs the design
+### the user's instinct vs the design
 
 His *"daily files + keep MEMORY.md minimal with links to other days"* **is the architecture**, with one refinement: MEMORY.md holds **facts**, and the durable ones graduate to **fact files**, not day-files. Days are the episodic diary ("what we did"); facts are the knowledge ("what's true"). Both age, separately — because "what did we do last Tuesday" and "what's our deploy target" decay at totally different rates.
 
@@ -75,7 +75,7 @@ Track A handles **volume** (compression). Track B handles **durability** (perman
 
 ## 3. Competitive position + the niche wedge (why anyone picks us)
 
-The honest read after the v0.1.1 + v0.2.0 self-tests: **capture + bounded scratchpads + rolling compression is table-stakes.** Native and claude-mem already do that. If that's all we ship, there's no reason to pick us. Lior 2026-06-01: *"this is still a model of a car and not a car."*
+The honest read after the v0.1.1 + v0.2.0 self-tests: **capture + bounded scratchpads + rolling compression is table-stakes.** Native and claude-mem already do that. If that's all we ship, there's no reason to pick us. The user 2026-06-01: *"this is still a model of a car and not a car."*
 
 **The wedge (D-27, unoccupied):** claude-mem = single-user local capture+recall; native = single-project, opaque, Anthropic-controlled; GBrain = enterprise entity-graph, heavy. **Nobody owns "your coding persona + project memory, committed to git, portable across machines, shareable with your team, that gets sharper the more you use it."** That's the reason to exist — but it only pays off once **recall is good (L5b)** AND the **persona tier actually fills (F2)**. Which is exactly why those two are the front of the roadmap.
 
@@ -102,7 +102,7 @@ L1 in-repo ✅ · L2 granular archive ✅ · L3 bounded scratchpads ✅ · L4 me
 - Cross-platform (Win/mac/Linux), installable without a heavy toolchain. Embedding model must run locally (CPU-acceptable; GGUF/ONNX).
 
 **Questions to answer (decision-grade):**
-1. **Embedded vector store for a node/single-user-local app in 2026** — confirm or update the shortlist: `sqlite-vec` (in-our-SQLite, best architectural fit) vs `qmd` (node, MCP-native, what Lior runs in liorwiki) vs `Chroma` (Python embedded) vs anything newer. Which gives hybrid keyword+vector in ONE place with least install weight?
+1. **Embedded vector store for a node/single-user-local app in 2026** — confirm or update the shortlist: `sqlite-vec` (in-our-SQLite, best architectural fit) vs `qmd` (node, MCP-native, what the user runs in liorwiki) vs `Chroma` (Python embedded) vs anything newer. Which gives hybrid keyword+vector in ONE place with least install weight?
 2. **Best local embedding model** for short developer-memory text, CPU-friendly, small footprint: candidates incl. `embeddinggemma` (GGUF, what qmd uses), `all-MiniLM-L6-v2` / `all-mpnet-base-v2` (sentence-transformers), `bge-small/`base`, `nomic-embed-text`, ONNX-quantized variants. Tradeoff table: recall quality vs model size (MB) vs embed latency vs license.
 3. **Hybrid retrieval** best-practice: how do current local-memory systems fuse FTS5/BM25 + vector (RRF? weighted? rerank stage?) — confirm our `reciprocalRankFusion` choice is current, or what beats it.
 4. **Chunking/granularity** for per-bullet/per-fact memory (vs document chunking) — does the winner support our per-fact granularity cleanly?

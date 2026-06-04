@@ -4,7 +4,7 @@ title: Build claude-memory-kit as a separate project, not by forking youtube-to-
 status: accepted
 date: 2026-05-21
 deciders:
-  - Lior Hollander (project owner)
+  - the maintainer (project owner)
   - Claude Opus 4.7 (proposing architect)
 supersedes: null
 superseded_by: null
@@ -90,5 +90,5 @@ Specifically:
 
 | Date | Reviewer | Action |
 |---|---|---|
-| 2026-05-21 | Lior | Decided in conversation; kit scaffolded same day |
-| 2026-05-21 | Lior | v0.0.1 tagged and pushed |
+| 2026-05-21 | the user | Decided in conversation; kit scaffolded same day |
+| 2026-05-21 | the user | v0.0.1 tagged and pushed |

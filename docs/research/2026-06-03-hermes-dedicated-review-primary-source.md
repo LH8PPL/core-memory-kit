@@ -2,7 +2,7 @@
 date: 2026-06-03
 topic: "PRIMARY-SOURCE re-verification: how Hermes triggers its memory/persona review — the answer to the Task 86 wedge bug (multi-rule turns don't promote)"
 status: complete
-method: "Cloned NousResearch/hermes-agent (shallow) to C:/tmp/hermes-src and read the actual source — not the 2026-06-01 deep-dive summary. Lior 2026-06-03: 'didnt we check how other products do the same thing?' + 'if we dont have it, you can always clone the product and search how they do it.'"
+method: "Cloned NousResearch/hermes-agent (shallow) to C:/tmp/hermes-src and read the actual source — not the 2026-06-01 deep-dive summary. The user 2026-06-03: 'didnt we check how other products do the same thing?' + 'if we dont have it, you can always clone the product and search how they do it.'"
 informed: [Task 86 fix architecture, DECISION-LOG D-41]
 sources:
   - https://github.com/NousResearch/hermes-agent  (agent/background_review.py, agent/agent_init.py, agent/conversation_loop.py, agent/curator.py)
@@ -11,7 +11,7 @@ tags: [primary-source, persona, capture-cadence, task-86, wedge]
 
 # Hermes: the dedicated memory/persona review pass + its trigger cadence (primary source)
 
-**Why this note exists.** lior-test-8 surfaced Task 86: when the user states several universal rules in ONE busy turn (e.g. "type hints AND tests first" while building the CrewAI loop), our inline auto-extract promotes ZERO of them to the cross-project persona. A prompt tweak (require per-fact emission) fixed the *clean* turn (3/3 live) but NOT the *mixed/realistic* turn (2/3 emitted zero). Root cause is structural: we ask ONE Haiku call to do TWO jobs (extract project facts + classify persona), and the persona job is crowded out under load. The 2026-06-01 deep-dive *summary* said the products use a dedicated pass; this note verifies the **exact mechanism + cadence** against Hermes's real source.
+**Why this note exists.** live-test-8 surfaced Task 86: when the user states several universal rules in ONE busy turn (e.g. "type hints AND tests first" while building the CrewAI loop), our inline auto-extract promotes ZERO of them to the cross-project persona. A prompt tweak (require per-fact emission) fixed the *clean* turn (3/3 live) but NOT the *mixed/realistic* turn (2/3 emitted zero). Root cause is structural: we ask ONE Haiku call to do TWO jobs (extract project facts + classify persona), and the persona job is crowded out under load. The 2026-06-01 deep-dive *summary* said the products use a dedicated pass; this note verifies the **exact mechanism + cadence** against Hermes's real source.
 
 ## What Hermes actually does
 
@@ -32,7 +32,7 @@ The mature products **never overload one call with extraction + persona classifi
 
 ## CORRECTION (appended 2026-06-03, D-44) — the INPUT was wrong too, not just the trigger
 
-The "fix (D-41)" above got the **trigger** right (dedicated pass at SessionEnd) but asserted autoPersona "reads the CLEAN fact list … exactly the right shape." **That conclusion was wrong, and re-reading the SAME Hermes prompt at the word level is what exposes it.** The 86b implementation ran the classifier over `assembleProjectCorpus` (the distilled `context/memory/*.md` fact bodies) and a live spawn-smoke showed it **emits all candidates but grades them medium → queues, promoting 0**. Root cause: the fact bodies have already lost the cross-project signal — real lior-test-8 facts read "Use uv … **pip is not used in this project**" and "**For Python projects**, always create a local .venv", and `assembleProjectCorpus` also drops the `trust:high`/`write_source:user-explicit` frontmatter. The classifier re-grades degraded input and correctly declines.
+The "fix (D-41)" above got the **trigger** right (dedicated pass at SessionEnd) but asserted autoPersona "reads the CLEAN fact list … exactly the right shape." **That conclusion was wrong, and re-reading the SAME Hermes prompt at the word level is what exposes it.** The 86b implementation ran the classifier over `assembleProjectCorpus` (the distilled `context/memory/*.md` fact bodies) and a live spawn-smoke showed it **emits all candidates but grades them medium → queues, promoting 0**. Root cause: the fact bodies have already lost the cross-project signal — real live-test-8 facts read "Use uv … **pip is not used in this project**" and "**For Python projects**, always create a local .venv", and `assembleProjectCorpus` also drops the `trust:high`/`write_source:user-explicit` frontmatter. The classifier re-grades degraded input and correctly declines.
 
 **What I should have read the first time:** Hermes's `_MEMORY_REVIEW_PROMPT` says *"Review the **conversation above**"* and the docstring says it *"replays the **conversation snapshot**"* — Hermes classifies the **RAW CONVERSATION**, never distilled memory. **claude-mem corroborates:** `cli/handlers/summarize.ts` reads from `transcriptPath` (`extractLastMessage(transcriptPath, …)`). **Both products classify over the raw transcript; neither over already-distilled facts.** This is the convergent-vs-primary lesson applied to my own reading — I'd paraphrased "dedicated pass over a clean snapshot" and silently swapped Hermes's *conversation* snapshot for our *fact* corpus.
 

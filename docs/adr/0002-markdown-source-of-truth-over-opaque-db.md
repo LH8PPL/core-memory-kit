@@ -4,7 +4,7 @@ title: Markdown files as the source of truth; SQLite/vector DBs are regenerable 
 status: accepted
 date: 2026-05-21
 deciders:
-  - Lior Hollander (project owner)
+  - the maintainer (project owner)
   - Claude Opus 4.7 (proposing architect)
 supersedes: null
 superseded_by: null
@@ -95,4 +95,4 @@ Specifically:
 
 | Date | Reviewer | Action |
 |---|---|---|
-| 2026-05-21 | Lior | Accepted as design tenet T1 |
+| 2026-05-21 | the user | Accepted as design tenet T1 |

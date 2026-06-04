@@ -35,7 +35,7 @@ claude-remember ships under a **"Community License"** (not SPDX-standard; full t
 
 **Competing-use concern.** Clause 2 is the load-bearing one. claude-memory-kit IS a long-term memory system for Claude Code. Whether the kit "competes" with claude-remember depends on how broadly "competes" is interpreted (the term isn't defined in their license). Conservative reading: we are a competing product, full stop. Liberal reading: we don't compete because we have a different scope (3-tier vs single-workspace, auto-persona vs none, Claude-Code-native vs cross-tool). Either way, the safest posture is: **assume the strict interpretation, lift ideas not code, write our own prompts from scratch, cite them.**
 
-If Lior wants a stronger legal answer than "assume strict and proceed accordingly," the right move is asking DPT directly — but doing that signals intent and may invite a "no, you can't" response that closes off even idea-absorbing. For now: absorb ideas, write everything from scratch, document the inspiration.
+If the user wants a stronger legal answer than "assume strict and proceed accordingly," the right move is asking DPT directly — but doing that signals intent and may invite a "no, you can't" response that closes off even idea-absorbing. For now: absorb ideas, write everything from scratch, document the inspiration.
 
 ---
 

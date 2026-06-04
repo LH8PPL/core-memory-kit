@@ -4,7 +4,7 @@ title: Bank / air-gapped deployment deferred to v0.2+ but compressor designed pl
 status: accepted
 date: 2026-05-22
 deciders:
-  - Lior Hollander
+  - the maintainer
   - Claude Opus 4.7
 supersedes: null
 superseded_by: null
@@ -105,4 +105,4 @@ However, the v0.1 *architecture* must not preclude bank/air-gap deployment in v0
 
 | Date | Reviewer | Action |
 |---|---|---|
-| 2026-05-22 | Lior | Decided: defer to v0.2+, but design v0.1 with pluggable compressor interface |
+| 2026-05-22 | the user | Decided: defer to v0.2+, but design v0.1 with pluggable compressor interface |
