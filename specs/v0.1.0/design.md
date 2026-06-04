@@ -2836,7 +2836,7 @@ Originally one per-file number served BOTH roles: the **write-cap** (`appendScra
 
 When a scratchpad's content exceeds its **load**-cap, the overflow **graduates** into the searchable fact store via the Task 91 mechanism (`graduateForCapRelief` → `writeFact`), keeping the injected hot index within budget while the durable content stays on disk + indexed.
 
-- **Every scratchpad:** project `MEMORY.md` (already, Task 91), the **user-tier persona** (`USER.md`/`HABITS.md`/`LESSONS.md`), `SOUL.md`. The user tier gains a fact store parallel to `context/memory/` for graduated persona content (searchable via `cmk search` / `mk_get`).
+- **Every scratchpad:** project `MEMORY.md` (already, Task 91), the **user-tier persona** (`USER.md`/`HABITS.md`/`LESSONS.md`), `SOUL.md`. Graduated content lands in each tier's **existing** fact store — project → `context/memory/`, **user → `<userDir>/fragments/`** (the user-tier equivalent; `writeFact` already routes tier-U facts there, so no new structure is needed), searchable via `cmk search` / `mk_get`.
 - **Trigger:** at write (cap-relief, as today) AND a periodic SessionEnd pass, so each scratchpad's injected slice stays under its load-cap.
 - **Eviction archives, never hard-deletes** (Task 91.2 — already tier-generic via `tierRoot`/`memory/archive/evicted-bullets.md`).
 

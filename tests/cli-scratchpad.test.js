@@ -454,14 +454,13 @@ describe('Task 12 — appendScratchpadBullet() boundary', () => {
       expect(r.bytes).toBeLessThanOrEqual(r.cap);
     });
 
-    it('cap so low that even graduating everything cannot fit → cap_exceeded, file + store unchanged', () => {
-      // The genuine rejection path survives Task 91: graduation has a feasibility
-      // gate — if graduating EVERY eligible bullet still wouldn't fit, it
-      // graduates NOTHING (no stranded fact files) and CAP_EXCEEDED fires cleanly.
-      const original = buildMemoryMd({ targetBytes: 800 });
-      writeFileSync(memoryMd, original, 'utf8');
-      // Cap below the empty-scaffold floor (~135B) — even graduating EVERY
-      // bullet leaves header+sections+footer over cap, so it's truly infeasible.
+    it('cap so low that even graduating everything cannot fit → write STILL SUCCEEDS (load-cap, Task 94)', () => {
+      // CONTRACT CHANGE (Task 94 / D-61 / §19): there is no `cap_exceeded` reject
+      // anymore. The cap is a LOAD cap, not a write cap — when consolidate +
+      // graduation can't bring the file under cap, the write lands anyway and the
+      // file grows past the inject budget (inject-context load-caps the snapshot).
+      // The never-lose-memory invariant: a fact is never dropped for a cap.
+      writeFileSync(memoryMd, buildMemoryMd({ targetBytes: 800 }), 'utf8');
       writeFileSync(
         join(projectRoot, 'context', 'settings.json'),
         JSON.stringify({
@@ -469,12 +468,14 @@ describe('Task 12 — appendScratchpadBullet() boundary', () => {
         }),
         'utf8',
       );
-      const r = appendScratchpadBullet(validBulletOpts({ projectRoot }));
-      expect(r.action).toBe('error');
-      expect(r.errorCategory).toBe('cap_exceeded');
-      expect(r.bulletsGraduated).toBe(0); // feasibility gate → nothing graduated
-      // File untouched AND no fact files stranded (the double-capture guard).
-      expect(readFileSync(memoryMd, 'utf8')).toBe(original);
+      const r = appendScratchpadBullet(
+        validBulletOpts({ projectRoot, text: 'a fact that must survive a tiny cap' }),
+      );
+      expect(r.action).toBe('appended'); // not 'error'
+      // The content is on disk (grown past the 100B cap — that's load-cap).
+      const after = readFileSync(memoryMd, 'utf8');
+      expect(after).toContain('a fact that must survive a tiny cap');
+      expect(Buffer.byteLength(after, 'utf8')).toBeGreaterThan(100);
     });
   });
 });

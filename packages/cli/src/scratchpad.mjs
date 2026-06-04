@@ -353,16 +353,21 @@ export function appendScratchpadBullet(opts = {}) {
     evictedBullets = consolidated.evicted ?? [];
   }
 
-  // 2b. Graduation (Task 91 / D-54). If still over cap after stale-drop — which
-  // is exactly what happens when the bullets are high-trust (consolidate() never
-  // drops those) — graduate the oldest high-trust bullets OUT of the hot index
-  // into the permanent fact store, so the write lands instead of CAP_EXCEEDED.
-  // PROJECT MEMORY.md ONLY (D-57): the user-tier persona scratchpads have no
-  // per-fact store + their own promotion path, so graduation must not fire there.
+  // 2b. Graduation (Task 91, generalized to all tiers by Task 94 / §19.2). If
+  // still over the LOAD-cap after stale-drop — which is what happens when the
+  // bullets are high-trust (consolidate() never drops those) — graduate the
+  // oldest high-trust bullets OUT of the hot index into the tier's permanent
+  // fact store, keeping the injected slice small (the write already succeeded
+  // via the load-cap; graduation is about injection budget, not write success).
+  // ALL FACT-BEARING TIERS (D-61): project (MEMORY.md + SOUL.md) AND the user-
+  // tier persona (USER/HABITS/LESSONS) — graduating into the tier's existing
+  // fact store (project context/memory/, user <userDir>/fragments/; writeFact
+  // already routes tier-U facts there). Local tier (machine-paths/overrides) is
+  // excluded: it's machine-specific config, not durable facts.
   let bulletsGraduated = 0;
   let graduatedIds = [];
   let finalBytes = Buffer.byteLength(finalContent, 'utf8');
-  if (finalBytes > cap && tier === 'P' && scratchpad === 'MEMORY.md') {
+  if (finalBytes > cap && (tier === 'P' || tier === 'U')) {
     const grad = graduateForCapRelief({
       text: finalContent,
       capBytes: cap,
@@ -377,22 +382,14 @@ export function appendScratchpadBullet(opts = {}) {
     finalBytes = Buffer.byteLength(finalContent, 'utf8');
   }
 
-  // 3. Post-relief cap check
-  if (finalBytes > cap) {
-    // File untouched. The original on-disk content is preserved verbatim.
-    return errorResult({
-      category: ERROR_CATEGORIES.CAP_EXCEEDED,
-      errors: [
-        `scratchpad cap exceeded: ${finalBytes} bytes would exceed cap of ${cap} bytes for ${scratchpad} (consolidator dropped ${bulletsConsolidated} bullet(s), graduated ${bulletsGraduated}, still over). No silent truncation; resolve by raising the cap in settings.json or manually distilling.`,
-      ],
-      path,
-      cap,
-      bytes: finalBytes,
-      consolidationRan,
-      bulletsConsolidated,
-      bulletsGraduated,
-    });
-  }
+  // 3. Load-cap, NOT write-cap (Task 94 / D-61 / design §19). The write ALWAYS
+  // succeeds — the cap governs only how much is injected, never whether content
+  // can be saved (the never-lose-memory invariant). When consolidate + graduation
+  // can't bring the file under cap (e.g. an absurdly small cap, or a single large
+  // bullet), the file is allowed to GROW past the inject budget; inject-context
+  // load-caps the snapshot (§7.1.1) and the overflow stays searchable on disk.
+  // The old `cap_exceeded` reject path was removed here — see §19.5 for the
+  // superseded write-cap design and why it changed.
 
   // 4. Write + audit
   writeFileSync(path, finalContent, 'utf8');

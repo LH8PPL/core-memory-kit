@@ -59,7 +59,10 @@ function graduateOne({ id, text, prov, tier, projectRoot, userDir, now }) {
   const slugTail = id.replace(/^[PUL]-/, '').toLowerCase();
   return writeFact({
     tier,
-    type: 'project',
+    // User-tier graduated content is cross-project doctrine → 'user'; project
+    // (and any other) tier → 'project'. Both are valid fact-file types; this
+    // just keeps the on-disk filename + frontmatter semantically honest.
+    type: tier === 'U' ? 'user' : 'project',
     slug: `${slugify(text)}-${slugTail}`,
     title: deriveTitle(text),
     body: text,
