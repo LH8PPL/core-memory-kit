@@ -34,6 +34,7 @@
 
 import { compressSession } from './compress-session.mjs';
 import { autoPersona } from './auto-persona.mjs';
+import { graduateAllScratchpads } from './graduate-session.mjs';
 
 /**
  * Run the two independent SessionEnd Haiku passes concurrently.
@@ -44,7 +45,7 @@ import { autoPersona } from './auto-persona.mjs';
  * @param {() => object} opts.makeBackend - factory returning a fresh CompressorBackend
  *   per call (each concurrent pass gets its own instance — no shared state).
  * @param {string} [opts.now] - ISO timestamp override (tests).
- * @returns {Promise<{compressOutcome: PromiseSettledResult, personaOutcome: PromiseSettledResult}>}
+ * @returns {Promise<{compressOutcome: PromiseSettledResult, personaOutcome: PromiseSettledResult, graduationOutcome: PromiseSettledResult}>}
  */
 export async function runSessionEndTasks({ projectRoot, userDir, makeBackend, now }) {
   const [compressOutcome, personaOutcome] = await Promise.allSettled([
@@ -56,7 +57,25 @@ export async function runSessionEndTasks({ projectRoot, userDir, makeBackend, no
     // (which strips the cross-project signal). This is what makes the cold-open work.
     autoPersona({ projectRoot, userDir, backend: makeBackend(), cooldownMs: 0, now, source: 'transcript' }),
   ]);
-  return { compressOutcome, personaOutcome };
+
+  // Task 94.3: proactive graduation sweep. SEQUENTIAL, AFTER the concurrent block —
+  // autoPersona WRITES the user-tier persona scratchpads and graduation READS+
+  // rewrites them, so they share inputs and must NOT overlap (the §6.8/§7.1
+  // disjoint-input rule). Running it here means the sweep sees the freshly-promoted
+  // persona, then trims any overflow so the next session's injected slice stays
+  // under its load-cap. Pure local file I/O (no Haiku/network) → adds <<1s, no
+  // hook-ceiling risk. Wrapped so a synchronous throw can't reject up into the hook.
+  let graduationOutcome;
+  try {
+    graduationOutcome = {
+      status: 'fulfilled',
+      value: graduateAllScratchpads({ projectRoot, userDir, now }),
+    };
+  } catch (err) {
+    graduationOutcome = { status: 'rejected', reason: err };
+  }
+
+  return { compressOutcome, personaOutcome, graduationOutcome };
 }
 
 /**
@@ -67,7 +86,7 @@ export async function runSessionEndTasks({ projectRoot, userDir, makeBackend, no
  * @param {{compressOutcome: PromiseSettledResult, personaOutcome: PromiseSettledResult}} outcomes
  * @returns {string[]}
  */
-export function summarizeSessionEnd({ compressOutcome, personaOutcome }) {
+export function summarizeSessionEnd({ compressOutcome, personaOutcome, graduationOutcome }) {
   const lines = [];
 
   if (compressOutcome.status === 'fulfilled') {
@@ -88,6 +107,20 @@ export function summarizeSessionEnd({ compressOutcome, personaOutcome }) {
   } else {
     const e = personaOutcome.reason;
     lines.push(`cmk-compress-session: persona refresh failed: ${e?.message ?? e}\n`);
+  }
+
+  // graduationOutcome is optional so pre-94.3 callers (and the orchestrator tests
+  // that pass only the two Haiku outcomes) still render exactly two lines.
+  if (graduationOutcome) {
+    if (graduationOutcome.status === 'fulfilled') {
+      const g = graduationOutcome.value ?? {};
+      lines.push(
+        `cmk-compress-session: graduation (graduated: ${g.totalGraduated ?? 0}, consolidated: ${g.totalConsolidated ?? 0})\n`,
+      );
+    } else {
+      const e = graduationOutcome.reason;
+      lines.push(`cmk-compress-session: graduation failed: ${e?.message ?? e}\n`);
+    }
   }
 
   return lines;

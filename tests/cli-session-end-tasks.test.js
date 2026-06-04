@@ -1,7 +1,8 @@
 // @doors: 1, 3
 // Door 2 N/A: the orchestrator mutates no disk state itself — compressSession /
-//   autoPersona own the writes and are mocked here; their disk-state doors are
-//   pinned in cli-compress-session.test.js + cli-auto-persona.test.js.
+//   autoPersona / graduateAllScratchpads own the writes and are mocked here; their
+//   disk-state doors are pinned in cli-compress-session.test.js +
+//   cli-auto-persona.test.js + cli-graduate-session.test.js.
 // Door 4 N/A: no NDJSON log emitted by the orchestrator; the stderr diagnostic
 //   shape is the RETURN of summarizeSessionEnd (a pure fn) and is asserted as
 //   Door 1 below. The bins do the actual process.stderr.write.
@@ -22,13 +23,15 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { compressMock, personaMock } = vi.hoisted(() => ({
+const { compressMock, personaMock, graduateMock } = vi.hoisted(() => ({
   compressMock: vi.fn(),
   personaMock: vi.fn(),
+  graduateMock: vi.fn(),
 }));
 
 vi.mock('../packages/cli/src/compress-session.mjs', () => ({ compressSession: compressMock }));
 vi.mock('../packages/cli/src/auto-persona.mjs', () => ({ autoPersona: personaMock }));
+vi.mock('../packages/cli/src/graduate-session.mjs', () => ({ graduateAllScratchpads: graduateMock }));
 
 const { runSessionEndTasks, summarizeSessionEnd } = await import(
   '../packages/cli/src/session-end-tasks.mjs'
@@ -39,6 +42,9 @@ const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 beforeEach(() => {
   compressMock.mockReset();
   personaMock.mockReset();
+  graduateMock.mockReset();
+  // Default: graduation sweep is a synchronous no-op unless a test overrides it.
+  graduateMock.mockReturnValue({ results: [], totalGraduated: 0, totalConsolidated: 0 });
 });
 
 describe('runSessionEndTasks — concurrency (D-42 composition fix)', () => {
@@ -122,6 +128,92 @@ describe('runSessionEndTasks — concurrency (D-42 composition fix)', () => {
         source: 'transcript',
       }),
     );
+  });
+});
+
+describe('runSessionEndTasks — Task 94.3 graduation sweep (sequential, after persona)', () => {
+  it('runs the graduation sweep AFTER the concurrent compress+persona block (disjoint-input rule)', async () => {
+    // autoPersona WRITES the user-tier scratchpads graduation then reads — proving
+    // graduation starts only after BOTH concurrent passes resolve guarantees no
+    // read-write race on those files.
+    const events = [];
+    compressMock.mockImplementation(async () => {
+      await delay(30);
+      events.push('c-end');
+      return { action: 'compressed' };
+    });
+    personaMock.mockImplementation(async () => {
+      await delay(30);
+      events.push('p-end');
+      return { action: 'promoted', promoted: [], queued: [] };
+    });
+    graduateMock.mockImplementation(() => {
+      events.push('g');
+      return { results: [], totalGraduated: 0, totalConsolidated: 0 };
+    });
+
+    await runSessionEndTasks({
+      projectRoot: '/proj',
+      userDir: '/userdir',
+      makeBackend: () => ({ compress: vi.fn() }),
+    });
+
+    // 'g' must come after BOTH concurrent passes ended.
+    expect(events.indexOf('g')).toBeGreaterThan(events.indexOf('c-end'));
+    expect(events.indexOf('g')).toBeGreaterThan(events.indexOf('p-end'));
+  });
+
+  it('passes projectRoot/userDir/now to the sweep and returns its outcome (Door 1+3)', async () => {
+    compressMock.mockResolvedValue({ action: 'compressed' });
+    personaMock.mockResolvedValue({ action: 'promoted', promoted: [], queued: [] });
+    graduateMock.mockReturnValue({ results: [], totalGraduated: 3, totalConsolidated: 1 });
+
+    const { graduationOutcome } = await runSessionEndTasks({
+      projectRoot: '/proj',
+      userDir: '/userdir',
+      makeBackend: () => ({ compress: vi.fn() }),
+      now: '2026-06-05T00:00:00Z',
+    });
+
+    expect(graduateMock).toHaveBeenCalledWith({
+      projectRoot: '/proj',
+      userDir: '/userdir',
+      now: '2026-06-05T00:00:00Z',
+    });
+    expect(graduationOutcome.status).toBe('fulfilled');
+    expect(graduationOutcome.value.totalGraduated).toBe(3);
+  });
+
+  it('still runs the sweep even when BOTH Haiku passes reject (allSettled isolation)', async () => {
+    compressMock.mockRejectedValue(new Error('c'));
+    personaMock.mockRejectedValue(new Error('p'));
+    graduateMock.mockReturnValue({ results: [], totalGraduated: 0, totalConsolidated: 0 });
+
+    const { graduationOutcome } = await runSessionEndTasks({
+      projectRoot: '/proj',
+      userDir: '/userdir',
+      makeBackend: () => ({ compress: vi.fn() }),
+    });
+
+    expect(graduateMock).toHaveBeenCalledTimes(1);
+    expect(graduationOutcome.status).toBe('fulfilled');
+  });
+
+  it('captures a synchronous sweep throw as a rejected outcome (never rejects the hook)', async () => {
+    compressMock.mockResolvedValue({ action: 'compressed' });
+    personaMock.mockResolvedValue({ action: 'promoted', promoted: [], queued: [] });
+    graduateMock.mockImplementation(() => {
+      throw new Error('sweep boom');
+    });
+
+    const { graduationOutcome } = await runSessionEndTasks({
+      projectRoot: '/proj',
+      userDir: '/userdir',
+      makeBackend: () => ({ compress: vi.fn() }),
+    });
+
+    expect(graduationOutcome.status).toBe('rejected');
+    expect(graduationOutcome.reason.message).toBe('sweep boom');
   });
 });
 
@@ -228,5 +320,33 @@ describe('summarizeSessionEnd — stderr line rendering', () => {
     });
     expect(lines).toHaveLength(2);
     expect(lines[1]).toContain('persona undefined (promoted: 0, queued: 0)');
+  });
+
+  it('renders a graduation outcome as a third line when present (Task 94.3)', () => {
+    const lines = summarizeSessionEnd({
+      compressOutcome: { status: 'fulfilled', value: { action: 'compressed', duration_ms: 5 } },
+      personaOutcome: { status: 'fulfilled', value: { action: 'promoted', promoted: [], queued: [] } },
+      graduationOutcome: { status: 'fulfilled', value: { totalGraduated: 4, totalConsolidated: 2 } },
+    });
+    expect(lines).toHaveLength(3);
+    expect(lines[2]).toContain('graduation (graduated: 4, consolidated: 2)');
+    expect(lines[2].endsWith('\n')).toBe(true);
+  });
+
+  it('renders a rejected graduation outcome as a failure line', () => {
+    const lines = summarizeSessionEnd({
+      compressOutcome: { status: 'fulfilled', value: { action: 'compressed', duration_ms: 5 } },
+      personaOutcome: { status: 'fulfilled', value: { action: 'promoted', promoted: [], queued: [] } },
+      graduationOutcome: { status: 'rejected', reason: new Error('boom-g') },
+    });
+    expect(lines[2]).toContain('graduation failed: boom-g');
+  });
+
+  it('omits the graduation line entirely when graduationOutcome is absent (back-compat)', () => {
+    const lines = summarizeSessionEnd({
+      compressOutcome: { status: 'fulfilled', value: { action: 'compressed', duration_ms: 5 } },
+      personaOutcome: { status: 'fulfilled', value: { action: 'promoted', promoted: [], queued: [] } },
+    });
+    expect(lines).toHaveLength(2);
   });
 });

@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Changed
+
+- **Memory now self-trims at the end of every session, not just when you write (Task 94.3).** Graduation — moving a scratchpad's overflow into the searchable fact store so the injected slice stays under its load-cap — used to fire only when a new capture pushed a file over the cap. Now a proactive sweep runs at session end across all your fact-bearing scratchpads (project `MEMORY.md`/`SOUL.md` + the user-tier persona `USER.md`/`HABITS.md`/`LESSONS.md`), so a file that drifts over cap between sessions, or whose bullets simply aged past the staleness window, gets trimmed before the next session starts. Overflow is **graduated** (high-trust → fact store, recoverable + searchable) or **archived** (stale low/medium → `memory/archive/`), never silently dropped — the never-lose invariant. The machine-local config tier is left untouched.
+
 ## [0.2.0] — 2026-06-04
 
 **The wedge** — your cross-project coding persona + project memory, committed to git and portable, so a brand-new project cold-opens already knowing how you work. Plus automatic capture, self-curating memory, and "Claude stays consistent."

@@ -445,3 +445,119 @@ export function appendScratchpadBullet(opts = {}) {
     bulletsGraduated,
   };
 }
+
+/**
+ * Proactive cap-relief for a SINGLE scratchpad, run OUTSIDE the append path
+ * (Task 94.3). The reactive relief inside appendScratchpadBullet only fires when
+ * a write triggers cap pressure; this lets a SessionEnd sweep keep the injected
+ * slice under its load-cap even in a read-only session (no new bullets) and catch
+ * low/medium bullets that AGED past the 14-day stale window between sessions.
+ *
+ * Runs the SAME relief sequence as the append path — consolidate (stale-drop +
+ * archive) then graduate (high-trust overflow → the tier's fact store) — but only
+ * when the scratchpad is already over its load-cap, and it writes back ONLY if
+ * the content actually changed (no churn / no audit noise on a comfortable
+ * scratchpad, satisfying the over-mutation guard). The WHOLE relief (consolidate
+ * AND graduate) is gated to fact-bearing tiers P + U; the L tier (machine config)
+ * is left untouched even when over cap — its bullets are not durable facts.
+ *
+ * Cost note (hook-ceiling composition): each graduated bullet flows through
+ * writeFact, which reindexes — so a sweep that graduates N bullets does N reindex
+ * passes. That mirrors the reactive append path's existing per-graduating-bullet
+ * cost; at SessionEnd it runs AFTER the ~50s concurrent Haiku block but is local
+ * file I/O (no spawn/network), and the SessionEnd hook is best-effort (exits 0 on
+ * overrun), so it does not threaten the 60s ceiling in practice.
+ *
+ * @returns {{action:'relieved'|'noop'|'skipped', reason?:string, tier:string,
+ *   scratchpad:string, bulletsConsolidated:number, bulletsGraduated:number,
+ *   graduatedIds:string[], bytes:number}}
+ */
+export function sweepScratchpadForCapRelief({
+  tier,
+  scratchpad,
+  projectRoot,
+  userDir,
+  now,
+  settings,
+}) {
+  const base = {
+    tier,
+    scratchpad,
+    bulletsConsolidated: 0,
+    bulletsGraduated: 0,
+    graduatedIds: [],
+    bytes: 0,
+  };
+  const path = resolveScratchpadPath({ tier, scratchpad, projectRoot, userDir });
+  if (!existsSync(path)) {
+    return { ...base, action: 'skipped', reason: 'no-file' };
+  }
+
+  const original = readFileSync(path, 'utf8');
+  const cap = resolveCap({ tier, scratchpad, projectRoot, userDir, settings });
+  const originalBytes = Buffer.byteLength(original, 'utf8');
+  if (originalBytes <= cap) {
+    // Load-cap respected already — leave it alone (no churn).
+    return { ...base, action: 'noop', bytes: originalBytes };
+  }
+  // Relief (both consolidate AND graduate) applies only to fact-bearing tiers.
+  // Gate here so the consolidate stale-drop can never touch L-tier machine config
+  // even if a future caller passes it (graduateAllScratchpads never does today).
+  if (tier !== 'P' && tier !== 'U') {
+    return { ...base, action: 'noop', reason: 'tier-excluded', bytes: originalBytes };
+  }
+
+  // Over cap — run the same relief sequence as appendScratchpadBullet.
+  const ts = now ?? nowIso();
+  const tierRoot = resolveTierRoot({ tier, projectRoot, userDir });
+
+  const consolidated = consolidate(original, { nowDate: new Date(ts) });
+  let working = consolidated.text;
+  const evicted = consolidated.evicted ?? [];
+
+  let graduatedIds = [];
+  if (Buffer.byteLength(working, 'utf8') > cap) {
+    // tier is already guaranteed P||U by the gate above.
+    const grad = graduateForCapRelief({
+      text: working,
+      capBytes: cap,
+      tier,
+      projectRoot,
+      userDir,
+      now: ts,
+    });
+    working = grad.text;
+    graduatedIds = grad.graduated;
+  }
+
+  if (working === original) {
+    // Nothing relievable (no stale bullets to drop; graduation infeasible or no
+    // eligible high-trust bullets). Load-cap means over-cap is allowed — leave
+    // the file untouched rather than rewriting it identically.
+    return { ...base, action: 'noop', reason: 'irreducible', bytes: originalBytes };
+  }
+
+  writeFileSync(path, working, 'utf8');
+  if (evicted.length > 0) {
+    archiveEvictedBullets({ tierRoot, tier, scratchpad, evicted, now: ts });
+  }
+  for (const gid of graduatedIds) {
+    appendAuditEntry(tierRoot, {
+      ts,
+      action: 'graduated',
+      tier,
+      id: gid,
+      reasonCode: REASON_CODES.SCRATCHPAD_GRADUATED,
+      paths: { after: path },
+      extra: { scratchpad, trigger: 'session-end' },
+    });
+  }
+  return {
+    ...base,
+    action: 'relieved',
+    bulletsConsolidated: evicted.length,
+    bulletsGraduated: graduatedIds.length,
+    graduatedIds,
+    bytes: Buffer.byteLength(working, 'utf8'),
+  };
+}
