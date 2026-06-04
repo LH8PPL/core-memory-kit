@@ -51,7 +51,8 @@ The differentiator is the wedge; the rest are the quality fixes that make it *fe
 ## v0.3.0 — recall + consistency (the next wow)
 
 - **65** — Layer-5b semantic recall (the video's "recall is the most important function")
-- **75** — recall TRIGGER: make the agent actively USE memory when it needs old context (D-35 active recall). _The load-bearing v0.3 piece (D-57): graduation (Task 91) makes facts search-only, so this is what makes overflow facts findable — without it, heavy-session memory feels short-lived._
+- **75** — recall TRIGGER: make the agent actively USE memory when it needs old context (D-35 active recall). _The load-bearing v0.3 piece (D-57): graduation (Task 91/94) makes facts search-only, so this is what makes overflow facts findable. **Reframed instruction-first (D-64, memory-os Layer 7): the primary lever is telling the agent injected/searchable memory is AUTHORITATIVE — lead with it, don't re-derive — not just the search backend.**_
+- **97** — dynamic trust: trust scores accumulate over time (feedback loop) vs static-at-capture (D-64, memory-os; the user wants it). Composes with F-D + Task 66 + §19.3.
 - **80 / 80c** — deterministic env/config capture (observe-edit), so config values are recallable not re-derived (moved from v0.2.0 per D-57; pairs with 75/65).
 - **51** — index session-rollup + transcript files for search
 - **57 / 58 / 59** — capture Claude's stated positions as decision-facts + inject a "recent decisions" digest + contradiction reconciliation (Phase 3)
