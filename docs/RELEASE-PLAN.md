@@ -31,6 +31,7 @@ The differentiator is the wedge; the rest are the quality fixes that make it *fe
 
 ## v0.2.x — wedge polish (patch, no new differentiator)
 
+- **80 (REOPENED, partly complete; D-56)** — env/config capture. The prompt-side fix shipped (80b) but the 2026-06-04 cut-gate reproduced the gap (`cmk search "port 8000"` → no results) — a prompt-only nudge to Haiku is non-deterministic. **80c** adds the deterministic observe-edit capture path. _Conditional cut-blocker: if §5 R3-quality fumbles port-8000 recall in the manual run, pull 80c into v0.2.0 (per Task 80's own severity clause)._
 - **92** — LOW-trust drops must leave a trace (lifecycle-map G6; D-55) — discarded LOW candidates vanish with no content record; log the excerpt to extract.log (don't pollute active memory).
 - **93** — inject drop must be importance-aware, not tail-order (lifecycle-map G7; D-55) — `truncateTierToBudget` drops whole sections from the tail, so what reaches the window depends on section order not trust/recency; evict lowest-value first, never drop high-trust before low-trust.
 - **84c** — de-bias scaffold seed examples (cosmetic; seed-ID regen ripple)
