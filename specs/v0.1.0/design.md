@@ -909,6 +909,8 @@ The SessionStart hook (`cmk-inject-context`) resolves and merges the three tiers
 
 #### 7.1.1 Per-tier byte budgets (2026-05-26 amendment)
 
+> **Update (D-61, 2026-06-04):** the per-file caps below are now **inject (load) caps only**, not write caps — writes always succeed and files grow on disk; overflow graduates to the searchable store. The tail-order truncation here is superseded by importance-aware selection. See **§19** for the load-cap-not-write-cap architecture; this section's budgets/coordination rule still govern the inject slice.
+
 The earlier draft of §7.1 specified only a total snapshot cap (10 KB) and a tier-priority drop order on overflow. Live-test scenario 4 (see [`docs/journey/2026-05-26-live-test-findings-scenarios-3-7.md`](../../docs/journey/2026-05-26-live-test-findings-scenarios-3-7.md)) surfaced the failure mode this creates: **the default install + a single auto-extract bullet already exceeds 10 KB**, and the lowest-priority tier (user) gets dropped on every session — even in fresh installs with only seed content present. The user tier's value prop is undercut by cap pressure from day 1.
 
 Root cause: per-file caps (Task 12 / design §2.1) and the snapshot cap (this section) were specified independently. Per-file caps don't add to a coherent total; the snapshot cap was set without budgeting how much of it each tier deserves.
@@ -2816,6 +2818,47 @@ Live-test cross-OS validation is also covered by:
 - The lock-discipline.mjs unit tests (`tests/cli-lock-discipline.test.js`) — assert the `recoveryCommand` field shape in both branches via test-time platform detection.
 - The platform-commands unit tests (`tests/cli-platform-commands.test.js`) — assert each primitive's output for the current platform AND that the shape invariants hold (non-empty, quoted path argument).
 - The validator self-test (`tests/scripts-validate-platform-commands.test.js`) — sandboxed fixtures pin the helper-in-scope / suppression-marker / hardcoded-violation paths.
+
+---
+
+## 19. Memory-retention architecture — load-cap (not write-cap) + universal graduation (D-61, 2026-06-04)
+
+> **Binding architecture (D-61).** Supersedes the **write-cap** behavior in §2.1 / §7.1.1 and generalizes Task 91 (project-MEMORY.md graduation) to **all tiers**. The invariant: **memory is never lost; it is always retrievable.** That is the kit's entire reason to exist — so no write path may reject, truncate, or silently drop a fact. Validated against Anthropic's own Auto Memory model (D-60): MEMORY.md loads the first 25 KB and moves detail to on-demand topic files; D-61 is that model, generalized to every tier.
+
+### 19.1 Two caps, separated
+
+Originally one per-file number served BOTH roles: the **write-cap** (`appendScratchpadBullet` rejects a write that would exceed it — §2.1) AND the **inject budget** (per-tier truncation — §7.1.1). D-61 splits them:
+
+- **Write-cap — REMOVED.** Writes ALWAYS succeed; scratchpad files grow on disk without bound. The `cap_exceeded` error path in `appendScratchpadBullet` is deleted. No write-lock, ever, on any tier. (This is the change that kills the persona write-lock from D-60/cut-gate2 §6.)
+- **Load-cap (inject budget) — KEPT.** The per-tier budgets + snapshot cap (§7.1.1, `DEFAULT_CAP_BYTES`) now govern ONLY **how much of each (now-growable) file is injected** at session start — never whether content can be saved.
+
+### 19.2 Universal graduation (all tiers)
+
+When a scratchpad's content exceeds its **load**-cap, the overflow **graduates** into the searchable fact store via the Task 91 mechanism (`graduateForCapRelief` → `writeFact`), keeping the injected hot index within budget while the durable content stays on disk + indexed.
+
+- **Every scratchpad:** project `MEMORY.md` (already, Task 91), the **user-tier persona** (`USER.md`/`HABITS.md`/`LESSONS.md`), `SOUL.md`. The user tier gains a fact store parallel to `context/memory/` for graduated persona content (searchable via `cmk search` / `mk_get`).
+- **Trigger:** at write (cap-relief, as today) AND a periodic SessionEnd pass, so each scratchpad's injected slice stays under its load-cap.
+- **Eviction archives, never hard-deletes** (Task 91.2 — already tier-generic via `tierRoot`/`memory/archive/evicted-bullets.md`).
+
+### 19.3 What stays injected — importance-aware, not tail-order
+
+With files now growable, the inject step must choose WHICH slice to inject. §7.1.1's current truncation drops whole sections from the **tail** (file order). D-61 + **G7/Task 93** change this to **importance-aware**: keep the highest-trust / most-recent / most-relevant content in the injected slice and graduate the long tail. This keeps the BEST rules in the cold-open window and **minimizes the recall dependency** (only the long tail must be searched for).
+
+### 19.4 Recall — the retrieval half (Task 75, v0.3)
+
+Graduated content is on-disk + searchable, but *"Claude knows to search for it when needed"* is the **active-recall** behavior (Task 75), currently ~50/50. **The storage half (§19.1–19.3) alone satisfies the never-lose-memory invariant** — everything stays on disk + indexed. The **retrieval-reliability** half is v0.3. Until Task 75 lands, graduated memory is retrievable **on demand** (`cmk search`, the agent searching) but not always **auto**-recalled; §19.3 minimizes the exposure by keeping the best content injected.
+
+### 19.5 Decision-trail — the superseded write-cap design (preserved)
+
+**Original design (pre-2026-06-04, §2.1 + §7.1.1):** per-file caps were **write** caps. `appendScratchpadBullet` consolidated stale bullets at 95%, then (post-Task-91, project tier) graduated, then **rejected** with `cap_exceeded` if still over ("no silent truncation; raise the cap or distill"). It protected the inject budget by bounding the FILE. Hermes uses the same hard-reject (D-60) — so this was a defensible, researched choice, not an accident.
+
+**Why changed (D-61, 2026-06-04):** the write-cap **conflates** "how much you can store" with "how much you inject," and it **write-locks the persona tier** (the wedge) once a section fills — reproduced live in cut-gate2 §6 (D-60: the architecture rule couldn't promote, `not-promoted-cap_exceeded`). Anthropic keeps the two separate (load-cap, write-free). D-61 adopts that. The write-reject path is removed; the cap becomes inject-only. The old behavior is retained here for contributors who need to understand why the build's current path differs from §2.1/§7.1.1 as originally written.
+
+### 19.6 Composition + invariants
+
+- The **snapshot-cap coordination rule (§7.1.1) still holds — for the INJECT budget**: per-tier budget = Σ per-file **inject**-caps; snapshot cap ≥ Σ per-tier budgets. `validate-template.mjs` keeps enforcing it on the inject-caps (the write-caps no longer exist).
+- Composes with **§6.5 tombstones** (eviction archives), **Task 91** (graduation mechanism — generalized), **G7/Task 93** (importance-aware inject), **Task 75** (recall).
+- **Boundary tests (per tier):** a write that exceeds the load-cap **succeeds** (no `cap_exceeded`) AND the overflow appears in the searchable store AND `cmk search` finds it. Seed N, overflow, assert N retrievable (never N−k). The never-lose-memory invariant is a test, not a hope.
 
 ---
 
