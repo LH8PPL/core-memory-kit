@@ -57,6 +57,8 @@ The differentiator is the wedge; the rest are the quality fixes that make it *fe
 - **51** — index session-rollup + transcript files for search
 - **57 / 58 / 59** — capture Claude's stated positions as decision-facts + inject a "recent decisions" digest + contradiction reconciliation (Phase 3)
 - **F-D** — fact-layer auto-supersede (semantic contradiction between captured facts, e.g. uv-vs-venv)
+- **95** — dream-style re-curation (D-62): re-curate from RAW transcripts → a REVIEWABLE new output (not in-place), merging dups + resolving contradictions latest-wins + surfacing insights; unifies F-D + Task 55/66 + curate. From the 2026-06-04 Anthropic Dreams primary source.
+- **96** — memory versioning + redact (D-62): point-in-time recovery of any prior value + a compliance scrub path; completes the never-lose invariant beyond tombstones. _(may slip to v0.4.)_
 - **66** — temporal validity (facts stay true / age out correctly)
 - **71** — external-drift guard (detect + refuse hand-edits to memory)
 - **74** — re-inject memory after compaction (PreCompact hook)
