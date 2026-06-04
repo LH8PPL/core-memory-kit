@@ -10,6 +10,7 @@ wired up yet.
 Usage:
   python scripts/refresh-distill-timestamp.py
 """
+
 from __future__ import annotations
 
 import datetime
@@ -26,10 +27,14 @@ if not MEMORY.exists():
 
 today = datetime.date.today().isoformat()
 text = MEMORY.read_text(encoding="utf-8")
-new_text, n = re.subn(r"Last distilled: \d{4}-\d{2}-\d{2}",
-                      f"Last distilled: {today}", text, count=1)
+new_text, n = re.subn(
+    r"Last distilled: \d{4}-\d{2}-\d{2}", f"Last distilled: {today}", text, count=1
+)
 if n == 0:
-    print("WARN: no 'Last distilled:' line found in MEMORY.md; nothing to update", file=sys.stderr)
+    print(
+        "WARN: no 'Last distilled:' line found in MEMORY.md; nothing to update",
+        file=sys.stderr,
+    )
     sys.exit(0)
 MEMORY.write_text(new_text, encoding="utf-8")
 print(f"OK: updated Last distilled to {today}")

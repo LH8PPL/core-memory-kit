@@ -25,6 +25,7 @@ Job file format (YAML frontmatter):
   ---
   [task body / prompt]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -38,7 +39,10 @@ from pathlib import Path
 try:
     import yaml
 except ImportError:
-    print("ERROR: pyyaml not installed. Run: python -m pip install pyyaml", file=sys.stderr)
+    print(
+        "ERROR: pyyaml not installed. Run: python -m pip install pyyaml",
+        file=sys.stderr,
+    )
     sys.exit(1)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -52,8 +56,16 @@ def _default_prefix() -> str:
 
 TASK_NAME_PREFIX = os.environ.get("CMK_TASK_PREFIX", _default_prefix())
 
-DAY_MAP = {"daily": "DAILY", "mon": "MON", "tue": "TUE", "wed": "WED",
-           "thu": "THU", "fri": "FRI", "sat": "SAT", "sun": "SUN"}
+DAY_MAP = {
+    "daily": "DAILY",
+    "mon": "MON",
+    "tue": "TUE",
+    "wed": "WED",
+    "thu": "THU",
+    "fri": "FRI",
+    "sat": "SAT",
+    "sun": "SUN",
+}
 
 
 def slugify(name: str) -> str:
@@ -89,7 +101,9 @@ def _windows_bash_path() -> str | None:
 
 def build_task_command(job: dict) -> str | None:
     jt = job.get("job_type")
-    wd = job.get("working_directory", "").replace("${CLAUDE_PROJECT_DIR}", str(REPO_ROOT))
+    wd = job.get("working_directory", "").replace(
+        "${CLAUDE_PROJECT_DIR}", str(REPO_ROOT)
+    )
     if jt == "shell_command":
         cmd = job.get("command", "")
         if not cmd:
@@ -100,10 +114,10 @@ def build_task_command(job: dict) -> str | None:
                 if gitbash:
                     cmd = f'"{gitbash}" {cmd[5:]}'
             if wd:
-                return f'cmd /c "cd /d \"{wd}\" && {cmd}"'
+                return f'cmd /c "cd /d "{wd}" && {cmd}"'
             return f'cmd /c "{cmd}"'
         if wd:
-            return f'sh -c "cd \"{wd}\" && {cmd}"'
+            return f'sh -c "cd "{wd}" && {cmd}"'
         return cmd
     if jt == "timestamp_refresh":
         helper = REPO_ROOT / "scripts" / "refresh-distill-timestamp.py"
@@ -133,9 +147,14 @@ def register_windows(job: dict, dry_run: bool) -> tuple[bool, str]:
         return False, f"unknown days value: {days!r}"
 
     args = [
-        "schtasks", "/create", "/tn", name,
-        "/tr", cmd,
-        "/st", time,
+        "schtasks",
+        "/create",
+        "/tn",
+        name,
+        "/tr",
+        cmd,
+        "/st",
+        time,
         *schedule,
         "/f",
     ]
@@ -143,7 +162,10 @@ def register_windows(job: dict, dry_run: bool) -> tuple[bool, str]:
         return True, "DRY-RUN: " + " ".join(args)
     result = subprocess.run(args, capture_output=True, text=True, check=False)
     if result.returncode != 0:
-        return False, f"schtasks failed: {result.stderr.strip() or result.stdout.strip()}"
+        return (
+            False,
+            f"schtasks failed: {result.stderr.strip() or result.stdout.strip()}",
+        )
     return True, f"registered as {name}"
 
 
@@ -162,8 +184,15 @@ def register_unix(job: dict, dry_run: bool) -> tuple[bool, str]:
     if days == "daily":
         day_field = "*"
     elif days in DAY_MAP:
-        day_field = {"mon": "1", "tue": "2", "wed": "3", "thu": "4",
-                     "fri": "5", "sat": "6", "sun": "0"}[days]
+        day_field = {
+            "mon": "1",
+            "tue": "2",
+            "wed": "3",
+            "thu": "4",
+            "fri": "5",
+            "sat": "6",
+            "sun": "0",
+        }[days]
     else:
         return False, f"unknown days value: {days!r}"
 
@@ -183,18 +212,36 @@ def register_unix(job: dict, dry_run: bool) -> tuple[bool, str]:
 
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--dry-run", action="store_true", help="Print what would happen without changing anything")
-    p.add_argument("--unregister", help="Remove a task by name (with or without prefix)")
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print what would happen without changing anything",
+    )
+    p.add_argument(
+        "--unregister", help="Remove a task by name (with or without prefix)"
+    )
     args = p.parse_args()
 
     if args.unregister:
-        name = args.unregister if args.unregister.startswith(TASK_NAME_PREFIX) else TASK_NAME_PREFIX + slugify(args.unregister)
+        name = (
+            args.unregister
+            if args.unregister.startswith(TASK_NAME_PREFIX)
+            else TASK_NAME_PREFIX + slugify(args.unregister)
+        )
         if platform.system() == "Windows":
-            r = subprocess.run(["schtasks", "/delete", "/tn", name, "/f"], capture_output=True, text=True)
+            r = subprocess.run(
+                ["schtasks", "/delete", "/tn", name, "/f"],
+                capture_output=True,
+                text=True,
+            )
             print(r.stdout or r.stderr)
             return r.returncode
-        existing = subprocess.run(["crontab", "-l"], capture_output=True, text=True).stdout
-        new = "\n".join(line for line in existing.splitlines() if name not in line) + "\n"
+        existing = subprocess.run(
+            ["crontab", "-l"], capture_output=True, text=True
+        ).stdout
+        new = (
+            "\n".join(line for line in existing.splitlines() if name not in line) + "\n"
+        )
         subprocess.run(["crontab", "-"], input=new, text=True)
         print(f"Removed lines matching {name}")
         return 0
@@ -205,7 +252,9 @@ def main() -> int:
         return 0
 
     print(f"Found {len(jobs)} job file(s) in {JOBS_DIR}")
-    print(f"Platform: {platform.system()}; using {'schtasks' if platform.system() == 'Windows' else 'crontab'}")
+    print(
+        f"Platform: {platform.system()}; using {'schtasks' if platform.system() == 'Windows' else 'crontab'}"
+    )
     print(f"Task name prefix: {TASK_NAME_PREFIX}")
     print()
 

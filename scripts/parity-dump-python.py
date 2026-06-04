@@ -20,9 +20,7 @@ FIXTURE_PATH = REPO_ROOT / "fixtures" / "canonicalize-vectors.json"
 
 def main() -> None:
     out_path = (
-        Path(sys.argv[1])
-        if len(sys.argv) > 1
-        else REPO_ROOT / "tmp-parity-python.json"
+        Path(sys.argv[1]) if len(sys.argv) > 1 else REPO_ROOT / "tmp-parity-python.json"
     )
     fixture = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
     rows = [

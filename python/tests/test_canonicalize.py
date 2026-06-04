@@ -121,7 +121,9 @@ class TestBase32Alphabet:
         out = encode_base32(b"\x00" * 8)
         assert len(out) == 13
 
-    def test_encode_base32_thirtytwo_zero_bytes_yields_52_chars_of_alphabet_zero(self) -> None:
+    def test_encode_base32_thirtytwo_zero_bytes_yields_52_chars_of_alphabet_zero(
+        self,
+    ) -> None:
         out = encode_base32(b"\x00" * 32)
         assert len(out) == 52
         assert out == BASE32_ALPHABET[0] * 52

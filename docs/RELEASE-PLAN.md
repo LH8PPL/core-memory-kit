@@ -31,6 +31,8 @@ The differentiator is the wedge; the rest are the quality fixes that make it *fe
 
 ## v0.2.x — wedge polish (patch, no new differentiator)
 
+- **92** — LOW-trust drops must leave a trace (lifecycle-map G6; D-55) — discarded LOW candidates vanish with no content record; log the excerpt to extract.log (don't pollute active memory).
+- **93** — inject drop must be importance-aware, not tail-order (lifecycle-map G7; D-55) — `truncateTierToBudget` drops whole sections from the tail, so what reaches the window depends on section order not trust/recency; evict lowest-value first, never drop high-trust before low-trust.
 - **84c** — de-bias scaffold seed examples (cosmetic; seed-ID regen ripple)
 - **72** — user-tier portability across machines (the wedge's cross-machine half)
 - **73** — upgrade/repair: re-render stale placeholders in existing tiers
