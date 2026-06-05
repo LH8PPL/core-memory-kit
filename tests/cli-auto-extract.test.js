@@ -198,7 +198,7 @@ describe('Task 23 — runAutoExtract() boundary', () => {
       expect(memoryAfter).toBe(memoryBefore);
     });
 
-    it('low-trust candidate → discarded; extract.log records skipped_reason', async () => {
+    it('low-trust candidate → discarded; extract.log records skipped_reason + a content-trace (Task 92/G6)', async () => {
       const turnFile = writeTurnFile(projectRoot, 'small talk');
       const r = await runAutoExtract({
         turnFile,
@@ -210,8 +210,62 @@ describe('Task 23 — runAutoExtract() boundary', () => {
       expect(r.observation_count).toBe(0);
       expect(r.skipped_reason).toBe('nothing_durable');
       const log = await readExtractLog(projectRoot, '2026-05-25');
-      expect(log).toHaveLength(1);
-      expect(log[0].skipped_reason).toBe('nothing_durable');
+      // Task 92 (G6): the drop now leaves a recoverable trace — a
+      // low_trust_discarded entry carrying the EXCERPT (not just the count in
+      // the summary), so a fact Haiku mis-graded LOW is auditable, not vanished.
+      const summary = log.find((e) => e.skipped_reason === 'nothing_durable');
+      expect(summary).toBeDefined();
+      const trace = log.find((e) => e.event === 'low_trust_discarded');
+      expect(trace).toBeDefined();
+      expect(trace.excerpt).toContain('small talk about the weather');
+      expect(trace.reason).toBe('low_trust_discarded');
+      expect(trace.trust).toBe('low');
+    });
+
+    it('Task 92 (G6): the discarded excerpt is logged but NEVER routed to memory or the review queue (log-only)', async () => {
+      writeFileSync(
+        join(projectRoot, 'context', 'MEMORY.md'),
+        '# MEMORY\n\n## Active Threads\n\n',
+      );
+      const turnFile = writeTurnFile(projectRoot, 'a turn');
+      await runAutoExtract({
+        turnFile,
+        projectRoot,
+        haikuBackend: mockBackend('TRUST_LOW user:a low-graded note about coffee preference'),
+        now: '2026-05-25T10:00:00Z',
+      });
+      const memory = readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8');
+      const reviewPath = join(projectRoot, 'context', 'queues', 'review.md');
+      const review = existsSync(reviewPath) ? readFileSync(reviewPath, 'utf8') : '';
+      // The decision (92.1): log-only. The excerpt is traced but the content
+      // does NOT pollute active memory or flood the review queue.
+      expect(memory).not.toContain('coffee preference');
+      expect(review).not.toContain('coffee preference');
+      const log = await readExtractLog(projectRoot, '2026-05-25');
+      expect(log.find((e) => e.event === 'low_trust_discarded')?.excerpt).toContain('coffee preference');
+    });
+
+    it('Task 92 (G6) over-mutation: a HIGH candidate in the SAME turn still lands in MEMORY.md while the LOW one only traces', async () => {
+      const turnFile = writeTurnFile(projectRoot, 'a mixed turn');
+      const r = await runAutoExtract({
+        turnFile,
+        projectRoot,
+        haikuBackend: mockBackend(
+          'TRUST_HIGH user:the deploy target is fly.io for this project',
+          'TRUST_LOW user:offhand remark that should only be traced',
+        ),
+        now: '2026-05-25T10:00:00Z',
+      });
+      expect(r.action).toBe('extracted');
+      expect(r.observation_count).toBe(1); // only the HIGH counted
+      const memory = readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8');
+      // HIGH landed; LOW did not pollute memory...
+      expect(memory).toContain('the deploy target is fly.io for this project');
+      expect(memory).not.toContain('offhand remark that should only be traced');
+      // ...but the LOW drop left a trace.
+      const log = await readExtractLog(projectRoot, '2026-05-25');
+      const trace = log.find((e) => e.event === 'low_trust_discarded');
+      expect(trace.excerpt).toContain('offhand remark that should only be traced');
     });
 
     it('Haiku returns SKIP → action:skipped, observation_count:0', async () => {

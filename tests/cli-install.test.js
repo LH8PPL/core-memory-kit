@@ -313,6 +313,10 @@ describe('Task 3 — cmk install', () => {
       expect(content).toContain('context.local/');
       expect(content).toContain('context/.index/');
       expect(content).toContain('context/.locks/');
+      // Task 92 (G6, security): the extract.log carries raw, un-Poison-Guarded
+      // turn excerpts (low_trust_discarded traces) — it must be gitignored so a
+      // dropped secret can't reach git history.
+      expect(content).toContain('context/sessions/*.extract.log');
     });
 
     it('wraps the managed block with start/end markers (for idempotent refresh)', async () => {

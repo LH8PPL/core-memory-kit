@@ -105,6 +105,12 @@ const TRUST_RANK = Object.freeze({
   discarded: 0,
 });
 
+// Task 92 (G6): max chars of a discarded LOW candidate's text to record in the
+// extract.log trace. Enough to identify what was dropped without bloating the
+// log; the full turn still lives in transcripts/{date}.md if deeper recovery is
+// needed.
+const LOW_DISCARD_EXCERPT_MAX = 200;
+
 // --- Lock file primitives -------------------------------------------
 
 function acquireLock(lockPath) {
@@ -757,6 +763,27 @@ export async function runAutoExtract({
         writes.push({ ...candidate, written: 'review', result: r });
       } else {
         writes.push({ ...candidate, written: 'discarded' });
+        // Task 92 (G6): a LOW (or assistant-demoted-to-discarded) candidate is
+        // dropped from active memory, but leave a recoverable trace — the
+        // excerpt + reason — in extract.log, so a fact Haiku mis-graded LOW (or
+        // an assistant-origin fact demoted to LOW) is auditable, not silently
+        // vanished (the §6.5 "don't lose without trace" principle at the capture
+        // edge; MEDIUM already gets a review queue, LOW got nothing). Log-only
+        // by decision (92.1): NOT routed to the review queue — that would flood
+        // it with low-signal noise. One discrete NDJSON entry per drop (Door 4).
+        writeExtractLogEntry({
+          projectRoot,
+          ts,
+          entry: {
+            event: 'low_trust_discarded',
+            reason: 'low_trust_discarded',
+            trust: candidate.trust,
+            demoted_from: candidate.demotedFrom ?? null,
+            origin: candidate.origin ?? null,
+            excerpt: candidate.text.slice(0, LOW_DISCARD_EXCERPT_MAX),
+            excerpt_truncated: candidate.text.length > LOW_DISCARD_EXCERPT_MAX,
+          },
+        });
       }
     }
 
