@@ -342,7 +342,13 @@ function readTierBlock(tier, tierRoot) {
   }
   if (sections.length === 0) return { text: '', valueById };
   const header = `<!-- cmk: ${TIER_LABELS[tier]} tier (${tier}) -->`;
-  const text = [header, ...sections].join('\n\n').replace(/\n+$/, '') + '\n';
+  // Trailing-newline strip via string scan (NOT a `/\n+$/` regex — the `+$`
+  // shape trips the ReDoS heuristic, per CLAUDE.md; string-scan is linear and
+  // strips only newlines, faithful to the original intent).
+  const joined = [header, ...sections].join('\n\n');
+  let end = joined.length;
+  while (end > 0 && joined[end - 1] === '\n') end--;
+  const text = joined.slice(0, end) + '\n';
   return { text, valueById };
 }
 
