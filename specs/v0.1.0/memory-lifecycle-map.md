@@ -59,7 +59,7 @@ Legend: ✓ intent matches code · ✗ gap (design says X, code does Y) · ~ par
 | 6 | **high-trust supersede** | high ≥ high = "supersede" | — | — | **"continues to normal append"** | ✗ stale highs coexist forever (G4; design line 1956 admits "drops by AGE not VALIDITY") |
 | 7 | **fact file store** (write-fact) | — | **none** | by-ID, refuse-overwrite on id-mismatch; reindex after | n/a | ~ correct dedup, but **unbounded** (disk-only, search-only) (G10) |
 | 8 | **fact/scratchpad → index** (FTS5) | — | — | — | — | ✓ index can be transiently stale (consolidate() doesn't reindex), but `cmk search`/`mk_search` run **`reindexBoot` (mtime+sha1 diff) BEFORE querying** → no user-visible stale hit (G9 verified NOT a gap, 2026-06-04) |
-| 9 | **inject snapshot** (inject-context) | seed-strip (zero-sha1) | **10KB total + per-tier** | by bullet-ID | **tail `## ` section-drop** (logs NDJSON) | ~ real facts in tail sections silently un-injected; drop order = tail, not importance (G7) |
+| 9 | **inject snapshot** (inject-context) | seed-strip (zero-sha1) | **10KB total + per-tier** | by bullet-ID | **importance-ordered `## ` section-drop** (lowest-value first; logs NDJSON) | ✅ G7 fixed (Task 93, D-66): drops lowest aggregate-trust/oldest section first, not tail. _Total-cap fallback still tier-tail (v-next)._ |
 | 10 | **turn → transcript** (capture-turn) | — | **none** | — | — | ✓ verbatim, durable, **never pruned** (the recovery backstop) |
 | 11 | **now.md → today** (compress-session) | — | — | — | **truncate now.md to 0** after Haiku summary | ~ raw turns dropped from now.md (survive in transcript); summary lossy (Task 84 hallucination class) |
 | 12 | **today >7d → archive** (weekly-curate) | — | **archive 4096B, recent 4096B** | Haiku semantic + deterministic | **UNLINK the today file** | ~ session history >7d = lossy-Haiku into a 4KB cap + **source deleted** (G8) |
@@ -79,7 +79,7 @@ Legend: ✓ intent matches code · ✗ gap (design says X, code does Y) · ~ par
 | **G4** | high-trust "supersede" just appends → stale highs coexist forever (drop-by-age-not-validity) | Med (v0.3) | F-D + temporal-validity §16.18 |
 | **G5** | within-call dedup is literal canonical-ID; reworded restatements slip | Med (v0.3) | F-D (semantic dedup) |
 | **G6** | LOW-trust discarded at capture with no trace/log of the content | Med | **Task 92** (filed) — log discarded content to extract.log |
-| **G7** | inject tail-section-drop omits real facts (logged) by tail-order, not importance | Med | **Task 93** (filed) — importance-aware (trust/recency) inject drop |
+| **G7** | inject tail-section-drop omits real facts (logged) by tail-order, not importance | Med | ✅ **Task 93** (shipped 2026-06-05, D-66) — `truncateTierToBudget` evicts lowest-value section first (trust→recency→tail tiebreak); strict generalization of tail-drop. _Follow-up: total-cap fallback still drops whole tiers persona-first (v-next)._ |
 | **G8** | session >7d: lossy-Haiku into 4KB archive **and source today-file deleted**; a durable fact never extracted to a fact file is gone from active memory after 7d (recoverable only via manual `cmk transcripts extract`) | Med | relates Task 80 (under-capture) + Task 84 (compression) |
 | **G9** | ~~stale search hit after consolidate~~ — **NOT a gap (verified 2026-06-04):** `cmk search`/`mk_search` run `reindexBoot` (mtime+sha1) before every query → self-heals | — | resolved, no fix needed |
 | **G10** | fact-file store + queues grow unbounded (no cap/prune) | Low | disk-only; v0.2.x housekeeping |
@@ -100,6 +100,6 @@ Legend: ✓ intent matches code · ✗ gap (design says X, code does Y) · ~ par
 
 1. **Before adding a lifecycle invariant** (Task 91 graduation, any future cap/prune), find the rows it composes with and verify the cross-surface behavior — per the CLAUDE.md "Composition verification" rule. Graduation (edge #5) composes with #3/#4/#7/#8 — fill those `?`/`✗` before building.
 2. **When you fix a gap**, flip its row ✗→✓ and note the commit, in the same batch.
-3. **All `?` rows resolved as of 2026-06-04** (G9 verified not-a-gap). Open fixes: G1 (Task 91, blocker), G6 (Task 92), G7 (Task 93). G4/G5/G8/G10 tracked under F-D / Task 80 / Task 84 / v0.2.x housekeeping.
+3. **All `?` rows resolved as of 2026-06-04** (G9 verified not-a-gap). Fixed: G1 (Task 91 + 94, blocker), **G7 (Task 93, D-66, 2026-06-05)**. Open: G6 (Task 92). G4/G5/G8/G10 tracked under F-D / Task 80 / Task 84 / v0.2.x housekeeping.
 
 _Verification status: read from code 2026-06-04. Relates: D-54 (graduation), design §6.x/§7.1/§8/§6.5, Task 91, F-D, Task 80, Task 84, D-38._
