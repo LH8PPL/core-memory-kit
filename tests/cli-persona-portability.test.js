@@ -14,7 +14,7 @@
 // what lands on the target user tier, what's backed up, the audit trace. Do NOT
 // test the internal walk/format helpers.
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   mkdtempSync,
   mkdirSync,
@@ -26,6 +26,7 @@ import {
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { exportPersona, importPersona } from '../packages/cli/src/persona-portability.mjs';
+import { runPersonaExport, runPersonaImport } from '../packages/cli/src/subcommands.mjs';
 import { readAuditLog } from '../packages/cli/src/audit-log.mjs';
 
 // Seed a realistic user tier: the 3 persona scratchpads, a settings override, a
@@ -97,6 +98,13 @@ describe('Task 72 — cmk persona export / import', () => {
       const r = exportPersona({ userDir: join(sandbox, 'nope'), outFile: bundlePath });
       expect(r.action).toBe('error');
       expect(r.errorCategory).toBe('not-found');
+    });
+
+    it('errors when no output file is given', () => {
+      seedUserTier(userDir);
+      const r = exportPersona({ userDir, outFile: undefined });
+      expect(r.action).toBe('error');
+      expect(r.errorCategory).toBe('schema');
     });
   });
 
@@ -210,6 +218,67 @@ describe('Task 72 — cmk persona export / import', () => {
       writeFileSync(bundlePath, 'not json at all', 'utf8');
       expect(importPersona({ userDir, inFile: bundlePath }).action).toBe('error');
       expect(importPersona({ userDir, inFile: join(sandbox, 'absent.json') }).action).toBe('error');
+    });
+  });
+
+  // The CLI glue (`cmk persona export/import` action handlers) — run in-process
+  // against an ISOLATED user tier via MEMORY_KIT_USER_DIR (never the real one).
+  describe('CLI glue — runPersonaExport / runPersonaImport', () => {
+    let logSpy;
+    let errSpy;
+    let prevUserDir;
+    let prevExitCode;
+
+    beforeEach(() => {
+      logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      prevUserDir = process.env.MEMORY_KIT_USER_DIR;
+      prevExitCode = process.exitCode;
+      process.env.MEMORY_KIT_USER_DIR = userDir; // isolate to the test sandbox
+      process.exitCode = 0;
+    });
+
+    afterEach(() => {
+      logSpy.mockRestore();
+      errSpy.mockRestore();
+      if (prevUserDir === undefined) delete process.env.MEMORY_KIT_USER_DIR;
+      else process.env.MEMORY_KIT_USER_DIR = prevUserDir;
+      process.exitCode = prevExitCode;
+    });
+
+    it('export with no file → exits 2 with a usage error', () => {
+      runPersonaExport(undefined);
+      expect(process.exitCode).toBe(2);
+      expect(errSpy).toHaveBeenCalled();
+    });
+
+    it('export then import round-trips through the CLI handlers', () => {
+      seedUserTier(userDir);
+      runPersonaExport(bundlePath);
+      expect(process.exitCode).toBe(0);
+      expect(existsSync(bundlePath)).toBe(true);
+      expect(logSpy.mock.calls.flat().join(' ')).toContain('cmk persona export');
+
+      // Import into a different isolated tier.
+      const machineB = join(sandbox, 'cli-machine-b');
+      process.env.MEMORY_KIT_USER_DIR = machineB;
+      runPersonaImport(bundlePath);
+      expect(process.exitCode).toBe(0);
+      expect(existsSync(join(machineB, 'USER.md'))).toBe(true);
+      expect(logSpy.mock.calls.flat().join(' ')).toContain('cmk persona import');
+    });
+
+    it('import with no file → exits 2', () => {
+      runPersonaImport(undefined);
+      expect(process.exitCode).toBe(2);
+      expect(errSpy).toHaveBeenCalled();
+    });
+
+    it('import of a bad bundle → exits 2 with the error', () => {
+      writeFileSync(bundlePath, 'not a bundle', 'utf8');
+      runPersonaImport(bundlePath);
+      expect(process.exitCode).toBe(2);
+      expect(errSpy).toHaveBeenCalled();
     });
   });
 });

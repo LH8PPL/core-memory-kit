@@ -715,16 +715,16 @@ function resolveUserDir() {
  * `cmk persona export <file>` (Task 72) — bundle the user-tier persona into one
  * portable file to carry to another of YOUR machines.
  */
-function runPersonaExport(file, options = {}) {
+export function runPersonaExport(file, options = {}) {
   const outFile = file ?? options.out;
   if (!outFile) {
-    logError('cmk persona export: give an output file, e.g. `cmk persona export persona-bundle.json`');
+    console.error('cmk persona export: give an output file, e.g. `cmk persona export persona-bundle.json`');
     process.exitCode = 2;
     return;
   }
   const r = exportPersona({ userDir: resolveUserDir(), outFile });
   if (r.action === 'error') {
-    logError(`cmk persona export: ${r.errors?.join('; ') || r.errorCategory}`);
+    console.error(`cmk persona export: ${r.errors?.join('; ') || r.errorCategory}`);
     process.exitCode = 2;
     return;
   }
@@ -736,16 +736,16 @@ function runPersonaExport(file, options = {}) {
  * `cmk persona import <file>` (Task 72) — apply a persona bundle to this
  * machine's user tier. Overwrites; any replaced file is backed up first.
  */
-function runPersonaImport(file, options = {}) {
+export function runPersonaImport(file, options = {}) {
   const inFile = file ?? options.from;
   if (!inFile) {
-    logError('cmk persona import: give a bundle file, e.g. `cmk persona import persona-bundle.json`');
+    console.error('cmk persona import: give a bundle file, e.g. `cmk persona import persona-bundle.json`');
     process.exitCode = 2;
     return;
   }
   const r = importPersona({ userDir: resolveUserDir(), inFile });
   if (r.action === 'error') {
-    logError(`cmk persona import: ${r.errors?.join('; ') || r.errorCategory}`);
+    console.error(`cmk persona import: ${r.errors?.join('; ') || r.errorCategory}`);
     process.exitCode = 2;
     return;
   }
