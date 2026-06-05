@@ -1,6 +1,6 @@
-// @doors: 1, 2, 5
+// @doors: 1, 2, 4
 // Door 3 N/A: inject-context is the in-process scratchpad reader + JSON emitter for SessionStart; the bash bin wrapper spawn is tested in cli-hooks-scaffold.
-// Door 4 N/A: no message-queue interaction.
+// Door 5 N/A: no message-queue interaction.
 
 // Tests for Task 18 — cmk-inject-context SessionStart hook (T-015).
 // Per tasks.md 18.7:
@@ -660,6 +660,113 @@ describe('Task 18 — injectContext() boundary', () => {
       // truncation alone (4KB U budget) can't fit a 1KB total cap.
       const dropEvt = r.truncationEvents.find((e) => e.dropped_tiers);
       expect(dropEvt).toBeDefined();
+    });
+  });
+
+  // Task 93 / design §19.3 — inject eviction is IMPORTANCE-aware, not tail-order.
+  // When a tier exceeds its budget, the LOWEST-value section is dropped first,
+  // regardless of where it sits in the file. This is the inject-side half of the
+  // §19 memory-retention architecture (94.4).
+  describe('importance-aware inject eviction (Task 93 / §19.3)', () => {
+    // A section padded to ~bulkBytes whose single bullet carries REAL provenance
+    // (non-zero sha1, so it survives seed-stripping) of the given trust + `at`.
+    // The padding is a plain filler line (kept by cleaning, no id → no value).
+    function valuedSection(heading, id, trust, at, bulkBytes) {
+      return (
+        `## ${heading}\n` +
+        `- (${id}) ${trust}-trust lesson marker ${id}\n` +
+        `  <!-- source: s.md, source_line: 1, sha1: ${'a'.repeat(40)}, write: manual-edit, trust: ${trust}, at: ${at} -->\n` +
+        `${'x'.repeat(bulkBytes)}\n`
+      );
+    }
+
+    it('drops the LOW-trust section and KEEPS the high-trust one — even when high sits in the LAST section', () => {
+      // Two ~2900B sections (total ~5.8KB > 4975 U-budget): LOW in the FIRST
+      // section, HIGH in the LAST. Tail-order would drop the HIGH (last) one;
+      // importance-order must drop the LOW (first) one instead.
+      writeFile(
+        join(userDir, 'LESSONS.md'),
+        `# LESSONS\n\n` +
+          valuedSection('Tooling Lessons', 'U-LMNPQRST', 'low', '2026-06-01T00:00:00Z', 2800) +
+          '\n' +
+          valuedSection('Process Lessons', 'U-VWXYZABC', 'high', '2026-06-01T00:00:00Z', 2800),
+      );
+
+      const r = injectContext({ cwd: projectRoot, userDir, capBytes: 13000 });
+
+      // The HIGH-trust bullet survived; the LOW-trust one was evicted.
+      expect(r.snapshot).toContain('U-VWXYZABC');
+      expect(r.snapshot).not.toContain('U-LMNPQRST');
+
+      // Door 4: the event names the dropped section + its aggregate trust + ids.
+      const evt = r.truncationEvents.find(
+        (e) => e.event === 'tier_truncated_to_budget' && e.tier === 'U',
+      );
+      expect(evt).toBeDefined();
+      expect(evt.strategy).toBe('importance-ordered');
+      expect(evt.post_bytes).toBeLessThanOrEqual(4975);
+      expect(evt.dropped_sections).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ max_trust: 'low', ids: expect.arrayContaining(['U-LMNPQRST']) }),
+        ]),
+      );
+      // The high-trust section is NOT in the dropped list.
+      expect(
+        evt.dropped_sections.some((s) => s.ids.includes('U-VWXYZABC')),
+      ).toBe(false);
+    });
+
+    it('protects a MIXED section as a unit — a high-trust bullet shields the low-trust bullet beside it (section-granularity, intentional)', () => {
+      // §19.3 invariant is enforced at SECTION granularity (MAX-aggregate): a
+      // section holding a high-trust bullet is protected wholesale, so a LOW-trust
+      // bullet bundled with it survives while a standalone MEDIUM section is
+      // dropped. This locks that accepted approximation as a deliberate contract
+      // (vs. a future bullet-granular refactor). Two ~2900B sections:
+      //   - "Mixed" = high + low bullets → maxTrust high → protected
+      //   - "Solo"  = a single medium bullet → dropped first
+      const mixed =
+        `## Mixed Bag\n` +
+        `- (U-QRSTUVWX) high-trust keeper marker U-QRSTUVWX\n` +
+        `  <!-- source: s.md, source_line: 1, sha1: ${'a'.repeat(40)}, write: manual-edit, trust: high, at: 2026-06-01T00:00:00Z -->\n` +
+        `- (U-RSTUVWXY) low-trust rider marker U-RSTUVWXY\n` +
+        `  <!-- source: s.md, source_line: 2, sha1: ${'b'.repeat(40)}, write: manual-edit, trust: low, at: 2026-06-01T00:00:00Z -->\n` +
+        `${'x'.repeat(2700)}\n`;
+      writeFile(
+        join(userDir, 'USER.md'),
+        `# USER\n\n` +
+          mixed +
+          '\n' +
+          valuedSection('Preferences', 'U-STUVWXYZ', 'medium', '2026-06-01T00:00:00Z', 2800),
+      );
+
+      const r = injectContext({ cwd: projectRoot, userDir, capBytes: 13000 });
+
+      // The mixed section survives WHOLE — including its low-trust rider...
+      expect(r.snapshot).toContain('U-QRSTUVWX');
+      expect(r.snapshot).toContain('U-RSTUVWXY');
+      // ...while the standalone medium section is the one evicted.
+      expect(r.snapshot).not.toContain('U-STUVWXYZ');
+    });
+
+    it('breaks trust ties by recency — drops the OLDER same-trust section first', () => {
+      // Two MEDIUM sections; importance-order falls back to recency, so the
+      // OLDER one (Jan) is dropped and the NEWER one (Jun) is kept.
+      writeFile(
+        join(userDir, 'HABITS.md'),
+        `# HABITS\n\n` +
+          valuedSection('Iteration Cadence', 'U-MNPQRSTU', 'medium', '2026-01-01T00:00:00Z', 2800) +
+          '\n' +
+          valuedSection('Communication Style', 'U-NPQRSTUV', 'medium', '2026-06-01T00:00:00Z', 2800),
+      );
+
+      const r = injectContext({ cwd: projectRoot, userDir, capBytes: 13000 });
+
+      expect(r.snapshot).toContain('U-NPQRSTUV'); // newer kept
+      expect(r.snapshot).not.toContain('U-MNPQRSTU'); // older dropped
+      const evt = r.truncationEvents.find(
+        (e) => e.event === 'tier_truncated_to_budget' && e.tier === 'U',
+      );
+      expect(evt.dropped_sections.some((s) => s.ids.includes('U-MNPQRSTU'))).toBe(true);
     });
   });
 });

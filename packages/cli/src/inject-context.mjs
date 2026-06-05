@@ -33,7 +33,24 @@ import { homedir } from 'node:os';
 import { SCRATCHPADS_BY_TIER, resolveTierRoot } from './tier-paths.mjs';
 import { nowIso } from './audit-log.mjs';
 import { detectStaleness } from './lazy-compress.mjs';
-import { isProvenanceCommentLine } from './provenance.mjs';
+import { isProvenanceCommentLine, parseBulletProvenance } from './provenance.mjs';
+
+// Importance ranking for value-ordered inject eviction (Task 93 / design §19.3).
+// When a tier exceeds its budget we drop the LOWEST-value sections first, not the
+// tail. Trust dominates; recency (newest `at`) breaks ties; a section with no
+// resolvable provenance ranks as UNKNOWN (between low and medium) so genuinely
+// scored content outranks it.
+const TRUST_RANK = Object.freeze({ low: 0, medium: 1, high: 2 });
+const UNKNOWN_TRUST_RANK = 0.5; // a bullet whose provenance we can't read
+function trustRank(trust) {
+  return TRUST_RANK[trust] ?? UNKNOWN_TRUST_RANK;
+}
+function trustLabel(rank) {
+  if (rank >= TRUST_RANK.high) return 'high';
+  if (rank >= TRUST_RANK.medium) return 'medium';
+  if (rank >= UNKNOWN_TRUST_RANK) return 'unknown';
+  return 'low';
+}
 
 // 13,000 bytes = sum of all per-file caps (12,275 from Task 12/14) + 725
 // bytes of headroom for inter-tier markers + future modest growth.
@@ -276,13 +293,38 @@ function hasRealContent(cleaned) {
     .some((l) => l.trim() !== '' && !/^#{1,6}\s/.test(l));
 }
 
-// Read the snapshot-eligible content for one tier as a single string. If
-// no tier files exist (or the tier dir itself is absent), returns ''. Each
-// file body is cleaned for injection (see cleanScratchpadBody); files that
-// reduce to scaffolding-only contribute nothing, and a tier whose every
-// file is scaffolding-only is excluded entirely (no header, no skeleton).
+// Scan a RAW scratchpad body for bullet+provenance pairs, recording each
+// cited id's trust + capture time into `valueById`. Run on the raw body
+// BEFORE cleanScratchpadBody strips the provenance comments — that's the only
+// place the trust/recency signal exists, and the importance-aware truncator
+// (truncateTierToBudget) needs it to rank sections by value, not file order.
+// Note: this records EVERY bullet+provenance pair, including seed bullets (later
+// stripped by cleanScratchpadBody) and ids later removed by cross-tier shadowing.
+// Those stale entries are inert — truncateTierToBudget only resolves ids on block
+// lines that are actually PRESENT, so an orphaned valueById entry is never used.
+function collectBulletValues(body, valueById) {
+  const lines = body.replace(/\r\n/g, '\n').split('\n');
+  for (let i = 0; i < lines.length - 1; i++) {
+    if (!/^\s*-\s/.test(lines[i])) continue;
+    const m = lines[i].match(ID_TOKEN_RE);
+    if (!m) continue;
+    if (!isProvenanceCommentLine(lines[i + 1])) continue;
+    const prov = parseBulletProvenance(lines[i + 1]);
+    if (!prov) continue;
+    valueById.set(`${m[1]}-${m[2]}`, { trust: prov.trust, at: prov.at });
+  }
+}
+
+// Read the snapshot-eligible content for one tier. Returns { text, valueById }.
+// `text` is the cleaned, injection-ready block (or '' if the tier contributes
+// nothing); `valueById` maps each cited id → {trust, at} parsed from the RAW
+// bodies (used by the importance-aware budget truncator). Each file body is
+// cleaned for injection (see cleanScratchpadBody); files that reduce to
+// scaffolding-only contribute nothing, and a tier whose every file is
+// scaffolding-only is excluded entirely (no header, no skeleton).
 function readTierBlock(tier, tierRoot) {
-  if (!tierDirExists(tier, tierRoot)) return '';
+  const valueById = new Map();
+  if (!tierDirExists(tier, tierRoot)) return { text: '', valueById };
   const sections = [];
   for (const path of plannedFilesForTier(tier, tierRoot)) {
     if (!existsSync(path)) continue;
@@ -293,13 +335,21 @@ function readTierBlock(tier, tierRoot) {
       continue;
     }
     if (body.trim() === '') continue;
+    collectBulletValues(body, valueById); // raw body — provenance still present
     const cleaned = cleanScratchpadBody(body);
     if (!hasRealContent(cleaned)) continue;
     sections.push(cleaned);
   }
-  if (sections.length === 0) return '';
+  if (sections.length === 0) return { text: '', valueById };
   const header = `<!-- cmk: ${TIER_LABELS[tier]} tier (${tier}) -->`;
-  return [header, ...sections].join('\n\n').replace(/\n+$/, '') + '\n';
+  // Trailing-newline strip via string scan (NOT a `/\n+$/` regex — the `+$`
+  // shape trips the ReDoS heuristic, per CLAUDE.md; string-scan is linear and
+  // strips only newlines, faithful to the original intent).
+  const joined = [header, ...sections].join('\n\n');
+  let end = joined.length;
+  while (end > 0 && joined[end - 1] === '\n') end--;
+  const text = joined.slice(0, end) + '\n';
+  return { text, valueById };
 }
 
 // Strip duplicate-ID lines from a tier block. Mutates by returning a new
@@ -351,27 +401,58 @@ function writeNdjsonLine(logPath, entry) {
   appendFileSync(logPath, JSON.stringify(entry) + '\n', 'utf8');
 }
 
-// Truncate one tier block to fit its budget by dropping whole `## `
-// sections from the END. Section-granular (not bullet- or byte-
-// granular) per design §7.1.1: structural shape preservation matters
-// more than maximum byte utilization. Returns { text, sectionsDropped,
-// preBytes, postBytes }.
+// Compute one section's aggregate value from its bullets' provenance.
+// aggregate trust = the MAX bullet trust in the section (so a section holding
+// ANY high-trust bullet is protected before a section that holds none — the
+// §19.3 "never evict a high-trust bullet before a lower one" invariant, at
+// section granularity). aggregate recency = the NEWEST `at`. A section with no
+// resolvable bullets ranks lowest (value -1) so it drops first.
 //
-// Algorithm: split into sections delimited by `## ` (level-2 markdown
-// heading) anywhere in the tier block. Anything BEFORE the first `## `
-// (file headers, comments, top-level title) is the "preamble" and is
-// always kept. Sections are popped from the END until the kept text
-// fits the budget OR no sections remain (preamble-only). If the
-// preamble alone exceeds budget, we return it unchanged — that's a
-// configuration problem (preamble shouldn't be that big) but
-// preferable to dropping the file header.
-function truncateTierToBudget(blockText, budget) {
+// Known limitation (section-granularity, accepted per §7.1.1 + the Task 93
+// "whole sections by aggregate value" sanction): MAX-aggregate protects high-
+// trust content, but a LOW-trust bullet bundled in the same section as a high-
+// trust one survives, while a standalone MEDIUM-trust section can be dropped
+// first — a bullet-level inversion. Note the asymmetry with 94.3 graduation,
+// which evicts per-BULLET (oldest-first). Bullet-granular inject eviction is the
+// stricter v-next option if this matters; for now it keeps §7.1.1 structural
+// shape + costs less re-rendering.
+function sectionValue(lines, startIdx, endIdx, valueById) {
+  let maxTrust = -1;
+  let maxAtMs = -1;
+  const ids = [];
+  for (let i = startIdx; i < endIdx; i++) {
+    if (!/^\s*-\s/.test(lines[i])) continue;
+    const m = lines[i].match(ID_TOKEN_RE);
+    if (!m) continue;
+    const id = `${m[1]}-${m[2]}`;
+    ids.push(id);
+    const v = valueById.get(id);
+    const t = v ? trustRank(v.trust) : UNKNOWN_TRUST_RANK;
+    if (t > maxTrust) maxTrust = t;
+    const atMs = v && v.at ? Date.parse(v.at) : NaN;
+    if (!Number.isNaN(atMs) && atMs > maxAtMs) maxAtMs = atMs;
+  }
+  return { maxTrust, maxAtMs, ids };
+}
+
+// Truncate one tier block to fit its budget by dropping whole `## ` sections,
+// LOWEST-VALUE first (Task 93 / design §19.3) — superseding the old tail-order
+// drop. Section-granular per design §7.1.1 (structural-shape preservation), but
+// the eviction ORDER is now importance-aware: lowest aggregate trust first, then
+// oldest, then — as a tiebreak among equal-value sections — later-in-file first.
+// That tiebreak makes this a strict generalization of the legacy tail-drop: when
+// no provenance is present (every section ranks equal) it drops from the end,
+// exactly as before. Returns { text, sectionsDropped, droppedSections, preBytes,
+// postBytes }.
+//
+// Anything BEFORE the first `## ` (file headers, top-level title) is the
+// "preamble" and always kept; if the preamble alone exceeds budget it's returned
+// unchanged (a config problem, but preferable to dropping the header).
+function truncateTierToBudget(blockText, budget, valueById = new Map()) {
   const preBytes = Buffer.byteLength(blockText, 'utf8');
   if (preBytes <= budget) {
-    return { text: blockText, sectionsDropped: 0, preBytes, postBytes: preBytes };
+    return { text: blockText, sectionsDropped: 0, droppedSections: [], preBytes, postBytes: preBytes };
   }
-  // Find every `## ` heading position. Each section runs from one
-  // heading line to the next (or EOF).
   const lines = blockText.split('\n');
   const headingIdxs = [];
   for (let i = 0; i < lines.length; i++) {
@@ -379,27 +460,51 @@ function truncateTierToBudget(blockText, budget) {
   }
   if (headingIdxs.length === 0) {
     // No sections — nothing to drop. Return as-is.
-    return { text: blockText, sectionsDropped: 0, preBytes, postBytes: preBytes };
+    return { text: blockText, sectionsDropped: 0, droppedSections: [], preBytes, postBytes: preBytes };
   }
-  // Build section boundaries: [start..end) for each section.
-  const sections = headingIdxs.map((startIdx, i) => ({
-    startIdx,
-    endIdx: i + 1 < headingIdxs.length ? headingIdxs[i + 1] : lines.length,
-  }));
-  // Pop from the end while over budget.
-  let droppedCount = 0;
-  let keptEndLine = lines.length;
-  while (sections.length > 0) {
-    const candidateText = lines.slice(0, keptEndLine).join('\n');
-    if (Buffer.byteLength(candidateText, 'utf8') <= budget) break;
-    const last = sections.pop();
-    keptEndLine = last.startIdx;
-    droppedCount++;
+  const firstHeading = headingIdxs[0];
+  const sections = headingIdxs.map((startIdx, i) => {
+    const endIdx = i + 1 < headingIdxs.length ? headingIdxs[i + 1] : lines.length;
+    return {
+      origIndex: i,
+      startIdx,
+      endIdx,
+      heading: lines[startIdx].replace(/^##\s+/, '').trim(),
+      ...sectionValue(lines, startIdx, endIdx, valueById),
+    };
+  });
+  // Drop order: lowest aggregate trust first → oldest first → later-in-file
+  // first (the legacy tail tiebreak, so equal-value blocks still drop from the
+  // end). High-value sections are evicted only after everything cheaper is gone.
+  const dropOrder = [...sections].sort(
+    (a, b) =>
+      a.maxTrust - b.maxTrust ||
+      a.maxAtMs - b.maxAtMs ||
+      b.origIndex - a.origIndex,
+  );
+  const dropped = new Set();
+  const render = () => {
+    const keep = [];
+    for (let i = 0; i < firstHeading; i++) keep.push(lines[i]); // preamble
+    for (const s of sections) {
+      if (dropped.has(s.origIndex)) continue;
+      for (let i = s.startIdx; i < s.endIdx; i++) keep.push(lines[i]);
+    }
+    return keep.join('\n');
+  };
+  let finalText = render();
+  for (const s of dropOrder) {
+    if (Buffer.byteLength(finalText, 'utf8') <= budget) break;
+    dropped.add(s.origIndex);
+    finalText = render();
   }
-  const finalText = lines.slice(0, keptEndLine).join('\n');
+  const droppedSections = sections
+    .filter((s) => dropped.has(s.origIndex))
+    .map((s) => ({ heading: s.heading, max_trust: trustLabel(s.maxTrust), ids: s.ids }));
   return {
     text: finalText,
-    sectionsDropped: droppedCount,
+    sectionsDropped: dropped.size,
+    droppedSections,
     preBytes,
     postBytes: Buffer.byteLength(finalText, 'utf8'),
   };
@@ -421,7 +526,7 @@ function enforceCap(orderedBlocks, capBytes, ts) {
   for (const block of orderedBlocks) {
     const budget = TIER_BUDGETS[block.tier];
     if (typeof budget !== 'number') continue; // unknown tier; pass through
-    const r = truncateTierToBudget(block.text, budget);
+    const r = truncateTierToBudget(block.text, budget, block.valueById);
     if (r.sectionsDropped > 0) {
       tierEvents.push({
         ts,
@@ -431,6 +536,11 @@ function enforceCap(orderedBlocks, capBytes, ts) {
         pre_bytes: r.preBytes,
         post_bytes: r.postBytes,
         sections_dropped: r.sectionsDropped,
+        // Door 4 (Task 93): WHICH sections were evicted + WHY (lowest-value
+        // first). dropped_sections carries each evicted section's heading, its
+        // aggregate trust, and the cited ids it contained.
+        strategy: 'importance-ordered',
+        dropped_sections: r.droppedSections,
       });
       block.text = r.text;
     }
@@ -571,13 +681,16 @@ export function injectContext({
     process.env.MEMORY_KIT_USER_DIR ??
     join(homedir(), '.claude-memory-kit');
 
-  // 1. Read each tier's block in priority order.
+  // 1. Read each tier's block in priority order. readTierBlock also returns a
+  // per-tier value map (id → trust/recency) parsed from the raw bodies, which
+  // the importance-aware budget truncator uses to evict lowest-value first.
   const rawBlocks = TIER_ORDER.map((tier) => {
     const tierRoot =
       tier === 'U'
         ? resolvedUserDir
         : resolveTierRoot({ tier, projectRoot, userDir: resolvedUserDir });
-    return { tier, tierRoot, text: readTierBlock(tier, tierRoot) };
+    const { text, valueById } = readTierBlock(tier, tierRoot);
+    return { tier, tierRoot, text, valueById };
   }).filter((b) => b.text !== '');
 
   // 2. Dedup IDs across tiers (highest-priority first).
