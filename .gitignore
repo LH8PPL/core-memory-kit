@@ -37,6 +37,10 @@ plugin/milvus-deploy-template/volumes/
 # Captures child stdout+stderr per iteration; never committed.
 .stress-logs/
 
+# Always-on vitest json result log (every `npm test` / `test:file` run;
+# D-68). Diagnostic only, never committed.
+.test-logs/
+
 # canonicalize parity scratch dumps (Task 5)
 /tmp-parity-*.json
 

@@ -9,7 +9,17 @@ export default defineConfig({
     // under --coverage). A genuine hang still blows 30s. Pathologically-heavy
     // individual tests carry their own larger per-test timeout.
     testTimeout: 30_000,
-    reporters: 'default',
+    // Always-on logging (maintainer directive 2026-06-05, D-68): every vitest
+    // run keeps the console `default` reporter AND writes a structured json
+    // result file, so a failing run is never undiagnosable. The json reporter
+    // is a side channel — it doesn't change console output, TTY detection, or
+    // timing (unlike a stdout tee). The outputFile lives at test.outputFile (NOT
+    // baked into the reporter tuple) so the CLI `--outputFile.json=<path>` that
+    // `npm run stress` passes OVERRIDES it per run (unique path under
+    // .stress-logs/); standalone runs land in .test-logs/last-run.json. Both
+    // dirs are gitignored.
+    reporters: ['default', 'json'],
+    outputFile: { json: '.test-logs/last-run.json' },
     coverage: {
       provider: 'v8',
       // Cover the kit's actual source. Exclude thin bin wrappers (spawn-tested,
