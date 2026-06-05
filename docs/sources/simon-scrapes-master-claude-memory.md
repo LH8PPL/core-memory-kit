@@ -100,6 +100,29 @@ We should re-consult Simon's content when:
 - We're about to make a major architectural change that contradicts his pattern.
 - We onboard a new contributor unfamiliar with the conceptual foundations.
 
+## Primary source (local) + re-verification (2026-06-06)
+
+The full primary artifacts — **transcript, slides, and the architecture diagram** — were downloaded during the `youtube-to-slide` work and live at:
+
+`C:\Projects\youtube-to-slide\out\master-claude-memory-to-get-ahead-of-99-of-people\`
+- `transcript.md` (full transcript)
+- `resources/Memory-System-Improvements-Plan.md` (the video's step-by-step install plan — the most concentrated artifact)
+- `resources/Memory System Improvements Plan.{excalidraw,png,svg}` (the architecture diagram)
+- `slides/slide-*.jpg` (timestamped slide captures + `.ocr/`)
+
+**Re-verified the kit's design against this primary source (not just the summary above):**
+
+- **The exact caps are the video's:** `MEMORY.md` **2,500** chars, `USER.md` **1,375** chars (the plan's Steps 3–4 + "Memory Budget"). Matches our `DEFAULT_SCRATCHPAD_CAPS` verbatim.
+- **The exact cron schedule is the video's:** daily distill **23:00**, nightly index **02:00**, weekly curate **Sun 09:00** (Step 11). Matches our `register-crons` verbatim. _(Honesty nuance vs. "What we did NOT take" above: we re-implemented the cron MECHANISM as node/`claude --print`, but the SCHEDULE + budgets are taken straight from the video.)_
+- **Frozen-snapshot inject ≈ 3,000 tokens** at session start (Step 6) → our `inject-context`.
+- **Recall is a TIERED LADDER, escalate-only-if-needed** (Step 6 "Memory Retrieval"):
+  **Tier 0** = `context/MEMORY.md` + today's log (in-context, zero cost) →
+  **L1** = `memsearch search "<q>" --top-k 5` (hybrid vector + keyword; ONNX **bge-m3**, ~558 MB) →
+  **L2** = `memsearch expand <chunk_hash>` (full markdown section around the hit) →
+  **L3** = `memsearch transcript <session_id>` (raw dialogue, last resort) →
+  fallback "I don't have a record of that."
+  **This ladder is the concrete shape of Task 65** — not flat semantic search. **MemPalace independently uses the same ladder** (its "Drawers" = the L2/L3 expand-to-verbatim; D-70 / [research note](../research/2026-06-05-mempalace-review.md)). Two sources agree → high confidence this is the right recall design.
+
 ## Related sources
 
 - Anthropic's official Memory tool docs (validates the markdown approach): [../research/2026-05-21-anthropic-memory-tool.md](../research/2026-05-21-anthropic-memory-tool.md)
