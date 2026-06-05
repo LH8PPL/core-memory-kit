@@ -68,11 +68,13 @@ When first reviewed we were pre-§19, pre-recall-focus. Each gets **one specific
 
 ---
 
-## Recommended order
+## Progress (this brief is the hub)
 
-1. **This brief** (filed, D-71).
-2. **Dive #1+#2+#3 first** (memsearch algorithm + MemPalace searching/knowledge-graph/contradiction) → one research note → answers "exact hybrid recipe + build-on-sqlite-vec + the temporal+contradiction model." De-risks Task 65/66/99 most.
-3. **Dive #4 (zep) + #5 (mem0)** next — the two we under-weighted; temporal + extraction.
-4. **Dive #6 (memory-os wording)** — a ~20-min steal foldable into Task 75/97.
+- ✅ **Brief filed** (D-71).
+- ✅ **Dives #1-3 DONE** (D-72) — memsearch + MemPalace → [recall-deep-dive-memsearch-mempalace.md](2026-06-06-recall-deep-dive-memsearch-mempalace.md). Outcome: the exact Task-65 recipe (RRF k=60 over sqlite-vec+FTS5 + keyword-0.30 + temporal-0.40, ~98% no-API) + MemPalace's temporal-graph schema (Task 66) + the LongMemEval harness shape (Task 99).
+- ✅ **Dives #4-6 DONE** (D-73) — Graphiti + mem0 + memory-os → [recall-deep-dive-graphiti-mem0-memoryos.md](2026-06-06-recall-deep-dive-graphiti-mem0-memoryos.md). Outcome: Graphiti bi-temporal (we get the 2nd axis free from git/audit, Task 66); mem0's ADD/UPDATE/DELETE/NONE op-set → Task 95 re-curation; memory-os's near-copyable Ground Truth hierarchy → Task 75.0; trust = source-init + access-decay → Task 97.
+- ⏳ **Phase C (re-visit) remaining, as needed:** claude-mem optional-vector recall path; claude-remember recall **trigger** (Task 75); letta/MemGPT paging (§19); Anthropic Dreams re-curation (Task 95).
+
+**Net:** the *research-the-how* phase is complete — every B-row resolved into concrete constants now in Tasks 65/66/75/95/97/99. What's left is **building** (v0.3) + optional Phase-C re-visits if a specific question arises.
 
 _Relates D-64 (memory-os), D-70 (MemPalace), Task 65/66/75/97/99, design §9.3.1, the Simon Scrapes video source, the 2026-06-01 source-level deep dive._
