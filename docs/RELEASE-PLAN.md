@@ -50,7 +50,8 @@ The differentiator is the wedge; the rest are the quality fixes that make it *fe
 
 ## v0.3.0 — recall + consistency (the next wow)
 
-- **65** — Layer-5b semantic recall (the video's "recall is the most important function")
+- **65** — Layer-5b semantic recall (the video's "recall is the most important function"). _MemPalace blueprint (D-70): embedded vector (sqlite-vec) + hybrid pipeline (keyword-boost → temporal-proximity → optional LLM rerank); pairs with Task 99 (benchmark)._
+- **99** — recall benchmark (LongMemEval-style R@k) so Task 65 is decided on numbers, not vibes (D-70, MemPalace). Lands with 65.
 - **75** — recall TRIGGER: make the agent actively USE memory when it needs old context (D-35 active recall). _The load-bearing v0.3 piece (D-57): graduation (Task 91/94) makes facts search-only, so this is what makes overflow facts findable. **Reframed instruction-first (D-64, memory-os Layer 7): the primary lever is telling the agent injected/searchable memory is AUTHORITATIVE — lead with it, don't re-derive — not just the search backend.**_
 - **97** — dynamic trust: trust scores accumulate over time (feedback loop) vs static-at-capture (D-64, memory-os; the user wants it). Composes with F-D + Task 66 + §19.3.
 - **80 / 80c** — deterministic env/config capture (observe-edit), so config values are recallable not re-derived (moved from v0.2.0 per D-57; pairs with 75/65).

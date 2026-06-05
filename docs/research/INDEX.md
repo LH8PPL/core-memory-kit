@@ -36,6 +36,7 @@ Outputs from research sessions. Each file is a dated, self-contained markdown re
 | 2026-06-01 | [deep dive: product memory implementations (source-level) + things we don't do](2026-06-01-deep-dive-product-memory-implementations.md) | Source dive (cloned repos) | Complete |
 | 2026-06-04 | [Anthropic Managed-Agents Memory Stores + Dreams — validates D-61, what to steal (Tasks 95/96)](2026-06-04-anthropic-managed-agents-memory-and-dreams.md) | Primary-source fetch (platform.claude.com) | Complete |
 | 2026-06-04 | [memory-os (ClaudioDrews) review — authoritative-memory instruction (Task 75) + dynamic trust (Task 97)](2026-06-04-memory-os-review.md) | WebFetch (github) | Complete |
+| 2026-06-05 | [MemPalace review — verbatim+vector recall; steal the hybrid pipeline (Task 65) + temporal model (Task 66) + a benchmark (Task 99)](2026-06-05-mempalace-review.md) | WebFetch (github README) | Complete |
 
 ### Competitor spec stacks (raw research inputs — requirements / design / tasks as written by each system)
 
