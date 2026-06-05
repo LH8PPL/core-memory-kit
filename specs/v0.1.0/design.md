@@ -55,9 +55,17 @@ The design assumes [`requirements-revisions-proposed.md`](../../archive/specs/v0
 
 **Precedence model** (Git config semantics): first-match-wins at observation level, deep-merge at settings level. When two tiers have the same observation ID, the most-specific tier (highest priority) wins and the others are logged as `shadowed_by` in the debug output. See §6.
 
-**User-tier path override**: the user tier path defaults to `~/.claude-memory-kit/` but can be overridden via the `MEMORY_KIT_USER_DIR` environment variable. Use cases: testing against an isolated fixture, multi-account machines, encrypted home directories, ephemeral CI runners. When the env var is set and points to a non-existent directory, `cmk init-user-tier` creates it; otherwise the kit reads from the override path.
+**User-tier path override**: the user tier path defaults to `~/.claude-memory-kit/` but can be overridden via the `MEMORY_KIT_USER_DIR` environment variable. Use cases: testing against an isolated fixture, multi-account machines, encrypted home directories, ephemeral CI runners, **pointing the user tier at a synced folder (Dropbox/iCloud) or a git checkout for cross-machine portability**. When the env var is set and points to a non-existent directory, `cmk init-user-tier` creates it; otherwise the kit reads from the override path.
 
-**Implements**: FR-1, FR-4, FR-5, FR-6, FR-7 (T1, T2, T3, T8).
+**Portability — two scopes, two transports (Task 72 / D-27/D-69).** The tiers don't all travel the same way, and that's deliberate:
+
+- **Project memory follows the REPO.** `context/` is committed, so `git clone` carries it and teammates share it. Transport = git, automatic.
+- **The persona follows the HUMAN, not the repo.** The user tier (`~/.claude-memory-kit/` — USER/HABITS/LESSONS + `fragments/`) is machine-local and kept *out* of any project, because committing your working-style would leak it to everyone who clones (and the OS/git username differs across your own machines, so per-repo namespacing fails the exact cross-machine case). So persona portability is **per-human, not per-repo**:
+  - **Built (72.1):** `cmk persona export <file>` packs the user tier into one OS-agnostic JSON bundle (allow-list: scratchpads + `settings.json` + `fragments/` + `queues/`; runtime `.locks/.index/.import-backups` excluded), and `cmk persona import <file>` applies it on another machine (overwrite + per-file backup + transactional rollback + reindex). Carry the bundle via your own private channel; content is already home-path-sanitized + Poison_Guard'd, so no usernames/secrets travel. Forward-slash bundle paths → Windows↔Mac round-trip. See [`persona-portability.mjs`](../../packages/cli/src/persona-portability.mjs).
+  - **Deferred (72.2, §16 candidate):** `cmk persona sync <your-private-git-url>` — make the user tier a git repo on *your own* remote with auto-pull@SessionStart + auto-push@curation (git handles transport + merge/conflict). The seamless-UX + conflict-resolution design is a deep-research candidate, so it lands after the explicit primitive.
+  - **The trap to avoid:** never commit the persona into a project to make it portable — that breaks the team scenario (each person keeps their own persona; it's never shared).
+
+**Implements**: FR-1, FR-4, FR-5, FR-6, FR-7 (T1, T2, T3, T8); Task 72 (T2 extended to the user tier).
 
 ### 1.2 Coexistence with Anthropic's Auto Memory (Option D)
 

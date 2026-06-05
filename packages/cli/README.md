@@ -53,6 +53,7 @@ Most-used commands (full list via `cmk --help`):
 | `cmk roll --scope now\|today\|recent` | Manually trigger a compression pipeline |
 | `cmk register-crons [--dry-run] [--unregister]` | Register daily + weekly jobs with cron / launchd / Task Scheduler |
 | `cmk forget <id>` | Tombstone a fact (preserves audit trail) |
+| `cmk persona export <file>` / `import <file>` | Carry your cross-project persona (the user tier) to another of **your** machines — export to one portable bundle, import on the other (overwrites with backup + rollback). The persona stays private (never committed to a project) |
 | `cmk import-anthropic-memory [--dry-run] [--yes]` | Merge bullets from Anthropic's native auto-memory into MEMORY.md |
 
 ## Requirements

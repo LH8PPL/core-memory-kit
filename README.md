@@ -149,6 +149,8 @@ Most-used commands below; **full reference with examples: [`docs/CLI.md`](docs/C
 | `cmk daily-distill` / `cmk weekly-curate` | Manually run cron jobs (normally invoked by host scheduler) |
 | `cmk persona generate` | Synthesize your cross-project doctrine from this project's captured facts now — promote high-confidence "how I work everywhere" into the user tier, queue the rest to `queues/persona-review.md` (normally automatic; this is the manual trigger) |
 | `cmk lessons promote <id> [--to HABITS.md\|USER.md] [--section <title>]` | Carry one project fact into your user tier so it applies on **every** project (defaults to `LESSONS.md`) — routed through the safe path (home-path sanitization + Poison_Guard + dedup + audit). Never hand-edit `~/.claude-memory-kit/` |
+| `cmk persona export <file>` | Bundle your cross-project persona (the user tier) into one portable file, to carry to **another of your machines**. The persona stays private — it's never committed to a project |
+| `cmk persona import <file>` | Apply a persona bundle (from `cmk persona export`) to this machine's user tier. Overwrites; any file it replaces is backed up first, and the import is transactional (rolls back on failure) |
 | `cmk register-crons [--dry-run] [--unregister]` | Register daily + weekly jobs with Linux crontab / macOS launchd / Windows Task Scheduler |
 | `cmk forget <id>` | Tombstone a fact (preserves audit trail) |
 | `cmk import-anthropic-memory [--dry-run] [--yes]` | Merge useful bullets from Anthropic's native auto-memory into your project MEMORY.md |
@@ -237,7 +239,18 @@ Layer 6 falls back to lazy-on-read compression at SessionStart, so the scratchpa
 <details>
 <summary><b>Is my memory portable to a new machine or teammate?</b></summary>
 
-Project memory (`context/`) is committed to git — clone the repo and it's there. Cross-project user-tier memory (your persona) lives in `~/.claude-memory-kit/` — `cmk install` scaffolds it. It's machine-local (private, not committed), so on a new machine the persona starts fresh; copy/sync the folder to carry it (portable persona export/sync is tracked in tasks.md Task 72).
+**Two scopes, two transports.** *Project* memory (`context/`) follows the **repo** — it's committed to git, so `git clone` brings it (and your teammates get it). Your *persona* (the cross-project user tier — `~/.claude-memory-kit/`) follows the **human, not the repo**: it's deliberately machine-local and kept *out* of any project, because committing your working-style would leak it to everyone who clones. So the persona is private by design, and on a new machine it starts fresh.
+
+To carry your persona across **your own** machines, use the explicit portability commands:
+
+```bash
+# On machine A:
+cmk persona export persona-bundle.json
+# carry the file via your own private channel (USB / a private git repo / Dropbox), then on machine B:
+cmk persona import persona-bundle.json
+```
+
+`import` overwrites the target tier (backing up anything it replaces, and rolling back on failure), then rebuilds the search index. The content is already home-path-sanitized and secret-screened at capture time, so the bundle carries no machine paths or usernames. A seamless auto-syncing variant (`cmk persona sync <your-private-git-url>`) is planned (Task 72.2). **Teammates never share a persona** — each person keeps their own, which is exactly why it's never committed to the project.
 </details>
 
 ## Acknowledgments

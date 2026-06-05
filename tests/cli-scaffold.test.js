@@ -80,6 +80,8 @@ const NON_STUB_CHILDREN = new Set([
   'mcp/serve',          // Task 31 — invoked by Claude Code; tested separately by cli-mcp-server.test.js
   'transcripts/extract', // Task 38
   'persona/generate',   // Task 45 follow-up — wired; logic tested by cli-auto-persona.test.js
+  'persona/export',     // Task 72 — wired; logic tested by cli-persona-portability.test.js (also: must NOT run unisolated here — it touches the real ~/.claude-memory-kit)
+  'persona/import',     // Task 72 — wired; logic tested by cli-persona-portability.test.js (also: import MUTATES the user tier — never run it against the real one in a scaffold smoke)
   'lessons/promote',    // Task 76 — wired; logic tested by cli-lessons-promote.test.js
 ]);
 
