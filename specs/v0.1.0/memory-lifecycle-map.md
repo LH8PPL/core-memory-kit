@@ -51,7 +51,7 @@ Legend: ✓ intent matches code · ✗ gap (design says X, code does Y) · ~ par
 
 | # | Edge | Trust gate | Cap | Dedup | On evict/overflow | Intent vs code |
 |---|---|---|---|---|---|---|
-| 1 | **capture → route** (auto-extract) | H→mem, M→review queue, L→discard; assistant-origin demoted 1 level | — | within-call, **canonical-ID (literal only)** | **LOW discarded, no trace** | ~ low-loss is silent (G6); literal dedup misses rewordings (G5) |
+| 1 | **capture → route** (auto-extract) | H→mem, M→review queue, L→discard; assistant-origin demoted 1 level | — | within-call, **canonical-ID (literal only)** | **LOW discarded → `low_trust_discarded` trace in extract.log** | ✅ G6 fixed (Task 92, D-67): drop logs excerpt+reason; literal dedup still misses rewordings (G5) |
 | 2 | **explicit `cmk remember`** | terse→bullet, rich→fact file | bullet hits MEMORY.md cap | fact: by-ID; bullet: scratchpad | n/a | ✗ **no cross-store dedup** → bullet + fact file double-capture (G3) |
 | 3 | **route → MEMORY.md** (appendScratchpadBullet) | high only (from auto-extract) | **2500B**, trigger 95% | none at append | consolidate, then CAP_EXCEEDED | ✗ no append-time content dedup |
 | 4 | **MEMORY.md consolidate()** | drops **L/M only** | runs only on cap-trip | none | **HARD-DELETE, no tombstone** | ✗ violates §6.5 tombstone rule (G2) |
@@ -78,7 +78,7 @@ Legend: ✓ intent matches code · ✗ gap (design says X, code does Y) · ~ par
 | **G3** | No cross-store dedup → bullet + fact-file double-capture | High | Task 91.1 (filed) |
 | **G4** | high-trust "supersede" just appends → stale highs coexist forever (drop-by-age-not-validity) | Med (v0.3) | F-D + temporal-validity §16.18 |
 | **G5** | within-call dedup is literal canonical-ID; reworded restatements slip | Med (v0.3) | F-D (semantic dedup) |
-| **G6** | LOW-trust discarded at capture with no trace/log of the content | Med | **Task 92** (filed) — log discarded content to extract.log |
+| **G6** | LOW-trust discarded at capture with no trace/log of the content | Med | ✅ **Task 92** (shipped 2026-06-05, D-67) — `low_trust_discarded` excerpt+reason trace to extract.log (log-only); extract.log gitignored (raw un-screened excerpts). |
 | **G7** | inject tail-section-drop omits real facts (logged) by tail-order, not importance | Med | ✅ **Task 93** (shipped 2026-06-05, D-66) — `truncateTierToBudget` evicts lowest-value section first (trust→recency→tail tiebreak); strict generalization of tail-drop. _Follow-up: total-cap fallback still drops whole tiers persona-first (v-next)._ |
 | **G8** | session >7d: lossy-Haiku into 4KB archive **and source today-file deleted**; a durable fact never extracted to a fact file is gone from active memory after 7d (recoverable only via manual `cmk transcripts extract`) | Med | relates Task 80 (under-capture) + Task 84 (compression) |
 | **G9** | ~~stale search hit after consolidate~~ — **NOT a gap (verified 2026-06-04):** `cmk search`/`mk_search` run `reindexBoot` (mtime+sha1) before every query → self-heals | — | resolved, no fix needed |
@@ -100,6 +100,6 @@ Legend: ✓ intent matches code · ✗ gap (design says X, code does Y) · ~ par
 
 1. **Before adding a lifecycle invariant** (Task 91 graduation, any future cap/prune), find the rows it composes with and verify the cross-surface behavior — per the CLAUDE.md "Composition verification" rule. Graduation (edge #5) composes with #3/#4/#7/#8 — fill those `?`/`✗` before building.
 2. **When you fix a gap**, flip its row ✗→✓ and note the commit, in the same batch.
-3. **All `?` rows resolved as of 2026-06-04** (G9 verified not-a-gap). Fixed: G1 (Task 91 + 94, blocker), **G7 (Task 93, D-66, 2026-06-05)**. Open: G6 (Task 92). G4/G5/G8/G10 tracked under F-D / Task 80 / Task 84 / v0.2.x housekeeping.
+3. **All `?` rows resolved as of 2026-06-04** (G9 verified not-a-gap). Fixed: G1 (Task 91 + 94, blocker), **G6 (Task 92, D-67, 2026-06-05)**, **G7 (Task 93, D-66, 2026-06-05)**. G4/G5/G8/G10 tracked under F-D / Task 80 / Task 84 / v0.2.x housekeeping.
 
 _Verification status: read from code 2026-06-04. Relates: D-54 (graduation), design §6.x/§7.1/§8/§6.5, Task 91, F-D, Task 80, Task 84, D-38._

@@ -34,7 +34,7 @@ The differentiator is the wedge; the rest are the quality fixes that make it *fe
 ## v0.2.x — wedge polish (patch, no new differentiator)
 
 - _**80 / 80c moved to v0.3** (D-57) — env/config capture+recall rides with the recall wow; no longer a v0.2.0 conditional blocker. The prompt-side 80b shipped; the deterministic 80c lands in v0.3 with active recall._
-- **92** — LOW-trust drops must leave a trace (lifecycle-map G6; D-55) — discarded LOW candidates vanish with no content record; log the excerpt to extract.log (don't pollute active memory).
+- [x] **92** — LOW-trust drops must leave a trace (lifecycle-map G6; D-55) — _shipped 2026-06-05, D-67._ Each discarded LOW candidate logs a `low_trust_discarded` excerpt+reason trace to extract.log (log-only, not the review queue). Security composition fix: the diagnostic extract.log is now gitignored (carries raw un-screened excerpts).
 - [x] **93** — inject drop importance-aware, not tail-order (lifecycle-map G7; = Task 94.4) — _shipped 2026-06-05, D-66._ `truncateTierToBudget` now evicts the lowest-value section first (trust → recency → tail tiebreak); strict generalization of the old tail-drop (legacy tests unchanged). Follow-up: the total-cap fallback still drops whole tiers persona-first (v-next, design §19.3).
 - **84c** — de-bias scaffold seed examples (cosmetic; seed-ID regen ripple)
 - **72** — user-tier portability across machines (the wedge's cross-machine half)
