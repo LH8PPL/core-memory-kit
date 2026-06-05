@@ -114,6 +114,14 @@ Promote a project-tier lesson to the cross-project user tier.
 ### `cmk persona generate`
 Synthesize your **cross-project doctrine** ("how you work everywhere") from this project's captured facts right now, instead of waiting for the weekly pass: high-confidence doctrine auto-promotes into the user tier (`~/.claude-memory-kit/`), and lower-confidence candidates are saved to `queues/persona-review.md`. A manual trigger for the pipeline `weekly-curate` runs automatically.
 
+### `cmk persona export <file>` · `cmk persona import <file>`
+Carry your cross-project persona across **your own machines**. Two scopes, two transports: *project* memory follows the repo (committed git), but your *persona* (the user tier) follows the **human** — it's machine-local and deliberately kept out of any project, so committing your working-style never leaks it to teammates.
+
+- **`export <file>`** bundles the user tier (the `USER`/`HABITS`/`LESSONS` scratchpads + the `fragments/` fact store + `settings.json` + `queues/`) into one OS-agnostic JSON file. Runtime state (`.locks/`, the `.index/` cache) is never bundled, and the content is already home-path-sanitized + secret-screened at capture time, so the bundle carries no machine paths or usernames.
+- **`import <file>`** applies a bundle to this machine's user tier. It **overwrites** (the explicit primitive has no merge), but it backs up any file it replaces to `.import-backups/<timestamp>/` first and is **transactional** — a mid-import failure rolls back fully, never leaving a half-applied persona. It then rebuilds the user-tier search index.
+
+Carry the file via your own private channel (USB / a private git repo / Dropbox). A seamless auto-syncing variant (`cmk persona sync <your-private-git-url>`) is planned. Honors `MEMORY_KIT_USER_DIR` if you point the user tier at a synced folder.
+
 ### `cmk queue review` · `cmk queue conflicts`
 Walk pending items interactively. `review` = medium-trust auto-extracts (promote/discard/skip). `conflicts` = contradictions vs. existing high-trust facts (keep-old/keep-new/merge-both/skip).
 

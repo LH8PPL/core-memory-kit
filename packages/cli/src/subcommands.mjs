@@ -24,6 +24,7 @@ import { runMcpServer } from './mcp-server.mjs';
 import { dailyDistill } from './daily-distill.mjs';
 import { weeklyCurate } from './weekly-curate.mjs';
 import { autoPersona } from './auto-persona.mjs';
+import { exportPersona, importPersona } from './persona-portability.mjs';
 import { setNativeAutoMemory, nativeMemoryInstallNote } from './native-memory.mjs';
 import { writeFact } from './write-fact.mjs';
 import { createHash } from 'node:crypto';
@@ -704,6 +705,52 @@ export async function runPersonaGenerate(opts = {}) {
   } catch (err) {
     logError(`cmk persona generate: unexpected error: ${err?.message ?? err}`);
   }
+}
+
+function resolveUserDir() {
+  return process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+}
+
+/**
+ * `cmk persona export <file>` (Task 72) — bundle the user-tier persona into one
+ * portable file to carry to another of YOUR machines.
+ */
+export function runPersonaExport(file, options = {}) {
+  const outFile = file ?? options.out;
+  if (!outFile) {
+    console.error('cmk persona export: give an output file, e.g. `cmk persona export persona-bundle.json`');
+    process.exitCode = 2;
+    return;
+  }
+  const r = exportPersona({ userDir: resolveUserDir(), outFile });
+  if (r.action === 'error') {
+    console.error(`cmk persona export: ${r.errors?.join('; ') || r.errorCategory}`);
+    process.exitCode = 2;
+    return;
+  }
+  console.log(`cmk persona export: ${r.fileCount} files → ${r.path} (${r.bytes} B)`);
+  console.log('  Carry it via your own private channel (USB / private git repo / Dropbox), then `cmk persona import` on the other machine.');
+}
+
+/**
+ * `cmk persona import <file>` (Task 72) — apply a persona bundle to this
+ * machine's user tier. Overwrites; any replaced file is backed up first.
+ */
+export function runPersonaImport(file, options = {}) {
+  const inFile = file ?? options.from;
+  if (!inFile) {
+    console.error('cmk persona import: give a bundle file, e.g. `cmk persona import persona-bundle.json`');
+    process.exitCode = 2;
+    return;
+  }
+  const r = importPersona({ userDir: resolveUserDir(), inFile });
+  if (r.action === 'error') {
+    console.error(`cmk persona import: ${r.errors?.join('; ') || r.errorCategory}`);
+    process.exitCode = 2;
+    return;
+  }
+  const bkp = r.backedUp > 0 ? ` (backed up ${r.backedUp} existing file(s) → ${r.backupPath})` : '';
+  console.log(`cmk persona import: ${r.fileCount} files → ${resolveUserDir()}${bkp}${r.reindexed ? ' · search reindexed' : ''}`);
 }
 
 /**
@@ -1578,13 +1625,27 @@ export const subcommands = [
   },
   {
     name: 'persona',
-    description: 'cross-project persona — synthesize "how you work everywhere" into the user tier',
+    description: 'cross-project persona — synthesize "how you work everywhere" into the user tier, and carry it across YOUR machines',
     milestone: 45,
     children: [
       {
         name: 'generate',
         description: 'synthesize cross-project doctrine from this project\'s captured facts now: auto-promote high-confidence to the user tier, save the rest to queues/persona-review.md',
         action: runPersonaGenerate,
+      },
+      {
+        name: 'export',
+        description: 'export your cross-project persona (the user tier) to one portable bundle file, to carry to another of YOUR machines (the persona stays private — never committed to a project)',
+        milestone: 72,
+        argSpec: [{ flags: '<file>', description: 'output bundle path, e.g. persona-bundle.json' }],
+        action: (file, options) => runPersonaExport(file, options),
+      },
+      {
+        name: 'import',
+        description: 'import a persona bundle (from `cmk persona export`) into this machine\'s user tier; any file it replaces is backed up first',
+        milestone: 72,
+        argSpec: [{ flags: '<file>', description: 'bundle path produced by `cmk persona export`' }],
+        action: (file, options) => runPersonaImport(file, options),
       },
     ],
   },

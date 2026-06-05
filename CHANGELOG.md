@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Added
+
+- **`cmk persona export` / `cmk persona import` — carry your cross-project persona across your own machines (Task 72).** Your project memory already travels with `git clone`, but your *persona* (the user tier — how you work everywhere) is deliberately machine-local and kept out of the repo, so it never leaks to teammates. These two commands give it a portability button without breaking that: `cmk persona export persona-bundle.json` packs the user tier (scratchpads + fact store + settings) into one OS-agnostic file you carry via your own private channel (USB / a private git repo / Dropbox); `cmk persona import persona-bundle.json` applies it on the other machine. Import overwrites but backs up anything it replaces and is **transactional** — a mid-import failure rolls back fully — then rebuilds the search index. The bundle is already home-path-sanitized + secret-screened (no machine paths or usernames travel). A seamless auto-syncing variant (`cmk persona sync`) is planned.
+
 ### Changed
 
 - **Discarded low-value extractions now leave an auditable trace (Task 92).** When the per-turn capture pass judges something too trivial to keep (LOW trust), it used to vanish with no record of *what* it dropped — so a fact the grader got wrong was unrecoverable. Now each drop logs a short excerpt + reason to the session's diagnostic `extract.log`, so you can see what was discarded without it polluting active memory or the review queue. That log carries raw, un-screened text, so `cmk install` now also gitignores it (`context/sessions/*.extract.log`) — it stays local, never committed.
