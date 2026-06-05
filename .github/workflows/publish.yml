@@ -33,7 +33,7 @@ jobs:
       id-token: write # OIDC — required for `npm publish --provenance`
       contents: write # create the GitHub Release from the changelog
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: 20
