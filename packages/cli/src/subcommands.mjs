@@ -724,7 +724,7 @@ function runPersonaExport(file, options = {}) {
   }
   const r = exportPersona({ userDir: resolveUserDir(), outFile });
   if (r.action === 'error') {
-    logError(`cmk persona export: ${(r.errors && r.errors.join('; ')) || r.errorCategory}`);
+    logError(`cmk persona export: ${r.errors?.join('; ') || r.errorCategory}`);
     process.exitCode = 2;
     return;
   }
@@ -745,7 +745,7 @@ function runPersonaImport(file, options = {}) {
   }
   const r = importPersona({ userDir: resolveUserDir(), inFile });
   if (r.action === 'error') {
-    logError(`cmk persona import: ${(r.errors && r.errors.join('; ')) || r.errorCategory}`);
+    logError(`cmk persona import: ${r.errors?.join('; ') || r.errorCategory}`);
     process.exitCode = 2;
     return;
   }
