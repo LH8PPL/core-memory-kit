@@ -38,6 +38,7 @@ Outputs from research sessions. Each file is a dated, self-contained markdown re
 | 2026-06-04 | [memory-os (ClaudioDrews) review — authoritative-memory instruction (Task 75) + dynamic trust (Task 97)](2026-06-04-memory-os-review.md) | WebFetch (github) | Complete |
 | 2026-06-05 | [MemPalace review — verbatim+vector recall; steal the hybrid pipeline (Task 65) + temporal model (Task 66) + a benchmark (Task 99)](2026-06-05-mempalace-review.md) | WebFetch (github README) | Complete |
 | 2026-06-06 | [Competitive research brief — steal / research-the-how / re-visit, for recall+temporal+trust (D-71)](2026-06-06-competitive-recall-research-brief.md) | Synthesis (planning doc) | Brief / in-progress |
+| 2026-06-06 | [Source dive: memsearch + MemPalace — the HOW (hybrid recipe + RRF k=60 + keyword/temporal weights + temporal-graph schema + benchmark) (D-72)](2026-06-06-recall-deep-dive-memsearch-mempalace.md) | Cloned + read the code | Complete |
 
 ### Competitor spec stacks (raw research inputs — requirements / design / tasks as written by each system)
 
