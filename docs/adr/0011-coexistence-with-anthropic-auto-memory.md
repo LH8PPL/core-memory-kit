@@ -127,7 +127,7 @@ The v0.2.0 cut-gate produced the first manual run (`cut-gate3`, Claude Code v2.1
 - **The blast radius is bounded:** the kit's Stop-hook `cmk-auto-extract` is **immune** (it reads the conversation, not the agent's tool choice) and still filled the cross-project persona + terse bullets in `cut-gate3`. Only the **rich project fact files** are lost when native wins a turn.
 - **The whole field coexists:** 10 competitor READMEs — none disable native; all capture via the Stop hook (no agent-invoked "remember" command for native to compete with).
 
-So forcing disable-by-default would be a heavy, field-divergent change for an *intermittent* loss of the *least-critical* tier. **Proportionate response:** keep coexist-default; make `cmk disable-native-memory` prominent/recommended; and fix the *real* gap by enriching `cmk-auto-extract` to write rich fact files (the immune path) — **[Task 103](../../specs/v0.1.0/tasks.md)**. A PreToolUse hard-block stays a v0.3 option for strict-authoritative users.
+So forcing disable-by-default would be a heavy, field-divergent change for an *intermittent* loss of the *least-critical* tier. **Proportionate response:** keep coexist-default; make `cmk disable-native-memory` prominent/recommended; and fix the *real* gap by enriching `cmk-auto-extract` to write rich fact files (the immune path) — **[Task 103](../../specs/v0.1.0/tasks.md)**. A PreToolUse hard-block (the only *forced* redirect) was considered and **REJECTED by the user (2026-06-06)** — intercepting Claude Code's own tool calls is too invasive/fragile for an intermittent issue.
 
 ## Decision criteria (what would tip the choice)
 
