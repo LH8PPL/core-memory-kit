@@ -11,7 +11,6 @@
 // {"continue": true}. Always exit 0 — a crashed SessionEnd hook would
 // block the user from closing their terminal.
 
-import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -20,24 +19,19 @@ function emitContinue() {
   process.stdout.write('{"continue": true}');
 }
 
-let rawInput = '';
-try {
-  rawInput = readFileSync(0, 'utf8');
-} catch {
-  // stdin not connected — fine; SessionEnd still proceeds.
-}
-void rawInput;
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+const readHookStdinPath = join(__dirname, '..', 'src', 'read-hook-stdin.mjs');
 const sessionEndTasksModulePath = join(__dirname, '..', 'src', 'session-end-tasks.mjs');
 const compressorModulePath = join(__dirname, '..', 'src', 'compressor.mjs');
 
+let readHookStdin;
 let runSessionEndTasks;
 let summarizeSessionEnd;
 let HaikuViaAnthropicApi;
 try {
+  ({ readHookStdin } = await import(pathToFileURL(readHookStdinPath).href));
   ({ runSessionEndTasks, summarizeSessionEnd } = await import(pathToFileURL(sessionEndTasksModulePath).href));
   ({ HaikuViaAnthropicApi } = await import(pathToFileURL(compressorModulePath).href));
 } catch (err) {
@@ -47,6 +41,13 @@ try {
   emitContinue();
   process.exit(0);
 }
+
+// Drain the hook payload so Claude Code's pipe closes cleanly — but NOT when
+// stdin is an interactive TTY (a manual run): readFileSync(0) would block
+// forever on a console that never sends EOF, hanging before any of the body
+// runs (DECISION-LOG 2026-06-06). The payload is discarded; we read state from
+// disk. readHookStdin returns '' for a TTY so a manual invocation finishes.
+readHookStdin({ isTTY: process.stdin.isTTY });
 
 const projectRoot = process.env.CMK_PROJECT_DIR ?? process.cwd();
 
