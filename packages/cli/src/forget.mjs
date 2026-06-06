@@ -26,6 +26,7 @@ import {
 import { parse, format } from './frontmatter.mjs';
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult, notFoundResult } from './result-shapes.mjs';
+import { findBulletScratchpad } from './bullet-lookup.mjs';
 
 // Layer-2 review: PR-1 rejected \n / \r / : in the `reason` field as a
 // minimum fix for the naive serializer (finding B2). PR-2's frontmatter.mjs
@@ -208,6 +209,19 @@ export function forget(opts = {}) {
     : resolveByQuery(idOrQuery, { projectRoot, userDir });
 
   if (resolved.matches.length === 0) {
+    // If the id is actually a scratchpad BULLET (the `cmk search` id mix-up —
+    // search lists bullet ids too, but forget tombstones FACTS), say so instead
+    // of the flat "no matching fact".
+    const bulletIn = ID_PATTERN.test(idOrQuery)
+      ? findBulletScratchpad(idOrQuery, { projectRoot, userDir })
+      : null;
+    if (bulletIn) {
+      return notFoundResult({
+        errors: [
+          `'${idOrQuery}' is a scratchpad bullet in ${bulletIn}, not a fact — \`cmk forget\` tombstones facts in context/memory/. A high-trust bullet becomes forgettable by this same id once it graduates to a fact (under cap pressure / at session end); a low/medium one ages out via consolidation. To remove it now, edit ${bulletIn} directly.`,
+        ],
+      });
+    }
     return notFoundResult({
       errors: [`no matching fact for "${idOrQuery}"`],
     });

@@ -15,6 +15,7 @@
 
 import { resolveFact } from './forget.mjs';
 import { promoteCandidatesToUserTier } from './auto-persona.mjs';
+import { findBulletScratchpad } from './bullet-lookup.mjs';
 import { errorResult, notFoundResult } from './result-shapes.mjs';
 
 const VALID_TARGETS = new Set(['USER.md', 'HABITS.md', 'LESSONS.md']);
@@ -62,6 +63,17 @@ export function lessonsPromote({ id, projectRoot, userDir, to = 'LESSONS.md', se
 
   const found = resolveFact({ id, projectRoot, userDir });
   if (found.state === 'not-found') {
+    // The id might be a scratchpad BULLET (the common `cmk search` mix-up):
+    // search surfaces bullet ids too, but promote carries FACTS. Say so.
+    const bulletIn = findBulletScratchpad(id, { projectRoot, userDir });
+    if (bulletIn) {
+      return notFoundResult({
+        errors: [
+          `'${id}' is a scratchpad bullet in ${bulletIn}, not a graduated fact — \`cmk lessons promote\` carries facts (in context/memory/) to the user tier. In \`cmk search\` output, pick an id whose location is a context/memory/*.md file, not a ${bulletIn}:NN bullet.`,
+        ],
+        id,
+      });
+    }
     return notFoundResult({ errors: [`no fact with id '${id}'`], id });
   }
   if (found.state === 'tombstoned') {
