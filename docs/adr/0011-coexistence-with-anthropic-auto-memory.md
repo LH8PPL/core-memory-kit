@@ -119,6 +119,16 @@ Concretely:
 
 Implementation: [`tasks.md`](../../specs/v0.1.0/tasks.md) Task 60.
 
+### Reaffirmed 2026-06-06 (new evidence — coexist-default HELD; D-74)
+
+The v0.2.0 cut-gate produced the first manual run (`cut-gate3`, Claude Code v2.1.167) where the agent captured to **native** Auto Memory and never called `cmk remember`, leaving the kit's `context/memory/` empty. This looked like a reason to flip the default to disable-by-default (Option A). Investigation (full write-up: [`2026-06-06-native-auto-memory-coexistence-investigation.md`](../research/2026-06-06-native-auto-memory-coexistence-investigation.md)) **reaffirmed Option C**:
+
+- **It's variance, not a deterministic break:** a same-version re-run (`mem-test3`, also v2.1.167) used the kit correctly (`cmk remember --why/--how`). Same version → both outcomes; the host-version-causation theory is disproved (no documented Auto Memory change in 2.1.160–2.1.167).
+- **The blast radius is bounded:** the kit's Stop-hook `cmk-auto-extract` is **immune** (it reads the conversation, not the agent's tool choice) and still filled the cross-project persona + terse bullets in `cut-gate3`. Only the **rich project fact files** are lost when native wins a turn.
+- **The whole field coexists:** 10 competitor READMEs — none disable native; all capture via the Stop hook (no agent-invoked "remember" command for native to compete with).
+
+So forcing disable-by-default would be a heavy, field-divergent change for an *intermittent* loss of the *least-critical* tier. **Proportionate response:** keep coexist-default; make `cmk disable-native-memory` prominent/recommended; and fix the *real* gap by enriching `cmk-auto-extract` to write rich fact files (the immune path) — **[Task 103](../../specs/v0.1.0/tasks.md)**. A PreToolUse hard-block stays a v0.3 option for strict-authoritative users.
+
 ## Decision criteria (what would tip the choice)
 
 Before resolving, we need to know:
