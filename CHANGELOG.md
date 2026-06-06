@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **`cmk lessons promote` / `cmk forget` now explain the "scratchpad bullet vs fact" id mix-up.** `cmk search` lists ids for both graduated facts and scratchpad bullets, but these two commands act on facts only — so pasting a bullet id used to return a flat "no matching fact." They now detect that the id is a live bullet and say so: *"'…' is a scratchpad bullet in MEMORY.md, not a fact"* with guidance on which id to use (for promote, pick a result whose location is a `context/memory/*.md` file). A genuinely-unknown id still gets the plain not-found.
 - **The session-end hook no longer hangs when run by hand.** The `cmk-compress-session` handler drains its stdin like every Claude Code hook. Run from a real session-end it gets the hook payload and an immediate EOF, so it returns at once — but run **manually** in a terminal without piping anything in (e.g. while testing your install), the stdin read had nothing to wait for and blocked until the 60s hook ceiling killed it. It now detects an interactive terminal and skips the wait, so a manual run finishes normally. The real-hook path is unchanged.
 
 ## [0.2.0] — 2026-06-04
