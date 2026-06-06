@@ -15,7 +15,6 @@
 //      skipping the compression (the live buffer is preserved and
 //      will be compressed at the next session end).
 
-import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -24,22 +23,18 @@ function emitContinue() {
   process.stdout.write('{"continue": true}');
 }
 
-// Drain stdin so Claude Code's hook pipe closes cleanly. We don't
-// actually read the payload — SessionEnd doesn't carry data we need;
-// we read state from disk (sessions/now.md).
-let rawInput = '';
-try {
-  rawInput = readFileSync(0, 'utf8');
-} catch {
-  // stdin not connected — fine; SessionEnd still proceeds.
-}
-// Touch rawInput so lint doesn't complain about unused — and so a
-// future maintainer sees the drain pattern is intentional.
-void rawInput;
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+const readHookStdinPath = join(
+  __dirname,
+  '..',
+  '..',
+  'packages',
+  'cli',
+  'src',
+  'read-hook-stdin.mjs',
+);
 const sessionEndTasksModulePath = join(
   __dirname,
   '..',
@@ -59,10 +54,12 @@ const compressorModulePath = join(
   'compressor.mjs',
 );
 
+let readHookStdin;
 let runSessionEndTasks;
 let summarizeSessionEnd;
 let HaikuViaAnthropicApi;
 try {
+  ({ readHookStdin } = await import(pathToFileURL(readHookStdinPath).href));
   ({ runSessionEndTasks, summarizeSessionEnd } = await import(pathToFileURL(sessionEndTasksModulePath).href));
   ({ HaikuViaAnthropicApi } = await import(pathToFileURL(compressorModulePath).href));
 } catch (err) {
@@ -72,6 +69,13 @@ try {
   emitContinue();
   process.exit(0);
 }
+
+// Drain the hook payload so Claude Code's pipe closes cleanly — but NOT when
+// stdin is an interactive TTY (a manual run): readFileSync(0) would block
+// forever on a console that never sends EOF, hanging before any of the body
+// runs (DECISION-LOG 2026-06-06). The payload is discarded; we read state from
+// disk. readHookStdin returns '' for a TTY so a manual invocation finishes.
+readHookStdin({ isTTY: process.stdin.isTTY });
 
 const projectRoot = process.env.CMK_PROJECT_DIR ?? process.cwd();
 
