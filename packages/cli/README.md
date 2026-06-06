@@ -4,6 +4,7 @@
 
 ## What it does
 
+- **Cross-project persona — the wedge (v0.2)** — when you state how you work *everywhere* ("always use uv, never pip", "from now on run the linter before committing"), the per-turn auto-extract promotes it into your **user tier** (`~/.claude-memory-kit/`) **that turn**. So a brand-new project **cold-opens already knowing your style** — layered structure, your tooling, your testing discipline — with no hand-curation and no waiting. Carry it between your own machines with `cmk persona export`/`import`, or pin a single fact across projects with `cmk lessons promote`.
 - **Frozen snapshot at session start** — MEMORY.md + USER.md + SOUL.md + INDEX.md + today's session log inject once at the first tool call, so Claude sees your context every session without you re-telling it.
 - **Auto-extract on every assistant turn** — a background `claude --print` subagent reads each turn and saves durable facts (decisions, preferences, environment) to memory. No manual writes needed.
 - **Explicit capture when you want it** — say "remember this" / "from now on" / "we decided" / "forget X" (the `memory-write` skill), or run `cmk remember "<fact>"`. Both dedup, screen for secrets, abstract machine paths to `~`, and write silently.
@@ -53,6 +54,9 @@ Most-used commands (full list via `cmk --help`):
 | `cmk roll --scope now\|today\|recent` | Manually trigger a compression pipeline |
 | `cmk register-crons [--dry-run] [--unregister]` | Register daily + weekly jobs with cron / launchd / Task Scheduler |
 | `cmk forget <id>` | Tombstone a fact (preserves audit trail) |
+| `cmk lessons promote <id> [--to USER.md\|HABITS.md]` | Promote one captured fact to your cross-project **user tier** (the safe path — sanitized, secret-screened, audited) so it applies in **every** project |
+| `cmk disable-native-memory` / `enable-native-memory` | Opt out of Claude Code's built-in Auto Memory so the kit is your single, lean memory layer (committable — travels with `git clone`) |
+| `cmk persona generate` | Run cross-project persona synthesis on demand (instead of waiting for the weekly pass) |
 | `cmk persona export <file>` / `import <file>` | Carry your cross-project persona (the user tier) to another of **your** machines — export to one portable bundle, import on the other (overwrites with backup + rollback). The persona stays private (never committed to a project) |
 | `cmk import-anthropic-memory [--dry-run] [--yes]` | Merge bullets from Anthropic's native auto-memory into MEMORY.md |
 

@@ -8,7 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
-_Nothing yet._
+### Docs
+
+- **README refresh for v0.2.0.** The root README status line still said "v0.1.2 live / v0.2 in progress" (now wrong), and the **npm landing page** (`packages/cli/README.md`) didn't lead with the cross-project persona **wedge** — the headline v0.2.0 capability — and was missing `cmk lessons promote` / `cmk disable-native-memory` / `cmk persona generate` from the command table. Both READMEs now describe the wedge (a fresh project cold-opens knowing how you work) and the full v0.2.0 command surface. _(The v0.2.0 tarball shipped with the older README; this lands on the npm page with the 0.2.1 publish.)_
 
 ## [0.2.0] — 2026-06-06
 
