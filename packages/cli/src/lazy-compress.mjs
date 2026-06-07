@@ -29,6 +29,7 @@ import {
   existsSync,
   mkdirSync,
   readdirSync,
+  readFileSync,
   statSync,
   writeFileSync,
   unlinkSync,
@@ -42,11 +43,13 @@ import {
 } from './cooldown.mjs';
 import { dailyDistill } from './daily-distill.mjs';
 import { weeklyCurate } from './weekly-curate.mjs';
+import { compressSession } from './compress-session.mjs';
 
 const DEFAULT_DAILY_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const DEFAULT_WEEKLY_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const SESSIONS_REL = ['context', 'sessions'];
 const LOCKS_REL = ['context', '.locks'];
+const NOW_MD_REL = ['context', 'sessions', 'now.md'];
 const RECENT_MD_REL = ['context', 'sessions', 'recent.md'];
 const CRON_SENTINEL_REL = ['context', '.locks', 'cron-registered'];
 const LAZY_LOG_REL = ['context', '.locks', 'lazy-compress.log'];
@@ -100,6 +103,25 @@ function listTodayFiles(projectRoot) {
   return matches;
 }
 
+// Task 105 (D-75): does now.md carry prior-session content? The now→today
+// roll (compressSession) fires only at SessionEnd, and Claude Code fires
+// SessionEnd ONLY on a clean window-close — so a never-cleanly-closed session
+// leaves now.md growing unbounded with no today-*.md/recent.md built. We detect
+// a non-empty now.md at SessionStart and let the lazy worker roll it. At
+// SessionStart now.md can only hold PRIOR-session turns (this session's
+// capture-turn writes haven't fired yet), so non-empty ⇒ stale. Emptiness must
+// match compressSession's own `buffer.trim() === ''` check so the spawn verdict
+// and the actual roll agree (else we'd spawn for a roll that immediately skips).
+function nowMdHasContent(projectRoot) {
+  const p = join(projectRoot, ...NOW_MD_REL);
+  if (!existsSync(p)) return false;
+  try {
+    return readFileSync(p, 'utf8').trim() !== '';
+  } catch {
+    return false;
+  }
+}
+
 function recentMdMtimeMs(projectRoot) {
   const p = join(projectRoot, ...RECENT_MD_REL);
   if (!existsSync(p)) return null;
@@ -113,9 +135,11 @@ function recentMdMtimeMs(projectRoot) {
 /**
  * Cheap inline staleness check. Runs in <5ms — one stat + a few existsSync.
  *
- * Verdict semantics:
+ * Verdict semantics (precedence: cron > no-context-dir > now > weekly > daily > fresh):
  *   - 'cron-active'   : sentinel exists; cron will handle staleness. No-op.
  *   - 'no-context-dir': context/sessions/ doesn't exist. No-op (kit not installed).
+ *   - 'stale-now'     : now.md carries prior-session content (Task 105/D-75) — the
+ *                       now→today roll the SessionEnd hook would have done.
  *   - 'stale-weekly'  : ANY today-*.md older than 7d exists. Weekly curate needed.
  *   - 'stale-daily'   : no OLD today files, but recent.md is missing OR older than dailyTtlMs.
  *   - 'fresh'         : recent.md exists + younger than dailyTtlMs AND no OLD today files.
@@ -139,6 +163,16 @@ export function detectStaleness({
   const sessionsDir = join(projectRoot, ...SESSIONS_REL);
   if (!existsSync(sessionsDir)) {
     return { action: 'no-context-dir', reason: 'sessions-dir-missing' };
+  }
+
+  // Task 105 (D-75): a non-empty now.md is the now→today roll the SessionEnd
+  // hook would have done. It takes PRECEDENCE over daily/weekly because it's
+  // the FIRST pipeline level (now → today → recent → archive) — roll it this
+  // SessionStart; the today→recent + weekly levels cascade on subsequent
+  // SessionStarts once now.md is drained. (cron-active above still wins — a
+  // registered cron owns the whole pipeline.)
+  if (nowMdHasContent(projectRoot)) {
+    return { action: 'stale-now', reason: 'now-md-has-prior-session-content' };
   }
 
   const ts = now ?? nowIso();
@@ -281,12 +315,24 @@ export async function runLazyCompress({
     return { action: 'skipped', reason: verdict.reason, duration_ms };
   }
 
-  // verdict.action is 'stale-daily' or 'stale-weekly'.
-  // Delegate to the appropriate cycle, passing cooldownMs=0 because we
-  // already gated above; the inner call shouldn't gate a second time on
-  // the same marker (which they would not touch yet).
+  // verdict.action is 'stale-now', 'stale-daily', or 'stale-weekly'.
+  // Delegate to the matching pipeline stage, passing cooldownMs=0 because we
+  // already gated above; the inner call shouldn't gate a second time on the
+  // same marker. Task 105: 'stale-now' rolls now.md → today-*.md via
+  // compressSession (the level the SessionEnd hook owns); the today→recent +
+  // weekly levels cascade on the next SessionStart once now.md is drained.
   let result;
-  if (verdict.action === 'stale-weekly') {
+  let delegatedTo;
+  if (verdict.action === 'stale-now') {
+    delegatedTo = 'compress-session';
+    result = await compressSession({
+      projectRoot,
+      backend,
+      now: ts,
+      cooldownMs: 0,
+    });
+  } else if (verdict.action === 'stale-weekly') {
+    delegatedTo = 'weekly-curate';
     result = await weeklyCurate({
       projectRoot,
       backend,
@@ -294,6 +340,7 @@ export async function runLazyCompress({
       cooldownMs: 0,
     });
   } else {
+    delegatedTo = 'daily-distill';
     result = await dailyDistill({
       projectRoot,
       backend,
@@ -310,17 +357,19 @@ export async function runLazyCompress({
       scope: 'lazy-compress',
       action: result?.action ?? 'unknown',
       verdict: verdict.action,
-      delegated_to: verdict.action === 'stale-weekly' ? 'weekly-curate' : 'daily-distill',
+      delegated_to: delegatedTo,
       duration_ms,
       success: result?.action !== 'error',
       ...(result?.errorCategory ? { error_category: result.errorCategory } : {}),
+      // compress-session reports its error via error_category (snake) — pass it
+      // through too so the lazy log captures either shape.
+      ...(result?.error_category ? { error_category: result.error_category } : {}),
     },
   });
   return {
     ...result,
     verdict: verdict.action,
-    delegatedTo:
-      verdict.action === 'stale-weekly' ? 'weekly-curate' : 'daily-distill',
+    delegatedTo,
     duration_ms,
   };
 }

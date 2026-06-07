@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **Session memory self-heals at the start of a new session, not only on a clean exit (Task 105).** The kit compresses your live session buffer (`now.md`) into a dated daily file at session end — but Claude Code only fires the session-end hook when you cleanly close the window, **not** when you start a new chat in the same window. So if you live in one long-running window, `now.md` could grow without bound and the rolling daily/weekly summaries never built. Now, at **session start**, the kit notices a `now.md` left over from a prior session and rolls it forward in the background (detached, so it never slows your session start). The compression no longer depends on a clean exit. (Both paths run and are idempotent.)
 - **Hook bins no longer hang when run manually without piped input (Task 101).** v0.2.0 fixed this for the SessionEnd bin (`cmk-compress-session`, Task 100), but every other lifecycle hook bin — `cmk-capture-prompt`, `cmk-capture-turn`, `cmk-inject-context`, `cmk-observe-edit`, and the plugin's `cmk-version-check` — shared the same blocking stdin drain: run one by hand (e.g. to debug) without redirecting input and it would hang forever waiting for an end-of-input the terminal never sends. They now detect an interactive terminal and skip the blocking read, so a manual run finishes instead of stalling. No change as a real hook — Claude Code still pipes the payload exactly as before.
 
 ## [0.2.1] — 2026-06-06

@@ -51,6 +51,18 @@ function seedTodayFile(date, body = `## Decisions\n- ${date}\n`) {
   return path;
 }
 
+function seedNowMd(body = '## 2026-05-27T10:00:00Z — user\n\na prior-session turn\n') {
+  const dir = join(projectRoot, 'context', 'sessions');
+  mkdirSync(dir, { recursive: true });
+  const path = join(dir, 'now.md');
+  writeFileSync(path, body, 'utf8');
+  return path;
+}
+
+function readFileTrim(path) {
+  return existsSync(path) ? readFileSync(path, 'utf8').trim() : '';
+}
+
 function seedRecentMd(body, ageMs, baseMs = Date.now()) {
   const path = join(projectRoot, 'context', 'sessions', 'recent.md');
   mkdirSync(join(projectRoot, 'context', 'sessions'), { recursive: true });
@@ -414,5 +426,134 @@ describe('Task 35 — inject-context spawn integration (35.4 #1 + #2)', () => {
     });
     expect(spawnCalls).toBe(0);
     expect(r.lazyTrigger.verdict).toBe('cron-active');
+  });
+});
+
+describe('Task 105 — now.md lazy-roll on SessionStart (D-75)', () => {
+  describe('detectStaleness — stale-now verdict', () => {
+    it('returns stale-now when now.md has prior-session content', () => {
+      seedNowMd();
+      const v = detectStaleness({ projectRoot, now: '2026-05-28T10:00:00Z' });
+      expect(v.action).toBe('stale-now');
+    });
+
+    it('an empty / whitespace-only now.md is NOT stale-now (falls through to existing verdicts)', () => {
+      // Fresh today + recent → 'fresh'; a whitespace now.md must not flip it.
+      seedTodayFile('2026-05-28');
+      seedRecentMd('## fresh\n', 60_000);
+      seedNowMd('   \n\n');
+      const v = detectStaleness({ projectRoot, now: '2026-05-28T10:00:00Z' });
+      expect(v.action).toBe('fresh');
+    });
+
+    it('stale-now takes PRECEDENCE over stale-weekly (now→today is the first pipeline level)', () => {
+      seedTodayFile('2026-05-10'); // would be stale-weekly on its own
+      seedNowMd();
+      const v = detectStaleness({ projectRoot, now: '2026-05-28T10:00:00Z' });
+      expect(v.action).toBe('stale-now');
+    });
+
+    it('cron-active still wins over stale-now (sentinel short-circuits everything)', () => {
+      seedNowMd();
+      markCronRegistered({ projectRoot });
+      const v = detectStaleness({ projectRoot, now: '2026-05-28T10:00:00Z' });
+      expect(v.action).toBe('cron-active');
+    });
+  });
+
+  describe('runLazyCompress — dispatches stale-now to compressSession (the now→today roll)', () => {
+    it('rolls now.md → today-*.md, drains now.md, and logs the delegation', async () => {
+      const nowPath = seedNowMd();
+      expect(readFileTrim(nowPath)).not.toBe(''); // precondition
+
+      const r = await runLazyCompress({
+        projectRoot,
+        backend: mockBackend('compressed session summary'),
+        now: '2026-05-28T10:00:00Z',
+      });
+
+      // Door 1 (Response): the verdict + delegation are surfaced.
+      expect(r.verdict).toBe('stale-now');
+      expect(r.delegatedTo).toBe('compress-session');
+
+      // Door 2 (State): now.md drained, today-*.md created with the rolled output.
+      expect(readFileTrim(nowPath)).toBe('');
+      const todayPath = join(projectRoot, 'context', 'sessions', 'today-2026-05-28.md');
+      expect(existsSync(todayPath)).toBe(true);
+      expect(readFileSync(todayPath, 'utf8')).toContain('compressed session summary');
+
+      // Door 5 (Observability): the lazy-compress.log records the delegation,
+      // and compressSession writes its own per-date compress.log (D-75: it
+      // lives at sessions/{date}.compress.log, NOT .locks/).
+      const lazyLog = join(projectRoot, 'context', '.locks', 'lazy-compress.log');
+      const lazyEntries = readFileSync(lazyLog, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+      expect(lazyEntries.some((e) => e.delegated_to === 'compress-session')).toBe(true);
+      const compressLog = join(projectRoot, 'context', 'sessions', '2026-05-28.compress.log');
+      expect(existsSync(compressLog)).toBe(true);
+    });
+
+    it('skips (no roll) within the 120s cooldown — does NOT drain now.md', async () => {
+      const nowPath = seedNowMd();
+      // Touch the cooldown marker so the up-front gate fires.
+      const r1 = await runLazyCompress({
+        projectRoot,
+        backend: mockBackend('first'),
+        now: '2026-05-28T10:00:00Z',
+      });
+      expect(r1.verdict).toBe('stale-now'); // first run did the roll
+      expect(readFileTrim(nowPath)).toBe('');
+
+      // Re-seed now.md and fire again 30s later — inside the 120s cooldown.
+      seedNowMd();
+      const r2 = await runLazyCompress({
+        projectRoot,
+        backend: mockBackend('second'),
+        now: '2026-05-28T10:00:30Z',
+      });
+      expect(r2.action).toBe('skipped');
+      expect(r2.reason).toBe('cooldown');
+      expect(readFileTrim(nowPath)).not.toBe(''); // NOT drained — cooldown protected it
+    });
+  });
+
+  describe('inject-context — SessionStart spawns the lazy worker when now.md is stale', () => {
+    it('non-empty now.md → detached spawn (verdict stale-now), still returns within 500ms', () => {
+      seedNowMd();
+      let spawnCalls = 0;
+      const testSpawnLazy = () => {
+        spawnCalls += 1;
+        return { spawned: true, pid: 999 };
+      };
+      const t0 = Date.now();
+      const r = injectContext({
+        cwd: projectRoot,
+        userDir,
+        now: '2026-05-28T10:00:00Z',
+        testSpawnLazy,
+      });
+      const elapsed = Date.now() - t0;
+      expect(spawnCalls).toBe(1);
+      expect(r.lazyTrigger.verdict).toBe('stale-now');
+      expect(r.lazyTrigger.spawned).toBe(true);
+      expect(elapsed).toBeLessThan(500); // NFR-1: the Haiku roll is detached, not inline
+    });
+
+    it('empty now.md + fresh today/recent → no spawn (no false trigger)', () => {
+      seedTodayFile('2026-05-28');
+      seedRecentMd('## fresh\n', 60_000);
+      let spawnCalls = 0;
+      const testSpawnLazy = () => {
+        spawnCalls += 1;
+        return { spawned: true, pid: 999 };
+      };
+      const r = injectContext({
+        cwd: projectRoot,
+        userDir,
+        now: '2026-05-28T10:00:00Z',
+        testSpawnLazy,
+      });
+      expect(spawnCalls).toBe(0);
+      expect(r.lazyTrigger.verdict).toBe('fresh');
+    });
   });
 });

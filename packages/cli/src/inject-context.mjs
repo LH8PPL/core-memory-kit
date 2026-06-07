@@ -740,7 +740,11 @@ export function injectContext({
   try {
     const verdict = detectStaleness({ projectRoot, now: ts });
     lazyTrigger = { verdict: verdict.action, reason: verdict.reason };
-    if (verdict.action === 'stale-daily' || verdict.action === 'stale-weekly') {
+    if (
+      verdict.action === 'stale-now' ||
+      verdict.action === 'stale-daily' ||
+      verdict.action === 'stale-weekly'
+    ) {
       const spawner = typeof testSpawnLazy === 'function' ? testSpawnLazy : spawnLazyCompress;
       const spawnResult = spawner(projectRoot, compressLazyPath);
       lazyTrigger = { ...lazyTrigger, ...spawnResult };
