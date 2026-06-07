@@ -30,7 +30,8 @@ import {
   readFileSync,
   writeFileSync,
   appendFileSync,
-  truncateSync,
+  renameSync,
+  unlinkSync,
 } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { nowIso } from './audit-log.mjs';
@@ -46,6 +47,10 @@ const DEFAULT_MAX_OUTPUT_BYTES = 4096;
 
 const NOW_MD_RELATIVE = ['context', 'sessions', 'now.md'];
 const SESSIONS_DIR_RELATIVE = ['context', 'sessions'];
+// Task 106 (§16.27): the live buffer is CLAIMED by an atomic rename to this
+// suffix before compression, so concurrent PostToolUse/capture-turn appends
+// land on a fresh now.md without racing the truncate.
+const ROLLING_SUFFIX = '.rolling-';
 
 // Compression prompt (design §8.4). Written from scratch per the
 // licensing posture in SOURCES.md (claude-remember's prompts are not
@@ -126,13 +131,69 @@ function dateFromIso(ts) {
   return ts.slice(0, 10);
 }
 
-function readNowBuffer(projectRoot) {
-  const p = readNowMdPath(projectRoot);
-  if (!existsSync(p)) return '';
+// Task 106 (§16.27 file-rename pattern). ATOMICALLY claim the live buffer:
+// rename now.md → now.md.rolling-{ts}, then read the claimed copy. The rename is
+// atomic on POSIX (rename(2)) + NTFS (MoveFileEx), so a concurrent appender
+// (PostToolUse/capture-turn) that fires DURING the ~5–10s Haiku call lands on a
+// fresh now.md with zero contention — its content is never inside the
+// read→clear window the old `read then truncate(0)` left open. Returns the
+// claimed buffer + the rolling path (null when now.md is absent / the rename
+// raced, which the caller treats as an empty buffer).
+//
+// Bonus property — the rename also SERIALIZES concurrent rolls. compressSession
+// is gated by the 120s cooldown, but the marker is only touched on success, so
+// two callers (a SessionEnd + the Task 105 SessionStart-lazy roll) can both pass
+// the cooldown gate and reach here. Only ONE renameSync wins; the other gets
+// ENOENT (now.md already claimed) → returns an empty buffer → skips. No lock
+// needed; the atomic rename IS the mutex.
+function claimNowBuffer(projectRoot, ts) {
+  const nowPath = readNowMdPath(projectRoot);
+  if (!existsSync(nowPath)) return { buffer: '', rollingPath: null };
+  const rollingPath = nowPath + ROLLING_SUFFIX + String(ts).replace(/[:.]/g, '-');
   try {
-    return readFileSync(p, 'utf8');
+    renameSync(nowPath, rollingPath);
   } catch {
-    return '';
+    // now.md vanished or the rename lost a race — nothing to roll.
+    return { buffer: '', rollingPath: null };
+  }
+  let buffer = '';
+  try {
+    buffer = readFileSync(rollingPath, 'utf8');
+  } catch {
+    buffer = '';
+  }
+  return { buffer, rollingPath };
+}
+
+// Success path: the claimed buffer is safely compressed into today-{date}.md.
+// Drop the rolling file. now.md is owned by the (new) session's appenders now —
+// we do NOT recreate or touch it, so a concurrent append is never clobbered.
+function discardRolling(rollingPath) {
+  if (!rollingPath) return;
+  try {
+    unlinkSync(rollingPath);
+  } catch {
+    // best-effort; a leaked rolling file is inert (the next roll claims now.md,
+    // not now.md.rolling-*) and harmless beyond disk noise.
+  }
+}
+
+// Error/timeout path: the claimed buffer was NOT compressed — restore it so the
+// next roll retries it (the old impl's "leave now.md intact" contract). Prepend
+// it to anything a concurrent session appended to the fresh now.md (the claimed
+// content is OLDER, so it leads), preserving both with no truncate. Best-effort:
+// if the restore write fails, the rolling file stays as a recovery breadcrumb.
+function restoreRolling(projectRoot, rollingPath) {
+  if (!rollingPath || !existsSync(rollingPath)) return;
+  const nowPath = readNowMdPath(projectRoot);
+  try {
+    const claimed = readFileSync(rollingPath, 'utf8');
+    const current = existsSync(nowPath) ? readFileSync(nowPath, 'utf8') : '';
+    const merged = current ? claimed.replace(/\n*$/, '\n') + current : claimed;
+    writeFileSync(nowPath, merged, 'utf8');
+    unlinkSync(rollingPath);
+  } catch {
+    // best-effort — see above
   }
 }
 
@@ -144,18 +205,6 @@ function appendToTodayMd({ projectRoot, date, body }) {
   const suffix = body.endsWith('\n') ? '' : '\n';
   appendFileSync(path, body + suffix, 'utf8');
   return path;
-}
-
-function truncateNowMd(projectRoot) {
-  const p = readNowMdPath(projectRoot);
-  if (!existsSync(p)) return;
-  try {
-    truncateSync(p, 0);
-  } catch {
-    // Best-effort. If truncate fails (perm error etc.), the next
-    // session compresses a slightly-larger buffer — not a data-loss
-    // event.
-  }
 }
 
 function writeCompressLogEntry({ projectRoot, date, entry }) {
@@ -231,9 +280,13 @@ export async function compressSession({
     };
   }
 
-  // 2. Read live buffer; no-op if empty (tasks.md 22.1).
-  const buffer = readNowBuffer(projectRoot);
+  // 2. CLAIM the live buffer by atomic rename (Task 106 / §16.27), then read it;
+  //    no-op if empty (tasks.md 22.1). Claiming before the Haiku call is what
+  //    closes the race — a concurrent append during compression lands on a
+  //    fresh now.md, never inside a read→truncate window.
+  const { buffer, rollingPath } = claimNowBuffer(projectRoot, ts);
   if (buffer.trim() === '') {
+    discardRolling(rollingPath); // drop the (empty) claimed file if one was renamed
     const duration_ms = Date.now() - t0;
     const entry = {
       ts,
@@ -257,13 +310,14 @@ export async function compressSession({
   const input_bytes = Buffer.byteLength(buffer, 'utf8');
   const instructions = buildCompressionInstructions(maxOutputBytes);
 
-  // 3. Invoke backend. On throw: leave now.md intact (22.5).
+  // 3. Invoke backend. On throw: RESTORE the claimed buffer to now.md (22.5) so
+  //    the next session-end retries it — the file-rename analogue of the old
+  //    "leave now.md intact".
   //
   // Subprocess timeout: 50_000 ms. Sits under the 60s SessionEnd
   // hook ceiling (design §5.1) so on timeout the catch + log write
-  // complete BEFORE Claude Code kills the parent. now.md is left
-  // intact in the timeout case (the truncate step is reached only
-  // on the success path), so the next session-end retries naturally.
+  // complete BEFORE Claude Code kills the parent — including the
+  // restoreRolling call, so the buffer is never stranded in the rolling file.
   // See design §8.5 for the composition rationale.
   let result;
   try {
@@ -285,6 +339,8 @@ export async function compressSession({
     const errorCategory = err instanceof HaikuTimeoutError
       ? ERROR_CATEGORIES.HAIKU_TIMEOUT
       : ERROR_CATEGORIES.COMPRESS_FAILED;
+    // The claimed buffer wasn't compressed — put it back so it isn't lost.
+    restoreRolling(projectRoot, rollingPath);
     const duration_ms = Date.now() - t0;
     const entry = {
       ts,
@@ -316,8 +372,10 @@ export async function compressSession({
     body: output,
   });
 
-  // 5. Truncate now.md (22.3).
-  truncateNowMd(projectRoot);
+  // 5. The claimed buffer is safely in today-{date}.md — drop the rolling file
+  //    (Task 106/§16.27). now.md is untouched: any turn the new session appended
+  //    while we compressed stays put.
+  discardRolling(rollingPath);
 
   // 6. Touch cooldown marker so the next caller within 120s skips.
   touchCooldownMarker({ projectRoot, now: ts });

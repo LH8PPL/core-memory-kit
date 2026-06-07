@@ -9,7 +9,7 @@
 - **Auto-extract on every assistant turn** — a background `claude --print` subagent reads each turn and saves durable facts to memory. Durable project knowledge (setup/config, conventions, workflows, tool quirks) becomes a **rich Why/How fact file** (structured + searchable); lighter signals stay terse `MEMORY.md` bullets. Runs automatically, so the rich tier survives even when the model uses Claude Code's built-in memory instead. No manual writes needed.
 - **Explicit capture when you want it** — say "remember this" / "from now on" / "we decided" / "forget X" (the `memory-write` skill), or run `cmk remember "<fact>"`. Both dedup, screen for secrets, abstract machine paths to `~`, and write silently.
 - **Search + MCP** — `cmk search "<term>"` (keyword/hybrid over facts + scratchpads); `cmk mcp` exposes the same to Claude Code as tools.
-- **Bounded by compression** — session → daily → weekly Haiku rollups (cron or lazy-on-read) keep the snapshot small as history grows.
+- **Bounded by compression** — session → daily → weekly Haiku rollups (cron or lazy-on-read) keep the snapshot small as history grows. The session-buffer rollup self-heals at session start too, so memory stays bounded even if you never cleanly close the window.
 - **Per-project, in-repo** — `context/` lives inside your project and travels with `git clone`. Each project keeps its own memory.
 - **9 health checks** — `cmk doctor` validates install, hook wiring, distill freshness, INDEX consistency, cron registration, and stale locks.
 
