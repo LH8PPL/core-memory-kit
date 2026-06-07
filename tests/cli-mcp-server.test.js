@@ -22,7 +22,7 @@
 //     tests since the SDK is the authoritative framing implementation.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -127,7 +127,7 @@ describe('Task 31 — MCP server', () => {
   });
 
   describe('Tool registration', () => {
-    it('registers all 6 documented tools', () => {
+    it('registers all 9 documented tools (6 read/write + 3 mutate — 108b)', () => {
       const server = buildMcpServer({ projectRoot, userDir, db });
       const tools = server._registeredTools ?? {};
       const names = Object.keys(tools).sort();
@@ -139,6 +139,10 @@ describe('Task 31 — MCP server', () => {
           'mk_cite',
           'mk_remember',
           'mk_recent_activity',
+          // Task 108b — MCP mutate parity with the CLI.
+          'mk_trust',
+          'mk_lessons_promote',
+          'mk_forget',
         ].sort(),
       );
     });
@@ -374,6 +378,89 @@ describe('Task 31 — MCP server', () => {
         tier: 'L',
       });
       expect(r.isError).toBe(true);
+    });
+  });
+
+  // Task 108b — MCP mutate parity with the CLI. These tools compose the
+  // existing CLI cores (forget / overrideTrust / lessonsPromote) so the model
+  // can do the same mutations the user could do via `cmk` — the whole point of
+  // D-85 (the user never types `cmk`; the conversation is the interface).
+  describe('mk_trust / mk_lessons_promote / mk_forget — mutate parity (108b)', () => {
+    // Create a rich P-tier fact via mk_remember; return its id (composition test).
+    async function seedFact(server, title) {
+      const r = await invokeTool(server, 'mk_remember', {
+        text: `fact for ${title}`, type: 'feedback', title, why: 'because', how: 'apply it',
+      });
+      return JSON.parse(r.content[0].text).id;
+    }
+
+    it('mk_trust changes a fact’s trust level (reversible mutate)', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const id = await seedFact(server, 'trust-target');
+      const r = await invokeTool(server, 'mk_trust', { id, level: 'low' });
+      expect(r.isError).toBeFalsy();
+      const out = JSON.parse(r.content[0].text);
+      expect(out.accepted).toBe(true);
+      expect(out.action).toBe('trust-updated');
+      expect(out.level).toBe('low');
+      // Door 2 — the fact file's frontmatter trust flipped to low.
+      expect(readFileSync(join(projectRoot, 'context', 'memory', 'feedback_trust-target.md'), 'utf8'))
+        .toMatch(/trust: low/);
+    });
+
+    it('mk_trust on an unknown id → isError', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const r = await invokeTool(server, 'mk_trust', { id: 'P-ZZZZZZZZ', level: 'low' });
+      expect(r.isError).toBe(true);
+    });
+
+    it('mk_lessons_promote carries a P fact to the user tier', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const id = await seedFact(server, 'promote-target');
+      const r = await invokeTool(server, 'mk_lessons_promote', { id, to: 'LESSONS.md' });
+      expect(r.isError).toBeFalsy();
+      const out = JSON.parse(r.content[0].text);
+      expect(out.accepted).toBe(true);
+      expect(['promoted', 'queued']).toContain(out.action);
+    });
+
+    it('mk_forget is two-step: first call previews + issues confirm_token, does NOT delete', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const id = await seedFact(server, 'forget-target');
+      const factPath = join(projectRoot, 'context', 'memory', 'feedback_forget-target.md');
+      const r1 = await invokeTool(server, 'mk_forget', { id });
+      expect(r1.isError).toBeFalsy();
+      const preview = JSON.parse(r1.content[0].text);
+      expect(preview.status).toBe('confirm_required');
+      expect(preview.confirm_token).toBeTruthy();
+      expect(preview.would_tombstone.id).toBe(id);
+      // Door 2 — NOT deleted on the preview call.
+      expect(existsSync(factPath)).toBe(true);
+
+      // Second call WITH the token → tombstoned.
+      const r2 = await invokeTool(server, 'mk_forget', { id, confirm: preview.confirm_token });
+      expect(r2.isError).toBeFalsy();
+      const out = JSON.parse(r2.content[0].text);
+      expect(out.accepted).toBe(true);
+      expect(out.action).toBe('tombstoned');
+      // Door 2 — the live fact file is gone (moved to the tombstone archive).
+      expect(existsSync(factPath)).toBe(false);
+    });
+
+    it('mk_forget with a WRONG token does not delete (re-previews)', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const id = await seedFact(server, 'forget-guard');
+      const factPath = join(projectRoot, 'context', 'memory', 'feedback_forget-guard.md');
+      const r = await invokeTool(server, 'mk_forget', { id, confirm: 'wrong-token' });
+      expect(JSON.parse(r.content[0].text).status).toBe('confirm_required');
+      expect(existsSync(factPath)).toBe(true);
+    });
+
+    it('mk_forget on an unknown id → isError (never a confirm prompt)', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const r = await invokeTool(server, 'mk_forget', { id: 'P-ZZZZZZZZ' });
+      expect(r.isError).toBe(true);
+      expect(r.content[0].text).toMatch(/no matching|not found/i);
     });
   });
 

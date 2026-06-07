@@ -38,6 +38,10 @@ import { reindexBoot } from './index-rebuild.mjs';
 import { search, SEARCH_MODES } from './search.mjs';
 import { memoryWrite } from './memory-write.mjs';
 import { rememberRich } from './remember-core.mjs';
+import { forget } from './forget.mjs';
+import { overrideTrust } from './trust.mjs';
+import { lessonsPromote } from './lessons-promote.mjs';
+import { createHash } from 'node:crypto';
 import { ID_PATTERN, resolveTierRoot } from './tier-paths.mjs';
 
 // --- Path-traversal validation (design §10.2; tasks.md 31.2) ----------
@@ -376,6 +380,114 @@ function makeMkRecentActivity({ db }) {
   };
 }
 
+// --- Mutate tools (Task 108b — MCP parity with the CLI) ---------------
+//
+// These wrap the existing CLI cores (forget / overrideTrust / lessonsPromote)
+// so the model can perform the same mutations the user could via `cmk`. Per
+// D-85: the user never types `cmk`; the conversation is the interface, so every
+// mutate the CLI offers needs an MCP path the model can drive on their behalf.
+
+/** Map a core error / not-found result to an MCP isError envelope. */
+function mcpToolError(r) {
+  const msg = r.action === 'error'
+    ? `error (${r.errorCategory ?? 'unknown'}): ${(r.errors ?? ['operation failed']).join('; ')}`
+    : `error: ${(r.errors ?? ['not found']).join('; ')}`;
+  return { content: [{ type: 'text', text: msg }], isError: true };
+}
+
+/**
+ * Deterministic confirm token for a destructive op. Derived from id + body so a
+ * caller CANNOT produce it without first seeing the preview (the body sha is not
+ * knowable from the id alone) — that forces the two-step preview→confirm flow.
+ * Stable across re-calls (idempotent), so a retried confirm with the same token
+ * still works.
+ */
+function forgetConfirmToken(id, body) {
+  return createHash('sha1').update(`${id}:${body ?? ''}`).digest('hex').slice(0, 8);
+}
+
+function makeMkTrust({ projectRoot, userDir }) {
+  return async ({ id, level }) => {
+    const r = overrideTrust({ id, level, projectRoot, userDir, actor: 'mcp-user-explicit' });
+    if (r.action !== 'trust-updated') return mcpToolError(r);
+    return {
+      content: [{ type: 'text', text: JSON.stringify(
+        { accepted: true, action: r.action, id: r.id, tier: r.tier, level: r.level }, null, 2,
+      ) }],
+    };
+  };
+}
+
+function makeMkLessonsPromote({ projectRoot, userDir }) {
+  return async ({ id, to }) => {
+    const r = lessonsPromote({ id, projectRoot, userDir, to: to ?? 'LESSONS.md' });
+    if (r.action !== 'promoted' && r.action !== 'queued') return mcpToolError(r);
+    return {
+      content: [{ type: 'text', text: JSON.stringify(
+        {
+          accepted: true,
+          action: r.action,
+          id: r.id,
+          target: r.target,
+          section: r.section,
+          ...(r.action === 'queued'
+            ? { status: 'queued', hint: 'Promotion routed to the user-tier review/conflict queue — it lands once resolved.' }
+            : {}),
+        }, null, 2,
+      ) }],
+    };
+  };
+}
+
+function makeMkForget({ projectRoot, userDir }) {
+  return async ({ id, reason, confirm }) => {
+    // Dry pass: resolve + capture the preview via a confirm callback that
+    // refuses (returns false → action:'cancelled'), so nothing is deleted yet.
+    // A not-found / ambiguous / schema error short-circuits BEFORE the callback.
+    let preview = null;
+    const dry = forget({
+      idOrQuery: id,
+      projectRoot,
+      userDir,
+      reason,
+      confirm: (p) => { preview = p; return false; },
+    });
+    if (dry.action !== 'cancelled' || !preview) {
+      return mcpToolError(dry);
+    }
+
+    const token = forgetConfirmToken(preview.id, preview.body);
+    if (confirm !== token) {
+      // Step 1 — preview + issue the token; require a second deliberate call.
+      return {
+        content: [{ type: 'text', text: JSON.stringify(
+          {
+            status: 'confirm_required',
+            would_tombstone: {
+              id: preview.id,
+              tier: preview.tier,
+              title: preview.title ?? null,
+              path: preview.path,
+              body_preview: String(preview.body ?? '').slice(0, 280),
+            },
+            confirm_token: token,
+            hint: `Permanently tombstones this fact (audit trail preserved). To proceed, call mk_forget again with confirm: "${token}".`,
+          }, null, 2,
+        ) }],
+      };
+    }
+
+    // Step 2 — token matches → execute.
+    const r = forget({ idOrQuery: id, projectRoot, userDir, reason, yes: true });
+    if (r.action !== 'tombstoned') return mcpToolError(r);
+    return {
+      content: [{ type: 'text', text: JSON.stringify(
+        { accepted: true, action: 'tombstoned', id: r.id, tier: r.tier, tombstoned_to: r.tombstonePath }, null, 2,
+      ) }],
+    };
+  };
+}
+
 // --- Server build + run ----------------------------------------------
 
 /**
@@ -484,6 +596,48 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
       },
     },
     makeMkRecentActivity({ db }),
+  );
+
+  // mk_trust (Task 108b — mutate parity). Reversible; audited.
+  server.registerTool(
+    'mk_trust',
+    {
+      description: 'Override the trust level (low|medium|high) of a fact or bullet by ID. Reversible + audited. Parity with `cmk trust`.',
+      inputSchema: {
+        id: z.string().describe('kit observation ID'),
+        level: z.enum(['low', 'medium', 'high']).describe('the new trust level'),
+      },
+    },
+    makeMkTrust({ projectRoot, userDir }),
+  );
+
+  // mk_lessons_promote (Task 108b — mutate parity). Sanitized + audited.
+  server.registerTool(
+    'mk_lessons_promote',
+    {
+      description: 'Promote a project-tier (P-) fact to the cross-project user tier so it applies in every project. Sanitized + secret-screened + audited. Parity with `cmk lessons promote`.',
+      inputSchema: {
+        id: z.string().describe('kit observation ID (a project-tier P- fact)'),
+        to: z.enum(['USER.md', 'HABITS.md', 'LESSONS.md']).optional().describe('target user-tier file (default LESSONS.md)'),
+      },
+    },
+    makeMkLessonsPromote({ projectRoot, userDir }),
+  );
+
+  // mk_forget (Task 108b — DESTRUCTIVE mutate parity). Two-step confirm-token:
+  // the first call previews + returns a confirm_token; call again with that
+  // token to execute. Tombstones (audit trail preserved), never hard-deletes.
+  server.registerTool(
+    'mk_forget',
+    {
+      description: 'Tombstone (forget) a fact by ID. DESTRUCTIVE + two-step: the first call previews what would be removed and returns a confirm_token; call again with confirm set to that token to execute. Audit trail preserved. Parity with `cmk forget`.',
+      inputSchema: {
+        id: z.string().describe('kit observation ID to tombstone'),
+        reason: z.string().max(500).optional().describe('why it is being forgotten (audited)'),
+        confirm: z.string().optional().describe('the confirm_token from the preview call — required to actually delete'),
+      },
+    },
+    makeMkForget({ projectRoot, userDir }),
   );
 
   return server;
