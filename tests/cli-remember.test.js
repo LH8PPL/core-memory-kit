@@ -10,7 +10,7 @@
 // the self-test bug was that the *agent's own writes* bypassed the safe path.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, readFileSync, readdirSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -36,10 +36,11 @@ afterEach(() => {
   rmSync(sandbox, { recursive: true, force: true });
 });
 
-function cmk(args) {
+function cmk(args, input) {
   return spawnSync(process.execPath, [CMK_BIN, ...args], {
     cwd: projectRoot,
     encoding: 'utf8',
+    input,
     env: { ...process.env, MEMORY_KIT_USER_DIR: userDir },
   });
 }
@@ -140,5 +141,72 @@ describe('cmk remember — durable capture CLI', () => {
     expect(content).toMatch(/related:/);
     expect(content).toContain('python-tooling');
     expect(content).toContain('uv-package-manager');
+  });
+
+  // Task 108.2 (108a) — `cmk remember --from-file <json>`: the D-81 fix.
+  // D-81: `cmk remember --how "...`code`..."` THROUGH bash gets its backtick
+  // spans eaten by command-substitution → silent corruption (proven in the
+  // cut-gate5 run). The fix: pass the fact as a JSON FILE; the content never
+  // touches a shell command line, so backticks / $() / quotes / newlines survive
+  // byte-perfect. Real-binary path (Door 3) proves the optionSpec wires it AND
+  // that writeFact persists the content intact (Door 2).
+  it('--from-file: rich content with backticks/$()/quotes/newlines lands byte-perfect (D-81)', () => {
+    const richHow =
+      'create it (`python -m venv .venv`), then `.\\.venv\\Scripts\\pip install`;\n' +
+      'never $(system pip) or "global" installs';
+    const fact = {
+      text: 'Always use .venv for Python packages',
+      type: 'feedback',
+      title: 'use-venv-shellsafe',
+      why: 'isolate from system Python',
+      how: richHow,
+    };
+    const factPath = join(projectRoot, 'fact.json');
+    writeFileSync(factPath, JSON.stringify(fact), 'utf8');
+
+    const r = cmk(['remember', '--from-file', factPath]);
+    expect(r.status ?? 0).toBe(0);
+    expect(r.stdout).toMatch(/saved rich fact/);
+
+    const content = readFileSync(
+      join(projectRoot, 'context', 'memory', 'feedback_use-venv-shellsafe.md'),
+      'utf8',
+    );
+    // The exact backtick spans bash command-substitution destroyed (D-81) survive:
+    expect(content).toContain('`python -m venv .venv`');
+    expect(content).toContain('`.\\.venv\\Scripts\\pip install`');
+    expect(content).toContain('$(system pip)');
+    expect(content).toContain('**Why:** isolate from system Python');
+  });
+
+  it('--from-file: malformed JSON fails loudly (exit 2), writes nothing (no silent corruption)', () => {
+    const factPath = join(projectRoot, 'bad.json');
+    writeFileSync(factPath, '{ this is not: json', 'utf8');
+    const r = cmk(['remember', '--from-file', factPath]);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/json|parse|--from-file/i);
+    expect(factFiles()).toHaveLength(0);
+  });
+
+  // Task 108.2 (108a) — `--json`: the same structured-JSON channel, read from
+  // stdin (pipe-safe). Same off-shell guarantee as --from-file.
+  it('--json: reads the structured fact from stdin; backtick content survives', () => {
+    const fact = {
+      text: 'Run ruff before committing',
+      type: 'feedback',
+      title: 'ruff-precommit-stdin',
+      why: 'catch lint before it lands',
+      how: 'run ruff check on `git diff --name-only` and never $(skip it)',
+    };
+    const r = cmk(['remember', '--json'], JSON.stringify(fact));
+    expect(r.status ?? 0).toBe(0);
+    expect(r.stdout).toMatch(/saved rich fact/);
+    const content = readFileSync(
+      join(projectRoot, 'context', 'memory', 'feedback_ruff-precommit-stdin.md'),
+      'utf8',
+    );
+    expect(content).toContain('`git diff --name-only`');
+    expect(content).toContain('$(skip it)');
+    expect(content).toContain('**Why:** catch lint before it lands');
   });
 });

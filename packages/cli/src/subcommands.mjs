@@ -435,6 +435,62 @@ function runRemember(textParts, options) {
   const projectRoot = resolvePath(process.cwd());
   const userDir =
     process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+
+  // Task 108.2 (108a) — structured off-shell input. `--from-file <path>` reads
+  // the fact as a JSON object from a FILE; `--json` reads it from STDIN (pipe).
+  // Either way rich content (backticks, $(), quotes, newlines) never rides the
+  // shell command line — the D-81 fix (bash command-substitution can only eat
+  // what reaches argv, and file/stdin content never does). JSON keys map to the
+  // rich fields (text + why/how/type/title/links).
+  if (options?.fromFile || options?.json) {
+    const channel = options.fromFile ? '--from-file' : '--json';
+    let raw;
+    if (options.fromFile) {
+      try {
+        raw = readFileSync(options.fromFile, 'utf8');
+      } catch (e) {
+        console.error(`cmk remember: ${channel} could not read ${options.fromFile}: ${e.message}`);
+        process.exitCode = 2;
+        return;
+      }
+    } else if (process.stdin.isTTY) {
+      // No pipe on an interactive TTY — a blocking stdin read would hang. Fail clearly.
+      console.error('cmk remember: --json expects a JSON object on stdin (pipe it in, or use --from-file).');
+      process.exitCode = 2;
+      return;
+    } else {
+      try {
+        raw = readFileSync(0, 'utf8');
+      } catch (e) {
+        console.error(`cmk remember: ${channel} could not read stdin: ${e.message}`);
+        process.exitCode = 2;
+        return;
+      }
+    }
+    let fields;
+    try {
+      fields = JSON.parse(raw);
+    } catch (e) {
+      console.error(`cmk remember: ${channel} could not parse JSON: ${e.message}`);
+      process.exitCode = 2;
+      return;
+    }
+    if (
+      !fields ||
+      typeof fields !== 'object' ||
+      Array.isArray(fields) ||
+      typeof fields.text !== 'string' ||
+      !fields.text.trim()
+    ) {
+      console.error(`cmk remember: ${channel} JSON must be an object with a non-empty "text" field.`);
+      process.exitCode = 2;
+      return;
+    }
+    // The structured channel always writes a granular fact file (the rich path).
+    runRememberRich(fields.text, fields, { projectRoot });
+    return;
+  }
+
   const text = Array.isArray(textParts) ? textParts.join(' ') : textParts;
   // Rich mode: any of --why/--how/--type/--title/--links → write a real fact
   // file (the F1 fix) instead of a terse MEMORY.md bullet. M3: --trust and
@@ -1412,7 +1468,7 @@ export const subcommands = [
     name: 'remember',
     description: 'capture a durable fact (Poison_Guard + home-path abstraction). Terse → a MEMORY.md bullet; RICH (--why/--how/--type) → a granular fact file with rationale (the safe way to capture richly).',
     milestone: 24,
-    argSpec: [{ flags: '<text...>', description: 'the fact to remember' }],
+    argSpec: [{ flags: '[text...]', description: 'the fact to remember (omit when using --from-file)' }],
     optionSpec: [
       { flags: '--tier <tier>', description: 'P (default; U/L are v0.1.x)' },
       { flags: '--trust <level>', description: 'high | medium | low (default: high)' },
@@ -1423,6 +1479,8 @@ export const subcommands = [
       { flags: '--type <type>', description: 'rich: feedback | project | reference | user (default: feedback)' },
       { flags: '--title <text>', description: 'rich: a short title (also the fact-file slug)' },
       { flags: '--links <a,b>', description: 'rich: related fact names for [[cross-links]]' },
+      { flags: '--from-file <path>', description: 'rich: read the fact as a JSON object from a file — shell-safe (content never touches argv; the safe way to capture backtick/quote-heavy Why/How). JSON keys: text (required), why, how, type, title, links.' },
+      { flags: '--json', description: 'rich: read the fact as a JSON object from stdin (pipe-safe, shell-safe) — same JSON keys as --from-file' },
     ],
     action: runRemember,
   },
