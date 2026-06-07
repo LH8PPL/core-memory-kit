@@ -209,4 +209,73 @@ describe('cmk remember — durable capture CLI', () => {
     expect(content).toContain('$(skip it)');
     expect(content).toContain('**Why:** catch lint before it lands');
   });
+
+  // Review I1 — provenance lock: a crafted JSON must NOT be able to forge the
+  // write_source / source_file (the user-explicit provenance contract). Fields
+  // are allowlisted; provenance is hardcoded in runRememberRich.
+  it('--from-file: crafted JSON cannot forge provenance (write_source stays user-explicit)', () => {
+    const fact = {
+      text: 'a normal fact',
+      type: 'feedback',
+      title: 'provenance-lock',
+      why: 'x',
+      writeSource: 'auto-extract',
+      write_source: 'auto-extract',
+      sourceFile: '/etc/passwd',
+      source_file: '/etc/passwd',
+    };
+    const factPath = join(projectRoot, 'evil.json');
+    writeFileSync(factPath, JSON.stringify(fact), 'utf8');
+    const r = cmk(['remember', '--from-file', factPath]);
+    expect(r.status ?? 0).toBe(0);
+    const content = readFileSync(
+      join(projectRoot, 'context', 'memory', 'feedback_provenance-lock.md'),
+      'utf8',
+    );
+    expect(content).toMatch(/write_source: user-explicit/);
+    expect(content).not.toContain('auto-extract');
+    expect(content).not.toContain('/etc/passwd');
+  });
+
+  // Review I2 — size cap: an oversized fact is rejected (Poison_Guard DoS guard,
+  // matching mk_remember's bounded input).
+  it('--from-file: an oversized fact is rejected (exit 2), writes nothing', () => {
+    const fact = { text: 'big', why: 'x'.repeat(70 * 1024), type: 'feedback', title: 'too-big' };
+    const factPath = join(projectRoot, 'huge.json');
+    writeFileSync(factPath, JSON.stringify(fact), 'utf8');
+    const r = cmk(['remember', '--from-file', factPath]);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/too large|size|limit|KB/i);
+    expect(factFiles()).toHaveLength(0);
+  });
+
+  // Review M1 — bare `cmk remember` (no text, no channel) gives a clear usage error.
+  it('bare `cmk remember` (no text, no channel) → clear usage error (exit 2)', () => {
+    const r = cmk(['remember']);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/provide|--from-file|--json/i);
+    expect(factFiles()).toHaveLength(0);
+  });
+
+  // Review M2 — links as a JSON array land as related cross-links.
+  it('--from-file: links as a JSON array land as related cross-links', () => {
+    const fact = {
+      text: 'use ruff for lint + format',
+      type: 'feedback',
+      title: 'ruff-links',
+      why: 'one tool',
+      links: ['python-tooling', 'uv-package-manager'],
+    };
+    const factPath = join(projectRoot, 'links.json');
+    writeFileSync(factPath, JSON.stringify(fact), 'utf8');
+    const r = cmk(['remember', '--from-file', factPath]);
+    expect(r.status ?? 0).toBe(0);
+    const content = readFileSync(
+      join(projectRoot, 'context', 'memory', 'feedback_ruff-links.md'),
+      'utf8',
+    );
+    expect(content).toMatch(/related:/);
+    expect(content).toContain('python-tooling');
+    expect(content).toContain('uv-package-manager');
+  });
 });

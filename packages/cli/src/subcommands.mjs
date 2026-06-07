@@ -28,6 +28,7 @@ import { exportPersona, importPersona } from './persona-portability.mjs';
 import { setNativeAutoMemory, nativeMemoryInstallNote } from './native-memory.mjs';
 import { writeFact } from './write-fact.mjs';
 import { buildRichFactBody, slugifyFact } from './rich-fact.mjs';
+import { readHookStdin } from './read-hook-stdin.mjs';
 import { createHash } from 'node:crypto';
 import { runLazyCompress } from './lazy-compress.mjs';
 import { runDoctor } from './doctor.mjs';
@@ -453,19 +454,25 @@ function runRemember(textParts, options) {
         process.exitCode = 2;
         return;
       }
-    } else if (process.stdin.isTTY) {
-      // No pipe on an interactive TTY — a blocking stdin read would hang. Fail clearly.
-      console.error('cmk remember: --json expects a JSON object on stdin (pipe it in, or use --from-file).');
-      process.exitCode = 2;
-      return;
     } else {
-      try {
-        raw = readFileSync(0, 'utf8');
-      } catch (e) {
-        console.error(`cmk remember: ${channel} could not read stdin: ${e.message}`);
+      // --json: read from stdin via the shared, EAGAIN-safe, TTY-guarded reader
+      // (read-hook-stdin.mjs). '' = interactive TTY or empty pipe → fail clearly.
+      raw = readHookStdin({ isTTY: process.stdin.isTTY });
+      if (!raw.trim()) {
+        console.error('cmk remember: --json expects a JSON object on stdin (pipe it in, or use --from-file).');
         process.exitCode = 2;
         return;
       }
+    }
+    // Bound the input so a pathological file can't burn Poison_Guard regex time
+    // (the M1 concern that capped mk_remember). 64 KB is generous for one fact.
+    const MAX_INPUT_BYTES = 64 * 1024;
+    if (Buffer.byteLength(raw, 'utf8') > MAX_INPUT_BYTES) {
+      console.error(
+        `cmk remember: ${channel} fact is too large (max ${MAX_INPUT_BYTES / 1024} KB). Split it into smaller facts.`,
+      );
+      process.exitCode = 2;
+      return;
     }
     let fields;
     try {
@@ -486,12 +493,36 @@ function runRemember(textParts, options) {
       process.exitCode = 2;
       return;
     }
-    // The structured channel always writes a granular fact file (the rich path).
-    runRememberRich(fields.text, fields, { projectRoot });
+    // Allowlist the honored fields — NEVER forward the raw parsed object. A
+    // crafted JSON must not be able to reach a field runRememberRich might read;
+    // provenance (write_source / source_file) stays hardcoded as user-explicit.
+    runRememberRich(
+      fields.text,
+      {
+        why: fields.why,
+        how: fields.how,
+        type: fields.type,
+        title: fields.title,
+        links: fields.links,
+        tier: fields.tier,
+        trust: fields.trust,
+      },
+      { projectRoot },
+    );
     return;
   }
 
   const text = Array.isArray(textParts) ? textParts.join(' ') : textParts;
+  // Bare `cmk remember` — no positional text and no input channel. The positional
+  // arg is optional now (for --from-file/--json), so guard explicitly instead of
+  // falling through to a vague empty-text write error.
+  if (!text || !String(text).trim()) {
+    console.error(
+      'cmk remember: provide a fact to remember, or use --from-file <json> / --json (stdin).',
+    );
+    process.exitCode = 2;
+    return;
+  }
   // Rich mode: any of --why/--how/--type/--title/--links → write a real fact
   // file (the F1 fix) instead of a terse MEMORY.md bullet. M3: --trust and
   // --section are intentionally NOT triggers — --trust is shared by both forms
