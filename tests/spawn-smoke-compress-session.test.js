@@ -162,9 +162,14 @@ describeMaybe(`spawn-smoke: compressSession (live: ${skipReason ?? 'enabled'})`,
       expect(hasAnySectionHeading, `today-{date}.md missing §8.4 section heading; got: ${today}`)
         .toBe(true);
 
-      // Assertion #4 — now.md was truncated to 0 bytes.
+      // Assertion #4 — now.md carries no leftover content (Task 106 file-rename:
+      // an uncontended roll claims + drops the buffer, leaving now.md absent
+      // rather than truncate-to-0-bytes — either way, no leftover).
       const nowMdPath = join(projectRoot, 'context', 'sessions', 'now.md');
-      expect(statSync(nowMdPath).size).toBe(0);
+      const nowLeftover = existsSync(nowMdPath)
+        ? readFileSync(nowMdPath, 'utf8').trim()
+        : '';
+      expect(nowLeftover).toBe('');
 
       // Assertion #5 — compress.log entry has real model_id (not the
       // mock backend's 'mock-haiku') and non-zero token-derived cost.

@@ -25,9 +25,11 @@ import {
   rmSync,
   readFileSync,
   writeFileSync,
+  appendFileSync,
   existsSync,
   mkdirSync,
   statSync,
+  readdirSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -353,16 +355,22 @@ describe('Task 27 — Layer 4 checkpoint review fixes', () => {
       // the prompt despite the larger input buffer).
       expect(today).toMatch(/##\s+Decisions/);
 
-      // now.md is truncated to 0 bytes (the kit's normal post-compress
-      // state — the race-failure was on the PREVIOUS compress; this
-      // one's truncate is uncontended).
+      // now.md carries NO leftover content after the roll. Task 106's file-
+      // rename impl claims the buffer (rename → compress → drop), so an
+      // uncontended roll leaves now.md ABSENT rather than truncate-to-0-bytes —
+      // the honest contract is "no leftover", impl-agnostic (this is exactly the
+      // size===0 → empty-or-absent correction §16.27 predicted the honesty tests
+      // would need when the rename fix landed).
       const nowMdPath = join(
         projectRoot,
         'context',
         'sessions',
         'now.md',
       );
-      expect(statSync(nowMdPath).size).toBe(0);
+      const leftover = existsSync(nowMdPath)
+        ? readFileSync(nowMdPath, 'utf8').trim()
+        : '';
+      expect(leftover).toBe('');
     });
 
     it('two SUCCESSIVE compress-session runs across a (simulated) race day produce structurally valid today-{date}.md', async () => {
@@ -418,5 +426,111 @@ describe('Task 27 — Layer 4 checkpoint review fixes', () => {
       expect(today).toContain('first session');
       expect(today).toContain('second session');
     });
+  });
+});
+
+describe('Task 106 — §16.27 race CLOSED via file-rename (concurrent append survives)', () => {
+  let sandbox;
+  let projectRoot;
+
+  beforeEach(async () => {
+    const f = makeFixture();
+    sandbox = f.sandbox;
+    projectRoot = f.projectRoot;
+    await installFixture(projectRoot);
+  });
+
+  afterEach(() => {
+    rmSync(sandbox, { recursive: true, force: true });
+  });
+
+  // The race: compressSession reads now.md, spends ~5–10s in Haiku, then clears
+  // now.md. A turn the (new) session appends DURING that window must NOT be lost.
+  // Task 105 made this likely (the SessionStart lazy roll fires while a new
+  // session is actively appending). The fix is the §16.27 file-rename pattern:
+  // claim now.md by atomic rename → compress the renamed copy → drop it; the
+  // concurrent append lands on a fresh now.md, untouched.
+  //
+  // We make it deterministic by having the backend append to now.md mid-Haiku
+  // (the exact read→clear window). With the OLD truncate impl this test fails
+  // (the new turn is truncated away); with file-rename it passes.
+  it('a turn appended to now.md DURING the Haiku call is preserved (not dropped)', async () => {
+    const nowMdPath = join(projectRoot, 'context', 'sessions', 'now.md');
+    writeFileSync(
+      nowMdPath,
+      '## 2026-05-27T10:00:00Z — user\n\nPRIOR_SESSION_CONTENT to roll\n',
+      'utf8',
+    );
+
+    const SENTINEL = 'NEW_TURN_APPENDED_DURING_ROLL';
+    // A backend that simulates a concurrent session writing a fresh turn to
+    // now.md while the roll is mid-flight (between the read and the clear).
+    const racingBackend = {
+      modelId: () => 'mock-racing',
+      estimatedCostPerCall: () => 0,
+      async compress() {
+        appendFileSync(
+          nowMdPath,
+          `\n## 2026-05-27T11:00:05Z — user\n\n${SENTINEL}\n`,
+          'utf8',
+        );
+        return {
+          outputText: '## Decisions\n- rolled the prior session',
+          inputTokens: 20,
+          outputTokens: 10,
+          costUSD: 0,
+          preservedIds: [],
+        };
+      },
+    };
+
+    const r = await compressSession({
+      projectRoot,
+      backend: racingBackend,
+      now: '2026-05-27T11:00:00Z',
+    });
+    expect(r.action).toBe('compressed');
+
+    // today-*.md got the compressed PRIOR content.
+    const today = readFileSync(
+      join(projectRoot, 'context', 'sessions', 'today-2026-05-27.md'),
+      'utf8',
+    );
+    expect(today).toContain('rolled the prior session');
+
+    // The crux: the turn appended mid-roll SURVIVES in now.md (was NOT
+    // truncated away with the rolled buffer).
+    expect(existsSync(nowMdPath)).toBe(true);
+    const nowAfter = readFileSync(nowMdPath, 'utf8');
+    expect(nowAfter).toContain(SENTINEL);
+    // ...and the PRIOR content is gone from now.md (it was rolled, not left behind).
+    expect(nowAfter).not.toContain('PRIOR_SESSION_CONTENT');
+  });
+
+  it('on Haiku FAILURE the un-rolled buffer is restored to now.md (next roll retries it)', async () => {
+    const nowMdPath = join(projectRoot, 'context', 'sessions', 'now.md');
+    writeFileSync(nowMdPath, '## t — user\n\nBUFFER_TO_PRESERVE_ON_FAILURE\n', 'utf8');
+
+    const failingBackend = {
+      modelId: () => 'mock-fail',
+      estimatedCostPerCall: () => 0,
+      async compress() {
+        throw new Error('simulated Haiku failure');
+      },
+    };
+
+    const r = await compressSession({
+      projectRoot,
+      backend: failingBackend,
+      now: '2026-05-27T11:00:00Z',
+    });
+    expect(r.action).toBe('error');
+    // The buffer is NOT lost — it's back in now.md for the next roll.
+    expect(existsSync(nowMdPath)).toBe(true);
+    expect(readFileSync(nowMdPath, 'utf8')).toContain('BUFFER_TO_PRESERVE_ON_FAILURE');
+    // No orphaned rolling file left behind.
+    const sessionsDir = join(projectRoot, 'context', 'sessions');
+    const orphans = readdirSync(sessionsDir).filter((n) => n.includes('.rolling-'));
+    expect(orphans).toEqual([]);
   });
 });

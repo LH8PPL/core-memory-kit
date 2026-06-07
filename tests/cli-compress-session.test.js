@@ -119,7 +119,7 @@ describe('Task 22 — compressSession() boundary', () => {
       expect(today).toContain('compressed body here');
     });
 
-    it('successful compression truncates now.md to 0 bytes', async () => {
+    it('successful compression clears now.md (no leftover content)', async () => {
       writeNowMd(projectRoot, 'some content to compress\n');
       const backend = mockBackend('compressed body\n');
       await compressSession({
@@ -127,9 +127,10 @@ describe('Task 22 — compressSession() boundary', () => {
         backend,
         now: '2026-05-26T10:00:00Z',
       });
-      expect(readNowMd(projectRoot)).toBe('');
-      // File exists but is empty
-      expect(statSync(join(projectRoot, 'context', 'sessions', 'now.md')).size).toBe(0);
+      // Task 106: the file-rename impl claims now.md (rename → compress → drop),
+      // so an uncontended roll leaves now.md ABSENT (readNowMd → null) rather
+      // than truncate-to-0-bytes. Either way the contract is "no leftover".
+      expect((readNowMd(projectRoot) ?? '').trim()).toBe('');
     });
 
     it('existing same-day today-{date}.md: new content APPENDED (not overwriting)', async () => {
