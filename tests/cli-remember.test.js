@@ -257,6 +257,23 @@ describe('cmk remember — durable capture CLI', () => {
     expect(factFiles()).toHaveLength(0);
   });
 
+  // Review M2 — `--from-file`/`--json` are self-contained: rich flags passed
+  // alongside are ignored, but say so (don't drop them silently).
+  it('--from-file with rich flags warns they are ignored; the JSON fact wins', () => {
+    const fact = { text: 'a fact', type: 'feedback', title: 'self-contained', why: 'from the json' };
+    const factPath = join(projectRoot, 'sc.json');
+    writeFileSync(factPath, JSON.stringify(fact), 'utf8');
+    const r = cmk(['remember', '--from-file', factPath, '--why', 'from the flag (ignored)']);
+    expect(r.status ?? 0).toBe(0); // a warning, not a failure
+    expect(r.stderr).toMatch(/self-contained|ignor/i);
+    const content = readFileSync(
+      join(projectRoot, 'context', 'memory', 'feedback_self-contained.md'),
+      'utf8',
+    );
+    expect(content).toContain('**Why:** from the json'); // JSON wins
+    expect(content).not.toContain('from the flag'); // flag ignored
+  });
+
   // Review M2 — links as a JSON array land as related cross-links.
   it('--from-file: links as a JSON array land as related cross-links', () => {
     const fact = {

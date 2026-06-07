@@ -445,6 +445,16 @@ function runRemember(textParts, options) {
   // rich fields (text + why/how/type/title/links).
   if (options?.fromFile || options?.json) {
     const channel = options.fromFile ? '--from-file' : '--json';
+    // --from-file/--json are self-contained (the JSON is the whole fact). Any
+    // rich/terse flags passed alongside are ignored — say so, don't drop silently.
+    const ignored = ['why', 'how', 'type', 'title', 'links', 'tier', 'trust', 'section']
+      .filter((k) => options[k] != null)
+      .map((k) => '--' + k);
+    if (ignored.length) {
+      console.error(
+        `cmk remember: ${channel} is self-contained — ignoring ${ignored.join(', ')} (put these in the JSON instead).`,
+      );
+    }
     let raw;
     if (options.fromFile) {
       try {
@@ -1510,7 +1520,7 @@ export const subcommands = [
       { flags: '--type <type>', description: 'rich: feedback | project | reference | user (default: feedback)' },
       { flags: '--title <text>', description: 'rich: a short title (also the fact-file slug)' },
       { flags: '--links <a,b>', description: 'rich: related fact names for [[cross-links]]' },
-      { flags: '--from-file <path>', description: 'rich: read the fact as a JSON object from a file — shell-safe (content never touches argv; the safe way to capture backtick/quote-heavy Why/How). JSON keys: text (required), why, how, type, title, links.' },
+      { flags: '--from-file <path>', description: 'rich: read the fact as a JSON object from a file — shell-safe (content never touches argv; the safe way to capture backtick/quote-heavy Why/How). JSON keys: text (required), why, how, type, title, links. Self-contained — other flags are ignored.' },
       { flags: '--json', description: 'rich: read the fact as a JSON object from stdin (pipe-safe, shell-safe) — same JSON keys as --from-file' },
     ],
     action: runRemember,
