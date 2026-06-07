@@ -2,7 +2,7 @@
 
 This project uses **claude-memory-kit** for per-project, in-repo memory that survives session boundaries. Memory lives in `context/` (committed) and `context.local/` (gitignored). Cross-project memory lives at `~/.claude-memory-kit/` (or `$MEMORY_KIT_USER_DIR`).
 
-> v0.1.0 is under active development. This block is the runtime contract. Specific mechanisms (auto-extract, memory-write skill, MCP search) come online incrementally — `cmk doctor` will tell you which layers are active in the current install. Full architecture: <https://github.com/LH8PPL/claude-memory-kit/blob/main/docs/journey/v0.1.0-build-log.md>
+> This block is the runtime contract for the kit. `cmk doctor` reports which layers are active in your install. Docs: <https://github.com/LH8PPL/claude-memory-kit>
 
 ### Where memory lives
 
@@ -22,7 +22,7 @@ Precedence at session start: local > project > user (most-specific wins, others 
 
 ### Health checks (when `cmk doctor` is live)
 
-Health checks (HC-1..HC-8) verify each layer is wired correctly: install integrity, hook registration, transcript capture freshness, INDEX accuracy, cron registration, semantic search backend, native Auto Memory coexistence. See [`docs/adr/`](docs/adr/) and [`specs/v0.1.0/design.md`](specs/v0.1.0/design.md) for the full contract.
+The `cmk doctor` health checks verify each layer is wired correctly: install integrity, hook registration, transcript capture freshness, INDEX accuracy, cron registration, semantic search backend, native Auto Memory coexistence, and stale locks. Full design + decision records: <https://github.com/LH8PPL/claude-memory-kit>.
 
 ### Recalling memory (for Claude)
 

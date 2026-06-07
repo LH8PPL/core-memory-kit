@@ -23,7 +23,7 @@ How to update it:
 
 For inspiration:
   See claude-memory-kit's own journey log as a worked example:
-  https://github.com/LH8PPL/claude-memory-kit/blob/main/docs/journey/v0.1.0-build-log.md
+  https://github.com/LH8PPL/claude-memory-kit/tree/main/docs/journey
 
 This template uses HTML comments (like this one) to coach the
 user through each section. The comments are stripped from
