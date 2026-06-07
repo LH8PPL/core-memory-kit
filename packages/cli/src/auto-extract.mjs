@@ -371,9 +371,24 @@ export function parseCandidates(haikuOutput) {
 // native-parity bar). type defaults to 'project' when absent/invalid; a block
 // missing title OR body is skipped (writeFact requires both).
 const RICH_FACT_VALID_TYPES = new Set(['user', 'feedback', 'project', 'reference']);
-const RICH_FACT_KEY_RE = /^(type|title|body|why|how)\s*:\s*(.*)$/i;
+const RICH_FACT_KEYS = new Set(['type', 'title', 'body', 'why', 'how']);
 // Defensive per-field cap so a runaway block can't write an unbounded fact body.
 const RICH_FACT_FIELD_CAP = 4000;
+
+// Match a `key: value` field line. String-based (not a regex) — deterministically
+// linear, no backtracking surface. Semantics: the key must be at the START of
+// the line (no leading whitespace, mirroring an `^key` anchor), with optional
+// whitespace before the colon. Returns {key, value} or null (a continuation /
+// non-key line, e.g. a `- bullet:` inside a body).
+function matchRichFactKey(line) {
+  const idx = line.indexOf(':');
+  if (idx <= 0) return null;
+  const keyPart = line.slice(0, idx);
+  if (keyPart.trimStart().length !== keyPart.length) return null; // leading ws → not a key
+  const key = keyPart.trimEnd().toLowerCase();
+  if (!RICH_FACT_KEYS.has(key)) return null;
+  return { key, value: line.slice(idx + 1).trimStart() };
+}
 
 // A YAML block-scalar indicator as a field's entire first-line value (`|`,
 // `|-`, `>`, `>+`, `|2`, …). Live Haiku formats a multi-line body as `body: |`
@@ -397,10 +412,10 @@ function parseRichFactBlock(blockLines) {
   const fields = {};
   let currentKey = null;
   for (const line of blockLines) {
-    const m = line.match(RICH_FACT_KEY_RE);
+    const m = matchRichFactKey(line);
     if (m) {
-      currentKey = m[1].toLowerCase();
-      fields[currentKey] = m[2]; // first-line value (may be '' or a `|` scalar)
+      currentKey = m.key;
+      fields[currentKey] = m.value; // first-line value (may be '' or a `|` scalar)
     } else if (currentKey) {
       // Continuation of the current field — multi-line body / why / how.
       fields[currentKey] += '\n' + line;

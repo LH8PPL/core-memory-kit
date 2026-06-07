@@ -146,6 +146,27 @@ describe('Task 103 — parseRichFacts (BEGIN_FACT…END_FACT blocks)', () => {
     expect(facts[0].why).toBe('core architecture');
   });
 
+  it('treats an INDENTED key-like line as body content, not a field (key must be at line start)', () => {
+    const out = [
+      'BEGIN_FACT',
+      'title: T',
+      'body: summary',
+      '  why: this is an indented bullet, still body',
+      'why: the real rationale',
+      'END_FACT',
+    ].join('\n');
+    const facts = parseRichFacts(out);
+    expect(facts).toHaveLength(1);
+    expect(facts[0].body).toContain('why: this is an indented bullet, still body');
+    expect(facts[0].why).toBe('the real rationale');
+  });
+
+  it('allows optional whitespace before the colon (`title : x`)', () => {
+    const facts = parseRichFacts('BEGIN_FACT\ntitle : Spaced\nbody: b\nEND_FACT');
+    expect(facts).toHaveLength(1);
+    expect(facts[0].title).toBe('Spaced');
+  });
+
   it('parses multiple blocks in one output', () => {
     const out = [
       'BEGIN_FACT',
