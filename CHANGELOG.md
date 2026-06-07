@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Added
+
+- `cmk remember --from-file <fact.json>` and `cmk remember --json` (stdin): capture a rich fact as a JSON object read from a file or piped in, so backtick / `$()` / quote-heavy `Why`/`How` content never rides the shell command line. Fixes the silent corruption where bash command-substitution ate backtick spans in `--why`/`--how` arguments (D-81). _(Task 108a)_
+
 ## [0.2.2] — 2026-06-07
 
 ### Added
