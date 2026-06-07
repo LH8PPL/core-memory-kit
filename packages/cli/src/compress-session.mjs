@@ -189,7 +189,12 @@ function restoreRolling(projectRoot, rollingPath) {
   try {
     const claimed = readFileSync(rollingPath, 'utf8');
     const current = existsSync(nowPath) ? readFileSync(nowPath, 'utf8') : '';
-    const merged = current ? claimed.replace(/\n*$/, '\n') + current : claimed;
+    // Guarantee a newline boundary between the claimed (older) buffer and any
+    // concurrent appends. String op, not a regex — a trailing-anchored `\n*$`
+    // trips static-analysis's ReDoS heuristic (same convention as slugify in
+    // rich-fact.mjs / graduation.mjs).
+    const sep = claimed.endsWith('\n') ? '' : '\n';
+    const merged = current ? claimed + sep + current : claimed;
     writeFileSync(nowPath, merged, 'utf8');
     unlinkSync(rollingPath);
   } catch {
