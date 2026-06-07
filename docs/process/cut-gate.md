@@ -73,7 +73,7 @@ Remove-Item -Recurse -Force $env:USERPROFILE\.claude-memory-kit
 Validates scaffold integrity + the Task-69 skill surface.
 
 ```powershell
-mkdir C:\Temp\cut-gate3; cd C:\Temp\cut-gate3
+mkdir C:\Temp\cut-gate4; cd C:\Temp\cut-gate4
 git init; cmk install; cmk doctor
 code .
 ```
@@ -125,12 +125,11 @@ Routes stay thin and orchestrate; logic lives in services; data access in boring
 I'd rather pay the structure cost now than fight it in six months."
 
 **Stage 2 — swap to Claude + typing/TDD rule.**
- *Build:* "Change it to a single-user chat with Claude via the Claude Agent SDK
- (`claude-agent-sdk`) — a `ClaudeAgentService` wrapping `ClaudeSDKClient`, each
- WebSocket connection its own session."
+ *Build:* "Change it to a single-user chat with Claude via the Claude Agent SDK (`claude-agent-sdk`) - a `ClaudeAgentService` wrapping `ClaudeSDKClient`, each WebSocket connection its own session."
 
- *Say:* "Type hints on every signature — Python 3.12+. Comments explain why,
- not what. And tests first: boundary test, watch it fail, then implement."
+ *Say:* "Type hints on every signature - Python 3.12+. 
+Comments explain why, not what. 
+And tests first: boundary test, watch it fail, then implement."
 
 **Stage 3 — stream + async rule + the universal rule.**
  *Build:* "Stream Claude's output to the browser as it arrives — push JSON
@@ -149,6 +148,12 @@ I'd rather pay the structure cost now than fight it in six months."
       **neither** "Allow this bash command?" (the `cmk` call)
       **nor** "Use skill /memory-write?" (the skill).
       Both are allow-listed at install.
+      _**Known accepted edge (D-80 / §16.57):** if the agent wraps the call as
+      `cd "<abs project path>" && cmk remember …`, Claude Code prompts — not because
+      of `cmk` (the bare `cmk …` is allow-listed) but because the absolute-path `cd`
+      subcommand isn't auto-approved (compounds are checked per-subcommand). This is
+      a documented, deliberately-unfixed edge — click Yes and continue; it does NOT
+      fail R2 (the bare-`cmk` path is friction-free)._
 
 - [ ] **★ G5 — explicit-skill security check (Task 69).**
       Mid-build, say: *"remember this: my local cache is at C:\Users\<you>\cache\app."*
@@ -237,9 +242,9 @@ which carries raw, un-screened text, so it must never be committed.
 
 ```powershell
 # The security half (deterministic): the diagnostic log is gitignored.
-git -C C:\Temp\cut-gate3 check-ignore context\sessions\probe.extract.log
+git -C C:\Temp\cut-gate4 check-ignore context\sessions\probe.extract.log
 # The trace half (observational): if any build turn was graded LOW, you'll see it.
-findstr /S /C:"low_trust_discarded" C:\Temp\cut-gate3\context\sessions\*.extract.log
+findstr /S /C:"low_trust_discarded" C:\Temp\cut-gate4\context\sessions\*.extract.log
 ```
 
 - [ ] **★ B6 — PASS (must):**
@@ -381,10 +386,10 @@ then:
 ## 6. Session 3 — the cold-open (the wedge, wow #1)  ⬅️ a BRAND-NEW project
 
 ```powershell
-mkdir C:\Temp\cut-gate-coldopen3; cd C:\Temp\cut-gate-coldopen3
+mkdir C:\Temp\cut-gate-coldopen5; cd C:\Temp\cut-gate-coldopen5
 git init; cmk install; code .
 ```
-Ask: *"Start a new Python backend for me — set up the structure."*
+Ask: *"Start a new Python backend for me - set up the structure."*
 
 - [ ] **★ E1 — cold-open.**
       It scaffolds the **layered** shape + `uv`/`ruff` tooling **without being told** —
@@ -394,7 +399,7 @@ Ask: *"Start a new Python backend for me — set up the structure."*
 
 ---
 
-## 7. Full feature sweep — every `cmk` subcommand  (~15 min, in `C:\Temp\cut-gate3`)
+## 7. Full feature sweep — every `cmk` subcommand  (~15 min, in `C:\Temp\cut-gate4`)
 
 **Recall & index**
 
@@ -499,8 +504,8 @@ Ask: *"Start a new Python backend for me — set up the structure."*
 
 ## 9. Portability ("another computer")
 
-In `C:\Temp\cut-gate3`: `git add -A; git commit -m "wip"`.
-Clone elsewhere (`git clone C:\Temp\cut-gate3 C:\Temp\cut-gate-clone`), open *that* in Claude Code.
+In `C:\Temp\cut-gate4`: `git add -A; git commit -m "wip"`.
+Clone elsewhere (`git clone C:\Temp\cut-gate4 C:\Temp\cut-gate-clone`), open *that* in Claude Code.
 
 - [ ] **★ H1**
       the clone already has the project memory (`context/` is committed — tenet T2).
