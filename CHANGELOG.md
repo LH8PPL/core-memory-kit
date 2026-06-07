@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+## [0.2.2] — 2026-06-07
+
 ### Added
 
 - **Automatic memory now writes rich Why/How fact files, not just one-line bullets (Task 103).** The per-turn auto-extract pass — the one that runs in the background on every assistant turn and is immune to which memory tool the model happens to reach for — now synthesizes **structured fact files** (a titled record with a breakdown body + **Why** + **How to apply**) for durable project knowledge: your setup/config, project conventions, completed workflows, and tool quirks. Lighter signals (corrections, preferences) still land as terse `MEMORY.md` bullets. Before this, only the explicit `cmk remember --why/--how` produced rich files — so if the model saved to Claude Code's built-in memory instead, you lost the rich tier. Now rich capture rides the automatic path, at `trust: medium` (a later explicit `cmk remember` still supersedes), screened by the same secret-guard + home-path sanitization as every other write, and searchable via `cmk search`.
