@@ -42,9 +42,11 @@ Three independently-surfaced facts converge on one architecture:
 
 3. **Free speech is the interface (D-85).** The regular user — and even the maintainer — never types `cmk`; they voice intents (*"forget the API key"*, *"what did we decide about X"*) and assume it happens or happened automatically. For Claude to act on a write intent it needs a **tool**. A retrieval-only MCP + a remember-only skill leaves *"forget X" / "trust this"* with **no path at all**.
 
-§10.3 ("MCP = retrieval; writes via the `memory-write` skill") was the right v0.1 *state* — the proven hook+skill model. But **ADR-0006's "Alternatives considered" already weighed "MCP for retrieval+writes" (the `codenamev/claude_memory` inversion) and deferred it to v0.2 as a possible refactor**, keeping the shell-write path only "because it's the proven model." The three findings above are the *why-now* for that deferred line.
+§10.3 ("MCP = retrieval; writes via the `memory-write` skill") was the right v0.1 *state* — the proven hook+skill model. But **ADR-0006's "Alternatives considered" already weighed "MCP for retrieval+writes" and deferred it to v0.2 as a possible refactor**, keeping the shell-write path only "because it's the proven model." The three findings above are the *why-now* for that deferred line.
 
-Source research (basic-memory, AGPL; mempalace, MIT — patterns only, no code lifted) gives a clear target + anti-target: basic-memory routes `cli/` + `mcp/` (+ a web `api/`) over a shared `services/`+`repository/` core; mempalace has no core layer and two monolithic per-surface files that drift.
+**The basis is the kit's OWN earned evidence — not external precedent.** Everything above (the MCP/CLI drift, D-81, R2/D-80, D-85) is **first-party**: surfaced from *building and testing this product* — the cut-gate live run, the CLI↔MCP parity audit, and watching how the user (and even the maintainer) actually use it (never typing `cmk`). That is the justification; we do not lean on outside concepts for it. The kit is mature enough now that its own tested conclusions lead.
+
+**External products only corroborate the shape (independent convergence) — they don't ground it.** Our conclusions happen to align with prior art: **basic-memory** (source-verified 2026-06-07) independently runs the same dual CLI+MCP over one `services/`+`repository/` core with MCP **write tools** (`write_note`/`edit_note`) — the strongest comparative confirmation ([source research](../research/2026-06-07-dual-surface-cli-mcp-architecture.md)); **claude-mem** (MCP-backed writes), **antigravity** (`agent-memory-mcp`), and **Hermes** (the action-model `memory` tool our own `memory-write` already borrows) sit the same way; **mempalace** is the cautionary dual-surface (no shared core → drift). The "MCP-for-writes inversion" was *first flagged*, at project start, by `codenamev/claude_memory` (an unverified [2026-05-21 Option-B note](../research/2026-05-21-claude-ai-deep-research-option-b.md)) — the oldest, weakest pointer, cited for completeness, not relied on. **Convergence across third parties is not proof (the kit's own rule); our cut-gate evidence is.** Nothing is lifted (basic-memory AGPL, mempalace MIT — patterns + citation only).
 
 ## Decision
 
@@ -62,16 +64,19 @@ Source research (basic-memory, AGPL; mempalace, MIT — patterns only, no code l
 ## Consequences
 
 ### Positive
+
 - Every voiced intent (read AND write) has a Claude-mediated path → the free-speech model (D-85) actually works end-to-end.
 - Rich capture is shell-safe (D-81) and prompt-free (R2/D-80) on the MCP path.
 - One implementation per op → CLI and MCP cannot diverge in behavior; the parity guard makes drift a build failure.
 - The skill becomes a thin phrase-trigger *over* the MCP tools, not a separate shell-write path.
 
 ### Negative
+
 - More MCP tools to maintain — mitigated by the shared core (the tools are thin) + the guard (drift is caught).
 - A refactor touching many call sites (every CLI action + every MCP tool re-pointed at the core). Mitigated by caller-mapping both ways before each change (the binding rule) + TDD.
 
 ### Neutral
+
 - The `memory-write` skill stays (D-85: phrase triggers are a convenience over the tools). Hooks/auto-extract are unchanged — they already write via the core (`writeFact`/`memoryWrite`), not the shell.
 - No internal HTTP API now. If `cmk view`'s web UI or a cloud/cross-agent story ever ships, basic-memory's swappable transport (in-process ASGI / network HTTP) is the blueprint to revisit — noted, not adopted.
 
