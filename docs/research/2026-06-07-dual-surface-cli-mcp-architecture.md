@@ -54,6 +54,20 @@ Cloud mode swaps in a real network `AsyncClient`. So their parity mechanism = **
 | **Counterfactual** | Without it I'd have only the positive example; this shows the concrete failure mode (per-surface monoliths that drift) we're spending Task 108 to avoid, and confirms "dual-surface ≠ 1:1 parity." |
 | **Verdict** | **Helpful (negative result).** |
 
+## claude-mem — third dual-surface product, in OUR stack (source-verified, structure)
+
+**Layout** (`src/`, TS/Node): `cli/` (handlers, adapters, **`stdin-reader.ts`**) + `server/` + top-level **`core/` + `services/` + `shared/` + `sdk/`** + `storage/` + `hooks/` + `adapters/`. **But `src/server/` is a full backend** — `routes/`, `middleware/`, `auth/`, `queue/`, `jobs/`, *and* `mcp/`. The MCP lives *inside* a server backend (like basic-memory's `api/`), not as a thin in-process adapter.
+
+| Adoption-verification | |
+|---|---|
+| **Adopted** | The layered shared-core idea (a 3rd confirmation: `core/`+`services/`+`shared/`+`sdk/` under separate `cli/` + `server/` front-ends), in our own language. The CLI's `stdin-reader.ts` corroborates the off-shell stdin input channel. |
+| **What it provided (concrete) + the correction it forced** | It **corrected** a premature read: I'd inferred "no `api/` dir ⇒ in-process." `server/` (routes/middleware/auth/queue/jobs/mcp) *is* the backend. So **both** leaders (basic-memory + claude-mem) run a server/backend layer — claude-mem heavier (auth/queue/jobs). "In-process shared-core is the norm" is **false**. |
+| **Counterfactual** | Without this dive the ADR would have claimed "the leaders share the core in-process" — a wrong, hollow read from a directory name. |
+| **Verdict** | **Helpful (corrective).** |
+| **Honest gap** | Could NOT resolve claude-mem's CLI↔server wire (HTTP vs in-process) from structure alone (API sizes zero). Doesn't change our decision (we go in-process regardless). |
+
+**Corrected synthesis point:** our in-process shared core (no server layer) is a **deliberate, scope-justified simplification** — single-user/local/Node, no hosting/auth/background-jobs — **not what the leaders do.** They go heavier *because* of cloud/web/multi-user scope we don't have.
+
 ## Input channels — off-shell (from prior source notes, re-confirmed)
 
 - **basic-memory MCP**: in-process params (ASGI) — never a shell.
