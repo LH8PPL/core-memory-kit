@@ -8,16 +8,9 @@
 // that throws would interrupt session start, which is worse than
 // emitting an empty additionalContext.
 
-import { readFileSync, existsSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-
-// Drain stdin so callers blocking on EPIPE don't hang.
-try {
-  readFileSync(0, 'utf8');
-} catch {
-  // stdin not connected; fine.
-}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -29,6 +22,15 @@ const __dirname = dirname(__filename);
 // — two levels up + into packages/. When the plugin is published, the
 // packages/ tree will need to be bundled/published alongside; that
 // wiring is a release-engineering question, not a Task-18 question.
+const readHookStdinPath = join(
+  __dirname,
+  '..',
+  '..',
+  'packages',
+  'cli',
+  'src',
+  'read-hook-stdin.mjs',
+);
 const modulePath = join(
   __dirname,
   '..',
@@ -49,14 +51,14 @@ const compressLazyPath =
     ? join(__dirname, '..', '..', 'packages', 'cli', 'bin', 'cmk-compress-lazy.mjs')
     : null);
 
+let readHookStdin;
 let injectContext;
 try {
+  ({ readHookStdin } = await import(pathToFileURL(readHookStdinPath).href));
   ({ injectContext } = await import(pathToFileURL(modulePath).href));
 } catch (err) {
   process.stderr.write(
-    `cmk-inject-context: failed to load module at ${modulePath}: ${
-      err?.message ?? String(err)
-    }\n`,
+    `cmk-inject-context: failed to load modules: ${err?.message ?? String(err)}\n`,
   );
   process.stdout.write(
     JSON.stringify({
@@ -68,6 +70,12 @@ try {
   );
   process.exit(0);
 }
+
+// Drain stdin so callers blocking on EPIPE don't hang — but NOT on an
+// interactive TTY (a manual run): a blocking stdin read would hang forever on a
+// console that never sends EOF (Task 101; DECISION-LOG 2026-06-06). The payload
+// is discarded; readHookStdin returns '' for a TTY so a manual run finishes.
+readHookStdin({ isTTY: process.stdin.isTTY });
 
 try {
   const r = injectContext({ cwd: process.cwd(), compressLazyPath });

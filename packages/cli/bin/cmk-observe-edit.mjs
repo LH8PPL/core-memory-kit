@@ -11,16 +11,31 @@
 // must never surface in the user's session. The append is
 // fire-and-forget by design.
 
-import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-let raw = '';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const readHookStdinPath = join(__dirname, '..', 'src', 'read-hook-stdin.mjs');
+const modulePath = join(__dirname, '..', 'src', 'observe-edit.mjs');
+
+let readHookStdin;
+let observeEdit;
 try {
-  raw = readFileSync(0, 'utf8');
-} catch {
+  ({ readHookStdin } = await import(pathToFileURL(readHookStdinPath).href));
+  ({ observeEdit } = await import(pathToFileURL(modulePath).href));
+} catch (err) {
+  process.stderr.write(
+    `cmk-observe-edit: failed to load modules: ${err?.message ?? err}\n`,
+  );
   process.exit(0);
 }
+
+// Drain the hook payload — but NOT on an interactive TTY (a manual run):
+// a blocking stdin read would hang forever on a console that never sends EOF, before
+// any body runs (Task 101; DECISION-LOG 2026-06-06). readHookStdin returns ''
+// for a TTY so a manual invocation finishes instead of hanging.
+const raw = readHookStdin({ isTTY: process.stdin.isTTY });
 
 let payload;
 try {
@@ -28,20 +43,6 @@ try {
 } catch (err) {
   process.stderr.write(
     `cmk-observe-edit: failed to parse stdin JSON: ${err?.message ?? err}\n`,
-  );
-  process.exit(0);
-}
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const modulePath = join(__dirname, '..', 'src', 'observe-edit.mjs');
-
-let observeEdit;
-try {
-  ({ observeEdit } = await import(pathToFileURL(modulePath).href));
-} catch (err) {
-  process.stderr.write(
-    `cmk-observe-edit: failed to load module: ${err?.message ?? err}\n`,
   );
   process.exit(0);
 }

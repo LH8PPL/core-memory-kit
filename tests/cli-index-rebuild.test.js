@@ -17,6 +17,7 @@ import {
   rmSync,
   writeFileSync,
   mkdirSync,
+  utimesSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -216,6 +217,20 @@ describe('Task 29 — index-rebuild', () => {
         ].join('\n'),
         'utf8',
       );
+      // Force a strictly-later mtime on the edited file before the second boot.
+      // reindexBoot's fast path skips files whose floor(mtimeMs) matches the
+      // indexed checkpoint — an intentional, documented caveat (index-rebuild.mjs
+      // §"a content change that PRESERVES the old mtime ... won't be re-indexed").
+      // In production an edit lands seconds/minutes after the last boot-index, so
+      // mtime always advances and the change is seen. This test writes the seed
+      // and the edit <1ms apart, so under load (5x stress) floor(mtimeMs) can
+      // collide and the real content change is skipped (filesReindexed === 0).
+      // Bumping mtime simulates the real-world gap, making the reindex-on-edit
+      // contract deterministic. NOT masking a bug — the fast path is correct by
+      // design; the test was relying on the clock advancing between two writes,
+      // which isn't guaranteed. (Task 101 stress detour — DECISION-LOG D-76.)
+      const future = new Date(Date.now() + 10_000);
+      utimesSync(factPath, future, future);
       const r = reindexBoot({ projectRoot, userDir, db });
       expect(r.filesReindexed).toBe(1);
       // The reindex propagated to the observations table.

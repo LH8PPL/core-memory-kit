@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Fixed
+
+- **Hook bins no longer hang when run manually without piped input (Task 101).** v0.2.0 fixed this for the SessionEnd bin (`cmk-compress-session`, Task 100), but every other lifecycle hook bin — `cmk-capture-prompt`, `cmk-capture-turn`, `cmk-inject-context`, `cmk-observe-edit`, and the plugin's `cmk-version-check` — shared the same blocking stdin drain: run one by hand (e.g. to debug) without redirecting input and it would hang forever waiting for an end-of-input the terminal never sends. They now detect an interactive terminal and skip the blocking read, so a manual run finishes instead of stalling. No change as a real hook — Claude Code still pipes the payload exactly as before.
+
 ## [0.2.1] — 2026-06-06
 
 ### Docs

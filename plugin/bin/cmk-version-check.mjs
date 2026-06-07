@@ -12,14 +12,35 @@
 // diagnostics on stderr. The kit's hooks return {"continue": true} so
 // Claude Code proceeds normally even when the real handler is absent.
 
-import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-// Drain stdin so a caller blocking on EPIPE doesn't hang.
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const readHookStdinPath = join(
+  __dirname,
+  '..',
+  '..',
+  'packages',
+  'cli',
+  'src',
+  'read-hook-stdin.mjs',
+);
+
+let readHookStdin;
 try {
-  readFileSync(0, 'utf8');
+  ({ readHookStdin } = await import(pathToFileURL(readHookStdinPath).href));
 } catch {
-  // stdin not connected; fine.
+  // read-hook-stdin missing (corrupt install) — honor the hook protocol + exit.
+  process.stdout.write(JSON.stringify({ continue: true }));
+  process.exit(0);
 }
+
+// Drain stdin so a caller blocking on EPIPE doesn't hang — but NOT on an
+// interactive TTY (a manual run): a blocking stdin read would hang forever on a
+// console that never sends EOF (Task 101; DECISION-LOG 2026-06-06). The payload
+// is discarded; readHookStdin returns '' for a TTY so a manual run finishes.
+readHookStdin({ isTTY: process.stdin.isTTY });
 
 process.stderr.write(
   'cmk: Setup hook (cmk-version-check) — not yet implemented\n',

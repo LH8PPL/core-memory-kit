@@ -43,8 +43,8 @@ try {
 }
 
 // Drain the hook payload so Claude Code's pipe closes cleanly — but NOT when
-// stdin is an interactive TTY (a manual run): readFileSync(0) would block
-// forever on a console that never sends EOF, hanging before any of the body
+// stdin is an interactive TTY (a manual run): a blocking stdin read would hang
+// forever on a console that never sends EOF, before any of the body
 // runs (DECISION-LOG 2026-06-06). The payload is discarded; we read state from
 // disk. readHookStdin returns '' for a TTY so a manual invocation finishes.
 readHookStdin({ isTTY: process.stdin.isTTY });
