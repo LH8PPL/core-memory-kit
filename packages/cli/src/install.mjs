@@ -51,8 +51,16 @@ const CLI_SRC_DIR = dirname(__filename);
 const REPO_ROOT_DEV = resolve(CLI_SRC_DIR, '..', '..', '..');
 const CLI_PKG_DIR = resolve(CLI_SRC_DIR, '..');
 
-const GITIGNORE_START = '# claude-memory-kit:gitignore:start v0.1.0';
+// The start marker carries the install version (matching the CLAUDE.md block,
+// which is load-bearing for upgrade detection). The replace-regex in
+// injectGitignore ignores the version, so it's cosmetic for idempotency — but
+// it must not show a stale hardcode (was `v0.1.0` in every install). Built per
+// install from the kit version; see gitignoreStartMarker().
 const GITIGNORE_END = '# claude-memory-kit:gitignore:end';
+
+function gitignoreStartMarker(version) {
+  return `# claude-memory-kit:gitignore:start v${version}`;
+}
 
 /**
  * Read the kit version from the cli package's package.json.
@@ -216,12 +224,12 @@ function installTier(srcDir, destDir, { created, skipped, errors, vars }) {
  * Build the canonical .gitignore managed block from template/.gitignore.fragment.
  * Adds start/end markers around the fragment so we can refresh in place.
  */
-function buildGitignoreBlock(templateDir) {
+function buildGitignoreBlock(templateDir, version = getKitVersion()) {
   const fragmentPath = join(templateDir, '.gitignore.fragment');
   const fragment = existsSync(fragmentPath)
     ? readFileSync(fragmentPath, 'utf8').trim()
     : 'context.local/\ncontext/.index/\ncontext/.locks/';
-  return `${GITIGNORE_START}\n${fragment}\n${GITIGNORE_END}\n`;
+  return `${gitignoreStartMarker(version)}\n${fragment}\n${GITIGNORE_END}\n`;
 }
 
 /**
@@ -318,7 +326,7 @@ export async function install(options = {}) {
     });
   }
 
-  const gitignore = injectGitignore(projectRoot, buildGitignoreBlock(templateDir));
+  const gitignore = injectGitignore(projectRoot, buildGitignoreBlock(templateDir, version));
 
   // CLAUDE.md loader block — Task 4. Read the block content from the kit's
   // template/ and inject (or refresh) it inside marker delimiters. Never

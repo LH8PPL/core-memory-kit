@@ -139,4 +139,47 @@ describe('Task 1 — template/ scaffolding', () => {
       expect(tpl()).toMatch(/never hand-write[^\n]*context\/memory\//i);
     });
   });
+
+  // Task 107 — Task 82 scrubbed kit-internal cruft from the scaffold templates
+  // but MISSED the CLAUDE.md block: a v0.2.2 live-test install showed it still
+  // said "v0.1.0 is under active development", "HC-1..HC-8" (there are 9), and
+  // carried RELATIVE links to docs/adr/ + specs/v0.1.0/design.md that resolve
+  // inside the USER's project, where those paths don't exist. This guards the
+  // scrub so the scaffold a user opens never leaks a stale version or a kit-repo
+  // path again.
+  describe('Task 107 — scaffolded CLAUDE.md is free of kit-internal cruft (finishes Task 82)', () => {
+    const tpl = () =>
+      readFileSync(join(REPO_ROOT, 'template', 'CLAUDE.md.template'), 'utf8');
+
+    it('pins no stale kit version / "under active development" framing', () => {
+      const text = tpl();
+      expect(text).not.toMatch(/v0\.1\.0/);
+      expect(text).not.toMatch(/under active development/i);
+    });
+
+    it('carries no hardcoded HC count (HC-1..HC-N drifts as checks are added)', () => {
+      expect(tpl()).not.toMatch(/HC-1\s*\.\.\s*HC-\d/);
+    });
+
+    it('links to no kit-repo-internal paths that are absent in a user project', () => {
+      // A user's CLAUDE.md must not RELATIVE-link docs/adr/ or specs/… — they
+      // resolve inside the user's own repo (404). External github URLs are fine.
+      const text = tpl();
+      expect(text).not.toMatch(/\]\(docs\/adr\//);
+      expect(text).not.toMatch(/\]\(specs\//);
+      expect(text).not.toMatch(/specs\/v0\.1\.0/);
+    });
+  });
+
+  // Task 107 — the gitignore fragment is also user-facing (lands in the user's
+  // .gitignore); no internal Task-NN references in its comments.
+  describe('Task 107 — .gitignore fragment carries no internal Task-NN reference', () => {
+    it('explains the extract.log exclusion without naming a kit task', () => {
+      const frag = readFileSync(
+        join(REPO_ROOT, 'template', '.gitignore.fragment'),
+        'utf8',
+      );
+      expect(frag).not.toMatch(/Task\s*\d/);
+    });
+  });
 });

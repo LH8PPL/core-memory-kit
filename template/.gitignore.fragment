@@ -12,7 +12,7 @@ context/.index/
 context/.locks/
 
 # Diagnostic NDJSON logs (observability only; carry raw turn excerpts —
-# e.g. Task 92's low_trust_discarded traces — that are NOT Poison_Guard-
-# screened, so they must never be committed). The durable memory lives in
-# the scratchpads + fact files, not these logs.
+# e.g. discarded-low-trust traces — that are NOT secret-screened, so they
+# must never be committed). The durable memory lives in the scratchpads +
+# fact files, not these logs.
 context/sessions/*.extract.log

@@ -39,7 +39,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
-import { install } from '../packages/cli/src/install.mjs';
+import { install, getKitVersion } from '../packages/cli/src/install.mjs';
 
 const CMK_BIN = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -324,6 +324,16 @@ describe('Task 3 — cmk install', () => {
       const content = readFileSync(join(projectRoot, '.gitignore'), 'utf8');
       expect(content).toContain('claude-memory-kit:gitignore:start');
       expect(content).toContain('claude-memory-kit:gitignore:end');
+    });
+
+    it('Task 107 — the gitignore start marker carries the INSTALL version, not a stale hardcode', async () => {
+      // Was hardcoded `:start v0.1.0` while the CLAUDE.md block (load-bearing,
+      // version-injected) correctly showed the install version — a confusing
+      // drift in a v0.2.x install. The marker now tracks the kit version.
+      await install({ projectRoot, userTier });
+      const content = readFileSync(join(projectRoot, '.gitignore'), 'utf8');
+      expect(content).toContain(`claude-memory-kit:gitignore:start v${getKitVersion()}`);
+      expect(content).not.toMatch(/gitignore:start v0\.1\.0/);
     });
 
     it('preserves unrelated entries outside the managed block on re-install', async () => {
