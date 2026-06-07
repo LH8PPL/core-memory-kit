@@ -35,7 +35,7 @@ const VALID_WRITE_SOURCES = new Set([
 
 function slugify(s) {
   // Collapse non-alphanumerics to single dashes, cap, trim edges (string ops,
-  // no trailing-dash quantifier — matches subcommands.slugifyFact's ReDoS-safe
+  // no trailing-dash quantifier — matches rich-fact.slugifyFact's ReDoS-safe
   // shape).
   let base = String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40);
   if (base.startsWith('-')) base = base.slice(1);

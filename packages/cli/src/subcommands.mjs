@@ -27,6 +27,7 @@ import { autoPersona } from './auto-persona.mjs';
 import { exportPersona, importPersona } from './persona-portability.mjs';
 import { setNativeAutoMemory, nativeMemoryInstallNote } from './native-memory.mjs';
 import { writeFact } from './write-fact.mjs';
+import { buildRichFactBody, slugifyFact } from './rich-fact.mjs';
 import { createHash } from 'node:crypto';
 import { runLazyCompress } from './lazy-compress.mjs';
 import { runDoctor } from './doctor.mjs';
@@ -356,25 +357,6 @@ function runSearch(queryParts, options) {
  */
 // Task 63 (F1): a slug derived from the title — lowercased, non-alphanumerics
 // collapsed to '-', trimmed, capped. Always passes writeFact's SLUG_PATTERN.
-function slugifyFact(s) {
-  // Collapse every run of non-alphanumerics to a single '-' (so dashes are
-  // never doubled), cap, then trim a leading/trailing dash without a regex
-  // quantifier (static analysis flags trailing `-+$` as ReDoS-prone; a single
-  // dash is all that can remain after the collapse, so string ops suffice).
-  let base = String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60);
-  if (base.startsWith('-')) base = base.slice(1);
-  if (base.endsWith('-')) base = base.slice(0, -1);
-  return base || 'fact';
-}
-
-// Assemble the rich fact body in the v0.1.1 shape: headline + Why + How.
-function buildRichFactBody({ text, why, how }) {
-  const parts = [String(text).trim()];
-  if (why && String(why).trim()) parts.push(`**Why:** ${String(why).trim()}`);
-  if (how && String(how).trim()) parts.push(`**How to apply:** ${String(how).trim()}`);
-  return parts.join('\n\n');
-}
-
 /**
  * `cmk remember --why … --how … --type … --title …` (Task 63 / F1) — RICH
  * capture. Writes a real granular fact file (frontmatter + Why/How/links) via

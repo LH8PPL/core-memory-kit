@@ -35,6 +35,7 @@ import {
   mkdirSync,
   openSync,
   closeSync,
+  readdirSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -1014,5 +1015,189 @@ describe('Task 23 — runAutoExtract() boundary', () => {
       // Cleartext key must not appear in the log.
       expect(JSON.stringify(pgLog[0])).not.toContain('sk-ant-api03-');
     });
+  });
+});
+
+describe('Task 103 — rich fact synthesis (auto-extract → fact store)', () => {
+  let sandbox;
+  let projectRoot;
+
+  beforeEach(async () => {
+    const f = makeFixture();
+    sandbox = f.sandbox;
+    projectRoot = f.projectRoot;
+    await installFixture(projectRoot);
+  });
+
+  afterEach(() => {
+    rmSync(sandbox, { recursive: true, force: true });
+  });
+
+  // Read the project fact store (context/memory/), excluding the derived INDEX.
+  function readFactFiles() {
+    const dir = join(projectRoot, 'context', 'memory');
+    if (!existsSync(dir)) return [];
+    return readdirSync(dir)
+      .filter((n) => n.endsWith('.md') && n !== 'INDEX.md')
+      .map((n) => ({ name: n, text: readFileSync(join(dir, n), 'utf8') }));
+  }
+
+  // A durable-knowledge rich block with a structured (bulleted) body — the
+  // native-parity shape (a labelled breakdown, not one vague sentence).
+  const RICH_BLOCK = [
+    'BEGIN_FACT',
+    'type: project',
+    'title: Layered FastAPI backend',
+    'body: The backend is layered:',
+    '- Routes: thin HTTP layer, no logic',
+    '- Services: business logic',
+    '- Repositories: DB access',
+    'why: keeps each layer testable and swappable',
+    'how: new endpoints add a route then service then repo slice',
+    'END_FACT',
+  ];
+
+  it('rich FACT block → fact file at trust:medium / write_source:auto-extract, structured body + Why/How (Door 1+2)', async () => {
+    const turnFile = writeTurnFile(projectRoot, {
+      user: 'how is the backend structured?',
+      assistant: 'it is layered: routes, services, repositories',
+    });
+    const r = await runAutoExtract({
+      turnFile,
+      projectRoot,
+      haikuBackend: mockBackend(...RICH_BLOCK),
+      now: '2026-06-07T10:00:00Z',
+    });
+    // Door 1 (Response)
+    expect(r.action).toBe('extracted');
+    expect(r.observation_count).toBe(1);
+    expect(r.richFacts).toHaveLength(1);
+    expect(r.richFacts[0].written).toBe('fact');
+    // Door 2 (State) — the fact file on disk
+    const facts = readFactFiles();
+    expect(facts).toHaveLength(1);
+    expect(facts[0].name).toBe('project_layered-fastapi-backend.md');
+    const text = facts[0].text;
+    expect(text).toContain('trust: medium');
+    expect(text).toContain('write_source: auto-extract');
+    // structured body preserved verbatim + Why/How blocks (the parity bar)
+    expect(text).toContain('- Routes: thin HTTP layer, no logic');
+    expect(text).toContain('- Repositories: DB access');
+    expect(text).toContain('**Why:** keeps each layer testable and swappable');
+    expect(text).toContain('**How to apply:** new endpoints add a route then service then repo slice');
+  });
+
+  it('extract.log records rich_facts_written (Door 4)', async () => {
+    const turnFile = writeTurnFile(projectRoot, 'a turn');
+    await runAutoExtract({
+      turnFile,
+      projectRoot,
+      haikuBackend: mockBackend(...RICH_BLOCK),
+      now: '2026-06-07T10:00:00Z',
+    });
+    const log = await readExtractLog(projectRoot, '2026-06-07');
+    const entry = log.find((e) => e.success === true && e.observation_count >= 1);
+    expect(entry).toBeDefined();
+    expect(entry.rich_facts_written).toBe(1);
+  });
+
+  it('rich facts go DIRECT to the fact store, NOT the medium-trust review queue', async () => {
+    const turnFile = writeTurnFile(projectRoot, 'a turn');
+    await runAutoExtract({
+      turnFile,
+      projectRoot,
+      haikuBackend: mockBackend(...RICH_BLOCK),
+      now: '2026-06-07T10:00:00Z',
+    });
+    // the deliberate deviation: medium-trust BULLETS queue, but rich FACTS don't
+    expect(existsSync(join(projectRoot, 'context', 'queues', 'review.md'))).toBe(false);
+    expect(readFactFiles()).toHaveLength(1);
+  });
+
+  it('XOR dedup: a terse line equal to a rich fact body is NOT also written as a MEMORY.md bullet', async () => {
+    const memoryBefore = readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8');
+    const turnFile = writeTurnFile(projectRoot, 'a turn');
+    const r = await runAutoExtract({
+      turnFile,
+      projectRoot,
+      haikuBackend: mockBackend(
+        'BEGIN_FACT',
+        'title: Use uv not pip',
+        'body: use uv never pip',
+        'why: reproducible and fast',
+        'END_FACT',
+        // same canonical text as the rich fact's body → must be dropped
+        'TRUST_HIGH user:use uv never pip',
+      ),
+      now: '2026-06-07T10:00:00Z',
+    });
+    expect(r.observation_count).toBe(1); // the rich fact only
+    expect(readFactFiles()).toHaveLength(1);
+    const memoryAfter = readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8');
+    expect(memoryAfter).toBe(memoryBefore); // the colliding bullet was NOT written
+  });
+
+  it('isolation: a rich fact carrying a secret is rejected, but a co-emitted terse bullet still lands', async () => {
+    const turnFile = writeTurnFile(projectRoot, 'a turn');
+    const r = await runAutoExtract({
+      turnFile,
+      projectRoot,
+      haikuBackend: mockBackend(
+        'BEGIN_FACT',
+        'title: Leaky config',
+        // allowlisted poison-guard fixture (also in .gitleaks.toml)
+        'body: the deploy token is ghp_1234567890abcdefghij1234567890abcdef12',
+        'END_FACT',
+        'TRUST_HIGH user:the project uses trunk-based development',
+      ),
+      now: '2026-06-07T10:00:00Z',
+    });
+    // rich fact poison-rejected → no fact file written...
+    expect(readFactFiles()).toHaveLength(0);
+    const rejected = r.richFacts.find((w) => w.written === 'rejected');
+    expect(rejected).toBeDefined();
+    expect(rejected.rejected_category).toBe('poison_guard');
+    // ...but the terse bullet still landed (rich rejection is isolated)
+    const memory = readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8');
+    expect(memory).toContain('trunk-based development');
+    expect(r.observation_count).toBe(1);
+    // Door 4 trace: the rejection is recorded in extract.log (don't-lose-without-
+    // trace) — title only, and the secret NEVER reaches this log.
+    const log = await readExtractLog(projectRoot, '2026-06-07');
+    const trace = log.find((e) => e.event === 'rich_fact_rejected');
+    expect(trace).toBeDefined();
+    expect(trace.rejected_category).toBe('poison_guard');
+    expect(trace.title).toContain('Leaky config');
+    expect(JSON.stringify(log)).not.toContain('ghp_1234567890');
+  });
+
+  it('multiple rich facts in one turn → multiple fact files', async () => {
+    const turnFile = writeTurnFile(projectRoot, 'a turn');
+    const r = await runAutoExtract({
+      turnFile,
+      projectRoot,
+      haikuBackend: mockBackend(
+        'BEGIN_FACT', 'title: Indentation Convention', 'body: tabs not spaces', 'END_FACT',
+        'BEGIN_FACT', 'title: Commit Convention', 'body: conventional commits required', 'END_FACT',
+      ),
+      now: '2026-06-07T10:00:00Z',
+    });
+    expect(r.observation_count).toBe(2);
+    expect(readFactFiles()).toHaveLength(2);
+  });
+
+  it('a rich-only turn still extracts (not skipped as nothing_durable)', async () => {
+    const turnFile = writeTurnFile(projectRoot, 'a turn');
+    const r = await runAutoExtract({
+      turnFile,
+      projectRoot,
+      haikuBackend: mockBackend(
+        'BEGIN_FACT', 'title: Sole Fact', 'body: the only durable thing this turn', 'END_FACT',
+      ),
+      now: '2026-06-07T10:00:00Z',
+    });
+    expect(r.action).toBe('extracted');
+    expect(r.observation_count).toBe(1);
+    expect(readFactFiles()).toHaveLength(1);
   });
 });

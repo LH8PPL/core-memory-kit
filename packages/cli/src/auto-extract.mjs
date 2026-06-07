@@ -48,8 +48,11 @@ import {
   appendFileSync,
 } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { createHash } from 'node:crypto';
 import { generateId } from '@lh8ppl/cmk-canonicalize';
 import { memoryWrite } from './memory-write.mjs';
+import { writeFact } from './write-fact.mjs';
+import { buildRichFactBody, slugifyFact } from './rich-fact.mjs';
 import { HaikuTimeoutError } from './compressor.mjs';
 import { pidIsAlive } from './lock-discipline.mjs';
 import { nowIso } from './audit-log.mjs';
@@ -284,6 +287,21 @@ export function buildExtractionInstructions() {
     '',
     'Note: assistant-origin candidates are auto-demoted one trust level before routing (HIGH → MEDIUM → LOW → discarded). This is intentional — assistant inferences need user review. Emit your honest trust assessment; the routing layer handles demotion.',
     '',
+    'ALSO — rich fact files (durable project KNOWLEDGE). This is a SEPARATE output from the terse TRUST_ lines. When a turn reveals a durable, substantive piece of project knowledge worth a FULL record — a setup/configuration fact (trigger 3), a project convention (trigger 4), a completed multi-step workflow worth recording (trigger 5), or a tool quirk/workaround (trigger 6) — emit a BEGIN_FACT block (below) INSTEAD OF a terse TRUST_ line for it. Keep terse TRUST_ lines for the LIGHTER signals: user corrections and discovered preferences (triggers 1–2) and active threads. Emit each fact EITHER as a rich BEGIN_FACT block OR as a terse TRUST_ line — NEVER both.',
+    'Format (one block per durable fact):',
+    '  BEGIN_FACT',
+    '  type: project',
+    '  title: <short Title-Case headline, ≤ 80 chars>',
+    '  body: <what is true; if it has parts, give a short labelled markdown breakdown over multiple lines, NOT one vague sentence>',
+    '  why: <why it is true / why it matters — the rationale a future session needs>',
+    '  how: <how the next session should apply it>',
+    '  END_FACT',
+    'Rules for BEGIN_FACT blocks:',
+    '  - body may span multiple lines (markdown bullets are encouraged when the knowledge has parts — make the saved fact genuinely useful to a future session, at least as detailed as a careful hand-written note). Write it as plain markdown on the lines after `body:` — do NOT use a YAML block scalar (`|` or `>`).',
+    '  - title AND body are required; why/how are strongly preferred but optional. type defaults to project.',
+    '  - Do NOT invent facts; synthesize only what the turn shows. Never put a secret, token, password, or key in a block.',
+    '  - These facts are saved automatically (no review step), so be selective: only genuinely durable knowledge, at most a few per turn.',
+    '',
     'ALSO — cross-project doctrine. This is a REQUIRED, PER-FACT pass, separate from the TRUST_ lines above. Re-scan the SAME turn for EVERY fact that expresses how this user works in ALL their projects (tooling habits, how they structure their work, communication / process style — NOT specifics that belong to this ONE project, like a particular value, name, or detail that would not carry to their other projects). **For EACH such cross-project fact, emit its OWN PERSONA CANDIDATE line — one line per fact. If the turn states THREE cross-project rules, emit THREE PERSONA CANDIDATE lines. Never collapse several rules into one line, and never skip a rule because the turn is busy or already has TRUST_ lines.** Format (one line per cross-project fact):',
     '  PERSONA CANDIDATE | target=<HABITS.md|LESSONS.md|USER.md> | section=<Section> | confidence=<high|medium|low> | <one-line restatement>',
     '    - HABITS.md  → sections: Iteration Cadence | Destructive Operations | Communication Style',
@@ -310,7 +328,11 @@ function buildExtractionPrompt({ userTurn, assistantTurn, dedupContext }) {
   return sections.join('\n');
 }
 
-function parseCandidates(haikuOutput) {
+// Exported for the live-Haiku smoke (spawn-smoke-auto-extract-rich.test.js),
+// which asserts the enriched prompt still elicits parseable terse OR rich
+// output from real Haiku. The terse format is the extraction prompt's contract,
+// same as parseRichFacts above.
+export function parseCandidates(haikuOutput) {
   if (!haikuOutput || typeof haikuOutput !== 'string') return [];
   const lines = haikuOutput.split('\n');
   const candidates = [];
@@ -326,6 +348,127 @@ function parseCandidates(haikuOutput) {
     candidates.push({ trust, origin, text });
   }
   return candidates;
+}
+
+// --- Rich-fact parser (Task 103) ------------------------------------
+
+// Durable project KNOWLEDGE (the six triggers' config / convention / workflow /
+// quirk facts) is emitted by Haiku as a fenced block, parsed here into the
+// fields writeFact() needs. Lives next to parseCandidates + buildExtraction-
+// Instructions — the format and its parser stay together (same as the terse
+// TRUST_ surface). See design §6.4.
+//
+//   BEGIN_FACT
+//   type: project
+//   title: <short title>
+//   body: <summary; MAY continue as markdown bullets on following lines>
+//   why: <rationale>
+//   how: <how to apply>
+//   END_FACT
+//
+// A field's value continues across lines until the next recognized key or the
+// block close — so `body` can hold a multi-line structured breakdown (the
+// native-parity bar). type defaults to 'project' when absent/invalid; a block
+// missing title OR body is skipped (writeFact requires both).
+const RICH_FACT_VALID_TYPES = new Set(['user', 'feedback', 'project', 'reference']);
+const RICH_FACT_KEYS = new Set(['type', 'title', 'body', 'why', 'how']);
+// Defensive per-field cap so a runaway block can't write an unbounded fact body.
+const RICH_FACT_FIELD_CAP = 4000;
+
+// Match a `key: value` field line. String-based (not a regex) — deterministically
+// linear, no backtracking surface. Semantics: the key must be at the START of
+// the line (no leading whitespace, mirroring an `^key` anchor), with optional
+// whitespace before the colon. Returns {key, value} or null (a continuation /
+// non-key line, e.g. a `- bullet:` inside a body).
+function matchRichFactKey(line) {
+  const idx = line.indexOf(':');
+  if (idx <= 0) return null;
+  const keyPart = line.slice(0, idx);
+  if (keyPart.trimStart().length !== keyPart.length) return null; // leading ws → not a key
+  const key = keyPart.trimEnd().toLowerCase();
+  if (!RICH_FACT_KEYS.has(key)) return null;
+  return { key, value: line.slice(idx + 1).trimStart() };
+}
+
+// A YAML block-scalar indicator as a field's entire first-line value (`|`,
+// `|-`, `>`, `>+`, `|2`, …). Live Haiku formats a multi-line body as `body: |`
+// then indents the content — we must not keep the literal `|` or the indent.
+const BLOCK_SCALAR_RE = /^[|>][+-]?\d*$/;
+
+// Normalize a parsed field value: drop a leading block-scalar indicator line,
+// then dedent (strip the common leading whitespace the block scalar adds). A
+// plain single-line value passes through untouched.
+function cleanFieldValue(raw) {
+  const lines = (raw ?? '').split('\n');
+  if (lines.length && BLOCK_SCALAR_RE.test(lines[0].trim())) lines.shift();
+  const indents = lines
+    .filter((l) => l.trim() !== '')
+    .map((l) => (l.match(/^[ \t]*/)?.[0].length ?? 0));
+  const minIndent = indents.length ? Math.min(...indents) : 0;
+  return lines.map((l) => l.slice(minIndent)).join('\n').trim();
+}
+
+function parseRichFactBlock(blockLines) {
+  const fields = {};
+  let currentKey = null;
+  for (const line of blockLines) {
+    const m = matchRichFactKey(line);
+    if (m) {
+      currentKey = m.key;
+      fields[currentKey] = m.value; // first-line value (may be '' or a `|` scalar)
+    } else if (currentKey) {
+      // Continuation of the current field — multi-line body / why / how.
+      fields[currentKey] += '\n' + line;
+    }
+    // A non-key line before any key is ignored.
+  }
+  const title = cleanFieldValue(fields.title);
+  const body = cleanFieldValue(fields.body);
+  if (!title || !body) return null; // writeFact requires both
+  let type = cleanFieldValue(fields.type).toLowerCase();
+  if (!RICH_FACT_VALID_TYPES.has(type)) type = 'project';
+  const why = cleanFieldValue(fields.why);
+  const how = cleanFieldValue(fields.how);
+  return {
+    type,
+    title: title.slice(0, RICH_FACT_FIELD_CAP),
+    body: body.slice(0, RICH_FACT_FIELD_CAP),
+    why: why ? why.slice(0, RICH_FACT_FIELD_CAP) : '',
+    how: how ? how.slice(0, RICH_FACT_FIELD_CAP) : '',
+  };
+}
+
+// Exported for direct unit-testing (cli-rich-fact.test.js) — the BEGIN_FACT
+// format is the extraction prompt's contract, pinned independently of a live
+// Haiku call.
+export function parseRichFacts(haikuOutput) {
+  if (!haikuOutput || typeof haikuOutput !== 'string') return [];
+  const lines = haikuOutput.split('\n');
+  const facts = [];
+  let i = 0;
+  while (i < lines.length) {
+    if (lines[i].trim().toUpperCase() !== 'BEGIN_FACT') {
+      i++;
+      continue;
+    }
+    // Collect block lines until END_FACT, the next BEGIN_FACT (missing close —
+    // don't let it swallow the following block), or end-of-output.
+    i++;
+    const blockLines = [];
+    while (i < lines.length) {
+      const marker = lines[i].trim().toUpperCase();
+      if (marker === 'END_FACT') {
+        i++;
+        break;
+      }
+      if (marker === 'BEGIN_FACT') break; // close here; leave i for the outer loop
+      blockLines.push(lines[i]);
+      i++;
+    }
+    const fact = parseRichFactBlock(blockLines);
+    if (fact) facts.push(fact);
+  }
+  return facts;
 }
 
 // Demote assistant-origin candidates one trust level. User-origin
@@ -454,6 +597,45 @@ function routeMedium({ candidate, projectRoot, ts }) {
   ].join('\n');
   appendFileSync(reviewPath, block, 'utf8');
   return { action: 'queued', id, path: reviewPath };
+}
+
+// Route a rich fact to the project fact store via writeFact() (Task 103).
+//
+// Direct-to-fact-store (NOT the review queue the terse medium-trust path uses):
+// the point of Task 103 is AUTOMATIC native-parity capture — native writes its
+// fact files with no approval step, so parity requires the same. The fact store
+// is searchable-but-not-full-trust-injected, writeFact already screens every
+// write (home-path sanitize + Poison_Guard + schema + INDEX/reindex), and a
+// later explicit `cmk remember` (trust:high) supersedes. See design §6.4.
+//
+// trust:medium / write_source:auto-extract marks it as a Haiku synthesis
+// (proposal-grade), below the explicit-high tier. The body is built by the SAME
+// rich-fact.mjs helper the explicit path uses, so an auto-extracted fact reads
+// identically to a `cmk remember --why/--how` one.
+function routeRichFact({ candidate, projectRoot, ts }) {
+  const body = buildRichFactBody({
+    text: candidate.body,
+    why: candidate.why,
+    how: candidate.how,
+  });
+  return writeFact({
+    tier: 'P',
+    type: candidate.type,
+    slug: slugifyFact(candidate.title),
+    title: candidate.title,
+    body,
+    writeSource: 'auto-extract',
+    trust: 'medium',
+    sourceFile: 'auto-extract',
+    sourceLine: 1,
+    // Content fingerprint for the provenance field — NOT a security context.
+    // Matches the kit's sha1-of-content convention (write-fact.mjs caller in
+    // subcommands.runRememberRich, memory-write.mjs); writeFact dedups by the
+    // content-addressed id, this is just source_sha1. // NOSONAR
+    sourceSha1: createHash('sha1').update(body).digest('hex'), // NOSONAR
+    createdAt: ts,
+    projectRoot,
+  });
 }
 
 // --- NDJSON extract.log ---------------------------------------------
@@ -668,6 +850,22 @@ export async function runAutoExtract({
     candidates = applyRetainOverride(candidates, retainSegments);
     candidates = dedupByCanonicalId(candidates);
 
+    // Task 103 — rich fact synthesis on the native-immune Stop-hook path. The
+    // SAME Haiku output may carry BEGIN_FACT blocks (durable project KNOWLEDGE)
+    // alongside the terse TRUST_ lines; route them to the fact store via
+    // writeFact (richer + searchable). No second LLM call — same outputText.
+    const richFacts = parseRichFacts(haikuResult.outputText);
+    // XOR safety net: the prompt asks Haiku to emit a fact as EITHER a rich
+    // block OR a terse line, never both. If it does both for the same fact, the
+    // rich block wins — drop any terse candidate whose canonical id matches a
+    // rich fact's body, so it isn't ALSO written as a MEMORY.md bullet. (Keyed
+    // on the rich fact's raw `body` headline vs the terse `text` — the prompt
+    // enforces the semantic XOR; this catches the exact-restatement case.)
+    if (richFacts.length > 0) {
+      const richIds = new Set(richFacts.map((f) => generateId('P', f.body)));
+      candidates = candidates.filter((c) => !richIds.has(generateId('P', c.text)));
+    }
+
     // Task 61 — inline cross-project promotion. The SAME Haiku output may
     // carry PERSONA CANDIDATE lines (cross-project doctrine); promote them to
     // the user tier THIS run (vs the weekly auto-persona janitor). No second
@@ -719,10 +917,11 @@ export async function runAutoExtract({
         }
       : {};
 
-    if (candidates.length === 0 && !personaLanded) {
+    if (candidates.length === 0 && richFacts.length === 0 && !personaLanded) {
       const entry = {
         ...baseEntry,
         ...personaLogFields,
+        rich_facts_written: 0,
         success: true,
         skipped_reason: 'nothing_durable',
         duration_ms: Date.now() - t0,
@@ -735,6 +934,7 @@ export async function runAutoExtract({
         duration_ms: entry.duration_ms,
         logPath,
         candidates: [],
+        richFacts: [],
         persona,
       };
     }
@@ -787,9 +987,57 @@ export async function runAutoExtract({
       }
     }
 
-    const observation_count = writes.filter(
-      (w) => w.written === 'memory' || w.written === 'review' || w.written === 'conflict',
-    ).length;
+    // 6b. Route rich facts to the fact store (Task 103). Each writeFact is
+    //     isolated in try/catch — a Poison_Guard / schema / collision rejection
+    //     (or an unexpected throw) must NOT take down terse routing or the
+    //     persona pass, exactly like the inline persona isolation above. A
+    //     'created' counts toward observation_count; a 'skipped' (content
+    //     duplicate) is a no-op success that doesn't re-count; anything else is
+    //     'rejected' with its category for analytics (Door 4).
+    const richWrites = [];
+    for (const fact of richFacts) {
+      try {
+        const r = routeRichFact({ candidate: fact, projectRoot, ts });
+        let written;
+        if (r?.action === 'created') written = 'fact';
+        else if (r?.action === 'skipped') written = 'fact-duplicate';
+        else written = 'rejected';
+        const rec = { ...fact, written, result: r };
+        if (written === 'rejected') {
+          rec.rejected_category = r?.errorCategory ?? 'unknown';
+          // Trace the drop (§6.5 don't-lose-without-trace), mirroring the terse
+          // low-discard trace — a rejected rich fact is otherwise invisible once
+          // the detached process exits. TITLE ONLY, never the body: a
+          // poison_guard rejection means the body may carry a secret (the
+          // redacted excerpt is already in poison-guard.log). One NDJSON entry
+          // per rejection (Door 4).
+          writeExtractLogEntry({
+            projectRoot,
+            ts,
+            entry: {
+              event: 'rich_fact_rejected',
+              reason: 'rich_fact_rejected',
+              rejected_category: rec.rejected_category,
+              title: fact.title.slice(0, LOW_DISCARD_EXCERPT_MAX),
+            },
+          });
+        }
+        richWrites.push(rec);
+      } catch (err) {
+        richWrites.push({
+          ...fact,
+          written: 'rejected',
+          rejected_category: 'exception',
+          error: err?.message ?? String(err),
+        });
+      }
+    }
+    const richFactsWritten = richWrites.filter((w) => w.written === 'fact').length;
+
+    const observation_count =
+      writes.filter(
+        (w) => w.written === 'memory' || w.written === 'review' || w.written === 'conflict',
+      ).length + richFactsWritten;
 
     // Persona-only turn: no project candidate landed, but cross-project
     // doctrine promoted to the user tier this run. That IS a durable
@@ -799,6 +1047,7 @@ export async function runAutoExtract({
       const entry = {
         ...baseEntry,
         ...personaLogFields,
+        rich_facts_written: richFactsWritten,
         success: true,
         skipped_reason: 'nothing_durable',
         duration_ms: Date.now() - t0,
@@ -811,6 +1060,7 @@ export async function runAutoExtract({
         duration_ms: entry.duration_ms,
         logPath,
         candidates: writes,
+        richFacts: richWrites,
         persona,
       };
     }
@@ -818,6 +1068,7 @@ export async function runAutoExtract({
     const entry = {
       ...baseEntry,
       ...personaLogFields,
+      rich_facts_written: richFactsWritten,
       success: true,
       observation_count,
       duration_ms: Date.now() - t0,
@@ -829,6 +1080,7 @@ export async function runAutoExtract({
       duration_ms: entry.duration_ms,
       logPath,
       candidates: writes,
+      richFacts: richWrites,
       persona,
     };
   } finally {
