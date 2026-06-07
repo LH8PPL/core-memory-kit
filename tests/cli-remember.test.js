@@ -10,7 +10,7 @@
 // the self-test bug was that the *agent's own writes* bypassed the safe path.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, readFileSync, readdirSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -36,10 +36,11 @@ afterEach(() => {
   rmSync(sandbox, { recursive: true, force: true });
 });
 
-function cmk(args) {
+function cmk(args, input) {
   return spawnSync(process.execPath, [CMK_BIN, ...args], {
     cwd: projectRoot,
     encoding: 'utf8',
+    input,
     env: { ...process.env, MEMORY_KIT_USER_DIR: userDir },
   });
 }
@@ -135,6 +136,159 @@ describe('cmk remember — durable capture CLI', () => {
     expect(r.status ?? 0).toBe(0);
     const content = readFileSync(
       join(projectRoot, 'context', 'memory', 'feedback_ruff-tooling.md'),
+      'utf8',
+    );
+    expect(content).toMatch(/related:/);
+    expect(content).toContain('python-tooling');
+    expect(content).toContain('uv-package-manager');
+  });
+
+  // Task 108.2 (108a) — `cmk remember --from-file <json>`: the D-81 fix.
+  // D-81: `cmk remember --how "...`code`..."` THROUGH bash gets its backtick
+  // spans eaten by command-substitution → silent corruption (proven in the
+  // cut-gate5 run). The fix: pass the fact as a JSON FILE; the content never
+  // touches a shell command line, so backticks / $() / quotes / newlines survive
+  // byte-perfect. Real-binary path (Door 3) proves the optionSpec wires it AND
+  // that writeFact persists the content intact (Door 2).
+  it('--from-file: rich content with backticks/$()/quotes/newlines lands byte-perfect (D-81)', () => {
+    const richHow =
+      'create it (`python -m venv .venv`), then `.\\.venv\\Scripts\\pip install`;\n' +
+      'never $(system pip) or "global" installs';
+    const fact = {
+      text: 'Always use .venv for Python packages',
+      type: 'feedback',
+      title: 'use-venv-shellsafe',
+      why: 'isolate from system Python',
+      how: richHow,
+    };
+    const factPath = join(projectRoot, 'fact.json');
+    writeFileSync(factPath, JSON.stringify(fact), 'utf8');
+
+    const r = cmk(['remember', '--from-file', factPath]);
+    expect(r.status ?? 0).toBe(0);
+    expect(r.stdout).toMatch(/saved rich fact/);
+
+    const content = readFileSync(
+      join(projectRoot, 'context', 'memory', 'feedback_use-venv-shellsafe.md'),
+      'utf8',
+    );
+    // The exact backtick spans bash command-substitution destroyed (D-81) survive:
+    expect(content).toContain('`python -m venv .venv`');
+    expect(content).toContain('`.\\.venv\\Scripts\\pip install`');
+    expect(content).toContain('$(system pip)');
+    expect(content).toContain('**Why:** isolate from system Python');
+  });
+
+  it('--from-file: malformed JSON fails loudly (exit 2), writes nothing (no silent corruption)', () => {
+    const factPath = join(projectRoot, 'bad.json');
+    writeFileSync(factPath, '{ this is not: json', 'utf8');
+    const r = cmk(['remember', '--from-file', factPath]);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/json|parse|--from-file/i);
+    expect(factFiles()).toHaveLength(0);
+  });
+
+  // Task 108.2 (108a) — `--json`: the same structured-JSON channel, read from
+  // stdin (pipe-safe). Same off-shell guarantee as --from-file.
+  it('--json: reads the structured fact from stdin; backtick content survives', () => {
+    const fact = {
+      text: 'Run ruff before committing',
+      type: 'feedback',
+      title: 'ruff-precommit-stdin',
+      why: 'catch lint before it lands',
+      how: 'run ruff check on `git diff --name-only` and never $(skip it)',
+    };
+    const r = cmk(['remember', '--json'], JSON.stringify(fact));
+    expect(r.status ?? 0).toBe(0);
+    expect(r.stdout).toMatch(/saved rich fact/);
+    const content = readFileSync(
+      join(projectRoot, 'context', 'memory', 'feedback_ruff-precommit-stdin.md'),
+      'utf8',
+    );
+    expect(content).toContain('`git diff --name-only`');
+    expect(content).toContain('$(skip it)');
+    expect(content).toContain('**Why:** catch lint before it lands');
+  });
+
+  // Review I1 — provenance lock: a crafted JSON must NOT be able to forge the
+  // write_source / source_file (the user-explicit provenance contract). Fields
+  // are allowlisted; provenance is hardcoded in runRememberRich.
+  it('--from-file: crafted JSON cannot forge provenance (write_source stays user-explicit)', () => {
+    const fact = {
+      text: 'a normal fact',
+      type: 'feedback',
+      title: 'provenance-lock',
+      why: 'x',
+      writeSource: 'auto-extract',
+      write_source: 'auto-extract',
+      sourceFile: '/etc/passwd',
+      source_file: '/etc/passwd',
+    };
+    const factPath = join(projectRoot, 'evil.json');
+    writeFileSync(factPath, JSON.stringify(fact), 'utf8');
+    const r = cmk(['remember', '--from-file', factPath]);
+    expect(r.status ?? 0).toBe(0);
+    const content = readFileSync(
+      join(projectRoot, 'context', 'memory', 'feedback_provenance-lock.md'),
+      'utf8',
+    );
+    expect(content).toMatch(/write_source: user-explicit/);
+    expect(content).not.toContain('auto-extract');
+    expect(content).not.toContain('/etc/passwd');
+  });
+
+  // Review I2 — size cap: an oversized fact is rejected (Poison_Guard DoS guard,
+  // matching mk_remember's bounded input).
+  it('--from-file: an oversized fact is rejected (exit 2), writes nothing', () => {
+    const fact = { text: 'big', why: 'x'.repeat(70 * 1024), type: 'feedback', title: 'too-big' };
+    const factPath = join(projectRoot, 'huge.json');
+    writeFileSync(factPath, JSON.stringify(fact), 'utf8');
+    const r = cmk(['remember', '--from-file', factPath]);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/too large|size|limit|KB/i);
+    expect(factFiles()).toHaveLength(0);
+  });
+
+  // Review M1 — bare `cmk remember` (no text, no channel) gives a clear usage error.
+  it('bare `cmk remember` (no text, no channel) → clear usage error (exit 2)', () => {
+    const r = cmk(['remember']);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/provide|--from-file|--json/i);
+    expect(factFiles()).toHaveLength(0);
+  });
+
+  // Review M2 — `--from-file`/`--json` are self-contained: rich flags passed
+  // alongside are ignored, but say so (don't drop them silently).
+  it('--from-file with rich flags warns they are ignored; the JSON fact wins', () => {
+    const fact = { text: 'a fact', type: 'feedback', title: 'self-contained', why: 'from the json' };
+    const factPath = join(projectRoot, 'sc.json');
+    writeFileSync(factPath, JSON.stringify(fact), 'utf8');
+    const r = cmk(['remember', '--from-file', factPath, '--why', 'from the flag (ignored)']);
+    expect(r.status ?? 0).toBe(0); // a warning, not a failure
+    expect(r.stderr).toMatch(/self-contained|ignor/i);
+    const content = readFileSync(
+      join(projectRoot, 'context', 'memory', 'feedback_self-contained.md'),
+      'utf8',
+    );
+    expect(content).toContain('**Why:** from the json'); // JSON wins
+    expect(content).not.toContain('from the flag'); // flag ignored
+  });
+
+  // Review M2 — links as a JSON array land as related cross-links.
+  it('--from-file: links as a JSON array land as related cross-links', () => {
+    const fact = {
+      text: 'use ruff for lint + format',
+      type: 'feedback',
+      title: 'ruff-links',
+      why: 'one tool',
+      links: ['python-tooling', 'uv-package-manager'],
+    };
+    const factPath = join(projectRoot, 'links.json');
+    writeFileSync(factPath, JSON.stringify(fact), 'utf8');
+    const r = cmk(['remember', '--from-file', factPath]);
+    expect(r.status ?? 0).toBe(0);
+    const content = readFileSync(
+      join(projectRoot, 'context', 'memory', 'feedback_ruff-links.md'),
       'utf8',
     );
     expect(content).toMatch(/related:/);

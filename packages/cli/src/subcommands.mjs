@@ -28,6 +28,7 @@ import { exportPersona, importPersona } from './persona-portability.mjs';
 import { setNativeAutoMemory, nativeMemoryInstallNote } from './native-memory.mjs';
 import { writeFact } from './write-fact.mjs';
 import { buildRichFactBody, slugifyFact } from './rich-fact.mjs';
+import { readHookStdin } from './read-hook-stdin.mjs';
 import { createHash } from 'node:crypto';
 import { runLazyCompress } from './lazy-compress.mjs';
 import { runDoctor } from './doctor.mjs';
@@ -431,11 +432,128 @@ export function runRememberRich(text, options = {}, deps = {}) {
   return r;
 }
 
-function runRemember(textParts, options) {
-  const projectRoot = resolvePath(process.cwd());
+/**
+ * Task 108.2 (108a) — parse a structured fact from the off-shell input channel
+ * (`--from-file <path>` or `--json` stdin). PURE + dependency-injected (the CLI
+ * passes real fs readers; tests pass fakes) so every parse/validate/allowlist
+ * branch is covered IN-PROCESS — the real-binary subprocess tests prove the CLI
+ * wiring but don't contribute line coverage.
+ *
+ * @param {object} options - subcommand options (fromFile/json + the rich flags).
+ * @param {object} deps
+ * @param {(path:string)=>string} deps.readFile - read a file to a string (throws on error).
+ * @param {()=>string} deps.readStdin - read stdin to a string ('' for TTY/empty).
+ * @returns {{ok:true,channel:string,fields:object,ignored:string[]}
+ *          | {ok:false,channel:string,error:string,ignored:string[]}}
+ */
+export function parseFactInput(options, { readFile, readStdin } = {}) {
+  const channel = options.fromFile ? '--from-file' : '--json';
+  // --from-file/--json are self-contained (the JSON is the whole fact); rich /
+  // terse flags passed alongside are ignored — surfaced so they aren't dropped silently.
+  const ignored = ['why', 'how', 'type', 'title', 'links', 'tier', 'trust', 'section']
+    .filter((k) => options[k] != null)
+    .map((k) => '--' + k);
+  const fail = (error) => ({ ok: false, channel, error, ignored });
+
+  let raw;
+  if (options.fromFile) {
+    try {
+      raw = readFile(options.fromFile);
+    } catch (e) {
+      return fail(`${channel} could not read ${options.fromFile}: ${e.message}`);
+    }
+  } else {
+    // '' = interactive TTY or empty pipe (read-hook-stdin returns '' for a TTY).
+    raw = readStdin();
+    if (!raw || !raw.trim()) {
+      return fail('--json expects a JSON object on stdin (pipe it in, or use --from-file).');
+    }
+  }
+
+  // Bound the input so a pathological file can't burn Poison_Guard regex time
+  // (the M1 concern that capped mk_remember). 64 KB is generous for one fact.
+  const MAX_INPUT_BYTES = 64 * 1024;
+  if (Buffer.byteLength(raw, 'utf8') > MAX_INPUT_BYTES) {
+    return fail(`${channel} fact is too large (max ${MAX_INPUT_BYTES / 1024} KB). Split it into smaller facts.`);
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    return fail(`${channel} could not parse JSON: ${e.message}`);
+  }
+  if (
+    !parsed ||
+    typeof parsed !== 'object' ||
+    Array.isArray(parsed) ||
+    typeof parsed.text !== 'string' ||
+    !parsed.text.trim()
+  ) {
+    return fail(`${channel} JSON must be an object with a non-empty "text" field.`);
+  }
+
+  // Allowlist the honored fields — NEVER forward the raw parsed object. A crafted
+  // JSON must not reach a field runRememberRich might read; provenance
+  // (write_source / source_file) stays hardcoded user-explicit in runRememberRich.
+  return {
+    ok: true,
+    channel,
+    ignored,
+    fields: {
+      text: parsed.text,
+      why: parsed.why,
+      how: parsed.how,
+      type: parsed.type,
+      title: parsed.title,
+      links: parsed.links,
+      tier: parsed.tier,
+      trust: parsed.trust,
+    },
+  };
+}
+
+export function runRemember(textParts, options, deps = {}) {
+  const projectRoot = deps.projectRoot ?? resolvePath(process.cwd());
   const userDir =
-    process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+    deps.userDir ?? process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+  const log = deps.log ?? console.log;
+  const logError = deps.logError ?? console.error;
+
+  // Task 108.2 (108a) — structured off-shell input. `--from-file`/`--json` carry
+  // the fact as a JSON object from a FILE or STDIN, so rich content (backticks,
+  // $(), quotes, newlines) never rides the shell command line — the D-81 fix.
+  // The parse/validate/allowlist lives in the pure parseFactInput() helper.
+  if (options?.fromFile || options?.json) {
+    const parsed = parseFactInput(options, {
+      readFile: (p) => readFileSync(p, 'utf8'),
+      readStdin: () => readHookStdin({ isTTY: process.stdin.isTTY }),
+    });
+    if (parsed.ignored.length) {
+      logError(
+        `cmk remember: ${parsed.channel} is self-contained — ignoring ${parsed.ignored.join(', ')} (put these in the JSON instead).`,
+      );
+    }
+    if (!parsed.ok) {
+      logError(`cmk remember: ${parsed.error}`);
+      process.exitCode = 2;
+      return;
+    }
+    runRememberRich(parsed.fields.text, parsed.fields, { projectRoot, log, logError });
+    return;
+  }
+
   const text = Array.isArray(textParts) ? textParts.join(' ') : textParts;
+  // Bare `cmk remember` — no positional text and no input channel. The positional
+  // arg is optional now (for --from-file/--json), so guard explicitly instead of
+  // falling through to a vague empty-text write error.
+  if (!text || !String(text).trim()) {
+    logError(
+      'cmk remember: provide a fact to remember, or use --from-file <json> / --json (stdin).',
+    );
+    process.exitCode = 2;
+    return;
+  }
   // Rich mode: any of --why/--how/--type/--title/--links → write a real fact
   // file (the F1 fix) instead of a terse MEMORY.md bullet. M3: --trust and
   // --section are intentionally NOT triggers — --trust is shared by both forms
@@ -1412,7 +1530,7 @@ export const subcommands = [
     name: 'remember',
     description: 'capture a durable fact (Poison_Guard + home-path abstraction). Terse → a MEMORY.md bullet; RICH (--why/--how/--type) → a granular fact file with rationale (the safe way to capture richly).',
     milestone: 24,
-    argSpec: [{ flags: '<text...>', description: 'the fact to remember' }],
+    argSpec: [{ flags: '[text...]', description: 'the fact to remember (omit when using --from-file)' }],
     optionSpec: [
       { flags: '--tier <tier>', description: 'P (default; U/L are v0.1.x)' },
       { flags: '--trust <level>', description: 'high | medium | low (default: high)' },
@@ -1423,6 +1541,8 @@ export const subcommands = [
       { flags: '--type <type>', description: 'rich: feedback | project | reference | user (default: feedback)' },
       { flags: '--title <text>', description: 'rich: a short title (also the fact-file slug)' },
       { flags: '--links <a,b>', description: 'rich: related fact names for [[cross-links]]' },
+      { flags: '--from-file <path>', description: 'rich: read the fact as a JSON object from a file — shell-safe (content never touches argv; the safe way to capture backtick/quote-heavy Why/How). JSON keys: text (required), why, how, type, title, links. Self-contained — other flags are ignored.' },
+      { flags: '--json', description: 'rich: read the fact as a JSON object from stdin (pipe-safe, shell-safe) — same JSON keys as --from-file' },
     ],
     action: runRemember,
   },
