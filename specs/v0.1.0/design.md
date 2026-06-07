@@ -1033,6 +1033,11 @@ sessions/now.md
   │
   │  At SessionEnd: Haiku compresses now.md → today-{date}.md (one-shot per session)
   │  Truncate now.md after success.
+  │  ALSO at SessionStart (lazy fallback, Task 105/D-75): if now.md still holds
+  │  prior-session content (the prior session didn't cleanly close — Claude Code
+  │  fires SessionEnd only on a clean window-close, NOT new-chat-same-window),
+  │  the detached lazy worker rolls it → today-{date}.md. So the roll never
+  │  depends on a clean exit; now.md can't grow unbounded.
   ▼
 sessions/today-{YYYY-MM-DD}.md
   │
@@ -1087,11 +1092,13 @@ Public boundary:
 
 ```js
 detectStaleness({projectRoot, now, dailyTtlMs?, weeklyTtlMs?})
-  → {action: 'fresh' | 'stale-daily' | 'stale-weekly' | 'cron-active' | 'no-context-dir', reason}
+  → {action: 'fresh' | 'stale-now' | 'stale-daily' | 'stale-weekly' | 'cron-active' | 'no-context-dir', reason}
 
 async runLazyCompress({projectRoot, backend, now, cooldownMs?, dailyTtlMs?, weeklyTtlMs?})
-  → {action: 'distilled' | 'curated' | 'skipped' | 'error', ...}
+  → {action: 'compressed' | 'distilled' | 'curated' | 'skipped' | 'error', verdict, delegatedTo, ...}
 ```
+
+**`stale-now` (Task 105/D-75):** the now→today roll was historically SessionEnd-only (§8.1), and Claude Code fires SessionEnd only on a clean window-close — so a never-cleanly-closed session left `now.md` growing unbounded with no `today-*.md`/`recent.md` built. `detectStaleness` now returns `stale-now` (highest precedence after cron/no-context-dir) when `now.md` carries content, and `runLazyCompress` dispatches it to **`compressSession`** (the same roll the SessionEnd hook runs). At SessionStart `now.md` can only hold PRIOR-session turns (this session's captures haven't fired), so non-empty ⇒ stale. The roll is detached (a Haiku call can't run inline in the 500ms SessionStart budget), so THIS session injects pre-roll state and the next session gets the rolled state — the standard lazy tradeoff. The today→recent + weekly levels cascade on subsequent SessionStarts once `now.md` is drained (one-verdict-one-cycle). The 120s cooldown composes: `runLazyCompress` gates up front and passes `cooldownMs:0` to the inner `compressSession`, so a clean SessionEnd immediately followed by a reopen doesn't double-roll (and now.md is already empty anyway). Unlike `now.md`, MEMORY.md graduation already has a reactive-on-write path (Task 94), so it never grew unbounded — the now→today roll was the unique gap.
 
 Composition:
 
@@ -2151,7 +2158,9 @@ Deferred to v0.1.x because: (a) no data-loss path; (b) the 120s cooldown (now co
 
 Trigger to ship: a real instance of the race causing visible user pain (corrupted today-{date}.md OR cost-budget overrun from double-compress).
 
-Provenance: Task 27 code-review finding I4 (2026-05-27).
+**Task 105 interaction (2026-06-07) — the likelihood went UP, and a minor new loss path opened.** Task 105 (D-78) added a SECOND caller of `compressSession`: the SessionStart lazy roll (detached). Unlike SessionEnd (the session is ENDING, so no concurrent appender — the race needs a still-in-flight PostToolUse), the SessionStart roll fires while a NEW session is STARTING and actively appending to `now.md`. `compressSession` reads `now.md`, spends ~5–10s in the Haiku call, then `truncateSync(now.md, 0)` — so a new turn appended in that window is **dropped from `today-*.md`** (NOT merely re-compressed next time, as in the SessionEnd case). **Bounded:** the dropped turn still lives in `context/transcripts/{date}.md` (capture-prompt/capture-turn write it there), so it's a session-DIARY fidelity gap, recoverable — not durable-memory loss. **Timing usually avoids it:** a new session's first `now.md` append (first Stop/PostToolUse) typically lands AFTER the ~10s roll completes (the user is still reading injected context / typing). **Net still strongly positive:** before Task 105, a never-cleanly-closed session left `now.md` growing UNBOUNDED and never rolling at all — a rare one-turn diary gap is far better. **This is now the concrete "visible user pain" trigger** for the file-rename fix (candidate #1): it closes the race for BOTH callers atomically. Recommend shipping it as a focused follow-up (the rename touches the shared `compressSession` read/truncate steps + needs its own race test, so it earns its own PR rather than riding Task 105).
+
+Provenance: Task 27 code-review finding I4 (2026-05-27); Task 105 self-review (2026-06-07).
 
 ### 16.28 Windows `shell: true` grandchild process reaping
 
