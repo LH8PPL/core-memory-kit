@@ -37,6 +37,7 @@ import { openIndexDb } from './index-db.mjs';
 import { reindexBoot } from './index-rebuild.mjs';
 import { search, SEARCH_MODES } from './search.mjs';
 import { memoryWrite } from './memory-write.mjs';
+import { rememberRich } from './remember-core.mjs';
 import { ID_PATTERN, resolveTierRoot } from './tier-paths.mjs';
 
 // --- Path-traversal validation (design §10.2; tasks.md 31.2) ----------
@@ -205,7 +206,7 @@ function makeMkCite() {
 }
 
 function makeMkRemember({ projectRoot, userDir }) {
-  return async ({ text, tier, cites }) => {
+  return async ({ text, tier, cites, why, how, type, title, links }) => {
     // I1 + I2 boundary checks (Task 31 code-review):
     // - cites: memory-write doesn't currently wire cites → provenance.
     //   Silently dropping the array would tell the model "your citation
@@ -236,6 +237,50 @@ function makeMkRemember({ projectRoot, userDir }) {
           },
         ],
         isError: true,
+      };
+    }
+    // Task 108b — MCP write parity: when rich fields (why/how/type/title/links)
+    // are present, route to the SAME shared core (remember-core.rememberRich)
+    // the CLI `cmk remember --why/--how` uses → a granular Why/How fact file, not
+    // a terse MEMORY.md bullet. Identical fact files from both surfaces (ADR-0014).
+    if (why || how || type || title || links) {
+      const rr = rememberRich(text, { why, how, type, title, links }, { projectRoot });
+      if (rr.action === 'error') {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `error (${rr.errorCategory ?? 'unknown'}): ${(rr.errors ?? [rr.errorCategory ?? 'error']).join('; ')}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+      if (rr.action === 'skipped') {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                { accepted: true, status: 'skipped', skip_reason: rr.skipReason, id: rr.id, written_to: rr.path },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      }
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              { id: rr.id, written_to: rr.path, accepted: true, action: rr.action, kind: 'rich' },
+              null,
+              2,
+            ),
+          },
+        ],
       };
     }
     const r = memoryWrite({
@@ -416,6 +461,13 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
         text: z.string().min(1).max(5000).describe('the fact text (max 5000 chars)'),
         tier: z.enum(['U', 'P', 'L']).optional(),
         cites: z.array(z.string()).optional(),
+        // Task 108b — rich capture parity with the CLI `cmk remember --why/--how`.
+        // Any of these routes to a granular Why/How fact file (not a terse bullet).
+        why: z.string().max(5000).optional().describe('rich: the rationale (the **Why:** block)'),
+        how: z.string().max(5000).optional().describe('rich: how to apply it (the **How to apply:** block)'),
+        type: z.enum(['feedback', 'project', 'reference', 'user']).optional().describe('rich: fact type (default feedback)'),
+        title: z.string().max(200).optional().describe('rich: short title (also the fact-file slug)'),
+        links: z.array(z.string()).optional().describe('rich: related fact names for [[cross-links]]'),
       },
     },
     makeMkRemember({ projectRoot, userDir }),

@@ -26,10 +26,8 @@ import { weeklyCurate } from './weekly-curate.mjs';
 import { autoPersona } from './auto-persona.mjs';
 import { exportPersona, importPersona } from './persona-portability.mjs';
 import { setNativeAutoMemory, nativeMemoryInstallNote } from './native-memory.mjs';
-import { writeFact } from './write-fact.mjs';
-import { buildRichFactBody, slugifyFact } from './rich-fact.mjs';
+import { rememberRich, richFactTitle } from './remember-core.mjs';
 import { readHookStdin } from './read-hook-stdin.mjs';
-import { createHash } from 'node:crypto';
 import { runLazyCompress } from './lazy-compress.mjs';
 import { runDoctor } from './doctor.mjs';
 import { importAnthropicMemory } from './import-anthropic-memory.mjs';
@@ -366,57 +364,28 @@ function runSearch(queryParts, options) {
  * carries injection seams for testing.
  */
 export function runRememberRich(text, options = {}, deps = {}) {
-  const projectRoot = deps.projectRoot ?? resolvePath(process.cwd());
   const log = deps.log ?? console.log;
   const logError = deps.logError ?? console.error;
-  const write = deps.writeFact ?? writeFact;
 
-  // M2: rich capture writes the project tier (P) in v0.1.x — same deferral as
-  // the terse path + mk_remember (U/L need per-tier scratchpad routing, design
-  // §16). Terse mode ERRORS on a non-P --tier; rich mode notes it and proceeds
-  // (a no-write surprise is worse than a captured-to-P note). Surface it so the
-  // divergence isn't silent.
+  // M2: rich capture writes the project tier (P) in v0.1.x — surface a non-P
+  // --tier rather than silently honoring it (the divergence isn't silent).
   if (options.tier && options.tier !== 'P') {
     log(
       `cmk remember: --tier '${options.tier}' is v0.1.x — rich capture writes the project tier (P) for now.`,
     );
   }
 
-  const headline = String(text).trim();
-  const title = (options.title && String(options.title).trim()) || headline.split('\n')[0].slice(0, 80);
-  const body = buildRichFactBody({ text: headline, why: options.why, how: options.how });
-  const related = options.links
-    ? String(options.links).split(',').map((s) => s.trim()).filter(Boolean)
-    : undefined;
-
-  const r = write({
-    tier: 'P',
-    type: options.type ?? 'feedback',
-    slug: slugifyFact(title),
-    title,
-    body,
-    writeSource: 'user-explicit',
-    trust: options.trust ?? 'high',
-    sourceFile: 'user-explicit',
-    sourceLine: 1,
-    // Content fingerprint for provenance/dedup — NOT a security context.
-    // Matches the kit's sha1-of-content convention (memory-write.mjs,
-    // index-rebuild.mjs); writeFact dedups by content-addressed id, this is
-    // just the source_sha1 provenance field. // NOSONAR
-    sourceSha1: createHash('sha1').update(body).digest('hex'), // NOSONAR
-
-    related,
-    projectRoot,
-  });
+  // The write is the shared core (remember-core.rememberRich) — the SAME one the
+  // MCP `mk_remember` rich path calls, so both surfaces emit identical fact files
+  // (ADR-0014). This wrapper only formats the CLI's messages from the result.
+  const r = rememberRich(text, options, deps);
 
   if (r.action === 'error') {
-    // M1: a collision means a fact file with this title (→ slug) already exists
-    // but with different content (different id). Give an actionable hint rather
-    // than the raw "refusing overwrite" — the user almost certainly wants to
-    // edit the existing fact or pick a new --title.
     if (r.errorCategory === 'collision') {
+      // M1: a same-title / different-content collision — actionable hint over
+      // the raw "refusing overwrite".
       logError(
-        `cmk remember: a fact titled "${title}" already exists with different content. ` +
+        `cmk remember: a fact titled "${richFactTitle(text, options)}" already exists with different content. ` +
           `Edit it directly, or capture under a new --title.`,
       );
       return r;

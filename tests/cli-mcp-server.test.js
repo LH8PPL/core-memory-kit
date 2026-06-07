@@ -22,7 +22,7 @@
 //     tests since the SDK is the authoritative framing implementation.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -266,6 +266,33 @@ describe('Task 31 — MCP server', () => {
       });
       expect(r.isError).toBe(true);
       expect(r.content[0].text).toMatch(/poison_guard/);
+    });
+
+    // Task 108b — MCP write parity: mk_remember with why/how/title/type writes a
+    // RICH granular fact file via the SAME shared core (remember-core.rememberRich)
+    // the CLI `cmk remember --why/--how` uses — not a terse MEMORY.md bullet.
+    it('108b — with why/how writes a RICH fact file (CLI parity), not a terse bullet', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const r = await invokeTool(server, 'mk_remember', {
+        text: 'FastAPI is the delivery layer; logic lives in services',
+        type: 'feedback',
+        title: 'layered-backend-mcp',
+        why: 'pay the structure cost up front',
+        how: 'thin routes; push logic into app/services',
+      });
+      expect(r.isError).toBeFalsy();
+      // Door 2 — a real granular fact file lands under context/memory/ (parity).
+      const content = readFileSync(
+        join(projectRoot, 'context', 'memory', 'feedback_layered-backend-mcp.md'),
+        'utf8',
+      );
+      expect(content).toContain('**Why:** pay the structure cost up front');
+      expect(content).toContain('**How to apply:** thin routes; push logic into app/services');
+      expect(content).toMatch(/write_source: user-explicit/);
+      // Door 1 — result reports the rich fact (not a MEMORY.md bullet).
+      const out = JSON.parse(r.content[0].text);
+      expect(out.accepted).toBe(true);
+      expect(out.written_to).toContain('feedback_layered-backend-mcp.md');
     });
 
     // B1 fix (Task 31 code-review): mk_remember must distinguish
