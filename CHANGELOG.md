@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Added
+
+- **Automatic memory now writes rich Why/How fact files, not just one-line bullets (Task 103).** The per-turn auto-extract pass — the one that runs in the background on every assistant turn and is immune to which memory tool the model happens to reach for — now synthesizes **structured fact files** (a titled record with a breakdown body + **Why** + **How to apply**) for durable project knowledge: your setup/config, project conventions, completed workflows, and tool quirks. Lighter signals (corrections, preferences) still land as terse `MEMORY.md` bullets. Before this, only the explicit `cmk remember --why/--how` produced rich files — so if the model saved to Claude Code's built-in memory instead, you lost the rich tier. Now rich capture rides the automatic path, at `trust: medium` (a later explicit `cmk remember` still supersedes), screened by the same secret-guard + home-path sanitization as every other write, and searchable via `cmk search`.
+
 ### Fixed
 
 - **Hook bins no longer hang when run manually without piped input (Task 101).** v0.2.0 fixed this for the SessionEnd bin (`cmk-compress-session`, Task 100), but every other lifecycle hook bin — `cmk-capture-prompt`, `cmk-capture-turn`, `cmk-inject-context`, `cmk-observe-edit`, and the plugin's `cmk-version-check` — shared the same blocking stdin drain: run one by hand (e.g. to debug) without redirecting input and it would hang forever waiting for an end-of-input the terminal never sends. They now detect an interactive terminal and skip the blocking read, so a manual run finishes instead of stalling. No change as a real hook — Claude Code still pipes the payload exactly as before.

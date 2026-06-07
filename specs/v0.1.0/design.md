@@ -698,6 +698,33 @@ SKIP                             — emit alone if nothing in either turn is dur
 
 Origin is in-memory metadata only — it is NOT persisted to scratchpad provenance (provenance carries `write: auto-extract` regardless).
 
+#### Rich fact synthesis (Task 103) — native-parity capture on the immune path
+
+**Why.** Claude Code's native Auto Memory is winner-take-all with the kit's *explicit* `cmk remember` path: when the agent saves to native, the kit's `context/memory/` rich fact files don't get written (D-74; [research note](../../docs/research/2026-06-06-native-auto-memory-coexistence-investigation.md)). The Stop-hook auto-extract is **immune** (it reads the conversation, not the agent's tool choice) but historically wrote only **terse `MEMORY.md` bullets** — so the rich Why/How tier was the one thing native could take. Task 103 moves rich capture onto the immune path: auto-extract now synthesizes **rich fact files** for durable project KNOWLEDGE, so a fresh-but-rich record lands regardless of which memory tool the agent reaches for. The bar is **native-parity-then-better** — native now writes structured Why/How fact files, so ours must be at least as structured/useful.
+
+**Third output type.** The SAME Haiku pass (no second LLM call) now emits THREE output kinds — the terse `TRUST_` lines (above), the cross-project `PERSONA CANDIDATE` lines (§6.4 inline-persona / Task 61), and a fenced **rich-fact block** for durable project knowledge:
+
+```text
+BEGIN_FACT
+type: project
+title: <short Title-Case headline>
+body: <what is true; multi-line markdown breakdown when the knowledge has parts>
+why: <rationale a future session needs>
+how: <how the next session applies it>
+END_FACT
+```
+
+- **Rich vs terse split.** Triggers **3–6** (setup/config, project conventions, completed workflows, tool quirks) → a `BEGIN_FACT` block. Triggers **1–2** (corrections, discovered preferences) + active threads → stay terse `TRUST_` bullets. The prompt instructs: emit each fact as EITHER a rich block OR a terse line — **never both**.
+- **Parsing** (`parseRichFacts` in `auto-extract.mjs`, exported + unit-tested): a field's value continues across lines until the next recognized key (`type`/`title`/`body`/`why`/`how`) or `END_FACT` — so `body` holds a multi-line structured breakdown. A missing `END_FACT` closes at the next `BEGIN_FACT` (no swallow). A block missing `title` OR `body` is skipped (writeFact requires both); `type` defaults to `project`. Live Haiku formats multi-line bodies as a YAML block scalar (`body: |` + indent) — the parser strips the indicator + dedents (`cleanFieldValue`).
+- **Routing** (`routeRichFact`): straight to the fact store via `writeFact({tier:'P', writeSource:'auto-extract', trust:'medium', …})`, body built by the shared [`rich-fact.mjs`](../../packages/cli/src/rich-fact.mjs) helper the explicit `cmk remember` path uses (identical on-disk shape). `writeFact` already runs home-path sanitization + Poison_Guard + schema + `INDEX`/reindex.
+- **trust:medium, NOT high.** Auto-extract is a Haiku *synthesis* = proposal-grade; explicit `cmk remember` stays `trust:high`. A later explicit capture **supersedes** the auto-extracted medium fact.
+- **Direct-to-fact-store — deliberate deviation from "medium → review queue."** Terse medium-trust bullets queue for review; rich facts do NOT. The point is *automatic* native-parity capture (native writes its files with no approval step). The fact store is searchable-but-not-full-trust-injected, `writeFact` screens every write, and explicit-high supersedes — so direct-write is safe and is what parity requires.
+- **Isolation + XOR safety net.** Each `routeRichFact` is wrapped in try/catch — a Poison_Guard/schema/collision rejection (or throw) must not take down terse routing or the persona pass (same isolation as the inline-persona pass). If Haiku emits both a rich block and a terse line for the same fact, the rich block wins: a terse candidate whose canonical id matches a rich fact's `body` is dropped before terse routing.
+- **Composition with §19 graduation/cap.** Rich facts land in `context/memory/` (the graduation *target*), NOT the capped `MEMORY.md` scratchpad — so this *reduces* scratchpad write-lock pressure and adds no new cap interaction.
+- **Observability (Door 4).** The `extract.log` entry carries `rich_facts_written`; `observation_count` includes successful rich writes; the result's `richFacts[]` records each `{written: 'fact'|'fact-duplicate'|'rejected', rejected_category?}`.
+
+**Implementation order** (extends the 5-step list above): after step 4 (`dedupByCanonicalId`), `parseRichFacts(outputText)` runs + drops colliding terse candidates; rich facts route after the terse loop, isolated per fact.
+
 ### 6.5 Tombstone discipline for deletions
 
 **[CHANGE absorbed from comparison]** Per ChatGPT's explicit `tombstones/` directory and Kiro's `deleted_at` field — when a user says "forget about X" and we delete a bullet, we DON'T silently delete the file or strip the bullet without trace. Instead:
