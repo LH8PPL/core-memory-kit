@@ -1565,13 +1565,26 @@ Per NFR-6 (verified):
 
 ### 10.3 When to use each mechanism
 
+**Original (v0.1.0) — kept for the decision trail.** This was the proven hook+skill model: writes flow through the phrase-triggered skill (which shells out to `cmk remember`); MCP is read-only retrieval.
+
 | Mechanism | When | Visibility to Claude |
 | --- | --- | --- |
 | Hooks | Involuntary lifecycle (capture on Stop, inject on SessionStart) | Hidden |
 | `memory-write` skill | User-explicit triggers ("remember this") — auto-triggered by phrase | Visible, auto-invokes |
 | MCP tools | Explicit retrieval Claude calls during reasoning | Visible, Claude chooses |
 
-**Implements**: FR-26.
+**Revision 2026-06-07 (v0.2.3, [ADR-0014](../../docs/adr/0014-unify-cli-mcp-shared-core.md); executes the v0.2 refactor ADR-0006 deferred).** The cut-gate proved the shelled write path fragile — it silently corrupts backtick content (D-81) and trips a permission prompt (R2/D-80) — and D-85 showed every *voiced* intent (write as well as read) needs a Claude-mediated tool. So **MCP graduates from retrieval-only to the full memory *action* surface**, and the skill becomes a thin phrase-trigger *over* the MCP tools rather than a separate shell-write path:
+
+| Mechanism | When | Visibility to Claude |
+| --- | --- | --- |
+| Hooks | Involuntary lifecycle (capture on Stop, inject on SessionStart) | Hidden |
+| `memory-write` skill | Phrase convenience ("remember this") — triggers the MCP write tool | Visible, auto-invokes |
+| **MCP tools** | **Explicit retrieval AND writes/mutations Claude calls during reasoning** (read + `remember`/`forget`/`trust`/`lessons promote`/`queue`) | Visible, Claude chooses |
+| `cmk` CLI | Power-user + scripting + hook substrate; full memory surface + lifecycle/host verbs | n/a (not the regular user's surface — D-85) |
+
+Both surfaces are thin adapters over one in-process memory-op core (ADR-0014); a `validate-cli-mcp-parity` guard keeps them in lockstep.
+
+**Implements**: FR-26 (+ ADR-0014 for the write-parity extension).
 
 ---
 
