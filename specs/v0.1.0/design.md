@@ -2590,6 +2590,14 @@ The two **product** follow-ups (manual `cmk persona generate` wrapper; low/mediu
 
 **v0.1.x candidate.** The 2026-05-23 cold-start bootstrap test surfaced a failure mode docs didn't prevent: a fresh session flipped a checkpoint checkbox using fresh-looking-but-stale PR-branch test numbers, without re-running the criteria from current main ("checkpoint marked but not verified"). The behavioral guard is a CLAUDE.md rule (checkpoint-verification: never flip on stale numbers); the structural fix is a `cmk checkpoint <n>` subcommand that programmatically runs the checkpoint's criteria (full suite from main + the named smoke checks) and only then flips the box — removing the temptation to shortcut. Same "prose-rule → tool" graduation pattern as the other §16 enforcement candidates. Trigger: the manual rule proving insufficient (a second checkpoint-not-verified incident). _(Extracted from the 2026-05-23 bootstrap-test research during the doc-governance read.)_
 
+### 16.57 Explicit-capture R2 friction on `cd <abs-path> && cmk` compounds (ACCEPTED edge, deferred)
+
+**Deferred — DOCUMENTED, not fixed (the user, 2026-06-07: "document it as an edge case we won't fix unless we have a working simple solution"). Full decision + verified primary-source findings: D-80.**
+
+Surfaced by the v0.2.2 cut-gate live run. The agent captured a preference richly via `cmk remember … --type --why --how --title` (F1 working), but Claude Code prompted *"Allow this bash command?"* because the agent wrapped it as `cd "<abs project path>" && cmk remember …`. Verified against [code.claude.com/docs/en/permissions](https://code.claude.com/docs/en/permissions): compounds are split per-subcommand and each must qualify; `cd` is read-only only when its target is *inside the working directory*, so a `cd` to an absolute path the WD-check doesn't recognize doesn't qualify → the whole compound prompts. `Bash(cmk:*)` already covers the **bare** `cmk remember …` (the normal case → no prompt), so **R2 substantially passes** — the friction is only the agent's redundant `cd` wrapper.
+
+Two false fixes ruled out by the docs: `Bash(cd:*)` is a no-op (`cd` is already read-only); `Bash(*cmk:*)` doesn't address the `cd` subcommand (and is a hole). The two real options both have a catch: a behavioral skill/CLAUDE.md nudge (docs: guidance "doesn't change what Claude Code allows" — the weak kind) or a **PreToolUse hook** to auto-approve `cmk` capture calls, which **re-opens ADR-0006's deliberate PreToolUse-drop**. **Ship trigger:** a *simple, reliable* fix — e.g. Claude Code treating `cd`-to-WD-root as read-only in all forms, or a cheap non-PreToolUse mechanism.
+
 ---
 
 ## 17. Test discipline
