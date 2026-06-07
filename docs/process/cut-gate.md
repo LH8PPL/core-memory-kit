@@ -1,8 +1,12 @@
-# v0.2.0 — full test + cut gate
+# cmk — full test + cut gate
 
-**The single guide to run before tagging v0.2.0.**
+**The single guide to run before tagging a release.** Version-agnostic — reused every cut.
+
+> **Cutting now: `v0.2.2`** — the memory-quality batch: rich auto-extract on the native-immune path (Task 103) + the `now.md` session-start self-heal (Task 105) and compress-race fix (Task 106) + the hook-bin manual-run fix (Task 101).
+> _Replace `0.2.2` / `v0.2.2` in the commands below if you reuse this guide for a later cut._
+
 It exercises every kit feature end-to-end on the **real installed artifact**:
-install, the Task-69 skill, a staged build with organic capture, explicit-capture probes,
+install, the memory-write skill, a staged build with organic capture, explicit-capture probes,
 recall, the cross-project cold-open (the wedge), the full `cmk` CLI, the plugin route,
 privacy, and portability — then the tag-push.
 
@@ -11,7 +15,7 @@ privacy, and portability — then the tag-push.
 ## How to read this
 
 - **★ = cut-gate check.**
-  Every ★ must pass to tag v0.2.0.
+  Every ★ must pass to tag the release.
   The rest is the full feature sweep — run it so nothing ships untested.
 - Each check is one line you can tick, followed by the **action** (a code block) and a **PASS:** line.
 - Throwaway probes use their own temp dirs and never touch your main run.
@@ -30,18 +34,17 @@ Trail: [`../journey/live-test-runs/`](../journey/live-test-runs/).
 
 ---
 
-## New in this build — what this run additionally validates
+## New in v0.2.2 — what this run additionally validates
 
-The **§19 memory-retention arc** is now complete (memory is never lost, always retrievable).
-Beyond the prior cut-gate, this run checks four new behaviors:
+The headline is **memory QUALITY on the native-immune path** (rich auto-capture), plus the session-buffer rollup made robust. New checks this cut:
 
 | Check | Feature | What's new |
 | --- | --- | --- |
-| **B5** | Task 91 | project `MEMORY.md` graduation (the original write-lock fix) |
-| **B6** | Task 92 | a discarded LOW candidate leaves a trace; the diagnostic log is gitignored |
-| **B7** | Task 94.3 | graduation fires **proactively at session-end**, not only on write |
-| B8 | Task 94.2 | the **user-tier persona** graduates too (observational — same code as B7) |
-| D5 | Task 93 | over-budget inject keeps the **highest-value** section, not the file tail (observational) |
+| **★ B9** | Task 103 | **auto-extract** (no command) writes a **rich Why/How fact file** for durable project knowledge — the native-immune answer (the headline) |
+| **D6** | Task 105 | the `now.md` rollup **self-heals at session start**, so `today-*.md`/`recent.md` build even without a clean window-close |
+| B7-note | Task 106 | the session-buffer roll **claims the buffer atomically** — a concurrent write is never dropped (also: manual hook runs no longer hang — Task 101) |
+
+The **§19 memory-retention arc** (Tasks 91–94: graduation / trace / proactive sweep) shipped in the prior cut — its checks **B5–B8 + D5** stay below as the standing retention gate (re-run them; they're not new this cut).
 
 ---
 
@@ -49,19 +52,19 @@ Beyond the prior cut-gate, this run checks four new behaviors:
 
 ```powershell
 cd C:\Projects\claude-memory-kit
-git checkout main; git pull          # must include the §19 arc (Tasks 91–94) + Task 92
+git checkout main; git pull          # must include the v0.2.2 batch (Tasks 101, 103, 105, 106) + the release commit
 
 cd C:\Projects\claude-memory-kit\packages\cli
-npm pack                             # → lh8ppl-claude-memory-kit-0.2.0.tgz
+npm pack                             # → lh8ppl-claude-memory-kit-0.2.2.tgz
 npm uninstall -g @lh8ppl/claude-memory-kit
-npm install -g .\lh8ppl-claude-memory-kit-0.2.0.tgz
-cmk --version                        # ✅ 0.2.0
+npm install -g .\lh8ppl-claude-memory-kit-0.2.2.tgz
+cmk --version                        # ✅ 0.2.2
 
 # Wipe the user tier so capture-from-zero is honest (back it up first if you care)
 Remove-Item -Recurse -Force $env:USERPROFILE\.claude-memory-kit
 ```
 
-- [ ] **G0** — `cmk --version` → `0.2.0`
+- [ ] **G0** — `cmk --version` → `0.2.2`
 
 ---
 
@@ -172,6 +175,21 @@ dir context\memory; type context\memory\feedback_*.md
       Durable preference facts are **rich fact files** (frontmatter + `**Why:**` + `**How to apply:**`),
       not bare one-liners.
 
+- [ ] **★ B9 — auto-extract writes RICH project facts (Task 103 — the v0.2.2 headline).**
+      You never ran `cmk remember` in Session 1 — yet durable PROJECT knowledge (the layered
+      structure, the Claude-SDK service, the streaming design) landed as **rich fact files**,
+      not just terse `MEMORY.md` bullets:
+      ```powershell
+      dir context\memory\project_*.md
+      type context\memory\project_*.md
+      ```
+      At least one `project_*.md` carries `write_source: auto-extract` + `trust: medium` +
+      a `**Why:**`/`**How to apply:**` body. **That's the native-immune rich capture working** —
+      a turn that saved to Claude's built-in memory instead would still leave THIS behind.
+      _(Pre-Task-103 auto-extract wrote only terse bullets; rich files needed an explicit `cmk remember`.
+      If `context\memory\` has NO `write_source: auto-extract` rich file, the headline didn't fire this
+      session — investigate before shipping: re-run a knowledge-dense turn; it's a Haiku judgment pass.)_
+
 - [ ] **★ B3 — the wedge fills.**
       Type: `%USERPROFILE%\.claude-memory-kit\HABITS.md` (+ `USER.md`, `LESSONS.md`)
       → your cross-project style is there (was empty pre-v0.2).
@@ -245,9 +263,9 @@ mkdir $s > $null; Set-Location $s; git init | Out-Null; cmk install | Out-Null
 # Now DROP the cap below the current size — MEMORY.md is suddenly over budget, with no new write:
 [IO.File]::WriteAllText("$s\context\settings.json", '{ "scratchpads": { "MEMORY.md": { "max_chars": 700 } } }')
 $before = (Get-Item context\MEMORY.md).Length
-# Feed stdin ('{}' | …) — the handler drains its stdin like a real hook. Run bare
-# (cmk-compress-session | Out-Null) it would block waiting for a console EOF that
-# never comes and the 60s hook ceiling would kill it (exit 124). The pipe gives it EOF.
+# Feed stdin ('{}' | …) — the handler drains its stdin like a real hook. (Since Task 101
+# a bare `cmk-compress-session` no longer HANGS on a manual run — it detects the TTY and
+# returns — but piping '{}' still mirrors the real hook envelope, so keep it.)
 $env:CMK_PROJECT_DIR = $s; '{}' | cmk-compress-session | Out-Null    # the SessionEnd handler (fast — empty buffer skips Haiku)
 "MEMORY.md  before = $before B  →  after = $((Get-Item context\MEMORY.md).Length) B  (must drop toward <= 700)"
 "sweep grad = $((Select-String context\.locks\audit.log -Pattern '\"trigger\":\"session-end\"' -EA SilentlyContinue).Count) session-end graduated events  (must be > 0)"
@@ -304,6 +322,10 @@ findstr /S /C:"\"tier\":\"U\"" %USERPROFILE%\.claude-memory-kit\.locks\audit.log
 
 ## 5. Session 2 — recall + recall-QUALITY  ⬅️ start a NEW session
 
+Start Session 2 as a **new chat in the SAME window** (don't cleanly close Session 1) — that's the
+case Task 105 fixes: Claude Code does **not** fire SessionEnd on a new-chat-same-window, so the
+`now.md` rollup has to self-heal at the new SessionStart instead.
+
 Without re-explaining anything, ask:
 *"What are my standing cross-project rules, and how is this project structured?"*
 then:
@@ -312,6 +334,16 @@ then:
 - [ ] **★ D1 — recall.**
       It names your rules (uv/ruff/type-hints/layered) + the structure (port 8000, layered, Claude SDK)
       **without a re-brief**.
+
+- [ ] **D6 — SessionStart self-heal (Task 105).**
+      Session 1's buffer rolled forward even though you never cleanly closed it — at Session 2's
+      SessionStart the kit rolled the leftover `now.md` into a dated daily file:
+      ```powershell
+      dir context\sessions\today-*.md      # exists (Session 1 rolled at Session 2 start)
+      type context\sessions\*.compress.log  # a roll entry; now.md is small/empty again
+      ```
+      _(Pre-Task-105 a never-cleanly-closed session left `now.md` growing with no `today-*.md` built.
+      If you closed+reopened cleanly instead, SessionEnd already rolled it — same outcome, different trigger.)_
 
 - [ ] **D2 — style follow-through.**
       `/health` lands as a **thin route** in `api/`, **type-hinted**, without being re-told your style.
@@ -478,11 +510,12 @@ Clone elsewhere (`git clone C:\Temp\cut-gate3 C:\Temp\cut-gate-clone`), open *th
 ## Verdict + the cut
 
 **Cut if** every **★** passes —
-`G1–G3, G5, R1, R2, B2, B3, B4, B5, B6, B7, D1, E1, F-3, L3, H1` —
-and you've decided D3's recall variance is acceptable for v0.2.0 *(rec: yes — active recall is v0.3)*.
+`G1–G3, G5, R1, R2, B2, B9, B3, B4, B5, B6, B7, D1, E1, F-3, L3, H1` —
+and you've decided D3's recall variance is acceptable *(rec: yes — active recall is v0.3)*.
+**B9 is the v0.2.2 headline** — the native-immune rich auto-capture; if it's empty, don't ship until you understand why.
 
-(B8 + D5 are observational — they confirm the new graduation/inject behavior when it fires,
-but the code is proven by B7 + the suite.)
+(B8, D5, D6 are observational — they confirm the new graduation/inject/self-heal behavior when it fires,
+but the code is proven by B7/B5 + the suite.)
 
 A clean full sweep (F-1..F-15 + L1–L2) means nothing ships untested.
 
@@ -492,21 +525,21 @@ The tag triggers an **immutable** npm publish; whatever docs are committed at th
 
 - [ ] **CHANGELOG consolidated** — `[Unreleased]` folded into `## [X.Y.Z] — <date>`; `[Unreleased]` reset; `print-release-notes.mjs <version>` parses the section.
 - [ ] **★ READMEs reflect THIS version** — both the **root `README.md`** (status line + "What it does") **and** the **npm landing `packages/cli/README.md`** describe this version's headline capability + its new commands. _(Lesson from v0.2.0: the tag beat the README refresh, so the immutable npm 0.2.0 page shipped a stale landing page — fixed only by a 0.2.1 patch. The npm landing page is `packages/cli/README.md`, NOT the root one.)_
-- [ ] **`packages/cli/package.json` version** = the version you're about to tag.
+- [ ] **`packages/cli/package.json` version** = the version you're about to tag (`0.2.2`).
 
 **To publish (your outward action):**
 
 ```powershell
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.2.2
+git push origin v0.2.2
 ```
 
-`publish.yml` runs the suite, publishes `@lh8ppl/claude-memory-kit@0.2.0` to npm with provenance,
-and creates the GitHub Release from the `[0.2.0]` CHANGELOG section.
+`publish.yml` runs the suite, publishes `@lh8ppl/claude-memory-kit@0.2.2` to npm with provenance,
+and creates the GitHub Release from the `[0.2.2]` CHANGELOG section.
 
 **Verify after:**
-- `npm view @lh8ppl/claude-memory-kit version` → `0.2.0`
+- `npm view @lh8ppl/claude-memory-kit version` → `0.2.2`
 - the npm page shows a **provenance** badge
-- the GitHub Release matches `## [0.2.0]`
+- the GitHub Release matches `## [0.2.2]`
 
 Per-finding notes go in a dated doc under [`../journey/`](../journey/), not here — this stays a clean script.
