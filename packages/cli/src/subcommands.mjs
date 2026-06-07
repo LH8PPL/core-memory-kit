@@ -432,93 +432,114 @@ export function runRememberRich(text, options = {}, deps = {}) {
   return r;
 }
 
-function runRemember(textParts, options) {
-  const projectRoot = resolvePath(process.cwd());
-  const userDir =
-    process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+/**
+ * Task 108.2 (108a) — parse a structured fact from the off-shell input channel
+ * (`--from-file <path>` or `--json` stdin). PURE + dependency-injected (the CLI
+ * passes real fs readers; tests pass fakes) so every parse/validate/allowlist
+ * branch is covered IN-PROCESS — the real-binary subprocess tests prove the CLI
+ * wiring but don't contribute line coverage.
+ *
+ * @param {object} options - subcommand options (fromFile/json + the rich flags).
+ * @param {object} deps
+ * @param {(path:string)=>string} deps.readFile - read a file to a string (throws on error).
+ * @param {()=>string} deps.readStdin - read stdin to a string ('' for TTY/empty).
+ * @returns {{ok:true,channel:string,fields:object,ignored:string[]}
+ *          | {ok:false,channel:string,error:string,ignored:string[]}}
+ */
+export function parseFactInput(options, { readFile, readStdin } = {}) {
+  const channel = options.fromFile ? '--from-file' : '--json';
+  // --from-file/--json are self-contained (the JSON is the whole fact); rich /
+  // terse flags passed alongside are ignored — surfaced so they aren't dropped silently.
+  const ignored = ['why', 'how', 'type', 'title', 'links', 'tier', 'trust', 'section']
+    .filter((k) => options[k] != null)
+    .map((k) => '--' + k);
+  const fail = (error) => ({ ok: false, channel, error, ignored });
 
-  // Task 108.2 (108a) — structured off-shell input. `--from-file <path>` reads
-  // the fact as a JSON object from a FILE; `--json` reads it from STDIN (pipe).
-  // Either way rich content (backticks, $(), quotes, newlines) never rides the
-  // shell command line — the D-81 fix (bash command-substitution can only eat
-  // what reaches argv, and file/stdin content never does). JSON keys map to the
-  // rich fields (text + why/how/type/title/links).
-  if (options?.fromFile || options?.json) {
-    const channel = options.fromFile ? '--from-file' : '--json';
-    // --from-file/--json are self-contained (the JSON is the whole fact). Any
-    // rich/terse flags passed alongside are ignored — say so, don't drop silently.
-    const ignored = ['why', 'how', 'type', 'title', 'links', 'tier', 'trust', 'section']
-      .filter((k) => options[k] != null)
-      .map((k) => '--' + k);
-    if (ignored.length) {
-      console.error(
-        `cmk remember: ${channel} is self-contained — ignoring ${ignored.join(', ')} (put these in the JSON instead).`,
-      );
-    }
-    let raw;
-    if (options.fromFile) {
-      try {
-        raw = readFileSync(options.fromFile, 'utf8');
-      } catch (e) {
-        console.error(`cmk remember: ${channel} could not read ${options.fromFile}: ${e.message}`);
-        process.exitCode = 2;
-        return;
-      }
-    } else {
-      // --json: read from stdin via the shared, EAGAIN-safe, TTY-guarded reader
-      // (read-hook-stdin.mjs). '' = interactive TTY or empty pipe → fail clearly.
-      raw = readHookStdin({ isTTY: process.stdin.isTTY });
-      if (!raw.trim()) {
-        console.error('cmk remember: --json expects a JSON object on stdin (pipe it in, or use --from-file).');
-        process.exitCode = 2;
-        return;
-      }
-    }
-    // Bound the input so a pathological file can't burn Poison_Guard regex time
-    // (the M1 concern that capped mk_remember). 64 KB is generous for one fact.
-    const MAX_INPUT_BYTES = 64 * 1024;
-    if (Buffer.byteLength(raw, 'utf8') > MAX_INPUT_BYTES) {
-      console.error(
-        `cmk remember: ${channel} fact is too large (max ${MAX_INPUT_BYTES / 1024} KB). Split it into smaller facts.`,
-      );
-      process.exitCode = 2;
-      return;
-    }
-    let fields;
+  let raw;
+  if (options.fromFile) {
     try {
-      fields = JSON.parse(raw);
+      raw = readFile(options.fromFile);
     } catch (e) {
-      console.error(`cmk remember: ${channel} could not parse JSON: ${e.message}`);
+      return fail(`${channel} could not read ${options.fromFile}: ${e.message}`);
+    }
+  } else {
+    // '' = interactive TTY or empty pipe (read-hook-stdin returns '' for a TTY).
+    raw = readStdin();
+    if (!raw || !raw.trim()) {
+      return fail('--json expects a JSON object on stdin (pipe it in, or use --from-file).');
+    }
+  }
+
+  // Bound the input so a pathological file can't burn Poison_Guard regex time
+  // (the M1 concern that capped mk_remember). 64 KB is generous for one fact.
+  const MAX_INPUT_BYTES = 64 * 1024;
+  if (Buffer.byteLength(raw, 'utf8') > MAX_INPUT_BYTES) {
+    return fail(`${channel} fact is too large (max ${MAX_INPUT_BYTES / 1024} KB). Split it into smaller facts.`);
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    return fail(`${channel} could not parse JSON: ${e.message}`);
+  }
+  if (
+    !parsed ||
+    typeof parsed !== 'object' ||
+    Array.isArray(parsed) ||
+    typeof parsed.text !== 'string' ||
+    !parsed.text.trim()
+  ) {
+    return fail(`${channel} JSON must be an object with a non-empty "text" field.`);
+  }
+
+  // Allowlist the honored fields — NEVER forward the raw parsed object. A crafted
+  // JSON must not reach a field runRememberRich might read; provenance
+  // (write_source / source_file) stays hardcoded user-explicit in runRememberRich.
+  return {
+    ok: true,
+    channel,
+    ignored,
+    fields: {
+      text: parsed.text,
+      why: parsed.why,
+      how: parsed.how,
+      type: parsed.type,
+      title: parsed.title,
+      links: parsed.links,
+      tier: parsed.tier,
+      trust: parsed.trust,
+    },
+  };
+}
+
+export function runRemember(textParts, options, deps = {}) {
+  const projectRoot = deps.projectRoot ?? resolvePath(process.cwd());
+  const userDir =
+    deps.userDir ?? process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+  const log = deps.log ?? console.log;
+  const logError = deps.logError ?? console.error;
+
+  // Task 108.2 (108a) — structured off-shell input. `--from-file`/`--json` carry
+  // the fact as a JSON object from a FILE or STDIN, so rich content (backticks,
+  // $(), quotes, newlines) never rides the shell command line — the D-81 fix.
+  // The parse/validate/allowlist lives in the pure parseFactInput() helper.
+  if (options?.fromFile || options?.json) {
+    const parsed = parseFactInput(options, {
+      readFile: (p) => readFileSync(p, 'utf8'),
+      readStdin: () => readHookStdin({ isTTY: process.stdin.isTTY }),
+    });
+    if (parsed.ignored.length) {
+      logError(
+        `cmk remember: ${parsed.channel} is self-contained — ignoring ${parsed.ignored.join(', ')} (put these in the JSON instead).`,
+      );
+    }
+    if (!parsed.ok) {
+      logError(`cmk remember: ${parsed.error}`);
       process.exitCode = 2;
       return;
     }
-    if (
-      !fields ||
-      typeof fields !== 'object' ||
-      Array.isArray(fields) ||
-      typeof fields.text !== 'string' ||
-      !fields.text.trim()
-    ) {
-      console.error(`cmk remember: ${channel} JSON must be an object with a non-empty "text" field.`);
-      process.exitCode = 2;
-      return;
-    }
-    // Allowlist the honored fields — NEVER forward the raw parsed object. A
-    // crafted JSON must not be able to reach a field runRememberRich might read;
-    // provenance (write_source / source_file) stays hardcoded as user-explicit.
-    runRememberRich(
-      fields.text,
-      {
-        why: fields.why,
-        how: fields.how,
-        type: fields.type,
-        title: fields.title,
-        links: fields.links,
-        tier: fields.tier,
-        trust: fields.trust,
-      },
-      { projectRoot },
-    );
+    runRememberRich(parsed.fields.text, parsed.fields, { projectRoot, log, logError });
     return;
   }
 
@@ -527,7 +548,7 @@ function runRemember(textParts, options) {
   // arg is optional now (for --from-file/--json), so guard explicitly instead of
   // falling through to a vague empty-text write error.
   if (!text || !String(text).trim()) {
-    console.error(
+    logError(
       'cmk remember: provide a fact to remember, or use --from-file <json> / --json (stdin).',
     );
     process.exitCode = 2;
