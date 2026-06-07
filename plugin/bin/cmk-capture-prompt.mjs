@@ -9,7 +9,6 @@
 // Always exit 0 — a hook that errors out would interrupt the user
 // mid-prompt; that's worse than silently dropping the capture.
 
-import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -17,28 +16,17 @@ function emitContinue() {
   process.stdout.write('{"continue": true}');
 }
 
-let rawInput = '';
-try {
-  rawInput = readFileSync(0, 'utf8');
-} catch {
-  // stdin not connected — fine; emit continue and exit.
-  emitContinue();
-  process.exit(0);
-}
-
-let payload;
-try {
-  payload = rawInput.trim() === '' ? {} : JSON.parse(rawInput);
-} catch (err) {
-  process.stderr.write(
-    `cmk-capture-prompt: failed to parse stdin JSON: ${err?.message ?? err}\n`,
-  );
-  emitContinue();
-  process.exit(0);
-}
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const readHookStdinPath = join(
+  __dirname,
+  '..',
+  '..',
+  'packages',
+  'cli',
+  'src',
+  'read-hook-stdin.mjs',
+);
 const modulePath = join(
   __dirname,
   '..',
@@ -49,12 +37,31 @@ const modulePath = join(
   'capture-prompt.mjs',
 );
 
+let readHookStdin;
 let capturePrompt;
 try {
+  ({ readHookStdin } = await import(pathToFileURL(readHookStdinPath).href));
   ({ capturePrompt } = await import(pathToFileURL(modulePath).href));
 } catch (err) {
   process.stderr.write(
-    `cmk-capture-prompt: failed to load module: ${err?.message ?? err}\n`,
+    `cmk-capture-prompt: failed to load modules: ${err?.message ?? err}\n`,
+  );
+  emitContinue();
+  process.exit(0);
+}
+
+// Drain the hook payload — but NOT on an interactive TTY (a manual run):
+// a blocking stdin read would hang forever on a console that never sends EOF, before
+// any body runs (Task 101; DECISION-LOG 2026-06-06). readHookStdin returns ''
+// for a TTY so a manual invocation finishes instead of hanging.
+const rawInput = readHookStdin({ isTTY: process.stdin.isTTY });
+
+let payload;
+try {
+  payload = rawInput.trim() === '' ? {} : JSON.parse(rawInput);
+} catch (err) {
+  process.stderr.write(
+    `cmk-capture-prompt: failed to parse stdin JSON: ${err?.message ?? err}\n`,
   );
   emitContinue();
   process.exit(0);

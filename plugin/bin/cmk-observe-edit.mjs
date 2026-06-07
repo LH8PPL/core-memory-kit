@@ -16,16 +16,50 @@
 // All errors are swallowed + logged to stderr — a hook child crashing must
 // never surface in the user's session. The append is fire-and-forget.
 
-import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-let raw = '';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const readHookStdinPath = join(
+  __dirname,
+  '..',
+  '..',
+  'packages',
+  'cli',
+  'src',
+  'read-hook-stdin.mjs',
+);
+const modulePath = join(
+  __dirname,
+  '..',
+  '..',
+  'packages',
+  'cli',
+  'src',
+  'observe-edit.mjs',
+);
+
+// Load ONLY the stdin-drain helper up front — it's tiny + needed before the
+// envelope. observe-edit.mjs (the heavier append module) loads AFTER the
+// envelope so the fast-response ordering below is preserved.
+let readHookStdin;
 try {
-  raw = readFileSync(0, 'utf8');
-} catch {
-  // stdin not connected; fall through and still emit the envelope.
+  ({ readHookStdin } = await import(pathToFileURL(readHookStdinPath).href));
+} catch (err) {
+  process.stderr.write(
+    `cmk-observe-edit: failed to load read-hook-stdin: ${err?.message ?? err}\n`,
+  );
+  // Honor the hook protocol even when the drain helper is missing.
+  process.stdout.write(JSON.stringify({ continue: true }));
+  process.exit(0);
 }
+
+// Drain the hook payload — but NOT on an interactive TTY (a manual run):
+// a blocking stdin read would hang forever on a console that never sends EOF, before
+// any body runs (Task 101; DECISION-LOG 2026-06-06). readHookStdin returns ''
+// for a TTY so a manual invocation finishes instead of hanging.
+const raw = readHookStdin({ isTTY: process.stdin.isTTY });
 
 let payload;
 try {
@@ -41,18 +75,6 @@ try {
 
 // Emit the hook envelope FIRST, then do the (fire-and-forget) append below.
 process.stdout.write(JSON.stringify({ continue: true }));
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const modulePath = join(
-  __dirname,
-  '..',
-  '..',
-  'packages',
-  'cli',
-  'src',
-  'observe-edit.mjs',
-);
 
 let observeEdit;
 try {

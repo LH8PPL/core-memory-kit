@@ -8,7 +8,7 @@
 // Always exit 0 — a hook crash here would leave the session in a weird
 // half-closed state.
 
-import { readFileSync, existsSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -16,27 +16,17 @@ function emitContinue() {
   process.stdout.write('{"continue": true}');
 }
 
-let raw = '';
-try {
-  raw = readFileSync(0, 'utf8');
-} catch {
-  emitContinue();
-  process.exit(0);
-}
-
-let payload;
-try {
-  payload = raw.trim() === '' ? {} : JSON.parse(raw);
-} catch (err) {
-  process.stderr.write(
-    `cmk-capture-turn: failed to parse stdin JSON: ${err?.message ?? err}\n`,
-  );
-  emitContinue();
-  process.exit(0);
-}
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const readHookStdinPath = join(
+  __dirname,
+  '..',
+  '..',
+  'packages',
+  'cli',
+  'src',
+  'read-hook-stdin.mjs',
+);
 const modulePath = join(
   __dirname,
   '..',
@@ -56,12 +46,31 @@ const autoExtractPath =
     ? join(__dirname, 'cmk-auto-extract.mjs')
     : null);
 
+let readHookStdin;
 let captureTurn;
 try {
+  ({ readHookStdin } = await import(pathToFileURL(readHookStdinPath).href));
   ({ captureTurn } = await import(pathToFileURL(modulePath).href));
 } catch (err) {
   process.stderr.write(
-    `cmk-capture-turn: failed to load module: ${err?.message ?? err}\n`,
+    `cmk-capture-turn: failed to load modules: ${err?.message ?? err}\n`,
+  );
+  emitContinue();
+  process.exit(0);
+}
+
+// Drain the hook payload — but NOT on an interactive TTY (a manual run):
+// a blocking stdin read would hang forever on a console that never sends EOF, before
+// any body runs (Task 101; DECISION-LOG 2026-06-06). readHookStdin returns ''
+// for a TTY so a manual invocation finishes instead of hanging.
+const raw = readHookStdin({ isTTY: process.stdin.isTTY });
+
+let payload;
+try {
+  payload = raw.trim() === '' ? {} : JSON.parse(raw);
+} catch (err) {
+  process.stderr.write(
+    `cmk-capture-turn: failed to parse stdin JSON: ${err?.message ?? err}\n`,
   );
   emitContinue();
   process.exit(0);
