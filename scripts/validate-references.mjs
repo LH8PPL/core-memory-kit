@@ -318,7 +318,7 @@ for (const file of mdFiles) {
     //     other files can name §N.N as shorthand for design's sections
     //     but the convention is `design §N.N` and we'd need richer
     //     parsing to be sure).
-    if (file === join(REPO_ROOT, 'specs', 'v0.1.0', 'design.md')) {
+    if (file === join(REPO_ROOT, 'specs', 'design.md')) {
       DESIGN_SECTION_RE.lastIndex = 0;
       while ((m = DESIGN_SECTION_RE.exec(scanLine)) !== null) {
         if (!designSections.has(m[1])) {

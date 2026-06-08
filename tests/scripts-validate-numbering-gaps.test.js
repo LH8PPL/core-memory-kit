@@ -19,7 +19,7 @@ const VALIDATOR = join(REPO_ROOT, 'scripts', 'validate-numbering-gaps.mjs');
 function makeSandbox() {
   const sandbox = mkdtempSync(join(tmpdir(), 'cmk-numgap-test-'));
   mkdirSync(join(sandbox, 'docs', 'adr'), { recursive: true });
-  mkdirSync(join(sandbox, 'specs', 'v0.1.0'), { recursive: true });
+  mkdirSync(join(sandbox, 'specs'), { recursive: true });
   return sandbox;
 }
 
@@ -79,7 +79,7 @@ describe('validate-numbering-gaps', () => {
   it('FAILS on FR gap; passes when FR gap is reserved', () => {
     // Gap case
     writeFileSync(
-      join(sandbox, 'specs', 'v0.1.0', 'requirements.md'),
+      join(sandbox, 'specs', 'requirements.md'),
       '**FR-1 — foo**\n\n**FR-3 — bar**\n',
     );
     let r = runValidator(sandbox);
@@ -88,7 +88,7 @@ describe('validate-numbering-gaps', () => {
 
     // Reserved case
     writeFileSync(
-      join(sandbox, 'specs', 'v0.1.0', 'requirements.md'),
+      join(sandbox, 'specs', 'requirements.md'),
       '**FR-1 — foo**\n\nFR-2 — reserved (v0.1.x)\n\n**FR-3 — bar**\n',
     );
     r = runValidator(sandbox);
@@ -97,7 +97,7 @@ describe('validate-numbering-gaps', () => {
 
   it('treats `tail-appended` as a valid Task gap marker', () => {
     writeFileSync(
-      join(sandbox, 'specs', 'v0.1.0', 'tasks.md'),
+      join(sandbox, 'specs', 'tasks.md'),
       '- [x] 1. Foo\n- [x] 2. Bar\n- [x] 45. Auto-persona (tail-appended Task 45 to avoid renumbering)\n',
     );
     const r = runValidator(sandbox);
