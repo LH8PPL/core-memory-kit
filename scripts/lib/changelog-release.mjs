@@ -1,5 +1,5 @@
 // Release mechanic — turn the hand-edited CHANGELOG `## [Unreleased]` section
-// into a finalized release. Lior 2026-05-30: "put everything in a file and that
+// into a finalized release. The user (2026-05-30): "put everything in a file and that
 // creates everything from that." One file (CHANGELOG.md `[Unreleased]`) is the
 // single source you edit during PRs; this assembles the finalized changelog
 // section + the bumped version + the GitHub release notes from it.

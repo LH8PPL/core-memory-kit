@@ -87,9 +87,9 @@ async function hc1Memsearch() {
   } catch {
     // fall through to skip
   }
-  // Lior 2026-05-28: make the feature impact explicit so users
+  // The user (2026-05-28): make the feature impact explicit so users
   // understand WHAT THEY LOSE by skipping the install, not just that
-  // a check failed. Matches Lior's directive: "ask before we do
+  // a check failed. Matches the user's directive: "ask before we do
   // anything, explain if they dont install they dont get certain
   // features".
   return {

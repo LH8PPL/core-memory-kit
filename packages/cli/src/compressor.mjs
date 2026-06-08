@@ -24,7 +24,7 @@
 // Note on the allowedTools split: design.md §6.1 documents
 // `--allowed-tools "Read"`; the code-dive note recommended tightening
 // to fully empty per claude-remember's actual pattern. This PR
-// implements empty per Lior's instruction (the auto-extract sub-Claude
+// implements empty per the user's instruction (the auto-extract sub-Claude
 // never needs Read either — the turn content arrives in the prompt).
 
 import { spawn as defaultSpawn } from 'node:child_process';

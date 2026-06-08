@@ -18,7 +18,7 @@
 //     on Linux/macOS but flashes a cmd.exe window on Windows via
 //     npm's shell wrapping.
 //
-// Lior's directive (2026-05-26): "please write all tests in
+// The user's directive (2026-05-26): "please write all tests in
 // scripts, idont care if it's shell/python/what-ever just keep it
 // best practices, never do tests manually." This is one of those
 // scripts.

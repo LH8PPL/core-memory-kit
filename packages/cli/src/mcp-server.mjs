@@ -18,7 +18,7 @@
 // handshake + tool listing. We register tool handlers; the SDK handles
 // the protocol envelope.
 //
-// Lior 2026-05-23 decision: @modelcontextprotocol/sdk library naming
+// The user's 2026-05-23 decision: @modelcontextprotocol/sdk library naming
 // goes in tasks.md Task 31 implementation, NOT in design.md. This
 // module is where the dep choice lands.
 //

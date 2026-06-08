@@ -4,11 +4,11 @@
 // reproduced design §16.16's predicted failure: cross-project doctrine
 // ("how I work everywhere" — venv-3.13, layered-backend) was captured
 // but filed PROJECT-tier; the USER tier stayed empty, collapsing the
-// 3-tier value prop to project+local. Lior won't hand-curate the user
+// 3-tier value prop to project+local. The user won't hand-curate the user
 // tier ("too much of a hassle"), so the user tier must fill itself.
 //
 // Posture (tasks.md 45.6 — supersedes 45.2/45.3's manual gate):
-// OPTIMISTIC AUTO-PROMOTE. Lior 2026-05-30: "i dont want to do
+// OPTIMISTIC AUTO-PROMOTE. The user (2026-05-30): "i dont want to do
 // anything, i want it to be automatic." A synthesized doctrine that
 // applies beyond the current project is auto-promoted to the user tier
 // at trust:medium — no manual `cmk persona accept` step. A confidence
@@ -381,7 +381,7 @@ export async function autoPersona(opts = {}) {
  *     inferred noise. This still holds for every medium/inferred write.
  *   - trust:'high' (explicit path — Task 76 `cmk lessons promote` + Task 78
  *     inline grading of an EXPLICITLY-STATED rule). **45.4 REFINEMENT
- *     (2026-06-02, D-32 — Lior chose "latest explicit wins"):** an explicit,
+ *     (2026-06-02, D-32 — the user chose "latest explicit wins"):** an explicit,
  *     user-attested rule at trust:high MAY supersede an equal-trust same-topic
  *     entry (high >= high → supersede). The newest explicit statement wins,
  *     even over a hand-curated high. The original protection is unchanged for
@@ -391,7 +391,7 @@ export async function autoPersona(opts = {}) {
  */
 // Persist low/medium-confidence (and otherwise-not-promoted) candidates to a
 // durable review-queue FILE at <userDir>/queues/persona-review.md, so they are
-// not lost when only returned in the response (Lior 2026-05-31: "response
+// not lost when only returned in the response (the user, 2026-05-31: "response
 // object can get lost — i dont like it"). Dedup by canonical id against what's
 // already in the file so repeated synthesis passes don't pile up duplicates.
 // Returns the queue path (or null when there's nothing to write).

@@ -1,6 +1,6 @@
 // @doors: 1
 // Door 2 N/A: dry-run mode (the only mode tests run) makes NO filesystem or scheduler changes. Production registration is dry-run-locked-out from tests per CLAUDE.md autopilot stop rule "anything that touches the user's system beyond the repo" — production paths are exercised manually by the user at install time.
-// Door 3 N/A: dry-run mode never calls spawnSync. Production paths shell to crontab/launchctl/schtasks which is platform-tested by Lior at install (cross-OS CI matrix is Task 40 / v0.1.x).
+// Door 3 N/A: dry-run mode never calls spawnSync. Production paths shell to crontab/launchctl/schtasks which is platform-tested by the maintainer at install (cross-OS CI matrix is Task 40 / v0.1.x).
 // Door 4 N/A: no message-queue interaction.
 // Door 5 N/A: register-crons returns its result struct rather than emitting NDJSON.
 

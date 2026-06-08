@@ -9,7 +9,7 @@
 // continuity works via --session-id / --resume; MEMORY_KIT_USER_DIR isolates the
 // user tier so a run never touches the real ~/.claude-memory-kit.
 //
-// THE FLOW (mirrors what Lior does by hand):
+// THE FLOW (mirrors what the user does by hand):
 //   Phase A — project-A, ONE multi-turn session (the Ralph-loop shape: stage 1
 //             prompt → output → stage 2 → output → …, all --resume'd into the same
 //             session). The user STATES standing cross-project rules across turns
@@ -127,7 +127,7 @@ function run(cmd, args, { cwd, binDir, userDir, timeoutMs = 180_000, input } = {
 
 /**
  * One `claude -p` turn, always in JSON mode so we can read back the REAL
- * session id Claude assigned (Lior's approach: "get the session id from each
+ * session id Claude assigned (the user's approach: "get the session id from each
  * invocation" — more robust than pre-generating a UUID). Pass `resumeId` to
  * continue a session; omit it to start a fresh one (a cold open).
  * Returns { text, sessionId }.
