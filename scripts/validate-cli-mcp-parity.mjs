@@ -1,7 +1,15 @@
 #!/usr/bin/env node
 // Structural parity guard (Task 108b / ADR-0014).
 //
-// "Build the MCP to be exactly like the CLI, and keep them both the same."
+// SCOPE (honest, per D-102): this checks **structural existence only** — that
+// every memory OPERATION exists on BOTH surfaces. It does NOT check behavioral
+// or message parity (it cannot see that, e.g., a tier-deferral message drifted
+// into three divergent copies — that was the Task 121 fix). BEHAVIORAL parity
+// is enforced differently: both surfaces are thin adapters over ONE shared core
+// (`remember-core.mjs` / `read-core.mjs`) + shared constants (e.g.
+// `nonProjectTierNote`), so they can't diverge in behavior without diverging the
+// core. This guard catches the OTHER drift class: a tool/verb going missing.
+//
 // Every memory OPERATION must exist on BOTH surfaces — the CLI (`cmk …`, the
 // substrate Claude drives) and the MCP tools (what the model calls in
 // conversation per D-85). This guard fails the build when the two drift:

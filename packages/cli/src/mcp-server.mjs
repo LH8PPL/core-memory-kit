@@ -1,9 +1,10 @@
 // MCP server (Task 31, T-027). Layer 5's final task — closes Layer 5.
 //
-// Per design §10 + tasks.md 31:
+// Per design §10 + tasks.md 31 + ADR-0014 (Task 108b parity):
 //   - stdio JSON-RPC transport per MCP 2025-06-18 spec
-//   - Six tools: mk_search, mk_get, mk_timeline, mk_cite, mk_remember,
-//     mk_recent_activity
+//   - Eleven tools (full CLI parity): READ — mk_search, mk_get, mk_timeline,
+//     mk_cite, mk_recent_activity; WRITE/MUTATE — mk_remember, mk_trust,
+//     mk_lessons_promote, mk_forget, mk_queue_list, mk_queue_resolve
 //   - Path-traversal validation on every read/write surface
 //   - All logs to stderr (or sessions/{date}.mcp.log); stdout pure
 //
@@ -32,12 +33,14 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { resolve as resolvePath, isAbsolute } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { resolve as resolvePath, isAbsolute, dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { openIndexDb } from './index-db.mjs';
 import { reindexBoot } from './index-rebuild.mjs';
 import { search, SEARCH_MODES } from './search.mjs';
 import { memoryWrite } from './memory-write.mjs';
-import { rememberRich } from './remember-core.mjs';
+import { rememberRich, nonProjectTierNote } from './remember-core.mjs';
 import { forget } from './forget.mjs';
 import { overrideTrust } from './trust.mjs';
 import { lessonsPromote } from './lessons-promote.mjs';
@@ -46,6 +49,13 @@ import { resolveConflictQueue, listConflictQueue } from './conflict-queue.mjs';
 import { createHash } from 'node:crypto';
 import { getObservations, citeLink, buildTimeline, recentActivity } from './read-core.mjs';
 import { resolveTierRoot } from './tier-paths.mjs';
+
+// The kit version, read from package.json — NOT hardcoded. A hardcoded '0.1.0'
+// shipped through the v0.2.3 cut and advertised the WRONG version to the MCP
+// client (D-102 / Task 121.1). PKG_ROOT is one level up from src/.
+const PKG_VERSION = JSON.parse(
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf8'),
+).version;
 
 // --- Path-traversal validation (design §10.2; tasks.md 31.2) ----------
 
@@ -156,38 +166,28 @@ function makeMkCite() {
 
 function makeMkRemember({ projectRoot, userDir }) {
   return async ({ text, tier, cites, why, how, type, title, links }) => {
-    // I1 + I2 boundary checks (Task 31 code-review):
-    // - cites: memory-write doesn't currently wire cites → provenance.
-    //   Silently dropping the array would tell the model "your citation
-    //   was recorded" — false. Reject with "not yet supported" until
-    //   memoryWrite gains a cites parameter (v0.1.x).
-    // - tier 'U': the kit's user-tier templates (USER.md / HABITS.md /
-    //   LESSONS.md) don't have MEMORY.md + 'Active Threads' section,
-    //   so memoryWrite would fail with NOT_FOUND. v0.1.0 mk_remember
-    //   only writes to project-tier MEMORY.md. (v0.1.x: parameterize
-    //   scratchpad routing per tier.)
+    // cites: memoryWrite doesn't wire cites → provenance yet. Silently dropping
+    // the array would tell the model "your citation was recorded" — false — so
+    // reject it clearly (the fact's own text is still captured if resubmitted
+    // without cites). Tracked in design §16.39.
     if (Array.isArray(cites) && cites.length > 0) {
       return {
         content: [
           {
             type: 'text',
-            text: 'error: cites parameter not yet supported by mk_remember (v0.1.x — see design §16.x). Submit the text without cites for now.',
+            text: 'error: the `cites` parameter is not recorded yet — resubmit the fact without it (reference related facts via `links` for [[cross-links]]).',
           },
         ],
         isError: true,
       };
     }
-    if (tier === 'U' || tier === 'L') {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `error: mk_remember in v0.1.0 only writes to tier 'P' (project). tier '${tier}' will be supported in v0.1.x when scratchpad routing is parameterized.`,
-          },
-        ],
-        isError: true,
-      };
-    }
+    // tier U/L: mk_remember writes the PROJECT tier (P) regardless; a fact
+    // becomes cross-project via mk_lessons_promote, not a direct tier write
+    // (direct U/L routing is the deferred feature in design §16.40). We do NOT error — we
+    // capture at P and attach the note, CONSISTENTLY with `cmk remember`. The
+    // three adapter paths had diverged (MCP error / CLI-rich warn / CLI-terse
+    // error); the note now comes from ONE shared source (D-102 / design §16.40).
+    const tierNote = tier === 'U' || tier === 'L' ? nonProjectTierNote(tier) : null;
     // Task 108b — MCP write parity: when rich fields (why/how/type/title/links)
     // are present, route to the SAME shared core (remember-core.rememberRich)
     // the CLI `cmk remember --why/--how` uses → a granular Why/How fact file, not
@@ -224,7 +224,7 @@ function makeMkRemember({ projectRoot, userDir }) {
           {
             type: 'text',
             text: JSON.stringify(
-              { id: rr.id, written_to: rr.path, accepted: true, action: rr.action, kind: 'rich' },
+              { id: rr.id, written_to: rr.path, accepted: true, action: rr.action, kind: 'rich', ...(tierNote && { tier_note: tierNote }) },
               null,
               2,
             ),
@@ -285,7 +285,7 @@ function makeMkRemember({ projectRoot, userDir }) {
         {
           type: 'text',
           text: JSON.stringify(
-            { id: r.id, written_to: r.path, accepted: true, action: r.action },
+            { id: r.id, written_to: r.path, accepted: true, action: r.action, ...(tierNote && { tier_note: tierNote }) },
             null,
             2,
           ),
@@ -498,7 +498,7 @@ function makeMkQueueResolve({ projectRoot, userDir }) {
 export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
   const server = new McpServer({
     name: 'cmk',
-    version: '0.1.0',
+    version: PKG_VERSION,
   });
 
   // mk_search
@@ -568,8 +568,8 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
       description: 'Explicit user-driven save to kit memory with audit trail.',
       inputSchema: {
         text: z.string().min(1).max(5000).describe('the fact text (max 5000 chars)'),
-        tier: z.enum(['U', 'P', 'L']).optional(),
-        cites: z.array(z.string()).optional(),
+        tier: z.enum(['U', 'P', 'L']).optional().describe("target tier (default P). U/L are captured to the project tier (P) with a note — use mk_lessons_promote to make a fact cross-project"),
+        cites: z.array(z.string()).optional().describe('not recorded yet — omit it'),
         // Task 108b — rich capture parity with the CLI `cmk remember --why/--how`.
         // Any of these routes to a granular Why/How fact file (not a terse bullet).
         why: z.string().max(5000).optional().describe('rich: the rationale (the **Why:** block)'),
@@ -586,7 +586,7 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
   server.registerTool(
     'mk_recent_activity',
     {
-      description: 'List recent observation changes within a time window.',
+      description: 'List recently added observations within a time window (by creation time).',
       inputSchema: {
         window: z.enum(['1h', '24h', '7d']).optional(),
         limit: z.number().int().positive().max(1000).optional(),

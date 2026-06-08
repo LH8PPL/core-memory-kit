@@ -31,7 +31,7 @@ Scaffold the cross-project user tier at `~/.claude-memory-kit/` (honors `$MEMORY
 Explicitly capture a durable fact to the project `MEMORY.md` (the layer recalled at session start). Routes through the kit's safe write path — **Poison_Guard** (rejects secrets), **home-path abstraction** (`C:\Users\you\…` → `~\…` so a committed fact never leaks your username), **dedup**, and correct provenance. This is the safe alternative to hand-writing files under `context/memory/` (which bypasses all of the above).
 - `--trust high|medium|low` — default `high`.
 - `--section <name>` — MEMORY.md section, default `Active Threads`.
-- `--tier P` — v0.1.0 writes the project tier; `U`/`L` are v0.1.x. For machine-only paths, edit `context.local/machine-paths.md` directly.
+- `--tier P` — writes the project tier (default). `U`/`L` are **captured to P with a note** (not a direct write target yet); promote a fact (`cmk lessons promote <id>`) to make it cross-project. For machine-only paths, edit `context.local/machine-paths.md` directly.
 ```bash
 cmk remember "We deploy with Kamal to Hetzner; never to Vercel."
 cmk remember "Prefers terse responses, no preamble." --trust high
@@ -101,7 +101,7 @@ These also ship as standalone bins for the scheduler: `cmk-daily-distill`, `cmk-
 Override an observation's trust level. IDs come from `cmk search` (e.g. `P-S79MJHFN`).
 
 ### `cmk forget <id-or-query> [--yes] [--reason <text>] [--deleted-by <enum>]`
-Tombstone a fact (preserves an audit trail). `--yes` required in v0.1.x. **Disappears from `cmk search` immediately** — forget reindexes in-band, so no manual `cmk reindex` (Task 110). The content stays recoverable via `cmk get <id>` (reads the tombstone archive). Claude can also do this in conversation via the `mk_forget` tool.
+Tombstone a fact (preserves an audit trail). `--yes` required. **Disappears from `cmk search` immediately** — forget reindexes in-band, so no manual `cmk reindex` (Task 110). The content stays recoverable via `cmk get <id>` (reads the tombstone archive). Claude can also do this in conversation via the `mk_forget` tool.
 ```bash
 cmk forget P-S79MJHFN --yes --reason "superseded"
 ```
@@ -145,7 +145,7 @@ Extract clean markdown transcripts from `~/.claude/projects/<slug>/<uuid>.jsonl`
 ## Advanced
 
 ### `cmk mcp serve`
-Run the MCP server over stdio (invoked by Claude Code, not by humans) — exposes memory as MCP tools (`mk_search`, `mk_get`, `mk_timeline`, `mk_cite`, `mk_remember`).
+Run the MCP server over stdio (invoked by Claude Code, not by humans) — exposes memory as the **11** `mcp__cmk__*` tools: read — `mk_search`, `mk_get`, `mk_timeline`, `mk_cite`, `mk_recent_activity`; write/mutate — `mk_remember`, `mk_trust`, `mk_lessons_promote`, `mk_forget`, `mk_queue_list`, `mk_queue_resolve`. See [`MCP.md`](MCP.md) for the full reference.
 
 ### `cmk version` / `cmk --version`
 Print the installed kit version.

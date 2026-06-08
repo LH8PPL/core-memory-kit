@@ -1,7 +1,7 @@
 ---
 adr: 0014
 title: Unify CLI + MCP over one in-process memory-op core (execute ADR-0006's deferred "MCP for retrieval+writes" line)
-status: proposed
+status: accepted
 date: 2026-06-07
 deciders:
   - the user
@@ -27,7 +27,7 @@ tags:
 
 ## Status
 
-**Proposed** (2026-06-07). Becomes **Accepted** when the Task 108 implementation plan is signed off. Drives Task 108 (v0.2.3). Revises design §10.3 (decision-trail-preserved) and **executes the v0.2 refactor ADR-0006 explicitly deferred**.
+**Accepted** (2026-06-08). Proposed 2026-06-07; **Task 108 a (PR #130) + b (PR #131) shipped and merged 2026-06-08**, and the implementation matches this decision — shared `remember-core.mjs` / `read-core.mjs`, thin CLI + MCP adapters, off-shell `--from-file`/`--json`/MCP-params input, the `validate-cli-mcp-parity` guard, and the confirm-token on `mk_forget`. Drove Task 108 (v0.2.3). Revises design §10.3 (decision-trail-preserved) and **executed the v0.2 refactor ADR-0006 explicitly deferred**. _(Status flipped Proposed→Accepted in Task 121, 2026-06-09 — the D-102 audit caught it had been left "proposed" after the work shipped.)_
 
 ## Context
 
@@ -102,3 +102,5 @@ Three independently-surfaced facts converge on one architecture:
 | Date | Reviewer | Action |
 |---|---|---|
 | 2026-06-07 | the user + Claude Opus 4.8 | Proposed; pending Task 108 plan sign-off |
+| 2026-06-08 | the user + Claude Opus 4.8 | Task 108 a+b shipped (PR #130 + #131) — implementation matches the decision |
+| 2026-06-09 | the user + Claude Opus 4.8 | **Accepted** — status flipped from Proposed (D-102 audit caught the stale lifecycle); CLI↔MCP parity verified against the code |
