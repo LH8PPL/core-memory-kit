@@ -26,7 +26,7 @@ import { weeklyCurate } from './weekly-curate.mjs';
 import { autoPersona } from './auto-persona.mjs';
 import { exportPersona, importPersona } from './persona-portability.mjs';
 import { setNativeAutoMemory, nativeMemoryInstallNote } from './native-memory.mjs';
-import { rememberRich, richFactTitle } from './remember-core.mjs';
+import { rememberRich, richFactTitle, nonProjectTierNote } from './remember-core.mjs';
 import { getObservations, citeLink, buildTimeline, recentActivity } from './read-core.mjs';
 import { readHookStdin } from './read-hook-stdin.mjs';
 import { runLazyCompress } from './lazy-compress.mjs';
@@ -61,7 +61,7 @@ import { resolveReviewQueue } from './review-queue.mjs';
 import { createInterface } from 'node:readline';
 import { resolve as resolvePath, join, basename } from 'node:path';
 
-const NOTICE_PREFIX = 'not yet implemented in v0.1.0';
+const NOTICE_PREFIX = 'not yet implemented';
 
 /**
  * Real `cmk install` action — wired in Task 3, extended in Task 4 with
@@ -461,12 +461,11 @@ export function runRememberRich(text, options = {}, deps = {}) {
   const log = deps.log ?? console.log;
   const logError = deps.logError ?? console.error;
 
-  // M2: rich capture writes the project tier (P) in v0.1.x — surface a non-P
-  // --tier rather than silently honoring it (the divergence isn't silent).
+  // Non-P --tier: capture at the project tier (P) + surface the note (don't
+  // silently honor it, don't hard-error). ONE shared note across CLI + MCP so
+  // the message can't drift (D-102 / Task 121).
   if (options.tier && options.tier !== 'P') {
-    log(
-      `cmk remember: --tier '${options.tier}' is v0.1.x — rich capture writes the project tier (P) for now.`,
-    );
+    log(`cmk remember: ${nonProjectTierNote(options.tier)}`);
   }
 
   // The write is the shared core (remember-core.rememberRich) — the SAME one the
@@ -626,15 +625,15 @@ export function runRemember(textParts, options, deps = {}) {
     runRememberRich(text, options, { projectRoot });
     return;
   }
-  const tier = options?.tier ?? 'P';
-  if (tier !== 'P') {
-    console.error(
-      `cmk remember: tier '${tier}' not yet supported — v0.1.0 writes the project tier (P). ` +
-        'For machine-only config, edit context.local/machine-paths.md directly (v0.1.x will add --tier routing).',
-    );
-    process.exitCode = 2;
-    return;
+  // Non-P --tier: capture at P + note (consistent with the rich path + the MCP
+  // tool — D-102). A fact becomes cross-project via `cmk lessons promote`, not a
+  // direct tier write (direct U/L routing is the deferred feature in design §16.40). We do NOT
+  // hard-error — losing the capture to an error is worse than landing it at P.
+  const requestedTier = options?.tier ?? 'P';
+  if (requestedTier !== 'P') {
+    log(`cmk remember: ${nonProjectTierNote(requestedTier)}`);
   }
+  const tier = 'P';
   const trust = options?.trust ?? 'high';
   const section = options?.section ?? 'Active Threads';
   const r = memoryWrite({

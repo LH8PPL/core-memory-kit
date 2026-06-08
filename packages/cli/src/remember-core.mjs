@@ -22,13 +22,30 @@ import { writeFact as defaultWriteFact } from './write-fact.mjs';
 import { buildRichFactBody, slugifyFact } from './rich-fact.mjs';
 
 /**
+ * The note shown when a non-project tier (U/L) is requested on a capture. Both
+ * `cmk remember` and `mk_remember` write the PROJECT tier (P) regardless of the
+ * requested tier; a fact becomes cross-project via lessons-promote, not a direct
+ * tier write (direct U/L routing is the deferred feature in design §16.40). This is the ONE
+ * source of truth for that note across all three adapter paths (CLI terse, CLI
+ * rich, MCP) — Task 108 unified the write core but the tier message had drifted
+ * into three divergent, independently-stale copies (D-102). Centralizing it here
+ * means it can't drift again.
+ */
+export function nonProjectTierNote(tier) {
+  return (
+    `tier '${tier}' is not a direct write target — captured to the project tier (P). ` +
+    'To make it cross-project, promote it (`cmk lessons promote <id>` / the `mk_lessons_promote` tool).'
+  );
+}
+
+/**
  * Write a rich Why/How fact file. Pure (no console logging) — returns the
  * writeFact result so the caller can format its own message / envelope.
  *
  * @param {string} text - the fact headline.
  * @param {object} [options] - { why, how, type, title, links, trust }. (tier is
  *   not honored here — rich capture writes the project tier P; the CLI/MCP
- *   adapters surface the v0.1.x tier deferral before calling.)
+ *   adapters surface the non-project-tier note before/around calling.)
  * @param {object} [deps] - { projectRoot, writeFact } injection seams for tests.
  * @returns the writeFact result: { action:'created'|'skipped'|'error', id?, path?, errorCategory?, errors?, skipReason? }
  */
@@ -39,9 +56,15 @@ export function rememberRich(text, options = {}, deps = {}) {
   const headline = String(text).trim();
   const title = (options.title && String(options.title).trim()) || headline.split('\n')[0].slice(0, 80);
   const body = buildRichFactBody({ text: headline, why: options.why, how: options.how });
-  const related = options.links
-    ? String(options.links).split(',').map((s) => s.trim()).filter(Boolean)
-    : undefined;
+  // `links` arrives as an ARRAY from the MCP tool (z.array) and as a
+  // comma-STRING from the CLI flag — accept both. The old `String(links)` path
+  // coerced an array via toString (works only until a link contains a comma);
+  // handle the array explicitly (D-102 / 121.6).
+  const related = Array.isArray(options.links)
+    ? options.links.map((s) => String(s).trim()).filter(Boolean)
+    : options.links
+      ? String(options.links).split(',').map((s) => s.trim()).filter(Boolean)
+      : undefined;
 
   return write({
     tier: 'P',

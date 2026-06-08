@@ -86,10 +86,11 @@ describe('cmk remember — durable capture CLI', () => {
     expect(readMemory()).not.toContain('ghp_1234567890');
   });
 
-  it('--tier U is rejected with the v0.1.x deferral notice (exit 2)', () => {
+  it('--tier U captures to the project tier (P) with a promote note (not an error)', () => {
     const r = cmk(['remember', '--tier', 'U', 'cross project pref']);
-    expect(r.status).toBe(2);
-    expect(r.stderr).toMatch(/not yet supported|v0\.1\.x/);
+    expect(r.status).toBe(0); // captured, not refused (D-102 / Task 121)
+    expect(`${r.stdout}${r.stderr}`).toMatch(/project tier \(P\)|promote/);
+    expect(readMemory()).toContain('cross project pref'); // landed at P
   });
 
   // Task 63 (F1) — Door 3: the CLI arg-parser must actually wire --why/--how

@@ -157,10 +157,12 @@ describe('Task 85 — cmk subcommand handlers (in-process dispatch coverage)', (
 
   // --- error / guard branches (cheap, but they're new code too) ---
 
-  it('remember --tier U (terse) → refuses with exit 2 (v0.1.0 writes project tier only)', () => {
+  it('remember --tier U (terse) → captures to project tier (P) + note, NOT an error (D-102)', () => {
+    process.exitCode = 0; // defensive: no leak from a prior test's exit-2 path
     cmd('remember').action(['a project note'], { tier: 'U' });
-    expect(errs.join('\n')).toMatch(/tier 'U' not yet supported|project tier/i);
-    expect(process.exitCode).toBe(2);
+    expect(`${logs.join('\n')} ${errs.join('\n')}`).toMatch(/project tier \(P\)|promote/);
+    expect(process.exitCode).not.toBe(2); // captured, not refused
+    expect(memoryMd()).toContain('a project note'); // landed at P
   });
 
   it('trust with an unknown id → not-found, exit 2', () => {

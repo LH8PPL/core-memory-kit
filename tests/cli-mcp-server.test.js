@@ -347,40 +347,46 @@ describe('Task 31 — MCP server', () => {
       expect(parsed.action).toBe('appended');
     });
 
-    // I1 fix (Task 31 code-review): cites is documented but unwired in
-    // memoryWrite. Silently dropping would mislead the model into
-    // thinking citations landed. mk_remember rejects with a clear
-    // not-yet-supported message until v0.1.x wires cites through.
-    it('I1 — mk_remember rejects cites parameter (not yet supported)', async () => {
+    // cites is documented but unwired in memoryWrite — silently dropping would
+    // mislead the model into thinking citations landed, so mk_remember rejects
+    // it clearly (the fact's text still captures if resubmitted without cites).
+    it('mk_remember rejects the cites parameter (not recorded yet)', async () => {
       const server = buildMcpServer({ projectRoot, userDir, db });
       const r = await invokeTool(server, 'mk_remember', {
         text: 'a fact with citations',
         cites: ['P-AAAAAAAA'],
       });
       expect(r.isError).toBe(true);
-      expect(r.content[0].text).toMatch(/cites parameter not yet supported/);
+      expect(r.content[0].text).toMatch(/cites.*not recorded yet/);
     });
 
-    // I2 fix (Task 31 code-review): mk_remember in v0.1.0 only writes
-    // to tier P. tier U/L would fail at runtime because user-tier
-    // templates don't have MEMORY.md + 'Active Threads'.
-    it('I2 — mk_remember rejects tier U with a clear v0.1.0 contract message', async () => {
+    // tier U/L: mk_remember writes the PROJECT tier (P) regardless; a fact goes
+    // cross-project via mk_lessons_promote, not a direct tier write. So tier U/L
+    // is NOT an error — it captures at P and attaches a tier_note, CONSISTENTLY
+    // with `cmk remember` (D-102 / Task 121 unified the three divergent paths).
+    it('mk_remember with tier U captures at P + notes that cross-project needs promotion', async () => {
       const server = buildMcpServer({ projectRoot, userDir, db });
       const r = await invokeTool(server, 'mk_remember', {
-        text: 'a fact',
+        text: 'tier-U capture should land at project tier',
         tier: 'U',
       });
-      expect(r.isError).toBe(true);
-      expect(r.content[0].text).toMatch(/only writes to tier 'P'/);
+      expect(r.isError).toBeFalsy();
+      const out = JSON.parse(r.content[0].text);
+      expect(out.accepted).toBe(true);
+      expect(out.tier_note).toMatch(/project tier \(P\)/);
+      expect(out.tier_note).toMatch(/promote/);
     });
 
-    it('I2 — mk_remember rejects tier L same as tier U', async () => {
+    it('mk_remember with tier L behaves the same as tier U (captures at P + note)', async () => {
       const server = buildMcpServer({ projectRoot, userDir, db });
       const r = await invokeTool(server, 'mk_remember', {
-        text: 'a fact',
+        text: 'tier-L capture should also land at project tier',
         tier: 'L',
       });
-      expect(r.isError).toBe(true);
+      expect(r.isError).toBeFalsy();
+      const out = JSON.parse(r.content[0].text);
+      expect(out.accepted).toBe(true);
+      expect(out.tier_note).toMatch(/promote/);
     });
   });
 

@@ -2434,7 +2434,7 @@ Provenance: Task 30 code-review Minor #5 (2026-05-27).
 
 Surfaced by the Task 31 code-review-excellence pass (2026-05-28) as Important finding I1. The MCP tool `mk_remember`'s public surface documents a `cites?: string[]` parameter (design §10's tool table). The underlying [`memoryWrite`](../packages/cli/src/memory-write.mjs) function doesn't accept `cites` today — its provenance frontmatter is generated from `source`, `at`, `sha1`, etc., not from a caller-supplied citation list.
 
-v0.1.0 ship: `mk_remember` rejects requests with non-empty `cites` and returns a clear "not yet supported" error. The Zod schema still accepts the parameter (so callers can pass empty arrays without error), but actual citation linking is deferred.
+Current behavior (message reworded in Task 121, 2026-06-09): `mk_remember` rejects requests with non-empty `cites` and returns a clear "not recorded yet — omit it" error (the Zod `.describe()` says the same). The schema still accepts the parameter so an empty array is a no-op; actual citation linking is deferred.
 
 v0.1.x candidate: wire `cites` through `memoryWrite` → provenance frontmatter as an optional `cites: [P-XXX, P-YYY, ...]` field. Then downstream (`mk_get`, the indexer) can surface citation relationships. Requires:
 
@@ -2453,7 +2453,7 @@ Provenance: Task 31 code-review Important #1 (2026-05-28).
 
 Surfaced by the Task 31 code-review-excellence pass (2026-05-28) as Important finding I2. The MCP tool `mk_remember` accepts `tier: 'U' | 'P' | 'L'` per design §10, but v0.1.0's implementation only writes to tier P (project) — The user-tier templates (`USER.md`, `HABITS.md`, `LESSONS.md`) and local-tier templates don't have `MEMORY.md` with an `Active Threads` section, so `memoryWrite` would fail with `NOT_FOUND` when called with `tier: 'U'` or `tier: 'L'`.
 
-v0.1.0 ship: `mk_remember` validates the tier at the Zod boundary and rejects U/L with a clear "v0.1.0 only writes to tier P" message. Zod still accepts the enum (so a future caller could pass U/L without schema error), but the runtime rejection prevents the misleading NOT_FOUND.
+Current behavior (REVISED in Task 121, 2026-06-09 — D-102): `mk_remember` **and** `cmk remember` **no longer reject** U/L — they **capture at the project tier (P)** and attach a shared `tier_note` pointing to `mk_lessons_promote` (/ `cmk lessons promote`) for making a fact cross-project. The three adapter paths (CLI terse / CLI rich / MCP) had diverged — error / warn / error — with three independently-stale "v0.1.0" messages; the note now comes from ONE source (`remember-core.nonProjectTierNote`), so it can't drift again. The misleading NOT_FOUND is avoided because the write always targets P. **Direct U/L scratchpad routing stays the deferred feature (the v0.1.x candidate described below).**
 
 v0.1.x candidate: parameterize the scratchpad + section routing per tier. For tier U, write to `USER.md` § a real heading (TBD: which one — `Habits`? `Lessons`? Or a new `Notes` section). For tier L, similar decision for `context.local/MEMORY.md` (which DOES exist in the template).
 

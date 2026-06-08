@@ -110,7 +110,7 @@ describe('Task 63 — cmk remember rich mode (restore rich capture through the s
       { projectRoot, log: (m) => out.push(m), logError: (m) => out.push('ERR: ' + m) },
     );
     expect(r.action).toBe('created'); // captured, not refused
-    expect(out.join('\n')).toMatch(/--tier 'U' is v0\.1\.x/); // surfaced, not silent
+    expect(out.join('\n')).toMatch(/tier 'U' is not a direct write target|promote/); // surfaced, not silent
   });
 
   it('a second capture of the SAME content is skipped as duplicate (Door 1 + 2)', () => {
