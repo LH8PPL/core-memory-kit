@@ -36,25 +36,15 @@ to `code.claude.com/docs/en/*`).
 - `cmk mcp serve` is the server entrypoint (parent `mcp` + child `serve`, per
   subcommands.mjs).
 
-## OPEN — must verify before writing the allowlist (the kit's "did you check?" rule)
+## ✅ RESOLVED 2026-06-08 — the permission-specifier question (verified, then shipped in 108b.6)
 
-**Does approving the server (via `enableAllProjectMcpServers` or the interactive
-prompt) ALSO auto-allow its individual tool CALLS, or does each tool call still
-prompt unless listed in `permissions.allow`?** And if a `permissions.allow` entry
-IS needed, what's the exact specifier for MCP tools:
+Verified against **<https://code.claude.com/docs/en/permissions>** (the "MCP" subsection under "Tool-specific permission rules"). All three forms work:
 
-- server-level `"mcp__cmk"` (allow ALL tools from the server), OR
-- per-tool `"mcp__cmk__mk_remember"`, OR
-- a tool wildcard `"mcp__cmk__*"` (⚠️ unconfirmed this is even supported).
+- `mcp__cmk` — matches **any** tool from the `cmk` server (server-level).
+- **`mcp__cmk__*`** — the documented tool **wildcard** ("wildcard syntax that also matches all tools from the `…` server"). ✅ Supported — this is what the kit writes.
+- `mcp__cmk__mk_remember` — matches one specific tool.
 
-The `/en/iam` fetch kept returning the **authentication** section, not the
-permission-specifier reference. Next session: fetch the permissions reference
-directly (try `code.claude.com/docs/llms.txt` to find the right page, or the
-settings schema `https://json.schemastore.org/claude-code-settings.json`) and pin
-the MCP specifier rules. **Do NOT write `mcp__cmk__*` into a generated settings
-file until this is confirmed** — guessing the wildcard is exactly the
-unverified-external-claim failure the kit's verification discipline exists to
-prevent.
+So the gate to writing the allowlist is cleared: `cmk install` writes `permissions.allow: ["mcp__cmk__*"]` (via `writeKitHooks`'s `KIT_ALLOW`). The same page also confirmed the **R2/D-80 rationale** — *"Combining `cd` with `git` in one compound command always prompts, regardless of the target directory"* — so a `cd … && cmk …` compound can't be allowlisted on the bash path, and running the op as an allow-listed MCP tool sidesteps the prompt. `enableAllProjectMcpServers` was deliberately NOT set (it auto-approves ALL project servers — too broad; the one-time per-server approval is a Claude Code safety feature the kit shouldn't bypass silently). Shipped in 108b.6 (PR #131). The "did you check?" discipline held: the allowlist was written only after the wildcard was confirmed at the primary source.
 
 ## Design intent for 108b.6 (pending the OPEN verification)
 

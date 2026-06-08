@@ -1517,7 +1517,9 @@ Returns: `[{id, snippet, source_file, source_line, tier, trust, score}]`. Trust 
 
 ## 10. MCP server (Layer 4b — optional)
 
-Six tools (per FR-26 + the `recent_activity` borrowed from Basic Memory verified surface):
+**Eleven tools as of Task 108b (2026-06-08, [ADR-0014](../../docs/adr/0014-unify-cli-mcp-shared-core.md)).** The MCP surface now reaches **full parity** with the `cmk` CLI over shared cores (`remember-core.mjs` / `read-core.mjs`); a `validate-cli-mcp-parity` guard ([`scripts/validate-cli-mcp-parity.mjs`](../../scripts/validate-cli-mcp-parity.mjs), wired into `npm test`) fails the build on drift. `cmk install` registers the server in `.mcp.json` + allowlists `mcp__cmk__*`, so the model drives every memory op prompt-free (D-85; R2/D-80 resolved — see §16.57).
+
+_Read / capture (the original six — FR-26 + `recent_activity` from Basic Memory's verified surface):_
 
 | Tool | Purpose | Response size |
 | --- | --- | --- |
@@ -1525,8 +1527,20 @@ Six tools (per FR-26 + the `recent_activity` borrowed from Basic Memory verified
 | `mk_get(ids[])` | Full body + provenance + relations | ~500-1000 tokens/result |
 | `mk_timeline(anchor, depth_before?, depth_after?)` | Sequential context around an ID or timestamp | varies |
 | `mk_cite(id)` | Canonical Markdown citation link `[#P-S79MJHFN](memkit://obs/P-S79MJHFN)` | trivial |
-| `mk_remember(text, tier?, cites?)` | Explicit user-driven save with audit trail | `{id, written_to, accepted}` |
-| `mk_recent_activity(window?: "1h"\|"24h"\|"7d", limit?)` | Recent memory mutations — common query | List of recent observation changes |
+| `mk_remember(text, why?, how?, type?, title?, links?, tier?, cites?)` | Explicit save — a rich Why/How fact file when `why`/`how`/`title`/`type` are given (shared `rememberRich` core), else a terse bullet | `{id, written_to, accepted}` |
+| `mk_recent_activity(window?: "1h"\|"24h"\|"7d", limit?)` | Recent memory mutations | List of recent observation changes |
+
+_Mutate (added in 108b — confirm-token on the destructive op):_
+
+| Tool | Purpose | Notes |
+| --- | --- | --- |
+| `mk_trust(id, level)` | Override a fact's trust (low/medium/high) | reversible; audited |
+| `mk_lessons_promote(id, to?)` | Promote a project-tier fact to the user tier | sanitized + secret-screened + audited |
+| `mk_forget(id, reason?, confirm?)` | Tombstone a fact | **DESTRUCTIVE → two-step**: first call previews + returns a content-derived `confirm_token` (sha256(id+body) prefix); a second call with that token executes |
+| `mk_queue_list(queue?)` | List pending review / conflict entries | **pure read** (does not rewrite the queue) |
+| `mk_queue_resolve(queue, id, action)` | Resolve one queued entry by id | review: `promote`/`discard`; conflicts: `keep-old`/`keep-new` (merge-both → `cmk queue conflicts`) |
+
+Every MCP tool has a matching `cmk` verb and vice-versa (the CLI gained `get`/`timeline`/`cite`/`recent-activity` in 108b); the guard enforces the symmetry.
 
 ### 10.1 Transport — stdio (per MCP spec)
 
@@ -2604,9 +2618,11 @@ The two **product** follow-ups (manual `cmk persona generate` wrapper; low/mediu
 
 **v0.1.x candidate.** The 2026-05-23 cold-start bootstrap test surfaced a failure mode docs didn't prevent: a fresh session flipped a checkpoint checkbox using fresh-looking-but-stale PR-branch test numbers, without re-running the criteria from current main ("checkpoint marked but not verified"). The behavioral guard is a CLAUDE.md rule (checkpoint-verification: never flip on stale numbers); the structural fix is a `cmk checkpoint <n>` subcommand that programmatically runs the checkpoint's criteria (full suite from main + the named smoke checks) and only then flips the box — removing the temptation to shortcut. Same "prose-rule → tool" graduation pattern as the other §16 enforcement candidates. Trigger: the manual rule proving insufficient (a second checkpoint-not-verified incident). _(Extracted from the 2026-05-23 bootstrap-test research during the doc-governance read.)_
 
-### 16.57 Explicit-capture R2 friction on `cd <abs-path> && cmk` compounds (ACCEPTED edge, deferred)
+### 16.57 Explicit-capture R2 friction on `cd <abs-path> && cmk` compounds (✅ RESOLVED 2026-06-08 via Task 108b — MCP-first)
 
-**Deferred — DOCUMENTED, not fixed (the user, 2026-06-07: "document it as an edge case we won't fix unless we have a working simple solution"). Full decision + verified primary-source findings: D-80.**
+**✅ RESOLVED 2026-06-08 (Task 108b / Task 118).** The fix is the MCP-first surface: `cmk install` now registers the kit's MCP server in `.mcp.json` and allowlists `mcp__cmk__*`, and the `memory-write` skill prefers the MCP tools (`mk_remember` / `mk_forget` / …). A tool call is **not** a shell command — no `cd`, no compound, no `Bash()` matcher — so the permission prompt can't arise on the Claude-mediated path (D-85). The `mcp__cmk__*` tool-wildcard was verified against [code.claude.com/docs/en/permissions](https://code.claude.com/docs/en/permissions). The bash CLI path described below stays a documented power-user edge (decision-trail preserved); the original deferral analysis follows as history.
+
+**Original deferral (2026-06-07) — DOCUMENTED, not fixed (the user: "document it as an edge case we won't fix unless we have a working simple solution"). Full decision + verified primary-source findings: D-80.**
 
 Surfaced by the v0.2.2 cut-gate live run. The agent captured a preference richly via `cmk remember … --type --why --how --title` (F1 working), but Claude Code prompted *"Allow this bash command?"* because the agent wrapped it as `cd "<abs project path>" && cmk remember …`. Verified against [code.claude.com/docs/en/permissions](https://code.claude.com/docs/en/permissions): compounds are split per-subcommand and each must qualify; `cd` is read-only only when its target is *inside the working directory*, so a `cd` to an absolute path the WD-check doesn't recognize doesn't qualify → the whole compound prompts. `Bash(cmk:*)` already covers the **bare** `cmk remember …` (the normal case → no prompt), so **R2 substantially passes** — the friction is only the agent's redundant `cd` wrapper.
 
