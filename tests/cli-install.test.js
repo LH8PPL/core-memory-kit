@@ -317,6 +317,10 @@ describe('Task 3 — cmk install', () => {
       // turn excerpts (low_trust_discarded traces) — it must be gitignored so a
       // dropped secret can't reach git history.
       expect(content).toContain('context/sessions/*.extract.log');
+      // Task 115 (cut-gate5 H1): the transcript-extraction temp buffer
+      // (.extract-<ts>.tmp) must be gitignored so a crash-orphaned partial
+      // never travels with `git clone`.
+      expect(content).toContain('context/transcripts/.extract-*.tmp');
     });
 
     it('wraps the managed block with start/end markers (for idempotent refresh)', async () => {

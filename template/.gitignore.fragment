@@ -16,3 +16,9 @@ context/.locks/
 # must never be committed). The durable memory lives in the scratchpads +
 # fact files, not these logs.
 context/sessions/*.extract.log
+
+# Transcript-extraction temp buffer (Task 115). capture-turn writes
+# context/transcripts/.extract-<ts>.tmp as the turn buffer for the detached
+# auto-extract child, which consumes + deletes it. Gitignored so a crash-orphaned
+# partial never travels with `git clone` (cut-gate5 H1 committed one via git add -A).
+context/transcripts/.extract-*.tmp
