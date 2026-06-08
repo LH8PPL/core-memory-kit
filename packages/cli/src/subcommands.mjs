@@ -1182,40 +1182,41 @@ async function runRollCli(options /* , command */) {
   }
 }
 
-async function runImportAnthropicMemory(options /* , command */) {
-  const projectRoot = resolvePath(process.cwd());
+// Task 114 (F-13): dep-injectable (projectRoot / harnessRoot / log / logError) so
+// the real-import CLI path is verifiable on real input WITHOUT touching the user's
+// ~/.claude. Defaults are unchanged for production. Returns the core result.
+export async function runImportAnthropicMemory(options = {}) {
+  const projectRoot = options?.projectRoot ?? resolvePath(process.cwd());
+  const log = options?.log ?? console.log;
+  const logError = options?.logError ?? console.error;
   const dryRun = options?.dryRun === true;
   const acceptAll = options?.yes === true;
   try {
-    // I1 fix (skill-review 2026-05-28): userDir was unused, dropped.
-    const r = await importAnthropicMemory({ projectRoot, dryRun, acceptAll });
+    const r = await importAnthropicMemory({ projectRoot, dryRun, acceptAll, harnessRoot: options?.harnessRoot });
     if (r.action === 'error') {
-      console.error(`cmk import-anthropic-memory: error — ${(r.errors ?? []).join('; ')}`);
+      logError(`cmk import-anthropic-memory: error — ${(r.errors ?? []).join('; ')}`);
       process.exitCode = 2;
-      return;
+      return r;
     }
     if (r.reason === 'no-source') {
-      console.log(`cmk import-anthropic-memory: no Anthropic auto-memory found at ${r.sourcePath}`);
-      return;
+      log(`cmk import-anthropic-memory: no Anthropic auto-memory found at ${r.sourcePath}`);
+      return r;
     }
     if (r.mode === 'dry-run') {
-      console.log(`cmk import-anthropic-memory: dry-run — ${r.proposals.length} proposal(s), ${r.skipped} duplicate(s) skipped`);
-      for (const p of r.proposals) {
-        console.log(`  + ${p.id}: ${p.text}`);
-      }
-      return;
+      log(`cmk import-anthropic-memory: dry-run — ${r.proposals.length} proposal(s), ${r.skipped} duplicate(s) skipped`);
+      for (const p of r.proposals) log(`  + ${p.id}: ${p.text}`);
+      return r;
     }
     if (r.mode === 'requires-confirmation') {
-      console.log(`cmk import-anthropic-memory: ${r.proposals.length} proposal(s) ready to apply.`);
-      console.log('  Re-run with --yes to apply, or --dry-run to inspect.');
-      for (const p of r.proposals) {
-        console.log(`  + ${p.id}: ${p.text}`);
-      }
-      return;
+      log(`cmk import-anthropic-memory: ${r.proposals.length} proposal(s) ready to apply.`);
+      log('  Re-run with --yes to apply, or --dry-run to inspect.');
+      for (const p of r.proposals) log(`  + ${p.id}: ${p.text}`);
+      return r;
     }
-    console.log(`cmk import-anthropic-memory: applied ${r.accepted} proposal(s), skipped ${r.skipped} duplicate(s)`);
+    log(`cmk import-anthropic-memory: applied ${r.accepted} proposal(s), skipped ${r.skipped} duplicate(s)`);
+    return r;
   } catch (err) {
-    console.error(`cmk import-anthropic-memory: unexpected error: ${err?.message ?? err}`);
+    logError(`cmk import-anthropic-memory: unexpected error: ${err?.message ?? err}`);
     process.exitCode = 2;
   }
 }
