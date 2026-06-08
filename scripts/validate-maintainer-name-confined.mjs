@@ -19,37 +19,42 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // The ONLY files allowed to carry the real name (author / copyright identity).
-const ALLOWLIST = new Set([
+export const ALLOWLIST = new Set([
   'LICENSE',
   'plugin/.claude-plugin/plugin.json',
   '.claude-plugin/marketplace.json',
   'python/pyproject.toml',
 ]);
 
-function maintainerFirstName() {
-  const license = readFileSync(join(REPO, 'LICENSE'), 'utf8');
-  const m = license.match(/Copyright \([cC]\)\s*\d{4}\s+(.+)/);
-  if (!m) {
-    console.error('validate-maintainer-name-confined: cannot read the copyright holder from LICENSE');
-    process.exit(1);
-  }
-  // The first-name token is the broad check — code comments used the first name
-  // alone ("the user (2026-…)" used to be "<first> 2026-…"); the full name only
-  // ever appears in the allowlisted author fields, and a line with the full name
-  // also contains the first-name token, so checking the first name covers both.
+/**
+ * Pure: extract the first-name token of the copyright holder from LICENSE text.
+ * The first name is the broad check — code comments used the first name alone;
+ * the full name only appears in the allowlisted author fields, and a full-name
+ * line still contains the first-name token, so the first name covers both.
+ * Returns null if no copyright line is found.
+ */
+export function parseMaintainerFirstName(licenseText) {
+  const m = String(licenseText).match(/Copyright \([cC]\)\s*\d{4}\s+(.+)/);
+  if (!m) return null;
   return m[1].trim().split(/\s+/)[0];
 }
 
+/** Pure: the tracked files that carry the name but are NOT in the allowlist. */
+export function offendersOutsideAllowlist(filesWithName, allowlist = ALLOWLIST) {
+  return filesWithName.filter((f) => !allowlist.has(f));
+}
+
+/** IO: tracked files containing `name` as a whole word (git grep, no shell). */
 function filesContaining(name) {
-  // git grep scans only tracked files; -w word boundary, -F fixed string.
   // execFileSync (no shell) so the name is an argv element, never interpolated
   // into a command line — no quoting/injection surface even if the name ever
-  // carried a shell metacharacter. Exit status 1 = "no matches" (clean).
+  // carried a shell metacharacter. -w word boundary, -F fixed string. git grep
+  // exit status 1 = "no matches" (clean), not an error.
   try {
     const out = execFileSync('git', ['grep', '-l', '-w', '-F', '--', name], {
       cwd: REPO,
@@ -62,20 +67,28 @@ function filesContaining(name) {
   }
 }
 
-const name = maintainerFirstName();
-const offenders = filesContaining(name).filter((f) => !ALLOWLIST.has(f));
-
-if (offenders.length > 0) {
-  console.error('validate-maintainer-name-confined: FAIL');
-  console.error('  The maintainer name appears OUTSIDE the allowed author/copyright files:');
-  for (const f of offenders) console.error('    - ' + f);
-  console.error(
-    `\n  The name belongs ONLY in: ${[...ALLOWLIST].join(', ')}.` +
-      '\n  Everywhere else use "the user" (quotes/attributions) or "the maintainer" (credit) — CLAUDE.md "Name privacy".',
+function run() {
+  const name = parseMaintainerFirstName(readFileSync(join(REPO, 'LICENSE'), 'utf8'));
+  if (!name) {
+    console.error('validate-maintainer-name-confined: cannot read the copyright holder from LICENSE');
+    process.exit(1);
+  }
+  const offenders = offendersOutsideAllowlist(filesContaining(name));
+  if (offenders.length > 0) {
+    console.error('validate-maintainer-name-confined: FAIL');
+    console.error('  The maintainer name appears OUTSIDE the allowed author/copyright files:');
+    for (const f of offenders) console.error('    - ' + f);
+    console.error(
+      `\n  The name belongs ONLY in: ${[...ALLOWLIST].join(', ')}.` +
+        '\n  Everywhere else use "the user" (quotes/attributions) or "the maintainer" (credit) — CLAUDE.md "Name privacy".',
+    );
+    process.exit(1);
+  }
+  console.log(
+    `validate-maintainer-name-confined: OK — maintainer name confined to ${ALLOWLIST.size} author/copyright file(s); absent from all other tracked files`,
   );
-  process.exit(1);
 }
 
-console.log(
-  `validate-maintainer-name-confined: OK — maintainer name confined to ${ALLOWLIST.size} author/copyright file(s); absent from all other tracked files`,
-);
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  run();
+}
