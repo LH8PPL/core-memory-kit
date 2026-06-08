@@ -976,9 +976,9 @@ function runRegisterCrons(options /* , command */) {
   // Helper: quote a path for the platform's cron-line shell.
   // Linux + macOS: double-quote (the cron line is single-quoted around the
   // whole `echo '...'`; double-quotes inside are safe).
-  // Windows: the schtasks /TR value is already double-quoted by registerCron,
-  // with `\"` escaping for inner quotes — registerCron's existing
-  // escapedCommand handles this.
+  // Windows: registerCron execs schtasks with an args array (no shell), so this
+  // double-quoted /TR value is delivered verbatim — no escaping needed (Task 109
+  // / D-83). macOS strips these wrapping quotes before building the plist.
   const quote = (s) => `"${s}"`;
 
   const jobs = [

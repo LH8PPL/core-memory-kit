@@ -15,8 +15,10 @@ import {
   registerCron,
   unregisterCron,
   detectPlatform,
+  buildWindowsSchtasks,
   CRON_ENTRY_NAME,
   DEFAULT_SCHEDULE,
+  WEEKLY_ENTRY_NAME,
 } from '../packages/cli/src/register-crons.mjs';
 
 describe('Task 33 — register-crons', () => {
@@ -51,10 +53,14 @@ describe('Task 33 — register-crons', () => {
       expect(r.errorCategory).toBe('schema');
     });
 
-    it('rejects a command containing a double quote (Windows schtasks /TR quoting contract)', () => {
+    it('ACCEPTS a command containing double quotes — the Windows path triple needs them (Task 109 / D-83)', () => {
+      // The Windows command IS `"<node>" "<script>" "<projectRoot>"` — double
+      // quotes are REQUIRED (paths with spaces). The old guard rejected them,
+      // making cron un-registerable on Windows (the whole D-83 bug). The win32
+      // path now execs schtasks via an args array, so the inner quotes are safe.
       const r = registerCron({ command: 'node "x".mjs', dryRun: true });
-      expect(r.action).toBe('error');
-      expect(r.errorCategory).toBe('schema');
+      expect(r.action).toBe('dry-run');
+      expect(r.action).not.toBe('error');
     });
 
     it('rejects invalid hour (>23)', () => {
@@ -112,8 +118,10 @@ describe('Task 33 — register-crons', () => {
         expect(r.output).toContain('<plist');
         expect(r.output).toContain('com.cmk.cmk-daily-distill');
       } else if (process.platform === 'win32') {
+        // Task 109: the win32 dry-run command is now a readable render of the
+        // schtasks ARGV array (entryName is a bare element, not display-quoted).
         expect(r.command).toContain('schtasks');
-        expect(r.command).toContain(`/TN "${CRON_ENTRY_NAME}"`);
+        expect(r.command).toContain(`/TN ${CRON_ENTRY_NAME}`);
         expect(r.command).toContain('/SC DAILY');
         // Default schedule is 23:00 — verify it's formatted as HH:mm.
         expect(r.command).toContain('/ST 23:00');
@@ -180,6 +188,54 @@ describe('Task 33 — register-crons', () => {
         expect(r.command).toContain(CRON_ENTRY_NAME);
         expect(r.command).toContain('/F');
       }
+    });
+  });
+
+  describe('Task 109 — Windows schtasks + macOS plist quoting (D-83 fix)', () => {
+    // The REAL command: absolute node + script + projectRoot, each double-quoted
+    // (paths have spaces). This quoted triple is what tripped the old guard.
+    const winCommand =
+      '"C:\\Program Files\\nodejs\\node.exe" "C:\\proj\\bin\\cmk-daily-distill.mjs" "C:\\My Proj"';
+
+    it('buildWindowsSchtasks returns an ARGV array with /TR = the command VERBATIM (not a shell string)', () => {
+      const argv = buildWindowsSchtasks({ command: winCommand, entryName: CRON_ENTRY_NAME, hour: 23, minute: 0 });
+      expect(Array.isArray(argv)).toBe(true);
+      expect(argv[0]).toBe('/Create');
+      // The /TR value is ONE element, quotes intact — delivered to schtasks verbatim.
+      const trIdx = argv.indexOf('/TR');
+      expect(trIdx).toBeGreaterThan(0);
+      expect(argv[trIdx + 1]).toBe(winCommand);
+      // daily cadence + idempotency + non-admin run level.
+      expect(argv).toContain('/SC');
+      expect(argv).toContain('DAILY');
+      expect(argv).toContain('/F');
+      expect(argv).toContain('LIMITED');
+    });
+
+    it('weekly cadence emits /SC WEEKLY /D <DAY>', () => {
+      const argv = buildWindowsSchtasks({ command: winCommand, entryName: WEEKLY_ENTRY_NAME, hour: 9, minute: 0, dayOfWeek: 0 });
+      expect(argv).toContain('WEEKLY');
+      const dIdx = argv.indexOf('/D');
+      expect(dIdx).toBeGreaterThan(0);
+      expect(argv[dIdx + 1]).toBe('SUN');
+    });
+
+    it('registerCron(platform:win32) dry-runs the quoted triple WITHOUT rejecting it', () => {
+      const r = registerCron({ command: winCommand, platform: 'win32', dryRun: true });
+      expect(r.action).toBe('dry-run'); // NOT 'error' — the D-83 bug
+      expect(r.platform).toBe('win32');
+      expect(r.command).toContain('schtasks');
+      expect(r.command).toContain('/TR');
+    });
+
+    it('macOS strips the wrapping quotes so launchd execs a real path, not a literally-quoted one', () => {
+      // No-space paths: the quote-strip fixes this common case (a space-bearing
+      // path is the documented remaining edge needing the argv-array refactor).
+      const cmd = '"/usr/local/bin/node" "/proj/bin/cmk-daily-distill.mjs" "/proj"';
+      const r = registerCron({ command: cmd, platform: 'darwin', dryRun: true });
+      expect(r.action).toBe('dry-run');
+      expect(r.output).toContain('<string>/usr/local/bin/node</string>');
+      expect(r.output).not.toMatch(/<string>"/); // no ProgramArgument starts with a literal quote
     });
   });
 });

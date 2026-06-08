@@ -74,7 +74,18 @@ function macOsPlistPath(entryName) {
 function buildMacOsPlist({ command, entryName, hour, minute, dayOfWeek }) {
   // Split command on whitespace for the ProgramArguments array.
   // launchd doesn't honor shell quoting — each arg is its own element.
-  const args = command.split(/\s+/).filter(Boolean);
+  // Strip the surrounding double-quotes the caller wraps each path in (the
+  // command is `"<node>" "<script>" "<projectRoot>"`): launchd execs the arg
+  // LITERALLY, so a `<string>"/path/node"</string>` with quotes baked in is a
+  // path that starts with `"` → ENOENT (Task 109: the macOS sibling of the
+  // Windows D-83 bug). Each split token is one quoted path; drop the wrapping
+  // quotes to get the clean path. (A path that itself contains a space is the
+  // remaining edge — rare for node/project paths — and needs the argv-array
+  // refactor noted in the Task 109 follow-up.)
+  const args = command
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((a) => a.replace(/^"(.*)"$/, '$1'));
   const argXml = args
     .map((a) => `    <string>${escapeXml(a)}</string>`)
     .join('\n');
@@ -116,34 +127,35 @@ function escapeXml(s) {
     .replace(/'/g, '&apos;');
 }
 
-function buildWindowsSchtasks({ command, entryName, hour, minute, dayOfWeek }) {
-  // schtasks accepts /ST as HH:mm. /F forces re-create if the task
-  // already exists (idempotency primitive). /RL LIMITED (not HIGHEST)
-  // because daily distill doesn't need admin.
+export function buildWindowsSchtasks({ command, entryName, hour, minute, dayOfWeek }) {
+  // Returns the schtasks.exe ARGV ARRAY (not a shell string). The /TR value — the
+  // command to run, `"<node>" "<script>" "<projectRoot>"` with its own quotes
+  // around each spaced path — is ONE array element, delivered to schtasks.exe
+  // verbatim via CreateProcess (Node's Windows arg-quoting), with NO cmd.exe
+  // re-parse at registration time.
+  //
+  // This is the D-83 fix. The old `/TR "${command}"` shell-string form double-
+  // wrapped the inner quotes (schtasks AND cmd.exe both tried to parse them) and
+  // the registerCron guard then rejected the inner `"` outright — so cron could
+  // NEVER register on Windows. Array-exec sidesteps the nesting entirely: Task
+  // Scheduler stores the /TR value and cmd.exe parses the quoted paths only when
+  // the task FIRES. (No `\"`-escaping needed → no CodeQL js/incomplete-
+  // sanitization, no path-corrupting backslash-doubling.)
+  //
+  // /ST is HH:mm; /F forces re-create for idempotency; /RL LIMITED (not HIGHEST)
+  // because distill needs no admin. Task 34: /SC WEEKLY /D <SUN|...> for weekly.
   const time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-  // The command is wrapped in `/TR "${command}"`. cmd.exe/schtasks treats
-  // backslash as a PATH separator, not an escape character, so the only
-  // char that can break out of the quotes is a literal `"` — and that is
-  // rejected at the registerCron boundary (see the validation below), the
-  // same way an embedded `'` is rejected for the Linux cron line. So no
-  // escaping is applied here. (The earlier `command.replace(/"/g, '\\"')`
-  // was both unnecessary — controlled bin-name+path commands never contain
-  // `"` — and CodeQL-flagged js/incomplete-sanitization, since it didn't
-  // escape backslashes; but `\"`/`\\` is not how cmd.exe quotes anyway, and
-  // doubling backslashes would corrupt Windows paths. Reject-at-boundary is
-  // the correct, safe contract.)
-  // Task 34: /SC WEEKLY /D <SUN|MON|...> for weekly cadence; /SC DAILY otherwise.
-  let scheduleFlags;
+  let scheduleArgs;
   if (dayOfWeek !== undefined && dayOfWeek !== null) {
     const day = WIN_DAY_MAP[dayOfWeek];
     if (!day) {
       throw new Error(`buildWindowsSchtasks: invalid dayOfWeek ${dayOfWeek}`);
     }
-    scheduleFlags = `/SC WEEKLY /D ${day}`;
+    scheduleArgs = ['/SC', 'WEEKLY', '/D', day];
   } else {
-    scheduleFlags = '/SC DAILY';
+    scheduleArgs = ['/SC', 'DAILY'];
   }
-  return `schtasks /Create /TN "${entryName}" ${scheduleFlags} /ST ${time} /TR "${command}" /RL LIMITED /F`;
+  return ['/Create', '/TN', entryName, ...scheduleArgs, '/ST', time, '/TR', command, '/RL', 'LIMITED', '/F'];
 }
 
 /**
@@ -169,12 +181,16 @@ export function registerCron(opts = {}) {
     // cron command needs to either escape POSIX-style ('\'') or
     // we extend this helper with a sanitizer (v0.1.x candidate).
     errors.push("command: must not contain single quotes (Linux cron-line shell-quoting contract)");
-  } else if (opts.command.includes('"')) {
-    // Windows schtasks /TR wraps the command in double-quotes; an embedded
-    // `"` would break out of the quoting. Reject at the boundary (cmd.exe
-    // has no usable in-quote escape for `"`), mirroring the `'` contract.
-    errors.push('command: must not contain double quotes (Windows schtasks /TR quoting contract)');
   }
+  // NOTE (Task 109 / D-83): there is deliberately NO double-quote rejection. The
+  // Windows command legitimately CONTAINS double-quotes — it's the quoted path
+  // triple `"<node>" "<script>" "<projectRoot>"` (Task 36 B1/B2). The earlier
+  // guard rejected `"` because the old `/TR "${command}"` SHELL form double-
+  // wrapped them; that made cron un-registerable on Windows (the whole D-83 bug).
+  // The win32 branch now execs schtasks with an ARGS ARRAY (no shell), so the
+  // /TR value is delivered verbatim and the inner quotes never need escaping.
+  // macOS XML-escapes them in the plist; Linux nests them inside its single-quote
+  // `echo '...'` — so `"` is safe on every platform.
   const entryName = opts.entryName ?? CRON_ENTRY_NAME;
   if (!entryName || typeof entryName !== 'string' || !/^[a-zA-Z0-9_.-]+$/.test(entryName)) {
     errors.push("entryName: must match /^[a-zA-Z0-9_.-]+$/ (used in shell + plist + schtasks identifiers)");
@@ -199,7 +215,9 @@ export function registerCron(opts = {}) {
     return errorResult({ category: ERROR_CATEGORIES.SCHEMA, errors });
   }
 
-  const platform = detectPlatform();
+  // opts.platform is a test seam (detectPlatform() reads process.platform, which
+  // can't vary on a single CI host) — production never passes it.
+  const platform = opts.platform ?? detectPlatform();
   const dryRun = opts.dryRun === true;
 
   if (platform === 'linux') {
@@ -259,24 +277,27 @@ export function registerCron(opts = {}) {
   }
 
   if (platform === 'win32') {
-    const cmd = buildWindowsSchtasks({ command: opts.command, entryName, hour, minute, dayOfWeek });
+    const argv = buildWindowsSchtasks({ command: opts.command, entryName, hour, minute, dayOfWeek });
+    const displayCmd = `schtasks ${argv.join(' ')}`; // informational (dry-run + result.command)
     if (dryRun) {
       return {
         action: 'dry-run',
         platform,
         executed: false,
-        command: cmd,
+        command: displayCmd,
         output: '',
       };
     }
-    // schtasks is a .exe; spawnSync handles it directly via shell:true
-    // (per the kit's Windows .cmd shim pattern in compressor.mjs).
-    const r = spawnSync(cmd, { shell: true, encoding: 'utf8', windowsHide: true, timeout: 10_000 });
+    // Exec schtasks.exe with the ARGS ARRAY — NOT shell:true. This delivers the
+    // /TR value's inner quotes to schtasks verbatim (CreateProcess arg-quoting),
+    // never re-parsed by cmd.exe at registration time (the D-83 fix). Task
+    // Scheduler stores the command; cmd.exe parses the quoted paths at fire time.
+    const r = spawnSync('schtasks', argv, { encoding: 'utf8', windowsHide: true, timeout: 10_000 });
     return {
       action: r.status === 0 ? 'registered' : 'error',
       platform,
       executed: true,
-      command: cmd,
+      command: displayCmd,
       output: (r.stdout || '') + (r.stderr || ''),
       ...(r.status === 0 ? {} : { error: `schtasks exit ${r.status}` }),
     };
