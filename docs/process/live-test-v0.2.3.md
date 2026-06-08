@@ -51,8 +51,9 @@ git init; cmk install                         # scaffolds + wires hooks + MCP
 
 The point: **you never type `cmk`.** You talk; Claude drives the tools; no approval prompt.
 
-- [ ] **Capture (in chat):** *"remember that we standardized on pnpm for this repo."*
+- [ ] **Capture (in chat):** *"remember we standardized on pnpm for this repo — we switched because npm was too slow on the monorepo."*
   **PASS:** Claude calls `mk_remember` (not a Bash command), **no "Allow this command?" prompt**, and doesn't announce it unless asked. _(108)_
+  **Why the "because":** it makes this a rich **fact file** (Why/How). That matters for the forget step below — `forget` tombstones **facts**, not the terse one-line bullets a bare "remember X" produces, so capture it with a reason if you want to forget it by name later.
 - [ ] **Capture rich (in chat):** *"from now on, always run the linter before committing — because it catches errors early."*
   **PASS:** `mk_remember` with `why`/`how` → a Why/How fact file. _(108)_
 - [ ] **Recall (in chat):** *"what did we decide about package managers?"*
@@ -61,8 +62,8 @@ The point: **you never type `cmk`.** You talk; Claude drives the tools; no appro
   **PASS:** Claude calls `mk_forget` → shows a **preview + confirm token first**, waits for you, then tombstones. Ask *"what about package managers?"* again → **gone from search, no manual reindex.** _(110 + 117)_
 - [ ] **Trust via free speech (in chat):** capture something, then say *"that one's important — keep it"* (→ high) and on another *"eh, that's not important / I'm not sure about it"* (→ low).
   **PASS:** Claude calls `mk_trust` with the right level. _(117)_
-- [ ] **Cross-project promote (in chat):** *"that linter rule applies to every project, not just this one."*
-  **PASS:** `mk_lessons_promote` (or it's already in your user tier from the rich capture). _(108)_
+- [ ] **Cross-project doctrine (in chat):** *"that linter rule applies to every project, not just this one."*
+  **PASS:** it lands in your **user tier** (`~/.claude-memory-kit/HABITS.md` or `LESSONS.md`) — usually **automatically** (the per-turn auto-persona pass promotes cross-project doctrine; no command), which §E then confirms by cold-opening another project. _(Task 61 — the v0.2 wedge)_
 
 ---
 
@@ -77,15 +78,20 @@ The point: **you never type `cmk`.** You talk; Claude drives the tools; no appro
 
 CLI tests drove these with injected answers; here you drive the **real readline prompt.**
 
+**Honest caveat — you can't force a queue item on demand.** There's no `cmk queue add`;
+items only appear when **auto-extract** grades a turn medium-trust (→ review queue) or a
+medium-trust capture conflicts with a high-trust fact (→ conflict queue). So this is an
+**opportunistic** check: run it after a real working session has accumulated items. The
+resolver *logic* (promote/discard, keep-old/keep-new/merge-both) is already deterministically
+covered by the suite (Task 113) — this confirms the **interactive terminal prompt** itself.
+
 ```powershell
-# Make a real pending item first (in chat): say something that conflicts with a
-# saved high-trust fact, OR a medium-trust aside the auto-extract queues.
-cmk queue review        # walk one: type  promote / discard / skip
-cmk queue conflicts     # if any: type   keep-old / keep-new / merge-both / skip
+cmk queue review        # empty → "runs clean"; if items → walk one: promote / discard / skip
+cmk queue conflicts     # empty → "runs clean"; if items → keep-old / keep-new / merge-both / skip
 ```
 
-- [ ] **Review walker works.** It prints the pending item, takes your answer, applies it; promoted text lands in MEMORY.md; the queue drains. _(113)_
-- [ ] **Conflict walker works.** keep-old / keep-new / merge-both each do the right thing; a resolved item doesn't reappear on a second `cmk queue conflicts`. _(113)_
+- [ ] **Runs clean on an empty queue** (no crash). _(113)_
+- [ ] **If items exist:** the walker prints each, takes your typed answer, applies it (promoted text lands in MEMORY.md; a resolved conflict doesn't reappear on a second run). _(113)_
 
 ---
 
@@ -113,11 +119,18 @@ cmk register-crons --unregister  # clean up when done
 
 ## F. Hygiene spot-check (Task 115)
 
+The buffer is created-then-deleted by the auto-extract child, so it's usually gone by
+the time you look — `git status` would show nothing **whether or not** the gitignore
+works. So test the rule **deterministically**: plant a temp, confirm git ignores it, clean up.
+
 ```powershell
-cd C:\Temp\cmk-livetest; git add -A; git status --short | Select-String extract
+cd C:\Temp\cmk-livetest
+New-Item -Force context\transcripts\.extract-test.tmp | Out-Null
+git check-ignore context\transcripts\.extract-test.tmp   # PASS = it echoes the path (ignored)
+Remove-Item context\transcripts\.extract-test.tmp
 ```
 
-- [ ] **No `.extract-*.tmp` staged** — a partial auto-extract buffer never travels with git. _(115)_
+- [ ] **`git check-ignore` echoes the path** → a partial auto-extract buffer can never travel with `git clone`. _(115)_
 
 ---
 
