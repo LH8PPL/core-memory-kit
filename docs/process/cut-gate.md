@@ -22,6 +22,14 @@ privacy, and portability — then the tag-push.
 - **Time:** ~60–75 min.
 - **Prereq:** Python 3.12+ on PATH.
 
+> **★★ The real-input rule (binding — D-84).** A check **PASSES only when it ran on REAL input that exercises the feature** — never "the command didn't crash on trivial input." These are **NOT passes** — mark them `unverified` and re-run for real:
+> - "skipped (cooldown)" → clear the cooldown (`cooldownMs:0` / delete the marker) and re-run.
+> - an **empty queue** → seed real pending review/conflict items, then resolve.
+> - a **dry-run with nothing to do** → create the real source (e.g. a native `MEMORY.md`), then run for real with `--yes`.
+> - a **same-day project with nothing > 7d** → age the `today-*.md` fixtures past the window.
+>
+> The v0.2.2 sweep conflated "ran without error" with "the feature works" and shipped **four** broken/unverified commands — `register-crons` (errored on Windows), `persona generate` (timed out), `weekly-curate`/`queue`/`import-anthropic` (only ever the trivial path). Each had a green-LOOKING trivial path. **If a command can only be run on trivial input here, that's a coverage gap** → it needs an automated REAL-input test in the suite (now present for weekly-curate / queue / import-anthropic — Tasks 112–114; live-verified for register-crons / forget / persona generate / import — D-96/D-97).
+
 **Already green — don't re-do by hand:**
 `npm run live-test` drives the deterministic half headlessly on the real tarball.
 Trail: [`../journey/live-test-runs/`](../journey/live-test-runs/).

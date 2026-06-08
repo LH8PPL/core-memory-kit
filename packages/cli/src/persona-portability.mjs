@@ -26,6 +26,7 @@ import {
   statSync,
   renameSync,
   unlinkSync,
+  copyFileSync,
 } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { reindex } from './reindex.mjs';
@@ -142,12 +143,34 @@ function rollbackImport(created, renamed) {
     try {
       if (existsSync(bkp)) {
         mkdirSync(dirname(dest), { recursive: true });
-        renameSync(bkp, dest);
+        restoreBackup(bkp, dest);
       }
     } catch {
       /* best-effort — the backup copy still exists for manual recovery */
     }
   }
+}
+
+// Restore a backed-up file over `dest` (Task 116.x). `dest` may already hold the
+// half-applied NEW content (Phase-2 write before the failure), so this OVERWRITES
+// it. The old code used `renameSync(bkp, dest)`, but renaming ONTO an existing
+// file can intermittently throw EPERM/EBUSY on Windows under heavy parallel FS
+// load — and rollbackImport's silent catch then left the un-rolled-back NEW file
+// in place (the rare persona-portability rollback flake). `copyFileSync` overwrites
+// the destination reliably on every platform; a short retry covers a transient
+// lock. The backup is removed only after a confirmed copy.
+export function restoreBackup(bkp, dest) {
+  let lastErr;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      copyFileSync(bkp, dest);
+      try { unlinkSync(bkp); } catch { /* backup cleanup best-effort */ }
+      return;
+    } catch (err) {
+      lastErr = err; // transient EPERM/EBUSY under load — retry
+    }
+  }
+  throw lastErr;
 }
 
 // Apply the bundle's files TRANSACTIONALLY (the Task-91 rollback discipline):
