@@ -739,7 +739,9 @@ END_FACT
      deleted_reason: "user said: forget about X"
      deleted_by: user-explicit
 5. Removes the bullet from MEMORY.md (or wherever it lived)
-6. Updates SQLite cache: marks observation as deleted (not actually purged)
+6. Reindexes the project tier in-band (Task 110): the orphan-prune drops the
+   unlinked fact's index rows + re-reads the scrubbed scratchpad, so the fact
+   stops surfacing in `cmk search` immediately — no manual `cmk reindex` (§9.2.1)
 ```
 
 Future `mk_get(P-S79MJHFN)` still resolves — returns the tombstoned content with a clear "deleted on YYYY-MM-DD" annotation. Audit trail preserved. Truly destructive operations (`cmk purge --hard`) require explicit user invocation outside the normal "forget" flow.
@@ -1473,9 +1475,19 @@ WAL mode allows many readers + one writer concurrently.
 
 | Trigger | Strategy |
 | --- | --- |
-| Boot (`cmk reindex --boot`) | Walk markdown, compare mtime+sha1, re-index only changed files |
-| Runtime (file-watcher) | `inotify`/`fswatch`/`chokidar` watches `context/`, debounce 500ms, re-index on FS event |
+| Boot (`cmk reindex --boot`) | Walk markdown, compare mtime+sha1, re-index only changed files, **and prune index rows for source files that no longer exist** (Task 110) |
+| Runtime (file-watcher) | `inotify`/`fswatch`/`chokidar` watches `context/`, debounce 500ms, re-index on FS event (`unlink` → drop that file's rows) |
 | Recovery (`cmk reindex --full`) | Drop DB, rebuild from markdown |
+
+#### 9.2.1 Mutations auto-propagate to search — no manual reindex (Task 110 / F-7 / D-84)
+
+The regular user never runs `cmk reindex` (D-85: the conversation is the interface; the CLI is Claude's substrate). So every mutation must reach `cmk search` automatically:
+
+- **`boot` is a full sync (add / update / DELETE).** Earlier, `reindexBoot` only added/updated files that still existed — a fact `cmk forget` moved to `archive/tombstones/` left its observation rows behind, so the forgotten fact kept surfacing in `cmk search` until a manual `reindex --full`. `reindexBoot` now also **prunes orphans**: any `files`-checkpoint row whose source vanished is deleted along with its observations (the FTS5 delete trigger fires per row). Because **every** index reader (`cmk search`, `get`, `timeline`, `cite`, `recent-activity`) lazy-calls `reindexBoot` before reading, this makes the whole class — forget, queue-discard, supersede-archive, manual file deletion — self-heal on the next read with no command.
+- **`forget` also reindexes in-band.** After tombstoning + scrubbing scratchpad bullets, `forget()` opens the project index and runs `reindexBoot` (orphan-pruning the just-unlinked file + re-reading the scrubbed scratchpads) so the index is correct the instant `forget` returns — not just on the next search. Both `cmk forget` (CLI) and `mk_forget` (MCP) call the same `forget()`, so both surfaces get it. Best-effort: the on-disk tombstone is authoritative, so an index error never fails the forget (the lazy path self-heals).
+- **In-place edits + adds were never broken.** `cmk trust` rewrites the fact file (content change → mtime/sha1 diff → re-indexed); `cmk lessons promote` adds a user-tier file (picked up as a new source). These already self-heal via the existing lazy `reindexBoot`; only deletions needed the orphan-prune. (Locked by an audit test exercising the real `overrideTrust` → `reindexBoot` chain.)
+
+**Boundary — forget vs. `--include-tombstoned` (§9.3):** the prune removes a forgotten fact's index row entirely (its source moved to `archive/tombstones/`, which is never walked by `listObservationSources`). So a forgotten fact does NOT reappear in `cmk search --include-tombstoned` — that flag surfaces rows whose `deleted_at` column is set *in the index*, which forget's move-to-archive doesn't feed. This is deliberate: "forget" means gone-from-search. The tombstoned content is still recoverable via `cmk get <id>` / `resolveFact` (which read the tombstone file directly, not the index), so the audit trail is preserved without keeping the fact searchable. (Before Task 110, forget left the row as a *live* observation — `deleted_at` null — so it surfaced in *default* search: the actual bug, not a working `--include-tombstoned`.)
 
 ### 9.3 Hybrid search (`cmk search`)
 

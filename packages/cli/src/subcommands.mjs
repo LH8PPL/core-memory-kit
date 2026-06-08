@@ -728,6 +728,11 @@ function runForget(idOrQuery, options /* , command */) {
   const result = forgetAction({
     idOrQuery,
     projectRoot,
+    // Pass the resolved userDir (same source as `cmk search`) so forget's
+    // in-band reindex covers all three tiers and its orphan-prune fires
+    // IMMEDIATELY (Task 110) — without it the prune is skipped here and only
+    // self-heals on the next search. Also lets forget tombstone U-tier facts.
+    userDir: resolveUserDir(),
     reason: options.reason,
     deletedBy: options.deletedBy,
     yes: true,

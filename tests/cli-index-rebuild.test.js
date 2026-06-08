@@ -31,6 +31,7 @@ import {
 } from '../packages/cli/src/index-rebuild.mjs';
 import { writeBullet } from '../packages/cli/src/provenance.mjs';
 import { writeFact } from '../packages/cli/src/write-fact.mjs';
+import { overrideTrust } from '../packages/cli/src/trust.mjs';
 
 let sandbox;
 let projectRoot;
@@ -248,6 +249,118 @@ describe('Task 29 — index-rebuild', () => {
         .get('P-AAAAAAAA');
       expect(scratchpadRow).toBeDefined();
       expect(scratchpadRow.body).toContain('unchanged scratchpad');
+    });
+  });
+
+  // Task 110 (F-7): reindexBoot must PRUNE observations for source files that
+  // vanished since the last index (e.g. a fact file `cmk forget` moved to
+  // archive/tombstones/). Before this, boot only ADDED/UPDATED existing files,
+  // so a forgotten fact lingered in `cmk search` until a manual reindex --full.
+  describe('reindexBoot orphan pruning (Task 110 / F-7)', () => {
+    const countObs = () =>
+      db.prepare('SELECT COUNT(*) AS n FROM observations').get().n;
+    const hasId = (id) =>
+      db.prepare('SELECT 1 AS x FROM observations WHERE id = ?').get(id) !== undefined;
+
+    it('prunes observations for a fact file that no longer exists on disk', () => {
+      // Two distinct fact files on top of the install-seeded baseline; assert
+      // RELATIVE deltas so the template seed bullets don't skew the counts.
+      seedFactFile(projectRoot, {
+        id: 'P-CCCCCCCC', type: 'project', title: 'keep', body: 'keep me',
+        write_source: 'user-explicit', trust: 'high', at: '2026-06-08T10:00:00Z', slug: 'keep',
+      });
+      seedFactFile(projectRoot, {
+        id: 'P-DDDDDDDD', type: 'project', title: 'gone', body: 'forget me uniquetoken',
+        write_source: 'user-explicit', trust: 'high', at: '2026-06-08T10:00:00Z', slug: 'gone',
+      });
+      reindexBoot({ projectRoot, userDir, db });
+      const before = countObs();
+      expect(hasId('P-CCCCCCCC')).toBe(true);
+      expect(hasId('P-DDDDDDDD')).toBe(true);
+
+      // Simulate `cmk forget` removing the fact file from context/memory/.
+      rmSync(join(projectRoot, 'context', 'memory', 'project_gone.md'));
+      const r = reindexBoot({ projectRoot, userDir, db });
+
+      // Door 1 (Response): the result reports exactly one pruned file/observation.
+      expect(r.filesPruned).toBe(1);
+      expect(r.observationsPruned).toBe(1);
+      // Door 2 (State): only the orphan's row is gone (over-mutation guard —
+      // prune-one must not prune-all); the survivor + baseline are UNTOUCHED.
+      expect(countObs()).toBe(before - 1);
+      expect(hasId('P-DDDDDDDD')).toBe(false);
+      expect(hasId('P-CCCCCCCC')).toBe(true);
+      // The FTS mirror no longer matches the forgotten body.
+      const fts = db
+        .prepare(`SELECT body FROM observations_fts WHERE observations_fts MATCH 'uniquetoken'`)
+        .get();
+      expect(fts).toBeUndefined();
+      // …and the files checkpoint row is gone too (no resurrection on next boot).
+      const fileRow = db.prepare('SELECT path FROM files WHERE path LIKE ?').get('%project_gone.md');
+      expect(fileRow).toBeUndefined();
+    });
+
+    it('prunes nothing when every indexed file still exists (no false positives)', () => {
+      seedFactFile(projectRoot, {
+        id: 'P-CCCCCCCC', type: 'project', title: 'a', body: 'a',
+        write_source: 'user-explicit', trust: 'high', at: '2026-06-08T10:00:00Z', slug: 'aaa',
+      });
+      reindexBoot({ projectRoot, userDir, db });
+      const before = countObs();
+      const r = reindexBoot({ projectRoot, userDir, db });
+      expect(r.filesPruned).toBe(0);
+      expect(r.observationsPruned).toBe(0);
+      expect(countObs()).toBe(before);
+    });
+
+    // Composition guard (self-review): the prune is only sound when the live-set
+    // is COMPLETE across every indexed tier. Called WITHOUT userDir the U tier
+    // isn't walked, so a real U-tier row would be falsely seen as an orphan.
+    // The guard must SKIP pruning when userDir is absent (the next userDir-
+    // passing reader self-heals) — proven here by deleting a file and confirming
+    // a no-userDir boot does NOT prune it, while a userDir boot does.
+    it('does NOT prune when called without userDir (incomplete live-set guard)', () => {
+      seedFactFile(projectRoot, {
+        id: 'P-DDDDDDDD', type: 'project', title: 'gone', body: 'body',
+        write_source: 'user-explicit', trust: 'high', at: '2026-06-08T10:00:00Z', slug: 'gone',
+      });
+      reindexBoot({ projectRoot, userDir, db });
+      expect(hasId('P-DDDDDDDD')).toBe(true);
+      rmSync(join(projectRoot, 'context', 'memory', 'project_gone.md'));
+
+      // No userDir → prune skipped → the (now-deleted) file's row SURVIVES.
+      // (Without an explicit userDir, resolveTierRoot defaults U to the real
+      // homedir, so the live-set would be for the WRONG U tier — exactly why
+      // the guard must not prune here. filesPruned must be 0 regardless.)
+      const noUd = reindexBoot({ projectRoot, db });
+      expect(noUd.filesPruned).toBe(0);
+      expect(hasId('P-DDDDDDDD')).toBe(true);
+
+      // With userDir → the orphan IS pruned (self-heal on the next real reader).
+      reindexBoot({ projectRoot, userDir, db });
+      expect(hasId('P-DDDDDDDD')).toBe(false);
+    });
+
+    // Task 110 audit: the F-7 gap was specific to DELETIONS (forget). In-place
+    // mutations like `cmk trust` change the fact file's content, so the existing
+    // lazy reindexBoot (mtime/sha1 diff) re-indexes them with no extra wiring —
+    // i.e. they already self-heal. This locks that audit conclusion against the
+    // REAL overrideTrust() path so a future change can't silently regress it.
+    it('a trust change reflects in the index on the next lazy reindex (no orphan, no manual reindex)', () => {
+      const w = seedFactFile(projectRoot, {
+        id: 'P-CCCCCCCC', type: 'project', title: 't', body: 'trust me',
+        write_source: 'user-explicit', trust: 'low', at: '2026-06-08T10:00:00Z', slug: 'trustme',
+      });
+      expect(w).toBeTruthy();
+      reindexBoot({ projectRoot, userDir, db });
+      expect(db.prepare('SELECT trust FROM observations WHERE id = ?').get('P-CCCCCCCC').trust).toBe('low');
+
+      const r = overrideTrust({ id: 'P-CCCCCCCC', level: 'high', projectRoot, userDir });
+      expect(r.action).not.toBe('error');
+
+      // Next lazy reindex (what `cmk search` runs) picks up the changed file.
+      reindexBoot({ projectRoot, userDir, db });
+      expect(db.prepare('SELECT trust FROM observations WHERE id = ?').get('P-CCCCCCCC').trust).toBe('high');
     });
   });
 
