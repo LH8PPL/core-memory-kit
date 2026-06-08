@@ -67,7 +67,7 @@ The headline is **the regular user never types `cmk`** — every voiced intent r
 ```powershell
 cd C:\Projects\claude-memory-kit
 git checkout main; git pull
-npm run release -- minor             # [Unreleased] → ## [0.2.3] — <date>; package.json 0.2.2 → 0.2.3
+npm run release -- patch             # 0.2.3 is a PATCH (polish, no new wow — RELEASE-PLAN.md); [Unreleased] → ## [0.2.3]; package.json 0.2.2 → 0.2.3
 git diff                             # review: ONLY the version bump + CHANGELOG consolidation
 git add CHANGELOG.md packages\cli\package.json
 git commit -m "release: v0.2.3"      # local release commit — do NOT tag yet (that's the last step)
@@ -87,7 +87,7 @@ cmk --version                        # ✅ 0.2.3
 Remove-Item -Recurse -Force $env:USERPROFILE\.claude-memory-kit
 ```
 
-- [ ] **G0** — `cmk --version` → `0.2.3` _(if it says `0.2.2`, you skipped 0a — run `npm run release -- minor` first)_
+- [ ] **G0** — `cmk --version` → `0.2.3` _(if it says `0.2.2`, you skipped 0a — run `npm run release -- patch` first; if it says `0.3.0`, you ran `minor` by mistake — `git checkout CHANGELOG.md packages\cli\package.json` and re-run with `patch`)_
 
 ---
 
