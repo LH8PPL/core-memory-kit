@@ -218,3 +218,18 @@ describe('Task 114 (F-13) — runImportAnthropicMemory CLI wrapper on real input
     expect(out.join('\n')).toContain('Re-run with --yes');
   });
 });
+
+describe('Task 114 — runImportAnthropicMemory error handling (importFn seam)', () => {
+  afterEach(() => { process.exitCode = 0; });
+  it('error: reports + sets exit code when the core returns an error', async () => {
+    const errs = [];
+    const r = await runImportAnthropicMemory({ projectRoot, log: () => {}, logError: (m) => errs.push(String(m)), importFn: async () => ({ action: 'error', errors: ['boom'] }) });
+    expect(r.action).toBe('error');
+    expect(errs.join('\n')).toContain('boom');
+  });
+  it('catch: reports an unexpected throw + sets exit code', async () => {
+    const errs = [];
+    await runImportAnthropicMemory({ projectRoot, log: () => {}, logError: (m) => errs.push(String(m)), importFn: async () => { throw new Error('kaboom'); } });
+    expect(errs.join('\n')).toContain('kaboom');
+  });
+});

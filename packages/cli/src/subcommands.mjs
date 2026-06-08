@@ -1191,8 +1191,11 @@ export async function runImportAnthropicMemory(options = {}) {
   const logError = options?.logError ?? console.error;
   const dryRun = options?.dryRun === true;
   const acceptAll = options?.yes === true;
+  // options.importFn is a test seam (default = the real core) so the error +
+  // catch branches below — unreachable via normal input — are coverable.
+  const importFn = options?.importFn ?? importAnthropicMemory;
   try {
-    const r = await importAnthropicMemory({ projectRoot, dryRun, acceptAll, harnessRoot: options?.harnessRoot });
+    const r = await importFn({ projectRoot, dryRun, acceptAll, harnessRoot: options?.harnessRoot });
     if (r.action === 'error') {
       logError(`cmk import-anthropic-memory: error — ${(r.errors ?? []).join('; ')}`);
       process.exitCode = 2;
