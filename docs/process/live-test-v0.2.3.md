@@ -9,7 +9,15 @@ D-98 / D-100); this session is the rest.
 should see) → _(Task)_. "(in chat)" = type it to Claude in a real Claude Code session.
 "(terminal)" = a shell.
 
-**Time:** ~20–30 min.
+**Time:** ~30–40 min.
+
+> **Relationship to [`cut-gate.md`](cut-gate.md):** that's the **full, exhaustive**
+> feature sweep + the deterministic half (`npm run live-test`) + the ★ cut-required
+> checks. **This doc is NOT a replacement** — it's the v0.2.3 NEW-surface delta
+> (§A–§F) **plus** the human-only carry-overs from the full guide that still matter
+> (§G). Run **both** for a complete cut: `cut-gate.md` for the exhaustive sweep,
+> this one for the v0.2.3 new things. §G below is the minimum carry-over so you
+> don't miss the things only a human can judge.
 
 ---
 
@@ -106,6 +114,19 @@ cd ~/cmk-livetest && git add -A && git status --short | grep -i extract
 ```
 
 - [ ] **No `.extract-*.tmp` staged** — a partial auto-extract buffer never travels with git. _(115)_
+
+---
+
+## G. Carry-overs from the full guide — the things only a human can judge
+
+These aren't new in v0.2.3, but they're **not** covered by automation and still gate a cut.
+(The exhaustive ★ sweep is in [`cut-gate.md`](cut-gate.md); these are the must-not-skip ones.)
+
+- [ ] **Deterministic half passed.** `npm run live-test` (drives the headless half on the real tarball) — green. _(the automated backbone)_
+- [ ] **R1 — no console flash.** On Windows, opening Claude Code (SessionStart fires the detached lazy-compress) shows **no popped-up console window**. _(R1)_
+- [ ] **R2 — no approval prompt for memory ops.** Confirmed in §A: Claude using the `mcp__cmk__*` tools does **not** trigger "Allow this command?". _(R2 — resolved via the MCP-first surface, Task 118)_
+- [ ] **Recall feel.** Across the session, ask 3–4 *"what did we decide / what do I prefer about X"* questions. **PASS (judgment):** it reliably surfaces the right fact with a citation — not "I don't have that." _(the ~50/50 recall problem; reliable always-fires recall is v0.3 / Task 75, so note any misses but they don't block v0.2.3)_
+- [ ] **The wedge.** Confirmed in §E: a brand-new project cold-opens already knowing your cross-project style. _(the v0.2 headline — must still hold)_
 
 ---
 
