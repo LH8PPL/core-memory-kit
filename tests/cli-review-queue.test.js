@@ -363,3 +363,24 @@ describe('Task 113 — buildReviewPrompter (prompter logic, unit)', () => {
     expect(n).toBe(2);
   });
 });
+
+describe('Task 113 — runQueueReview error handling (resolve seam)', () => {
+  afterEach(() => { process.exitCode = 0; });
+  it('reports a resolver error + sets exit code (error branch)', async () => {
+    const errs = [];
+    const r = await runQueueReview({
+      projectRoot: '/x', prompter: () => 'promote', log: () => {}, logError: (m) => errs.push(String(m)),
+      resolve: async () => ({ action: 'error', errors: ['kaboom'] }),
+    });
+    expect(r.action).toBe('error');
+    expect(errs.join('\n')).toContain('kaboom');
+  });
+  it('logs per-entry promote errors (errors-loop branch)', async () => {
+    const errs = [];
+    await runQueueReview({
+      projectRoot: '/x', prompter: () => 'promote', log: () => {}, logError: (m) => errs.push(String(m)),
+      resolve: async () => ({ promoted: 0, discarded: 0, skipped: 0, errors: [{ id: 'P-AAAAAAAA', decision: 'promote', errors: ['cap exceeded'] }] }),
+    });
+    expect(errs.join('\n')).toContain('cap exceeded');
+  });
+});

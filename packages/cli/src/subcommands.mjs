@@ -1458,8 +1458,10 @@ export async function runQueueConflicts(opts = {}) {
     }
   };
 
+  // opts.resolve test seam (default = the real resolver) — see runQueueReview.
+  const resolve = opts.resolve ?? resolveConflictQueue;
   try {
-    const result = await resolveConflictQueue({
+    const result = await resolve({
       tier: 'P',
       projectRoot,
       prompter,
@@ -1534,8 +1536,12 @@ export async function runQueueReview(opts = {}) {
     prompter = buildReviewPrompter({ ask: askOnce, log });
   }
 
+  // opts.resolve is a test seam (default = the real resolver) so the error-
+  // handling branches below — unreachable via normal input since tier/prompter
+  // are always valid here — are coverable (Task 113).
+  const resolve = opts.resolve ?? resolveReviewQueue;
   try {
-    const result = await resolveReviewQueue({ tier: 'P', projectRoot, prompter });
+    const result = await resolve({ tier: 'P', projectRoot, prompter });
     if (result.action === 'error') {
       for (const e of result.errors) logError(`cmk queue review: ${e}`);
       process.exitCode = 2;

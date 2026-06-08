@@ -752,3 +752,16 @@ describe('Task 113 (F-9) — runQueueConflicts merge-both drives the real merger
     }
   });
 });
+
+describe('Task 113 — runQueueConflicts error handling (resolve seam)', () => {
+  afterEach(() => { process.exitCode = 0; });
+  it('reports a resolver error + sets exit code (error branch)', async () => {
+    const errs = [];
+    const r = await runQueueConflicts({
+      projectRoot: '/x', prompter: () => 'keep-old', log: () => {}, logError: (m) => errs.push(String(m)),
+      resolve: async () => ({ action: 'error', errors: ['nope'] }),
+    });
+    expect(r.action).toBe('error');
+    expect(errs.join('\n')).toContain('nope');
+  });
+});
