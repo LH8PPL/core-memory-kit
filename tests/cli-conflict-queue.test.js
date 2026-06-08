@@ -36,6 +36,7 @@ import {
   tokenJaccardSimilarity,
   mergeScratchpadBullets,
 } from '../packages/cli/src/conflict-queue.mjs';
+import { runQueueConflicts, buildConflictPrompter } from '../packages/cli/src/subcommands.mjs';
 
 function makeFixture() {
   const sandbox = mkdtempSync(join(tmpdir(), 'cmk-conflict-queue-test-'));
@@ -646,5 +647,121 @@ describe('mergeScratchpadBullets() — Layer-3 merger (Task 25b)', () => {
     for (let i = decisionsIdx + 1; i < newBulletIdx; i++) {
       expect(lines[i]).not.toMatch(/^##\s/);
     }
+  });
+});
+
+// Task 113 (F-9): the cut-gate sweep ran `cmk queue conflicts` on an EMPTY queue —
+// proving only the walker doesn't crash on nothing, NOT that the CLI command
+// actually resolves real conflicts. The resolver (resolveConflictQueue) is covered
+// above; THIS drives the CLI wrapper (runQueueConflicts, now dep-injectable) on a
+// real seeded conflict + asserts the end-to-end resolution.
+describe('Task 113 (F-9) — runQueueConflicts CLI path on REAL queued items', () => {
+  let sandbox, projectRoot;
+  beforeEach(() => {
+    ({ sandbox, projectRoot } = makeFixture());
+  });
+  afterEach(() => {
+    rmSync(sandbox, { recursive: true, force: true });
+  });
+
+  function seedOneConflict(newId, existingId) {
+    writeConflictEntry({
+      tier: 'P', projectRoot,
+      newId, newText: 'conflicting proposal', newTrust: 'medium',
+      existingId, existingText: 'the established fact', existingTrust: 'high',
+      similarity: 0.9, similarityBackend: 'substring',
+    });
+  }
+
+  it('resolves a real conflict via keep-old end-to-end (counted, queue drained, reported)', async () => {
+    seedOneConflict('P-NEW22222', 'P-AAAAAAAA');
+    const out = [];
+    const r = await runQueueConflicts({
+      projectRoot,
+      prompter: () => 'keep-old',
+      log: (m) => out.push(String(m)),
+      logError: (m) => out.push(String(m)),
+    });
+    // Door 1 (Response): the CLI wrapper returns the resolver result + reports counts.
+    expect(r.resolved).toBe(1);
+    expect(r.kept_old).toBe(1);
+    expect(out.join('\n')).toContain('kept-old');
+    // Door 2 (State): the entry is MARKED resolved (kept in the file for audit,
+    // not deleted), so a second pass finds nothing pending to resolve.
+    const again = await runQueueConflicts({ projectRoot, prompter: () => 'keep-old', log: () => {}, logError: () => {} });
+    expect(again.resolved).toBe(0);
+  });
+
+  it('resolves a real conflict via keep-new end-to-end', async () => {
+    seedOneConflict('P-NEW33333', 'P-BBBBBBBB');
+    const out = [];
+    const r = await runQueueConflicts({
+      projectRoot,
+      prompter: () => 'keep-new',
+      log: (m) => out.push(String(m)),
+      logError: () => {},
+    });
+    expect(r.resolved).toBe(1);
+    expect(r.kept_new).toBe(1);
+    // Marked resolved (audit-preserved); a second pass finds nothing pending.
+    const again = await runQueueConflicts({ projectRoot, prompter: () => 'keep-new', log: () => {}, logError: () => {} });
+    expect(again.resolved).toBe(0);
+  });
+});
+
+describe('Task 113 — buildConflictPrompter (prompter logic, unit)', () => {
+  const entry = { proposedId: 'P-NEW22222', proposedText: 'a', proposedTrust: 'medium', existingId: 'P-AAAAAAAA', existingText: 'b', existingTrust: 'high', similarity: 0.9 };
+  it('returns the chosen valid decision', async () => {
+    const p = buildConflictPrompter({ ask: async () => 'keep-old', log: () => {} });
+    expect(await p(entry)).toBe('keep-old');
+  });
+  it('re-asks on an invalid answer until a valid one (validate-retry loop)', async () => {
+    let n = 0;
+    const p = buildConflictPrompter({ ask: async () => (n++ === 0 ? 'nope' : 'keep-new'), log: () => {} });
+    expect(await p(entry)).toBe('keep-new');
+    expect(n).toBe(2);
+  });
+});
+
+describe('Task 113 (F-9) — runQueueConflicts merge-both drives the real merger', () => {
+  it('merge-both merges the two scratchpad bullets end-to-end (covers the mergeFn path)', async () => {
+    const { sandbox, projectRoot } = makeFixture();
+    try {
+      seedScratchpad(projectRoot, 'MEMORY.md', [
+        { section: 'Decisions', id: 'P-AAAAAAAA', text: 'we use Postgres', trust: 'high' },
+        { section: 'Decisions', id: 'P-NEW22222', text: 'we use Postgres 16', trust: 'medium' },
+      ]);
+      writeConflictEntry({
+        tier: 'P', projectRoot,
+        newId: 'P-NEW22222', newText: 'we use Postgres 16', newTrust: 'medium',
+        existingId: 'P-AAAAAAAA', existingText: 'we use Postgres', existingTrust: 'high',
+        similarity: 0.9, similarityBackend: 'substring',
+      });
+      const out = [];
+      const r = await runQueueConflicts({
+        projectRoot,
+        prompter: () => 'merge-both',
+        log: (m) => out.push(String(m)),
+        logError: (m) => out.push(String(m)),
+      });
+      expect(r.resolved).toBe(1);
+      expect(r.merged).toBe(1);
+      expect(out.join('\n')).toMatch(/merge-both|merged/);
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('Task 113 — runQueueConflicts error handling (resolve seam)', () => {
+  afterEach(() => { process.exitCode = 0; });
+  it('reports a resolver error + sets exit code (error branch)', async () => {
+    const errs = [];
+    const r = await runQueueConflicts({
+      projectRoot: '/x', prompter: () => 'keep-old', log: () => {}, logError: (m) => errs.push(String(m)),
+      resolve: async () => ({ action: 'error', errors: ['nope'] }),
+    });
+    expect(r.action).toBe('error');
+    expect(errs.join('\n')).toContain('nope');
   });
 });
