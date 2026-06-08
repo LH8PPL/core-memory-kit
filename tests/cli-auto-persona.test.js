@@ -23,6 +23,7 @@ import {
   assembleTranscriptWindow,
   buildClassifierInstructions,
   PERSONA_CONFIDENCE_RULE,
+  PERSONA_CORPUS_BYTES,
 } from '../packages/cli/src/auto-persona.mjs';
 import { runPersonaGenerate } from '../packages/cli/src/subcommands.mjs';
 import { appendScratchpadBullet } from '../packages/cli/src/scratchpad.mjs';
@@ -773,5 +774,55 @@ describe('Task 86c — autoPersona classifies the raw transcript (D-44)', () => 
     expect(seen.instructions).toMatch(/CAPTURED PROJECT FACTS/);
     expect(seen.input).toMatch(/do X/);
     expect(r.action).toBe('promoted');
+  });
+});
+
+describe('Task 111 — facts-corpus cap + caller-supplied timeout (F-2)', () => {
+  // Door 3 (external calls): the onCompress hook captures what autoPersona hands
+  // the Haiku backend — the input it was bounded to + the timeout it was given.
+
+  it('passes timeoutMs to the backend — 50s default (SessionEnd 60s ceiling), generous override for the ceiling-free CLI', async () => {
+    seedFact({ slug: 'feedback_uv', id: 'P-BBBBBBBB', type: 'feedback', title: 'uv', body: 'I always use uv for python everywhere.' });
+    let captured;
+    const backend = classifierBackend([], { onCompress: (a) => { captured = a; } });
+    await autoPersona({ projectRoot, userDir, backend, now: NOW });
+    expect(captured.timeoutMs).toBe(50_000); // hook-path default (composes with the 60s ceiling)
+    await autoPersona({ projectRoot, userDir, backend, now: NOW, cooldownMs: 0, timeoutMs: 120_000 });
+    expect(captured.timeoutMs).toBe(120_000); // CLI / weekly override (no hook ceiling)
+  });
+
+  it('caps the facts corpus at PERSONA_CORPUS_BYTES so a large project cannot overload the prompt', async () => {
+    // Seed more fact bytes than the cap (5 × ~21KB ≈ 108KB > 60KB).
+    const big = 'lorem ipsum '.repeat(1800);
+    ['P-BBBBBBBB', 'P-CCCCCCCC', 'P-DDDDDDDD', 'P-FFFFFFFF', 'P-GGGGGGGG'].forEach((id, i) =>
+      seedFact({ slug: `feedback_big${i}`, id, type: 'feedback', title: `big ${i}`, body: big }),
+    );
+    let captured;
+    const backend = classifierBackend([], { onCompress: (a) => { captured = a; } });
+    await autoPersona({ projectRoot, userDir, backend, now: NOW, cooldownMs: 0 });
+    expect(Buffer.byteLength(captured.input, 'utf8')).toBeLessThanOrEqual(PERSONA_CORPUS_BYTES);
+    expect(captured.input).toContain('corpus truncated');
+  });
+
+  it('runPersonaGenerate gives the ceiling-free CLI command the generous 120s timeout', async () => {
+    seedFact({ slug: 'feedback_uv', id: 'P-BBBBBBBB', type: 'feedback', title: 'uv', body: 'I always use uv.' });
+    let captured;
+    const backend = classifierBackend([], { onCompress: (a) => { captured = a; } });
+    await runPersonaGenerate({ projectRoot, userDir, backend, log: () => {}, logError: () => {} });
+    expect(captured.timeoutMs).toBe(120_000);
+  });
+
+  it('runPersonaGenerate surfaces a clear timeout hint, not a raw internal error', async () => {
+    seedFact({ slug: 'feedback_uv', id: 'P-BBBBBBBB', type: 'feedback', title: 'uv', body: 'I always use uv.' });
+    const errs = [];
+    const timeoutBackend = {
+      async compress() {
+        throw new Error('HaikuViaAnthropicApi: claude --print did not return within 120000ms');
+      },
+    };
+    await runPersonaGenerate({ projectRoot, userDir, backend: timeoutBackend, log: () => {}, logError: (m) => errs.push(m) });
+    const out = errs.join('\n');
+    expect(out).toMatch(/did not return within/); // underlying cause preserved
+    expect(out).toMatch(/timed out|Re-run/); // …plus the actionable hint
   });
 });

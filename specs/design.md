@@ -1251,8 +1251,12 @@ Selected per the composition-verification rule: tight enough that the catch + fi
 | --- | --- | --- | --- |
 | [`runAutoExtract`](../packages/cli/src/auto-extract.mjs) (Stop hook → detached child) | 25,000 | 30s (Stop) | 5s for catch + finally + extract.log write + lock release |
 | [`compressSession`](../packages/cli/src/compress-session.mjs) (SessionEnd, in-process) | 50,000 | 60s (SessionEnd) | 10s for catch + compress.log write + return path |
+| [`autoPersona`](../packages/cli/src/auto-persona.mjs) (SessionEnd, `transcript` source) | 50,000 | 60s (SessionEnd) | runs CONCURRENTLY with `compressSession` under the one ceiling — see the Task 86b / D-42 composition below |
+| [`runPersonaGenerate`](../packages/cli/src/subcommands.mjs) (CLI) + [`weeklyCurate`](../packages/cli/src/weekly-curate.mjs) — `autoPersona` (`facts` source) | 120,000 | **none** (one-shot CLI / cron child) | n/a — no outer ceiling, so the inner bound is the only constraint; sized generously for the whole-project facts sweep (heavier than a session summary). The composition rule cuts the OTHER way here: with no ceiling, a *too-tight* inner bound is the bug (Task 111 / F-2 / D-92) |
 
 Headroom is sized generously because catch/finally on Windows can include filesystem operations whose latency varies with disk state. The 5s lower bound for the Stop hook path is the binding constraint — auto-extract has more cleanup work (lock file, sandbox tempfile, NDJSON write) than compress-session.
+
+**The composition rule is two-sided (Task 111 / F-2):** an inner timeout must not EXCEED an outer hook ceiling (the SessionEnd rows — 50<60), but a caller with NO outer ceiling (the explicit `cmk persona generate`, the `weekly-curate` cron child) must not inherit a ceiling-sized bound either — 50s was sized for the 60s hook, and copying it to the ceiling-free CLI made the command fail on a real corpus. The ceiling-free `facts` callers get 120s. Independently, the `facts` corpus is byte-capped at `PERSONA_CORPUS_BYTES` (60KB, whole-facts-only) so even the generous bound can't run unbounded — the `transcript` source was already window-capped (`TRANSCRIPT_WINDOW_BYTES` = 40KB); Task 111 closed the same gap for the `facts` source.
 
 #### Two Haiku calls under ONE ceiling — the SessionEnd composition (Task 86b / D-42)
 

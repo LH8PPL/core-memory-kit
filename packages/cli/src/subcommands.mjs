@@ -853,11 +853,19 @@ export async function runPersonaGenerate(opts = {}) {
   try {
     const backend =
       opts.backend ?? new (await import('./compressor.mjs')).HaikuViaAnthropicApi();
-    const r = await autoPersona({ projectRoot, userDir, backend });
+    // Task 111 (F-2): `cmk persona generate` is an explicit one-shot with NO outer
+    // hook ceiling (unlike the 60s-bounded SessionEnd path), so it gives the Haiku
+    // classifier generous headroom — the whole-project facts sweep is a heavier
+    // call than a session summary, and the user is willing to wait for the command
+    // they ran. The corpus is byte-capped (PERSONA_CORPUS_BYTES) so this can't run
+    // unbounded. Overridable via opts.timeoutMs.
+    const r = await autoPersona({ projectRoot, userDir, backend, timeoutMs: opts.timeoutMs ?? 120_000 });
     if (r.action === 'error') {
-      logError(
-        `cmk persona generate: error (${r.errorCategory ?? 'unknown'})${(r.errors && r.errors.length) ? `: ${r.errors.join('; ')}` : ''}`,
-      );
+      const detail = (r.errors && r.errors.length) ? `: ${r.errors.join('; ')}` : '';
+      const hint = /did not return within/.test(detail)
+        ? ' — the Haiku classifier timed out; this is usually a transient API slowdown. Re-run `cmk persona generate` (the weekly curate pass also retries it automatically).'
+        : '';
+      logError(`cmk persona generate: error (${r.errorCategory ?? 'unknown'})${detail}${hint}`);
       return;
     }
     const promoted = r.promoted?.length ?? 0;

@@ -75,6 +75,11 @@ export const PERSONA_CANDIDATE_RE =
 // userDir is passed through to listObservationSources purely to keep the
 // U-tier resolution sandbox-scoped (never walk the real home dir —
 // design §16.36); we then filter to tier P, the synthesis SOURCE.
+// Byte budget for the `facts` persona corpus (Task 111 / F-2). Bounds the Haiku
+// classifier input so a large project's whole-memory sweep can't blow the timeout.
+// Generous (facts are high-signal) but bounded; whole facts only (see below).
+export const PERSONA_CORPUS_BYTES = 60_000;
+
 function assembleProjectCorpus({ projectRoot, userDir }) {
   const sources = listObservationSources({ projectRoot, userDir });
   const parts = [];
@@ -94,7 +99,30 @@ function assembleProjectCorpus({ projectRoot, userDir }) {
       parts.push((content ?? '').trim());
     }
   }
-  return parts.filter(Boolean).join('\n\n');
+  // Task 111 (F-2): BOUND the corpus. Previously this joined EVERY tier-P fact
+  // + scratchpad with no cap, so on a real project with substantial memory the
+  // classifier prompt grew unbounded and the Haiku `claude --print` call blew the
+  // timeout (the reported "did not return within 50000ms"). Accumulate WHOLE
+  // facts up to a byte budget (never split a fact mid-body) and mark truncation.
+  // KNOWN LIMITATION (mirrors TRANSCRIPT_WINDOW_BYTES): facts past the budget are
+  // dropped in file-iteration order — a doctrine fact in the tail can be missed
+  // on one pass, but the weekly janitor re-runs, and some doctrine beats a
+  // timed-out zero. A value-ordered (trust/recency-first) accumulation is the
+  // follow-up if a large corpus drops doctrine.
+  const out = [];
+  let used = 0;
+  let truncated = false;
+  for (const part of parts.filter(Boolean)) {
+    const cost = Buffer.byteLength(part, 'utf8') + 2; // +2 for the '\n\n' join
+    if (used + cost > PERSONA_CORPUS_BYTES) {
+      truncated = true;
+      break;
+    }
+    out.push(part);
+    used += cost;
+  }
+  if (truncated) out.push('### …\n(corpus truncated — additional project facts omitted for this pass)');
+  return out.join('\n\n');
 }
 
 // Default size of the recent-transcript window handed to the SessionEnd persona
@@ -250,7 +278,7 @@ export function parsePersonaCandidates(outputText) {
  */
 export async function autoPersona(opts = {}) {
   const t0 = Date.now();
-  const { projectRoot, userDir, backend, now, settings, cooldownMs = DEFAULT_COOLDOWN_MS, source = 'facts' } = opts;
+  const { projectRoot, userDir, backend, now, settings, cooldownMs = DEFAULT_COOLDOWN_MS, source = 'facts', timeoutMs = 50_000 } = opts;
 
   if (!projectRoot) {
     return errorResult({
@@ -302,7 +330,11 @@ export async function autoPersona(opts = {}) {
       instructions: buildClassifierInstructions(source),
       preserveCitationIds: false,
       maxOutputBytes: 4096,
-      timeoutMs: 50_000,
+      // Task 111 (F-2): the timeout is caller-supplied. The SessionEnd hook path
+      // keeps the 50_000 default (it composes with the 60s SessionEnd ceiling per
+      // design §8.5 / D-42). The CLI `cmk persona generate` has NO outer hook
+      // ceiling, so it passes a generous value — the explicit command can wait.
+      timeoutMs,
     });
     // Spent a Haiku call — refresh the shared cooldown marker so the next
     // gated caller backs off. (touch even on cooldownMs:0 cycles: the call
