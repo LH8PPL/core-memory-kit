@@ -17,8 +17,8 @@ context/.locks/
 # fact files, not these logs.
 context/sessions/*.extract.log
 
-# Transcript-extraction temp buffer (Task 115). capture-turn writes
+# Transcript-extraction temp buffer. capture-turn writes
 # context/transcripts/.extract-<ts>.tmp as the turn buffer for the detached
 # auto-extract child, which consumes + deletes it. Gitignored so a crash-orphaned
-# partial never travels with `git clone` (cut-gate5 H1 committed one via git add -A).
+# partial (raw, un-screened turn content) never travels with `git clone`.
 context/transcripts/.extract-*.tmp
