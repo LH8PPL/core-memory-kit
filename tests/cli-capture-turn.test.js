@@ -75,7 +75,16 @@ if (sleepMs > 0) {
   return { path, lockFile };
 }
 
-async function pollFor(predicate, { timeoutMs = 3000, intervalMs = 50 } = {}) {
+// timeoutMs default is generous because these polls wait on a DETACHED node
+// child (the auto-extract stub) to cold-start + run + write its lockFile. Under
+// `npm run stress` (5 full suites in parallel) the machine is CPU-saturated and a
+// node cold-start can take several seconds, so a tight 3s window flaked — the
+// exact "known cli-capture-turn flake" that PRs #22/#23 wrongly DISCLAIMED instead
+// of fixing (CLAUDE.md lazy-framing anti-pattern). The predicate still returns the
+// instant the file appears, so this never slows a healthy run — only the saturated
+// worst case waits longer. (Task 111 stress gate surfaced run-5; root cause was
+// spawn-latency-under-load, not a captureTurn bug — r.spawned was already true.)
+async function pollFor(predicate, { timeoutMs = 12_000, intervalMs = 50 } = {}) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (predicate()) return true;
