@@ -159,7 +159,7 @@ function rollbackImport(created, renamed) {
 // in place (the rare persona-portability rollback flake). `copyFileSync` overwrites
 // the destination reliably on every platform; a short retry covers a transient
 // lock. The backup is removed only after a confirmed copy.
-function restoreBackup(bkp, dest) {
+export function restoreBackup(bkp, dest) {
   let lastErr;
   for (let attempt = 0; attempt < 5; attempt++) {
     try {

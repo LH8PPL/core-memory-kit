@@ -25,7 +25,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { exportPersona, importPersona } from '../packages/cli/src/persona-portability.mjs';
+import { exportPersona, importPersona, restoreBackup } from '../packages/cli/src/persona-portability.mjs';
 import { runPersonaExport, runPersonaImport } from '../packages/cli/src/subcommands.mjs';
 import { readAuditLog } from '../packages/cli/src/audit-log.mjs';
 
@@ -280,5 +280,30 @@ describe('Task 72 — cmk persona export / import', () => {
       expect(process.exitCode).toBe(2);
       expect(errSpy).toHaveBeenCalled();
     });
+  });
+});
+
+describe('Task 116.x — restoreBackup (rollback restore robustness)', () => {
+  let dir;
+  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'cmk-restore-')); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('overwrites dest with the backup (the Phase-2 NEW content is replaced) + removes the backup', () => {
+    const bkp = join(dir, 'bkp.txt');
+    const dest = join(dir, 'dest.txt');
+    writeFileSync(bkp, 'ORIGINAL\n', 'utf8');
+    writeFileSync(dest, 'NEW half-applied\n', 'utf8'); // dest ALREADY exists (the flake condition)
+    restoreBackup(bkp, dest);
+    expect(readFileSync(dest, 'utf8')).toBe('ORIGINAL\n');
+    expect(existsSync(bkp)).toBe(false); // backup removed only after a confirmed copy
+  });
+
+  it('throws after exhausting retries when the copy keeps failing', () => {
+    const bkp = join(dir, 'bkp.txt');
+    writeFileSync(bkp, 'x', 'utf8');
+    const destIsADir = join(dir, 'destdir');
+    mkdirSync(destIsADir); // copyFileSync into a directory throws every attempt → retry loop → throw
+    expect(() => restoreBackup(bkp, destIsADir)).toThrow();
+    expect(existsSync(bkp)).toBe(true); // not removed on failure
   });
 });
