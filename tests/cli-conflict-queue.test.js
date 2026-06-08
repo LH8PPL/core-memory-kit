@@ -722,3 +722,33 @@ describe('Task 113 — buildConflictPrompter (prompter logic, unit)', () => {
     expect(n).toBe(2);
   });
 });
+
+describe('Task 113 (F-9) — runQueueConflicts merge-both drives the real merger', () => {
+  it('merge-both merges the two scratchpad bullets end-to-end (covers the mergeFn path)', async () => {
+    const { sandbox, projectRoot } = makeFixture();
+    try {
+      seedScratchpad(projectRoot, 'MEMORY.md', [
+        { section: 'Decisions', id: 'P-AAAAAAAA', text: 'we use Postgres', trust: 'high' },
+        { section: 'Decisions', id: 'P-NEW22222', text: 'we use Postgres 16', trust: 'medium' },
+      ]);
+      writeConflictEntry({
+        tier: 'P', projectRoot,
+        newId: 'P-NEW22222', newText: 'we use Postgres 16', newTrust: 'medium',
+        existingId: 'P-AAAAAAAA', existingText: 'we use Postgres', existingTrust: 'high',
+        similarity: 0.9, similarityBackend: 'substring',
+      });
+      const out = [];
+      const r = await runQueueConflicts({
+        projectRoot,
+        prompter: () => 'merge-both',
+        log: (m) => out.push(String(m)),
+        logError: (m) => out.push(String(m)),
+      });
+      expect(r.resolved).toBe(1);
+      expect(r.merged).toBe(1);
+      expect(out.join('\n')).toMatch(/merge-both|merged/);
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true });
+    }
+  });
+});
