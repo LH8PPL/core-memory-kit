@@ -36,7 +36,7 @@ import {
   tokenJaccardSimilarity,
   mergeScratchpadBullets,
 } from '../packages/cli/src/conflict-queue.mjs';
-import { runQueueConflicts } from '../packages/cli/src/subcommands.mjs';
+import { runQueueConflicts, buildConflictPrompter } from '../packages/cli/src/subcommands.mjs';
 
 function makeFixture() {
   const sandbox = mkdtempSync(join(tmpdir(), 'cmk-conflict-queue-test-'));
@@ -706,5 +706,19 @@ describe('Task 113 (F-9) — runQueueConflicts CLI path on REAL queued items', (
     // Marked resolved (audit-preserved); a second pass finds nothing pending.
     const again = await runQueueConflicts({ projectRoot, prompter: () => 'keep-new', log: () => {}, logError: () => {} });
     expect(again.resolved).toBe(0);
+  });
+});
+
+describe('Task 113 — buildConflictPrompter (prompter logic, unit)', () => {
+  const entry = { proposedId: 'P-NEW22222', proposedText: 'a', proposedTrust: 'medium', existingId: 'P-AAAAAAAA', existingText: 'b', existingTrust: 'high', similarity: 0.9 };
+  it('returns the chosen valid decision', async () => {
+    const p = buildConflictPrompter({ ask: async () => 'keep-old', log: () => {} });
+    expect(await p(entry)).toBe('keep-old');
+  });
+  it('re-asks on an invalid answer until a valid one (validate-retry loop)', async () => {
+    let n = 0;
+    const p = buildConflictPrompter({ ask: async () => (n++ === 0 ? 'nope' : 'keep-new'), log: () => {} });
+    expect(await p(entry)).toBe('keep-new');
+    expect(n).toBe(2);
   });
 });

@@ -1367,6 +1367,28 @@ async function runQueueDispatch(childName) {
  * canonical kit usage). User-tier / language-tier conflicts queues
  * can be added when the kit's CLI gains explicit `--tier` selection.
  */
+// Task 113 (F-9): conflict prompter LOGIC extracted as a factory over `ask`
+// (see buildReviewPrompter) so it's unit-testable without stdin.
+export function buildConflictPrompter({ ask, log }) {
+  const VALID = new Set(['keep-old', 'keep-new', 'merge-both', 'skip']);
+  return async ({ proposedId, proposedText, proposedTrust, existingId, existingText, existingTrust, similarity }) => {
+    log('');
+    log('─── pending conflict ──────────────────────────────────────');
+    log(`existing  (${existingId}, trust=${existingTrust}): ${existingText}`);
+    log(`proposed  (${proposedId}, trust=${proposedTrust}): ${proposedText}`);
+    log(`similarity: ${Number(similarity).toFixed(4)}`);
+    let decision = '';
+    while (!VALID.has(decision)) {
+      const answer = await ask(`  [keep-old / keep-new / merge-both / skip]: `);
+      decision = String(answer).trim();
+      if (!VALID.has(decision)) {
+        log(`  unknown answer "${decision}" — please type one of: keep-old, keep-new, merge-both, skip`);
+      }
+    }
+    return decision;
+  };
+}
+
 // Task 113 (F-9): dep-injectable (see runQueueReview). Defaults unchanged for prod;
 // a test injects { projectRoot, prompter, log, logError } to drive a real keep-old
 // / keep-new / merge-both resolution end-to-end without stdin. Returns the result.
@@ -1381,31 +1403,7 @@ export async function runQueueConflicts(opts = {}) {
     rl = createInterface({ input: process.stdin, output: process.stdout });
     const askOnce = (q) =>
       new Promise((resolve) => rl.question(q, (answer) => resolve(answer)));
-    const VALID_DECISIONS = new Set(['keep-old', 'keep-new', 'merge-both', 'skip']);
-    prompter = async ({
-      proposedId,
-      proposedText,
-      proposedTrust,
-      existingId,
-      existingText,
-      existingTrust,
-      similarity,
-    }) => {
-      log('');
-      log('─── pending conflict ──────────────────────────────────────');
-      log(`existing  (${existingId}, trust=${existingTrust}): ${existingText}`);
-      log(`proposed  (${proposedId}, trust=${proposedTrust}): ${proposedText}`);
-      log(`similarity: ${Number(similarity).toFixed(4)}`);
-      let decision = '';
-      while (!VALID_DECISIONS.has(decision)) {
-        const answer = await askOnce(`  [keep-old / keep-new / merge-both / skip]: `);
-        decision = String(answer).trim();
-        if (!VALID_DECISIONS.has(decision)) {
-          log(`  unknown answer "${decision}" — please type one of: keep-old, keep-new, merge-both, skip`);
-        }
-      }
-      return decision;
-    };
+    prompter = buildConflictPrompter({ ask: askOnce, log });
   }
 
   // merge-both wiring (Task 25b — closes Task 25's cross-layer
@@ -1491,6 +1489,31 @@ export async function runQueueConflicts(opts = {}) {
  *
  * Resolves the PROJECT tier's review queue (the canonical kit usage).
  */
+// Task 113 (F-9): the interactive prompter LOGIC (formatting + the validate-retry
+// loop) extracted as a factory over an injectable `ask`, so it's unit-testable
+// without a real readline/stdin — only the 2-line createInterface wrapper in the
+// runner stays an uncovered shim.
+export function buildReviewPrompter({ ask, log }) {
+  const VALID = new Set(['promote', 'discard', 'skip']);
+  return async ({ id, text, ts, provenance }) => {
+    log('');
+    log('─── pending review ────────────────────────────────────────');
+    log(`id:   ${id}`);
+    log(`ts:   ${ts}`);
+    log(`text: ${text}`);
+    if (provenance) log(`prov: ${provenance.trim()}`);
+    let decision = '';
+    while (!VALID.has(decision)) {
+      const answer = await ask(`  [promote / discard / skip]: `);
+      decision = String(answer).trim();
+      if (!VALID.has(decision)) {
+        log(`  unknown answer "${decision}" — please type one of: promote, discard, skip`);
+      }
+    }
+    return decision;
+  };
+}
+
 // Task 113 (F-9): dep-injectable so the CLI resolution path is verifiable on REAL
 // queued items. Defaults (readline over stdin + cwd + console) are unchanged for
 // production; a test injects { projectRoot, prompter, log, logError } to drive a
@@ -1508,24 +1531,7 @@ export async function runQueueReview(opts = {}) {
     rl = createInterface({ input: process.stdin, output: process.stdout });
     const askOnce = (q) =>
       new Promise((resolve) => rl.question(q, (answer) => resolve(answer)));
-    const VALID_DECISIONS = new Set(['promote', 'discard', 'skip']);
-    prompter = async ({ id, text, ts, provenance }) => {
-      log('');
-      log('─── pending review ────────────────────────────────────────');
-      log(`id:   ${id}`);
-      log(`ts:   ${ts}`);
-      log(`text: ${text}`);
-      if (provenance) log(`prov: ${provenance.trim()}`);
-      let decision = '';
-      while (!VALID_DECISIONS.has(decision)) {
-        const answer = await askOnce(`  [promote / discard / skip]: `);
-        decision = String(answer).trim();
-        if (!VALID_DECISIONS.has(decision)) {
-          log(`  unknown answer "${decision}" — please type one of: promote, discard, skip`);
-        }
-      }
-      return decision;
-    };
+    prompter = buildReviewPrompter({ ask: askOnce, log });
   }
 
   try {

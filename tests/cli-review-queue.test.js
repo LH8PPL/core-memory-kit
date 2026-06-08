@@ -27,7 +27,7 @@ import {
   parseReviewQueue,
   resolveReviewQueue,
 } from '../packages/cli/src/review-queue.mjs';
-import { runQueueReview } from '../packages/cli/src/subcommands.mjs';
+import { runQueueReview, buildReviewPrompter } from '../packages/cli/src/subcommands.mjs';
 
 function makeFixture() {
   const sandbox = mkdtempSync(join(tmpdir(), 'cmk-review-queue-test-'));
@@ -348,5 +348,18 @@ describe('Task 113 (F-9) — runQueueReview CLI path on REAL queued items', () =
     } finally {
       rmSync(sandbox, { recursive: true, force: true });
     }
+  });
+});
+
+describe('Task 113 — buildReviewPrompter (prompter logic, unit)', () => {
+  it('returns the chosen valid decision', async () => {
+    const p = buildReviewPrompter({ ask: async () => 'promote', log: () => {} });
+    expect(await p({ id: 'P-AAAAAAAA', text: 't', ts: 'now', provenance: '<!-- x -->' })).toBe('promote');
+  });
+  it('re-asks on an invalid answer until a valid one (validate-retry loop)', async () => {
+    let n = 0;
+    const p = buildReviewPrompter({ ask: async () => (n++ === 0 ? 'bogus' : 'discard'), log: () => {} });
+    expect(await p({ id: 'P-BBBBBBBB', text: 't', ts: 'now' })).toBe('discard');
+    expect(n).toBe(2);
   });
 });
