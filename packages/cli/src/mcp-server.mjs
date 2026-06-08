@@ -42,7 +42,8 @@ import { forget } from './forget.mjs';
 import { overrideTrust } from './trust.mjs';
 import { lessonsPromote } from './lessons-promote.mjs';
 import { createHash } from 'node:crypto';
-import { ID_PATTERN, resolveTierRoot } from './tier-paths.mjs';
+import { getObservations, citeLink, buildTimeline, recentActivity } from './read-core.mjs';
+import { resolveTierRoot } from './tier-paths.mjs';
 
 // --- Path-traversal validation (design §10.2; tasks.md 31.2) ----------
 
@@ -117,95 +118,37 @@ function makeMkSearch({ db, semanticBackend }) {
 }
 
 function makeMkGet({ db }) {
-  return async ({ ids }) => {
-    const stmt = db.prepare(`
-      SELECT id, body, heading_path, source_file, source_line, tier, trust,
-             write_source, created_at, superseded_by, deleted_at
-      FROM observations WHERE id = ?
-    `);
-    const rows = ids.map((id) => {
-      if (!ID_PATTERN.test(id)) {
-        return { id, error: 'invalid id format' };
-      }
-      const row = stmt.get(id);
-      if (!row) return { id, error: 'not found' };
-      return row;
-    });
-    return {
-      content: [{ type: 'text', text: JSON.stringify(rows, null, 2) }],
-    };
-  };
+  // Thin adapter over the shared read core (read-core.getObservations) — the
+  // SAME logic the CLI `cmk get` calls (ADR-0014 parity).
+  return async ({ ids }) => ({
+    content: [{ type: 'text', text: JSON.stringify(getObservations(db, ids), null, 2) }],
+  });
 }
 
 function makeMkTimeline({ db }) {
-  // Sequential context around an anchor ID or timestamp. v0.1.0 keeps
-  // the implementation deliberately narrow: anchor by ID; return the
-  // N observations before + N after by created_at order.
+  // Thin adapter over read-core.buildTimeline (shared with CLI `cmk timeline`).
   return async ({ anchor, depth_before, depth_after }) => {
-    const before = depth_before ?? 5;
-    const after = depth_after ?? 5;
-    if (!ID_PATTERN.test(anchor)) {
-      return {
-        content: [{ type: 'text', text: 'error: anchor must be a valid kit ID' }],
-        isError: true,
-      };
+    const r = buildTimeline(db, {
+      anchor,
+      depthBefore: depth_before ?? 5,
+      depthAfter: depth_after ?? 5,
+    });
+    if (!r.ok) {
+      return { content: [{ type: 'text', text: `error: ${r.error}` }], isError: true };
     }
-    const anchorRow = db
-      .prepare('SELECT created_at, tier FROM observations WHERE id = ?')
-      .get(anchor);
-    if (!anchorRow) {
-      return {
-        content: [{ type: 'text', text: 'error: anchor not found' }],
-        isError: true,
-      };
-    }
-    // M2: id tiebreaker on observations with identical created_at —
-    // without it, observations created the same millisecond fall out
-    // of the timeline non-deterministically. Same fix in afterRows.
-    const beforeRows = db
-      .prepare(`
-        SELECT id, body, source_file, source_line, tier, trust, created_at
-        FROM observations
-        WHERE created_at < ? AND deleted_at IS NULL
-        ORDER BY created_at DESC, id DESC LIMIT ?
-      `)
-      .all(anchorRow.created_at, before);
-    const anchorFull = db
-      .prepare(`
-        SELECT id, body, source_file, source_line, tier, trust, created_at
-        FROM observations WHERE id = ?
-      `)
-      .get(anchor);
-    const afterRows = db
-      .prepare(`
-        SELECT id, body, source_file, source_line, tier, trust, created_at
-        FROM observations
-        WHERE created_at > ? AND deleted_at IS NULL
-        ORDER BY created_at ASC, id ASC LIMIT ?
-      `)
-      .all(anchorRow.created_at, after);
-    const timeline = [...beforeRows.reverse(), anchorFull, ...afterRows];
-    return {
-      content: [{ type: 'text', text: JSON.stringify(timeline, null, 2) }],
-    };
+    return { content: [{ type: 'text', text: JSON.stringify(r.timeline, null, 2) }] };
   };
 }
 
 function makeMkCite() {
-  // Pure formatting — no DB query needed. The canonical citation link
-  // form is documented in design §10's tool table:
-  //   `[#P-S79MJHFN](memkit://obs/P-S79MJHFN)`
+  // Thin adapter over read-core.citeLink (shared with CLI `cmk cite`). The
+  // canonical link form is `[#P-S79MJHFN](memkit://obs/P-S79MJHFN)`.
   return async ({ id }) => {
-    if (!ID_PATTERN.test(id)) {
-      return {
-        content: [{ type: 'text', text: 'error: id must match ID_PATTERN' }],
-        isError: true,
-      };
+    const r = citeLink(id);
+    if (!r.ok) {
+      return { content: [{ type: 'text', text: `error: ${r.error}` }], isError: true };
     }
-    const link = `[#${id}](memkit://obs/${id})`;
-    return {
-      content: [{ type: 'text', text: link }],
-    };
+    return { content: [{ type: 'text', text: r.link }] };
   };
 }
 
@@ -351,32 +294,14 @@ function makeMkRemember({ projectRoot, userDir }) {
 }
 
 function makeMkRecentActivity({ db }) {
-  const WINDOWS = {
-    '1h': 60 * 60 * 1000,
-    '24h': 24 * 60 * 60 * 1000,
-    '7d': 7 * 24 * 60 * 60 * 1000,
-  };
+  // Thin adapter over read-core.recentActivity (shared with CLI
+  // `cmk recent-activity`).
   return async ({ window, limit }) => {
-    const w = window ?? '24h';
-    if (!WINDOWS[w]) {
-      return {
-        content: [{ type: 'text', text: 'error: window must be 1h|24h|7d' }],
-        isError: true,
-      };
+    const r = recentActivity(db, { window: window ?? '24h', limit: limit ?? 20 });
+    if (!r.ok) {
+      return { content: [{ type: 'text', text: `error: ${r.error}` }], isError: true };
     }
-    const lim = limit ?? 20;
-    const cutoff = Date.now() - WINDOWS[w];
-    const rows = db
-      .prepare(`
-        SELECT id, body, source_file, source_line, tier, trust, created_at
-        FROM observations
-        WHERE created_at >= ? AND deleted_at IS NULL
-        ORDER BY created_at DESC LIMIT ?
-      `)
-      .all(cutoff, lim);
-    return {
-      content: [{ type: 'text', text: JSON.stringify(rows, null, 2) }],
-    };
+    return { content: [{ type: 'text', text: JSON.stringify(r.rows, null, 2) }] };
   };
 }
 

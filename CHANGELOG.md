@@ -11,6 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ### Added
 
 - `cmk remember --from-file <fact.json>` and `cmk remember --json` (stdin): capture a rich fact as a JSON object read from a file or piped in, so backtick / `$()` / quote-heavy `Why`/`How` content never rides the shell command line. Fixes the silent corruption where bash command-substitution ate backtick spans in `--why`/`--how` arguments (D-81). _(Task 108a)_
+- **Claude can now do every memory operation through conversation — the MCP tools reach parity with the CLI (Task 108b).** The MCP surface (the tools Claude drives on your behalf, so you never type a command) gained:
+  - **Rich capture** — `mk_remember` now writes a structured **Why/How fact file** (not just a one-line bullet) when given `why`/`how`/`title`/`type`, matching `cmk remember --why/--how`.
+  - **`mk_trust`** — change a fact's trust level (low/medium/high).
+  - **`mk_lessons_promote`** — carry a project-tier fact to your cross-project user tier so it applies in every project.
+  - **`mk_forget`** — tombstone a fact (audit trail preserved). Destructive, so it's **two-step**: the first call previews exactly what would be removed and returns a confirm token; Claude must call again with that token to delete — nothing vanishes without you seeing it first.
+
+  And the CLI gained the read verbs the MCP tools already had, so the surfaces match both ways: **`cmk get <id…>`** (full fact bodies + provenance), **`cmk timeline <id>`** (what was captured around an observation), **`cmk cite <id>`** (a canonical citation link), and **`cmk recent-activity`** (recent changes in a time window). Both surfaces run the same shared core, so they always return the same thing.
 
 ## [0.2.2] — 2026-06-07
 

@@ -27,6 +27,7 @@ import { autoPersona } from './auto-persona.mjs';
 import { exportPersona, importPersona } from './persona-portability.mjs';
 import { setNativeAutoMemory, nativeMemoryInstallNote } from './native-memory.mjs';
 import { rememberRich, richFactTitle } from './remember-core.mjs';
+import { getObservations, citeLink, buildTimeline, recentActivity } from './read-core.mjs';
 import { readHookStdin } from './read-hook-stdin.mjs';
 import { runLazyCompress } from './lazy-compress.mjs';
 import { runDoctor } from './doctor.mjs';
@@ -320,6 +321,99 @@ function runSearch(queryParts, options) {
   } finally {
     db.close();
   }
+}
+
+// --- Read verbs (Task 108b — CLI parity with the MCP read tools) ------
+//
+// `cmk get` / `timeline` / `cite` / `recent-activity` mirror the MCP tools
+// mk_get / mk_timeline / mk_cite / mk_recent_activity by calling the SAME
+// shared read cores (read-core.mjs) — identical results from CLI + MCP
+// (ADR-0014). cite is pure (no DB); the rest open the index + reindex first
+// (same fresh-install freshness guard as `cmk search`).
+
+// `deps` (projectRoot / log / logError) are injection seams: production passes
+// nothing (defaults to cwd + console), in-process tests pass a temp projectRoot
+// + captured loggers so the glue is covered WITHOUT a subprocess (the D-86
+// lesson — real-binary tests don't contribute line coverage). Exported for the
+// unit tests.
+
+/** Open the index DB, refresh it (best-effort), run `fn(db)`, always close. */
+export function withReadDb(fn, deps = {}) {
+  const projectRoot = deps.projectRoot ?? resolvePath(process.cwd());
+  const userDir =
+    deps.userDir ?? process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+  const logError = deps.logError ?? console.error;
+  const db = openIndexDb({ projectRoot });
+  try {
+    try {
+      reindexBoot({ projectRoot, userDir, db });
+    } catch (err) {
+      logError(`cmk: index refresh failed (${err?.message ?? err}); using the existing index.`);
+    }
+    return fn(db);
+  } finally {
+    db.close();
+  }
+}
+
+export function runGet(ids, _options = {}, _command, deps = {}) {
+  const log = deps.log ?? console.log;
+  const list = Array.isArray(ids) ? ids : [ids];
+  const rows = withReadDb((db) => getObservations(db, list), deps);
+  log(JSON.stringify(rows, null, 2));
+  // All-missing/invalid → exit 2 (lets a script tell "nothing matched" from a hit).
+  if (rows.length > 0 && rows.every((r) => r.error)) process.exitCode = 2;
+}
+
+export function runCite(id, _options = {}, _command, deps = {}) {
+  const log = deps.log ?? console.log;
+  const logError = deps.logError ?? console.error;
+  const r = citeLink(id);
+  if (!r.ok) {
+    logError(`cmk cite: ${r.error}`);
+    process.exitCode = 2;
+    return;
+  }
+  log(r.link);
+}
+
+export function runTimeline(anchor, options = {}, _command, deps = {}) {
+  const log = deps.log ?? console.log;
+  const logError = deps.logError ?? console.error;
+  const r = withReadDb(
+    (db) =>
+      buildTimeline(db, {
+        anchor,
+        depthBefore: options.before !== undefined ? Number(options.before) : 5,
+        depthAfter: options.after !== undefined ? Number(options.after) : 5,
+      }),
+    deps,
+  );
+  if (!r.ok) {
+    logError(`cmk timeline: ${r.error}`);
+    process.exitCode = 2;
+    return;
+  }
+  log(JSON.stringify(r.timeline, null, 2));
+}
+
+export function runRecentActivity(options = {}, _command, deps = {}) {
+  const log = deps.log ?? console.log;
+  const logError = deps.logError ?? console.error;
+  const r = withReadDb(
+    (db) =>
+      recentActivity(db, {
+        window: options.window ?? '24h',
+        limit: options.limit !== undefined ? Number(options.limit) : 20,
+      }),
+    deps,
+  );
+  if (!r.ok) {
+    logError(`cmk recent-activity: ${r.error}`);
+    process.exitCode = 2;
+    return;
+  }
+  log(JSON.stringify(r.rows, null, 2));
 }
 
 /**
@@ -1529,6 +1623,41 @@ export const subcommands = [
       { flags: '--include-tombstoned', description: 'include deleted observations in results' },
     ],
     action: runSearch,
+  },
+  {
+    name: 'get',
+    description: 'fetch full observation bodies + provenance by ID (parity with the mk_get MCP tool)',
+    milestone: 108,
+    argSpec: [{ flags: '<ids...>', description: 'one or more citation IDs (e.g. P-S79MJHFN)' }],
+    action: runGet,
+  },
+  {
+    name: 'timeline',
+    description: 'sequential context around an anchor observation — N before + N after (mk_timeline parity)',
+    milestone: 108,
+    argSpec: [{ flags: '<anchor>', description: 'citation ID to anchor the timeline on' }],
+    optionSpec: [
+      { flags: '--before <n>', description: 'observations before the anchor (default: 5)' },
+      { flags: '--after <n>', description: 'observations after the anchor (default: 5)' },
+    ],
+    action: runTimeline,
+  },
+  {
+    name: 'cite',
+    description: 'render the canonical Markdown citation link for an observation (mk_cite parity)',
+    milestone: 108,
+    argSpec: [{ flags: '<id>', description: 'citation ID' }],
+    action: runCite,
+  },
+  {
+    name: 'recent-activity',
+    description: 'list recent observation changes within a time window (mk_recent_activity parity)',
+    milestone: 108,
+    optionSpec: [
+      { flags: '--window <w>', description: '1h | 24h | 7d (default: 24h)' },
+      { flags: '--limit <n>', description: 'max results (default: 20)' },
+    ],
+    action: runRecentActivity,
   },
   {
     name: 'reindex',
