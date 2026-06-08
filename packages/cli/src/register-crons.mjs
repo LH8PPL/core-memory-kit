@@ -292,7 +292,12 @@ export function registerCron(opts = {}) {
     // /TR value's inner quotes to schtasks verbatim (CreateProcess arg-quoting),
     // never re-parsed by cmd.exe at registration time (the D-83 fix). Task
     // Scheduler stores the command; cmd.exe parses the quoted paths at fire time.
-    const r = spawnSync('schtasks', argv, { encoding: 'utf8', windowsHide: true, timeout: 10_000 });
+    // Resolve the ABSOLUTE System32 path rather than relying on PATH: schtasks
+    // creates a scheduled task, so a PATH-hijacked `schtasks.exe` in a writable
+    // dir would be a privilege-escalation vector (Sonar S4036). %SystemRoot% is
+    // a fixed, unwriteable system directory.
+    const schtasksExe = join(process.env.SystemRoot || process.env.windir || 'C:\\Windows', 'System32', 'schtasks.exe');
+    const r = spawnSync(schtasksExe, argv, { encoding: 'utf8', windowsHide: true, timeout: 10_000 });
     return {
       action: r.status === 0 ? 'registered' : 'error',
       platform,
