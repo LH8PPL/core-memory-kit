@@ -66,8 +66,14 @@ function runCmk(args, { input } = {}) {
  *               memoryWrite); tested by tests/cli-remember.test.js against
  *               tempdir sandboxes — never invoked from the repo cwd here because
  *               it requires a scaffolded context/MEMORY.md (errors exit-2 otherwise)
+ *   get / timeline / cite / recent-activity
+ *             → real implementations as of Task 108b (CLI read-verb parity with
+ *               the MCP read tools, via the shared read-core.mjs); tested by
+ *               tests/cli-read-verbs.test.js against tempdir sandboxes. Invoked
+ *               from the repo cwd here they exit 2 (no anchor/fact found / bad
+ *               id), so they're excluded from the scaffold's exit-0 stub loop.
  */
-const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex', 'forget', 'init-user-tier', 'trust', 'search', 'remember', 'daily-distill', 'weekly-curate', 'register-crons', 'compress', 'doctor', 'import-anthropic-memory', 'repair', 'roll', 'disable-native-memory', 'enable-native-memory']);
+const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex', 'forget', 'init-user-tier', 'trust', 'search', 'remember', 'daily-distill', 'weekly-curate', 'register-crons', 'compress', 'doctor', 'import-anthropic-memory', 'repair', 'roll', 'disable-native-memory', 'enable-native-memory', 'get', 'timeline', 'cite', 'recent-activity']);
 
 // Wired child sub-verbs (e.g. `cmk queue conflicts` shipped in Task 25).
 // Listed as "<parent>/<child>" so the generic child-stub assertion

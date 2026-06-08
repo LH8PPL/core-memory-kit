@@ -209,6 +209,19 @@ function serializeReviewQueue({ preamble, entries }) {
 // works because Active Threads is where transient observations
 // belong by convention; the user can promote into a different
 // section by editing MEMORY.md after promotion.
+/**
+ * Pure-read list of pending review-queue entries (no mutation). Used by the MCP
+ * `mk_queue_list` tool so a "list" never rewrites the queue file — unlike
+ * resolveReviewQueue, which reserializes on every call. Returns `[]` when the
+ * queue file doesn't exist.
+ */
+export function listReviewQueue({ tier = 'P', projectRoot, userDir } = {}) {
+  const tierRoot = resolveTierRoot({ tier, projectRoot, userDir });
+  const queuePath = join(tierRoot, ...QUEUE_RELATIVE);
+  if (!existsSync(queuePath)) return [];
+  return parseReviewQueue(readFileSync(queuePath, 'utf8')).entries;
+}
+
 export async function resolveReviewQueue({
   tier,
   projectRoot,

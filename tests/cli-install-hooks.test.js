@@ -33,6 +33,7 @@ import { fileURLToPath } from 'node:url';
 import { install } from '../packages/cli/src/install.mjs';
 import {
   writeKitHooks,
+  writeKitMcpServer,
   KIT_HOOKS_BLOCK,
   KIT_COMMAND_TOKENS,
 } from '../packages/cli/src/settings-hooks.mjs';
@@ -119,12 +120,16 @@ describe('Task 49 — settings.json content (Door 2: state)', () => {
     let settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
     expect(settings.permissions.allow).toContain('Bash(cmk:*)');
     expect(settings.permissions.allow).toContain('Skill(memory-write)');
+    // Task 108b — the MCP tools are allow-listed too (R2 / D-80): the model's
+    // memory ops via mk_remember / mk_forget / … run without a per-call prompt.
+    expect(settings.permissions.allow).toContain('mcp__cmk__*');
 
-    // Idempotent: a second write doesn't duplicate either (over-mutation guard).
+    // Idempotent: a second write doesn't duplicate any (over-mutation guard).
     writeKitHooks(settingsPath);
     settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
     expect(settings.permissions.allow.filter((a) => a === 'Bash(cmk:*)')).toHaveLength(1);
     expect(settings.permissions.allow.filter((a) => a === 'Skill(memory-write)')).toHaveLength(1);
+    expect(settings.permissions.allow.filter((a) => a === 'mcp__cmk__*')).toHaveLength(1);
 
     // Over-mutation: a user's pre-existing allow entry survives.
     settings.permissions.allow.push('Bash(npm test)');
@@ -369,5 +374,52 @@ describe('Task 49 — hook bins spawn cleanly (Door 3: external calls)', () => {
     const r = spawnBin('cmk-capture-prompt.mjs', '');
     expect(r.status).toBe(0);
     expect(JSON.parse(r.stdout)).toMatchObject({ continue: true });
+  });
+});
+
+describe('Task 108b — cmk install registers the MCP server (.mcp.json) (R2 / D-80)', () => {
+  it('writeKitMcpServer writes the cmk stdio server, idempotently, preserving other servers', () => {
+    const mcpPath = join(projectRoot, '.mcp.json');
+    const r1 = writeKitMcpServer(projectRoot);
+    expect(r1.changed).toBe(true);
+    expect(r1.path).toBe(mcpPath);
+    let config = JSON.parse(readFileSync(mcpPath, 'utf8'));
+    // Door 2 — the exact server entry: PATH-resolved `cmk mcp serve` over stdio.
+    expect(config.mcpServers.cmk).toEqual({ type: 'stdio', command: 'cmk', args: ['mcp', 'serve'] });
+
+    // Idempotent: a second write is a no-op (Door 1).
+    expect(writeKitMcpServer(projectRoot).changed).toBe(false);
+
+    // Over-mutation guard: a user's OTHER server survives a re-write.
+    config.mcpServers.other = { type: 'stdio', command: 'foo', args: [] };
+    writeFileSync(mcpPath, JSON.stringify(config, null, 2), 'utf8');
+    writeKitMcpServer(projectRoot);
+    config = JSON.parse(readFileSync(mcpPath, 'utf8'));
+    expect(config.mcpServers.other).toBeDefined();
+    expect(config.mcpServers.cmk).toBeDefined();
+  });
+
+  it('returns {error} on a malformed existing .mcp.json — never clobbers it', () => {
+    const mcpPath = join(projectRoot, '.mcp.json');
+    mkdirSync(projectRoot, { recursive: true });
+    writeFileSync(mcpPath, '{not json', 'utf8');
+    const r = writeKitMcpServer(projectRoot);
+    expect(r.changed).toBe(false);
+    expect(r.error).toMatch(/parse error/);
+    expect(readFileSync(mcpPath, 'utf8')).toBe('{not json'); // untouched
+  });
+
+  it('install() registers the MCP server + reports mcpServer.action "registered"', async () => {
+    const r = await install({ projectRoot, userTier });
+    expect(r.mcpServer.action).toBe('registered');
+    expect(r.errors).toEqual([]);
+    const config = JSON.parse(readFileSync(join(projectRoot, '.mcp.json'), 'utf8'));
+    expect(config.mcpServers.cmk.args).toEqual(['mcp', 'serve']);
+  });
+
+  it('install({noHooks:true}) skips the MCP registration (no .mcp.json)', async () => {
+    const r = await install({ projectRoot, userTier, noHooks: true });
+    expect(r.mcpServer.action).toBe('skipped');
+    expect(existsSync(join(projectRoot, '.mcp.json'))).toBe(false);
   });
 });

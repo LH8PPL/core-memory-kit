@@ -37,7 +37,15 @@ import { openIndexDb } from './index-db.mjs';
 import { reindexBoot } from './index-rebuild.mjs';
 import { search, SEARCH_MODES } from './search.mjs';
 import { memoryWrite } from './memory-write.mjs';
-import { ID_PATTERN, resolveTierRoot } from './tier-paths.mjs';
+import { rememberRich } from './remember-core.mjs';
+import { forget } from './forget.mjs';
+import { overrideTrust } from './trust.mjs';
+import { lessonsPromote } from './lessons-promote.mjs';
+import { resolveReviewQueue, listReviewQueue } from './review-queue.mjs';
+import { resolveConflictQueue, listConflictQueue } from './conflict-queue.mjs';
+import { createHash } from 'node:crypto';
+import { getObservations, citeLink, buildTimeline, recentActivity } from './read-core.mjs';
+import { resolveTierRoot } from './tier-paths.mjs';
 
 // --- Path-traversal validation (design §10.2; tasks.md 31.2) ----------
 
@@ -112,100 +120,42 @@ function makeMkSearch({ db, semanticBackend }) {
 }
 
 function makeMkGet({ db }) {
-  return async ({ ids }) => {
-    const stmt = db.prepare(`
-      SELECT id, body, heading_path, source_file, source_line, tier, trust,
-             write_source, created_at, superseded_by, deleted_at
-      FROM observations WHERE id = ?
-    `);
-    const rows = ids.map((id) => {
-      if (!ID_PATTERN.test(id)) {
-        return { id, error: 'invalid id format' };
-      }
-      const row = stmt.get(id);
-      if (!row) return { id, error: 'not found' };
-      return row;
-    });
-    return {
-      content: [{ type: 'text', text: JSON.stringify(rows, null, 2) }],
-    };
-  };
+  // Thin adapter over the shared read core (read-core.getObservations) — the
+  // SAME logic the CLI `cmk get` calls (ADR-0014 parity).
+  return async ({ ids }) => ({
+    content: [{ type: 'text', text: JSON.stringify(getObservations(db, ids), null, 2) }],
+  });
 }
 
 function makeMkTimeline({ db }) {
-  // Sequential context around an anchor ID or timestamp. v0.1.0 keeps
-  // the implementation deliberately narrow: anchor by ID; return the
-  // N observations before + N after by created_at order.
+  // Thin adapter over read-core.buildTimeline (shared with CLI `cmk timeline`).
   return async ({ anchor, depth_before, depth_after }) => {
-    const before = depth_before ?? 5;
-    const after = depth_after ?? 5;
-    if (!ID_PATTERN.test(anchor)) {
-      return {
-        content: [{ type: 'text', text: 'error: anchor must be a valid kit ID' }],
-        isError: true,
-      };
+    const r = buildTimeline(db, {
+      anchor,
+      depthBefore: depth_before ?? 5,
+      depthAfter: depth_after ?? 5,
+    });
+    if (!r.ok) {
+      return { content: [{ type: 'text', text: `error: ${r.error}` }], isError: true };
     }
-    const anchorRow = db
-      .prepare('SELECT created_at, tier FROM observations WHERE id = ?')
-      .get(anchor);
-    if (!anchorRow) {
-      return {
-        content: [{ type: 'text', text: 'error: anchor not found' }],
-        isError: true,
-      };
-    }
-    // M2: id tiebreaker on observations with identical created_at —
-    // without it, observations created the same millisecond fall out
-    // of the timeline non-deterministically. Same fix in afterRows.
-    const beforeRows = db
-      .prepare(`
-        SELECT id, body, source_file, source_line, tier, trust, created_at
-        FROM observations
-        WHERE created_at < ? AND deleted_at IS NULL
-        ORDER BY created_at DESC, id DESC LIMIT ?
-      `)
-      .all(anchorRow.created_at, before);
-    const anchorFull = db
-      .prepare(`
-        SELECT id, body, source_file, source_line, tier, trust, created_at
-        FROM observations WHERE id = ?
-      `)
-      .get(anchor);
-    const afterRows = db
-      .prepare(`
-        SELECT id, body, source_file, source_line, tier, trust, created_at
-        FROM observations
-        WHERE created_at > ? AND deleted_at IS NULL
-        ORDER BY created_at ASC, id ASC LIMIT ?
-      `)
-      .all(anchorRow.created_at, after);
-    const timeline = [...beforeRows.reverse(), anchorFull, ...afterRows];
-    return {
-      content: [{ type: 'text', text: JSON.stringify(timeline, null, 2) }],
-    };
+    return { content: [{ type: 'text', text: JSON.stringify(r.timeline, null, 2) }] };
   };
 }
 
 function makeMkCite() {
-  // Pure formatting — no DB query needed. The canonical citation link
-  // form is documented in design §10's tool table:
-  //   `[#P-S79MJHFN](memkit://obs/P-S79MJHFN)`
+  // Thin adapter over read-core.citeLink (shared with CLI `cmk cite`). The
+  // canonical link form is `[#P-S79MJHFN](memkit://obs/P-S79MJHFN)`.
   return async ({ id }) => {
-    if (!ID_PATTERN.test(id)) {
-      return {
-        content: [{ type: 'text', text: 'error: id must match ID_PATTERN' }],
-        isError: true,
-      };
+    const r = citeLink(id);
+    if (!r.ok) {
+      return { content: [{ type: 'text', text: `error: ${r.error}` }], isError: true };
     }
-    const link = `[#${id}](memkit://obs/${id})`;
-    return {
-      content: [{ type: 'text', text: link }],
-    };
+    return { content: [{ type: 'text', text: r.link }] };
   };
 }
 
 function makeMkRemember({ projectRoot, userDir }) {
-  return async ({ text, tier, cites }) => {
+  return async ({ text, tier, cites, why, how, type, title, links }) => {
     // I1 + I2 boundary checks (Task 31 code-review):
     // - cites: memory-write doesn't currently wire cites → provenance.
     //   Silently dropping the array would tell the model "your citation
@@ -236,6 +186,50 @@ function makeMkRemember({ projectRoot, userDir }) {
           },
         ],
         isError: true,
+      };
+    }
+    // Task 108b — MCP write parity: when rich fields (why/how/type/title/links)
+    // are present, route to the SAME shared core (remember-core.rememberRich)
+    // the CLI `cmk remember --why/--how` uses → a granular Why/How fact file, not
+    // a terse MEMORY.md bullet. Identical fact files from both surfaces (ADR-0014).
+    if (why || how || type || title || links) {
+      const rr = rememberRich(text, { why, how, type, title, links }, { projectRoot });
+      if (rr.action === 'error') {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `error (${rr.errorCategory ?? 'unknown'}): ${(rr.errors ?? [rr.errorCategory ?? 'error']).join('; ')}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+      if (rr.action === 'skipped') {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                { accepted: true, status: 'skipped', skip_reason: rr.skipReason, id: rr.id, written_to: rr.path },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      }
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              { id: rr.id, written_to: rr.path, accepted: true, action: rr.action, kind: 'rich' },
+              null,
+              2,
+            ),
+          },
+        ],
       };
     }
     const r = memoryWrite({
@@ -302,32 +296,192 @@ function makeMkRemember({ projectRoot, userDir }) {
 }
 
 function makeMkRecentActivity({ db }) {
-  const WINDOWS = {
-    '1h': 60 * 60 * 1000,
-    '24h': 24 * 60 * 60 * 1000,
-    '7d': 7 * 24 * 60 * 60 * 1000,
-  };
+  // Thin adapter over read-core.recentActivity (shared with CLI
+  // `cmk recent-activity`).
   return async ({ window, limit }) => {
-    const w = window ?? '24h';
-    if (!WINDOWS[w]) {
+    const r = recentActivity(db, { window: window ?? '24h', limit: limit ?? 20 });
+    if (!r.ok) {
+      return { content: [{ type: 'text', text: `error: ${r.error}` }], isError: true };
+    }
+    return { content: [{ type: 'text', text: JSON.stringify(r.rows, null, 2) }] };
+  };
+}
+
+// --- Mutate tools (Task 108b — MCP parity with the CLI) ---------------
+//
+// These wrap the existing CLI cores (forget / overrideTrust / lessonsPromote)
+// so the model can perform the same mutations the user could via `cmk`. Per
+// D-85: the user never types `cmk`; the conversation is the interface, so every
+// mutate the CLI offers needs an MCP path the model can drive on their behalf.
+
+/** Map a core error / not-found result to an MCP isError envelope. */
+function mcpToolError(r) {
+  const msg = r.action === 'error'
+    ? `error (${r.errorCategory ?? 'unknown'}): ${(r.errors ?? ['operation failed']).join('; ')}`
+    : `error: ${(r.errors ?? ['not found']).join('; ')}`;
+  return { content: [{ type: 'text', text: msg }], isError: true };
+}
+
+/**
+ * Deterministic confirm token for a destructive op. Derived from id + body so a
+ * caller CANNOT produce it without first seeing the preview (the digest is not
+ * knowable from the id alone) — that forces the two-step preview→confirm flow.
+ * Stable across re-calls (idempotent), so a retried confirm with the same token
+ * still works. sha256 (not sha1) — not because this is a crypto-sensitive
+ * context (it's a preview-fingerprint nonce, not auth/signing), but so static
+ * analysis isn't tripped by a "weak hash" smell on a brand-new code path.
+ */
+function forgetConfirmToken(id, body) {
+  return createHash('sha256').update(`${id}:${body ?? ''}`).digest('hex').slice(0, 8);
+}
+
+function makeMkTrust({ projectRoot, userDir }) {
+  return async ({ id, level }) => {
+    const r = overrideTrust({ id, level, projectRoot, userDir, actor: 'mcp-user-explicit' });
+    if (r.action !== 'trust-updated') return mcpToolError(r);
+    return {
+      content: [{ type: 'text', text: JSON.stringify(
+        { accepted: true, action: r.action, id: r.id, tier: r.tier, level: r.level }, null, 2,
+      ) }],
+    };
+  };
+}
+
+function makeMkLessonsPromote({ projectRoot, userDir }) {
+  return async ({ id, to }) => {
+    const r = lessonsPromote({ id, projectRoot, userDir, to: to ?? 'LESSONS.md' });
+    if (r.action !== 'promoted' && r.action !== 'queued') return mcpToolError(r);
+    return {
+      content: [{ type: 'text', text: JSON.stringify(
+        {
+          accepted: true,
+          action: r.action,
+          id: r.id,
+          target: r.target,
+          section: r.section,
+          ...(r.action === 'queued'
+            ? { status: 'queued', hint: 'Promotion routed to the user-tier review/conflict queue — it lands once resolved.' }
+            : {}),
+        }, null, 2,
+      ) }],
+    };
+  };
+}
+
+function makeMkForget({ projectRoot, userDir }) {
+  return async ({ id, reason, confirm }) => {
+    // Dry pass: resolve + capture the preview via a confirm callback that
+    // refuses (returns false → action:'cancelled'), so nothing is deleted yet.
+    // A not-found / ambiguous / schema error short-circuits BEFORE the callback.
+    let preview = null;
+    const dry = forget({
+      idOrQuery: id,
+      projectRoot,
+      userDir,
+      reason,
+      confirm: (p) => { preview = p; return false; },
+    });
+    if (dry.action !== 'cancelled' || !preview) {
+      return mcpToolError(dry);
+    }
+
+    const token = forgetConfirmToken(preview.id, preview.body);
+    if (confirm !== token) {
+      // Step 1 — preview + issue the token; require a second deliberate call.
       return {
-        content: [{ type: 'text', text: 'error: window must be 1h|24h|7d' }],
-        isError: true,
+        content: [{ type: 'text', text: JSON.stringify(
+          {
+            status: 'confirm_required',
+            would_tombstone: {
+              id: preview.id,
+              tier: preview.tier,
+              title: preview.title ?? null,
+              path: preview.path,
+              body_preview: String(preview.body ?? '').slice(0, 280),
+            },
+            confirm_token: token,
+            hint: `Permanently tombstones this fact (audit trail preserved). To proceed, call mk_forget again with confirm: "${token}".`,
+          }, null, 2,
+        ) }],
       };
     }
-    const lim = limit ?? 20;
-    const cutoff = Date.now() - WINDOWS[w];
-    const rows = db
-      .prepare(`
-        SELECT id, body, source_file, source_line, tier, trust, created_at
-        FROM observations
-        WHERE created_at >= ? AND deleted_at IS NULL
-        ORDER BY created_at DESC LIMIT ?
-      `)
-      .all(cutoff, lim);
+
+    // Step 2 — token matches → execute.
+    const r = forget({ idOrQuery: id, projectRoot, userDir, reason, yes: true });
+    if (r.action !== 'tombstoned') return mcpToolError(r);
     return {
-      content: [{ type: 'text', text: JSON.stringify(rows, null, 2) }],
+      content: [{ type: 'text', text: JSON.stringify(
+        { accepted: true, action: 'tombstoned', id: r.id, tier: r.tier, tombstoned_to: r.tombstonePath }, null, 2,
+      ) }],
     };
+  };
+}
+
+// The review/conflict queues resolve via interactive walkers that take a
+// `prompter(entry) → decision` callback. Two callback shapes give a clean,
+// non-interactive MCP surface over them WITHOUT duplicating the walk logic:
+//   - LIST: a prompter that records each entry + returns 'skip' (mutates
+//     nothing) — so the model can see what's pending and tell the user.
+//   - RESOLVE: a prompter that returns the requested action for the matching
+//     id and 'skip' for every other entry — resolves exactly one item.
+// 'merge-both' is excluded from mk_queue_resolve: it composes the two facts'
+// content (mergeFacts needs a merged body), which is an interactive decision —
+// the model is pointed at `cmk queue conflicts` for that.
+
+function makeMkQueueList({ projectRoot, userDir }) {
+  return async ({ queue }) => {
+    const q = queue ?? 'review';
+    if (q !== 'review' && q !== 'conflicts') {
+      return mcpToolError({ action: 'error', errorCategory: 'schema', errors: [`queue must be 'review' or 'conflicts' (got ${q})`] });
+    }
+    // PURE READ (code-review SR-1): list via the dedicated read helpers, NOT the
+    // resolve* walkers — those reserialize + rewrite the queue file on every call,
+    // so listing through them would mutate (mtime churn / reformat / concurrent-
+    // resolve race) on a read-only op. listReviewQueue / listConflictQueue parse
+    // the file without writing.
+    try {
+      const entries = q === 'review'
+        ? listReviewQueue({ tier: 'P', projectRoot, userDir })
+        : listConflictQueue({ tier: 'P', projectRoot, userDir });
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ queue: q, pending: entries.length, entries }, null, 2) }],
+      };
+    } catch (err) {
+      return { content: [{ type: 'text', text: `error: ${err?.message ?? err}` }], isError: true };
+    }
+  };
+}
+
+function makeMkQueueResolve({ projectRoot, userDir }) {
+  return async ({ queue, id, action }) => {
+    const q = queue ?? 'review';
+    if (q === 'review') {
+      if (action !== 'promote' && action !== 'discard') {
+        return mcpToolError({ action: 'error', errorCategory: 'schema', errors: [`review action must be 'promote' or 'discard' (got ${action})`] });
+      }
+      const prompter = async (e) => (e.id === id ? action : 'skip');
+      const r = await resolveReviewQueue({ tier: 'P', projectRoot, userDir, prompter });
+      if (r.action === 'error') return mcpToolError(r);
+      const count = action === 'promote' ? r.promoted : r.discarded;
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ accepted: count > 0, queue: 'review', id, action, result: r }, null, 2) }],
+      };
+    }
+    if (q === 'conflicts') {
+      if (action === 'merge-both') {
+        return mcpToolError({ action: 'error', errorCategory: 'schema', errors: ["merge-both composes the two facts' content — run `cmk queue conflicts` for an interactive merge. mk_queue_resolve supports 'keep-old' / 'keep-new'."] });
+      }
+      if (action !== 'keep-old' && action !== 'keep-new') {
+        return mcpToolError({ action: 'error', errorCategory: 'schema', errors: [`conflict action must be 'keep-old' or 'keep-new' (got ${action})`] });
+      }
+      const prompter = async (e) => (e.proposedId === id ? action : 'skip');
+      const r = await resolveConflictQueue({ tier: 'P', projectRoot, userDir, prompter });
+      if (r.action === 'error') return mcpToolError(r);
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ accepted: r.resolved > 0, queue: 'conflicts', id, action, result: r }, null, 2) }],
+      };
+    }
+    return mcpToolError({ action: 'error', errorCategory: 'schema', errors: [`queue must be 'review' or 'conflicts' (got ${q})`] });
   };
 }
 
@@ -416,6 +570,13 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
         text: z.string().min(1).max(5000).describe('the fact text (max 5000 chars)'),
         tier: z.enum(['U', 'P', 'L']).optional(),
         cites: z.array(z.string()).optional(),
+        // Task 108b — rich capture parity with the CLI `cmk remember --why/--how`.
+        // Any of these routes to a granular Why/How fact file (not a terse bullet).
+        why: z.string().max(5000).optional().describe('rich: the rationale (the **Why:** block)'),
+        how: z.string().max(5000).optional().describe('rich: how to apply it (the **How to apply:** block)'),
+        type: z.enum(['feedback', 'project', 'reference', 'user']).optional().describe('rich: fact type (default feedback)'),
+        title: z.string().max(200).optional().describe('rich: short title (also the fact-file slug)'),
+        links: z.array(z.string()).optional().describe('rich: related fact names for [[cross-links]]'),
       },
     },
     makeMkRemember({ projectRoot, userDir }),
@@ -432,6 +593,74 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
       },
     },
     makeMkRecentActivity({ db }),
+  );
+
+  // mk_trust (Task 108b — mutate parity). Reversible; audited.
+  server.registerTool(
+    'mk_trust',
+    {
+      description: 'Override the trust level (low|medium|high) of a fact or bullet by ID. Reversible + audited. Parity with `cmk trust`.',
+      inputSchema: {
+        id: z.string().describe('kit observation ID'),
+        level: z.enum(['low', 'medium', 'high']).describe('the new trust level'),
+      },
+    },
+    makeMkTrust({ projectRoot, userDir }),
+  );
+
+  // mk_lessons_promote (Task 108b — mutate parity). Sanitized + audited.
+  server.registerTool(
+    'mk_lessons_promote',
+    {
+      description: 'Promote a project-tier (P-) fact to the cross-project user tier so it applies in every project. Sanitized + secret-screened + audited. Parity with `cmk lessons promote`.',
+      inputSchema: {
+        id: z.string().describe('kit observation ID (a project-tier P- fact)'),
+        to: z.enum(['USER.md', 'HABITS.md', 'LESSONS.md']).optional().describe('target user-tier file (default LESSONS.md)'),
+      },
+    },
+    makeMkLessonsPromote({ projectRoot, userDir }),
+  );
+
+  // mk_forget (Task 108b — DESTRUCTIVE mutate parity). Two-step confirm-token:
+  // the first call previews + returns a confirm_token; call again with that
+  // token to execute. Tombstones (audit trail preserved), never hard-deletes.
+  server.registerTool(
+    'mk_forget',
+    {
+      description: 'Tombstone (forget) a fact by ID. DESTRUCTIVE + two-step: the first call previews what would be removed and returns a confirm_token; call again with confirm set to that token to execute. Audit trail preserved. Parity with `cmk forget`.',
+      inputSchema: {
+        id: z.string().describe('kit observation ID to tombstone'),
+        reason: z.string().max(500).optional().describe('why it is being forgotten (audited)'),
+        confirm: z.string().optional().describe('the confirm_token from the preview call — required to actually delete'),
+      },
+    },
+    makeMkForget({ projectRoot, userDir }),
+  );
+
+  // mk_queue_list (Task 108b — queue parity). Read-only: show pending entries.
+  server.registerTool(
+    'mk_queue_list',
+    {
+      description: "List pending entries in the review queue (medium-trust auto-extracts awaiting promotion) or the conflict queue (writes that clashed with existing facts). Read-only. Parity with `cmk queue review` / `cmk queue conflicts`.",
+      inputSchema: {
+        queue: z.enum(['review', 'conflicts']).optional().describe("which queue (default 'review')"),
+      },
+    },
+    makeMkQueueList({ projectRoot, userDir }),
+  );
+
+  // mk_queue_resolve (Task 108b — queue parity). Resolve one entry by id.
+  server.registerTool(
+    'mk_queue_resolve',
+    {
+      description: "Resolve one queued entry by ID. review: 'promote' (land it in MEMORY.md at high trust) | 'discard'. conflicts: 'keep-old' | 'keep-new' (merge-both composes content — use `cmk queue conflicts`). Audited.",
+      inputSchema: {
+        queue: z.enum(['review', 'conflicts']).describe('which queue the entry is in'),
+        id: z.string().describe('the queued entry ID to resolve'),
+        action: z.enum(['promote', 'discard', 'keep-old', 'keep-new', 'merge-both']).describe('review: promote|discard; conflicts: keep-old|keep-new (merge-both → use `cmk queue conflicts`)'),
+      },
+    },
+    makeMkQueueResolve({ projectRoot, userDir }),
   );
 
   return server;

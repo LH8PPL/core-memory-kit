@@ -22,7 +22,7 @@
 //     tests since the SDK is the authoritative framing implementation.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -127,7 +127,7 @@ describe('Task 31 — MCP server', () => {
   });
 
   describe('Tool registration', () => {
-    it('registers all 6 documented tools', () => {
+    it('registers all 11 documented tools (6 read/write + 3 mutate + 2 queue — 108b)', () => {
       const server = buildMcpServer({ projectRoot, userDir, db });
       const tools = server._registeredTools ?? {};
       const names = Object.keys(tools).sort();
@@ -139,6 +139,13 @@ describe('Task 31 — MCP server', () => {
           'mk_cite',
           'mk_remember',
           'mk_recent_activity',
+          // Task 108b — MCP mutate parity with the CLI.
+          'mk_trust',
+          'mk_lessons_promote',
+          'mk_forget',
+          // Task 108b — queue parity.
+          'mk_queue_list',
+          'mk_queue_resolve',
         ].sort(),
       );
     });
@@ -268,6 +275,33 @@ describe('Task 31 — MCP server', () => {
       expect(r.content[0].text).toMatch(/poison_guard/);
     });
 
+    // Task 108b — MCP write parity: mk_remember with why/how/title/type writes a
+    // RICH granular fact file via the SAME shared core (remember-core.rememberRich)
+    // the CLI `cmk remember --why/--how` uses — not a terse MEMORY.md bullet.
+    it('108b — with why/how writes a RICH fact file (CLI parity), not a terse bullet', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const r = await invokeTool(server, 'mk_remember', {
+        text: 'FastAPI is the delivery layer; logic lives in services',
+        type: 'feedback',
+        title: 'layered-backend-mcp',
+        why: 'pay the structure cost up front',
+        how: 'thin routes; push logic into app/services',
+      });
+      expect(r.isError).toBeFalsy();
+      // Door 2 — a real granular fact file lands under context/memory/ (parity).
+      const content = readFileSync(
+        join(projectRoot, 'context', 'memory', 'feedback_layered-backend-mcp.md'),
+        'utf8',
+      );
+      expect(content).toContain('**Why:** pay the structure cost up front');
+      expect(content).toContain('**How to apply:** thin routes; push logic into app/services');
+      expect(content).toMatch(/write_source: user-explicit/);
+      // Door 1 — result reports the rich fact (not a MEMORY.md bullet).
+      const out = JSON.parse(r.content[0].text);
+      expect(out.accepted).toBe(true);
+      expect(out.written_to).toContain('feedback_layered-backend-mcp.md');
+    });
+
     // B1 fix (Task 31 code-review): mk_remember must distinguish
     // 'queued' (routed to queues/conflicts.md, awaiting human review)
     // from 'appended' (landed in MEMORY.md). Pre-fix the queue route
@@ -347,6 +381,165 @@ describe('Task 31 — MCP server', () => {
         tier: 'L',
       });
       expect(r.isError).toBe(true);
+    });
+  });
+
+  // Task 108b — MCP mutate parity with the CLI. These tools compose the
+  // existing CLI cores (forget / overrideTrust / lessonsPromote) so the model
+  // can do the same mutations the user could do via `cmk` — the whole point of
+  // D-85 (the user never types `cmk`; the conversation is the interface).
+  describe('mk_trust / mk_lessons_promote / mk_forget — mutate parity (108b)', () => {
+    // Create a rich P-tier fact via mk_remember; return its id (composition test).
+    async function seedFact(server, title) {
+      const r = await invokeTool(server, 'mk_remember', {
+        text: `fact for ${title}`, type: 'feedback', title, why: 'because', how: 'apply it',
+      });
+      return JSON.parse(r.content[0].text).id;
+    }
+
+    it('mk_trust changes a fact’s trust level (reversible mutate)', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const id = await seedFact(server, 'trust-target');
+      const r = await invokeTool(server, 'mk_trust', { id, level: 'low' });
+      expect(r.isError).toBeFalsy();
+      const out = JSON.parse(r.content[0].text);
+      expect(out.accepted).toBe(true);
+      expect(out.action).toBe('trust-updated');
+      expect(out.level).toBe('low');
+      // Door 2 — the fact file's frontmatter trust flipped to low.
+      expect(readFileSync(join(projectRoot, 'context', 'memory', 'feedback_trust-target.md'), 'utf8'))
+        .toMatch(/trust: low/);
+    });
+
+    it('mk_trust on an unknown id → isError', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const r = await invokeTool(server, 'mk_trust', { id: 'P-ZZZZZZZZ', level: 'low' });
+      expect(r.isError).toBe(true);
+    });
+
+    it('mk_lessons_promote carries a P fact to the user tier', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const id = await seedFact(server, 'promote-target');
+      const r = await invokeTool(server, 'mk_lessons_promote', { id, to: 'LESSONS.md' });
+      expect(r.isError).toBeFalsy();
+      const out = JSON.parse(r.content[0].text);
+      expect(out.accepted).toBe(true);
+      expect(['promoted', 'queued']).toContain(out.action);
+    });
+
+    it('mk_forget is two-step: first call previews + issues confirm_token, does NOT delete', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const id = await seedFact(server, 'forget-target');
+      const factPath = join(projectRoot, 'context', 'memory', 'feedback_forget-target.md');
+      const r1 = await invokeTool(server, 'mk_forget', { id });
+      expect(r1.isError).toBeFalsy();
+      const preview = JSON.parse(r1.content[0].text);
+      expect(preview.status).toBe('confirm_required');
+      expect(preview.confirm_token).toBeTruthy();
+      expect(preview.would_tombstone.id).toBe(id);
+      // Door 2 — NOT deleted on the preview call.
+      expect(existsSync(factPath)).toBe(true);
+
+      // Second call WITH the token → tombstoned.
+      const r2 = await invokeTool(server, 'mk_forget', { id, confirm: preview.confirm_token });
+      expect(r2.isError).toBeFalsy();
+      const out = JSON.parse(r2.content[0].text);
+      expect(out.accepted).toBe(true);
+      expect(out.action).toBe('tombstoned');
+      // Door 2 — the live fact file is gone (moved to the tombstone archive).
+      expect(existsSync(factPath)).toBe(false);
+    });
+
+    it('mk_forget with a WRONG token does not delete (re-previews)', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const id = await seedFact(server, 'forget-guard');
+      const factPath = join(projectRoot, 'context', 'memory', 'feedback_forget-guard.md');
+      const r = await invokeTool(server, 'mk_forget', { id, confirm: 'wrong-token' });
+      expect(JSON.parse(r.content[0].text).status).toBe('confirm_required');
+      expect(existsSync(factPath)).toBe(true);
+    });
+
+    it('mk_forget on an unknown id → isError (never a confirm prompt)', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const r = await invokeTool(server, 'mk_forget', { id: 'P-ZZZZZZZZ' });
+      expect(r.isError).toBe(true);
+      expect(r.content[0].text).toMatch(/no matching|not found/i);
+    });
+  });
+
+  // Task 108b — queue parity. The model can SEE pending review/conflict entries
+  // (mk_queue_list) and RESOLVE them (mk_queue_resolve) — so the user never has
+  // to run `cmk queue review` / `cmk queue conflicts` themselves (D-85).
+  describe('mk_queue_list / mk_queue_resolve — queue parity (108b)', () => {
+    function seedReviewQueue(projectRoot, entries) {
+      const dir = join(projectRoot, 'context', 'queues');
+      mkdirSync(dir, { recursive: true });
+      const lines = [];
+      for (const e of entries) {
+        lines.push(`## ${e.ts} — auto-extract (medium-trust, pending review)`);
+        lines.push(`- (${e.id}) ${e.text}`);
+        lines.push(`  <!-- proposed_trust: medium, write: auto-extract, at: ${e.ts} -->`);
+        lines.push('');
+      }
+      writeFileSync(join(dir, 'review.md'), lines.join('\n'), 'utf8');
+    }
+
+    it('mk_queue_list returns pending review entries (read-only)', async () => {
+      seedReviewQueue(projectRoot, [
+        { ts: '2026-05-27T10:00:00Z', id: 'P-AAAAAAAA', text: 'first candidate' },
+        { ts: '2026-05-27T10:01:00Z', id: 'P-BBBBBBBB', text: 'second candidate' },
+      ]);
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const queueFile = join(projectRoot, 'context', 'queues', 'review.md');
+      const before = readFileSync(queueFile, 'utf8');
+      const r = await invokeTool(server, 'mk_queue_list', { queue: 'review' });
+      expect(r.isError).toBeFalsy();
+      const out = JSON.parse(r.content[0].text);
+      expect(out.pending).toBe(2);
+      expect(out.entries.map((e) => e.id)).toEqual(['P-AAAAAAAA', 'P-BBBBBBBB']);
+      // SR-1 (code-review): listing is PURE — it must NOT rewrite the queue file.
+      expect(readFileSync(queueFile, 'utf8')).toBe(before);
+    });
+
+    it('mk_queue_resolve promote lands the entry in MEMORY.md', async () => {
+      seedReviewQueue(projectRoot, [{ ts: '2026-05-27T10:00:00Z', id: 'P-AAAAAAAA', text: 'promote me' }]);
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const r = await invokeTool(server, 'mk_queue_resolve', { queue: 'review', id: 'P-AAAAAAAA', action: 'promote' });
+      expect(r.isError).toBeFalsy();
+      const out = JSON.parse(r.content[0].text);
+      expect(out.accepted).toBe(true);
+      expect(out.action).toBe('promote');
+      // Door 2 — the promoted text now lives in MEMORY.md.
+      expect(readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8')).toMatch(/promote me/);
+    });
+
+    it('mk_queue_resolve discard removes the entry WITHOUT writing it to MEMORY.md', async () => {
+      seedReviewQueue(projectRoot, [{ ts: '2026-05-27T10:00:00Z', id: 'P-AAAAAAAA', text: 'discard me' }]);
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const r = await invokeTool(server, 'mk_queue_resolve', { queue: 'review', id: 'P-AAAAAAAA', action: 'discard' });
+      expect(JSON.parse(r.content[0].text).accepted).toBe(true);
+      // Door 2 (over-mutation guard) — discard does NOT promote into MEMORY.md.
+      expect(readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8')).not.toMatch(/discard me/);
+    });
+
+    it('mk_queue_resolve rejects a wrong-queue action (review can’t keep-old)', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const r = await invokeTool(server, 'mk_queue_resolve', { queue: 'review', id: 'P-AAAAAAAA', action: 'keep-old' });
+      expect(r.isError).toBe(true);
+      expect(r.content[0].text).toMatch(/promote.*discard/);
+    });
+
+    it('mk_queue_resolve conflicts merge-both points to the interactive CLI', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const r = await invokeTool(server, 'mk_queue_resolve', { queue: 'conflicts', id: 'P-AAAAAAAA', action: 'merge-both' });
+      expect(r.isError).toBe(true);
+      expect(r.content[0].text).toMatch(/cmk queue conflicts/);
+    });
+
+    it('mk_queue_list on an empty queue → pending: 0', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const out = JSON.parse((await invokeTool(server, 'mk_queue_list', { queue: 'conflicts' })).content[0].text);
+      expect(out.pending).toBe(0);
     });
   });
 

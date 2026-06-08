@@ -8,7 +8,7 @@
 - **Frozen snapshot at session start** — MEMORY.md + USER.md + SOUL.md + INDEX.md + today's session log inject once at the first tool call, so Claude sees your context every session without you re-telling it.
 - **Auto-extract on every assistant turn** — a background `claude --print` subagent reads each turn and saves durable facts to memory. Durable project knowledge (setup/config, conventions, workflows, tool quirks) becomes a **rich Why/How fact file** (structured + searchable); lighter signals stay terse `MEMORY.md` bullets. Runs automatically, so the rich tier survives even when the model uses Claude Code's built-in memory instead. No manual writes needed.
 - **Explicit capture when you want it** — say "remember this" / "from now on" / "we decided" / "forget X" (the `memory-write` skill), or run `cmk remember "<fact>"`. Both dedup, screen for secrets, abstract machine paths to `~`, and write silently. For backtick/quote-heavy rich facts, capture them shell-safe as JSON: `cmk remember --from-file fact.json` (or `--json` from stdin) — content never touches the shell.
-- **Search + MCP** — `cmk search "<term>"` (keyword/hybrid over facts + scratchpads); `cmk mcp` exposes the same to Claude Code as tools.
+- **Search + MCP — Claude runs every memory op for you, in conversation** — `cmk search "<term>"` (keyword/hybrid over facts + scratchpads). `cmk install` registers the kit's **MCP server**, so Claude can do the whole memory surface as tools without you ever typing `cmk`: capture (`mk_remember`, rich Why/How too), recall (`mk_search` / `mk_get` / `mk_timeline` / `mk_cite`), adjust trust (`mk_trust`), promote a fact across projects (`mk_lessons_promote`), forget (`mk_forget` — previews first, then deletes on confirm), and clear the review/conflict queues (`mk_queue_list` / `mk_queue_resolve`). The tools are allow-listed on install, so they run prompt-free.
 - **Bounded by compression** — session → daily → weekly Haiku rollups (cron or lazy-on-read) keep the snapshot small as history grows. The session-buffer rollup self-heals at session start too, so memory stays bounded even if you never cleanly close the window.
 - **Per-project, in-repo** — `context/` lives inside your project and travels with `git clone`. Each project keeps its own memory.
 - **9 health checks** — `cmk doctor` validates install, hook wiring, distill freshness, INDEX consistency, cron registration, and stale locks.
@@ -26,7 +26,7 @@ cmk install        # scaffolds context/ + the memory-write skill AND wires the l
 cmk doctor         # verify, then restart Claude Code
 ```
 
-`cmk install` is a complete entry point: it scaffolds `context/`, drops the `memory-write` skill into `.claude/skills/` (committed — travels with `git clone`), and writes the 5 lifecycle hooks (PATH-resolved, cross-OS) into the project's `.claude/settings.json`. No separate `/plugin` step needed. Use `cmk install --no-hooks` for a scaffold-only install.
+`cmk install` is a complete entry point: it scaffolds `context/`, drops the `memory-write` skill into `.claude/skills/` (committed — travels with `git clone`), and writes the 5 lifecycle hooks (PATH-resolved, cross-OS) into the project's `.claude/settings.json`. It also **registers the kit's MCP server** in `.mcp.json` and allow-lists its tools (`mcp__cmk__*`) in `.claude/settings.json`, so Claude can drive memory as tools with no per-call prompt. No separate `/plugin` step needed. Use `cmk install --no-hooks` to skip the hooks + MCP wiring (scaffold-only).
 
 > Installing the package globally adds the `cmk` CLI **and** the installer. It's the `cmk install` *subcommand* that wires the hooks — not the bare `npm install`.
 
@@ -51,6 +51,7 @@ Most-used commands (full list via `cmk --help`):
 | `cmk doctor` | Run HC-1..HC-9 health checks, surface repair commands |
 | `cmk repair --hooks` / `--locks` / `--index` / `--all` | Idempotent self-repair |
 | `cmk search "<query>" [--mode keyword\|semantic\|hybrid]` | Search accumulated memory (keyword default) |
+| `cmk get <id…>` / `cmk timeline <id>` / `cmk cite <id>` / `cmk recent-activity` | Read the index back — full fact bodies + provenance, sequential context around an observation, a canonical citation link, recent changes (the CLI side of the `mk_*` MCP read tools) |
 | `cmk roll --scope now\|today\|recent` | Manually trigger a compression pipeline |
 | `cmk register-crons [--dry-run] [--unregister]` | Register daily + weekly jobs with cron / launchd / Task Scheduler |
 | `cmk forget <id>` | Tombstone a fact (preserves audit trail) |

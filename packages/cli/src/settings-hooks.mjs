@@ -56,7 +56,7 @@ import {
   readFileSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 
 /**
  * Canonical npm-route hooks block. Shell form (no `args`), PATH-resolved
@@ -191,7 +191,17 @@ export function writeKitHooks(settingsPath) {
   //     returned one layer up once capture moved into the skill.
   // Idempotent + over-mutation safe: preserve the user's existing allow entries;
   // only append ours if absent.
-  const KIT_ALLOW = ['Bash(cmk:*)', 'Skill(memory-write)'];
+  //   - `mcp__cmk__*` (Task 108b, R2 / D-80) — allow-lists the kit's MCP tools
+  //     (mk_remember / mk_forget / mk_trust / …) so the model's memory ops run
+  //     without a per-call approval prompt. This is the structural fix for the
+  //     `cd`-compound bash-permission edge (D-80): the permissions doc confirms
+  //     "Combining `cd` with `git` in one compound command always prompts" — and
+  //     a `Bash(cmk:*)` rule can't cover a `cd … && cmk …` compound. Running the
+  //     SAME memory op as an allow-listed MCP tool sidesteps the bash gate
+  //     entirely. `mcp__cmk__*` is the documented server-wildcard form
+  //     (code.claude.com/docs/en/permissions — MCP section). Pairs with the
+  //     `.mcp.json` server registration written by writeKitMcpServer().
+  const KIT_ALLOW = ['Bash(cmk:*)', 'Skill(memory-write)', 'mcp__cmk__*'];
   if (!settings.permissions || typeof settings.permissions !== 'object') {
     settings.permissions = {};
   }
@@ -213,4 +223,48 @@ export function writeKitHooks(settingsPath) {
   }
 
   return { changed, settingsPath, events };
+}
+
+/**
+ * Read-merge-write the kit's MCP server registration into
+ * `<projectRoot>/.mcp.json` — the project-scoped, committed MCP config
+ * (code.claude.com/docs/en/mcp). This makes the kit's memory tools
+ * (mk_remember / mk_forget / mk_trust / mk_queue_* / …) available to the model
+ * in conversation, so the user never has to run `cmk` themselves (D-85). Pairs
+ * with the `mcp__cmk__*` allow rule writeKitHooks() adds (Task 108b, R2 / D-80).
+ *
+ * The server runs `cmk mcp serve` (PATH-resolved bare bin, matching the hooks);
+ * `cmk mcp serve` resolves the project root from CLAUDE_PROJECT_DIR (which Claude
+ * Code sets in the spawned server's environment) so it indexes the right project.
+ *
+ * Idempotent + non-destructive: preserves any OTHER `mcpServers` the user
+ * registered; only (re)writes the `cmk` entry. On a JSON parse error of an
+ * existing `.mcp.json`, returns `{changed:false, error}` (never clobbers).
+ */
+export function writeKitMcpServer(projectRoot) {
+  const mcpPath = join(projectRoot, '.mcp.json');
+
+  let config = {};
+  if (existsSync(mcpPath)) {
+    try {
+      config = JSON.parse(readFileSync(mcpPath, 'utf8'));
+    } catch (err) {
+      return { changed: false, path: mcpPath, error: `${mcpPath} parse error: ${err?.message ?? err}` };
+    }
+  }
+
+  const before = JSON.stringify(config);
+  if (!config.mcpServers || typeof config.mcpServers !== 'object') {
+    config.mcpServers = {};
+  }
+  config.mcpServers.cmk = { type: 'stdio', command: 'cmk', args: ['mcp', 'serve'] };
+  const after = JSON.stringify(config);
+  const changed = before !== after;
+
+  if (changed) {
+    mkdirSync(dirname(mcpPath), { recursive: true });
+    writeFileSync(mcpPath, JSON.stringify(config, null, 2) + '\n', 'utf8');
+  }
+
+  return { changed, path: mcpPath };
 }
