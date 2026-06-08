@@ -1367,43 +1367,46 @@ async function runQueueDispatch(childName) {
  * canonical kit usage). User-tier / language-tier conflicts queues
  * can be added when the kit's CLI gains explicit `--tier` selection.
  */
-async function runQueueConflicts() {
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const askOnce = (q) =>
-    new Promise((resolve) => {
-      rl.question(q, (answer) => resolve(answer));
-    });
+// Task 113 (F-9): dep-injectable (see runQueueReview). Defaults unchanged for prod;
+// a test injects { projectRoot, prompter, log, logError } to drive a real keep-old
+// / keep-new / merge-both resolution end-to-end without stdin. Returns the result.
+export async function runQueueConflicts(opts = {}) {
+  const projectRoot = opts.projectRoot ?? process.cwd();
+  const log = opts.log ?? console.log;
+  const logError = opts.logError ?? console.error;
 
-  const VALID_DECISIONS = new Set(['keep-old', 'keep-new', 'merge-both', 'skip']);
-
-  const prompter = async ({
-    proposedId,
-    proposedText,
-    proposedTrust,
-    existingId,
-    existingText,
-    existingTrust,
-    similarity,
-  }) => {
-    console.log('');
-    console.log('─── pending conflict ──────────────────────────────────────');
-    console.log(`existing  (${existingId}, trust=${existingTrust}): ${existingText}`);
-    console.log(`proposed  (${proposedId}, trust=${proposedTrust}): ${proposedText}`);
-    console.log(`similarity: ${Number(similarity).toFixed(4)}`);
-    let decision = '';
-    while (!VALID_DECISIONS.has(decision)) {
-      const answer = await askOnce(
-        `  [keep-old / keep-new / merge-both / skip]: `,
-      );
-      decision = String(answer).trim();
-      if (!VALID_DECISIONS.has(decision)) {
-        console.log(
-          `  unknown answer "${decision}" — please type one of: keep-old, keep-new, merge-both, skip`,
-        );
+  let rl = null;
+  let prompter = opts.prompter;
+  if (!prompter) {
+    rl = createInterface({ input: process.stdin, output: process.stdout });
+    const askOnce = (q) =>
+      new Promise((resolve) => rl.question(q, (answer) => resolve(answer)));
+    const VALID_DECISIONS = new Set(['keep-old', 'keep-new', 'merge-both', 'skip']);
+    prompter = async ({
+      proposedId,
+      proposedText,
+      proposedTrust,
+      existingId,
+      existingText,
+      existingTrust,
+      similarity,
+    }) => {
+      log('');
+      log('─── pending conflict ──────────────────────────────────────');
+      log(`existing  (${existingId}, trust=${existingTrust}): ${existingText}`);
+      log(`proposed  (${proposedId}, trust=${proposedTrust}): ${proposedText}`);
+      log(`similarity: ${Number(similarity).toFixed(4)}`);
+      let decision = '';
+      while (!VALID_DECISIONS.has(decision)) {
+        const answer = await askOnce(`  [keep-old / keep-new / merge-both / skip]: `);
+        decision = String(answer).trim();
+        if (!VALID_DECISIONS.has(decision)) {
+          log(`  unknown answer "${decision}" — please type one of: keep-old, keep-new, merge-both, skip`);
+        }
       }
-    }
-    return decision;
-  };
+      return decision;
+    };
+  }
 
   // merge-both wiring (Task 25b — closes Task 25's cross-layer
   // composition gap). The proposed bullet from the conflict queue
@@ -1449,34 +1452,33 @@ async function runQueueConflicts() {
       idB: proposedId,
     });
     if (result.action === 'error') {
-      console.error(
+      logError(
         `cmk queue conflicts: merge-both for ${existingId} + ${proposedId} failed: ${result.errors.join('; ')}`,
       );
     } else {
-      console.log(
-        `  merge-both → ${existingId} + ${proposedId} merged into ${result.id}`,
-      );
+      log(`  merge-both → ${existingId} + ${proposedId} merged into ${result.id}`);
     }
   };
 
   try {
     const result = await resolveConflictQueue({
       tier: 'P',
-      projectRoot: process.cwd(),
+      projectRoot,
       prompter,
       mergeFn,
     });
     if (result.action === 'error') {
-      for (const e of result.errors) console.error(`cmk queue conflicts: ${e}`);
+      for (const e of result.errors) logError(`cmk queue conflicts: ${e}`);
       process.exitCode = 2;
-      return;
+      return result;
     }
-    console.log('');
-    console.log(
+    log('');
+    log(
       `cmk queue conflicts: ${result.resolved} resolved (${result.kept_old} kept-old, ${result.kept_new} kept-new, ${result.merged} merged), ${result.skipped} skipped`,
     );
+    return result;
   } finally {
-    rl.close();
+    if (rl) rl.close();
   }
 }
 
@@ -1489,59 +1491,62 @@ async function runQueueConflicts() {
  *
  * Resolves the PROJECT tier's review queue (the canonical kit usage).
  */
-async function runQueueReview() {
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const askOnce = (q) =>
-    new Promise((resolve) => {
-      rl.question(q, (answer) => resolve(answer));
-    });
+// Task 113 (F-9): dep-injectable so the CLI resolution path is verifiable on REAL
+// queued items. Defaults (readline over stdin + cwd + console) are unchanged for
+// production; a test injects { projectRoot, prompter, log, logError } to drive a
+// real promote/discard end-to-end without stdin. Returns the resolver result.
+export async function runQueueReview(opts = {}) {
+  const projectRoot = opts.projectRoot ?? process.cwd();
+  const log = opts.log ?? console.log;
+  const logError = opts.logError ?? console.error;
 
-  const VALID_DECISIONS = new Set(['promote', 'discard', 'skip']);
-
-  const prompter = async ({ id, text, ts, provenance }) => {
-    console.log('');
-    console.log('─── pending review ────────────────────────────────────────');
-    console.log(`id:   ${id}`);
-    console.log(`ts:   ${ts}`);
-    console.log(`text: ${text}`);
-    if (provenance) console.log(`prov: ${provenance.trim()}`);
-    let decision = '';
-    while (!VALID_DECISIONS.has(decision)) {
-      const answer = await askOnce(`  [promote / discard / skip]: `);
-      decision = String(answer).trim();
-      if (!VALID_DECISIONS.has(decision)) {
-        console.log(
-          `  unknown answer "${decision}" — please type one of: promote, discard, skip`,
-        );
+  // Build the interactive prompter only when the caller didn't inject one — so a
+  // test never opens a real readline on stdin.
+  let rl = null;
+  let prompter = opts.prompter;
+  if (!prompter) {
+    rl = createInterface({ input: process.stdin, output: process.stdout });
+    const askOnce = (q) =>
+      new Promise((resolve) => rl.question(q, (answer) => resolve(answer)));
+    const VALID_DECISIONS = new Set(['promote', 'discard', 'skip']);
+    prompter = async ({ id, text, ts, provenance }) => {
+      log('');
+      log('─── pending review ────────────────────────────────────────');
+      log(`id:   ${id}`);
+      log(`ts:   ${ts}`);
+      log(`text: ${text}`);
+      if (provenance) log(`prov: ${provenance.trim()}`);
+      let decision = '';
+      while (!VALID_DECISIONS.has(decision)) {
+        const answer = await askOnce(`  [promote / discard / skip]: `);
+        decision = String(answer).trim();
+        if (!VALID_DECISIONS.has(decision)) {
+          log(`  unknown answer "${decision}" — please type one of: promote, discard, skip`);
+        }
       }
-    }
-    return decision;
-  };
+      return decision;
+    };
+  }
 
   try {
-    const result = await resolveReviewQueue({
-      tier: 'P',
-      projectRoot: process.cwd(),
-      prompter,
-    });
+    const result = await resolveReviewQueue({ tier: 'P', projectRoot, prompter });
     if (result.action === 'error') {
-      for (const e of result.errors) console.error(`cmk queue review: ${e}`);
+      for (const e of result.errors) logError(`cmk queue review: ${e}`);
       process.exitCode = 2;
-      return;
+      return result;
     }
-    console.log('');
-    console.log(
+    log('');
+    log(
       `cmk queue review: ${result.promoted} promoted, ${result.discarded} discarded, ${result.skipped} skipped${result.errors && result.errors.length ? `, ${result.errors.length} errored` : ''}`,
     );
     if (result.errors && result.errors.length) {
       for (const err of result.errors) {
-        console.error(
-          `  error on ${err.id} (${err.decision}): ${err.errors.join('; ')}`,
-        );
+        logError(`  error on ${err.id} (${err.decision}): ${err.errors.join('; ')}`);
       }
     }
+    return result;
   } finally {
-    rl.close();
+    if (rl) rl.close();
   }
 }
 

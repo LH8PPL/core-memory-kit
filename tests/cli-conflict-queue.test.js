@@ -36,6 +36,7 @@ import {
   tokenJaccardSimilarity,
   mergeScratchpadBullets,
 } from '../packages/cli/src/conflict-queue.mjs';
+import { runQueueConflicts } from '../packages/cli/src/subcommands.mjs';
 
 function makeFixture() {
   const sandbox = mkdtempSync(join(tmpdir(), 'cmk-conflict-queue-test-'));
@@ -646,5 +647,64 @@ describe('mergeScratchpadBullets() — Layer-3 merger (Task 25b)', () => {
     for (let i = decisionsIdx + 1; i < newBulletIdx; i++) {
       expect(lines[i]).not.toMatch(/^##\s/);
     }
+  });
+});
+
+// Task 113 (F-9): the cut-gate sweep ran `cmk queue conflicts` on an EMPTY queue —
+// proving only the walker doesn't crash on nothing, NOT that the CLI command
+// actually resolves real conflicts. The resolver (resolveConflictQueue) is covered
+// above; THIS drives the CLI wrapper (runQueueConflicts, now dep-injectable) on a
+// real seeded conflict + asserts the end-to-end resolution.
+describe('Task 113 (F-9) — runQueueConflicts CLI path on REAL queued items', () => {
+  let sandbox, projectRoot;
+  beforeEach(() => {
+    ({ sandbox, projectRoot } = makeFixture());
+  });
+  afterEach(() => {
+    rmSync(sandbox, { recursive: true, force: true });
+  });
+
+  function seedOneConflict(newId, existingId) {
+    writeConflictEntry({
+      tier: 'P', projectRoot,
+      newId, newText: 'conflicting proposal', newTrust: 'medium',
+      existingId, existingText: 'the established fact', existingTrust: 'high',
+      similarity: 0.9, similarityBackend: 'substring',
+    });
+  }
+
+  it('resolves a real conflict via keep-old end-to-end (counted, queue drained, reported)', async () => {
+    seedOneConflict('P-NEW22222', 'P-AAAAAAAA');
+    const out = [];
+    const r = await runQueueConflicts({
+      projectRoot,
+      prompter: () => 'keep-old',
+      log: (m) => out.push(String(m)),
+      logError: (m) => out.push(String(m)),
+    });
+    // Door 1 (Response): the CLI wrapper returns the resolver result + reports counts.
+    expect(r.resolved).toBe(1);
+    expect(r.kept_old).toBe(1);
+    expect(out.join('\n')).toContain('kept-old');
+    // Door 2 (State): the entry is MARKED resolved (kept in the file for audit,
+    // not deleted), so a second pass finds nothing pending to resolve.
+    const again = await runQueueConflicts({ projectRoot, prompter: () => 'keep-old', log: () => {}, logError: () => {} });
+    expect(again.resolved).toBe(0);
+  });
+
+  it('resolves a real conflict via keep-new end-to-end', async () => {
+    seedOneConflict('P-NEW33333', 'P-BBBBBBBB');
+    const out = [];
+    const r = await runQueueConflicts({
+      projectRoot,
+      prompter: () => 'keep-new',
+      log: (m) => out.push(String(m)),
+      logError: () => {},
+    });
+    expect(r.resolved).toBe(1);
+    expect(r.kept_new).toBe(1);
+    // Marked resolved (audit-preserved); a second pass finds nothing pending.
+    const again = await runQueueConflicts({ projectRoot, prompter: () => 'keep-new', log: () => {}, logError: () => {} });
+    expect(again.resolved).toBe(0);
   });
 });

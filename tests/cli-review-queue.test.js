@@ -27,6 +27,7 @@ import {
   parseReviewQueue,
   resolveReviewQueue,
 } from '../packages/cli/src/review-queue.mjs';
+import { runQueueReview } from '../packages/cli/src/subcommands.mjs';
 
 function makeFixture() {
   const sandbox = mkdtempSync(join(tmpdir(), 'cmk-review-queue-test-'));
@@ -294,5 +295,58 @@ describe('resolveReviewQueue() — interactive walker (Task 26.2-26.4)', () => {
     expect(promoteEntry).toBeDefined();
     expect(promoteEntry.extra.rerouted_to).toBeUndefined();
     expect(promoteEntry.extra.conflicts_with).toBeUndefined();
+  });
+});
+
+// Task 113 (F-9): the cut-gate sweep ran `cmk queue review` on an EMPTY queue —
+// proving only that the walker doesn't crash on nothing, NOT that the CLI command
+// actually promotes/discards on real items. The resolver (resolveReviewQueue) is
+// covered above; THIS drives the CLI wrapper (runQueueReview, now dep-injectable)
+// on real seeded items + asserts the end-to-end effects.
+describe('Task 113 (F-9) — runQueueReview CLI path on REAL queued items', () => {
+  it('promotes a real pending entry end-to-end (MEMORY.md written, queue drained, count reported)', async () => {
+    const { sandbox, projectRoot } = makeFixture();
+    try {
+      seedReviewQueue(projectRoot, [
+        { ts: '2026-05-27T10:00:00Z', id: 'P-AAAAAAAA', text: 'always run the linter before committing' },
+      ]);
+      const out = [];
+      const r = await runQueueReview({
+        projectRoot,
+        prompter: () => 'promote',
+        log: (m) => out.push(String(m)),
+        logError: (m) => out.push(String(m)),
+      });
+      // Door 1 (Response): the CLI wrapper returns the resolver result + reports the count.
+      expect(r.promoted).toBe(1);
+      expect(out.join('\n')).toContain('1 promoted');
+      // Door 2 (State): the promoted text actually landed in MEMORY.md + the queue drained.
+      expect(readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8')).toContain('always run the linter');
+      expect(readFileSync(join(projectRoot, 'context', 'queues', 'review.md'), 'utf8')).not.toContain('P-AAAAAAAA');
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true });
+    }
+  });
+
+  it('discards a real pending entry end-to-end (not promoted, removed from queue)', async () => {
+    const { sandbox, projectRoot } = makeFixture();
+    try {
+      seedReviewQueue(projectRoot, [
+        { ts: '2026-05-27T10:00:00Z', id: 'P-BBBBBBBB', text: 'a low-value note to discard' },
+      ]);
+      const out = [];
+      const r = await runQueueReview({
+        projectRoot,
+        prompter: () => 'discard',
+        log: (m) => out.push(String(m)),
+        logError: () => {},
+      });
+      expect(r.discarded).toBe(1);
+      expect(r.promoted).toBe(0);
+      expect(readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8')).not.toContain('a low-value note to discard');
+      expect(readFileSync(join(projectRoot, 'context', 'queues', 'review.md'), 'utf8')).not.toContain('P-BBBBBBBB');
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true });
+    }
   });
 });
