@@ -324,13 +324,15 @@ function mcpToolError(r) {
 
 /**
  * Deterministic confirm token for a destructive op. Derived from id + body so a
- * caller CANNOT produce it without first seeing the preview (the body sha is not
+ * caller CANNOT produce it without first seeing the preview (the digest is not
  * knowable from the id alone) — that forces the two-step preview→confirm flow.
  * Stable across re-calls (idempotent), so a retried confirm with the same token
- * still works.
+ * still works. sha256 (not sha1) — not because this is a crypto-sensitive
+ * context (it's a preview-fingerprint nonce, not auth/signing), but so static
+ * analysis isn't tripped by a "weak hash" smell on a brand-new code path.
  */
 function forgetConfirmToken(id, body) {
-  return createHash('sha1').update(`${id}:${body ?? ''}`).digest('hex').slice(0, 8);
+  return createHash('sha256').update(`${id}:${body ?? ''}`).digest('hex').slice(0, 8);
 }
 
 function makeMkTrust({ projectRoot, userDir }) {
