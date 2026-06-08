@@ -37,19 +37,34 @@ The **frozen snapshot pattern**: these files load once per session, form static 
 
 ### Layer 4 — Auto-extract + hooks + skill
 
-Four pieces wire together to make memory automatic:
+**Five lifecycle hooks** wire memory in. All are PATH-resolved node bins (`cmk-*`) — no bash, so they run on Windows / macOS / Linux under any shell (the cross-OS pivot, design §5):
 
-1. **PreToolUse hook** (`pre-tool-memory.js`) — fires once per session, before the first tool call. Reads the snapshot files and injects them as `additionalContext`. Guarantees the snapshot loads regardless of whether Claude reads CLAUDE.md.
-2. **Stop hook** (`transcript-capture.js`) — fires after every turn. Captures the transcript AND spawns the auto-extract script in the background.
-3. **Auto-extract script** (`auto-extract-memory.sh`) — invokes `claude --print` with a fact-extraction prompt. The sub-Claude reads the turn, decides if anything durable was said, and writes via the memory-write skill if so. Silent.
-4. **`memory-write` skill** — auto-triggers on phrases like "remember this", "from now on", "forget about". Handles dedup, cap enforcement, and routing to the right file/section.
+| Event | Hook bin | What it does |
+|---|---|---|
+| **SessionStart** | `cmk-inject-context` | Builds the frozen snapshot (SOUL/USER/MEMORY + the latest day-session) and emits it as `additionalContext`. Also kicks off lazy-on-read compression if the buffer is stale. |
+| **UserPromptSubmit** | `cmk-capture-prompt` | Records the user's prompt as extraction context for the turn. |
+| **PostToolUse** (`Write\|Edit\|MultiEdit`) | `cmk-observe-edit` (async) | Notes file edits as observation signal. |
+| **Stop** | `cmk-capture-turn` | After every turn: appends the transcript **and** detached-spawns auto-extract. |
+| **SessionEnd** | `cmk-compress-session` | Rolls the session buffer when the window closes (so memory stays bounded even if you never cleanly close). |
 
-Why all four? Each fixes a different reliability gap:
+**Auto-extract** (`cmk-auto-extract`, a detached `claude --print` subagent spawned by the Stop hook) reads the turn and writes durable memory with no manual flag:
 
-- **Without the PreToolUse hook**: Claude might forget to read the snapshot at session start. Hook makes it guaranteed.
-- **Without the Stop hook**: facts get lost between turns. The user has to manually flag them.
+- Durable project **knowledge** (setup/config, conventions, workflows, tool quirks) → a **rich Why/How fact file** (`writeFact` → `context/memory/<type>_<slug>.md`), structured + searchable.
+- Lighter signals (corrections, preferences) → terse `MEMORY.md` bullets.
+- Cross-project **doctrine** ("how I work everywhere") → promoted to the **user tier** that same turn (see Layer 6 / persona, and "Why per-project" below).
+
+Because it rides the Stop hook (which reads the conversation directly), the rich tier is captured even when the model uses Claude Code's built-in memory instead of the kit's tools.
+
+**The `memory-write` skill** is the explicit override — it triggers on "remember this" / "from now on" / "forget X" and routes through the same safe write path (dedup, Poison_Guard, cap enforcement, audit), preferring the MCP tools when the server is connected (see below).
+
+**MCP server** (`cmk mcp serve`, registered by `cmk install`): the kit exposes its whole memory surface as `mcp__cmk__*` tools, so Claude drives capture / recall / trust / forget / queue ops **in conversation** without you typing `cmk` — destructive ops (`mk_forget`) are two-step (preview → confirm token). A build-time guard keeps the tools at parity with the CLI verbs.
+
+Why all of it? Each fixes a different reliability gap:
+
+- **Without SessionStart inject**: Claude might not read the snapshot at session start. The hook makes it guaranteed.
+- **Without the Stop hook**: facts get lost between turns; the user has to manually flag them.
 - **Without auto-extract**: the user still has to say "remember this" every time. Auto-extract harvests proactively.
-- **Without the skill**: writes would be ad-hoc, with duplicates and cap overruns. Skill enforces structure.
+- **Without the skill / MCP tools**: writes would be ad-hoc, with duplicates and cap overruns. Both enforce structure + the safe path.
 
 ### Layer 5 — search
 
@@ -76,7 +91,7 @@ Registered via `cmk register-crons`. Translates to crontab entries (Linux), Laun
 ┌─────────────────────────────────────────────────────────────────────┐
 │ SESSION START                                                       │
 │                                                                     │
-│  PreToolUse hook fires before first tool call                       │
+│  SessionStart hook fires (cmk-inject-context)                       │
 │       │                                                             │
 │       ▼                                                             │
 │  Reads context/SOUL.md, USER.md, MEMORY.md, INDEX.md,               │
@@ -92,18 +107,19 @@ Registered via `cmk register-crons`. Translates to crontab entries (Linux), Laun
 │  Claude responds                                                    │
 │       │                                                             │
 │       ▼                                                             │
-│  Stop hook fires:                                                   │
+│  Stop hook fires (cmk-capture-turn):                                │
 │       ├─ Step 1: append to context/transcripts/{today}.md           │
-│       └─ Step 2: spawn auto-extract-memory.sh (detached)            │
+│       └─ Step 2: spawn cmk-auto-extract (detached)                  │
 │                       │                                             │
 │                       ▼                                             │
 │                  claude --print with fact-extraction prompt         │
 │                       │                                             │
 │                       ▼                                             │
-│                  memory-write skill writes (if anything durable)    │
+│                  writeFact / MEMORY.md bullet / user-tier promote   │
 │                       │                                             │
 │                       ▼                                             │
-│                  context/MEMORY.md, USER.md, memory/<type>_*.md     │
+│                  context/memory/<type>_*.md, MEMORY.md,             │
+│                  ~/.claude-memory-kit/ (cross-project doctrine)     │
 │                  (writes take effect NEXT session — frozen snapshot)│
 └─────────────────────────────────────────────────────────────────────┘
 
@@ -131,7 +147,7 @@ If yes → routes to the right file via memory-write. If no → exits silently. 
 
 A global memory at `~/.claude/memory/` would conflate projects. The fact that you prefer terse responses in your data-science project doesn't mean you want them in your wedding-planning project. Per-project lets each project's persona stay distinct.
 
-Cross-project commonalities (you, the human, prefer X) belong in **multiple** USER.md files — copy-paste them when bootstrapping a new project. The kit doesn't try to share across projects automatically; explicit beats implicit.
+But genuine cross-project commonalities (you, the human, prefer X **everywhere**) do belong in one place — so the kit keeps a **third tier**: the user tier at `~/.claude-memory-kit/`. When you state how you work everywhere ("I always use pnpm", "run the linter first in every project"), auto-extract promotes it to the user tier *that turn*, and every project's SessionStart snapshot loads it — so a brand-new project cold-opens already knowing your style, with no copy-paste and no per-project re-statement. The split is deliberate: project-specific facts stay in `context/` (committed, travels with the repo); cross-project doctrine lives in the user tier (machine-local, private, **never committed** — carry it across your *own* machines with `cmk persona export`/`import`). Promotion *into* a project's committed memory is the one place explicit still beats implicit — that's `cmk lessons promote`.
 
 ## What this is NOT
 

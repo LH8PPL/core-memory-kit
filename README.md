@@ -181,7 +181,7 @@ Contributing to claude-memory-kit itself (vs. installing it in your own project)
 
 | Script | When to use |
 | --- | --- |
-| `npm test` | Single full-suite run with 8 structural validators + 1100+ tests. Live-Haiku spawn-smokes run by default (requires `claude` on PATH; gracefully skips if absent). |
+| `npm test` | Single full-suite run with 11 structural validators + 1,500+ tests. Live-Haiku spawn-smokes run by default (requires `claude` on PATH; gracefully skips if absent). |
 | `npm run test:file -- <path>` | Iterate on a single test file. Pass `-t "test name"` after the path to target one test. Skips the slow prerun. |
 | `npm run test:watch` | Interactive vitest watcher. |
 | `npm run stress` | 5x full suite. Gate before opening any PR that touches a spawn boundary, hook handler, or detached child. |
