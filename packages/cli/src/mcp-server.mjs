@@ -41,8 +41,8 @@ import { rememberRich } from './remember-core.mjs';
 import { forget } from './forget.mjs';
 import { overrideTrust } from './trust.mjs';
 import { lessonsPromote } from './lessons-promote.mjs';
-import { resolveReviewQueue } from './review-queue.mjs';
-import { resolveConflictQueue } from './conflict-queue.mjs';
+import { resolveReviewQueue, listReviewQueue } from './review-queue.mjs';
+import { resolveConflictQueue, listConflictQueue } from './conflict-queue.mjs';
 import { createHash } from 'node:crypto';
 import { getObservations, citeLink, buildTimeline, recentActivity } from './read-core.mjs';
 import { resolveTierRoot } from './tier-paths.mjs';
@@ -432,20 +432,21 @@ function makeMkQueueList({ projectRoot, userDir }) {
     if (q !== 'review' && q !== 'conflicts') {
       return mcpToolError({ action: 'error', errorCategory: 'schema', errors: [`queue must be 'review' or 'conflicts' (got ${q})`] });
     }
-    const entries = [];
-    const prompter = async (e) => {
-      entries.push(e);
-      return 'skip';
-    };
+    // PURE READ (code-review SR-1): list via the dedicated read helpers, NOT the
+    // resolve* walkers — those reserialize + rewrite the queue file on every call,
+    // so listing through them would mutate (mtime churn / reformat / concurrent-
+    // resolve race) on a read-only op. listReviewQueue / listConflictQueue parse
+    // the file without writing.
     try {
-      if (q === 'review') await resolveReviewQueue({ tier: 'P', projectRoot, userDir, prompter });
-      else await resolveConflictQueue({ tier: 'P', projectRoot, userDir, prompter });
+      const entries = q === 'review'
+        ? listReviewQueue({ tier: 'P', projectRoot, userDir })
+        : listConflictQueue({ tier: 'P', projectRoot, userDir });
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ queue: q, pending: entries.length, entries }, null, 2) }],
+      };
     } catch (err) {
       return { content: [{ type: 'text', text: `error: ${err?.message ?? err}` }], isError: true };
     }
-    return {
-      content: [{ type: 'text', text: JSON.stringify({ queue: q, pending: entries.length, entries }, null, 2) }],
-    };
   };
 }
 

@@ -490,11 +490,15 @@ describe('Task 31 — MCP server', () => {
         { ts: '2026-05-27T10:01:00Z', id: 'P-BBBBBBBB', text: 'second candidate' },
       ]);
       const server = buildMcpServer({ projectRoot, userDir, db });
+      const queueFile = join(projectRoot, 'context', 'queues', 'review.md');
+      const before = readFileSync(queueFile, 'utf8');
       const r = await invokeTool(server, 'mk_queue_list', { queue: 'review' });
       expect(r.isError).toBeFalsy();
       const out = JSON.parse(r.content[0].text);
       expect(out.pending).toBe(2);
       expect(out.entries.map((e) => e.id)).toEqual(['P-AAAAAAAA', 'P-BBBBBBBB']);
+      // SR-1 (code-review): listing is PURE — it must NOT rewrite the queue file.
+      expect(readFileSync(queueFile, 'utf8')).toBe(before);
     });
 
     it('mk_queue_resolve promote lands the entry in MEMORY.md', async () => {

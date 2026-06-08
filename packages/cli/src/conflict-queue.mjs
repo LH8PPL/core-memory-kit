@@ -427,6 +427,20 @@ function parseQueue(queueText) {
  *
  * Returns { resolved: N, kept_old: N, kept_new: N, merged: N, skipped: N }.
  */
+/**
+ * Pure-read list of PENDING conflict-queue entries (no mutation). Used by the MCP
+ * `mk_queue_list` tool so a "list" never rewrites the queue file — unlike
+ * resolveConflictQueue, which reserializes on every call. Returns `[]` when the
+ * queue file doesn't exist.
+ */
+export function listConflictQueue({ tier = 'P', projectRoot, userDir } = {}) {
+  const tierRoot = resolveTierRoot({ tier, projectRoot, userDir });
+  const queuePath = join(tierRoot, ...QUEUE_RELATIVE);
+  if (!existsSync(queuePath)) return [];
+  const { entries } = parseQueue(readFileSync(queuePath, 'utf8'));
+  return entries.filter((e) => e.fields.resolution === 'pending');
+}
+
 export async function resolveConflictQueue({
   tier,
   projectRoot,
