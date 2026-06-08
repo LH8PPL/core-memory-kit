@@ -28,6 +28,7 @@ import {
 } from '../packages/cli/src/import-anthropic-memory.mjs';
 import { readAuditLog } from '../packages/cli/src/audit-log.mjs';
 import { install } from '../packages/cli/src/install.mjs';
+import { runImportAnthropicMemory } from '../packages/cli/src/subcommands.mjs';
 
 let sandbox;
 let projectRoot;
@@ -176,5 +177,59 @@ describe('Task 38a — importAnthropicMemory', () => {
       expect(anthropicSlugFor('/Users/foo/Projects/my-app')).toBe('-Users-foo-Projects-my-app');
       expect(anthropicSlugFor('C:\\Projects\\my-app')).toBe('C--Projects-my-app');
     });
+  });
+});
+
+// Task 114 (F-13): the cut-gate sweep only ran `cmk import-anthropic-memory
+// --dry-run` with native memory OFF (nothing to import) — the CLI wrapper's real
+// APPLY path was never exercised. The core (importAnthropicMemory) is covered
+// above; this drives the wrapper (runImportAnthropicMemory, now dep-injectable)
+// on a real seeded native MEMORY.md.
+describe('Task 114 (F-13) — runImportAnthropicMemory CLI wrapper on real input', () => {
+  it('applied: imports real native bullets end-to-end (--yes), write_source/trust correct', async () => {
+    seedAnthropicMemory(['we migrated the build to Vite', 'the team prefers conventional-commits']);
+    const out = [];
+    const r = await runImportAnthropicMemory({ projectRoot, harnessRoot: fakeHarnessRoot, yes: true, log: (m) => out.push(String(m)), logError: (m) => out.push(String(m)) });
+    expect(r.accepted).toBe(2);
+    expect(out.join('\n')).toContain('applied 2 proposal');
+    const mem = readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8');
+    expect(mem).toContain('Vite');
+    expect(mem).toMatch(/write_source: imported/);
+    expect(mem).toMatch(/trust: medium/);
+  });
+  it('no-source: reports cleanly when no native memory is present', async () => {
+    const out = [];
+    const r = await runImportAnthropicMemory({ projectRoot, harnessRoot: fakeHarnessRoot, log: (m) => out.push(String(m)), logError: () => {} });
+    expect(r.reason).toBe('no-source');
+    expect(out.join('\n')).toContain('no Anthropic auto-memory found');
+  });
+  it('dry-run: proposes without applying', async () => {
+    seedAnthropicMemory(['a dry candidate']);
+    const out = [];
+    const r = await runImportAnthropicMemory({ projectRoot, harnessRoot: fakeHarnessRoot, dryRun: true, log: (m) => out.push(String(m)), logError: () => {} });
+    expect(r.mode).toBe('dry-run');
+    expect(out.join('\n')).toContain('dry-run');
+  });
+  it('requires-confirmation: lists proposals when neither --yes nor --dry-run', async () => {
+    seedAnthropicMemory(['a confirm candidate']);
+    const out = [];
+    const r = await runImportAnthropicMemory({ projectRoot, harnessRoot: fakeHarnessRoot, log: (m) => out.push(String(m)), logError: () => {} });
+    expect(r.mode).toBe('requires-confirmation');
+    expect(out.join('\n')).toContain('Re-run with --yes');
+  });
+});
+
+describe('Task 114 — runImportAnthropicMemory error handling (importFn seam)', () => {
+  afterEach(() => { process.exitCode = 0; });
+  it('error: reports + sets exit code when the core returns an error', async () => {
+    const errs = [];
+    const r = await runImportAnthropicMemory({ projectRoot, log: () => {}, logError: (m) => errs.push(String(m)), importFn: async () => ({ action: 'error', errors: ['boom'] }) });
+    expect(r.action).toBe('error');
+    expect(errs.join('\n')).toContain('boom');
+  });
+  it('catch: reports an unexpected throw + sets exit code', async () => {
+    const errs = [];
+    await runImportAnthropicMemory({ projectRoot, log: () => {}, logError: (m) => errs.push(String(m)), importFn: async () => { throw new Error('kaboom'); } });
+    expect(errs.join('\n')).toContain('kaboom');
   });
 });
