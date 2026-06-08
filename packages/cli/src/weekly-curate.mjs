@@ -339,6 +339,11 @@ export async function weeklyCurate({
       backend,
       now: ts,
       cooldownMs: 0,
+      // Task 111 (F-2): the weekly janitor sweeps the whole-project `facts`
+      // corpus (heavier than a session summary) and runs as a cron/lazy child
+      // with no 60s hook ceiling — give the classifier headroom so a large
+      // corpus doesn't time out. (Corpus is byte-capped at PERSONA_CORPUS_BYTES.)
+      timeoutMs: 120_000,
     });
   }
 
