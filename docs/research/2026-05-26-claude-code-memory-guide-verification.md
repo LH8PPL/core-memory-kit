@@ -1,6 +1,6 @@
 ---
 date: 2026-05-26
-source: docs/Claude Code Memory Management The Complete Guide (2026).md (dropped into the repo by the user via IDE; article from Medium / Data Science Collective, Gul Jabeen, 2026-03-17, https://medium.com/data-science-collective/claude-code-memory-management-the-complete-guide-2026-b0df6300c4e8)
+source: docs/sources/gul-jabeen-claude-memory-guide-2026.md (dropped into the repo by the user via IDE; article from Medium / Data Science Collective, Gul Jabeen, 2026-03-17, https://medium.com/data-science-collective/claude-code-memory-management-the-complete-guide-2026-b0df6300c4e8)
 method: primary-source verification per CLAUDE.md "Did you check?" rule. Each factual claim about Claude Code cross-checked against code.claude.com/docs/en/memory (the canonical Anthropic source after the docs.claude.com → code.claude.com migration) + the kit's existing research base (Anthropic memory tool docs, claude-mem deep-dive, hook payload research).
 verdict: ~ (PARTIAL) — broadly accurate on the 4-layer architecture, file paths, and core commands; specific numbers fabricated; factually wrong on the claude-mem description.
 ---

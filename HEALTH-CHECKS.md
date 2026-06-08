@@ -52,9 +52,9 @@ As of v0.1.1 the block uses PATH-resolved bare bin names (shell form), which res
 
 The daily-distill cron is either not running or not updating the timestamp. Steps:
 
-1. Run `bash scripts/run-daily-distill.sh` manually. If it succeeds, the timestamp updates and HC-3 goes green.
+1. Run `cmk daily-distill` manually. If it succeeds, the timestamp updates and HC-3 goes green.
 2. If it fails (Claude auth issue, allowlist too narrow), add a "Pending Decision" entry to MEMORY.md describing the failure.
-3. Check `schtasks /query /tn <project>-daily-memory-distillation` (Windows) or `crontab -l` (Unix) to confirm the job is registered.
+3. Check `schtasks /query /tn cmk-daily-distill` (Windows) or `crontab -l` (Unix) to confirm the job is registered.
 
 ### HC-4 — Transcripts not firing
 

@@ -130,7 +130,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the data-flow diagram and [`specs/des
 
 ## CLI
 
-Most-used commands below; **full reference with examples: [`docs/CLI.md`](docs/CLI.md)** (or `cmk --help`).
+Most-used commands below; **full reference with examples: [`docs/CLI.md`](docs/CLI.md)** (or `cmk --help`). For the tools Claude drives in conversation, see **[`docs/MCP.md`](docs/MCP.md)**.
 
 | Command | Purpose |
 | --- | --- |
