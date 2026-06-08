@@ -16,7 +16,7 @@
 // (the one canonical home), so this validator file itself stays name-free and
 // auto-adapts if the maintainer ever changes.
 
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -47,9 +47,14 @@ function maintainerFirstName() {
 
 function filesContaining(name) {
   // git grep scans only tracked files; -w word boundary, -F fixed string.
-  // Exit status 1 = "no matches" (clean), not an error.
+  // execFileSync (no shell) so the name is an argv element, never interpolated
+  // into a command line — no quoting/injection surface even if the name ever
+  // carried a shell metacharacter. Exit status 1 = "no matches" (clean).
   try {
-    const out = execSync(`git grep -l -w -F -- "${name}"`, { cwd: REPO, encoding: 'utf8' });
+    const out = execFileSync('git', ['grep', '-l', '-w', '-F', '--', name], {
+      cwd: REPO,
+      encoding: 'utf8',
+    });
     return out.split('\n').map((s) => s.trim()).filter(Boolean);
   } catch (e) {
     if (e.status === 1) return [];
