@@ -26,15 +26,19 @@ should see) → _(Task)_. "(in chat)" = type it to Claude in a real Claude Code 
 You run this **before** publishing, so install the tarball you're **about to** ship —
 **not** `npm install -g @lh8ppl/claude-memory-kit` (that's the OLD published version).
 
-```bash
-# From the repo — build the real artifact:
-cd <repo>/packages/cli && npm pack            # → lh8ppl-claude-memory-kit-0.2.3.tgz
-npm install -g ./lh8ppl-claude-memory-kit-0.2.3.tgz
-cmk --version                                 # confirm it says 0.2.3
+```powershell
+cd C:\Projects\claude-memory-kit
+git checkout main; git pull                   # include the v0.2.3 batch (Tasks 108–117)
+
+cd C:\Projects\claude-memory-kit\packages\cli
+npm pack                                      # → lh8ppl-claude-memory-kit-0.2.3.tgz
+npm uninstall -g @lh8ppl/claude-memory-kit    # remove the OLD global first
+npm install -g .\lh8ppl-claude-memory-kit-0.2.3.tgz
+cmk --version                                 # must say 0.2.3 (NOT the old published version)
 
 # A throwaway project to test in:
-mkdir ~/cmk-livetest && cd ~/cmk-livetest && git init -q
-cmk install                                   # scaffolds + wires hooks + MCP
+mkdir C:\Temp\cmk-livetest; cd C:\Temp\cmk-livetest
+git init; cmk install                         # scaffolds + wires hooks + MCP
 ```
 
 - [ ] **MCP wiring written.** `cat .mcp.json` shows a `cmk` stdio server; `.claude/settings.json` allow-lists `mcp__cmk__*`. _(Task 108)_
@@ -73,7 +77,7 @@ The point: **you never type `cmk`.** You talk; Claude drives the tools; no appro
 
 CLI tests drove these with injected answers; here you drive the **real readline prompt.**
 
-```bash
+```powershell
 # Make a real pending item first (in chat): say something that conflicts with a
 # saved high-trust fact, OR a medium-trust aside the auto-extract queues.
 cmk queue review        # walk one: type  promote / discard / skip
@@ -89,7 +93,7 @@ cmk queue conflicts     # if any: type   keep-old / keep-new / merge-both / skip
 
 I verified `--dry-run` on Windows; this actually registers. **Skip if you don't want the jobs.**
 
-```bash
+```powershell
 cmk register-crons --dry-run     # always safe — confirm it prints a clean command, no error
 cmk register-crons               # registers the daily + weekly jobs (Win Task Scheduler / launchd / cron)
 cmk doctor                       # HC-6 should now pass
@@ -109,8 +113,8 @@ cmk register-crons --unregister  # clean up when done
 
 ## F. Hygiene spot-check (Task 115)
 
-```bash
-cd ~/cmk-livetest && git add -A && git status --short | grep -i extract
+```powershell
+cd C:\Temp\cmk-livetest; git add -A; git status --short | Select-String extract
 ```
 
 - [ ] **No `.extract-*.tmp` staged** — a partial auto-extract buffer never travels with git. _(115)_
