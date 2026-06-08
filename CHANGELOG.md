@@ -17,7 +17,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   - **`mk_lessons_promote`** — carry a project-tier fact to your cross-project user tier so it applies in every project.
   - **`mk_forget`** — tombstone a fact (audit trail preserved). Destructive, so it's **two-step**: the first call previews exactly what would be removed and returns a confirm token; Claude must call again with that token to delete — nothing vanishes without you seeing it first.
 
-  And the CLI gained the read verbs the MCP tools already had, so the surfaces match both ways: **`cmk get <id…>`** (full fact bodies + provenance), **`cmk timeline <id>`** (what was captured around an observation), **`cmk cite <id>`** (a canonical citation link), and **`cmk recent-activity`** (recent changes in a time window). Both surfaces run the same shared core, so they always return the same thing.
+  Plus the **review/conflict queues** are now MCP-drivable too — `mk_queue_list` shows what's pending and `mk_queue_resolve` clears it (`promote`/`discard` a review item; `keep-old`/`keep-new` a conflict) — so Claude can resolve a queued capture in conversation instead of you running `cmk queue`.
+
+  And the CLI gained the read verbs the MCP tools already had, so the surfaces match both ways: **`cmk get <id…>`** (full fact bodies + provenance), **`cmk timeline <id>`** (what was captured around an observation), **`cmk cite <id>`** (a canonical citation link), and **`cmk recent-activity`** (recent changes in a time window). Both surfaces run the same shared core, so they always return the same thing — and a build-time guard fails CI if a memory op ever exists on only one side.
+
+- **`cmk install` now registers the MCP server, so Claude can use those tools with zero friction (Task 108b).** Install writes `.mcp.json` (the `cmk` stdio server) and allow-lists `mcp__cmk__*` in `.claude/settings.json`, so the moment you open Claude Code it can capture/recall/forget through the tools above **without a per-call approval prompt**. This sidesteps a real Claude Code permission edge where a `cd … && cmk …` compound command always re-prompts — running the same op as an allow-listed MCP tool is prompt-free. The `memory-write` skill now prefers those tools too (falling back to the `cmk` CLI when the server isn't connected). `--no-hooks` skips this wiring.
 
 ## [0.2.2] — 2026-06-07
 
