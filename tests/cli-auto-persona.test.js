@@ -461,7 +461,7 @@ describe('Task 45 — auto-persona guards', () => {
 
 // ---------------------------------------------------------------------------
 // Task 45 follow-up — low/medium-confidence candidates must be DURABLE, not
-// merely returned in the response (Lior 2026-05-31: "response object can get
+// merely returned in the response (the user, 2026-05-31: "response object can get
 // lost — i dont like it"). They persist to <userDir>/queues/persona-review.md
 // so a later (manual or auto-drain) pass can act on them.
 // ---------------------------------------------------------------------------

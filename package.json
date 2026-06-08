@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "scripts": {
-    "test": "node scripts/validate-test-ids.mjs && node scripts/validate-template.mjs && node scripts/validate-exit-doors.mjs && node scripts/validate-references.mjs && node scripts/validate-spawn-discipline.mjs && node scripts/validate-numbering-gaps.mjs && node scripts/validate-composition.mjs && node scripts/validate-platform-commands.mjs && node scripts/validate-doc-registry.mjs && node scripts/validate-skill-sources.mjs && node scripts/validate-cli-mcp-parity.mjs && vitest run",
+    "test": "node scripts/validate-test-ids.mjs && node scripts/validate-template.mjs && node scripts/validate-exit-doors.mjs && node scripts/validate-references.mjs && node scripts/validate-spawn-discipline.mjs && node scripts/validate-numbering-gaps.mjs && node scripts/validate-composition.mjs && node scripts/validate-platform-commands.mjs && node scripts/validate-doc-registry.mjs && node scripts/validate-skill-sources.mjs && node scripts/validate-cli-mcp-parity.mjs && node scripts/validate-maintainer-name-confined.mjs && vitest run",
     "test:file": "node scripts/test-file.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -27,6 +27,7 @@
     "lint:doc-registry": "node scripts/validate-doc-registry.mjs",
     "lint:skill-sources": "node scripts/validate-skill-sources.mjs",
     "lint:cli-mcp-parity": "node scripts/validate-cli-mcp-parity.mjs",
+    "lint:maintainer-name": "node scripts/validate-maintainer-name-confined.mjs",
     "sync:plugin-skills": "node scripts/sync-plugin-skills.mjs",
     "validate:template": "node scripts/validate-template.mjs"
   },

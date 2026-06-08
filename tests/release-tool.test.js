@@ -6,7 +6,7 @@
 // Door 4 N/A: no NDJSON observability.
 // Door 5 N/A: no message queue.
 //
-// Tests for the release mechanic (Lior 2026-05-30: "put everything in a file and
+// Tests for the release mechanic (the user, 2026-05-30: "put everything in a file and
 // that creates everything from that"). assembleRelease() turns the hand-edited
 // CHANGELOG `## [Unreleased]` section into a finalized `## [X.Y.Z] — date`
 // section + a fresh empty [Unreleased] + the extracted GitHub release notes,
