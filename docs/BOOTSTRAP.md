@@ -7,7 +7,7 @@ We're continuing work on claude-memory-kit — a per-project in-repo memory
 system for Claude Code. Read these, in order, before responding:
 
 1. docs/DOCUMENTATION-MAP.md           — where every doc lives (registry + routing rules)
-2. specs/v0.1.0/tasks.md → "Current state — what's next"  — where we are + the next action
+2. specs/tasks.md → "Current state — what's next"  — where we are + the next action
 3. docs/journey/DECISION-LOG.md        — settled decisions + why (don't re-open without new evidence)
 4. CLAUDE.md                           — working style + binding rules
 

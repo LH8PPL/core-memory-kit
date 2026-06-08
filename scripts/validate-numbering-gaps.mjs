@@ -89,12 +89,12 @@ if (adrFiles.size > 0) {
 
 function checkRequirementIds(prefix, label) {
   const reqText =
-    (existsSync(join(REPO_ROOT, 'specs/v0.1.0/requirements.md'))
-      ? readFileSync(join(REPO_ROOT, 'specs/v0.1.0/requirements.md'), 'utf8')
+    (existsSync(join(REPO_ROOT, 'specs/requirements.md'))
+      ? readFileSync(join(REPO_ROOT, 'specs/requirements.md'), 'utf8')
       : '') +
     '\n' +
-    (existsSync(join(REPO_ROOT, 'specs/v0.1.0/requirements-revisions-proposed.md'))
-      ? readFileSync(join(REPO_ROOT, 'specs/v0.1.0/requirements-revisions-proposed.md'), 'utf8')
+    (existsSync(join(REPO_ROOT, 'specs/requirements-revisions-proposed.md'))
+      ? readFileSync(join(REPO_ROOT, 'specs/requirements-revisions-proposed.md'), 'utf8')
       : '');
   // Find definitions (heading-style lines like `**FR-12 — title**` or `### FR-12 ...`
   // or table rows `| FR-12 |`). We scan for any occurrence that looks
@@ -127,7 +127,7 @@ checkRequirementIds('NFR', 'Non-Functional Requirement');
 
 // --- Task sequence --------------------------------------------------
 
-const tasksPath = join(REPO_ROOT, 'specs/v0.1.0/tasks.md');
+const tasksPath = join(REPO_ROOT, 'specs/tasks.md');
 if (existsSync(tasksPath)) {
   const tasksText = readFileSync(tasksPath, 'utf8');
   // Parent tasks appear as `- [x] N. ...`, `- [ ] N. ...`, or `- [~] N. ...`

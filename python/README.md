@@ -19,4 +19,4 @@ canonicalize("  - Hello World  ")   # → "hello world"
 generate_id("P", "Hello World")     # → "P-..." (matches Node output)
 ```
 
-See [`../specs/v0.1.0/design.md`](../specs/v0.1.0/design.md) §3 for the canonicalization rules and ID format.
+See [`../specs/design.md`](../specs/design.md) §3 for the canonicalization rules and ID format.

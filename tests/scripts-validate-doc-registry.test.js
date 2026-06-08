@@ -67,7 +67,7 @@ describe('validate-doc-registry', () => {
     // Registry must also self-register the map (docs/DOCUMENTATION-MAP.md).
     writeMap(
       sandbox,
-      'README.md · specs/v0.1.0/tasks.md · docs/journey/DECISION-LOG.md · docs/DOCUMENTATION-MAP.md',
+      'README.md · specs/tasks.md · docs/journey/DECISION-LOG.md · docs/DOCUMENTATION-MAP.md',
     );
     const r = runValidator(sandbox);
     expect(r.exitCode).toBe(0);

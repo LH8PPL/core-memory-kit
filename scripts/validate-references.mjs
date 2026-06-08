@@ -121,11 +121,11 @@ function readMdIfExists(rel) {
 }
 
 const requirementsText =
-  readMdIfExists('specs/v0.1.0/requirements.md') +
+  readMdIfExists('specs/requirements.md') +
   '\n' +
-  readMdIfExists('specs/v0.1.0/requirements-revisions-proposed.md');
+  readMdIfExists('specs/requirements-revisions-proposed.md');
 
-const tasksText = readMdIfExists('specs/v0.1.0/tasks.md');
+const tasksText = readMdIfExists('specs/tasks.md');
 
 // FR / NFR definitions appear as headings like `### FR-12 ...` or as
 // table rows `| FR-12 | ...` or as inline anchors `FR-12:`. We accept
@@ -166,7 +166,7 @@ for (const line of tasksText.split(/\r?\n/)) {
 
 // --- Design-section index (§N.N anchors) ----------------------------
 
-const designText = readMdIfExists('specs/v0.1.0/design.md');
+const designText = readMdIfExists('specs/design.md');
 const designSections = new Set();
 // Accept both `## 6. Title` and `### 6.1 Title` forms.
 for (const m of designText.matchAll(/^\s*#{2,6}\s+(\d+(?:\.\d+){0,3})[.\s]/gm)) {

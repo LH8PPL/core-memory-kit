@@ -202,7 +202,7 @@ These are kit-distinguishing features. Not gaps; deliberate design choices.
 
 ## Specific design.md §16 entries added (post-Checkpoint-11, 2026-05-24)
 
-Numbering shifted by one from this note's original draft because cold Claude's PR-2 work landed §16.13 (audit-log rotation) before this docs commit. Final assignments below; bodies live in [`specs/v0.1.0/design.md`](../../specs/v0.1.0/design.md).
+Numbering shifted by one from this note's original draft because cold Claude's PR-2 work landed §16.13 (audit-log rotation) before this docs commit. Final assignments below; bodies live in [`specs/design.md`](../../specs/design.md).
 
 ### §16.14 Mermaid-style symbolic short-term memory (v0.2 candidate)
 

@@ -22,7 +22,7 @@ tags:
 
 ## Status
 
-**Accepted** 2026-05-22. Revises the initial "6-char random base32" placeholder in [requirements.md OQ-4 / FR-14](../../specs/v0.1.0/requirements.md) after Option-B research showed content-addressing offers natural dedup and consolidation survival.
+**Accepted** 2026-05-22. Revises the initial "6-char random base32" placeholder in [requirements.md OQ-4 / FR-14](../../specs/requirements.md) after Option-B research showed content-addressing offers natural dedup and consolidation survival.
 
 ## Context
 

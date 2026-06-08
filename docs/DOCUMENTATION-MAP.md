@@ -1,6 +1,6 @@
 # DOCUMENTATION-MAP — the three files that matter, and everything that orbits them
 
-> **The kernel:** only **three files carry the project's current truth** — [`requirements.md`](../specs/v0.1.0/requirements.md) (WHAT) · [`design.md`](../specs/v0.1.0/design.md) (HOW) · [`tasks.md`](../specs/v0.1.0/tasks.md) (PLAN + what's-next). Everything else **orbits** them as either *product docs* (for users) or *history* (the paper trail). This map exists because, across the build, documentation was repeatedly written to a new or different file under pressure instead of its home — spawning ~7 overlapping state surfaces (see [build-log](journey/v0.1.0-build-log.md)). The cure is one map + a validator, so consistency survives a context-compact without relying on Claude's memory (the thing that fails at every compact).
+> **The kernel:** only **three files carry the project's current truth** — [`requirements.md`](../specs/requirements.md) (WHAT) · [`design.md`](../specs/design.md) (HOW) · [`tasks.md`](../specs/tasks.md) (PLAN + what's-next). Everything else **orbits** them as either *product docs* (for users) or *history* (the paper trail). This map exists because, across the build, documentation was repeatedly written to a new or different file under pressure instead of its home — spawning ~7 overlapping state surfaces (see [build-log](journey/build-log.md)). The cure is one map + a validator, so consistency survives a context-compact without relying on Claude's memory (the thing that fails at every compact).
 >
 > Binding rule lives in [`CLAUDE.md`](../CLAUDE.md) ("Documentation routing"). This file is the registry it points to. **Read this + the three spine files at session start.**
 
@@ -18,11 +18,11 @@ A session that has lost all memory must be able to read **only the three spine f
 
 | Concern — "where does X go?" | File |
 | --- | --- |
-| WHAT must ship — requirements (FR / NFR / US) | [`specs/v0.1.0/requirements.md`](../specs/v0.1.0/requirements.md) |
-| HOW it works — architecture, schemas, validators, forward-compat candidates (§16) | [`specs/v0.1.0/design.md`](../specs/v0.1.0/design.md) |
-| WHERE memory can be lost/duplicated/blocked — intent-vs-code per lifecycle edge | [`specs/v0.1.0/memory-lifecycle-map.md`](../specs/v0.1.0/memory-lifecycle-map.md) — Spine support (pins design.md intent against code reality) |
-| The PLAN — task state, what's-next, the phase roadmap | [`specs/v0.1.0/tasks.md`](../specs/v0.1.0/tasks.md) |
-| Domain terms (glossary wins when docs disagree) | [`specs/v0.1.0/glossary.md`](../specs/v0.1.0/glossary.md) — Spine support |
+| WHAT must ship — requirements (FR / NFR / US) | [`specs/requirements.md`](../specs/requirements.md) |
+| HOW it works — architecture, schemas, validators, forward-compat candidates (§16) | [`specs/design.md`](../specs/design.md) |
+| WHERE memory can be lost/duplicated/blocked — intent-vs-code per lifecycle edge | [`specs/memory-lifecycle-map.md`](../specs/memory-lifecycle-map.md) — Spine support (pins design.md intent against code reality) |
+| The PLAN — task state, what's-next, the phase roadmap | [`specs/tasks.md`](../specs/tasks.md) |
+| Domain terms (glossary wins when docs disagree) | [`specs/glossary.md`](../specs/glossary.md) — Spine support |
 
 `requirements-revisions-proposed.md` was a 2026-05-22 staging file; its approved content was merged into `requirements.md` (2026-05-31) and it now lives at [`archive/specs/v0.1.0/requirements-revisions-proposed.md`](../archive/specs/v0.1.0/requirements-revisions-proposed.md) as a superseded historical record. `requirements.md` is the sole requirements source.
 
@@ -45,7 +45,7 @@ A session that has lost all memory must be able to read **only the three spine f
 | Location | Job |
 | --- | --- |
 | [`docs/journey/DECISION-LOG.md`](journey/DECISION-LOG.md) | Chronological decisions / pivots / issues / bugs / fixes (why & when). Append-only. |
-| [`docs/journey/v0.1.0-build-log.md`](journey/v0.1.0-build-log.md) | Full narrative + per-PR retrospectives + meta-lessons. |
+| [`docs/journey/build-log.md`](journey/build-log.md) | Full narrative + per-PR retrospectives + meta-lessons. |
 | [`docs/journey/v0.2.0-live-test-findings.md`](journey/v0.2.0-live-test-findings.md) | v0.2.0 self-test findings (F1 capture-richness regression, F2 section-promotion) + Task 63/64 fix specs. The v0.2.0 release gate. |
 | `docs/journey/` dated findings & test docs | Session artifacts (history). See Registry. |
 | [`docs/adr/`](adr/) | Architectural Decision Records — deep "why," append-only, superseded-never-deleted. Index: [`adr/README.md`](adr/README.md). |
@@ -74,11 +74,11 @@ Holds docs that are genuinely done and were cited as provenance but are no longe
 | You want to record… | Put it in… |
 | --- | --- |
 | A decision / pivot / issue / bug / fix | [`DECISION-LOG.md`](journey/DECISION-LOG.md) (append) + its *effect* in the Spine + an [ADR](adr/) if architectural |
-| A task, sub-task, what's-next, a phase/roadmap change | [`tasks.md`](../specs/v0.1.0/tasks.md) |
-| A new requirement (FR/NFR/US) | [`requirements.md`](../specs/v0.1.0/requirements.md) |
-| A design / architecture / schema detail or deferred candidate | [`design.md`](../specs/v0.1.0/design.md) |
+| A task, sub-task, what's-next, a phase/roadmap change | [`tasks.md`](../specs/tasks.md) |
+| A new requirement (FR/NFR/US) | [`requirements.md`](../specs/requirements.md) |
+| A design / architecture / schema detail or deferred candidate | [`design.md`](../specs/design.md) |
 | A stable rule / working-style / discipline | [`CLAUDE.md`](../CLAUDE.md) (rules only) |
-| Per-PR narrative, retrospective, meta-lesson | [`v0.1.0-build-log.md`](journey/v0.1.0-build-log.md) |
+| Per-PR narrative, retrospective, meta-lesson | [`build-log.md`](journey/build-log.md) |
 | A research finding | a dated note in [`docs/research/`](research/) **+ update [`research/INDEX.md`](research/INDEX.md)** |
 | A deep-dive on an external source | [`docs/sources/`](sources/) **+ update [`SOURCES.md`](SOURCES.md)** |
 | A user-facing capability (CLI/flag/behavior) | [`README.md`](../README.md) + [`packages/cli/README.md`](../packages/cli/README.md) + [`CHANGELOG.md`](../CHANGELOG.md) (same PR) |
@@ -102,14 +102,14 @@ When you add a doc, add its path to the Registry in the same commit, or the buil
 **Repo-root guides + rules:**
 `README.md` · `QUICKSTART.md` · `ARCHITECTURE.md` · `CHANGELOG.md` · `SECURITY.md` · `HEALTH-CHECKS.md` · `CLAUDE.md`
 
-**Spine (`specs/v0.1.0/`):**
-`specs/v0.1.0/requirements.md` · `specs/v0.1.0/design.md` · `specs/v0.1.0/tasks.md` · `specs/v0.1.0/glossary.md`
+**Spine (`specs/`):**
+`specs/requirements.md` · `specs/design.md` · `specs/tasks.md` · `specs/glossary.md`
 
 **`docs/` top level:**
 `docs/DOCUMENTATION-MAP.md` · `docs/README.md` · `docs/SOURCES.md` · `docs/BOOTSTRAP.md` · `docs/CLI.md` · `docs/Claude Code Memory Management The Complete Guide (2026).md`
 
 **`docs/journey/`:**
-`docs/journey/DECISION-LOG.md` · `docs/journey/v0.1.0-build-log.md` · `docs/journey/RESUME-HERE-2026-05-28.md` · `docs/journey/PHASE-3-PLAN.md` · `docs/journey/v0.1.0-live-test.md` · `docs/journey/v0.1.0-requirements-coverage.md` · `docs/journey/v0.1.1-self-test-findings.md` · `docs/journey/2026-05-26-live-test-findings.md` · `docs/journey/2026-05-26-live-test-findings-scenarios-3-7.md` · `docs/journey/2026-05-26-snapshot-cap-coordination.md` · `docs/journey/2026-05-26-user-tier-cap-fix.md`
+`docs/journey/DECISION-LOG.md` · `docs/journey/build-log.md` · `docs/journey/RESUME-HERE-2026-05-28.md` · `docs/journey/PHASE-3-PLAN.md` · `docs/journey/v0.1.0-live-test.md` · `docs/journey/v0.1.0-requirements-coverage.md` · `docs/journey/v0.1.1-self-test-findings.md` · `docs/journey/2026-05-26-live-test-findings.md` · `docs/journey/2026-05-26-live-test-findings-scenarios-3-7.md` · `docs/journey/2026-05-26-snapshot-cap-coordination.md` · `docs/journey/2026-05-26-user-tier-cap-fix.md`
 
 **`docs/journey/live-test-runs/`** — per-run `npm run live-test` findings, one TIMESTAMPED file per run (a run-to-run trail to spot drift/regressions). A SUBDIR, so the registry validator (which scans `docs/journey/` non-recursively) does not police it file-by-file — no per-run registration needed.
 

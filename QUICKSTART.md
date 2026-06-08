@@ -150,11 +150,11 @@ Full reference: `cmk --help`.
 | `cmk register-crons` errors on Windows | Task Scheduler permission denied | Run from elevated PowerShell, or use lazy-fallback (skip cron registration entirely) |
 | MEMORY.md keeps growing past 2500 chars | Auto-extract not pruning | `cmk roll --scope today` to trigger consolidation |
 
-For complex issues, see [HEALTH-CHECKS.md](HEALTH-CHECKS.md) for per-HC repair paths, and [`docs/journey/v0.1.0-build-log.md`](docs/journey/v0.1.0-build-log.md) for the build's accumulated lessons.
+For complex issues, see [HEALTH-CHECKS.md](HEALTH-CHECKS.md) for per-HC repair paths, and [`docs/journey/build-log.md`](docs/journey/build-log.md) for the build's accumulated lessons.
 
 ## Next steps
 
 - Read [README.md](README.md) for the architectural overview
 - Read [ARCHITECTURE.md](ARCHITECTURE.md) for the data-flow diagram
-- Read [`specs/v0.1.0/design.md`](specs/v0.1.0/design.md) for the full design
+- Read [`specs/design.md`](specs/design.md) for the full design
 - Optionally install Layer 5b (`pip install memsearch[onnx]`) to enable semantic search

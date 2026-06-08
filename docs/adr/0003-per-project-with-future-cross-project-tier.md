@@ -21,7 +21,7 @@ tags:
 
 ## Status
 
-**Accepted** 2026-05-21. The three-tier model is design tenet **T2 + T3** in [specs/v0.1.0/requirements.md](../../specs/v0.1.0/requirements.md).
+**Accepted** 2026-05-21. The three-tier model is design tenet **T2 + T3** in [specs/requirements.md](../../specs/requirements.md).
 
 ## Context
 

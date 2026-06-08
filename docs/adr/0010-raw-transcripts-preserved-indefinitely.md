@@ -29,9 +29,9 @@ written_retroactively: 2026-05-26 (post-PR-31 audit campaign PR-C)
 
 This ADR was reserved during the requirements-revisions-proposed.md drafting on 2026-05-22 (alongside ADR-0009 for provenance) but the file itself was never written — the decision shipped (FR-28 in `requirements-revisions-proposed.md`, design §6.5 tombstone discipline, transcripts captured in `context/transcripts/{date}.md` are never auto-deleted) without the ADR being created. PR-C of the post-PR-31 audit campaign (2026-05-26) surfaced the gap. This ADR is reconstructed from the preserved evidence:
 
-- [`specs/v0.1.0/requirements-revisions-proposed.md`](../../archive/specs/v0.1.0/requirements-revisions-proposed.md) §"Section 3 — New functional requirements" + "FR-28 — Raw transcripts are append-only, never compressed away" (the canonical statement).
+- [`specs/requirements-revisions-proposed.md`](../../archive/specs/v0.1.0/requirements-revisions-proposed.md) §"Section 3 — New functional requirements" + "FR-28 — Raw transcripts are append-only, never compressed away" (the canonical statement).
 - [`docs/SOURCES.md`](../SOURCES.md) — Adler + Zehavi "Storage Is Not Memory: A Retrieval-Centered Architecture for Agent Recall" (arXiv:2605.04897) explicitly validates the decision: *"Extraction at ingestion is the wrong primitive for agent memory: content discarded before the query is known cannot be recovered at retrieval time."*
-- [`specs/v0.1.0/design.md`](../../specs/v0.1.0/design.md) §6.5 — tombstone discipline (the kit never silently deletes; even removals are auditable).
+- [`specs/design.md`](../../specs/design.md) §6.5 — tombstone discipline (the kit never silently deletes; even removals are auditable).
 - [`packages/cli/src/capture-prompt.mjs`](../../packages/cli/src/capture-prompt.mjs) + [`packages/cli/src/capture-turn.mjs`](../../packages/cli/src/capture-turn.mjs) — the transcript-append implementation.
 
 This is the evidence-driven backfill case the user described in the campaign plan.
@@ -93,8 +93,8 @@ The 6-month acceptance criterion (per FR-28): when 6 months have passed since a 
 
 ## References
 
-- [`specs/v0.1.0/requirements-revisions-proposed.md`](../../archive/specs/v0.1.0/requirements-revisions-proposed.md) §FR-28 — canonical statement.
-- [`specs/v0.1.0/design.md`](../../specs/v0.1.0/design.md) §6.5 — tombstone discipline (the companion decision: removals are reversible, not silent).
+- [`specs/requirements-revisions-proposed.md`](../../archive/specs/v0.1.0/requirements-revisions-proposed.md) §FR-28 — canonical statement.
+- [`specs/design.md`](../../specs/design.md) §6.5 — tombstone discipline (the companion decision: removals are reversible, not silent).
 - [`packages/cli/src/capture-prompt.mjs`](../../packages/cli/src/capture-prompt.mjs) — UserPromptSubmit hook handler that appends to transcripts.
 - [`packages/cli/src/capture-turn.mjs`](../../packages/cli/src/capture-turn.mjs) — Stop hook handler that appends to transcripts.
 - [`docs/SOURCES.md`](../SOURCES.md) — Adler + Zehavi paper (`arxiv.org/abs/2605.04897`).

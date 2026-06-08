@@ -143,7 +143,7 @@ describe('Task 1 — template/ scaffolding', () => {
   // Task 107 — Task 82 scrubbed kit-internal cruft from the scaffold templates
   // but MISSED the CLAUDE.md block: a v0.2.2 live-test install showed it still
   // said "v0.1.0 is under active development", "HC-1..HC-8" (there are 9), and
-  // carried RELATIVE links to docs/adr/ + specs/v0.1.0/design.md that resolve
+  // carried RELATIVE links to docs/adr/ + specs/design.md that resolve
   // inside the USER's project, where those paths don't exist. This guards the
   // scrub so the scaffold a user opens never leaks a stale version or a kit-repo
   // path again.

@@ -9,7 +9,7 @@ This is the narrative behind the spec. It tells the story of how we got from "Cl
 - the LLM Wiki at `/c/Projects/liorwiki/` can ingest it cleanly later, and
 - an article draft can be carved out of it without re-research.
 
-The reference docs ([requirements.md](../../specs/v0.1.0/requirements.md), [design.md](../../specs/v0.1.0/design.md), [tasks.md](../../specs/v0.1.0/tasks.md), [glossary.md](../../specs/v0.1.0/glossary.md)) describe **what the kit is**. This file describes **how we figured it out** — which is the part that fades from memory first.
+The reference docs ([requirements.md](../../specs/requirements.md), [design.md](../../specs/design.md), [tasks.md](../../specs/tasks.md), [glossary.md](../../specs/glossary.md)) describe **what the kit is**. This file describes **how we figured it out** — which is the part that fades from memory first.
 
 ---
 
@@ -876,7 +876,7 @@ Generalizable rule, worth committing: **any time the kit serializes structured d
 
 **Finding 2 — design.md §2.1 examples still had invalid-alphabet ids.** I'd fixed the same invalid id (`P-A8FN3MQ2`) in `tests/cli-provenance.test.js` (4 occurrences) but left both example ids in design.md as-is. Both contain `8`, which the kit's base32 alphabet excludes. This was the recurring fixture-id-validity bug — burned Tasks 10, 12, and 13 in sequence, because the source of the bad id was upstream in the design doc, not in any one test. Fixing each downstream copy was treating symptoms.
 
-The right fix: replace the design.md examples at the source. Three id families swapped (`P-A8FN3MQ2` → `P-S79MJHFN`, `P-3L8N1P9R` → `P-WJCLLKH6`, `P-9F2D7T1S` → `P-34GZDKAW`), all with real generated ids from `fixtures/canonicalize-vectors.json`. After fix, `grep -oE "[PUL]-[A-Za-z0-9]{8}" specs/v0.1.0/design.md` returns only ids that pass `ID_PATTERN`. Future task work copying example ids from the spec stops failing validation. **The regression class is closed at the source, not at each downstream copy.**
+The right fix: replace the design.md examples at the source. Three id families swapped (`P-A8FN3MQ2` → `P-S79MJHFN`, `P-3L8N1P9R` → `P-WJCLLKH6`, `P-9F2D7T1S` → `P-34GZDKAW`), all with real generated ids from `fixtures/canonicalize-vectors.json`. After fix, `grep -oE "[PUL]-[A-Za-z0-9]{8}" specs/design.md` returns only ids that pass `ID_PATTERN`. Future task work copying example ids from the spec stops failing validation. **The regression class is closed at the source, not at each downstream copy.**
 
 Meta-lesson worth carrying forward: when the same bug recurs across multiple tasks (3 in a row here), look UPSTREAM — the fix probably isn't in any of the downstream sites; it's in their shared source. Same shape as the I1-I4 findings at Checkpoint 11 (per-task duplication was a symptom; the missing shared module was the root cause).
 
@@ -1701,8 +1701,8 @@ PR-C is the cross-reference rot audit + missing-ADR backfill from research-base 
 - **`docs/adr/0009-provenance-frontmatter-per-observation.md` NEW** — evidence-driven backfill. The "Provenance of this ADR" meta-note at the top names exactly which research-base files the decision was reconstructed from (FR-29 in proposed requirements + Basic Memory deep-dive + the actual implementation in `provenance.mjs`).
 - **`docs/adr/0010-raw-transcripts-preserved-indefinitely.md` NEW** — evidence-driven backfill. The Adler + Zehavi paper (`arxiv.org/abs/2605.04897`) is the load-bearing external validation; FR-28 in proposed requirements is the kit's reservation; the capture-prompt + capture-turn handlers are the implementation.
 - **`docs/adr/README.md`** — index updated with 0009/0010/0011 rows + a meta-note explaining the "reserved + shipped" backfill case so future-me knows not to do this again (the discipline is: write the ADR when the decision lands, not when the audit catches the gap).
-- **`specs/v0.1.0/requirements-revisions-proposed.md`** — status header rewritten from "Proposed, awaiting user approval" to "**APPROVED 2026-05-22** ... authoritative for FR-28/29/30 + NFR-9 pending v0.1.x cleanup merge". Removes the prior cite-vs-status drift.
-- **`specs/v0.1.0/requirements.md`** — added a pointer at the top so readers know FR-28+ / NFR-9 live in the proposed file until the v0.1.x merge.
+- **`specs/requirements-revisions-proposed.md`** — status header rewritten from "Proposed, awaiting user approval" to "**APPROVED 2026-05-22** ... authoritative for FR-28/29/30 + NFR-9 pending v0.1.x cleanup merge". Removes the prior cite-vs-status drift.
+- **`specs/requirements.md`** — added a pointer at the top so readers know FR-28+ / NFR-9 live in the proposed file until the v0.1.x merge.
 - **`CLAUDE.md`** "primary-source verification" rule extended: internal cross-references (ADR-X / §X.Y / FR-N / Task NN) are subject to the same primary-source check. Names PR-C's findings as the precedent + flags PR-D's `validate-references.mjs` as the structural enforcement.
 
 #### The self-correction (worth naming)
@@ -1771,9 +1771,9 @@ This is the **same campaign rule that fired when PR-B surfaced the cross-platfor
 1. **`scripts/validate-exit-doors.mjs` NEW** — enforces design §17.1 annotation discipline. Walks `tests/*.test.{js,mjs}`, requires a `// @doors: <list>` header within the first 20 lines, requires explicit `// Door N N/A: <reason>` for any door 1..5 not in the declared set. **Warning mode by default**; `CMK_DOORS_STRICT=1` promotes header-missing + silent-omission to errors. PR-D2 does the annotation pass + flips the default to strict.
 2. **`scripts/validate-references.mjs` NEW** — internal-reference rot scanner. Resolves file links (`[label](path)`), ADR-NNNN, `§N.N` (within design.md), FR-N, NFR-N, Task N against the kit's spec stack. Skips fenced code blocks + inline-code spans + `docs/research/` + `docs/sources/` + `docs/conversation-log/` (research-base notes use third-party FR namespaces). Suppression marker `<!-- validate-references: ignore -->` for intentional reserved-future references.
 3. **4 real link-rot fixes** the references validator surfaced on first pass:
-   - `docs/journey/v0.1.0-build-log.md` × 2 — `[SOURCES.md](../../SOURCES.md)` → `(../SOURCES.md)` (off-by-one parent climb)
-   - `docs/SOURCES.md` — `[design.md](specs/v0.1.0/design.md)` → `(../specs/v0.1.0/design.md)` (missing `../`)
-   - `specs/v0.1.0/design.md` × 2 — Cursor's `FR-013` / `FR-052` cited as bare references; wrapped in backticks since they're external IDs (the validator skips inline-code spans, treating them as quoted identifiers — honest semantics anyway).
+   - `docs/journey/build-log.md` × 2 — `[SOURCES.md](../../SOURCES.md)` → `(../SOURCES.md)` (off-by-one parent climb)
+   - `docs/SOURCES.md` — `[design.md](specs/design.md)` → `(../specs/design.md)` (missing `../`)
+   - `specs/design.md` × 2 — Cursor's `FR-013` / `FR-052` cited as bare references; wrapped in backticks since they're external IDs (the validator skips inline-code spans, treating them as quoted identifiers — honest semantics anyway).
 4. **`package.json`** — `npm test` prerun extended with both new validators (after `validate-test-ids` + `validate-template`, before `vitest run`). Both also exposed as standalone scripts (`npm run lint:exit-doors`, `npm run lint:references`) for targeted iteration.
 5. **CLAUDE.md "Prose rules vs enforcement" section NEW** — formalizes the distinction between structural rules (validators) and judgment rules (prose + code-review). Inventories the four validators that exist today (`validate-test-ids`, `validate-template`, `validate-exit-doors`, `validate-references`) and the three coming in PR-D2 (`validate-spawn-discipline`, `validate-numbering-gaps`, `validate-composition`). Includes the **Adoption-verification sub-rule**: when adopting a library / skill / framework / convention, justify via the audit-note template, not by feel.
 6. **`design.md` §17.7 "Enforcement validators for §17 disciplines" NEW** — source-of-truth table mapping each §17 discipline to its validator (or "judgment rule, stays prose"). The structural-vs-judgment split is now documented in two places (CLAUDE.md for the kit-wide policy, design §17.7 for §17-specifically) — both reference the same validator inventory so updates stay in sync.
@@ -2603,7 +2603,7 @@ The through-line: the kit exists to kill cross-session amnesia, and this session
 
 ### The memory-retention arc — load-cap, not write-cap (Tasks 91 → 94 → 94.3, 2026-06-04/05, PRs #113/#114/#115)
 
-_Facts live in [DECISION-LOG](DECISION-LOG.md) D-54 → D-65 + [design §19](../../specs/v0.1.0/design.md). This is the narrative + the meta-lesson._
+_Facts live in [DECISION-LOG](DECISION-LOG.md) D-54 → D-65 + [design §19](../../specs/design.md). This is the narrative + the meta-lesson._
 
 The cut-gate live runs surfaced the same shape twice: memory the kit **captured** could be **lost** — a high-trust-full `MEMORY.md` returned `cap_exceeded` (Task 91), and the user-tier persona **write-locked** at the cold-open because it had a cap but no graduation valve (D-60). The fix was an architecture flip, not a patch: **the cap is a *load* cap, not a *write* cap** (D-61). Writes always succeed; overflow **graduates** into the searchable fact store; the inject step load-caps the snapshot. Task 91 built the graduation mechanism (project-only, reactive-at-write); Task 94 core deleted the `cap_exceeded` reject and generalized graduation to every fact-bearing tier (the persona-lock fix, verified end-to-end with an integration test). It converges with Anthropic's own MEMORY.md model (soft-load first, on-demand topic files — D-62) and memory-os's 7 layers (D-64).
 
@@ -2695,7 +2695,7 @@ Sonar flagged one hotspot (a `\n*$` regex in the restore path) — the same trai
 
 ### Task 107 — what the live test was *for* (2026-06-07, PR #129)
 
-This one wasn't planned — it's what fell out of the user actually running the cut-gate before tagging v0.2.2. Doing G0–G4 against a real `cmk install`, the scaffolded `CLAUDE.md` still said *"v0.1.0 is under active development"*, undercounted the health checks ("HC-1..HC-8" — there are nine), and carried **relative** links to `docs/adr/` and `specs/v0.1.0/design.md` that resolve inside the *user's* repo, where they don't exist. The `.gitignore` managed block opened `:start v0.1.0` while the CLAUDE.md marker — which is load-bearing (the install/repair path parses it for upgrade detection) — correctly showed `v0.2.2`. None of it was caught before because the kit's own repo *has* `docs/adr/` and `specs/`, so the broken links resolve here; only a fresh user-shaped install exposes them. Task 82 had scrubbed this class from `template/**` but missed the CLAUDE.md block; Task 107 finishes it, with regression tests so the scaffold can't quietly reacquire a stale version or a kit-repo path.
+This one wasn't planned — it's what fell out of the user actually running the cut-gate before tagging v0.2.2. Doing G0–G4 against a real `cmk install`, the scaffolded `CLAUDE.md` still said *"v0.1.0 is under active development"*, undercounted the health checks ("HC-1..HC-8" — there are nine), and carried **relative** links to `docs/adr/` and `specs/design.md` that resolve inside the *user's* repo, where they don't exist. The `.gitignore` managed block opened `:start v0.1.0` while the CLAUDE.md marker — which is load-bearing (the install/repair path parses it for upgrade detection) — correctly showed `v0.2.2`. None of it was caught before because the kit's own repo *has* `docs/adr/` and `specs/`, so the broken links resolve here; only a fresh user-shaped install exposes them. Task 82 had scrubbed this class from `template/**` but missed the CLAUDE.md block; Task 107 finishes it, with regression tests so the scaffold can't quietly reacquire a stale version or a kit-repo path.
 
 Two process notes worth keeping. **I shipped a false finding.** I reported "`context.local/` isn't scaffolded" from a `Get-ChildItem` that returned an empty result — but the install *does* create it (there's even a test at `cli-install.test.js:123` asserting exactly that), and the user said plainly *"but I see `…\context.local\machine-paths.md`."* They were right; my check was wrong. Retracted it immediately and trusted the direct observation + the code over my own tool output — which is the correct ordering, but the cleaner habit is to not assert absence from one tool call in the first place. **And the version-marker split was a real seam:** the CLAUDE.md marker carries a version *because something reads it*; the gitignore marker carried one for no reason and went stale. The fix wasn't "make them both version-agnostic" — it was to make the cosmetic one track the real one, so a future reader sees one consistent version across both managed blocks. The deeper lesson is the one the whole cut-gate exists for: **automation green ≠ a clean user experience.** The suite was 1515 green with this cruft sitting in the scaffold the entire time, because no test installed the kit the way a stranger would and *read* what landed.
 
@@ -2775,7 +2775,7 @@ Both will trigger on memory phrases once claude-memory-kit's `memory-write` skil
 
 ## 8. What's left to build (the rest of v0.1.0)
 
-From [tasks.md](../../specs/v0.1.0/tasks.md):
+From [tasks.md](../../specs/tasks.md):
 
 - **Tasks 3-5** — install, CLAUDE.md loader, canonicalize/IDs (finishes Layer 1)
 - **Tasks 7-10** — granular archive, INDEX, tombstones, merge semantics (Layer 2)

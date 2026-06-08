@@ -2,13 +2,13 @@
 
 This `docs/` tree captures the **full provenance** of the kit: every decision, every research input, every external source. Designed for direct ingestion into [liorwiki](https://github.com/LH8PPL/liorwiki) `raw/` so the reasoning behind the code is searchable forever.
 
-> **Start at [`DOCUMENTATION-MAP.md`](DOCUMENTATION-MAP.md).** It is the registry of where every doc lives, in three zones: the **Spine** (`specs/v0.1.0/` requirements·design·tasks — the only current state), **Product** docs (for users), and **History** (everything in this tree — the paper trail). Current project state lives ONLY in the Spine; `docs/` is history and context, never "what's true now."
+> **Start at [`DOCUMENTATION-MAP.md`](DOCUMENTATION-MAP.md).** It is the registry of where every doc lives, in three zones: the **Spine** (`specs/` requirements·design·tasks — the only current state), **Product** docs (for users), and **History** (everything in this tree — the paper trail). Current project state lives ONLY in the Spine; `docs/` is history and context, never "what's true now."
 
 ## Structure
 
 | Directory | Contains | When to read |
 |---|---|---|
-| [journey/](journey/) | The living paper trail: [`DECISION-LOG.md`](journey/DECISION-LOG.md) (decisions / pivots / bugs / fixes, append-only), [`v0.1.0-build-log.md`](journey/v0.1.0-build-log.md) (narrative + per-PR retrospectives), and the resume pointer | To understand *why/when* something was decided, or to resume work after a gap |
+| [journey/](journey/) | The living paper trail: [`DECISION-LOG.md`](journey/DECISION-LOG.md) (decisions / pivots / bugs / fixes, append-only), [`build-log.md`](journey/build-log.md) (narrative + per-PR retrospectives), and the resume pointer | To understand *why/when* something was decided, or to resume work after a gap |
 | [adr/](adr/) | Architectural Decision Records — one self-contained ADR per significant decision, with context, alternatives, consequences, references | Before you change a design tenet, or to understand *why* something works the way it does |
 | [process/](process/) | How we work — the Kiro-style spec workflow, research prompt design, conventions | Before you start a new spec cycle, propose a change to the methodology, or onboard someone |
 | [research/](research/) | Outputs from research sessions — own Claude/ChatGPT Deep Research runs, manual architecture surveys, paper notes | Before you make a design decision that the research already covered |
@@ -19,11 +19,11 @@ This `docs/` tree captures the **full provenance** of the kit: every decision, e
 ## Reading order for a new contributor
 
 1. [DOCUMENTATION-MAP.md](DOCUMENTATION-MAP.md) — where everything lives (the registry + the routing rules).
-2. The **Spine**: [`../specs/v0.1.0/tasks.md`](../specs/v0.1.0/tasks.md) "Current state — what's next", then [`requirements.md`](../specs/v0.1.0/requirements.md) + [`design.md`](../specs/v0.1.0/design.md).
+2. The **Spine**: [`../specs/tasks.md`](../specs/tasks.md) "Current state — what's next", then [`requirements.md`](../specs/requirements.md) + [`design.md`](../specs/design.md).
 3. [README.md](../README.md) at repo root — what the kit does, how to install.
 4. [ARCHITECTURE.md](../ARCHITECTURE.md) — the six-layer design.
 5. [adr/README.md](adr/README.md) — decisions; skim titles to map the design surface.
-6. [journey/DECISION-LOG.md](journey/DECISION-LOG.md) — recent decisions + why; [journey/v0.1.0-build-log.md](journey/v0.1.0-build-log.md) for the narrative.
+6. [journey/DECISION-LOG.md](journey/DECISION-LOG.md) — recent decisions + why; [journey/build-log.md](journey/build-log.md) for the narrative.
 
 ## Discipline going forward
 
