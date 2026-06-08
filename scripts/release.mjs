@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Release mechanic CLI (Lior 2026-05-30: "put everything in a file and that
+// Release mechanic CLI (the user, 2026-05-30: "put everything in a file and that
 // creates everything from that"). You edit ONE file during PRs — CHANGELOG.md's
 // `## [Unreleased]` section. This command turns it into a release:
 //

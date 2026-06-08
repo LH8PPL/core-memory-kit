@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // One-shot ID computation for the 21 seed bullets across 7 scratchpad
-// templates. Per Lior's Q3 answer on Task 14 (2026-05-24): seed bullets
+// templates. Per the user's Q3 answer on Task 14 (2026-05-24): seed bullets
 // use real generateId() values so content-addressed dedup works correctly
 // when a user later writes the same fact themselves. Placeholders only
 // belong in HTML-comment tutorial content.
