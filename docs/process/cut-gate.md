@@ -2,11 +2,12 @@
 
 **The single guide to run before tagging a release.** Version-agnostic — reused every cut.
 
-> **Cutting now: `v0.2.2`** — the memory-quality batch: rich auto-extract on the native-immune path (Task 103) + the `now.md` session-start self-heal (Task 105) and compress-race fix (Task 106) + the hook-bin manual-run fix (Task 101).
-> _Replace `0.2.2` / `v0.2.2` in the commands below if you reuse this guide for a later cut._
+> **Cutting now: `v0.2.3`** — the **conversational surface**: every memory op now runs as an **MCP tool Claude drives in chat** (you never type `cmk`, no approval prompt — Task 108) + **free-speech "forget X" / "trust this"** (Task 117) + the **D-84 fix lane** (register-crons fixed on Windows+macOS, forget→search auto-reindex, persona-generate timeout, queue/import/weekly-curate now really tested — Tasks 109–116).
+> _Replace `0.2.3` / `v0.2.3` in the commands below if you reuse this guide for a later cut._
 
 It exercises every kit feature end-to-end on the **real installed artifact**:
-install, the memory-write skill, a staged build with organic capture, explicit-capture probes,
+install (with MCP-server registration), the memory-write skill, the **MCP tools driven in conversation**,
+a staged build with organic capture, explicit-capture probes, free-speech forget/trust,
 recall, the cross-project cold-open (the wedge), the full `cmk` CLI, the plugin route,
 privacy, and portability — then the tag-push.
 
@@ -19,7 +20,7 @@ privacy, and portability — then the tag-push.
   The rest is the full feature sweep — run it so nothing ships untested.
 - Each check is one line you can tick, followed by the **action** (a code block) and a **PASS:** line.
 - Throwaway probes use their own temp dirs and never touch your main run.
-- **Time:** ~60–75 min.
+- **Time:** ~75–90 min.
 - **Prereq:** Python 3.12+ on PATH.
 
 > **★★ The real-input rule (binding — D-84).** A check **PASSES only when it ran on REAL input that exercises the feature** — never "the command didn't crash on trivial input." These are **NOT passes** — mark them `unverified` and re-run for real:
@@ -35,24 +36,27 @@ privacy, and portability — then the tag-push.
 Trail: [`../journey/live-test-runs/`](../journey/live-test-runs/).
 
 **What you add by hand:**
-**R1** (console flash), **R2** (prompt UX), and the **recall feel** — the things automation can't see.
+**R1** (console flash), **R2** (prompt UX), the **conversational MCP + free-speech surface** (§4b — Claude driving the tools in chat; the CLI suite can't cover Claude-in-the-loop), and the **recall feel** — the things automation can't see.
 
 > Supersedes the two older guides ([`v0.2.0-self-test-guide.md`](v0.2.0-self-test-guide.md),
 > [`v0.2.0-self-test-guide-pdf.md`](v0.2.0-self-test-guide-pdf.md)) — their checks are folded in below.
 
 ---
 
-## New in v0.2.2 — what this run additionally validates
+## New in v0.2.3 — what this run additionally validates
 
-The headline is **memory QUALITY on the native-immune path** (rich auto-capture), plus the session-buffer rollup made robust. New checks this cut:
+The headline is **the regular user never types `cmk`** — every voiced intent reaches memory either **automatically** (a hook) or **Claude-mediated** through an MCP tool, **prompt-free**. Plus the **D-84 fix lane**: commands that shipped green-LOOKING but broke on real input.
 
 | Check | Feature | What's new |
 | --- | --- | --- |
-| **★ B9** | Task 103 | **auto-extract** (no command) writes a **rich Why/How fact file** for durable project knowledge — the native-immune answer (the headline) |
-| **D6** | Task 105 | the `now.md` rollup **self-heals at session start**, so `today-*.md`/`recent.md` build even without a clean window-close |
-| B7-note | Task 106 | the session-buffer roll **claims the buffer atomically** — a concurrent write is never dropped (also: manual hook runs no longer hang — Task 101) |
+| **★ G6 / M0** | Task 108 | `cmk install` **registers the MCP server** (`.mcp.json` + `mcp__cmk__*` allow-list) → **11 tools** Claude drives in chat, prompt-free |
+| **★ M1** | Tasks 108 + 117 | memory ops happen **in conversation** — natural capture, recall, and **free-speech mutation** with no `cmk` typing |
+| **★ M2** | Tasks 117 + 108b + 110 | **"forget X"** in plain speech → `mk_forget` **two-step** (preview + confirm) → gone from search, **no manual reindex** |
+| **M3** | Task 117 | **"trust this / not important"** in plain speech → `mk_trust` (the one free-speech gap D-85 named) |
+| **F-6 / F-9 / F-13** | Tasks 109 / 113 / 114 | the **D-84 lane**: `register-crons` fixed on Windows **and** macOS; `queue review/conflicts` + `import-anthropic` now exercised on **real** input, not the trivial path |
+| **F-16** | Task 115 | the auto-extract transcript temp (`.extract-*.tmp`) is **gitignored** — a partial buffer never travels with `git clone` |
 
-The **§19 memory-retention arc** (Tasks 91–94: graduation / trace / proactive sweep) shipped in the prior cut — its checks **B5–B8 + D5** stay below as the standing retention gate (re-run them; they're not new this cut).
+**Standing checks (re-run; not new this cut):** the **v0.2.2 rich-auto-capture** headline **B9** (Task 103) and the **§19 retention arc B5–B8 + D5** (Tasks 91–94) stay below as the standing memory-quality + retention gate.
 
 ---
 
@@ -60,19 +64,19 @@ The **§19 memory-retention arc** (Tasks 91–94: graduation / trace / proactive
 
 ```powershell
 cd C:\Projects\claude-memory-kit
-git checkout main; git pull          # must include the v0.2.2 batch (Tasks 101, 103, 105, 106) + the release commit
+git checkout main; git pull          # must include the v0.2.3 batch (Tasks 108–117) + the release commit
 
 cd C:\Projects\claude-memory-kit\packages\cli
-npm pack                             # → lh8ppl-claude-memory-kit-0.2.2.tgz
+npm pack                             # → lh8ppl-claude-memory-kit-0.2.3.tgz
 npm uninstall -g @lh8ppl/claude-memory-kit
-npm install -g .\lh8ppl-claude-memory-kit-0.2.2.tgz
-cmk --version                        # ✅ 0.2.2
+npm install -g .\lh8ppl-claude-memory-kit-0.2.3.tgz
+cmk --version                        # ✅ 0.2.3
 
 # Wipe the user tier so capture-from-zero is honest (back it up first if you care)
 Remove-Item -Recurse -Force $env:USERPROFILE\.claude-memory-kit
 ```
 
-- [ ] **G0** — `cmk --version` → `0.2.2`
+- [ ] **G0** — `cmk --version` → `0.2.3`
 
 ---
 
@@ -108,6 +112,15 @@ code .
       → no kit-internal cruft (no `Task 12`, `design §16.16`, dev-speak),
         no literal `{{TODAY}}`, no `C:\Users\<you>`.
       `.claude\settings.json` has the hooks + the `Bash(cmk:*)` allow-list.
+
+- [ ] **★ G6 — `cmk install` registered the MCP server (Task 108 — new in v0.2.3).**
+      Install now wires the MCP surface so Claude can run every memory op in chat, prompt-free:
+      ```powershell
+      type .mcp.json                                       # mcpServers.cmk = { type:"stdio", command:"cmk", args:["mcp","serve"] }
+      Select-String .claude\settings.json -Pattern "mcp__cmk"   # the mcp__cmk__* allow-list entry
+      ```
+      **PASS:** `.mcp.json` names the `cmk` stdio server **and** `settings.json` allow-lists `mcp__cmk__*`.
+      _(Pre-v0.2.3 the MCP server existed but you had to register it by hand; capture/forget rode a Bash `cmk` call that could trigger a permission prompt.)_
 
 ---
 
@@ -333,6 +346,37 @@ findstr /S /C:"\"tier\":\"U\"" %USERPROFILE%\.claude-memory-kit\.locks\audit.log
 
 ---
 
+## 4b. The conversational surface — Claude drives the tools (Tasks 108 + 117)  ⬅️ the v0.2.3 headline
+
+The regular user **never types `cmk`** — they talk, and Claude runs the MCP tools **prompt-free**.
+Run these **in chat** (a real Claude Code session), not the terminal. This is the surface the
+CLI suite structurally can't cover (Claude is in the loop).
+
+- [ ] **★ M0 — the 11 tools are live (Task 108).**
+      Say: *"list your cmk MCP tools."*
+      → `mk_remember, mk_search, mk_get, mk_timeline, mk_cite, mk_recent_activity, mk_trust, mk_lessons_promote, mk_forget, mk_queue_list, mk_queue_resolve` (**11**).
+      _(Empty = the server didn't launch; re-check G6 + that you restarted Claude Code.)_
+
+- [ ] **★ M1 — capture in chat, prompt-free (Task 108).**
+      Say: *"remember our staging environment runs on Fly.io — because it's cheap to spin ephemeral envs up and down."*
+      **PASS:** Claude calls **`mk_remember`** (not a Bash command), **no "Allow this command?" prompt**, silent on success.
+      _(The "because" makes it a rich **fact** — M2's forget targets facts, not the terse bullets a bare "remember X" makes.)_
+
+- [ ] **★ M2 — "forget X" → two-step, then gone (Tasks 117 + 108b + 110).**
+      Say: *"actually, forget the Fly.io staging decision."*
+      **PASS, in order:**
+      1. The **first** `mk_forget` call returns a **preview + a confirm token** — **nothing deleted yet** (an auto-invoking model can't silently destroy memory).
+      2. After you confirm, the **second** call tombstones it.
+      3. Say *"where does staging run?"* → **gone** (no Fly.io), with **no manual `cmk reindex`** (forget self-heals search).
+      _(Pre-110 a forgotten fact lingered in search until a manual reindex; pre-117 there was no plain-speech path to forget at all.)_
+
+- [ ] **M3 — "trust this / not important" (Task 117).**
+      Capture two throwaway facts, then say on one *"that one's important — keep it,"* on the other *"eh, that's not important, I'm not sure about it."*
+      **PASS:** Claude calls **`mk_trust`** with `high` for the first and `low` for the second.
+      _(The one free-speech gap D-85 named — pre-117 trust could only be changed via the CLI.)_
+
+---
+
 ## 5. Session 2 — recall + recall-QUALITY  ⬅️ start a NEW session
 
 Start Session 2 as a **new chat in the SAME window** (don't cleanly close Session 1) — that's the
@@ -449,10 +493,12 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 
 - [ ] **F-7**
       `cmk forget <id> --yes` → tombstones (moved to `archive\tombstones`, still resolvable — NOT hard-deleted).
+      **v0.2.3:** the fact **disappears from `cmk search` immediately** — no manual `cmk reindex` (Task 110); the free-speech / two-step path is **M2**.
       _(`--yes` is required in v0.1.0; `<id>` must be a **fact** id — see F-3.)_
 
 - [ ] **F-8**
-      `cmk trust <id> <high|medium|low>` → changes a fact's trust.
+      `cmk trust <id> <high|medium|low>` → changes a fact's trust (and `cmk search` reflects it without a manual reindex).
+      The free-speech path ("trust this" / "not important") is **M3**.
 
 - [ ] **F-9**
       `cmk queue review` / `cmk queue conflicts` → walk pending medium-trust extracts / conflicts.
@@ -486,6 +532,15 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 - [ ] **F-15**
       `cmk transcripts extract` (**no path arg**) → pulls durable facts out of your captured Claude session transcripts.
       _Heads-up: with no arg it scans your **whole** `~\.claude\projects` history (can be thousands of sessions / many MB written to `transcripts-extracted\`). Run it where you're OK with that, or skip — it's not a ★._
+
+- [ ] **F-16 — transcript temp is gitignored (Task 115 — new in v0.2.3).**
+      The auto-extract write buffer (`.extract-*.tmp`) is created-then-deleted, so `git status` usually shows nothing **whether or not** the ignore works — test the rule **deterministically**:
+      ```powershell
+      New-Item -Force context\transcripts\.extract-test.tmp | Out-Null
+      git check-ignore context\transcripts\.extract-test.tmp   # PASS = echoes the path (ignored)
+      Remove-Item context\transcripts\.extract-test.tmp
+      ```
+      A partial buffer can never travel with `git clone`.
 
 ---
 
@@ -523,9 +578,9 @@ Clone elsewhere (`git clone C:\Temp\cut-gate4 C:\Temp\cut-gate-clone`), open *th
 ## Verdict + the cut
 
 **Cut if** every **★** passes —
-`G1–G3, G5, R1, R2, B2, B9, B3, B4, B5, B6, B7, D1, E1, F-3, L3, H1` —
+`G1–G3, G5, G6, R1, R2, M0, M1, M2, B2, B9, B3, B4, B5, B6, B7, D1, E1, F-3, L3, H1` —
 and you've decided D3's recall variance is acceptable *(rec: yes — active recall is v0.3)*.
-**B9 is the v0.2.2 headline** — the native-immune rich auto-capture; if it's empty, don't ship until you understand why.
+**M0–M2 are the v0.2.3 headline** — every memory op runs as a Claude-driven MCP tool in chat, prompt-free, with "forget X" two-step + auto-reindexed. **B9 stays the standing rich-auto-capture gate** (the v0.2.2 headline) — if `context\memory\` has no `write_source: auto-extract` rich file, investigate before shipping.
 
 (B8, D5, D6 are observational — they confirm the new graduation/inject/self-heal behavior when it fires,
 but the code is proven by B7/B5 + the suite.)
@@ -538,21 +593,21 @@ The tag triggers an **immutable** npm publish; whatever docs are committed at th
 
 - [ ] **CHANGELOG consolidated** — `[Unreleased]` folded into `## [X.Y.Z] — <date>`; `[Unreleased]` reset; `print-release-notes.mjs <version>` parses the section.
 - [ ] **★ READMEs reflect THIS version** — both the **root `README.md`** (status line + "What it does") **and** the **npm landing `packages/cli/README.md`** describe this version's headline capability + its new commands. _(Lesson from v0.2.0: the tag beat the README refresh, so the immutable npm 0.2.0 page shipped a stale landing page — fixed only by a 0.2.1 patch. The npm landing page is `packages/cli/README.md`, NOT the root one.)_
-- [ ] **`packages/cli/package.json` version** = the version you're about to tag (`0.2.2`).
+- [ ] **`packages/cli/package.json` version** = the version you're about to tag (`0.2.3`).
 
 **To publish (your outward action):**
 
 ```powershell
-git tag v0.2.2
-git push origin v0.2.2
+git tag v0.2.3
+git push origin v0.2.3
 ```
 
-`publish.yml` runs the suite, publishes `@lh8ppl/claude-memory-kit@0.2.2` to npm with provenance,
-and creates the GitHub Release from the `[0.2.2]` CHANGELOG section.
+`publish.yml` runs the suite, publishes `@lh8ppl/claude-memory-kit@0.2.3` to npm with provenance,
+and creates the GitHub Release from the `[0.2.3]` CHANGELOG section.
 
 **Verify after:**
-- `npm view @lh8ppl/claude-memory-kit version` → `0.2.2`
+- `npm view @lh8ppl/claude-memory-kit version` → `0.2.3`
 - the npm page shows a **provenance** badge
-- the GitHub Release matches `## [0.2.2]`
+- the GitHub Release matches `## [0.2.3]`
 
 Per-finding notes go in a dated doc under [`../journey/`](../journey/), not here — this stays a clean script.
