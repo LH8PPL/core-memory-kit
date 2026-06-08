@@ -60,12 +60,23 @@ The headline is **the regular user never types `cmk`** — every voiced intent r
 
 ---
 
-## 0. Clean slate — build the real artifact
+## 0. Cut the release locally, then build the REAL artifact
+
+**0a — cut the release locally FIRST.** This bumps `package.json` + finalizes the CHANGELOG so the artifact you test below actually reports `0.2.3` (without this, `npm pack` builds the OLD `0.2.2`). It is a **local commit only** — the tag-push (the outward publish) stays the very last step, after every ★ passes.
 
 ```powershell
 cd C:\Projects\claude-memory-kit
-git checkout main; git pull          # must include the v0.2.3 batch (Tasks 108–117) + the release commit
+git checkout main; git pull
+npm run release -- minor             # [Unreleased] → ## [0.2.3] — <date>; package.json 0.2.2 → 0.2.3
+git diff                             # review: ONLY the version bump + CHANGELOG consolidation
+git add CHANGELOG.md packages\cli\package.json
+git commit -m "release: v0.2.3"      # local release commit — do NOT tag yet (that's the last step)
+git push origin main
+```
 
+**0b — build + install the real artifact.**
+
+```powershell
 cd C:\Projects\claude-memory-kit\packages\cli
 npm pack                             # → lh8ppl-claude-memory-kit-0.2.3.tgz
 npm uninstall -g @lh8ppl/claude-memory-kit
@@ -76,7 +87,7 @@ cmk --version                        # ✅ 0.2.3
 Remove-Item -Recurse -Force $env:USERPROFILE\.claude-memory-kit
 ```
 
-- [ ] **G0** — `cmk --version` → `0.2.3`
+- [ ] **G0** — `cmk --version` → `0.2.3` _(if it says `0.2.2`, you skipped 0a — run `npm run release -- minor` first)_
 
 ---
 
