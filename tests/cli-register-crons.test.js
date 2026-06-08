@@ -228,6 +228,33 @@ describe('Task 33 — register-crons', () => {
       expect(r.command).toContain('/TR');
     });
 
+    it('registerCron(platform:win32) execs the ABSOLUTE System32 schtasks.exe with verbatim argv (Door 3)', () => {
+      let captured;
+      const fakeSpawn = (exe, args, opts) => {
+        captured = { exe, args, opts };
+        return { status: 0, stdout: 'SUCCESS: created', stderr: '' };
+      };
+      const r = registerCron({ command: winCommand, entryName: CRON_ENTRY_NAME, platform: 'win32', spawn: fakeSpawn });
+      expect(r.action).toBe('registered');
+      expect(r.executed).toBe(true);
+      // Door 3 — the spawned program is the ABSOLUTE System32 schtasks.exe, not a
+      // bare PATH name (PATH-hijack guard, Sonar S4036).
+      expect(captured.exe).toMatch(/[\\/]System32[\\/]schtasks\.exe$/i);
+      // …and the /TR triple is delivered verbatim (the D-83 fix).
+      const trIdx = captured.args.indexOf('/TR');
+      expect(captured.args[trIdx + 1]).toBe(winCommand);
+      expect(captured.opts.windowsHide).toBe(true);
+      expect(captured.opts.timeout).toBe(10_000);
+    });
+
+    it('registerCron(platform:win32) reports action:error when schtasks exits non-zero', () => {
+      const fakeSpawn = () => ({ status: 1, stdout: '', stderr: 'ERROR: Access is denied.' });
+      const r = registerCron({ command: winCommand, platform: 'win32', spawn: fakeSpawn });
+      expect(r.action).toBe('error');
+      expect(r.error).toContain('schtasks exit 1');
+      expect(r.output).toContain('Access is denied');
+    });
+
     it('macOS strips the wrapping quotes so launchd execs a real path, not a literally-quoted one', () => {
       // No-space paths: the quote-strip fixes this common case (a space-bearing
       // path is the documented remaining edge needing the argv-array refactor).

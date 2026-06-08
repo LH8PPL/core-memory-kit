@@ -297,7 +297,12 @@ export function registerCron(opts = {}) {
     // dir would be a privilege-escalation vector (Sonar S4036). %SystemRoot% is
     // a fixed, unwriteable system directory.
     const schtasksExe = join(process.env.SystemRoot || process.env.windir || 'C:\\Windows', 'System32', 'schtasks.exe');
-    const r = spawnSync(schtasksExe, argv, { encoding: 'utf8', windowsHide: true, timeout: 10_000 });
+    // opts.spawn is a test seam (defaults to spawnSync): the real schtasks exec
+    // can't run on a non-Windows CI host, so a fake lets the exec branch be
+    // covered in-process AND asserts WHAT gets spawned (Door 3: the absolute
+    // schtasks path + the verbatim argv). Production never passes it.
+    const spawn = opts.spawn ?? spawnSync;
+    const r = spawn(schtasksExe, argv, { encoding: 'utf8', windowsHide: true, timeout: 10_000 });
     return {
       action: r.status === 0 ? 'registered' : 'error',
       platform,
