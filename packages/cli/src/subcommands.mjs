@@ -1312,8 +1312,12 @@ async function runCompress(options /* , command */) {
 
 async function runMcpDispatch(childName) {
   if (childName === 'serve') {
-    const projectRoot = resolvePath(process.cwd());
-    const userDir = join(homedir(), '.claude-memory-kit');
+    // Claude Code sets CLAUDE_PROJECT_DIR in the spawned MCP server's environment
+    // to the project root (code.claude.com/docs/en/mcp). Prefer it over cwd so the
+    // server indexes the right project even when Claude Code launches it with a
+    // different working directory. Falls back to cwd for a manual `cmk mcp serve`.
+    const projectRoot = resolvePath(process.env.CLAUDE_PROJECT_DIR ?? process.cwd());
+    const userDir = process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
     // ALL logs to stderr per design §10.1; stdout is reserved for
     // JSON-RPC messages handled by the SDK's StdioServerTransport.
     // Don't console.log() anything before/during the server's run.

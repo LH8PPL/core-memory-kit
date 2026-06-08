@@ -42,7 +42,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { injectClaudeMdBlock } from './claude-md.mjs';
-import { writeKitHooks } from './settings-hooks.mjs';
+import { writeKitHooks, writeKitMcpServer } from './settings-hooks.mjs';
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -360,6 +360,11 @@ export async function install(options = {}) {
   // hooks is a no-op. Opt out with {noHooks:true} (CLI: --no-hooks) for
   // scaffold-only installs.
   let hooks = { action: 'skipped', path: join(projectRoot, '.claude', 'settings.json') };
+  // Task 108b — register the kit's MCP server (.mcp.json) so the model can drive
+  // memory ops as allow-listed tools (the `mcp__cmk__*` rule writeKitHooks adds),
+  // not just `cmk` bash. Same {noHooks} opt-out as the hooks (it's Claude Code
+  // wiring). R2 / D-80 fix.
+  let mcpServer = { action: 'skipped', path: join(projectRoot, '.mcp.json') };
   if (!options.noHooks) {
     const settingsPath = join(projectRoot, '.claude', 'settings.json');
     const r = writeKitHooks(settingsPath);
@@ -396,7 +401,17 @@ export async function install(options = {}) {
     }
   }
 
-  return { projectRoot, userTier, created, skipped, gitignore, claudeMd, hooks, errors };
+  if (!options.noHooks) {
+    const r = writeKitMcpServer(projectRoot);
+    if (r.error) {
+      errors.push({ path: r.path, error: r.error });
+      mcpServer = { action: 'error', path: r.path, error: r.error };
+    } else {
+      mcpServer = { action: r.changed ? 'registered' : 'unchanged', path: r.path };
+    }
+  }
+
+  return { projectRoot, userTier, created, skipped, gitignore, claudeMd, hooks, mcpServer, errors };
 }
 
 /**
