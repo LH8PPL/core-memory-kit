@@ -23,6 +23,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 - **`cmk install` now registers the MCP server, so Claude can use those tools with zero friction (Task 108b).** Install writes `.mcp.json` (the `cmk` stdio server) and allow-lists `mcp__cmk__*` in `.claude/settings.json`, so the moment you open Claude Code it can capture/recall/forget through the tools above **without a per-call approval prompt**. This sidesteps a real Claude Code permission edge where a `cd … && cmk …` compound command always re-prompts — running the same op as an allow-listed MCP tool is prompt-free. The `memory-write` skill now prefers those tools too (falling back to the `cmk` CLI when the server isn't connected). `--no-hooks` skips this wiring.
 
+### Fixed
+
+- **`cmk register-crons` now works on Windows and macOS — it had been broken since v0.1 (Task 109).** Registering the daily-distill + weekly-curate background jobs failed on Windows (even `--dry-run`, exit 2) because the kit built the scheduler command as a **pre-quoted string** and then **rejected its own inner quotes** — so the cron jobs could *never* register. It now hands the arguments to `schtasks` directly as an args array (no shell re-parsing), so the quoted absolute paths survive intact; macOS got the sibling fix (the `launchd` job no longer bakes literal `"` into the program path). Linux was already fine. _(Skipping cron remains fully supported — the kit falls back to compressing at session start.)_
+
 ## [0.2.2] — 2026-06-07
 
 ### Added
