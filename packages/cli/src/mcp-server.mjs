@@ -41,6 +41,8 @@ import { rememberRich } from './remember-core.mjs';
 import { forget } from './forget.mjs';
 import { overrideTrust } from './trust.mjs';
 import { lessonsPromote } from './lessons-promote.mjs';
+import { resolveReviewQueue } from './review-queue.mjs';
+import { resolveConflictQueue } from './conflict-queue.mjs';
 import { createHash } from 'node:crypto';
 import { getObservations, citeLink, buildTimeline, recentActivity } from './read-core.mjs';
 import { resolveTierRoot } from './tier-paths.mjs';
@@ -413,6 +415,73 @@ function makeMkForget({ projectRoot, userDir }) {
   };
 }
 
+// The review/conflict queues resolve via interactive walkers that take a
+// `prompter(entry) → decision` callback. Two callback shapes give a clean,
+// non-interactive MCP surface over them WITHOUT duplicating the walk logic:
+//   - LIST: a prompter that records each entry + returns 'skip' (mutates
+//     nothing) — so the model can see what's pending and tell the user.
+//   - RESOLVE: a prompter that returns the requested action for the matching
+//     id and 'skip' for every other entry — resolves exactly one item.
+// 'merge-both' is excluded from mk_queue_resolve: it composes the two facts'
+// content (mergeFacts needs a merged body), which is an interactive decision —
+// the model is pointed at `cmk queue conflicts` for that.
+
+function makeMkQueueList({ projectRoot, userDir }) {
+  return async ({ queue }) => {
+    const q = queue ?? 'review';
+    if (q !== 'review' && q !== 'conflicts') {
+      return mcpToolError({ action: 'error', errorCategory: 'schema', errors: [`queue must be 'review' or 'conflicts' (got ${q})`] });
+    }
+    const entries = [];
+    const prompter = async (e) => {
+      entries.push(e);
+      return 'skip';
+    };
+    try {
+      if (q === 'review') await resolveReviewQueue({ tier: 'P', projectRoot, userDir, prompter });
+      else await resolveConflictQueue({ tier: 'P', projectRoot, userDir, prompter });
+    } catch (err) {
+      return { content: [{ type: 'text', text: `error: ${err?.message ?? err}` }], isError: true };
+    }
+    return {
+      content: [{ type: 'text', text: JSON.stringify({ queue: q, pending: entries.length, entries }, null, 2) }],
+    };
+  };
+}
+
+function makeMkQueueResolve({ projectRoot, userDir }) {
+  return async ({ queue, id, action }) => {
+    const q = queue ?? 'review';
+    if (q === 'review') {
+      if (action !== 'promote' && action !== 'discard') {
+        return mcpToolError({ action: 'error', errorCategory: 'schema', errors: [`review action must be 'promote' or 'discard' (got ${action})`] });
+      }
+      const prompter = async (e) => (e.id === id ? action : 'skip');
+      const r = await resolveReviewQueue({ tier: 'P', projectRoot, userDir, prompter });
+      if (r.action === 'error') return mcpToolError(r);
+      const count = action === 'promote' ? r.promoted : r.discarded;
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ accepted: count > 0, queue: 'review', id, action, result: r }, null, 2) }],
+      };
+    }
+    if (q === 'conflicts') {
+      if (action === 'merge-both') {
+        return mcpToolError({ action: 'error', errorCategory: 'schema', errors: ["merge-both composes the two facts' content — run `cmk queue conflicts` for an interactive merge. mk_queue_resolve supports 'keep-old' / 'keep-new'."] });
+      }
+      if (action !== 'keep-old' && action !== 'keep-new') {
+        return mcpToolError({ action: 'error', errorCategory: 'schema', errors: [`conflict action must be 'keep-old' or 'keep-new' (got ${action})`] });
+      }
+      const prompter = async (e) => (e.proposedId === id ? action : 'skip');
+      const r = await resolveConflictQueue({ tier: 'P', projectRoot, userDir, prompter });
+      if (r.action === 'error') return mcpToolError(r);
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ accepted: r.resolved > 0, queue: 'conflicts', id, action, result: r }, null, 2) }],
+      };
+    }
+    return mcpToolError({ action: 'error', errorCategory: 'schema', errors: [`queue must be 'review' or 'conflicts' (got ${q})`] });
+  };
+}
+
 // --- Server build + run ----------------------------------------------
 
 /**
@@ -563,6 +632,32 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
       },
     },
     makeMkForget({ projectRoot, userDir }),
+  );
+
+  // mk_queue_list (Task 108b — queue parity). Read-only: show pending entries.
+  server.registerTool(
+    'mk_queue_list',
+    {
+      description: "List pending entries in the review queue (medium-trust auto-extracts awaiting promotion) or the conflict queue (writes that clashed with existing facts). Read-only. Parity with `cmk queue review` / `cmk queue conflicts`.",
+      inputSchema: {
+        queue: z.enum(['review', 'conflicts']).optional().describe("which queue (default 'review')"),
+      },
+    },
+    makeMkQueueList({ projectRoot, userDir }),
+  );
+
+  // mk_queue_resolve (Task 108b — queue parity). Resolve one entry by id.
+  server.registerTool(
+    'mk_queue_resolve',
+    {
+      description: "Resolve one queued entry by ID. review: 'promote' (land it in MEMORY.md at high trust) | 'discard'. conflicts: 'keep-old' | 'keep-new' (merge-both composes content — use `cmk queue conflicts`). Audited.",
+      inputSchema: {
+        queue: z.enum(['review', 'conflicts']).describe('which queue the entry is in'),
+        id: z.string().describe('the queued entry ID to resolve'),
+        action: z.enum(['promote', 'discard', 'keep-old', 'keep-new', 'merge-both']).describe('review: promote|discard; conflicts: keep-old|keep-new (merge-both → use `cmk queue conflicts`)'),
+      },
+    },
+    makeMkQueueResolve({ projectRoot, userDir }),
   );
 
   return server;

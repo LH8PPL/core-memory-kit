@@ -22,7 +22,7 @@
 //     tests since the SDK is the authoritative framing implementation.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -127,7 +127,7 @@ describe('Task 31 — MCP server', () => {
   });
 
   describe('Tool registration', () => {
-    it('registers all 9 documented tools (6 read/write + 3 mutate — 108b)', () => {
+    it('registers all 11 documented tools (6 read/write + 3 mutate + 2 queue — 108b)', () => {
       const server = buildMcpServer({ projectRoot, userDir, db });
       const tools = server._registeredTools ?? {};
       const names = Object.keys(tools).sort();
@@ -143,6 +143,9 @@ describe('Task 31 — MCP server', () => {
           'mk_trust',
           'mk_lessons_promote',
           'mk_forget',
+          // Task 108b — queue parity.
+          'mk_queue_list',
+          'mk_queue_resolve',
         ].sort(),
       );
     });
@@ -461,6 +464,78 @@ describe('Task 31 — MCP server', () => {
       const r = await invokeTool(server, 'mk_forget', { id: 'P-ZZZZZZZZ' });
       expect(r.isError).toBe(true);
       expect(r.content[0].text).toMatch(/no matching|not found/i);
+    });
+  });
+
+  // Task 108b — queue parity. The model can SEE pending review/conflict entries
+  // (mk_queue_list) and RESOLVE them (mk_queue_resolve) — so the user never has
+  // to run `cmk queue review` / `cmk queue conflicts` themselves (D-85).
+  describe('mk_queue_list / mk_queue_resolve — queue parity (108b)', () => {
+    function seedReviewQueue(projectRoot, entries) {
+      const dir = join(projectRoot, 'context', 'queues');
+      mkdirSync(dir, { recursive: true });
+      const lines = [];
+      for (const e of entries) {
+        lines.push(`## ${e.ts} — auto-extract (medium-trust, pending review)`);
+        lines.push(`- (${e.id}) ${e.text}`);
+        lines.push(`  <!-- proposed_trust: medium, write: auto-extract, at: ${e.ts} -->`);
+        lines.push('');
+      }
+      writeFileSync(join(dir, 'review.md'), lines.join('\n'), 'utf8');
+    }
+
+    it('mk_queue_list returns pending review entries (read-only)', async () => {
+      seedReviewQueue(projectRoot, [
+        { ts: '2026-05-27T10:00:00Z', id: 'P-AAAAAAAA', text: 'first candidate' },
+        { ts: '2026-05-27T10:01:00Z', id: 'P-BBBBBBBB', text: 'second candidate' },
+      ]);
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const r = await invokeTool(server, 'mk_queue_list', { queue: 'review' });
+      expect(r.isError).toBeFalsy();
+      const out = JSON.parse(r.content[0].text);
+      expect(out.pending).toBe(2);
+      expect(out.entries.map((e) => e.id)).toEqual(['P-AAAAAAAA', 'P-BBBBBBBB']);
+    });
+
+    it('mk_queue_resolve promote lands the entry in MEMORY.md', async () => {
+      seedReviewQueue(projectRoot, [{ ts: '2026-05-27T10:00:00Z', id: 'P-AAAAAAAA', text: 'promote me' }]);
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const r = await invokeTool(server, 'mk_queue_resolve', { queue: 'review', id: 'P-AAAAAAAA', action: 'promote' });
+      expect(r.isError).toBeFalsy();
+      const out = JSON.parse(r.content[0].text);
+      expect(out.accepted).toBe(true);
+      expect(out.action).toBe('promote');
+      // Door 2 — the promoted text now lives in MEMORY.md.
+      expect(readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8')).toMatch(/promote me/);
+    });
+
+    it('mk_queue_resolve discard removes the entry WITHOUT writing it to MEMORY.md', async () => {
+      seedReviewQueue(projectRoot, [{ ts: '2026-05-27T10:00:00Z', id: 'P-AAAAAAAA', text: 'discard me' }]);
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const r = await invokeTool(server, 'mk_queue_resolve', { queue: 'review', id: 'P-AAAAAAAA', action: 'discard' });
+      expect(JSON.parse(r.content[0].text).accepted).toBe(true);
+      // Door 2 (over-mutation guard) — discard does NOT promote into MEMORY.md.
+      expect(readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8')).not.toMatch(/discard me/);
+    });
+
+    it('mk_queue_resolve rejects a wrong-queue action (review can’t keep-old)', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const r = await invokeTool(server, 'mk_queue_resolve', { queue: 'review', id: 'P-AAAAAAAA', action: 'keep-old' });
+      expect(r.isError).toBe(true);
+      expect(r.content[0].text).toMatch(/promote.*discard/);
+    });
+
+    it('mk_queue_resolve conflicts merge-both points to the interactive CLI', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const r = await invokeTool(server, 'mk_queue_resolve', { queue: 'conflicts', id: 'P-AAAAAAAA', action: 'merge-both' });
+      expect(r.isError).toBe(true);
+      expect(r.content[0].text).toMatch(/cmk queue conflicts/);
+    });
+
+    it('mk_queue_list on an empty queue → pending: 0', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const out = JSON.parse((await invokeTool(server, 'mk_queue_list', { queue: 'conflicts' })).content[0].text);
+      expect(out.pending).toBe(0);
     });
   });
 
