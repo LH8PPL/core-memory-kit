@@ -7,13 +7,13 @@
 **Please do not open a public issue for security problems.**
 
 - Preferred: GitHub **private vulnerability reporting** — repo → **Security** → **Report a vulnerability** (Security Advisories).
-- Or email the maintainer directly: **liorhollander@gmail.com** (`@LH8PPL`).
+- Or email the maintainer directly: **<liorhollander@gmail.com>** (`@LH8PPL`).
 
 Please include repro steps and the affected version. We aim to acknowledge within a few days and to ship a fix or mitigation before any public disclosure.
 
 ## Supported versions
 
-The kit is pre-1.0. Security fixes target the **latest published** `0.1.x` release. Older versions are not back-patched.
+The kit is pre-1.0. Security fixes target the **latest published** `0.2.x` release. Older versions are not back-patched.
 
 ## Threat surfaces & mitigations
 

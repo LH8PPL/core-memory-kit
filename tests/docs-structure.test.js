@@ -4,9 +4,12 @@
 // Door 5 N/A: no message-queue interaction.
 
 // Tests for Task 41 — top-level docs structural shape.
-// Per tasks.md 41.5: README, QUICKSTART, INSTALL-{linux,macos,windows} must
-// exist, parse, and reference the v0.1.0 surface accurately. Catches stale
-// doc references early (the same drift class Task 36 swept manually).
+// Per tasks.md 41.5: README, QUICKSTART, ARCHITECTURE must exist, parse, and
+// reference the current surface accurately. Catches stale doc references early
+// (the same drift class Task 36 swept manually). The per-OS INSTALL-*.md guides
+// + the legacy install.sh/.ps1 scripts were RETIRED 2026-06-08 — `cmk install`
+// is the cross-OS entry point (CI-verified on ubuntu/macos/windows), so the
+// per-OS docs were redundant + stale. See ADR-0005 (Status: Superseded).
 
 import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
@@ -18,7 +21,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const repoRoot = join(__dirname, '..');
 
-const REQUIRED_DOCS = ['README.md', 'QUICKSTART.md', 'INSTALL-linux.md', 'INSTALL-macos.md', 'INSTALL-windows.md', 'ARCHITECTURE.md', 'HEALTH-CHECKS.md'];
+const REQUIRED_DOCS = ['README.md', 'QUICKSTART.md', 'ARCHITECTURE.md', 'HEALTH-CHECKS.md'];
 
 describe('Task 41 — top-level docs exist + structural shape', () => {
   for (const doc of REQUIRED_DOCS) {
@@ -59,13 +62,6 @@ describe('Task 41 — README references v0.1.0 surface (no stale references)', (
     expect(text).toMatch(/cmk register-crons/);
     expect(text).not.toMatch(/python scripts\/register-crons\.py/);
     expect(text).not.toMatch(/python3 scripts\/register-crons\.py/);
-  });
-
-  it('references the OS-specific install guides', () => {
-    text = readFileSync(join(repoRoot, 'README.md'), 'utf8');
-    expect(text).toContain('INSTALL-linux.md');
-    expect(text).toContain('INSTALL-macos.md');
-    expect(text).toContain('INSTALL-windows.md');
   });
 
   it('links to architectural docs (ARCHITECTURE.md + design.md)', () => {
@@ -111,17 +107,4 @@ describe('Task 41 — QUICKSTART.md walkthrough is complete', () => {
     expect(text).toMatch(/cmk: command not found/);
     expect(text).toMatch(/HC-2/);
   });
-});
-
-describe('Task 41 — INSTALL-{os}.md references current install path', () => {
-  for (const os of ['linux', 'macos', 'windows']) {
-    it(`INSTALL-${os}.md references cmk register-crons (post-Task-36 sweep)`, () => {
-      const text = readFileSync(join(repoRoot, `INSTALL-${os}.md`), 'utf8');
-      expect(text).toMatch(/cmk register-crons/);
-      // Negative assertion: the Task 33 Python pivot's decision-trail in
-      // CLAUDE.md keeps the original Python plan, but user-facing INSTALL
-      // docs should NOT direct users to the legacy command.
-      expect(text).not.toMatch(/^python3? scripts\/register-crons\.py/m);
-    });
-  }
 });

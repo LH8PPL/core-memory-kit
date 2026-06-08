@@ -1630,7 +1630,7 @@ Single Node binary, ships with the kit. Subcommands:
 
 | Subcommand | What it does |
 | --- | --- |
-| `cmk install` | Cross-OS one-shot install (equivalent to install.sh / install.ps1) |
+| `cmk install` | Cross-OS one-shot install (scaffold + hook wiring + `.mcp.json` MCP-server registration) — the sole installer since the `install.sh` / `install.ps1` scripts were retired 2026-06-08 |
 | `cmk init-user-tier` | Scaffold `~/.claude-memory-kit/` once per machine |
 | `cmk search "<query>" [flags]` | Per §9.3 — hybrid keyword + semantic |
 | `cmk reindex [--boot \| --full]` | Rebuild SQLite cache from markdown |
@@ -1657,15 +1657,16 @@ CLI implemented in Node; ships as `@lh8ppl/claude-memory-kit` npm package + stan
 
 Per OQ-2 + verified plugin format from claude-mem (`plugin/.claude-plugin/plugin.json`):
 
+> **Updated 2026-06-08 (decision-trail):** the original `bash install.sh` + `pwsh install.ps1` shell-script paths + the per-OS `INSTALL-{windows,macos,linux}.md` manual-copy guides were early-architecture artifacts, **retired** in favor of the npm `cmk install` entry point (which does strictly more — scaffold + hook wiring + `.mcp.json` registration — and is CI-verified cross-OS). See [ADR-0005](../../docs/adr/0005-three-install-paths.md) (Status: Superseded). The two live paths are below.
+
 | Path | Audience | Mechanism |
 | --- | --- | --- |
-| `bash install.sh` | macOS / Linux / Git Bash | Reads `template/`, scaffolds into target, never overwrites |
-| `pwsh install.ps1` | Windows-native | PowerShell-native equivalent |
-| `npx claude-memory-kit install` | Cross-OS one-liner | Node-distributed (`@lh8ppl/claude-memory-kit`) |
-| Claude Code plugin (`/plugin install claude-memory-kit` + `/claude-memory-kit:bootstrap`) | Claude Code users | Plugin manifest in `plugin/.claude-plugin/plugin.json`; `bootstrap` skill scaffolds per-project files |
-| Manual copy (documented in `INSTALL-{windows,macos,linux}.md`) | Offline / air-gapped | Direct copy of `template/` contents |
+| `npm install -g @lh8ppl/claude-memory-kit` + `cmk install` | Cross-OS (Windows / macOS / Linux) | Node-distributed; scaffolds `template/`, wires the 5 hooks into `.claude/settings.json`, registers the MCP server in `.mcp.json` |
+| Claude Code plugin (`/plugin install claude-memory-kit` + `/claude-memory-kit:bootstrap`) | Claude Code users (no terminal) | Plugin manifest in `plugin/.claude-plugin/plugin.json`; `bootstrap` skill scaffolds per-project files |
 
-All paths produce **identical scaffolded state** in the target project. Tested via CI matrix on Windows 10/11, macOS 14+, Ubuntu 22.04+ (per NFR-3).
+Both paths produce **identical scaffolded state** in the target project. Tested via CI matrix on Windows 10/11, macOS 14+, Ubuntu 22.04+ (per NFR-3).
+
+**Retired paths (history):** `bash install.sh`, `pwsh install.ps1`, manual copy per `INSTALL-*.md` — deleted 2026-06-08; `cmk install` supersedes all three.
 
 ### 13.1 CLAUDE.md loader block (idempotent install marker)
 

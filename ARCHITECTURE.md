@@ -51,25 +51,22 @@ Why all four? Each fixes a different reliability gap:
 - **Without auto-extract**: the user still has to say "remember this" every time. Auto-extract harvests proactively.
 - **Without the skill**: writes would be ad-hoc, with duplicates and cap overruns. Skill enforces structure.
 
-### Layer 5 — memsearch (optional)
+### Layer 5 — search
 
-Hybrid vector + keyword search over `context/memory/`, `context/sessions/`, `context/transcripts/`. Uses local ONNX embeddings (`gpahal/bge-m3-onnx-int8`, ~558MB on first use). No API key.
+**5a — keyword (shipped).** SQLite + FTS5 over `context/`. `cmk search "<term>"` (and the `mk_search` MCP tool) use this by default; no setup.
 
-Backend:
-- **Linux/macOS**: milvus-lite, embedded, no setup
-- **Windows**: Milvus v2.6.16 via Docker Compose (`milvus-deploy/`). milvus-lite has no Windows wheels.
+**5b — semantic (deferred to a later release).** Hybrid vector + keyword via the optional `memsearch` backend — local ONNX embeddings (`gpahal/bge-m3-onnx-int8`, ~558MB on first use, no API key); milvus-lite embedded on Linux/macOS, Milvus via Docker on Windows. **Not shipped yet** — `cmk search --mode semantic` reports it's unavailable until installed.
 
-Used for **Tier 2 retrieval** — when Tier 0 (snapshot) and Tier 1 (grep INDEX.md) miss, escalate to semantic search.
+Used for **Tier 2 retrieval** — when Tier 0 (snapshot) and Tier 1 (grep INDEX.md) miss, escalate to search.
 
 ### Layer 6 — Auto-curation crons
 
-Three scheduled jobs keep the system healthy without manual intervention:
+Two scheduled jobs keep the system healthy without manual intervention (registered via `cmk register-crons`; they fall back to lazy-on-read if you skip cron):
 
 | Job | Schedule | What |
 |---|---|---|
-| Daily memory distillation | 23:00 daily | Extracts durable facts from today's session log into MEMORY.md. |
-| Nightly memsearch index | 02:00 daily | Re-indexes `context/` for vector search. |
-| Weekly memory curator | Sun 09:00 | Prunes resolved threads, merges duplicates, drops stale entries. |
+| Daily memory distillation (`cmk daily-distill`) | 23:00 daily | Extracts durable facts from today's session log into MEMORY.md. |
+| Weekly memory curator (`cmk weekly-curate`) | Sun 09:00 | Prunes resolved threads, merges duplicates, drops stale entries. |
 
 Registered via `cmk register-crons`. Translates to crontab entries (Linux), LaunchAgents (macOS), or Task Scheduler tasks (Windows). Idempotent — re-running overwrites existing entries cleanly. See [`packages/cli/src/register-crons.mjs`](packages/cli/src/register-crons.mjs) for the platform mapping.
 
@@ -113,9 +110,8 @@ Registered via `cmk register-crons`. Translates to crontab entries (Linux), Laun
 ┌─────────────────────────────────────────────────────────────────────┐
 │ ASYNCHRONOUS (cron)                                                 │
 │                                                                     │
-│  23:00 — run-daily-distill.sh → MEMORY.md updated                   │
-│  02:00 — memsearch-index-with-flush.sh → vector index refreshed     │
-│  Sun 09:00 — run-weekly-curate.sh → MEMORY.md pruned                │
+│  23:00 — cmk daily-distill → MEMORY.md updated                      │
+│  Sun 09:00 — cmk weekly-curate → MEMORY.md pruned                   │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 

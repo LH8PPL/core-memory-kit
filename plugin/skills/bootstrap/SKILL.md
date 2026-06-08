@@ -62,8 +62,8 @@ Scaffold the memory-system files into the user's current project. The plugin its
 - **NEVER modify their `.claude/settings.json`** — the plugin's hooks are registered via the plugin's own `hooks/hooks.json`, not the user's settings file.
 - Confirm before scaffolding if `context/` already has content.
 
-## Why this is a skill, not the install script
+## Why this is a skill, not an install step
 
-The standalone `install.sh` / `install.ps1` (in the kit repo root) copies files from `template/`. The plugin can't do that because Claude Code plugins don't run setup scripts at install time — they only register skills, hooks, agents, and MCP servers.
+The npm CLI's `cmk install` scaffolds `template/` into a project. The plugin can't do that because Claude Code plugins don't run setup scripts at install time — they only register skills, hooks, agents, and MCP servers.
 
 So instead the plugin ships the template content under `context-template/` and exposes this bootstrap skill, which the user runs explicitly with `/claude-memory-kit:bootstrap` after installing the plugin.

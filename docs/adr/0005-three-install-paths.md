@@ -1,8 +1,9 @@
 ---
 adr: 0005
 title: Ship three install paths — bash script, PowerShell script, Claude Code plugin
-status: accepted
+status: superseded
 date: 2026-05-21
+superseded_date: 2026-06-08
 deciders:
   - the maintainer
   - Claude Opus 4.7
@@ -17,6 +18,8 @@ tags:
 ---
 
 # ADR-0005 — Ship three install paths — bash script, PowerShell script, Claude Code plugin
+
+> **⛔ SUPERSEDED 2026-06-08.** The `bash install.sh` + `pwsh install.ps1` shell installers (and the per-OS `INSTALL-{linux,macos,windows}.md` guides) were early-project-architecture artifacts, abandoned long ago in favor of the npm **`cmk install`** entry point — a single cross-OS installer (PATH-resolved hooks; CI-verified on ubuntu / macOS / windows) that does strictly more than the scripts (scaffold + hook wiring + `.mcp.json` registration). The **Claude Code plugin** path from this ADR survives (Route B in the README); the two shell-script paths do **not**. `install.sh` / `install.ps1` + the three `INSTALL-*.md` files were deleted 2026-06-08. This ADR is retained as history (the *why* of the original 3-path decision); it is no longer current state. The live install surface is the README "Install — pick ONE route" section (`cmk install` or the plugin).
 
 ## Status
 
@@ -48,7 +51,7 @@ Manual `cp -r` is documented as a fallback but is not a first-class install path
 | `pwsh install.ps1` | Windows-native (no Git Bash required) | PowerShell-native equivalent of `install.sh`. Same scaffolding, same idempotency. |
 | `/plugin install claude-memory-kit` followed by `/claude-memory-kit:bootstrap` | Claude Code users | Plugin manifest at `plugin/.claude-plugin/plugin.json`. Plugin ships hooks + skills globally; the `bootstrap` skill scaffolds per-project files when invoked. |
 
-Plus a documented **manual copy** fallback in [INSTALL-windows.md](../../INSTALL-windows.md), [INSTALL-macos.md](../../INSTALL-macos.md), [INSTALL-linux.md](../../INSTALL-linux.md) — not a primary path but available for offline / air-gapped scenarios.
+Plus a documented **manual copy** fallback in `INSTALL-windows.md` / `INSTALL-macos.md` / `INSTALL-linux.md` — not a primary path but available for offline / air-gapped scenarios. _(All three deleted 2026-06-08 — see the Superseded note at the top.)_
 
 All three paths are idempotent: re-running them on a project that already has the kit installed never overwrites existing files (it skips them with a `SKIP` log line).
 
@@ -81,9 +84,9 @@ All three paths are idempotent: re-running them on a project that already has th
 
 ## References
 
-- Install scripts: [install.sh](../../install.sh), [install.ps1](../../install.ps1)
+- Install scripts: `install.sh`, `install.ps1` _(deleted 2026-06-08 — superseded by `cmk install`)_
 - Plugin manifest: [plugin/.claude-plugin/plugin.json](../../plugin/.claude-plugin/plugin.json)
-- Per-OS install docs: [INSTALL-windows.md](../../INSTALL-windows.md), [INSTALL-macos.md](../../INSTALL-macos.md), [INSTALL-linux.md](../../INSTALL-linux.md)
+- Per-OS install docs: `INSTALL-windows.md`, `INSTALL-macos.md`, `INSTALL-linux.md` _(deleted 2026-06-08)_
 - Claude Code plugin docs (verified 2026-05-21): <https://code.claude.com/docs/en/plugins>
 - Conversation context: [conversation-log/2026-05-21.md](../../archive/docs/conversation-log/2026-05-21.md), thread "Install path scope"
 

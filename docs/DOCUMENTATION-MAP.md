@@ -39,7 +39,6 @@ A session that has lost all memory must be able to read **only the three spine f
 | [`docs/RELEASE-PLAN.md`](RELEASE-PLAN.md) | Forward complement to CHANGELOG: which version each task ships in (release lanes + the one-differentiator-per-minor rule). |
 | [`SECURITY.md`](../SECURITY.md) | Threat model + disclosure contact. |
 | [`HEALTH-CHECKS.md`](../HEALTH-CHECKS.md) | HC-* diagnostics + self-repair. |
-| [`INSTALL-windows.md`](../INSTALL-windows.md) · [`INSTALL-macos.md`](../INSTALL-macos.md) · [`INSTALL-linux.md`](../INSTALL-linux.md) | Per-OS install guides. |
 
 ## Zone 3 — History / paper trail (append-only; explains the Spine; NEVER current state)
 
@@ -101,7 +100,7 @@ When you add a doc, add its path to the Registry in the same commit, or the buil
 > The validator checks each file under the high-risk zones appears here. Bulk history dirs are zone-registered (above) and not listed file-by-file.
 
 **Repo-root guides + rules:**
-`README.md` · `QUICKSTART.md` · `ARCHITECTURE.md` · `CHANGELOG.md` · `SECURITY.md` · `HEALTH-CHECKS.md` · `INSTALL-windows.md` · `INSTALL-macos.md` · `INSTALL-linux.md` · `CLAUDE.md`
+`README.md` · `QUICKSTART.md` · `ARCHITECTURE.md` · `CHANGELOG.md` · `SECURITY.md` · `HEALTH-CHECKS.md` · `CLAUDE.md`
 
 **Spine (`specs/v0.1.0/`):**
 `specs/v0.1.0/requirements.md` · `specs/v0.1.0/design.md` · `specs/v0.1.0/tasks.md` · `specs/v0.1.0/glossary.md`

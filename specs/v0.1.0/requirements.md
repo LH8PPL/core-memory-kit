@@ -332,12 +332,14 @@ Acceptance: When the curator merges two bullets with IDs M-A and M-B, the merged
 
 ### 3.8 Setup and portability
 
+> **Superseded 2026-06-08 (decision-trail):** FR-22/FR-23 originally specified `install.sh` + `install.ps1` shell installers. Those were early-architecture artifacts, **retired** in favor of the single Node-based `cmk install` (the `npx`/`npm` path below), which scaffolds + wires hooks + registers the MCP server cross-OS (CI-verified). The shell scripts + per-OS `INSTALL-*.md` guides were deleted; see [ADR-0005](../../docs/adr/0005-three-install-paths.md) (Status: Superseded). The original FR text is preserved below for the paper trail; the **live** requirement is the `cmk install` line only.
+
 **FR-22 — One-command bootstrap on each OS**
 The kit shall provide:
 
-- `install.sh` (Bash, works on macOS / Linux / Git Bash on Windows).
-- `install.ps1` (PowerShell, native Windows).
-- `npx claude-memory-kit install` (Node-based universal installer — to be added in v0.1.0).
+- ~~`install.sh` (Bash, works on macOS / Linux / Git Bash on Windows).~~ _(retired 2026-06-08)_
+- ~~`install.ps1` (PowerShell, native Windows).~~ _(retired 2026-06-08)_
+- `cmk install` (Node-based universal installer; `npm install -g @lh8ppl/claude-memory-kit` then `cmk install`) — **the sole installer**.
 
 Each shall scaffold the project tier into the current directory.
 

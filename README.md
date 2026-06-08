@@ -14,7 +14,6 @@ Claude forgets everything the moment a session ends — so every new chat, you r
 
 - [What it does](#what-it-does)
 - [Quickstart](#quickstart)
-- [Install guides (per OS)](#os-specific-install-guides)
 - [Three-tier model](#three-tier-model)
 - [Layers](#layers)
 - [CLI](#cli)
@@ -82,13 +81,7 @@ Either way: open Claude Code on the project — auto-extract fires on Stop, Sess
 
 > **npm note:** `npm install -g @lh8ppl/claude-memory-kit` installs the CLI + the installer. It is the `cmk install` *subcommand* (not the bare `npm install`) that wires the hooks — mirroring claude-mem's library-vs-installer split.
 
-Full walkthrough: [QUICKSTART.md](QUICKSTART.md).
-
-## OS-specific install guides
-
-- [INSTALL-linux.md](INSTALL-linux.md) — Node via NodeSource, optional Docker for Layer 5b
-- [INSTALL-macos.md](INSTALL-macos.md) — Homebrew, native launchd cron, milvus-lite (no Docker needed)
-- [INSTALL-windows.md](INSTALL-windows.md) — winget, Task Scheduler, optional Docker Desktop for Layer 5b
+Full walkthrough: [QUICKSTART.md](QUICKSTART.md). Both routes are cross-OS (Windows / macOS / Linux) — `cmk install` writes PATH-resolved hooks and is verified on all three in CI; you don't need per-OS instructions.
 
 ## Three-tier model
 

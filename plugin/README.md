@@ -32,19 +32,19 @@ The bootstrap skill scaffolds `context/`, `scripts/`, `cron/jobs/`, and `milvus-
 - It does not modify your `.claude/settings.json` — the hooks are registered via the plugin's own `hooks/hooks.json`.
 - It does not run on session start; the bootstrap is opt-in per project via the slash command.
 
-## Differences vs the script install
+## Differences vs the npm CLI install
 
-The kit ships two install paths:
+The kit ships two install paths (the legacy `install.sh` / `install.ps1` shell scripts were retired 2026-06-08 — see ADR-0005):
 
-| Aspect | Plugin (this directory) | Script install (`install.sh` / `.ps1`) |
+| Aspect | Plugin (this directory) | npm CLI (`cmk install`) |
 |---|---|---|
-| Distribution | Claude Code marketplace | git clone + run install script |
-| Hooks live in | Plugin directory | Project's `.claude/hooks/` |
-| Updates | `/plugin update` | `git pull && rerun install` |
-| Project-local scripts | Scaffolded by bootstrap skill | Copied by install script |
-| Modifies project's `.claude/settings.json` | No (plugin manages own hooks) | No (ships own settings.json) |
+| Distribution | Claude Code marketplace | `npm install -g @lh8ppl/claude-memory-kit` |
+| Hooks live in | Plugin directory (`${CLAUDE_PLUGIN_ROOT}`) | Project's `.claude/settings.json` (PATH-resolved bare bins) |
+| Updates | `/plugin update` | `npm update -g @lh8ppl/claude-memory-kit` |
+| Project-local files | Scaffolded by the bootstrap skill | Scaffolded by `cmk install` |
+| MCP server | Registered by the plugin manifest | Registered by `cmk install` in `.mcp.json` |
 
-Both work. The plugin is more polished but newer; the script install is more transparent.
+Both work. The plugin needs no terminal; the npm CLI also gives you `cmk search` / `cmk doctor` / cron.
 
 ## File layout (this directory)
 
