@@ -23,7 +23,7 @@ tags:
 2. *"How do we do weekly-curate? daily? do we create daily files and keep MEMORY.md minimal with links to other days? what is the solution here?"*
 3. *"When I give it to somebody I want him to be excited as me, and I am not excited at all."*
 
-This note is the **single durable answer** so we never re-derive it: the lifecycle model we actually built, how every other memory system ages memory, where we genuinely stand competitively, the niche wedge, and the decision-grade deep-research brief for the one true gap (Layer 5 semantic recall). Strategic decisions live in [DECISION-LOG D-24..27](../journey/DECISION-LOG.md); the roadmap lives in [tasks.md "Road to 1.0"](../../specs/v0.1.0/tasks.md). This is the **history / research** backing.
+This note is the **single durable answer** so we never re-derive it: the lifecycle model we actually built, how every other memory system ages memory, where we genuinely stand competitively, the niche wedge, and the decision-grade deep-research brief for the one true gap (Layer 5 semantic recall). Strategic decisions live in [DECISION-LOG D-24..27](../journey/DECISION-LOG.md); the roadmap lives in [tasks.md "Road to 1.0"](../../specs/tasks.md). This is the **history / research** backing.
 
 ## 1. The lifecycle: two parallel tracks (the answer to "what happens over time")
 
@@ -61,7 +61,7 @@ His *"daily files + keep MEMORY.md minimal with links to other days"* **is the a
 
 ### What the two-track model does NOT solve: currency
 
-Track A handles **volume** (compression). Track B handles **durability** (permanent archive). Neither handles **currency** — "is this fact still TRUE now?" If you said "we use Postgres" in March and "moved to SQLite" in May, both can sit in the archive; keyword recall might surface the stale one. That's the temporal-validity gap → [design §16.18](../../specs/v0.1.0/design.md) / Task 66. Also: **`expires_at` is a defined frontmatter field with ZERO code enforcement** (verified 2026-06-01) — folded into Task 66.3.
+Track A handles **volume** (compression). Track B handles **durability** (permanent archive). Neither handles **currency** — "is this fact still TRUE now?" If you said "we use Postgres" in March and "moved to SQLite" in May, both can sit in the archive; keyword recall might surface the stale one. That's the temporal-validity gap → [design §16.18](../../specs/design.md) / Task 66. Also: **`expires_at` is a defined frontmatter field with ZERO code enforcement** (verified 2026-06-01) — folded into Task 66.3.
 
 ## 2. How every other system ages memory (the cross-system check)
 
@@ -70,7 +70,7 @@ Track A handles **volume** (compression). Track B handles **durability** (perman
 | **Simon Scrapes video** (our seed) | Self-curation via cron: daily distill / nightly index / weekly curate keep MEMORY.md bounded. Frozen-snapshot read once per session. | We built all of it. **Did NOT address fact consolidation/retention** — we extended past him (content-addressed IDs, supersession, tombstones). |
 | **claude-remember** | Rolling window: `now → today-X (1h cooldown) → recent (entries >3d rotate out) → archive (by week)`. Caps: recent <600 tokens, archive <400. `.done.md` rename = never delete. | We ported the rolling-window shape (Tasks 28/29/33). Our caps are byte-based; our prompts are our own. |
 | **GBrain** (Garry Tan) | "Dream cycle" — nightly cron does dedup + citation-fixing + **contradiction detection** + synthesis ("gives the answer, not raw pages"). | Contradiction-detection → our Task 66.4. Synthesis → past-1.0. Their entity-graph scale is wrong weight class for single-user. |
-| **Beyond the Log** (Chandra) | The deepest: episodic ≠ temporal. **Validity windows** (`started_at`/`ended_at`), 7 fact *shapes*, nudged reranking by query mode. | Absorbed as [design §16.18](../../specs/v0.1.0/design.md) → Task 66. Full research: [`2026-05-24-beyond-the-log-time-aware-memory.md`](2026-05-24-beyond-the-log-time-aware-memory.md). |
+| **Beyond the Log** (Chandra) | The deepest: episodic ≠ temporal. **Validity windows** (`started_at`/`ended_at`), 7 fact *shapes*, nudged reranking by query mode. | Absorbed as [design §16.18](../../specs/design.md) → Task 66. Full research: [`2026-05-24-beyond-the-log-time-aware-memory.md`](2026-05-24-beyond-the-log-time-aware-memory.md). |
 | **Native Auto Memory** (Anthropic) | Single-project, machine-local, opaque. Same `MEMORY.md + <type>_<slug>.md` shape. | NOT our benchmark (the kit exists to beat it; v0.1.1 did). Coexist by default (D-21/ADR-0011). |
 
 ## 3. Competitive position + the niche wedge (why anyone picks us)
@@ -110,11 +110,11 @@ L1 in-repo ✅ · L2 granular archive ✅ · L3 bounded scratchpads ✅ · L4 me
 
 **Output we want:** a recommended (store + embedding model + fusion) triple with the one-sentence why, a fallback, and the 2–3 things to verify in the bake-off on our data (recall@5 + latency + install weight over ~30–50 facts + ~10 synonym/paraphrase queries).
 
-**Where the answer lands:** a new research note (`docs/research/{date}-layer5-semantic-recall-backend.md`), then Task 65.1 bake-off confirms the pick, then build. Update [design §9.3.1](../../specs/v0.1.0/design.md) + D-26 NOTE with the decision.
+**Where the answer lands:** a new research note (`docs/research/{date}-layer5-semantic-recall-backend.md`), then Task 65.1 bake-off confirms the pick, then build. Update [design §9.3.1](../../specs/design.md) + D-26 NOTE with the decision.
 
 ## Related
 
 - [DECISION-LOG D-24..27](../journey/DECISION-LOG.md) — the roadmap/cadence/wedge decisions (current).
-- [tasks.md "Road to 1.0"](../../specs/v0.1.0/tasks.md) — the sequenced milestone + Tasks 65/66.
+- [tasks.md "Road to 1.0"](../../specs/tasks.md) — the sequenced milestone + Tasks 65/66.
 - [`2026-05-24-beyond-the-log-time-aware-memory.md`](2026-05-24-beyond-the-log-time-aware-memory.md) — temporal-validity source (Task 66).
 - [`../sources/simon-scrapes-master-claude-memory.md`](../sources/simon-scrapes-master-claude-memory.md) — the video; the parity bar.

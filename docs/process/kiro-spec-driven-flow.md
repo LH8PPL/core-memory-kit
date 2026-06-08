@@ -38,7 +38,7 @@ Each document **references** the previous one but does **not duplicate** it. `de
 | 7. Review checklist | A self-check before approval |
 | 8. Approval | Signed line for user approval |
 
-The example for v0.1.0 lives at [specs/v0.1.0/requirements.md](../../specs/v0.1.0/requirements.md).
+The example for v0.1.0 lives at [specs/requirements.md](../../specs/requirements.md).
 
 ## design.md — structure (template, not yet authored for v0.1)
 

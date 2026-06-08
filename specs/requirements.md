@@ -26,7 +26,7 @@ This kit installs a persistent, in-repo memory layer that survives across sessio
 
 ### 1.3 What v0.1.0 must add
 
-The competitive landscape (see [docs/SOURCES.md](../../docs/SOURCES.md)) shows two systems with patterns worth folding in:
+The competitive landscape (see [docs/SOURCES.md](../docs/SOURCES.md)) shows two systems with patterns worth folding in:
 
 - **claude-mem** (thedotmack/claude-mem, 77k stars): six lifecycle hooks, AI-compressed observations, citation IDs, MCP server, web viewer, `<private>` tags.
 - **claude-remember** (Digital-Process-Tools/claude-remember): rolling-window compression hierarchy (`now → today → recent → archive`).
@@ -332,7 +332,7 @@ Acceptance: When the curator merges two bullets with IDs M-A and M-B, the merged
 
 ### 3.8 Setup and portability
 
-> **Superseded 2026-06-08 (decision-trail):** FR-22/FR-23 originally specified `install.sh` + `install.ps1` shell installers. Those were early-architecture artifacts, **retired** in favor of the single Node-based `cmk install` (the `npx`/`npm` path below), which scaffolds + wires hooks + registers the MCP server cross-OS (CI-verified). The shell scripts + per-OS `INSTALL-*.md` guides were deleted; see [ADR-0005](../../docs/adr/0005-three-install-paths.md) (Status: Superseded). The original FR text is preserved below for the paper trail; the **live** requirement is the `cmk install` line only.
+> **Superseded 2026-06-08 (decision-trail):** FR-22/FR-23 originally specified `install.sh` + `install.ps1` shell installers. Those were early-architecture artifacts, **retired** in favor of the single Node-based `cmk install` (the `npx`/`npm` path below), which scaffolds + wires hooks + registers the MCP server cross-OS (CI-verified). The shell scripts + per-OS `INSTALL-*.md` guides were deleted; see [ADR-0005](../docs/adr/0005-three-install-paths.md) (Status: Superseded). The original FR text is preserved below for the paper trail; the **live** requirement is the `cmk install` line only.
 
 **FR-22 — One-command bootstrap on each OS**
 The kit shall provide:
@@ -439,7 +439,7 @@ Cumulative budget for session start (snapshot injection + cold filesystem reads 
 
 The 500 ms budget on the SessionStart bullet — and equivalent budgets on other hook entries — applies to **the kit's in-process work**: `injectContext()` for SessionStart, `capturePrompt()` for UserPromptSubmit, `captureTurn()` for Stop, `observeEdit()` for PostToolUse. Measured at the module's public boundary, from invocation to return.
 
-**Bash + node + module-loading cold-start is hosting overhead OUTSIDE this budget.** Live-test scenario 7 (see [`docs/journey/2026-05-26-live-test-findings-scenarios-3-7.md`](../../docs/journey/2026-05-26-live-test-findings-scenarios-3-7.md)) measured ~1480 ms of hosting overhead on Windows for the SessionStart hook — variable bash startup (~50-200 ms) + node cold-start (~100-300 ms) + ES-module import-resolution (~50-200 ms) + JSON serialization. None of that is kit code; the kit's `injectContext()` consistently completes under 500 ms (pinned by unit test `completes within the 500ms NFR-1 budget on a small fixture`).
+**Bash + node + module-loading cold-start is hosting overhead OUTSIDE this budget.** Live-test scenario 7 (see [`docs/journey/2026-05-26-live-test-findings-scenarios-3-7.md`](../docs/journey/2026-05-26-live-test-findings-scenarios-3-7.md)) measured ~1480 ms of hosting overhead on Windows for the SessionStart hook — variable bash startup (~50-200 ms) + node cold-start (~100-300 ms) + ES-module import-resolution (~50-200 ms) + JSON serialization. None of that is kit code; the kit's `injectContext()` consistently completes under 500 ms (pinned by unit test `completes within the 500ms NFR-1 budget on a small fixture`).
 
 The **30-second hook timeout** (design §5.1) is the production-tolerance envelope that absorbs hosting overhead. NFR-1's 500 ms applies to the kit's contract; the 30 s applies to the operating envelope.
 
@@ -480,7 +480,7 @@ The kit shall ship:
 - `ARCHITECTURE.md` — six-layer design.
 - `HEALTH-CHECKS.md` — HC-1..HC-N with self-repair.
 - `INSTALL-{windows,macos,linux}.md` — per-OS guides.
-- `specs/v0.1.0/{requirements,design,tasks}.md` — this spec set.
+- `specs/{requirements,design,tasks}.md` — this spec set.
 - `CHANGELOG.md` — semver-tracked changes from v0.0.1 onward.
 
 ### NFR-9 — Memory poisoning defense (baseline)

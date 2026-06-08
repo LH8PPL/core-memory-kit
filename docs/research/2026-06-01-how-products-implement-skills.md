@@ -87,5 +87,5 @@ Our `memory-write` is our own authored synthesis (Task 24): action model (add/re
 ## Related
 
 - [DECISION-LOG D-28](../journey/DECISION-LOG.md) — the skills-delivery decision + the unsafe-skill finding.
-- [tasks.md Task 69](../../specs/v0.1.0/tasks.md) — the implementation (69.0 rewrite → 69.1 scaffold → 69.2 one-source+validator → 69.3 slim CLAUDE.md).
+- [tasks.md Task 69](../../specs/tasks.md) — the implementation (69.0 rewrite → 69.1 scaffold → 69.2 one-source+validator → 69.3 slim CLAUDE.md).
 - [`2026-05-30-gstack-skill-layer.md`](2026-05-30-gstack-skill-layer.md) — prior gstack skill-layer dive (D-16).

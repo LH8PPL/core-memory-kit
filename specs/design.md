@@ -6,7 +6,7 @@ This document specifies **HOW** v0.1.0 is built.
 The companion [`requirements.md`](requirements.md) specifies **WHAT** v0.1.0 must do.
 Every section here cites the FRs it implements.
 
-The design assumes [`requirements-revisions-proposed.md`](../../archive/specs/v0.1.0/requirements-revisions-proposed.md) is approved (it is, per user 2026-05-22 — locked in tenets T7/T8, US-14/15, FR-28/29/30, NFR-9, OS-9..13, OQ-8).
+The design assumes [`requirements-revisions-proposed.md`](../archive/specs/v0.1.0/requirements-revisions-proposed.md) is approved (it is, per user 2026-05-22 — locked in tenets T7/T8, US-14/15, FR-28/29/30, NFR-9, OS-9..13, OQ-8).
 
 ---
 
@@ -61,7 +61,7 @@ The design assumes [`requirements-revisions-proposed.md`](../../archive/specs/v0
 
 - **Project memory follows the REPO.** `context/` is committed, so `git clone` carries it and teammates share it. Transport = git, automatic.
 - **The persona follows the HUMAN, not the repo.** The user tier (`~/.claude-memory-kit/` — USER/HABITS/LESSONS + `fragments/`) is machine-local and kept *out* of any project, because committing your working-style would leak it to everyone who clones (and the OS/git username differs across your own machines, so per-repo namespacing fails the exact cross-machine case). So persona portability is **per-human, not per-repo**:
-  - **Built (72.1):** `cmk persona export <file>` packs the user tier into one OS-agnostic JSON bundle (allow-list: scratchpads + `settings.json` + `fragments/` + `queues/`; runtime `.locks/.index/.import-backups` excluded), and `cmk persona import <file>` applies it on another machine (overwrite + per-file backup + transactional rollback + reindex). Carry the bundle via your own private channel; content is already home-path-sanitized + Poison_Guard'd, so no usernames/secrets travel. Forward-slash bundle paths → Windows↔Mac round-trip. See [`persona-portability.mjs`](../../packages/cli/src/persona-portability.mjs).
+  - **Built (72.1):** `cmk persona export <file>` packs the user tier into one OS-agnostic JSON bundle (allow-list: scratchpads + `settings.json` + `fragments/` + `queues/`; runtime `.locks/.index/.import-backups` excluded), and `cmk persona import <file>` applies it on another machine (overwrite + per-file backup + transactional rollback + reindex). Carry the bundle via your own private channel; content is already home-path-sanitized + Poison_Guard'd, so no usernames/secrets travel. Forward-slash bundle paths → Windows↔Mac round-trip. See [`persona-portability.mjs`](../packages/cli/src/persona-portability.mjs).
   - **Deferred (72.2, §16 candidate):** `cmk persona sync <your-private-git-url>` — make the user tier a git repo on *your own* remote with auto-pull@SessionStart + auto-push@curation (git handles transport + merge/conflict). The seamless-UX + conflict-resolution design is a deep-research candidate, so it lands after the explicit primitive.
   - **The trap to avoid:** never commit the persona into a project to make it portable — that breaks the team scenario (each person keeps their own persona; it's never shared).
 
@@ -111,7 +111,7 @@ The design assumes [`requirements-revisions-proposed.md`](../../archive/specs/v0
 
 Each layer is replaceable. Layer 1-3 is pure file ops. Layer 4 is what makes memory automatic. Layer 5-6 are optional power features.
 
-**Implementation convention**: each tier's operations are exposed via single-export modules in [`packages/cli/src/`](../../packages/cli/src/) (one boundary per task — `writeFact`, `reindex`, `forget`, `mergeFacts`, etc.). Internal helpers shared across those modules live in `packages/cli/src/{tier-paths,audit-log,frontmatter,result-shapes}.mjs`. This split is **implementation detail; not part of the public user-facing surface**, but future task modules MUST import from the shared helpers rather than reimplement path resolution, YAML parsing, audit-logging, or result-shape conventions. See [`CLAUDE.md`](../../CLAUDE.md) "Shared modules" rule. Established post-Checkpoint-11 after the Layer-2 code-review pass surfaced cross-task drift (extracted 2026-05-24).
+**Implementation convention**: each tier's operations are exposed via single-export modules in [`packages/cli/src/`](../packages/cli/src/) (one boundary per task — `writeFact`, `reindex`, `forget`, `mergeFacts`, etc.). Internal helpers shared across those modules live in `packages/cli/src/{tier-paths,audit-log,frontmatter,result-shapes}.mjs`. This split is **implementation detail; not part of the public user-facing surface**, but future task modules MUST import from the shared helpers rather than reimplement path resolution, YAML parsing, audit-logging, or result-shape conventions. See [`CLAUDE.md`](../CLAUDE.md) "Shared modules" rule. Established post-Checkpoint-11 after the Layer-2 code-review pass surfaced cross-task drift (extracted 2026-05-24).
 
 ### 1.4 Data flow
 
@@ -246,7 +246,7 @@ Last health check: 2026-05-22.
 - **HTML comment frontmatter at top** for size cap, last-distilled, last-health-check. These comments are stripped from Claude's context per Anthropic's docs (saves tokens; humans still see them when viewing).
 - **Three fixed sections** per file (Active Threads / Environment Notes / Pending Decisions for `MEMORY.md`; About / Preferences / Working Style for `USER.md`; etc.).
 - **One bullet per fact**, ≤ 200 chars per bullet (the bullet text itself, not counting metadata).
-- **Provenance frontmatter** in HTML comment immediately below the bullet. Required fields per Task 13: `source` (file path), `source_line` (positive integer), `sha1`, `write` (enum), `trust` (enum), `at` (ISO 8601 UTC). The 7th required field is `id` — recovered from the bullet line's `(P-XXX)` prefix, not duplicated in the comment. The canonical writer/reader pair is [`packages/cli/src/provenance.mjs`](../../packages/cli/src/provenance.mjs) (`writeBullet` / `readBullet` / `parseBulletProvenance`); don't roll your own. (Per T8, FR-29.)
+- **Provenance frontmatter** in HTML comment immediately below the bullet. Required fields per Task 13: `source` (file path), `source_line` (positive integer), `sha1`, `write` (enum), `trust` (enum), `at` (ISO 8601 UTC). The 7th required field is `id` — recovered from the bullet line's `(P-XXX)` prefix, not duplicated in the comment. The canonical writer/reader pair is [`packages/cli/src/provenance.mjs`](../packages/cli/src/provenance.mjs) (`writeBullet` / `readBullet` / `parseBulletProvenance`); don't roll your own. (Per T8, FR-29.)
 - **Citation ID in parentheses at start of bullet**: `(P-S79MJHFN)`. (Per FR-14.)
 - **Section sign delimiter `§`** is NOT used in our format (Hermes uses it; we use markdown bullets — simpler and git-diffable).
 
@@ -452,7 +452,7 @@ Optional fields: `merged_from` (for consolidation), `superseded_by` (when replac
 
 **Placement**: HTML comment immediately below each bullet (comments are stripped from Claude's context per verified Anthropic docs, so metadata is invisible to model, visible to humans/tools).
 
-**Canonical serializer/parser**: all reads and writes of this frontmatter (per-fact YAML AND per-bullet HTML-comment provenance, once Layer 3 lands) MUST go through [`packages/cli/src/frontmatter.mjs`](../../packages/cli/src/frontmatter.mjs) — the single js-yaml–backed `serialize`/`parse` pair. Pre-PR-2 each module had its own naive parser; values with `\n` / `:` silently corrupted. Don't roll your own. See §1.3 + [`CLAUDE.md`](../../CLAUDE.md) "Shared modules" rule.
+**Canonical serializer/parser**: all reads and writes of this frontmatter (per-fact YAML AND per-bullet HTML-comment provenance, once Layer 3 lands) MUST go through [`packages/cli/src/frontmatter.mjs`](../packages/cli/src/frontmatter.mjs) — the single js-yaml–backed `serialize`/`parse` pair. Pre-PR-2 each module had its own naive parser; values with `\n` / `:` silently corrupted. Don't roll your own. See §1.3 + [`CLAUDE.md`](../CLAUDE.md) "Shared modules" rule.
 
 **Implements**: FR-29, T8.
 
@@ -464,7 +464,7 @@ Optional fields: `merged_from` (for consolidation), `superseded_by` (when replac
 
 **Manifest file location**: `<plugin-root>/hooks/hooks.json` — per Anthropic's official plugin docs at [code.claude.com/docs/en/plugins](https://code.claude.com/docs/en/plugins) ("Plugin structure overview" section). The `.claude-plugin/` subdirectory holds **only** `plugin.json`; `hooks/`, `skills/`, `agents/`, `commands/`, etc. all live at the plugin root. Anthropic's docs explicitly call out the `.claude-plugin/hooks/` placement as a "Common mistake" in a Warning callout.
 
-> **Historical note (2026-05-26):** an earlier draft of this section placed `hooks.json` under `plugin/.claude-plugin/hooks/`. That path does not load in Claude Code 2.1.140 — the canonical Anthropic layout puts `hooks/` at the plugin root, NOT under `.claude-plugin/`. The mismatch was caught by the working-product live test (see [`docs/journey/2026-05-26-live-test-findings.md`](../../docs/journey/2026-05-26-live-test-findings.md)). The earlier mistake came from verifying against two third-party plugins (claude-mem, claude-remember) instead of Anthropic's primary docs — both third-party plugins had the right layout (`plugin/hooks/hooks.json`), but the verification chain stopped at convergent secondary sources without checking the upstream Anthropic docs once.
+> **Historical note (2026-05-26):** an earlier draft of this section placed `hooks.json` under `plugin/.claude-plugin/hooks/`. That path does not load in Claude Code 2.1.140 — the canonical Anthropic layout puts `hooks/` at the plugin root, NOT under `.claude-plugin/`. The mismatch was caught by the working-product live test (see [`docs/journey/2026-05-26-live-test-findings.md`](../docs/journey/2026-05-26-live-test-findings.md)). The earlier mistake came from verifying against two third-party plugins (claude-mem, claude-remember) instead of Anthropic's primary docs — both third-party plugins had the right layout (`plugin/hooks/hooks.json`), but the verification chain stopped at convergent secondary sources without checking the upstream Anthropic docs once.
 
 Command pattern: `node "${CLAUDE_PLUGIN_ROOT}/bin/cmk-<verb>.mjs"` (kit-unique prefix dodges Anthropic bug [#29724](https://github.com/anthropics/claude-code/issues/29724)).
 
@@ -567,7 +567,7 @@ claude --print \
 | Log file | What gets written | One-line schema (NDJSON) |
 | --- | --- | --- |
 | `context/sessions/{date}.extract.log` | Auto-extract invocations | `{ts, success, error_category, observation_count, skipped_reason, duration_ms}` |
-| `context/.locks/audit.log` | Memory writes (add/replace/remove/tombstone/merge) by skill or CLI | canonical schema v1 — see [`packages/cli/src/audit-log.mjs`](../../packages/cli/src/audit-log.mjs) |
+| `context/.locks/audit.log` | Memory writes (add/replace/remove/tombstone/merge) by skill or CLI | canonical schema v1 — see [`packages/cli/src/audit-log.mjs`](../packages/cli/src/audit-log.mjs) |
 | `context/sessions/{date}.compress.log` | Compression runs (session-end + lazy + daily/weekly) | `{ts, scope, input_bytes, output_bytes, model_id, cost_usd, duration_ms}` |
 | `context/.locks/network-blocks.log` | Any sandbox/network denial during compressor or MCP runs | `{ts, host, port, reason, hook_or_tool}` |
 | `context/.locks/shadowed_by.log` | 3-tier merge shadowing events (§7.1) | `{ts, id, winner_tier, shadowed_tiers[], source_file}` |
@@ -580,15 +580,15 @@ Example auto-extract line:
 {"ts":"2026-05-23T14:30:00Z","success":true,"error_category":null,"observation_count":1,"skipped_reason":null,"duration_ms":1842}
 ```
 
-**`error_category` values** in `extract.log` + `compress.log`: see [`packages/cli/src/result-shapes.mjs`](../../packages/cli/src/result-shapes.mjs) `ERROR_CATEGORIES`. `haiku_timeout` (subprocess exceeded caller-supplied `timeoutMs` per **§8.5**) is distinct from `haiku_failed` (non-zero exit / spawn ENOENT) so analytics can separate "Anthropic API was slow" from "the call rejected / config broken".
+**`error_category` values** in `extract.log` + `compress.log`: see [`packages/cli/src/result-shapes.mjs`](../packages/cli/src/result-shapes.mjs) `ERROR_CATEGORIES`. `haiku_timeout` (subprocess exceeded caller-supplied `timeoutMs` per **§8.5**) is distinct from `haiku_failed` (non-zero exit / spawn ENOENT) so analytics can separate "Anthropic API was slow" from "the call rejected / config broken".
 
-Example audit-log line (canonical schema v1, per [`audit-log.mjs`](../../packages/cli/src/audit-log.mjs)):
+Example audit-log line (canonical schema v1, per [`audit-log.mjs`](../packages/cli/src/audit-log.mjs)):
 
 ```json
 {"ts":"2026-05-24T14:30:00Z","schema":1,"action":"tombstoned","tier":"P","id":"P-S79MJHFN","reasonCode":"user-requested","reasonText":"no longer relevant","paths":{"before":"…/feedback_x.md","archive":"…/archive/tombstones/P-S79MJHFN.md"},"extra":{"deletedBy":"user-explicit","scratchpadEdits":[{"path":"…/MEMORY.md","removed":1}]}}
 ```
 
-All audit-log writes go through `appendAuditEntry(tierRoot, entry)` in [`audit-log.mjs`](../../packages/cli/src/audit-log.mjs) — single canonical writer; do not append to `audit.log` directly. See §1.3 + [`CLAUDE.md`](../../CLAUDE.md) "Shared modules" rule.
+All audit-log writes go through `appendAuditEntry(tierRoot, entry)` in [`audit-log.mjs`](../packages/cli/src/audit-log.mjs) — single canonical writer; do not append to `audit.log` directly. See §1.3 + [`CLAUDE.md`](../CLAUDE.md) "Shared modules" rule.
 
 ### 6.2 Auto-extract decision: where does the write go?
 
@@ -653,7 +653,7 @@ These are verbatim from Hermes Agent's writing-triggers pattern (Glukhov 2026-05
 
 #### Bi-turn input (2026-05-26 amendment)
 
-Earlier drafts read only the assistant turn. The working-product live test (see [`docs/journey/2026-05-26-live-test-findings.md`](../../docs/journey/2026-05-26-live-test-findings.md)) surfaced the failure mode: a user dictating preferences to a terse acknowledging assistant ("Got it.") produces zero captures, because the assistant turn carries no durable content even though the user just stated four facts.
+Earlier drafts read only the assistant turn. The working-product live test (see [`docs/journey/2026-05-26-live-test-findings.md`](../docs/journey/2026-05-26-live-test-findings.md)) surfaced the failure mode: a user dictating preferences to a terse acknowledging assistant ("Got it.") produces zero captures, because the assistant turn carries no durable content even though the user just stated four facts.
 
 **Input shape**: Task 21's capture-turn writes the temp file as:
 
@@ -700,7 +700,7 @@ Origin is in-memory metadata only — it is NOT persisted to scratchpad provenan
 
 #### Rich fact synthesis (Task 103) — native-parity capture on the immune path
 
-**Why.** Claude Code's native Auto Memory is winner-take-all with the kit's *explicit* `cmk remember` path: when the agent saves to native, the kit's `context/memory/` rich fact files don't get written (D-74; [research note](../../docs/research/2026-06-06-native-auto-memory-coexistence-investigation.md)). The Stop-hook auto-extract is **immune** (it reads the conversation, not the agent's tool choice) but historically wrote only **terse `MEMORY.md` bullets** — so the rich Why/How tier was the one thing native could take. Task 103 moves rich capture onto the immune path: auto-extract now synthesizes **rich fact files** for durable project KNOWLEDGE, so a fresh-but-rich record lands regardless of which memory tool the agent reaches for. The bar is **native-parity-then-better** — native now writes structured Why/How fact files, so ours must be at least as structured/useful.
+**Why.** Claude Code's native Auto Memory is winner-take-all with the kit's *explicit* `cmk remember` path: when the agent saves to native, the kit's `context/memory/` rich fact files don't get written (D-74; [research note](../docs/research/2026-06-06-native-auto-memory-coexistence-investigation.md)). The Stop-hook auto-extract is **immune** (it reads the conversation, not the agent's tool choice) but historically wrote only **terse `MEMORY.md` bullets** — so the rich Why/How tier was the one thing native could take. Task 103 moves rich capture onto the immune path: auto-extract now synthesizes **rich fact files** for durable project KNOWLEDGE, so a fresh-but-rich record lands regardless of which memory tool the agent reaches for. The bar is **native-parity-then-better** — native now writes structured Why/How fact files, so ours must be at least as structured/useful.
 
 **Third output type.** The SAME Haiku pass (no second LLM call) now emits THREE output kinds — the terse `TRUST_` lines (above), the cross-project `PERSONA CANDIDATE` lines (§6.4 inline-persona / Task 61), and a fenced **rich-fact block** for durable project knowledge:
 
@@ -716,7 +716,7 @@ END_FACT
 
 - **Rich vs terse split.** Triggers **3–6** (setup/config, project conventions, completed workflows, tool quirks) → a `BEGIN_FACT` block. Triggers **1–2** (corrections, discovered preferences) + active threads → stay terse `TRUST_` bullets. The prompt instructs: emit each fact as EITHER a rich block OR a terse line — **never both**.
 - **Parsing** (`parseRichFacts` in `auto-extract.mjs`, exported + unit-tested): a field's value continues across lines until the next recognized key (`type`/`title`/`body`/`why`/`how`) or `END_FACT` — so `body` holds a multi-line structured breakdown. A missing `END_FACT` closes at the next `BEGIN_FACT` (no swallow). A block missing `title` OR `body` is skipped (writeFact requires both); `type` defaults to `project`. Live Haiku formats multi-line bodies as a YAML block scalar (`body: |` + indent) — the parser strips the indicator + dedents (`cleanFieldValue`).
-- **Routing** (`routeRichFact`): straight to the fact store via `writeFact({tier:'P', writeSource:'auto-extract', trust:'medium', …})`, body built by the shared [`rich-fact.mjs`](../../packages/cli/src/rich-fact.mjs) helper the explicit `cmk remember` path uses (identical on-disk shape). `writeFact` already runs home-path sanitization + Poison_Guard + schema + `INDEX`/reindex.
+- **Routing** (`routeRichFact`): straight to the fact store via `writeFact({tier:'P', writeSource:'auto-extract', trust:'medium', …})`, body built by the shared [`rich-fact.mjs`](../packages/cli/src/rich-fact.mjs) helper the explicit `cmk remember` path uses (identical on-disk shape). `writeFact` already runs home-path sanitization + Poison_Guard + schema + `INDEX`/reindex.
 - **trust:medium, NOT high.** Auto-extract is a Haiku *synthesis* = proposal-grade; explicit `cmk remember` stays `trust:high`. A later explicit capture **supersedes** the auto-extracted medium fact.
 - **Direct-to-fact-store — deliberate deviation from "medium → review queue."** Terse medium-trust bullets queue for review; rich facts do NOT. The point is *automatic* native-parity capture (native writes its files with no approval step). The fact store is searchable-but-not-full-trust-injected, `writeFact` screens every write, and explicit-high supersedes — so direct-write is safe and is what parity requires.
 - **Isolation + XOR safety net.** Each `routeRichFact` is wrapped in try/catch — a Poison_Guard/schema/collision rejection (or throw) must not take down terse routing or the persona pass (same isolation as the inline-persona pass). If Haiku emits both a rich block and a terse line for the same fact, the rich block wins: a terse candidate whose canonical id matches a rich fact's `body` is dropped before terse routing.
@@ -870,11 +870,11 @@ After PR-A, the lock-leak window narrows to cases where the parent process dies 
 - Hardware failure (laptop sleep-fail, power loss mid-Haiku).
 - Parent uncaught exception that bypasses the try/finally (rare — `runAutoExtract`'s top-level try wraps the entire flow, but a synchronous throw before the try wrapper would leak).
 
-In any of these, `auto-extract.lock` stays on disk holding the dead pid. The existing in-band stale-recovery in `acquireLock` ([packages/cli/src/auto-extract.mjs](../../packages/cli/src/auto-extract.mjs)) handles the next-invocation case: if the holder pid no longer responds to `process.kill(pid, 0)`, the recovery path unlinks the stale lock and reacquires once. But that requires *another* auto-extract invocation to happen — until then, auto-extract is silently disabled.
+In any of these, `auto-extract.lock` stays on disk holding the dead pid. The existing in-band stale-recovery in `acquireLock` ([packages/cli/src/auto-extract.mjs](../packages/cli/src/auto-extract.mjs)) handles the next-invocation case: if the holder pid no longer responds to `process.kill(pid, 0)`, the recovery path unlinks the stale lock and reacquires once. But that requires *another* auto-extract invocation to happen — until then, auto-extract is silently disabled.
 
 #### HC-9 stale-lock detection
 
-[`packages/cli/src/lock-discipline.mjs`](../../packages/cli/src/lock-discipline.mjs) `detectStaleLocks(projectRoot, {userDir})` scans `*.lock` files under `<projectRoot>/context/.locks/` (and `<userDir>/.locks/` if supplied), parses the pid inside each, probes liveness via `process.kill(pid, 0)`, and returns a structured report:
+[`packages/cli/src/lock-discipline.mjs`](../packages/cli/src/lock-discipline.mjs) `detectStaleLocks(projectRoot, {userDir})` scans `*.lock` files under `<projectRoot>/context/.locks/` (and `<userDir>/.locks/` if supplied), parses the pid inside each, probes liveness via `process.kill(pid, 0)`, and returns a structured report:
 
 ```text
 [
@@ -910,7 +910,7 @@ The two PRs compose to bound the leak window:
 - **PR-A inner timeout (25s auto-extract / 50s compress-session)** runs the catch + finally + log-write *before* the outer hook ceiling fires. Closes the dominant leak path (Anthropic API slowness).
 - **PR-B HC-9 + stale recovery** catches the residual cases. Even if a lock leaks somehow, `cmk doctor` HC-9 reports it with a one-command recovery, and the next auto-extract invocation's stale-recovery path cleans it automatically.
 
-**Implements**: Task 23.10. Cross-references: §6.1 (`.locks/` directory layout); §14 (HC-9 in the health-check table); [`HEALTH-CHECKS.md`](../../HEALTH-CHECKS.md) (user-facing HC-9 self-repair).
+**Implements**: Task 23.10. Cross-references: §6.1 (`.locks/` directory layout); §14 (HC-9 in the health-check table); [`HEALTH-CHECKS.md`](../HEALTH-CHECKS.md) (user-facing HC-9 self-repair).
 
 ---
 
@@ -946,7 +946,7 @@ The SessionStart hook (`cmk-inject-context`) resolves and merges the three tiers
 
 > **Update (D-61, 2026-06-04):** the per-file caps below are now **inject (load) caps only**, not write caps — writes always succeed and files grow on disk; overflow graduates to the searchable store. The tail-order truncation here is superseded by importance-aware selection. See **§19** for the load-cap-not-write-cap architecture; this section's budgets/coordination rule still govern the inject slice.
 
-The earlier draft of §7.1 specified only a total snapshot cap (10 KB) and a tier-priority drop order on overflow. Live-test scenario 4 (see [`docs/journey/2026-05-26-live-test-findings-scenarios-3-7.md`](../../docs/journey/2026-05-26-live-test-findings-scenarios-3-7.md)) surfaced the failure mode this creates: **the default install + a single auto-extract bullet already exceeds 10 KB**, and the lowest-priority tier (user) gets dropped on every session — even in fresh installs with only seed content present. The user tier's value prop is undercut by cap pressure from day 1.
+The earlier draft of §7.1 specified only a total snapshot cap (10 KB) and a tier-priority drop order on overflow. Live-test scenario 4 (see [`docs/journey/2026-05-26-live-test-findings-scenarios-3-7.md`](../docs/journey/2026-05-26-live-test-findings-scenarios-3-7.md)) surfaced the failure mode this creates: **the default install + a single auto-extract bullet already exceeds 10 KB**, and the lowest-priority tier (user) gets dropped on every session — even in fresh installs with only seed content present. The user tier's value prop is undercut by cap pressure from day 1.
 
 Root cause: per-file caps (Task 12 / design §2.1) and the snapshot cap (this section) were specified independently. Per-file caps don't add to a coherent total; the snapshot cap was set without budgeting how much of it each tier deserves.
 
@@ -966,9 +966,9 @@ Per-tier budget = EXACT SUM of per-file caps in that tier. Snapshot cap = sum of
 
 **The snapshot cap MUST be ≥ sum of all per-file caps across all tiers. Per-tier budget MUST equal the sum of per-file caps in that tier.** These are not three independent numbers — they are derived from one source-of-truth (the per-file caps in Task 12/14). Changing any per-file cap requires updating both the per-tier budget and (if total exceeds snapshot cap) the snapshot cap itself.
 
-Why this rule is non-optional: when per-file caps and snapshot cap are specified independently, files at their LEGAL caps blow the snapshot. The lowest-priority tier gets dropped on every session — even in fresh installs with only seed content present. PR-25's user-tier truncation finding was the surface; PR-B (this amendment) is the structural fix. See [`docs/journey/2026-05-26-user-tier-cap-fix.md`](../../docs/journey/2026-05-26-user-tier-cap-fix.md) for the "separately-correct-jointly-broken" pattern this rule prevents.
+Why this rule is non-optional: when per-file caps and snapshot cap are specified independently, files at their LEGAL caps blow the snapshot. The lowest-priority tier gets dropped on every session — even in fresh installs with only seed content present. PR-25's user-tier truncation finding was the surface; PR-B (this amendment) is the structural fix. See [`docs/journey/2026-05-26-user-tier-cap-fix.md`](../docs/journey/2026-05-26-user-tier-cap-fix.md) for the "separately-correct-jointly-broken" pattern this rule prevents.
 
-**Enforced at build time** by [`scripts/validate-template.mjs`](../../scripts/validate-template.mjs):
+**Enforced at build time** by [`scripts/validate-template.mjs`](../scripts/validate-template.mjs):
 
 - `Σ per-file caps across all tiers ≤ DEFAULT_CAP_BYTES` — fails the test suite if not
 - `Σ per-file caps in tier T == TIER_BUDGETS[T]` for each T ∈ {L, P, U} — fails if drift
@@ -1018,7 +1018,7 @@ Direnv lesson: without `--show-origin`, users rage-quit when settings appear fro
 
 ### 8.0 The two-track mental model (what happens to memory over time)
 
-Memory ages along **two independent tracks** — conflating them is the usual confusion ("why is MEMORY.md empty / why does it grow"). Full synthesis + cross-system comparison: [`docs/research/2026-06-01-memory-lifecycle-and-competitive-position.md`](../../docs/research/2026-06-01-memory-lifecycle-and-competitive-position.md).
+Memory ages along **two independent tracks** — conflating them is the usual confusion ("why is MEMORY.md empty / why does it grow"). Full synthesis + cross-system comparison: [`docs/research/2026-06-01-memory-lifecycle-and-competitive-position.md`](../docs/research/2026-06-01-memory-lifecycle-and-competitive-position.md).
 
 - **Track A — the session diary (this §8).** Time-ordered "what happened when." Progressive compression: `now.md → today-{date}.md → recent.md (7d) → archive.md (forever)`. Nothing deleted; each stage denser than the last.
 - **Track B — the durable fact store (§2.2 + §3).** "What's true." `MEMORY.md` is the byte-capped HOT index; durable facts **graduate** out of it into granular `context/memory/*.md` fact files (the permanent brain, INDEX'd). MEMORY.md stays small via cap + stale-drop (>14d unreferenced) + graduation.
@@ -1217,7 +1217,7 @@ Section structure adapted from Anthropic Claude Code's verified 9-section auto-c
 
 Two layers were nominally bounding the subprocess invocation:
 
-1. **Outer ceiling** — Claude Code's hook timeout per [`plugin/hooks/hooks.json`](../../plugin/hooks/hooks.json): Stop = 30s, SessionEnd = 60s, others smaller. When this fires, Claude Code SIGKILLs the parent process with no cooperative cleanup.
+1. **Outer ceiling** — Claude Code's hook timeout per [`plugin/hooks/hooks.json`](../plugin/hooks/hooks.json): Stop = 30s, SessionEnd = 60s, others smaller. When this fires, Claude Code SIGKILLs the parent process with no cooperative cleanup.
 2. **Inner timeout** — *nothing*. `compress()` awaited `child.on('close', …)` indefinitely.
 
 The composition was broken: if the subprocess hung, the parent waited until the outer ceiling killed it — at which point the in-process try/catch + finally + NDJSON log-write never ran. Concrete consequences observed in the diagnosis:
@@ -1225,7 +1225,7 @@ The composition was broken: if the subprocess hung, the parent waited until the 
 - Auto-extract (Stop hook, detached child): `auto-extract.lock` file stayed held until the detached node child was manually killed. Next Stop hook fire saw the held lock and returned `concurrent_run` forever.
 - Compress-session (SessionEnd, in-process): no `compress.log` entry written, cooldown marker not touched. User had zero visibility that anything happened.
 
-This is the **composition-verification rule** from CLAUDE.md — inner and outer bounds must compose. The class-1 audit (PR-A) found this is the only production-runtime spawn-call in the kit with the gap; [`packages/cli/src/capture-turn.mjs`](../../packages/cli/src/capture-turn.mjs)'s detached node spawn is correctly fire-and-forget (cannot have a parent-side timeout) and relies on the inner timeout being honored by the spawned child via its OWN call to `HaikuViaAnthropicApi.compress`.
+This is the **composition-verification rule** from CLAUDE.md — inner and outer bounds must compose. The class-1 audit (PR-A) found this is the only production-runtime spawn-call in the kit with the gap; [`packages/cli/src/capture-turn.mjs`](../packages/cli/src/capture-turn.mjs)'s detached node spawn is correctly fire-and-forget (cannot have a parent-side timeout) and relies on the inner timeout being honored by the spawned child via its OWN call to `HaikuViaAnthropicApi.compress`.
 
 #### The contract
 
@@ -1247,8 +1247,8 @@ Selected per the composition-verification rule: tight enough that the catch + fi
 
 | Caller | timeoutMs | Outer hook ceiling | Headroom |
 | --- | --- | --- | --- |
-| [`runAutoExtract`](../../packages/cli/src/auto-extract.mjs) (Stop hook → detached child) | 25,000 | 30s (Stop) | 5s for catch + finally + extract.log write + lock release |
-| [`compressSession`](../../packages/cli/src/compress-session.mjs) (SessionEnd, in-process) | 50,000 | 60s (SessionEnd) | 10s for catch + compress.log write + return path |
+| [`runAutoExtract`](../packages/cli/src/auto-extract.mjs) (Stop hook → detached child) | 25,000 | 30s (Stop) | 5s for catch + finally + extract.log write + lock release |
+| [`compressSession`](../packages/cli/src/compress-session.mjs) (SessionEnd, in-process) | 50,000 | 60s (SessionEnd) | 10s for catch + compress.log write + return path |
 
 Headroom is sized generously because catch/finally on Windows can include filesystem operations whose latency varies with disk state. The 5s lower bound for the Stop hook path is the binding constraint — auto-extract has more cleanup work (lock file, sandbox tempfile, NDJSON write) than compress-session.
 
@@ -1256,7 +1256,7 @@ Headroom is sized generously because catch/finally on Windows can include filesy
 
 **Tail-appended 2026-06-03.** Task 86b added a SECOND `claude --print` call inside the SessionEnd hook — the dedicated `autoPersona` classifier (D-41) runs alongside `compressSession`. Both carry the same 50,000ms inner `timeoutMs`. Naively chaining them is a **composition bug**: `50s + 50s = 100s` worst-case sequential wall-clock blows the 60s SessionEnd ceiling, so the OS SIGKILLs the parent mid-`autoPersona` — dropping `{"continue": true}` AND risking a half-written **user-tier** INDEX (HC-5 corruption, shared across every project). Each call is correct against the ceiling alone (50 < 60); only their sequential *composition* is broken — the same separately-correct-jointly-broken class this whole section exists for.
 
-**Resolution: run them CONCURRENTLY, not sequentially.** [`session-end-tasks.mjs`](../../packages/cli/src/session-end-tasks.mjs) `runSessionEndTasks()` fires both via `Promise.allSettled`, so the wall-clock is `max(50s, 50s) ≈ 50s` — back under the 60s ceiling with the same 10s headroom as the single-call case. This is safe because the two passes are **independent** (verified, not assumed):
+**Resolution: run them CONCURRENTLY, not sequentially.** [`session-end-tasks.mjs`](../packages/cli/src/session-end-tasks.mjs) `runSessionEndTasks()` fires both via `Promise.allSettled`, so the wall-clock is `max(50s, 50s) ≈ 50s` — back under the 60s ceiling with the same 10s headroom as the single-call case. This is safe because the two passes are **independent** (verified, not assumed):
 
 | | `compressSession` | `autoPersona` |
 | --- | --- | --- |
@@ -1266,7 +1266,7 @@ Headroom is sized generously because catch/finally on Windows can include filesy
 
 Disjoint inputs, disjoint outputs, no shared lock → no race. Each pass gets its OWN `HaikuViaAnthropicApi` instance (a `makeBackend` factory) so there is zero shared mutable state across the concurrent calls. `autoPersona` is invoked with `cooldownMs: 0` because the concurrent `compressSession` touches the shared 120s Haiku cooldown marker, which would otherwise gate persona out at SessionEnd. `allSettled` (not `all`) keeps both best-effort: a failure in one never discards the other's result and never rejects up into the hook (a thrown SessionEnd hook blocks the user from closing their terminal).
 
-**Why concurrent-in-hook over the originally-planned detached spawn (D-41 → D-42 pivot):** a detached child would dodge the ceiling but (1) re-introduces the [Task 81](tasks.md) Windows console-flash class, (2) gives no completion guarantee before a cold-open in the next project — the persona must be on disk when project-B opens — and (3) adds an untestable detached-bin surface. Concurrency gets the ceiling-fit without any of those costs. Deterministic concurrency proof (event-ordering, not wall-clock) in [`tests/cli-session-end-tasks.test.js`](../../tests/cli-session-end-tasks.test.js).
+**Why concurrent-in-hook over the originally-planned detached spawn (D-41 → D-42 pivot):** a detached child would dodge the ceiling but (1) re-introduces the [Task 81](tasks.md) Windows console-flash class, (2) gives no completion guarantee before a cold-open in the next project — the persona must be on disk when project-B opens — and (3) adds an untestable detached-bin surface. Concurrency gets the ceiling-fit without any of those costs. Deterministic concurrency proof (event-ordering, not wall-clock) in [`tests/cli-session-end-tasks.test.js`](../tests/cli-session-end-tasks.test.js).
 
 #### error_category disambiguation in logs
 
@@ -1275,11 +1275,11 @@ Disjoint inputs, disjoint outputs, no shared lock → no race. Each pass gets it
 - **`haiku_failed`**: subprocess exited non-zero, or `spawn()` itself failed (ENOENT, EINVAL). Often actionable (flag rename, missing binary, auth failure).
 - **`haiku_timeout`**: subprocess was alive but didn't return within `timeoutMs`. Usually transient (slow Anthropic API). Retries naturally on the next hook invocation.
 
-Both are recorded in [`ERROR_CATEGORIES`](../../packages/cli/src/result-shapes.mjs).
+Both are recorded in [`ERROR_CATEGORIES`](../packages/cli/src/result-shapes.mjs).
 
 #### What this PR-A does NOT yet cover
 
-The class-1 audit also surfaced a door-5 (observability) gap in [`capture-turn.mjs`](../../packages/cli/src/capture-turn.mjs) — its `spawn-failed` catch returns a result struct but writes no log entry. Deferred to PR-D's broader observability sweep where the right log-surface design (new file? `phase` discriminator in extract.log? extension of audit.log purpose?) can be decided in context.
+The class-1 audit also surfaced a door-5 (observability) gap in [`capture-turn.mjs`](../packages/cli/src/capture-turn.mjs) — its `spawn-failed` catch returns a result struct but writes no log entry. Deferred to PR-D's broader observability sweep where the right log-surface design (new file? `phase` discriminator in extract.log? extension of audit.log purpose?) can be decided in context.
 
 **Implements**: Task 23.9. Cross-references: §5.1 (hook ceilings), §6.1 (log schema with `haiku_timeout`), §8.3 (CompressorBackend interface gains `timeoutMs` parameter).
 
@@ -1300,7 +1300,7 @@ Composition:
 
 - **Reads**: walks `<projectRoot>/context/sessions/today-{YYYY-MM-DD}.md` for the last 7 days (filtered by date math against `now`, NOT mtime — robust to fs clock drift)
 - **Sends to Haiku**: combined buffer through the `CompressorBackend` interface from §8.3 (same backend type that compress-session and auto-extract use; pluggable for v0.2)
-- **Honors §8.2 cooldown**: routes through the shared [`cooldown.mjs`](../../packages/cli/src/cooldown.mjs) module (Task 28 B2 split this out of `compress-session.mjs`); `isCooldownActive` gate before Haiku call, `touchCooldownMarker` after (success + error paths — fail-loud over re-cost)
+- **Honors §8.2 cooldown**: routes through the shared [`cooldown.mjs`](../packages/cli/src/cooldown.mjs) module (Task 28 B2 split this out of `compress-session.mjs`); `isCooldownActive` gate before Haiku call, `touchCooldownMarker` after (success + error paths — fail-loud over re-cost)
 - **Composes timeout**: passes `timeoutMs: 50_000` to backend.compress() per §8.5 — cron isn't under a Claude Code hook ceiling, but the inner timeout still prevents a hung Haiku from blocking the next cron tick
 - **Writes**: `<projectRoot>/context/sessions/recent.md` (full overwrite — single-writer; atomic-rename hardening is a v0.1.x consideration if cron + `cmk roll` ever overlap)
 - **Logs**: NDJSON to `<projectRoot>/context/sessions/{date}.distill.log` with the same schema family as compress.log / extract.log
@@ -1330,7 +1330,7 @@ Pivoted to Node.js 2026-05-28 (the user + Claude joint decision). Rationale:
 3. **Single-language deploy**: v0.1.0 ships as one npm package; `npm install -g @lh8ppl/claude-memory-kit` is the whole install. Adding Python would force users to install Python too (or bundle it — much larger artifact).
 4. **Test surface fits**: vitest tests can spawn the script with `--dry-run` and assert output. No pytest infrastructure needed.
 
-The Python option is preserved in [`tasks.md`](../../specs/v0.1.0/tasks.md) Task 33.2 alongside the Node pivot so future contributors see the decision history.
+The Python option is preserved in [`tasks.md`](../specs/tasks.md) Task 33.2 alongside the Node pivot so future contributors see the decision history.
 
 #### 8.6.4 Composition with §8.2 cooldown + §16.13 audit-log rotation
 
@@ -1501,13 +1501,13 @@ Returns: `[{id, snippet, source_file, source_line, tier, trust, score}]`. Trust 
 >
 > Two independent evidence sources now argue `memsearch + Milvus` is the **wrong weight class** for what the kit is (single-user, local, per-project markdown):
 > 1. **the user's liorwiki search decision record** (`C:/Projects/liorwiki/docs/search-architecture.md`, 2026-05-31) — same profile as the kit; explicitly **rejected Milvus as "overkill for <10K docs, requires a server"** and chose **Chroma** (pure-Python, embedded, metadata filtering) for filtered-semantic + kept **qmd** (Node, MCP-native, GGUF embeddinggemma) for pure-semantic.
-> 2. **Our own research base** ([`docs/research/2026-05-21-claude-ai-deep-research-option-b.md`](../../docs/research/2026-05-21-claude-ai-deep-research-option-b.md)) — the markdown-memory consensus is **SQLite FTS5** (claude-mem, Noema, knowledge-base-server). Projects that add semantic split into **light embedded** (`sqlite-vec` / sqliteai's `sqlite-memory` = hybrid vector+FTS5 in ONE SQLite extension, local llama.cpp embeddings) vs **heavy server** (memsearch+Milvus). `doobidoo/mcp-memory-service` offers SQLite-vec OR Milvus as a *choice*.
+> 2. **Our own research base** ([`docs/research/2026-05-21-claude-ai-deep-research-option-b.md`](../docs/research/2026-05-21-claude-ai-deep-research-option-b.md)) — the markdown-memory consensus is **SQLite FTS5** (claude-mem, Noema, knowledge-base-server). Projects that add semantic split into **light embedded** (`sqlite-vec` / sqliteai's `sqlite-memory` = hybrid vector+FTS5 in ONE SQLite extension, local llama.cpp embeddings) vs **heavy server** (memsearch+Milvus). `doobidoo/mcp-memory-service` offers SQLite-vec OR Milvus as a *choice*.
 >
 > This also collides with the kit's hardened **node-only / no-server ethos** (Task 62 — D-23): bolting Milvus (Docker/K8s) back on for search would reintroduce exactly the heavyweight platform dependency we just removed.
 >
 > **Candidate shortlist, lightest → heaviest:**
 > 1. **`sqlite-vec`** — vector similarity *inside the kit's existing SQLite index*; no server, no second process; hybrid FTS5+vector in one place (sqlite-memory pattern). **Best architectural fit** (we already run SQLite). Cost: a local embedding model (sentence-transformers / a small GGUF; **note — Anthropic has NO embeddings API**, so Claude can't supply vectors).
-> 2. **`qmd`** (Node, markdown-native, MCP-native, zero-server) — easiest bolt-on (register its own MCP server, or wire behind the `semanticBackend` seam in [`search.mjs`](../../packages/cli/src/search.mjs)). Cost: separate index + **file/chunk granularity ≠ our per-bullet granularity**; ~1.6 GB model.
+> 2. **`qmd`** (Node, markdown-native, MCP-native, zero-server) — easiest bolt-on (register its own MCP server, or wire behind the `semanticBackend` seam in [`search.mjs`](../packages/cli/src/search.mjs)). Cost: separate index + **file/chunk granularity ≠ our per-bullet granularity**; ~1.6 GB model.
 > 3. **Chroma** (pure-Python, embedded, filtering) — but Python dep + separate index; our FTS5 already does the metadata filtering Chroma's filtering would add, so we need *less* than the wiki did.
 > 4. **memsearch + Milvus** (the original pick) — most "designed-for-agent-memory" but needs a server; the outlier in weight.
 >
@@ -1517,7 +1517,7 @@ Returns: `[{id, snippet, source_file, source_line, tier, trust, score}]`. Trust 
 
 ## 10. MCP server (Layer 4b — optional)
 
-**Eleven tools as of Task 108b (2026-06-08, [ADR-0014](../../docs/adr/0014-unify-cli-mcp-shared-core.md)).** The MCP surface now reaches **full parity** with the `cmk` CLI over shared cores (`remember-core.mjs` / `read-core.mjs`); a `validate-cli-mcp-parity` guard ([`scripts/validate-cli-mcp-parity.mjs`](../../scripts/validate-cli-mcp-parity.mjs), wired into `npm test`) fails the build on drift. `cmk install` registers the server in `.mcp.json` + allowlists `mcp__cmk__*`, so the model drives every memory op prompt-free (D-85; R2/D-80 resolved — see §16.57).
+**Eleven tools as of Task 108b (2026-06-08, [ADR-0014](../docs/adr/0014-unify-cli-mcp-shared-core.md)).** The MCP surface now reaches **full parity** with the `cmk` CLI over shared cores (`remember-core.mjs` / `read-core.mjs`); a `validate-cli-mcp-parity` guard ([`scripts/validate-cli-mcp-parity.mjs`](../scripts/validate-cli-mcp-parity.mjs), wired into `npm test`) fails the build on drift. `cmk install` registers the server in `.mcp.json` + allowlists `mcp__cmk__*`, so the model drives every memory op prompt-free (D-85; R2/D-80 resolved — see §16.57).
 
 _Read / capture (the original six — FR-26 + `recent_activity` from Basic Memory's verified surface):_
 
@@ -1587,7 +1587,7 @@ Per NFR-6 (verified):
 | `memory-write` skill | User-explicit triggers ("remember this") — auto-triggered by phrase | Visible, auto-invokes |
 | MCP tools | Explicit retrieval Claude calls during reasoning | Visible, Claude chooses |
 
-**Revision 2026-06-07 (v0.2.3, [ADR-0014](../../docs/adr/0014-unify-cli-mcp-shared-core.md); executes the v0.2 refactor ADR-0006 deferred).** The cut-gate proved the shelled write path fragile — it silently corrupts backtick content (D-81) and trips a permission prompt (R2/D-80) — and D-85 showed every *voiced* intent (write as well as read) needs a Claude-mediated tool. So **MCP graduates from retrieval-only to the full memory *action* surface**, and the skill becomes a thin phrase-trigger *over* the MCP tools rather than a separate shell-write path:
+**Revision 2026-06-07 (v0.2.3, [ADR-0014](../docs/adr/0014-unify-cli-mcp-shared-core.md); executes the v0.2 refactor ADR-0006 deferred).** The cut-gate proved the shelled write path fragile — it silently corrupts backtick content (D-81) and trips a permission prompt (R2/D-80) — and D-85 showed every *voiced* intent (write as well as read) needs a Claude-mediated tool. So **MCP graduates from retrieval-only to the full memory *action* surface**, and the skill becomes a thin phrase-trigger *over* the MCP tools rather than a separate shell-write path:
 
 | Mechanism | When | Visibility to Claude |
 | --- | --- | --- |
@@ -1671,7 +1671,7 @@ CLI implemented in Node; ships as `@lh8ppl/claude-memory-kit` npm package + stan
 
 Per OQ-2 + verified plugin format from claude-mem (`plugin/.claude-plugin/plugin.json`):
 
-> **Updated 2026-06-08 (decision-trail):** the original `bash install.sh` + `pwsh install.ps1` shell-script paths + the per-OS `INSTALL-{windows,macos,linux}.md` manual-copy guides were early-architecture artifacts, **retired** in favor of the npm `cmk install` entry point (which does strictly more — scaffold + hook wiring + `.mcp.json` registration — and is CI-verified cross-OS). See [ADR-0005](../../docs/adr/0005-three-install-paths.md) (Status: Superseded). The two live paths are below.
+> **Updated 2026-06-08 (decision-trail):** the original `bash install.sh` + `pwsh install.ps1` shell-script paths + the per-OS `INSTALL-{windows,macos,linux}.md` manual-copy guides were early-architecture artifacts, **retired** in favor of the npm `cmk install` entry point (which does strictly more — scaffold + hook wiring + `.mcp.json` registration — and is CI-verified cross-OS). See [ADR-0005](../docs/adr/0005-three-install-paths.md) (Status: Superseded). The two live paths are below.
 
 | Path | Audience | Mechanism |
 | --- | --- | --- |
@@ -1722,9 +1722,9 @@ Ten yes/no checks at session start (HC-1..HC-7 from requirements.md, plus HC-8 a
 | HC-6 | Cron jobs registered with host scheduler | `cmk register-crons` (idempotent — registers daily-distill + weekly-curate via Task 33's Node implementation; design §8.6.3 documents the Python → Node pivot) |
 | HC-7 | memsearch backend reachable (Layer 5) | Windows: start Docker Desktop, `docker compose up -d` in `milvus-deploy/`. macOS/Linux: check `~/.memsearch/milvus.db` |
 | **HC-8** | **[CHANGE]** Native Anthropic Auto Memory status detected | **Inspect `~/.claude/projects/<slug>/memory/` existence + contents. Log result to `context/.locks/native-memory-status.log` as `{active: true \| false \| unknown, last_modified: <ISO>, file_count: N}`. Non-fatal — informational only, lets users see whether their kit is supplementing or substituting Anthropic's. Per Kiro's spec-pattern of explicit detection + audit logging.** |
-| **HC-9** | **Stale lock files under `context/.locks/` + `<userDir>/.locks/`** | **Per-stale-lock recoveryCommand emitted in the report (e.g. `rm "<path>"`). Library: [`packages/cli/src/lock-discipline.mjs`](../../packages/cli/src/lock-discipline.mjs) `detectStaleLocks(projectRoot, {userDir})`. Closes the residual leak window left after PR-A's subprocess timeout (external SIGKILL / OS OOM / hardware failure — see §6.9 for the composition). Non-fatal — `cmk doctor` reports + the next auto-extract invocation's in-band stale-recovery also handles it.** |
+| **HC-9** | **Stale lock files under `context/.locks/` + `<userDir>/.locks/`** | **Per-stale-lock recoveryCommand emitted in the report (e.g. `rm "<path>"`). Library: [`packages/cli/src/lock-discipline.mjs`](../packages/cli/src/lock-discipline.mjs) `detectStaleLocks(projectRoot, {userDir})`. Closes the residual leak window left after PR-A's subprocess timeout (external SIGKILL / OS OOM / hardware failure — see §6.9 for the composition). Non-fatal — `cmk doctor` reports + the next auto-extract invocation's in-band stale-recovery also handles it.** |
 
-**Critical rule** (per design §14, 2026-05-28 amendment): any repair requiring `pip install` / `npm install` / system-level changes MUST ASK the user first. Previously cited as "NFR-9" — NFR-9 is actually "Memory poisoning defense baseline" per [`requirements-revisions-proposed.md:125`](../../archive/specs/v0.1.0/requirements-revisions-proposed.md). The ask-before-install rule has no FR/NFR backing today; promoting it to a proper requirements entry is a v0.1.x cleanup.
+**Critical rule** (per design §14, 2026-05-28 amendment): any repair requiring `pip install` / `npm install` / system-level changes MUST ASK the user first. Previously cited as "NFR-9" — NFR-9 is actually "Memory poisoning defense baseline" per [`requirements-revisions-proposed.md:125`](../archive/specs/v0.1.0/requirements-revisions-proposed.md). The ask-before-install rule has no FR/NFR backing today; promoting it to a proper requirements entry is a v0.1.x cleanup.
 
 **Implements**: FR-22, all NFRs.
 
@@ -1793,7 +1793,7 @@ v0.1.x patch candidate. Third tag alongside `<private>` and `<retain>` for sessi
 
 ### 16.8 `cmk transcripts extract` subcommand
 
-v0.1.x or v0.2 candidate. Fell out of the bootstrap-test experiment on 2026-05-23 (see [`docs/research/2026-05-23-bootstrap-test.md`](../../docs/research/2026-05-23-bootstrap-test.md)): we wrote `scripts/extract-session-transcript.mjs` as a kit-dev utility to convert harness session jsonls (`~/.claude/projects/<slug>/<uuid>.jsonl`) into clean human-readable markdown, and realized this is useful for kit *users* too.
+v0.1.x or v0.2 candidate. Fell out of the bootstrap-test experiment on 2026-05-23 (see [`docs/research/2026-05-23-bootstrap-test.md`](../docs/research/2026-05-23-bootstrap-test.md)): we wrote `scripts/extract-session-transcript.mjs` as a kit-dev utility to convert harness session jsonls (`~/.claude/projects/<slug>/<uuid>.jsonl`) into clean human-readable markdown, and realized this is useful for kit *users* too.
 
 Concrete shape:
 
@@ -1823,9 +1823,9 @@ Files in scope for enrichment:
 - `template/user/LESSONS.md.template` — cross-project lessons
 - `template/user/fragments/INDEX.md.template` — user-tier index
 
-Each template should include 200-400 chars of inline coaching above the section headings: what belongs in this file, what good content looks like, what to avoid. Models for the coaching voice: the journey log's "Working-style preferences for future-Claude" section + the kit's own [`CLAUDE.md`](../../CLAUDE.md).
+Each template should include 200-400 chars of inline coaching above the section headings: what belongs in this file, what good content looks like, what to avoid. Models for the coaching voice: the journey log's "Working-style preferences for future-Claude" section + the kit's own [`CLAUDE.md`](../CLAUDE.md).
 
-Outcome: a user running `cmk install` gets templates that teach them what to write, not just where to write it. Reduces activation energy + carries calibration the bootstrap-test (see [`docs/research/2026-05-23-bootstrap-test.md`](../../docs/research/2026-05-23-bootstrap-test.md)) showed transfers behavior, not just knowledge.
+Outcome: a user running `cmk install` gets templates that teach them what to write, not just where to write it. Reduces activation energy + carries calibration the bootstrap-test (see [`docs/research/2026-05-23-bootstrap-test.md`](../docs/research/2026-05-23-bootstrap-test.md)) showed transfers behavior, not just knowledge.
 
 Files **explicitly NOT** in scope (out-of-scope by product boundary, not by oversight):
 
@@ -1852,9 +1852,9 @@ A draft of the scaffold lives at `template/docs/journey/journey-log.md.template`
 v0.1.x candidate. Low-cost README addition. The kit's own repository demonstrates the patterns it teaches:
 
 - `CLAUDE.md` at root — working-style + binding rules + skill agency
-- `docs/journey/v0.1.0-build-log.md` — full narrative (~600 lines)
+- `docs/journey/build-log.md` — full narrative (~600 lines)
 - `docs/BOOTSTRAP.md` — canonical session-handoff prompt template
-- `specs/v0.1.0/glossary.md` — domain-term dispute-resolution doc
+- `specs/glossary.md` — domain-term dispute-resolution doc
 - `SOURCES.md` — verification-status legend (✓ / ~ / ✗)
 - `docs/research/` — primary-source examination notes
 
@@ -1879,7 +1879,7 @@ If a future user wants periodic in-session checks, the right tool is Claude Code
 
 ### 16.13 Audit-log rotation
 
-v0.1.x candidate (surfaced by the Layer-2 code-review pass, 2026-05-24). The canonical `<tierRoot>/.locks/audit.log` (see §6.1, [`audit-log.mjs`](../../packages/cli/src/audit-log.mjs)) grows unbounded. For long-lived user-tier installs (which accumulate writes across all projects), this becomes real over months.
+v0.1.x candidate (surfaced by the Layer-2 code-review pass, 2026-05-24). The canonical `<tierRoot>/.locks/audit.log` (see §6.1, [`audit-log.mjs`](../packages/cli/src/audit-log.mjs)) grows unbounded. For long-lived user-tier installs (which accumulate writes across all projects), this becomes real over months.
 
 Right home: Task 33 (daily-distill cron). Concrete shape:
 
@@ -1891,7 +1891,7 @@ No code change needed in v0.1 itself — the existing writers append; rotation i
 
 ### 16.14 Mermaid-style symbolic short-term memory
 
-v0.2 candidate. Inspired by [TencentDB Agent Memory](https://github.com/Tencent/TencentDB-Agent-Memory) (research note: [`docs/research/2026-05-24-tencentdb-agent-memory.md`](../../docs/research/2026-05-24-tencentdb-agent-memory.md)). Distinct concept from our rolling-window compression (§7) — that operates on closed sessions; this operates on open ones.
+v0.2 candidate. Inspired by [TencentDB Agent Memory](https://github.com/Tencent/TencentDB-Agent-Memory) (research note: [`docs/research/2026-05-24-tencentdb-agent-memory.md`](../docs/research/2026-05-24-tencentdb-agent-memory.md)). Distinct concept from our rolling-window compression (§7) — that operates on closed sessions; this operates on open ones.
 
 **The problem.** Long-running agent sessions (50+ tool calls, verbose outputs) bloat context. Compression doesn't help inside an active session; you need a way to keep the working state addressable without keeping every tool output verbatim.
 
@@ -1921,11 +1921,11 @@ v0.2 candidate (lower priority). Inspired by TencentDB's 4-tier pyramid (researc
 
 ### 16.16 Auto-persona generation (the user-prioritized 2026-05-24)
 
-**v0.1.0 in-scope** (promoted from v0.1.x candidate on 2026-05-24, immediately after Task 14's seed-template work landed). Implemented as [Task 45](../v0.1.0/tasks.md) (appended at the tasks.md tail to avoid renumbering 24+ existing tasks; depends on Task 23 / consumes its output; must ship before the v0.1.0 release tag). Replaces hand-curated user-tier files (`USER.md`, `HABITS.md`, `LESSONS.md`) with auto-generated content driven by the auto-extract subagent (Task 23).
+**v0.1.0 in-scope** (promoted from v0.1.x candidate on 2026-05-24, immediately after Task 14's seed-template work landed). Implemented as [Task 45](tasks.md) (appended at the tasks.md tail to avoid renumbering 24+ existing tasks; depends on Task 23 / consumes its output; must ship before the v0.1.0 release tag). Replaces hand-curated user-tier files (`USER.md`, `HABITS.md`, `LESSONS.md`) with auto-generated content driven by the auto-extract subagent (Task 23).
 
 **Promotion rationale.** Shipping with hand-curated user-tier means shipping with a structurally broken third of the value proposition on day one. Hand-curation is a known failure mode; "v0.1.x patch" assumes users stick around long enough to receive it — they won't, if their first experience is empty `USER.md` / `HABITS.md` / `LESSONS.md`. The auto-persona path closes the loop: user uses kit → auto-extract captures durable facts → auto-persona synthesizes them into user-tier scratchpads → user benefits from cross-project memory automatically. Removing any link in that chain breaks the value prop.
 
-**Why this matters (the failure mode it fixes).** The 3-tier scope (user / project / local) only delivers value if all three tiers actually fill up. The project + local tiers fill organically via the auto-extract subagent. The user tier was specced as hand-curated, which is exactly the same failure-mode pattern the kit was built to fix everywhere else: don't make the user do work the system should do automatically. The user's direct feedback (2026-05-24, captured verbatim in [`docs/research/2026-05-24-tencentdb-agent-memory.md`](../../docs/research/2026-05-24-tencentdb-agent-memory.md)):
+**Why this matters (the failure mode it fixes).** The 3-tier scope (user / project / local) only delivers value if all three tiers actually fill up. The project + local tiers fill organically via the auto-extract subagent. The user tier was specced as hand-curated, which is exactly the same failure-mode pattern the kit was built to fix everywhere else: don't make the user do work the system should do automatically. The user's direct feedback (2026-05-24, captured verbatim in [`docs/research/2026-05-24-tencentdb-agent-memory.md`](../docs/research/2026-05-24-tencentdb-agent-memory.md)):
 
 > *"i dont like the hand-curated user-tier files, i know that i myself will not fill them up if i have to do it manually as a user/developer using our kit, it's too much of a hassle."*
 
@@ -1949,7 +1949,7 @@ If users won't hand-curate, the user-tier files stay empty, the cross-project la
 - Conflict resolution. What happens when the proposed persona update contradicts an existing hand-curated entry? Default: stage in `queues/persona-review.md`, don't overwrite (consistent with §6.2 conflict queue).
 - Trust level. Auto-persona entries get `provenance.trust = medium` (system-derived, not user-attested). Hand-curated entries stay `high`. Confirmed-from-queue entries get promoted to `high`.
 
-**Glossary entry pending.** Add `[[Auto-persona]]` to [`specs/v0.1.0/glossary.md`](glossary.md) when the v0.1.x task gets formally specced.
+**Glossary entry pending.** Add `[[Auto-persona]]` to [`specs/glossary.md`](glossary.md) when the v0.1.x task gets formally specced.
 
 ### 16.17 Empirical benchmarks methodology
 
@@ -1975,7 +1975,7 @@ If users won't hand-curate, the user-tier files stay empty, the cross-project la
 
 Not direct comparables — they're integration-specific (OpenClaw + Hermes) and self-reported. But the methodology (continuous long-horizon sessions, baseline-vs-with-plugin, pass-rate + token cost) is the right shape.
 
-**Harness architecture (port from GBrain).** GBrain's `gbrain eval longmemeval` harness (research note: [`docs/research/2026-05-24-gbrain-architecture.md`](../../docs/research/2026-05-24-gbrain-architecture.md), Pattern 3) is the right shape to mirror. Six properties worth copying directly:
+**Harness architecture (port from GBrain).** GBrain's `gbrain eval longmemeval` harness (research note: [`docs/research/2026-05-24-gbrain-architecture.md`](../docs/research/2026-05-24-gbrain-architecture.md), Pattern 3) is the right shape to mirror. Six properties worth copying directly:
 
 1. **Hermetic by default.** When the benchmark CLI is invoked, the kit's normal `connectEngine()` is skipped — The user's actual brain is never touched. Tests stub the LLM client so the full pipeline runs without an API key. Critical property: the benchmark must NEVER mutate user-facing state.
 2. **Reset-in-place between questions.** Sequential 500-question benchmark uses ONE in-memory state. Between questions: clear all content tables/files (enumerated at runtime) except a `PRESERVE` allow-list (config, locks, infrastructure). Avoids snapshot/restore complexity. For our markdown-based kit: between-question reset wipes `<sandbox>/context/{memory,scratchpads,transcripts}/` while preserving the manifest + `.locks/` state.
@@ -1996,7 +1996,7 @@ Not direct comparables — they're integration-specific (OpenClaw + Hermes) and 
 
 ### 16.19 Competitive deep-dive conclusions — skills delivery, storage/search, security defense-in-depth (2026-06-01)
 
-Source-level dive of Hermes / memsearch / gstack / claude-mem / antigravity / Honcho (cloned + read). Full analysis: research notes [`how-products-implement-skills`](../../docs/research/2026-06-01-how-products-implement-skills.md) + [`deep-dive-product-memory-implementations`](../../docs/research/2026-06-01-deep-dive-product-memory-implementations.md); settled in [DECISION-LOG D-28 + D-29](../../docs/journey/DECISION-LOG.md). HOW decisions that land here:
+Source-level dive of Hermes / memsearch / gstack / claude-mem / antigravity / Honcho (cloned + read). Full analysis: research notes [`how-products-implement-skills`](../docs/research/2026-06-01-how-products-implement-skills.md) + [`deep-dive-product-memory-implementations`](../docs/research/2026-06-01-deep-dive-product-memory-implementations.md); settled in [DECISION-LOG D-28 + D-29](../docs/journey/DECISION-LOG.md). HOW decisions that land here:
 
 - **Skills are the delivery mechanism (Task 69).** Memory guidance ships as a Claude Code **skill** that routes through `cmk remember` (safe path: Poison_Guard + sanitization), `allowed-tools: Bash(cmk*) Read`, NEVER hand-edits — the universal pattern (Hermes refuses hand-edits; gstack/memsearch call the CLI). `cmk install` scaffolds skills into `<project>/.claude/skills/` (route-equivalence with the plugin). The scaffolded `CLAUDE.md` block slims to facts + a skill pointer — no product injects a procedure into the user's CLAUDE.md (Anthropic docs: <200 lines, procedures→skills).
 - **Storage/search (Task 65): keep markdown-truth + FTS5-first + optional vector** (claude-mem validates; Hermes `session_search` is SQLite FTS not vector). Layer-5b backend lean: **`sqlite-vec` + ONNX `bge-m3`** (cross-platform, local, no API); **reject Milvus** (`milvus-lite` excludes win32). Chunk by `##` headings, ≤1500 chars, clean-before-embed.
@@ -2005,7 +2005,7 @@ Source-level dive of Hermes / memsearch / gstack / claude-mem / antigravity / Ho
 
 ### 16.18 Temporal awareness — fact shapes + validity windows + mode-aware retrieval
 
-v0.2 candidate. Inspired by Indranil Chandra's "Beyond the Log: Time-Aware Blueprint for AI Agent Memory" (research note: [`docs/research/2026-05-24-beyond-the-log-time-aware-memory.md`](../../docs/research/2026-05-24-beyond-the-log-time-aware-memory.md)).
+v0.2 candidate. Inspired by Indranil Chandra's "Beyond the Log: Time-Aware Blueprint for AI Agent Memory" (research note: [`docs/research/2026-05-24-beyond-the-log-time-aware-memory.md`](../docs/research/2026-05-24-beyond-the-log-time-aware-memory.md)).
 
 **The gap diagnosed.** Our current temporal model is: timestamps on every bullet + 14-day staleness drop for `trust: medium` in the consolidator (Task 12) + `superseded_by` ID references for merged facts (Task 10). This handles permanence + decay but NOT *current-validity*. Two contradictory facts on the same topic can coexist for up to 14 days; `cmk search "current status of X"` cannot reliably surface the most-recent valid version. Chandra calls this **temporal blindness**: vector embeddings capture topic similarity but not temporal coordinates, so older + newer facts on the same subject both match a "what is the current X?" query — sometimes the older one scores higher.
 
@@ -2029,7 +2029,7 @@ v0.2 candidate. Inspired by Indranil Chandra's "Beyond the Log: Time-Aware Bluep
 
 ### 16.19 Self-wiring knowledge-graph layer — zero-LLM typed-edge extraction
 
-v0.2 candidate. Inspired by Garry Tan's GBrain (research note: [`docs/research/2026-05-24-gbrain-architecture.md`](../../docs/research/2026-05-24-gbrain-architecture.md), Pattern 1).
+v0.2 candidate. Inspired by Garry Tan's GBrain (research note: [`docs/research/2026-05-24-gbrain-architecture.md`](../docs/research/2026-05-24-gbrain-architecture.md), Pattern 1).
 
 **The gap.** Our current model has per-fact files (granular archive) and bulleted scratchpads. Facts link to source transcripts via the `source` provenance field. They do NOT link to each other via typed edges. A search for "what does Alice work on?" can find facts mentioning Alice but cannot traverse "Alice → Acme (works_at) → Acme's recent decisions (made_at)" the way GBrain's typed-edge graph can. GBrain's measured impact: +31.4 P@5 over vector-only RAG on rich-prose corpus.
 
@@ -2066,7 +2066,7 @@ Deferred to v0.1.x because the manual disciplines work, the write side has recur
 
 **v0.1.x candidate.**
 
-Surfaced by the 2026-05-26 article-verification side quest. Anthropic's official Claude Code docs document an `InstructionsLoaded` hook (see [code.claude.com/docs/en/memory](https://code.claude.com/docs/en/memory), Troubleshoot section): *"Use the `InstructionsLoaded` hook to log exactly which instruction files are loaded, when they load, and why."* The kit's hook research base ([`docs/research/2026-05-21-claude-ai-deep-research-option-b.md`](../../docs/research/2026-05-21-claude-ai-deep-research-option-b.md)) enumerates 8 lifecycle hooks (SessionStart / UserPromptSubmit / PreToolUse / PostToolUse / Stop / SessionEnd / PreCompact / Notification) but does NOT include `InstructionsLoaded` — an integration gap the article-verification surfaced indirectly.
+Surfaced by the 2026-05-26 article-verification side quest. Anthropic's official Claude Code docs document an `InstructionsLoaded` hook (see [code.claude.com/docs/en/memory](https://code.claude.com/docs/en/memory), Troubleshoot section): *"Use the `InstructionsLoaded` hook to log exactly which instruction files are loaded, when they load, and why."* The kit's hook research base ([`docs/research/2026-05-21-claude-ai-deep-research-option-b.md`](../docs/research/2026-05-21-claude-ai-deep-research-option-b.md)) enumerates 8 lifecycle hooks (SessionStart / UserPromptSubmit / PreToolUse / PostToolUse / Stop / SessionEnd / PreCompact / Notification) but does NOT include `InstructionsLoaded` — an integration gap the article-verification surfaced indirectly.
 
 Use cases for the kit:
 
@@ -2075,7 +2075,7 @@ Use cases for the kit:
 
 Deferred to v0.1.x because: (a) the kit currently functions without it; (b) needs research-base entry (deep-dive against the actual hook payload + timing semantics); (c) the kit's existing hooks already cover the high-leverage lifecycle events for v0.1.0.
 
-Provenance: [`docs/research/2026-05-26-claude-code-memory-guide-verification.md`](../../docs/research/2026-05-26-claude-code-memory-guide-verification.md) (side-finding #1).
+Provenance: [`docs/research/2026-05-26-claude-code-memory-guide-verification.md`](../docs/research/2026-05-26-claude-code-memory-guide-verification.md) (side-finding #1).
 
 ### 16.22 MEMORY.md 25KB ceiling vs the kit's cap composition
 
@@ -2089,7 +2089,7 @@ The kit's snapshot cap is currently 12KB total across tiers (per `DEFAULT_CAP_BY
 
 This is the 5th instance of the composition-verification pattern (CLAUDE.md "Composition verification" rule — PR-14 / PR-22 / PR-25 / PR-A and now this).
 
-Provenance: [`docs/research/2026-05-26-claude-code-memory-guide-verification.md`](../../docs/research/2026-05-26-claude-code-memory-guide-verification.md) (side-finding #3).
+Provenance: [`docs/research/2026-05-26-claude-code-memory-guide-verification.md`](../docs/research/2026-05-26-claude-code-memory-guide-verification.md) (side-finding #3).
 
 ### 16.23 Block-level HTML-comment stripping pattern in template CLAUDE.md
 
@@ -2097,7 +2097,7 @@ Provenance: [`docs/research/2026-05-26-claude-code-memory-guide-verification.md`
 
 Surfaced by the 2026-05-26 article-verification side quest. Anthropic's official docs: *"Block-level HTML comments (`<!-- maintainer notes -->`) in CLAUDE.md files are stripped before the content is injected into Claude's context. Use them to leave notes for human maintainers without spending context tokens on them. Comments inside code blocks are preserved."*
 
-Use case for the kit's [`template/CLAUDE.md.template`](../../template/CLAUDE.md.template): the template currently has either no maintainer notes OR token-spending inline prose. Anthropic's stripping rule means we can add:
+Use case for the kit's [`template/CLAUDE.md.template`](../template/CLAUDE.md.template): the template currently has either no maintainer notes OR token-spending inline prose. Anthropic's stripping rule means we can add:
 
 ```markdown
 <!--
@@ -2111,13 +2111,13 @@ the installed copy; `cmk repair` re-syncs from the template.
 
 Deferred to v0.1.x because: (a) low priority — the kit functions without it; (b) requires the template scaffold to settle (Task 14 still has follow-on work); (c) the optimization is small per file but useful at scale across the kit's template + per-tier CLAUDE.md emissions.
 
-Provenance: [`docs/research/2026-05-26-claude-code-memory-guide-verification.md`](../../docs/research/2026-05-26-claude-code-memory-guide-verification.md) (side-finding #4).
+Provenance: [`docs/research/2026-05-26-claude-code-memory-guide-verification.md`](../docs/research/2026-05-26-claude-code-memory-guide-verification.md) (side-finding #4).
 
 ### 16.24 Shared queue-file parser primitive
 
 **v0.1.x candidate.**
 
-Surfaced by Task 26 (review-queue) code-review (2026-05-27). Both [`packages/cli/src/review-queue.mjs`](../../packages/cli/src/review-queue.mjs) and [`packages/cli/src/conflict-queue.mjs`](../../packages/cli/src/conflict-queue.mjs) parse the same shape of markdown queue file: `## <ts> — <header>` block + bullet + `<!-- provenance -->` HTML comment + blank-line separator. Each module has its own parser (`parseReviewQueue`, `parseConflictQueue`); the regex shape and block-walking logic are ~80% identical.
+Surfaced by Task 26 (review-queue) code-review (2026-05-27). Both [`packages/cli/src/review-queue.mjs`](../packages/cli/src/review-queue.mjs) and [`packages/cli/src/conflict-queue.mjs`](../packages/cli/src/conflict-queue.mjs) parse the same shape of markdown queue file: `## <ts> — <header>` block + bullet + `<!-- provenance -->` HTML comment + blank-line separator. Each module has its own parser (`parseReviewQueue`, `parseConflictQueue`); the regex shape and block-walking logic are ~80% identical.
 
 Deferred to v0.1.x as **premature abstraction**: with only 2 callers the duplication is cheaper than the indirection. The extraction trigger is a 3rd queue-shaped file shipping (e.g., a `queues/distill.md` for Layer 6, or a `queues/lessons-promote.md` companion to `lessons-promote.mjs`). At that point: extract `parseMarkdownQueue({text, headerPattern, bulletExtractor})` into a shared `packages/cli/src/queue-format.mjs` module + migrate both existing callers + add the new caller.
 
@@ -2152,7 +2152,7 @@ Provenance: the user 2026-05-27 picked option #1 (move to design §17.8 now) + o
 
 **v0.1.x candidate.**
 
-Tracked from Task 25 + Task 26 code-review findings (the latter as Minor #5). The two interactive subcommand handlers — `runQueueConflicts` and `runQueueReview` in [`packages/cli/src/subcommands.mjs`](../../packages/cli/src/subcommands.mjs) — wrap their respective resolvers (`resolveConflictQueue`, `resolveReviewQueue`) with a readline-based prompter that reads from `process.stdin` and writes to `process.stdout`. Today's tests cover the resolvers via sandbox prompters that simulate decision arrays in-memory; the readline + stdin layer is uncovered.
+Tracked from Task 25 + Task 26 code-review findings (the latter as Minor #5). The two interactive subcommand handlers — `runQueueConflicts` and `runQueueReview` in [`packages/cli/src/subcommands.mjs`](../packages/cli/src/subcommands.mjs) — wrap their respective resolvers (`resolveConflictQueue`, `resolveReviewQueue`) with a readline-based prompter that reads from `process.stdin` and writes to `process.stdout`. Today's tests cover the resolvers via sandbox prompters that simulate decision arrays in-memory; the readline + stdin layer is uncovered.
 
 What's missing: a test that spawns `cmk queue conflicts` or `cmk queue review` as a real subprocess with seeded queue files, pipes decisions through stdin, and asserts the side effects landed (state on disk + audit-log entries). This is integration coverage for the spawn boundary at the CLI binary layer — same shape as the spawn-smoke discipline (§17.3) but for stdin-driven interactive subcommands rather than `claude --print` API calls.
 
@@ -2165,7 +2165,7 @@ Deferred to v0.1.x because:
 
 Ship trigger: a bug surfaces in the readline-prompt layer that the per-module resolver tests + the cmk-scaffold tests don't catch (e.g., the prompter rejects valid-but-trimmed inputs, or readline's input encoding diverges from sandbox-prompter's plain-string inputs).
 
-Until then, the §6 / §6.8 conflict-queue + review-queue contracts are pinned by resolveConflictQueue / resolveReviewQueue unit tests, and `cmk queue {conflicts,review}` is wired through `subcommands.mjs` whose dispatch is pinned by [`tests/cli-scaffold.test.js`](../../tests/cli-scaffold.test.js) (NON_STUB_CHILDREN allowlist).
+Until then, the §6 / §6.8 conflict-queue + review-queue contracts are pinned by resolveConflictQueue / resolveReviewQueue unit tests, and `cmk queue {conflicts,review}` is wired through `subcommands.mjs` whose dispatch is pinned by [`tests/cli-scaffold.test.js`](../tests/cli-scaffold.test.js) (NON_STUB_CHILDREN allowlist).
 
 Provenance: Task 25 + Task 26 code-review-excellence holistic-pass findings (2026-05-26, 2026-05-27). Both code-review writeups flagged the CLI glue as untested at the integration level, parking it as a v0.1.x candidate; this entry is the durable single-source-of-truth record.
 
@@ -2175,9 +2175,9 @@ Provenance: Task 25 + Task 26 code-review-excellence holistic-pass findings (202
 
 **Original analysis (was a v0.1.x candidate until Task 106):**
 
-Surfaced by the Task 27 Layer-4 checkpoint review (2026-05-27). PostToolUse is the only async hook in [`plugin/hooks/hooks.json`](../../plugin/hooks/hooks.json) (`"async": true, "timeout": 120`); its handler [`packages/cli/src/observe-edit.mjs`](../../packages/cli/src/observe-edit.mjs) appends Write/Edit/MultiEdit events to `context/sessions/now.md`. The SessionEnd hook's [`compressSession`](../../packages/cli/src/compress-session.mjs) truncates the same file after compression. Failure mode: a long-running PostToolUse append still in flight when the user types `/exit` races with `truncateSync`. On Windows this can throw EBUSY (mitigated by the existing `try { truncateSync; } catch {}` — documented in compress-session.mjs:188-193 as "best-effort"); on POSIX the failure mode is "truncate is lost, now.md contains compressed content PLUS new appends, next SessionEnd re-compresses material that was already compressed."
+Surfaced by the Task 27 Layer-4 checkpoint review (2026-05-27). PostToolUse is the only async hook in [`plugin/hooks/hooks.json`](../plugin/hooks/hooks.json) (`"async": true, "timeout": 120`); its handler [`packages/cli/src/observe-edit.mjs`](../packages/cli/src/observe-edit.mjs) appends Write/Edit/MultiEdit events to `context/sessions/now.md`. The SessionEnd hook's [`compressSession`](../packages/cli/src/compress-session.mjs) truncates the same file after compression. Failure mode: a long-running PostToolUse append still in flight when the user types `/exit` races with `truncateSync`. On Windows this can throw EBUSY (mitigated by the existing `try { truncateSync; } catch {}` — documented in compress-session.mjs:188-193 as "best-effort"); on POSIX the failure mode is "truncate is lost, now.md contains compressed content PLUS new appends, next SessionEnd re-compresses material that was already compressed."
 
-The existing comment frames the failure as benign ("the next session compresses a slightly-larger buffer — not a data-loss event"). That framing IS correct — no data loss, no corruption — but the kit's "lazy-framing hides real bugs" rule cuts both ways. **Honesty check shipped in v0.1.0** ([`tests/cli-task27-checkpoint-fixes.test.js`](../../tests/cli-task27-checkpoint-fixes.test.js) `§16.27 honesty check` describe block): two tests pin the benign-outcome contract — (a) compress-session tolerates leftover content from a race and still produces a structurally valid today-{date}.md, (b) two successive compress-session runs across a simulated race day produce valid output with the documented "noisy duplicates" outcome. The tests will continue to pass after the v0.1.x file-rename fix lands because they pin the BENIGN OUTCOME contract, not the current implementation. They surface immediately if a future change makes the failure mode non-benign (e.g., a refactor that lets EBUSY propagate out as a crash, or a today-{date}.md format change that breaks under same-heading adjacent appends).
+The existing comment frames the failure as benign ("the next session compresses a slightly-larger buffer — not a data-loss event"). That framing IS correct — no data loss, no corruption — but the kit's "lazy-framing hides real bugs" rule cuts both ways. **Honesty check shipped in v0.1.0** ([`tests/cli-task27-checkpoint-fixes.test.js`](../tests/cli-task27-checkpoint-fixes.test.js) `§16.27 honesty check` describe block): two tests pin the benign-outcome contract — (a) compress-session tolerates leftover content from a race and still produces a structurally valid today-{date}.md, (b) two successive compress-session runs across a simulated race day produce valid output with the documented "noisy duplicates" outcome. The tests will continue to pass after the v0.1.x file-rename fix lands because they pin the BENIGN OUTCOME contract, not the current implementation. They surface immediately if a future change makes the failure mode non-benign (e.g., a refactor that lets EBUSY propagate out as a crash, or a today-{date}.md format change that breaks under same-heading adjacent appends).
 
 Two fix candidates for v0.1.x:
 
@@ -2196,7 +2196,7 @@ Provenance: Task 27 code-review finding I4 (2026-05-27); Task 105 self-review (2
 
 **v0.1.x candidate.**
 
-Surfaced by the Task 27 Layer-4 checkpoint review (2026-05-27). [`packages/cli/src/compressor.mjs:213-224`](../../packages/cli/src/compressor.mjs) spawns `claude.cmd` with `shell: true` on Windows (required to resolve .cmd shim extensions — CVE-2024-27980 hardening). The Windows-specific process tree becomes:
+Surfaced by the Task 27 Layer-4 checkpoint review (2026-05-27). [`packages/cli/src/compressor.mjs:213-224`](../packages/cli/src/compressor.mjs) spawns `claude.cmd` with `shell: true` on Windows (required to resolve .cmd shim extensions — CVE-2024-27980 hardening). The Windows-specific process tree becomes:
 
 ```text
 parent node (kit)
@@ -2209,9 +2209,9 @@ POSIX has no `shell: true` requirement — spawn is single-child, no grandchild 
 
 #### What the kill chain actually does
 
-[`terminateSubprocess`](../../packages/cli/src/compressor.mjs) at compressor.mjs:106-139 calls `child.kill('SIGTERM')` then `child.kill('SIGKILL')` against the **immediate child only**. On Windows, Node maps both signals to `TerminateProcess` against cmd.exe's PID. No `taskkill /T`, no Windows Job Objects, no tree-kill mechanism.
+[`terminateSubprocess`](../packages/cli/src/compressor.mjs) at compressor.mjs:106-139 calls `child.kill('SIGTERM')` then `child.kill('SIGKILL')` against the **immediate child only**. On Windows, Node maps both signals to `TerminateProcess` against cmd.exe's PID. No `taskkill /T`, no Windows Job Objects, no tree-kill mechanism.
 
-[`tests/spawn-smoke-kill-chain.test.js`](../../tests/spawn-smoke-kill-chain.test.js) spawns its fixture via `spawn(process.execPath, [HANG_FIXTURE])` — a direct single-child tree. The test pins the immediate-child kill behavior but does NOT cover the production three-deep tree. The test's own comment acknowledges this scoping at line 22-24.
+[`tests/spawn-smoke-kill-chain.test.js`](../tests/spawn-smoke-kill-chain.test.js) spawns its fixture via `spawn(process.execPath, [HANG_FIXTURE])` — a direct single-child tree. The test pins the immediate-child kill behavior but does NOT cover the production three-deep tree. The test's own comment acknowledges this scoping at line 22-24.
 
 #### Actual grandchild lifecycle when cmd.exe is killed
 
@@ -2254,7 +2254,7 @@ Provenance: Task 27 code-review finding M5 (2026-05-27); empirical audit of `ter
 
 **v0.1.x candidate.**
 
-Surfaced by the Task 27 Layer-4 checkpoint review (2026-05-27). Three modules — [`memory-write.mjs`](../../packages/cli/src/memory-write.mjs), [`conflict-queue.mjs`](../../packages/cli/src/conflict-queue.mjs), [`review-queue.mjs`](../../packages/cli/src/review-queue.mjs) — each declare their own `BULLET_LINE_RE` to parse scratchpad bullet lines. `memory-write.mjs` uses the tight base32 alphabet (matches `ID_PATTERN` from canonicalize); the other two use a looser `[A-Za-z0-9]{8}` that accepts the kit's IDs but also accepts malformed IDs (e.g., a hand-edited bullet with `O` or `I` in the ID).
+Surfaced by the Task 27 Layer-4 checkpoint review (2026-05-27). Three modules — [`memory-write.mjs`](../packages/cli/src/memory-write.mjs), [`conflict-queue.mjs`](../packages/cli/src/conflict-queue.mjs), [`review-queue.mjs`](../packages/cli/src/review-queue.mjs) — each declare their own `BULLET_LINE_RE` to parse scratchpad bullet lines. `memory-write.mjs` uses the tight base32 alphabet (matches `ID_PATTERN` from canonicalize); the other two use a looser `[A-Za-z0-9]{8}` that accepts the kit's IDs but also accepts malformed IDs (e.g., a hand-edited bullet with `O` or `I` in the ID).
 
 No behavioral bug today — the looser regex's "tolerance" is benign (reading an externally-edited bullet with a malformed ID is read-only; the kit never re-writes the bad ID). But the drift is a maintenance hazard: a future change to `ID_PATTERN` (e.g., adding a new character class) would need to land in three places.
 
@@ -2266,7 +2266,7 @@ Provenance: Task 27 code-review finding M1 (2026-05-27).
 
 **v0.1.x candidate.** *Backfilled 2026-05-27 — this entry was claimed-but-never-added in PR #43's housekeeping commit; corrected during Task 28.*
 
-Surfaced by the Task 27 Layer-4 checkpoint review (2026-05-27) as Test Gap #2. The kit has per-module coverage of [`runAutoExtract`](../../packages/cli/src/auto-extract.mjs) (32 tests in `tests/cli-auto-extract.test.js` with MockHaikuBackend), and the bin wrapper [`plugin/bin/cmk-auto-extract.mjs`](../../plugin/bin/cmk-auto-extract.mjs) has a stub smoke test in `tests/cli-hooks-scaffold.test.js` that confirms it exits 0. Missing: a test that spawns `cmk-auto-extract.mjs` as a subprocess with a hanging Haiku fixture and asserts the kill chain catches it before the outer Stop-hook ceiling fires.
+Surfaced by the Task 27 Layer-4 checkpoint review (2026-05-27) as Test Gap #2. The kit has per-module coverage of [`runAutoExtract`](../packages/cli/src/auto-extract.mjs) (32 tests in `tests/cli-auto-extract.test.js` with MockHaikuBackend), and the bin wrapper [`plugin/bin/cmk-auto-extract.mjs`](../plugin/bin/cmk-auto-extract.mjs) has a stub smoke test in `tests/cli-hooks-scaffold.test.js` that confirms it exits 0. Missing: a test that spawns `cmk-auto-extract.mjs` as a subprocess with a hanging Haiku fixture and asserts the kill chain catches it before the outer Stop-hook ceiling fires.
 
 Deferred to v0.1.x because:
 
@@ -2281,7 +2281,7 @@ Provenance: Task 27 code-review Test Gap #2 (2026-05-27).
 
 **v0.1.x candidate.** *Backfilled 2026-05-27 — this entry was claimed-but-never-added in PR #43's housekeeping commit; corrected during Task 28.*
 
-Surfaced by the Task 27 Layer-4 checkpoint review (2026-05-27) as Test Gap #6. [`scripts/validate-platform-commands.mjs`](../../scripts/validate-platform-commands.mjs) structurally enforces that every user-facing shell-command emission goes through `platform-commands.mjs` OR carries an explicit `// platform-commands: ignore <reason>` marker. The validator runs at lint time on every `npm test`. Missing: a runtime test that exec's an emitted `recoveryCommand` string on the current platform's native shell and asserts the documented behavior.
+Surfaced by the Task 27 Layer-4 checkpoint review (2026-05-27) as Test Gap #6. [`scripts/validate-platform-commands.mjs`](../scripts/validate-platform-commands.mjs) structurally enforces that every user-facing shell-command emission goes through `platform-commands.mjs` OR carries an explicit `// platform-commands: ignore <reason>` marker. The validator runs at lint time on every `npm test`. Missing: a runtime test that exec's an emitted `recoveryCommand` string on the current platform's native shell and asserts the documented behavior.
 
 Deferred to v0.1.x because:
 
@@ -2296,7 +2296,7 @@ Provenance: Task 27 code-review Test Gap #6 (2026-05-27).
 
 **v0.1.x candidate.**
 
-Surfaced by the Task 28 code-review-excellence pass (2026-05-27). [`packages/cli/src/index-db.mjs`](../../packages/cli/src/index-db.mjs) `getIndexDbPath(projectRoot)` joins `projectRoot + 'context' + '.index' + 'memory.db'` inline. The string `'context'` is the P-tier root that [`tier-paths.mjs`](../../packages/cli/src/tier-paths.mjs)'s `resolveTierRoot({tier:'P', projectRoot})` already owns. Today's literal happens to match; a future change to the P-tier root convention would silently drift.
+Surfaced by the Task 28 code-review-excellence pass (2026-05-27). [`packages/cli/src/index-db.mjs`](../packages/cli/src/index-db.mjs) `getIndexDbPath(projectRoot)` joins `projectRoot + 'context' + '.index' + 'memory.db'` inline. The string `'context'` is the P-tier root that [`tier-paths.mjs`](../packages/cli/src/tier-paths.mjs)'s `resolveTierRoot({tier:'P', projectRoot})` already owns. Today's literal happens to match; a future change to the P-tier root convention would silently drift.
 
 Deferred to v0.1.x because:
 
@@ -2416,7 +2416,7 @@ Provenance: Task 30 code-review Minor #5 (2026-05-27).
 
 **v0.1.x candidate.**
 
-Surfaced by the Task 31 code-review-excellence pass (2026-05-28) as Important finding I1. The MCP tool `mk_remember`'s public surface documents a `cites?: string[]` parameter (design §10's tool table). The underlying [`memoryWrite`](../../packages/cli/src/memory-write.mjs) function doesn't accept `cites` today — its provenance frontmatter is generated from `source`, `at`, `sha1`, etc., not from a caller-supplied citation list.
+Surfaced by the Task 31 code-review-excellence pass (2026-05-28) as Important finding I1. The MCP tool `mk_remember`'s public surface documents a `cites?: string[]` parameter (design §10's tool table). The underlying [`memoryWrite`](../packages/cli/src/memory-write.mjs) function doesn't accept `cites` today — its provenance frontmatter is generated from `source`, `at`, `sha1`, etc., not from a caller-supplied citation list.
 
 v0.1.0 ship: `mk_remember` rejects requests with non-empty `cites` and returns a clear "not yet supported" error. The Zod schema still accepts the parameter (so callers can pass empty arrays without error), but actual citation linking is deferred.
 
@@ -2449,7 +2449,7 @@ Provenance: Task 31 code-review Important #2 (2026-05-28).
 
 **v0.1.x candidate.**
 
-Surfaced by the Task 31 code-review-excellence pass (2026-05-28) as Important finding I5. The MCP server's correctness rests on "no `console.log` or `process.stdout.write` in the call graph of any tool callback" — stdout is reserved for SDK-emitted JSON-RPC messages per design §10.1. Today, the kit's call graph is clean (verified by grep across all modules transitively imported by [`mcp-server.mjs`](../../packages/cli/src/mcp-server.mjs)), but the discipline is prose-only. A future PR can add a `console.log` to `memory-write.mjs` or `search.mjs` and pollute stdout for the MCP server with no test catching it.
+Surfaced by the Task 31 code-review-excellence pass (2026-05-28) as Important finding I5. The MCP server's correctness rests on "no `console.log` or `process.stdout.write` in the call graph of any tool callback" — stdout is reserved for SDK-emitted JSON-RPC messages per design §10.1. Today, the kit's call graph is clean (verified by grep across all modules transitively imported by [`mcp-server.mjs`](../packages/cli/src/mcp-server.mjs)), but the discipline is prose-only. A future PR can add a `console.log` to `memory-write.mjs` or `search.mjs` and pollute stdout for the MCP server with no test catching it.
 
 v0.1.x candidate: `scripts/validate-mcp-stdout-purity.mjs` — walks the import graph from `mcp-server.mjs` (via a static-analysis traversal of `import` statements), then greps every reachable module for `console.log` / `process.stdout.write` / unbounded `console.*` calls. Per-line suppression marker (`// stdout-purity: ignore <reason>`) for legitimate cases (none currently exist).
 
@@ -2467,7 +2467,7 @@ Provenance: Task 31 code-review Important #5 (2026-05-28).
 
 **v0.1.x candidate.**
 
-Surfaced by the Task 31 code-review-excellence pass (2026-05-28) as Blocking finding B2 (partial — JSON-RPC `-32602` mapping). Tasks.md 31.6 #4 says "path traversal: arg with `..`, `%2e%2e`, or `/etc/passwd` → JSON-RPC error `code: -32602`". The [`validatePath`](../../packages/cli/src/mcp-server.mjs) helper is unit-tested in isolation, but no v0.1.0 tool surface accepts a user-provided path argument:
+Surfaced by the Task 31 code-review-excellence pass (2026-05-28) as Blocking finding B2 (partial — JSON-RPC `-32602` mapping). Tasks.md 31.6 #4 says "path traversal: arg with `..`, `%2e%2e`, or `/etc/passwd` → JSON-RPC error `code: -32602`". The [`validatePath`](../packages/cli/src/mcp-server.mjs) helper is unit-tested in isolation, but no v0.1.0 tool surface accepts a user-provided path argument:
 
 - `mk_search`: query string + filter enums; no paths
 - `mk_get`: `ids[]` validated by `ID_PATTERN`; no paths
@@ -2536,7 +2536,7 @@ Provenance: Task 37 code-review Suggestion #1 (2026-05-28).
 
 **v0.1.x candidate.**
 
-Surfaced by Task 37 code-review-excellence Important #1 (2026-05-28). The "any repair requiring `pip install` / `npm install` / system-level changes MUST ASK the user first" rule lives in design §14 as an unsourced design assertion. The original citation was "NFR-9" but NFR-9 (per [`requirements-revisions-proposed.md:125`](../../archive/specs/v0.1.0/requirements-revisions-proposed.md)) is "Memory poisoning defense baseline" — different rule entirely. Task 37 PR corrected the citation to "design §14" but the rule still lacks a backing FR/NFR.
+Surfaced by Task 37 code-review-excellence Important #1 (2026-05-28). The "any repair requiring `pip install` / `npm install` / system-level changes MUST ASK the user first" rule lives in design §14 as an unsourced design assertion. The original citation was "NFR-9" but NFR-9 (per [`requirements-revisions-proposed.md:125`](../archive/specs/v0.1.0/requirements-revisions-proposed.md)) is "Memory poisoning defense baseline" — different rule entirely. Task 37 PR corrected the citation to "design §14" but the rule still lacks a backing FR/NFR.
 
 v0.1.x candidate: add a proper NFR (e.g., a new NFR like "Consent gate for system-level installs") in `requirements.md`. Ship trigger: an audit campaign verifying every design.md assertion has a backing FR/NFR (parallel to PR-D1's validate-references.mjs but for assertion provenance). <!-- validate-references: ignore (next-NFR placeholder; not yet assigned) -->
 
@@ -2546,7 +2546,7 @@ Provenance: Task 37 code-review Important #1 (2026-05-28).
 
 **v0.1.x candidate (HIGH priority — UX wart surfaced at first real use).**
 
-Surfaced 2026-05-29 during the post-publish usage walkthrough + the claude-mem install-model comparison (research note [`docs/research/2026-05-29-claude-mem-install-model.md`](../../docs/research/2026-05-29-claude-mem-install-model.md)).
+Surfaced 2026-05-29 during the post-publish usage walkthrough + the claude-mem install-model comparison (research note [`docs/research/2026-05-29-claude-mem-install-model.md`](../docs/research/2026-05-29-claude-mem-install-model.md)).
 
 **The problem.** v0.1.0 forces a TWO-step mandatory install: `npm install -g @lh8ppl/claude-memory-kit` + `cmk install` (scaffolds `context/`) **AND** a separate `/plugin marketplace add` + `/plugin install` (registers the hooks). Neither step alone is complete — `cmk install` scaffolds but does NOT wire the hooks, because the hook bins (`cmk-inject-context`, `cmk-capture-prompt`, `cmk-observe-edit`, `cmk-capture-turn`, `cmk-compress-session`) live in `plugin/bin/` and the hook commands reference `${CLAUDE_PLUGIN_ROOT}`, an env var only Claude Code's plugin loader sets. This was the Task 42 B4 finding ("hooks silently dead if you forget the plugin").
 
@@ -2636,7 +2636,7 @@ Two false fixes ruled out by the docs: `Bash(cd:*)` is a no-op (`cd` is already 
 
 ### 17.1 The five exit doors (what every test must assert)
 
-The five exit doors framework is adopted from Yoni Goldberg's [*nodejs-testing-best-practices*](https://github.com/goldbergyoni/nodejs-testing-best-practices) (README.md §1, "Test the five known backend exit doors (outcomes)"). Citation in [`SOURCES.md`](../../docs/SOURCES.md). Idea-level absorption — no prose copied. The kit uses Goldberg's original numbering so traceability to the source is preserved.
+The five exit doors framework is adopted from Yoni Goldberg's [*nodejs-testing-best-practices*](https://github.com/goldbergyoni/nodejs-testing-best-practices) (README.md §1, "Test the five known backend exit doors (outcomes)"). Citation in [`SOURCES.md`](../docs/SOURCES.md). Idea-level absorption — no prose copied. The kit uses Goldberg's original numbering so traceability to the source is preserved.
 
 **v0.1 caveat for Door 4 (Message queues)**: the kit has no general message-queue infrastructure. Two **named exceptions** apply Door 4 in primitive form today:
 
@@ -2679,7 +2679,7 @@ Or for the auto-extract case where temp-file IPC counts as Door 4:
 // extraction tests assert USER_TURN/ASSISTANT_TURN parsing.
 ```
 
-PR-D adds [`scripts/validate-exit-doors.mjs`](../../scripts/validate-exit-doors.mjs) which parses the `@doors:` declaration on each test file and heuristic-checks that the declared doors map to actual assertion patterns in the file body. Files without an annotation produce a warning during the PR-D rollout; at PR-D's final commit the validator flips to error-mode (all kit tests annotated, no perpetual-warning fallback).
+PR-D adds [`scripts/validate-exit-doors.mjs`](../scripts/validate-exit-doors.mjs) which parses the `@doors:` declaration on each test file and heuristic-checks that the declared doors map to actual assertion patterns in the file body. Files without an annotation produce a warning during the PR-D rollout; at PR-D's final commit the validator flips to error-mode (all kit tests annotated, no perpetual-warning fallback).
 
 §17.2-§17.6 are specializations: §17.2-§17.5 are how to assert door 3 properly when the call is cross-process (real-binary spawn smoke), and §17.6 is the PR-level gate that catches concurrency-class door-3/door-5 flakes which a single test run misses.
 
@@ -2695,7 +2695,7 @@ The contract was **wrong per reality**. The unit test mock recorded what `spawnF
 
 All three are real-world boundary semantics that the mocked-spawn unit test couldn't reach. The shape of the spawn call was right; the kit's interaction with the OS's spawn implementation was broken.
 
-See [`docs/journey/2026-05-26-live-test-findings.md`](../../docs/journey/2026-05-26-live-test-findings.md) ("Bonus finding — Windows spawn bug") for the full diagnostic chain.
+See [`docs/journey/2026-05-26-live-test-findings.md`](../docs/journey/2026-05-26-live-test-findings.md) ("Bonus finding — Windows spawn bug") for the full diagnostic chain.
 
 ### 17.3 The pattern — real-binary spawn smoke tests
 
@@ -2717,7 +2717,7 @@ Real-binary spawn is the load-bearing check.
 
 Every spawn boundary in the kit. Currently:
 
-- **HaikuViaAnthropicApi** (Task 23) — smoke test ships in [`tests/spawn-smoke-haiku.test.js`](../../tests/spawn-smoke-haiku.test.js) per Task 23.8.
+- **HaikuViaAnthropicApi** (Task 23) — smoke test ships in [`tests/spawn-smoke-haiku.test.js`](../tests/spawn-smoke-haiku.test.js) per Task 23.8.
 
 Future spawn boundaries each add their own smoke test:
 
@@ -2779,18 +2779,18 @@ Concrete checklist for the agent (Claude in this repo):
 
 | §17 discipline | Validator | Mode |
 | --- | --- | --- |
-| §17.1 — every test file declares its exit-door coverage via `// @doors:` header (and explicitly marks N/A doors with reasons) | [`scripts/validate-exit-doors.mjs`](../../scripts/validate-exit-doors.mjs) | **Strict** (post-PR-D2b, 2026-05-27). Missing header / silent-omission of any door 1..5 / out-of-range door numbers all violate; exit 1. The `CMK_DOORS_STRICT` env-var opt-in from the D1 rollout has been retired (was a phased-rollout flag during PR-D1's warning period). Per-file `// @doors-ignore` marker is the emergency escape valve. All 37 kit test files annotated. |
-| §17.3-§17.5 — every production subprocess `spawn()` declares its timeout contract (native `timeout:`, caller-managed via documented helper, or explicit fire-and-forget suppression) | [`scripts/validate-spawn-discipline.mjs`](../../scripts/validate-spawn-discipline.mjs) | **Strict**. Marker forms: `// spawn-discipline: caller-managed <ref>` (e.g., `terminateSubprocess` in compressor.mjs), `// spawn-discipline: ignore <reason>` (e.g., detached-fire-and-forget in capture-turn.mjs), or `timeout:` / `timeoutMs:` in the spawn options. Scans `packages/cli/src/` + `plugin/bin/`. |
+| §17.1 — every test file declares its exit-door coverage via `// @doors:` header (and explicitly marks N/A doors with reasons) | [`scripts/validate-exit-doors.mjs`](../scripts/validate-exit-doors.mjs) | **Strict** (post-PR-D2b, 2026-05-27). Missing header / silent-omission of any door 1..5 / out-of-range door numbers all violate; exit 1. The `CMK_DOORS_STRICT` env-var opt-in from the D1 rollout has been retired (was a phased-rollout flag during PR-D1's warning period). Per-file `// @doors-ignore` marker is the emergency escape valve. All 37 kit test files annotated. |
+| §17.3-§17.5 — every production subprocess `spawn()` declares its timeout contract (native `timeout:`, caller-managed via documented helper, or explicit fire-and-forget suppression) | [`scripts/validate-spawn-discipline.mjs`](../scripts/validate-spawn-discipline.mjs) | **Strict**. Marker forms: `// spawn-discipline: caller-managed <ref>` (e.g., `terminateSubprocess` in compressor.mjs), `// spawn-discipline: ignore <reason>` (e.g., detached-fire-and-forget in capture-turn.mjs), or `timeout:` / `timeoutMs:` in the spawn options. Scans `packages/cli/src/` + `plugin/bin/`. |
 | §17.6 — `npm run stress` gate before opening any PR whose surface touches spawn boundaries / hook handlers / detached children | None (workflow rule; enforced by the PR-author's discipline) | **Judgment rule**: stays prose-only. The validator that COULD enforce this is "did the PR description include a stress-result line?" — the kit doesn't have a PR-description linter, and adding one is out of scope for v0.1. |
 
 **Cross-cutting validators** (apply across §17 + §6 + §8 disciplines):
 
 | Rule | Validator | Mode |
 | --- | --- | --- |
-| Internal cross-references resolve: file links, `ADR-NNNN`, `§N.N` (within design.md), `FR-N`, `NFR-N`, `Task N` — broken or dangling references fail the suite. Code blocks + inline-code spans + `docs/research/` + `docs/sources/` + `docs/conversation-log/` are skipped (research-base notes use third-party FR namespaces). | [`scripts/validate-references.mjs`](../../scripts/validate-references.mjs) | **Strict**. Suppression via `<!-- validate-references: ignore -->` on the same line — sparingly. Anchor-out-of-corpus debug surfaceable via `CMK_REFS_DEBUG=1`. |
-| ID sequences (ADR / FR / NFR / Task) either have no gaps OR have an explicit `reserved` / `TODO` / `placeholder` / `not-yet` / `tail-appended` marker in the relevant file. PR-C found ADR-0009 + ADR-0010 missing for ~3 weeks because no validator caught the gap. | [`scripts/validate-numbering-gaps.mjs`](../../scripts/validate-numbering-gaps.mjs) | **Strict**. Markers parsed case-insensitively, in both directions (`reserved ADR-NNNN` or `ADR-NNNN ... reserved`). |
-| Every documented composition-verification instance in CLAUDE.md references at least one addressing artifact (test file, design section, or reserved marker). Catches the failure mode where a new instance gets enumerated but no corresponding test / design / reserved-marker is written. | [`scripts/validate-composition.mjs`](../../scripts/validate-composition.mjs) | **Strict**. Heuristic: instance descriptors are inline `PR-<id> (...)` parens within the rule body; each parenthesized description must match `tests/X.test.js` / `design §X.Y` / `reserved` / `v0.1.x` / `not-yet`. |
-| Every user-facing shell command emission in production code uses the `platform-commands.mjs` helper OR carries an explicit `// platform-commands: ignore <reason>` marker. Catches the failure mode PR-B surfaced (lock-discipline.mjs originally emitted hardcoded `rm` to Windows users on stock cmd.exe). | [`scripts/validate-platform-commands.mjs`](../../scripts/validate-platform-commands.mjs) | **Strict**. Scans `packages/cli/src/` + `plugin/bin/`. Three pass conditions: file imports from `./platform-commands.mjs` (helper-in-scope), per-line `// platform-commands: ignore <reason>` marker, or no hardcoded POSIX-command tokens at all. |
+| Internal cross-references resolve: file links, `ADR-NNNN`, `§N.N` (within design.md), `FR-N`, `NFR-N`, `Task N` — broken or dangling references fail the suite. Code blocks + inline-code spans + `docs/research/` + `docs/sources/` + `docs/conversation-log/` are skipped (research-base notes use third-party FR namespaces). | [`scripts/validate-references.mjs`](../scripts/validate-references.mjs) | **Strict**. Suppression via `<!-- validate-references: ignore -->` on the same line — sparingly. Anchor-out-of-corpus debug surfaceable via `CMK_REFS_DEBUG=1`. |
+| ID sequences (ADR / FR / NFR / Task) either have no gaps OR have an explicit `reserved` / `TODO` / `placeholder` / `not-yet` / `tail-appended` marker in the relevant file. PR-C found ADR-0009 + ADR-0010 missing for ~3 weeks because no validator caught the gap. | [`scripts/validate-numbering-gaps.mjs`](../scripts/validate-numbering-gaps.mjs) | **Strict**. Markers parsed case-insensitively, in both directions (`reserved ADR-NNNN` or `ADR-NNNN ... reserved`). |
+| Every documented composition-verification instance in CLAUDE.md references at least one addressing artifact (test file, design section, or reserved marker). Catches the failure mode where a new instance gets enumerated but no corresponding test / design / reserved-marker is written. | [`scripts/validate-composition.mjs`](../scripts/validate-composition.mjs) | **Strict**. Heuristic: instance descriptors are inline `PR-<id> (...)` parens within the rule body; each parenthesized description must match `tests/X.test.js` / `design §X.Y` / `reserved` / `v0.1.x` / `not-yet`. |
+| Every user-facing shell command emission in production code uses the `platform-commands.mjs` helper OR carries an explicit `// platform-commands: ignore <reason>` marker. Catches the failure mode PR-B surfaced (lock-discipline.mjs originally emitted hardcoded `rm` to Windows users on stock cmd.exe). | [`scripts/validate-platform-commands.mjs`](../scripts/validate-platform-commands.mjs) | **Strict**. Scans `packages/cli/src/` + `plugin/bin/`. Three pass conditions: file imports from `./platform-commands.mjs` (helper-in-scope), per-line `// platform-commands: ignore <reason>` marker, or no hardcoded POSIX-command tokens at all. |
 
 ### 17.8 Integration-test coverage for cross-module flows
 
@@ -2834,7 +2834,7 @@ Some kit tests legitimately mock kit modules for isolation reasons (e.g., testin
 
 **Today: judgment rule.** The code-review-excellence ONE-holistic-pass discipline (CLAUDE.md skill-agency section) checks integration coverage as part of PR review. Reviewer asks: "this PR wires module A to module B — where's the test that exercises the call path?"
 
-**v0.1.x candidate: structural validator.** [`scripts/validate-integration-coverage.mjs`](../../scripts/validate-integration-coverage.mjs) — see §16.25 for the candidate validator design, deferral rationale, and ship trigger.
+**v0.1.x candidate: structural validator.** [`scripts/validate-integration-coverage.mjs`](../scripts/validate-integration-coverage.mjs) — see §16.25 for the candidate validator design, deferral rationale, and ship trigger.
 
 #### Composition with §17.1 (the five exit doors)
 
@@ -2926,7 +2926,7 @@ When a scratchpad's content exceeds its **load**-cap, the overflow **graduates**
 
 ### 19.3 What stays injected — importance-aware, not tail-order
 
-With files now growable, the inject step must choose WHICH slice to inject. The original truncation dropped whole sections from the **tail** (file order). **Built (G7/Task 93/94.4, 2026-06-05, D-66):** per-tier budget truncation in `truncateTierToBudget` ([inject-context.mjs](../../packages/cli/src/inject-context.mjs)) now drops the **lowest-value section first** — aggregate trust (MAX bullet trust per section, so any high-trust bullet protects its section) → recency (newest `at`) → later-in-file as the tiebreak. The tiebreak makes it a **strict generalization** of the old tail-drop: with no provenance present (every section ranks equal) it drops from the end exactly as before, so all legacy behavior is preserved. The `tier_truncated_to_budget` Door-4 event records `strategy: 'importance-ordered'` + `dropped_sections` (heading + aggregate trust + ids). This keeps the BEST rules in the cold-open window and **minimizes the recall dependency** (only the long tail must be searched for).
+With files now growable, the inject step must choose WHICH slice to inject. The original truncation dropped whole sections from the **tail** (file order). **Built (G7/Task 93/94.4, 2026-06-05, D-66):** per-tier budget truncation in `truncateTierToBudget` ([inject-context.mjs](../packages/cli/src/inject-context.mjs)) now drops the **lowest-value section first** — aggregate trust (MAX bullet trust per section, so any high-trust bullet protects its section) → recency (newest `at`) → later-in-file as the tiebreak. The tiebreak makes it a **strict generalization** of the old tail-drop: with no provenance present (every section ranks equal) it drops from the end exactly as before, so all legacy behavior is preserved. The `tier_truncated_to_budget` Door-4 event records `strategy: 'importance-ordered'` + `dropped_sections` (heading + aggregate trust + ids). This keeps the BEST rules in the cold-open window and **minimizes the recall dependency** (only the long tail must be searched for).
 
 - **Granularity (accepted approximation):** eviction is **section**-granular (per §7.1.1 structural-shape preservation + the Task 93 "whole sections by aggregate value" sanction), so a low-trust bullet bundled in a section with a high-trust bullet survives over a standalone medium-trust section — a bullet-level inversion. This is asymmetric with §19.2 graduation, which evicts per-**bullet** (oldest-first). Bullet-granular inject eviction is the stricter v-next option.
 - **Follow-up (not yet built):** the **total-cap fallback** (Step 2 of `enforceCap` — fires only when Σ per-tier budgets > snapshot cap, a config-error safety net) still drops whole **tiers** from the priority tail (USER/persona first). That contradicts the importance theme and could evict the wedge persona wholesale under extreme overflow. Making the fallback priority/importance-aware is a tracked v-next candidate.

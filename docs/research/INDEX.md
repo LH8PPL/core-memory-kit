@@ -57,7 +57,7 @@ These are external specs captured verbatim for comparison; they use their own FR
 2. Output is saved here with frontmatter.
 3. Findings are summarized into either:
    - A new ADR ([adr/](../adr/)) if the research drives a decision.
-   - A revision to existing requirements ([specs/v0.1.0/requirements.md](../../specs/v0.1.0/requirements.md)) if the research refines an existing decision.
+   - A revision to existing requirements ([specs/requirements.md](../../specs/requirements.md)) if the research refines an existing decision.
    - A process update ([process/](../process/)) if the research changes how we work.
 4. The research note's tags include the ADR numbers it informed, for traceability.
 

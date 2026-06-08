@@ -126,7 +126,7 @@ context/
 
 Layers 1-3 are pure file ops. Layer 4 makes memory writes automatic. Layer 5a (keyword) ships in v0.1.0; Layer 5b (semantic) plugs in via the existing `CompressorBackend` seam without breaking changes. Layer 6 keeps the scratchpad from growing stale; if you can't run cron, it falls back to lazy-on-read compression at SessionStart.
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the data-flow diagram and [`specs/v0.1.0/design.md`](specs/v0.1.0/design.md) for the full design.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the data-flow diagram and [`specs/design.md`](specs/design.md) for the full design.
 
 ## CLI
 
@@ -173,7 +173,7 @@ See [HEALTH-CHECKS.md](HEALTH-CHECKS.md) for the detailed recovery paths.
 
 ## Architecture
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the data-flow diagram, [`specs/v0.1.0/design.md`](specs/v0.1.0/design.md) for full design, and [`specs/v0.1.0/glossary.md`](specs/v0.1.0/glossary.md) for terminology.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the data-flow diagram, [`specs/design.md`](specs/design.md) for full design, and [`specs/glossary.md`](specs/glossary.md) for terminology.
 
 ## Development
 
@@ -187,7 +187,7 @@ Contributing to claude-memory-kit itself (vs. installing it in your own project)
 | `npm run stress` | 5x full suite. Gate before opening any PR that touches a spawn boundary, hook handler, or detached child. |
 | `npm run lint:test-ids` / `npm run validate:template` | Individual prerun pieces. |
 
-The full test discipline (real-binary spawn smokes, stress-run gate, five-exit-doors framework) is documented in [`specs/v0.1.0/design.md` §17](specs/v0.1.0/design.md).
+The full test discipline (real-binary spawn smokes, stress-run gate, five-exit-doors framework) is documented in [`specs/design.md` §17](specs/design.md).
 
 CI matrix runs on every PR against Windows / macOS / Linux: see [`.github/workflows/install-matrix.yml`](.github/workflows/install-matrix.yml).
 

@@ -12,7 +12,7 @@ Worth documenting as a standalone artifact because the result was surprising, th
 
 The user had been working with one Claude session (call it "warm Claude") for ~3 days on the spec + implementation of claude-memory-kit v0.1.0. Tasks 1–4 had shipped (PRs #1–#4 merged, 127/127 tests green, project on `main`).
 
-Late on 2026-05-23, after committing a substantial pile of documentation infrastructure — `CLAUDE.md`, `docs/BOOTSTRAP.md`, working-style preferences captured in `docs/journey/v0.1.0-build-log.md` — The user proposed a parallel test. He'd:
+Late on 2026-05-23, after committing a substantial pile of documentation infrastructure — `CLAUDE.md`, `docs/BOOTSTRAP.md`, working-style preferences captured in `docs/journey/build-log.md` — The user proposed a parallel test. He'd:
 
 1. Keep the warm session open
 2. Open a second VS Code window with `C:\Projects\claude-memory-kit` as primary workspace
@@ -23,10 +23,10 @@ Late on 2026-05-23, after committing a substantial pile of documentation infrast
 The bootstrap prompt told the new Claude to read (in order):
 
 1. [`CLAUDE.md`](../../CLAUDE.md) — project tone + workflow + anti-patterns (~120 lines)
-2. [`docs/journey/v0.1.0-build-log.md`](v0.1.0-build-log.md) — full narrative (~590 lines)
-3. [`specs/v0.1.0/tasks.md`](../../specs/v0.1.0/tasks.md) — 44-task build plan
-4. [`specs/v0.1.0/glossary.md`](../../specs/v0.1.0/glossary.md) — domain terms
-5. [`specs/v0.1.0/design.md`](../../specs/v0.1.0/design.md) — HOW the kit works
+2. [`docs/journey/build-log.md`](build-log.md) — full narrative (~590 lines)
+3. [`specs/tasks.md`](../../specs/tasks.md) — 44-task build plan
+4. [`specs/glossary.md`](../../specs/glossary.md) — domain terms
+5. [`specs/design.md`](../../specs/design.md) — HOW the kit works
 
 Plus a current-state summary (Tasks 1-4 done, 127/127 tests, Task 5 next) and explicit binding rules (skill agency, TDD, boundary testing, anti-patterns).
 
@@ -353,6 +353,6 @@ The honest version of the article isn't "AI assistants can be doc-calibrated." I
 
 ## End of note
 
-Filed under `docs/journey/` because it's narrative research adjacent to the build log. Referenced from [`v0.1.0-build-log.md`](v0.1.0-build-log.md) so future Claude finds it.
+Filed under `docs/journey/` because it's narrative research adjacent to the build log. Referenced from [`build-log.md`](build-log.md) so future Claude finds it.
 
 Last updated: 2026-05-24 (follow-up findings appended).

@@ -56,9 +56,9 @@ The three-document structure is the core take. We adopted:
 
 | Kiro | Our adaptation |
 |---|---|
-| `requirements.md` | [specs/v0.1.0/requirements.md](../../specs/v0.1.0/requirements.md) — added EARS-style acceptance criteria, design tenets, open questions, NFRs. |
-| `design.md` | [specs/v0.1.0/design.md](../../specs/v0.1.0/design.md) — pending. Will include schemas, pluggable interfaces, FR cross-references. |
-| `tasks.md` | [specs/v0.1.0/tasks.md](../../specs/v0.1.0/tasks.md) — pending. Will include task IDs referenced by commit messages. |
+| `requirements.md` | [specs/requirements.md](../../specs/requirements.md) — added EARS-style acceptance criteria, design tenets, open questions, NFRs. |
+| `design.md` | [specs/design.md](../../specs/design.md) — pending. Will include schemas, pluggable interfaces, FR cross-references. |
+| `tasks.md` | [specs/tasks.md](../../specs/tasks.md) — pending. Will include task IDs referenced by commit messages. |
 | Review checkpoints | Strict Kiro: one document at a time, user approves before next |
 | Specs reference rather than re-explain | Yes — `design.md` will cite `requirements.md` by FR number. |
 

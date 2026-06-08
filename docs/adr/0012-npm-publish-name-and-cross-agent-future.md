@@ -104,9 +104,9 @@ The `cmk` CLI command (three letters, barely Claude-branded in daily use) can su
 
 ## References
 
-- Tenet T6 (Claude Code first, other agents out of scope for v0.1.0): [requirements.md §1.4](../../specs/v0.1.0/requirements.md)
-- Tenet T1 (markdown source of truth → core is agent-neutral): [requirements.md §1.4](../../specs/v0.1.0/requirements.md)
-- v0.2 cross-agent adapter plan: [design.md §16.6](../../specs/v0.1.0/design.md)
+- Tenet T6 (Claude Code first, other agents out of scope for v0.1.0): [requirements.md §1.4](../../specs/requirements.md)
+- Tenet T1 (markdown source of truth → core is agent-neutral): [requirements.md §1.4](../../specs/requirements.md)
+- v0.2 cross-agent adapter plan: [design.md §16.6](../../specs/design.md)
 - npm scope verification (2026-05-29): `npm org ls claude-memory-kit` → 404; `npm org ls cmk lh8ppl` → empty; `npm access list packages cmk` → pre-existing `@cmk/*` packages.
 - Session handoff capturing the decision: [docs/journey/RESUME-HERE-2026-05-28.md](../journey/RESUME-HERE-2026-05-28.md)
 

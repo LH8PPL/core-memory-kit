@@ -57,7 +57,7 @@ However, the v0.1 *architecture* must not preclude bank/air-gap deployment in v0
 
 2. **No hard-coded Anthropic API endpoint** in the compressor — the URL lives in `settings.json` so it can be swapped without code changes.
 
-3. **No silent network calls** elsewhere (NFR-5 in [requirements.md](../../specs/v0.1.0/requirements.md)) — every network call is documented, user-approved, and tied to a specific feature. This makes v0.2's air-gap path a feature flag, not an audit.
+3. **No silent network calls** elsewhere (NFR-5 in [requirements.md](../../specs/requirements.md)) — every network call is documented, user-approved, and tied to a specific feature. This makes v0.2's air-gap path a feature flag, not an audit.
 
 ### NOT in v0.1 (deferred to v0.2+)
 

@@ -8,11 +8,11 @@ A per-project, in-repo memory system for Claude Code. Fixes per-session amnesia 
 
 ## Read these in order (10 minutes total)
 
-1. [`docs/journey/v0.1.0-build-log.md`](docs/journey/v0.1.0-build-log.md) — full narrative. The single most important doc.
-2. [`specs/v0.1.0/tasks.md`](specs/v0.1.0/tasks.md) — the 44-task build plan. Find the next `[ ]` parent task.
-3. [`specs/v0.1.0/glossary.md`](specs/v0.1.0/glossary.md) — domain terms. When two docs disagree, glossary wins.
-4. [`specs/v0.1.0/design.md`](specs/v0.1.0/design.md) — HOW the kit works (skim, then read sections as needed).
-5. [`specs/v0.1.0/requirements.md`](specs/v0.1.0/requirements.md) — WHAT v0.1.0 must do (FR-*, NFR-*).
+1. [`docs/journey/build-log.md`](docs/journey/build-log.md) — full narrative. The single most important doc.
+2. [`specs/tasks.md`](specs/tasks.md) — the 44-task build plan. Find the next `[ ]` parent task.
+3. [`specs/glossary.md`](specs/glossary.md) — domain terms. When two docs disagree, glossary wins.
+4. [`specs/design.md`](specs/design.md) — HOW the kit works (skim, then read sections as needed).
+5. [`specs/requirements.md`](specs/requirements.md) — WHAT v0.1.0 must do (FR-*, NFR-*).
 
 ## Working style (locked in by the user)
 
@@ -42,7 +42,7 @@ The user is direct and tight on time. Match the energy.
 - **Read the authoritative docs for a task BEFORE writing its code (binding).** Before implementing any task, read the design + findings docs that govern it — by **default**, not when reminded. The minimum set: (a) the task's `tasks.md` entry AND every doc it links; (b) the `design.md` section(s) the change touches (the architecture it must fit); (c) the relevant **ADR**(s) and **DECISION-LOG / research** entries for the area (the *why* + what's already settled/deferred). Reading the spec + the code is **not** sufficient — the spec tells you WHAT, the design/ADR/findings tell you WHAT-IT-MUST-COMPOSE-WITH and WHAT-WAS-ALREADY-DECIDED. This is the "did you check the primary source?" rule applied to the START of a task, not just to claims. **Why binding (the precedent):** 2026-06-07, mid-Task-105, the user asked *"did you read all the documentation we wrote about it?"* — and the honest answer was *not yet* (I'd read the task spec + code, but not design §8 / §16.27 / D-75). I stopped and read them BEFORE writing implementation — and reading **§16.27** is exactly what let self-review catch a real `now.md` truncate race the implementation introduced. A retro-audit of Tasks 101 + 103 against their docs found both *aligned*, but 101's alignment was luck-of-a-mechanical-change (I hadn't read §5.1/§8.5/ADR-0006 at the time, the change just happened to preserve the contracts) — which is the point: doc-reading-first turns "happened to be right" into "verified right," and turns latent composition bugs into caught ones. **How to apply:** at task start, before the first code edit, grep + read the governing docs (`grep -rn '<task-topic>' specs/ docs/adr/ docs/journey/DECISION-LOG.md docs/research/`); when a doc names a composition boundary (a shared function, a race, a cooldown, a cap), trace it in the code as part of planning, not after a red gate. Plan mode forces this; outside plan mode it's still required.
 - **Branch BEFORE the first commit of a task, never after (binding, mechanical).** A new task's FIRST action that touches the working tree must be preceded by `git checkout -b task-N-short-name` off fresh `main`. Do not start editing on `main` "just to explore" — exploration is read-only; the moment you edit, you should already be on the task branch. **Precedent:** 2026-06-07, Tasks 103 AND 105 both began with edits on `main` (103 caught before commit; 105 committed directly to `main` before I noticed → required a `git branch` + `git reset --hard origin/main` recovery). Nothing was pushed either time, so recovery was clean — but it's avoidable friction. The fix is purely mechanical: branch first.
 - **Durable-state-first checkpoint discipline.** Long-running multi-PR work has context-loss risk at session boundaries. Three checkpoint patterns:
-  1. **Per-PR**: any session that opens, modifies, or merges a campaign PR updates the durable tracker ([`docs/journey/v0.1.0-build-log.md`](docs/journey/v0.1.0-build-log.md) §"Post-PR-31 audit campaign tracker" or the equivalent for future campaigns) in the same commit batch. Tracker state never lags behind PR state.
+  1. **Per-PR**: any session that opens, modifies, or merges a campaign PR updates the durable tracker ([`docs/journey/build-log.md`](docs/journey/build-log.md) §"Post-PR-31 audit campaign tracker" or the equivalent for future campaigns) in the same commit batch. Tracker state never lags behind PR state.
   2. **Context-pressure**: when a session notices context-tight signals (long conversation, low-context reminder from the harness, multiple PRs in flight), write a tracker-update commit BEFORE engaging with the next prompt. **Durable-state-first, then work.**
   3. **Per-task-boundary (interval flush)**: in a multi-task or autopilot run, document each task BEFORE starting the next — its `tasks.md` entry/checkbox + any `DECISION-LOG` entry land in the same commit batch as the task's code, never deferred to "merge-time" or "later." A task boundary is a hard documentation checkpoint: do not carry an undocumented decision/finding across it. The interval IS the task boundary; under context-pressure, flush immediately (pattern 2). Precedent: the 2026-06-03 cut autopilot, where a task's code shipped but its `tasks.md`/`DECISION-LOG` updates lagged (batched toward merge) and the user caught it ("do you document everything?"). The existing always-on rules didn't prevent the lag; this concrete interval does.
 
@@ -69,14 +69,14 @@ The user is direct and tight on time. Match the energy.
 
   | Concern | Authoritative file |
   | --- | --- |
-  | Every task + sub-task + checkbox state + dependencies + paused-conditions | [`specs/v0.1.0/tasks.md`](specs/v0.1.0/tasks.md) |
-  | Campaign-PR queue + per-PR status + scopes + deferrals (as sub-tasks) | [`specs/v0.1.0/tasks.md`](specs/v0.1.0/tasks.md) (Task 23 tracker section) |
-  | Per-PR narrative + meta-lessons + retrospectives | [`docs/journey/v0.1.0-build-log.md`](docs/journey/v0.1.0-build-log.md) |
-  | HOW things work (architecture, schemas, validators, v0.1.x candidates §16) | [`specs/v0.1.0/design.md`](specs/v0.1.0/design.md) |
-  | WHAT must ship (FRs, NFRs, acceptance criteria) | [`specs/v0.1.0/requirements.md`](specs/v0.1.0/requirements.md) and [`specs/v0.1.0/requirements-revisions-proposed.md`](specs/v0.1.0/requirements-revisions-proposed.md) (FR-28+) |
+  | Every task + sub-task + checkbox state + dependencies + paused-conditions | [`specs/tasks.md`](specs/tasks.md) |
+  | Campaign-PR queue + per-PR status + scopes + deferrals (as sub-tasks) | [`specs/tasks.md`](specs/tasks.md) (Task 23 tracker section) |
+  | Per-PR narrative + meta-lessons + retrospectives | [`docs/journey/build-log.md`](docs/journey/build-log.md) |
+  | HOW things work (architecture, schemas, validators, v0.1.x candidates §16) | [`specs/design.md`](specs/design.md) |
+  | WHAT must ship (FRs, NFRs, acceptance criteria) | [`specs/requirements.md`](specs/requirements.md) and [`specs/requirements-revisions-proposed.md`](specs/requirements-revisions-proposed.md) (FR-28+) |
   | Architectural decisions | [`docs/adr/`](docs/adr/) |
   | External citations + verification status | [`docs/SOURCES.md`](docs/SOURCES.md) |
-  | Domain terms (glossary wins when docs disagree) | [`specs/v0.1.0/glossary.md`](specs/v0.1.0/glossary.md) |
+  | Domain terms (glossary wins when docs disagree) | [`specs/glossary.md`](specs/glossary.md) |
   | Diagnostic table | [`HEALTH-CHECKS.md`](HEALTH-CHECKS.md) |
   | Research notes (one per finding) | [`docs/research/`](docs/research/) |
   | Chronological decision/issue/bug/fix paper trail (the spine that ties the others together) | [`docs/journey/DECISION-LOG.md`](docs/journey/DECISION-LOG.md) |
@@ -128,7 +128,7 @@ Most kit tests assert (1) and (2). The ones that miss (3) or (4) are the ones wh
 
 **Walk all four doors before considering a test "done"** — when writing a new test or opening an existing test file, explicitly run through the five-exit-doors checklist (Response / State / External calls / Observability / [Queues — N/A]) and pin every door that applies. Doors 3 and 4 are the ones future bugs hide behind when missed — Door 3 (external calls) because mock-only tests miss spawn-layer breakage (the PR #22 lesson), Door 4 (observability) because NDJSON log assertions are the audit trail for production debugging.
 
-**Integration-test coverage for cross-module flows** — when two kit modules compose at runtime (e.g., `memory-write` → `conflict-queue`; `auto-extract` → `memory-write`; `Stop hook` → `capture-turn` → detached `auto-extract`), at least one test MUST exercise the full integration path. Per-module unit tests verify each surface in isolation but routinely miss call-shape contracts at the boundary. Precedent: Task 25's `generateId({text, tier})` named-args bug shipped latent because every queue-route test bypassed `memory-write` and constructed `writeConflictEntry` directly; Task 25b's `mergeScratchpadBullets` integration test was the first to exercise the real call chain. Full content + the v0.1.x validator candidate in [`design.md §17.8`](specs/v0.1.0/design.md).
+**Integration-test coverage for cross-module flows** — when two kit modules compose at runtime (e.g., `memory-write` → `conflict-queue`; `auto-extract` → `memory-write`; `Stop hook` → `capture-turn` → detached `auto-extract`), at least one test MUST exercise the full integration path. Per-module unit tests verify each surface in isolation but routinely miss call-shape contracts at the boundary. Precedent: Task 25's `generateId({text, tier})` named-args bug shipped latent because every queue-route test bypassed `memory-write` and constructed `writeConflictEntry` directly; Task 25b's `mergeScratchpadBullets` integration test was the first to exercise the real call chain. Full content + the v0.1.x validator candidate in [`design.md §17.8`](specs/design.md).
 
 **Caller-map BOTH ways before changing a shared function (binding).** Before editing any function used outside its own file — signature, required args, return shape, OR behavior — build the impact map in **both directions, first**, and update everything in the SAME change:
 
@@ -161,7 +161,7 @@ When implementing new task modules under [`packages/cli/src/`](packages/cli/src/
 | Audit-log appends (any mutating operation) | [`audit-log.mjs`](packages/cli/src/audit-log.mjs) — `appendAuditEntry()` | `appendFileSync` to `.locks/audit.log` directly |
 | Error / result shape | [`result-shapes.mjs`](packages/cli/src/result-shapes.mjs) — `errorResult()` / `notFoundResult()` + `ERROR_CATEGORIES` enum | Hand-roll `{action: 'error', errorCategory: 'schema', ...}` per file |
 
-Why: the Layer-2 review surfaced 4 modules independently reimplementing the same helpers with small variations — drift was already producing bugs (e.g. `INDEX.md` not filtered from one writer's dedup scan; audit-log shape divergence across writers). Future Layer 3/4/5/6 modules import from these shared sources. See [design §1.3](specs/v0.1.0/design.md) for the architectural note and [glossary](specs/v0.1.0/glossary.md) entries for [[Audit log]] + [[Result shape]] + [[Provenance frontmatter]].
+Why: the Layer-2 review surfaced 4 modules independently reimplementing the same helpers with small variations — drift was already producing bugs (e.g. `INDEX.md` not filtered from one writer's dedup scan; audit-log shape divergence across writers). Future Layer 3/4/5/6 modules import from these shared sources. See [design §1.3](specs/design.md) for the architectural note and [glossary](specs/glossary.md) entries for [[Audit log]] + [[Result shape]] + [[Provenance frontmatter]].
 
 ## Prose rules vs enforcement (binding)
 
@@ -304,15 +304,15 @@ Skills that **should NOT auto-trigger for this project**:
 
 The memory model the kit is building (and the model these notes are written under):
 
-- **Auto-extract is the default.** Future-Claude takes notes naturally based on what's worth noting. The user does not need to say "remember this." See [`specs/v0.1.0/design.md`](specs/v0.1.0/design.md) §6.0 for the full mental model.
+- **Auto-extract is the default.** Future-Claude takes notes naturally based on what's worth noting. The user does not need to say "remember this." See [`specs/design.md`](specs/design.md) §6.0 for the full mental model.
 - **User phrase triggers are an override**, for cases where the user wants immediate explicit capture.
 - **Until Tasks 21 + 23 ship**, this project doesn't have working auto-extract for itself. So the practical workaround during the build: when something genuinely durable comes up in conversation (architectural decision, design rationale, user preference, anti-pattern discovered), explicitly capture it into the journey log via an `Edit`. **Don't wait for the user to say "remember this"** — that's exactly the broken pattern the kit replaces.
 
 ## Current state
 
-**For status (task list, completion state, what's next, what's paused, why): see [`specs/v0.1.0/tasks.md`](specs/v0.1.0/tasks.md).** That file is the single source of truth for everything-task-related. Look at Task 23's sub-tasks (especially 23.9-23.15) and the "Post-PR-31 audit campaign tracker" section near Task 23 for the in-flight campaign.
+**For status (task list, completion state, what's next, what's paused, why): see [`specs/tasks.md`](specs/tasks.md).** That file is the single source of truth for everything-task-related. Look at Task 23's sub-tasks (especially 23.9-23.15) and the "Post-PR-31 audit campaign tracker" section near Task 23 for the in-flight campaign.
 
-**For narrative (per-PR retrospectives, why decisions were made, meta-lessons): see [`docs/journey/v0.1.0-build-log.md`](docs/journey/v0.1.0-build-log.md).**
+**For narrative (per-PR retrospectives, why decisions were made, meta-lessons): see [`docs/journey/build-log.md`](docs/journey/build-log.md).**
 
 **This file (CLAUDE.md)** holds the project's stable RULES — verification disciplines, engineering conventions, working style, anti-patterns, campaign rules that apply to any future multi-PR campaign. State that changes per-PR (tests-green count, what's merged, what's next) is intentionally NOT in this file; it would create commit noise on the rulebook every PR transition.
 

@@ -22,7 +22,7 @@ const VALIDATOR = join(REPO_ROOT, 'scripts', 'validate-doc-registry.mjs');
 function makeSandbox() {
   const sandbox = mkdtempSync(join(tmpdir(), 'cmk-docreg-test-'));
   mkdirSync(join(sandbox, 'docs', 'journey'), { recursive: true });
-  mkdirSync(join(sandbox, 'specs', 'v0.1.0'), { recursive: true });
+  mkdirSync(join(sandbox, 'specs'), { recursive: true });
   return sandbox;
 }
 
@@ -62,12 +62,12 @@ describe('validate-doc-registry', () => {
 
   it('passes when every high-risk file is registered', () => {
     writeFileSync(join(sandbox, 'README.md'), '# readme');
-    writeFileSync(join(sandbox, 'specs', 'v0.1.0', 'tasks.md'), '# tasks');
+    writeFileSync(join(sandbox, 'specs', 'tasks.md'), '# tasks');
     writeFileSync(join(sandbox, 'docs', 'journey', 'DECISION-LOG.md'), '# log');
     // Registry must also self-register the map (docs/DOCUMENTATION-MAP.md).
     writeMap(
       sandbox,
-      'README.md · specs/v0.1.0/tasks.md · docs/journey/DECISION-LOG.md · docs/DOCUMENTATION-MAP.md',
+      'README.md · specs/tasks.md · docs/journey/DECISION-LOG.md · docs/DOCUMENTATION-MAP.md',
     );
     const r = runValidator(sandbox);
     expect(r.exitCode).toBe(0);

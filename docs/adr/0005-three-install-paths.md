@@ -23,7 +23,7 @@ tags:
 
 ## Status
 
-**Accepted** 2026-05-21. Reaffirmed in [specs/v0.1.0/requirements.md FR-22](../../specs/v0.1.0/requirements.md) (OQ-2).
+**Accepted** 2026-05-21. Reaffirmed in [specs/requirements.md FR-22](../../specs/requirements.md) (OQ-2).
 
 ## Context
 

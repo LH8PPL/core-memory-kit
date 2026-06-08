@@ -19,7 +19,7 @@ const VALIDATOR = join(REPO_ROOT, 'scripts', 'validate-references.mjs');
 function makeSandbox() {
   const sandbox = mkdtempSync(join(tmpdir(), 'cmk-refs-test-'));
   mkdirSync(join(sandbox, 'docs', 'adr'), { recursive: true });
-  mkdirSync(join(sandbox, 'specs', 'v0.1.0'), { recursive: true });
+  mkdirSync(join(sandbox, 'specs'), { recursive: true });
   return sandbox;
 }
 

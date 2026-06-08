@@ -16,7 +16,7 @@
 //   still route to the project MEMORY.md, and existing user-tier facts are
 //   left untouched (over-mutation guard).
 //
-// Design + sub-tasks: specs/v0.1.0/tasks.md Task 61. Reuses auto-persona's
+// Design + sub-tasks: specs/tasks.md Task 61. Reuses auto-persona's
 // buildClassifierInstructions + PERSONA_CANDIDATE_RE + promote-to-user-tier path.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';

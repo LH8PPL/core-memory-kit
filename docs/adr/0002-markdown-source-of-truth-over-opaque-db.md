@@ -21,7 +21,7 @@ tags:
 
 ## Status
 
-**Accepted** 2026-05-21. This is design tenet **T1** in [specs/v0.1.0/requirements.md](../../specs/v0.1.0/requirements.md). Non-negotiable: any future ADR that would violate it must supersede this one explicitly.
+**Accepted** 2026-05-21. This is design tenet **T1** in [specs/requirements.md](../../specs/requirements.md). Non-negotiable: any future ADR that would violate it must supersede this one explicitly.
 
 ## Context
 
@@ -50,7 +50,7 @@ Specifically:
 - A SQLite index at `<repo>/context/.index/memory.db` is built FROM the markdown by an indexer process. The `.index/` directory is in `.gitignore`.
 - If the SQLite index is lost or corrupt, `cmk reindex` rebuilds it from markdown in O(file count). The index is **never** the authority.
 - Vector embeddings (for semantic search, optional Layer 5) follow the same rule: regenerable from markdown via `memsearch index`.
-- Schema sketch lives in [specs/v0.1.0/requirements.md FR-17](../../specs/v0.1.0/requirements.md).
+- Schema sketch lives in [specs/requirements.md FR-17](../../specs/requirements.md).
 
 ## Consequences
 

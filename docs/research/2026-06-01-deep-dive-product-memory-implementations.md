@@ -96,5 +96,5 @@ The user asked the sharper question: not just what we lack, but where we do it *
 ## Cross-link
 
 - [`2026-06-01-how-products-implement-skills.md`](2026-06-01-how-products-implement-skills.md) — the skills-delivery survey (the SKILL.md / CLAUDE.md question) this deep dive complements.
-- [DECISION-LOG D-28](../journey/DECISION-LOG.md) · [tasks.md Task 69](../../specs/v0.1.0/tasks.md).
+- [DECISION-LOG D-28](../journey/DECISION-LOG.md) · [tasks.md Task 69](../../specs/tasks.md).
 - Clones at `C:/tmp/skill-research/{hermes-agent,memsearch,gstack,claude-mem}` (gitignored scratch, not committed).

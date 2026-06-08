@@ -41,7 +41,7 @@ If the user wants a stronger legal answer than "assume strict and proceed accord
 
 ## Why this note exists
 
-Per [the meta-discussion on 2026-05-25](../journey/v0.1.0-build-log.md): the project did partial code dives on 5 reference projects in [the primary-source examination doc](2026-05-22-primary-source-examination.md), and a full dive on GBrain in the [2026-05-24 GBrain note](2026-05-24-gbrain-architecture.md), but never dove into claude-remember's actual rolling-window algorithm. That's the project we're about to re-implement in Tasks 28 (daily distill) and 29 (weekly compression). This note fixes the gap: clones the repo, reads the four key files, and abstracts the algorithm + decisions worth porting.
+Per [the meta-discussion on 2026-05-25](../journey/build-log.md): the project did partial code dives on 5 reference projects in [the primary-source examination doc](2026-05-22-primary-source-examination.md), and a full dive on GBrain in the [2026-05-24 GBrain note](2026-05-24-gbrain-architecture.md), but never dove into claude-remember's actual rolling-window algorithm. That's the project we're about to re-implement in Tasks 28 (daily distill) and 29 (weekly compression). This note fixes the gap: clones the repo, reads the four key files, and abstracts the algorithm + decisions worth porting.
 
 Method: cloned to `/tmp/claude-remember`, read `pipeline/consolidate.py`, `pipeline/extract.py`, `scripts/save-session.sh`, `scripts/run-consolidation.sh`, and the four prompt templates in `prompts/`. ~90 minutes.
 
