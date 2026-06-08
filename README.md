@@ -147,7 +147,7 @@ Most-used commands below; **full reference with examples: [`docs/CLI.md`](docs/C
 | `cmk persona export <file>` | Bundle your cross-project persona (the user tier) into one portable file, to carry to **another of your machines**. The persona stays private — it's never committed to a project |
 | `cmk persona import <file>` | Apply a persona bundle (from `cmk persona export`) to this machine's user tier. Overwrites; any file it replaces is backed up first, and the import is transactional (rolls back on failure) |
 | `cmk register-crons [--dry-run] [--unregister]` | Register daily + weekly jobs with Linux crontab / macOS launchd / Windows Task Scheduler |
-| `cmk forget <id>` | Tombstone a fact (preserves audit trail) |
+| `cmk forget <id>` | Tombstone a fact — disappears from `cmk search` immediately, no manual reindex (audit trail preserved) |
 | `cmk import-anthropic-memory [--dry-run] [--yes]` | Merge useful bullets from Anthropic's native auto-memory into your project MEMORY.md |
 | `cmk disable-native-memory` / `cmk enable-native-memory` | Opt this project out of (or back into) Claude Code's _native_ Auto Memory — writes `autoMemoryEnabled` to the committable `.claude/settings.json` (travels with `git clone`). The kit coexists with native memory by default; use this to run one lean layer instead of two (ADR-0011) |
 | `cmk transcripts extract --session <uuid> --slug <slug> --since <YYYY-MM-DD>` | Extract clean markdown transcripts from `~/.claude/projects/<slug>/<uuid>.jsonl` |

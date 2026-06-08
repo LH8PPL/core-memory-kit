@@ -33,6 +33,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { forget, resolveFact } from '../packages/cli/src/forget.mjs';
 import { writeFact } from '../packages/cli/src/write-fact.mjs';
+import { openIndexDb } from '../packages/cli/src/index-db.mjs';
+import { reindexBoot } from '../packages/cli/src/index-rebuild.mjs';
 
 function validFactOpts(overrides = {}) {
   return {
@@ -445,6 +447,53 @@ describe('Task 9 — forget() + resolveFact() boundaries', () => {
         yes: true,
       });
       expect(r.action).toBe('not-found');
+    });
+  });
+
+  // Task 110 (F-7 / D-84): forget must AUTO-propagate to the search index
+  // in-band — a forgotten fact must NOT keep surfacing in `cmk search` until a
+  // manual `cmk reindex`. The regular user never runs commands (D-85): "forget
+  // X" → gone from search, zero follow-up. forget() reindexes the project tier
+  // (which orphan-prunes the just-tombstoned file) as part of the operation.
+  describe('Task 110 — forget auto-reindexes the search index in-band (F-7)', () => {
+    function indexedIds(projectRoot, userDir) {
+      const db = openIndexDb({ projectRoot });
+      try {
+        return db.prepare('SELECT id FROM observations').all().map((r) => r.id);
+      } finally {
+        db.close();
+      }
+    }
+
+    it('removes the forgotten fact from the index WITHOUT a manual reindex', () => {
+      const keep = writeFact(validFactOpts({ projectRoot, slug: 'keep', body: 'keep this one' }));
+      const gone = writeFact(validFactOpts({ projectRoot, slug: 'gone', body: 'forget this one' }));
+
+      // Index both (simulates the state after a prior search/session).
+      const db0 = openIndexDb({ projectRoot });
+      reindexBoot({ projectRoot, userDir, db: db0 });
+      db0.close();
+      expect(indexedIds(projectRoot, userDir)).toEqual(
+        expect.arrayContaining([keep.id, gone.id]),
+      );
+
+      // Forget — and do NOT call reindex ourselves. forget() must do it in-band.
+      const r = forget({ idOrQuery: gone.id, projectRoot, userDir, yes: true });
+      expect(r.action).toBe('tombstoned');
+
+      // Door 2 (State): the index no longer carries the forgotten fact, but the
+      // survivor is UNTOUCHED (over-mutation guard).
+      const after = indexedIds(projectRoot, userDir);
+      expect(after).not.toContain(gone.id);
+      expect(after).toContain(keep.id);
+    });
+
+    it('degrades gracefully when there is no projectRoot index to update', () => {
+      // A pure user-tier forget (no projectRoot) has no project index to touch —
+      // it must still tombstone without throwing.
+      const w = writeFact(validFactOpts({ projectRoot, slug: 'solo' }));
+      const r = forget({ idOrQuery: w.id, projectRoot, yes: true });
+      expect(r.action).toBe('tombstoned');
     });
   });
 });

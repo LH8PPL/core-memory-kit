@@ -403,10 +403,52 @@ export function reindexBoot({ projectRoot, userDir, db, now }) {
     observationsAffected += n;
   }
 
+  // Prune orphans (Task 110 / F-7). The walk above only ADDS/UPDATES files that
+  // still exist; a file removed since the last index (e.g. a fact `cmk forget`
+  // moved to archive/tombstones/, or a queue-discard) leaves its observation
+  // rows behind, so the forgotten fact keeps surfacing in `cmk search` until a
+  // manual `reindex --full`. Drop any `files` checkpoint whose source is no
+  // longer on disk, plus its observations (the FTS5 delete trigger fires per
+  // row). This makes boot a full sync (add/update/DELETE), so every index
+  // reader — all of which lazy-call reindexBoot first — self-heals after any
+  // removal with no manual command (the D-85 "everything automatic" contract).
+  //
+  // SAFETY (composition guard): the prune deletes any known row NOT in the
+  // current live-set, so it is only sound when the live-set is COMPLETE across
+  // every tier the index covers. The U tier is walked only when `userDir` is
+  // provided; without it, U sources are absent from `liveRelPaths` and a real
+  // U-tier row would be mis-pruned as an orphan. So we prune ONLY when userDir
+  // is present (P + L + U all walked). When it's absent we skip — the next
+  // reader that passes userDir (every `cmk search`/`get`/… does) self-heals.
+  // (projectRoot is always present here — it's required to open the db.)
+  let filesPruned = 0;
+  let observationsPruned = 0;
+  if (userDir) {
+    const liveRelPaths = new Set(
+      sources.map((s) => relativeSource(s.path, { projectRoot, userDir })),
+    );
+    const pruneTxn = db.transaction((relPath, obsCount) => {
+      db.prepare(DELETE_OBSERVATIONS_FOR_PATH_SQL).run(relPath);
+      db.prepare('DELETE FROM files WHERE path = ?').run(relPath);
+      filesPruned++;
+      observationsPruned += obsCount;
+    });
+    const knownPaths = db.prepare('SELECT path FROM files').all();
+    for (const { path: relPath } of knownPaths) {
+      if (liveRelPaths.has(relPath)) continue;
+      const obsCount = db
+        .prepare('SELECT COUNT(*) AS n FROM observations WHERE source_file = ?')
+        .get(relPath).n;
+      pruneTxn(relPath, obsCount);
+    }
+  }
+
   return {
     filesScanned,
     filesReindexed,
     observationsAffected,
+    filesPruned,
+    observationsPruned,
     durationMs: Date.now() - t0,
     skipped,
   };

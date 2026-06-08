@@ -27,6 +27,8 @@ import { parse, format } from './frontmatter.mjs';
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult, notFoundResult } from './result-shapes.mjs';
 import { findBulletScratchpad } from './bullet-lookup.mjs';
+import { openIndexDb } from './index-db.mjs';
+import { reindexBoot } from './index-rebuild.mjs';
 
 // Layer-2 review: PR-1 rejected \n / \r / : in the `reason` field as a
 // minimum fix for the naive serializer (finding B2). PR-2's frontmatter.mjs
@@ -290,6 +292,32 @@ export function forget(opts = {}) {
     },
   });
 
+  // Task 110 (F-7 / D-84): reindex the project tier IN-BAND so the just-
+  // tombstoned fact stops surfacing in `cmk search` immediately — no manual
+  // `cmk reindex`, no forgotten fact resurfacing (D-85: the action completes
+  // automatically; the regular user runs no follow-up command). reindexBoot's
+  // orphan-prune drops the unlinked fact's index rows and re-reads the scrubbed
+  // scratchpads in one pass. Both `cmk forget` (CLI) and `mk_forget` (MCP) call
+  // this same forget(), so both surfaces get it. Best-effort: the fact is
+  // ALREADY tombstoned + scrubbed on disk, so an index error must not fail the
+  // forget — every index reader lazy-reindexes (also orphan-pruning) and self-
+  // heals on the next read. A pure user-tier forget (no projectRoot) has no
+  // project index to touch and skips this.
+  let reindexed = false;
+  if (projectRoot) {
+    try {
+      const db = openIndexDb({ projectRoot });
+      try {
+        reindexBoot({ projectRoot, userDir, db });
+        reindexed = true;
+      } finally {
+        db.close();
+      }
+    } catch {
+      // best-effort — the on-disk tombstone is authoritative; search self-heals.
+    }
+  }
+
   return {
     action: 'tombstoned',
     id: match.id,
@@ -297,6 +325,7 @@ export function forget(opts = {}) {
     originalPath: match.path,
     tombstonePath,
     scratchpadEdits,
+    reindexed,
   };
 }
 
