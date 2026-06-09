@@ -1,7 +1,12 @@
-// @doors: 1, 2
+// @doors: 1, 2, 5
 // Door 3 N/A: writeFact is in-process file emission; no subprocess spawn.
 // Door 4 N/A: no message-queue interaction.
-// Door 5 N/A: writeFact returns the action+id+path struct (Door 1); the audit-log entry that accompanies a write is the caller's responsibility (memory-write skill / auto-extract).
+// Door 5: writeFact emits a `created` audit entry by DEFAULT (Task 123.A). The
+//   create-audit was previously delegated to callers and silently dropped —
+//   auto-extract / explicit-remember / graduation never wired it, so the live
+//   cut-gate7 run found 6 creates → 0 audit lines (D-103). writeFact now owns
+//   the default; callers that emit a richer-semantic audit (merge-facts →
+//   `merged`/CURATED_MERGE) opt out with `audit:false`.
 
 // Tests for Task 7 — Per-fact file format + writer (T-006).
 // Per tasks.md 7.5:
@@ -403,6 +408,59 @@ describe('Task 7 — writeFact() boundary', () => {
       const log = readAuditLog(join(projectRoot, 'context'));
       const skipped = log.filter((e) => e.action === 'skipped');
       expect(skipped.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('create-audit (Task 123.A — writeFact owns the default `created` entry)', () => {
+    it('a successful create emits exactly one `created` audit entry (Door 5)', () => {
+      const r = writeFact(validOptions({ projectRoot }));
+      expect(r.action).toBe('created');
+      const log = readAuditLog(join(projectRoot, 'context'));
+      const created = log.filter((e) => e.action === 'created');
+      expect(created).toHaveLength(1);
+      expect(created[0].reasonCode).toBe('fact-created');
+      expect(created[0].tier).toBe('P');
+      expect(created[0].id).toBe(r.id);
+      expect(created[0].schema).toBe(1);
+      expect(created[0].paths.after).toBe(r.path);
+    });
+
+    it('records the U tier on a user-tier create', () => {
+      const r = writeFact(validOptions({ tier: 'U', userDir }));
+      const log = readAuditLog(userDir);
+      const created = log.filter((e) => e.action === 'created');
+      expect(created).toHaveLength(1);
+      expect(created[0].tier).toBe('U');
+      expect(created[0].id).toBe(r.id);
+    });
+
+    it('audit:false suppresses the `created` entry (opt-out for callers that audit themselves, e.g. merge-facts)', () => {
+      const r = writeFact(validOptions({ projectRoot, audit: false }));
+      expect(r.action).toBe('created');
+      expect(existsSync(r.path)).toBe(true); // file still written
+      const log = readAuditLog(join(projectRoot, 'context'));
+      expect(log.filter((e) => e.action === 'created')).toHaveLength(0);
+    });
+
+    it('a duplicate re-write does NOT emit a second `created` entry (over-mutation guard)', () => {
+      const opts = validOptions({ projectRoot });
+      writeFact(opts);
+      writeFact(opts); // duplicate → skipped
+      const log = readAuditLog(join(projectRoot, 'context'));
+      expect(log.filter((e) => e.action === 'created')).toHaveLength(1); // only the first
+      expect(log.filter((e) => e.action === 'skipped')).toHaveLength(1);
+    });
+
+    it('a Poison_Guard rejection emits NO `created` entry (no audit for a write that did not happen)', () => {
+      writeFact(
+        validOptions({
+          projectRoot,
+          slug: 'leak',
+          body: 'token is ghp_1234567890abcdefghij1234567890abcdef12',
+        }),
+      );
+      const log = readAuditLog(join(projectRoot, 'context'));
+      expect(log.filter((e) => e.action === 'created')).toHaveLength(0);
     });
   });
 

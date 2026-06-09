@@ -258,5 +258,29 @@ export function writeFact(opts = {}) {
     // index rebuild is best-effort; capture already succeeded
   }
 
+  // Default create-audit (Task 123.A / D-103). writeFact is the single boundary
+  // every fact create flows through, so it owns the operational audit entry —
+  // the prior "caller's responsibility" design left 3 of 4 create paths
+  // (auto-extract, explicit-remember, graduation) silently unaudited (cut-gate7:
+  // 6 creates → 0 audit lines). Callers that emit a richer-semantic audit for
+  // the same write (merge-facts → `merged`/CURATED_MERGE) pass `audit:false` to
+  // avoid a redundant `created` entry. Best-effort: a successful capture must
+  // not be turned into an error by an audit-log hiccup.
+  if (opts.audit !== false) {
+    try {
+      appendAuditEntry(tierRoot, {
+        ts: createdAt,
+        action: 'created',
+        tier: opts.tier,
+        id,
+        reasonCode: REASON_CODES.FACT_CREATED,
+        paths: { after: path },
+        extra: { writeSource: factOpts.writeSource, trust: factOpts.trust },
+      });
+    } catch {
+      // audit append is best-effort; the fact is already durably on disk
+    }
+  }
+
   return { action: 'created', id, path };
 }
