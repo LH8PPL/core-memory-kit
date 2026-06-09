@@ -11,8 +11,9 @@
 //             ~100ms for 10k bullets. Always available — the keyword
 //             backend ships in v0.1.0 with no extra install.
 //
-//   semantic  memsearch + Milvus (Layer 5b — optional install). The kit
-//             does NOT ship memsearch in v0.1.0; this mode errors with
+//   semantic  the Layer-5b semantic backend (not yet shipped — the embedded
+//             vector backend is a future release; the DI seam below is the
+//             drop-in point). Until then this mode errors with
 //             ERROR_CATEGORIES.SEMANTIC_UNAVAILABLE when the caller
 //             requests it without injecting a semantic backend. NO silent
 //             fallback to keyword — design §9.3's explicit "exit 2 when
@@ -260,14 +261,14 @@ export function search(opts = {}) {
   }
 
   // Semantic + hybrid require an injected backend. Production v0.1.0
-  // passes undefined → error with the install-memsearch hint. v0.1.x
-  // wires the real backend.
+  // passes undefined → error with the not-yet-shipped hint. A future
+  // release wires the real Layer-5b backend via the semanticBackend seam.
   if (mode === SEARCH_MODES.SEMANTIC || mode === SEARCH_MODES.HYBRID) {
     if (typeof opts.semanticBackend !== 'function') {
       return errorResult({
         category: ERROR_CATEGORIES.SEMANTIC_UNAVAILABLE,
         errors: [
-          'memsearch not installed — install via the Layer 5b install path. ' +
+          'the Layer-5b semantic backend is not yet shipped — semantic/hybrid search will land in a future release. ' +
             'Use --mode=keyword for the always-available FTS5 search.',
         ],
       });

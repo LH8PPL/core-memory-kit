@@ -505,7 +505,7 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
   server.registerTool(
     'mk_search',
     {
-      description: 'Search kit memory (FTS5 keyword by default; semantic + hybrid require Layer 5b memsearch install).',
+      description: 'Search kit memory (FTS5 keyword by default; semantic + hybrid require the Layer-5b semantic backend, not yet shipped).',
       inputSchema: {
         query: z.string().min(1).describe('search query'),
         mode: z.enum(['keyword', 'semantic', 'hybrid']).optional(),
