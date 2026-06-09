@@ -19,7 +19,7 @@ jobs:
     name: Node ≡ Python on canonicalize-vectors.json
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Node 20
         uses: actions/setup-node@v6
