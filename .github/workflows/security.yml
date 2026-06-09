@@ -22,7 +22,7 @@ jobs:
     name: Secret scan (gitleaks)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0 # full history so gitleaks scans every commit
       - uses: gitleaks/gitleaks-action@v2
@@ -33,7 +33,7 @@ jobs:
     name: Dependency audit (npm audit, high/critical)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: 20
