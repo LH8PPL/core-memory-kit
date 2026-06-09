@@ -78,7 +78,7 @@ For everything else, the spec flow is mandatory.
 - Forces explicit decisions before code, reducing rework.
 - Creates an audit trail: every implementation can be traced to a FR, every FR to a user story, every user story to a tenet.
 - Lets research inform requirements before requirements lock — avoids designing off stale assumptions.
-- Specs are wiki-ingestion-ready: liorwiki indexes them naturally.
+- Specs are wiki-ingestion-ready: personal-wiki indexes them naturally.
 - Pairs cleanly with the ADR discipline ([adr/](../adr/)): ADRs capture *why*; specs capture *what*; the conversation log captures *how we got there*.
 
 ### Negative

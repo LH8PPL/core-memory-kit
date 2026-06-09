@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Automated live wedge test (Task 89 / D-45). The scripted equivalent of the
-// manual "lior-test-N": drive REAL `claude -p` sessions through the kit's hooks
+// manual "live-test-N": drive REAL `claude -p` sessions through the kit's hooks
 // and assert the cross-project persona wedge works end-to-end.
 //
 // WHY this can exist (verified 2026-06-03, D-45): `claude -p` fires the kit's

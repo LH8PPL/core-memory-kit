@@ -1,6 +1,6 @@
 # Architectural Decision Records (ADRs)
 
-Each ADR captures one meaningful design decision: the context, what was decided, why, what alternatives were rejected, and what the consequences are. The format is adapted from [Michael Nygard's classic ADR template](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions) with extra fields for liorwiki ingestion (deciders, dates, supersedes/superseded_by chains, tags).
+Each ADR captures one meaningful design decision: the context, what was decided, why, what alternatives were rejected, and what the consequences are. The format is adapted from [Michael Nygard's classic ADR template](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions) with extra fields for personal-wiki ingestion (deciders, dates, supersedes/superseded_by chains, tags).
 
 ## Index
 
@@ -94,4 +94,4 @@ What we chose. Be specific. Cite paths, schemas, commands.
 
 ## Why this discipline
 
-Three reasons. **First**, a Claude session resuming after a long gap needs to be able to re-derive *why* a decision was made — not just *what* was decided. Code shows what; ADRs show why. **Second**, when we go to revise (e.g., when v0.2 changes the hook architecture), the ADR being superseded carries the full context for the new ADR's author. **Third**, liorwiki ingests these directly — every decision becomes a wiki entry, every entry retains its provenance.
+Three reasons. **First**, a Claude session resuming after a long gap needs to be able to re-derive *why* a decision was made — not just *what* was decided. Code shows what; ADRs show why. **Second**, when we go to revise (e.g., when v0.2 changes the hook architecture), the ADR being superseded carries the full context for the new ADR's author. **Third**, personal-wiki ingests these directly — every decision becomes a wiki entry, every entry retains its provenance.

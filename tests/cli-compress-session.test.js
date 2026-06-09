@@ -485,7 +485,7 @@ describe('Task 22 — compressSession() boundary', () => {
       expect(prompt).toMatch(/preserve.*citation/i);
       // Task 84 (D-36): faithfulness/grounding rule — Haiku must not invent
       // facts absent from the buffer (it hallucinated "Flask" for a FastAPI
-      // project in lior-test-6). General rule, no example categories.
+      // project in live-test-6). General rule, no example categories.
       expect(prompt).toMatch(/grounded in the session buffer/i);
       expect(prompt).toMatch(/do not infer or guess any fact not explicitly stated/i);
       expect(prompt).toMatch(/do not carry forward content from earlier summaries/i);

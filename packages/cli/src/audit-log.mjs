@@ -30,6 +30,7 @@ export const AUDIT_LOG_SCHEMA_VERSION = 1;
 // they come online; the rule is one canonical machine-parseable token per
 // kind of audit event (not a free-text reason field).
 export const REASON_CODES = Object.freeze({
+  FACT_CREATED: 'fact-created', // writeFact: a new fact file was written (Task 123.A — the default create audit; callers emitting a richer code opt out via audit:false)
   DUPLICATE: 'duplicate', // writeFact: same path + same id
   DUPLICATE_ELSEWHERE: 'duplicate-elsewhere', // writeFact: different path + same id
   USER_REQUESTED: 'user-requested', // forget: user-initiated tombstone

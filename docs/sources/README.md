@@ -1,6 +1,6 @@
 # Sources — deep-dive notes
 
-Detailed notes on individual external sources we've consulted. Each source gets its own markdown file with the substance distilled — so a future reader (or future Claude session, or liorwiki ingest) gets the value of the source without re-reading the original.
+Detailed notes on individual external sources we've consulted. Each source gets its own markdown file with the substance distilled — so a future reader (or future Claude session, or personal-wiki ingest) gets the value of the source without re-reading the original.
 
 ## Difference from `SOURCES.md`
 

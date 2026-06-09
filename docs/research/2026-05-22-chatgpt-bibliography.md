@@ -8,7 +8,7 @@ tags:
   - bibliography
   - chatgpt
   - sources
-  - liorwiki-ingest-ready
+  - personal-wiki-ingest-ready
 ---
 
 # Bibliography — claude-memory-kit Option-A research output

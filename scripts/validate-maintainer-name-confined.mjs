@@ -12,6 +12,15 @@
 // when the v0.2.3 cut surfaced it. This guard makes that drift a build failure
 // so the next session can't silently re-introduce it.
 //
+// MATCHING (hardened 2026-06-09, Task 123.B / D-103): case-INSENSITIVE,
+// word-START boundary `\b<firstname>`. The original `-w -F` (whole-word, fixed,
+// case-sensitive) match had TWO holes the cut-gate7 run exposed: it missed
+// lowercase forms (the name-prefixed `<name>-test-N` run labels in shipped src)
+// AND name-PREFIXED identifiers with no internal boundary (`<name>wiki`,
+// `<name>pedia`). `\b<name>` catches the bare name + every prefixed form, while
+// the word-START boundary still excludes mid-word false positives (e.g. the
+// stem buried inside a word like "ameliorate" is not at a boundary).
+//
 // The name is NOT hardcoded here — it is read from the LICENSE copyright line
 // (the one canonical home), so this validator file itself stays name-free and
 // auto-adapts if the maintainer ever changes.
@@ -49,14 +58,27 @@ export function offendersOutsideAllowlist(filesWithName, allowlist = ALLOWLIST) 
   return filesWithName.filter((f) => !allowlist.has(f));
 }
 
-/** IO: tracked files containing `name` as a whole word (git grep, no shell). */
+/**
+ * Pure: the case-insensitive PCRE the guard greps for. `\b<firstname>` flags the
+ * bare name AND name-prefixed identifiers (`<name>-test`, `<name>wiki`,
+ * `<name>pedia`) — the forms the old `-w -F` match missed (D-103). The word-START
+ * boundary excludes mid-word false positives (e.g. "ameliorate"). The name is regex-
+ * escaped so a metacharacter in the copyright holder can't break the pattern.
+ * git grep and the test apply this same string, so they can't drift.
+ */
+export function buildNamePattern(name) {
+  const escaped = String(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return `\\b${escaped}`;
+}
+
+/** IO: tracked files matching the name pattern, case-insensitive (git grep, no shell). */
 function filesContaining(name) {
-  // execFileSync (no shell) so the name is an argv element, never interpolated
-  // into a command line — no quoting/injection surface even if the name ever
-  // carried a shell metacharacter. -w word boundary, -F fixed string. git grep
-  // exit status 1 = "no matches" (clean), not an error.
+  // execFileSync (no shell) so the pattern is an argv element, never interpolated
+  // into a command line — no quoting/injection surface. -i case-insensitive,
+  // -P PCRE (for the `\b` word boundary). git grep exit status 1 = "no matches"
+  // (clean), not an error.
   try {
-    const out = execFileSync('git', ['grep', '-l', '-w', '-F', '--', name], {
+    const out = execFileSync('git', ['grep', '-l', '-i', '-P', '--', buildNamePattern(name)], {
       cwd: REPO,
       encoding: 'utf8',
     });

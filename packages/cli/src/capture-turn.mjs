@@ -48,6 +48,9 @@ import {
   appendFileSync,
   readFileSync,
   writeFileSync,
+  readdirSync,
+  statSync,
+  unlinkSync,
 } from 'node:fs';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -55,6 +58,41 @@ import { sanitizePrivacyTags } from './privacy.mjs';
 
 function dateFromIso(iso) {
   return String(iso).slice(0, 10);
+}
+
+// A `.extract-<ts>.tmp` turn-file lives only for the duration of one
+// auto-extract run (bounded by the Stop-hook ceiling, design §8.5). The owning
+// child unlinks it in its `finally`; capture-turn unlinks it here when the spawn
+// fails. But a child KILLED before its finally (hook ceiling), or a Windows
+// unlink refused by a scanner, leaks the temp (cut-gate7 found 2 lingering —
+// D-103 finding E). This janitor sweeps any `.extract-*.tmp` older than the
+// threshold — far longer than any live run, so it can't race an in-flight child.
+// Best-effort: a sweep hiccup must never block the capture.
+const STALE_TURN_FILE_MS = 10 * 60 * 1000; // 10 min — well beyond the hook ceiling
+
+export function sweepStaleTurnFiles(transcriptsDir, maxAgeMs = STALE_TURN_FILE_MS, now = Date.now()) {
+  let swept = 0;
+  if (!existsSync(transcriptsDir)) return swept;
+  let entries;
+  try {
+    entries = readdirSync(transcriptsDir);
+  } catch {
+    return swept;
+  }
+  for (const name of entries) {
+    if (!name.startsWith('.extract-') || !name.endsWith('.tmp')) continue;
+    const p = join(transcriptsDir, name);
+    try {
+      if (now - statSync(p).mtimeMs > maxAgeMs) {
+        unlinkSync(p);
+        swept += 1;
+      }
+    } catch {
+      // best-effort: a stat/unlink failure (already gone, or briefly locked)
+      // must not abort the sweep or the capture.
+    }
+  }
+  return swept;
 }
 
 // Write a `phase: 'spawn'` NDJSON entry to `<projectRoot>/context/sessions/{date}.extract.log`
@@ -143,7 +181,7 @@ function readLastUserTurnFromTranscript(transcriptPath) {
 // (context/sessions/now.md). Before this, now.md was fed ONLY by observe-edit's
 // file-write lines ("[ts] Write file=X lines=N"), so the SessionEnd compressor
 // summarized a list of filenames and hallucinated content the dialogue never
-// contained (lior-test-6: "Flask app: app.py" — inferred a framework from a
+// contained (live-test-6: "Flask app: app.py" — inferred a framework from a
 // filename). Buffering the actual user+assistant turns here means the summary
 // reflects what was DISCUSSED. Same `## <ts> — speaker` shape as the transcript
 // so the compressor reads it as dialogue; now.md is truncated after each compress
@@ -281,6 +319,10 @@ export function captureTurn({
   // summarizes the DIALOGUE, not observe-edit's filename log. Best-effort.
   appendConversationToNowMd({ projectRoot, ts, userTurn, assistantTurn: sanitized });
 
+  // Janitor: clear any orphaned turn-files from a prior killed/crashed child
+  // before writing this turn's (D-103 finding E). Best-effort.
+  sweepStaleTurnFiles(transcriptsDir);
+
   const turnFile = join(transcriptsDir, `.extract-${Date.now()}.tmp`);
   try {
     writeFileSync(
@@ -316,6 +358,11 @@ export function captureTurn({
       reason: spawnResult.reason,
       error: spawnResult.error,
     });
+    // NB: we do NOT unlink the turn-file here. Ownership is clean — auto-extract
+    // owns deletion (its `finally`); when the spawn fails (or a child is killed
+    // before its finally), the file becomes an orphan that the entry-sweep above
+    // reaps once it's stale (D-103 finding E). capture-turn never deletes a file
+    // it handed off, so tests can still inspect the IPC shape on the no-spawn path.
   }
 
   return {

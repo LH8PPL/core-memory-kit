@@ -28,25 +28,25 @@ describe('sanitizeHomePaths — home-dir abstraction (#1 privacy)', () => {
   });
 
   it('abstracts a Linux /home/<name> prefix', () => {
-    expect(sanitizeHomePaths('venv at /home/lior/.venv/bin/python')).toBe(
+    expect(sanitizeHomePaths('venv at /home/someuser/.venv/bin/python')).toBe(
       'venv at ~/.venv/bin/python',
     );
   });
 
   it('abstracts a macOS /Users/<name> prefix', () => {
-    expect(sanitizeHomePaths('cloned to /Users/lior/projects/x')).toBe(
+    expect(sanitizeHomePaths('cloned to /Users/someuser/projects/x')).toBe(
       'cloned to ~/projects/x',
     );
   });
 
   it('abstracts a bare home dir with no trailing path', () => {
     expect(sanitizeHomePaths('home is C:\\Users\\tamir.bn-sh')).toBe('home is ~');
-    expect(sanitizeHomePaths('home is /home/lior')).toBe('home is ~');
+    expect(sanitizeHomePaths('home is /home/someuser')).toBe('home is ~');
   });
 
   it('handles multiple occurrences in one string', () => {
     expect(
-      sanitizeHomePaths('from /home/lior/a to /home/lior/b'),
+      sanitizeHomePaths('from /home/someuser/a to /home/someuser/b'),
     ).toBe('from ~/a to ~/b');
   });
 

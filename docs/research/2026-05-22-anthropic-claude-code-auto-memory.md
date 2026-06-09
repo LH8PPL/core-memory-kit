@@ -57,7 +57,7 @@ The user's Claude Code v2.1.140 has been silently writing auto-memory for **four
 
 ```text
 ~/.claude/projects/
-├── c--Projects-ClawdBot/memory/      ← 14KB total
+├── c--Projects-project-a/memory/      ← 14KB total
 │   ├── MEMORY.md (2532 chars)
 │   ├── feedback_autonomy.md
 │   ├── feedback_clawhub_preference.md
@@ -66,10 +66,10 @@ The user's Claude Code v2.1.140 has been silently writing auto-memory for **four
 │   ├── project_bob_setup.md
 │   └── project_claude_mem.md
 │
-├── c--Projects-liorpedia/memory/     ← 411 bytes
+├── c--Projects-project-b/memory/     ← 411 bytes
 │   └── MEMORY.md only
 │
-├── c--Projects-liorwiki/memory/      ← ~6KB
+├── c--Projects-personal-wiki/memory/      ← ~6KB
 │   ├── MEMORY.md (598 chars)
 │   ├── feedback_no_sre_framing.md
 │   ├── feedback_push_after_commit.md
@@ -134,7 +134,7 @@ User decision pending. See [adr/0011-coexistence-with-anthropic-auto-memory.md](
 
 ## Investigation to do before deciding
 
-1. **Inspect what Anthropic auto-memory wrote on your machine** — open `/memory` in a Claude Code session, browse the files at `~/.claude/projects/c--Projects-{ClawdBot,liorpedia,liorwiki}/memory/`. Decide if Anthropic's writes are useful or noise.
+1. **Inspect what Anthropic auto-memory wrote on your machine** — open `/memory` in a Claude Code session, browse the files at `~/.claude/projects/c--Projects-{project-a,project-b,personal-wiki}/memory/`. Decide if Anthropic's writes are useful or noise.
 
 2. **Test on youtube-to-slide** — start a session, do a meaningful turn (e.g. `remember that the Python version is 3.13`), watch for:
    - Does Anthropic's auto-memory write to `~/.claude/projects/C--Projects-youtube-to-slide/memory/`?

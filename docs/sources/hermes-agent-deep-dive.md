@@ -157,7 +157,7 @@ Hermes draws an explicit distinction we should adopt verbatim:
 
 **The agent doesn't remember external bases — it looks them up.** Critical insights from external bases are *distilled* into internal memory. The external resource is vast; the internal memory is the distillation.
 
-**This validates our `liorwiki` separation**: liorwiki is the library (external knowledge); `context/` is the brain (internal memory).
+**This validates our `personal-wiki` separation**: personal-wiki is the library (external knowledge); `context/` is the brain (internal memory).
 
 ## What Hermes does that we don't (yet)
 

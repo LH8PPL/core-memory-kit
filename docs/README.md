@@ -1,6 +1,6 @@
 # claude-memory-kit — documentation system
 
-This `docs/` tree captures the **full provenance** of the kit: every decision, every research input, every external source. Designed for direct ingestion into [liorwiki](https://github.com/LH8PPL/liorwiki) `raw/` so the reasoning behind the code is searchable forever.
+This `docs/` tree captures the **full provenance** of the kit: every decision, every research input, every external source. Designed for direct ingestion into a personal knowledge base `raw/` so the reasoning behind the code is searchable forever.
 
 > **Start at [`DOCUMENTATION-MAP.md`](DOCUMENTATION-MAP.md).** It is the registry of where every doc lives, in three zones: the **Spine** (`specs/` requirements·design·tasks — the only current state), **Product** docs (for users), and **History** (everything in this tree — the paper trail). Current project state lives ONLY in the Spine; `docs/` is history and context, never "what's true now."
 
@@ -12,7 +12,7 @@ This `docs/` tree captures the **full provenance** of the kit: every decision, e
 | [adr/](adr/) | Architectural Decision Records — one self-contained ADR per significant decision, with context, alternatives, consequences, references | Before you change a design tenet, or to understand *why* something works the way it does |
 | [process/](process/) | How we work — the Kiro-style spec workflow, research prompt design, conventions | Before you start a new spec cycle, propose a change to the methodology, or onboard someone |
 | [research/](research/) | Outputs from research sessions — own Claude/ChatGPT Deep Research runs, manual architecture surveys, paper notes | Before you make a design decision that the research already covered |
-| [sources/](sources/) | Deep-dive notes on individual external sources (articles, videos, papers) — distilled for liorwiki ingest | When you need the substance of a source without re-reading the original |
+| [sources/](sources/) | Deep-dive notes on individual external sources (articles, videos, papers) — distilled for personal-wiki ingest | When you need the substance of a source without re-reading the original |
 | [SOURCES.md](SOURCES.md) | Master index of every URL, paper, repo, video, blog post we've cited | When you need a citation or want to verify a claim |
 | ~~[conversation-log/](../archive/docs/conversation-log/)~~ | **RETIRED 2026-05-30** — early session narrative (2026-05-21/22 only); role taken over by `journey/` | Historical only — do not add entries |
 
@@ -33,4 +33,4 @@ See [process/git-and-versioning.md](process/git-and-versioning.md) for the commi
 
 ## Wiki ingestion
 
-All files in `docs/` are written to be self-contained markdown — links are full URLs where possible, citations are inline, no editor-specific syntax. They can be copied into `/c/Projects/liorwiki/raw/claude-memory-kit/` without modification and processed through the wiki's ingest pipeline.
+All files in `docs/` are written to be self-contained markdown — links are full URLs where possible, citations are inline, no editor-specific syntax. They can be copied into `/c/Projects/personal-wiki/raw/claude-memory-kit/` without modification and processed through the wiki's ingest pipeline.

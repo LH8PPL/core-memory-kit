@@ -248,7 +248,7 @@ export function writeFact(opts = {}) {
   // Keep INDEX.md consistent on every create — the index is a derived view of
   // the fact files, so the writer owns keeping it current. Without this, a fresh
   // `cmk remember` left INDEX.md stale until a manual `cmk reindex`, and
-  // `cmk doctor` HC-5 failed from the first capture (Task 85; lior-test-7
+  // `cmk doctor` HC-5 failed from the first capture (Task 85; live-test-7
   // 2026-06-03 — "users should get it working from the start"). Best-effort: the
   // fact is already durably on disk, so an index-rebuild hiccup must not turn a
   // successful capture into an error — the next reindex/search self-heals.
@@ -256,6 +256,30 @@ export function writeFact(opts = {}) {
     reindex({ tier: opts.tier, projectRoot: opts.projectRoot, userDir: opts.userDir, warn: () => {} });
   } catch {
     // index rebuild is best-effort; capture already succeeded
+  }
+
+  // Default create-audit (Task 123.A / D-103). writeFact is the single boundary
+  // every fact create flows through, so it owns the operational audit entry —
+  // the prior "caller's responsibility" design left 3 of 4 create paths
+  // (auto-extract, explicit-remember, graduation) silently unaudited (cut-gate7:
+  // 6 creates → 0 audit lines). Callers that emit a richer-semantic audit for
+  // the same write (merge-facts → `merged`/CURATED_MERGE) pass `audit:false` to
+  // avoid a redundant `created` entry. Best-effort: a successful capture must
+  // not be turned into an error by an audit-log hiccup.
+  if (opts.audit !== false) {
+    try {
+      appendAuditEntry(tierRoot, {
+        ts: createdAt,
+        action: 'created',
+        tier: opts.tier,
+        id,
+        reasonCode: REASON_CODES.FACT_CREATED,
+        paths: { after: path },
+        extra: { writeSource: factOpts.writeSource, trust: factOpts.trust },
+      });
+    } catch {
+      // audit append is best-effort; the fact is already durably on disk
+    }
   }
 
   return { action: 'created', id, path };

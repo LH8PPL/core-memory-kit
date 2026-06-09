@@ -93,7 +93,7 @@ L1 in-repo ✅ · L2 granular archive ✅ · L3 bounded scratchpads ✅ · L4 me
 
 ## 4. Layer 5 deep-research brief (run before Task 65 — see Task 65.0)
 
-**Why deep research, not just a bake-off:** we have a lean (sqlite-vec/qmd over Chroma/Milvus, from [liorwiki's search-architecture decision](file:///C:/Projects/liorwiki/docs/search-architecture.md) + our own research base) but not certainty. The genuinely open question is the **local embedding model** — Anthropic has **no embeddings API**, so recall quality rides a local embedder whose quality/size/speed tradeoff has moved since our last research. Recall is the #1 function; de-risk the backbone before sinking build time.
+**Why deep research, not just a bake-off:** we have a lean (sqlite-vec/qmd over Chroma/Milvus, from a personal wiki's search-architecture decision + our own research base) but not certainty. The genuinely open question is the **local embedding model** — Anthropic has **no embeddings API**, so recall quality rides a local embedder whose quality/size/speed tradeoff has moved since our last research. Recall is the #1 function; de-risk the backbone before sinking build time.
 
 **Constraints the research must respect (our actual profile):**
 - Single-user, local-first, **node-only / no-server** ethos (hardened in Task 62 / D-23). A Docker/Milvus server is almost certainly the wrong weight class.
@@ -102,7 +102,7 @@ L1 in-repo ✅ · L2 granular archive ✅ · L3 bounded scratchpads ✅ · L4 me
 - Cross-platform (Win/mac/Linux), installable without a heavy toolchain. Embedding model must run locally (CPU-acceptable; GGUF/ONNX).
 
 **Questions to answer (decision-grade):**
-1. **Embedded vector store for a node/single-user-local app in 2026** — confirm or update the shortlist: `sqlite-vec` (in-our-SQLite, best architectural fit) vs `qmd` (node, MCP-native, what the user runs in liorwiki) vs `Chroma` (Python embedded) vs anything newer. Which gives hybrid keyword+vector in ONE place with least install weight?
+1. **Embedded vector store for a node/single-user-local app in 2026** — confirm or update the shortlist: `sqlite-vec` (in-our-SQLite, best architectural fit) vs `qmd` (node, MCP-native, what the user runs in personal-wiki) vs `Chroma` (Python embedded) vs anything newer. Which gives hybrid keyword+vector in ONE place with least install weight?
 2. **Best local embedding model** for short developer-memory text, CPU-friendly, small footprint: candidates incl. `embeddinggemma` (GGUF, what qmd uses), `all-MiniLM-L6-v2` / `all-mpnet-base-v2` (sentence-transformers), `bge-small/`base`, `nomic-embed-text`, ONNX-quantized variants. Tradeoff table: recall quality vs model size (MB) vs embed latency vs license.
 3. **Hybrid retrieval** best-practice: how do current local-memory systems fuse FTS5/BM25 + vector (RRF? weighted? rerank stage?) — confirm our `reciprocalRankFusion` choice is current, or what beats it.
 4. **Chunking/granularity** for per-bullet/per-fact memory (vs document chunking) — does the winner support our per-fact granularity cleanly?

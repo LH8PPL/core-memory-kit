@@ -6,8 +6,7 @@
 
 **Please do not open a public issue for security problems.**
 
-- Preferred: GitHub **private vulnerability reporting** — repo → **Security** → **Report a vulnerability** (Security Advisories).
-- Or email the maintainer directly: **<liorhollander@gmail.com>** (`@LH8PPL`).
+Report privately through **GitHub private vulnerability reporting**: the repo's **Security** tab → **Report a vulnerability** (Security Advisories). The report stays private — visible only to the maintainer — until a fix is coordinated, and the channel supports collaborating on the patch, issuing a CVE, and crediting you as the reporter.
 
 Please include repro steps and the affected version. We aim to acknowledge within a few days and to ship a fix or mitigation before any public disclosure.
 

@@ -168,6 +168,10 @@ export function mergeFacts(opts = {}) {
     tags: mergedTags,
     projectRoot,
     userDir,
+    // A merge emits its own richer `merged`/CURATED_MERGE audit below — suppress
+    // writeFact's default `created` entry so the merge logs exactly one event
+    // (Task 123.A opt-out).
+    audit: false,
   });
   if (writeResult.action === 'error') {
     return errorResult({

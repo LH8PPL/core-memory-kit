@@ -129,7 +129,7 @@ describe('Task 34 — weeklyCurate', () => {
   describe('faithfulness/grounding rule (Task 84 / D-36)', () => {
     it('the curate prompt carries the anti-hallucination grounding rule', async () => {
       // weekly-curate is the THIRD compressor layer (compress-session →
-      // daily-distill → weekly-curate). The lior-test-6 Flask hallucination
+      // daily-distill → weekly-curate). The live-test-6 Flask hallucination
       // only exercised the first two, but this consolidator has the same
       // power to invent facts into archive.md → it gets the same general,
       // example-free grounding rule.

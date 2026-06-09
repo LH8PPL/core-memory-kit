@@ -51,7 +51,7 @@ docs: backfill governance documentation
 Establishes the docs/ tree with ADRs, process docs, research notes,
 source notes, and conversation logs. Captures every decision made
 during v0.0.1 development and the planning of v0.1.0, with full
-provenance — designed for liorwiki ingestion.
+provenance — designed for personal-wiki ingestion.
 
 Refs: ADR-0001..ADR-0008
 Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
@@ -137,7 +137,7 @@ Frequent small commits beat one giant "everything for v0.X" commit. The diff is 
 
 ## Operating on the repo while inside another project's working directory
 
-The user often runs Claude Code from `c:\Projects\liorpedia` (primary cwd) while we operate on `c:\Projects\claude-memory-kit`. All git operations on the kit must use the absolute path:
+The user often runs Claude Code from `c:\Projects\project-b` (primary cwd) while we operate on `c:\Projects\claude-memory-kit`. All git operations on the kit must use the absolute path:
 
 ```bash
 cd /c/Projects/claude-memory-kit && git <verb> ...

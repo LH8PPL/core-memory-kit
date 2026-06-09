@@ -60,7 +60,7 @@ Specifically:
 - **Git-friendly**: markdown merges cleanly across branches; conflicting edits surface as normal git conflicts, not unrecoverable DB collisions.
 - **`grep`/`rg` work**: existing CLI toolchain (ripgrep, fd, sed) operates on the source directly.
 - **Disaster recovery is trivial**: lose the SQLite index → rebuild. Lose the markdown → restore from git. Two independent fail-safes.
-- **Wiki-ingestion-friendly**: liorwiki can ingest the markdown directly. An opaque DB would require an export step.
+- **Wiki-ingestion-friendly**: personal-wiki can ingest the markdown directly. An opaque DB would require an export step.
 - **Auditable**: every captured fact is a line in a file with a stable observation ID and a SHA-256 link back to its source file (see ADR-0007).
 
 ### Negative

@@ -265,7 +265,7 @@ Or reference an external schema note, or implicit lookup by `type` field.
 ### Design implications
 
 1. **Their `[category] content #tags (context)` observation syntax is interesting.** More structured than ours. Worth considering for our granular archive entries — could be cleaner than free-form bullets.
-2. **`[[wiki-link]]` syntax for relations between fragments** — we don't currently link between granular archive files. Adopting this is cheap; lets liorwiki ingest natively.
+2. **`[[wiki-link]]` syntax for relations between fragments** — we don't currently link between granular archive files. Adopting this is cheap; lets personal-wiki ingest natively.
 3. **Picoschema validation** is a v0.2+ candidate (our `<type>_<slug>.md` filenames already encode the type; explicit schemas would enforce frontmatter integrity).
 4. **Our 5-tool MCP surface is much smaller than their 19.** That's intentional (v0.1 is minimal), but `recent_activity` is a useful tool we should consider adding — "what's been written to memory in the last 24h?" is a common query.
 5. **`project_management` + `workspaces` tools** validate our v0.2 plan for `cmk search --all-projects`. They've already solved the multi-project navigation problem.
