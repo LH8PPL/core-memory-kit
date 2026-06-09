@@ -39,10 +39,10 @@ async function makeFixture() {
   projectRoot = join(sandbox, 'proj');
   userDir = join(sandbox, 'user');
   // noHooks: scaffold-only. As of Task 49 `install` wires hooks into
-  // .claude/settings.json by default; the HC-2 unit tests below want to
+  // .claude/settings.json by default; the HC-1 unit tests below want to
   // control the settings.json shape themselves (absent / empty / flat /
   // nested), so the fixture must NOT pre-write hooks. The install→doctor
-  // integration (hooks ON → HC-2 pass) is its own test below.
+  // integration (hooks ON → HC-1 pass) is its own test below.
   await install({ projectRoot, userTier: userDir, noHooks: true });
 }
 
@@ -127,16 +127,16 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
   });
 
   describe('37.6 #3 — failed HC surfaces the repair command', () => {
-    it('HC-2 missing settings.json → fail with `cmk repair --hooks`', async () => {
+    it('HC-1 missing settings.json → fail with `cmk repair --hooks`', async () => {
       // install() doesn't drop .claude/settings.json in the test
-      // sandbox, so HC-2 fails by default.
+      // sandbox, so HC-1 fails by default.
       const r = await runDoctor({ projectRoot, userDir });
       const c2 = r.checks.find((c) => c.id === 'HC-1');
       expect(c2.status).toBe('fail');
       expect(c2.recoveryCommand).toBe('cmk repair --hooks');
     });
 
-    it('HC-2 settings.json with missing hooks → fail with repair', async () => {
+    it('HC-1 settings.json with missing hooks → fail with repair', async () => {
       seedSettingsJson({ hooks: { Stop: [] } }); // intentionally empty
       const r = await runDoctor({ projectRoot, userDir });
       const c2 = r.checks.find((c) => c.id === 'HC-1');
@@ -144,7 +144,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       expect(c2.message).toMatch(/missing hook references/);
     });
 
-    it('HC-2 settings.json with all hooks (flat form) → pass', async () => {
+    it('HC-1 settings.json with all hooks (flat form) → pass', async () => {
       seedSettingsJson({
         hooks: {
           SessionStart: [{ command: 'cmk-inject-context' }],
@@ -157,12 +157,12 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       expect(c2.status).toBe('pass');
     });
 
-    it('HC-2 settings.json with NESTED-form hooks (the real cmk install / repair shape) → pass', async () => {
+    it('HC-1 settings.json with NESTED-form hooks (the real cmk install / repair shape) → pass', async () => {
       // Regression for the install→doctor composition bug found in Task 49:
       // cmk install + cmk repair --hooks write the canonical nested
-      // Anthropic shape `{hooks:[{type,command}]}`, but HC-2 used to only
+      // Anthropic shape `{hooks:[{type,command}]}`, but HC-1 used to only
       // inspect a top-level `e.command`, so it reported fail on hooks the
-      // kit itself just wrote. HC-2 now traverses `e.hooks[]`.
+      // kit itself just wrote. HC-1 now traverses `e.hooks[]`.
       seedSettingsJson({
         hooks: {
           SessionStart: [{ hooks: [{ type: 'command', command: 'cmk-inject-context', timeout: 30 }] }],
@@ -175,9 +175,9 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       expect(c2.status).toBe('pass');
     });
 
-    it('integration: cmk install (hooks ON) → cmk doctor → HC-2 passes', async () => {
+    it('integration: cmk install (hooks ON) → cmk doctor → HC-1 passes', async () => {
       // The full composition: a default `cmk install` wires hooks, and a
-      // subsequent `cmk doctor` must report HC-2 pass (not send the user
+      // subsequent `cmk doctor` must report HC-1 pass (not send the user
       // chasing `cmk repair --hooks` on hooks that are already correct).
       const freshSandbox = mkdtempSync(join(tmpdir(), 'cmk-doctor-int-'));
       try {
@@ -192,7 +192,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       }
     });
 
-    it('B1 fix: HC-2 detects hook in WRONG event array as fail (not false-pass)', async () => {
+    it('B1 fix: HC-1 detects hook in WRONG event array as fail (not false-pass)', async () => {
       // Skill-review B1: previous substring-on-stringify implementation
       // false-pass'd on hooks wired to wrong events OR mentioned in
       // descriptions/TODOs. This test pins the actual structural walk.
@@ -213,7 +213,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       expect(c2.message).toMatch(/SessionEnd\.cmk-compress-session/);
     });
 
-    it('B1 fix: HC-2 does NOT false-pass on TODO text mentioning the hook names', async () => {
+    it('B1 fix: HC-1 does NOT false-pass on TODO text mentioning the hook names', async () => {
       seedSettingsJson({
         description: 'TODO: wire cmk-inject-context cmk-capture-turn cmk-compress-session',
         hooks: { SessionStart: [], Stop: [], SessionEnd: [] },
@@ -358,7 +358,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
     it('PASS on a freshly-scaffolded project (real INDEX.md template, 0 facts) — Task 85 regression guard', async () => {
       // projectRoot is install()'d in beforeEach, so context/memory/INDEX.md is
       // the REAL scaffold template — which contains an example markdown link
-      // `[Title](filename.md)` inside an HTML comment. A too-broad HC-5 regex
+      // `[Title](filename.md)` inside an HTML comment. A too-broad HC-4 regex
       // matches that and false-fails "stale in INDEX" on a clean install. This
       // test exercises the actual scaffold (the hand-written fixtures below do
       // not), which is how the skill-review caught the regression.

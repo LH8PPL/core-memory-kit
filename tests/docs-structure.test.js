@@ -51,10 +51,11 @@ describe('Task 41 — README references v0.1.0 surface (no stale references)', (
     expect(text).not.toMatch(/install\.ps1\b/);
   });
 
-  it('references the 9 health checks (HC-1..HC-9), not the legacy 7', () => {
+  it('references the 7 health checks (HC-1..HC-7) — the 2 memsearch checks were removed in Task 120', () => {
     text = readFileSync(join(repoRoot, 'README.md'), 'utf8');
-    expect(text).toMatch(/HC-1\.\.HC-9/);
-    expect(text).not.toMatch(/HC-1\.\.HC-7\b/);
+    expect(text).toMatch(/HC-1\.\.HC-7/);
+    expect(text).not.toMatch(/HC-1\.\.HC-9\b/);
+    expect(text).not.toMatch(/memsearch/i);
   });
 
   it('references Node-based register-crons (not python scripts/register-crons.py)', () => {
