@@ -4,8 +4,7 @@
 //
 // Layout reflects design §1.1 (three tiers): project, local, user
 // + a support/ subtree for files the installer copies into the target
-// project but that aren't tier content per se (cron jobs, scripts,
-// optional Milvus deploy).
+// project but that aren't tier content per se (cron job definitions).
 //
 // Conventions:
 //   - Tier seed files use the .template suffix and are copied (minus
