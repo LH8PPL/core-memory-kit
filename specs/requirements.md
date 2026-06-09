@@ -21,7 +21,7 @@ This kit installs a persistent, in-repo memory layer that survives across sessio
 - Granular per-fact archive at `context/memory/<type>_<slug>.md` with `INDEX.md`.
 - Two Claude Code hooks: `PreToolUse` (frozen-snapshot injection) and `Stop` (transcript capture + spawn auto-extract).
 - `memory-write` skill that auto-triggers on phrases ("remember this", "from now on", "forget about").
-- Optional Layer 5 (memsearch + Milvus) for semantic recall.
+- Optional Layer 5b (an embedded semantic backend) for semantic recall — deferred, not yet shipped (design §9.3.1).
 - Optional Layer 6 (cron jobs) for daily distill / nightly index / weekly curate.
 
 ### 1.3 What v0.1.0 must add
@@ -292,7 +292,7 @@ Acceptance: When Claude says "per M-7K2X9Q, we're on v2.6.16" and the user invok
 The kit shall expose a unified search command `cmk search "query"` that runs:
 
 1. **Keyword search** (FTS5 over a regenerable SQLite index built from markdown).
-2. **Semantic search** (memsearch + Milvus/milvus-lite over the same content).
+2. **Semantic search** (the Layer-5b embedded vector backend over the same content — not yet shipped; the backend choice is deferred per design §9.3.1).
 
 Results from both modes shall be merged with a configurable weighting (default 0.5 keyword, 0.5 semantic).
 
@@ -304,9 +304,9 @@ The SQLite index shall live at `<repo>/context/.index/memory.db` and shall be in
 Acceptance: When the user deletes `context/.index/`, running `cmk reindex` shall rebuild it in under 5 seconds for ≤ 1,000 markdown files. When markdown content changes, `cmk reindex` shall detect changed files via hash and only re-index those.
 
 **FR-18 — Semantic search is optional**
-The kit shall function without semantic search (Layer 5). When memsearch / Milvus is not installed, `cmk search` shall return only keyword results and shall NOT error.
+The kit shall function without semantic search (Layer 5b). When the semantic backend is unavailable (it is not yet shipped), `cmk search` in the default keyword mode shall return only keyword results and shall NOT error; `--mode=semantic` / `--mode=hybrid` shall return a clear "not yet shipped" error (exit 2).
 
-Acceptance: When `memsearch --version` fails (not installed), `cmk search "foo"` shall still return FTS5 results from the SQLite index.
+Acceptance: When the semantic backend is unavailable, `cmk search "foo"` (default keyword mode) shall still return FTS5 results from the SQLite index.
 
 ### 3.7 Compression and curation
 
@@ -457,8 +457,8 @@ After 90 days of daily use, total `context/` size shall remain under 50 MB (excl
 The kit shall NOT make any network calls except those explicitly initiated by:
 
 1. `claude --print` invocations (which hit Anthropic's API).
-2. `memsearch` indexing (which embeds locally via ONNX — no network).
-3. Initial `pip install memsearch[onnx]` (one-time, user-approved).
+
+(The deferred Layer-5b semantic backend will embed locally — no network — when it ships; design §9.3.1.)
 
 All other operations shall be local-only.
 
@@ -506,7 +506,7 @@ The following are deferred to v0.2 or later:
 - **OS-4**: Profile separation within a single project (work-mode vs personal-mode SOUL.md). Single mode per project in v0.1.
 - **OS-5**: E2E test infrastructure with Docker. Unit tests only in v0.1.
 - **OS-6**: Multilingual support / translation cache.
-- **OS-7**: Replacement of `memsearch` + `Milvus` with a different vector backend. We continue to use memsearch.
+- **OS-7**: ~~Replacement of `memsearch` + `Milvus` with a different vector backend. We continue to use memsearch.~~ _(Superseded — the `memsearch` + `Milvus` pick was reconsidered (design §9.3.1; `sqlite-vec` leading) and its premature scaffolding **removed in Task 120**. The Layer-5b backend choice is now an open, deferred decision, not committed to memsearch.)_
 - **OS-8**: Public marketplace distribution. v0.1 stays in a private GitHub repo. v0.2 may publish to npm + the Claude Code plugins marketplace.
 - **OS-9**: Session-state virtualization (Claude Code CMV style snapshot/branch/trim primitives). Rolling-window compression covers most of the use case for v0.1; CMV-style versioning is v0.2+.
 - **OS-10**: Structural code memory subsystem (Codebase-Memory style Tree-Sitter knowledge graph via MCP). Project-fact memory is in scope; code-structure memory is a separate concern, possible v0.2+ as a sister package.

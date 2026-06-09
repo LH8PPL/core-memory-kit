@@ -8,10 +8,7 @@ A 5-minute walkthrough from zero to a working kit on your first project.
 - Claude Code installed (`claude --version`)
 - A git repo to install into (the kit's `context/` lives inside)
 
-Optional (Layer 5b — semantic search):
-
-- Python 3.12+ and `pip` (for memsearch)
-- ~600MB free disk (for the ONNX BGE-M3 model)
+(No Python or other runtime needed — keyword search is built in; the Layer-5b semantic backend is not yet shipped.)
 
 ## 1. Install — pick ONE route
 
@@ -68,18 +65,16 @@ cmk doctor
 You'll see something like:
 
 ```text
-[PASS] HC-1: memsearch installed (semantic search backend)
-[FAIL] HC-2: Stop + SessionStart hooks registered
+[FAIL] HC-1: Stop + SessionStart hooks registered
          missing hook references: SessionStart.cmk-inject-context, Stop.cmk-capture-turn, SessionEnd.cmk-compress-session
          → repair: cmk repair --hooks
-[FAIL] HC-3: Daily distill is fresh (≤2 days)
+[SKIP] HC-2: Daily distill is fresh (≤2 days)
          context/sessions/recent.md missing — distill never ran
-         → repair: cmk daily-distill
-[FAIL] HC-4: Transcripts firing (≤3 days)
+[SKIP] HC-3: Transcripts firing (≤3 days)
          ...
 ```
 
-That's expected on a fresh install — `cmk doctor` will report several failures until you've held at least one session in Claude Code. Run the repair command for HC-2:
+That's expected on a fresh install — `cmk doctor` reports SKIP for the not-yet-applicable checks until you've held at least one session in Claude Code. Run the repair command for HC-1:
 
 ```bash
 cmk repair --hooks
@@ -118,19 +113,19 @@ Open Claude Code on the same project again. The SessionStart hook injects the up
 cmk search "X decision"
 ```
 
-By default, this runs keyword search via SQLite + FTS5 (Layer 5a). If you've installed Layer 5b (`pip install memsearch[onnx]`), you can also use:
+By default, this runs keyword search via SQLite + FTS5 (Layer 5a). Semantic + hybrid modes (Layer 5b) are not yet shipped:
 
 ```bash
-cmk search "X decision" --mode hybrid
+cmk search "X decision" --mode hybrid   # errors until the Layer-5b backend ships
 ```
 
-Hybrid = keyword + semantic with RRF fusion.
+Hybrid will fuse keyword + semantic (RRF) once the Layer-5b backend lands.
 
 ## 8. Common commands
 
 | Command | Purpose |
 | --- | --- |
-| `cmk doctor` | Full health check (HC-1..HC-9) |
+| `cmk doctor` | Full health check (HC-1..HC-7) |
 | `cmk search "<query>"` | Search memory (default keyword) |
 | `cmk roll --scope now\|today\|recent` | Manually trigger compression |
 | `cmk repair --hooks\|--locks\|--index\|--all` | Idempotent self-repair |
@@ -157,4 +152,4 @@ For complex issues, see [HEALTH-CHECKS.md](HEALTH-CHECKS.md) for per-HC repair p
 - Read [README.md](README.md) for the architectural overview
 - Read [ARCHITECTURE.md](ARCHITECTURE.md) for the data-flow diagram
 - Read [`specs/design.md`](specs/design.md) for the full design
-- Optionally install Layer 5b (`pip install memsearch[onnx]`) to enable semantic search
+- (Semantic search — Layer 5b — is a future release; keyword search works today with no extra install)

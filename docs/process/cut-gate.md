@@ -103,7 +103,7 @@ code .
 
 - [ ] **★ G1 — install + doctor clean.**
       `cmk install` → "ready, hooks wired";
-      `cmk doctor` → **0 fail** (`6 pass · 0 fail · 3 skip` without memsearch).
+      `cmk doctor` → **0 fail** (~`4 pass · 0 fail · 3 skip` on a fresh install — 7 checks now; the 2 memsearch checks were removed in Task 120).
       Type:
         `/hooks` → the 5 `cmk-*` hooks are loaded.
 
@@ -521,14 +521,14 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 **Health & repair**
 
 - [ ] **F-11**
-      - `cmk doctor` → HC-1..HC-9 accurate
+      - `cmk doctor` → HC-1..HC-7 accurate
       - `cmk repair --hooks` re-wires if settings drift
       - `cmk config get/set` — _v0.1.x stub; expect "not yet implemented" (doctor + repair are the live health surface). Not a failure._
 
 **Native coexistence & import**
 
 - [ ] **F-12**
-      `cmk disable-native-memory` → writes committable `autoMemoryEnabled:false` (doctor HC-8 reflects it);
+      `cmk disable-native-memory` → writes committable `autoMemoryEnabled:false` (doctor HC-6 reflects it);
       `cmk enable-native-memory` reverses.
 
 - [ ] **F-13**

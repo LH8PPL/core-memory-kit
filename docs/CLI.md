@@ -44,7 +44,7 @@ Most capture is automatic (the Stop hook extracts facts each turn) — use `cmk 
 
 ### `cmk search <query…> [flags]`
 Search accumulated memory.
-- `--mode keyword|semantic|hybrid` — default `keyword` (semantic/hybrid need the Layer 5b memsearch backend).
+- `--mode keyword|semantic|hybrid` — default `keyword` (semantic/hybrid need the Layer-5b semantic backend, not yet shipped).
 - `--min-trust low|medium|high` · `--tier U|P|L` · `--since <ISO date>` · `--limit <n>` (default 20) · `--include-tombstoned`.
 ```bash
 cmk search "postgres"
@@ -52,7 +52,7 @@ cmk search "deploy steps" --min-trust high --tier P --limit 5
 ```
 
 ### `cmk doctor`
-Run the 9 health checks (HC-1..HC-9); reports PASS/FAIL/SKIP with a repair command per failure.
+Run the 7 health checks (HC-1..HC-7); reports PASS/FAIL/SKIP with a repair command per failure.
 ```bash
 cmk doctor
 ```
