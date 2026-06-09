@@ -104,9 +104,9 @@ export const ERROR_CATEGORIES = Object.freeze({
   POISON_GUARD: 'poison_guard',
 
   // `cmk search` requested --mode=semantic or --mode=hybrid but the
-  // Layer 5b memsearch+Milvus install isn't present (Task 30, design
+  // Layer-5b semantic backend is not yet shipped (Task 30, design
   // §9.3). Pairs with `process.exitCode = 2` in subcommands.mjs per
-  // tasks.md 30.2's explicit "exit 2 when not installed" contract.
+  // tasks.md 30.2's explicit "exit 2 when unavailable" contract.
   // NO silent fallback to keyword — the user asked for semantic,
   // and the surface should fail-loud so they know what's missing.
   SEMANTIC_UNAVAILABLE: 'semantic_unavailable',

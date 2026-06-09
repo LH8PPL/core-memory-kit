@@ -11,27 +11,11 @@ If you just cloned this repo onto a fresh machine, run the prerequisites for you
 Equivalently, manual bootstrap once prerequisites are installed:
 
 ```bash
-# 1. Install Python dependencies for memsearch (local-only embeddings)
-python -m pip install "memsearch[onnx]"
-
-# 2. Configure memsearch (local ONNX provider, no API key needed)
-memsearch config set embedding.provider onnx
-memsearch config set embedding.model "gpahal/bge-m3-onnx-int8"
-
-# 3. Bring up Milvus (Windows: docker compose; Linux/Mac: skip — use milvus-lite default)
-#    Windows-specific:
-cd milvus-deploy && docker compose up -d && cd ..
-memsearch config set milvus.uri "http://localhost:19530"
-#    Linux/Mac: leave milvus.uri at default — uses milvus-lite at ~/.memsearch/milvus.db
-
-# 4. Initial index
-memsearch index context/memory context/sessions context/transcripts
-
-# 5. Register cron jobs (idempotent)
+# Register cron jobs (idempotent) — the only runtime step
 cmk register-crons
 ```
 
-That's the whole bootstrap. The directory tree, hooks file, scratchpad files, and granular memory are already in the repo from `git clone` — only the runtime state (memsearch index, scheduled tasks, Docker stack on Windows) needs to be created locally.
+That's the whole bootstrap. The directory tree, hooks file, scratchpad files, and granular memory are already in the repo from `git clone` — only the runtime state (scheduled tasks) needs to be created locally. Keyword search works out of the box; the Layer-5b semantic backend is not yet shipped.
 
 ## Architecture overview
 
@@ -58,7 +42,8 @@ Layers and what installs each:
 | 2 | Granular archive + INDEX | Kit scaffolding |
 | 3 | Bounded scratchpads (MEMORY.md, USER.md, SOUL.md) | Kit scaffolding |
 | 4 | Auto-extract + Stop hook + PreToolUse hook + memory-write skill | Step 4 below |
-| 5 | Search (memsearch) | Step 5 below |
+| 5a | Keyword search (SQLite + FTS5) | Built in — no install |
+| 5b | Semantic search (embedded vector backend) | Not yet shipped (design §9.3.1) |
 | 6 | Auto-curation (cron jobs) | Step 6 below |
 
 Layers 1-3 are pure file ops, no external dependencies. Layers 4-6 require installs and should ASK the user before running.
@@ -123,62 +108,17 @@ The kit ships a `.claude/settings.json` that registers both hooks. If you merged
 
 **Important — primary working directory caveat**: Claude Code fires hooks AND discovers skills from the **primary** working directory's `.claude/` only. If you opened Claude Code with a different project as primary and this one as an added/additional directory, neither the hooks nor the skill in this project will activate. Fix: open Claude Code with this project as the primary cwd.
 
-## Step 5 — memsearch (ASK user before installing)
+## Step 5 — Search
 
-Goal: hybrid vector + keyword search over `context/memory/`, `context/sessions/`, `context/transcripts/`.
+**Keyword search works out of the box** — SQLite + FTS5, no install required: `cmk search "<query>"`.
 
-### 5a. Check installation
-
-```bash
-memsearch --version
-```
-
-If reports a version: skip to 5b.
-
-If missing: ASK the user "Install `memsearch` with local ONNX embeddings (~600MB total: package + bge-m3 model on first use)?" If approved:
-
-```bash
-python -m pip install "memsearch[onnx]"
-```
-
-The `[onnx]` extra is important — without it, memsearch defaults to OpenAI and requires an API key.
-
-**Windows gotcha**: if multiple Python installs are present, `pip` may install to a different Python than `python` resolves to. If `memsearch --help` fails with import errors after install, run `where memsearch.exe` and `python -c "import memsearch"` to confirm both point to the same Python.
-
-### 5b. Configure embedding provider and backend
-
-```bash
-memsearch config set embedding.provider onnx
-memsearch config set embedding.model "gpahal/bge-m3-onnx-int8"
-```
-
-**Windows-only extra step**: milvus-lite (the default embedded vector store) has no Windows wheels on PyPI. Use the Docker compose stack the kit ships:
-
-```bash
-cd milvus-deploy
-docker compose up -d
-cd ..
-memsearch config set milvus.uri "http://localhost:19530"
-```
-
-Wait ~30-60 seconds for all three containers (`milvus-standalone`, `milvus-minio`, `milvus-etcd`) to report `(healthy)` via `docker compose ps`.
-
-**Linux / macOS**: skip the docker-compose step entirely. milvus-lite is bundled with the `memsearch[onnx]` install and writes to `~/.memsearch/milvus.db`. Leave `milvus.uri` at the default — no config change needed.
-
-### 5c. Initial index
-
-```bash
-memsearch index context/memory context/sessions context/transcripts
-```
-
-First run downloads the bge-m3 ONNX model (~558MB) into the huggingface cache. Subsequent runs are incremental.
+**Semantic / hybrid search (Layer 5b) is not yet shipped.** The embedded vector backend is a future release; the `semanticBackend` DI seam is already in place (see the kit's `specs/design.md` §9.3.1 for the deferred backend choice). Until it lands, `cmk search --mode=semantic` / `--mode=hybrid` error with a clear "not yet shipped" message — use the default keyword mode.
 
 ## Step 6 — Auto-curation (ASK user before installing)
 
 Three jobs run via the host scheduler:
 
 - **Daily memory distill** — 23:00 daily. Reads today's session log and extracts durable facts into MEMORY.md.
-- **Nightly memsearch index** — 02:00 daily. Re-indexes context/ markdown files.
 - **Weekly memory curator** — Sunday 09:00. Prunes/merges/consolidates MEMORY.md.
 
 Register them with:
@@ -197,13 +137,11 @@ Run silently at session start. Each check is a simple yes/no. On failure, route 
 
 | ID | Check | How |
 |---|---|---|
-| HC-1 | memsearch installed | `pip show memsearch` exits 0 (or `memsearch --version` succeeds) |
-| HC-2 | Stop hook registered | `.claude/settings.json` contains `transcript-capture.js` |
-| HC-3 | MEMORY.md distill is fresh (≤2 days) | Parse `<!-- Last distilled: YYYY-MM-DD -->` from MEMORY.md |
-| HC-4 | Transcripts are firing (≤3 days) | `ls context/transcripts/*.md` — newest mtime within 3 days |
-| HC-5 | INDEX.md matches `context/memory/` | Files listed in INDEX = files present on disk |
-| HC-6 | Cron jobs registered with host scheduler | Windows: `schtasks /query` returns Ready for every active job. Unix: `crontab -l` contains the matching comment line. |
-| HC-7 | memsearch backend reachable | `memsearch stats` exits 0. |
+| HC-1 | Stop hook registered | `.claude/settings.json` contains `transcript-capture.js` |
+| HC-2 | MEMORY.md distill is fresh (≤2 days) | Parse `<!-- Last distilled: YYYY-MM-DD -->` from MEMORY.md |
+| HC-3 | Transcripts are firing (≤3 days) | `ls context/transcripts/*.md` — newest mtime within 3 days |
+| HC-4 | INDEX.md matches `context/memory/` | Files listed in INDEX = files present on disk |
+| HC-5 | Cron jobs registered with host scheduler | Windows: `schtasks /query` returns Ready for every active job. Unix: `crontab -l` contains the matching comment line. |
 
 ## Self-repair (referenced by CLAUDE.md)
 
@@ -211,19 +149,17 @@ When a health check fails:
 
 | Failed | Repair |
 |---|---|
-| HC-1 | Re-run Step 5a (ASK user to approve `python -m pip install "memsearch[onnx]"`). |
-| HC-2 | Re-run Step 4b (register the hook in `.claude/settings.json`). |
-| HC-3 | Run the distill once: `cmk daily-distill` (or `cmk compress --lazy` for the no-cron fallback). |
-| HC-4 | First check whether this project is the primary cwd in Claude Code. If yes, verify Node is installed and test the hook in isolation. |
-| HC-5 | Add missing files to INDEX.md, or remove stale entries. |
-| HC-6 | Run `cmk register-crons` (idempotent — overwrites existing entries cleanly). |
-| HC-7 | **Windows**: ASK user to start Docker Desktop, then `cd milvus-deploy && docker compose up -d`. **Linux/Mac**: check that `~/.memsearch/milvus.db` is accessible. |
+| HC-1 | Re-run Step 4b (register the hook in `.claude/settings.json`). |
+| HC-2 | Run the distill once: `cmk daily-distill` (or `cmk compress --lazy` for the no-cron fallback). |
+| HC-3 | First check whether this project is the primary cwd in Claude Code. If yes, verify Node is installed and test the hook in isolation. |
+| HC-4 | Add missing files to INDEX.md, or remove stale entries. |
+| HC-5 | Run `cmk register-crons` (idempotent — overwrites existing entries cleanly). |
 
 **Rule**: any repair that requires running an install command MUST ASK the user first. Never invoke `pip install`, `npm install`, or system-level changes silently.
 
 ## Glossary
 
 - **Frozen snapshot pattern** — at session start, certain files are read once and form a static context. Mid-session writes persist to disk but only take effect next session. Preserves Claude's prefix cache.
-- **Tiered retrieval** — when looking up past context, escalate from cheapest (already-in-context) to most expensive (memsearch over transcripts).
+- **Tiered retrieval** — when looking up past context, escalate from cheapest (already-in-context) to most expensive (search over transcripts).
 - **Granular archive** — per-fact files in `context/memory/<type>_<slug>.md`. Each carries frontmatter + Why + How to apply. Not loaded at startup.
 - **Working scratchpad** — `context/MEMORY.md`. Bounded 2.5 KB. Hot state for the current session. Distilled daily.

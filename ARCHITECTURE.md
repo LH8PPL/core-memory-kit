@@ -70,7 +70,7 @@ Why all of it? Each fixes a different reliability gap:
 
 **5a — keyword (shipped).** SQLite + FTS5 over `context/`. `cmk search "<term>"` (and the `mk_search` MCP tool) use this by default; no setup.
 
-**5b — semantic (deferred to a later release).** Hybrid vector + keyword via the optional `memsearch` backend — local ONNX embeddings (`gpahal/bge-m3-onnx-int8`, ~558MB on first use, no API key); milvus-lite embedded on Linux/macOS, Milvus via Docker on Windows. **Not shipped yet** — `cmk search --mode semantic` reports it's unavailable until installed.
+**5b — semantic (deferred to a later release).** Hybrid vector + keyword over the same `context/` content via an embedded local vector backend — the specific backend is **not yet chosen** (the leading candidate is `sqlite-vec`, staying in the existing SQLite DB; see [`specs/design.md`](specs/design.md) §9.3.1). The `semanticBackend` DI seam + reciprocal-rank fusion are already wired as the drop-in point. **Not shipped yet** — `cmk search --mode semantic` reports it's unavailable (the kit ships keyword-only).
 
 Used for **Tier 2 retrieval** — when Tier 0 (snapshot) and Tier 1 (grep INDEX.md) miss, escalate to search.
 

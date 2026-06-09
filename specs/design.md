@@ -106,7 +106,7 @@ The design assumes [`requirements-revisions-proposed.md`](../archive/specs/v0.1.
 | **2** | Granular per-fact archive + INDEX | Yes | FR-1, FR-29 |
 | **3** | Bounded scratchpads (SOUL/USER/MEMORY/HABITS/LESSONS) | Yes | FR-3 |
 | **4** | Six lifecycle hooks + auto-extract subagent + `memory-write` skill | Recommended | FR-9, FR-10, FR-11 |
-| **5** | Search: SQLite+FTS5 cache + optional memsearch+Milvus | Optional | FR-16, FR-17, FR-18 |
+| **5** | Search: SQLite+FTS5 cache (5a, shipped) + a Layer-5b embedded vector backend (deferred, not yet shipped — §9.3.1) | Optional | FR-16, FR-17, FR-18 |
 | **6** | Auto-curation: cron jobs for rolling-window compression | Optional | FR-19, FR-20, FR-21 |
 
 Each layer is replaceable. Layer 1-3 is pure file ops. Layer 4 is what makes memory automatic. Layer 5-6 are optional power features.
@@ -195,9 +195,6 @@ SessionEnd hook fires
 ```text
 Daily   23:00  scripts/run-daily-distill.sh
                 Extract durable facts from sessions/today-*.md into MEMORY.md/granular archive
-
-Nightly 02:00  scripts/memsearch-index-with-flush.sh
-                Rebuild SQLite+FTS5 index + Milvus vector store (if installed)
 
 Weekly  Sun 09:00  scripts/run-weekly-curate.sh
                 Prune resolved Active Threads, merge duplicates, drop stale entries
@@ -1504,7 +1501,7 @@ cmk search "<query>" [--mode keyword|semantic|hybrid] [--min-trust low|medium|hi
 Two backends:
 
 - **Keyword (always available)**: FTS5 BM25. ~100ms for 10k bullets.
-- **Semantic (optional, Layer 5 install)**: memsearch + Milvus or milvus-lite. ~1s for same corpus.
+- **Semantic (optional, Layer 5b — not yet shipped)**: an embedded vector backend (TBD; §9.3.1). ~1s target for the same corpus.
 - **Hybrid (default when both available)**: reciprocal-rank fusion (0.5 keyword, 0.5 semantic).
 
 Returns: `[{id, snippet, source_file, source_line, tier, trust, score}]`. Trust visible so users can filter via `--min-trust`. Tier visible so MCP-tool callers can route on tier without re-querying. `source_file` + `source_line` are separate fields (not a colon-joined string) so callers don't need to split; the kit's existing `${file}:${line}` formatter (used in `cmk` CLI output) composes both on display.
@@ -1514,6 +1511,8 @@ Returns: `[{id, snippet, source_file, source_line, tier, trust, score}]`. Trust 
 #### 9.3.1 Layer 5b backend — RECONSIDER before building (open, 2026-05-31)
 
 > **Original pick:** `memsearch + Milvus` (the §9.3 "Semantic" line above). **Status: reconsider before any Layer-5b build.**
+>
+> **Update (Task 120, v0.2.4):** the premature `memsearch + Milvus` *scaffolding* — doctor HC-1/HC-7, the `milvus-deploy` template files, the nightly-index cron, and the "install memsearch" SETUP docs — was **REMOVED**. It shipped and showed up in `cmk doctor`, wrongly implying the kit used a backend it never did. **The deferral below STANDS** (no backend chosen yet); the `semanticBackend` DI seam + `reciprocalRankFusion` are KEPT as the drop-in point. Task 120 removed the dead scaffolding, not the open decision.
 >
 > Two independent evidence sources now argue `memsearch + Milvus` is the **wrong weight class** for what the kit is (single-user, local, per-project markdown):
 > 1. **the user's personal-wiki search decision record** (`C:/Projects/personal-wiki/docs/search-architecture.md`, 2026-05-31) — same profile as the kit; explicitly **rejected Milvus as "overkill for <10K docs, requires a server"** and chose **Chroma** (pure-Python, embedded, metadata filtering) for filtered-semantic + kept **qmd** (Node, MCP-native, GGUF embeddinggemma) for pure-semantic.
@@ -1726,19 +1725,17 @@ The install paths above MUST inject the kit's CLAUDE.md content inside an idempo
 
 ## 14. Failure modes + health checks
 
-Ten yes/no checks at session start (HC-1..HC-7 from requirements.md, plus HC-8 added per ADR-0011 + HC-9 added per PR-B's class-2 lock audit + HC-10 added per PR-E's class-7 cross-platform audit). Each has a documented self-repair path.
+Seven yes/no checks at session start. Each has a documented self-repair path. (The two memsearch checks — formerly HC-1 "installed" + HC-7 "reachable" — were **removed in Task 120**; the remaining five from requirements.md renumbered to HC-1..HC-5, plus HC-6 native-memory detection per ADR-0011 and HC-7 stale-lock detection per PR-B's class-2 lock audit. The cross-platform-emission audit lives in `validate-platform-commands.mjs`, not a runtime doctor check.)
 
 | ID | Check | Repair if failed |
 | --- | --- | --- |
-| HC-1 | memsearch installed (Layer 5) | ASK user to approve `python -m pip install "memsearch[onnx]"` |
-| HC-2 | Stop + SessionStart hooks registered | `cmk repair --hooks` re-installs from template |
-| HC-3 | MEMORY.md distill is fresh (≤2 days) | Manual `bash scripts/run-daily-distill.sh` |
-| HC-4 | Transcripts firing (≤3 days) | Root cause: project not primary cwd in Claude Code. Fix: reopen project as primary |
-| HC-5 | INDEX.md matches `context/memory/` files | `cmk reindex` rebuilds |
-| HC-6 | Cron jobs registered with host scheduler | `cmk register-crons` (idempotent — registers daily-distill + weekly-curate via Task 33's Node implementation; design §8.6.3 documents the Python → Node pivot) |
-| HC-7 | memsearch backend reachable (Layer 5) | Windows: start Docker Desktop, `docker compose up -d` in `milvus-deploy/`. macOS/Linux: check `~/.memsearch/milvus.db` |
-| **HC-8** | **[CHANGE]** Native Anthropic Auto Memory status detected | **Inspect `~/.claude/projects/<slug>/memory/` existence + contents. Log result to `context/.locks/native-memory-status.log` as `{active: true \| false \| unknown, last_modified: <ISO>, file_count: N}`. Non-fatal — informational only, lets users see whether their kit is supplementing or substituting Anthropic's. Per Kiro's spec-pattern of explicit detection + audit logging.** |
-| **HC-9** | **Stale lock files under `context/.locks/` + `<userDir>/.locks/`** | **Per-stale-lock recoveryCommand emitted in the report (e.g. `rm "<path>"`). Library: [`packages/cli/src/lock-discipline.mjs`](../packages/cli/src/lock-discipline.mjs) `detectStaleLocks(projectRoot, {userDir})`. Closes the residual leak window left after PR-A's subprocess timeout (external SIGKILL / OS OOM / hardware failure — see §6.9 for the composition). Non-fatal — `cmk doctor` reports + the next auto-extract invocation's in-band stale-recovery also handles it.** |
+| HC-1 | Stop + SessionStart hooks registered | `cmk repair --hooks` re-installs from template |
+| HC-2 | MEMORY.md distill is fresh (≤2 days) | Manual `cmk daily-distill` |
+| HC-3 | Transcripts firing (≤3 days) | Root cause: project not primary cwd in Claude Code. Fix: reopen project as primary |
+| HC-4 | INDEX.md matches `context/memory/` files | `cmk reindex` rebuilds |
+| HC-5 | Cron jobs registered with host scheduler | `cmk register-crons` (idempotent — registers daily-distill + weekly-curate via Task 33's Node implementation; design §8.6.3 documents the Python → Node pivot) |
+| **HC-6** | Native Anthropic Auto Memory status detected | **Inspect `~/.claude/projects/<slug>/memory/` existence + contents. Log result to `context/.locks/native-memory-status.log` as `{active: true \| false \| unknown, last_modified: <ISO>, file_count: N}`. Non-fatal — informational only, lets users see whether their kit is supplementing or substituting Anthropic's. Per Kiro's spec-pattern of explicit detection + audit logging.** |
+| **HC-7** | **Stale lock files under `context/.locks/` + `<userDir>/.locks/`** | **Per-stale-lock recoveryCommand emitted in the report (e.g. `rm "<path>"`). Library: [`packages/cli/src/lock-discipline.mjs`](../packages/cli/src/lock-discipline.mjs) `detectStaleLocks(projectRoot, {userDir})`. Closes the residual leak window left after PR-A's subprocess timeout (external SIGKILL / OS OOM / hardware failure — see §6.9 for the composition). Non-fatal — `cmk doctor` reports + the next auto-extract invocation's in-band stale-recovery also handles it.** |
 
 **Critical rule** (per design §14, 2026-05-28 amendment): any repair requiring `pip install` / `npm install` / system-level changes MUST ASK the user first. Previously cited as "NFR-9" — NFR-9 is actually "Memory poisoning defense baseline" per [`requirements-revisions-proposed.md:125`](../archive/specs/v0.1.0/requirements-revisions-proposed.md). The ask-before-install rule has no FR/NFR backing today; promoting it to a proper requirements entry is a v0.1.x cleanup.
 

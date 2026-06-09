@@ -4,8 +4,7 @@
 //
 // Layout reflects design §1.1 (three tiers): project, local, user
 // + a support/ subtree for files the installer copies into the target
-// project but that aren't tier content per se (cron jobs, scripts,
-// optional Milvus deploy).
+// project but that aren't tier content per se (cron job definitions).
 //
 // Conventions:
 //   - Tier seed files use the .template suffix and are copied (minus
@@ -33,9 +32,7 @@ export const requiredDirs = [
   { path: 'template/user', description: 'user tier seeds (copied to ~/.claude-memory-kit/)' },
   { path: 'template/user/fragments', description: 'user-tier granular archive' },
   { path: 'template/support', description: 'support files installed alongside tier seeds' },
-  { path: 'template/support/scripts', description: 'shipped scripts (auto-extract, register-crons, etc.)' },
-  { path: 'template/support/cron-jobs', description: 'cron job definitions for daily/weekly/nightly' },
-  { path: 'template/support/milvus-deploy', description: 'optional Milvus vector store deploy' },
+  { path: 'template/support/cron-jobs', description: 'cron job definitions for daily + weekly memory compression' },
   { path: 'template/.claude', description: 'Claude Code config scaffolded into <project>/.claude/' },
   { path: 'template/.claude/skills', description: 'skills scaffolded by cmk install (Task 69)' },
   { path: 'template/.claude/skills/memory-write', description: 'the memory-write skill (canonical source)' },

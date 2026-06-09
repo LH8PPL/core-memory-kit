@@ -17,7 +17,7 @@ Restart Claude Code. Then in the project where you want the memory system:
 /claude-memory-kit:bootstrap
 ```
 
-The bootstrap skill scaffolds `context/`, `scripts/`, `cron/jobs/`, and `milvus-deploy/` into the project. Existing files are never overwritten.
+The bootstrap skill scaffolds `context/`, `scripts/`, and `cron/jobs/` into the project. Existing files are never overwritten.
 
 ## What the plugin gives you
 
@@ -28,7 +28,7 @@ The bootstrap skill scaffolds `context/`, `scripts/`, `cron/jobs/`, and `milvus-
 
 ## What the plugin does NOT do
 
-- It does not install `memsearch` (Layer 5) or set up cron jobs (Layer 6). Those still require shell commands — see the kit's `INSTALL-<os>.md`.
+- It does not set up cron jobs (Layer 6) — those still require shell commands (`cmk register-crons`). (Semantic search, Layer 5b, is not yet shipped; the kit's keyword search works out of the box.)
 - It does not modify your `.claude/settings.json` — the hooks are registered via the plugin's own `hooks/hooks.json`.
 - It does not run on session start; the bootstrap is opt-in per project via the slash command.
 

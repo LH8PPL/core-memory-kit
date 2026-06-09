@@ -170,7 +170,7 @@ describe('Task 31 — MCP server', () => {
         query: 'pnpm', mode: 'semantic',
       });
       expect(r.isError).toBe(true);
-      expect(r.content[0].text).toMatch(/memsearch not installed/);
+      expect(r.content[0].text).toMatch(/not yet shipped/);
     });
   });
 

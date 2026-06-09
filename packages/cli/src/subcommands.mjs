@@ -249,10 +249,11 @@ function runLessonsPromote(id, options = {}) {
 /**
  * `cmk search` — Task 30. Hybrid keyword + optional semantic.
  *
- * v0.1.0 ships the keyword backend (FTS5 BM25 over the observations
- * index). Semantic + hybrid modes require the Layer 5b memsearch+Milvus
- * install which isn't bundled in v0.1.0; both error with exit code 2
- * and a clear "memsearch not installed" hint per tasks.md 30.2.
+ * The keyword backend (FTS5 BM25 over the observations index) always
+ * ships. Semantic + hybrid modes require the Layer-5b semantic backend,
+ * which is not yet shipped; both error with exit code 2 and a clear
+ * "not yet shipped" hint per tasks.md 30.2. The `semanticBackend` DI seam
+ * is the drop-in point for the future backend.
  *
  * Filter flags (per tasks.md 30.4):
  *   --mode <keyword|semantic|hybrid>   (default keyword)
@@ -1652,7 +1653,7 @@ export const subcommands = [
     milestone: 30,
     argSpec: [{ flags: '<query...>', description: 'query terms' }],
     optionSpec: [
-      { flags: '--mode <mode>', description: 'keyword | semantic | hybrid (default: keyword; semantic+hybrid need memsearch — Layer 5b install, not in v0.1.0)' },
+      { flags: '--mode <mode>', description: 'keyword | semantic | hybrid (default: keyword; semantic + hybrid need the Layer-5b semantic backend, not yet shipped)' },
       { flags: '--min-trust <level>', description: 'low | medium | high' },
       { flags: '--tier <tier>', description: 'U | P | L (filter to a single tier)' },
       { flags: '--since <date>', description: 'ISO date — exclude observations older than this' },

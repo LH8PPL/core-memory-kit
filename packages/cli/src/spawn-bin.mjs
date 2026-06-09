@@ -3,7 +3,7 @@
 //
 // Why this exists
 // ---------------
-// Spawning an npm-global bin (claude, memsearch, cmk-*) needs `shell:true` on
+// Spawning an npm-global bin (claude, cmk-*) needs `shell:true` on
 // Windows so the `.cmd` shim resolves through cmd.exe — Node won't auto-resolve
 // `.cmd`/`.bat` without a shell (CVE-2024-27980 hardening). But `shell:true`
 // WITH an args array is doubly bad:
@@ -73,7 +73,12 @@ export function spawnBin(bin, args = [], opts = {}, deps = {}) {
   return spawnImpl(bin, args, { ...opts, shell: false });
 }
 
-/** Synchronous twin of spawnBin (for one-shot checks like `cmk doctor`'s memsearch probe). */
+/**
+ * Synchronous twin of spawnBin, for one-shot bin checks.
+ * NOTE: currently unused — the `cmk doctor` memsearch probe that used it was
+ * removed in Task 120. Kept as the sync counterpart to spawnBin for future
+ * one-shot checks; remove if it stays unused.
+ */
 export function spawnBinSync(bin, args = [], opts = {}, deps = {}) {
   const { spawnImpl = spawnSync, platform = process.platform } = deps;
   if (platform === 'win32') {

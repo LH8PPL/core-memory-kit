@@ -370,7 +370,7 @@ Cross-refs: [[Rolling-window compression]]. Spec: design §12; T-033.
 
 ### `cmk doctor`
 
-The diagnostic command that runs all 8 health checks (HC-1..HC-8) and prints a structured report with documented self-repair commands for any failures.
+The diagnostic command that runs all 7 health checks (HC-1..HC-7) and prints a structured report with documented self-repair commands for any failures.
 
 Cross-refs: [[Health check]]. Spec: design §14; T-031.
 
@@ -394,7 +394,7 @@ Spec: design §10.
 
 ### Health check (HC)
 
-One of 8 yes/no diagnostics run by [[`cmk doctor`]]. Each has a documented self-repair path. HC-1..HC-7 from requirements.md; HC-8 detects whether Anthropic's native Auto Memory is active.
+One of 7 yes/no diagnostics run by [[`cmk doctor`]]. Each has a documented self-repair path. HC-1..HC-5 cover hooks/distill/transcripts/INDEX/cron; HC-6 detects whether Anthropic's native Auto Memory is active; HC-7 checks for stale lock files. (The two memsearch checks were removed in Task 120.)
 
 Spec: design §14.
 
@@ -432,7 +432,7 @@ Cross-refs: [[Native Auto Memory]]. Spec: ADR-0011; design §1.2, §11.
 
 ### Native Auto Memory
 
-Anthropic's built-in memory feature (Claude Code v2.1.59+) that writes to `~/.claude/projects/<slug>/memory/`. NOT disabled by the kit. Detected by HC-8.
+Anthropic's built-in memory feature (Claude Code v2.1.59+) that writes to `~/.claude/projects/<slug>/memory/`. NOT disabled by the kit. Detected by HC-6.
 
 Cross-refs: [[Coexistence (Option D)]]. Spec: ADR-0011; design §11.
 

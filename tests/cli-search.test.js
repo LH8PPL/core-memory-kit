@@ -6,7 +6,7 @@
 // Tests for Task 30 — `cmk search` hybrid CLI (T-026).
 // Per tasks.md 30.5:
 //   - Test keyword on 10k-observation fixture: results in <100 ms
-//   - Test `--mode semantic` without Layer 5b: exit 2; stderr contains "memsearch not installed"
+//   - Test `--mode semantic` without Layer 5b: exit 2; stderr says the semantic backend is "not yet shipped"
 //   - Test `--mode hybrid` with both mocked: reciprocal-rank fusion (0.5/0.5)
 //   - Test `--min-trust medium` excludes low-trust results
 //   - Test `--tier P` excludes user/local results
@@ -231,7 +231,7 @@ describe('Task 30 — cmk search', () => {
       const r = search({ db, query: 'pnpm', mode: 'semantic' });
       expect(r.action).toBe('error');
       expect(r.errorCategory).toBe('semantic_unavailable');
-      expect(r.errors[0]).toMatch(/memsearch not installed/);
+      expect(r.errors[0]).toMatch(/not yet shipped/);
     });
 
     it('semantic mode with injected backend returns its results', () => {
@@ -346,11 +346,11 @@ describe('Task 30 — cmk search', () => {
   });
 
   describe('CLI integration (I2 — tasks.md 30.5 #2 exit-2 contract)', () => {
-    it('`cmk search --mode semantic` (no memsearch) exits 2 + stderr mentions memsearch', async () => {
+    it('`cmk search --mode semantic` (backend not yet shipped) exits 2 + stderr says so', async () => {
       // Spawn the actual `cmk` binary. The semantic-unavailable path in
       // runSearch sets process.exitCode = 2; this test verifies the
       // process-exit contract that tasks.md 30.5 #2 explicitly
-      // demands: "exit 2; stderr contains 'memsearch not installed'".
+      // demands: "exit 2; stderr says the semantic backend is unavailable".
       // The in-process search() unit tests pin the return-shape; this
       // one pins the CLI's stderr + exit code.
       const sandbox = mkdtempSync(join(tmpdir(), 'cmk-search-cli-'));
@@ -364,7 +364,7 @@ describe('Task 30 — cmk search', () => {
           { cwd: projectRoot, encoding: 'utf8' },
         );
         expect(r.status).toBe(2);
-        expect((r.stderr || '') + (r.stdout || '')).toMatch(/memsearch not installed/);
+        expect((r.stderr || '') + (r.stdout || '')).toMatch(/not yet shipped/);
       } finally {
         rmSync(sandbox, { recursive: true, force: true });
       }

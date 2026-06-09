@@ -96,14 +96,14 @@ Remove-Item -Recurse -Force $env:USERPROFILE\.claude-memory-kit
 Validates scaffold integrity + the Task-69 skill surface.
 
 ```powershell
-mkdir C:\Temp\cut-gate6; cd C:\Temp\cut-gate6
+mkdir C:\Temp\cut-gate7; cd C:\Temp\cut-gate7
 git init; cmk install; cmk doctor
 code .
 ```
 
 - [ ] **★ G1 — install + doctor clean.**
       `cmk install` → "ready, hooks wired";
-      `cmk doctor` → **0 fail** (`6 pass · 0 fail · 3 skip` without memsearch).
+      `cmk doctor` → **0 fail** (~`4 pass · 0 fail · 3 skip` on a fresh install — 7 checks now; the 2 memsearch checks were removed in Task 120).
       Type:
         `/hooks` → the 5 `cmk-*` hooks are loaded.
 
@@ -274,9 +274,9 @@ which carries raw, un-screened text, so it must never be committed.
 
 ```powershell
 # The security half (deterministic): the diagnostic log is gitignored.
-git -C C:\Temp\cut-gate6 check-ignore context\sessions\probe.extract.log
+git -C C:\Temp\cut-gate7 check-ignore context\sessions\probe.extract.log
 # The trace half (observational): if any build turn was graded LOW, you'll see it.
-findstr /S /C:"low_trust_discarded" C:\Temp\cut-gate6\context\sessions\*.extract.log
+findstr /S /C:"low_trust_discarded" C:\Temp\cut-gate7\context\sessions\*.extract.log
 ```
 
 - [ ] **★ B6 — PASS (must):**
@@ -449,7 +449,7 @@ then:
 ## 6. Session 3 — the cold-open (the wedge, wow #1)  ⬅️ a BRAND-NEW project
 
 ```powershell
-mkdir C:\Temp\cut-gate-coldopen6; cd C:\Temp\cut-gate-coldopen6
+mkdir C:\Temp\cut-gate-coldopen7; cd C:\Temp\cut-gate-coldopen7
 git init; cmk install; code .
 ```
 Ask: *"Start a new Python backend for me - set up the structure."*
@@ -462,7 +462,7 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 
 ---
 
-## 7. Full feature sweep — every `cmk` subcommand  (~15 min, in `C:\Temp\cut-gate6`)
+## 7. Full feature sweep — every `cmk` subcommand  (~15 min, in `C:\Temp\cut-gate7`)
 
 **Recall & index**
 
@@ -521,14 +521,14 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 **Health & repair**
 
 - [ ] **F-11**
-      - `cmk doctor` → HC-1..HC-9 accurate
+      - `cmk doctor` → HC-1..HC-7 accurate
       - `cmk repair --hooks` re-wires if settings drift
       - `cmk config get/set` — _v0.1.x stub; expect "not yet implemented" (doctor + repair are the live health surface). Not a failure._
 
 **Native coexistence & import**
 
 - [ ] **F-12**
-      `cmk disable-native-memory` → writes committable `autoMemoryEnabled:false` (doctor HC-8 reflects it);
+      `cmk disable-native-memory` → writes committable `autoMemoryEnabled:false` (doctor HC-6 reflects it);
       `cmk enable-native-memory` reverses.
 
 - [ ] **F-13**
@@ -578,8 +578,8 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 
 ## 9. Portability ("another computer")
 
-In `C:\Temp\cut-gate6`: `git add -A; git commit -m "wip"`.
-Clone elsewhere (`git clone C:\Temp\cut-gate6 C:\Temp\cut-gate-clone`), open *that* in Claude Code.
+In `C:\Temp\cut-gate7`: `git add -A; git commit -m "wip"`.
+Clone elsewhere (`git clone C:\Temp\cut-gate7 C:\Temp\cut-gate-clone`), open *that* in Claude Code.
 
 - [ ] **★ H1**
       the clone already has the project memory (`context/` is committed — tenet T2).

@@ -121,10 +121,10 @@ context/
 | 3 | Bounded scratchpads (MEMORY.md, USER.md, SOUL.md) | Yes | ✓ shipped |
 | 4 | Auto-extract Stop hook + memory-write skill | Recommended | ✓ shipped |
 | **5a** | **Keyword search (SQLite + FTS5)** | **Optional** | ✓ shipped |
-| 5b | Semantic search (memsearch + ONNX BGE-M3) | Optional | v0.1.x (forward-compat seam in place) |
+| 5b | Semantic search (embedded vector backend — TBD) | Optional | planned (the `semanticBackend` DI seam is in place) |
 | 6 | Cron compression (daily-distill + weekly-curate + lazy fallback) | Optional | ✓ shipped |
 
-Layers 1-3 are pure file ops. Layer 4 makes memory writes automatic. Layer 5a (keyword) ships in v0.1.0; Layer 5b (semantic) plugs in via the existing `CompressorBackend` seam without breaking changes. Layer 6 keeps the scratchpad from growing stale; if you can't run cron, it falls back to lazy-on-read compression at SessionStart.
+Layers 1-3 are pure file ops. Layer 4 makes memory writes automatic. Layer 5a (keyword) ships today; Layer 5b (semantic) plugs in via the existing `semanticBackend` DI seam without breaking changes — the embedded vector backend is a future release, not yet chosen (see [`specs/design.md`](specs/design.md) §9.3.1). Layer 6 keeps the scratchpad from growing stale; if you can't run cron, it falls back to lazy-on-read compression at SessionStart.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the data-flow diagram and [`specs/design.md`](specs/design.md) for the full design.
 
@@ -135,10 +135,10 @@ Most-used commands below; **full reference with examples: [`docs/CLI.md`](docs/C
 | Command | Purpose |
 | --- | --- |
 | `cmk install` | Scaffold `context/` + the `memory-write` skill (`.claude/skills/`) + add `.gitignore` lines + drop CLAUDE.md block + wire hooks into `.claude/settings.json` + register the MCP server (`.mcp.json`) & allow-list `mcp__cmk__*` (complete entry point; `--no-hooks` skips hooks + MCP wiring for scaffold-only) |
-| `cmk doctor` | Run HC-1..HC-9 health checks, surface repair commands |
+| `cmk doctor` | Run HC-1..HC-7 health checks, surface repair commands |
 | `cmk repair --hooks` / `--locks` / `--index` / `--all` | Idempotent self-repair |
 | `cmk roll --scope now\|today\|recent` | Manually trigger one of the compression pipelines |
-| `cmk search "<query>" [--mode keyword\|semantic\|hybrid]` | Search accumulated memory (keyword default; semantic via Layer 5b) |
+| `cmk search "<query>" [--mode keyword\|semantic\|hybrid]` | Search accumulated memory (keyword default; semantic/hybrid via the Layer-5b backend, not yet shipped) |
 | `cmk get <id…>` / `cmk timeline <id>` / `cmk cite <id>` / `cmk recent-activity [--window 1h\|24h\|7d]` | Read the index back — full fact bodies + provenance, sequential context around an observation, a canonical citation link, recent changes (the CLI side of the `mk_*` MCP read tools) |
 | `cmk trust <id> <low\|medium\|high>` | Override a fact's trust level (audited; the CLI side of `mk_trust`) |
 | `cmk daily-distill` / `cmk weekly-curate` | Manually run cron jobs (normally invoked by host scheduler) |
@@ -155,19 +155,17 @@ Most-used commands below; **full reference with examples: [`docs/CLI.md`](docs/C
 
 ## Health checks
 
-`cmk doctor` runs nine checks (HC-1..HC-9) and reports each as PASS / FAIL / SKIP with a repair command on failure:
+`cmk doctor` runs seven checks (HC-1..HC-7) and reports each as PASS / FAIL / SKIP with a repair command on failure:
 
 | ID | Check | Repair |
 | --- | --- | --- |
-| HC-1 | memsearch installed (Layer 5b semantic backend) | `pip install memsearch[onnx]` — REQUIRES INSTALL (v0.1.0 doesn't auto-install per design §14) |
-| HC-2 | Stop + SessionStart hooks wired to .claude/settings.json | `cmk repair --hooks` |
-| HC-3 | Daily distill is fresh (≤2 days) | `cmk daily-distill` |
-| HC-4 | Transcripts firing (≤3 days) | reopen project as primary cwd in Claude Code |
-| HC-5 | INDEX.md matches `context/memory/` fact files | `cmk reindex` |
-| HC-6 | Cron jobs registered with host scheduler | `cmk register-crons` |
-| HC-7 | memsearch backend reachable | (depends on HC-1) |
-| HC-8 | Native Anthropic Auto Memory status detected | (informational; non-fatal) |
-| HC-9 | No stale lock files | platform-aware unlink command |
+| HC-1 | Stop + SessionStart hooks wired to .claude/settings.json | `cmk repair --hooks` |
+| HC-2 | Daily distill is fresh (≤2 days) | `cmk daily-distill` |
+| HC-3 | Transcripts firing (≤3 days) | reopen project as primary cwd in Claude Code |
+| HC-4 | INDEX.md matches `context/memory/` fact files | `cmk reindex` |
+| HC-5 | Cron jobs registered with host scheduler | `cmk register-crons` |
+| HC-6 | Native Anthropic Auto Memory status detected | (informational; non-fatal) |
+| HC-7 | No stale lock files | platform-aware unlink command |
 
 See [HEALTH-CHECKS.md](HEALTH-CHECKS.md) for the detailed recovery paths.
 

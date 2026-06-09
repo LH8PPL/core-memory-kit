@@ -1,7 +1,7 @@
 ---
 description: >
   Scaffolds the claude-memory-kit directory structure (context/, scripts/,
-  cron/jobs/, milvus-deploy/) into the current project. Idempotent — never
+  cron/jobs/) into the current project. Idempotent — never
   overwrites existing files. Run once per project after installing the
   plugin. Use when the user says "bootstrap the memory system", "set up
   memory here", or "scaffold the memory kit".
@@ -24,7 +24,6 @@ Scaffold the memory-system files into the user's current project. The plugin its
    context/sessions
    context/transcripts
    scripts
-   milvus-deploy
    cron/jobs
    ```
 
@@ -42,17 +41,13 @@ Scaffold the memory-system files into the user's current project. The plugin its
    - `cmk weekly-curate` (was: `run-weekly-curate.sh`)
    - `cmk compress --lazy` (no-cron fallback; new in Task 35)
    - `cmk register-crons` (was: `register-crons.py`)
-   - memsearch indexing — covered by Task 29's runtime watcher + `cmk reindex` (no separate script needed)
 
 5. **Copy cron job declarations** from the plugin's `cron-template/jobs/` into the user's `cron/jobs/`:
    - `daily-memory-distill.md`
-   - `nightly-memsearch-index.md`
    - `weekly-memory-curator.md`
 
-6. **Copy Milvus compose** from the plugin's `milvus-deploy-template/` into the user's `milvus-deploy/` (Windows users will need this; Linux/macOS can ignore).
-
-7. **Report**: list which files were created vs skipped. Then tell the user:
-   - Open `context/SETUP.md` for Layer 5 (memsearch) and Layer 6 (crons) install steps
+6. **Report**: list which files were created vs skipped. Then tell the user:
+   - Open `context/SETUP.md` for the Layer 6 (crons) install steps
    - Open `INSTALL-<your-os>.md` from the kit repo for OS prerequisites
    - The plugin's hooks already activate on session start — no per-project hook registration needed
 

@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Removed
+
+- **Dropped the stale `memsearch` + Milvus scaffolding (Task 120).** The kit ships keyword-only and never actually used `memsearch`, but `cmk doctor` had two memsearch checks (HC-1 "installed" + HC-7 "reachable") and the install shipped a `milvus-deploy` Docker stack + a nightly-index cron + "install memsearch" setup docs — confusing users into thinking a semantic backend was required. All of it is gone: `cmk doctor` now runs **7 checks (HC-1..HC-7)** instead of 9, and `--mode=semantic`/`--mode=hybrid` report the Layer-5b backend is "not yet shipped" (the choice is deferred — design §9.3.1; the `semanticBackend` extension seam is kept).
+
 ## [0.2.3] — 2026-06-09
 
 ### Added
