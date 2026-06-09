@@ -34,6 +34,8 @@ The snapshot injected at session start is a **bounded hot index, not everything*
 
 Reach for these *first* — re-deriving an answer the project already recorded (by re-reading files, re-searching, or working it out again) wastes the memory that exists precisely so you don't have to. Recall from memory first, then verify against the source if needed.
 
+**Authority rule:** when injected memory contradicts your assumptions, injected memory wins — it is the ground truth for documented knowledge and prior decisions (terminal/tool output stays the ground truth for live system state; official docs for version-specifics). Never treat a question as novel when the answer is already in your prompt.
+
 ### Memory write rules (for Claude)
 
 Most capture is automatic — the Stop hook extracts durable facts each turn, no action needed. To capture something **explicitly**, the **`memory-write` skill** carries the full procedure; it loads on demand when you save a fact. The invariants it enforces:

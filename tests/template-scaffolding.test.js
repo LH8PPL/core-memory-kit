@@ -140,6 +140,21 @@ describe('Task 1 — template/ scaffolding', () => {
     });
   });
 
+  // Task 75.0 — the authoritative-memory rule must reach the scaffolded
+  // CLAUDE.md too (the snapshot preamble is the upgrade-proof carrier; the
+  // CLAUDE.md line reinforces it for new installs, where CLAUDE.md is
+  // always-in-context while the snapshot competes with the conversation).
+  describe('Task 75.0 — CLAUDE.md template carries the injected-memory-wins authority rule', () => {
+    const tpl = () =>
+      readFileSync(join(REPO_ROOT, 'template', 'CLAUDE.md.template'), 'utf8');
+
+    it('states that injected memory wins over assumptions (memory-os Ground Truth key line)', () => {
+      const text = tpl();
+      expect(text).toMatch(/injected memory contradicts your assumptions, injected memory wins/i);
+      expect(text).toMatch(/never treat a question as novel/i);
+    });
+  });
+
   // Task 107 — Task 82 scrubbed kit-internal cruft from the scaffold templates
   // but MISSED the CLAUDE.md block: a v0.2.2 live-test install showed it still
   // said "v0.1.0 is under active development", "HC-1..HC-8" (there are 9), and

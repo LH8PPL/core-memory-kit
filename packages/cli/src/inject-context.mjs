@@ -61,6 +61,33 @@ function trustLabel(rank) {
 const DEFAULT_CAP_BYTES = 13_000;
 const HOOK_EVENT_NAME = 'SessionStart';
 
+// Task 75.0 (D-64 / memory-os Layer-07 "Ground Truth", D-73 near-verbatim):
+// injecting memory is insufficient — the agent must be TOLD the injected
+// context is authoritative, or it re-derives from code what the snapshot
+// already answers (the D-40 cold-open failure). This preamble leads every
+// non-empty snapshot. It is code-generated (not template-scaffolded) on
+// purpose: always present, never consolidated/evicted/graduated, and
+// existing installs pick it up on upgrade with no re-scaffold (avoids the
+// Task-73 stale-template class).
+//
+// §7.1 composition: the preamble + its 2 joining newlines must fit the
+// 725-byte slack between Σ TIER_BUDGETS (12,275) and DEFAULT_CAP_BYTES
+// (13,000) — worst case 12,275 + len + 2 ≤ 13,000, i.e. len ≤ 723. The
+// boundary test pins len ≤ 700. injectContext also subtracts the reserve
+// from the cap handed to enforceCap, so custom capBytes stay honored.
+export const AUTHORITATIVE_MEMORY_PREAMBLE = [
+  '# Injected memory — AUTHORITATIVE (claude-memory-kit)',
+  '',
+  'Ground-truth ranking: (1) terminal/tool output → live system state;',
+  '(2) THIS snapshot + `cmk search` → documented knowledge & prior decisions;',
+  '(3) official docs → version-specifics; (4) training knowledge → verify against 1-3.',
+  '',
+  'When injected memory contradicts your assumptions, injected memory wins.',
+  'Lead with memory — never re-derive from code what it already answers, and',
+  'never treat a question as novel when the answer is already in your prompt.',
+  'This snapshot is a bounded hot index; `cmk search "<topic>"` reaches the facts not shown here.',
+].join('\n');
+
 // Match any line containing a `(P-XXXXXXXX)`-shaped citation id. Looser
 // than ID_PATTERN on purpose — alphabet-validation is the writer's job;
 // here we just want to recognize "any line that LOOKS like it carries a
@@ -520,7 +547,12 @@ function truncateTierToBudget(blockText, budget, valueById = new Map()) {
 // lowest-priority tier wholesale, logged as a dropped_tiers event.
 // This shouldn't fire under the documented budget table (1500+4500+
 // 4000 = 10000 ≤ 10240 default cap), but the safety net is cheap.
-function enforceCap(orderedBlocks, capBytes, ts) {
+// `reportCapBytes` (Task 75.0): the CALLER-facing cap for Door-4 events.
+// injectContext hands enforceCap a cap reduced by the preamble reserve;
+// truncation.log must still report the capBytes the user configured, not
+// the internal effective value, or the log reads as nonsense (411 when
+// the user set 1024).
+function enforceCap(orderedBlocks, capBytes, ts, reportCapBytes = capBytes) {
   const tierEvents = [];
   // Step 1: per-tier budget enforcement (section-granular).
   for (const block of orderedBlocks) {
@@ -559,7 +591,7 @@ function enforceCap(orderedBlocks, capBytes, ts) {
     bytes -= Buffer.byteLength(dropped.text, 'utf8');
     let event = dropEvents[dropEvents.length - 1];
     if (!event) {
-      event = { ts, capBytes, dropped_tiers: [] };
+      event = { ts, capBytes: reportCapBytes, dropped_tiers: [] };
       dropEvents.push(event);
     }
     event.dropped_tiers.push(dropped.tier);
@@ -707,15 +739,26 @@ export function injectContext({
   }
 
   // 3. Cap enforcement: drop whole tier blocks from the tail until within
-  // capBytes. Each drop emits one truncation event.
+  // capBytes. Each drop emits one truncation event. The authoritative-memory
+  // preamble (Task 75.0) is reserved out of the cap up front so the final
+  // snapshot (preamble + blocks) still honors capBytes exactly.
+  const preambleReserve =
+    rawBlocks.length > 0
+      ? Buffer.byteLength(AUTHORITATIVE_MEMORY_PREAMBLE, 'utf8') + 2
+      : 0;
   const { blocks: keptBlocks, truncationEvents } = enforceCap(
     rawBlocks,
-    cap,
+    Math.max(0, cap - preambleReserve),
     ts,
+    cap,
   );
 
-  // 4. Concatenate.
-  const snapshot = keptBlocks.map((b) => b.text).join('\n');
+  // 4. Concatenate. The preamble leads every non-empty snapshot; an empty
+  // snapshot stays empty (don't claim authoritative memory with nothing
+  // behind it).
+  const body = keptBlocks.map((b) => b.text).join('\n');
+  const snapshot =
+    body === '' ? '' : `${AUTHORITATIVE_MEMORY_PREAMBLE}\n\n${body}`;
 
   // 5. Persist side-effect logs under <projectRoot>/context/.locks/. We
   // only write the project-tier .locks file (which is the well-known
