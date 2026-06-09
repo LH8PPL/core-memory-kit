@@ -139,7 +139,7 @@ function assembleProjectCorpus({ projectRoot, userDir }) {
 // 40k chars ≈ a long session's worth of turns ≈ ~10k tokens — trivial cost for a
 // once-per-session call, and the classifier prompt's "IGNORE anything specific to
 // this ONE project" instruction guards precision at the larger size (live test:
-// clean 2/2, no false promotes). The exact bound is a lior-test-9 tuning item.
+// clean 2/2, no false promotes). The exact bound is a live-test-9 tuning item.
 // KNOWN LIMITATION (documented, not yet fixed): only the most-recent date-named
 // file is read, so a session spanning midnight loses the pre-midnight turns. Rare;
 // a multi-file read is the follow-up if it bites.

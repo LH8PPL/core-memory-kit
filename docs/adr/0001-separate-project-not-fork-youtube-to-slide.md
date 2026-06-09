@@ -25,7 +25,7 @@ tags:
 
 ## Context
 
-The memory system (PreToolUse hook, Stop hook, auto-extract, memory-write skill, frozen-snapshot pattern, SOUL/USER/MEMORY scratchpads, granular memory archive, optional memsearch + Milvus layer, optional cron-based curation) was originally built inside the `youtube-to-slide` repository as a one-off for that project. It worked. The user wanted to apply the same pattern to other projects (liorpedia next, then potentially others).
+The memory system (PreToolUse hook, Stop hook, auto-extract, memory-write skill, frozen-snapshot pattern, SOUL/USER/MEMORY scratchpads, granular memory archive, optional memsearch + Milvus layer, optional cron-based curation) was originally built inside the `youtube-to-slide` repository as a one-off for that project. It worked. The user wanted to apply the same pattern to other projects (project-b next, then potentially others).
 
 Three structural options were on the table:
 

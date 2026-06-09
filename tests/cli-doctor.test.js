@@ -401,7 +401,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
     // `<type>_<slug>.md` (e.g. feedback_layered.md), NOT `<id>.md`. The
     // earlier tests fixtured `P-AAAAAAAA.md` — a name the kit never generates —
     // which is exactly why HC-5's old id-shaped regex passed CI yet false-failed
-    // on every real fact file (surfaced lior-test-7 2026-06-03). The INDEX line
+    // on every real fact file (surfaced live-test-7 2026-06-03). The INDEX line
     // form matches `cmk reindex`'s formatIndexLine: `[slug](type_slug.md)`.
     it('fail when INDEX.md is missing but memory/ has fact files', async () => {
       const memoryDir = join(projectRoot, 'context', 'memory');

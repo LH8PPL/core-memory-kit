@@ -202,7 +202,7 @@ describe('Task 61 — inline cross-project promotion', () => {
   });
 
   it('the extraction prompt directs capture of the ENV/config-fact CLASS by its recall property, not by example (Task 80 / 80b)', () => {
-    // lior-test-5: env/config facts (the port, the SDK version) were never
+    // live-test-5: env/config facts (the port, the SDK version) were never
     // captured (Environment Notes stayed empty), so Session-2 recall re-read
     // config.py. The trigger must name the CLASS — concrete config the next
     // session would otherwise re-read the code to recover — and direct capture
@@ -227,7 +227,7 @@ describe('Task 61 — inline cross-project promotion', () => {
   });
 
   it('the persona-candidate instruction is REQUIRED + PER-FACT (Task 86 — multi-rule turns must emit one line per rule)', () => {
-    // lior-test-8: a turn bundling several universal rules ("type hints AND
+    // live-test-8: a turn bundling several universal rules ("type hints AND
     // tests first", "uv, ruff, secrets") promoted ZERO to the persona — Haiku
     // dropped the trailing singular "emit one ADDITIONAL line" addendum under
     // load (extract.log: obs=3 -> persona_promoted:0). The parser + promote

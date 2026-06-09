@@ -796,7 +796,7 @@ export async function runAutoExtract({
         // duration ≈ 25000ms = hitting the cap, not finishing) → automatic
         // capture + persona promotion (F2) silently never ran. This call is
         // DETACHED (fire-and-forget, never blocks the session), so a generous
-        // ceiling is free. Live-test finding (2026-06-01, lior-test-4 baseline).
+        // ceiling is free. Live-test finding (2026-06-01, live-test-4 baseline).
         timeoutMs: 90_000,
       });
       // Touch the cooldown marker IMMEDIATELY after the Haiku call

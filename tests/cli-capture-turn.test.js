@@ -35,11 +35,12 @@ import {
   mkdirSync,
   readdirSync,
   statSync,
+  utimesSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { captureTurn } from '../packages/cli/src/capture-turn.mjs';
+import { captureTurn, sweepStaleTurnFiles } from '../packages/cli/src/capture-turn.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = join(dirname(__filename), '..');
@@ -733,5 +734,86 @@ describe('Task 87 — conversation buffered to now.md', () => {
     });
     expect(r.action).toBe('noop');
     expect(existsSync(NOW_MD(projectRoot))).toBe(false);
+  });
+});
+
+describe('Task 123.E — orphaned .extract-*.tmp cleanup (D-103 finding E)', () => {
+  let sandbox;
+  let projectRoot;
+  let transcriptsDir;
+
+  beforeEach(() => {
+    const f = makeFixture();
+    sandbox = f.sandbox;
+    projectRoot = f.projectRoot;
+    transcriptsDir = join(projectRoot, 'context', 'transcripts');
+    mkdirSync(transcriptsDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await new Promise((res) => setTimeout(res, 300));
+    try {
+      rmSync(sandbox, { recursive: true, force: true });
+    } catch {
+      // background child may hold a handle on Windows; OS will reap the tmp
+    }
+  });
+
+  const tmpName = (ts) => join(transcriptsDir, `.extract-${ts}.tmp`);
+
+  describe('sweepStaleTurnFiles', () => {
+    it('removes a stale turn-file but KEEPS a fresh one (over-mutation guard)', () => {
+      const stale = tmpName(1);
+      const fresh = tmpName(2);
+      writeFileSync(stale, 'old turn body', 'utf8');
+      writeFileSync(fresh, 'fresh turn body', 'utf8');
+      // Backdate the stale one well past the threshold; leave the fresh one as-is.
+      const old = Date.now() / 1000 - 30 * 60; // 30 min ago (sec for utimes)
+      utimesSync(stale, old, old);
+
+      const swept = sweepStaleTurnFiles(transcriptsDir);
+
+      expect(swept).toBe(1);
+      expect(existsSync(stale)).toBe(false); // orphan gone
+      expect(existsSync(fresh)).toBe(true); // live run untouched
+    });
+
+    it('never touches a file younger than the threshold (cannot race an in-flight child)', () => {
+      const fresh = tmpName(3);
+      writeFileSync(fresh, 'in-flight turn', 'utf8');
+      // now slightly after mtime → age ~0, far under the 10-min threshold
+      expect(sweepStaleTurnFiles(transcriptsDir)).toBe(0);
+      expect(existsSync(fresh)).toBe(true);
+    });
+
+    it('ignores non-turn files and a missing dir (best-effort, no throw)', () => {
+      writeFileSync(join(transcriptsDir, '2026-06-09.md'), 'a real transcript', 'utf8');
+      const old = Date.now() / 1000 - 30 * 60;
+      utimesSync(join(transcriptsDir, '2026-06-09.md'), old, old);
+      expect(sweepStaleTurnFiles(transcriptsDir)).toBe(0); // .md is not a turn-file
+      expect(existsSync(join(transcriptsDir, '2026-06-09.md'))).toBe(true);
+      expect(() => sweepStaleTurnFiles(join(sandbox, 'no-such-dir'))).not.toThrow();
+    });
+  });
+
+  describe('the sweep is wired into captureTurn (entry janitor)', () => {
+    it('reaps a pre-existing STALE orphan on entry, but leaves THIS turn-file for the child', () => {
+      // Simulate an orphan left by a prior killed child / failed spawn.
+      const orphan = join(transcriptsDir, '.extract-stale.tmp');
+      writeFileSync(orphan, 'leftover from a dead child', 'utf8');
+      const old = Date.now() / 1000 - 30 * 60; // 30 min ago
+      utimesSync(orphan, old, old);
+
+      const r = captureTurn({
+        payload: { assistant_message: 'a normal turn' },
+        projectRoot,
+        now: '2026-05-25T10:00:00Z',
+        // no autoExtractPath → no spawn → THIS turn-file persists for auto-extract
+      });
+
+      expect(r.action).toBe('captured');
+      expect(existsSync(orphan)).toBe(false); // the stale orphan was reaped on entry
+      expect(existsSync(r.turnFile)).toBe(true); // the fresh turn-file is handed off, not deleted
+    });
   });
 });

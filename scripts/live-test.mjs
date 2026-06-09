@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// FULL automated live test — the scripted equivalent of the manual lior-test-N
+// FULL automated live test — the scripted equivalent of the manual live-test-N
 // guide (docs/process/v0.2.0-self-test-guide.md), end to end, checking the REAL
 // installed artifact + the actual files AND conversation outputs at EVERY stage.
 //

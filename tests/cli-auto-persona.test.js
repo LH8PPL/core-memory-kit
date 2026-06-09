@@ -145,7 +145,7 @@ describe('Task 45 — auto-persona optimistic auto-promote', () => {
       id: 'P-MKTXVWZP',
       type: 'project',
       title: 'This API runs on port 8000',
-      body: 'The lior-test-1 FastAPI app binds port 8000.',
+      body: 'The live-test-1 FastAPI app binds port 8000.',
     });
 
     // Backend classifies ONLY the venv doctrine as cross-project (high conf);
@@ -214,7 +214,7 @@ describe('Task 45 — auto-persona optimistic auto-promote', () => {
       id: 'P-MKTXVWZP',
       type: 'project',
       title: 'This API runs on port 8000',
-      body: 'The lior-test-1 FastAPI app binds port 8000.',
+      body: 'The live-test-1 FastAPI app binds port 8000.',
     });
     const backend = classifierBackend([]); // classifier surfaces nothing
 

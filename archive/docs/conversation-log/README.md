@@ -16,7 +16,7 @@ Three reasons:
 
 1. **Auditing the thinking, not just the outcome.** ADRs are clean summaries; the conversation log preserves the messy real path. If a decision later proves wrong, the log shows which alternatives were considered and which weren't.
 2. **Recovering thread state across long gaps.** A Claude session resuming after a 3-month break can read the latest log entry and pick up exactly where the prior session left off — what was open, what was blocked, what was waiting on whom.
-3. **Wiki ingestion.** liorwiki indexes these for free-text search, so a question like *"why did we end up with 5 hooks instead of 6?"* hits the log entry that contains the full back-and-forth.
+3. **Wiki ingestion.** personal-wiki indexes these for free-text search, so a question like *"why did we end up with 5 hooks instead of 6?"* hits the log entry that contains the full back-and-forth.
 
 ## Conventions
 

@@ -345,7 +345,7 @@ function hc5IndexConsistency({ projectRoot }) {
   // Two false-positives this must avoid (both real):
   //   1. id-shaped names — the pre-Task-85 regex matched `[PUL]-XXXXXXXX.md`,
   //      which the kit NEVER generates, so HC-5 false-FAILED "missing" on every
-  //      real fact the moment one existed (lior-test-7 2026-06-03).
+  //      real fact the moment one existed (live-test-7 2026-06-03).
   //   2. non-fact links — a broad `](...md)` match also catches the scaffold's
   //      own example `- [type] [Title](filename.md)` (inside an HTML comment) and
   //      any prose link like `(design.md)`, which would false-FAIL "stale" on a

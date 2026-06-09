@@ -6,7 +6,7 @@ This is the narrative behind the spec. It tells the story of how we got from "Cl
 
 - a future the user can come back and remember why decisions were made,
 - a future reader who hasn't seen the conversation can follow the arc,
-- the LLM Wiki at `/c/Projects/liorwiki/` can ingest it cleanly later, and
+- the LLM Wiki at `/c/Projects/personal-wiki/` can ingest it cleanly later, and
 - an article draft can be carved out of it without re-research.
 
 The reference docs ([requirements.md](../../specs/requirements.md), [design.md](../../specs/design.md), [tasks.md](../../specs/tasks.md), [glossary.md](../../specs/glossary.md)) describe **what the kit is**. This file describes **how we figured it out** — which is the part that fades from memory first.
@@ -2469,13 +2469,13 @@ Layer 4 progress: tasks 17-23 shipped (7 of 10 implementation tasks). Resuming b
 
 Worth recording because it bit us mid-build (or rather, didn't bite us — but COULD have):
 
-The user had VS Code open with `liorpedia` as the primary workspace and `claude-memory-kit` as an additional working directory. Throughout the whole spec + Tasks 1-4 implementation, Claude Code's harness was treating liorpedia as the primary cwd. **That's the cwd that determines the slug for native auto-memory** (`~/.claude/projects/c--Projects-liorpedia/`). Anything the harness's native auto-memory captured got tagged as liorpedia memory, not claude-memory-kit memory.
+The user had VS Code open with `project-b` as the primary workspace and `claude-memory-kit` as an additional working directory. Throughout the whole spec + Tasks 1-4 implementation, Claude Code's harness was treating project-b as the primary cwd. **That's the cwd that determines the slug for native auto-memory** (`~/.claude/projects/c--Projects-project-b/`). Anything the harness's native auto-memory captured got tagged as project-b memory, not claude-memory-kit memory.
 
 When the user surfaced this concern, the audit revealed: **no actual pollution occurred.** Reasons:
 
 1. Neither of us used trigger phrases ("remember this", "from now on", "we decided") during the work. So the existing `memory-write` skill never fired.
 2. Claude Code's native auto-memory doesn't aggressively write to `MEMORY.md` on its own — it appears to need explicit signals.
-3. The only artifacts at liorpedia's slug are the session **transcripts** (jsonl files) — those are passive logs, not "memory" in the cross-project-leak sense.
+3. The only artifacts at project-b's slug are the session **transcripts** (jsonl files) — those are passive logs, not "memory" in the cross-project-leak sense.
 
 The lurking risk was real but didn't fire. **The fix going forward**: open VS Code with `claude-memory-kit` as the primary folder so the harness slug matches the project we're working on. Once Task 23 ships (auto-extract subagent + memory-write skill writing to the kit's own `context/`), this becomes structurally impossible — the kit captures memory into the repo, bound to the repo, regardless of which slug the harness happens to use for transcripts.
 

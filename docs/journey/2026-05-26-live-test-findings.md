@@ -270,10 +270,10 @@ Fresh `claude --print` invocation in the same sandbox:
 > *— Python 3.13*
 > *— pnpm (not npm)*
 > *— Conventional Commits format for git messages*
-> *— You maintain a personal wiki at `/c/Projects/liorwiki/`...*
+> *— You maintain a personal wiki at `/c/Projects/personal-wiki/`...*
 > *— This project uses claude-memory-kit for in-repo memory in `context/`..."*
 
-**The model used the injected context.** All 4 session-1 facts present. Plus the kit's seed SOUL.md content (verify primary sources, etc.). Plus the user's global `~/.claude/CLAUDE.md` content (liorwiki). The 3-tier model worked, and the model actually USED the snapshot to answer.
+**The model used the injected context.** All 4 session-1 facts present. Plus the kit's seed SOUL.md content (verify primary sources, etc.). Plus the user's global `~/.claude/CLAUDE.md` content (personal-wiki). The 3-tier model worked, and the model actually USED the snapshot to answer.
 
 This is the load-bearing test. **The working-product value prop is real, not just structurally implemented.**
 

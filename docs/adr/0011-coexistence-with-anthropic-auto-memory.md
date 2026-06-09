@@ -115,7 +115,7 @@ Concretely:
 
 **Why not A as the default:** silent enforcement of the kit's memory over the user's native one — The user rejected this 2026-05-31. **Why not B:** `autoMemoryDirectory` is user-level-only (not committable → breaks git-clone portability) AND Anthropic writes its own `<type>_<slug>.md` format, not the kit's citation-ID / provenance / trust schema (so redirected files wouldn't index with `cmk`). Both are detailed under Options above.
 
-**Investigation status:** Q1 (does native fire with our hooks installed?) — confirmed **YES**; native auto-memory is ON by default (verified 2026-05-31: no `autoMemoryEnabled` in user settings + env unset → Anthropic default = enabled; it had been writing to ClawdBot/liorpedia/liorwiki). Q2/Q3 are folded into the non-enforcement principle above.
+**Investigation status:** Q1 (does native fire with our hooks installed?) — confirmed **YES**; native auto-memory is ON by default (verified 2026-05-31: no `autoMemoryEnabled` in user settings + env unset → Anthropic default = enabled; it had been writing to project-a/project-b/personal-wiki). Q2/Q3 are folded into the non-enforcement principle above.
 
 Implementation: [`tasks.md`](../../specs/tasks.md) Task 60.
 
@@ -138,7 +138,7 @@ Before resolving, we need to know:
    - Test: a controlled session with both hooks active and a clear "remember this" prompt. Does Anthropic also write?
 
 2. **What does Anthropic capture that we miss, or vice versa?**
-   - Open `/memory` in a session and inspect Anthropic's writes in ClawdBot/liorpedia/liorwiki.
+   - Open `/memory` in a session and inspect Anthropic's writes in project-a/project-b/personal-wiki.
    - Compare against what our auto-extract would have captured for the same content.
 
 3. **What does the user want philosophically?**

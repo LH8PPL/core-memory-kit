@@ -2,7 +2,7 @@
 date: 2026-05-22
 topic: Claude Code architecture revealed by accidentally-published v2.1.88 source map
 source: Anubhav, *"Inside Claude Code's Leak: 8 Compaction Modes, 3 Memory Tiers, 44 Flags Anthropic Never Talked About"* (Medium / Data Science Collective, 2026-05-08)
-status: external article verified by Claude (Opus 4.7) 2026-05-22 via Read of liorwiki/raw/. Source map itself was Anthropic's accidental packaging mistake — content quoted is from an article reporting on it.
+status: external article verified by Claude (Opus 4.7) 2026-05-22 via Read of personal-wiki/raw/. Source map itself was Anthropic's accidental packaging mistake — content quoted is from an article reporting on it.
 informed_adrs: [0006-lifecycle-hooks-architecture, 0011-coexistence-with-anthropic-auto-memory]
 tags:
   - claude-code-internals

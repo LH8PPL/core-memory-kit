@@ -248,7 +248,7 @@ export function writeFact(opts = {}) {
   // Keep INDEX.md consistent on every create — the index is a derived view of
   // the fact files, so the writer owns keeping it current. Without this, a fresh
   // `cmk remember` left INDEX.md stale until a manual `cmk reindex`, and
-  // `cmk doctor` HC-5 failed from the first capture (Task 85; lior-test-7
+  // `cmk doctor` HC-5 failed from the first capture (Task 85; live-test-7
   // 2026-06-03 — "users should get it working from the start"). Best-effort: the
   // fact is already durably on disk, so an index-rebuild hiccup must not turn a
   // successful capture into an error — the next reindex/search self-heals.

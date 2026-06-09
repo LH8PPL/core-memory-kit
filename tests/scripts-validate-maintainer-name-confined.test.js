@@ -14,6 +14,7 @@ import { describe, it, expect } from 'vitest';
 import {
   parseMaintainerFirstName,
   offendersOutsideAllowlist,
+  buildNamePattern,
   ALLOWLIST,
 } from '../scripts/validate-maintainer-name-confined.mjs';
 
@@ -70,5 +71,41 @@ describe('offendersOutsideAllowlist', () => {
       'plugin/.claude-plugin/plugin.json',
       'python/pyproject.toml',
     ]);
+  });
+});
+
+describe('buildNamePattern (hardened case-insensitive word-START match — Task 123.B / D-103)', () => {
+  // Compile the pattern exactly as `git grep -i -P` applies it, to pin behavior.
+  // Synthetic names ('Jane' / 'Test') keep this test itself name-free while
+  // proving the rule: the OLD `-w -F` match missed lowercase + name-prefixed
+  // forms; `\b<name>` catches them, the word-START boundary skips mid-word noise.
+  const re = (name) => new RegExp(buildNamePattern(name), 'i');
+
+  it('matches the bare name, case-insensitively', () => {
+    expect(re('Jane').test('Jane')).toBe(true);
+    expect(re('Jane').test('jane')).toBe(true);
+    expect(re('Jane').test('JANE')).toBe(true);
+  });
+
+  it('matches name-prefixed identifiers the old -w -F whole-word match missed', () => {
+    const r = re('Jane');
+    expect(r.test('jane-test-5')).toBe(true); // hyphenated run label (lowercase)
+    expect(r.test('janewiki')).toBe(true); // no internal boundary at all
+    expect(r.test('janepedia')).toBe(true);
+    expect(r.test('cloned to /c/Projects/janewiki/raw')).toBe(true); // inside a path
+  });
+
+  it('does NOT match the stem buried mid-word (word-START boundary excludes false positives)', () => {
+    const r = re('Test'); // "test" sits mid-word in "contest"/"latest"
+    expect(r.test('contest')).toBe(false);
+    expect(r.test('latest')).toBe(false);
+    expect(r.test('test-run')).toBe(true); // but a word STARTING with the stem is flagged
+    expect(r.test('testing')).toBe(true);
+  });
+
+  it('regex-escapes the name so a metacharacter cannot break or widen the pattern', () => {
+    expect(() => new RegExp(buildNamePattern('A.B'), 'i')).not.toThrow();
+    expect(re('A.B').test('A.B')).toBe(true);
+    expect(re('A.B').test('AxB')).toBe(false); // the dot is literal, not "any char"
   });
 });

@@ -8,7 +8,7 @@ tags:
   - bibliography
   - claude-ai
   - sources
-  - liorwiki-ingest-ready
+  - personal-wiki-ingest-ready
 ---
 
 # Bibliography — claude-memory-kit research report

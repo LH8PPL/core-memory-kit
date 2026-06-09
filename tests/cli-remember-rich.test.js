@@ -61,7 +61,7 @@ describe('Task 63 — cmk remember rich mode (restore rich capture through the s
   });
 
   it('keeps INDEX.md current on capture — no manual `cmk reindex` needed (Task 85)', () => {
-    // Bug A (lior-test-7 2026-06-03): cmk remember wrote the fact file but left
+    // Bug A (live-test-7 2026-06-03): cmk remember wrote the fact file but left
     // INDEX.md stale, so `cmk doctor` HC-5 failed until a manual `cmk reindex`.
     // Capture must leave the index consistent from the first write.
     runRememberRich(
