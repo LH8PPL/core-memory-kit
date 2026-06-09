@@ -1,4 +1,4 @@
-// `cmk doctor` — health checks HC-1..HC-9 (Task 37, T-031).
+// `cmk doctor` — health checks HC-1..HC-7 (Task 37, T-031; memsearch HC-1/HC-7 removed in Task 120).
 //
 // Public boundary:
 //   async runDoctor({projectRoot, userDir, now, promptUser?, ...overrides})
@@ -6,7 +6,7 @@
 //
 // HCResult shape:
 //   {
-//     id: 'HC-1' | ... | 'HC-9',
+//     id: 'HC-1' | ... | 'HC-7',
 //     name: string,
 //     status: 'pass' | 'fail' | 'skip',
 //     message: string,
@@ -15,10 +15,10 @@
 //   }
 //
 // Per design §14. Composes on:
-//   - cooldown.mjs (HC-3 distill freshness via cooldown marker mtime is
+//   - cooldown.mjs (HC-2 distill freshness via cooldown marker mtime is
 //     NOT used — we read recent.md mtime directly, more accurate)
-//   - lazy-compress.mjs::cronSentinelPath (HC-6 cron registration check)
-//   - lock-discipline.mjs::detectStaleLocks (HC-9)
+//   - lazy-compress.mjs::cronSentinelPath (HC-5 cron registration check)
+//   - lock-discipline.mjs::detectStaleLocks (HC-7)
 //   - platform-commands.mjs — cross-platform repair command emission
 //
 // Critical rule per design §14 + tasks.md 37.5: any repair requiring
@@ -38,7 +38,6 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { spawnBinSync } from './spawn-bin.mjs';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import { nowIso } from './audit-log.mjs';
@@ -56,62 +55,15 @@ const MEMORY_DIR_REL = ['context', 'memory'];
 const LOCKS_REL = ['context', '.locks'];
 const NATIVE_MEMORY_LOG_REL = ['context', '.locks', 'native-memory-status.log'];
 
-// --- HC-1: memsearch installed ----------------------------------------
-async function hc1Memsearch() {
-  // Layer 5b (semantic search) is OPTIONAL per ADR-0008. Missing
-  // memsearch → skip (not fail). The kit ships keyword-only as v0.1.0;
-  // semantic requires a separate `pip install memsearch[onnx]`.
-  // `requiresInstall: true` so the CLI prompts before auto-installing.
-  try {
-    // spawnBinSync resolves the Windows .cmd shim without `shell:true`+args
-    // (no DEP0190; #4). memsearch's only arg is `--version` (no spaces), so
-    // the quoting is a no-op here — the win is dropping the deprecated combo.
-    const r = spawnBinSync('memsearch', ['--version'], {
-      encoding: 'utf8',
-      // M1 fix (skill-review 2026-05-28): 3.5s tolerates Windows
-      // cold-Python startup (AV scan + .pyc generation on first hit
-      // can push past 2s for a healthy install). HC-2..9 are file-
-      // system ops that complete in ≪100ms total, so HC-1 + the rest
-      // still fits comfortably inside the 5s NFR budget. Timeout →
-      // 'skip' so cmk doctor completes regardless.
-      timeout: 3_500,
-    });
-    if (r.status === 0) {
-      return {
-        id: 'HC-1',
-        name: 'memsearch installed (semantic search backend)',
-        status: 'pass',
-        message: `memsearch ${(r.stdout || '').trim() || 'detected'}`,
-      };
-    }
-  } catch {
-    // fall through to skip
-  }
-  // The user (2026-05-28): make the feature impact explicit so users
-  // understand WHAT THEY LOSE by skipping the install, not just that
-  // a check failed. Matches the user's directive: "ask before we do
-  // anything, explain if they dont install they dont get certain
-  // features".
-  return {
-    id: 'HC-1',
-    name: 'memsearch installed (semantic search backend)',
-    status: 'skip',
-    message:
-      'memsearch not on PATH — Layer 5b semantic backend disabled. Features unavailable: `cmk search --mode=semantic` (will error), `cmk search --mode=hybrid` (will error). Keyword search (`cmk search --mode=keyword`, default) still works fully.',
-    recoveryCommand: 'python -m pip install "memsearch[onnx]"',
-    requiresInstall: true,
-  };
-}
-
-// --- HC-2: Stop + SessionStart hooks registered -----------------------
-function hc2Hooks({ projectRoot }) {
+// --- HC-1: Stop + SessionStart hooks registered -----------------------
+function hc1Hooks({ projectRoot }) {
   // Per design §5 — the kit's hooks live in .claude/settings.json
   // alongside its plugin manifest. Required for auto-extract +
   // session-end compression to fire.
   const settingsPath = join(projectRoot, '.claude', 'settings.json');
   if (!existsSync(settingsPath)) {
     return {
-      id: 'HC-2',
+      id: 'HC-1',
       name: 'Stop + SessionStart hooks registered',
       status: 'fail',
       message: '.claude/settings.json missing — hooks not wired',
@@ -123,7 +75,7 @@ function hc2Hooks({ projectRoot }) {
     settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
   } catch (err) {
     return {
-      id: 'HC-2',
+      id: 'HC-1',
       name: 'Stop + SessionStart hooks registered',
       status: 'fail',
       message: `.claude/settings.json parse error: ${err?.message ?? err}`,
@@ -170,7 +122,7 @@ function hc2Hooks({ projectRoot }) {
   }
   if (missing.length > 0) {
     return {
-      id: 'HC-2',
+      id: 'HC-1',
       name: 'Stop + SessionStart hooks registered',
       status: 'fail',
       message: `missing hook references: ${missing.join(', ')}`,
@@ -178,15 +130,15 @@ function hc2Hooks({ projectRoot }) {
     };
   }
   return {
-    id: 'HC-2',
+    id: 'HC-1',
     name: 'Stop + SessionStart hooks registered',
     status: 'pass',
     message: 'all kit hooks wired to their correct event arrays in .claude/settings.json',
   };
 }
 
-// --- HC-3: distill freshness (≤2 days) --------------------------------
-function hc3DistillFreshness({ projectRoot, now }) {
+// --- HC-2: distill freshness (≤2 days) --------------------------------
+function hc2DistillFreshness({ projectRoot, now }) {
   const recentPath = join(projectRoot, ...RECENT_MD_REL);
   if (!existsSync(recentPath)) {
     // Not a failure: on a fresh project there's nothing distilled yet, and
@@ -194,7 +146,7 @@ function hc3DistillFreshness({ projectRoot, now }) {
     // (or `cmk daily-distill`). "Stale recent.md" below IS a real fail; a
     // never-built one is just "not yet" — mirror HC-5's skip-on-fresh.
     return {
-      id: 'HC-3',
+      id: 'HC-2',
       name: 'Daily distill is fresh (≤2 days)',
       status: 'skip',
       message: 'recent.md not built yet — nothing to distill. Runs automatically (lazy-on-read at SessionStart, or `cmk daily-distill`) once there is session content.',
@@ -205,7 +157,7 @@ function hc3DistillFreshness({ projectRoot, now }) {
     mtimeMs = statSync(recentPath).mtimeMs;
   } catch (err) {
     return {
-      id: 'HC-3',
+      id: 'HC-2',
       name: 'Daily distill is fresh (≤2 days)',
       status: 'fail',
       message: `recent.md stat error: ${err?.message ?? err}`,
@@ -216,7 +168,7 @@ function hc3DistillFreshness({ projectRoot, now }) {
   const ageMs = nowMs - mtimeMs;
   if (ageMs > TWO_DAYS_MS) {
     return {
-      id: 'HC-3',
+      id: 'HC-2',
       name: 'Daily distill is fresh (≤2 days)',
       status: 'fail',
       message: `recent.md ${Math.round(ageMs / (24 * 60 * 60 * 1000))}d old (cutoff: 2d)`,
@@ -224,21 +176,21 @@ function hc3DistillFreshness({ projectRoot, now }) {
     };
   }
   return {
-    id: 'HC-3',
+    id: 'HC-2',
     name: 'Daily distill is fresh (≤2 days)',
     status: 'pass',
     message: `recent.md ${Math.round(ageMs / (60 * 60 * 1000))}h old`,
   };
 }
 
-// --- HC-4: transcripts firing (≤3 days) -------------------------------
-function hc4Transcripts({ projectRoot, now }) {
+// --- HC-3: transcripts firing (≤3 days) -------------------------------
+function hc3Transcripts({ projectRoot, now }) {
   const transcriptsDir = join(projectRoot, ...TRANSCRIPTS_REL);
   if (!existsSync(transcriptsDir)) {
     // Fresh project, never had a Claude Code session here → nothing to fire
     // yet. Skip, don't fail (the dir + first transcript appear on the first turn).
     return {
-      id: 'HC-4',
+      id: 'HC-3',
       name: 'Transcripts firing (≤3 days)',
       status: 'skip',
       message: 'no transcripts yet — they appear after your first Claude Code turn in this project.',
@@ -262,7 +214,7 @@ function hc4Transcripts({ projectRoot, now }) {
     // Dir exists (scaffolded) but no transcripts captured yet → still "not
     // yet", not a failure.
     return {
-      id: 'HC-4',
+      id: 'HC-3',
       name: 'Transcripts firing (≤3 days)',
       status: 'skip',
       message: 'no transcripts yet — they appear after your first Claude Code turn in this project.',
@@ -272,7 +224,7 @@ function hc4Transcripts({ projectRoot, now }) {
     // Transcripts EXIST but none recent → the kit was capturing and stopped.
     // That IS a real signal (the Stop hook may not be firing here).
     return {
-      id: 'HC-4',
+      id: 'HC-3',
       name: 'Transcripts firing (≤3 days)',
       status: 'fail',
       message: 'transcripts exist but none within 3 days — the Stop hook may have stopped firing (is this project Claude Code\'s primary cwd?)',
@@ -280,20 +232,20 @@ function hc4Transcripts({ projectRoot, now }) {
     };
   }
   return {
-    id: 'HC-4',
+    id: 'HC-3',
     name: 'Transcripts firing (≤3 days)',
     status: 'pass',
     message: `${recentCount} transcript(s) within 3 days`,
   };
 }
 
-// --- HC-5: INDEX.md matches context/memory/ ---------------------------
-function hc5IndexConsistency({ projectRoot }) {
+// --- HC-4: INDEX.md matches context/memory/ ---------------------------
+function hc4IndexConsistency({ projectRoot }) {
   const memoryDir = join(projectRoot, ...MEMORY_DIR_REL);
   const indexPath = join(projectRoot, ...MEMORY_INDEX_REL);
   if (!existsSync(memoryDir)) {
     return {
-      id: 'HC-5',
+      id: 'HC-4',
       name: 'INDEX.md matches context/memory/ files',
       status: 'skip',
       message: 'context/memory/ missing — no granular facts to index yet',
@@ -301,7 +253,7 @@ function hc5IndexConsistency({ projectRoot }) {
   }
   if (!existsSync(indexPath)) {
     return {
-      id: 'HC-5',
+      id: 'HC-4',
       name: 'INDEX.md matches context/memory/ files',
       status: 'fail',
       message: 'context/memory/INDEX.md missing',
@@ -316,7 +268,7 @@ function hc5IndexConsistency({ projectRoot }) {
     );
   } catch (err) {
     return {
-      id: 'HC-5',
+      id: 'HC-4',
       name: 'INDEX.md matches context/memory/ files',
       status: 'fail',
       message: `readdir error: ${err?.message ?? err}`,
@@ -330,7 +282,7 @@ function hc5IndexConsistency({ projectRoot }) {
     indexText = readFileSync(indexPath, 'utf8');
   } catch (err) {
     return {
-      id: 'HC-5',
+      id: 'HC-4',
       name: 'INDEX.md matches context/memory/ files',
       status: 'fail',
       message: `INDEX.md read error: ${err?.message ?? err}`,
@@ -365,7 +317,7 @@ function hc5IndexConsistency({ projectRoot }) {
   const inIndexNotFacts = [...indexEntries].filter((f) => !factSet.has(f));
   if (inFactsNotIndex.length === 0 && inIndexNotFacts.length === 0) {
     return {
-      id: 'HC-5',
+      id: 'HC-4',
       name: 'INDEX.md matches context/memory/ files',
       status: 'pass',
       message: `${factFiles.length} fact file(s); INDEX in sync`,
@@ -375,7 +327,7 @@ function hc5IndexConsistency({ projectRoot }) {
   if (inFactsNotIndex.length > 0) parts.push(`missing from INDEX: ${inFactsNotIndex.length}`);
   if (inIndexNotFacts.length > 0) parts.push(`stale in INDEX: ${inIndexNotFacts.length}`);
   return {
-    id: 'HC-5',
+    id: 'HC-4',
     name: 'INDEX.md matches context/memory/ files',
     status: 'fail',
     message: parts.join('; '),
@@ -383,11 +335,11 @@ function hc5IndexConsistency({ projectRoot }) {
   };
 }
 
-// --- HC-6: Cron jobs registered with host scheduler -------------------
-function hc6CronRegistered({ projectRoot }) {
+// --- HC-5: Cron jobs registered with host scheduler -------------------
+function hc5CronRegistered({ projectRoot }) {
   if (existsSync(cronSentinelPath(projectRoot))) {
     return {
-      id: 'HC-6',
+      id: 'HC-5',
       name: 'Cron jobs registered with host scheduler',
       status: 'pass',
       message: 'cron-registered sentinel present',
@@ -398,38 +350,15 @@ function hc6CronRegistered({ projectRoot }) {
   // SKIP, not a FAIL — flagging an optional, working-by-fallback feature as a
   // failure made a healthy fresh install read as broken.
   return {
-    id: 'HC-6',
+    id: 'HC-5',
     name: 'Cron jobs registered with host scheduler',
     status: 'skip',
     message: 'cron not registered (optional) — using the lazy-on-read fallback (compresses at SessionStart). Run `cmk register-crons` for scheduled background compression.',
   };
 }
 
-// --- HC-7: memsearch backend reachable --------------------------------
-function hc7MemsearchReachable(hc1Result) {
-  // Only relevant if HC-1 passed. Skip when memsearch isn't installed.
-  if (hc1Result.status !== 'pass') {
-    return {
-      id: 'HC-7',
-      name: 'memsearch backend reachable',
-      status: 'skip',
-      message: 'depends on HC-1 (memsearch installed) — skipped',
-    };
-  }
-  // HC-1 already proves memsearch --version succeeds. For HC-7 the
-  // additional check would be milvus reachability — out of scope for
-  // v0.1.0's keyword-only ship (Layer 5b is v0.1.x). Treat HC-7 as
-  // pass when HC-1 passes.
-  return {
-    id: 'HC-7',
-    name: 'memsearch backend reachable',
-    status: 'pass',
-    message: 'memsearch responds to --version (milvus reachability is Layer 5b / v0.1.x)',
-  };
-}
-
-// --- HC-8: Native Anthropic Auto Memory status -----------------------
-function hc8NativeAutoMemory({ projectRoot, now }) {
+// --- HC-6: Native Anthropic Auto Memory status -----------------------
+function hc6NativeAutoMemory({ projectRoot, now }) {
   // Per ADR-0011 — detect whether Anthropic's native Auto Memory is
   // also active for this project. Non-fatal; informational. Log the
   // result to context/.locks/native-memory-status.log so users can
@@ -507,19 +436,19 @@ function hc8NativeAutoMemory({ projectRoot, now }) {
   }
 
   return {
-    id: 'HC-8',
+    id: 'HC-6',
     name: 'Native Anthropic Auto Memory status detected',
     status: 'pass',
     message,
   };
 }
 
-// --- HC-9: Stale lock files -------------------------------------------
-function hc9StaleLocks({ projectRoot, userDir }) {
+// --- HC-7: Stale lock files -------------------------------------------
+function hc7StaleLocks({ projectRoot, userDir }) {
   const stale = detectStaleLocks(projectRoot, { userDir }).filter((r) => r.stale);
   if (stale.length === 0) {
     return {
-      id: 'HC-9',
+      id: 'HC-7',
       name: 'No stale lock files',
       status: 'pass',
       message: 'all locks healthy',
@@ -533,7 +462,7 @@ function hc9StaleLocks({ projectRoot, userDir }) {
     ? ` (+ ${stale.length - 1} more — re-run after cleaning to surface)`
     : '';
   return {
-    id: 'HC-9',
+    id: 'HC-7',
     name: 'No stale lock files',
     status: 'fail',
     message: `${stale.length} stale lock(s); first: ${first.path} (${first.reason})${moreNote}`,
@@ -542,7 +471,7 @@ function hc9StaleLocks({ projectRoot, userDir }) {
 }
 
 /**
- * Run the full 9-check health audit.
+ * Run the full 7-check health audit.
  *
  * @param {object} opts
  * @param {string} opts.projectRoot
@@ -573,20 +502,18 @@ export async function runDoctor({
   const ts = now ?? nowIso();
   const resolvedUserDir = userDir ?? join(homedir(), '.claude-memory-kit');
 
-  // Run in order. HC-7 depends on HC-1's verdict.
-  const c1 = await hc1Memsearch();
-  const c2 = hc2Hooks({ projectRoot });
-  const c3 = hc3DistillFreshness({ projectRoot, now: ts });
-  const c4 = hc4Transcripts({ projectRoot, now: ts });
-  const c5 = hc5IndexConsistency({ projectRoot });
-  const c6 = hc6CronRegistered({ projectRoot });
-  const c7 = hc7MemsearchReachable(c1);
-  const c8 = hc8NativeAutoMemory({ projectRoot, now: ts });
-  const c9 = hc9StaleLocks({ projectRoot, userDir: resolvedUserDir });
+  // Run all checks in order.
+  const c1 = hc1Hooks({ projectRoot });
+  const c2 = hc2DistillFreshness({ projectRoot, now: ts });
+  const c3 = hc3Transcripts({ projectRoot, now: ts });
+  const c4 = hc4IndexConsistency({ projectRoot });
+  const c5 = hc5CronRegistered({ projectRoot });
+  const c6 = hc6NativeAutoMemory({ projectRoot, now: ts });
+  const c7 = hc7StaleLocks({ projectRoot, userDir: resolvedUserDir });
 
   return {
     action: 'completed',
-    checks: [c1, c2, c3, c4, c5, c6, c7, c8, c9],
+    checks: [c1, c2, c3, c4, c5, c6, c7],
     duration_ms: Date.now() - t0,
   };
 }

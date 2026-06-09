@@ -1,16 +1,18 @@
-// @doors: 1, 2, 3, 5
-// Door 3: HC-1 + HC-7 spawn `memsearch --version`; HC-1's skip-path message asserts the subprocess CALL (Door-3 surface). Real memsearch-installed coverage is a v0.1.x integration test (parallel to Layer 5b's gate per ADR-0008).
+// @doors: 1, 2, 5
+// Door 3 N/A: doctor no longer spawns a subprocess — the memsearch checks
+//   (HC-1/HC-7, the only spawns) were removed in Task 120; all 7 checks are
+//   in-process file ops.
 // Door 4 N/A: no message-queue interaction.
 
-// Tests for Task 37 — `cmk doctor` health checks HC-1..HC-9 (T-031).
-// Per tasks.md 37.6 (7 cases):
-//   1. All 9 HCs run in order; report line per check (PASS / FAIL / SKIP)
+// Tests for Task 37 — `cmk doctor` health checks HC-1..HC-7 (T-031).
+// Per tasks.md 37.6:
+//   1. All 7 HCs run in order; report line per check (PASS / FAIL / SKIP)
 //   2. Full run completes within 5s on 10k-observation fixture
-//   3. Failed HC (e.g., HC-2 missing hook): repair command surfaced
-//   4. HC-8 active: log shows active:true + file count + last_modified
-//   5. HC-8 inactive: log shows active:false
-//   6. HC-9 stale lock present: report includes the lock's recoveryCommand
-//   7. Install-requiring repair: stub prompt; assert prompt shown before any install command
+//   3. Failed HC (e.g., HC-1 missing hook): repair command surfaced
+//   4. HC-6 active: log shows active:true + file count + last_modified
+//   5. HC-6 inactive: log shows active:false
+//   6. HC-7 stale lock present: report includes the lock's recoveryCommand
+//   (the original memsearch install-requiring case is gone with Task 120)
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
@@ -89,14 +91,14 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
     });
   });
 
-  describe('37.6 #1 — all 9 HCs run in order; pass/fail/skip per check', () => {
-    it('emits exactly 9 checks with id HC-1..HC-9 in order', async () => {
+  describe('37.6 #1 — all 7 HCs run in order; pass/fail/skip per check', () => {
+    it('emits exactly 7 checks with id HC-1..HC-7 in order', async () => {
       const r = await runDoctor({ projectRoot, userDir });
       expect(r.action).toBe('completed');
-      expect(r.checks.length).toBe(9);
+      expect(r.checks.length).toBe(7);
       const ids = r.checks.map((c) => c.id);
       expect(ids).toEqual([
-        'HC-1', 'HC-2', 'HC-3', 'HC-4', 'HC-5', 'HC-6', 'HC-7', 'HC-8', 'HC-9',
+        'HC-1', 'HC-2', 'HC-3', 'HC-4', 'HC-5', 'HC-6', 'HC-7',
       ]);
       // Every check has the canonical shape
       for (const c of r.checks) {
@@ -112,16 +114,14 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
   describe('37.6 #2 — full run completes promptly (regression guard, not a production-timing measurement)', () => {
     it('finishes well inside a non-pathological ceiling', async () => {
       const r = await runDoctor({ projectRoot, userDir });
-      // The production NFR is ~5s (design §5/§14), but this test runs
-      // alongside 700+ concurrent vitest files (and under `npm run stress`,
-      // 5× back-to-back) where doctor's subprocess spawns (HC-1/HC-7
-      // `memsearch --version`, etc.) contend for the CPU — a borderline
-      // `< 5000` assertion flaked at 5028ms under that load (2026-05-31),
-      // an absolute wall-clock threshold on an inherently load-variable
-      // measurement (same class as the captureTurn detach fix in Task 61).
-      // We assert a 10s "not pathological" ceiling instead: it still catches
-      // a real regression (a hung HC or a missing subprocess timeout blows
-      // far past 10s), without flaking on test-harness concurrency noise.
+      // The production NFR is ~5s (design §5/§14). doctor is now pure in-process
+      // file ops (the memsearch subprocess spawns were removed in Task 120), so
+      // it's fast — but this test runs alongside 700+ concurrent vitest files
+      // (and under `npm run stress`, 5× back-to-back), and an absolute `< 5000`
+      // wall-clock assertion flaked at 5028ms under that load (2026-05-31) on an
+      // inherently load-variable measurement. We assert a 10s "not pathological"
+      // ceiling instead: it still catches a real regression (a hung HC) without
+      // flaking on test-harness concurrency noise.
       expect(r.duration_ms).toBeLessThan(10_000);
     });
   });
@@ -131,7 +131,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       // install() doesn't drop .claude/settings.json in the test
       // sandbox, so HC-2 fails by default.
       const r = await runDoctor({ projectRoot, userDir });
-      const c2 = r.checks.find((c) => c.id === 'HC-2');
+      const c2 = r.checks.find((c) => c.id === 'HC-1');
       expect(c2.status).toBe('fail');
       expect(c2.recoveryCommand).toBe('cmk repair --hooks');
     });
@@ -139,7 +139,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
     it('HC-2 settings.json with missing hooks → fail with repair', async () => {
       seedSettingsJson({ hooks: { Stop: [] } }); // intentionally empty
       const r = await runDoctor({ projectRoot, userDir });
-      const c2 = r.checks.find((c) => c.id === 'HC-2');
+      const c2 = r.checks.find((c) => c.id === 'HC-1');
       expect(c2.status).toBe('fail');
       expect(c2.message).toMatch(/missing hook references/);
     });
@@ -153,7 +153,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
         },
       });
       const r = await runDoctor({ projectRoot, userDir });
-      const c2 = r.checks.find((c) => c.id === 'HC-2');
+      const c2 = r.checks.find((c) => c.id === 'HC-1');
       expect(c2.status).toBe('pass');
     });
 
@@ -171,7 +171,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
         },
       });
       const r = await runDoctor({ projectRoot, userDir });
-      const c2 = r.checks.find((c) => c.id === 'HC-2');
+      const c2 = r.checks.find((c) => c.id === 'HC-1');
       expect(c2.status).toBe('pass');
     });
 
@@ -185,7 +185,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
         const usr = join(freshSandbox, 'user');
         await install({ projectRoot: proj, userTier: usr }); // hooks ON (default)
         const r = await runDoctor({ projectRoot: proj, userDir: usr });
-        const c2 = r.checks.find((c) => c.id === 'HC-2');
+        const c2 = r.checks.find((c) => c.id === 'HC-1');
         expect(c2.status).toBe('pass');
       } finally {
         rmSync(freshSandbox, { recursive: true, force: true });
@@ -205,7 +205,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
         },
       });
       const r = await runDoctor({ projectRoot, userDir });
-      const c2 = r.checks.find((c) => c.id === 'HC-2');
+      const c2 = r.checks.find((c) => c.id === 'HC-1');
       expect(c2.status).toBe('fail');
       // The message should call out missing hooks per their CORRECT event
       expect(c2.message).toMatch(/SessionStart\.cmk-inject-context/);
@@ -219,7 +219,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
         hooks: { SessionStart: [], Stop: [], SessionEnd: [] },
       });
       const r = await runDoctor({ projectRoot, userDir });
-      const c2 = r.checks.find((c) => c.id === 'HC-2');
+      const c2 = r.checks.find((c) => c.id === 'HC-1');
       expect(c2.status).toBe('fail');
     });
 
@@ -228,7 +228,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
     // builds it once there's session content). A STALE recent.md is still FAIL.
     it('HC-3 missing recent.md (fresh project) → skip, no repair command', async () => {
       const r = await runDoctor({ projectRoot, userDir });
-      const c3 = r.checks.find((c) => c.id === 'HC-3');
+      const c3 = r.checks.find((c) => c.id === 'HC-2');
       expect(c3.status).toBe('skip');
       expect(c3.recoveryCommand).toBeUndefined();
     });
@@ -236,14 +236,14 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
     it('HC-3 fresh recent.md → pass', async () => {
       seedRecentMd(60_000); // 1 minute old
       const r = await runDoctor({ projectRoot, userDir });
-      const c3 = r.checks.find((c) => c.id === 'HC-3');
+      const c3 = r.checks.find((c) => c.id === 'HC-2');
       expect(c3.status).toBe('pass');
     });
 
     it('HC-3 stale recent.md (>2d) → fail (still a real signal)', async () => {
       seedRecentMd(3 * 24 * 60 * 60 * 1000); // 3 days old
       const r = await runDoctor({ projectRoot, userDir });
-      const c3 = r.checks.find((c) => c.id === 'HC-3');
+      const c3 = r.checks.find((c) => c.id === 'HC-2');
       expect(c3.status).toBe('fail');
       expect(c3.recoveryCommand).toBe('cmk daily-distill');
     });
@@ -251,14 +251,14 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
     // v0.2.0 severity fix: no transcripts yet (fresh project) → SKIP, not FAIL.
     it('HC-4 no transcripts (fresh project) → skip', async () => {
       const r = await runDoctor({ projectRoot, userDir });
-      const c4 = r.checks.find((c) => c.id === 'HC-4');
+      const c4 = r.checks.find((c) => c.id === 'HC-3');
       expect(c4.status).toBe('skip');
     });
 
     it('HC-4 transcripts EXIST but all stale (>3d) → fail (hook may have stopped)', async () => {
       seedTranscript('2026-05-20.md', 5 * 24 * 60 * 60 * 1000); // 5 days old
       const r = await runDoctor({ projectRoot, userDir });
-      const c4 = r.checks.find((c) => c.id === 'HC-4');
+      const c4 = r.checks.find((c) => c.id === 'HC-3');
       expect(c4.status).toBe('fail');
       expect(c4.recoveryCommand).toBeTruthy();
     });
@@ -266,7 +266,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
     it('HC-4 transcript within 3d → pass', async () => {
       seedTranscript('2026-05-28.md', 60_000);
       const r = await runDoctor({ projectRoot, userDir });
-      const c4 = r.checks.find((c) => c.id === 'HC-4');
+      const c4 = r.checks.find((c) => c.id === 'HC-3');
       expect(c4.status).toBe('pass');
       expect(c4.message).toMatch(/1 transcript/);
     });
@@ -275,7 +275,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
     // absence is SKIP, not FAIL — a healthy fresh install shouldn't read as broken.
     it('HC-6 no cron sentinel → skip (optional; fallback active)', async () => {
       const r = await runDoctor({ projectRoot, userDir });
-      const c6 = r.checks.find((c) => c.id === 'HC-6');
+      const c6 = r.checks.find((c) => c.id === 'HC-5');
       expect(c6.status).toBe('skip');
       expect(c6.message).toMatch(/register-crons/); // command still surfaced, as info
     });
@@ -283,15 +283,15 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
     it('HC-6 cron sentinel present → pass', async () => {
       markCronRegistered({ projectRoot });
       const r = await runDoctor({ projectRoot, userDir });
-      const c6 = r.checks.find((c) => c.id === 'HC-6');
+      const c6 = r.checks.find((c) => c.id === 'HC-5');
       expect(c6.status).toBe('pass');
     });
   });
 
-  describe('37.6 #4 + #5 — HC-8 native Anthropic Auto Memory detection logs structured entry', () => {
+  describe('37.6 #4 + #5 — HC-6 native Anthropic Auto Memory detection logs structured entry', () => {
     it('writes single-line JSON snapshot to .locks/native-memory-status.log with active:false when no Anthropic dir exists', async () => {
       const r = await runDoctor({ projectRoot, userDir });
-      const c8 = r.checks.find((c) => c.id === 'HC-8');
+      const c8 = r.checks.find((c) => c.id === 'HC-6');
       expect(c8.status).toBe('pass');
       const logPath = join(projectRoot, 'context', '.locks', 'native-memory-status.log');
       expect(existsSync(logPath)).toBe(true);
@@ -302,14 +302,14 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       expect(entry.file_count).toBe(0);
     });
 
-    it('Task 60: when autoMemoryEnabled:false is set, HC-8 reports DISABLED + records setting_state (the opt-out is discoverable here)', async () => {
+    it('Task 60: when autoMemoryEnabled:false is set, HC-6 reports DISABLED + records setting_state (the opt-out is discoverable here)', async () => {
       // Write the committable opt-out into the project settings.json.
       const claudeDir = join(projectRoot, '.claude');
       mkdirSync(claudeDir, { recursive: true });
       writeFileSync(join(claudeDir, 'settings.json'), JSON.stringify({ autoMemoryEnabled: false }, null, 2), 'utf8');
 
       const r = await runDoctor({ projectRoot, userDir });
-      const c8 = r.checks.find((c) => c.id === 'HC-8');
+      const c8 = r.checks.find((c) => c.id === 'HC-6');
       expect(c8.status).toBe('pass');
       expect(c8.message).toMatch(/disabled/i);
       expect(c8.message).toMatch(/sole memory layer/i);
@@ -321,7 +321,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
     });
   });
 
-  describe('37.6 #6 — HC-9 stale locks surface recoveryCommand', () => {
+  describe('37.6 #6 — HC-7 stale locks surface recoveryCommand', () => {
     it('reports stale lock with recoveryCommand when a stale .lock file exists', async () => {
       // Seed a stale lock: pid 999999 (unlikely to be alive)
       const locksDir = join(projectRoot, 'context', '.locks');
@@ -329,7 +329,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       const lockPath = join(locksDir, 'auto-extract.lock');
       writeFileSync(lockPath, '999999\n', 'utf8');
       const r = await runDoctor({ projectRoot, userDir });
-      const c9 = r.checks.find((c) => c.id === 'HC-9');
+      const c9 = r.checks.find((c) => c.id === 'HC-7');
       expect(c9.status).toBe('fail');
       expect(c9.recoveryCommand).toBeTruthy();
       // The lock-discipline emits a platform-aware recoveryCommand
@@ -340,43 +340,21 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
 
     it('passes when no stale locks present', async () => {
       const r = await runDoctor({ projectRoot, userDir });
-      const c9 = r.checks.find((c) => c.id === 'HC-9');
+      const c9 = r.checks.find((c) => c.id === 'HC-7');
       expect(c9.status).toBe('pass');
     });
   });
 
-  describe('37.6 #7 — install-requiring repair is flagged for prompt-before-execute', () => {
-    it('HC-1 missing-memsearch path carries requiresInstall:true + pip install hint', async () => {
+  describe('no health check requires an installer (memsearch removed, Task 120)', () => {
+    it('no check carries requiresInstall — the only install-gated check was memsearch', async () => {
       const r = await runDoctor({ projectRoot, userDir });
-      const c1 = r.checks.find((c) => c.id === 'HC-1');
-      // Layer 5b (memsearch) is OPTIONAL per ADR-0008 — the test host
-      // may or may not have it installed. Contract:
-      //   - When memsearch IS installed: c1.status === 'pass', no
-      //     requiresInstall flag (already done).
-      //   - When NOT installed: c1.status === 'skip', requiresInstall:
-      //     true, recoveryCommand contains `pip install`.
-      if (c1.status === 'skip') {
-        expect(c1.requiresInstall).toBe(true);
-        expect(c1.recoveryCommand).toContain('pip install');
-      } else {
-        expect(c1.status).toBe('pass');
-        expect(c1.requiresInstall).toBeFalsy();
+      for (const c of r.checks) {
+        expect(c.requiresInstall).toBeFalsy();
       }
-    });
-
-    it('non-install repairs do NOT carry requiresInstall:true', async () => {
-      const r = await runDoctor({ projectRoot, userDir });
-      const c2 = r.checks.find((c) => c.id === 'HC-2');
-      const c3 = r.checks.find((c) => c.id === 'HC-3');
-      const c6 = r.checks.find((c) => c.id === 'HC-6');
-      // None of these recovery commands invoke an installer
-      expect(c2.requiresInstall).toBeFalsy();
-      expect(c3.requiresInstall).toBeFalsy();
-      expect(c6.requiresInstall).toBeFalsy();
     });
   });
 
-  describe('HC-5 INDEX.md consistency', () => {
+  describe('HC-4 INDEX.md consistency', () => {
     it('PASS on a freshly-scaffolded project (real INDEX.md template, 0 facts) — Task 85 regression guard', async () => {
       // projectRoot is install()'d in beforeEach, so context/memory/INDEX.md is
       // the REAL scaffold template — which contains an example markdown link
@@ -385,7 +363,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       // test exercises the actual scaffold (the hand-written fixtures below do
       // not), which is how the skill-review caught the regression.
       const r = await runDoctor({ projectRoot, userDir });
-      const c5 = r.checks.find((c) => c.id === 'HC-5');
+      const c5 = r.checks.find((c) => c.id === 'HC-4');
       expect(c5.status).toBe('pass');
     });
 
@@ -393,7 +371,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       // install() creates context/memory/ — let's remove it explicitly
       rmSync(join(projectRoot, 'context', 'memory'), { recursive: true, force: true });
       const r = await runDoctor({ projectRoot, userDir });
-      const c5 = r.checks.find((c) => c.id === 'HC-5');
+      const c5 = r.checks.find((c) => c.id === 'HC-4');
       expect(c5.status).toBe('skip');
     });
 
@@ -409,7 +387,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       writeFileSync(join(memoryDir, 'feedback_layered.md'), '---\nid: P-Q7K2M9XR\n---\n\nfact\n', 'utf8');
       // No INDEX.md
       const r = await runDoctor({ projectRoot, userDir });
-      const c5 = r.checks.find((c) => c.id === 'HC-5');
+      const c5 = r.checks.find((c) => c.id === 'HC-4');
       expect(c5.status).toBe('fail');
       expect(c5.recoveryCommand).toBe('cmk reindex');
     });
@@ -424,7 +402,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
         'utf8',
       );
       const r = await runDoctor({ projectRoot, userDir });
-      const c5 = r.checks.find((c) => c.id === 'HC-5');
+      const c5 = r.checks.find((c) => c.id === 'HC-4');
       expect(c5.status).toBe('pass');
     });
 
@@ -437,7 +415,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
         'utf8',
       );
       const r = await runDoctor({ projectRoot, userDir });
-      const c5 = r.checks.find((c) => c.id === 'HC-5');
+      const c5 = r.checks.find((c) => c.id === 'HC-4');
       expect(c5.status).toBe('fail');
       expect(c5.message).toMatch(/stale in INDEX/);
     });
