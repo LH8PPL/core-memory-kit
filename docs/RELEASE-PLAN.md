@@ -77,7 +77,7 @@ The differentiator is the wedge; the rest are the quality fixes that make it *fe
 - **66** — temporal validity (facts stay true / age out correctly)
 - **71** — external-drift guard (detect + refuse hand-edits to memory)
 - **74** — re-inject memory after compaction (PreCompact hook)
-- [x] **46** — `cmk install --with-semantic` (embedder bootstrap + hybrid-by-default-when-enabled; pairs with 65) — _shipped 2026-06-10 (D-111)_
+- [x] **46** — `cmk install --with-semantic` (embedder bootstrap + hybrid-by-default-when-enabled; pairs with 65) — _shipped 2026-06-10, PR #152 (D-111)_
 
 ## v0.4.0+ — breadth
 
