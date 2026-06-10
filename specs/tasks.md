@@ -1366,6 +1366,12 @@ Full diagnosis + detailed specs: [`docs/journey/v0.2.0-live-test-findings.md`](.
   - **D = NOT in this task** — async-rule capture variance (3/7 runs) is a v0.3 extraction-quality signal (Task 65/75), not a bug. TDD + harden-the-guard + re-pack + finish cut-gate7. _Relates D-103, D-51, Task 122, Task 115._
   - **KEEP / non-goal:** does NOT add tier-U *direct write* to mk_remember (that stays the deferred Task 76.2 feature) — this fixes the MESSAGING + consistency, not the capability. TDD + two-pass review + live-test. _Relates ADR-0014, design §10/§16.39/§16.40, Task 108, D-102._
 
+- [ ] 124. **🐛 `cmk forget` leaves `INDEX.md` stale (dogfood-found, D-112).** Found 2026-06-10 by forgetting two auto-extract facts on this repo: the fact files tombstoned correctly and the SQLite index repruned (Task 110's `reindexBoot`), but `context/memory/INDEX.md` kept both dangling entries → doctor HC-4 (INDEX accuracy) fails until a manual `cmk reindex`. This is the Task-85 lesson ("the writer owns the derived view" — `writeFact` calls `reindex()` on every create) missed on the DELETE path.
+  - Estimate: S · Depends: none (standalone fix)
+  - [ ] 124.1 `forget()` calls the markdown `reindex()` (best-effort, same contract as `writeFact`'s) after a granular-fact tombstone; a pure scratchpad-bullet forget doesn't need it (bullets aren't in INDEX.md).
+  - [ ] 124.2 Audit the OTHER fact-file mutators for the same class (composition pattern): `trust`, `merge-facts`, `graduation`, `lessons promote` — each either refreshes INDEX.md, provably rides `writeFact`, or gets a documented N/A.
+  - [ ] 124.3 Tests: forget-then-HC-4 integration (tombstone a fact → INDEX.md no longer lists it; over-mutation guard: the other entries survive). TDD + two-pass review + live-test on this repo.
+
 ## Road to 1.0 — video parity (the "worth giving to a friend" bar)
 
 _Per D-24/D-25/D-26 (DECISION-LOG 2026-06-01). The bar for handing it to a friend = everything the Simon Scrapes video described ([source](../docs/sources/simon-scrapes-master-claude-memory.md)). Cadence: **one wow → live test → publish a version → next**; never shelve until "finished." 1.0 is a **feel** call (the user), not a date._
