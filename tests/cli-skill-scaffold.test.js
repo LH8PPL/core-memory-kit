@@ -105,6 +105,88 @@ describe('Task 69.0 — the memory-write skill is SAFE (canonical source)', () =
   });
 });
 
+// Task 75.1 — the memory-search RECALL skill (the read-only sibling of
+// memory-write). Modeled on memsearch's memory-recall + claude-mem's
+// mem-search (primary sources, D-71); wraps the kit's existing 3-step
+// ladder (search → timeline → get) on both surfaces (MCP + CLI).
+const RECALL_SKILL = join(REPO_ROOT, 'template', '.claude', 'skills', 'memory-search', 'SKILL.md');
+const RECALL_PLUGIN = join(REPO_ROOT, 'plugin', 'skills', 'memory-search', 'SKILL.md');
+
+describe('Task 75.1 — the memory-search recall skill (canonical source)', () => {
+  const text = readFileSync(RECALL_SKILL, 'utf8');
+  const fm = frontmatter(text);
+
+  it('frontmatter: name, auto-invoke description with trigger phrases + skip conditions', () => {
+    expect(fm.name).toBe('memory-search');
+    const d = fm.description ?? '';
+    expect(d).toMatch(/what did we decide/i); // the canonical recall trigger
+    expect(d).toMatch(/skip when/i); // skip conditions embedded (memsearch pattern)
+  });
+
+  it('runs forked (context: fork) so raw recall never pollutes the main context', () => {
+    expect(fm.context).toBe('fork');
+  });
+
+  it('is READ-ONLY: grants search/get/timeline/recent on both surfaces, never write tools', () => {
+    const tools = fm['allowed-tools'] ?? '';
+    expect(tools).toMatch(/mk_search/);
+    expect(tools).toMatch(/mk_get/);
+    expect(tools).toMatch(/mk_timeline/);
+    expect(tools).toMatch(/Bash\(cmk search /);
+    // The safety contract: recall must not be able to mutate memory.
+    expect(tools).not.toMatch(/mk_remember|mk_forget|mk_trust/);
+    expect(tools).not.toMatch(/cmk remember|cmk forget|cmk trust/);
+    expect(tools).not.toMatch(/\bEdit\b|\bWrite\b/);
+  });
+
+  it('every command named in the body is granted in allowed-tools (fork can run what it teaches)', () => {
+    const tools = fm['allowed-tools'] ?? '';
+    const body = text.slice(text.indexOf('---', 4));
+    for (const cmd of ['search', 'get', 'timeline', 'recent-activity']) {
+      if (body.includes(`cmk ${cmd}`)) {
+        expect(tools, `body teaches \`cmk ${cmd}\` but allowed-tools does not grant it`).toMatch(
+          new RegExp(`Bash\\(cmk ${cmd} `),
+        );
+      }
+    }
+  });
+
+  it('teaches the 3-step filter-before-fetch ladder and a curated-output contract', () => {
+    expect(text).toMatch(/mk_search|cmk search/);
+    expect(text).toMatch(/mk_timeline|cmk timeline/);
+    expect(text).toMatch(/mk_get|cmk get/);
+    expect(text).toMatch(/curated/i);
+    expect(text, 'must state the read-only boundary').toMatch(/read-only/i);
+  });
+
+  it('uses no dev-repo internal paths and forward slashes only', () => {
+    expect(text).not.toMatch(/packages\/cli\/src/);
+    expect(text).not.toMatch(/context\\/);
+  });
+});
+
+describe('Task 75.1 — memory-search scaffolds + mirrors like memory-write', () => {
+  it('plugin/skills/memory-search/SKILL.md is byte-identical to the canonical source', () => {
+    expect(existsSync(RECALL_PLUGIN)).toBe(true);
+    expect(sha(RECALL_PLUGIN)).toBe(sha(RECALL_SKILL));
+  });
+
+  it('cmk install scaffolds .claude/skills/memory-search/SKILL.md (Door 2)', async () => {
+    const sandbox = mkdtempSync(join(tmpdir(), 'cmk-recall-scaffold-'));
+    try {
+      const projectRoot = join(sandbox, 'proj');
+      mkdirSync(projectRoot, { recursive: true });
+      const result = await install({ projectRoot, userTier: join(sandbox, 'user') });
+      expect(result.errors).toEqual([]);
+      const target = join(projectRoot, '.claude', 'skills', 'memory-search', 'SKILL.md');
+      expect(existsSync(target)).toBe(true);
+      expect(sha(target)).toBe(sha(RECALL_SKILL));
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('Task 69.1 — cmk install scaffolds the skill into <project>/.claude/skills/', () => {
   let sandbox;
   let projectRoot;

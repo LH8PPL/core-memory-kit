@@ -7,6 +7,7 @@
 - **Cross-project persona — the wedge (v0.2)** — when you state how you work *everywhere* ("always use uv, never pip", "from now on run the linter before committing"), the per-turn auto-extract promotes it into your **user tier** (`~/.claude-memory-kit/`) **that turn**. So a brand-new project **cold-opens already knowing your style** — layered structure, your tooling, your testing discipline — with no hand-curation and no waiting. Carry it between your own machines with `cmk persona export`/`import`, or pin a single fact across projects with `cmk lessons promote`.
 - **Frozen snapshot at session start** — MEMORY.md + USER.md + SOUL.md + INDEX.md + today's session log inject once at the first tool call, so Claude sees your context every session without you re-telling it. The snapshot opens with an **authority instruction** ("when injected memory contradicts your assumptions, injected memory wins"), so the agent leads with its memory instead of re-deriving answers from the code.
 - **Auto-extract on every assistant turn** — a background `claude --print` subagent reads each turn and saves durable facts to memory. Durable project knowledge (setup/config, conventions, workflows, tool quirks) becomes a **rich Why/How fact file** (structured + searchable); lighter signals stay terse `MEMORY.md` bullets. Runs automatically, so the rich tier survives even when the model uses Claude Code's built-in memory instead. No manual writes needed.
+- **Claude knows WHEN to recall** — the auto-invoked `memory-search` skill fires on "what did we decide about X" / "have we seen this error before" and searches the deep archive in a forked side-context, returning a curated citation-backed summary. Read-only by contract.
 - **Explicit capture when you want it** — say "remember this" / "from now on" / "we decided" / "forget X" (the `memory-write` skill), or run `cmk remember "<fact>"`. Both dedup, screen for secrets, abstract machine paths to `~`, and write silently. For backtick/quote-heavy rich facts, capture them shell-safe as JSON: `cmk remember --from-file fact.json` (or `--json` from stdin) — content never touches the shell.
 - **Search + MCP — Claude runs every memory op for you, in conversation** — `cmk search "<term>"` (keyword over facts + scratchpads; with the optional local embedder, **semantic + hybrid recall**: ask in your own words and get the fact even with zero keyword overlap — measured R@5 0.941 / paraphrase 1.000 on the kit's benchmark, no API calls). `cmk install` registers the kit's **MCP server**, so Claude can do the whole memory surface as tools without you ever typing `cmk`: capture (`mk_remember`, rich Why/How too), recall (`mk_search` / `mk_get` / `mk_timeline` / `mk_cite`), adjust trust (`mk_trust`), promote a fact across projects (`mk_lessons_promote`), forget (`mk_forget` — previews first, then deletes on confirm), and clear the review/conflict queues (`mk_queue_list` / `mk_queue_resolve`). The tools are allow-listed on install, so they run prompt-free.
 - **Bounded by compression** — session → daily → weekly Haiku rollups (cron or lazy-on-read) keep the snapshot small as history grows. The session-buffer rollup self-heals at session start too, so memory stays bounded even if you never cleanly close the window.
@@ -22,11 +23,11 @@ Each route is complete on its own. **Don't run both** — they wire the same hoo
 ```bash
 npm install -g @lh8ppl/claude-memory-kit
 cd ~/my-project
-cmk install        # scaffolds context/ + the memory-write skill AND wires the lifecycle hooks into .claude/settings.json
+cmk install        # scaffolds context/ + the memory-write + memory-search skills AND wires the lifecycle hooks into .claude/settings.json
 cmk doctor         # verify, then restart Claude Code
 ```
 
-`cmk install` is a complete entry point: it scaffolds `context/`, drops the `memory-write` skill into `.claude/skills/` (committed — travels with `git clone`), and writes the 5 lifecycle hooks (PATH-resolved, cross-OS) into the project's `.claude/settings.json`. It also **registers the kit's MCP server** in `.mcp.json` and allow-lists its tools (`mcp__cmk__*`) in `.claude/settings.json`, so Claude can drive memory as tools with no per-call prompt. No separate `/plugin` step needed. Use `cmk install --no-hooks` to skip the hooks + MCP wiring (scaffold-only).
+`cmk install` is a complete entry point: it scaffolds `context/`, drops the `memory-write` + `memory-search` skills into `.claude/skills/` (committed — travels with `git clone`), and writes the 5 lifecycle hooks (PATH-resolved, cross-OS) into the project's `.claude/settings.json`. It also **registers the kit's MCP server** in `.mcp.json` and allow-lists its tools (`mcp__cmk__*`) in `.claude/settings.json`, so Claude can drive memory as tools with no per-call prompt. No separate `/plugin` step needed. Use `cmk install --no-hooks` to skip the hooks + MCP wiring (scaffold-only).
 
 > Installing the package globally adds the `cmk` CLI **and** the installer. It's the `cmk install` *subcommand* that wires the hooks — not the bare `npm install`.
 
@@ -39,7 +40,7 @@ Inside Claude Code:
 /plugin install claude-memory-kit
 ```
 
-Then say *"bootstrap the memory system"* to scaffold this project's `context/`. The plugin bundles the hooks + the `bootstrap` and `memory-write` skills, so it's complete without the npm CLI (add the CLI later only if you want `cmk search` / `cmk doctor` / cron).
+Then say *"bootstrap the memory system"* to scaffold this project's `context/`. The plugin bundles the hooks + the `bootstrap`, `memory-write`, and `memory-search` skills, so it's complete without the npm CLI (add the CLI later only if you want `cmk search` / `cmk doctor` / cron).
 
 ## CLI
 
@@ -47,7 +48,7 @@ Most-used commands (full list via `cmk --help`):
 
 | Command | Purpose |
 | --- | --- |
-| `cmk install` | Scaffold `context/` + the `memory-write` skill + `.gitignore` + CLAUDE.md block + wire hooks (`--no-hooks` for scaffold-only) |
+| `cmk install` | Scaffold `context/` + the `memory-write`/`memory-search` skills + `.gitignore` + CLAUDE.md block + wire hooks (`--no-hooks` for scaffold-only) |
 | `cmk doctor` | Run HC-1..HC-7 health checks, surface repair commands |
 | `cmk repair --hooks` / `--locks` / `--index` / `--all` | Idempotent self-repair |
 | `cmk search "<query>" [--mode keyword\|semantic\|hybrid]` | Search accumulated memory (keyword default) |
