@@ -121,6 +121,51 @@ describe('Task 104.2 — syncTranscriptChunks (DB state)', () => {
     expect(r.chunks).toBe(0);
   });
 
+  // Task 126 (D-119) — the middle tier: sessions summaries (today-*.md /
+  // recent.md / archive.md, the compressed conversation history) index into
+  // the SAME raw-tier scope. now.md (the volatile live buffer) and *.log
+  // (NDJSON observability) are skipped.
+  it('126: sessions summaries are indexed into the same scope', () => {
+    mkdirSync(join(projectRoot, 'context', 'sessions'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, 'context', 'sessions', 'today-2026-06-09.md'),
+      '## Decisions\n\n- We chose Valkey over Redis for licence reasons.\n',
+      'utf8',
+    );
+    writeFileSync(
+      join(projectRoot, 'context', 'sessions', 'archive.md'),
+      '## Week of 2026-05-25\n\n- Archived: the auth refactor landed.\n',
+      'utf8',
+    );
+    const r = syncTranscriptChunks({ db, projectRoot });
+    expect(r.chunks).toBeGreaterThanOrEqual(2);
+    const files = db.prepare('SELECT DISTINCT source_file FROM transcript_chunks ORDER BY source_file').all()
+      .map((x) => x.source_file);
+    expect(files).toContain('context/sessions/today-2026-06-09.md');
+    expect(files).toContain('context/sessions/archive.md');
+    const fts = db
+      .prepare("SELECT count(*) AS n FROM transcript_chunks_fts WHERE transcript_chunks_fts MATCH 'valkey'")
+      .get();
+    expect(fts.n).toBe(1);
+  });
+
+  it('126: now.md and *.log are NEVER indexed (volatile buffer / observability)', () => {
+    mkdirSync(join(projectRoot, 'context', 'sessions'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, 'context', 'sessions', 'now.md'),
+      '## 2026-06-10T10:00:00Z — user\n\nlive buffer content must not index\n',
+      'utf8',
+    );
+    writeFileSync(
+      join(projectRoot, 'context', 'sessions', '2026-06-10.extract.log'),
+      '{"ts":"2026-06-10","phase":"extract"}\n',
+      'utf8',
+    );
+    const r = syncTranscriptChunks({ db, projectRoot });
+    expect(r.files).toBe(0);
+    expect(db.prepare('SELECT COUNT(*) AS n FROM transcript_chunks').get().n).toBe(0);
+  });
+
   it('a deleted transcript file is pruned (chunks + checkpoint); survivors untouched', () => {
     writeDay('2026-06-09', turn('2026-06-09T09:00:00Z', 'assistant', 'Keep me.'));
     writeDay('2026-06-10', turn('2026-06-10T10:00:00Z', 'assistant', 'Delete me.'));

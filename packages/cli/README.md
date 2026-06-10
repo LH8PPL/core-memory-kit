@@ -24,6 +24,8 @@ Each route is complete on its own. **Don't run both** — they wire the same hoo
 npm install -g @lh8ppl/claude-memory-kit
 cd ~/my-project
 cmk install        # scaffolds context/ + the memory-write + memory-search skills AND wires the lifecycle hooks into .claude/settings.json
+cmk install --with-semantic   # (optional) local semantic recall — one-time ~260 MB, search defaults to hybrid
+cmk register-crons            # (optional) scheduled background compression — otherwise self-heals lazily
 cmk doctor         # verify, then restart Claude Code
 ```
 
@@ -51,7 +53,7 @@ Most-used commands (full list via `cmk --help`):
 | `cmk install` | Scaffold `context/` + the `memory-write`/`memory-search` skills + `.gitignore` + CLAUDE.md block + wire hooks (`--no-hooks` for scaffold-only) |
 | `cmk doctor` | Run HC-1..HC-7 health checks, surface repair commands |
 | `cmk repair --hooks` / `--locks` / `--index` / `--all` | Idempotent self-repair |
-| `cmk search "<query>" [--mode keyword\|semantic\|hybrid]` | Search accumulated memory (keyword default) |
+| `cmk search "<query>" [--mode keyword\|semantic\|hybrid] [--scope facts\|transcripts]` | Search memory — by meaning with the embedder (hybrid default after `--with-semantic`); `--scope transcripts` = the raw session record |
 | `cmk get <id…>` / `cmk timeline <id>` / `cmk cite <id>` / `cmk recent-activity` | Read the index back — full fact bodies + provenance, sequential context around an observation, a canonical citation link, recent changes (the CLI side of the `mk_*` MCP read tools) |
 | `cmk roll --scope now\|today\|recent` | Manually trigger a compression pipeline |
 | `cmk register-crons [--dry-run] [--unregister]` | Register daily + weekly jobs with cron / launchd / Task Scheduler |
@@ -66,7 +68,7 @@ Most-used commands (full list via `cmk --help`):
 
 - Node.js ≥ 20
 - Claude Code (for the hook-driven auto-memory loop)
-- Optional: Python 3.12+ for Layer 5b semantic search (deferred to a later release; keyword search ships today)
+- Optional: `cmk install --with-semantic` for semantic/hybrid recall (installs the local `@huggingface/transformers` embedder, ~260 MB once — no API, no Python)
 
 ## Three-tier model
 
