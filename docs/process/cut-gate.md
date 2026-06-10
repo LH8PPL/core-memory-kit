@@ -2,8 +2,12 @@
 
 **The single guide to run before tagging a release.** Version-agnostic — reused every cut.
 
-> **Cutting now: `v0.2.3`** — the **conversational surface**: every memory op now runs as an **MCP tool Claude drives in chat** (you never type `cmk`, no approval prompt — Task 108) + **free-speech "forget X" / "trust this"** (Task 117) + the **D-84 fix lane** (register-crons fixed on Windows+macOS, forget→search auto-reindex, persona-generate timeout, queue/import/weekly-curate now really tested — Tasks 109–116).
-> _Replace `0.2.3` / `v0.2.3` in the commands below if you reuse this guide for a later cut._
+> **Cutting now: `v0.3.0`** — **RECALL, the wow-#2 release** ("ask in your own words, get the right memory — with reasoning"):
+> **semantic + hybrid search** (Task 65 — R@5 0.941/paraphrase 1.000 on the bench, fully local), **one-flag enablement** (`cmk install --with-semantic`, Task 46),
+> the **recall TRIGGER** (Task 75 complete: the authority preamble + the auto-invoked `memory-search` skill + the mid-session hint),
+> and the **L3 raw tier** (Task 104: transcripts record tool activity + `--scope transcripts` searches them — the waterfall's floor).
+> This is a **MINOR** (`npm run release -- minor`) — 0.3.0 is the reserved recall version per RELEASE-PLAN.md.
+> _Replace `0.3.0` / `v0.3.0` in the commands below if you reuse this guide for a later cut._
 
 It exercises every kit feature end-to-end on the **real installed artifact**:
 install (with MCP-server registration), the memory-write skill, the **MCP tools driven in conversation**,
@@ -43,34 +47,37 @@ Trail: [`../journey/live-test-runs/`](../journey/live-test-runs/).
 
 ---
 
-## New in v0.2.3 — what this run additionally validates
+## New in v0.3.0 — what this run additionally validates
 
-The headline is **the regular user never types `cmk`** — every voiced intent reaches memory either **automatically** (a hook) or **Claude-mediated** through an MCP tool, **prompt-free**. Plus the **D-84 fix lane**: commands that shipped green-LOOKING but broke on real input.
+The headline is **RECALL works** — the very gap D3 waved through last cut ("~50/50, the known Task-75 gap") is what this release fixes.
+The ladder: authority preamble → auto-invoked `memory-search` skill → semantic/hybrid search → timeline/get → the raw transcript floor.
 
 | Check | Feature | What's new |
 | --- | --- | --- |
-| **★ G6 / M0** | Task 108 | `cmk install` **registers the MCP server** (`.mcp.json` + `mcp__cmk__*` allow-list) → **11 tools** Claude drives in chat, prompt-free |
-| **★ M1** | Tasks 108 + 117 | memory ops happen **in conversation** — natural capture, recall, and **free-speech mutation** with no `cmk` typing |
-| **★ M2** | Tasks 117 + 108b + 110 | **"forget X"** in plain speech → `mk_forget` **two-step** (preview + confirm) → gone from search, **no manual reindex** |
-| **M3** | Task 117 | **"trust this / not important"** in plain speech → `mk_trust` (the one free-speech gap D-85 named) |
-| **F-6 / F-9 / F-13** | Tasks 109 / 113 / 114 | the **D-84 lane**: `register-crons` fixed on Windows **and** macOS; `queue review/conflicts` + `import-anthropic` now exercised on **real** input, not the trivial path |
-| **F-16** | Task 115 | the auto-extract transcript temp (`.extract-*.tmp`) is **gitignored** — a partial buffer never travels with `git clone` |
+| **★ G2b** | Task 75.1 | the **`memory-search` recall skill** scaffolds beside memory-write — **read-only** contract, `context: fork` |
+| **★ G7** | Task 46 | **`cmk install --with-semantic`** — one flag: embedder installed, model pre-warmed, search **defaults to hybrid** |
+| **★ W1** | Tasks 75.0–75.2 | *"what did we decide about X?"* → the skill **auto-fires** (forked) → a **curated, citation-backed summary** — no re-brief, no code-grepping |
+| **★ W2** | Tasks 65 + 46 | **paraphrase recall**: a question with ZERO keyword overlap finds the fact (bare `cmk search`, no flags — hybrid by default) |
+| **★ W3** | Task 104.1 | transcripts record **what Claude DID** — a `**Tools:**` block under assistant turns |
+| **★ W4** | Task 104.2 | **`--scope transcripts`**: an old error message / command is findable in the raw record — the last-resort tier |
+| **★ D3** | Task 75 | recall FEEL is now a **GATE, not a judgment call** — leads with memory, never re-derives from code |
 
-**Standing checks (re-run; not new this cut):** the **v0.2.2 rich-auto-capture** headline **B9** (Task 103) and the **§19 retention arc B5–B8 + D5** (Tasks 91–94) stay below as the standing memory-quality + retention gate.
+**Standing checks (re-run; not new this cut):** the **v0.2.3 conversational surface M0–M3** (Tasks 108/117), the **v0.2.2 rich-auto-capture** headline **B9** (Task 103), and the **§19 retention arc B5–B8 + D5** (Tasks 91–94).
+_Note: `mk_search` now also takes `scope`; the tool count stays **11**. The B5/B7 probes overwrite `settings.json` wholesale — fine in their throwaway dirs (a real project's `search.default_mode` would be lost; don't reuse the probe line outside them)._
 
 ---
 
 ## 0. Cut the release locally, then build the REAL artifact
 
-**0a — cut the release locally FIRST.** This bumps `package.json` + finalizes the CHANGELOG so the artifact you test below actually reports `0.2.3` (without this, `npm pack` builds the OLD `0.2.2`). It is a **local commit only** — the tag-push (the outward publish) stays the very last step, after every ★ passes.
+**0a — cut the release locally FIRST.** This bumps `package.json` + finalizes the CHANGELOG so the artifact you test below actually reports `0.3.0` (without this, `npm pack` builds the OLD `0.2.4`). It is a **local commit only** — the tag-push (the outward publish) stays the very last step, after every ★ passes.
 
 ```powershell
 cd C:\Projects\claude-memory-kit
 git checkout main; git pull
-npm run release -- patch             # 0.2.3 is a PATCH (polish, no new wow — RELEASE-PLAN.md); [Unreleased] → ## [0.2.3]; package.json 0.2.2 → 0.2.3
+npm run release -- minor             # 0.3.0 is the MINOR recall-wow release (RELEASE-PLAN.md); [Unreleased] → ## [0.3.0]; package.json 0.2.4 → 0.3.0
 git diff                             # review: ONLY the version bump + CHANGELOG consolidation
 git add CHANGELOG.md packages\cli\package.json
-git commit -m "release: v0.2.3"      # local release commit — do NOT tag yet (that's the last step)
+git commit -m "release: v0.3.0"      # local release commit — do NOT tag yet (that's the last step)
 git push origin main
 ```
 
@@ -78,16 +85,16 @@ git push origin main
 
 ```powershell
 cd C:\Projects\claude-memory-kit\packages\cli
-npm pack                             # → lh8ppl-claude-memory-kit-0.2.3.tgz
+npm pack                             # → lh8ppl-claude-memory-kit-0.3.0.tgz
 npm uninstall -g @lh8ppl/claude-memory-kit
-npm install -g .\lh8ppl-claude-memory-kit-0.2.3.tgz
-cmk --version                        # ✅ 0.2.3
+npm install -g .\lh8ppl-claude-memory-kit-0.3.0.tgz
+cmk --version                        # ✅ 0.3.0
 
 # Wipe the user tier so capture-from-zero is honest (back it up first if you care)
 Remove-Item -Recurse -Force $env:USERPROFILE\.claude-memory-kit
 ```
 
-- [ ] **G0** — `cmk --version` → `0.2.3` _(if it says `0.2.2`, you skipped 0a — run `npm run release -- patch` first; if it says `0.3.0`, you ran `minor` by mistake — `git checkout CHANGELOG.md packages\cli\package.json` and re-run with `patch`)_
+- [ ] **G0** — `cmk --version` → `0.3.0` _(if it says `0.2.4`, you skipped 0a — run `npm run release -- minor` first; if it says `0.2.5`, you ran `patch` by mistake — `git checkout CHANGELOG.md packages\cli\package.json` and re-run with `minor`)_
 
 ---
 
@@ -96,8 +103,10 @@ Remove-Item -Recurse -Force $env:USERPROFILE\.claude-memory-kit
 Validates scaffold integrity + the Task-69 skill surface.
 
 ```powershell
-mkdir C:\Temp\cut-gate7; cd C:\Temp\cut-gate7
-git init; cmk install; cmk doctor
+mkdir C:\Temp\cut-gate8; cd C:\Temp\cut-gate8
+git init
+cmk install --with-semantic          # v0.3.0: the one-flag semantic enablement (G7) — ~260 MB once + the model pre-warm; takes a minute
+cmk doctor
 code .
 ```
 
@@ -113,6 +122,22 @@ code .
       - `allowed-tools: Bash(cmk remember *) Bash(cmk forget *) Read` — **no `Edit`/`Write`**
       - the **"NEVER hand-edit `context/memory/`"** gate
       - no `packages/cli/src` dev paths
+
+- [ ] **★ G2b — the RECALL skill is scaffolded + READ-ONLY (Task 75.1 — new in v0.3.0).**
+      Open:
+        `.claude\skills\memory-search\SKILL.md`:
+      - `context: fork` (recall runs isolated — raw results never land in your chat)
+      - `allowed-tools` grants **only** search/get/timeline/recent (both surfaces) —
+        **no** `mk_remember`/`mk_forget`/`mk_trust`, **no** `Edit`/`Write` (a recall path that can't mutate memory)
+      - the body's Step 4 names `--scope transcripts` as LAST RESORT
+
+- [ ] **★ G7 — `--with-semantic` enabled hybrid-by-default (Task 46 — new in v0.3.0).**
+      The install above printed **"Semantic recall ENABLED — `cmk search` now defaults to hybrid here. Model cached (Ns)."**
+      ```powershell
+      type context\settings.json        # "search": { "default_mode": "hybrid" }
+      ```
+      **PASS:** the install line said ENABLED **and** settings.json carries `default_mode: hybrid`.
+      _(If npm failed, settings must NOT say hybrid — no half-state; keyword search unaffected.)_
 
 - [ ] **★ G3 — CLAUDE.md is slim.**
       The "Memory write rules" block is a few invariants + a pointer to the skill,
@@ -274,9 +299,9 @@ which carries raw, un-screened text, so it must never be committed.
 
 ```powershell
 # The security half (deterministic): the diagnostic log is gitignored.
-git -C C:\Temp\cut-gate7 check-ignore context\sessions\probe.extract.log
+git -C C:\Temp\cut-gate8 check-ignore context\sessions\probe.extract.log
 # The trace half (observational): if any build turn was graded LOW, you'll see it.
-findstr /S /C:"low_trust_discarded" C:\Temp\cut-gate7\context\sessions\*.extract.log
+findstr /S /C:"low_trust_discarded" C:\Temp\cut-gate8\context\sessions\*.extract.log
 ```
 
 - [ ] **★ B6 — PASS (must):**
@@ -357,7 +382,7 @@ findstr /S /C:"\"tier\":\"U\"" %USERPROFILE%\.claude-memory-kit\.locks\audit.log
 
 ---
 
-## 4b. The conversational surface — Claude drives the tools (Tasks 108 + 117)  ⬅️ the v0.2.3 headline
+## 4b. The conversational surface — Claude drives the tools (Tasks 108 + 117)  ⬅️ the v0.2.3 headline (standing)
 
 The regular user **never types `cmk`** — they talk, and Claude runs the MCP tools **prompt-free**.
 Run these **in chat** (a real Claude Code session), not the terminal. This is the surface the
@@ -403,6 +428,44 @@ then:
       It names your rules (uv/ruff/type-hints/layered) + the structure (port 8000, layered, Claude SDK)
       **without a re-brief**.
 
+### ★ W1–W4 — the v0.3.0 recall ladder (run here, in Session 2)
+
+The headline gate. Each rung exercises a different layer of the new recall stack.
+
+- [ ] **★ W1 — the recall skill FIRES (Tasks 75.0–75.2).**
+      Say: *"what did we decide about how this project is structured?"* (or any "what did we decide about X").
+      **PASS, all three:**
+      1. Claude **invokes the `memory-search` skill on its own** (you'll see the skill/agent activity) — not a `Grep`/`Read` crawl of the code.
+      2. The answer is a **curated summary with citation ids** (`P-XXXXXXXX`) — not raw file dumps.
+      3. It happens **mid-session** too (the per-prompt hint keeps the awareness alive after the snapshot scrolls) — ask again ~20 turns in.
+      _(Pre-v0.3.0 this was D3's "~50/50, ship anyway". If the skill never fires, the trigger description needs work — blocker.)_
+
+- [ ] **★ W2 — paraphrase recall (Tasks 65 + 46).**
+      In the terminal — a question with **ZERO keyword overlap** with what you said in Session 1
+      (you said "uv, never pip" / "FastAPI is the delivery layer"):
+      ```powershell
+      cmk search "how do we manage python dependencies"     # no flags — hybrid is the default after G7
+      cmk search "where does business logic belong"
+      ```
+      **PASS:** each finds the right fact (the uv rule; the services-layer rule). The result line says `mode=hybrid` (or semantic).
+      _(Keyword-only would miss both — that's the 0.176 → 0.941 bench gap shipping.)_
+
+- [ ] **★ W3 — transcripts record what Claude DID (Task 104.1).**
+      ```powershell
+      type context\transcripts\*.md | Select-String -Context 0,4 "\*\*Tools:\*\*" | Select-Object -First 3
+      ```
+      **PASS:** assistant turns carry a `**Tools:**` block — the commands run / files edited during Session 1,
+      with truncated results. _(This is the durable record native lacks — its JSONL expires in ~30 days.)_
+
+- [ ] **★ W4 — the raw record is searchable, as LAST RESORT (Task 104.2).**
+      Pick something that happened only as an ACTION in Session 1 (a command output, an error you saw — not a stated fact):
+      ```powershell
+      cmk search "<that error/command fragment>" --scope transcripts
+      cmk search "<the same fragment>"                       # default scope: must NOT return raw chunks
+      ```
+      **PASS:** the transcripts scope finds it (a `T:context/transcripts/...` hit); the **default scope stays curated** (no transcript leak).
+      In chat, the skill's Step 4 reaches the same tier when curated memory has no answer.
+
 - [ ] **D6 — SessionStart self-heal (Task 105).**
       Session 1's buffer rolled forward even though you never cleanly closed it — at Session 2's
       SessionStart the kit rolled the leftover `now.md` into a dated daily file:
@@ -416,11 +479,11 @@ then:
 - [ ] **D2 — style follow-through.**
       `/health` lands as a **thin route** in `api/`, **type-hinted**, without being re-told your style.
 
-- [ ] **★ D3 — recall FEEL (the cut judgment).**
-      Watch *how* it answers your **rules**: lead with memory, or **glob/read the code** to re-derive?
-      The harness found this ~**50/50** — the known **Task-75 active-recall gap** (v0.3).
-      The cold-open (§6) is the reliable wedge; in-project recall varies.
-      **Decide:** ship with this, or want Task 75 first? *(Rec: ship.)*
+- [ ] **★ D3 — recall FEEL (now a GATE — Task 75 shipped).**
+      Watch *how* it answers your **rules**: it must **lead with memory** (the injected snapshot, `mk_search`, or the
+      memory-search skill) — **never** glob/read the code to re-derive what memory already holds.
+      _Decision trail: pre-v0.3.0 this was a judgment call ("~50/50, the known Task-75 gap, rec: ship anyway").
+      v0.3.0 IS the Task-75 fix (authority preamble + skill + hint) — so re-deriving-from-code is now a **blocker**, not a shrug._
 
 - [ ] **R2-quality — no hallucinated summary (Task 84).**
       Type: `context\sessions\recent.md` and `today-*.md`
@@ -449,7 +512,7 @@ then:
 ## 6. Session 3 — the cold-open (the wedge, wow #1)  ⬅️ a BRAND-NEW project
 
 ```powershell
-mkdir C:\Temp\cut-gate-coldopen7; cd C:\Temp\cut-gate-coldopen7
+mkdir C:\Temp\cut-gate-coldopen8; cd C:\Temp\cut-gate-coldopen8
 git init; cmk install; code .
 ```
 Ask: *"Start a new Python backend for me - set up the structure."*
@@ -462,7 +525,7 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 
 ---
 
-## 7. Full feature sweep — every `cmk` subcommand  (~15 min, in `C:\Temp\cut-gate7`)
+## 7. Full feature sweep — every `cmk` subcommand  (~15 min, in `C:\Temp\cut-gate8`)
 
 **Recall & index**
 
@@ -504,7 +567,7 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 
 - [ ] **F-7**
       `cmk forget <id> --yes` → tombstones (moved to `archive\tombstones`, still resolvable — NOT hard-deleted).
-      **v0.2.3:** the fact **disappears from `cmk search` immediately** — no manual `cmk reindex` (Task 110); the free-speech / two-step path is **M2**.
+      **Since v0.2.3:** the fact **disappears from `cmk search` immediately** — no manual `cmk reindex` (Task 110); the free-speech / two-step path is **M2**.
       _(`--yes` is required in v0.1.0; `<id>` must be a **fact** id — see F-3.)_
 
 - [ ] **F-8**
@@ -544,7 +607,7 @@ Ask: *"Start a new Python backend for me - set up the structure."*
       `cmk transcripts extract` (**no path arg**) → pulls durable facts out of your captured Claude session transcripts.
       _Heads-up: with no arg it scans your **whole** `~\.claude\projects` history (can be thousands of sessions / many MB written to `transcripts-extracted\`). Run it where you're OK with that, or skip — it's not a ★._
 
-- [ ] **F-16 — transcript temp is gitignored (Task 115 — new in v0.2.3).**
+- [ ] **F-16 — transcript temp is gitignored (Task 115 — since v0.2.3).**
       The auto-extract write buffer (`.extract-*.tmp`) is created-then-deleted, so `git status` usually shows nothing **whether or not** the ignore works — test the rule **deterministically**:
       ```powershell
       New-Item -Force context\transcripts\.extract-test.tmp | Out-Null
@@ -578,8 +641,8 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 
 ## 9. Portability ("another computer")
 
-In `C:\Temp\cut-gate7`: `git add -A; git commit -m "wip"`.
-Clone elsewhere (`git clone C:\Temp\cut-gate7 C:\Temp\cut-gate-clone`), open *that* in Claude Code.
+In `C:\Temp\cut-gate8`: `git add -A; git commit -m "wip"`.
+Clone elsewhere (`git clone C:\Temp\cut-gate8 C:\Temp\cut-gate-clone`), open *that* in Claude Code.
 
 - [ ] **★ H1**
       the clone already has the project memory (`context/` is committed — tenet T2).
@@ -589,9 +652,9 @@ Clone elsewhere (`git clone C:\Temp\cut-gate7 C:\Temp\cut-gate-clone`), open *th
 ## Verdict + the cut
 
 **Cut if** every **★** passes —
-`G1–G3, G5, G6, R1, R2, M0, M1, M2, B2, B9, B3, B4, B5, B6, B7, D1, E1, F-3, L3, H1` —
-and you've decided D3's recall variance is acceptable *(rec: yes — active recall is v0.3)*.
-**M0–M2 are the v0.2.3 headline** — every memory op runs as a Claude-driven MCP tool in chat, prompt-free, with "forget X" two-step + auto-reindexed. **B9 stays the standing rich-auto-capture gate** (the v0.2.2 headline) — if `context\memory\` has no `write_source: auto-extract` rich file, investigate before shipping.
+`G1–G3, G2b, G5, G6, G7, R1, R2, M0, M1, M2, W1–W4, B2, B9, B3, B4, B5, B6, B7, D1, D3, E1, F-3, L3, H1`.
+_(D3's old "decide if the recall variance is acceptable" clause is GONE — v0.3.0 shipped the Task-75 fix; D3 is a hard gate now.)_
+**The W1–W4 recall ladder + D3 are the v0.3.0 headline** — the skill fires, paraphrase recall hits, the raw record is reachable, and memory-first answering is a gate. **M0–M2 stay the standing conversational gate** (the v0.2.3 headline); **B9 stays the standing rich-auto-capture gate** (the v0.2.2 headline) — if `context\memory\` has no `write_source: auto-extract` rich file, investigate before shipping.
 
 (B8, D5, D6 are observational — they confirm the new graduation/inject/self-heal behavior when it fires,
 but the code is proven by B7/B5 + the suite.)
@@ -604,21 +667,21 @@ The tag triggers an **immutable** npm publish; whatever docs are committed at th
 
 - [ ] **CHANGELOG consolidated** — `[Unreleased]` folded into `## [X.Y.Z] — <date>`; `[Unreleased]` reset; `print-release-notes.mjs <version>` parses the section.
 - [ ] **★ READMEs reflect THIS version** — both the **root `README.md`** (status line + "What it does") **and** the **npm landing `packages/cli/README.md`** describe this version's headline capability + its new commands. _(Lesson from v0.2.0: the tag beat the README refresh, so the immutable npm 0.2.0 page shipped a stale landing page — fixed only by a 0.2.1 patch. The npm landing page is `packages/cli/README.md`, NOT the root one.)_
-- [ ] **`packages/cli/package.json` version** = the version you're about to tag (`0.2.3`).
+- [ ] **`packages/cli/package.json` version** = the version you're about to tag (`0.3.0`).
 
 **To publish (your outward action):**
 
 ```powershell
-git tag v0.2.3
-git push origin v0.2.3
+git tag v0.3.0
+git push origin v0.3.0
 ```
 
-`publish.yml` runs the suite, publishes `@lh8ppl/claude-memory-kit@0.2.3` to npm with provenance,
-and creates the GitHub Release from the `[0.2.3]` CHANGELOG section.
+`publish.yml` runs the suite, publishes `@lh8ppl/claude-memory-kit@0.3.0` to npm with provenance,
+and creates the GitHub Release from the `[0.3.0]` CHANGELOG section.
 
 **Verify after:**
-- `npm view @lh8ppl/claude-memory-kit version` → `0.2.3`
+- `npm view @lh8ppl/claude-memory-kit version` → `0.3.0`
 - the npm page shows a **provenance** badge
-- the GitHub Release matches `## [0.2.3]`
+- the GitHub Release matches `## [0.3.0]`
 
 Per-finding notes go in a dated doc under [`../journey/`](../journey/), not here — this stays a clean script.
