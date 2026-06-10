@@ -530,4 +530,27 @@ describe('Task 10 — mergeFacts() boundary', () => {
       // — verified by file presence above; structural assertion sufficient.
     });
   });
+
+  describe('Task 124 — merge keeps INDEX.md current (the D-112 class)', () => {
+    it('after a merge INDEX.md lists C, drops A+B, and other entries survive (over-mutation guard)', () => {
+      // Same bug class as forget (D-112): writeFact reindexes when C is
+      // created, but moveToSuperseded(A/B) ran AFTER that — leaving A and B
+      // dangling in INDEX.md until a manual `cmk reindex`.
+      const keeper = writeFact(validFactOpts({ projectRoot, slug: 'keeper', title: 'Keeper', body: 'Keeper body, untouched by the merge.' }));
+      const wA = writeFact(validFactOpts({ projectRoot, slug: 'a', body: 'Body A.' }));
+      const wB = writeFact(validFactOpts({ projectRoot, slug: 'b', body: 'Body B.' }));
+
+      const r = mergeFacts(
+        validMergeOpts(wA.id, wB.id, { projectRoot, mergedBody: 'X. Y.', mergedSlug: 'combined' }),
+      );
+      expect(r.action).toBe('merged');
+
+      // Door 2 (State): the merge left the markdown index current in-band.
+      const index = readFileSync(join(projectRoot, 'context', 'memory', 'INDEX.md'), 'utf8');
+      expect(index).toContain(r.id); // C listed
+      expect(index).not.toContain(wA.id); // A superseded → gone
+      expect(index).not.toContain(wB.id); // B superseded → gone
+      expect(index).toContain(keeper.id); // over-mutation guard
+    });
+  });
 });

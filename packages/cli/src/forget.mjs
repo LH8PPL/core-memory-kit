@@ -29,6 +29,7 @@ import { ERROR_CATEGORIES, errorResult, notFoundResult } from './result-shapes.m
 import { findBulletScratchpad } from './bullet-lookup.mjs';
 import { openIndexDb } from './index-db.mjs';
 import { reindexBoot } from './index-rebuild.mjs';
+import { reindex } from './reindex.mjs';
 
 // Layer-2 review: PR-1 rejected \n / \r / : in the `reason` field as a
 // minimum fix for the naive serializer (finding B2). PR-2's frontmatter.mjs
@@ -291,6 +292,18 @@ export function forget(opts = {}) {
       })),
     },
   });
+
+  // Task 124 (D-112): the writer owns the derived view on the DELETE path
+  // too — writeFact refreshes INDEX.md on every create (the Task-85 lesson);
+  // without this, the tombstoned fact stayed listed in INDEX.md and doctor
+  // HC-4 failed until a manual `cmk reindex` (dogfood-found 2026-06-10).
+  // Best-effort, same contract as writeFact's: the tombstone is already
+  // durable on disk, so an index hiccup must not fail the forget.
+  try {
+    reindex({ tier: match.tier, projectRoot, userDir, warn: () => {} });
+  } catch {
+    // index rebuild is best-effort; the tombstone already succeeded
+  }
 
   // Task 110 (F-7 / D-84): reindex the project tier IN-BAND so the just-
   // tombstoned fact stops surfacing in `cmk search` immediately — no manual

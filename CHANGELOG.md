@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Fixed
+
+- **memory(124): `cmk forget` and fact merges keep `INDEX.md` current.** Tombstoning or merging a granular fact now refreshes the markdown index in-band — previously the removed fact stayed listed (a dangling link) and `cmk doctor`'s INDEX-accuracy check failed until a manual `cmk reindex`. Found by dogfooding the kit on its own repo.
+
 ### Added
 
 - **mcp(125): degraded recall is never silent.** When a project's configured hybrid default can't run (embedder unavailable), `mk_search` now tells Claude the results are keyword-only and to suggest `cmk install --with-semantic` — so the degradation reaches the user instead of hiding. (The CLI already printed a stderr note; this brings the MCP surface to parity.)
