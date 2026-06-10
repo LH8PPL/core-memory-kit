@@ -16,7 +16,8 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { install, mergeProjectSettings } from '../packages/cli/src/install.mjs';
+import { install, mergeProjectSettings, buildDefaultNpmRunner } from '../packages/cli/src/install.mjs';
+import { formatSemanticSummary } from '../packages/cli/src/subcommands.mjs';
 import { resolveDefaultSearchMode } from '../packages/cli/src/semantic-backend.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -100,6 +101,48 @@ describe('Task 46 — install --with-semantic / --no-semantic', () => {
     expect(s.scratchpads['MEMORY.md'].max_chars).toBe(4000); // untouched
     expect(s.search.custom).toBe(1); // sibling key inside search preserved
     expect(s.search.default_mode).toBe('hybrid');
+  });
+});
+
+describe('Task 125.4 — buildDefaultNpmRunner (the production closure, seam-testable)', () => {
+  it('spawns ONE constant command string with shell + timeout (DEP0190-safe; Door 3)', () => {
+    const calls = [];
+    const runner = buildDefaultNpmRunner({
+      spawnSyncImpl: (cmd, opts) => {
+        calls.push({ cmd, opts });
+        return { status: 0 };
+      },
+    });
+    expect(runner()).toEqual({ status: 0, error: undefined });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].cmd).toBe('npm install -g @huggingface/transformers');
+    expect(calls[0].opts.shell).toBe(true);
+    expect(calls[0].opts.stdio).toBe('inherit');
+    expect(calls[0].opts.timeout).toBe(600_000); // design §8.5 spawn discipline
+  });
+
+  it('timeout/error path: status null + error message surface (no throw)', () => {
+    const runner = buildDefaultNpmRunner({
+      spawnSyncImpl: () => ({ status: null, error: new Error('spawnSync npm ETIMEDOUT') }),
+    });
+    const r = runner();
+    expect(r.status).toBe(null);
+    expect(r.error).toMatch(/ETIMEDOUT/);
+  });
+});
+
+describe('Task 125.4 — formatSemanticSummary (install summary lines, pure)', () => {
+  it('covers all three outcomes + the noHooks tip suppression', () => {
+    expect(
+      formatSemanticSummary({ action: 'enabled', warmed: { ok: true, ms: 1500 } }, {}),
+    ).toMatch(/ENABLED.*hybrid.*Model cached \(2s\)/s);
+    expect(
+      formatSemanticSummary({ action: 'enabled', warmed: { ok: false, reason: 'x' } }, {}),
+    ).toMatch(/ENABLED.*downloads on first search/s);
+    expect(formatSemanticSummary({ action: 'disabled' }, {})).toMatch(/pinned OFF.*keyword/s);
+    expect(formatSemanticSummary({ action: 'skipped' }, {})).toMatch(/--with-semantic/);
+    expect(formatSemanticSummary({ action: 'skipped' }, { noHooks: true })).toBe(null);
+    expect(formatSemanticSummary({ action: 'error', error: 'boom' }, {})).toBe(null);
   });
 });
 

@@ -462,25 +462,33 @@ export function mergeProjectSettings(projectRoot, patch) {
   }
 }
 
+/**
+ * The production npm-spawn closure, as an injectable-seam factory
+ * (Task 125.4) so its argv/shell/timeout contract is testable without
+ * running a real `npm install -g` (which stays a machine-level step
+ * tests must never take).
+ */
+export function buildDefaultNpmRunner({ spawnSyncImpl = spawnSync } = {}) {
+  return () => {
+    // One constant command string under shell:true (no user input — and
+    // an args array + shell:true trips Node's DEP0190). npm is npm.cmd
+    // on Windows; the shell resolves it cross-platform.
+    const r = spawnSyncImpl('npm install -g @huggingface/transformers', {
+      encoding: 'utf8',
+      stdio: 'inherit',
+      shell: true,
+      // spawn-discipline (design §8.5): a hung registry shouldn't hang
+      // install forever; 10 min covers the ~46 MB package on slow links.
+      timeout: 600_000,
+    });
+    return { status: r.status, error: r.error?.message };
+  };
+}
+
 async function enableSemantic({ projectRoot, spawnNpm, warm }) {
   // 1. Install the optional embedder globally (it resolves as a sibling of
   // the globally-installed kit). Injectable for tests.
-  const runNpm =
-    spawnNpm ??
-    (() => {
-      // One constant command string under shell:true (no user input — and
-      // an args array + shell:true trips Node's DEP0190). npm is npm.cmd
-      // on Windows; the shell resolves it cross-platform.
-      const r = spawnSync('npm install -g @huggingface/transformers', {
-        encoding: 'utf8',
-        stdio: 'inherit',
-        shell: true,
-        // spawn-discipline (design §8.5): a hung registry shouldn't hang
-        // install forever; 10 min covers the ~46 MB package on slow links.
-        timeout: 600_000,
-      });
-      return { status: r.status, error: r.error?.message };
-    });
+  const runNpm = spawnNpm ?? buildDefaultNpmRunner();
   const npm = runNpm();
   if (npm.status !== 0) {
     return {
