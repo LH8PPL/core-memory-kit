@@ -72,9 +72,18 @@ function isLiveJitter(r) {
 describeMaybe(`spawn-smoke: weeklyCurate archive path (live: ${skipReason ?? 'enabled'})`, () => {
   // ONE real-Haiku archive round-trip. `skipRecentRebuild: true` pins this smoke
   // to the archive call (the F-4 target); the recent.md rebuild is a separate
-  // path (its own dailyDistill smoke). 120s timeout: the archive call carries the
-  // 50s inner Haiku bound, and weekly-curate may also fire the (usually no-op on a
-  // fresh install) persona pass — generous headroom for a slow round-trip.
+  // path (its own dailyDistill smoke).
+  //
+  // 180s timeout (was 120s pre-retry): the FULL retry composition must fit —
+  // sandbox install/seed (~5-15s under stress concurrency) + attempt 1 at the
+  // 50s inner Haiku bound + 5s backoff + attempt 2 at up to 50s (a SLOW
+  // SUCCESS takes as long as a timeout) + assertions. The original 120s
+  // composed only 50+5+50 and was killed by vitest at exactly 120s in the
+  // 2026-06-10 stress (the inner-bound-vs-outer-ceiling class, design §8.5,
+  // recurring in test budgets). Weekly-curate runs from CRON — this budget is
+  // a harness bound, not a production-envelope mirror (unlike the
+  // compress-session smoke's 60s = SessionEnd hook ceiling), so raising it
+  // loses nothing.
   it('archives aged today-*.md into archive.md via REAL Haiku (F-4 real-input verify)', async () => {
     const sandbox = mkdtempSync(join(tmpdir(), 'cmk-weekly-smoke-'));
     const projectRoot = join(sandbox, 'proj');
@@ -114,7 +123,8 @@ describeMaybe(`spawn-smoke: weeklyCurate archive path (live: ${skipReason ?? 'en
       // Task 125.2 — live-jitter handling, two layers:
       //   1. RETRY once: a jitter-class failure (timeout/5xx/network) usually
       //      clears in seconds — the 2026-06-10 stress 4/5 failure passed on
-      //      the very next run. Budget fits: 50s inner + 5s + 50s < 120s.
+      //      the very next run. The 180s test budget composes the FULL path
+      //      (setup + 50s + 5s + 50s + asserts) — see the timeout note above.
       //   2. If the retry is ALSO jitter: assert the degradation CONTRACT
       //      instead of failing the gate (the compress-session smoke's idiom)
       //      — the error path must leave the aged files + archive state
@@ -161,5 +171,5 @@ describeMaybe(`spawn-smoke: weeklyCurate archive path (live: ${skipReason ?? 'en
     } finally {
       rmSync(sandbox, { recursive: true, force: true });
     }
-  }, 120_000);
+  }, 180_000);
 });
