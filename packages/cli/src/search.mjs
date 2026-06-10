@@ -274,12 +274,21 @@ function runTranscriptKeywordSearch(db, opts) {
   }
   return rows.map((r) => ({
     id: transcriptHitId(r),
-    snippet: r.snippet,
+    // Raw turns contain newlines (dialogue + Tools blocks) — flatten so the
+    // one-line-per-hit output contract holds across scopes.
+    snippet: flattenSnippet(r.snippet),
     source_file: r.source_file,
     source_line: r.source_line,
     heading: r.heading,
     score: r.score,
   }));
+}
+
+const TRANSCRIPT_SNIPPET_MAX = 240;
+
+function flattenSnippet(s) {
+  const flat = String(s ?? '').replace(/\s+/g, ' ').trim();
+  return flat.length > TRANSCRIPT_SNIPPET_MAX ? flat.slice(0, TRANSCRIPT_SNIPPET_MAX) + '…' : flat;
 }
 
 // --- Reciprocal-rank fusion (hybrid mode) -----------------------------

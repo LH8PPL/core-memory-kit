@@ -313,7 +313,12 @@ export async function prepareSemanticBackend({
             // The synthetic T: id — search()'s transcript keyword backend
             // produces the same key, so hybrid RRF fuses correctly.
             id: `T:${r.source_file}:${r.source_line}`,
-            snippet: r.body,
+            // Flatten + bound like the keyword side: raw turn bodies are
+            // multi-line and up to 1500 chars — too heavy for a result line.
+            snippet: (() => {
+              const flat = String(r.body ?? '').replace(/\s+/g, ' ').trim();
+              return flat.length > 240 ? flat.slice(0, 240) + '…' : flat;
+            })(),
             source_file: r.source_file,
             source_line: r.source_line,
             heading: r.heading,
