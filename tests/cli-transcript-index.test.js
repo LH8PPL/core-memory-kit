@@ -120,4 +120,67 @@ describe('Task 104.2 — syncTranscriptChunks (DB state)', () => {
     expect(r.files).toBe(0);
     expect(r.chunks).toBe(0);
   });
+
+  it('a deleted transcript file is pruned (chunks + checkpoint); survivors untouched', () => {
+    writeDay('2026-06-09', turn('2026-06-09T09:00:00Z', 'assistant', 'Keep me.'));
+    writeDay('2026-06-10', turn('2026-06-10T10:00:00Z', 'assistant', 'Delete me.'));
+    syncTranscriptChunks({ db, projectRoot });
+    rmSync(join(projectRoot, 'context', 'transcripts', '2026-06-10.md'));
+    syncTranscriptChunks({ db, projectRoot });
+    const bodies = db.prepare('SELECT body FROM transcript_chunks').all().map((x) => x.body);
+    expect(bodies.some((b) => b.includes('Keep me'))).toBe(true);
+    expect(bodies.some((b) => b.includes('Delete me'))).toBe(false);
+    const keys = db.prepare("SELECT path FROM files WHERE path LIKE 'transcript:%'").all();
+    expect(keys).toHaveLength(1);
+  });
+});
+
+describe('Task 104.2 — composition with reindexBoot (the shared files table)', () => {
+  let sandbox, projectRoot, userDir, db;
+
+  beforeEach(async () => {
+    sandbox = mkdtempSync(join(tmpdir(), 'cmk-tindex-boot-'));
+    projectRoot = join(sandbox, 'proj');
+    userDir = join(sandbox, 'user');
+    const { install } = await import('../packages/cli/src/install.mjs');
+    await install({ projectRoot, userTier: userDir, noHooks: true });
+    db = openIndexDb({ projectRoot });
+  });
+  afterEach(() => {
+    db?.close();
+    rmSync(sandbox, { recursive: true, force: true });
+  });
+
+  it("reindexBoot indexes transcripts AND its orphan-prune never eats the 'transcript:' checkpoints", async () => {
+    const { reindexBoot } = await import('../packages/cli/src/index-rebuild.mjs');
+    writeFileSync(
+      join(projectRoot, 'context', 'transcripts', '2026-06-10.md'),
+      '## 2026-06-10T10:00:00Z — assistant\n\nWe chose Valkey for caching.\n\n',
+      'utf8',
+    );
+    reindexBoot({ projectRoot, userDir, db });
+    expect(db.prepare('SELECT COUNT(*) AS n FROM transcript_chunks').get().n).toBe(1);
+    // The second boot exercises the prune path against the now-existing
+    // transcript checkpoint — it must survive (the prune walks the shared
+    // files table; transcript rows are NOT observation orphans).
+    reindexBoot({ projectRoot, userDir, db });
+    const keys = db.prepare("SELECT path FROM files WHERE path LIKE 'transcript:%'").all();
+    expect(keys).toHaveLength(1);
+    expect(db.prepare('SELECT COUNT(*) AS n FROM transcript_chunks').get().n).toBe(1);
+  });
+
+  it('reindexFull rebuilds the transcript scope from scratch too', async () => {
+    const { reindexFull } = await import('../packages/cli/src/index-rebuild.mjs');
+    writeFileSync(
+      join(projectRoot, 'context', 'transcripts', '2026-06-10.md'),
+      '## 2026-06-10T10:00:00Z — assistant\n\nDeploys via tag push.\n\n',
+      'utf8',
+    );
+    reindexFull({ projectRoot, userDir, db });
+    expect(db.prepare('SELECT COUNT(*) AS n FROM transcript_chunks').get().n).toBe(1);
+    const fts = db
+      .prepare("SELECT count(*) AS n FROM transcript_chunks_fts WHERE transcript_chunks_fts MATCH 'deploys'")
+      .get();
+    expect(fts.n).toBe(1);
+  });
 });

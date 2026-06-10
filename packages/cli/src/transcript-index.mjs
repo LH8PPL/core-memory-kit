@@ -123,5 +123,24 @@ export function syncTranscriptChunks({ db, projectRoot, now = Date.now() } = {})
     files += 1;
     chunks += parsed.length;
   }
+
+  // Orphan-prune for THIS scope: a deleted/rotated transcript file leaves its
+  // chunks + checkpoint behind otherwise. The observation indexer's prune
+  // deliberately skips 'transcript:' rows (they are not observation sources)
+  // — pruning them is this function's job, scoped by the key prefix.
+  const live = new Set(names.map((n) => FILES_KEY_PREFIX + 'context/transcripts/' + n));
+  const known = db
+    .prepare("SELECT path FROM files WHERE path LIKE ?")
+    .all(FILES_KEY_PREFIX + '%');
+  const pruneTxn = db.transaction((filesKey) => {
+    db.prepare('DELETE FROM transcript_chunks WHERE source_file = ?').run(
+      filesKey.slice(FILES_KEY_PREFIX.length),
+    );
+    db.prepare('DELETE FROM files WHERE path = ?').run(filesKey);
+  });
+  for (const { path } of known) {
+    if (!live.has(path)) pruneTxn(path);
+  }
+
   return { files, chunks };
 }

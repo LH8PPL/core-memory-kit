@@ -47,6 +47,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, join, relative } from 'node:path';
 import chokidar from 'chokidar';
 import { INDEX_DB_SCHEMA } from './index-db.mjs';
+import { syncTranscriptChunks } from './transcript-index.mjs';
 import { readBullet, parseBulletProvenance } from './provenance.mjs';
 import { parse as parseFrontmatter } from './frontmatter.mjs';
 import {
@@ -435,6 +436,12 @@ export function reindexBoot({ projectRoot, userDir, db, now }) {
     });
     const knownPaths = db.prepare('SELECT path FROM files').all();
     for (const { path: relPath } of knownPaths) {
+      // Task 104.2 composition guard: 'transcript:'-prefixed checkpoints
+      // belong to the transcript scope (transcript-index.mjs) — they are
+      // never in the observation live-set and pruning them here would
+      // defeat that scope's checkpoint on every boot. Its own sync prunes
+      // its own orphans.
+      if (relPath.startsWith('transcript:')) continue;
       if (liveRelPaths.has(relPath)) continue;
       const obsCount = db
         .prepare('SELECT COUNT(*) AS n FROM observations WHERE source_file = ?')
@@ -443,12 +450,24 @@ export function reindexBoot({ projectRoot, userDir, db, now }) {
     }
   }
 
+  // Task 104.2 — sync the transcript scope (the L3 raw tier) in the same
+  // boot pass. Cheap: per-file sha1 checkpoint; best-effort — a transcript
+  // sync hiccup must not fail the observation reindex.
+  let transcripts = { files: 0, chunks: 0 };
+  try {
+    transcripts = syncTranscriptChunks({ db, projectRoot, now: ts });
+  } catch {
+    // best-effort; the next boot retries
+  }
+
   return {
     filesScanned,
     filesReindexed,
     observationsAffected,
     filesPruned,
     observationsPruned,
+    transcriptFiles: transcripts.files,
+    transcriptChunks: transcripts.chunks,
     durationMs: Date.now() - t0,
     skipped,
   };
@@ -464,13 +483,20 @@ export function reindexBoot({ projectRoot, userDir, db, now }) {
 export function reindexFull({ projectRoot, userDir, db, now }) {
   const t0 = Date.now();
   const ts = now ?? t0;
-  // Drop + recreate (faster than per-row DELETE).
+  // Drop + recreate (faster than per-row DELETE). Task 104.2: the transcript
+  // scope drops + rebuilds with everything else — `files` carries its
+  // checkpoints, so a full reindex must re-chunk from scratch too.
   db.exec(`
     DROP TABLE IF EXISTS observations_fts;
     DROP TRIGGER IF EXISTS obs_after_insert;
     DROP TRIGGER IF EXISTS obs_after_update;
     DROP TRIGGER IF EXISTS obs_after_delete;
     DROP TABLE IF EXISTS observations;
+    DROP TABLE IF EXISTS transcript_chunks_fts;
+    DROP TRIGGER IF EXISTS tch_after_insert;
+    DROP TRIGGER IF EXISTS tch_after_update;
+    DROP TRIGGER IF EXISTS tch_after_delete;
+    DROP TABLE IF EXISTS transcript_chunks;
     DROP TABLE IF EXISTS files;
   `);
   db.exec(INDEX_DB_SCHEMA);
@@ -514,9 +540,20 @@ export function reindexFull({ projectRoot, userDir, db, now }) {
     observationsAffected += txn(source, sha1);
   }
 
+  // Task 104.2 — rebuild the transcript scope from scratch (its tables were
+  // dropped above). Best-effort, same contract as the boot-path sync.
+  let transcripts = { files: 0, chunks: 0 };
+  try {
+    transcripts = syncTranscriptChunks({ db, projectRoot, now: ts });
+  } catch {
+    // best-effort; the next reindex retries
+  }
+
   return {
     filesScanned,
     observationsAffected,
+    transcriptFiles: transcripts.files,
+    transcriptChunks: transcripts.chunks,
     durationMs: Date.now() - t0,
     skipped,
   };
