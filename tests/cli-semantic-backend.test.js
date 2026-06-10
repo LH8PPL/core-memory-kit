@@ -208,3 +208,54 @@ describe('Task 65 — sync + query (real embedder, small model; Doors 1+2)', () 
     }
   }, 240_000);
 });
+
+// Task 104.2 — the transcripts scope: vec_transcripts beside vec_observations,
+// the SHARED content-addressed embedding cache, synthetic T: ids matching the
+// keyword backend's fusion keys.
+describe('Task 104.2 — semantic over the transcripts scope (real embedder, small model)', () => {
+  it('embeds transcript chunks, recalls by meaning, never leaks into the facts scope', async () => {
+    if (!(await probeEmbedder())) return;
+    const db = makeDb([]);
+    try {
+      db.prepare(
+        'INSERT INTO transcript_chunks (source_file, chunk_idx, source_line, heading, body) VALUES (?, ?, ?, ?, ?)',
+      ).run(
+        'context/transcripts/2026-06-10.md', 0, 7,
+        '## 2026-06-10T10:00:00Z — assistant',
+        'We fixed the login failure by rotating the expired API credential.',
+      );
+      db.prepare(
+        'INSERT INTO transcript_chunks (source_file, chunk_idx, source_line, heading, body) VALUES (?, ?, ?, ?, ?)',
+      ).run(
+        'context/transcripts/2026-06-09.md', 0, 3,
+        '## 2026-06-09T09:00:00Z — assistant',
+        'Refactored the CSS grid layout for the dashboard.',
+      );
+
+      const prep = await prepareSemanticBackend({
+        db,
+        query: 'why could users not sign in',
+        modelId: TEST_MODEL,
+        scope: 'transcripts',
+      });
+      expect(prep.ok).toBe(true);
+      const hits = prep.backend({ limit: 2 });
+      expect(hits.length).toBeGreaterThan(0);
+      // Paraphrase recall: "sign in" finds the login-credential turn first.
+      expect(hits[0].id).toBe('T:context/transcripts/2026-06-10.md:7');
+      expect(hits[0].snippet).toContain('rotating the expired API credential');
+
+      // Scope isolation: the FACTS scope sees nothing (no observations seeded).
+      const factsPrep = await prepareSemanticBackend({
+        db,
+        query: 'why could users not sign in',
+        modelId: TEST_MODEL,
+        scope: 'facts',
+      });
+      expect(factsPrep.ok).toBe(true);
+      expect(factsPrep.backend({ limit: 5 })).toHaveLength(0);
+    } finally {
+      db.close();
+    }
+  }, 240_000);
+});

@@ -2966,6 +2966,12 @@ With files now growable, the inject step must choose WHICH slice to inject. The 
 
 Graduated content is on-disk + searchable, but *"Claude knows to search for it when needed"* is the **active-recall** behavior (Task 75), currently ~50/50. **The storage half (§19.1–19.3) alone satisfies the never-lose-memory invariant** — everything stays on disk + indexed. The **retrieval-reliability** half is v0.3. Until Task 75 lands, graduated memory is retrievable **on demand** (`cmk search`, the agent searching) but not always **auto**-recalled; §19.3 minimizes the exposure by keeping the best content injected.
 
+### 19.4.1 The L3 raw tier — transcripts (Task 104, D-117)
+
+The recall waterfall's floor. The kit's `context/transcripts/{date}.md` records every turn's dialogue **plus its tool activity** (104.1: a capped `**Tools:**` block extracted at Stop time from Anthropic's live session JSONL — which is machine-local and expires ~30 days; ours is committed and permanent). The transcript is searched **only as a last resort** (104.2): chunks (`## `-heading turns, ≤1500-char windows) index into the SEPARATE `transcript_chunks` table + `vec_transcripts`, reached via `cmk search --scope transcripts` / `mk_search {scope}` — never mixed into L1 fact results (the MemPalace last-resort contract). Hits are locations, not facts: synthetic `T:<file>:<line>` ids, no tier/trust.
+
+**Retention (104.3, settled):** transcripts keep **full history** — they are the differentiator over native Auto Memory's expiring record, and git handles append-only text well. Growth is bounded at the SOURCE (the 104.1 per-turn caps: 300-char result snippets / 4000-char Tools block), not by deletion. A retention knob (e.g. `transcripts.max_age_days` in settings.json) is deferred with an explicit trigger: transcripts dominating repo size in real installs. Public-repo deviation: this repo gitignores `context/transcripts/` (raw dev-conversation content — D-108); normal projects commit them.
+
 ### 19.5 Decision-trail — the superseded write-cap design (preserved)
 
 **Original design (pre-2026-06-04, §2.1 + §7.1.1):** per-file caps were **write** caps. `appendScratchpadBullet` consolidated stale bullets at 95%, then (post-Task-91, project tier) graduated, then **rejected** with `cap_exceeded` if still over ("no silent truncation; raise the cap or distill"). It protected the inject budget by bounding the FILE. Hermes uses the same hard-reject (D-60) — so this was a defensible, researched choice, not an accident.
