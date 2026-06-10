@@ -496,4 +496,27 @@ describe('Task 9 — forget() + resolveFact() boundaries', () => {
       expect(r.action).toBe('tombstoned');
     });
   });
+
+  describe('Task 124 — forget keeps INDEX.md current (D-112)', () => {
+    it('tombstoning removes the fact from INDEX.md; the other entries survive (over-mutation guard)', () => {
+      // The dogfood-found bug: Task 110 repruned the SQLite index but left
+      // INDEX.md (the markdown derived view) dangling → doctor HC-4 failed
+      // until a manual `cmk reindex`. The writer owns the derived view on the
+      // DELETE path too (the Task-85 create-side precedent).
+      const a = writeFact(validFactOpts({ projectRoot, slug: 'keep-one', title: 'Keep one', body: 'Keeper one body.' }));
+      const b = writeFact(validFactOpts({ projectRoot, slug: 'drop-me', title: 'Drop me', body: 'Dropped body.' }));
+      const c = writeFact(validFactOpts({ projectRoot, slug: 'keep-two', title: 'Keep two', body: 'Keeper two body.' }));
+      const indexPath = join(projectRoot, 'context', 'memory', 'INDEX.md');
+      expect(readFileSync(indexPath, 'utf8')).toContain(b.id); // writeFact kept it current
+
+      const r = forget({ idOrQuery: b.id, projectRoot, yes: true });
+      expect(r.action).toBe('tombstoned');
+
+      // Door 2 (State): no manual `cmk reindex` — forget did it in-band.
+      const index = readFileSync(indexPath, 'utf8');
+      expect(index).not.toContain(b.id);
+      expect(index).toContain(a.id);
+      expect(index).toContain(c.id);
+    });
+  });
 });

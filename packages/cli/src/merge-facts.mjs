@@ -26,6 +26,7 @@ import { parse, format } from './frontmatter.mjs';
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult, notFoundResult } from './result-shapes.mjs';
 import { writeFact } from './write-fact.mjs';
+import { reindex } from './reindex.mjs';
 
 function listLiveFactFiles(factDir) {
   if (!existsSync(factDir)) return [];
@@ -192,6 +193,17 @@ export function mergeFacts(opts = {}) {
 
   const supersededA = moveToSuperseded(matchA, writeResult.id);
   const supersededB = moveToSuperseded(matchB, writeResult.id);
+
+  // Task 124 (the D-112 class): writeFact refreshed INDEX.md when C was
+  // created — but A and B left the fact dir AFTER that, so the index kept
+  // both as dangling lines until a manual `cmk reindex`. The writer owns
+  // the derived view on the removal side too. Best-effort, same contract
+  // as writeFact's: the merge is already durable on disk.
+  try {
+    reindex({ tier, projectRoot, userDir, warn: () => {} });
+  } catch {
+    // index rebuild is best-effort; the merge already succeeded
+  }
 
   const ts = now ?? nowIso();
   appendAuditEntry(tierRoot, {
