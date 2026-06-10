@@ -24,7 +24,7 @@
 // One heading per turn so downstream tools can scan by ## markers
 // (matches claude-remember's compaction strategy).
 
-import { existsSync, mkdirSync, appendFileSync } from 'node:fs';
+import { existsSync, mkdirSync, appendFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { sanitizePrivacyTags } from './privacy.mjs';
 
@@ -33,6 +33,38 @@ function dateFromIso(iso) {
   // upstream would be over-engineering — callers pass nowIso() or a
   // test fixture date.
   return String(iso).slice(0, 10);
+}
+
+// Task 75.2 — the per-prompt "memory available" recall nudge (memsearch's
+// UserPromptSubmit hint, D-115's 75.2 half). The SessionStart snapshot +
+// its authority preamble cover the session OPEN; this keeps the agent
+// aware MID-session (after the snapshot scrolls into history) that a deep,
+// searchable archive exists behind the bounded snapshot. Conditions keep
+// it noise-free: substantive prompts only (≥10 chars — "ok"/"go" never pay
+// the hint; memsearch's heuristic) and only when there IS an archive to
+// recall from (a granular INDEX.md). One line — the per-prompt token cost
+// stays negligible, and it rides the EXISTING hook (no extra spawn).
+const HINT_MIN_PROMPT_CHARS = 10;
+
+export function buildMemoryHint({ projectRoot, prompt } = {}) {
+  if (typeof prompt !== 'string' || prompt.trim().length < HINT_MIN_PROMPT_CHARS) {
+    return null;
+  }
+  try {
+    const indexPath = join(projectRoot, 'context', 'memory', 'INDEX.md');
+    if (!existsSync(indexPath)) return null;
+    // `cmk install` scaffolds INDEX.md on every project, so existence alone
+    // is always true post-install (skill-review finding). Require at least
+    // one real entry — a fresh, empty project must not advertise recorded
+    // memory it does not have. Entry lines start "- (" (the reindex format).
+    if (!readFileSync(indexPath, 'utf8').includes('\n- (')) return null;
+  } catch {
+    return null;
+  }
+  return (
+    '[claude-memory-kit] Recorded memory available beyond the session snapshot — ' +
+    'use the memory-search skill when the answer may already be recorded (prior decisions, history, conventions).'
+  );
 }
 
 export function capturePrompt({ payload, projectRoot, now } = {}) {

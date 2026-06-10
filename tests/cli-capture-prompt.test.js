@@ -31,11 +31,12 @@ import {
   existsSync,
   readdirSync,
   mkdirSync,
+  writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { capturePrompt } from '../packages/cli/src/capture-prompt.mjs';
+import { capturePrompt, buildMemoryHint } from '../packages/cli/src/capture-prompt.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = join(dirname(__filename), '..');
@@ -276,6 +277,62 @@ describe('Task 19 — capturePrompt() boundary', () => {
   });
 });
 
+describe('Task 75.2 — buildMemoryHint (the "memory available" recall nudge)', () => {
+  let sandbox, projectRoot;
+  beforeEach(() => {
+    sandbox = mkdtempSync(join(tmpdir(), 'cmk-memory-hint-'));
+    projectRoot = join(sandbox, 'proj');
+    mkdirSync(join(projectRoot, 'context', 'memory'), { recursive: true });
+  });
+  afterEach(() => rmSync(sandbox, { recursive: true, force: true }));
+
+  const seedIndex = () =>
+    writeFileSync(
+      join(projectRoot, 'context', 'memory', 'INDEX.md'),
+      '# Granular memory index — project tier\n\n## Files\n\n- (P-AAAAAAAA) [project] [x](project_x.md) — y\n',
+      'utf8',
+    );
+
+  it('emits a one-line hint naming the memory-search skill when memory exists + prompt is substantive', () => {
+    seedIndex();
+    const hint = buildMemoryHint({ projectRoot, prompt: 'what did we decide about the deploy target?' });
+    expect(hint).toMatch(/memory-search/);
+    expect(hint).toMatch(/claude-memory-kit/);
+    expect(hint).not.toMatch(/\n/); // ONE line — per-prompt token cost stays tiny
+  });
+
+  it('returns null for short prompts (<10 chars — "ok", "go", "yes" must not pay the hint)', () => {
+    seedIndex();
+    expect(buildMemoryHint({ projectRoot, prompt: 'go' })).toBe(null);
+    expect(buildMemoryHint({ projectRoot, prompt: 'ok thanks' })).toBe(null);
+  });
+
+  it('returns null when there is no memory archive to recall from (no INDEX.md)', () => {
+    expect(
+      buildMemoryHint({ projectRoot, prompt: 'what did we decide about the deploy target?' }),
+    ).toBe(null);
+  });
+
+  it('returns null for a scaffolded-but-EMPTY INDEX.md (fresh install must not advertise memory it does not have)', () => {
+    // cmk install scaffolds INDEX.md on every project — existence alone is
+    // always true post-install. The hint requires at least one entry.
+    writeFileSync(
+      join(projectRoot, 'context', 'memory', 'INDEX.md'),
+      '# Granular memory index — project tier\n\n## Files\n\n',
+      'utf8',
+    );
+    expect(
+      buildMemoryHint({ projectRoot, prompt: 'what did we decide about the deploy target?' }),
+    ).toBe(null);
+  });
+
+  it('returns null for a missing/empty prompt (never throws)', () => {
+    seedIndex();
+    expect(buildMemoryHint({ projectRoot, prompt: '' })).toBe(null);
+    expect(buildMemoryHint({ projectRoot })).toBe(null);
+  });
+});
+
 describe('Task 19 — bin/cmk-capture-prompt (hook handler — node bin)', () => {
   let sandbox;
   let projectRoot;
@@ -331,5 +388,51 @@ describe('Task 19 — bin/cmk-capture-prompt (hook handler — node bin)', () =>
     expect(r.status).toBe(0);
     expect(r.stderr.toLowerCase()).toMatch(/cmk-capture-prompt|json|parse/);
     expect(existsSync(join(projectRoot, 'context', 'transcripts'))).toBe(false);
+  });
+
+  // Task 75.2 — the bin emits the memory hint as additionalContext (the
+  // MODEL-facing field per Anthropic's hooks doc; memsearch's systemMessage
+  // is user-display) so Claude stays aware mid-session that the deep
+  // archive + memory-search skill exist.
+  it('75.2: with a memory archive present, stdout JSON carries hookSpecificOutput.additionalContext (Door 1)', () => {
+    mkdirSync(join(projectRoot, 'context', 'memory'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, 'context', 'memory', 'INDEX.md'),
+      '# Granular memory index — project tier\n\n## Files\n\n- (P-AAAAAAAA) [project] [x](project_x.md) — y\n',
+      'utf8',
+    );
+    const r = spawnSync(process.execPath, [BIN_PATH], {
+      input: JSON.stringify({
+        hook_event_name: 'UserPromptSubmit',
+        prompt: 'what did we decide about the deploy target last week?',
+      }),
+      encoding: 'utf8',
+      cwd: projectRoot,
+    });
+    expect(r.status).toBe(0);
+    const parsed = JSON.parse(r.stdout);
+    expect(parsed.continue).toBe(true);
+    expect(parsed.hookSpecificOutput?.hookEventName).toBe('UserPromptSubmit');
+    expect(parsed.hookSpecificOutput?.additionalContext).toMatch(/memory-search/);
+    // The capture itself still happened (the hint never replaces the job).
+    expect(existsSync(join(projectRoot, 'context', 'transcripts'))).toBe(true);
+  });
+
+  it('75.2: short prompt → plain continue, no additionalContext (no hint noise on "ok"/"go")', () => {
+    mkdirSync(join(projectRoot, 'context', 'memory'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, 'context', 'memory', 'INDEX.md'),
+      '# Granular memory index — project tier\n\n## Files\n\n- (P-AAAAAAAA) [project] [x](project_x.md) — y\n',
+      'utf8',
+    );
+    const r = spawnSync(process.execPath, [BIN_PATH], {
+      input: JSON.stringify({ hook_event_name: 'UserPromptSubmit', prompt: 'go' }),
+      encoding: 'utf8',
+      cwd: projectRoot,
+    });
+    expect(r.status).toBe(0);
+    const parsed = JSON.parse(r.stdout);
+    expect(parsed.continue).toBe(true);
+    expect(parsed.hookSpecificOutput).toBeUndefined();
   });
 });
