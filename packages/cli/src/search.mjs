@@ -54,6 +54,15 @@ export const SEARCH_MODES = Object.freeze({
 export const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 1000;
 
+// Task 104.2 (D-117) — search scopes. 'facts' = the curated observation
+// index (L1, the default). 'transcripts' = the SEPARATE raw-transcript
+// chunk index (the L3 last-resort tier) — reached ONLY when explicitly
+// asked, so raw history never pollutes curated results.
+export const SEARCH_SCOPES = Object.freeze({
+  FACTS: 'facts',
+  TRANSCRIPTS: 'transcripts',
+});
+
 const TRUST_ORDINAL = Object.freeze({
   low: 1,
   medium: 2,
@@ -107,7 +116,24 @@ function validateInput(opts) {
       errors.push(`limit: must be a positive integer ≤ ${MAX_LIMIT}`);
     }
   }
-  return { errors, mode };
+  const scope = opts.scope ?? SEARCH_SCOPES.FACTS;
+  if (scope !== SEARCH_SCOPES.FACTS && scope !== SEARCH_SCOPES.TRANSCRIPTS) {
+    errors.push(`scope: must be one of facts/transcripts (got ${JSON.stringify(scope)})`);
+  }
+  if (scope === SEARCH_SCOPES.TRANSCRIPTS) {
+    // Chunks carry no tier/trust/created_at — rejecting these is more honest
+    // than silently ignoring them (the explicit-vs-configured asymmetry rule).
+    for (const [key, label] of [
+      ['tier', 'tier'],
+      ['minTrust', 'minTrust'],
+      ['since', 'since'],
+    ]) {
+      if (opts[key] !== undefined) {
+        errors.push(`${label}: not supported under the transcripts scope (raw chunks carry no ${label})`);
+      }
+    }
+  }
+  return { errors, mode, scope };
 }
 
 // --- Keyword (FTS5 BM25) backend --------------------------------------
@@ -211,6 +237,51 @@ function runKeywordSearch(db, opts) {
   }));
 }
 
+// --- Transcript-scope keyword backend (Task 104.2, the L3 raw tier) ----
+
+const TRANSCRIPT_KEYWORD_SQL = `
+SELECT
+  t.source_file AS source_file,
+  t.source_line AS source_line,
+  t.heading AS heading,
+  transcript_chunks_fts.rank AS score,
+  snippet(transcript_chunks_fts, 0, '<b>', '</b>', '...', 16) AS snippet
+FROM transcript_chunks_fts
+JOIN transcript_chunks t ON t.rowid = transcript_chunks_fts.rowid
+WHERE transcript_chunks_fts MATCH @query
+ORDER BY transcript_chunks_fts.rank
+LIMIT @limit
+`;
+
+// Synthetic, readable id for a raw chunk (chunks are locations, not curated
+// facts — no [PUL]-XXXXXXXX identity). Also the RRF fusion key in hybrid
+// mode and the drill-back handle the memory-search skill surfaces.
+function transcriptHitId(row) {
+  return `T:${row.source_file}:${row.source_line}`;
+}
+
+function runTranscriptKeywordSearch(db, opts) {
+  let rows;
+  try {
+    rows = db
+      .prepare(TRANSCRIPT_KEYWORD_SQL)
+      .all({ query: opts.query, limit: opts.limit ?? DEFAULT_LIMIT });
+  } catch (err) {
+    if (err?.code === 'SQLITE_ERROR' || /fts5:|no such column:/i.test(err?.message ?? '')) {
+      throw new FTS5ParseError(err, opts.query);
+    }
+    throw err;
+  }
+  return rows.map((r) => ({
+    id: transcriptHitId(r),
+    snippet: r.snippet,
+    source_file: r.source_file,
+    source_line: r.source_line,
+    heading: r.heading,
+    score: r.score,
+  }));
+}
+
 // --- Reciprocal-rank fusion (hybrid mode) -----------------------------
 
 /**
@@ -255,10 +326,15 @@ export function reciprocalRankFusion({
 // --- Public boundary --------------------------------------------------
 
 export function search(opts = {}) {
-  const { errors, mode } = validateInput(opts);
+  const { errors, mode, scope } = validateInput(opts);
   if (errors.length > 0) {
     return errorResult({ category: ERROR_CATEGORIES.SCHEMA, errors });
   }
+  // Scope dispatch (Task 104.2): the transcripts scope swaps the keyword
+  // backend; semantic/hybrid use the caller-prepared backend exactly like
+  // the facts scope (prepareSemanticBackend({scope}) embeds the right table).
+  const keywordBackend =
+    scope === SEARCH_SCOPES.TRANSCRIPTS ? runTranscriptKeywordSearch : runKeywordSearch;
 
   // Semantic + hybrid require an injected backend. Production v0.1.0
   // passes undefined → error with the not-yet-shipped hint. A future
@@ -279,15 +355,16 @@ export function search(opts = {}) {
   let results;
   try {
     if (mode === SEARCH_MODES.KEYWORD) {
-      results = runKeywordSearch(opts.db, opts);
+      results = keywordBackend(opts.db, opts);
     } else if (mode === SEARCH_MODES.SEMANTIC) {
       // The semantic backend is an injected callable returning the same
-      // shape as runKeywordSearch (array of {id, snippet, source_file,
-      // source_line, tier, trust, score}).
+      // shape as the scope's keyword backend (facts: {id, snippet,
+      // source_file, source_line, tier, trust, score}; transcripts: the
+      // synthetic-T:-id shape without tier/trust).
       results = opts.semanticBackend(opts);
     } else {
       // hybrid: run both backends + fuse.
-      const keywordResults = runKeywordSearch(opts.db, opts);
+      const keywordResults = keywordBackend(opts.db, opts);
       const semanticResults = opts.semanticBackend(opts);
       const fused = reciprocalRankFusion({
         keywordResults,
@@ -309,5 +386,5 @@ export function search(opts = {}) {
     throw err;
   }
 
-  return { action: 'found', mode, results };
+  return { action: 'found', mode, scope, results };
 }
