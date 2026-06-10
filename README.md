@@ -108,7 +108,7 @@ context/
 │   ├── INDEX.md       ← pointer index, walked at session start
 │   └── <type>_<slug>.md   ← granular, content-addressed fact files
 ├── sessions/          ← rolling compression: now → today → recent → archive
-├── transcripts/       ← raw Stop-hook session captures
+├── transcripts/       ← raw session captures (dialogue + per-turn tool activity) — durable, unlike Claude Code's ~30-day session files
 └── .locks/, .index/   ← gitignored runtime (audit log, SQLite cache)
 
 .claude/

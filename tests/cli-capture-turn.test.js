@@ -431,6 +431,70 @@ describe('Task 21 — captureTurn() boundary', () => {
   // When the auto-extract spawn does NOT succeed (no path, missing path, or
   // node-side spawn throw), capture-turn writes an NDJSON entry to
   // sessions/{date}.extract.log with phase: 'spawn'.
+  // Task 104.1 — the assistant transcript entry is enriched with the turn's
+  // TOOL ACTIVITY read from the Stop payload's transcript_path (Anthropic's
+  // live session JSONL). Best-effort by contract: a missing/bogus path or a
+  // shifted format degrades to a text-only entry, never a capture failure.
+  describe('transcript enrichment — tool activity from transcript_path (Task 104.1)', () => {
+    const jsonlFixture = (sandbox) => {
+      const p = join(sandbox, 'session.jsonl');
+      const lines = [
+        JSON.stringify({ type: 'user', message: { role: 'user', content: [{ type: 'text', text: 'check the git status' }] } }),
+        JSON.stringify({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'Bash', input: { command: 'git status' } }] } }),
+        JSON.stringify({ type: 'user', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: 'On branch main <private>hunter2</private>' }] } }),
+      ];
+      writeFileSync(p, lines.join('\n') + '\n', 'utf8');
+      return p;
+    };
+
+    it('appends a Tools block under the assistant entry (Door 2), privacy-sanitized', () => {
+      const transcriptPath = jsonlFixture(sandbox);
+      const r = captureTurn({
+        payload: {
+          assistant_message: 'the tree is clean',
+          transcript_path: transcriptPath,
+        },
+        projectRoot,
+        now: '2026-06-10T12:00:00Z',
+      });
+      expect(r.action).toBe('captured');
+      const text = readFileSync(r.transcriptPath, 'utf8');
+      expect(text).toContain('**Tools:**');
+      expect(text).toContain('Bash(git status)');
+      expect(text).toContain('On branch main');
+      // <private> content inside a tool result must never reach disk.
+      expect(text).not.toContain('hunter2');
+      expect(text).toContain('[private content redacted]');
+    });
+
+    it('missing/bogus transcript_path → text-only entry, capture unaffected', () => {
+      const r = captureTurn({
+        payload: {
+          assistant_message: 'no enrichment available',
+          transcript_path: join(sandbox, 'does-not-exist.jsonl'),
+        },
+        projectRoot,
+        now: '2026-06-10T12:00:00Z',
+      });
+      expect(r.action).toBe('captured');
+      const text = readFileSync(r.transcriptPath, 'utf8');
+      expect(text).toContain('no enrichment available');
+      expect(text).not.toContain('**Tools:**');
+    });
+
+    it('the now.md session buffer stays TEXT-ONLY (tool noise must not feed the compressor)', () => {
+      const transcriptPath = jsonlFixture(sandbox);
+      captureTurn({
+        payload: { assistant_message: 'the tree is clean', transcript_path: transcriptPath },
+        projectRoot,
+        now: '2026-06-10T12:00:00Z',
+      });
+      const nowMd = readFileSync(join(projectRoot, 'context', 'sessions', 'now.md'), 'utf8');
+      expect(nowMd).toContain('the tree is clean');
+      expect(nowMd).not.toContain('**Tools:**');
+    });
+  });
+
   describe('spawn-failed observability (Task 23.14.3)', () => {
     it('writes a phase:spawn extract.log entry when autoExtractPath is null', () => {
       const r = captureTurn({
