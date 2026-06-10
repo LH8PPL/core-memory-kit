@@ -24,7 +24,7 @@
 // One heading per turn so downstream tools can scan by ## markers
 // (matches claude-remember's compaction strategy).
 
-import { existsSync, mkdirSync, appendFileSync } from 'node:fs';
+import { existsSync, mkdirSync, appendFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { sanitizePrivacyTags } from './privacy.mjs';
 
@@ -53,6 +53,11 @@ export function buildMemoryHint({ projectRoot, prompt } = {}) {
   try {
     const indexPath = join(projectRoot, 'context', 'memory', 'INDEX.md');
     if (!existsSync(indexPath)) return null;
+    // `cmk install` scaffolds INDEX.md on every project, so existence alone
+    // is always true post-install (skill-review finding). Require at least
+    // one real entry — a fresh, empty project must not advertise recorded
+    // memory it does not have. Entry lines start "- (" (the reindex format).
+    if (!readFileSync(indexPath, 'utf8').includes('\n- (')) return null;
   } catch {
     return null;
   }

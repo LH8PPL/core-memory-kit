@@ -313,6 +313,19 @@ describe('Task 75.2 — buildMemoryHint (the "memory available" recall nudge)', 
     ).toBe(null);
   });
 
+  it('returns null for a scaffolded-but-EMPTY INDEX.md (fresh install must not advertise memory it does not have)', () => {
+    // cmk install scaffolds INDEX.md on every project — existence alone is
+    // always true post-install. The hint requires at least one entry.
+    writeFileSync(
+      join(projectRoot, 'context', 'memory', 'INDEX.md'),
+      '# Granular memory index — project tier\n\n## Files\n\n',
+      'utf8',
+    );
+    expect(
+      buildMemoryHint({ projectRoot, prompt: 'what did we decide about the deploy target?' }),
+    ).toBe(null);
+  });
+
   it('returns null for a missing/empty prompt (never throws)', () => {
     seedIndex();
     expect(buildMemoryHint({ projectRoot, prompt: '' })).toBe(null);
