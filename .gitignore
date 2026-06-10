@@ -55,3 +55,38 @@ context/.index/
 
 *.tgz
 .bench-logs/
+
+# claude-memory-kit:gitignore:start v0.2.4
+# claude-memory-kit — added by `cmk install`. Do not edit by hand;
+# `cmk install` refreshes these lines idempotently. Remove via
+# `cmk uninstall`.
+
+# Local-tier (per-machine, never committed)
+context.local/
+
+# SQLite + FTS5 read cache (regenerable from markdown)
+context/.index/
+
+# Run-time locks + transient state
+context/.locks/
+
+# Diagnostic NDJSON logs (observability only; carry raw turn excerpts —
+# e.g. discarded-low-trust traces — that are NOT secret-screened, so they
+# must never be committed). The durable memory lives in the scratchpads +
+# fact files, not these logs.
+context/sessions/*.extract.log
+
+# Transcript-extraction temp buffer. capture-turn writes
+# context/transcripts/.extract-<ts>.tmp as the turn buffer for the detached
+# auto-extract child, which consumes + deletes it. Gitignored so a crash-orphaned
+# partial (raw, un-screened turn content) never travels with `git clone`.
+context/transcripts/.extract-*.tmp
+# claude-memory-kit:gitignore:end
+
+# Public-repo dogfood deviation (Task 52, D-108): this repo is PUBLIC, so the
+# raw conversation surfaces stay machine-local — transcripts + session logs
+# carry dev-conversation content (name-privacy class). The kit's default in a
+# normal project is to COMMIT these; the curated tiers (MEMORY.md, SOUL.md,
+# context/memory/) stay committed here as designed.
+context/transcripts/
+context/sessions/

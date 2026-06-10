@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "cmk": {
+      "type": "stdio",
+      "command": "cmk",
+      "args": [
+        "mcp",
+        "serve"
+      ]
+    }
+  }
+}
