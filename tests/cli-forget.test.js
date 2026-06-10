@@ -518,5 +518,24 @@ describe('Task 9 — forget() + resolveFact() boundaries', () => {
       expect(index).toContain(a.id);
       expect(index).toContain(c.id);
     });
+
+    it('a USER-tier forget refreshes the user-tier INDEX.md (tier threading)', () => {
+      // The fix threads match.tier + userDir — a U fact must refresh the
+      // U INDEX (in userDir), not the project one (skill-review: pin the
+      // non-default tier path).
+      const keep = writeFact(validFactOpts({ tier: 'U', userDir, projectRoot, slug: 'u-keeper', title: 'U keeper', body: 'User-tier keeper body.' }));
+      const gone = writeFact(validFactOpts({ tier: 'U', userDir, projectRoot, slug: 'u-victim', title: 'U victim', body: 'User-tier victim body.' }));
+      // U-tier facts live in <userDir>/fragments/ (tier-paths resolveFactDir).
+      const indexPath = join(userDir, 'fragments', 'INDEX.md');
+      expect(readFileSync(indexPath, 'utf8')).toContain(gone.id);
+
+      const r = forget({ idOrQuery: gone.id, projectRoot, userDir, yes: true });
+      expect(r.action).toBe('tombstoned');
+      expect(r.tier).toBe('U');
+
+      const index = readFileSync(indexPath, 'utf8');
+      expect(index).not.toContain(gone.id);
+      expect(index).toContain(keep.id); // over-mutation guard
+    });
   });
 });
