@@ -54,3 +54,4 @@ packages/cli/template/
 context/.index/
 
 *.tgz
+.bench-logs/

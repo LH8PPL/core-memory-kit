@@ -29,7 +29,8 @@
     "lint:cli-mcp-parity": "node scripts/validate-cli-mcp-parity.mjs",
     "lint:maintainer-name": "node scripts/validate-maintainer-name-confined.mjs",
     "sync:plugin-skills": "node scripts/sync-plugin-skills.mjs",
-    "validate:template": "node scripts/validate-template.mjs"
+    "validate:template": "node scripts/validate-template.mjs",
+    "bench:recall": "node scripts/bench-recall.mjs"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.8",
