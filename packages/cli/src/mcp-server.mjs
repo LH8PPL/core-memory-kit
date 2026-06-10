@@ -120,6 +120,7 @@ function makeMkSearch({ db, semanticBackend, projectRoot }) {
     // injected, prepare the REAL embedded backend (lazy-optional — an absent
     // embedder degrades to the actionable error below; keyword unaffected).
     let backend = semanticBackend;
+    let degradedNote = null;
     if (
       backend === undefined &&
       (wantMode === SEARCH_MODES.SEMANTIC || wantMode === SEARCH_MODES.HYBRID)
@@ -138,8 +139,14 @@ function makeMkSearch({ db, semanticBackend, projectRoot }) {
         };
       }
       if (!prep.ok) {
-        // Configured default can't run — degrade gracefully to keyword.
+        // Configured default can't run — degrade gracefully to keyword,
+        // but NOT silently (Task 125.1, the user's call reversing the
+        // Task-46 review skip): the note below tells the model what it
+        // got, so it can relay the fix to the user.
         wantMode = SEARCH_MODES.KEYWORD;
+        degradedNote =
+          `note: this project's configured default search is semantic (hybrid), but the embedder is unavailable (${prep.reason}) — these are keyword-only results. ` +
+          'Suggest the user run `cmk install --with-semantic` to restore semantic recall.';
       } else {
         backend = prep.backend;
       }
@@ -160,7 +167,12 @@ function makeMkSearch({ db, semanticBackend, projectRoot }) {
       };
     }
     return {
-      content: [{ type: 'text', text: JSON.stringify(r.results, null, 2) }],
+      content: [
+        { type: 'text', text: JSON.stringify(r.results, null, 2) },
+        // Results stay content[0] (shape-compatible); the degradation note,
+        // when present, rides as a second block.
+        ...(degradedNote ? [{ type: 'text', text: degradedNote }] : []),
+      ],
     };
   };
 }
