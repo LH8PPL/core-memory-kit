@@ -59,7 +59,14 @@ function isLiveJitter(r) {
   if (r?.action !== 'error') return false;
   if (r.errorCategory === 'haiku_timeout') return true;
   const text = (r.errors ?? []).join(' ');
-  return /did not return within|timed?.?out|overloaded|rate.?limit|429|5\d\d|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up|network/i.test(text);
+  // Named transient signals — phrase/errno matches, safe as-is.
+  if (/did not return within|timed?.?out|overloaded|rate.?limit|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up|network error/i.test(text)) {
+    return true;
+  }
+  // Numeric HTTP codes ONLY with status/error context — a bare /5\d\d/
+  // would match "line 543" or "took 500ms" and route a real persistent
+  // bug into the contract-assert pass path (skill-review finding).
+  return /(?:status|error|code|http|api)\D{0,4}\b(?:429|5\d\d)\b|\b(?:429|5\d\d)\b\D{0,4}(?:error|status)/i.test(text);
 }
 
 describeMaybe(`spawn-smoke: weeklyCurate archive path (live: ${skipReason ?? 'enabled'})`, () => {
