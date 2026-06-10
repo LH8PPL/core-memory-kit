@@ -64,6 +64,8 @@ cmk register-crons
 cmk doctor
 ```
 
+**Want everything the kit can do?** Run all five steps — the two "(optional)" ones are what unlock semantic recall (step 3) and scheduled background compression (step 4). Skipping them still works: search stays keyword-only and compression self-heals lazily at session start.
+
 `cmk install` is a complete entry point: it scaffolds `context/`, drops the `memory-write` skill into `.claude/skills/` (committed — it travels with `git clone`), and writes the 5 lifecycle hooks (PATH-resolved, cross-OS) into the project's `.claude/settings.json`. No separate `/plugin` step needed.
 
 Step 3 (cron) is **optional** — skip it and the kit falls back to lazy-on-read compression on its own. For that and every other command — search, self-repair, `cmk persona generate`, native-memory coexistence (`cmk disable-native-memory`), and more — see the **[full CLI reference → `docs/CLI.md`](docs/CLI.md)**.
@@ -140,11 +142,11 @@ Most-used commands below; **full reference with examples: [`docs/CLI.md`](docs/C
 
 | Command | Purpose |
 | --- | --- |
-| `cmk install` | Scaffold `context/` + the `memory-write` skill (`.claude/skills/`) + add `.gitignore` lines + drop CLAUDE.md block + wire hooks into `.claude/settings.json` + register the MCP server (`.mcp.json`) & allow-list `mcp__cmk__*` (complete entry point; `--no-hooks` skips hooks + MCP wiring for scaffold-only) |
+| `cmk install [--with-semantic]` | Scaffold `context/` + the `memory-write`/`memory-search` skills + `.gitignore` lines + CLAUDE.md block + wire hooks + register the MCP server & allow-list `mcp__cmk__*` (complete entry point). `--with-semantic` adds the local embedder + flips search to hybrid-by-default; `--no-hooks` = scaffold-only |
 | `cmk doctor` | Run HC-1..HC-7 health checks, surface repair commands |
 | `cmk repair --hooks` / `--locks` / `--index` / `--all` | Idempotent self-repair |
 | `cmk roll --scope now\|today\|recent` | Manually trigger one of the compression pipelines |
-| `cmk search "<query>" [--mode keyword\|semantic\|hybrid]` | Search accumulated memory (keyword default; semantic/hybrid via the Layer-5b backend, not yet shipped) |
+| `cmk search "<query>" [--mode keyword\|semantic\|hybrid] [--scope facts\|transcripts]` | Search memory — by meaning with the embedder installed (hybrid is the project default after `--with-semantic`); `--scope transcripts` searches the raw session record (last resort) |
 | `cmk get <id…>` / `cmk timeline <id>` / `cmk cite <id>` / `cmk recent-activity [--window 1h\|24h\|7d]` | Read the index back — full fact bodies + provenance, sequential context around an observation, a canonical citation link, recent changes (the CLI side of the `mk_*` MCP read tools) |
 | `cmk trust <id> <low\|medium\|high>` | Override a fact's trust level (audited; the CLI side of `mk_trust`) |
 | `cmk daily-distill` / `cmk weekly-curate` | Manually run cron jobs (normally invoked by host scheduler) |

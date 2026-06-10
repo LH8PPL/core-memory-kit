@@ -9,7 +9,7 @@ The kit ships an **MCP server** so Claude can run every memory operation **in co
 | Tool | CLI equivalent | What it does |
 | --- | --- | --- |
 | `mk_remember` | `cmk remember` | Capture a fact. With `why` / `how` / `title` / `type` it writes a structured **Why/How fact file**; otherwise a terse bullet. Runs the same Poison_Guard + dedup + audit path as the CLI. |
-| `mk_search` | `cmk search` | Keyword / hybrid search over facts + scratchpads. |
+| `mk_search` | `cmk search` | Search by keyword or meaning (`mode`: keyword/semantic/hybrid — hybrid is the project default after `cmk install --with-semantic`). `scope: "transcripts"` searches the raw session record as a last resort. |
 | `mk_get` | `cmk get` | Full fact body + provenance for one or more ids. |
 | `mk_timeline` | `cmk timeline` | Sequential context around an observation. |
 | `mk_cite` | `cmk cite` | A canonical citation link for an id. |

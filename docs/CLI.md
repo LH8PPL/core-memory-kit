@@ -8,12 +8,14 @@ Most commands operate on the **project tier** (`<repo>/context/`) by default, us
 
 ## Setup & lifecycle
 
-### `cmk install [--force] [--no-hooks]`
+### `cmk install [--force] [--no-hooks] [--with-semantic | --no-semantic]`
 Scaffold the kit into the current project: creates the 3-tier `context/` layout, injects `.gitignore` entries, drops the managed CLAUDE.md block, and **wires the 5 lifecycle hooks** into `.claude/settings.json`. Idempotent (re-running skips existing files). Restart Claude Code afterward so hooks load.
 - `--force` — allow downgrading an existing newer-version CLAUDE.md block.
 - `--no-hooks` — scaffold only; don't touch `.claude/settings.json`.
+- `--with-semantic` — install the optional local embedder (`npm install -g @huggingface/transformers`, ~260 MB once), pre-warm the model, and set `search.default_mode: hybrid` for this project — bare `cmk search` then recalls by meaning, no flags. `--no-semantic` pins keyword-only.
 ```bash
 cd ~/my-project && cmk install
+cmk install --with-semantic # + local semantic recall, hybrid by default
 cmk install --no-hooks      # scaffold-only
 ```
 
@@ -44,7 +46,8 @@ Most capture is automatic (the Stop hook extracts facts each turn) — use `cmk 
 
 ### `cmk search <query…> [flags]`
 Search accumulated memory.
-- `--mode keyword|semantic|hybrid` — default `keyword` (semantic/hybrid need the Layer-5b semantic backend, not yet shipped).
+- `--mode keyword|semantic|hybrid` — the project default is `keyword`, or `hybrid` after `cmk install --with-semantic` (the `search.default_mode` setting). Semantic/hybrid need the optional local embedder; explicitly requesting them without it exits 2 with the install hint, while a configured default degrades gracefully to keyword.
+- `--scope facts|transcripts` — `facts` (default) searches curated memory; `transcripts` searches the raw session record (verbatim transcripts + compressed session summaries) — the last-resort recall tier; hits are `T:<file>:<line>` locations, and fact-only filters (tier/trust/since) don't apply.
 - `--min-trust low|medium|high` · `--tier U|P|L` · `--since <ISO date>` · `--limit <n>` (default 20) · `--include-tombstoned`.
 ```bash
 cmk search "postgres"
