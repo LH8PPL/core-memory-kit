@@ -1,0 +1,22 @@
+{
+  "_comment": "Task 99 labeled queries. qtype per the MemPalace/LongMemEval per-question-type breakdown (D-72): paraphrase = no/low keyword overlap with the target (keyword SHOULD miss, semantic SHOULD hit); exact = keyword sanity floor; temporal = needs date awareness; preference = single-session user-style recall. relevant = corpus keys.",
+  "queries": [
+    { "id": "q-pkg", "qtype": "paraphrase", "query": "which package manager do we use", "relevant": ["pkg-manager"] },
+    { "id": "q-cache", "qtype": "paraphrase", "query": "what is our key-value store choice", "relevant": ["cache-valkey"] },
+    { "id": "q-login", "qtype": "paraphrase", "query": "how is user login secured", "relevant": ["auth-jwt"] },
+    { "id": "q-style", "qtype": "paraphrase", "query": "code style checks before pushing", "relevant": ["lint-ruff"] },
+    { "id": "q-isolation", "qtype": "paraphrase", "query": "python environment isolation policy", "relevant": ["venv-uv"] },
+    { "id": "q-ship", "qtype": "paraphrase", "query": "how do we ship to production", "relevant": ["deploy-fly"] },
+    { "id": "q-crash", "qtype": "paraphrase", "query": "crash reporting tool", "relevant": ["error-tracking"] },
+    { "id": "q-retry", "qtype": "paraphrase", "query": "retry policy for flaky services", "relevant": ["retry-backoff"] },
+    { "id": "q-creds", "qtype": "paraphrase", "query": "where do credentials go", "relevant": ["secrets-1password"] },
+    { "id": "q-dates", "qtype": "paraphrase", "query": "how are dates handled across regions", "relevant": ["timestamps-utc"] },
+    { "id": "q-vitest", "qtype": "exact", "query": "vitest", "relevant": ["test-runner"] },
+    { "id": "q-graphql", "qtype": "exact", "query": "graphql", "relevant": ["api-style"] },
+    { "id": "q-cockroach", "qtype": "exact", "query": "cockroachdb migration", "relevant": ["db-migration"] },
+    { "id": "q-dbwhen", "qtype": "temporal", "query": "what database change happened in late May", "relevant": ["db-migration"] },
+    { "id": "q-recent-ci", "qtype": "temporal", "query": "what infrastructure work was active in early June", "relevant": ["ci-merge-queue"] },
+    { "id": "q-prsize", "qtype": "preference", "query": "how big should pull requests be", "relevant": ["review-pref"] },
+    { "id": "q-merge", "qtype": "preference", "query": "merge strategy for feature branches", "relevant": ["git-workflow"] }
+  ]
+}
