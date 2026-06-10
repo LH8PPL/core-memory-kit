@@ -17,7 +17,7 @@
 
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join } from 'node:path';
 
 const CHUNK_MAX_CHARS = 1500; // the Task-65 / memsearch chunking rule
 const FILES_KEY_PREFIX = 'transcript:';
@@ -61,17 +61,34 @@ function sha1(text) {
   return createHash('sha1').update(text, 'utf8').digest('hex');
 }
 
+// Task 126 (D-119) — the raw-tier scope covers BOTH halves of the session
+// record: verbatim transcripts AND the Haiku-compressed sessions summaries
+// (today-*.md / recent.md / archive.md — the middle tier that was otherwise
+// a recall blind spot: discussed-but-never-graduated content). Exclusions:
+// now.md (the volatile live buffer — already in context, and its constant
+// truncation would churn the index) and non-.md observability files.
+const RAW_TIER_DIRS = ['transcripts', 'sessions'];
+const SESSIONS_EXCLUDE = new Set(['now.md']);
+
 export function syncTranscriptChunks({ db, projectRoot, now = Date.now() } = {}) {
-  const dir = join(projectRoot, 'context', 'transcripts');
   let files = 0;
   let chunks = 0;
-  if (!existsSync(dir)) return { files, chunks };
 
-  let names;
-  try {
-    names = readdirSync(dir).filter((n) => n.endsWith('.md'));
-  } catch {
-    return { files, chunks };
+  const entries = []; // {abs, sourceFile}
+  for (const sub of RAW_TIER_DIRS) {
+    const dir = join(projectRoot, 'context', sub);
+    if (!existsSync(dir)) continue;
+    let names;
+    try {
+      names = readdirSync(dir).filter(
+        (n) => n.endsWith('.md') && !(sub === 'sessions' && SESSIONS_EXCLUDE.has(n)),
+      );
+    } catch {
+      continue;
+    }
+    for (const name of names) {
+      entries.push({ abs: join(dir, name), sourceFile: `context/${sub}/${name}` });
+    }
   }
 
   const getFileRow = db.prepare('SELECT mtime, sha1 FROM files WHERE path = ?');
@@ -84,9 +101,7 @@ export function syncTranscriptChunks({ db, projectRoot, now = Date.now() } = {})
     'INSERT INTO transcript_chunks (source_file, chunk_idx, source_line, heading, body) VALUES (?, ?, ?, ?, ?)',
   );
 
-  for (const name of names) {
-    const abs = join(dir, name);
-    const sourceFile = relative(projectRoot, abs).split('\\').join('/');
+  for (const { abs, sourceFile } of entries) {
     const filesKey = FILES_KEY_PREFIX + sourceFile;
     let st;
     try {
@@ -124,11 +139,12 @@ export function syncTranscriptChunks({ db, projectRoot, now = Date.now() } = {})
     chunks += parsed.length;
   }
 
-  // Orphan-prune for THIS scope: a deleted/rotated transcript file leaves its
+  // Orphan-prune for THIS scope: a deleted/rotated file (transcripts OR
+  // sessions — weekly-curate rotates today-*.md into archive.md) leaves its
   // chunks + checkpoint behind otherwise. The observation indexer's prune
   // deliberately skips 'transcript:' rows (they are not observation sources)
   // — pruning them is this function's job, scoped by the key prefix.
-  const live = new Set(names.map((n) => FILES_KEY_PREFIX + 'context/transcripts/' + n));
+  const live = new Set(entries.map((e) => FILES_KEY_PREFIX + e.sourceFile));
   const known = db
     .prepare("SELECT path FROM files WHERE path LIKE ?")
     .all(FILES_KEY_PREFIX + '%');
