@@ -49,6 +49,19 @@ a fix):
 Rich facts carry **Why** / **How to apply** blocks — include those when the
 question is about rationale or how to act on a rule.
 
+**Step 4 — LAST RESORT: the raw transcript record.** Only when curated
+memory (steps 1-3) has no answer and the question is about what actually
+happened in a past session (an exact error message, the command that fixed
+something, how a discussion went):
+
+- MCP: `mk_search` with `scope: "transcripts"`.
+- CLI: `cmk search "<query>" --scope transcripts`
+
+Hits are raw turn excerpts (dialogue + the tools the agent ran), keyed
+`T:<file>:<line>` — quote the relevant fragment in your summary; never dump
+whole turns. If something found here is durably useful, say so in the
+summary so the caller can capture it as a proper fact.
+
 ## When the query is vague
 
 If you cannot form a concrete query, look at recent activity first, then

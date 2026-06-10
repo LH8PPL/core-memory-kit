@@ -339,10 +339,13 @@ async function runSearch(queryParts, options) {
     // (the default must never break every search).
     const explicitMode = options?.mode;
     let mode = explicitMode ?? resolveDefaultSearchMode({ projectRoot });
+    // Task 104.2 — the L3 raw tier: `--scope transcripts` searches the
+    // separate transcript-chunk index (synthetic T: ids; no tier/trust).
+    const scope = options?.scope ?? 'facts';
     let semanticBackend;
     if (mode === SEARCH_MODES.SEMANTIC || mode === SEARCH_MODES.HYBRID) {
       const { prepareSemanticBackend } = await import('./semantic-backend.mjs');
-      const prep = await prepareSemanticBackend({ db, query });
+      const prep = await prepareSemanticBackend({ db, query, scope });
       if (!prep.ok && explicitMode) {
         console.error(
           `cmk search: semantic backend unavailable (${prep.reason}).` +
@@ -364,6 +367,7 @@ async function runSearch(queryParts, options) {
       db,
       query,
       mode,
+      scope,
       minTrust: options?.minTrust,
       tier: options?.tier,
       since: options?.since,
@@ -385,13 +389,15 @@ async function runSearch(queryParts, options) {
     for (const hit of r.results) {
       // Plain-text output suitable for terminal piping. Snippet uses
       // FTS5's <b>...</b> markers; preserved as-is so callers can pipe
-      // to a TUI that renders them OR strip via sed.
+      // to a TUI that renders them OR strip via sed. Transcript hits carry
+      // no tier/trust (raw chunks) — the column shows the scope instead.
+      const provenance = hit.tier ? `${hit.tier}/${hit.trust}` : 'transcript';
       console.log(
-        `${hit.id}\t${hit.tier}/${hit.trust}\t${hit.source_file}:${hit.source_line}\t${hit.snippet}`,
+        `${hit.id}\t${provenance}\t${hit.source_file}:${hit.source_line}\t${hit.snippet}`,
       );
     }
     console.log(
-      `\ncmk search: ${r.results.length} result(s) (mode=${r.mode})`,
+      `\ncmk search: ${r.results.length} result(s) (mode=${r.mode}${r.scope && r.scope !== 'facts' ? `, scope=${r.scope}` : ''})`,
     );
   } finally {
     db.close();
@@ -1730,6 +1736,7 @@ export const subcommands = [
     argSpec: [{ flags: '<query...>', description: 'query terms' }],
     optionSpec: [
       { flags: '--mode <mode>', description: 'keyword | semantic | hybrid (default: keyword; semantic + hybrid use the embedded Layer-5b backend — needs the optional @huggingface/transformers embedder)' },
+      { flags: '--scope <scope>', description: 'facts | transcripts (default: facts — curated memory; transcripts = the raw session record, the last-resort recall tier)' },
       { flags: '--min-trust <level>', description: 'low | medium | high' },
       { flags: '--tier <tier>', description: 'U | P | L (filter to a single tier)' },
       { flags: '--since <date>', description: 'ISO date — exclude observations older than this' },

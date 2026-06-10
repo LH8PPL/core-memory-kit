@@ -68,6 +68,22 @@ function toBlob(floatArray) {
   return Buffer.from(new Float32Array(floatArray).buffer);
 }
 
+// Task 104.2 (D-117) — semantic scopes. Each scope pairs a vec table with
+// the content table its rowids reference. The embedding_cache is SHARED
+// (content-addressed: sha256(model+body) — the same text embeds once no
+// matter which scope holds it).
+const SEMANTIC_SCOPES = Object.freeze({
+  facts: {
+    vecTable: 'vec_observations',
+    liveSql:
+      'SELECT rowid, body FROM observations WHERE deleted_at IS NULL AND superseded_by IS NULL',
+  },
+  transcripts: {
+    vecTable: 'vec_transcripts',
+    liveSql: 'SELECT rowid, body FROM transcript_chunks',
+  },
+});
+
 export function ensureSemanticSchema(db, { dims = DEFAULT_DIMS } = {}) {
   // sqlite-vec is a tiny prebuilt extension (regular dependency).
   // Loading twice is a no-op-safe guard via function probe.
@@ -83,6 +99,9 @@ export function ensureSemanticSchema(db, { dims = DEFAULT_DIMS } = {}) {
       vector BLOB NOT NULL
     );
     CREATE VIRTUAL TABLE IF NOT EXISTS vec_observations USING vec0(
+      embedding float[${dims}]
+    );
+    CREATE VIRTUAL TABLE IF NOT EXISTS vec_transcripts USING vec0(
       embedding float[${dims}]
     );
     CREATE TABLE IF NOT EXISTS vec_meta (
@@ -120,7 +139,9 @@ export function loadSqliteVec(db) {
  * rows whose content hash misses the cache (content-addressed); removes
  * vec rows for deleted/tombstoned observations. Returns counts.
  */
-export async function syncSemanticIndex({ db, modelId = DEFAULT_MODEL_ID, dims = null }) {
+export async function syncSemanticIndex({ db, modelId = DEFAULT_MODEL_ID, dims = null, scope = 'facts' }) {
+  const scopeDef = SEMANTIC_SCOPES[scope];
+  if (!scopeDef) return { ok: false, reason: `unknown-scope:${scope}` };
   // Public boundary in its own right — load the vec extension if this
   // connection doesn't have it yet (prepareSemanticBackend also loads it;
   // both entries must be self-sufficient).
@@ -142,11 +163,11 @@ export async function syncSemanticIndex({ db, modelId = DEFAULT_MODEL_ID, dims =
   }
   ensureSemanticSchema(db, { dims });
 
-  // Model/dims change invalidates the vec table (different space).
+  // Model/dims change invalidates BOTH scopes' vec tables (different space).
   const meta = db.prepare("SELECT value FROM vec_meta WHERE key = 'model'").get();
   const dimsMeta = db.prepare("SELECT value FROM vec_meta WHERE key = 'dims'").get();
   if ((meta && meta.value !== modelId) || (dimsMeta && Number(dimsMeta.value) !== dims)) {
-    db.exec('DROP TABLE IF EXISTS vec_observations;');
+    db.exec('DROP TABLE IF EXISTS vec_observations; DROP TABLE IF EXISTS vec_transcripts;');
     ensureSemanticSchema(db, { dims });
   }
   const putMeta = db.prepare(
@@ -155,16 +176,12 @@ export async function syncSemanticIndex({ db, modelId = DEFAULT_MODEL_ID, dims =
   putMeta.run('model', modelId);
   putMeta.run('dims', String(dims));
 
-  const live = db
-    .prepare(
-      'SELECT rowid, body FROM observations WHERE deleted_at IS NULL AND superseded_by IS NULL',
-    )
-    .all();
+  const live = db.prepare(scopeDef.liveSql).all();
 
-  // Drop vec rows that no longer correspond to live observations.
+  // Drop vec rows that no longer correspond to live content rows.
   const liveRowids = new Set(live.map((r) => BigInt(r.rowid)));
-  const vecRows = db.prepare('SELECT rowid FROM vec_observations').all();
-  const dropStmt = db.prepare('DELETE FROM vec_observations WHERE rowid = ?');
+  const vecRows = db.prepare(`SELECT rowid FROM ${scopeDef.vecTable}`).all();
+  const dropStmt = db.prepare(`DELETE FROM ${scopeDef.vecTable} WHERE rowid = ?`);
   let dropped = 0;
   for (const r of vecRows) {
     if (!liveRowids.has(BigInt(r.rowid))) {
@@ -179,9 +196,9 @@ export async function syncSemanticIndex({ db, modelId = DEFAULT_MODEL_ID, dims =
   const cachePut = db.prepare(
     'INSERT OR REPLACE INTO embedding_cache(content_sha, model, vector) VALUES (?, ?, ?)',
   );
-  const vecGet = db.prepare('SELECT rowid FROM vec_observations WHERE rowid = ?');
-  const vecDel = db.prepare('DELETE FROM vec_observations WHERE rowid = ?');
-  const vecPut = db.prepare('INSERT INTO vec_observations(rowid, embedding) VALUES (?, ?)');
+  const vecGet = db.prepare(`SELECT rowid FROM ${scopeDef.vecTable} WHERE rowid = ?`);
+  const vecDel = db.prepare(`DELETE FROM ${scopeDef.vecTable} WHERE rowid = ?`);
+  const vecPut = db.prepare(`INSERT INTO ${scopeDef.vecTable}(rowid, embedding) VALUES (?, ?)`);
 
   const toEmbed = [];
   const plans = []; // {rowid, sha, cached?}
@@ -241,7 +258,11 @@ export async function prepareSemanticBackend({
   modelId = DEFAULT_MODEL_ID,
   dims = null,
   overFetch = 3,
+  scope = 'facts',
 }) {
+  if (!SEMANTIC_SCOPES[scope]) {
+    return { ok: false, reason: `unknown-scope:${scope}` };
+  }
   // User control: force-disable the semantic layer (e.g. block the one-time
   // model download on a metered machine, or pin keyword-only behavior).
   // Also the deterministic test hook for the absent-backend error contract.
@@ -266,55 +287,87 @@ export async function prepareSemanticBackend({
         '(~260 MB incl. ONNX runtime; the model itself downloads once on first use). Keyword search works without it.',
     };
   }
-  const sync = await syncSemanticIndex({ db, modelId, dims });
+  const sync = await syncSemanticIndex({ db, modelId, dims, scope });
   if (!sync.ok) return { ok: false, reason: sync.reason };
 
   const qOut = await extractor(query, { pooling: 'mean', normalize: true });
   const qBlob = toBlob(qOut.tolist()[0]);
 
-  const backend = (opts = {}) => {
-    const limit = opts.limit ?? 20;
-    // Over-fetch (D-72: ~3×) so post-filters (tier/trust/since) don't
-    // starve the result list.
-    const k = Math.max(limit * overFetch, limit);
-    // KNN subquery FIRST (sqlite-vec needs MATCH + LIMIT pushed into the
-    // virtual-table scan), then join observation metadata.
-    const rows = db
-      .prepare(
-        `SELECT m.rowid AS rowid, m.distance AS distance,
-                o.id, o.body, o.source_file, o.source_line, o.tier, o.trust,
-                o.created_at, o.deleted_at
-           FROM (SELECT rowid, distance FROM vec_observations
-                  WHERE embedding MATCH ? ORDER BY distance LIMIT ?) m
-           JOIN observations o ON o.rowid = m.rowid
-          ORDER BY m.distance`,
-      )
-      .all(qBlob, k);
+  const backend =
+    scope === 'transcripts'
+      ? (opts = {}) => {
+          const limit = opts.limit ?? 20;
+          // No post-filters in this scope (chunks carry no tier/trust/dates
+          // — search() rejects those filters up front), so no over-fetch.
+          const rows = db
+            .prepare(
+              `SELECT m.distance AS distance,
+                      t.source_file, t.source_line, t.heading, t.body
+                 FROM (SELECT rowid, distance FROM vec_transcripts
+                        WHERE embedding MATCH ? ORDER BY distance LIMIT ?) m
+                 JOIN transcript_chunks t ON t.rowid = m.rowid
+                ORDER BY m.distance`,
+            )
+            .all(qBlob, limit);
+          return rows.map((r) => ({
+            // The synthetic T: id — search()'s transcript keyword backend
+            // produces the same key, so hybrid RRF fuses correctly.
+            id: `T:${r.source_file}:${r.source_line}`,
+            // Flatten + bound like the keyword side: raw turn bodies are
+            // multi-line and up to 1500 chars — too heavy for a result line.
+            snippet: (() => {
+              const flat = String(r.body ?? '').replace(/\s+/g, ' ').trim();
+              return flat.length > 240 ? flat.slice(0, 240) + '…' : flat;
+            })(),
+            source_file: r.source_file,
+            source_line: r.source_line,
+            heading: r.heading,
+            score: Math.max(0, 1 - r.distance / 2),
+          }));
+        }
+      : (opts = {}) => {
+          const limit = opts.limit ?? 20;
+          // Over-fetch (D-72: ~3×) so post-filters (tier/trust/since) don't
+          // starve the result list.
+          const k = Math.max(limit * overFetch, limit);
+          // KNN subquery FIRST (sqlite-vec needs MATCH + LIMIT pushed into the
+          // virtual-table scan), then join observation metadata.
+          const rows = db
+            .prepare(
+              `SELECT m.rowid AS rowid, m.distance AS distance,
+                      o.id, o.body, o.source_file, o.source_line, o.tier, o.trust,
+                      o.created_at, o.deleted_at
+                 FROM (SELECT rowid, distance FROM vec_observations
+                        WHERE embedding MATCH ? ORDER BY distance LIMIT ?) m
+                 JOIN observations o ON o.rowid = m.rowid
+                ORDER BY m.distance`,
+            )
+            .all(qBlob, k);
 
-    const minTrustRank = { low: 0, medium: 1, high: 2 };
-    const filtered = rows.filter((r) => {
-      if (!opts.includeTombstoned && r.deleted_at != null) return false;
-      if (opts.tier && r.tier !== opts.tier) return false;
-      if (opts.minTrust && minTrustRank[r.trust] < minTrustRank[opts.minTrust]) return false;
-      if (opts.since) {
-        const sinceMs = Date.parse(opts.since);
-        if (Number.isFinite(sinceMs) && r.created_at * 1000 < sinceMs) return false;
-      }
-      return true;
-    });
+          const minTrustRank = { low: 0, medium: 1, high: 2 };
+          const filtered = rows.filter((r) => {
+            if (!opts.includeTombstoned && r.deleted_at != null) return false;
+            if (opts.tier && r.tier !== opts.tier) return false;
+            if (opts.minTrust && minTrustRank[r.trust] < minTrustRank[opts.minTrust]) return false;
+            if (opts.since) {
+              const sinceMs = Date.parse(opts.since);
+              if (Number.isFinite(sinceMs) && r.created_at * 1000 < sinceMs) return false;
+            }
+            return true;
+          });
 
-    return filtered.slice(0, limit).map((r) => ({
-      id: r.id,
-      snippet: r.body,
-      source_file: r.source_file,
-      source_line: r.source_line,
-      tier: r.tier,
-      trust: r.trust,
-      // cosine distance (normalized vectors) ∈ [0,2] → similarity ∈ [0,1].
-      score: Math.max(0, 1 - r.distance / 2),
-      created_at: r.created_at,
-    }));
-  };
+          return filtered.slice(0, limit).map((r) => ({
+            id: r.id,
+            snippet: r.body,
+            source_file: r.source_file,
+            source_line: r.source_line,
+            tier: r.tier,
+            trust: r.trust,
+            // cosine distance (normalized vectors) ∈ [0,2] → similarity ∈ [0,1].
+            score: Math.max(0, 1 - r.distance / 2),
+            created_at: r.created_at,
+          }));
+        };
 
   return { ok: true, backend, sync };
 }

@@ -522,4 +522,88 @@ describe('Task 30 — cmk search', () => {
       expect(r.errorCategory).toBe('schema');
     });
   });
+
+  // Task 104.2 — the L3 raw tier: scope='transcripts' searches the SEPARATE
+  // transcript_chunks index; the default scope ('facts') never touches it
+  // (the MemPalace last-resort contract — raw chunks must not pollute L1).
+  describe("scope='transcripts' (Task 104.2 — the L3 raw tier)", () => {
+    const seedChunk = (db, { file, idx = 0, line = 1, heading = '## 2026-06-10T10:00:00Z — assistant', body }) =>
+      db
+        .prepare(
+          'INSERT INTO transcript_chunks (source_file, chunk_idx, source_line, heading, body) VALUES (?, ?, ?, ?, ?)',
+        )
+        .run(file, idx, line, heading, body);
+
+    it('keyword search over transcript chunks: synthetic T: ids, no tier/trust', () => {
+      seedChunk(db, {
+        file: 'context/transcripts/2026-06-10.md',
+        line: 7,
+        body: 'We debugged the ECONNRESET by pinning the agent to one socket.',
+      });
+      const r = search({ db, query: 'ECONNRESET', scope: 'transcripts' });
+      expect(r.action).toBe('found');
+      expect(r.results).toHaveLength(1);
+      const hit = r.results[0];
+      expect(hit.id).toBe('T:context/transcripts/2026-06-10.md:7');
+      expect(hit.source_file).toBe('context/transcripts/2026-06-10.md');
+      expect(hit.source_line).toBe(7);
+      expect(hit.snippet).toContain('ECONNRESET');
+      expect(hit.tier).toBeUndefined();
+      expect(hit.trust).toBeUndefined();
+    });
+
+    it('the DEFAULT scope never returns transcript chunks (L1 stays curated)', () => {
+      seedObservation(db, { id: 'P-AAAAAAAA', body: 'a curated fact about sockets' });
+      seedChunk(db, {
+        file: 'context/transcripts/2026-06-10.md',
+        body: 'raw transcript noise about sockets and sockets and sockets',
+      });
+      const r = search({ db, query: 'sockets' });
+      expect(r.action).toBe('found');
+      expect(r.results).toHaveLength(1);
+      expect(r.results[0].id).toBe('P-AAAAAAAA');
+    });
+
+    it('rejects fact-only filters under the transcripts scope (chunks carry no tier/trust/created_at)', () => {
+      for (const opts of [{ tier: 'P' }, { minTrust: 'high' }, { since: '2026-06-01T00:00:00Z' }]) {
+        const r = search({ db, query: 'x', scope: 'transcripts', ...opts });
+        expect(r.action).toBe('error');
+        expect(r.errorCategory).toBe('schema');
+        expect(r.errors.join(' ')).toMatch(/transcripts scope/);
+      }
+    });
+
+    it('rejects an unknown scope', () => {
+      const r = search({ db, query: 'x', scope: 'everything' });
+      expect(r.action).toBe('error');
+      expect(r.errorCategory).toBe('schema');
+    });
+
+    it('hybrid fusion works over transcript hits (synthetic ids key the RRF)', () => {
+      seedChunk(db, {
+        file: 'context/transcripts/2026-06-10.md',
+        line: 3,
+        body: 'the deploy target discussion happened here',
+      });
+      const fakeSemantic = () => [
+        {
+          id: 'T:context/transcripts/2026-06-10.md:3',
+          snippet: 'the deploy target discussion happened here',
+          source_file: 'context/transcripts/2026-06-10.md',
+          source_line: 3,
+          score: 0.9,
+        },
+      ];
+      const r = search({
+        db,
+        query: 'deploy target',
+        scope: 'transcripts',
+        mode: 'hybrid',
+        semanticBackend: fakeSemantic,
+      });
+      expect(r.action).toBe('found');
+      expect(r.results).toHaveLength(1); // fused into ONE hit, not duplicated
+      expect(r.results[0].id).toBe('T:context/transcripts/2026-06-10.md:3');
+    });
+  });
 });

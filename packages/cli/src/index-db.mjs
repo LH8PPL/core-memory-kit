@@ -116,6 +116,45 @@ CREATE TABLE IF NOT EXISTS files (
   sha1 TEXT NOT NULL,
   indexed_at INTEGER NOT NULL
 );
+
+-- Task 104.2 — the L3 raw tier (D-117). Transcript turn-chunks live in a
+-- SEPARATE table + FTS so the raw tier is searched only when explicitly
+-- asked (search --scope transcripts, the MemPalace last-resort contract)
+-- and never pollutes L1 fact results. Chunks have no id/tier/trust — the
+-- drill-back key is source_file:source_line. IF NOT EXISTS means existing
+-- DBs gain these tables on the first open after upgrade (no migration).
+CREATE TABLE IF NOT EXISTS transcript_chunks (
+  source_file TEXT NOT NULL,
+  chunk_idx INTEGER NOT NULL,
+  source_line INTEGER NOT NULL,
+  heading TEXT,
+  body TEXT NOT NULL,
+  PRIMARY KEY (source_file, chunk_idx)
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS transcript_chunks_fts USING fts5(
+  body, heading,
+  content='transcript_chunks',
+  content_rowid='rowid',
+  tokenize='porter unicode61'
+);
+
+CREATE TRIGGER IF NOT EXISTS tch_after_insert AFTER INSERT ON transcript_chunks BEGIN
+  INSERT INTO transcript_chunks_fts(rowid, body, heading)
+  VALUES (new.rowid, new.body, new.heading);
+END;
+
+CREATE TRIGGER IF NOT EXISTS tch_after_update AFTER UPDATE ON transcript_chunks BEGIN
+  INSERT INTO transcript_chunks_fts(transcript_chunks_fts, rowid, body, heading)
+  VALUES ('delete', old.rowid, old.body, old.heading);
+  INSERT INTO transcript_chunks_fts(rowid, body, heading)
+  VALUES (new.rowid, new.body, new.heading);
+END;
+
+CREATE TRIGGER IF NOT EXISTS tch_after_delete AFTER DELETE ON transcript_chunks BEGIN
+  INSERT INTO transcript_chunks_fts(transcript_chunks_fts, rowid, body, heading)
+  VALUES ('delete', old.rowid, old.body, old.heading);
+END;
 `;
 
 /**

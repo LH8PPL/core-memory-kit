@@ -107,7 +107,7 @@ export function validatePath(p, { projectRoot, userDir }) {
 // --- Tool handlers ----------------------------------------------------
 
 function makeMkSearch({ db, semanticBackend, projectRoot }) {
-  return async ({ query, mode, tier, since, limit, min_trust }) => {
+  return async ({ query, mode, scope, tier, since, limit, min_trust }) => {
     // Task 46: explicit mode wins; otherwise the project's configured
     // default (search.default_mode — set by `cmk install --with-semantic`).
     const { prepareSemanticBackend, resolveDefaultSearchMode } = await import(
@@ -125,7 +125,7 @@ function makeMkSearch({ db, semanticBackend, projectRoot }) {
       backend === undefined &&
       (wantMode === SEARCH_MODES.SEMANTIC || wantMode === SEARCH_MODES.HYBRID)
     ) {
-      const prep = await prepareSemanticBackend({ db, query });
+      const prep = await prepareSemanticBackend({ db, query, scope: scope ?? 'facts' });
       if (!prep.ok && mode) {
         // Explicitly requested — surface the actionable error.
         return {
@@ -154,6 +154,7 @@ function makeMkSearch({ db, semanticBackend, projectRoot }) {
     const r = search({
       db, query,
       mode: wantMode,
+      scope,
       tier,
       since,
       limit,
@@ -557,6 +558,7 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
       inputSchema: {
         query: z.string().min(1).describe('search query'),
         mode: z.enum(['keyword', 'semantic', 'hybrid']).optional(),
+        scope: z.enum(['facts', 'transcripts']).optional().describe("'facts' (default) = curated memory; 'transcripts' = the raw session record — the LAST-RESORT recall tier, search it only when curated memory has no answer"),
         tier: z.enum(['U', 'P', 'L']).optional(),
         since: z.string().optional().describe('ISO 8601 timestamp'),
         limit: z.number().int().positive().max(1000).optional(),
