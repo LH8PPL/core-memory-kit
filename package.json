@@ -33,6 +33,7 @@
     "bench:recall": "node scripts/bench-recall.mjs"
   },
   "devDependencies": {
+    "@huggingface/transformers": "^4.2.0",
     "@vitest/coverage-v8": "^4.1.8",
     "vitest": "^4.1.8"
   },

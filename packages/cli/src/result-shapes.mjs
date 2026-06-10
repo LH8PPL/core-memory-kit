@@ -104,7 +104,7 @@ export const ERROR_CATEGORIES = Object.freeze({
   POISON_GUARD: 'poison_guard',
 
   // `cmk search` requested --mode=semantic or --mode=hybrid but the
-  // Layer-5b semantic backend is not yet shipped (Task 30, design
+  // Layer-5b semantic backend's optional embedder is not installed (Task 30/65, design
   // §9.3). Pairs with `process.exitCode = 2` in subcommands.mjs per
   // tasks.md 30.2's explicit "exit 2 when unavailable" contract.
   // NO silent fallback to keyword — the user asked for semantic,

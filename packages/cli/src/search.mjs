@@ -11,7 +11,7 @@
 //             ~100ms for 10k bullets. Always available — the keyword
 //             backend ships in v0.1.0 with no extra install.
 //
-//   semantic  the Layer-5b semantic backend (not yet shipped — the embedded
+//   semantic  the Layer-5b semantic backend (Task 65: sqlite-vec + local ONNX embedder; the embedded
 //             vector backend is a future release; the DI seam below is the
 //             drop-in point). Until then this mode errors with
 //             ERROR_CATEGORIES.SEMANTIC_UNAVAILABLE when the caller
@@ -268,7 +268,8 @@ export function search(opts = {}) {
       return errorResult({
         category: ERROR_CATEGORIES.SEMANTIC_UNAVAILABLE,
         errors: [
-          'the Layer-5b semantic backend is not yet shipped — semantic/hybrid search will land in a future release. ' +
+          'no semantic backend provided — semantic/hybrid need the embedded Layer-5b backend prepared by the caller ' +
+            '(the CLI/MCP do this automatically when the optional @huggingface/transformers embedder is installed). ' +
             'Use --mode=keyword for the always-available FTS5 search.',
         ],
       });

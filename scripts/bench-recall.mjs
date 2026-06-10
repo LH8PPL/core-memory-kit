@@ -47,7 +47,8 @@ import { writeFact } from '../packages/cli/src/write-fact.mjs';
 import { appendScratchpadBullet } from '../packages/cli/src/scratchpad.mjs';
 import { openIndexDb } from '../packages/cli/src/index-db.mjs';
 import { reindexFull } from '../packages/cli/src/index-rebuild.mjs';
-import { search, SEARCH_MODES } from '../packages/cli/src/search.mjs';
+import { search, SEARCH_MODES, reciprocalRankFusion } from '../packages/cli/src/search.mjs';
+import { prepareSemanticBackend, rerankResults } from '../packages/cli/src/semantic-backend.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = join(dirname(__filename), '..');
@@ -260,7 +261,39 @@ const PIPELINES = {
     const lists = subs.map((sq) => searchIds({ db, query: sq, limit }));
     return fuseRankings(lists).slice(0, limit);
   },
+  // --- Task 65 rungs (the embedded backend behind the search() seam) ------
+  semantic: async ({ db, query, limit, modelId }) => {
+    const prep = await prepareSemanticBackend({ db, query, ...(modelId ? { modelId } : {}) });
+    if (!prep.ok) throw new Error(`semantic backend unavailable: ${prep.reason}`);
+    const r = search({ db, query, mode: SEARCH_MODES.SEMANTIC, semanticBackend: prep.backend, limit });
+    if (r.action === 'error') return [];
+    return r.results.map((h) => h.id);
+  },
+  hybrid: async ({ db, query, limit, modelId }) => {
+    const prep = await prepareSemanticBackend({ db, query, ...(modelId ? { modelId } : {}) });
+    if (!prep.ok) throw new Error(`semantic backend unavailable: ${prep.reason}`);
+    const r = search({ db, query, mode: SEARCH_MODES.HYBRID, semanticBackend: prep.backend, limit });
+    if (r.action === 'error') return [];
+    return r.results.map((h) => h.id);
+  },
+  // hybrid + the D-72 deterministic rerank (keyword 0.30 / temporal 0.40) —
+  // reported separately per the MemPalace raw-vs-reranked honesty norm.
+  'hybrid-rerank': async ({ db, query, limit, modelId }) => {
+    const prep = await prepareSemanticBackend({ db, query, ...(modelId ? { modelId } : {}) });
+    if (!prep.ok) throw new Error(`semantic backend unavailable: ${prep.reason}`);
+    // Over-fetch for the rerank stage, then cut to limit after.
+    const keyword = searchResults({ db, query, limit: limit * 3 });
+    const semantic = prep.backend({ limit: limit * 3 });
+    const fused = reciprocalRankFusion({ keywordResults: keyword, semanticResults: semantic });
+    return rerankResults(fused, { query }).slice(0, limit).map((h) => h.id);
+  },
 };
+
+function searchResults({ db, query, limit }) {
+  const r = search({ db, query, mode: SEARCH_MODES.KEYWORD, limit });
+  if (r.action === 'error') return [];
+  return r.results;
+}
 
 // --- Runner -----------------------------------------------------------------
 
@@ -269,6 +302,7 @@ export async function runBench({
   queriesPath = join(REPO_ROOT, 'fixtures', 'recall-bench', 'queries.json'),
   pipeline = 'keyword',
   reformulate = null,
+  modelId = null,
   sandboxRoot = null,
   outPath = null,
   quiet = false,
@@ -296,7 +330,7 @@ export async function runBench({
     const limit = 10;
     const perQuery = [];
     for (const q of queries.queries) {
-      const rankedIds = await pipelineFn({ db, query: q.query, limit, reformulate });
+      const rankedIds = await pipelineFn({ db, query: q.query, limit, reformulate, modelId });
       const relevantSet = new Set(q.relevant.map((key) => keyToId.get(key)));
       perQuery.push({
         id: q.id,
@@ -311,6 +345,7 @@ export async function runBench({
     const report = {
       ts: new Date().toISOString(),
       pipeline,
+      model: modelId ?? 'default',
       reformulator: reformulate ? (reformulate === haikuReformulate ? 'haiku' : 'injected') : 'none',
       corpusSize: corpus.entries.length,
       queryCount: queries.queries.length,
@@ -371,6 +406,7 @@ if (isMain) {
   };
   const pipeline = get('pipeline', 'keyword');
   const reformulator = get('reformulator', 'none');
+  const model = get('model', null);
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const outPath = get(
     'out',
@@ -378,6 +414,7 @@ if (isMain) {
   );
   await runBench({
     pipeline,
+    modelId: model,
     reformulate: reformulator === 'haiku' ? haikuReformulate : null,
     outPath,
   });

@@ -25,8 +25,10 @@
 //     alone — no bash — across every OS); assert the command string
 //     matches the documented shape.
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { readFileSync, statSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -166,6 +168,36 @@ describe('Task 17 — bin/cmk-<verb> hook scripts', () => {
       // hooks.json suite above) — node alone, no bash, on every OS.
       const stubPath = join(BIN_DIR, `${stub}.mjs`);
 
+      // Task 98 isolation (hazard surfaced 2026-06-10 by the Task-52
+      // dogfood): this REPO is itself a kit project now (real context/ +
+      // live session buffers), and these smokes spawn REAL bins. Without
+      // cwd/env isolation the bins resolve the repo's own tiers — the
+      // compress-session smoke engaged the REAL Haiku compress pipeline
+      // against the live now.md under stress (5/5 consistent failures) and
+      // mutated real (gitignored) session state. Every spawn below runs in
+      // a per-suite temp sandbox instead.
+      let sandbox;
+      let spawnEnv;
+      beforeAll(() => {
+        sandbox = mkdtempSync(join(tmpdir(), 'cmk-hooks-smoke-'));
+        mkdirSync(join(sandbox, 'proj'), { recursive: true });
+        mkdirSync(join(sandbox, 'user'), { recursive: true });
+        spawnEnv = {
+          ...process.env,
+          CMK_PROJECT_DIR: join(sandbox, 'proj'),
+          MEMORY_KIT_USER_DIR: join(sandbox, 'user'),
+        };
+      });
+      afterAll(() => {
+        rmSync(sandbox, { recursive: true, force: true });
+      });
+      const sandboxedSpawn = (args, opts) =>
+        spawnSync(process.execPath, args, {
+          ...opts,
+          cwd: join(sandbox, 'proj'),
+          env: spawnEnv,
+        });
+
       it('exists on disk', () => {
         expect(existsSync(stubPath)).toBe(true);
       });
@@ -185,7 +217,7 @@ describe('Task 17 — bin/cmk-<verb> hook scripts', () => {
       });
 
       it('exits 0 when invoked via node with empty stdin', () => {
-        const r = spawnSync(process.execPath, [stubPath], {
+        const r = sandboxedSpawn([stubPath], {
           input: '',
           encoding: 'utf8',
         });
@@ -193,7 +225,7 @@ describe('Task 17 — bin/cmk-<verb> hook scripts', () => {
       });
 
       it('stdout parses as JSON', () => {
-        const r = spawnSync(process.execPath, [stubPath], {
+        const r = sandboxedSpawn([stubPath], {
           input: '',
           encoding: 'utf8',
         });
@@ -202,7 +234,7 @@ describe('Task 17 — bin/cmk-<verb> hook scripts', () => {
 
       if (isStub) {
         it('stub JSON contains continue: true', () => {
-          const r = spawnSync(process.execPath, [stubPath], {
+          const r = sandboxedSpawn([stubPath], {
             input: '',
             encoding: 'utf8',
           });
@@ -211,7 +243,7 @@ describe('Task 17 — bin/cmk-<verb> hook scripts', () => {
         });
 
         it('stub stdout (or stderr) contains the documented "not yet implemented" notice', () => {
-          const r = spawnSync(process.execPath, [stubPath], {
+          const r = sandboxedSpawn([stubPath], {
             input: '',
             encoding: 'utf8',
           });
@@ -228,7 +260,7 @@ describe('Task 17 — bin/cmk-<verb> hook scripts', () => {
         // still emits parseable JSON and exits 0 — i.e., that it
         // honors the hook-protocol envelope regardless of payload.
         it('real handler emits parseable JSON (envelope contract)', () => {
-          const r = spawnSync(process.execPath, [stubPath], {
+          const r = sandboxedSpawn([stubPath], {
             input: '',
             encoding: 'utf8',
           });
@@ -242,7 +274,7 @@ describe('Task 17 — bin/cmk-<verb> hook scripts', () => {
           stop_hook_active: false,
           session_id: 'test-session',
         });
-        const r = spawnSync(process.execPath, [stubPath], {
+        const r = sandboxedSpawn([stubPath], {
           input: fakePayload,
           encoding: 'utf8',
         });

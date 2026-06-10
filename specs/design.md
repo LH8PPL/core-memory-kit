@@ -1517,16 +1517,18 @@ cmk search "<query>" [--mode keyword|semantic|hybrid] [--min-trust low|medium|hi
 Two backends:
 
 - **Keyword (always available)**: FTS5 BM25. ~100ms for 10k bullets.
-- **Semantic (optional, Layer 5b — not yet shipped)**: an embedded vector backend (TBD; §9.3.1). ~1s target for the same corpus.
+- **Semantic (optional, Layer 5b — SHIPPED, Task 65/ADR-0015)**: sqlite-vec inside the kit's index + a local ONNX embedder (`Xenova/bge-base-en-v1.5`, optional `@huggingface/transformers` install). Sub-second after the one-time model warm-up.
 - **Hybrid (default when both available)**: reciprocal-rank fusion (0.5 keyword, 0.5 semantic).
 
 Returns: `[{id, snippet, source_file, source_line, tier, trust, score}]`. Trust visible so users can filter via `--min-trust`. Tier visible so MCP-tool callers can route on tier without re-querying. `source_file` + `source_line` are separate fields (not a colon-joined string) so callers don't need to split; the kit's existing `${file}:${line}` formatter (used in `cmk` CLI output) composes both on display.
 
 **Implements**: FR-16, FR-17, FR-18, FR-30, NFR-9.
 
-#### 9.3.1 Layer 5b backend — RECONSIDER before building (open, 2026-05-31)
+#### 9.3.1 Layer 5b backend — RESOLVED 2026-06-10 (ADR-0015): sqlite-vec + optional local ONNX embedder
 
-> **Original pick:** `memsearch + Milvus` (the §9.3 "Semantic" line above). **Status: reconsider before any Layer-5b build.**
+> **RESOLUTION (Task 65, [ADR-0015](../docs/adr/0015-semantic-backend-sqlite-vec-plus-local-onnx-embedder.md), D-109):** the bake-off ran on the Task-99 benchmark and the decision is **`sqlite-vec` inside the kit's existing SQLite index + `Xenova/bge-base-en-v1.5` via the OPTIONAL `@huggingface/transformers` embedder** — R@5 **0.941** / paraphrase **1.000** vs the 0.529/0.300 agentic-keyword bar; bge-m3 (5× the weight) measured WORSE (0.765). Implementation: [`semantic-backend.mjs`](../packages/cli/src/semantic-backend.mjs) — content-addressed embedding cache, model-derived dims, sync `semanticBackend` seam preserved (the async boundary lives in `prepareSemanticBackend`). The embedder stays optional (~258 MB with onnxruntime): absent → actionable hint, keyword unaffected; `CMK_DISABLE_SEMANTIC=1` force-disables; Task 46 ships the install opt-in. The deferral analysis below is preserved as the decision trail.
+>
+> **Original pick:** `memsearch + Milvus` (the §9.3 "Semantic" line above). **Status (historical): reconsider before any Layer-5b build.**
 >
 > **Update (Task 120, v0.2.4):** the premature `memsearch + Milvus` *scaffolding* — doctor HC-1/HC-7, the `milvus-deploy` template files, the nightly-index cron, and the "install memsearch" SETUP docs — was **REMOVED**. It shipped and showed up in `cmk doctor`, wrongly implying the kit used a backend it never did. **The deferral below STANDS** (no backend chosen yet); the `semanticBackend` DI seam + `reciprocalRankFusion` are KEPT as the drop-in point. Task 120 removed the dead scaffolding, not the open decision.
 >
