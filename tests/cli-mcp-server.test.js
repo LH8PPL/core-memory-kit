@@ -164,13 +164,15 @@ describe('Task 31 — MCP server', () => {
       expect(parsed[0].id).toBe('P-AAAAAAAA');
     });
 
-    it('mk_search with mode:semantic and no backend returns isError', async () => {
-      const server = buildMcpServer({ projectRoot, userDir, db });
+    it('mk_search with mode:semantic and an unavailable backend returns isError', async () => {
+      // semanticBackend: null = the explicit "no backend" seam (undefined
+      // would auto-prepare the REAL embedder, which IS installed in dev/CI).
+      const server = buildMcpServer({ projectRoot, userDir, db, semanticBackend: null });
       const r = await invokeTool(server, 'mk_search', {
         query: 'pnpm', mode: 'semantic',
       });
       expect(r.isError).toBe(true);
-      expect(r.content[0].text).toMatch(/not yet shipped/);
+      expect(r.content[0].text).toMatch(/semantic backend|embedder/i);
     });
   });
 

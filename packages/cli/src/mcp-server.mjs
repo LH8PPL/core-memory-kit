@@ -108,14 +108,38 @@ export function validatePath(p, { projectRoot, userDir }) {
 
 function makeMkSearch({ db, semanticBackend }) {
   return async ({ query, mode, tier, since, limit, min_trust }) => {
+    const wantMode = mode ?? SEARCH_MODES.KEYWORD;
+    // Task 65: when the caller asks for semantic/hybrid and no test seam is
+    // injected, prepare the REAL embedded backend (lazy-optional — an absent
+    // embedder degrades to the actionable error below; keyword unaffected).
+    let backend = semanticBackend;
+    if (
+      backend === undefined &&
+      (wantMode === SEARCH_MODES.SEMANTIC || wantMode === SEARCH_MODES.HYBRID)
+    ) {
+      const { prepareSemanticBackend } = await import('./semantic-backend.mjs');
+      const prep = await prepareSemanticBackend({ db, query });
+      if (!prep.ok) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `error: semantic backend unavailable (${prep.reason}). ${prep.hint ?? 'Use mode "keyword".'}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+      backend = prep.backend;
+    }
     const r = search({
       db, query,
-      mode: mode ?? SEARCH_MODES.KEYWORD,
+      mode: wantMode,
       tier,
       since,
       limit,
       minTrust: min_trust,
-      semanticBackend,
+      semanticBackend: backend,
     });
     if (r.action === 'error') {
       return {
@@ -505,7 +529,7 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
   server.registerTool(
     'mk_search',
     {
-      description: 'Search kit memory (FTS5 keyword by default; semantic + hybrid require the Layer-5b semantic backend, not yet shipped).',
+      description: 'Search kit memory. FTS5 keyword by default; semantic + hybrid use the embedded Layer-5b backend (sqlite-vec + a local ONNX embedder — needs the optional @huggingface/transformers install).',
       inputSchema: {
         query: z.string().min(1).describe('search query'),
         mode: z.enum(['keyword', 'semantic', 'hybrid']).optional(),

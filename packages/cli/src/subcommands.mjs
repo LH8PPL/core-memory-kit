@@ -251,8 +251,9 @@ function runLessonsPromote(id, options = {}) {
  *
  * The keyword backend (FTS5 BM25 over the observations index) always
  * ships. Semantic + hybrid modes require the Layer-5b semantic backend,
- * which is not yet shipped; both error with exit code 2 and a clear
- * "not yet shipped" hint per tasks.md 30.2. The `semanticBackend` DI seam
+ * (Task 65: prepared automatically when the optional embedder is installed;
+ * absent embedder errors with exit code 2 + an install hint, per the 30.2
+ * contract). The `semanticBackend` DI seam
  * is the drop-in point for the future backend.
  *
  * Filter flags (per tasks.md 30.4):
@@ -263,7 +264,7 @@ function runLessonsPromote(id, options = {}) {
  *   --limit <N>                        (default 20)
  *   --include-tombstoned               (default false)
  */
-function runSearch(queryParts, options) {
+async function runSearch(queryParts, options) {
   const projectRoot = resolvePath(process.cwd());
   const userDir =
     process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
@@ -287,15 +288,35 @@ function runSearch(queryParts, options) {
           'searching the existing index. Run `cmk reindex --full` if results look stale.',
       );
     }
+    // Task 65: semantic/hybrid prepare the REAL embedded backend (async —
+    // search() itself stays sync; the seam gets a sync closure over the
+    // pre-embedded query vector). Absent optional embedder → actionable
+    // error, exit 2 (the 30.2 contract); keyword unaffected.
+    const mode = options?.mode ?? SEARCH_MODES.KEYWORD;
+    let semanticBackend;
+    if (mode === SEARCH_MODES.SEMANTIC || mode === SEARCH_MODES.HYBRID) {
+      const { prepareSemanticBackend } = await import('./semantic-backend.mjs');
+      const prep = await prepareSemanticBackend({ db, query });
+      if (!prep.ok) {
+        console.error(
+          `cmk search: semantic backend unavailable (${prep.reason}).` +
+            (prep.hint ? `\n  ${prep.hint}` : ' Use --mode=keyword.'),
+        );
+        process.exitCode = 2;
+        return;
+      }
+      semanticBackend = prep.backend;
+    }
     const r = searchAction({
       db,
       query,
-      mode: options?.mode ?? SEARCH_MODES.KEYWORD,
+      mode,
       minTrust: options?.minTrust,
       tier: options?.tier,
       since: options?.since,
       limit: options?.limit !== undefined ? Number(options.limit) : undefined,
       includeTombstoned: options?.includeTombstoned === true,
+      semanticBackend,
     });
     if (r.action === 'error') {
       for (const e of r.errors) console.error(`cmk search: ${e}`);
@@ -1653,7 +1674,7 @@ export const subcommands = [
     milestone: 30,
     argSpec: [{ flags: '<query...>', description: 'query terms' }],
     optionSpec: [
-      { flags: '--mode <mode>', description: 'keyword | semantic | hybrid (default: keyword; semantic + hybrid need the Layer-5b semantic backend, not yet shipped)' },
+      { flags: '--mode <mode>', description: 'keyword | semantic | hybrid (default: keyword; semantic + hybrid use the embedded Layer-5b backend — needs the optional @huggingface/transformers embedder)' },
       { flags: '--min-trust <level>', description: 'low | medium | high' },
       { flags: '--tier <tier>', description: 'U | P | L (filter to a single tier)' },
       { flags: '--since <date>', description: 'ISO date — exclude observations older than this' },

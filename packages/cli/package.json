@@ -35,6 +35,7 @@
     "chokidar": "^5.0.0",
     "commander": "^15.0.0",
     "js-yaml": "^4.1.0",
+    "sqlite-vec": "^0.1.9",
     "zod": "^4.4.3"
   },
   "engines": {

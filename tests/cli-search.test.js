@@ -6,7 +6,7 @@
 // Tests for Task 30 — `cmk search` hybrid CLI (T-026).
 // Per tasks.md 30.5:
 //   - Test keyword on 10k-observation fixture: results in <100 ms
-//   - Test `--mode semantic` without Layer 5b: exit 2; stderr says the semantic backend is "not yet shipped"
+//   - Test `--mode semantic` without a prepared backend: exit 2 / schema error with the actionable hint (Task 65 updated the wording)
 //   - Test `--mode hybrid` with both mocked: reciprocal-rank fusion (0.5/0.5)
 //   - Test `--min-trust medium` excludes low-trust results
 //   - Test `--tier P` excludes user/local results
@@ -231,7 +231,7 @@ describe('Task 30 — cmk search', () => {
       const r = search({ db, query: 'pnpm', mode: 'semantic' });
       expect(r.action).toBe('error');
       expect(r.errorCategory).toBe('semantic_unavailable');
-      expect(r.errors[0]).toMatch(/not yet shipped/);
+      expect(r.errors[0]).toMatch(/no semantic backend provided/);
     });
 
     it('semantic mode with injected backend returns its results', () => {
@@ -346,7 +346,7 @@ describe('Task 30 — cmk search', () => {
   });
 
   describe('CLI integration (I2 — tasks.md 30.5 #2 exit-2 contract)', () => {
-    it('`cmk search --mode semantic` (backend not yet shipped) exits 2 + stderr says so', async () => {
+    it('`cmk search --mode semantic` without the optional embedder available still exits 2 with a clear message', async () => {
       // Spawn the actual `cmk` binary. The semantic-unavailable path in
       // runSearch sets process.exitCode = 2; this test verifies the
       // process-exit contract that tasks.md 30.5 #2 explicitly
@@ -361,10 +361,17 @@ describe('Task 30 — cmk search', () => {
         const r = spawnSync(
           process.execPath,
           [CMK_BIN, 'search', 'pnpm', '--mode', 'semantic'],
-          { cwd: projectRoot, encoding: 'utf8' },
+          {
+            cwd: projectRoot,
+            encoding: 'utf8',
+            // Deterministic unavailability: the dev/CI env HAS the optional
+            // embedder installed, so force the disabled path (the same
+            // ok:false branch an uninstalled embedder takes).
+            env: { ...process.env, CMK_DISABLE_SEMANTIC: '1' },
+          },
         );
         expect(r.status).toBe(2);
-        expect((r.stderr || '') + (r.stdout || '')).toMatch(/not yet shipped/);
+        expect((r.stderr || '') + (r.stdout || '')).toMatch(/semantic backend unavailable|disabled-by-env|embedder/i);
       } finally {
         rmSync(sandbox, { recursive: true, force: true });
       }
