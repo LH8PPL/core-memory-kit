@@ -54,7 +54,7 @@ The differentiator is the wedge; the rest are the quality fixes that make it *fe
 - **68** — weekly-curate LLM-semantic scratchpad pruning
 - **70** — inject/output injection-defense (memory-poisoning defense-in-depth)
 - **47** — `cmk doctor --repair` (prompt-then-install per failed HC)
-- **52** — dogfood the kit on its own repo (the meta-fix for "we kept losing context")
+- [x] **52** — dogfood the kit on its own repo (the meta-fix for "we kept losing context") — _shipped 2026-06-10, pulled into the v0.3 lane (D-105/D-108)_
 - **48** — promote ask-before-install rule to a proper NFR (doc/requirements housekeeping)
 - [x] **77** — rename version-named-but-general docs → version-agnostic (the misnomer class): `specs/v0.1.0/` → `specs/` **and** `docs/journey/v0.1.0-build-log.md` → `docs/journey/build-log.md` — _shipped 2026-06-08, one atomic refactor; ~200 refs updated, `validate-references` + suite green; point-in-time history docs left version-stamped._
 - **45.1–45.4** — persona manual controls (surface / `cmk persona accept|reject` / auto-apply / hand-curated conflict — verify which already shipped via the wedge work)

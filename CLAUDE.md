@@ -297,9 +297,10 @@ Concrete rule: at the start of a task whose sub-tasks include the domain above, 
 
 **ONE holistic `code-review-excellence` pass per PR, not fragmented.** When a PR's surface includes multiple concerns (e.g., a new module + spec docs + tests + a separate SKILL.md), the review covers all of it in one pass — integration risk concentrates across the whole change. Per the user's Task 24 launch instruction: *"ONE holistic code-review-excellence pass on the whole Task 24 PR. NOT a separate pass for SKILL.md alone. The SKILL.md, the Poison_Guard regex catalog, the routeHigh integration in auto-extract.mjs, and the trust-routing logic all need to be reviewed together — integration risk concentrates across the whole change, and fragmented review re-derives context anyway."* Same applies to every campaign PR — call the skill once with the full PR diff as scope, get one consolidated findings table.
 
-Skills that **should NOT auto-trigger for this project**:
+**`memory-write` — superseded note (decision trail):**
 
-- **`memory-write`** — the existing predecessor skill. Its phrase-based trigger model is the very pattern claude-memory-kit replaces (the auto-extract subagent + memory-write skill in Tasks 21+23 do this without requiring user phrases). Triggering the existing `memory-write` skill during work on claude-memory-kit would write to `~/.claude/projects/<slug>/memory/` — the wrong location. Until the kit's own auto-extract ships, durable facts that arise during these sessions go into the journey log via explicit `Edit`, **NOT** via the predecessor skill.
+- **Original rule (pre-2026-06-10):** the PREDECESSOR memory-write skill was banned from auto-triggering here — it wrote to `~/.claude/projects/<slug>/memory/`, the wrong location for this project.
+- **Dogfood pivot 2026-06-10 (Task 52, D-108):** `cmk install` now runs on this repo, and the scaffolded `memory-write` skill in `.claude/skills/` is the KIT'S OWN (routes through `cmk remember`/`mk_remember` → the in-repo `context/` + Poison_Guard). It IS allowed — and expected — to trigger. The old ban's rationale (wrong location) no longer applies; only the kit's safe write path is permitted either way (never hand-edit memory files).
 
 ## On memory in this project (mental model)
 
@@ -307,7 +308,8 @@ The memory model the kit is building (and the model these notes are written unde
 
 - **Auto-extract is the default.** Future-Claude takes notes naturally based on what's worth noting. The user does not need to say "remember this." See [`specs/design.md`](specs/design.md) §6.0 for the full mental model.
 - **User phrase triggers are an override**, for cases where the user wants immediate explicit capture.
-- **Until Tasks 21 + 23 ship**, this project doesn't have working auto-extract for itself. So the practical workaround during the build: when something genuinely durable comes up in conversation (architectural decision, design rationale, user preference, anti-pattern discovered), explicitly capture it into the journey log via an `Edit`. **Don't wait for the user to say "remember this"** — that's exactly the broken pattern the kit replaces.
+- **Original interim workaround (pre-2026-06-10):** until the kit dogfooded itself, durable facts were captured into the journey log via explicit `Edit`s — the kit's own auto-extract wasn't running on this repo.
+- **Dogfood pivot 2026-06-10 (Task 52, D-108): the kit now runs on its OWN repo.** `cmk install` is live here — `context/` scaffolded + seeded, hooks fire (Stop auto-extract, SessionStart inject), MCP server registered. Durable facts arising in conversation are captured via **`cmk remember` / `mk_remember`** (rich `--why`/`--how` for decisions) or by auto-extract — never by hand-editing memory files. The DECISION-LOG + journey log remain the authoritative paper trail per the source-of-truth table; the kit's memory is the session-start recall layer over them. **Public-repo deviation (D-108):** `context/transcripts/` + `context/sessions/` are gitignored here (raw conversation content, name-privacy class); the curated tiers commit as designed.
 
 ## Current state
 
@@ -329,3 +331,64 @@ The kit doesn't become usable until **Task 23** (auto-extract subagent + memory-
 ## When in doubt
 
 Re-read the journey log. If still in doubt, ask the user with one specific question — not four bullet-pointed options.
+<!-- claude-memory-kit:start v0.2.4 -->
+## Memory System — claude-memory-kit
+
+This project uses **claude-memory-kit** for per-project, in-repo memory that survives session boundaries. Memory lives in `context/` (committed) and `context.local/` (gitignored). Cross-project memory lives at `~/.claude-memory-kit/` (or `$MEMORY_KIT_USER_DIR`).
+
+> This block is the runtime contract for the kit. `cmk doctor` reports which layers are active in your install. Docs: <https://github.com/LH8PPL/claude-memory-kit>
+
+### Where memory lives
+
+| Tier | Path | Travels with `git clone`? |
+| --- | --- | --- |
+| **User** | `~/.claude-memory-kit/` | No — machine-local, cross-project |
+| **Project** | `<repo>/context/` | **Yes** — committed |
+| **Local** | `<repo>/context.local/` | No — gitignored, per-machine |
+
+Precedence at session start: local > project > user (most-specific wins, others are logged as shadowed).
+
+### How memory works
+
+- **Session start** — the kit injects a frozen snapshot (≤10 KB) from the three tiers into Claude's context. Loaded once, never mutated mid-session — preserves the prefix cache.
+- **During the session** — durable facts get captured automatically by the Stop hook + `memory-write` skill (once Layer 4 is live). The user can also explicitly say "remember this", "from now on", "we decided X".
+- **End of session** — the rolling-window pipeline compresses `sessions/now.md` into a daily summary. Cron jobs distill into `recent.md` and `archive.md` over time (Layer 6, optional).
+
+### Health checks (when `cmk doctor` is live)
+
+The `cmk doctor` health checks verify each layer is wired correctly: install integrity, hook registration, transcript capture freshness, INDEX accuracy, cron registration, semantic search backend, native Auto Memory coexistence, and stale locks. Full design + decision records: <https://github.com/LH8PPL/claude-memory-kit>.
+
+### Recalling memory (for Claude)
+
+The snapshot injected at session start is a **bounded hot index, not everything** — there is a deeper, queryable archive. When a question is "what did we decide / what's our X / how does the user work / what's the setup," **query your memory instead of re-deriving the answer from scratch**:
+
+- **`cmk search "<topic>"`** — find any captured fact (decisions, preferences, config, lessons) across the project + user tiers.
+- **`context/memory/<type>_<slug>.md`** — the granular fact archive with full **Why / How** rationale (`context/memory/INDEX.md` lists them).
+- **`~/.claude-memory-kit/` (`USER.md` / `HABITS.md` / `LESSONS.md`)** — how this user works across *all* their projects.
+
+Reach for these *first* — re-deriving an answer the project already recorded (by re-reading files, re-searching, or working it out again) wastes the memory that exists precisely so you don't have to. Recall from memory first, then verify against the source if needed.
+
+### Memory write rules (for Claude)
+
+Most capture is automatic — the Stop hook extracts durable facts each turn, no action needed. To capture something **explicitly**, the **`memory-write` skill** carries the full procedure; it loads on demand when you save a fact. The invariants it enforces:
+
+- **Capture through `cmk remember`** — never hand-write `MEMORY.md`, `USER.md`, or files under `context/memory/`. The command routes through the kit's safe path (Poison_Guard secret screen, home-path → `~` abstraction so a committed fact never leaks your username, dedup, correct schema). Add `--why` / `--how` / `--type` to record a durable preference or decision richly — a bare bullet loses the *why*, which is the part worth keeping.
+- **Machine-specific config** (absolute paths only valid on this machine) → `context.local/machine-paths.md` (gitignored), not `cmk remember`.
+- **Cross-project lesson** (true on every project) → `cmk lessons promote <id>` moves a project fact to the user tier; never hand-edit the user-tier files (`LESSONS.md` / `HABITS.md` / `USER.md`).
+- **Confirm silently.** Don't announce captures. Frozen-snapshot semantics mean a write takes effect next session.
+
+### Privacy
+
+- Anything inside `<private>...</private>` tags in a user prompt is stripped before any disk write — never persisted in any form.
+- `cmk remember` (and auto-extract) abstract absolute home-dir paths (`C:\Users\you\…`, `/home/you/…`, `/Users/you/…`) to `~` before writing to a committed/shared tier, so a fact never ships your username and stays portable across machines. Genuinely machine-specific paths belong in `context.local/` (gitignored).
+
+### Uninstall / remove this block
+
+This block is managed by `cmk install`. To remove it cleanly:
+
+```bash
+cmk uninstall
+```
+
+Everything outside the `claude-memory-kit:start` / `:end` markers is byte-preserved.
+<!-- claude-memory-kit:end -->
