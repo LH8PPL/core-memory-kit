@@ -174,6 +174,33 @@ describe('Task 31 — MCP server', () => {
       expect(r.isError).toBe(true);
       expect(r.content[0].text).toMatch(/semantic backend|embedder/i);
     });
+
+    it('configured hybrid default + unavailable backend degrades to keyword (Task 46, NOT isError)', async () => {
+      // The MCP half of the graceful-degradation contract: no explicit
+      // mode + search.default_mode=hybrid + embedder unavailable → keyword
+      // results, not an error (a configured default must never break
+      // every search). Seam stays undefined so the REAL auto-prepare path
+      // runs; CMK_DISABLE_SEMANTIC makes it deterministically unavailable.
+      seedObservation(db, { id: 'P-AAAAAAAA', body: 'standardized on pnpm for new projects' });
+      writeFileSync(
+        join(projectRoot, 'context', 'settings.json'),
+        JSON.stringify({ search: { default_mode: 'hybrid' } }),
+        'utf8',
+      );
+      const prev = process.env.CMK_DISABLE_SEMANTIC;
+      process.env.CMK_DISABLE_SEMANTIC = '1';
+      try {
+        const server = buildMcpServer({ projectRoot, userDir, db });
+        const r = await invokeTool(server, 'mk_search', { query: 'pnpm' });
+        expect(r.isError).toBeFalsy();
+        const parsed = JSON.parse(r.content[0].text);
+        expect(parsed).toHaveLength(1);
+        expect(parsed[0].id).toBe('P-AAAAAAAA');
+      } finally {
+        if (prev === undefined) delete process.env.CMK_DISABLE_SEMANTIC;
+        else process.env.CMK_DISABLE_SEMANTIC = prev;
+      }
+    });
   });
 
   describe('mk_get', () => {

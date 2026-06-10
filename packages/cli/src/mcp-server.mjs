@@ -106,9 +106,16 @@ export function validatePath(p, { projectRoot, userDir }) {
 
 // --- Tool handlers ----------------------------------------------------
 
-function makeMkSearch({ db, semanticBackend }) {
+function makeMkSearch({ db, semanticBackend, projectRoot }) {
   return async ({ query, mode, tier, since, limit, min_trust }) => {
-    const wantMode = mode ?? SEARCH_MODES.KEYWORD;
+    // Task 46: explicit mode wins; otherwise the project's configured
+    // default (search.default_mode — set by `cmk install --with-semantic`).
+    const { prepareSemanticBackend, resolveDefaultSearchMode } = await import(
+      './semantic-backend.mjs'
+    );
+    let wantMode =
+      mode ??
+      (projectRoot ? resolveDefaultSearchMode({ projectRoot }) : SEARCH_MODES.KEYWORD);
     // Task 65: when the caller asks for semantic/hybrid and no test seam is
     // injected, prepare the REAL embedded backend (lazy-optional — an absent
     // embedder degrades to the actionable error below; keyword unaffected).
@@ -117,9 +124,9 @@ function makeMkSearch({ db, semanticBackend }) {
       backend === undefined &&
       (wantMode === SEARCH_MODES.SEMANTIC || wantMode === SEARCH_MODES.HYBRID)
     ) {
-      const { prepareSemanticBackend } = await import('./semantic-backend.mjs');
       const prep = await prepareSemanticBackend({ db, query });
-      if (!prep.ok) {
+      if (!prep.ok && mode) {
+        // Explicitly requested — surface the actionable error.
         return {
           content: [
             {
@@ -130,7 +137,12 @@ function makeMkSearch({ db, semanticBackend }) {
           isError: true,
         };
       }
-      backend = prep.backend;
+      if (!prep.ok) {
+        // Configured default can't run — degrade gracefully to keyword.
+        wantMode = SEARCH_MODES.KEYWORD;
+      } else {
+        backend = prep.backend;
+      }
     }
     const r = search({
       db, query,
@@ -539,7 +551,7 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
         min_trust: z.enum(['low', 'medium', 'high']).optional(),
       },
     },
-    makeMkSearch({ db, semanticBackend }),
+    makeMkSearch({ db, semanticBackend, projectRoot }),
   );
 
   // mk_get

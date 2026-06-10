@@ -28,6 +28,8 @@
 // ≤1500-char chunking rule is satisfied by construction).
 
 import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 // The D-105 ladder's WINNER (bake-off 2026-06-10, bench:recall on the Task-99
 // corpus): bge-base-en-v1.5 — R@5 0.941 / paraphrase 1.000 in semantic mode,
@@ -315,6 +317,45 @@ export async function prepareSemanticBackend({
   };
 
   return { ok: true, backend, sync };
+}
+
+// --- Task 46: default-mode resolution + install-time warm-up ---------------
+
+const VALID_DEFAULT_MODES = new Set(['keyword', 'semantic', 'hybrid']);
+
+/**
+ * The project's default search mode (Task 46): `context/settings.json` →
+ * `search.default_mode`. Written by `cmk install --with-semantic` (hybrid) /
+ * `--no-semantic` (keyword); absent/invalid → 'keyword' (the status-quo
+ * default — no surprise model downloads on machines that never opted in).
+ */
+export function resolveDefaultSearchMode({ projectRoot }) {
+  try {
+    const p = join(projectRoot, 'context', 'settings.json');
+    if (!existsSync(p)) return 'keyword';
+    const mode = JSON.parse(readFileSync(p, 'utf8'))?.search?.default_mode;
+    return VALID_DEFAULT_MODES.has(mode) ? mode : 'keyword';
+  } catch {
+    return 'keyword';
+  }
+}
+
+/**
+ * Install-time warm-up (Task 46): load the extractor once so the one-time
+ * model download happens during `cmk install --with-semantic`, not as a
+ * surprise on the user's first search. Best-effort — failure reports a
+ * reason, never throws.
+ */
+export async function warmEmbedder({ modelId = DEFAULT_MODEL_ID } = {}) {
+  const t0 = Date.now();
+  try {
+    const extractor = await loadExtractor(modelId);
+    if (!extractor) return { ok: false, reason: 'embedder-not-installed' };
+    await extractor('warm-up', { pooling: 'mean', normalize: true });
+    return { ok: true, modelId, ms: Date.now() - t0 };
+  } catch (err) {
+    return { ok: false, reason: err?.message ?? String(err) };
+  }
 }
 
 // --- Post-fusion rerank (D-72: keyword-overlap 0.30 + temporal 0.40) -------
