@@ -17,6 +17,7 @@ import { install as installAction, initUserTier as initUserTierAction } from './
 import { removeClaudeMdBlock } from './claude-md.mjs';
 import { reindex as reindexAction } from './reindex.mjs';
 import { openIndexDb } from './index-db.mjs';
+import { resolveDefaultSearchMode } from './semantic-backend.mjs';
 import { reindexBoot, reindexFull } from './index-rebuild.mjs';
 import { search as searchAction, SEARCH_MODES } from './search.mjs';
 import { memoryWrite } from './memory-write.mjs';
@@ -74,7 +75,16 @@ async function runInstall(options /* , command */) {
   // commander maps `--no-hooks` to options.hooks === false.
   const noHooks = !!(options && options.hooks === false);
   const verbose = !!(options && options.verbose);
-  const result = await installAction({ force: !!(options && options.force), noHooks });
+  const result = await installAction({
+    force: !!(options && options.force),
+    noHooks,
+    // Task 46: two flags, 3-state semantics (enable / pin-off / untouched).
+    // commander maps `--no-semantic` to options.semantic === false (the
+    // same negation pattern as --no-hooks above); `--with-semantic` maps
+    // to options.withSemantic.
+    withSemantic: !!(options && options.withSemantic),
+    noSemantic: !!(options && options.semantic === false),
+  });
 
   // Outcome over inventory (self-test UX finding): state the resulting state +
   // next action, not a file tally. The old "scaffolded 5, skipped 4 existing"
@@ -112,6 +122,24 @@ async function runInstall(options /* , command */) {
   // opted out, so we don't nag).
   const nativeNote = nativeMemoryInstallNote(result.projectRoot);
   if (nativeNote) console.log(nativeNote);
+  // Task 46: semantic-recall outcome.
+  if (result.semantic?.action === 'enabled') {
+    const w = result.semantic.warmed;
+    console.log(
+      '  Semantic recall ENABLED — `cmk search` now defaults to hybrid here.' +
+        (w?.ok
+          ? ` Model cached (${Math.round(w.ms / 1000)}s).`
+          : ' Model downloads on first search.'),
+    );
+  } else if (result.semantic?.action === 'disabled') {
+    console.log(
+      '  Semantic recall pinned OFF for this project (search.default_mode=keyword).',
+    );
+  } else if (result.semantic?.action === 'skipped' && !noHooks) {
+    console.log(
+      '  Tip: `cmk install --with-semantic` adds local semantic recall (ask in your own words; one-time ~260 MB, no API calls).',
+    );
+  }
   if (verbose) {
     console.log(
       `  files: ${result.created.length} created, ${result.skipped.length} already present` +
@@ -290,14 +318,19 @@ async function runSearch(queryParts, options) {
     }
     // Task 65: semantic/hybrid prepare the REAL embedded backend (async —
     // search() itself stays sync; the seam gets a sync closure over the
-    // pre-embedded query vector). Absent optional embedder → actionable
-    // error, exit 2 (the 30.2 contract); keyword unaffected.
-    const mode = options?.mode ?? SEARCH_MODES.KEYWORD;
+    // pre-embedded query vector). Task 46: an explicit --mode wins;
+    // otherwise the project's configured default (context/settings.json
+    // search.default_mode, set by `cmk install --with-semantic`), falling
+    // back to keyword. Explicit-but-unavailable → exit 2 + hint (the 30.2
+    // contract); configured-but-unavailable → graceful keyword fallback
+    // (the default must never break every search).
+    const explicitMode = options?.mode;
+    let mode = explicitMode ?? resolveDefaultSearchMode({ projectRoot });
     let semanticBackend;
     if (mode === SEARCH_MODES.SEMANTIC || mode === SEARCH_MODES.HYBRID) {
       const { prepareSemanticBackend } = await import('./semantic-backend.mjs');
       const prep = await prepareSemanticBackend({ db, query });
-      if (!prep.ok) {
+      if (!prep.ok && explicitMode) {
         console.error(
           `cmk search: semantic backend unavailable (${prep.reason}).` +
             (prep.hint ? `\n  ${prep.hint}` : ' Use --mode=keyword.'),
@@ -305,7 +338,14 @@ async function runSearch(queryParts, options) {
         process.exitCode = 2;
         return;
       }
-      semanticBackend = prep.backend;
+      if (!prep.ok) {
+        console.error(
+          `cmk search: semantic default unavailable (${prep.reason}) — falling back to keyword.`,
+        );
+        mode = SEARCH_MODES.KEYWORD;
+      } else {
+        semanticBackend = prep.backend;
+      }
     }
     const r = searchAction({
       db,
@@ -1632,6 +1672,8 @@ export const subcommands = [
     optionSpec: [
       { flags: '--force', description: 'allow downgrade of an existing newer-version CLAUDE.md block' },
       { flags: '--no-hooks', description: 'scaffold only; do NOT wire hooks into .claude/settings.json' },
+      { flags: '--with-semantic', description: 'enable semantic recall: install the local embedder (~260 MB once), default search to hybrid, pre-warm the model' },
+      { flags: '--no-semantic', description: 'pin keyword-only search for this project (writes search.default_mode=keyword)' },
       { flags: '--verbose', description: 'show the per-tier created/skipped file breakdown' },
     ],
     action: runInstall,

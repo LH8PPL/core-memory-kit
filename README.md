@@ -52,10 +52,13 @@ npm install -g @lh8ppl/claude-memory-kit
 cd ~/my-project
 cmk install            # scaffolds context/ + the memory-write skill AND wires the hooks into .claude/settings.json
 
-# 3. (optional) Register cron jobs — Layer 6 falls back to lazy-on-read if skipped
+# 3. (optional) Enable semantic recall — ask in your own words, fully local
+cmk install --with-semantic   # one-time ~260 MB; flips search to hybrid by default
+
+# 4. (optional) Register cron jobs — Layer 6 falls back to lazy-on-read if skipped
 cmk register-crons
 
-# 4. Verify, then restart Claude Code so the new hooks load:
+# 5. Verify, then restart Claude Code so the new hooks load:
 #    inside Claude Code type  /exit  (or /quit), then run  claude  again.
 cmk doctor
 ```

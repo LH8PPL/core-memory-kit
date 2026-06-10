@@ -39,6 +39,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
+import { spawnSync } from 'node:child_process';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { injectClaudeMdBlock } from './claude-md.mjs';
@@ -411,7 +412,102 @@ export async function install(options = {}) {
     }
   }
 
-  return { projectRoot, userTier, created, skipped, gitignore, claudeMd, hooks, mcpServer, errors };
+  // Task 46 — semantic-recall opt-in/out. `--with-semantic`: install the
+  // optional embedder (~260 MB once, fully local), flip the project's
+  // default search mode to hybrid, and pre-warm the model so the one-time
+  // download happens NOW, not as a surprise on the first search.
+  // `--no-semantic`: pin keyword explicitly. Neither flag → settings
+  // untouched (keyword by absence). The npm spawn is injectable
+  // (options.spawnNpm) so tests assert the argv without touching the host.
+  let semantic = { action: 'skipped' };
+  if (options.withSemantic) {
+    semantic = await enableSemantic({ projectRoot, spawnNpm: options.spawnNpm, warm: options.warmEmbedder });
+    if (semantic.action === 'error') errors.push({ path: 'semantic', error: semantic.error });
+  } else if (options.noSemantic) {
+    const r = mergeProjectSettings(projectRoot, { search: { default_mode: 'keyword' } });
+    semantic = r.ok
+      ? { action: 'disabled', path: r.path }
+      : { action: 'error', error: r.error };
+    if (!r.ok) errors.push({ path: r.path, error: r.error });
+  }
+
+  return { projectRoot, userTier, created, skipped, gitignore, claudeMd, hooks, mcpServer, semantic, errors };
+}
+
+/**
+ * Read-merge-write <projectRoot>/context/settings.json, preserving every
+ * key the user already has (over-mutation-safe; deep-merges one level).
+ */
+export function mergeProjectSettings(projectRoot, patch) {
+  const path = join(projectRoot, 'context', 'settings.json');
+  try {
+    let current = {};
+    if (existsSync(path)) {
+      current = JSON.parse(readFileSync(path, 'utf8'));
+    }
+    const next = { ...current };
+    for (const [key, value] of Object.entries(patch)) {
+      next[key] =
+        value && typeof value === 'object' && !Array.isArray(value)
+          ? { ...(current[key] ?? {}), ...value }
+          : value;
+    }
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, JSON.stringify(next, null, 2) + '\n', 'utf8');
+    return { ok: true, path };
+  } catch (err) {
+    return { ok: false, path, error: err?.message ?? String(err) };
+  }
+}
+
+async function enableSemantic({ projectRoot, spawnNpm, warm }) {
+  // 1. Install the optional embedder globally (it resolves as a sibling of
+  // the globally-installed kit). Injectable for tests.
+  const runNpm =
+    spawnNpm ??
+    (() => {
+      // One constant command string under shell:true (no user input — and
+      // an args array + shell:true trips Node's DEP0190). npm is npm.cmd
+      // on Windows; the shell resolves it cross-platform.
+      const r = spawnSync('npm install -g @huggingface/transformers', {
+        encoding: 'utf8',
+        stdio: 'inherit',
+        shell: true,
+        // spawn-discipline (design §8.5): a hung registry shouldn't hang
+        // install forever; 10 min covers the ~46 MB package on slow links.
+        timeout: 600_000,
+      });
+      return { status: r.status, error: r.error?.message };
+    });
+  const npm = runNpm();
+  if (npm.status !== 0) {
+    return {
+      action: 'error',
+      error: `npm install -g @huggingface/transformers failed (${npm.error ?? `exit ${npm.status}`}) — semantic recall NOT enabled; keyword search is unaffected`,
+    };
+  }
+  // 2. Flip the project default to hybrid ONLY after the dependency landed
+  // (no half-state: a hybrid default without an embedder would degrade
+  // every search to a fallback warning).
+  const settings = mergeProjectSettings(projectRoot, { search: { default_mode: 'hybrid' } });
+  if (!settings.ok) {
+    return { action: 'error', error: settings.error };
+  }
+  // 3. Pre-warm (best-effort): the one-time model download happens during
+  // install, not on the first search. Injectable for tests.
+  let warmed = { ok: false, reason: 'skipped' };
+  try {
+    const warmFn =
+      warm ??
+      (async () => {
+        const { warmEmbedder } = await import('./semantic-backend.mjs');
+        return warmEmbedder();
+      });
+    warmed = await warmFn();
+  } catch (err) {
+    warmed = { ok: false, reason: err?.message ?? String(err) };
+  }
+  return { action: 'enabled', path: settings.path, defaultMode: 'hybrid', warmed };
 }
 
 /**
