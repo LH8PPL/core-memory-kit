@@ -1,0 +1,127 @@
+// Task 104.2 (D-117) — transcript chunking + index sync: the SEARCH half of
+// the L3 raw tier (the capture half shipped in 104.1). Transcript files
+// (context/transcripts/{date}.md — dialogue + per-turn Tools blocks) are
+// chunked by `## ` turn headings and windowed to ≤1500 chars (the memsearch
+// chunking rule Task 65 adopted), then synced into the SEPARATE
+// transcript_chunks table (index-db.mjs) so `cmk search --scope transcripts`
+// reaches them WITHOUT polluting L1 fact results (the MemPalace last-resort
+// contract, D-70/D-72).
+//
+// Sync strategy mirrors the observation indexer: per-file mtime/sha1 rows in
+// the shared `files` table (keyed with a 'transcript:' prefix so they never
+// collide with observation sources) → unchanged files cost one stat.
+//
+// Public boundary:
+//   chunkTranscript(text) → [{heading, body, sourceLine, chunkIdx}]  (pure)
+//   syncTranscriptChunks({db, projectRoot, now?}) → {files, chunks}
+
+import { createHash } from 'node:crypto';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
+
+const CHUNK_MAX_CHARS = 1500; // the Task-65 / memsearch chunking rule
+const FILES_KEY_PREFIX = 'transcript:';
+
+export function chunkTranscript(text) {
+  if (typeof text !== 'string' || text.trim() === '') return [];
+  const lines = text.split(/\r?\n/);
+  // Locate turn headings (`## <ts> — speaker`, the capture-prompt/-turn shape).
+  const headings = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (/^##\s/.test(lines[i])) headings.push(i);
+  }
+  if (headings.length === 0) return [];
+
+  const chunks = [];
+  let chunkIdx = 0;
+  for (let h = 0; h < headings.length; h++) {
+    const start = headings[h];
+    const end = h + 1 < headings.length ? headings[h + 1] : lines.length;
+    const heading = lines[start].trim();
+    const body = lines
+      .slice(start + 1, end)
+      .join('\n')
+      .trim();
+    if (body === '') continue;
+    // Window oversized turns; every window keeps its turn heading so a hit
+    // is always attributable to a specific turn.
+    for (let off = 0; off < body.length; off += CHUNK_MAX_CHARS) {
+      chunks.push({
+        heading,
+        body: body.slice(off, off + CHUNK_MAX_CHARS),
+        sourceLine: start + 1, // 1-based heading line — the drill-back anchor
+        chunkIdx: chunkIdx++,
+      });
+    }
+  }
+  return chunks;
+}
+
+function sha1(text) {
+  return createHash('sha1').update(text, 'utf8').digest('hex');
+}
+
+export function syncTranscriptChunks({ db, projectRoot, now = Date.now() } = {}) {
+  const dir = join(projectRoot, 'context', 'transcripts');
+  let files = 0;
+  let chunks = 0;
+  if (!existsSync(dir)) return { files, chunks };
+
+  let names;
+  try {
+    names = readdirSync(dir).filter((n) => n.endsWith('.md'));
+  } catch {
+    return { files, chunks };
+  }
+
+  const getFileRow = db.prepare('SELECT mtime, sha1 FROM files WHERE path = ?');
+  const upsertFileRow = db.prepare(
+    'INSERT INTO files (path, mtime, sha1, indexed_at) VALUES (?, ?, ?, ?) ' +
+      'ON CONFLICT(path) DO UPDATE SET mtime = excluded.mtime, sha1 = excluded.sha1, indexed_at = excluded.indexed_at',
+  );
+  const deleteChunks = db.prepare('DELETE FROM transcript_chunks WHERE source_file = ?');
+  const insertChunk = db.prepare(
+    'INSERT INTO transcript_chunks (source_file, chunk_idx, source_line, heading, body) VALUES (?, ?, ?, ?, ?)',
+  );
+
+  for (const name of names) {
+    const abs = join(dir, name);
+    const sourceFile = relative(projectRoot, abs).split('\\').join('/');
+    const filesKey = FILES_KEY_PREFIX + sourceFile;
+    let st;
+    try {
+      st = statSync(abs);
+    } catch {
+      continue;
+    }
+    const prev = getFileRow.get(filesKey);
+    // NO mtime fast-path: two appends inside the filesystem's mtime
+    // resolution would make the second invisible (caught as a flaky test —
+    // rapid Stop hooks are the same shape in production). sha1 is the
+    // authority; day-files are small and reindex reads its other sources
+    // anyway, so the read cost is negligible.
+    let text;
+    try {
+      text = readFileSync(abs, 'utf8');
+    } catch {
+      continue;
+    }
+    const digest = sha1(text);
+    if (prev && prev.sha1 === digest) {
+      continue; // content unchanged
+    }
+
+    const parsed = chunkTranscript(text);
+    const replaceFile = db.transaction(() => {
+      deleteChunks.run(sourceFile);
+      for (const c of parsed) {
+        insertChunk.run(sourceFile, c.chunkIdx, c.sourceLine, c.heading, c.body);
+      }
+      upsertFileRow.run(filesKey, Math.trunc(st.mtimeMs), digest, now);
+    });
+    replaceFile();
+    files += 1;
+    chunks += parsed.length;
+  }
+  return { files, chunks };
+}
