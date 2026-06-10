@@ -152,6 +152,20 @@ describe('Task 46 — configured hybrid default degrades gracefully (CLI integra
       expect(r.status).toBe(0); // graceful — the configured default never breaks search
       expect(r.stdout).toMatch(/pnpm/);
       expect(r.stderr).toMatch(/falling back to keyword/);
+      // Explicit --mode=keyword WINS over the configured hybrid default:
+      // the semantic prepare never runs, so no fallback note appears.
+      const explicit = spawnSync(
+        process.execPath,
+        [CMK_BIN, 'search', 'pnpm', '--mode', 'keyword'],
+        {
+          cwd: projectRoot,
+          encoding: 'utf8',
+          env: { ...process.env, MEMORY_KIT_USER_DIR: userDir, CMK_DISABLE_SEMANTIC: '1' },
+        },
+      );
+      expect(explicit.status).toBe(0);
+      expect(explicit.stdout).toMatch(/pnpm/);
+      expect(explicit.stderr).not.toMatch(/falling back to keyword/);
     } finally {
       rmSync(sandbox, { recursive: true, force: true });
     }

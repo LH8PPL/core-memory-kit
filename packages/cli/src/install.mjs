@@ -419,6 +419,8 @@ export async function install(options = {}) {
   // `--no-semantic`: pin keyword explicitly. Neither flag → settings
   // untouched (keyword by absence). The npm spawn is injectable
   // (options.spawnNpm) so tests assert the argv without touching the host.
+  // Both flags together → withSemantic wins (the affirmative opt-in beats
+  // the pin-off; checked first below).
   let semantic = { action: 'skipped' };
   if (options.withSemantic) {
     semantic = await enableSemantic({ projectRoot, spawnNpm: options.spawnNpm, warm: options.warmEmbedder });
