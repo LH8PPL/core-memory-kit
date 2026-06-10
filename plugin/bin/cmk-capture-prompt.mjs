@@ -39,9 +39,10 @@ const modulePath = join(
 
 let readHookStdin;
 let capturePrompt;
+let buildMemoryHint;
 try {
   ({ readHookStdin } = await import(pathToFileURL(readHookStdinPath).href));
-  ({ capturePrompt } = await import(pathToFileURL(modulePath).href));
+  ({ capturePrompt, buildMemoryHint } = await import(pathToFileURL(modulePath).href));
 } catch (err) {
   process.stderr.write(
     `cmk-capture-prompt: failed to load modules: ${err?.message ?? err}\n`,
@@ -73,6 +74,25 @@ try {
   process.stderr.write(
     `cmk-capture-prompt: handler failed: ${err?.message ?? err}\n`,
   );
+}
+
+// Task 75.2 — emit the "memory available" recall nudge as additionalContext
+// (the MODEL-facing UserPromptSubmit field per Anthropic's hooks doc;
+// systemMessage is user-display). Best-effort: a hint failure must never
+// break the capture protocol.
+try {
+  const hint = buildMemoryHint({ projectRoot: process.cwd(), prompt: payload?.prompt });
+  if (hint) {
+    process.stdout.write(
+      JSON.stringify({
+        continue: true,
+        hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: hint },
+      }),
+    );
+    process.exit(0);
+  }
+} catch (err) {
+  process.stderr.write(`cmk-capture-prompt: hint failed: ${err?.message ?? err}\n`);
 }
 
 emitContinue();
