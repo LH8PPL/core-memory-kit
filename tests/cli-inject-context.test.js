@@ -39,7 +39,11 @@ import {
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { injectContext, lazyCompressSpawnDescriptor } from '../packages/cli/src/inject-context.mjs';
+import {
+  injectContext,
+  lazyCompressSpawnDescriptor,
+  AUTHORITATIVE_MEMORY_PREAMBLE,
+} from '../packages/cli/src/inject-context.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = join(dirname(__filename), '..');
@@ -423,11 +427,17 @@ describe('Task 18 — injectContext() boundary', () => {
       const r = injectContext({ cwd: projectRoot, userDir });
       // Before the fix this fixture injected ~1KB+ of comments/seeds with the
       // real fact buried; after, the snapshot is small and the real fact is
-      // near the front.
+      // near the front. Offsets are PREAMBLE-RELATIVE since Task 75.0: the
+      // fixed authoritative-memory preamble now leads every snapshot, so the
+      // "near the top / small" contract applies to the body after it.
+      const preambleLen = AUTHORITATIVE_MEMORY_PREAMBLE.length + 2; // + '\n\n'
       const idxFact = r.snapshot.indexOf('Never install Python packages globally');
       expect(idxFact).toBeGreaterThanOrEqual(0);
-      expect(idxFact).toBeLessThan(200); // real fact is near the top, not buried
-      expect(Buffer.byteLength(r.snapshot, 'utf8')).toBeLessThan(600);
+      expect(idxFact - preambleLen).toBeLessThan(200); // real fact near the top of the BODY
+      expect(
+        Buffer.byteLength(r.snapshot, 'utf8') -
+          Buffer.byteLength(AUTHORITATIVE_MEMORY_PREAMBLE, 'utf8') - 2,
+      ).toBeLessThan(600);
     });
   });
 
@@ -846,5 +856,80 @@ describe('Task 81 — lazy-compress spawn descriptor (Windows console-popup fix)
     const dMissing = lazyCompressSpawnDescriptor('/proj', '/no/such/cmk-compress-lazy.mjs');
     expect(dMissing.command).toBe('cmk-compress-lazy');
     expect(dMissing.options.shell).toBe(true);
+  });
+});
+
+describe('Task 75.0 — authoritative-memory preamble (D-64 / memory-os Ground Truth)', () => {
+  let sandbox;
+  let projectRoot;
+  let userDir;
+
+  beforeEach(() => {
+    const f = makeFixture();
+    sandbox = f.sandbox;
+    projectRoot = f.projectRoot;
+    userDir = f.userDir;
+  });
+
+  afterEach(() => {
+    rmSync(sandbox, { recursive: true, force: true });
+  });
+
+  it('non-empty snapshot opens with the authoritative-memory preamble', () => {
+    seedThreeTierFixture({ projectRoot, userDir });
+    const r = injectContext({ cwd: projectRoot, userDir });
+    // The preamble leads the snapshot — before any tier block.
+    expect(r.snapshot.startsWith(AUTHORITATIVE_MEMORY_PREAMBLE)).toBe(true);
+    const iPreamble = r.snapshot.indexOf('injected memory wins');
+    const iFirstTier = r.snapshot.indexOf('local-paths-marker');
+    expect(iPreamble).toBeGreaterThanOrEqual(0);
+    expect(iFirstTier).toBeGreaterThan(iPreamble);
+  });
+
+  it('preamble carries the ranked ground-truth hierarchy + the key authority line', () => {
+    // The memory-os Layer-07 near-verbatim core (D-73): ranking + "wins" + "novel".
+    expect(AUTHORITATIVE_MEMORY_PREAMBLE).toContain('cmk search');
+    expect(AUTHORITATIVE_MEMORY_PREAMBLE).toContain(
+      'When injected memory contradicts your assumptions, injected memory wins',
+    );
+    expect(AUTHORITATIVE_MEMORY_PREAMBLE).toContain(
+      'never treat a question as novel when the answer is already in your prompt',
+    );
+  });
+
+  it('empty snapshot stays empty — no preamble without memory behind it', () => {
+    // No tiers seeded at all.
+    const r = injectContext({ cwd: projectRoot, userDir });
+    expect(r.snapshot).toBe('');
+    expect(r.hookOutput.hookSpecificOutput.additionalContext).toBe('');
+  });
+
+  it('preamble fits the §7.1 cap slack (Σ tier budgets 12,275 + preamble ≤ 13,000)', () => {
+    // Composition guard: DEFAULT_CAP_BYTES(13000) − Σ TIER_BUDGETS(12275) = 725
+    // bytes of slack. The preamble must fit inside it (with margin) so the
+    // per-tier budget table never composes past the snapshot cap.
+    expect(Buffer.byteLength(AUTHORITATIVE_MEMORY_PREAMBLE, 'utf8')).toBeLessThanOrEqual(700);
+  });
+
+  it('total snapshot (preamble + tiers) honors a custom capBytes', () => {
+    seedThreeTierFixture({ projectRoot, userDir });
+    const cap = 2000;
+    const r = injectContext({ cwd: projectRoot, userDir, capBytes: cap });
+    expect(r.bytes).toBeLessThanOrEqual(cap);
+    expect(Buffer.byteLength(r.snapshot, 'utf8')).toBeLessThanOrEqual(cap);
+  });
+
+  it('over-mutation guard: tier content + dedup/truncation behavior unchanged by the preamble', () => {
+    seedThreeTierFixture({ projectRoot, userDir });
+    const r = injectContext({ cwd: projectRoot, userDir });
+    // All three tier markers still present, still in L → P → U order.
+    const iLocal = r.snapshot.indexOf('local-paths-marker');
+    const iProject = r.snapshot.indexOf('project-memory-marker');
+    const iUser = r.snapshot.indexOf('user-about-marker');
+    expect(iLocal).toBeGreaterThan(-1);
+    expect(iProject).toBeGreaterThan(iLocal);
+    expect(iUser).toBeGreaterThan(iProject);
+    // additionalContext still equals the snapshot (hook contract).
+    expect(r.hookOutput.hookSpecificOutput.additionalContext).toBe(r.snapshot);
   });
 });

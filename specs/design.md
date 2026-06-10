@@ -938,7 +938,10 @@ The SessionStart hook (`cmk-inject-context`) resolves and merges the three tiers
 4. Concatenate into frozen snapshot (≤10 KB total), with per-tier budgets enforced first
    Order: local → project → user (highest priority first in prompt)
 
-5. Emit as additionalContext JSON via hook output protocol
+5. Prepend the AUTHORITATIVE-MEMORY preamble (Task 75.0) when the snapshot
+   is non-empty (see §7.1.2)
+
+6. Emit as additionalContext JSON via hook output protocol
 ```
 
 #### 7.1.1 Per-tier byte budgets (2026-05-26 amendment)
@@ -971,6 +974,7 @@ Why this rule is non-optional: when per-file caps and snapshot cap are specified
 
 - `Σ per-file caps across all tiers ≤ DEFAULT_CAP_BYTES` — fails the test suite if not
 - `Σ per-file caps in tier T == TIER_BUDGETS[T]` for each T ∈ {L, P, U} — fails if drift
+- `Σ per-file caps + authoritative-memory preamble reserve ≤ DEFAULT_CAP_BYTES` (Task 75.0, §7.1.2) — the JOINT check; without it the preamble-size test and the Σ-caps check each pass while composing past the cap
 
 Lint runs on every `npm test` invocation. PR-14's seed-trust × consolidator bug and PR-22's auto-extract-reads-assistant-only bug were the same shape; this rule + the build-time check prevent the next instance.
 
@@ -995,6 +999,18 @@ If sum still exceeds snapshot_cap (configuration error — sum of budgets > cap)
 This bug was structurally inevitable given how the spec was originally written. Per-file caps from Task 12 (total 12,275) exceeded the snapshot cap (originally 10 KB). Any user who filled their scratchpads up to cap WOULD trigger truncation. PR-25's first pass tightened user-tier seeds + introduced per-tier budgets but kept the snapshot cap at 10 KB; PR-B raised the cap to 13,000 and aligned per-tier budgets to per-file caps. The coordination rule above is the load-bearing invariant going forward.
 
 Same shape as PR-14's seed-trust+at vs consolidator bug AND PR-22's auto-extract-reads-assistant-only bug. Three instances of the separately-correct-jointly-broken pattern; the CLAUDE.md "Composition verification" rule + this design.md coordination rule + the build-time check in validate-template.mjs are the three artifacts that prevent the next instance.
+
+#### 7.1.2 Authoritative-memory preamble (Task 75.0, 2026-06-09)
+
+Every **non-empty** snapshot opens with a fixed, code-generated preamble (`AUTHORITATIVE_MEMORY_PREAMBLE` in [`inject-context.mjs`](../packages/cli/src/inject-context.mjs)) that tells the agent the injected memory is **authoritative**: a 4-level ground-truth ranking (terminal/tool output → THIS snapshot + `cmk search` → official docs → training knowledge) plus the key line *"When injected memory contradicts your assumptions, injected memory wins. … never treat a question as novel when the answer is already in your prompt."* Adapted near-verbatim from memory-os Layer 07 (D-64/D-73): injecting memory is insufficient — without the instruction the agent re-derives from code what the snapshot already answers (the D-40 cold-open failure).
+
+Design constraints:
+
+- **Code-generated, not template-scaffolded** — always present, never consolidated/evicted/graduated, and existing installs pick it up on upgrade (avoids the Task-73 stale-template class). The scaffolded `CLAUDE.md` carries a one-line reinforcement ("Authority rule") for new installs; the preamble is the upgrade-proof carrier.
+- **Composition with the cap table above (binding):** the preamble + its 2 joining newlines must fit the 725-byte headroom (Σ budgets 12,275 + preamble ≤ 13,000) — i.e. preamble ≤ 723 bytes; the boundary test pins ≤ 700 (currently 611), and `validate-template.mjs` assertion 3 enforces the JOINT invariant (Σ caps + preamble reserve ≤ cap) structurally on every `npm test`, so a future budget raise can't compose past the cap through the preamble seam. `injectContext` subtracts the preamble reserve from the cap handed to the truncation step, so custom `capBytes` values stay honored exactly; Door-4 truncation events still report the CALLER's capBytes, not the internally-reduced value. Known edge (accepted): custom caps below ~1.3 KB yield an empty snapshot slightly earlier than pre-75.0 (the reserve is taken before the drop step) — sane caps are unaffected.
+- **Empty snapshot stays empty** — no preamble without memory behind it (downstream tooling relies on `additionalContext === ''` for the nothing-to-inject case).
+
+The instruction-first lever is deliberately ahead of the Layer-5b backend (Task 65): per D-64, the framing is the bigger recall lever than the search backend. The remaining Task-75 halves (75.1 recall skill, 75.2 prompt hint) land after Task 65 so they wrap the full hybrid ladder.
 
 ### 7.2 `cmk config --show-origin` debug command
 
