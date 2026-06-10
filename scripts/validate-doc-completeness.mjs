@@ -41,6 +41,11 @@ export const DEFERRAL_ALLOWLIST = [
 const DEFERRAL_PATTERN = /not yet (shipped|implemented)|deferred to a later release/i;
 const USER_FACING_DOCS = ['README.md', 'packages/cli/README.md', 'docs/CLI.md', 'docs/MCP.md'];
 
+// Full regex-escape (CodeQL js/incomplete-sanitization — escaping only `-`
+// was incomplete; verbs are internal names today, but the guard shouldn't
+// break or misbehave on a future verb with a regex metachar).
+const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
+
 /** Check 1 — every CLI verb has a CLI.md heading mention. Pure. */
 export function checkCliDocs({ cliVerbs, cliDocText, exempt = CLI_DOC_EXEMPT }) {
   const errors = [];
@@ -54,7 +59,7 @@ export function checkCliDocs({ cliVerbs, cliDocText, exempt = CLI_DOC_EXEMPT }) 
     // contains-match would false-pass 'get' via the '### cmk config get'
     // heading (skill-review finding). Grouped headings still work: each
     // command in them repeats the `cmk <verb>` form.
-    const re = new RegExp(`cmk ${verb.replace(/[-]/g, '\\-')}\\b`);
+    const re = new RegExp(`cmk ${escapeRegExp(verb)}\\b`);
     if (!re.test(headings)) {
       errors.push(
         `CLI.md: command 'cmk ${verb}' has no \`### \` section heading — document it (or add it to CLI_DOC_EXEMPT with a reason)`,
