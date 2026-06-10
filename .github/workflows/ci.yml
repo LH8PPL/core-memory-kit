@@ -38,6 +38,9 @@ jobs:
         with:
           path: node_modules/@huggingface/transformers/.cache
           key: hf-models-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          # A lockfile bump shouldn't force a fresh model download — the model
+          # files are content-stable per model id; partial restore is safe.
+          restore-keys: hf-models-${{ runner.os }}-
       - run: npm test
 
   coverage:
@@ -60,6 +63,9 @@ jobs:
         with:
           path: node_modules/@huggingface/transformers/.cache
           key: hf-models-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          # A lockfile bump shouldn't force a fresh model download — the model
+          # files are content-stable per model id; partial restore is safe.
+          restore-keys: hf-models-${{ runner.os }}-
       - run: npm run test:coverage
       - name: Upload lcov coverage report
         if: always()
