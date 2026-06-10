@@ -20,6 +20,24 @@ The kit ships an **MCP server** so Claude can run every memory operation **in co
 | `mk_queue_list` | `cmk queue …` | List what's pending in the review / conflict queues. |
 | `mk_queue_resolve` | `cmk queue …` | Resolve a queued item — `promote` / `discard` a review item, `keep-old` / `keep-new` a conflict. |
 
+## Tool parameters (the full option surface)
+
+Verified against the server's schemas (`packages/cli/src/mcp-server.mjs`); names are snake_case where the CLI flag is kebab-case (`min_trust` ↔ `--min-trust`).
+
+| Tool | Parameters |
+| --- | --- |
+| `mk_remember` | `text` (required, ≤5000) · `tier` U/P/L (U/L are captured to P with a promotion note — `mk_lessons_promote` is the cross-project path) · rich capture: `why` + `how` (≤5000 each), `title` (≤200), `type` feedback/project/reference/user, `links` (related fact names) · `cites` is not recorded yet — omit |
+| `mk_search` | `query` (required) · `mode` keyword/semantic/hybrid (omit = the project default) · `scope` facts/transcripts (transcripts = the session record, last resort) · `tier` U/P/L · `since` ISO date · `limit` ≤1000 · `min_trust` low/medium/high (the fact-only filters don't apply under `scope: "transcripts"`) |
+| `mk_get` | `ids` (required, 1–100 per call — batch, don't loop) |
+| `mk_timeline` | `anchor` (required id) · `depth_before` / `depth_after` (≤50, default 5 each) |
+| `mk_cite` | `id` (required) |
+| `mk_recent_activity` | `window` 1h/24h/7d (default 24h) · `limit` ≤1000 (default 20) |
+| `mk_trust` | `id` (required) · `level` low/medium/high (required) |
+| `mk_lessons_promote` | `id` (required, a P- fact) · `to` USER.md/HABITS.md/LESSONS.md (default LESSONS.md) |
+| `mk_forget` | `id` (required) · `reason` (≤500, audited) · `confirm` — the token from the preview call; required to actually delete |
+| `mk_queue_list` | `queue` review/conflicts (default review) |
+| `mk_queue_resolve` | `queue` (required) · `id` (required) · `action` — review: promote/discard; conflicts: keep-old/keep-new (`merge-both` routes to the interactive `cmk queue conflicts`) |
+
 ## Destructive ops are two-step (confirm token)
 
 `mk_forget` never deletes on the first call. It returns a **preview** of exactly what would be tombstoned, plus a short **confirm token**; Claude must call `mk_forget` again echoing that token to actually delete. So an auto-invoking model can't silently destroy memory — nothing vanishes without the preview landing in front of you first. (`mk_trust` and `mk_lessons_promote` are mutations but non-destructive, so they apply directly.)

@@ -54,6 +54,26 @@ cmk search "postgres"
 cmk search "deploy steps" --min-trust high --tier P --limit 5
 ```
 
+### `cmk get <ids…>`
+Fetch full observation bodies + provenance by citation ID (parity with the `mk_get` MCP tool). Takes one or more ids from `cmk search` output; also reads tombstoned facts (the recovery path after `cmk forget`).
+```bash
+cmk get P-S79MJHFN
+cmk get P-S79MJHFN P-QT4CMNXH      # batch
+```
+
+### `cmk timeline <anchor> [--before <n>] [--after <n>]`
+Sequential context around an anchor observation — what was captured before and after it, by creation time (`mk_timeline` parity).
+- `--before <n>` / `--after <n>` — observations on each side (default 5 each).
+```bash
+cmk timeline P-S79MJHFN --before 3 --after 3
+```
+
+### `cmk cite <id>`
+Render the canonical Markdown citation link for an observation (`mk_cite` parity) — paste-ready provenance for docs/PRs.
+
+### `cmk recent-activity [--window 1h|24h|7d] [--limit <n>]`
+List recently added observations within a time window (`mk_recent_activity` parity; default window 24h, limit 20). The "what did the kit capture lately?" view.
+
 ### `cmk doctor`
 Run the 7 health checks (HC-1..HC-7); reports PASS/FAIL/SKIP with a repair command per failure.
 ```bash
@@ -93,6 +113,12 @@ Register the daily-distill + weekly-curate jobs with the host scheduler (Linux c
 
 ### `cmk roll [--scope now|today|recent]`
 Manually trigger a compression pass. `now` = compress-session (default), `today` = daily-distill, `recent` = weekly-curate.
+
+### `cmk daily-distill` · `cmk weekly-curate`
+Run one pipeline pass directly (these are what the scheduler invokes; humans normally use `cmk register-crons` or `cmk roll`). `daily-distill` consolidates the day's session buffers into `today-{date}.md`; `weekly-curate` archives `today-*.md` older than 7 days into `archive.md`, dedups bullets, and rebuilds `recent.md`.
+
+### `cmk compress --lazy`
+The lazy-on-read fallback for no-cron environments: checks staleness and delegates to daily-distill / weekly-curate as needed. Typically invoked detached from the SessionStart hook — not by hand. (Bare `cmk compress` without `--lazy` is a stub.)
 
 These also ship as standalone bins for the scheduler: `cmk-daily-distill`, `cmk-weekly-curate`, `cmk-compress-lazy` (invoked by cron; not typically by hand).
 
