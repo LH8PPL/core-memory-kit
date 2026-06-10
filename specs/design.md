@@ -974,6 +974,7 @@ Why this rule is non-optional: when per-file caps and snapshot cap are specified
 
 - `Σ per-file caps across all tiers ≤ DEFAULT_CAP_BYTES` — fails the test suite if not
 - `Σ per-file caps in tier T == TIER_BUDGETS[T]` for each T ∈ {L, P, U} — fails if drift
+- `Σ per-file caps + authoritative-memory preamble reserve ≤ DEFAULT_CAP_BYTES` (Task 75.0, §7.1.2) — the JOINT check; without it the preamble-size test and the Σ-caps check each pass while composing past the cap
 
 Lint runs on every `npm test` invocation. PR-14's seed-trust × consolidator bug and PR-22's auto-extract-reads-assistant-only bug were the same shape; this rule + the build-time check prevent the next instance.
 
@@ -1006,7 +1007,7 @@ Every **non-empty** snapshot opens with a fixed, code-generated preamble (`AUTHO
 Design constraints:
 
 - **Code-generated, not template-scaffolded** — always present, never consolidated/evicted/graduated, and existing installs pick it up on upgrade (avoids the Task-73 stale-template class). The scaffolded `CLAUDE.md` carries a one-line reinforcement ("Authority rule") for new installs; the preamble is the upgrade-proof carrier.
-- **Composition with the cap table above (binding):** the preamble + its 2 joining newlines must fit the 725-byte headroom (Σ budgets 12,275 + preamble ≤ 13,000) — i.e. preamble ≤ 723 bytes; the boundary test pins ≤ 700 (currently 611). `injectContext` subtracts the preamble reserve from the cap handed to the truncation step, so custom `capBytes` values stay honored exactly; Door-4 truncation events still report the CALLER's capBytes, not the internally-reduced value.
+- **Composition with the cap table above (binding):** the preamble + its 2 joining newlines must fit the 725-byte headroom (Σ budgets 12,275 + preamble ≤ 13,000) — i.e. preamble ≤ 723 bytes; the boundary test pins ≤ 700 (currently 611), and `validate-template.mjs` assertion 3 enforces the JOINT invariant (Σ caps + preamble reserve ≤ cap) structurally on every `npm test`, so a future budget raise can't compose past the cap through the preamble seam. `injectContext` subtracts the preamble reserve from the cap handed to the truncation step, so custom `capBytes` values stay honored exactly; Door-4 truncation events still report the CALLER's capBytes, not the internally-reduced value. Known edge (accepted): custom caps below ~1.3 KB yield an empty snapshot slightly earlier than pre-75.0 (the reserve is taken before the drop step) — sane caps are unaffected.
 - **Empty snapshot stays empty** — no preamble without memory behind it (downstream tooling relies on `additionalContext === ''` for the nothing-to-inject case).
 
 The instruction-first lever is deliberately ahead of the Layer-5b backend (Task 65): per D-64, the framing is the bigger recall lever than the search backend. The remaining Task-75 halves (75.1 recall skill, 75.2 prompt hint) land after Task 65 so they wrap the full hybrid ladder.

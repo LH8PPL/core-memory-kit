@@ -73,10 +73,12 @@ async function checkCapCoordination() {
   }
   const sumAllTiers = Object.values(sumByTier).reduce((a, b) => a + b, 0);
 
-  // Import the inject-context constants (DEFAULT_CAP_BYTES, TIER_BUDGETS).
-  let DEFAULT_CAP_BYTES, TIER_BUDGETS;
+  // Import the inject-context constants (DEFAULT_CAP_BYTES, TIER_BUDGETS,
+  // and the exported AUTHORITATIVE_MEMORY_PREAMBLE for assertion 3).
+  let DEFAULT_CAP_BYTES, TIER_BUDGETS, PREAMBLE;
   try {
     const mod = await import('../packages/cli/src/inject-context.mjs');
+    PREAMBLE = mod.AUTHORITATIVE_MEMORY_PREAMBLE ?? '';
     // These constants aren't exported; we need them for the check.
     // Workaround: re-read the module source and parse the values. The
     // cleaner long-term path is to export them, but for v0.1 we keep
@@ -129,6 +131,25 @@ async function checkCapCoordination() {
           `Per design §7.1 coordination rule.`,
       );
     }
+  }
+
+  // Assertion 3 (Task 75.0, design §7.1.2): the authoritative-memory
+  // preamble + its 2 joining newlines + Σ per-file caps must fit the
+  // snapshot cap TOGETHER. Without the JOINT check, the preamble-size
+  // test (≤700) and assertion 1 (Σ ≤ cap) each pass while a future
+  // budget raise composes past the cap at runtime — the effective cap
+  // handed to truncation (cap − preamble reserve) would fall below Σ
+  // budgets and silently drop the user tier on every session (the exact
+  // PR-25 failure shape, reintroduced through the preamble seam).
+  const preambleBytes = Buffer.byteLength(PREAMBLE, 'utf8');
+  const preambleReserve = preambleBytes === 0 ? 0 : preambleBytes + 2;
+  if (sumAllTiers + preambleReserve > DEFAULT_CAP_BYTES) {
+    violations.push(
+      `CAP-COORD: Σ per-file caps (${sumAllTiers}) + authoritative-memory preamble reserve (${preambleReserve}) ` +
+        `= ${sumAllTiers + preambleReserve} exceeds DEFAULT_CAP_BYTES (${DEFAULT_CAP_BYTES}). ` +
+        `Shrink AUTHORITATIVE_MEMORY_PREAMBLE, tighten per-file caps, or raise DEFAULT_CAP_BYTES. ` +
+        `Per design §7.1.2 composition rule.`,
+    );
   }
 }
 
