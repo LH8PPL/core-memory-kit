@@ -51,6 +51,16 @@ describe('Task 128 — checkCliDocs', () => {
     });
     expect(errors).toHaveLength(1);
   });
+
+  it("GATE BITES: 'get' is NOT satisfied by the 'cmk config get' heading (anchor directly after cmk)", () => {
+    const errors = checkCliDocs({
+      cliVerbs: new Set(['get', 'config']),
+      cliDocText: '### `cmk config get <key>` · `cmk config set <key> <value>`\n',
+      exempt: new Map(),
+    });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatch(/'cmk get'/);
+  });
 });
 
 describe('Task 128 — checkMcpDocs + parseMcpToolParams', () => {

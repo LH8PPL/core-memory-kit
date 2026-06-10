@@ -50,9 +50,11 @@ export function checkCliDocs({ cliVerbs, cliDocText, exempt = CLI_DOC_EXEMPT }) 
     .join('\n');
   for (const verb of cliVerbs) {
     if (exempt.has(verb)) continue;
-    // The verb must appear as a word inside some `### ... cmk ...` heading
-    // (grouped headings like "disable-native-memory · enable-native-memory" count).
-    const re = new RegExp(`cmk[^\\n\`]*\\b${verb.replace(/[-]/g, '\\-')}\\b`);
+    // The verb must appear DIRECTLY after `cmk ` in some heading — a loose
+    // contains-match would false-pass 'get' via the '### cmk config get'
+    // heading (skill-review finding). Grouped headings still work: each
+    // command in them repeats the `cmk <verb>` form.
+    const re = new RegExp(`cmk ${verb.replace(/[-]/g, '\\-')}\\b`);
     if (!re.test(headings)) {
       errors.push(
         `CLI.md: command 'cmk ${verb}' has no \`### \` section heading — document it (or add it to CLI_DOC_EXEMPT with a reason)`,
