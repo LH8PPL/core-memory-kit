@@ -55,6 +55,7 @@ import {
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { sanitizePrivacyTags } from './privacy.mjs';
+import { extractTurnToolActivity, readTranscriptTail } from './turn-tools.mjs';
 
 function dateFromIso(iso) {
   return String(iso).slice(0, 10);
@@ -299,9 +300,34 @@ export function captureTurn({
     mkdirSync(transcriptsDir, { recursive: true });
   }
   const sanitized = sanitizePrivacyTags(turnText);
+
+  // Task 104.1 (D-117) — enrich the assistant entry with the turn's TOOL
+  // ACTIVITY, read from Anthropic's live session JSONL (the Stop payload's
+  // transcript_path). The payload itself carries only the assistant TEXT;
+  // the JSONL is the only record of tool calls/results — and it expires
+  // (~30 days, machine-local), so this is the moment to extract the current
+  // turn into the kit's own durable format (the L3 raw tier, design §19).
+  // Best-effort by contract: a missing path, unreadable file, or shifted
+  // format degrades to a text-only entry, never a capture failure. The
+  // block is privacy-sanitized like everything else that reaches disk.
+  // The now.md buffer + the auto-extract turn file deliberately stay
+  // TEXT-ONLY (tool noise would bloat the compressor/extractor inputs).
+  let toolsSection = '';
+  try {
+    if (typeof payload?.transcript_path === 'string' && payload.transcript_path !== '') {
+      const tail = readTranscriptTail(payload.transcript_path);
+      const activity = tail ? extractTurnToolActivity(tail) : null;
+      if (activity) {
+        toolsSection = `\n**Tools:**\n\n${sanitizePrivacyTags(activity)}\n`;
+      }
+    }
+  } catch {
+    // enrichment is best-effort; the text entry below is the durable record
+  }
+
   appendFileSync(
     transcriptPath,
-    `## ${ts} — assistant\n\n${sanitized}\n\n`,
+    `## ${ts} — assistant\n\n${sanitized}\n${toolsSection}\n`,
     'utf8',
   );
 
