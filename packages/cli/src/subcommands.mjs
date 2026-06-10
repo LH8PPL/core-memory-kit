@@ -65,6 +65,32 @@ import { resolve as resolvePath, join, basename } from 'node:path';
 const NOTICE_PREFIX = 'not yet implemented';
 
 /**
+ * The install summary line for the Task-46 semantic outcome (Task 125.4:
+ * pure + exported so the branches are testable without running install).
+ * Returns null when there is nothing to print: an `error` action already
+ * surfaces through result.errors, and the opt-in tip is suppressed under
+ * --no-hooks (scaffold-only installs).
+ */
+export function formatSemanticSummary(semantic, { noHooks = false } = {}) {
+  if (semantic?.action === 'enabled') {
+    const w = semantic.warmed;
+    return (
+      '  Semantic recall ENABLED — `cmk search` now defaults to hybrid here.' +
+      (w?.ok
+        ? ` Model cached (${Math.round(w.ms / 1000)}s).`
+        : ' Model downloads on first search.')
+    );
+  }
+  if (semantic?.action === 'disabled') {
+    return '  Semantic recall pinned OFF for this project (search.default_mode=keyword).';
+  }
+  if (semantic?.action === 'skipped' && !noHooks) {
+    return '  Tip: `cmk install --with-semantic` adds local semantic recall (ask in your own words; one-time ~260 MB, no API calls).';
+  }
+  return null;
+}
+
+/**
  * Real `cmk install` action — wired in Task 3, extended in Task 4 with
  * --force passed through to the CLAUDE.md downgrade guard. Reads CLI
  * options/flags, dispatches to the install module, prints a one-line
@@ -122,24 +148,11 @@ async function runInstall(options /* , command */) {
   // opted out, so we don't nag).
   const nativeNote = nativeMemoryInstallNote(result.projectRoot);
   if (nativeNote) console.log(nativeNote);
-  // Task 46: semantic-recall outcome.
-  if (result.semantic?.action === 'enabled') {
-    const w = result.semantic.warmed;
-    console.log(
-      '  Semantic recall ENABLED — `cmk search` now defaults to hybrid here.' +
-        (w?.ok
-          ? ` Model cached (${Math.round(w.ms / 1000)}s).`
-          : ' Model downloads on first search.'),
-    );
-  } else if (result.semantic?.action === 'disabled') {
-    console.log(
-      '  Semantic recall pinned OFF for this project (search.default_mode=keyword).',
-    );
-  } else if (result.semantic?.action === 'skipped' && !noHooks) {
-    console.log(
-      '  Tip: `cmk install --with-semantic` adds local semantic recall (ask in your own words; one-time ~260 MB, no API calls).',
-    );
-  }
+  // Task 46: semantic-recall outcome (pure formatter, Task 125.4 — testable
+  // without spawning install; the error case returns null because enableSemantic
+  // errors already land in result.errors and print through the error path).
+  const semanticLine = formatSemanticSummary(result.semantic, { noHooks });
+  if (semanticLine) console.log(semanticLine);
   if (verbose) {
     console.log(
       `  files: ${result.created.length} created, ${result.skipped.length} already present` +

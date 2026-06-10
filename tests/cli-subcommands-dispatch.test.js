@@ -18,7 +18,7 @@
 // sandbox, asserting the real side effects (the five-doors Response + State).
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, readFileSync, readdirSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, readdirSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';
 import { join } from 'node:path';
 import { subcommands } from '../packages/cli/src/subcommands.mjs';
@@ -108,6 +108,51 @@ describe('Task 85 — cmk subcommand handlers (in-process dispatch coverage)', (
     cmd('search').action(['Kamal'], { mode: 'keyword' });
     expect(process.exitCode ?? 0).toBe(0);
     expect(logs.join('\n')).toMatch(/Kamal/);
+  });
+
+  // Task 125.4 — the configured-default branches of runSearch, in-process.
+  // The CLI integration test (cli-install-semantic.test.js) proves the same
+  // contract through the real bin, but subprocess runs can't attribute v8
+  // coverage to these lines (the Task 85 lesson — the reason this file exists).
+  describe('search default-mode branches (Task 46/125)', () => {
+    const settingsPath = () => join(projectRoot, 'context', 'settings.json');
+    let prevDisable;
+    beforeEach(() => {
+      prevDisable = process.env.CMK_DISABLE_SEMANTIC;
+    });
+    afterEach(() => {
+      if (prevDisable === undefined) delete process.env.CMK_DISABLE_SEMANTIC;
+      else process.env.CMK_DISABLE_SEMANTIC = prevDisable;
+    });
+
+    it('configured hybrid default + unavailable embedder → keyword results + fallback note, exit 0', async () => {
+      cmd('remember').action(['we cache with Valkey as the key-value store'], {});
+      writeFileSync(settingsPath(), JSON.stringify({ search: { default_mode: 'hybrid' } }), 'utf8');
+      process.env.CMK_DISABLE_SEMANTIC = '1';
+      await cmd('search').action(['Valkey'], {});
+      expect(process.exitCode ?? 0).toBe(0);
+      expect(errs.join('\n')).toMatch(/semantic default unavailable.*falling back to keyword/);
+      expect(logs.join('\n')).toMatch(/Valkey/);
+      expect(logs.join('\n')).toMatch(/mode=keyword/);
+    });
+
+    it('explicit --mode=keyword wins over the configured hybrid default (no fallback note)', async () => {
+      cmd('remember').action(['we cache with Valkey as the key-value store'], {});
+      writeFileSync(settingsPath(), JSON.stringify({ search: { default_mode: 'hybrid' } }), 'utf8');
+      process.env.CMK_DISABLE_SEMANTIC = '1';
+      await cmd('search').action(['Valkey'], { mode: 'keyword' });
+      expect(process.exitCode ?? 0).toBe(0);
+      expect(errs.join('\n')).not.toMatch(/falling back/);
+      expect(logs.join('\n')).toMatch(/Valkey/);
+    });
+
+    it('explicit --mode=semantic + unavailable embedder → exit 2 + install hint (no silent fallback)', async () => {
+      cmd('remember').action(['we cache with Valkey as the key-value store'], {});
+      process.env.CMK_DISABLE_SEMANTIC = '1';
+      await cmd('search').action(['Valkey'], { mode: 'semantic' });
+      expect(process.exitCode).toBe(2);
+      expect(errs.join('\n')).toMatch(/semantic backend unavailable/);
+    });
   });
 
   it('trust → updates a fact\'s trust level', () => {

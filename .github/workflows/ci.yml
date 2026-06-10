@@ -27,6 +27,20 @@ jobs:
         with:
           node-version: 20
       - run: npm ci --no-audit --no-fund
+      # Task 125.3 — cache the HF test model (bge-small) so the semantic-backend
+      # tests don't re-download it every run. Shared runner IPs get rate-limited
+      # by the HF Hub (HTTP 429) — the PR #152 CI failure class. The package's
+      # default cacheDir is INSIDE node_modules (verified against
+      # @huggingface/transformers src/env.js DEFAULT_CACHE_DIR), and npm ci
+      # wipes node_modules — so this step must run AFTER npm ci (restore here,
+      # auto-save at job end).
+      - uses: actions/cache@v5
+        with:
+          path: node_modules/@huggingface/transformers/.cache
+          key: hf-models-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          # A lockfile bump shouldn't force a fresh model download — the model
+          # files are content-stable per model id; partial restore is safe.
+          restore-keys: hf-models-${{ runner.os }}-
       - run: npm test
 
   coverage:
@@ -43,6 +57,15 @@ jobs:
         with:
           node-version: 20
       - run: npm ci --no-audit --no-fund
+      # Same HF model cache as the test job (Task 125.3) — test:coverage runs
+      # the same semantic-backend tests.
+      - uses: actions/cache@v5
+        with:
+          path: node_modules/@huggingface/transformers/.cache
+          key: hf-models-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          # A lockfile bump shouldn't force a fresh model download — the model
+          # files are content-stable per model id; partial restore is safe.
+          restore-keys: hf-models-${{ runner.os }}-
       - run: npm run test:coverage
       - name: Upload lcov coverage report
         if: always()

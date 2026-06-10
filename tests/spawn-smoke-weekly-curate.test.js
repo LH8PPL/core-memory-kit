@@ -50,6 +50,25 @@ function shouldSkip() {
 const skipReason = shouldSkip();
 const describeMaybe = skipReason ? describe.skip : describe;
 
+// Task 125.2 (the PR #28-queued retry-on-timeout follow-up, landed on the
+// user's "maybe if you waited it will succeed?"): classify an error result
+// as the documented live-Haiku jitter set — API timeouts, 5xx, network
+// blips. ONLY these get the wait-and-retry; everything else (prompt
+// rejection, contract drift, fixture bugs) fails immediately.
+function isLiveJitter(r) {
+  if (r?.action !== 'error') return false;
+  if (r.errorCategory === 'haiku_timeout') return true;
+  const text = (r.errors ?? []).join(' ');
+  // Named transient signals — phrase/errno matches, safe as-is.
+  if (/did not return within|timed?.?out|overloaded|rate.?limit|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up|network error/i.test(text)) {
+    return true;
+  }
+  // Numeric HTTP codes ONLY with status/error context — a bare /5\d\d/
+  // would match "line 543" or "took 500ms" and route a real persistent
+  // bug into the contract-assert pass path (skill-review finding).
+  return /(?:status|error|code|http|api)\D{0,4}\b(?:429|5\d\d)\b|\b(?:429|5\d\d)\b\D{0,4}(?:error|status)/i.test(text);
+}
+
 describeMaybe(`spawn-smoke: weeklyCurate archive path (live: ${skipReason ?? 'enabled'})`, () => {
   // ONE real-Haiku archive round-trip. `skipRecentRebuild: true` pins this smoke
   // to the archive call (the F-4 target); the recent.md rebuild is a separate
@@ -82,14 +101,50 @@ describeMaybe(`spawn-smoke: weeklyCurate archive path (live: ${skipReason ?? 'en
         'utf8',
       );
 
-      const r = await weeklyCurate({
-        projectRoot,
-        userDir,
-        now,
-        cooldownMs: 0, // force a real run (the cut-gate sweep only ever saw cooldown-skip)
-        backend: new HaikuViaAnthropicApi(),
-        skipRecentRebuild: true,
-      });
+      const runOnce = () =>
+        weeklyCurate({
+          projectRoot,
+          userDir,
+          now,
+          cooldownMs: 0, // force a real run (the cut-gate sweep only ever saw cooldown-skip)
+          backend: new HaikuViaAnthropicApi(),
+          skipRecentRebuild: true,
+        });
+
+      // Task 125.2 — live-jitter handling, two layers:
+      //   1. RETRY once: a jitter-class failure (timeout/5xx/network) usually
+      //      clears in seconds — the 2026-06-10 stress 4/5 failure passed on
+      //      the very next run. Budget fits: 50s inner + 5s + 50s < 120s.
+      //   2. If the retry is ALSO jitter: assert the degradation CONTRACT
+      //      instead of failing the gate (the compress-session smoke's idiom)
+      //      — the error path must leave the aged files + archive state
+      //      intact so next week's cron retries naturally.
+      // Any NON-jitter error (prompt rejection, contract drift) fails the
+      // normal assertions immediately — the retry never masks it.
+      let r = await runOnce();
+      if (isLiveJitter(r)) {
+        console.error(
+          `[live-jitter-retry] weekly-curate smoke hit the jitter class (${r.errorCategory}: ${(r.errors ?? []).join('; ')}) — retrying once in 5s`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 5_000));
+        r = await runOnce();
+      }
+      if (isLiveJitter(r)) {
+        // Persistent API degradation — verify the kit degraded correctly:
+        // nothing rotated, no partial archive append, so the next weekly
+        // run re-attempts the same aged files.
+        console.error(
+          '[live-jitter-retry] still jittering after retry — asserting the degradation contract instead',
+        );
+        for (const d of agedDays) {
+          expect(
+            existsSync(join(sessionsDir, `today-${d}.md`)),
+            `aged today-${d}.md must survive a jitter failure so next week retries`,
+          ).toBe(true);
+        }
+        expect(existsSync(join(sessionsDir, 'archive.md'))).toBe(false);
+        return;
+      }
 
       // Door 1 (Response): the archive path actually ran on real input.
       expect(r.action).toBe('curated');

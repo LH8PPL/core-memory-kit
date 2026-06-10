@@ -196,6 +196,13 @@ describe('Task 31 — MCP server', () => {
         const parsed = JSON.parse(r.content[0].text);
         expect(parsed).toHaveLength(1);
         expect(parsed[0].id).toBe('P-AAAAAAAA');
+        // Task 125.1 — the degradation is NOT silent to the model: a second
+        // content block says these are keyword-only results and suggests the
+        // install fix (the model can relay it to the user). Results stay
+        // content[0] (shape-compatible).
+        expect(r.content).toHaveLength(2);
+        expect(r.content[1].text).toMatch(/keyword-only/i);
+        expect(r.content[1].text).toMatch(/cmk install --with-semantic/);
       } finally {
         if (prev === undefined) delete process.env.CMK_DISABLE_SEMANTIC;
         else process.env.CMK_DISABLE_SEMANTIC = prev;
