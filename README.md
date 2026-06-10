@@ -2,13 +2,13 @@
 
 [![npm](https://img.shields.io/npm/v/@lh8ppl/claude-memory-kit)](https://www.npmjs.com/package/@lh8ppl/claude-memory-kit) [![CI](https://github.com/LH8PPL/claude-memory-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/LH8PPL/claude-memory-kit/actions/workflows/ci.yml) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) ![Node ≥20](https://img.shields.io/badge/node-%E2%89%A520-brightgreen)
 
-**Persistent, per-project memory for [Claude Code](https://docs.claude.com/en/docs/claude-code).**
+**Persistent, per-project memory for [Claude Code](https://docs.claude.com/en/docs/claude-code) — plain markdown, committed with your code, recalled by meaning.**
 
 Claude forgets everything the moment a session ends — so every new chat, you re-explain who you are, what you're building, and how you like things done. claude-memory-kit fixes that. It quietly remembers your decisions, preferences, and project context and hands them back to Claude at the start of each session, so you never have to re-brief it again. Everything is plain text living inside your project, and it travels with the code (`git clone` brings the memory along).
 
 **Do I need to be a developer to use this?** No. If you can open a project in Claude Code, you're set — you can even let Claude run the setup for you (see [Quickstart](#quickstart)).
 
-> **Status:** `v0.2` is live on npm (provenance-signed) — **the cross-project persona wedge**: a brand-new project cold-opens already knowing how you work, plus automatic capture, self-curating memory, and "Claude stays consistent." What changed: [CHANGELOG.md](CHANGELOG.md).
+> **Status:** `v0.2` is live on npm (provenance-signed). Shipped: **the cross-project persona** (a brand-new project cold-opens already knowing how you work) and **semantic recall** — ask in your own words, get the right memory: **R@5 0.941 / paraphrase recall 1.000** on the kit's [benchmark](#benchmarks), zero API calls, everything local. What changed: [CHANGELOG.md](CHANGELOG.md).
 
 ## Contents
 
@@ -17,6 +17,7 @@ Claude forgets everything the moment a session ends — so every new chat, you r
 - [Three-tier model](#three-tier-model)
 - [Layers](#layers)
 - [CLI](#cli)
+- [Benchmarks](#benchmarks)
 - [Health checks](#health-checks)
 - [Architecture](#architecture)
 - [Security](#security)
@@ -33,7 +34,7 @@ The short version: Claude starts every session already knowing your project, and
 - **Compression that keeps memory bounded**: session → daily → weekly rollups via a background Haiku pass (cron, or lazy-on-read when no scheduler), so the snapshot stays small as history grows. The session-buffer rollup now also self-heals at **session start**, so your memory stays bounded even if you never cleanly close the window — and a roll never races a concurrent write (the buffer is claimed atomically).
 - **Cross-project persona, built automatically and in real time**: when you state "how you work everywhere" (tooling habits, architecture preferences — "I always use pnpm", "from now on, in every project, run the linter first"), the same per-turn auto-extract pass promotes it into your **user tier** (`~/.claude-memory-kit/`) **that turn** — so a brand-new project already knows your style, with no hand-curation and no waiting for a weekly job. It updates itself when your preferences change and never overwrites a rule you wrote by hand; a weekly pass still runs to dedup and catch anything missed.
 - **Per-project, in-repo**: `context/` lives inside your project and travels with `git clone`. Multiple projects each have their own memory. Nothing crosses boundaries unless you promote via `cmk lessons promote`.
-- **9 health checks**: `cmk doctor` validates the install, settings.json hook wiring, distill freshness, transcript firing, INDEX consistency, cron registration, Anthropic auto-memory coexistence, and stale lock detection.
+- **7 health checks**: `cmk doctor` validates hook wiring, distill freshness, transcript firing, INDEX consistency, cron registration, Anthropic auto-memory coexistence, and stale lock detection — each failure comes with its repair command.
 
 ## Quickstart
 
@@ -152,6 +153,18 @@ Most-used commands below; **full reference with examples: [`docs/CLI.md`](docs/C
 | `cmk disable-native-memory` / `cmk enable-native-memory` | Opt this project out of (or back into) Claude Code's _native_ Auto Memory — writes `autoMemoryEnabled` to the committable `.claude/settings.json` (travels with `git clone`). The kit coexists with native memory by default; use this to run one lean layer instead of two (ADR-0011) |
 | `cmk transcripts extract --session <uuid> --slug <slug> --since <YYYY-MM-DD>` | Extract clean markdown transcripts from `~/.claude/projects/<slug>/<uuid>.jsonl` |
 | `cmk mcp serve` | Run the MCP server over stdio (invoked by Claude Code; not by humans) |
+
+## Benchmarks
+
+Recall quality is **measured, not claimed** — `npm run bench:recall` (in this repo) runs a LongMemEval-style harness over a memory-shaped corpus through the kit's REAL write/index/search paths, reporting R@5 / R@10 / NDCG@10 with a per-question-type breakdown. Raw and reranked pipelines are reported separately.
+
+| pipeline | R@5 | paraphrase recall | API calls |
+| --- | --- | --- | --- |
+| keyword (FTS5 one-shot) | 0.176 | 0.000 | 0 |
+| agentic keyword (iterative + LLM reformulation) | 0.529 | 0.300 | 1/query |
+| **semantic (sqlite-vec + local bge-base, the default)** | **0.941** | **1.000** | **0** |
+
+The story behind the numbers: keyword search structurally misses natural-language questions ("where do credentials go" never matches a fact that says "secrets live in 1Password"); iterative keyword search triples recall for free; the embedded semantic backend closes the paraphrase gap entirely. The embedding model was chosen by a measured ladder — the 5×-heavier bge-m3 scored *worse* than bge-base on short memory facts (full data: [ADR-0015](docs/adr/0015-semantic-backend-sqlite-vec-plus-local-onnx-embedder.md)).
 
 ## Health checks
 
