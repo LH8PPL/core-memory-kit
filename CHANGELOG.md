@@ -8,11 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+## [0.3.0] — 2026-06-11
+
 ### Fixed
 
 - **memory(132): organic auto-capture works again — the extractor no longer suppresses itself.** Since v0.2.0, the fact extractor was shown the just-captured turn as "already saved" context (a write-then-read ordering bug), so it answered "nothing durable" for most organic conversation — explicit `cmk remember` captures and persona promotion were unaffected. The dedup snapshot is now taken before the turn is buffered. Found by the v0.3.0 release gate; if your `context/MEMORY.md` stayed suspiciously empty, this was why.
-
-## [0.3.0] — 2026-06-11
 
 ### Removed
 
