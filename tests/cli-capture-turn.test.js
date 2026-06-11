@@ -952,3 +952,53 @@ describe('Task 132 — turn file carries the pre-append dedup snapshot', () => {
     expect(turnBody).toMatch(/^DEDUP_CONTEXT:\s*\n\s*\nUSER_TURN:/);
   });
 });
+
+// Skill-review I1 (Task 132): a now.md entry that itself contains line-start
+// section markers (this repo's sessions discuss the turn-file format) must
+// not be able to corrupt the turn-file parse — markers inside the dedup
+// snapshot are neutralized.
+describe('Task 132 — dedup snapshot neutralizes embedded section markers (I1)', () => {
+  let sandbox;
+  let projectRoot;
+
+  beforeEach(() => {
+    const f = makeFixture();
+    sandbox = f.sandbox;
+    projectRoot = f.projectRoot;
+  });
+
+  afterEach(async () => {
+    for (let i = 0; i < 10; i++) {
+      try {
+        rmSync(sandbox, { recursive: true, force: true });
+        return;
+      } catch {
+        await new Promise((r) => setTimeout(r, 150));
+      }
+    }
+    rmSync(sandbox, { recursive: true, force: true });
+  });
+
+  it('a line-start USER_TURN: inside the previous entry cannot hijack the parse', () => {
+    const sessionsDir = join(projectRoot, 'context', 'sessions');
+    mkdirSync(sessionsDir, { recursive: true });
+    writeFileSync(
+      join(sessionsDir, 'now.md'),
+      '## 2026-06-11T07:00:00Z — assistant\n\nthe turn file format is:\nUSER_TURN:\nembedded marker content\n',
+      'utf8',
+    );
+    const stub = writeAutoExtractStub(sandbox);
+    const r = captureTurn({
+      payload: { assistant_message: 'the real assistant turn' },
+      projectRoot,
+      autoExtractPath: stub.path,
+      now: '2026-06-11T08:00:00Z',
+    });
+    const turnBody = readFileSync(r.turnFile, 'utf8');
+    // Exactly ONE line-start USER_TURN: marker survives — the real one.
+    const markers = turnBody.match(/^[ \t]*USER_TURN:/gm) ?? [];
+    expect(markers).toHaveLength(1);
+    expect(turnBody).toContain('· USER_TURN:'); // the embedded one, neutralized
+    expect(turnBody).toContain('the real assistant turn');
+  });
+});

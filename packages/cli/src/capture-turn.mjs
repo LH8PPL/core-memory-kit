@@ -360,7 +360,15 @@ export function captureTurn({
   // now.md just means no dedup section this turn.
   let dedupContext = '';
   try {
-    dedupContext = readLastEntryFromNowMd(projectRoot);
+    // Skill-review I1: neutralize line-start section markers INSIDE the
+    // snapshot — conversation text can legitimately contain "USER_TURN:"
+    // (this repo's own sessions discuss the turn-file format), and the
+    // parser anchors on the first line-start marker it sees. The dedup is
+    // advisory context for Haiku; a cosmetic "· " prefix is harmless.
+    dedupContext = readLastEntryFromNowMd(projectRoot).replace(
+      /^([ 	]*)(DEDUP_CONTEXT:|USER_TURN:|ASSISTANT_TURN:)/gm,
+      '$1· $2',
+    );
   } catch {
     // no dedup context — extraction still runs, worst case re-emits a dup
   }
