@@ -478,7 +478,11 @@ describe('mergeScratchpadBullets() — Layer-3 merger (Task 25b)', () => {
     const text = readFileSync(path, 'utf8');
     expect(text).toContain(`(${r.id}) we use Python 3.13 | we are moving to 3.14`);
     expect(text).toContain('source: merge-both');
-    expect(text).toContain('merged_from: [P-AAAAAAAA, P-BBBBBBBB]');
+    // Task 138/139 contract change (D-125): the comment is now the CANONICAL
+    // provenance shape (the old hand-rolled merged_from comment broke
+    // reindex); the merged_from trail lives in the audit entry instead.
+    expect(text).toContain('write: merged');
+    expect(text).not.toContain('merged_from:');
   });
 
   it('mutates both originals to inject superseded_by:<newId>', () => {
