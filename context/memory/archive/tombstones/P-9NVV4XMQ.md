@@ -1,4 +1,7 @@
 ---
+deleted_at: 2026-06-11T04:49:30Z
+deleted_reason: 'stale graduated lane-state: everything listed shipped (PRs #147-#161); the DECISION-LOG breadcrumb owns current state'
+deleted_by: user-explicit
 id: P-9NVV4XMQ
 type: project
 title: 'The D-105 v0.3 lane is COMPLETE (2026-06-10): 75.0 #147, 99 #148, 52 #149, 65 #1'

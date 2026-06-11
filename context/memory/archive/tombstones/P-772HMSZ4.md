@@ -1,4 +1,7 @@
 ---
+deleted_at: 2026-06-11T04:49:32Z
+deleted_reason: duplicated by the richer degradation-messaging-pattern fact (same user preference, with the How-to-apply)
+deleted_by: user-explicit
 id: P-772HMSZ4
 type: project
 title: User confirms explicit user-facing suggestion (cmk install --with-semantic) is b

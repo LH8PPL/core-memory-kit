@@ -1,4 +1,7 @@
 ---
+deleted_at: 2026-06-11T04:49:28Z
+deleted_reason: 'misstates D3 (''re-deriving code is now required'' — backwards: re-deriving is the BLOCKER); the accurate cut-gate-guide fact covers this (the misstated-gate class, 3rd instance)'
+deleted_by: user-explicit
 id: P-A53XFLTS
 type: project
 title: Release Validation Gate Structure for v0.3.0
