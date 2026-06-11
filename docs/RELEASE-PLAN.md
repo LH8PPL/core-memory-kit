@@ -87,9 +87,10 @@ The differentiator is the wedge; the rest are the quality fixes that make it *fe
 
 ## v0.4.0+ — breadth
 
-- **50** — cross-agent install (`cmk install --ide cursor|codex|gemini-cli`)
+- **50** — cross-agent install — **KIRO FIRST** (the user's 2026-06-12 call: it's their daily work IDE; dogfooding-at-work beats breadth), then cursor|codex|gemini-cli. **This is the v0.4 headline.**
 - **55** — behavioral pattern detection + promotion ("learn how I work," not just facts)
-- **viewer (design-first)** — a memory viewer for the non-developer audience (the parked `cmk view` idea — a product question, not a port number; D-121). Judge next to the Task-127 team-layer companion.
+- **viewer (design-first)** — a memory viewer for the non-developer audience (the parked `cmk view` idea — a product question, not a port number; D-121).
+- _**Team-layer companion (Task 127): POSTPONED past v0.4** (the user, 2026-06-12) — Kiro support comes first; the companion-project design (D-119) stands, just later (v0.5+)._
 
 ---
 
