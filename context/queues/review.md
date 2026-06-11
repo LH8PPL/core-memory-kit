@@ -4,3 +4,6 @@
 ## 2026-06-11T14:38:57Z — auto-extract (medium-trust, pending review)
 - (P-Q4TA2SAX) Prefers terse, step-by-step instructions with time estimates and optional paths
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-11T14:38:57Z -->
+## 2026-06-11T22:09:16Z — auto-extract (medium-trust, pending review)
+- (P-JU7RRUT9) Assistant overgeneralized a prior context-specific permission ("for ruflo, you do that") to a new task (memclaw) and took autonomous action without confirming scope.
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-11T22:09:16Z -->

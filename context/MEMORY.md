@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-MZDaYRWX) Requesting complete re-verification: check previous test gate outputs (gate7), run all guide validation commands, review all memory files
-  <!-- source: auto-extract-session, source_line: 1, sha1: 29d809a90751cd5f1e7bd2460562acb5b3dc779b, write: auto-extract, trust: high, at: 2026-06-11T08:52:36Z -->
 - (P-4TSUCAM5) as long as it adds and not deminish — standing constraint on change scope
   <!-- source: auto-extract-session, source_line: 1, sha1: 84907d5961ca53f6d859a071f9cee5cec5c6217c, write: auto-extract, trust: high, at: 2026-06-11T13:03:12Z -->
 - (P-RL2aKHKQ) Prefers concise, numbered instructions without narrative explanation or background context
@@ -22,6 +20,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: 00e4b78623abd8d64017afd7e596eec48fb1b5ad, write: auto-extract, trust: high, at: 2026-06-11T21:30:20Z -->
 - (P-JRXWU6JP) We can upgrade to latest Node version at any time — no legacy version constraints
   <!-- source: auto-extract-session, source_line: 1, sha1: 78864f9dd813ab8440f2cabda8d7703c487517ce, write: auto-extract, trust: high, at: 2026-06-11T21:54:51Z -->
+- (P-JN3BYXJN) When asked for a review/opinion, provide that analysis only—don't autonomously write, push, or cross-link without explicit instruction.
+  <!-- source: auto-extract-session, source_line: 1, sha1: b729c6b408ef00202910136fcff0c72bceb8c29b, write: auto-extract, trust: high, at: 2026-06-11T22:09:16Z -->
 
 ## Environment Notes
 
