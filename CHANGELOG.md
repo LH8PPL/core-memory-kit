@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+## [0.3.0] — 2026-06-11
+
 ### Removed
 
 - **`cmk view` (a never-implemented stub).** The command answered "not yet implemented" since v0.1.0 — removed rather than left promising vapor; a real memory viewer (for non-developer users) is parked as a designed v0.4 candidate. Read memory directly (`context/MEMORY.md`, `context/memory/`) or through `cmk search`.
