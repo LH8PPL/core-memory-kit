@@ -86,10 +86,10 @@ Rebuild the SQLite/FTS5 search cache (regenerable; never source of truth).
 - **Rarely needed by hand.** Every read path (`cmk search` / `get` / `timeline` / `cite` / `recent-activity`) reindexes incrementally before reading, and `cmk forget` reindexes in-band — so captures, edits, and deletions all show up in search automatically (Task 110). Reach for this only to force a `--full` rebuild after manual surgery on the markdown.
 
 ### `cmk config [--show-origin <key>]` · `cmk config get <key>` · `cmk config set <key> <value>`
-Read/write settings; `--show-origin` prints which tier a value came from.
+Read/write settings; `--show-origin` prints which tier a value came from. **Not yet implemented (stub)** — edit `context/settings.json` directly for now; `cmk doctor` + `cmk repair` are the live health surface.
 
 ### `cmk view [--port <n>]`
-Static markdown viewer (default port 37778). *(Lightweight; full web UI is a v0.2 candidate.)*
+Static markdown viewer (default port 37778). **Not yet implemented (stub)** — read the markdown directly (`context/MEMORY.md`, `context/memory/`).
 
 ---
 
@@ -136,7 +136,7 @@ cmk forget P-S79MJHFN --yes --reason "superseded"
 ```
 
 ### `cmk purge <id> --hard`
-Hard-delete an observation (irreversible; `--hard` required).
+Hard-delete an observation (irreversible; `--hard` required). **Not yet implemented (stub)** — use `cmk forget` (tombstone, recoverable) for normal deletion.
 
 ### `cmk lessons promote <id>`
 Promote a project-tier lesson to the cross-project user tier.
