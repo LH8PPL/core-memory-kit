@@ -8,10 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-WK53SJZ5) Carefully reviews changes for unintended scope loss. This scrutiny identified a real gap in test coverage (L2 commands untested in original guide).
-  <!-- source: auto-extract-session, source_line: 1, sha1: 0db1bf2b947251db659a98837201a301ff7e883e, write: auto-extract, trust: high, at: 2026-06-11T06:44:58Z -->
-- (P-VC4UGJTP) Does not want Claude to automatically execute git commands; prefers explicit user confirmation
-  <!-- source: auto-extract-session, source_line: 1, sha1: 2a10ca4cc17133cbe3d84ac44f2e02c42ca3966d, write: auto-extract, trust: high, at: 2026-06-11T07:26:46Z -->
 - (P-L4Q72B3Y) MEMORY.md scratchpad still contains only example bullets instead of populating with extracted facts; indicates regression
   <!-- source: auto-extract-session, source_line: 1, sha1: a2aeebd99acd503e32417c9fe7917625bcde4a7d, write: auto-extract, trust: high, at: 2026-06-11T08:52:36Z -->
 - (P-674Q5D5M) Changes since version 0.2.3 appear to have introduced failures in memory kit
@@ -22,6 +18,10 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: 84907d5961ca53f6d859a071f9cee5cec5c6217c, write: auto-extract, trust: high, at: 2026-06-11T13:03:12Z -->
 - (P-RL2aKHKQ) Prefers concise, numbered instructions without narrative explanation or background context
   <!-- source: auto-extract-session, source_line: 1, sha1: 2c64105afa391ef1b8372deac02f94ff83aa92c7, write: auto-extract, trust: high, at: 2026-06-11T13:09:54Z -->
+- (P-CXC5JJHU) User chose REST API backend with FastAPI and no database for new project
+  <!-- source: auto-extract-session, source_line: 1, sha1: 2a9a57f1f5f772e87c63192056e4f5aeee6c8c0e, write: auto-extract, trust: high, at: 2026-06-11T14:35:38Z -->
+- (P-7HE9BCZW) User uses uv for Python project initialization and dependency management
+  <!-- source: auto-extract-session, source_line: 1, sha1: b82cc5c6d3c0f0e82a0617737774baf1ce1fd460, write: auto-extract, trust: high, at: 2026-06-11T14:35:38Z -->
 
 ## Environment Notes
 

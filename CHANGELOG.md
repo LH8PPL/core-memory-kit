@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **import(138): `cmk import-anthropic-memory` no longer breaks search.** Imported bullets carried a non-standard provenance comment that failed the next index rebuild (search fell back to the stale index with a warning). Imports now write the canonical provenance shape.
+
 - **memory(136): a long extraction can no longer write a corrupted fact.** When a knowledge-dense turn produced more rich facts than the output budget, the last fact was silently truncated mid-word and stored as a stub. Clipped facts are now dropped (and counted in the diagnostic log) instead of written, and the budget is 4x larger so clipping is rare.
 
 - **install(133): the `memory-search` skill is permission-allow-listed, so recall fires prompt-free** (the skill shipped in this release without its allow entry — first invocation would have asked "Use skill?").

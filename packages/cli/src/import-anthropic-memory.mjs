@@ -39,6 +39,8 @@ import {
   REASON_CODES,
 } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
+import { writeBullet } from './provenance.mjs';
+import { createHash } from 'node:crypto';
 
 const MEMORY_REL = ['context', 'MEMORY.md'];
 
@@ -227,7 +229,29 @@ export async function importAnthropicMemory({
   // deduplication of section headers is a v0.1.x candidate per design §16.
   const today = ts.slice(0, 10);
   const sectionHeader = `\n## Imported (Anthropic auto-memory, ${today})\n`;
-  const bulletLines = proposals.map((p) => `- (${p.id}) ${p.text}\n<!-- write_source: imported, trust: medium, source: anthropic-auto-memory, imported_at: ${ts} -->`).join('\n');
+  // Task 138 (D-125): emit the CANONICAL provenance comment via the shared
+  // writeBullet builder — the hand-rolled `write_source:`-keyed comment was
+  // invisible to the reindex parser (it maps the `write:` key to the
+  // NOT-NULL observations.write_source column), so the first reindex after
+  // an import failed and search degraded to the stale index (cut-gate9 F-13).
+  const bulletLines = proposals
+    .map((p) => {
+      const sha1 = createHash('sha1').update(p.text, 'utf8').digest('hex');
+      const formatted = writeBullet({
+        id: p.id,
+        text: p.text,
+        provenance: {
+          source: 'anthropic-auto-memory',
+          source_line: 1,
+          sha1,
+          write: 'imported',
+          trust: 'medium',
+          at: ts,
+        },
+      });
+      return formatted.lines;
+    })
+    .join('\n');
   mkdirSync(join(projectRoot, 'context'), { recursive: true });
   appendFileSync(targetPath, sectionHeader + '\n' + bulletLines + '\n', 'utf8');
 
