@@ -652,9 +652,12 @@ These are verbatim from Hermes Agent's writing-triggers pattern (Glukhov 2026-05
 
 Earlier drafts read only the assistant turn. The working-product live test (see [`docs/journey/2026-05-26-live-test-findings.md`](../docs/journey/2026-05-26-live-test-findings.md)) surfaced the failure mode: a user dictating preferences to a terse acknowledging assistant ("Got it.") produces zero captures, because the assistant turn carries no durable content even though the user just stated four facts.
 
-**Input shape**: Task 21's capture-turn writes the temp file as:
+**Input shape**: Task 21's capture-turn writes the temp file as (DEDUP_CONTEXT added by Task 132 / D-122, 2026-06-11):
 
 ```text
+DEDUP_CONTEXT:
+<the last now.md entry as it stood BEFORE this turn was appended — may be empty>
+
 USER_TURN:
 <sanitized user prompt body>
 
@@ -663,6 +666,8 @@ ASSISTANT_TURN:
 ```
 
 The user portion comes from the just-written transcript entry capture-prompt produced on UserPromptSubmit. If no preceding user entry exists (system-initiated turns), the USER_TURN section is empty and only the assistant turn is examined.
+
+**The dedup snapshot rides the turn file (Task 132, D-122).** The original design had the extractor read "the last now.md entry" itself at run time — but capture-turn appends the current turn to now.md BEFORE spawning the extractor, so the extractor was shown the very turn it was extracting under "do not re-emit facts already here," and Haiku obeyed: `nothing_durable` on every organic turn since Task 87 wired now.md as the conversation buffer. capture-turn now snapshots the dedup context pre-append and passes it in the turn file; the extractor NEVER reads now.md (a missing DEDUP_CONTEXT marker means no dedup section, never a re-read). Embedded line-start section markers inside the snapshot are neutralized with a `· ` prefix so quoted turn-file syntax in conversation can't hijack the parse.
 
 **Origin-tagged output**: Haiku is instructed to label every candidate with its origin:
 
@@ -837,7 +842,7 @@ User resolves via `cmk queue conflicts`: review each conflict; choose `keep-old`
 2. Generate a fresh canonical ID via `generateId(tier, combinedText)` per the kit's content-addressed convention.
 3. Auto-discover the section from idA's location (the new bullet lands in the same heading as the originals it supersedes).
 4. Pick the higher of the two originals' trust as the merged bullet's trust.
-5. Write the new bullet with provenance: `source: merge-both, merged_from: [idA, idB], merged_at: <ISO>, trust: <max>`.
+5. Write the new bullet with the CANONICAL provenance comment via the shared `writeBullet` builder: `source: merge-both, source_line: 1, sha1: <sha1(combinedText)>, write: merged, trust: <max>, at: <ISO>`. _(Original plan pre-2026-06-11: a hand-rolled `merged_from: [idA, idB], merged_at: <ISO>` comment — it had no `write:` key, so the first reindex after a merge resolution hit the NOT-NULL `observations.write_source` constraint and search degraded to the stale index — Task 138 / D-125. The `merged_from` trail moved to the audit entry, step 7.)_
 6. Mutate both originals' provenance comments to inject `superseded_by: <newId>` — lighter than `forget`/tombstone; the bullets stay in MEMORY.md but read as derived-from.
 7. Audit-log entry with `reasonCode: CURATED_MERGE`, `extra: {decision: 'merge-both', merged_from: [idA, idB], merged_trust}`.
 
