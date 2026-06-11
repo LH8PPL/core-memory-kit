@@ -532,7 +532,6 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 - [ ] **F-1**
       - `cmk search "<kw>"` finds facts
       - `cmk reindex` rebuilds, search still works
-      - `cmk view` — _v0.1.x stub; expect "not yet implemented" (not a failure)_
 
 **Cross-project persona**
 

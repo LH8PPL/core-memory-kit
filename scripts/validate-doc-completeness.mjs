@@ -34,7 +34,6 @@ export const CLI_DOC_EXEMPT = new Map([
 // Shipping the feature means deleting both the phrase and its entry here.
 export const DEFERRAL_ALLOWLIST = [
   { file: 'docs/CLI.md', mustContain: 'are the live health surface', reason: 'config is a v0.1.x stub (doctor+repair are the live surface)' },
-  { file: 'docs/CLI.md', mustContain: 'read the markdown directly', reason: 'view is a v0.1.x stub' },
   { file: 'docs/CLI.md', mustContain: 'use `cmk forget`', reason: 'purge is a v0.1.x stub (forget is the supported delete)' },
 ];
 

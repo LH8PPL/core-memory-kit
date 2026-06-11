@@ -88,9 +88,6 @@ Rebuild the SQLite/FTS5 search cache (regenerable; never source of truth).
 ### `cmk config [--show-origin <key>]` · `cmk config get <key>` · `cmk config set <key> <value>`
 Read/write settings; `--show-origin` prints which tier a value came from. **Not yet implemented (stub)** — edit `context/settings.json` directly for now; `cmk doctor` + `cmk repair` are the live health surface.
 
-### `cmk view [--port <n>]`
-Static markdown viewer (default port 37778). **Not yet implemented (stub)** — read the markdown directly (`context/MEMORY.md`, `context/memory/`).
-
 ---
 
 ## Maintenance & repair
