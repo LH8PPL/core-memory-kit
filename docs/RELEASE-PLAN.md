@@ -80,6 +80,8 @@ The differentiator is the wedge; the rest are the quality fixes that make it *fe
 - **129** — `cmk config get/set/--show-origin` (the stub became real when `--with-semantic` shipped a real setting; D-121)
 - **130** — `cmk purge --hard` ships WITH 96 (the compliance-scrub verb over the versioned store; D-121)
 - **131** — remove the `cmk view` stub (the viewer IDEA moves to v0.4; D-121)
+- **134** — Poison_Guard catalog extension (fixed-prefix adds only; the user's add-don't-diminish directive)
+- **135** — pack-completeness validator (`npm pack --dry-run --json` vs the template tree)
 - [x] **46** — `cmk install --with-semantic` (embedder bootstrap + hybrid-by-default-when-enabled; pairs with 65) — _shipped 2026-06-10, PR #152 (D-111)_
 
 ## v0.4.0+ — breadth
