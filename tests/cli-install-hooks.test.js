@@ -120,6 +120,11 @@ describe('Task 49 — settings.json content (Door 2: state)', () => {
     let settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
     expect(settings.permissions.allow).toContain('Bash(cmk:*)');
     expect(settings.permissions.allow).toContain('Skill(memory-write)');
+    // Task 133 — the RECALL skill needs the same treatment (the Task-90 class
+    // repeating: Task 75.1 scaffolded memory-search but never allow-listed it,
+    // so W1's "auto-fires, prompt-free" hit a "Use skill?" prompt — found by
+    // the cut-gate9 pre-session file check, 2026-06-11).
+    expect(settings.permissions.allow).toContain('Skill(memory-search)');
     // Task 108b — the MCP tools are allow-listed too (R2 / D-80): the model's
     // memory ops via mk_remember / mk_forget / … run without a per-call prompt.
     expect(settings.permissions.allow).toContain('mcp__cmk__*');
@@ -129,6 +134,7 @@ describe('Task 49 — settings.json content (Door 2: state)', () => {
     settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
     expect(settings.permissions.allow.filter((a) => a === 'Bash(cmk:*)')).toHaveLength(1);
     expect(settings.permissions.allow.filter((a) => a === 'Skill(memory-write)')).toHaveLength(1);
+    expect(settings.permissions.allow.filter((a) => a === 'Skill(memory-search)')).toHaveLength(1);
     expect(settings.permissions.allow.filter((a) => a === 'mcp__cmk__*')).toHaveLength(1);
 
     // Over-mutation: a user's pre-existing allow entry survives.

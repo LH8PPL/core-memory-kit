@@ -201,7 +201,10 @@ export function writeKitHooks(settingsPath) {
   //     entirely. `mcp__cmk__*` is the documented server-wildcard form
   //     (code.claude.com/docs/en/permissions — MCP section). Pairs with the
   //     `.mcp.json` server registration written by writeKitMcpServer().
-  const KIT_ALLOW = ['Bash(cmk:*)', 'Skill(memory-write)', 'mcp__cmk__*'];
+  // Task 133: memory-search joins memory-write — every scaffolded skill needs
+  // its own allow entry or the model's invocation trips a "Use skill?" prompt
+  // (the Task-90 class; 75.1 scaffolded the skill but missed this).
+  const KIT_ALLOW = ['Bash(cmk:*)', 'Skill(memory-write)', 'Skill(memory-search)', 'mcp__cmk__*'];
   if (!settings.permissions || typeof settings.permissions !== 'object') {
     settings.permissions = {};
   }
