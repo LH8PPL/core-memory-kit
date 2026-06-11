@@ -82,6 +82,7 @@ The differentiator is the wedge; the rest are the quality fixes that make it *fe
 - **131** — remove the `cmk view` stub (the viewer IDEA moves to v0.4; D-121)
 - **134** — Poison_Guard catalog extension (fixed-prefix adds only; the user's add-don't-diminish directive)
 - **135** — pack-completeness validator (`npm pack --dry-run --json` vs the template tree)
+- **137** — close the gate-vs-automation gap (5 structural checks from the 2026-06-11 gate-found bug classes)
 - [x] **46** — `cmk install --with-semantic` (embedder bootstrap + hybrid-by-default-when-enabled; pairs with 65) — _shipped 2026-06-10, PR #152 (D-111)_
 
 ## v0.4.0+ — breadth
