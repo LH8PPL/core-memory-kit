@@ -2835,6 +2835,12 @@ So this file is the answer to "we're missing the conversations." It won't replac
 
 ---
 
+## 10b. v0.3.0 — the recall release + the gate day (2026-06-09 → 2026-06-11)
+
+**The lane** (D-105, 5 PRs + followers): 75.0 authority preamble → 99 recall benchmark → 52 dogfood-on-self → 65 semantic recall (sqlite-vec + bge-base, R@5 0.941 / paraphrase 1.000, ADR-0015) → README upgrade; then 46 (`--with-semantic`), 125 (degradation note + retry + coverage), 124 (forget/INDEX), 75.1/75.2 (the recall skill + hint), 104 (L3 transcripts with Tools blocks), 126 (sessions searchable, same-day response to the creator's v2 video, D-119), 128 (docs-completeness validator, D-120), 131 (view stub removed, D-121). PRs #147–#161.
+
+**The gate day (2026-06-11, D-122..D-126)**: the user's manual cut-gate9 run found EIGHT bugs that 1,731 green tests, three 5/5 stress gates, and CI had all missed — each at a seam automation didn't cover: the dedup self-poisoning that had silently suppressed organic capture since v0.2.0 (132, the cut-blocker), the unallowlisted recall skill (133), the under-length C3 guide probe, the output-cap-clipped corrupted fact (136), two non-canonical provenance emitters that broke reindex (138), a SyntaxError live on main that only real Node could see (139), and CRLF-blind memory reads that made every fact invisible in a Windows clone (139). Each fix shipped same-day with a composition pin (PRs #162–#166); the class-killers (prompt assertions, skill-allowlist validator, executable guide probes, cap-boundary pairs, live-test trend thresholds) are slotted as Task 137. **Meta-lesson: unit tests verify surfaces; the gate walks seams — and every seam it finds becomes a validator.** The decision trail lives in DECISION-LOG D-105..D-126; this section is the narrative pointer, not a duplicate.
+
 ## 11. How to extend this file
 
 When the next layer ships, append a new section under `Phase 6 — Implementation`:
