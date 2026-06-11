@@ -1334,3 +1334,95 @@ describe('Task 132 — dedup context comes from the turn file, never now.md', ()
     expect(existsSync(turnFile)).toBe(false); // no orphan left behind
   });
 });
+
+// ---------------------------------------------------------------------------
+// Task 136 (D-124) — a rich fact clipped by the output cap must be DROPPED,
+// not written as a stub. cut-gate9 find: a dense turn emitted 3 rich facts
+// (> the 2000-byte cap), compressor.mjs hard-slices at maxOutputBytes, and
+// the parser wrote the clipped 3rd fact as a 9-char corrupted memory
+// (P-BaTM3L42, body "The `clau"). Only truncation produces an UNTERMINATED
+// trailing BEGIN_FACT block (EOF before END_FACT) — that's the drop signal.
+// ---------------------------------------------------------------------------
+
+describe('Task 136 — clipped rich facts are dropped, never written', () => {
+  let sandbox;
+  let projectRoot;
+
+  beforeEach(async () => {
+    const f = makeFixture();
+    sandbox = f.sandbox;
+    projectRoot = f.projectRoot;
+    await installFixture(projectRoot);
+  });
+
+  afterEach(() => {
+    rmSync(sandbox, { recursive: true, force: true });
+  });
+
+  const FACT_TEXTS = {
+    1: { title: 'Deploy pipeline', body: 'Deploys ride the tag push pipeline to production.' },
+    2: { title: 'Staging database reset', body: 'The staging database resets nightly at three.' },
+  };
+  const completeFact = (n) =>
+    [
+      'BEGIN_FACT',
+      'type: project',
+      `title: ${FACT_TEXTS[n].title}`,
+      `body: ${FACT_TEXTS[n].body}`,
+      'why: it matters.',
+      'how: apply it.',
+      'END_FACT',
+    ].join('\n');
+
+  it('GATE BITES: an EOF-unterminated trailing block is dropped; complete siblings written', async () => {
+    const clipped = [completeFact(1), completeFact(2),
+      'BEGIN_FACT',
+      'type: project',
+      'title: Send Completion Frame for All Stream Responses',
+      'body: The `clau', // sliced mid-word by the byte cap — no END_FACT follows
+    ].join('\n');
+    const turnFile = writeTurnFile(projectRoot, { user: 'dense turn', assistant: 'dense ack' });
+    const r = await runAutoExtract({
+      turnFile,
+      projectRoot,
+      haikuBackend: mockBackend(clipped),
+    });
+    expect(r.action).toBe('extracted');
+    const facts = readdirSync(join(projectRoot, 'context', 'memory')).filter(
+      (f) => f.startsWith('project_') || f.startsWith('feedback_'),
+    );
+    expect(facts).toHaveLength(2); // the stub is NOT on disk
+    for (const f of facts) {
+      const body = readFileSync(join(projectRoot, 'context', 'memory', f), 'utf8');
+      expect(body).not.toContain('The `clau');
+    }
+  });
+
+  it('Door 4: the extract.log entry counts the dropped clip', async () => {
+    const clipped = [completeFact(1), 'BEGIN_FACT', 'type: project', 'title: partial', 'body: cut mi'].join('\n');
+    const turnFile = writeTurnFile(projectRoot, { user: 'u', assistant: 'a' });
+    await runAutoExtract({ turnFile, projectRoot, haikuBackend: mockBackend(clipped) });
+    const entries = await readExtractLog(projectRoot, new Date().toISOString().slice(0, 10));
+    const last = entries.filter((e) => !e.event).pop();
+    expect(last.clipped_facts_dropped).toBe(1);
+  });
+
+  it('a block closed implicitly by the NEXT BEGIN_FACT still parses (missing END_FACT mid-output)', async () => {
+    const out = [
+      'BEGIN_FACT', 'type: project', 'title: First fact', 'body: Complete body one.', 'why: w.', 'how: h.',
+      // no END_FACT — but the next BEGIN_FACT closes it (existing contract)
+      completeFact(2),
+    ].join('\n');
+    const turnFile = writeTurnFile(projectRoot, { user: 'u', assistant: 'a' });
+    await runAutoExtract({ turnFile, projectRoot, haikuBackend: mockBackend(out) });
+    const facts = readdirSync(join(projectRoot, 'context', 'memory')).filter((f) => f.startsWith('project_'));
+    expect(facts).toHaveLength(2);
+  });
+
+  it('the extraction call carries the raised output budget (8192, was 2000 — 3 rich facts overflowed it)', async () => {
+    const backend = mockBackend('SKIP');
+    const turnFile = writeTurnFile(projectRoot, { user: 'u', assistant: 'a' });
+    await runAutoExtract({ turnFile, projectRoot, haikuBackend: backend });
+    expect(backend.calls[0].maxOutputBytes).toBe(8192);
+  });
+});

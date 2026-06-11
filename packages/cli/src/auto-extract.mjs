@@ -457,10 +457,11 @@ function parseRichFactBlock(blockLines) {
 // Exported for direct unit-testing (cli-rich-fact.test.js) — the BEGIN_FACT
 // format is the extraction prompt's contract, pinned independently of a live
 // Haiku call.
-export function parseRichFacts(haikuOutput) {
+export function parseRichFacts(haikuOutput, { onClipped } = {}) {
   if (!haikuOutput || typeof haikuOutput !== 'string') return [];
   const lines = haikuOutput.split('\n');
   const facts = [];
+  let clipped = 0;
   let i = 0;
   while (i < lines.length) {
     if (lines[i].trim().toUpperCase() !== 'BEGIN_FACT') {
@@ -471,19 +472,36 @@ export function parseRichFacts(haikuOutput) {
     // don't let it swallow the following block), or end-of-output.
     i++;
     const blockLines = [];
+    let terminated = false;
     while (i < lines.length) {
       const marker = lines[i].trim().toUpperCase();
       if (marker === 'END_FACT') {
+        terminated = true;
         i++;
         break;
       }
-      if (marker === 'BEGIN_FACT') break; // close here; leave i for the outer loop
+      if (marker === 'BEGIN_FACT') {
+        // Implicit close by the next block — the body up to here is whole.
+        terminated = true;
+        break;
+      }
       blockLines.push(lines[i]);
       i++;
+    }
+    // Task 136 (D-124): a block that ran into END-OF-OUTPUT without any
+    // terminator is the signature of the compressor's maxOutputBytes slice
+    // cutting Haiku's reply mid-fact. Writing it would persist a corrupted
+    // stub (cut-gate9's P-BaTM3L42: body "The `clau"). Drop it — losing the
+    // clipped fact beats storing a mangled one; the count reaches
+    // extract.log via onClipped for observability.
+    if (!terminated) {
+      clipped++;
+      continue;
     }
     const fact = parseRichFactBlock(blockLines);
     if (fact) facts.push(fact);
   }
+  if (clipped > 0 && typeof onClipped === 'function') onClipped(clipped);
   return facts;
 }
 
@@ -814,7 +832,12 @@ export async function runAutoExtract({
       haikuResult = await haikuBackend.compress({
         input: promptBody,
         instructions,
-        maxOutputBytes: 2000,
+        // Task 136 (D-124): 8192, was 2000. A dense turn legitimately yields
+        // 3-4 rich facts (~700-900 bytes each) + terse/persona lines — the old
+        // cap clipped the 3rd fact mid-word and a corrupted stub reached disk
+        // (cut-gate9). The parser now also DROPS clipped trailing blocks; the
+        // raised budget makes the drop rare instead of routine.
+        maxOutputBytes: 8192,
         preserveCitationIds: false,
         // 90s, not 25s: the real `claude --print` extraction (full turn +
         // instructions) consistently exceeded a 25s ceiling on a live machine
@@ -880,7 +903,12 @@ export async function runAutoExtract({
     // SAME Haiku output may carry BEGIN_FACT blocks (durable project KNOWLEDGE)
     // alongside the terse TRUST_ lines; route them to the fact store via
     // writeFact (richer + searchable). No second LLM call — same outputText.
-    const richFacts = parseRichFacts(haikuResult.outputText);
+    let clippedFactsDropped = 0;
+    const richFacts = parseRichFacts(haikuResult.outputText, {
+      onClipped: (n) => {
+        clippedFactsDropped = n;
+      },
+    });
     // XOR safety net: the prompt asks Haiku to emit a fact as EITHER a rich
     // block OR a terse line, never both. If it does both for the same fact, the
     // rich block wins — drop any terse candidate whose canonical id matches a
@@ -1095,6 +1123,9 @@ export async function runAutoExtract({
       ...baseEntry,
       ...personaLogFields,
       rich_facts_written: richFactsWritten,
+      // Task 136: only present when the output cap clipped a trailing fact —
+      // the signal to consider raising the budget further.
+      ...(clippedFactsDropped > 0 ? { clipped_facts_dropped: clippedFactsDropped } : {}),
       success: true,
       observation_count,
       duration_ms: Date.now() - t0,
