@@ -121,7 +121,7 @@ describe('Task 38a — importAnthropicMemory', () => {
       const memText = readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8');
       expect(memText).toContain('imported A');
       expect(memText).toContain('imported B');
-      expect(memText).toMatch(/write_source: imported/);
+      expect(memText).toMatch(/write: imported/);
       expect(memText).toMatch(/trust: medium/);
       expect(memText).toMatch(/source: anthropic-auto-memory/);
     });
@@ -194,7 +194,7 @@ describe('Task 114 (F-13) — runImportAnthropicMemory CLI wrapper on real input
     expect(out.join('\n')).toContain('applied 2 proposal');
     const mem = readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8');
     expect(mem).toContain('Vite');
-    expect(mem).toMatch(/write_source: imported/);
+    expect(mem).toMatch(/write: imported/);
     expect(mem).toMatch(/trust: medium/);
   });
   it('no-source: reports cleanly when no native memory is present', async () => {
@@ -231,5 +231,35 @@ describe('Task 114 — runImportAnthropicMemory error handling (importFn seam)',
     const errs = [];
     await runImportAnthropicMemory({ projectRoot, log: () => {}, logError: (m) => errs.push(String(m)), importFn: async () => { throw new Error('kaboom'); } });
     expect(errs.join('\n')).toContain('kaboom');
+  });
+});
+
+// Task 138 (D-125) — the imported bullet's provenance must use the CANONICAL
+// comment shape (the `write:` key the reindex parser maps to the NOT-NULL
+// observations.write_source column). The hand-rolled `write_source:` key was
+// invisible to the parser: cut-gate9's F-13 import broke the next reindex
+// ("NOT NULL constraint failed: observations.write_source") and search
+// degraded to the stale index. Composition pin: import then reindex.
+describe('Task 138 — imported bullets reindex cleanly (canonical provenance)', () => {
+  beforeEach(makeFixture);
+  afterEach(() => rmSync(sandbox, { recursive: true, force: true }));
+
+  it('import then reindexFull succeeds; write_source lands as import', async () => {
+    seedAnthropicMemory(['The CI gate runs deploy checks before merge']);
+    const r = await importAnthropicMemory({ projectRoot, harnessRoot: fakeHarnessRoot, acceptAll: true });
+    expect(r.accepted).toBeGreaterThanOrEqual(1);
+    const { reindexFull } = await import('../packages/cli/src/index-rebuild.mjs');
+    const { openIndexDb } = await import('../packages/cli/src/index-db.mjs');
+    const db = openIndexDb({ projectRoot });
+    try {
+      expect(() => reindexFull({ projectRoot, userDir, db })).not.toThrow();
+      const row = db
+        .prepare("SELECT write_source FROM observations WHERE body LIKE '%CI gate runs deploy%'")
+        .get();
+      expect(row).toBeTruthy();
+      expect(row.write_source).toBe('imported');
+    } finally {
+      db.close();
+    }
   });
 });
