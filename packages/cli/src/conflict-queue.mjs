@@ -805,8 +805,7 @@ export function mergeScratchpadBullets({
       at: ts,
     },
   });
-  updatedLines.splice(insertAt, 0, ...formatted.lines.split('
-'), '');
+  updatedLines.splice(insertAt, 0, ...formatted.lines.split('\n'), '');
 
   writeFileSync(scratchpadPath, updatedLines.join('\n'), 'utf8');
 

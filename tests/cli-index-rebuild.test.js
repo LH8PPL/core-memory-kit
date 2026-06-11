@@ -16,6 +16,7 @@ import {
   mkdtempSync,
   rmSync,
   writeFileSync,
+  readFileSync,
   mkdirSync,
   utimesSync,
 } from 'node:fs';
@@ -587,5 +588,46 @@ describe('Task 29 — index-rebuild', () => {
         await handle.close();
       }
     });
+  });
+});
+
+// Task 139 (D-126) - CRLF tolerance: a Windows clone with autocrlf=true
+// rewrites every committed memory file to CRLF; the strict-\n frontmatter
+// boundary and line splits made ALL facts invisible after a clone
+// (cut-gate9 H1: clone reindex found 0 of 18 facts). These pin the
+// portability promise on default Windows git config.
+describe('Task 139 - CRLF-converted memory files still index', () => {
+  beforeEach(makeFixture);
+  afterEach(() => {
+    db?.close();
+    rmSync(sandbox, { recursive: true, force: true });
+  });
+
+  it('a CRLF fact file is parsed and indexed (the clone shape)', () => {
+    const factPath = seedFactFile(projectRoot, {
+      type: 'project',
+      title: 'CRLF survival fact',
+      body: 'Deploys ride the tag pipeline.',
+      write_source: 'user-explicit',
+      trust: 'high',
+      at: '2026-06-11T10:00:00Z',
+      slug: 'crlf-survival',
+    });
+    // Simulate the autocrlf checkout: LF -> CRLF across the whole file.
+    const lf = readFileSync(factPath, 'utf8');
+    writeFileSync(factPath, lf.replace(/\n/g, '\r\n'), 'utf8');
+    const result = reindexFull({ projectRoot, userDir, db });
+    const row = db
+      .prepare("SELECT body FROM observations WHERE body LIKE '%tag pipeline%'")
+      .get();
+    expect(row).toBeTruthy();
+    expect(result).toBeTruthy();
+  });
+
+  it('a CRLF scratchpad bullet is still walked (provenance line intact)', () => {
+    const memPath = join(projectRoot, 'context', 'MEMORY.md');
+    const lf = readFileSync(memPath, 'utf8');
+    writeFileSync(memPath, lf.replace(/\n/g, '\r\n'), 'utf8');
+    expect(() => reindexFull({ projectRoot, userDir, db })).not.toThrow();
   });
 });

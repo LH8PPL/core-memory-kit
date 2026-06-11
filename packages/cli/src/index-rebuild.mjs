@@ -146,7 +146,10 @@ export function parseObservationsFromScratchpad({
   projectRoot,
   userDir,
 }) {
-  const lines = content.split('\n');
+  // Task 139 (D-126): CRLF-tolerant read — autocrlf clones rewrite the
+  // committed memory files; a strict-\n split left \r on every line and
+  // the bullet/provenance regexes went blind.
+  const lines = content.split(/\r?\n/);
   const sha1 = sha1OfContent(content);
   const source_file = relativeSource(path, { projectRoot, userDir });
   const baseName = basename(path);
