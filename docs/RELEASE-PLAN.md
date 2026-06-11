@@ -72,7 +72,7 @@ The differentiator is the wedge; the rest are the quality fixes that make it *fe
 - **51** — index session-rollup + transcript files for search
 - **57 / 58 / 59** — capture Claude's stated positions as decision-facts + inject a "recent decisions" digest + contradiction reconciliation (Phase 3)
 - **F-D** — fact-layer auto-supersede (semantic contradiction between captured facts, e.g. uv-vs-venv)
-- **95** — dream-style re-curation (D-62): re-curate from RAW transcripts → a REVIEWABLE new output (not in-place), merging dups + resolving contradictions latest-wins + surfacing insights; unifies F-D + Task 55/66 + curate. From the 2026-06-04 Anthropic Dreams primary source.
+- **95** — dream-style re-curation (D-62): re-curate from RAW transcripts → a REVIEWABLE new output (not in-place), merging dups + resolving contradictions latest-wins + surfacing insights; unifies F-D + Task 55/66 + curate. From the 2026-06-04 Anthropic Dreams primary source. _(+ trajectory-memory input: the 2026-06-12 ruflo research note.)_
 - **96** — memory versioning + redact (D-62): point-in-time recovery of any prior value + a compliance scrub path; completes the never-lose invariant beyond tombstones. _(may slip to v0.4.)_
 - **66** — temporal validity (facts stay true / age out correctly)
 - **71** — external-drift guard (detect + refuse hand-edits to memory)
@@ -88,7 +88,7 @@ The differentiator is the wedge; the rest are the quality fixes that make it *fe
 ## v0.4.0+ — breadth
 
 - **50** — cross-agent install — **KIRO FIRST** (the user's 2026-06-12 call: it's their daily work IDE; dogfooding-at-work beats breadth), then cursor|codex|gemini-cli. **This is the v0.4 headline.**
-- **55** — behavioral pattern detection + promotion ("learn how I work," not just facts)
+- **55** — behavioral pattern detection + promotion ("learn how I work," not just facts). _Research input when slotted: trajectory-memory framing (ruflo "ReasoningBank", research note 2026-06-12) — capture HOW a task was done well, not just what was decided._
 - **viewer (design-first)** — a memory viewer for the non-developer audience (the parked `cmk view` idea — a product question, not a port number; D-121).
 - _**Team-layer companion (Task 127): POSTPONED past v0.4** (the user, 2026-06-12) — Kiro support comes first; the companion-project design (D-119) stands, just later (v0.5+)._
 

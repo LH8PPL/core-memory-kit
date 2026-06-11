@@ -284,3 +284,5 @@ This section captures projects whose architectures inform our v0.2 design (§16.
 - Group by topic. Don't pile everything into a flat list — section headers help future readers.
 - When a source becomes obsolete (project archived, paper retracted), mark it with `~~strikethrough~~` and add a one-line note about why.
 - Re-verify dates / versions / metrics annually. Stars and release counts change; capture the date when you record them.
+
+- ~ ruvnet/ruflo (claude-flow lineage) — <https://github.com/ruvnet/ruflo> — README-level review 2026-06-12 (NOT code-dived): counter-positioning reference for the kit's auditable-markdown lane + the "trajectory memory" idea cross-linked to Tasks 55/95. Their HNSW-vs-brute-force benchmark independently validates the kit's at-scale sqlite-vec choice (ADR-0015). See [docs/research/2026-06-12-ruflo-counter-positioning.md](research/2026-06-12-ruflo-counter-positioning.md).

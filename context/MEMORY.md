@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-674Q5D5M) Changes since version 0.2.3 appear to have introduced failures in memory kit
-  <!-- source: auto-extract-session, source_line: 1, sha1: eedb16f6e7debedfe1f33847c9a2f87e54faf7e6, write: auto-extract, trust: high, at: 2026-06-11T08:52:36Z -->
 - (P-MZDaYRWX) Requesting complete re-verification: check previous test gate outputs (gate7), run all guide validation commands, review all memory files
   <!-- source: auto-extract-session, source_line: 1, sha1: 29d809a90751cd5f1e7bd2460562acb5b3dc779b, write: auto-extract, trust: high, at: 2026-06-11T08:52:36Z -->
 - (P-4TSUCAM5) as long as it adds and not deminish — standing constraint on change scope
@@ -22,6 +20,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: b82cc5c6d3c0f0e82a0617737774baf1ce1fd460, write: auto-extract, trust: high, at: 2026-06-11T14:35:38Z -->
 - (P-AXBVF6WA) npm pack executed successfully; @lh8ppl/claude-memory-kit v0.3.0 tarball generated (269.8 kB)
   <!-- source: auto-extract-session, source_line: 1, sha1: 00e4b78623abd8d64017afd7e596eec48fb1b5ad, write: auto-extract, trust: high, at: 2026-06-11T21:30:20Z -->
+- (P-JRXWU6JP) We can upgrade to latest Node version at any time — no legacy version constraints
+  <!-- source: auto-extract-session, source_line: 1, sha1: 78864f9dd813ab8440f2cabda8d7703c487517ce, write: auto-extract, trust: high, at: 2026-06-11T21:54:51Z -->
 
 ## Environment Notes
 
