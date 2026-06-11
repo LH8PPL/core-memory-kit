@@ -26,14 +26,22 @@
 //     <projectRoot>/context/transcripts/.extract-<ts>.tmp
 //   so the detached child can read it without sharing stdin.
 //
-// Both-turns temp-file shape (design §6.4 amendment, 2026-05-26):
-//   The temp file now contains BOTH the prior user prompt AND the
-//   just-captured assistant turn, separated by literal markers:
+// Both-turns temp-file shape (design §6.4 amendment, 2026-05-26;
+// DEDUP_CONTEXT added by Task 132 / D-122, 2026-06-11):
+//   The temp file contains the dedup snapshot, the prior user prompt,
+//   AND the just-captured assistant turn, separated by literal markers:
+//     DEDUP_CONTEXT:
+//     <the last now.md entry BEFORE this turn was appended — may be empty>
+//
 //     USER_TURN:
 //     <user body>
 //
 //     ASSISTANT_TURN:
 //     <assistant body>
+//   The dedup snapshot MUST be taken before appendConversationToNowMd
+//   runs: auto-extract used to re-read now.md after the append and saw
+//   the current turn as "already captured" → suppressed every organic
+//   extraction (the D-122 self-poisoning bug, found by cut-gate8).
 //   This lets auto-extract identify candidate-origin (user-stated vs
 //   assistant-inferred) and apply the demotion rule from design §6.4
 //   (assistant-origin facts demote one trust level so user review is
@@ -56,6 +64,7 @@ import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { sanitizePrivacyTags } from './privacy.mjs';
 import { extractTurnToolActivity, readTranscriptTail } from './turn-tools.mjs';
+import { readLastEntryFromNowMd } from './auto-extract.mjs';
 
 function dateFromIso(iso) {
   return String(iso).slice(0, 10);
@@ -227,8 +236,11 @@ function appendConversationToNowMd({ projectRoot, ts, userTurn, assistantTurn })
 // capture-prompt sanitized when writing it) and the assistant body
 // is the now-sanitized argument. Markers are literal-prefix lines so
 // auto-extract's parser can split cleanly.
-function assembleBothTurnsBody({ userTurn, assistantTurn }) {
+function assembleBothTurnsBody({ userTurn, assistantTurn, dedupContext = '' }) {
   return [
+    'DEDUP_CONTEXT:',
+    dedupContext,
+    '',
     'USER_TURN:',
     userTurn,
     '',
@@ -341,6 +353,26 @@ export function captureTurn({
   //    `sanitized` text we just appended above.
   const userTurn = readLastUserTurnFromTranscript(transcriptPath);
 
+  // Task 132 (D-122): snapshot the dedup context BEFORE the now.md append
+  // below — after the append, "the last now.md entry" IS the current turn,
+  // and feeding that to auto-extract as "do not re-emit facts already
+  // here" suppressed every organic extraction. Best-effort: an unreadable
+  // now.md just means no dedup section this turn.
+  let dedupContext = '';
+  try {
+    // Skill-review I1: neutralize line-start section markers INSIDE the
+    // snapshot — conversation text can legitimately contain "USER_TURN:"
+    // (this repo's own sessions discuss the turn-file format), and the
+    // parser anchors on the first line-start marker it sees. The dedup is
+    // advisory context for Haiku; a cosmetic "· " prefix is harmless.
+    dedupContext = readLastEntryFromNowMd(projectRoot).replace(
+      /^([ 	]*)(DEDUP_CONTEXT:|USER_TURN:|ASSISTANT_TURN:)/gm,
+      '$1· $2',
+    );
+  } catch {
+    // no dedup context — extraction still runs, worst case re-emits a dup
+  }
+
   // Task 87: buffer the conversation into now.md so the SessionEnd compressor
   // summarizes the DIALOGUE, not observe-edit's filename log. Best-effort.
   appendConversationToNowMd({ projectRoot, ts, userTurn, assistantTurn: sanitized });
@@ -353,7 +385,7 @@ export function captureTurn({
   try {
     writeFileSync(
       turnFile,
-      assembleBothTurnsBody({ userTurn, assistantTurn: sanitized }),
+      assembleBothTurnsBody({ userTurn, assistantTurn: sanitized, dedupContext }),
       'utf8',
     );
   } catch (err) {

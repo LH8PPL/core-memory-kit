@@ -196,7 +196,14 @@ function extractRetainSegments(text) {
 
 // --- Dedup context --------------------------------------------------
 
-function readLastEntryFromNowMd(projectRoot) {
+// Task 132 (D-122): exported for capture-turn, which snapshots the dedup
+// context BEFORE appending the current turn to now.md and passes it here
+// inside the turn file. Reading now.md from THIS module (after the append)
+// was the self-poisoning bug: the "last entry" was the very turn being
+// extracted, so Haiku was told "do not re-emit facts already here" about
+// its own input → nothing_durable on every organic turn (since Task 87;
+// live A/B repro 2026-06-11, cut-gate8).
+export function readLastEntryFromNowMd(projectRoot) {
   const nowMd = join(projectRoot, ...NOW_MD_RELATIVE);
   if (!existsSync(nowMd)) return '';
   let body;
@@ -221,29 +228,38 @@ function readLastEntryFromNowMd(projectRoot) {
 // --- Turn-file parser (bi-turn) -------------------------------------
 
 // Parse the temp-file format Task 21's capture-turn writes:
+//   DEDUP_CONTEXT:          ← Task 132: optional; the last now.md entry
+//   <previous entry>          as it stood BEFORE the current turn was
+//                             appended (capture-turn snapshots it)
 //   USER_TURN:
 //   <user body>
 //
 //   ASSISTANT_TURN:
 //   <assistant body>
-// Either section may be empty. If no USER_TURN: / ASSISTANT_TURN:
+// Any section may be empty. If no USER_TURN: / ASSISTANT_TURN:
 // markers are present, fall back to "the whole file is the assistant
 // turn" so old-format temp files (pre-2026-05-26) still work — useful
 // when running auto-extract against a turn buffer that pre-dates this
-// amendment (unlikely after the rollout, but defensive).
+// amendment (unlikely after the rollout, but defensive). A missing
+// DEDUP_CONTEXT marker means NO dedup section — never a now.md re-read
+// (that re-read was the Task 132 self-poisoning bug).
 const USER_TURN_RE = /^[ \t]*USER_TURN:\s*\n([\s\S]*?)(?=^[ \t]*ASSISTANT_TURN:|\Z)/m;
 const ASSISTANT_TURN_RE = /^[ \t]*ASSISTANT_TURN:\s*\n([\s\S]*)$/m;
+const DEDUP_CONTEXT_RE =
+  /^[ \t]*DEDUP_CONTEXT:\s*\n([\s\S]*?)(?=^[ \t]*USER_TURN:|^[ \t]*ASSISTANT_TURN:)/m;
 
 function parseTurnFile(rawTurn) {
+  const dedupMatch = rawTurn.match(DEDUP_CONTEXT_RE);
   const userMatch = rawTurn.match(USER_TURN_RE);
   const assistantMatch = rawTurn.match(ASSISTANT_TURN_RE);
   if (!userMatch && !assistantMatch) {
     // Old-format / unlabeled — treat whole content as assistant.
-    return { userTurn: '', assistantTurn: rawTurn.trim() };
+    return { userTurn: '', assistantTurn: rawTurn.trim(), dedupContext: '' };
   }
   return {
     userTurn: (userMatch?.[1] ?? '').trim(),
     assistantTurn: (assistantMatch?.[1] ?? '').trim(),
+    dedupContext: (dedupMatch?.[1] ?? '').trim(),
   };
 }
 
@@ -710,6 +726,14 @@ export async function runAutoExtract({
       duration_ms: Date.now() - t0,
     };
     const logPath = writeExtractLogEntry({ projectRoot, ts, entry });
+    // Task 132: this early return bypasses the lock-held finally that
+    // normally unlinks the turn file — clean it up here or every
+    // concurrent rejection leaks one .extract-*.tmp (cut-gate8 finding).
+    try {
+      if (turnFile && existsSync(turnFile)) unlinkSync(turnFile);
+    } catch {
+      // best-effort; the sweepStaleTurnFiles janitor catches stragglers
+    }
     return {
       action: 'concurrent',
       error_category: ERROR_CATEGORIES.CONCURRENT_RUN,
@@ -764,10 +788,12 @@ export async function runAutoExtract({
     //    override.
     const retainSegments = extractRetainSegments(rawTurn);
     const sanitized = stripNoiseTags(rawTurn);
-    const { userTurn, assistantTurn } = parseTurnFile(sanitized);
+    const { userTurn, assistantTurn, dedupContext } = parseTurnFile(sanitized);
 
-    // 3. Build prompt with dedup context (last `## ` entry from now.md).
-    const dedupContext = readLastEntryFromNowMd(projectRoot);
+    // 3. Dedup context comes from the TURN FILE (Task 132) — capture-turn
+    //    snapshotted the last now.md entry BEFORE appending the current
+    //    turn. Re-reading now.md here would see the current turn as
+    //    "already captured" and suppress every extraction (D-122).
     const instructions = buildExtractionInstructions();
     const promptBody = buildExtractionPrompt({
       userTurn,
