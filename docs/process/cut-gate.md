@@ -104,7 +104,7 @@ Remove-Item -Recurse -Force $env:USERPROFILE\.claude-memory-kit
 Validates scaffold integrity + the Task-69 skill surface.
 
 ```powershell
-mkdir C:\Temp\cut-gate8; cd C:\Temp\cut-gate8
+mkdir C:\Temp\cut-gate9; cd C:\Temp\cut-gate9
 git init
 cmk install --with-semantic          # v0.3.0: the one-flag semantic enablement (G7) — ~260 MB once + the model pre-warm; takes a minute
 cmk doctor
@@ -300,9 +300,9 @@ which carries raw, un-screened text, so it must never be committed.
 
 ```powershell
 # The security half (deterministic): the diagnostic log is gitignored.
-git -C C:\Temp\cut-gate8 check-ignore context\sessions\probe.extract.log
+git -C C:\Temp\cut-gate9 check-ignore context\sessions\probe.extract.log
 # The trace half (observational): if any build turn was graded LOW, you'll see it.
-findstr /S /C:"low_trust_discarded" C:\Temp\cut-gate8\context\sessions\*.extract.log
+findstr /S /C:"low_trust_discarded" C:\Temp\cut-gate9\context\sessions\*.extract.log
 ```
 
 - [ ] **★ B6 — PASS (must):**
@@ -513,7 +513,7 @@ The headline gate. Each rung exercises a different layer of the new recall stack
 ## 6. Session 3 — the cold-open (the wedge, wow #1)  ⬅️ a BRAND-NEW project
 
 ```powershell
-mkdir C:\Temp\cut-gate-coldopen8; cd C:\Temp\cut-gate-coldopen8
+mkdir C:\Temp\cut-gate-coldopen9; cd C:\Temp\cut-gate-coldopen9
 git init; cmk install; code .
 ```
 Ask: *"Start a new Python backend for me - set up the structure."*
@@ -526,7 +526,7 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 
 ---
 
-## 7. Full feature sweep — every `cmk` subcommand  (~20 min, in `C:\Temp\cut-gate8`)
+## 7. Full feature sweep — every `cmk` subcommand  (~20 min, in `C:\Temp\cut-gate9`)
 
 **Recall & index**
 
@@ -632,7 +632,7 @@ Ask: *"Start a new Python backend for me - set up the structure."*
       **PASS:** non-empty, items recognizable from this session.
 
 - [ ] **F-19 — `uninstall` is clean + `init-user-tier` re-seeds (lifecycle, in the throwaway dir ONLY).**
-      In `C:\Temp\cut-gate8` (NEVER a real project):
+      In `C:\Temp\cut-gate9` (NEVER a real project):
       ```powershell
       cmk uninstall                # removes hooks + the CLAUDE.md managed block; context/ stays (your data)
       git status                   # nothing unexpected staged; CLAUDE.md outside the markers byte-preserved
@@ -666,8 +666,8 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 
 ## 9. Portability ("another computer")
 
-In `C:\Temp\cut-gate8`: `git add -A; git commit -m "wip"`.
-Clone elsewhere (`git clone C:\Temp\cut-gate8 C:\Temp\cut-gate-clone`), open *that* in Claude Code.
+In `C:\Temp\cut-gate9`: `git add -A; git commit -m "wip"`.
+Clone elsewhere (`git clone C:\Temp\cut-gate9 C:\Temp\cut-gate-clone`), open *that* in Claude Code.
 
 - [ ] **★ H1**
       the clone already has the project memory (`context/` is committed — tenet T2).

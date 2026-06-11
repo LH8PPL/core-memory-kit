@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **install(133): the `memory-search` skill is permission-allow-listed, so recall fires prompt-free** (the skill shipped in this release without its allow entry — first invocation would have asked "Use skill?").
+
 - **memory(132): organic auto-capture works again — the extractor no longer suppresses itself.** Since v0.2.0, the fact extractor was shown the just-captured turn as "already saved" context (a write-then-read ordering bug), so it answered "nothing durable" for most organic conversation — explicit `cmk remember` captures and persona promotion were unaffected. The dedup snapshot is now taken before the turn is buffered. Found by the v0.3.0 release gate; if your `context/MEMORY.md` stayed suspiciously empty, this was why.
 
 ### Removed
