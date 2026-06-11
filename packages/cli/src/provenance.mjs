@@ -44,6 +44,10 @@ const VALID_WRITE_SOURCES = new Set([
   'compressor',
   'manual-edit',
   'imported',
+  // Task 138 review finding: the conflict-queue merge-both action writes a
+  // merged bullet to the scratchpad; its provenance needs a valid write key
+  // (the old hand-rolled comment had none and broke reindex - D-125 class).
+  'merged',
 ]);
 const REQUIRED_PROVENANCE_FIELDS = [
   'source',

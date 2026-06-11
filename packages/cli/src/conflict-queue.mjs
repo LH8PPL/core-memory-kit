@@ -49,6 +49,8 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { resolveTierRoot, VALID_TIERS } from './tier-paths.mjs';
+import { writeBullet } from './provenance.mjs';
+import { createHash } from 'node:crypto';
 import { nowIso, appendAuditEntry, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { generateId } from '@lh8ppl/cmk-canonicalize';
@@ -786,9 +788,25 @@ export function mergeScratchpadBullets({
   const effectiveSection = section ?? discoverSectionAt(lines, matchA.bulletIdx);
   const range = effectiveSection ? findSectionRange(updatedLines, effectiveSection) : null;
   const insertAt = range ? range.endIdx : updatedLines.length;
-  const newBullet = `- (${newId}) ${combinedText}`;
-  const newProvenance = `<!-- source: merge-both, merged_from: [${idA}, ${idB}], merged_at: ${ts}, trust: ${mergedTrust} -->`;
-  updatedLines.splice(insertAt, 0, newBullet, newProvenance, '');
+  // D-125 class (Task 138 review finding): the old hand-rolled comment had
+  // no `write:` key, so the first reindex after a merge-both resolution hit
+  // the NOT-NULL observations.write_source constraint. Canonical shape via
+  // the shared builder; the merged_from trail lives in the audit entry below.
+  const sha1 = createHash('sha1').update(combinedText, 'utf8').digest('hex');
+  const formatted = writeBullet({
+    id: newId,
+    text: combinedText,
+    provenance: {
+      source: 'merge-both',
+      source_line: 1,
+      sha1,
+      write: 'merged',
+      trust: mergedTrust,
+      at: ts,
+    },
+  });
+  updatedLines.splice(insertAt, 0, ...formatted.lines.split('
+'), '');
 
   writeFileSync(scratchpadPath, updatedLines.join('\n'), 'utf8');
 
