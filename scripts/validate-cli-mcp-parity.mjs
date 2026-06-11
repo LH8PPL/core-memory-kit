@@ -52,7 +52,7 @@ export const PARITY_MAP = {
 // and PARITY_MAP (an unclassified verb fails the guard).
 export const CLI_ONLY = new Set([
   'install', 'uninstall', 'init-user-tier', 'reindex', 'doctor', 'config',
-  'view', 'import-anthropic-memory', 'transcripts', 'purge', 'roll', 'repair',
+  'import-anthropic-memory', 'transcripts', 'purge', 'roll', 'repair',
   'daily-distill', 'weekly-curate', 'persona', 'disable-native-memory',
   'enable-native-memory', 'compress', 'register-crons', 'mcp', 'version',
 ]);

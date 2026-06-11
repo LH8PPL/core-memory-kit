@@ -1821,13 +1821,6 @@ export const subcommands = [
     action: stub('config', 'v0.1.x'),
   },
   {
-    name: 'view',
-    description: 'open a local markdown viewer at 127.0.0.1:37778',
-    milestone: 'v0.1.x',
-    optionSpec: [{ flags: '--port <n>', description: 'override default port 37778' }],
-    action: stub('view', 'v0.1.x'),
-  },
-  {
     name: 'import-anthropic-memory',
     description: "merge useful bullets from Anthropic's auto-memory into this project's MEMORY.md",
     milestone: 38,
