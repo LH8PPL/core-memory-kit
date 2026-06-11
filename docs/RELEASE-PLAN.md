@@ -77,12 +77,16 @@ The differentiator is the wedge; the rest are the quality fixes that make it *fe
 - **66** — temporal validity (facts stay true / age out correctly)
 - **71** — external-drift guard (detect + refuse hand-edits to memory)
 - **74** — re-inject memory after compaction (PreCompact hook)
+- **129** — `cmk config get/set/--show-origin` (the stub became real when `--with-semantic` shipped a real setting; D-121)
+- **130** — `cmk purge --hard` ships WITH 96 (the compliance-scrub verb over the versioned store; D-121)
+- **131** — remove the `cmk view` stub (the viewer IDEA moves to v0.4; D-121)
 - [x] **46** — `cmk install --with-semantic` (embedder bootstrap + hybrid-by-default-when-enabled; pairs with 65) — _shipped 2026-06-10, PR #152 (D-111)_
 
 ## v0.4.0+ — breadth
 
 - **50** — cross-agent install (`cmk install --ide cursor|codex|gemini-cli`)
 - **55** — behavioral pattern detection + promotion ("learn how I work," not just facts)
+- **viewer (design-first)** — a memory viewer for the non-developer audience (the parked `cmk view` idea — a product question, not a port number; D-121). Judge next to the Task-127 team-layer companion.
 
 ---
 
