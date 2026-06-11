@@ -180,7 +180,9 @@ function findSectionRange(lines, sectionTitle) {
 }
 
 function insertIntoSection(text, sectionTitle, bullet) {
-  const lines = text.split('\n');
+  // Task 139 (D-126): CRLF-tolerant read; the join below re-emits \n,
+  // so a CRLF-converted scratchpad self-heals on the next write.
+  const lines = text.split(/\r?\n/);
   const range = findSectionRange(lines, sectionTitle);
   if (!range) return null;
   // Insert before the next `## ` heading; skip trailing blank lines so the
@@ -208,7 +210,7 @@ function insertIntoSection(text, sectionTitle, bullet) {
 export function ensureSectionExists(scratchpadPath, sectionTitle) {
   if (!existsSync(scratchpadPath)) return { created: false, error: 'no-file' };
   const text = readFileSync(scratchpadPath, 'utf8');
-  if (findSectionRange(text.split('\n'), sectionTitle)) return { created: false };
+  if (findSectionRange(text.split(/\r?\n/), sectionTitle)) return { created: false }; // Task 139: CRLF-tolerant
   const body = text.trimEnd(); // drop trailing whitespace/blank lines (no `\s+$` regex — trips ReDoS heuristics)
   // No leading blank lines for an empty/whitespace-only file (the scaffolded
   // scratchpads are never empty, but keep the output clean if one ever is).
@@ -220,7 +222,7 @@ export function ensureSectionExists(scratchpadPath, sectionTitle) {
 const EVICTED_ID_RE = /^- \(([PUL]-[A-Za-z0-9]+)\)/;
 
 function consolidate(text, { nowDate }) {
-  const lines = text.split('\n');
+  const lines = text.split(/\r?\n/); // Task 139: CRLF-tolerant
   const removeIdx = new Set();
   const evicted = [];
   const staleCutoff = new Date(nowDate.getTime() - STALE_AFTER_DAYS * 24 * 60 * 60 * 1000);

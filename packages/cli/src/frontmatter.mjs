@@ -43,7 +43,10 @@ const LOAD_OPTIONS = Object.freeze({
 
 export function parse(text) {
   if (typeof text !== 'string') return { frontmatter: null, body: '' };
-  const m = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  // Task 139 (D-126): \r? tolerance — a Windows clone with autocrlf=true
+  // rewrites committed memory files to CRLF, and a strict-\n boundary made
+  // every fact file invisible (cut-gate9 H1: clone reindex found 0 facts).
+  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
   if (!m) return { frontmatter: null, body: text };
   let frontmatter;
   try {

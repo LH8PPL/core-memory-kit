@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **portability(139): cloned projects recall their memory on Windows.** Default git settings (`autocrlf`) rewrite the committed memory files' line endings on clone, which made every fact invisible to search until now — reads are line-ending tolerant and self-heal on the next write.
+
 - **import(138): `cmk import-anthropic-memory` no longer breaks search.** Imported bullets carried a non-standard provenance comment that failed the next index rebuild (search fell back to the stale index with a warning). Imports now write the canonical provenance shape.
 
 - **memory(136): a long extraction can no longer write a corrupted fact.** When a knowledge-dense turn produced more rich facts than the output budget, the last fact was silently truncated mid-word and stored as a stub. Clipped facts are now dropped (and counted in the diagnostic log) instead of written, and the budget is 4x larger so clipping is rare.
