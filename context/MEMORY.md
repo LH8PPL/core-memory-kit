@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-7L3FTZ3Y) Prefers comprehensive, full end-to-end test coverage. Concerned that changes shifted focus to testing current version rather than the complete kit stack.
-  <!-- source: auto-extract-session, source_line: 1, sha1: ca5d26db1a875b3421ea91623e02db976c451842, write: auto-extract, trust: high, at: 2026-06-11T06:44:58Z -->
 - (P-WK53SJZ5) Carefully reviews changes for unintended scope loss. This scrutiny identified a real gap in test coverage (L2 commands untested in original guide).
   <!-- source: auto-extract-session, source_line: 1, sha1: 0db1bf2b947251db659a98837201a301ff7e883e, write: auto-extract, trust: high, at: 2026-06-11T06:44:58Z -->
 - (P-VC4UGJTP) Does not want Claude to automatically execute git commands; prefers explicit user confirmation
@@ -20,6 +18,10 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: eedb16f6e7debedfe1f33847c9a2f87e54faf7e6, write: auto-extract, trust: high, at: 2026-06-11T08:52:36Z -->
 - (P-MZDaYRWX) Requesting complete re-verification: check previous test gate outputs (gate7), run all guide validation commands, review all memory files
   <!-- source: auto-extract-session, source_line: 1, sha1: 29d809a90751cd5f1e7bd2460562acb5b3dc779b, write: auto-extract, trust: high, at: 2026-06-11T08:52:36Z -->
+- (P-4TSUCAM5) as long as it adds and not deminish — standing constraint on change scope
+  <!-- source: auto-extract-session, source_line: 1, sha1: 84907d5961ca53f6d859a071f9cee5cec5c6217c, write: auto-extract, trust: high, at: 2026-06-11T13:03:12Z -->
+- (P-RL2aKHKQ) Prefers concise, numbered instructions without narrative explanation or background context
+  <!-- source: auto-extract-session, source_line: 1, sha1: 2c64105afa391ef1b8372deac02f94ff83aa92c7, write: auto-extract, trust: high, at: 2026-06-11T13:09:54Z -->
 
 ## Environment Notes
 
