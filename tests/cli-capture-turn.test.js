@@ -881,3 +881,74 @@ describe('Task 123.E — orphaned .extract-*.tmp cleanup (D-103 finding E)', () 
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Task 132 (D-122) — the turn file carries the dedup snapshot, taken BEFORE
+// the current turn is appended to now.md. See cli-auto-extract.test.js for
+// the consumer-side composition pin.
+// ---------------------------------------------------------------------------
+
+describe('Task 132 — turn file carries the pre-append dedup snapshot', () => {
+  let sandbox;
+  let projectRoot;
+
+  beforeEach(() => {
+    const f = makeFixture();
+    sandbox = f.sandbox;
+    projectRoot = f.projectRoot;
+  });
+
+  afterEach(async () => {
+    // The detached stub child can still hold the dir on Windows for a
+    // beat — async backoff instead of failing the test on cleanup
+    // (EPERM; the PR #22/#23 Windows flake class, handled not disclaimed).
+    for (let i = 0; i < 10; i++) {
+      try {
+        rmSync(sandbox, { recursive: true, force: true });
+        return;
+      } catch {
+        await new Promise((r) => setTimeout(r, 150));
+      }
+    }
+    rmSync(sandbox, { recursive: true, force: true });
+  });
+
+  it('DEDUP_CONTEXT = the PREVIOUS now.md entry, never the current turn', () => {
+    const sessionsDir = join(projectRoot, 'context', 'sessions');
+    mkdirSync(sessionsDir, { recursive: true });
+    writeFileSync(
+      join(sessionsDir, 'now.md'),
+      '## 2026-06-11T07:00:00Z — assistant\n\nthe PREVIOUS turn about valkey\n',
+      'utf8',
+    );
+    const stub = writeAutoExtractStub(sandbox);
+    const r = captureTurn({
+      payload: { assistant_message: 'the CURRENT turn about deploys' },
+      projectRoot,
+      autoExtractPath: stub.path,
+      now: '2026-06-11T08:00:00Z',
+    });
+    const turnBody = readFileSync(r.turnFile, 'utf8');
+    expect(turnBody).toContain('DEDUP_CONTEXT:');
+    expect(turnBody).toContain('the PREVIOUS turn about valkey');
+    // The snapshot is pre-append: the current turn appears ONLY in the
+    // ASSISTANT_TURN section, not the dedup section.
+    const dedupSection = turnBody.split('USER_TURN:')[0];
+    expect(dedupSection).not.toContain('the CURRENT turn about deploys');
+    // And now.md itself DID get the current turn appended (Task 87 intact).
+    const nowMd = readFileSync(join(sessionsDir, 'now.md'), 'utf8');
+    expect(nowMd).toContain('the CURRENT turn about deploys');
+  });
+
+  it('fresh session (no now.md): DEDUP_CONTEXT section is present and empty', () => {
+    const stub = writeAutoExtractStub(sandbox);
+    const r = captureTurn({
+      payload: { assistant_message: 'first turn of the session' },
+      projectRoot,
+      autoExtractPath: stub.path,
+      now: '2026-06-11T08:00:00Z',
+    });
+    const turnBody = readFileSync(r.turnFile, 'utf8');
+    expect(turnBody).toMatch(/^DEDUP_CONTEXT:\s*\n\s*\nUSER_TURN:/);
+  });
+});

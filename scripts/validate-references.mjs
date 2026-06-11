@@ -96,6 +96,14 @@ const SKIP = new Set([
   // documentation-governance restructure, 2026-05-31). Their internal +
   // outbound links are not ref-validated — they're history, not live.
   join(REPO_ROOT, 'archive'),
+  // Dogfood volatile buffers (Task 52 / D-108): the kit's own Stop hook
+  // appends conversation content to sessions/now.md + transcripts/ WHILE
+  // tests run — gitignored, machine-local, and full of captured link text
+  // that resolves nowhere. Mid-stress, a growing now.md broke the prerun
+  // (2026-06-11). Conversation capture is data, not corpus.
+  join(REPO_ROOT, 'context', 'sessions'),
+  join(REPO_ROOT, 'context', 'transcripts'),
+  join(REPO_ROOT, 'context.local'),
 ]);
 
 const mdFiles = [];

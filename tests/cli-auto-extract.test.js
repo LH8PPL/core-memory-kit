@@ -898,7 +898,27 @@ describe('Task 23 — runAutoExtract() boundary', () => {
         '## 2026-05-25T09:00:00Z — earlier-entry\n\nprevious extraction body\n\n## 2026-05-25T09:30:00Z — last-entry-marker\n\nMOST_RECENT_PRIOR_ENTRY_MARKER\n',
         'utf8',
       );
-      const turnFile = writeTurnFile(projectRoot, 'new turn content');
+      // Task 132 contract change (D-122): the dedup context now arrives
+      // IN the turn file (capture-turn snapshots it pre-append); the
+      // extractor must NOT re-read now.md — that re-read saw the current
+      // turn as "already captured" and suppressed every extraction. This
+      // test originally pinned the buggy now.md re-read; updated to the
+      // turn-file contract, same spirit (Haiku still gets the prior
+      // entry as dedup).
+      const turnFile = writeTurnFile(
+        projectRoot,
+        [
+          'DEDUP_CONTEXT:',
+          '## 2026-05-25T09:30:00Z — last-entry-marker',
+          'MOST_RECENT_PRIOR_ENTRY_MARKER',
+          '',
+          'USER_TURN:',
+          '',
+          '',
+          'ASSISTANT_TURN:',
+          'new turn content',
+        ].join('\n'),
+      );
       const mock = mockBackend('SKIP');
       await runAutoExtract({
         turnFile,
@@ -906,10 +926,12 @@ describe('Task 23 — runAutoExtract() boundary', () => {
         haikuBackend: mock,
         now: '2026-05-25T10:00:00Z',
       });
-      // Prompt body fed to Haiku must include the last prior entry as
-      // dedup context (so Haiku doesn't re-extract the same fact).
+      // Prompt body fed to Haiku must include the prior entry as dedup
+      // context (so Haiku doesn't re-extract the same fact) — and must
+      // NOT include the now.md content written above (the poisoned read).
       const call = mock.calls[0];
       expect(call.input).toContain('MOST_RECENT_PRIOR_ENTRY_MARKER');
+      expect(call.input).toContain('new turn content');
     });
 
     it('prompt body includes the six writing-trigger directives from design §6.4', async () => {
@@ -1199,5 +1221,116 @@ describe('Task 103 — rich fact synthesis (auto-extract → fact store)', () =>
     expect(r.action).toBe('extracted');
     expect(r.observation_count).toBe(1);
     expect(readFactFiles()).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 132 (D-122) — dedup self-poisoning fix.
+//
+// The bug: capture-turn appends the CURRENT turn to now.md BEFORE spawning
+// the extractor; the extractor then read "the last now.md entry" as its
+// dedup context — i.e. it was told "do not re-emit facts already here" and
+// shown the very turn it was asked to extract. Haiku obeys → nothing_durable
+// on every organic turn (live A/B repro 2026-06-11, cut-gate8).
+//
+// The fix: the dedup snapshot rides the TURN FILE (taken pre-append by
+// capture-turn). The extractor NEVER reads now.md.
+// ---------------------------------------------------------------------------
+
+describe('Task 132 — dedup context comes from the turn file, never now.md', () => {
+  let sandbox;
+  let projectRoot;
+
+  beforeEach(async () => {
+    const f = makeFixture();
+    sandbox = f.sandbox;
+    projectRoot = f.projectRoot;
+    await installFixture(projectRoot);
+  });
+
+  afterEach(() => {
+    rmSync(sandbox, { recursive: true, force: true });
+  });
+
+  function poisonNowMd(currentTurnText) {
+    // The production shape at extract time: now.md's LAST entry is the
+    // current turn (capture-turn appended it before spawning).
+    const sessionsDir = join(projectRoot, 'context', 'sessions');
+    mkdirSync(sessionsDir, { recursive: true });
+    writeFileSync(
+      join(sessionsDir, 'now.md'),
+      `## 2026-06-11T08:00:00Z — assistant\n\n${currentTurnText}\n`,
+      'utf8',
+    );
+  }
+
+  it('a DEDUP_CONTEXT section in the turn file feeds the "Previous entry" block', async () => {
+    const turnFile = writeTurnFile(
+      projectRoot,
+      [
+        'DEDUP_CONTEXT:',
+        '## earlier — assistant',
+        'the PREVIOUS turn about pnpm workspaces',
+        '',
+        'USER_TURN:',
+        'we standardized on uv for python deps',
+        '',
+        'ASSISTANT_TURN:',
+        'noted, uv it is',
+      ].join('\n'),
+    );
+    const backend = mockBackend('TRUST_HIGH user:uv is the python package manager');
+    const r = await runAutoExtract({ turnFile, projectRoot, haikuBackend: backend });
+    expect(r.action).toBe('extracted');
+    const prompt = backend.calls[0].input;
+    expect(prompt).toContain('# Previous entry');
+    expect(prompt).toContain('the PREVIOUS turn about pnpm workspaces');
+    // The dedup section must not swallow the turns.
+    expect(prompt).toContain('we standardized on uv for python deps');
+    expect(prompt).toContain('noted, uv it is');
+  });
+
+  it('COMPOSITION PIN: a poisoned now.md never reaches the prompt (the cut-gate8 A/B)', async () => {
+    const assistantText = 'comments explain why not what; tests first then implement';
+    poisonNowMd(assistantText);
+    const turnFile = writeTurnFile(projectRoot, {
+      user: 'Type hints on every signature - Python 3.12+',
+      assistant: assistantText,
+    });
+    const backend = mockBackend('TRUST_HIGH user:type hints on every signature');
+    await runAutoExtract({ turnFile, projectRoot, haikuBackend: backend });
+    const prompt = backend.calls[0].input;
+    // The current turn must NOT appear under "Previous entry — do not
+    // re-emit": with no DEDUP_CONTEXT marker there is NO dedup section at
+    // all (the old behavior re-read the polluted now.md here).
+    expect(prompt).not.toContain('# Previous entry');
+  });
+
+  it('an empty DEDUP_CONTEXT section yields no "Previous entry" block', async () => {
+    poisonNowMd('poisoned current turn body');
+    const turnFile = writeTurnFile(
+      projectRoot,
+      ['DEDUP_CONTEXT:', '', 'USER_TURN:', 'real content here', '', 'ASSISTANT_TURN:', 'ack'].join('\n'),
+    );
+    const backend = mockBackend('TRUST_HIGH user:real content here');
+    await runAutoExtract({ turnFile, projectRoot, haikuBackend: backend });
+    const prompt = backend.calls[0].input;
+    expect(prompt).not.toContain('# Previous entry');
+    expect(prompt).not.toContain('poisoned current turn body');
+  });
+
+  it('concurrent-run rejection deletes its turn file (the cut-gate8 orphan leak)', async () => {
+    const locksDir = join(projectRoot, 'context', '.locks');
+    mkdirSync(locksDir, { recursive: true });
+    // A live-pid lock → the run is rejected as concurrent.
+    writeFileSync(join(locksDir, 'auto-extract.lock'), String(process.pid), 'utf8');
+    const turnFile = writeTurnFile(projectRoot, { user: 'u', assistant: 'a' });
+    const r = await runAutoExtract({
+      turnFile,
+      projectRoot,
+      haikuBackend: mockBackend('SKIP'),
+    });
+    expect(r.action).toBe('concurrent');
+    expect(existsSync(turnFile)).toBe(false); // no orphan left behind
   });
 });
