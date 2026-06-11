@@ -63,6 +63,7 @@ The ladder: authority preamble → auto-invoked `memory-search` skill → semant
 | **★ D3** | Task 75 | recall FEEL is now a **GATE, not a judgment call** — leads with memory, never re-derives from code |
 
 **Standing checks (re-run; not new this cut):** the **v0.2.3 conversational surface M0–M3** (Tasks 108/117), the **v0.2.2 rich-auto-capture** headline **B9** (Task 103), and the **§19 retention arc B5–B8 + D5** (Tasks 91–94).
+**The table above lists only what's NEW this cut — the body below is the FULL end-to-end sweep (every section, every release; ~70 checks).** Nothing standing was removed; the v0.2.3 additions are §4b, the v0.2.2 headline is B9, the retention arc is B5–B8.
 _Note: `mk_search` now also takes `scope`; the tool count stays **11**. The B5/B7 probes overwrite `settings.json` wholesale — fine in their throwaway dirs (a real project's `search.default_mode` would be lost; don't reuse the probe line outside them)._
 
 ---
@@ -525,7 +526,7 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 
 ---
 
-## 7. Full feature sweep — every `cmk` subcommand  (~15 min, in `C:\Temp\cut-gate8`)
+## 7. Full feature sweep — every `cmk` subcommand  (~20 min, in `C:\Temp\cut-gate8`)
 
 **Recall & index**
 
@@ -614,6 +615,31 @@ Ask: *"Start a new Python backend for me - set up the structure."*
       Remove-Item context\transcripts\.extract-test.tmp
       ```
       A partial buffer can never travel with `git clone`.
+
+**The L2 ladder + lifecycle (added 2026-06-11 — these four verbs had NO check in any prior cut; surfaced by the same completeness audit that built `validate-doc-completeness.mjs`)**
+
+- [ ] **F-17 — L2 drill-down: `get` / `timeline` / `cite` (Tasks 101/103 — the cited-recall rung).**
+      Take a real fact id from `cmk search "memory" --limit 1` (the `P-…` token), then:
+      ```powershell
+      cmk get <id>                 # full fact: body + Why/How + provenance
+      cmk timeline <id>            # the fact's history chain (creates/updates/supersedes)
+      cmk cite <id>                # the citation block Claude pastes into answers
+      ```
+      **PASS:** all three resolve the id; `timeline` shows at least the creation event; `cite` output names the source file.
+
+- [ ] **F-18 — `recent-activity` (the what-just-happened surface).**
+      `cmk recent-activity --window 24h --limit 5` → the facts touched in this run (the B-probes you just wrote) come back newest-first.
+      **PASS:** non-empty, items recognizable from this session.
+
+- [ ] **F-19 — `uninstall` is clean + `init-user-tier` re-seeds (lifecycle, in the throwaway dir ONLY).**
+      In `C:\Temp\cut-gate8` (NEVER a real project):
+      ```powershell
+      cmk uninstall                # removes hooks + the CLAUDE.md managed block; context/ stays (your data)
+      git status                   # nothing unexpected staged; CLAUDE.md outside the markers byte-preserved
+      cmk install                  # reinstalls clean over the surviving context/
+      cmk init-user-tier           # idempotent on an existing user tier (no overwrite of USER.md content)
+      ```
+      **PASS:** uninstall removes ONLY the managed surface; reinstall + init-user-tier are idempotent (no data loss, no duplicate blocks).
 
 ---
 
