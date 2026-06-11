@@ -190,8 +190,7 @@ Comments explain why, not what.
 And tests first: boundary test, watch it fail, then implement."
 
 **Stage 3 — stream + async rule + the universal rule.**
- *Build:* "Stream Claude's output to the browser as it arrives — push JSON
- frames over the WebSocket; the client appends to the live bubble."
+ *Build:* "Stream Claude's output to the browser as it arrives - push JSON frames over the WebSocket; the client appends to the live bubble."
 
  *Say:* "Async all the way down — nothing blocking in the event loop." 
  **Then state one cross-project rule:** "From now on, in every project I work on, always use `uv` for packages, never `pip`, and always run `ruff` before committing."
@@ -374,8 +373,9 @@ findstr /S /C:"\"tier\":\"U\"" %USERPROFILE%\.claude-memory-kit\.locks\audit.log
       → a rich `context\memory\feedback_reflection-loop.md` with Why/How.
 
 - [ ] **C3 — Poison_Guard.**
-      `cmk remember "key sk-ant-api03-AAArealishlooking..."`
+      `cmk remember "key sk-ant-api03-AAArealishlookinglongtokenvalue00"`
       → **rejected** (exit 2), nothing written anywhere.
+      _(The token must be ≥40 chars after `sk-` — the guard's minimum, tuned to real key lengths (~95) without false-positives on short `sk-` words. The pre-2026-06-11 example here ended in a literal `...` and was 27 chars — UNDER the minimum, so it sailed through and landed a fake secret in project memory (the cut-gate9 find): probe strings must actually trip the pattern they test, same class as the D-84 real-input rule.)_
 
 - [ ] **C4 — sanitization.**
       `cmk remember "venv at C:\Users\<you>\proj\.venv"`
