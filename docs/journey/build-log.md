@@ -2843,7 +2843,7 @@ So this file is the answer to "we're missing the conversations." It won't replac
 
 ## 10c. v0.3.x — the within-paradigm sweep (2026-06-12 → )
 
-**The queue** (D-130, autopilot granted D-133): 142 import-claude-md ✅ #168 → 141a npm-v12 mitigation ✅ #169 (July deadline cleared) → 137 gate-vs-automation ✅ #170 → 145 status line → 144 memory-health → 143 near-dup-at-write → 134/135/140 → 129/130 → .gitattributes.
+**The queue** (D-130, autopilot granted D-133): 142 import-claude-md ✅ #168 → 141a npm-v12 mitigation ✅ #169 (July deadline cleared) → 137 gate-vs-automation ✅ #170 → 145 status line ✅ #171 → 144 memory-health → 143 near-dup-at-write → 134/135/140 → 129/130 → .gitattributes.
 
 **Task 137 (PR #170)** — the gate's seam classes became validators, and the PR's own reviews re-proved the thesis three times over. The Door-3.5 audit found three real unpinned prompt-halves the moment the discipline became checkable (the suites had pinned instructions OR input for months, never both); the first live run of the trend script came back empty because the default pointed at the wrong log directory (sandboxed tests never exercise defaults — the third live-test catch of the day); and skill-review found the new validator gutting itself with an unanchored regex alternation. A program about converting manual-gate findings into automation, debugged by exactly the manual disciplines it automates. Full trail: D-135.
 
