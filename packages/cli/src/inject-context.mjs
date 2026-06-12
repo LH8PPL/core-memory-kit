@@ -26,6 +26,9 @@ import {
   readdirSync,
   appendFileSync,
   statSync,
+  openSync,
+  readSync,
+  closeSync,
 } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
@@ -867,26 +870,39 @@ export function buildStatusLine({
     }
     const parts = [`${ids.size} fact(s) in context`];
 
-    // 2. Captures in the last 24h, from the audit-log tail (created + import
-    // = the capture actions; skips/reads aren't captures).
+    // 2. Captures in the last 24h, from the audit-log tail. A capture is a
+    // `created` entry or an APPLIED import — `action: 'import'` alone also
+    // covers skipped duplicates (reasonCode import-skipped-duplicate), and
+    // counting those would let a re-run import inflate the line by its
+    // whole dup count (skill-review finding, 2026-06-12).
     const nowMs = Date.parse(now ?? nowIso());
     let recent = 0;
     try {
       const auditPath = join(projectRoot, 'context', '.locks', 'audit.log');
       if (existsSync(auditPath)) {
+        // Positioned read of the LAST 64KB only — recency lives at the end,
+        // and this runs inside the 500ms-budget SessionStart hook; reading a
+        // months-old multi-MB log in full would pay for history we discard.
         const size = statSync(auditPath).size;
-        const text = readFileSync(auditPath, 'utf8');
-        // Tail by bytes, then drop the (possibly torn) first line.
-        const tail =
-          size > STATUS_AUDIT_TAIL_BYTES
-            ? text.slice(-STATUS_AUDIT_TAIL_BYTES).replace(/^[^\n]*\n/, '')
-            : text;
+        const start = Math.max(0, size - STATUS_AUDIT_TAIL_BYTES);
+        const buf = Buffer.alloc(size - start);
+        const fd = openSync(auditPath, 'r');
+        try {
+          readSync(fd, buf, 0, buf.length, start);
+        } finally {
+          closeSync(fd);
+        }
+        // Drop the (possibly torn) first line when we started mid-file.
+        const tail = start > 0 ? buf.toString('utf8').replace(/^[^\n]*\n/, '') : buf.toString('utf8');
         for (const line of tail.split(/\r?\n/)) {
           if (!line.trim()) continue;
           try {
             const e = JSON.parse(line);
+            const isCapture =
+              e.action === 'created' ||
+              (e.action === 'import' && e.reasonCode === 'import-applied');
             if (
-              (e.action === 'created' || e.action === 'import') &&
+              isCapture &&
               nowMs - Date.parse(e.ts) <= DAY_MS &&
               nowMs - Date.parse(e.ts) >= 0
             ) {

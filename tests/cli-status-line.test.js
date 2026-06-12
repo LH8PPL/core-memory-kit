@@ -60,9 +60,12 @@ describe('Task 145 — buildStatusLine (Door 1)', () => {
     mkdirSync(join(projectRoot, 'context', '.locks'), { recursive: true });
     const lines = [
       { schema: 1, ts: '2026-06-12T09:00:00Z', action: 'created', tier: 'P', id: 'P-AAAA2222' },
-      { schema: 1, ts: '2026-06-11T22:00:00Z', action: 'import', tier: 'P', id: 'P-BBBB3333' },
+      { schema: 1, ts: '2026-06-11T22:00:00Z', action: 'import', reasonCode: 'import-applied', tier: 'P', id: 'P-BBBB3333' },
       { schema: 1, ts: '2026-06-05T09:00:00Z', action: 'created', tier: 'P', id: 'P-CCCC4444' }, // old
       { schema: 1, ts: '2026-06-12T10:00:00Z', action: 'skipped', tier: 'P', id: 'P-DDDD5555' }, // not a capture
+      // A re-run import's duplicate skips share action:'import' — counting
+      // them would inflate the line by the whole dup count (skill-review).
+      { schema: 1, ts: '2026-06-12T10:30:00Z', action: 'import', reasonCode: 'import-skipped-duplicate', tier: 'P', id: 'P-EEEE6666' },
     ];
     appendFileSync(auditPath, lines.map((l) => JSON.stringify(l)).join('\n') + '\n', 'utf8');
     const line = buildStatusLine({ snapshot: '- (P-AAAA2222) x', projectRoot, now: NOW });
