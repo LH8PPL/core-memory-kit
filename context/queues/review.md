@@ -7,3 +7,6 @@
 ## 2026-06-11T22:09:16Z — auto-extract (medium-trust, pending review)
 - (P-JU7RRUT9) Assistant overgeneralized a prior context-specific permission ("for ruflo, you do that") to a new task (memclaw) and took autonomous action without confirming scope.
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-11T22:09:16Z -->
+## 2026-06-12T06:24:57Z — auto-extract (medium-trust, pending review)
+- (P-SKYZHH2U) Autopilot memory is mixed push (SessionStart snapshot always in context) and pull (model judgment triggers memory-search skill); curation is human-gated.
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-12T06:24:57Z -->
