@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-DC97QaDC) Pre-session verification found one composition bug (memory-search allow-list omission in Task 75.1) fixed in Task 133; all other checks passed (DEDUP_CONTEXT present, 5 hooks wired, MCP registered, skill permission scopes correct, CLAUDE.md format clean, settings.json config verified, SessionStart preamble present, gitignore proper)
-  <!-- source: review-promote, source_line: 1, sha1: f143087f6d14e9f2d5eede96a325066530b075bd, write: user-explicit, trust: high, at: 2026-06-12T12:14:42Z -->
 - (P-Q4TA2SAX) Prefers terse, step-by-step instructions with time estimates and optional paths
   <!-- source: review-promote, source_line: 1, sha1: 448ebfc3d1ddaec19e84af1a684fadb504e9d29b, write: user-explicit, trust: high, at: 2026-06-12T12:14:43Z -->
 - (P-JU7RRUT9) Assistant overgeneralized a prior context-specific permission ("for ruflo, you do that") to a new task (memclaw) and took autonomous action without confirming scope.
@@ -18,6 +16,10 @@
   <!-- source: review-promote, source_line: 1, sha1: 68c7c635ecd078a4bfa1897167c485cde2501305, write: user-explicit, trust: high, at: 2026-06-12T12:14:43Z -->
 - (P-BJQaGQ6H) Iterative, thorough research approach—adds items even near session end rather than closing prematurely
   <!-- source: auto-extract-session, source_line: 1, sha1: c630212f969756a9032d0555a635cc9e0e9aae57, write: auto-extract, trust: high, at: 2026-06-12T12:16:44Z -->
+- (P-9GQSPN2C) Proactively seeks good ideas and practices from peer/sibling projects to steal or adapt ("anything else we can steal or make our own?")
+  <!-- source: auto-extract-session, source_line: 1, sha1: 8e783ae4a448bab4e7c0e4924c285f06ff4902ad, write: auto-extract, trust: high, at: 2026-06-12T12:30:31Z -->
+- (P-F5M3VBTG) User gates session close with verification question "is everything in lane? slotted to a version?"
+  <!-- source: auto-extract-session, source_line: 1, sha1: a2db1d208b6b8367838434c145a397b5ac3a8a08, write: auto-extract, trust: high, at: 2026-06-12T12:32:09Z -->
 
 ## Environment Notes
 
