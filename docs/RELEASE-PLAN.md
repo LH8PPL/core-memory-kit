@@ -86,6 +86,7 @@ The differentiator is the wedge; the rest are the quality fixes that make it *fe
 - **140/141** — canonicalize loop-strip (Sonar's one real finding, D-128) · npm-v12 readiness incl. the node:sqlite migration (D-129)
 - **142-145** — within-paradigm sweep (D-130): import-claude-md onboarding · semantic near-dup at write · doctor memory-health · session-start status line
 - **146** — kit x workflows composition: swarm recall + concurrent-MCP stress (D-131)
+- **147** — `cmk digest` + the decision-journal view (squad-review provenance, D-132)
 - [x] **46** — `cmk install --with-semantic` (embedder bootstrap + hybrid-by-default-when-enabled; pairs with 65) — _shipped 2026-06-10, PR #152 (D-111)_
 
 ## v0.4.0+ — breadth
