@@ -1,4 +1,5 @@
 // @doors: 1, 2, 5
+// @door-3.5: prompt-assertion — pins the sent instructions (grounding + supersede rules) and the sent input (the aged day-file content rides the prompt).
 // Door 3 N/A: weeklyCurate uses an injected CompressorBackend (MockHaikuBackend in tests); no subprocess spawn at this boundary. The bin wrapper's real-Haiku spawn is covered by spawn-smoke patterns in their own files (Task 34 spawn-smoke for cmk-weekly-curate is a v0.1.x candidate per design §16).
 // Door 4 N/A: no message-queue interaction.
 
@@ -144,6 +145,10 @@ describe('Task 34 — weeklyCurate', () => {
       // when a fact was later corrected/replaced/reversed across days. Example-free.
       expect(instructions).toMatch(/corrected, replaced, or reversed/i);
       expect(instructions).toMatch(/keep ONLY the latest version/i);
+      // Task 137.1 Door-3.5: the INPUT half of WHAT IS SENT — the aged
+      // day-file content must actually ride the prompt (unpinned before the
+      // 137.1 audit; the D-122 separately-correct-jointly-broken shape).
+      expect(backend.calls[0].input).toContain('Old decision #P-A2B2C3D4');
     });
   });
 

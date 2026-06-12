@@ -1,4 +1,5 @@
 // @doors: 1, 2, 5
+// @door-3.5: prompt-assertion — pins the sent instructions (grounding + supersede rules) and the sent input (the seeded day-file content rides the prompt).
 // Door 3 N/A: dailyDistill uses an injected CompressorBackend (MockHaikuBackend in tests); no subprocess spawn at this boundary. The bin wrapper's real-Haiku spawn is covered by spawn-smoke-haiku/-compress-session in their own files.
 // Door 4 N/A: no message-queue interaction.
 
@@ -108,6 +109,10 @@ describe('Task 33 — dailyDistill', () => {
       // (don't accumulate cross-day stale state). Domain-neutral, example-free.
       expect(instructions).toMatch(/corrected, replaced, or reversed/i);
       expect(instructions).toMatch(/keep ONLY the latest version/i);
+      // Task 137.1 Door-3.5: the INPUT half of WHAT IS SENT — the seeded
+      // day-file content must actually ride the prompt (an input-composition
+      // bug here was unpinnable before the audit; the D-122 shape).
+      expect(backend.calls[0].input).toContain('Decision: ship X');
     });
 
     it('excludes today-*.md files older than 7 days', async () => {

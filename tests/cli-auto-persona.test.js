@@ -1,4 +1,5 @@
 // @doors: 1, 2, 3, 4
+// @door-3.5: prompt-assertion — pins WHAT reached the classifier (the transcript window in backend.compress's input) + the classifier instructions.
 // Door 3 (external calls) is asserted at the INJECTED-backend boundary: the
 //   Task 86c tests capture backend.compress's args (via classifierBackend's
 //   onCompress) to pin WHAT reached the classifier — the transcript window vs the

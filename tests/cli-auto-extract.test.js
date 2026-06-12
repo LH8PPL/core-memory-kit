@@ -1,4 +1,5 @@
 // @doors: 1, 2, 3, 4, 5
+// @door-3.5: prompt-assertion — pins the sent input composition (turn content + DEDUP_CONTEXT; the Task 132 pin is the template) and the extraction instructions.
 // Door 4 (Message queues) — THIS test boundary is the receiver side of the auto-extract temp-file IPC (design §17.1 named exception #1). Tests parse the USER_TURN: / ASSISTANT_TURN: markers from the input file capture-turn produced, assert routing on canonical-id dedup, and pin the both-turns trust-demotion contract.
 
 // Tests for Task 23 — auto-extract subagent (T-020).
