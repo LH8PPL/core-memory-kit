@@ -196,7 +196,7 @@ The story behind the numbers: keyword search structurally misses natural-languag
 
 See [HEALTH-CHECKS.md](HEALTH-CHECKS.md) for the detailed recovery paths.
 
-> **npm 12 (July 2026) note:** npm 12 turns dependency install scripts off by default, which blocks the native build `better-sqlite3` needs. `cmk install` detects this and offers to fix it inline; to avoid it entirely, install with the allow flag up front: `npm install -g @lh8ppl/claude-memory-kit --allow-scripts=better-sqlite3` (npm ≤ 11 needs nothing).
+> **npm 12 (July 2026) note:** npm 12 skips dependency install scripts by default (a warning, not a failure — easy to miss), which silently blocks the native build `better-sqlite3` needs. `cmk install` detects this and offers to fix it inline; to avoid it entirely, install with the allow flag up front: `npm install -g @lh8ppl/claude-memory-kit --allow-scripts=better-sqlite3`, or once per machine: `npm config set allow-scripts=better-sqlite3 --location=user` (npm ≤ 11 needs nothing).
 
 ## Architecture
 
