@@ -61,6 +61,24 @@ describe('checkPromptAssertions — drift detection (137.1)', () => {
     expect(errors.some((e) => /weekly-curate.*no prompt assertion/.test(e))).toBe(true);
   });
 
+  it('generic matcher tokens alone do NOT satisfy the assertion factor (the toMatch hole, skill-review fix)', () => {
+    // The first INPUT_PIN_RE ended in an unanchored `|toMatch/` — any file
+    // with a toMatch call passed the input factor without referencing the
+    // sent input at all. This pins the hole closed.
+    const errors = checkPromptAssertions([
+      {
+        module: 'daily-distill',
+        testFile: 'tests/cli-daily-distill.test.js',
+        testText: [
+          '// @door-3.5: prompt-assertion — claims a pin',
+          "expect(instructions).toMatch(/grounded/);", // instructions pinned…
+          "expect(result.action).toMatch(/distilled/);", // …but input never referenced
+        ].join('\n'),
+      },
+    ]);
+    expect(errors.some((e) => /daily-distill.*no prompt assertion/.test(e))).toBe(true);
+  });
+
   it('flags a spawn site with no test file at all', () => {
     const errors = checkPromptAssertions([
       { module: 'new-llm-thing', testFile: null, testText: null },

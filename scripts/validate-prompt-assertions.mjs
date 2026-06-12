@@ -66,12 +66,19 @@ export function discoverLlmSpawnSites() {
 }
 
 const MARKER_RE = /@door-3\.5:/;
-// The actual-assertion factor: an expect() somewhere in the file referencing
-// the sent `input` AND the sent `instructions`. Heuristic by design (the
-// exit-doors precedent) — the marker declares intent, these tokens prove a
-// pin exists; the test's own quality is the review's job.
-const INPUT_PIN_RE = /expect\([^)]*\.?input\b|\.input\)[^;]*\.to|\binput\b[^\n]*\btoContain|toMatch/;
-const INSTRUCTIONS_PIN_RE = /instructions/;
+// The actual-assertion factor: the file must REFERENCE the captured call's
+// sent fields — `<something>.input` / `<something>.instructions` property
+// access (the recording-backend idiom every site suite uses), or an expect()
+// whose argument names the field. Heuristic by design (the exit-doors
+// precedent) — the marker declares intent, these tokens prove a pin exists;
+// the test's own quality is the review's job.
+//
+// Skill-review fix (2026-06-12): the first version ended in an unanchored
+// `|toMatch/` alternation — ANY file containing toMatch passed the input
+// factor, gutting the two-factor check. Pinned by the gate-bite unit test
+// (a toMatch-only file must fail).
+const INPUT_PIN_RE = /\.\s*input\b|expect\([^)\n]*\binput\b/;
+const INSTRUCTIONS_PIN_RE = /\.\s*instructions\b|expect\([^)\n]*\binstructions\b/;
 
 /**
  * Pure check. Returns human-readable errors (empty = every site pinned).
