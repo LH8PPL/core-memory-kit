@@ -8,10 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-RL2aKHKQ) Prefers concise, numbered instructions without narrative explanation or background context
-  <!-- source: auto-extract-session, source_line: 1, sha1: 2c64105afa391ef1b8372deac02f94ff83aa92c7, write: auto-extract, trust: high, at: 2026-06-11T13:09:54Z -->
-- (P-CXC5JJHU) User chose REST API backend with FastAPI and no database for new project
-  <!-- source: auto-extract-session, source_line: 1, sha1: 2a9a57f1f5f772e87c63192056e4f5aeee6c8c0e, write: auto-extract, trust: high, at: 2026-06-11T14:35:38Z -->
 - (P-7HE9BCZW) User uses uv for Python project initialization and dependency management
   <!-- source: auto-extract-session, source_line: 1, sha1: b82cc5c6d3c0f0e82a0617737774baf1ce1fd460, write: auto-extract, trust: high, at: 2026-06-11T14:35:38Z -->
 - (P-AXBVF6WA) npm pack executed successfully; @lh8ppl/claude-memory-kit v0.3.0 tarball generated (269.8 kB)
@@ -22,6 +18,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: b729c6b408ef00202910136fcff0c72bceb8c29b, write: auto-extract, trust: high, at: 2026-06-11T22:09:16Z -->
 - (P-GFTYR6T3) Confirmed adding 4 new task proposals to cmk backlog with minimal response "slot"
   <!-- source: auto-extract-session, source_line: 1, sha1: 88925a6d344eabc3d1f58359a1c262fdea6a7813, write: auto-extract, trust: high, at: 2026-06-11T22:18:22Z -->
+- (P-DUZYECE4) v0.3.0 PUBLISHED 2026-06-11 (npm + GitHub Release) after the gate day: 8 bugs found by the manual cut-gate9 run, all fixed same-day (PRs #162-#166, D-122..D-126). Sonar: 31/31 hotspots reviewed (D-128). NEXT: v0.3.x queue, npm-v12 mitigation (141a) has a July deadline; v0.4 = Kiro-first cross-agent (D-127). The 2026-06-12 review sweep slotted Tasks 141-145 + enriched 55/127/97/66.
+  <!-- source: user-explicit, source_line: 1, sha1: 6fd445edec606173fc100413781922f44c067bc1, write: user-explicit, trust: high, at: 2026-06-12T06:17:56Z -->
 
 ## Environment Notes
 
