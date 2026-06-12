@@ -39,6 +39,8 @@ const DEFAULT_STALE_DAYS = 60;
 const NEAR_DUP_JACCARD = 0.6;
 // Short bodies make Jaccard noisy; require a minimal token set.
 const MIN_TOKENS_FOR_DUP = 4;
+// Above this many facts the O(n²) pair scan is skipped (the report notes it).
+const PAIR_SCAN_CAP = 2000;
 
 const STOPWORDS = new Set([
   'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'to', 'of', 'in',
@@ -98,7 +100,12 @@ function readTouchedIds(projectRoot) {
       try {
         const e = JSON.parse(line);
         if (!e.id || !e.ts) continue;
-        if (e.action === 'created') continue; // creation isn't a touch
+        // Creation-class entries aren't touches: 'created', and 'import'
+        // (an imported fact's OWN creation writes action:'import' — counting
+        // it would make imported facts permanently un-stale; and a later
+        // skipped-duplicate import entry proves the SOURCE still holds the
+        // text, not that anyone curated the fact). Skill-review finding.
+        if (e.action === 'created' || e.action === 'import') continue;
         const prev = touched.get(e.id);
         if (!prev || e.ts > prev) touched.set(e.id, e.ts);
       } catch {
@@ -147,8 +154,10 @@ export function analyzeMemoryHealth({
     return !touched.has(f.id);
   });
 
-  // Near-dup candidate pairs (literal tier).
-  const tokenized = facts.map((f) => ({ f, tokens: tokenize(f.body) }));
+  // Near-dup candidate pairs (literal tier). O(n²) pairwise scan — fine at
+  // memory-archive scale (106 facts ≈ 5.5K pairs on the dogfood); guarded
+  // above PAIR_SCAN_CAP so a pathological archive can't stall the doctor.
+  const tokenized = facts.length <= PAIR_SCAN_CAP ? facts.map((f) => ({ f, tokens: tokenize(f.body) })) : [];
   const nearDupPairs = [];
   for (let i = 0; i < tokenized.length; i++) {
     for (let j = i + 1; j < tokenized.length; j++) {

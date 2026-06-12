@@ -91,6 +91,19 @@ describe('Task 144 — analyzeMemoryHealth (Doors 1+2)', () => {
     expect(h.oldUntouched.length).toBe(0);
   });
 
+  it('an imported fact CAN go stale — its own import audit entry is creation-class, not a touch (skill-review fix)', () => {
+    const r = seedFact({ slug: 'old-imported', body: 'an old imported convention from the rules file', createdAt: '2026-03-01T00:00:00Z' });
+    const auditPath = join(projectRoot, 'context', '.locks', 'audit.log');
+    mkdirSync(join(projectRoot, 'context', '.locks'), { recursive: true });
+    writeFileSync(
+      auditPath,
+      JSON.stringify({ schema: 1, ts: '2026-03-01T00:00:00Z', action: 'import', reasonCode: 'import-applied', tier: 'P', id: r.id }) + '\n',
+      'utf8',
+    );
+    const h = analyzeMemoryHealth({ projectRoot, now: NOW, staleDays: 60 });
+    expect(h.oldUntouched.map((f) => f.slug)).toContain('project_old-imported');
+  });
+
   it('surfaces near-duplicate candidate pairs via token overlap (never auto-drops)', () => {
     seedFact({ slug: 'uv-rule-a', body: 'always use uv for python package management never pip' });
     seedFact({ slug: 'uv-rule-b', body: 'use uv for python package management, never use pip' });
