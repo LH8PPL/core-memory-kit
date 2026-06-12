@@ -86,10 +86,18 @@ describeMaybe(`spawn-smoke: enriched extraction prompt (live: ${skipReason ?? 'e
     }
 
     // The prompt was accepted + the full spawn→response cycle completed.
-    // A non-empty string proves claude --print accepted the (bigger, 3-output)
-    // prompt and ran it end-to-end — the prompt-overload/spawn guard.
+    // A STRING (possibly empty) proves claude --print accepted the (bigger,
+    // 3-output) prompt and ran it end-to-end — spawn failures THROW (caught
+    // above with the regression check), so string-ness is the spawn guard.
+    //
+    // Test-bug fix 2026-06-12 (the 141a stress run, 4/5): the previous
+    // `length > 0` was a live-model OUTCOME oracle — the same class this
+    // file's own NOTE below disclaims (Task 105 lesson). Haiku may
+    // legitimately answer a turn with EMPTY output (the production pipeline
+    // counts that as the nothing_durable skip, auto-extract.mjs), so
+    // asserting non-empty re-introduced the 1/5 stochastic flake. The
+    // deterministic outcome pins live in cli-auto-extract.test.js (mocked).
     expect(typeof result.outputText).toBe('string');
-    expect(result.outputText.length).toBeGreaterThan(0);
 
     // Our parsers handle real live output without throwing (parser robustness on
     // the actual model format — this is what caught the YAML block-scalar gap).
