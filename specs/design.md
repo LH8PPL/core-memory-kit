@@ -2820,6 +2820,9 @@ Concrete checklist for the agent (Claude in this repo):
 | §17.1 — every test file declares its exit-door coverage via `// @doors:` header (and explicitly marks N/A doors with reasons) | [`scripts/validate-exit-doors.mjs`](../scripts/validate-exit-doors.mjs) | **Strict** (post-PR-D2b, 2026-05-27). Missing header / silent-omission of any door 1..5 / out-of-range door numbers all violate; exit 1. The `CMK_DOORS_STRICT` env-var opt-in from the D1 rollout has been retired (was a phased-rollout flag during PR-D1's warning period). Per-file `// @doors-ignore` marker is the emergency escape valve. All 37 kit test files annotated. |
 | §17.3-§17.5 — every production subprocess `spawn()` declares its timeout contract (native `timeout:`, caller-managed via documented helper, or explicit fire-and-forget suppression) | [`scripts/validate-spawn-discipline.mjs`](../scripts/validate-spawn-discipline.mjs) | **Strict**. Marker forms: `// spawn-discipline: caller-managed <ref>` (e.g., `terminateSubprocess` in compressor.mjs), `// spawn-discipline: ignore <reason>` (e.g., detached-fire-and-forget in capture-turn.mjs), or `timeout:` / `timeoutMs:` in the spawn options. Scans `packages/cli/src/` + `plugin/bin/`. |
 | §17.6 — `npm run stress` gate before opening any PR whose surface touches spawn boundaries / hook handlers / detached children | None (workflow rule; enforced by the PR-author's discipline) | **Judgment rule**: stays prose-only. The validator that COULD enforce this is "did the PR description include a stress-result line?" — the kit doesn't have a PR-description linter, and adding one is out of scope for v0.1. |
+| §17.9 — every LLM-spawn site's test pins WHAT IS SENT (the `@door-3.5:` marker + actual input/instructions assertions) | [`scripts/validate-prompt-assertions.mjs`](../scripts/validate-prompt-assertions.mjs) | **Strict** (Task 137.1). Two-factor: the marker declares, the assertion tokens prove. Discovery = src modules calling `backend.compress({` (comments stripped; compressor.mjs is the transport, excluded). |
+| §17.10 — every documented numeric budget has an at-cap + over-cap test pair (or a written suppression) | [`scripts/validate-budget-pairs.mjs`](../scripts/validate-budget-pairs.mjs) | **Strict** (Task 137.4). Registry-driven: `BUDGET_REGISTRY` in the validator names budget → test file → boundary patterns. The D-124 class (budgets fail at their edges). |
+| Skill scaffold ↔ permissions allowlist parity — every `template/.claude/skills/<name>` has its `Skill(<name>)` KIT_ALLOW entry, both directions | [`scripts/validate-skill-allowlist.mjs`](../scripts/validate-skill-allowlist.mjs) | **Strict** (Task 137.2). The D-123 class (Task 90 + Task 75.1 both shipped the gap). |
 
 **Cross-cutting validators** (apply across §17 + §6 + §8 disciplines):
 
@@ -2879,6 +2882,25 @@ Some kit tests legitimately mock kit modules for isolation reasons (e.g., testin
 §17.8 and §17.1 compose. An integration test typically pins doors 1 (Response from A) + 2 (State from B's writes) + 5 (Observability from B's NDJSON entries). Door 3 (external calls) gets pinned by spawn-smoke tests (§17.3) on the few integration paths where A spawns B as a subprocess. Door 4 (message queues, N/A by default) applies to the two named exceptions in §17.1 — both of which are inherently integration tests (capture-turn → auto-extract temp-file IPC; MCP transport).
 
 The `@doors:` header for an integration test usually looks like `// @doors: 1, 2, 5` with Door 3 marked N/A unless subprocess composition is involved.
+
+### 17.9 Door 3.5 — pin WHAT IS SENT to the LLM (prompt assertions)
+
+**Tail-appended 2026-06-12 (Task 137.1; the D-122 class made structural.)** Door 3 (§17.1) asserts a subprocess was CALLED with the right argv. For an LLM call, that's not enough: the bug class that suppressed organic capture for ~10 releases (D-122) lived in the PROMPT CONTENT — capture-turn composed the just-captured turn into the dedup context SENT to Haiku, and no test pinned the sent prompt. Every surface was unit-green; the composition was poisoned.
+
+**The rule:** every src module that composes an LLM prompt (calls `backend.compress({input, instructions})`) must have a test pinning BOTH halves of what is sent:
+
+- **input** — the composed content actually rides the prompt (seeded fixture text appears in the captured call's `input`; exclusion rules pin what must NOT ride — the Task 132 DEDUP_CONTEXT pin is the template);
+- **instructions** — the directive contract (format rules, grounding rules, no-preamble) appears in the captured call's `instructions`.
+
+The test file declares the discipline with a `// @door-3.5: prompt-assertion — <what is pinned>` header marker. Enforcement is two-factor (marker + actual assertion tokens) via [`scripts/validate-prompt-assertions.mjs`](../scripts/validate-prompt-assertions.mjs) — declared-but-not-asserted and asserted-but-undeclared both fail. The 137.1 audit found three real gaps at introduction: compress-session pinned input but not instructions; daily-distill and weekly-curate pinned instructions but not input — each closed with a real assertion in the same change.
+
+### 17.10 Budget boundaries — at-cap/over-cap test pairs
+
+**Tail-appended 2026-06-12 (Task 137.4; the D-124 class made structural.)** Budgets fail at their EDGES: the extraction output cap was documented and enforced, but no test sat AT and OVER the boundary, so the hard-slice clipping a rich fact mid-word shipped a corrupted stub to disk. The rule: every documented numeric budget has a test pair — one case that fits exactly at the cap, one that exceeds it and pins the documented over-cap behavior (drop / consolidate / truncate-with-marker). Registry-driven enforcement via [`scripts/validate-budget-pairs.mjs`](../scripts/validate-budget-pairs.mjs) (`BUDGET_REGISTRY`: budget → test file → boundary patterns, or `suppressed: '<reason>'` — never silence).
+
+### 17.11 Live-test trend thresholds (the gate side, not the suite side)
+
+**Tail-appended 2026-06-12 (Task 137.5; the D-122 detection gap.)** Per-turn outcomes are individually plausible — a single `nothing_durable` skip is normal; 90%+ of judged turns skipping is the fingerprint of a systemic suppressor. Lenient per-turn pass-bars tolerate stochastic masking; only the TREND exposes it. [`scripts/extract-trend.mjs`](../scripts/extract-trend.mjs) (`npm run trend:extract -- <dir>`) reads a live run's `*.extract.log` files and FAILS when the nothing_durable rate over judged turns crosses the threshold (default 80%, min sample 5; mechanical skips like `concurrent_run` are excluded from the denominator). NOT wired into the npm-test prerun — the trend is a property of a live run's accumulated log, not of the source tree; it's a cut-gate step (cut-gate.md §3).
 
 ## 18. Cross-platform command discipline
 

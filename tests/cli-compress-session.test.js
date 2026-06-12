@@ -1,5 +1,6 @@
 // @doors: 1, 2, 3, 5
 // Door 4 N/A: compress-session reads now.md + writes to today's segment; no message-queue IPC.
+// @door-3.5: prompt-assertion — pins the sent input (BEGIN/END buffer wrap + content) AND the sent instructions (compression contract).
 
 // Tests for Task 22 — cmk-compress-session SessionEnd hook (T-019).
 // Per tasks.md 22.6:
@@ -525,6 +526,21 @@ describe('Task 22 — compressSession() boundary', () => {
       const bufferIdx = call.input.indexOf(bufferText);
       expect(bufferIdx).toBeGreaterThan(beginIdx);
       expect(bufferIdx).toBeLessThan(endIdx);
+    });
+
+    it('the sent INSTRUCTIONS carry the compression contract (Task 137.1 Door-3.5 pin)', async () => {
+      // The instructions half of WHAT IS SENT was unpinned until the 137.1
+      // audit — an instructions drift (lost format contract, lost
+      // no-preamble rule) would have shipped silently while the input pin
+      // above stayed green (the D-122 separately-correct-jointly-broken shape).
+      writeNowMd(projectRoot, 'some buffer\n');
+      const backend = mockBackend('compressed\n');
+      await compressSession({ projectRoot, backend, now: '2026-05-26T10:00:00Z' });
+      const instructions = backend.calls[0].instructions ?? '';
+      expect(instructions).toMatch(/memory compressor/i);
+      expect(instructions).toMatch(/Output ONLY the compressed Markdown/);
+      expect(instructions).toMatch(/## Decisions/);
+      expect(instructions).toMatch(/## Active Threads/);
     });
   });
 });

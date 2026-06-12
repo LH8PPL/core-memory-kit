@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "scripts": {
-    "test": "node scripts/validate-test-ids.mjs && node scripts/validate-template.mjs && node scripts/validate-exit-doors.mjs && node scripts/validate-references.mjs && node scripts/validate-spawn-discipline.mjs && node scripts/validate-numbering-gaps.mjs && node scripts/validate-composition.mjs && node scripts/validate-platform-commands.mjs && node scripts/validate-doc-registry.mjs && node scripts/validate-skill-sources.mjs && node scripts/validate-cli-mcp-parity.mjs && node scripts/validate-doc-completeness.mjs && node scripts/validate-node-parse.mjs && node scripts/validate-maintainer-name-confined.mjs && vitest run",
+    "test": "node scripts/validate-test-ids.mjs && node scripts/validate-template.mjs && node scripts/validate-exit-doors.mjs && node scripts/validate-references.mjs && node scripts/validate-spawn-discipline.mjs && node scripts/validate-numbering-gaps.mjs && node scripts/validate-composition.mjs && node scripts/validate-budget-pairs.mjs && node scripts/validate-prompt-assertions.mjs && node scripts/validate-skill-allowlist.mjs && node scripts/validate-platform-commands.mjs && node scripts/validate-doc-registry.mjs && node scripts/validate-skill-sources.mjs && node scripts/validate-cli-mcp-parity.mjs && node scripts/validate-doc-completeness.mjs && node scripts/validate-node-parse.mjs && node scripts/validate-maintainer-name-confined.mjs && vitest run",
     "test:file": "node scripts/test-file.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -23,6 +23,10 @@
     "lint:spawn-discipline": "node scripts/validate-spawn-discipline.mjs",
     "lint:numbering-gaps": "node scripts/validate-numbering-gaps.mjs",
     "lint:composition": "node scripts/validate-composition.mjs",
+    "lint:budget-pairs": "node scripts/validate-budget-pairs.mjs",
+    "lint:prompt-assertions": "node scripts/validate-prompt-assertions.mjs",
+    "lint:skill-allowlist": "node scripts/validate-skill-allowlist.mjs",
+    "trend:extract": "node scripts/extract-trend.mjs",
     "lint:platform-commands": "node scripts/validate-platform-commands.mjs",
     "lint:doc-registry": "node scripts/validate-doc-registry.mjs",
     "lint:skill-sources": "node scripts/validate-skill-sources.mjs",

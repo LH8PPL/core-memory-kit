@@ -252,6 +252,19 @@ dir context\memory; type context\memory\feedback_*.md
       If `context\memory\` has NO `write_source: auto-extract` rich file, the headline didn't fire this
       session — investigate before shipping: re-run a knowledge-dense turn; it's a Haiku judgment pass.)_
 
+- [ ] **★ B9b — the capture TREND clears the suppressor threshold (Task 137.5 — the D-122 detection gap).**
+      Per-turn outcomes are individually plausible; only the trend exposes a
+      systemic suppressor (the dedup self-poisoning shipped ~10 releases of
+      individually-normal `nothing_durable` skips). After the session's organic
+      turns, run the trend gate over this run's extract logs:
+      ```powershell
+      npm run trend:extract -- <your-run-project>\context\sessions
+      ```
+      PASS = `nothing_durable` rate under 80% of judged turns (min sample 5;
+      mechanical skips excluded). FAIL = the D-122 fingerprint — check the
+      dedup context + the extraction prompt before trusting this build's capture.
+      _(Inconclusive on a short session is honest — rerun after more turns, don't wave it.)_
+
 - [ ] **★ B3 — the wedge fills.**
       Type: `%USERPROFILE%\.claude-memory-kit\HABITS.md` (+ `USER.md`, `LESSONS.md`)
       → your cross-project style is there (was empty pre-v0.2).

@@ -182,11 +182,15 @@ This codebase has two kinds of rules:
 | [`scripts/validate-node-parse.mjs`](scripts/validate-node-parse.mjs) | Every `packages/cli/src/*.mjs` module imports under REAL Node in the npm-test prerun (vitest/esbuild parses leniently; a SyntaxError shipped to main through that divergence + lazy CI imports + grep-filtered test output - the cut-gate9 H1 crash) | "Live-test every task" applied to the parse engine itself (D-126) |
 | [`scripts/validate-doc-completeness.mjs`](scripts/validate-doc-completeness.mjs) | Every CLI verb has a CLI.md heading; every MCP tool + zod param appears in MCP.md; deferral phrases ("not yet shipped/implemented") in user-facing docs require an allowlisted reason (both directions — stale entries fail too) | "Document user-facing capabilities in the same PR" made structural (the 2026-06-10 audit class — D-120) |
 
-**The validators that are coming** (PR-D2):
+**The PR-D2 validators all shipped** (`validate-spawn-discipline.mjs` / `validate-numbering-gaps.mjs` / `validate-composition.mjs` — modes in design §17.7; this section listed them as "coming" until Task 137's 2026-06-12 sweep reconciled it). **Task 137 added three more**, each converting a gate-found seam class into a structural check:
 
-- `validate-spawn-discipline.mjs` — every `spawn()` site in `packages/cli/src/` has an enforced `timeoutMs` + cleanup contract (design §8.5). Source rule: "Composition verification — inner subprocess timeouts compose with outer hook ceilings", instance #4 from PR-A.
-- `validate-numbering-gaps.mjs` — ADR / §N / FR-N / Task NN contiguity (no silent gaps; reserved-not-shipped state explicitly marked). Source rule: backfilled from PR-C's missing-ADR finding.
-- `validate-composition.mjs` — every documented composition invariant has an asserted test pair OR is suppressed with a reason. Source rule: "Composition verification" 4-instance pattern.
+| Validator | What it enforces | Source rule |
+| --- | --- | --- |
+| [`scripts/validate-prompt-assertions.mjs`](scripts/validate-prompt-assertions.mjs) | Every LLM-spawn site's test pins WHAT IS SENT — the `@door-3.5:` marker + actual input/instructions assertions (two-factor) | "Door 3.5" (design §17.9) — the D-122 dedup-self-poisoning class |
+| [`scripts/validate-budget-pairs.mjs`](scripts/validate-budget-pairs.mjs) | Every documented numeric budget has an at-cap + over-cap test pair, or a written suppression (registry-driven) | design §17.10 — the D-124 clipped-fact class (budgets fail at their edges) |
+| [`scripts/validate-skill-allowlist.mjs`](scripts/validate-skill-allowlist.mjs) | Every scaffolded skill has its `Skill(<name>)` KIT_ALLOW entry, both directions | The D-123 class (fired twice: Task 90, Task 75.1) |
+
+Plus the gate-side (not prerun) trend check: [`scripts/extract-trend.mjs`](scripts/extract-trend.mjs) (`npm run trend:extract`) — fails a live run whose `nothing_durable` rate crosses the systemic-suppressor threshold (design §17.11; the D-122 detection gap).
 
 When a prose-only rule turns out to have a structural shape, **the move is to write the validator, not to add another prose paragraph**. Prose accumulates faster than discipline; structural enforcement catches drift on every run.
 
