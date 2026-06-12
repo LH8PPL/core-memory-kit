@@ -75,7 +75,7 @@ Render the canonical Markdown citation link for an observation (`mk_cite` parity
 List recently added observations within a time window (`mk_recent_activity` parity; default window 24h, limit 20). The "what did the kit capture lately?" view.
 
 ### `cmk doctor`
-Run the 8 health checks (HC-1..HC-8); reports PASS/FAIL/SKIP with a repair command per failure. HC-8 (npm 12 readiness) verifies the native bindings load and emits the exact `--allow-scripts` remediation when npm blocked an install script.
+Run the 8 health checks (HC-1..HC-8); reports PASS/FAIL/SKIP with a repair command per failure. HC-8 (npm 12 readiness) verifies the native bindings load and emits the exact `--allow-scripts` remediation when npm blocked an install script. The report ends with an informational **memory-health section** (content quality: fact count + trust distribution, old-and-untouched facts, possible duplicate pairs, pending queue items) — read-only, never affects the exit code.
 ```bash
 cmk doctor
 ```

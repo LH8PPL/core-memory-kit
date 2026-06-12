@@ -1257,6 +1257,17 @@ async function runDoctorCli(/* options */) {
       `Summary: ${counts.pass} pass · ${counts.fail} fail · ${counts.skip} skip (${r.duration_ms}ms)`,
     );
     if (counts.fail > 0) process.exitCode = 1;
+
+    // Task 144 (D-130): the memory-HEALTH section — content quality, not
+    // plumbing. Informational only: read-only, never changes the exit code,
+    // best-effort (a content-stat hiccup must not fail a healthy doctor).
+    try {
+      const { analyzeMemoryHealth, formatMemoryHealth } = await import('./memory-health.mjs');
+      console.log('');
+      console.log(formatMemoryHealth(analyzeMemoryHealth({ projectRoot })));
+    } catch {
+      // informational section only — stay silent on failure
+    }
   } catch (err) {
     console.error(`cmk doctor: unexpected error: ${err?.message ?? err}`);
     process.exitCode = 2;
