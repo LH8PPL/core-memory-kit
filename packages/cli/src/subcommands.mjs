@@ -33,6 +33,7 @@ import { readHookStdin } from './read-hook-stdin.mjs';
 import { runLazyCompress } from './lazy-compress.mjs';
 import { runDoctor } from './doctor.mjs';
 import { importAnthropicMemory } from './import-anthropic-memory.mjs';
+import { importClaudeMd } from './import-claude-md.mjs';
 import { extractTranscript, discoverSessions } from './transcripts.mjs';
 import { runRepair } from './repair.mjs';
 import { runRoll, ROLL_SCOPES } from './roll.mjs';
@@ -1304,6 +1305,59 @@ export async function runImportAnthropicMemory(options = {}) {
   }
 }
 
+// Task 142 (D-130): onboard from an existing rules file. Dep-injectable
+// (projectRoot / log / logError / importFn) on the runImportAnthropicMemory
+// pattern so the real CLI path is verifiable in a sandbox. `file` is the
+// optional positional (commander passes it first), defaulting to CLAUDE.md.
+export async function runImportClaudeMd(file, options = {}) {
+  const projectRoot = options?.projectRoot ?? resolvePath(process.cwd());
+  const log = options?.log ?? console.log;
+  const logError = options?.logError ?? console.error;
+  const dryRun = options?.dryRun === true;
+  const acceptAll = options?.yes === true;
+  const importFn = options?.importFn ?? importClaudeMd;
+  try {
+    const r = await importFn({ projectRoot, file, dryRun, acceptAll });
+    if (r.action === 'error') {
+      logError(`cmk import-claude-md: error — ${(r.errors ?? []).join('; ')}`);
+      process.exitCode = 2;
+      return r;
+    }
+    if (r.reason === 'no-source') {
+      log(`cmk import-claude-md: no rules file found at ${r.sourcePath}`);
+      return r;
+    }
+    if (r.reason) {
+      // e.g. read-source-failed — completed-with-failure must not print the
+      // success-shaped "applied 0" line (skill-review 2026-06-12 finding).
+      logError(`cmk import-claude-md: ${r.reason} (${r.sourcePath})`);
+      process.exitCode = 2;
+      return r;
+    }
+    const listProposals = () => {
+      for (const p of r.proposals) log(`  + [${p.type}] L${p.line}: ${p.text}`);
+    };
+    if (r.mode === 'dry-run') {
+      log(`cmk import-claude-md: dry-run — ${r.proposals.length} proposal(s), ${r.skipped} duplicate(s) skipped`);
+      listProposals();
+      return r;
+    }
+    if (r.mode === 'requires-confirmation') {
+      log(`cmk import-claude-md: ${r.proposals.length} proposal(s) ready to apply.`);
+      log('  Re-run with --yes to apply, or --dry-run to inspect.');
+      listProposals();
+      return r;
+    }
+    const rejectedNote = r.rejected > 0 ? `, ${r.rejected} rejected by Poison_Guard` : '';
+    const errorNote = r.errors > 0 ? `, ${r.errors} error(s)` : '';
+    log(`cmk import-claude-md: applied ${r.accepted} fact(s), skipped ${r.skipped} duplicate(s)${rejectedNote}${errorNote}`);
+    return r;
+  } catch (err) {
+    logError(`cmk import-claude-md: unexpected error: ${err?.message ?? err}`);
+    process.exitCode = 2;
+  }
+}
+
 async function runTranscriptsDispatch(childName, options) {
   if (childName === 'extract') {
     return runTranscriptsExtract(options);
@@ -1829,6 +1883,19 @@ export const subcommands = [
       { flags: '--yes', description: 'apply every proposal without prompting (v0.1.0 requires explicit --yes; interactive y/N is v0.1.x)' },
     ],
     action: runImportAnthropicMemory,
+  },
+  {
+    name: 'import-claude-md',
+    description: 'onboard from an existing rules file (CLAUDE.md / .cursorrules / AGENTS.md) — parse it into typed facts through the safe write path',
+    milestone: 142,
+    argSpec: [
+      { flags: '[file]', description: 'rules file to import, relative to the project root (default: CLAUDE.md)' },
+    ],
+    optionSpec: [
+      { flags: '--dry-run', description: 'preview the typed proposals without modifying files' },
+      { flags: '--yes', description: 'apply every proposal without prompting (apply requires explicit --yes)' },
+    ],
+    action: runImportClaudeMd,
   },
   {
     name: 'transcripts',

@@ -159,6 +159,9 @@ Walk pending items interactively. `review` = medium-trust auto-extracts (promote
 ### `cmk import-anthropic-memory [--dry-run] [--yes]`
 Merge useful bullets from Anthropic's native auto-memory into the project MEMORY.md. `--dry-run` previews; `--yes` applies.
 
+### `cmk import-claude-md [file] [--dry-run] [--yes]`
+Onboard from the rules file you already own: parse an existing `CLAUDE.md` (default), `.cursorrules`, `AGENTS.md`, or any rules file into **typed granular facts** (`user` / `feedback` / `project` / `reference`, inferred from the nearest heading). Every candidate goes through the kit's safe write path — Poison_Guard secret screening, home-path sanitization, dedup against existing memory — and lands with `write_source: imported`, `trust: medium`, and real `source_file` / `source_line` provenance. Code fences and the kit's own managed CLAUDE.md block are never imported. `--dry-run` previews the typed proposals; apply requires explicit `--yes`.
+
 ### `cmk disable-native-memory` · `cmk enable-native-memory`
 Opt this project out of (or back into) Claude Code's **native** Auto Memory. `disable` writes `autoMemoryEnabled: false` into the committable `.claude/settings.json` (travels with `git clone`) so only the kit's memory runs — avoids the context bloat of both layers injecting at session start. The kit coexists with native memory by default; this is the one-command opt-out (ADR-0011). `enable` reverses it.
 

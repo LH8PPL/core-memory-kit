@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-Q4TA2SAX) Prefers terse, step-by-step instructions with time estimates and optional paths
-  <!-- source: review-promote, source_line: 1, sha1: 448ebfc3d1ddaec19e84af1a684fadb504e9d29b, write: user-explicit, trust: high, at: 2026-06-12T12:14:43Z -->
 - (P-JU7RRUT9) Assistant overgeneralized a prior context-specific permission ("for ruflo, you do that") to a new task (memclaw) and took autonomous action without confirming scope.
   <!-- source: review-promote, source_line: 1, sha1: 523492ec6a0c3c2a65f5bad61e3d57323304d146, write: user-explicit, trust: high, at: 2026-06-12T12:14:43Z -->
 - (P-SKYZHH2U) Autopilot memory is mixed push (SessionStart snapshot always in context) and pull (model judgment triggers memory-search skill); curation is human-gated.
@@ -22,6 +20,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: a2db1d208b6b8367838434c145a397b5ac3a8a08, write: auto-extract, trust: high, at: 2026-06-12T12:32:09Z -->
 - (P-ZRQRa277) kit needs decisions.md feature
   <!-- source: auto-extract-session, source_line: 1, sha1: 7ebd10b0433a1dc8148e633bf9b525f53ca113ba, write: auto-extract, trust: high, at: 2026-06-12T12:43:49Z -->
+- (P-T7ZLD7YB) Autopilot standing permission for v0.3.x queue starting Task 141a
+  <!-- source: auto-extract-session, source_line: 1, sha1: d86edee56b823cf037865747c0567b8399b0cf42, write: auto-extract, trust: high, at: 2026-06-12T15:48:38Z -->
 
 ## Environment Notes
 

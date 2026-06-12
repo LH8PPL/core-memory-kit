@@ -34,6 +34,7 @@ The short version: Claude starts every session already knowing your project, and
 - **Search your memory + let Claude run every memory op in conversation**: `cmk search "<term>"` does keyword (FTS5) retrieval over facts + scratchpads — and with the optional local embedder installed, **semantic + hybrid recall** (`--mode=semantic|hybrid`): ask in your own words ("where do credentials go") and get the fact even when no keyword matches. Measured **R@5 0.941 / paraphrase 1.000** on the kit's recall benchmark, zero API calls — the embedding model runs locally. `cmk install` **registers the kit's MCP server** and allow-lists its tools, so Claude drives the whole memory surface for you — capture (`mk_remember`, rich Why/How too), recall (`mk_search` / `mk_get` / `mk_timeline` / `mk_cite`), adjust trust (`mk_trust`), promote across projects (`mk_lessons_promote`), forget (`mk_forget` — previews, then deletes on confirm), and clear the review/conflict queues (`mk_queue_list` / `mk_queue_resolve`) — with no per-call prompt and without you ever typing `cmk`. Every MCP tool has a matching `cmk` verb (enforced by a parity guard) and runs the same safe write path.
 - **Compression that keeps memory bounded**: session → daily → weekly rollups via a background Haiku pass (cron, or lazy-on-read when no scheduler), so the snapshot stays small as history grows. The session-buffer rollup now also self-heals at **session start**, so your memory stays bounded even if you never cleanly close the window — and a roll never races a concurrent write (the buffer is claimed atomically).
 - **Cross-project persona, built automatically and in real time**: when you state "how you work everywhere" (tooling habits, architecture preferences — "I always use pnpm", "from now on, in every project, run the linter first"), the same per-turn auto-extract pass promotes it into your **user tier** (`~/.claude-memory-kit/`) **that turn** — so a brand-new project already knows your style, with no hand-curation and no waiting for a weekly job. It updates itself when your preferences change and never overwrites a rule you wrote by hand; a weekly pass still runs to dedup and catch anything missed.
+- **Don't start empty — import the rules you already own**: `cmk import-claude-md` parses an existing `CLAUDE.md` (default), `.cursorrules`, or `AGENTS.md` into typed, searchable facts — years of accumulated conventions become memory in one command. Every imported rule goes through the same safe write path (secret screening, path sanitization, dedup) with full provenance back to its source file + line. `--dry-run` previews everything first.
 - **Per-project, in-repo**: `context/` lives inside your project and travels with `git clone`. Multiple projects each have their own memory. Nothing crosses boundaries unless you promote via `cmk lessons promote`.
 - **7 health checks**: `cmk doctor` validates hook wiring, distill freshness, transcript firing, INDEX consistency, cron registration, Anthropic auto-memory coexistence, and stale lock detection — each failure comes with its repair command.
 
@@ -59,16 +60,20 @@ cmk install --with-semantic   # one-time ~260 MB; flips search to hybrid by defa
 # 4. (optional) Register cron jobs — Layer 6 falls back to lazy-on-read if skipped
 cmk register-crons
 
-# 5. Verify, then restart Claude Code so the new hooks load:
+# 5. (optional) Already have a CLAUDE.md or .cursorrules? Seed memory from it
+cmk import-claude-md --dry-run   # preview the typed facts it would create
+cmk import-claude-md --yes       # apply
+
+# 6. Verify, then restart Claude Code so the new hooks load:
 #    inside Claude Code type  /exit  (or /quit), then run  claude  again.
 cmk doctor
 ```
 
-**Want everything the kit can do?** Run all five steps — the two "(optional)" ones are what unlock semantic recall (step 3) and scheduled background compression (step 4). Skipping them still works: search stays keyword-only and compression self-heals lazily at session start.
+**Want everything the kit can do?** Run all six steps — the "(optional)" ones unlock semantic recall (step 3), scheduled background compression (step 4), and a memory pre-seeded from the rules you already own (step 5). Skipping them still works: search stays keyword-only, compression self-heals lazily at session start, and memory simply starts empty.
 
 `cmk install` is a complete entry point: it scaffolds `context/`, drops the `memory-write` skill into `.claude/skills/` (committed — it travels with `git clone`), and writes the 5 lifecycle hooks (PATH-resolved, cross-OS) into the project's `.claude/settings.json`. No separate `/plugin` step needed.
 
-Step 3 (cron) is **optional** — skip it and the kit falls back to lazy-on-read compression on its own. For that and every other command — search, self-repair, `cmk persona generate`, native-memory coexistence (`cmk disable-native-memory`), and more — see the **[full CLI reference → `docs/CLI.md`](docs/CLI.md)**.
+Step 4 (cron) is **optional** — skip it and the kit falls back to lazy-on-read compression on its own. For that and every other command — search, self-repair, `cmk persona generate`, native-memory coexistence (`cmk disable-native-memory`), and more — see the **[full CLI reference → `docs/CLI.md`](docs/CLI.md)**.
 
 > **Not comfortable in a terminal?** You don't have to be. Open your project in Claude Code and just say: *"install claude-memory-kit and set it up in this project."* Claude will run the commands above for you — you only approve them. Or skip the terminal entirely with **Route B** below. Either way, **restart Claude Code once** when it's done so the memory turns on — there's no "restart" button: type **`/exit`** in Claude Code, then run **`claude`** again.
 
@@ -157,6 +162,7 @@ Most-used commands below; **full reference with examples: [`docs/CLI.md`](docs/C
 | `cmk register-crons [--dry-run] [--unregister]` | Register daily + weekly jobs with Linux crontab / macOS launchd / Windows Task Scheduler |
 | `cmk forget <id>` | Tombstone a fact — disappears from `cmk search` immediately, no manual reindex (audit trail preserved) |
 | `cmk import-anthropic-memory [--dry-run] [--yes]` | Merge useful bullets from Anthropic's native auto-memory into your project MEMORY.md |
+| `cmk import-claude-md [file] [--dry-run] [--yes]` | Onboard from the rules you already own — parse an existing `CLAUDE.md` (default), `.cursorrules`, or `AGENTS.md` into typed facts through the safe write path (Poison_Guard + sanitization + dedup), with full `source_file`/`source_line` provenance. `--dry-run` previews the typed proposals |
 | `cmk disable-native-memory` / `cmk enable-native-memory` | Opt this project out of (or back into) Claude Code's _native_ Auto Memory — writes `autoMemoryEnabled` to the committable `.claude/settings.json` (travels with `git clone`). The kit coexists with native memory by default; use this to run one lean layer instead of two (ADR-0011) |
 | `cmk transcripts extract --session <uuid> --slug <slug> --since <YYYY-MM-DD>` | Extract clean markdown transcripts from `~/.claude/projects/<slug>/<uuid>.jsonl` |
 | `cmk mcp serve` | Run the MCP server over stdio (invoked by Claude Code; not by humans) |
