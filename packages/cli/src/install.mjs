@@ -43,6 +43,7 @@ import { spawnSync } from 'node:child_process';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { injectClaudeMdBlock } from './claude-md.mjs';
+import { checkKitBinding, npmSupportsAllowScripts } from './native-binding.mjs';
 import { writeKitHooks, writeKitMcpServer } from './settings-hooks.mjs';
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 
@@ -433,7 +434,14 @@ export async function install(options = {}) {
     if (!r.ok) errors.push({ path: r.path, error: r.error });
   }
 
-  return { projectRoot, userTier, created, skipped, gitignore, claudeMd, hooks, mcpServer, semantic, errors };
+  // Task 141a (D-129): probe the kit's native binding so the CLI can ask the
+  // user to fix it INLINE (npm 12 blocks better-sqlite3's binding build on a
+  // fresh install). Reported, never an installer error — scaffold + hooks
+  // are fully functional without it; only search/reindex need the binding.
+  const bindingProbe = options.bindingProbe ?? checkKitBinding;
+  const nativeBinding = bindingProbe();
+
+  return { projectRoot, userTier, created, skipped, gitignore, claudeMd, hooks, mcpServer, semantic, nativeBinding, errors };
 }
 
 /**
@@ -470,10 +478,18 @@ export function mergeProjectSettings(projectRoot, patch) {
  */
 export function buildDefaultNpmRunner({ spawnSyncImpl = spawnSync } = {}) {
   return () => {
+    // Task 141a (D-129): on npm ≥ 11.16 the `allow-scripts` config exists
+    // and npm 12 BLOCKS onnxruntime-node's install script without it — the
+    // kit runs this install itself, so it carries the allow flag itself
+    // (no user friction). Older npm: plain command, no unknown-config noise.
+    const { supported } = npmSupportsAllowScripts({ spawnSyncImpl });
+    const cmd = supported
+      ? 'npm install -g @huggingface/transformers --allow-scripts=onnxruntime-node'
+      : 'npm install -g @huggingface/transformers';
     // One constant command string under shell:true (no user input — and
     // an args array + shell:true trips Node's DEP0190). npm is npm.cmd
     // on Windows; the shell resolves it cross-platform.
-    const r = spawnSyncImpl('npm install -g @huggingface/transformers', {
+    const r = spawnSyncImpl(cmd, {
       encoding: 'utf8',
       stdio: 'inherit',
       shell: true,

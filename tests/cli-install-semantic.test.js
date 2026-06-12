@@ -105,20 +105,28 @@ describe('Task 46 — install --with-semantic / --no-semantic', () => {
 });
 
 describe('Task 125.4 — buildDefaultNpmRunner (the production closure, seam-testable)', () => {
-  it('spawns ONE constant command string with shell + timeout (DEP0190-safe; Door 3)', () => {
+  // Contract update Task 141a: the runner now probes `npm --version` first
+  // (to decide whether the host npm understands --allow-scripts), so two
+  // constant command strings spawn — the probe + the install. Both stay
+  // DEP0190-safe (constant string + shell:true); the install call keeps the
+  // §8.5 timeout discipline. The allow-flag variants are pinned in
+  // tests/cli-native-binding.test.js.
+  it('spawns the version probe + ONE constant install command (DEP0190-safe; Door 3)', () => {
     const calls = [];
     const runner = buildDefaultNpmRunner({
       spawnSyncImpl: (cmd, opts) => {
         calls.push({ cmd, opts });
+        if (String(cmd).includes('--version')) return { status: 0, stdout: '11.4.2\n' };
         return { status: 0 };
       },
     });
     expect(runner()).toEqual({ status: 0, error: undefined });
-    expect(calls).toHaveLength(1);
-    expect(calls[0].cmd).toBe('npm install -g @huggingface/transformers');
-    expect(calls[0].opts.shell).toBe(true);
-    expect(calls[0].opts.stdio).toBe('inherit');
-    expect(calls[0].opts.timeout).toBe(600_000); // design §8.5 spawn discipline
+    expect(calls).toHaveLength(2);
+    expect(calls[0].cmd).toBe('npm --version');
+    expect(calls[1].cmd).toBe('npm install -g @huggingface/transformers');
+    expect(calls[1].opts.shell).toBe(true);
+    expect(calls[1].opts.stdio).toBe('inherit');
+    expect(calls[1].opts.timeout).toBe(600_000); // design §8.5 spawn discipline
   });
 
   it('timeout/error path: status null + error message surface (no throw)', () => {

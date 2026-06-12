@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
+- **install(141a): npm 12 readiness — the kit survives July 2026's install-scripts flip.** npm 12 turns dependency install scripts off by default, which silently blocks the native build `better-sqlite3` needs (the package then looks installed but search crashes at first use). Now: `cmk install` probes the binding up front and **offers to fix it inline** (one `[Y/n]`, runs the documented `--allow-scripts` reinstall for you); `cmk install --with-semantic` passes `--allow-scripts=onnxruntime-node` itself on npm ≥ 11.16; a new doctor check (HC-8) backstops with the exact remediation command; the README documents the prepared-install one-liner.
+
 - **import(142): `cmk import-claude-md` — onboard from the rules file you already own.** New installs no longer start empty: one command parses an existing `CLAUDE.md` (default), `.cursorrules`, `AGENTS.md`, or any rules file into typed granular facts (`user`/`feedback`/`project`/`reference`, inferred from headings) through the kit's safe write path — Poison_Guard secret screening, home-path sanitization, dedup against existing memory — with `write_source: imported`, `trust: medium`, and real `source_file`/`source_line` provenance. Code fences and the kit's own managed block are never imported. `--dry-run` previews; apply requires explicit `--yes`.
 
 ## [0.3.0] — 2026-06-11

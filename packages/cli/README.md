@@ -13,7 +13,7 @@
 - **Bounded by compression** — session → daily → weekly Haiku rollups (cron or lazy-on-read) keep the snapshot small as history grows. The session-buffer rollup self-heals at session start too, so memory stays bounded even if you never cleanly close the window.
 - **Don't start empty — import the rules you already own** — `cmk import-claude-md` parses an existing `CLAUDE.md` / `.cursorrules` / `AGENTS.md` into typed, searchable facts through the same safe write path (secret screening, sanitization, dedup), with provenance back to source file + line. `--dry-run` previews first.
 - **Per-project, in-repo** — `context/` lives inside your project and travels with `git clone`. Each project keeps its own memory.
-- **7 health checks** — `cmk doctor` validates hook wiring, distill freshness, transcript firing, INDEX consistency, cron registration, native-memory coexistence, and stale locks — each failure with a repair command.
+- **8 health checks** — `cmk doctor` validates hook wiring, distill freshness, transcript firing, INDEX consistency, cron registration, native-memory coexistence, stale locks, and native-binding health (npm 12 readiness) — each failure with a repair command.
 
 ## Install — pick ONE route
 
@@ -53,7 +53,7 @@ Most-used commands (full list via `cmk --help`):
 | Command | Purpose |
 | --- | --- |
 | `cmk install` | Scaffold `context/` + the `memory-write`/`memory-search` skills + `.gitignore` + CLAUDE.md block + wire hooks (`--no-hooks` for scaffold-only) |
-| `cmk doctor` | Run HC-1..HC-7 health checks, surface repair commands |
+| `cmk doctor` | Run HC-1..HC-8 health checks, surface repair commands |
 | `cmk repair --hooks` / `--locks` / `--index` / `--all` | Idempotent self-repair |
 | `cmk search "<query>" [--mode keyword\|semantic\|hybrid] [--scope facts\|transcripts]` | Search memory — by meaning with the embedder (hybrid default after `--with-semantic`); `--scope transcripts` = the raw session record |
 | `cmk get <id…>` / `cmk timeline <id>` / `cmk cite <id>` / `cmk recent-activity` | Read the index back — full fact bodies + provenance, sequential context around an observation, a canonical citation link, recent changes (the CLI side of the `mk_*` MCP read tools) |

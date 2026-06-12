@@ -36,7 +36,7 @@ The short version: Claude starts every session already knowing your project, and
 - **Cross-project persona, built automatically and in real time**: when you state "how you work everywhere" (tooling habits, architecture preferences — "I always use pnpm", "from now on, in every project, run the linter first"), the same per-turn auto-extract pass promotes it into your **user tier** (`~/.claude-memory-kit/`) **that turn** — so a brand-new project already knows your style, with no hand-curation and no waiting for a weekly job. It updates itself when your preferences change and never overwrites a rule you wrote by hand; a weekly pass still runs to dedup and catch anything missed.
 - **Don't start empty — import the rules you already own**: `cmk import-claude-md` parses an existing `CLAUDE.md` (default), `.cursorrules`, or `AGENTS.md` into typed, searchable facts — years of accumulated conventions become memory in one command. Every imported rule goes through the same safe write path (secret screening, path sanitization, dedup) with full provenance back to its source file + line. `--dry-run` previews everything first.
 - **Per-project, in-repo**: `context/` lives inside your project and travels with `git clone`. Multiple projects each have their own memory. Nothing crosses boundaries unless you promote via `cmk lessons promote`.
-- **7 health checks**: `cmk doctor` validates hook wiring, distill freshness, transcript firing, INDEX consistency, cron registration, Anthropic auto-memory coexistence, and stale lock detection — each failure comes with its repair command.
+- **8 health checks**: `cmk doctor` validates hook wiring, distill freshness, transcript firing, INDEX consistency, cron registration, Anthropic auto-memory coexistence, stale lock detection, and native-binding health (npm 12 readiness) — each failure comes with its repair command.
 
 ## Quickstart
 
@@ -148,7 +148,7 @@ Most-used commands below; **full reference with examples: [`docs/CLI.md`](docs/C
 | Command | Purpose |
 | --- | --- |
 | `cmk install [--with-semantic]` | Scaffold `context/` + the `memory-write`/`memory-search` skills + `.gitignore` lines + CLAUDE.md block + wire hooks + register the MCP server & allow-list `mcp__cmk__*` (complete entry point). `--with-semantic` adds the local embedder + flips search to hybrid-by-default; `--no-hooks` = scaffold-only |
-| `cmk doctor` | Run HC-1..HC-7 health checks, surface repair commands |
+| `cmk doctor` | Run HC-1..HC-8 health checks, surface repair commands |
 | `cmk repair --hooks` / `--locks` / `--index` / `--all` | Idempotent self-repair |
 | `cmk roll --scope now\|today\|recent` | Manually trigger one of the compression pipelines |
 | `cmk search "<query>" [--mode keyword\|semantic\|hybrid] [--scope facts\|transcripts]` | Search memory — by meaning with the embedder installed (hybrid is the project default after `--with-semantic`); `--scope transcripts` searches the raw session record (last resort) |
@@ -181,7 +181,7 @@ The story behind the numbers: keyword search structurally misses natural-languag
 
 ## Health checks
 
-`cmk doctor` runs seven checks (HC-1..HC-7) and reports each as PASS / FAIL / SKIP with a repair command on failure:
+`cmk doctor` runs eight checks (HC-1..HC-8) and reports each as PASS / FAIL / SKIP with a repair command on failure:
 
 | ID | Check | Repair |
 | --- | --- | --- |
@@ -192,8 +192,11 @@ The story behind the numbers: keyword search structurally misses natural-languag
 | HC-5 | Cron jobs registered with host scheduler | `cmk register-crons` |
 | HC-6 | Native Anthropic Auto Memory status detected | (informational; non-fatal) |
 | HC-7 | No stale lock files | platform-aware unlink command |
+| HC-8 | Native bindings present (npm 12 readiness) | `npm install -g @lh8ppl/claude-memory-kit --allow-scripts=better-sqlite3` |
 
 See [HEALTH-CHECKS.md](HEALTH-CHECKS.md) for the detailed recovery paths.
+
+> **npm 12 (July 2026) note:** npm 12 turns dependency install scripts off by default, which blocks the native build `better-sqlite3` needs. `cmk install` detects this and offers to fix it inline; to avoid it entirely, install with the allow flag up front: `npm install -g @lh8ppl/claude-memory-kit --allow-scripts=better-sqlite3` (npm ≤ 11 needs nothing).
 
 ## Architecture
 

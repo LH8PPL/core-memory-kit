@@ -91,14 +91,16 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
     });
   });
 
-  describe('37.6 #1 — all 7 HCs run in order; pass/fail/skip per check', () => {
-    it('emits exactly 7 checks with id HC-1..HC-7 in order', async () => {
+  describe('37.6 #1 — all 8 HCs run in order; pass/fail/skip per check', () => {
+    // Contract update Task 141a: HC-8 (native bindings / npm 12 readiness)
+    // joined the audit — count + order extended, intent preserved.
+    it('emits exactly 8 checks with id HC-1..HC-8 in order', async () => {
       const r = await runDoctor({ projectRoot, userDir });
       expect(r.action).toBe('completed');
-      expect(r.checks.length).toBe(7);
+      expect(r.checks.length).toBe(8);
       const ids = r.checks.map((c) => c.id);
       expect(ids).toEqual([
-        'HC-1', 'HC-2', 'HC-3', 'HC-4', 'HC-5', 'HC-6', 'HC-7',
+        'HC-1', 'HC-2', 'HC-3', 'HC-4', 'HC-5', 'HC-6', 'HC-7', 'HC-8',
       ]);
       // Every check has the canonical shape
       for (const c of r.checks) {
