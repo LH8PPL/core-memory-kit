@@ -183,6 +183,34 @@ describe('Task 142 — dry-run previews without writing (Doors 1+2)', () => {
   });
 });
 
+describe('Task 142 — dry-run audit purity (skill-review fix)', () => {
+  it('dry-run and requires-confirmation append NO audit entries, even for duplicate skips', async () => {
+    const memPath = join(projectRoot, 'context', 'MEMORY.md');
+    writeFileSync(memPath, readFileSync(memPath, 'utf8') + '\n- a duplicated rule already saved\n', 'utf8');
+    seedRulesFile('- a duplicated rule already saved\n');
+
+    const before = readAuditLog(join(projectRoot, 'context')).length;
+    const dry = await importClaudeMd({ projectRoot, dryRun: true });
+    expect(dry.skipped).toBe(1);
+    const confirm = await importClaudeMd({ projectRoot });
+    expect(confirm.skipped).toBe(1);
+    expect(readAuditLog(join(projectRoot, 'context')).length).toBe(before);
+  });
+});
+
+describe('Task 142 — unexpected write errors are counted (writeFactImpl seam)', () => {
+  it('a non-poison write error lands in the errors count', async () => {
+    seedRulesFile('- a rule whose write will fail unexpectedly\n');
+    const r = await importClaudeMd({
+      projectRoot,
+      acceptAll: true,
+      writeFactImpl: () => ({ action: 'error', errorCategory: 'schema', errors: ['boom'] }),
+    });
+    expect(r.accepted).toBe(0);
+    expect(r.errors).toBe(1);
+  });
+});
+
 describe('Task 142 — default mode requires explicit --yes', () => {
   it('returns requires-confirmation and writes nothing', async () => {
     seedRulesFile('- a candidate rule that needs confirmation\n');

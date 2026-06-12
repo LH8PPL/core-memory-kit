@@ -220,6 +220,9 @@ export async function importClaudeMd({
   const tierRoot = join(projectRoot, 'context');
   const proposals = [];
   let skipped = 0;
+  // Dry-run / requires-confirmation must not touch ANY file — including the
+  // audit log. Skip entries are only audited when the user actually applied.
+  const auditSkips = acceptAll && !dryRun;
 
   for (const candidate of parseRulesFile(sourceText)) {
     // Sanitize BEFORE canonicalizing so the dedup key matches what writeFact
@@ -230,17 +233,19 @@ export async function importClaudeMd({
     const id = generateId('P', sanitized);
     if (existingCanonical.has(canonical)) {
       skipped += 1;
-      try {
-        appendAuditEntry(tierRoot, {
-          ts,
-          action: 'import',
-          tier: 'P',
-          id,
-          reasonCode: REASON_CODES.IMPORT_SKIPPED_DUPLICATE,
-          extra: { source: IMPORT_SOURCE },
-        });
-      } catch {
-        // best-effort — never block the import flow on audit-log failure
+      if (auditSkips) {
+        try {
+          appendAuditEntry(tierRoot, {
+            ts,
+            action: 'import',
+            tier: 'P',
+            id,
+            reasonCode: REASON_CODES.IMPORT_SKIPPED_DUPLICATE,
+            extra: { source: IMPORT_SOURCE },
+          });
+        } catch {
+          // best-effort — never block the import flow on audit-log failure
+        }
       }
       continue;
     }

@@ -1327,6 +1327,13 @@ export async function runImportClaudeMd(file, options = {}) {
       log(`cmk import-claude-md: no rules file found at ${r.sourcePath}`);
       return r;
     }
+    if (r.reason) {
+      // e.g. read-source-failed — completed-with-failure must not print the
+      // success-shaped "applied 0" line (skill-review 2026-06-12 finding).
+      logError(`cmk import-claude-md: ${r.reason} (${r.sourcePath})`);
+      process.exitCode = 2;
+      return r;
+    }
     const listProposals = () => {
       for (const p of r.proposals) log(`  + [${p.type}] L${p.line}: ${p.text}`);
     };
