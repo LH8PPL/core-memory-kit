@@ -323,7 +323,9 @@ describe('Task 142 — dedup against existing memory (Doors 1+2+4)', () => {
 describe('Task 142 — Poison_Guard screens every candidate (Doors 1+2+4)', () => {
   it('a secret-bearing bullet is rejected, logged, and never written; clean bullets still import', async () => {
     seedRulesFile([
-      '- deploy key is AKIAABCDEFGHJKLMNPQR',
+      // The canonical AWS docs example key — allowlisted in .gitleaks.toml +
+      // .gitguardian.yaml (an invented AKIA… string fails the secret scans).
+      '- deploy key is AKIAIOSFODNN7EXAMPLE',
       '- a perfectly clean rule that should import',
     ].join('\n'));
     const r = await importClaudeMd({ projectRoot, acceptAll: true });
