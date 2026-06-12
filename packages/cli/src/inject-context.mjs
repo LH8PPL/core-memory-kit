@@ -30,10 +30,12 @@ import {
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { SCRATCHPADS_BY_TIER, resolveTierRoot } from './tier-paths.mjs';
+import { SCRATCHPADS_BY_TIER, resolveTierRoot, ID_PATTERN } from './tier-paths.mjs';
 import { nowIso } from './audit-log.mjs';
 import { detectStaleness } from './lazy-compress.mjs';
 import { isProvenanceCommentLine, parseBulletProvenance } from './provenance.mjs';
+import { listConflictQueue } from './conflict-queue.mjs';
+import { listReviewQueue } from './review-queue.mjs';
 
 // Importance ranking for value-ordered inject eviction (Task 93 / design §19.3).
 // When a tier exceeds its budget we drop the LOWEST-value sections first, not the
@@ -800,7 +802,14 @@ export function injectContext({
   // 7. Emit the Anthropic SessionStart hook output shape (design §5.1 +
   // Anthropic hook protocol). When the snapshot is empty, we still emit
   // the shape so downstream tooling can rely on the field's presence.
+  //
+  // Task 145 (D-130): `systemMessage` is the USER-DISPLAY channel (the
+  // D-116 primary-source check: additionalContext is model-facing,
+  // systemMessage is shown to the user) — one status line per session
+  // start, zero model-token cost. The trust loop every silent system
+  // lacks: when the kit works, the user finally SEES it working.
   const hookOutput = {
+    systemMessage: buildStatusLine({ snapshot, projectRoot, now: ts }),
     hookSpecificOutput: {
       hookEventName: HOOK_EVENT_NAME,
       additionalContext: snapshot,
@@ -815,4 +824,108 @@ export function injectContext({
     lazyTrigger,
     bytes: Buffer.byteLength(snapshot, 'utf8'),
   };
+}
+
+// --- Task 145: the session-start status line (user-display) -------------
+
+// Tail-read budget for audit.log: recency lives at the end; reading the
+// whole file would grow with project age inside a 500ms-budget hook.
+const STATUS_AUDIT_TAIL_BYTES = 64 * 1024;
+const DAY_MS = 24 * 60 * 60 * 1000;
+// Derived from the shared ID_PATTERN (tier-paths.mjs) — strip its ^/$
+// anchors and wrap in the `(id)` bullet form. One alphabet, one source.
+const SNAPSHOT_ID_RE = new RegExp(`\\((${ID_PATTERN.source.slice(1, -1)})\\)`, 'g');
+
+/**
+ * One user-facing line summarizing what the kit just did for this session.
+ * Best-effort everywhere: a status line must NEVER turn a working hook into
+ * a crash — every data source degrades to its zero independently.
+ *
+ * @param {object} opts
+ * @param {string} opts.snapshot - the composed injection snapshot.
+ * @param {string} opts.projectRoot
+ * @param {string} [opts.now]
+ * @param {Function} [opts.listConflictsImpl] - test seam (default: the real queue lister).
+ * @param {Function} [opts.listReviewImpl] - test seam.
+ * @returns {string} the status line (always a string, never throws).
+ */
+export function buildStatusLine({
+  snapshot,
+  projectRoot,
+  now,
+  listConflictsImpl,
+  listReviewImpl,
+} = {}) {
+  const prefix = 'claude-memory-kit:';
+  try {
+    // 1. Unique injected fact ids — what the model can actually see.
+    const ids = new Set();
+    for (const m of String(snapshot ?? '').matchAll(SNAPSHOT_ID_RE)) ids.add(m[1]);
+
+    if (ids.size === 0) {
+      return `${prefix} memory is empty — capture starts this session`;
+    }
+    const parts = [`${ids.size} fact(s) in context`];
+
+    // 2. Captures in the last 24h, from the audit-log tail (created + import
+    // = the capture actions; skips/reads aren't captures).
+    const nowMs = Date.parse(now ?? nowIso());
+    let recent = 0;
+    try {
+      const auditPath = join(projectRoot, 'context', '.locks', 'audit.log');
+      if (existsSync(auditPath)) {
+        const size = statSync(auditPath).size;
+        const text = readFileSync(auditPath, 'utf8');
+        // Tail by bytes, then drop the (possibly torn) first line.
+        const tail =
+          size > STATUS_AUDIT_TAIL_BYTES
+            ? text.slice(-STATUS_AUDIT_TAIL_BYTES).replace(/^[^\n]*\n/, '')
+            : text;
+        for (const line of tail.split(/\r?\n/)) {
+          if (!line.trim()) continue;
+          try {
+            const e = JSON.parse(line);
+            if (
+              (e.action === 'created' || e.action === 'import') &&
+              nowMs - Date.parse(e.ts) <= DAY_MS &&
+              nowMs - Date.parse(e.ts) >= 0
+            ) {
+              recent += 1;
+            }
+          } catch {
+            // torn NDJSON line — skip
+          }
+        }
+      }
+    } catch {
+      // audit log unreadable — the count degrades to absent
+    }
+    if (recent > 0) parts.push(`${recent} captured in the last 24h`);
+
+    // 3. Pending curation — only mentioned when non-zero (a quiet queue
+    // earns a quiet line).
+    let conflicts = 0;
+    let review = 0;
+    try {
+      conflicts = (listConflictsImpl ?? listConflictQueue)({ tier: 'P', projectRoot }).length;
+    } catch {
+      // queue unreadable — degrade to zero
+    }
+    try {
+      review = (listReviewImpl ?? listReviewQueue)({ tier: 'P', projectRoot }).length;
+    } catch {
+      // queue unreadable — degrade to zero
+    }
+    if (conflicts > 0 || review > 0) {
+      const q = [];
+      if (conflicts > 0) q.push(`${conflicts} conflict(s)`);
+      if (review > 0) q.push(`${review} review item(s)`);
+      parts.push(`${q.join(' + ')} pending — cmk queue`);
+    }
+
+    return `${prefix} ${parts.join(', ')}`;
+  } catch {
+    // The line is decoration; the snapshot is the cargo. Never crash.
+    return `${prefix} memory loaded`;
+  }
 }
