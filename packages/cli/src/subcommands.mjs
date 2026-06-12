@@ -61,6 +61,8 @@ import { overrideTrust as overrideTrustAction } from './trust.mjs';
 import { resolveConflictQueue, mergeScratchpadBullets } from './conflict-queue.mjs';
 import { resolveReviewQueue } from './review-queue.mjs';
 import { createInterface } from 'node:readline';
+import { spawnSync } from 'node:child_process';
+import { checkKitBinding } from './native-binding.mjs';
 import { resolve as resolvePath, join, basename } from 'node:path';
 
 const NOTICE_PREFIX = 'not yet implemented';
@@ -98,7 +100,71 @@ export function formatSemanticSummary(semantic, { noHooks = false } = {}) {
  * summary, and reports the CLAUDE.md action (created / appended /
  * replaced / upgraded / downgrade-blocked / forced-downgrade / unchanged).
  */
-async function runInstall(options /* , command */) {
+// Task 141a (D-129): the install-time binding ask. npm 12 blocks
+// better-sqlite3's binding build on a fresh `npm install -g` — the user's
+// 2026-06-12 steer: ask AT INSTALL, never leave it to a secondary command.
+// Interactive consent is required because the fix is itself an
+// `npm install -g` (the design §14 ask-before-install rule); non-interactive
+// runs print the command instead. All deps injectable for tests.
+async function offerBindingFix(nativeBinding, options, { log, logError }) {
+  if (!nativeBinding || nativeBinding.ok) return;
+  const remedy = nativeBinding.remedy;
+  logError(
+    `  warning: better-sqlite3's native binding is unavailable (${nativeBinding.reason}).`,
+  );
+  logError(
+    '  Most common cause: npm 12 blocks dependency install scripts by default (a Node major upgrade is the other). Search/reindex cannot work until the binding is rebuilt.',
+  );
+  // An explicit askImpl implies a consent channel exists (the test seam /
+  // programmatic caller); only the readline default needs a real TTY.
+  const interactive =
+    options?.interactive ?? (options?.askImpl ? true : process.stdin.isTTY === true);
+  const askFn =
+    options?.askImpl ??
+    (interactive
+      ? (question) =>
+          new Promise((resolveAnswer) => {
+            const rl = createInterface({ input: process.stdin, output: process.stdout });
+            rl.question(question, (answer) => {
+              rl.close();
+              resolveAnswer(answer);
+            });
+          })
+      : null);
+  if (!interactive || !askFn) {
+    logError(`  Fix it any time with: ${remedy}`);
+    return;
+  }
+  const answer = String(await askFn(`  Fix it now by running \`${remedy}\`? [Y/n] `))
+    .trim()
+    .toLowerCase();
+  const yes = answer === '' || answer === 'y' || answer === 'yes';
+  if (!yes) {
+    log(`  Skipped. Fix it any time with: ${remedy}`);
+    return;
+  }
+  const fixRunner =
+    options?.fixRunner ??
+    ((cmd) =>
+      // Constant command under shell:true (npm is npm.cmd on Windows); the
+      // 10-min ceiling mirrors buildDefaultNpmRunner's spawn discipline.
+      spawnSync(cmd, { stdio: 'inherit', shell: true, timeout: 600_000 }));
+  const r = fixRunner(remedy);
+  const reProbe = options?.reProbe ?? checkKitBinding;
+  const after = r.status === 0 ? reProbe() : { ok: false };
+  if (after.ok) {
+    log('  Binding rebuilt — search is ready.');
+  } else {
+    logError(`  The binding is still unavailable — run it manually later: ${remedy}`);
+  }
+}
+
+// Exported for tests (Task 141a) — dep-injectable (cwd / userTier / log /
+// logError / bindingProbe / askImpl / fixRunner / reProbe / interactive) on
+// the runImportClaudeMd pattern. Defaults unchanged for production.
+export async function runInstall(options /* , command */) {
+  const log = options?.log ?? console.log;
+  const logError = options?.logError ?? console.error;
   // commander maps `--no-hooks` to options.hooks === false.
   const noHooks = !!(options && options.hooks === false);
   const verbose = !!(options && options.verbose);
@@ -111,6 +177,9 @@ async function runInstall(options /* , command */) {
     // to options.withSemantic.
     withSemantic: !!(options && options.withSemantic),
     noSemantic: !!(options && options.semantic === false),
+    projectRoot: options?.cwd,
+    userTier: options?.userTier,
+    bindingProbe: options?.bindingProbe,
   });
 
   // Outcome over inventory (self-test UX finding): state the resulting state +
@@ -118,7 +187,7 @@ async function runInstall(options /* , command */) {
   // read like a problem on a FRESH folder — the "skipped" are the cross-project
   // user tier at ~/.claude-memory-kit/ (OUTSIDE this folder), already on disk.
   // The full per-tier breakdown is --verbose only.
-  const projectName = basename(resolvePath(process.cwd()));
+  const projectName = basename(result.projectRoot);
   const wired =
     result.hooks.action === 'wired' || result.hooks.action === 'unchanged';
   const broughtSomethingNew =
@@ -127,20 +196,20 @@ async function runInstall(options /* , command */) {
     result.claudeMd.action === 'created';
 
   if (broughtSomethingNew) {
-    console.log(
+    log(
       `cmk install: ${projectName} ready — context/ scaffolded${
         wired ? ', hooks wired' : ''
       }.`,
     );
   } else {
-    console.log(
+    log(
       `cmk install: ${projectName} already set up (your edits preserved)${
         wired ? ', hooks refreshed' : ''
       }.`,
     );
   }
   if (wired) {
-    console.log(
+    log(
       '  Restart Claude Code to activate. Complete install — no separate /plugin step needed.',
     );
   }
@@ -148,35 +217,39 @@ async function runInstall(options /* , command */) {
   // Auto Memory by default; surface the one-command opt-out (null when already
   // opted out, so we don't nag).
   const nativeNote = nativeMemoryInstallNote(result.projectRoot);
-  if (nativeNote) console.log(nativeNote);
+  if (nativeNote) log(nativeNote);
   // Task 46: semantic-recall outcome (pure formatter, Task 125.4 — testable
   // without spawning install; the error case returns null because enableSemantic
   // errors already land in result.errors and print through the error path).
   const semanticLine = formatSemanticSummary(result.semantic, { noHooks });
-  if (semanticLine) console.log(semanticLine);
+  if (semanticLine) log(semanticLine);
   if (verbose) {
-    console.log(
+    log(
       `  files: ${result.created.length} created, ${result.skipped.length} already present` +
         (result.skipped.length
           ? ' (incl. the cross-project user tier at ~/.claude-memory-kit/, outside this folder)'
           : ''),
     );
-    console.log(
+    log(
       `  .gitignore=${result.gitignore.action} · CLAUDE.md=${result.claudeMd.action} · hooks=${result.hooks.action}`,
     );
   }
 
   if (result.claudeMd.action === 'downgrade-blocked') {
-    console.error(
+    logError(
       `  warning: CLAUDE.md already has a newer kit block (v${result.claudeMd.oldVersion}). ` +
         `Re-run with --force to downgrade.`
     );
   }
 
   if (result.errors.length > 0) {
-    for (const e of result.errors) console.error(`  error: ${e.path}: ${e.error}`);
+    for (const e of result.errors) logError(`  error: ${e.path}: ${e.error}`);
     process.exitCode = 1;
   }
+
+  // Task 141a: the binding ask comes LAST — it's the one thing the user may
+  // still need to act on, and the tail of install output is what gets read.
+  await offerBindingFix(result.nativeBinding, options, { log, logError });
 }
 
 /**

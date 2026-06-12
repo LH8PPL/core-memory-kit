@@ -1,6 +1,6 @@
 # Health checks
 
-Seven yes/no checks `cmk doctor` runs against the kit installation. Each has a self-repair path. (The two memsearch checks — formerly HC-1 "installed" + HC-7 "reachable" — were removed in Task 120: the kit ships keyword-only and the Layer-5b semantic backend is not yet shipped; the backend choice is deferred per design §9.3.1.)
+Eight yes/no checks `cmk doctor` runs against the kit installation. Each has a self-repair path. (The two memsearch checks — formerly HC-1 "installed" + HC-7 "reachable" — were removed in Task 120: the kit ships keyword-only and the Layer-5b semantic backend is not yet shipped; the backend choice is deferred per design §9.3.1.)
 
 | ID | Check | How to verify |
 | --- | --- | --- |
@@ -11,6 +11,7 @@ Seven yes/no checks `cmk doctor` runs against the kit installation. Each has a s
 | HC-5 | Cron jobs registered with host scheduler | `context/.locks/cron-registered` sentinel exists (written by `cmk register-crons`) |
 | HC-6 | Native Anthropic Auto Memory status detected | Inspect `~/.claude/projects/<slug>/memory/`; write single-line JSON snapshot to `context/.locks/native-memory-status.log`. Non-fatal informational. |
 | HC-7 | No stale lock files | `detectStaleLocks(projectRoot, {userDir})` from [packages/cli/src/lock-discipline.mjs](packages/cli/src/lock-discipline.mjs) returns no entries with `stale: true` |
+| HC-8 | Native bindings present (npm 12 readiness) | `require('better-sqlite3')` loads its `.node` binding; when `search.default_mode` is `hybrid`/`semantic`, the embedder import is probed too (distinguishing not-installed from installed-but-binding-broken). Fails with the exact `--allow-scripts` remediation when npm 12 blocked the install script (Task 141a, D-129) |
 
 **Severity on a fresh project:** HC-2, HC-3, and HC-5 report **SKIP**, not FAIL, when there's simply nothing to check yet — no distill built (HC-2), no Claude Code session captured here yet (HC-3), or cron not registered (HC-5, which is *optional*: the kit falls back to lazy-on-read compression). A clean install therefore reads `pass · 0 fail · skip` and `cmk doctor` exits `0`. These flip to **FAIL** only on a genuine problem: a *stale* distill (recent.md exists but > 2 days old), or transcripts that exist but stopped firing (> 3 days).
 
@@ -83,12 +84,28 @@ To remove both entries: `cmk register-crons --unregister`.
 
 (HC-6 native-memory detection and HC-7 stale-lock detection are informational / self-evident from the `cmk doctor` output and need no manual repair recipe.)
 
+### HC-8 — Native binding missing (npm 12 blocked the install script)
+
+npm 12 (~July 2026) turns dependency install scripts **off by default**, including the implicit node-gyp build that `better-sqlite3`'s binding needs — a fresh `npm install -g` then looks installed but search/reindex crash at first use. `cmk install` detects this up front and offers to fix it inline; HC-8 is the backstop. Repair (the global `allow-scripts` config — the project-level `npm approve-scripts` allowlist does not apply to `-g` installs):
+
+```bash
+npm install -g @lh8ppl/claude-memory-kit --allow-scripts=better-sqlite3
+```
+
+For the optional semantic embedder (only checked when this project defaults to hybrid/semantic search):
+
+```bash
+npm install -g @huggingface/transformers --allow-scripts=onnxruntime-node
+```
+
+(`cmk install --with-semantic` passes that flag itself on npm ≥ 11.16.)
+
 ## Adding new health checks
 
 When the system grows, add a new HC by:
 
-1. Adding a row to the table in `template/context/SETUP.md`.
-2. Adding a self-repair section here and in `template/context/SETUP.md`.
-3. Adding the matching summary line to the runtime contract in `template/CLAUDE.md.template`.
+1. Adding the check function + the `runDoctor` wiring in [`packages/cli/src/doctor.mjs`](packages/cli/src/doctor.mjs) (tests in `tests/cli-doctor.test.js` pin count + order).
+2. Adding a row to the table here, plus a self-repair section when the repair isn't self-evident.
+3. Updating the design table in `specs/design.md` §14 and the README health-checks table / count lines (pinned by `tests/docs-structure.test.js`).
 
-All three should stay in sync. SETUP.md is authoritative for "how to install/repair"; CLAUDE.md is authoritative for "what to check at session startup."
+(Original instructions pointed at `template/context/SETUP.md` + `template/CLAUDE.md.template`; the current template no longer enumerates HCs — the scaffolded CLAUDE.md block describes `cmk doctor` generically, so per-HC docs live only in the three spots above. Noted 2026-06-12, Task 141a.)

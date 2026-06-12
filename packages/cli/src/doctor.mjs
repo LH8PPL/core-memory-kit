@@ -1,4 +1,4 @@
-// `cmk doctor` — health checks HC-1..HC-7 (Task 37, T-031; memsearch HC-1/HC-7 removed in Task 120).
+// `cmk doctor` — health checks HC-1..HC-8 (Task 37, T-031; memsearch HC-1/HC-7 removed in Task 120; HC-8 native bindings added in Task 141a).
 //
 // Public boundary:
 //   async runDoctor({projectRoot, userDir, now, promptUser?, ...overrides})
@@ -44,6 +44,8 @@ import { nowIso } from './audit-log.mjs';
 import { detectStaleLocks } from './lock-discipline.mjs';
 import { cronSentinelPath } from './lazy-compress.mjs';
 import { getNativeAutoMemoryState } from './native-memory.mjs';
+import { checkKitBinding, checkEmbedderBinding } from './native-binding.mjs';
+import { resolveDefaultSearchMode } from './semantic-backend.mjs';
 
 const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -470,13 +472,67 @@ function hc7StaleLocks({ projectRoot, userDir }) {
   };
 }
 
+// --- HC-8: native bindings present (npm 12 readiness, Task 141a) -------
+// The BACKSTOP, not the primary UX: `cmk install` probes + asks inline
+// (the user's 2026-06-12 steer); HC-8 catches the after-the-fact states
+// (npm upgraded later, package reinstalled without the allow flag).
+// The repair is an `npm install -g` → requiresInstall per the design §14
+// ask-before-install rule.
+async function hc8NativeBindings({ projectRoot, kitBindingProbe, embedderBindingProbe }) {
+  const kitProbe = kitBindingProbe ?? checkKitBinding;
+  const kit = kitProbe();
+  if (!kit.ok) {
+    return {
+      id: 'HC-8',
+      name: 'Native bindings present (npm 12 readiness)',
+      status: 'fail',
+      message: `better-sqlite3 native binding unavailable (${kit.reason}) — most common cause: npm 12 blocks dependency install scripts by default, so a fresh install skips the binding build (a Node major upgrade is the other); search/reindex will crash until it is rebuilt`,
+      recoveryCommand: kit.remedy,
+      requiresInstall: true,
+    };
+  }
+  // The embedder matters only when this project actually defaults to it.
+  const mode = resolveDefaultSearchMode({ projectRoot });
+  if (mode === 'keyword') {
+    return {
+      id: 'HC-8',
+      name: 'Native bindings present (npm 12 readiness)',
+      status: 'pass',
+      message: 'better-sqlite3 binding healthy (semantic not configured — embedder not checked)',
+    };
+  }
+  const embedderProbe = embedderBindingProbe ?? checkEmbedderBinding;
+  const embedder = await embedderProbe();
+  if (!embedder.ok) {
+    const state = embedder.installed
+      ? `installed but its native binding failed (${embedder.reason}) — npm 12 blocks onnxruntime-node's install script by default`
+      : `not installed, but search.default_mode is '${mode}'`;
+    return {
+      id: 'HC-8',
+      name: 'Native bindings present (npm 12 readiness)',
+      status: 'fail',
+      message: `semantic embedder ${state}; searches degrade to keyword until fixed`,
+      recoveryCommand: embedder.remedy,
+      requiresInstall: true,
+    };
+  }
+  return {
+    id: 'HC-8',
+    name: 'Native bindings present (npm 12 readiness)',
+    status: 'pass',
+    message: `better-sqlite3 binding healthy; embedder import OK (default mode: ${mode}; the deep pipeline check runs at --with-semantic warm)`,
+  };
+}
+
 /**
- * Run the full 7-check health audit.
+ * Run the full 8-check health audit.
  *
  * @param {object} opts
  * @param {string} opts.projectRoot
  * @param {string} [opts.userDir]
  * @param {string} [opts.now]
+ * @param {Function} [opts.kitBindingProbe] - HC-8 test seam.
+ * @param {Function} [opts.embedderBindingProbe] - HC-8 test seam.
  * @returns {Promise<{action, checks, duration_ms}>}
  *
  * Note: M3 fix (skill-review 2026-05-28) dropped the v0.1.0 `promptUser`
@@ -489,6 +545,8 @@ export async function runDoctor({
   projectRoot,
   userDir,
   now,
+  kitBindingProbe,
+  embedderBindingProbe,
 } = {}) {
   const t0 = Date.now();
   if (!projectRoot) {
@@ -510,10 +568,11 @@ export async function runDoctor({
   const c5 = hc5CronRegistered({ projectRoot });
   const c6 = hc6NativeAutoMemory({ projectRoot, now: ts });
   const c7 = hc7StaleLocks({ projectRoot, userDir: resolvedUserDir });
+  const c8 = await hc8NativeBindings({ projectRoot, kitBindingProbe, embedderBindingProbe });
 
   return {
     action: 'completed',
-    checks: [c1, c2, c3, c4, c5, c6, c7],
+    checks: [c1, c2, c3, c4, c5, c6, c7, c8],
     duration_ms: Date.now() - t0,
   };
 }
