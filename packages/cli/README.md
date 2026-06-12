@@ -11,6 +11,7 @@
 - **Explicit capture when you want it** — say "remember this" / "from now on" / "we decided" / "forget X" (the `memory-write` skill), or run `cmk remember "<fact>"`. Both dedup, screen for secrets, abstract machine paths to `~`, and write silently. For backtick/quote-heavy rich facts, capture them shell-safe as JSON: `cmk remember --from-file fact.json` (or `--json` from stdin) — content never touches the shell.
 - **Search + MCP — Claude runs every memory op for you, in conversation** — `cmk search "<term>"` (keyword over facts + scratchpads; with the optional local embedder, **semantic + hybrid recall**: ask in your own words and get the fact even with zero keyword overlap — measured R@5 0.941 / paraphrase 1.000 on the kit's benchmark, no API calls). `cmk install` registers the kit's **MCP server**, so Claude can do the whole memory surface as tools without you ever typing `cmk`: capture (`mk_remember`, rich Why/How too), recall (`mk_search` / `mk_get` / `mk_timeline` / `mk_cite`), adjust trust (`mk_trust`), promote a fact across projects (`mk_lessons_promote`), forget (`mk_forget` — previews first, then deletes on confirm), and clear the review/conflict queues (`mk_queue_list` / `mk_queue_resolve`). The tools are allow-listed on install, so they run prompt-free.
 - **Bounded by compression** — session → daily → weekly Haiku rollups (cron or lazy-on-read) keep the snapshot small as history grows. The session-buffer rollup self-heals at session start too, so memory stays bounded even if you never cleanly close the window.
+- **Don't start empty — import the rules you already own** — `cmk import-claude-md` parses an existing `CLAUDE.md` / `.cursorrules` / `AGENTS.md` into typed, searchable facts through the same safe write path (secret screening, sanitization, dedup), with provenance back to source file + line. `--dry-run` previews first.
 - **Per-project, in-repo** — `context/` lives inside your project and travels with `git clone`. Each project keeps its own memory.
 - **7 health checks** — `cmk doctor` validates hook wiring, distill freshness, transcript firing, INDEX consistency, cron registration, native-memory coexistence, and stale locks — each failure with a repair command.
 
@@ -26,6 +27,7 @@ cd ~/my-project
 cmk install        # scaffolds context/ + the memory-write + memory-search skills AND wires the lifecycle hooks into .claude/settings.json
 cmk install --with-semantic   # (optional) local semantic recall — one-time ~260 MB, search defaults to hybrid
 cmk register-crons            # (optional) scheduled background compression — otherwise self-heals lazily
+cmk import-claude-md --yes    # (optional) seed memory from an existing CLAUDE.md / .cursorrules (--dry-run previews)
 cmk doctor         # verify, then restart Claude Code
 ```
 
