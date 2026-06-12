@@ -92,6 +92,14 @@ npm 12 (~July 2026) turns dependency install scripts **off by default**, includi
 npm install -g @lh8ppl/claude-memory-kit --allow-scripts=better-sqlite3
 ```
 
+Set-and-forget alternative (one-time, machine-level — also covers future reinstalls and npx; per the npm maintainers in the v12 community discussion):
+
+```bash
+npm config set allow-scripts=better-sqlite3 --location=user
+```
+
+Note npm 12's default is **soft mode**: the unapproved script *skips with a warning and the install succeeds* — which is exactly why the breakage is easy to miss and `cmk install` probes for it. (`strict-allow-scripts=true` turns it into a hard install failure.)
+
 For the optional semantic embedder (only checked when this project defaults to hybrid/semantic search):
 
 ```bash
