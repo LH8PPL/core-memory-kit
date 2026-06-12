@@ -113,7 +113,7 @@ async function offerBindingFix(nativeBinding, options, { log, logError }) {
     `  warning: better-sqlite3's native binding is unavailable (${nativeBinding.reason}).`,
   );
   logError(
-    '  npm 12 blocks dependency install scripts by default — search/reindex cannot work until the binding is rebuilt.',
+    '  Most common cause: npm 12 blocks dependency install scripts by default (a Node major upgrade is the other). Search/reindex cannot work until the binding is rebuilt.',
   );
   // An explicit askImpl implies a consent channel exists (the test seam /
   // programmatic caller); only the readline default needs a real TTY.

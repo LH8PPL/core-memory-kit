@@ -104,8 +104,8 @@ npm install -g @huggingface/transformers --allow-scripts=onnxruntime-node
 
 When the system grows, add a new HC by:
 
-1. Adding a row to the table in `template/context/SETUP.md`.
-2. Adding a self-repair section here and in `template/context/SETUP.md`.
-3. Adding the matching summary line to the runtime contract in `template/CLAUDE.md.template`.
+1. Adding the check function + the `runDoctor` wiring in [`packages/cli/src/doctor.mjs`](packages/cli/src/doctor.mjs) (tests in `tests/cli-doctor.test.js` pin count + order).
+2. Adding a row to the table here, plus a self-repair section when the repair isn't self-evident.
+3. Updating the design table in `specs/design.md` §14 and the README health-checks table / count lines (pinned by `tests/docs-structure.test.js`).
 
-All three should stay in sync. SETUP.md is authoritative for "how to install/repair"; CLAUDE.md is authoritative for "what to check at session startup."
+(Original instructions pointed at `template/context/SETUP.md` + `template/CLAUDE.md.template`; the current template no longer enumerates HCs — the scaffolded CLAUDE.md block describes `cmk doctor` generically, so per-HC docs live only in the three spots above. Noted 2026-06-12, Task 141a.)

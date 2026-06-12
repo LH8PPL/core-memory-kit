@@ -486,7 +486,7 @@ async function hc8NativeBindings({ projectRoot, kitBindingProbe, embedderBinding
       id: 'HC-8',
       name: 'Native bindings present (npm 12 readiness)',
       status: 'fail',
-      message: `better-sqlite3 native binding unavailable (${kit.reason}) — npm 12 blocks dependency install scripts by default, so a fresh install skips the binding build; search/reindex will crash until it is rebuilt`,
+      message: `better-sqlite3 native binding unavailable (${kit.reason}) — most common cause: npm 12 blocks dependency install scripts by default, so a fresh install skips the binding build (a Node major upgrade is the other); search/reindex will crash until it is rebuilt`,
       recoveryCommand: kit.remedy,
       requiresInstall: true,
     };
