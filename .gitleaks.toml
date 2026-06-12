@@ -15,6 +15,7 @@ description = "Deliberate test fixtures + poison-guard examples (not real secret
 paths = [
   '''tests/cli-poison-guard\.test\.js''',
   '''tests/cli-poison-guard-log\.test\.js''',
+  '''tests/cli-import-claude-md\.test\.js''',
   '''tests/cli-memory-write\.test\.js''',
   '''tests/cli-write-fact\.test\.js''',
   '''tests/cli-remember\.test\.js''',

@@ -42,8 +42,11 @@ const MIN_CANDIDATE_CHARS = 8;
 
 const MANAGED_BLOCK_START = /<!--\s*claude-memory-kit:start\b/;
 const MANAGED_BLOCK_END = /<!--\s*claude-memory-kit:end\s*-->/;
-const HEADING = /^(#{1,6})\s+(.+?)\s*$/;
-const LIST_ITEM = /^\s*(?:[-*+]|\d+[.)])\s+(.+?)\s*$/;
+// Greedy `(.+)$` + trim-at-use-site instead of the classic `(.+?)\s*$` —
+// the lazy/trailing-\s* shape backtracks super-linearly (S5852, the D-128
+// class); every consumer of these captures already calls .trim().
+const HEADING = /^(#{1,6})[ \t]+(.+)$/;
+const LIST_ITEM = /^[ \t]*(?:[-*+]|\d+[.)])[ \t]+(.+)$/;
 const CODE_FENCE = /^\s*(```|~~~)/;
 
 /**
@@ -108,7 +111,7 @@ export function parseRulesFile(text) {
 
     const h = HEADING.exec(line);
     if (h) {
-      heading = h[2];
+      heading = h[2].trim();
       continue;
     }
 
