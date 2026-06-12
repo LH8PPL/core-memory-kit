@@ -87,6 +87,7 @@ The differentiator is the wedge; the rest are the quality fixes that make it *fe
 - **142-145** — within-paradigm sweep (D-130): import-claude-md onboarding · semantic near-dup at write · doctor memory-health · session-start status line
 - **146** — kit x workflows composition: swarm recall + concurrent-MCP stress (D-131)
 - **147** — `cmk digest` + the decision-journal view (squad-review provenance, D-132)
+- **98** — _re-laned 2026-06-12 (was "v0.2.x test-hardening", a destination that no longer exists — caught by the user's orphan audit)_: finish the cli-scaffold smoke isolation (per-test temp CMK_PROJECT_DIR + MEMORY_KIT_USER_DIR). The hazard has fired TWICE (the maintainer's real persona round-tripped, D-69; the dogfood compress engagement, 2026-06-10) — the remaining half is the original cli-scaffold.test.js file.
 - [x] **46** — `cmk install --with-semantic` (embedder bootstrap + hybrid-by-default-when-enabled; pairs with 65) — _shipped 2026-06-10, PR #152 (D-111)_
 
 ## v0.4.0+ — breadth
