@@ -13,7 +13,7 @@
 // system lacks.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildStatusLine, injectContext } from '../packages/cli/src/inject-context.mjs';
@@ -56,6 +56,12 @@ describe('Task 145 — buildStatusLine (Door 1)', () => {
   });
 
   it('counts captures from the last 24h via audit.log (created + import), older ones excluded', () => {
+    // Hermetic file content: WRITE (not append) so the arithmetic depends on
+    // exactly these lines, not on whatever audit entries install() happened
+    // to co-write. The 141a-era stress run flaked 1/5 on the append version
+    // under full-suite load and never reproduced in 10 isolated runs — the
+    // composition-with-real-entries case is covered by the end-to-end
+    // injectContext test below; THIS test pins the window arithmetic.
     const auditPath = join(projectRoot, 'context', '.locks', 'audit.log');
     mkdirSync(join(projectRoot, 'context', '.locks'), { recursive: true });
     const lines = [
@@ -67,7 +73,7 @@ describe('Task 145 — buildStatusLine (Door 1)', () => {
       // them would inflate the line by the whole dup count (skill-review).
       { schema: 1, ts: '2026-06-12T10:30:00Z', action: 'import', reasonCode: 'import-skipped-duplicate', tier: 'P', id: 'P-EEEE6666' },
     ];
-    appendFileSync(auditPath, lines.map((l) => JSON.stringify(l)).join('\n') + '\n', 'utf8');
+    writeFileSync(auditPath, lines.map((l) => JSON.stringify(l)).join('\n') + '\n', 'utf8');
     const line = buildStatusLine({ snapshot: '- (P-AAAA2222) x', projectRoot, now: NOW });
     expect(line).toMatch(/2 captured in the last 24h/);
   });
