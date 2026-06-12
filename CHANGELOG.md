@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
+- **doctor(144): a memory-HEALTH section — content quality, not just plumbing.** `cmk doctor` now ends with an informational read-only summary of what's IN your memory: total facts with the trust distribution, old-and-untouched facts worth a skim, possible duplicate pairs (literal token-overlap candidates — surfaced for review, never auto-removed), and pending conflict/review queue items. A healthy memory earns one quiet line; concerns appear only when non-zero, and the section never affects the doctor exit code.
+
 - **ux(145): a session-start status line — the kit finally tells you it's working.** Every session now opens with one user-visible line (e.g. `claude-memory-kit: 23 fact(s) in context, 2 captured in the last 24h, 1 conflict(s) pending — cmk queue`), shown via the hook's user-display channel: the model never sees it and it costs zero context tokens. An empty project says so honestly (`memory is empty — capture starts this session`) instead of staying silent.
 
 - **install(141a): npm 12 readiness — the kit survives July 2026's install-scripts flip.** npm 12 turns dependency install scripts off by default, which silently blocks the native build `better-sqlite3` needs (the package then looks installed but search crashes at first use). Now: `cmk install` probes the binding up front and **offers to fix it inline** (one `[Y/n]`, runs the documented `--allow-scripts` reinstall for you); `cmk install --with-semantic` passes `--allow-scripts=onnxruntime-node` itself on npm ≥ 11.16; a new doctor check (HC-8) backstops with the exact remediation command; the README documents the prepared-install one-liner.
