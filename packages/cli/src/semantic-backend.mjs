@@ -399,6 +399,109 @@ export function resolveDefaultSearchMode({ projectRoot }) {
  * surprise on the user's first search. Best-effort — failure reports a
  * reason, never throws.
  */
+/**
+ * The near-dup threshold for bge-base cosine — MEASURED, not assumed
+ * (live bake 2026-06-13, real Xenova/bge-base-en-v1.5 q8):
+ *   must-catch paraphrases:      0.85 ("use uv not pip" pair) · 0.96 · 0.81
+ *   must-NOT-catch (same domain, different facts): 0.66 · 0.64
+ * 0.78 splits the gap with ≥0.03 margin on the catch side and ≥0.12 on the
+ * miss side; q8 quantization flutters scores ±0.003 across processes, so a
+ * threshold inside the gap matters. The pre-143 DEFAULT_SEMANTIC_THRESHOLD
+ * (0.85, conflict-queue.mjs) predates the real embedder and would MISS the
+ * task's own canonical example (0.8493 < 0.85) — caught by the live test.
+ */
+export const SEMANTIC_NEARDUP_THRESHOLD = 0.78;
+
+/**
+ * Build a write-time semantic similarity function (Task 143, D-130).
+ *
+ * For the EXPLICIT capture paths (cmk remember / mk_remember): embeds the
+ * INCOMING text once (the only async model call), then returns a SYNC
+ * `similarityFn(newText, existingText)` compatible with detectConflicts'
+ * injectable seam:
+ *   - candidate vector found in the content-addressed embedding cache
+ *     (sha256(model\ntext) — the same key syncSemanticIndex writes) →
+ *     cosine (vectors are normalized, so a dot product);
+ *   - cache miss (a bullet captured since the last reindex) → token-Jaccard
+ *     fallback FOR THAT PAIR — honest literal comparison, never a throw,
+ *     never a per-pair model call (budget: one embed per capture, total).
+ *
+ * Not-ok states ({ok:false, reason}) let callers degrade silently to the
+ * literal pipeline (the spec's graceful-degradation contract):
+ *   'embedder-not-installed' — the optional embedder is absent.
+ *   'embed-failed: …'        — the model errored on the incoming text.
+ *
+ * @param {object} opts
+ * @param {string} opts.projectRoot
+ * @param {string} opts.newText - the incoming capture.
+ * @param {string} [opts.modelId]
+ * @param {Function} [opts.extractorImpl] - test seam: async () => extractor|null
+ *   (the loadExtractor shape).
+ * @param {Function} [opts.cacheLookupImpl] - test seam: (text) => number[]|null.
+ * @returns {Promise<{ok:true, similarityFn:Function, backend:'semantic'} | {ok:false, reason:string}>}
+ */
+export async function prepareSemanticSimilarity({
+  projectRoot,
+  newText,
+  modelId = DEFAULT_MODEL_ID,
+  extractorImpl,
+  cacheLookupImpl,
+} = {}) {
+  const load = extractorImpl ?? (() => loadExtractor(modelId));
+  const extractor = await load();
+  if (!extractor) return { ok: false, reason: 'embedder-not-installed' };
+
+  let newVec;
+  try {
+    const out = await extractor(newText, { pooling: 'mean', normalize: true });
+    newVec = (out.tolist())[0] ?? out.tolist();
+    // Single-text extractor output is [[...]]; the fake seam may return [...].
+    if (Array.isArray(newVec[0])) newVec = newVec[0];
+  } catch (err) {
+    return { ok: false, reason: `embed-failed: ${err?.message ?? err}` };
+  }
+
+  // Candidate lookup: the embedding cache in the index db, read best-effort.
+  // A missing/closed db degrades every pair to the Jaccard fallback.
+  let lookup = cacheLookupImpl;
+  if (!lookup) {
+    let cacheGet = null;
+    try {
+      const { openIndexDb } = await import('./index-db.mjs');
+      const db = openIndexDb({ projectRoot });
+      cacheGet = (text) => {
+        const row = db
+          .prepare('SELECT vector FROM embedding_cache WHERE content_sha = ?')
+          .get(sha256(`${modelId}\n${text}`));
+        if (!row?.vector) return null;
+        return Array.from(new Float32Array(row.vector.buffer, row.vector.byteOffset, row.vector.byteLength / 4));
+      };
+      // Probe once so a schema-less db (semantic never synced) degrades now,
+      // not per-pair.
+      cacheGet('__probe__');
+    } catch {
+      cacheGet = null;
+    }
+    lookup = cacheGet ?? (() => null);
+  }
+
+  const { tokenJaccardSimilarity } = await import('./conflict-queue.mjs');
+  const similarityFn = (a, b) => {
+    try {
+      const candidate = lookup(b);
+      if (!candidate || candidate.length !== newVec.length) {
+        return tokenJaccardSimilarity(a, b);
+      }
+      let dot = 0;
+      for (let i = 0; i < newVec.length; i++) dot += newVec[i] * candidate[i];
+      return dot; // normalized vectors → dot IS cosine
+    } catch {
+      return tokenJaccardSimilarity(a, b);
+    }
+  };
+  return { ok: true, similarityFn, backend: 'semantic' };
+}
+
 export async function warmEmbedder({ modelId = DEFAULT_MODEL_ID } = {}) {
   const t0 = Date.now();
   try {

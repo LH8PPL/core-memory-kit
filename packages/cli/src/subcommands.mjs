@@ -27,7 +27,7 @@ import { weeklyCurate } from './weekly-curate.mjs';
 import { autoPersona } from './auto-persona.mjs';
 import { exportPersona, importPersona } from './persona-portability.mjs';
 import { setNativeAutoMemory, nativeMemoryInstallNote } from './native-memory.mjs';
-import { rememberRich, richFactTitle, nonProjectTierNote } from './remember-core.mjs';
+import { rememberRich, richFactTitle, nonProjectTierNote, prepareNearDupGuard } from './remember-core.mjs';
 import { getObservations, citeLink, buildTimeline, recentActivity } from './read-core.mjs';
 import { readHookStdin } from './read-hook-stdin.mjs';
 import { runLazyCompress } from './lazy-compress.mjs';
@@ -730,7 +730,10 @@ export function parseFactInput(options, { readFile, readStdin } = {}) {
   };
 }
 
-export function runRemember(textParts, options, deps = {}) {
+// Task 143: async since the near-dup guard may embed the incoming text
+// (one model call, explicit path only). Commander awaits actions; the
+// terse-path tests were updated to await (contract change, intent preserved).
+export async function runRemember(textParts, options, deps = {}) {
   const projectRoot = deps.projectRoot ?? resolvePath(process.cwd());
   const userDir =
     deps.userDir ?? process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
@@ -791,6 +794,10 @@ export function runRemember(textParts, options, deps = {}) {
   const tier = 'P';
   const trust = options?.trust ?? 'high';
   const section = options?.section ?? 'Active Threads';
+  // Task 143 (D-130): semantic near-dup guard — extra opts only when this
+  // project is semantic-configured and the embedder is available; {} keeps
+  // the literal pipeline (graceful degradation, never blocks capture).
+  const nearDup = await prepareNearDupGuard({ projectRoot, text, ...(deps.nearDupGuard ? { prepareImpl: deps.nearDupGuard.prepareImpl, resolveModeImpl: deps.nearDupGuard.resolveModeImpl } : {}) });
   const r = memoryWrite({
     action: 'add',
     text,
@@ -801,22 +808,23 @@ export function runRemember(textParts, options, deps = {}) {
     source: 'user-explicit',
     projectRoot,
     userDir,
+    ...nearDup,
   });
   if (r.action === 'error') {
     for (const e of r.errors ?? [`error (${r.errorCategory})`]) {
-      console.error(`cmk remember: ${e}`);
+      logError(`cmk remember: ${e}`);
     }
     process.exitCode = 2;
     return;
   }
   if (r.action === 'queued') {
-    console.log(
-      `cmk remember: queued for review — a higher-trust fact already covers this. ` +
+    log(
+      `cmk remember: queued for review — a similar or higher-trust fact already covers this. ` +
         `Resolve with \`cmk queue conflicts\` (${r.path}).`,
     );
     return;
   }
-  console.log(
+  log(
     `cmk remember: saved to P/MEMORY.md (${section})${r.id ? ` [${r.id}]` : ''}`,
   );
 }

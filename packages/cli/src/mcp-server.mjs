@@ -40,7 +40,7 @@ import { openIndexDb } from './index-db.mjs';
 import { reindexBoot } from './index-rebuild.mjs';
 import { search, SEARCH_MODES } from './search.mjs';
 import { memoryWrite } from './memory-write.mjs';
-import { rememberRich, nonProjectTierNote } from './remember-core.mjs';
+import { rememberRich, nonProjectTierNote, prepareNearDupGuard } from './remember-core.mjs';
 import { forget } from './forget.mjs';
 import { overrideTrust } from './trust.mjs';
 import { lessonsPromote } from './lessons-promote.mjs';
@@ -281,6 +281,10 @@ function makeMkRemember({ projectRoot, userDir }) {
         ],
       };
     }
+    // Task 143 (D-130): the semantic near-dup guard (one embed of the
+    // incoming text when the project is semantic-configured + the embedder
+    // is available; {} = literal pipeline, never blocks capture).
+    const nearDup = await prepareNearDupGuard({ projectRoot, text });
     const r = memoryWrite({
       action: 'add',
       text,
@@ -291,6 +295,7 @@ function makeMkRemember({ projectRoot, userDir }) {
       sessionId: 'mcp-server',
       projectRoot,
       userDir,
+      ...nearDup,
     });
     if (r.action === 'error') {
       return {
