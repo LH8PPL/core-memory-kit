@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Added
+
+- **import(142): `cmk import-claude-md` — onboard from the rules file you already own.** New installs no longer start empty: one command parses an existing `CLAUDE.md` (default), `.cursorrules`, `AGENTS.md`, or any rules file into typed granular facts (`user`/`feedback`/`project`/`reference`, inferred from headings) through the kit's safe write path — Poison_Guard secret screening, home-path sanitization, dedup against existing memory — with `write_source: imported`, `trust: medium`, and real `source_file`/`source_line` provenance. Code fences and the kit's own managed block are never imported. `--dry-run` previews; apply requires explicit `--yes`.
+
 ## [0.3.0] — 2026-06-11
 
 ### Fixed

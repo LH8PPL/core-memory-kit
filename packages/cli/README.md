@@ -63,6 +63,7 @@ Most-used commands (full list via `cmk --help`):
 | `cmk persona generate` | Run cross-project persona synthesis on demand (instead of waiting for the weekly pass) |
 | `cmk persona export <file>` / `import <file>` | Carry your cross-project persona (the user tier) to another of **your** machines — export to one portable bundle, import on the other (overwrites with backup + rollback). The persona stays private (never committed to a project) |
 | `cmk import-anthropic-memory [--dry-run] [--yes]` | Merge bullets from Anthropic's native auto-memory into MEMORY.md |
+| `cmk import-claude-md [file] [--dry-run] [--yes]` | Onboard from the rules you already own — parse an existing `CLAUDE.md` / `.cursorrules` / `AGENTS.md` into typed facts through the safe write path (Poison_Guard + sanitization + dedup) |
 
 ## Requirements
 

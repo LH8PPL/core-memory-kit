@@ -157,6 +157,7 @@ Most-used commands below; **full reference with examples: [`docs/CLI.md`](docs/C
 | `cmk register-crons [--dry-run] [--unregister]` | Register daily + weekly jobs with Linux crontab / macOS launchd / Windows Task Scheduler |
 | `cmk forget <id>` | Tombstone a fact — disappears from `cmk search` immediately, no manual reindex (audit trail preserved) |
 | `cmk import-anthropic-memory [--dry-run] [--yes]` | Merge useful bullets from Anthropic's native auto-memory into your project MEMORY.md |
+| `cmk import-claude-md [file] [--dry-run] [--yes]` | Onboard from the rules you already own — parse an existing `CLAUDE.md` (default), `.cursorrules`, or `AGENTS.md` into typed facts through the safe write path (Poison_Guard + sanitization + dedup), with full `source_file`/`source_line` provenance. `--dry-run` previews the typed proposals |
 | `cmk disable-native-memory` / `cmk enable-native-memory` | Opt this project out of (or back into) Claude Code's _native_ Auto Memory — writes `autoMemoryEnabled` to the committable `.claude/settings.json` (travels with `git clone`). The kit coexists with native memory by default; use this to run one lean layer instead of two (ADR-0011) |
 | `cmk transcripts extract --session <uuid> --slug <slug> --since <YYYY-MM-DD>` | Extract clean markdown transcripts from `~/.claude/projects/<slug>/<uuid>.jsonl` |
 | `cmk mcp serve` | Run the MCP server over stdio (invoked by Claude Code; not by humans) |

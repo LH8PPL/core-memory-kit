@@ -73,7 +73,7 @@ function runCmk(args, { input } = {}) {
  *               from the repo cwd here they exit 2 (no anchor/fact found / bad
  *               id), so they're excluded from the scaffold's exit-0 stub loop.
  */
-const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex', 'forget', 'init-user-tier', 'trust', 'search', 'remember', 'daily-distill', 'weekly-curate', 'register-crons', 'compress', 'doctor', 'import-anthropic-memory', 'repair', 'roll', 'disable-native-memory', 'enable-native-memory', 'get', 'timeline', 'cite', 'recent-activity']);
+const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex', 'forget', 'init-user-tier', 'trust', 'search', 'remember', 'daily-distill', 'weekly-curate', 'register-crons', 'compress', 'doctor', 'import-anthropic-memory', 'import-claude-md', 'repair', 'roll', 'disable-native-memory', 'enable-native-memory', 'get', 'timeline', 'cite', 'recent-activity']);
 
 // Wired child sub-verbs (e.g. `cmk queue conflicts` shipped in Task 25).
 // Listed as "<parent>/<child>" so the generic child-stub assertion
