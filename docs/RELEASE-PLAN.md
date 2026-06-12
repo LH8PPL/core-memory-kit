@@ -90,8 +90,8 @@ The differentiator is the wedge; the rest are the quality fixes that make it *fe
 ## v0.4.0+ — breadth
 
 - **50** — cross-agent install — **KIRO FIRST** (the user's 2026-06-12 call: it's their daily work IDE; dogfooding-at-work beats breadth), then cursor|codex|gemini-cli. **This is the v0.4 headline.**
-- **55** — behavioral pattern detection + promotion ("learn how I work," not just facts). _Research input when slotted: trajectory-memory framing (ruflo "ReasoningBank", research note 2026-06-12) — capture HOW a task was done well, not just what was decided._
-- **viewer (design-first)** — a memory viewer for the non-developer audience (the parked `cmk view` idea — a product question, not a port number; D-121).
+- **55** — behavioral pattern detection + promotion ("learn how I work," not just facts). _Design dossier (3 sources, 2026-06-12 notes): ruflo trajectory memory (capture HOW a task was done well) · PAI's RELATIONSHIP category (memory of the COLLABORATION itself — what frustrated the user, what landed) + explicit LEARN-phase task retrospectives · memclaw outcome-based scoring. Design 55 as pattern detection + collaboration memory + task retrospectives, not pattern detection alone._
+- **viewer (design-first)** — a memory viewer for the non-developer audience (the parked `cmk view` idea — a product question, not a port number; D-121). _Demand evidence: PAI's Pulse dashboard (localhost surface over file-based AI state, 15.8k stars — the 2026-06-12 research note)._
 - _**Team-layer companion (Task 127): POSTPONED past v0.4** (the user, 2026-06-12) — Kiro support comes first; the companion-project design (D-119) stands, just later (v0.5+)._
 
 ---

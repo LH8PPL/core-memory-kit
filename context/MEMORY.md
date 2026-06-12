@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-4TSUCAM5) as long as it adds and not deminish — standing constraint on change scope
-  <!-- source: auto-extract-session, source_line: 1, sha1: 84907d5961ca53f6d859a071f9cee5cec5c6217c, write: auto-extract, trust: high, at: 2026-06-11T13:03:12Z -->
 - (P-RL2aKHKQ) Prefers concise, numbered instructions without narrative explanation or background context
   <!-- source: auto-extract-session, source_line: 1, sha1: 2c64105afa391ef1b8372deac02f94ff83aa92c7, write: auto-extract, trust: high, at: 2026-06-11T13:09:54Z -->
 - (P-CXC5JJHU) User chose REST API backend with FastAPI and no database for new project
@@ -22,6 +20,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: 78864f9dd813ab8440f2cabda8d7703c487517ce, write: auto-extract, trust: high, at: 2026-06-11T21:54:51Z -->
 - (P-JN3BYXJN) When asked for a review/opinion, provide that analysis only—don't autonomously write, push, or cross-link without explicit instruction.
   <!-- source: auto-extract-session, source_line: 1, sha1: b729c6b408ef00202910136fcff0c72bceb8c29b, write: auto-extract, trust: high, at: 2026-06-11T22:09:16Z -->
+- (P-GFTYR6T3) Confirmed adding 4 new task proposals to cmk backlog with minimal response "slot"
+  <!-- source: auto-extract-session, source_line: 1, sha1: 88925a6d344eabc3d1f58359a1c262fdea6a7813, write: auto-extract, trust: high, at: 2026-06-11T22:18:22Z -->
 
 ## Environment Notes
 
