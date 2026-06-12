@@ -42,11 +42,12 @@ const MIN_CANDIDATE_CHARS = 8;
 
 const MANAGED_BLOCK_START = /<!--\s*claude-memory-kit:start\b/;
 const MANAGED_BLOCK_END = /<!--\s*claude-memory-kit:end\s*-->/;
-// Greedy `(.+)$` + trim-at-use-site instead of the classic `(.+?)\s*$` —
-// the lazy/trailing-\s* shape backtracks super-linearly (S5852, the D-128
-// class); every consumer of these captures already calls .trim().
-const HEADING = /^(#{1,6})[ \t]+(.+)$/;
-const LIST_ITEM = /^[ \t]*(?:[-*+]|\d+[.)])[ \t]+(.+)$/;
+// Linear-time by construction (S5852, the D-128 class): every adjacent
+// pair is disjoint — `[ \t]+` can never donate characters to the `\S` that
+// starts the capture — so the regex engine has no backtracking ambiguity.
+// Captures keep trailing whitespace; every consumer already calls .trim().
+const HEADING = /^(#{1,6})[ \t]+(\S.*)$/;
+const LIST_ITEM = /^[ \t]*(?:[-*+]|\d+[.)])[ \t]+(\S.*)$/;
 const CODE_FENCE = /^\s*(```|~~~)/;
 
 /**
