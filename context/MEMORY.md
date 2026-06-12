@@ -20,6 +20,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: 8e783ae4a448bab4e7c0e4924c285f06ff4902ad, write: auto-extract, trust: high, at: 2026-06-12T12:30:31Z -->
 - (P-F5M3VBTG) User gates session close with verification question "is everything in lane? slotted to a version?"
   <!-- source: auto-extract-session, source_line: 1, sha1: a2db1d208b6b8367838434c145a397b5ac3a8a08, write: auto-extract, trust: high, at: 2026-06-12T12:32:09Z -->
+- (P-ZRQRa277) kit needs decisions.md feature
+  <!-- source: auto-extract-session, source_line: 1, sha1: 7ebd10b0433a1dc8148e633bf9b525f53ca113ba, write: auto-extract, trust: high, at: 2026-06-12T12:43:49Z -->
 
 ## Environment Notes
 
