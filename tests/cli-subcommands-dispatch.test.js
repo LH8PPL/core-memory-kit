@@ -72,8 +72,11 @@ afterEach(() => {
 });
 
 describe('Task 85 — cmk subcommand handlers (in-process dispatch coverage)', () => {
-  it('remember (terse) → appends a MEMORY.md bullet', () => {
-    cmd('remember').action(['We deploy with Kamal to Hetzner, never Vercel'], {});
+  // Task 143: runRemember is now async (the terse path may embed once for the
+  // near-dup guard) — terse dispatches are awaited. Rich-flag dispatches route
+  // to the still-sync runRememberRich; awaiting them is harmless + uniform.
+  it('remember (terse) → appends a MEMORY.md bullet', async () => {
+    await cmd('remember').action(['We deploy with Kamal to Hetzner, never Vercel'], {});
     expect(memoryMd()).toContain('Kamal to Hetzner');
     expect(logs.join('\n')).toMatch(/cmk remember/i);
   });
@@ -103,9 +106,9 @@ describe('Task 85 — cmk subcommand handlers (in-process dispatch coverage)', (
     expect(index).toContain(fname);
   });
 
-  it('search (keyword) → finds a captured fact', () => {
-    cmd('remember').action(['We deploy with Kamal to Hetzner'], {});
-    cmd('search').action(['Kamal'], { mode: 'keyword' });
+  it('search (keyword) → finds a captured fact', async () => {
+    await cmd('remember').action(['We deploy with Kamal to Hetzner'], {});
+    await cmd('search').action(['Kamal'], { mode: 'keyword' });
     expect(process.exitCode ?? 0).toBe(0);
     expect(logs.join('\n')).toMatch(/Kamal/);
   });
@@ -126,7 +129,7 @@ describe('Task 85 — cmk subcommand handlers (in-process dispatch coverage)', (
     });
 
     it('configured hybrid default + unavailable embedder → keyword results + fallback note, exit 0', async () => {
-      cmd('remember').action(['we cache with Valkey as the key-value store'], {});
+      await cmd('remember').action(['we cache with Valkey as the key-value store'], {});
       writeFileSync(settingsPath(), JSON.stringify({ search: { default_mode: 'hybrid' } }), 'utf8');
       process.env.CMK_DISABLE_SEMANTIC = '1';
       await cmd('search').action(['Valkey'], {});
@@ -137,7 +140,7 @@ describe('Task 85 — cmk subcommand handlers (in-process dispatch coverage)', (
     });
 
     it('explicit --mode=keyword wins over the configured hybrid default (no fallback note)', async () => {
-      cmd('remember').action(['we cache with Valkey as the key-value store'], {});
+      await cmd('remember').action(['we cache with Valkey as the key-value store'], {});
       writeFileSync(settingsPath(), JSON.stringify({ search: { default_mode: 'hybrid' } }), 'utf8');
       process.env.CMK_DISABLE_SEMANTIC = '1';
       await cmd('search').action(['Valkey'], { mode: 'keyword' });
@@ -147,7 +150,7 @@ describe('Task 85 — cmk subcommand handlers (in-process dispatch coverage)', (
     });
 
     it('explicit --mode=semantic + unavailable embedder → exit 2 + install hint (no silent fallback)', async () => {
-      cmd('remember').action(['we cache with Valkey as the key-value store'], {});
+      await cmd('remember').action(['we cache with Valkey as the key-value store'], {});
       process.env.CMK_DISABLE_SEMANTIC = '1';
       await cmd('search').action(['Valkey'], { mode: 'semantic' });
       expect(process.exitCode).toBe(2);
@@ -202,9 +205,9 @@ describe('Task 85 — cmk subcommand handlers (in-process dispatch coverage)', (
 
   // --- error / guard branches (cheap, but they're new code too) ---
 
-  it('remember --tier U (terse) → captures to project tier (P) + note, NOT an error (D-102)', () => {
+  it('remember --tier U (terse) → captures to project tier (P) + note, NOT an error (D-102)', async () => {
     process.exitCode = 0; // defensive: no leak from a prior test's exit-2 path
-    cmd('remember').action(['a project note'], { tier: 'U' });
+    await cmd('remember').action(['a project note'], { tier: 'U' });
     expect(`${logs.join('\n')} ${errs.join('\n')}`).toMatch(/project tier \(P\)|promote/);
     expect(process.exitCode).not.toBe(2); // captured, not refused
     expect(memoryMd()).toContain('a project note'); // landed at P
