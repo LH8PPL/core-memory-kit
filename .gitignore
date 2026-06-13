@@ -91,3 +91,4 @@ context/transcripts/.extract-*.tmp
 context/transcripts/
 context/sessions/
 packages/cli/context/
+context/settings.json
