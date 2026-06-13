@@ -85,8 +85,8 @@ Rebuild the SQLite/FTS5 search cache (regenerable; never source of truth).
 - `--boot` — incremental (changed files only, **and prunes removed files**) · `--full` — drop + rebuild.
 - **Rarely needed by hand.** Every read path (`cmk search` / `get` / `timeline` / `cite` / `recent-activity`) reindexes incrementally before reading, and `cmk forget` reindexes in-band — so captures, edits, and deletions all show up in search automatically (Task 110). Reach for this only to force a `--full` rebuild after manual surgery on the markdown.
 
-### `cmk config [--show-origin <key>]` · `cmk config get <key>` · `cmk config set <key> <value>`
-Read/write settings; `--show-origin` prints which tier a value came from. **Not yet implemented (stub)** — edit `context/settings.json` directly for now; `cmk doctor` + `cmk repair` are the live health surface.
+### `cmk config get <key>` · `cmk config set <key> <value> [--local]` · `cmk config --show-origin <key>`
+Read/write kit settings (`context/settings.json`) without hand-editing JSON. Keys are dotted paths (e.g. `search.default_mode`). `get` resolves across tiers (local > project > user) and prints the winning value; `set` writes the project tier by default, or the gitignored local tier with `--local`, preserving every sibling key; `--show-origin` lists every tier that defines the key, marking the winner and the shadowed (the "where did this come from?" surface — the direnv lesson). `true`/`false`/numbers are coerced; everything else stays a string. A key set in no tier exits 2.
 
 ---
 

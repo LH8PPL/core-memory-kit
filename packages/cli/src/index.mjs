@@ -70,6 +70,16 @@ export function buildProgram() {
           childCmd.action(() => sub.action(child.name));
         }
       }
+      // Task 129: a parent that has children AND its own action (e.g. `cmk
+      // config --show-origin <key>`, handled by the parent while get/set are
+      // children) must wire the parent action too — otherwise commander
+      // falls to the default "show help, exit 1" on a bare parent invocation
+      // with a flag. (Caught by the Task-129 live-test: `--show-origin`
+      // printed help instead of running.) Children still take precedence
+      // when a subcommand name is given.
+      if (typeof sub.action === 'function') {
+        cmd.action((...cmdArgs) => sub.action(...cmdArgs));
+      }
     } else {
       cmd.action((...cmdArgs) => sub.action(...cmdArgs));
     }

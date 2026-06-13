@@ -33,7 +33,7 @@ export const CLI_DOC_EXEMPT = new Map([
 // Legitimate deferral phrases — each entry pins ONE documented stub.
 // Shipping the feature means deleting both the phrase and its entry here.
 export const DEFERRAL_ALLOWLIST = [
-  { file: 'docs/CLI.md', mustContain: 'are the live health surface', reason: 'config is a v0.1.x stub (doctor+repair are the live surface)' },
+  // config shipped real in Task 129 (D-121) — its stub deferral entry removed.
   { file: 'docs/CLI.md', mustContain: 'use `cmk forget`', reason: 'purge is a v0.1.x stub (forget is the supported delete)' },
 ];
 

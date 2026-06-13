@@ -73,7 +73,7 @@ function runCmk(args, { input } = {}) {
  *               from the repo cwd here they exit 2 (no anchor/fact found / bad
  *               id), so they're excluded from the scaffold's exit-0 stub loop.
  */
-const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex', 'forget', 'init-user-tier', 'trust', 'search', 'remember', 'daily-distill', 'weekly-curate', 'register-crons', 'compress', 'doctor', 'import-anthropic-memory', 'import-claude-md', 'repair', 'roll', 'disable-native-memory', 'enable-native-memory', 'get', 'timeline', 'cite', 'recent-activity']);
+const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex', 'forget', 'init-user-tier', 'trust', 'search', 'remember', 'daily-distill', 'weekly-curate', 'register-crons', 'compress', 'doctor', 'import-anthropic-memory', 'import-claude-md', 'config', 'repair', 'roll', 'disable-native-memory', 'enable-native-memory', 'get', 'timeline', 'cite', 'recent-activity']);
 
 // Wired child sub-verbs (e.g. `cmk queue conflicts` shipped in Task 25).
 // Listed as "<parent>/<child>" so the generic child-stub assertion
@@ -89,6 +89,8 @@ const NON_STUB_CHILDREN = new Set([
   'persona/export',     // Task 72 — wired; logic tested by cli-persona-portability.test.js (also: must NOT run unisolated here — it touches the real ~/.claude-memory-kit)
   'persona/import',     // Task 72 — wired; logic tested by cli-persona-portability.test.js (also: import MUTATES the user tier — never run it against the real one in a scaffold smoke)
   'lessons/promote',    // Task 76 — wired; logic tested by cli-lessons-promote.test.js
+  'config/get',         // Task 129 — wired; logic tested by cli-config.test.js (real now; exits 2 on a key set in no tier, not a stub)
+  'config/set',         // Task 129 — wired; logic tested by cli-config.test.js
 ]);
 
 describe('Task 2 — cmk CLI scaffold', () => {
@@ -191,13 +193,17 @@ describe('Task 2 — cmk CLI scaffold', () => {
     const groups = subcommands.filter((s) => s.children && s.children.length > 0);
 
     for (const group of groups) {
-      it(`\`cmk ${group.name}\` (no child) prints help and exits non-zero`, () => {
-        // Commander's documented behavior: a command with sub-verbs but
-        // invoked without one prints help on stderr and exits non-zero.
-        // This is the UX we want — disambiguates which child the user meant.
+      it(`\`cmk ${group.name}\` (no child) exits non-zero with a help-or-notice`, () => {
+        // A command with sub-verbs invoked without one must NOT do something
+        // dangerous by default — it exits non-zero and tells the user what to
+        // run. Commander's bare default is help/Usage; parents that ALSO have
+        // their own action (config --show-origin, queue, mcp — Task 129 wired
+        // the parent action so a flag-bearing parent invocation works) emit a
+        // graceful "run `cmk <group> <sub>`" notice instead. Both satisfy the
+        // real contract: non-zero exit + actionable guidance, no silent default.
         const r = runCmk([group.name]);
         expect(r.status).not.toBe(0);
-        expect(r.stdout + r.stderr).toMatch(/help|Usage/i);
+        expect(r.stdout + r.stderr).toMatch(/help|Usage|not yet implemented|specify a subcommand|run `cmk/i);
       });
 
       it(`\`cmk ${group.name} --help\` lists every child sub-verb`, () => {
