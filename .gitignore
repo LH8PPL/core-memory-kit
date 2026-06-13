@@ -90,3 +90,4 @@ context/transcripts/.extract-*.tmp
 # context/memory/) stay committed here as designed.
 context/transcripts/
 context/sessions/
+packages/cli/context/
