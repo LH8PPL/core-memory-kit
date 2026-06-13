@@ -93,6 +93,61 @@ const SECRET_PATTERNS = [
     category: 'secret',
     re: /\bghp_[A-Za-z0-9]{36}/,
   },
+  // Task 134: the other GitHub token classes — OAuth (gho_), user-to-server
+  // (ghu_), server-to-server (ghs_), refresh (ghr_). Same ghp_ shape (prefix
+  // + 36 alnum); the 36-char floor is what keeps "ghost"/"ghs config" prose
+  // out (a real English word can't reach prefix+36 alphanumerics).
+  {
+    id: 'secret_github_token',
+    category: 'secret',
+    re: /\bgh[ousr]_[A-Za-z0-9]{36}/,
+  },
+  // GitHub fine-grained PAT: github_pat_ + 82 chars of [A-Za-z0-9_]
+  // (GitHub's documented detection regex; the token is the 11-char prefix +
+  // 82-char body = 93 total. The body's internal underscore placement is not
+  // contractually fixed, so match the whole-body class rather than a
+  // prefix_body split — verified against GitHub Docs + GitGuardian's
+  // detector, 2026-06-13).
+  {
+    id: 'secret_github_fine_grained_pat',
+    category: 'secret',
+    re: /\bgithub_pat_[A-Za-z0-9_]{82}/,
+  },
+  // Stripe secret keys: sk_live_ / rk_live_ (restricted) + 24+ alnum. The
+  // _live_ infix + the floor keep benign "sk_" / "Stripe" prose out.
+  {
+    id: 'secret_stripe_key',
+    category: 'secret',
+    re: /\b[sr]k_live_[A-Za-z0-9]{24,}/,
+  },
+  // Google API key: AIza + 35 of [A-Za-z0-9_-] (39 total — the documented
+  // length). The 4-char prefix alone is harmless prose ("AIza" mentioned);
+  // the 35-char body is the gate.
+  {
+    id: 'secret_google_api_key',
+    category: 'secret',
+    re: /\bAIza[A-Za-z0-9_-]{35}\b/,
+  },
+  // GitLab personal access token: glpat- + 20+ alnum/dash/underscore.
+  {
+    id: 'secret_gitlab_pat',
+    category: 'secret',
+    re: /\bglpat-[A-Za-z0-9_-]{20,}/,
+  },
+  // npm access token: npm_ + 36 alnum (the modern granular/automation shape).
+  {
+    id: 'secret_npm_token',
+    category: 'secret',
+    re: /\bnpm_[A-Za-z0-9]{36}/,
+  },
+  // Hugging Face access token: hf_ + 34+ alnum (kit-relevant — the semantic
+  // install pulls models from HF; a leaked hf_ token in a captured fact is
+  // a real risk). The 34-char floor keeps "hf"/"half" prose out.
+  {
+    id: 'secret_huggingface_token',
+    category: 'secret',
+    re: /\bhf_[A-Za-z0-9]{34,}/,
+  },
   // OpenAI / Anthropic style keys. sk- prefix + optional ant-/proj-
   // qualifier + ≥40 chars of alphanumeric/dash/underscore.
   {
