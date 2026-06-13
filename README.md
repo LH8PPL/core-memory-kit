@@ -49,10 +49,13 @@ The short version: Claude starts every session already knowing your project, and
 ```bash
 # 1. Install the CLI globally (Node 20+)
 npm install -g @lh8ppl/claude-memory-kit
+#    On npm 12+ (July 2026), npm skips native-build scripts by default — `cmk
+#    install` (step 2) detects this and offers to fix it inline; no action
+#    needed up front. Details in the npm 12 note below.
 
 # 2. Inside a project, scaffold + wire hooks in one step
 cd ~/my-project
-cmk install            # scaffolds context/ + the memory-write + memory-search skills AND wires the hooks into .claude/settings.json
+cmk install            # scaffolds context/ + the memory-write + memory-search skills, wires the hooks into .claude/settings.json, pins committed memory to LF (.gitattributes), and checks the native binding (asks to fix it if npm 12 blocked the build)
 
 # 3. (optional) Enable semantic recall — ask in your own words, fully local
 cmk install --with-semantic   # one-time ~260 MB; flips search to hybrid by default
@@ -70,6 +73,8 @@ cmk doctor
 ```
 
 **Want everything the kit can do?** Run all six steps — the "(optional)" ones unlock semantic recall (step 3), scheduled background compression (step 4), and a memory pre-seeded from the rules you already own (step 5). Skipping them still works: search stays keyword-only, compression self-heals lazily at session start, and memory simply starts empty.
+
+**What you'll see once it's running:** every session opens with a one-line status (`claude-memory-kit: 23 fact(s) in context, 2 captured in the last 24h`) so the kit isn't silently working in the background — you can tell it's alive. Tune settings without hand-editing JSON via `cmk config set <key> <value>` (e.g. `cmk config set search.default_mode hybrid`), and `cmk doctor` ends with a memory-health summary (stale facts, possible duplicates, pending review items).
 
 `cmk install` is a complete entry point: it scaffolds `context/`, drops the `memory-write` skill into `.claude/skills/` (committed — it travels with `git clone`), writes the 5 lifecycle hooks (PATH-resolved, cross-OS) into the project's `.claude/settings.json`, and adds a `.gitattributes` block pinning the committed memory files to LF line endings (so a Windows clone with default git settings can't mangle them — your memory stays readable on every platform). No separate `/plugin` step needed.
 
