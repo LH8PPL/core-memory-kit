@@ -461,28 +461,33 @@ export async function prepareSemanticSimilarity({
     return { ok: false, reason: `embed-failed: ${err?.message ?? err}` };
   }
 
-  // Candidate lookup: the embedding cache in the index db, read best-effort.
-  // A missing/closed db degrades every pair to the Jaccard fallback.
+  // Candidate lookup: SNAPSHOT the embedding cache up front and CLOSE the
+  // connection immediately — the returned similarityFn's lifetime is the
+  // caller's business, and a connection held in the closure would leak one
+  // db handle per capture inside the long-running MCP server (skill-review
+  // blocking finding). Size is fine: 768 floats × 4B ≈ 3KB/row. A missing /
+  // schema-less db (semantic never synced) degrades every pair to Jaccard.
   let lookup = cacheLookupImpl;
   if (!lookup) {
-    let cacheGet = null;
+    let bySha = null;
     try {
       const { openIndexDb } = await import('./index-db.mjs');
       const db = openIndexDb({ projectRoot });
-      cacheGet = (text) => {
-        const row = db
-          .prepare('SELECT vector FROM embedding_cache WHERE content_sha = ?')
-          .get(sha256(`${modelId}\n${text}`));
-        if (!row?.vector) return null;
-        return Array.from(new Float32Array(row.vector.buffer, row.vector.byteOffset, row.vector.byteLength / 4));
-      };
-      // Probe once so a schema-less db (semantic never synced) degrades now,
-      // not per-pair.
-      cacheGet('__probe__');
+      try {
+        bySha = new Map();
+        for (const row of db.prepare('SELECT content_sha, vector FROM embedding_cache WHERE model = ?').all(modelId)) {
+          bySha.set(
+            row.content_sha,
+            Array.from(new Float32Array(row.vector.buffer, row.vector.byteOffset, row.vector.byteLength / 4)),
+          );
+        }
+      } finally {
+        db.close();
+      }
     } catch {
-      cacheGet = null;
+      bySha = null;
     }
-    lookup = cacheGet ?? (() => null);
+    lookup = bySha ? (text) => bySha.get(sha256(`${modelId}\n${text}`)) ?? null : () => null;
   }
 
   const { tokenJaccardSimilarity } = await import('./conflict-queue.mjs');
