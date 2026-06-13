@@ -13,6 +13,7 @@ import {
   generateId,
   encodeBase32,
   BASE32_ALPHABET,
+  stripTrailingPunctWs,
 } from '../packages/canonicalize/src/index.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -140,5 +141,65 @@ describe('@lh8ppl/cmk-canonicalize — canonicalize edge cases', () => {
     const id2 = generateId('P', 'deterministic input');
     expect(id1).toBe(id2);
     expect(id1).toMatch(/^P-[2345679ABCDEFGHJKLMNPQRSTUVWXYZa]{8}$/);
+  });
+});
+
+// Task 140 (D-128): the trailing-strip became a backward char-scan
+// (stripTrailingPunctWs) replacing /[\s.,;]+$/. HARD CONSTRAINT: byte-
+// identical output — canonicalize feeds the content-addressed IDs, so any
+// drift would orphan every existing ID. These tests pin the loop against
+// the OLD regex over an adversarial corpus + a worst-case perf sanity.
+describe('@lh8ppl/cmk-canonicalize — Task 140 trailing-strip loop is byte-identical to the old regex', () => {
+  const OLD_REGEX = /[\s.,;]+$/;
+  const oldStrip = (s) => s.replace(OLD_REGEX, '');
+
+  // Every trailing-char combination + whitespace variety + the chars that must
+  // NOT be stripped (`:` was never in the class; the task entry's `:;` was wrong).
+  const CASES = [
+    '', 'x', 'hello',
+    'hello.', 'hello,', 'hello;', 'hello ',
+    'hello...', 'hello,,,', 'hello;;;', 'hello   ',
+    'hello.,; ', 'hello ;,.',
+    'hello\t', 'hello\n', 'hello\r\n', 'hello\f\v',
+    'hello ', 'hello ', 'hello　', 'hello﻿',
+    'a.b.c.', 'a, b, c,', 'trailing colon:', 'mid.dle text',
+    '...', ';,. \t\n', 'café;', 'emoji 😀.',
+    '.,;', ' . , ; ',
+    'no.strip.here:x', 'a:', 'a:;', 'a;:',
+  ];
+
+  it('matches the old regex on every adversarial case', () => {
+    for (const c of CASES) {
+      expect(stripTrailingPunctWs(c), `input ${JSON.stringify(c)}`).toBe(oldStrip(c));
+    }
+  });
+
+  it('matches the old regex on every fixture input (the ID-stability corpus)', () => {
+    for (const v of fixture.vectors) {
+      const s = String(v.input ?? '');
+      expect(stripTrailingPunctWs(s), `vector ${v.name}`).toBe(oldStrip(s));
+    }
+  });
+
+  it('matches on randomized trailing runs (fuzz)', () => {
+    const trail = ['.', ',', ';', ' ', '\t', '\n', 'x'];
+    for (let i = 0; i < 2000; i++) {
+      let s = 'base';
+      const n = Math.floor(Math.random() * 8);
+      for (let j = 0; j < n; j++) s += trail[Math.floor(Math.random() * trail.length)];
+      expect(stripTrailingPunctWs(s)).toBe(oldStrip(s));
+    }
+  });
+
+  it('is linear on the super-linear worst case (no ReDoS)', () => {
+    // The class the old regex was flagged for: a long run of strippable chars
+    // followed by a non-strippable tail forces the regex to backtrack. The
+    // loop is one backward pass — must stay fast.
+    const evil = '.'.repeat(200000) + 'x';
+    const t0 = Date.now();
+    const out = stripTrailingPunctWs(evil);
+    const ms = Date.now() - t0;
+    expect(out).toBe(evil); // nothing trailing to strip (ends in 'x')
+    expect(ms).toBeLessThan(100);
   });
 });
