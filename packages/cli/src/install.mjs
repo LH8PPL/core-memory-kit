@@ -59,6 +59,13 @@ const CLI_PKG_DIR = resolve(CLI_SRC_DIR, '..');
 // it must not show a stale hardcode (was `v0.1.0` in every install). Built per
 // install from the kit version; see gitignoreStartMarker().
 const GITIGNORE_END = '# claude-memory-kit:gitignore:end';
+// D-126 CRLF-prevention: the .gitattributes managed block uses the SAME
+// marker discipline as .gitignore (version-stamped start, in-place refresh).
+const GITATTRIBUTES_END = '# claude-memory-kit:gitattributes:end';
+
+function gitattributesStartMarker(version) {
+  return `# claude-memory-kit:gitattributes:start v${version}`;
+}
 
 function gitignoreStartMarker(version) {
   return `# claude-memory-kit:gitignore:start v${version}`;
@@ -235,6 +242,52 @@ function buildGitignoreBlock(templateDir, version = getKitVersion()) {
 }
 
 /**
+ * Build the canonical .gitattributes managed block from
+ * template/.gitattributes.fragment (D-126 CRLF prevention — force LF on the
+ * committed memory tiers so default Windows git doesn't mangle the bytes at
+ * clone). Same marker discipline as the .gitignore block.
+ */
+function buildGitattributesBlock(templateDir, version = getKitVersion()) {
+  const fragmentPath = join(templateDir, '.gitattributes.fragment');
+  const fragment = existsSync(fragmentPath)
+    ? readFileSync(fragmentPath, 'utf8').trim()
+    : 'context/**/*.md text eol=lf\ncontext/**/*.json text eol=lf';
+  return `${gitattributesStartMarker(version)}\n${fragment}\n${GITATTRIBUTES_END}\n`;
+}
+
+/**
+ * Inject (or refresh) the managed .gitattributes block. Same algorithm as
+ * injectGitignore (create / append-if-no-markers / replace-in-place),
+ * byte-preserving everything outside the markers.
+ *
+ * Returns: { action: 'created' | 'replaced' | 'unchanged', path: string }
+ */
+function injectGitattributes(projectRoot, block) {
+  const gaPath = join(projectRoot, '.gitattributes');
+  const startRe = /# claude-memory-kit:gitattributes:start[^\n]*\n/;
+  const endRe = /# claude-memory-kit:gitattributes:end\n?/;
+
+  if (!existsSync(gaPath)) {
+    writeFileSync(gaPath, block, 'utf8');
+    return { action: 'created', path: gaPath };
+  }
+  const existing = readFileSync(gaPath, 'utf8');
+  const startMatch = existing.match(startRe);
+  const endMatch = existing.match(endRe);
+  if (!startMatch || !endMatch || startMatch.index > endMatch.index) {
+    const sep = existing.endsWith('\n') ? '\n' : '\n\n';
+    writeFileSync(gaPath, existing + sep + block, 'utf8');
+    return { action: 'created', path: gaPath };
+  }
+  const before = existing.slice(0, startMatch.index);
+  const after = existing.slice(endMatch.index + endMatch[0].length);
+  const next = before + block + after;
+  if (next === existing) return { action: 'unchanged', path: gaPath };
+  writeFileSync(gaPath, next, 'utf8');
+  return { action: 'replaced', path: gaPath };
+}
+
+/**
  * Inject (or refresh) the managed .gitignore block in `<projectRoot>/.gitignore`.
  *
  * Algorithm:
@@ -329,6 +382,10 @@ export async function install(options = {}) {
   }
 
   const gitignore = injectGitignore(projectRoot, buildGitignoreBlock(templateDir, version));
+  // D-126 CRLF prevention: pin LF on the committed memory tiers so default
+  // Windows git can't mangle the bytes at clone (the read-side self-heal
+  // shipped in v0.3.0; this prevents the mangling in the first place).
+  const gitattributes = injectGitattributes(projectRoot, buildGitattributesBlock(templateDir, version));
 
   // CLAUDE.md loader block — Task 4. Read the block content from the kit's
   // template/ and inject (or refresh) it inside marker delimiters. Never
@@ -441,7 +498,7 @@ export async function install(options = {}) {
   const bindingProbe = options.bindingProbe ?? checkKitBinding;
   const nativeBinding = bindingProbe();
 
-  return { projectRoot, userTier, created, skipped, gitignore, claudeMd, hooks, mcpServer, semantic, nativeBinding, errors };
+  return { projectRoot, userTier, created, skipped, gitignore, gitattributes, claudeMd, hooks, mcpServer, semantic, nativeBinding, errors };
 }
 
 /**

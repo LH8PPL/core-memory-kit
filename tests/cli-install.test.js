@@ -377,6 +377,57 @@ describe('Task 3 — cmk install', () => {
     });
   });
 
+  // Task 129/.gitattributes follow-up (D-126): the CRLF-on-clone class that
+  // made committed memory invisible on a Windows checkout. The read-side
+  // self-heal shipped in v0.3.0; this is the PREVENTION — scaffold a managed
+  // .gitattributes block forcing LF on the committed memory files so the bytes
+  // never get mangled at clone in the first place.
+  describe('.gitattributes injection (D-126 CRLF prevention)', () => {
+    it('creates a .gitattributes forcing LF on the committed memory files', async () => {
+      await install({ projectRoot, userTier });
+      const ga = join(projectRoot, '.gitattributes');
+      expect(existsSync(ga)).toBe(true);
+      const content = readFileSync(ga, 'utf8');
+      // The memory tiers (committed) pinned to LF — the strict-LF frontmatter
+      // boundary + split('\n') readers depend on it.
+      expect(content).toMatch(/context\/\*\*.*eol=lf/);
+      expect(content).toContain('claude-memory-kit:gitattributes:start');
+      expect(content).toContain('claude-memory-kit:gitattributes:end');
+    });
+
+    it('the start marker carries the install version (no stale hardcode)', async () => {
+      await install({ projectRoot, userTier });
+      const content = readFileSync(join(projectRoot, '.gitattributes'), 'utf8');
+      expect(content).toContain(`claude-memory-kit:gitattributes:start v${getKitVersion()}`);
+    });
+
+    it('preserves unrelated attributes outside the managed block on re-install', async () => {
+      const gaPath = join(projectRoot, '.gitattributes');
+      writeFileSync(gaPath, '*.png binary\n*.bin -text\n', 'utf8');
+      await install({ projectRoot, userTier });
+      await install({ projectRoot, userTier });
+      const after = readFileSync(gaPath, 'utf8');
+      expect(after).toContain('*.png binary');
+      expect(after).toContain('*.bin -text');
+      expect(after).toContain('claude-memory-kit:gitattributes:start');
+    });
+
+    it('refreshes the managed block in place on re-install — no duplication', async () => {
+      await install({ projectRoot, userTier });
+      await install({ projectRoot, userTier });
+      const content = readFileSync(join(projectRoot, '.gitattributes'), 'utf8');
+      expect((content.match(/gitattributes:start/g) || []).length).toBe(1);
+      expect((content.match(/gitattributes:end/g) || []).length).toBe(1);
+    });
+
+    it('reports the gitattributes action in the result object', async () => {
+      const first = await install({ projectRoot, userTier });
+      expect(['created', 'replaced', 'unchanged']).toContain(first.gitattributes.action);
+      const second = await install({ projectRoot, userTier });
+      expect(second.gitattributes.action).not.toBe('created');
+    });
+  });
+
   describe('MEMORY_KIT_USER_DIR env var', () => {
     // We can't easily mutate process.env across tests without leaking — we
     // pass userTier as an explicit option that mirrors the env var's

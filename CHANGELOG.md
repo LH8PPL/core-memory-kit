@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
+- **install: `cmk install` now scaffolds a `.gitattributes` that pins committed memory to LF line endings.** Default Windows git (`autocrlf=true`) rewrites line endings at clone, which could make committed facts unreadable on a Windows checkout. The reader already self-heals (v0.3.0); this prevents the mangling at the source so your memory travels intact across platforms. Idempotent managed block (refreshed in place; everything else in your `.gitattributes` is preserved).
+
 - **config(129): `cmk config get` / `set` / `--show-origin` — settings without hand-editing JSON.** Now that `--with-semantic` writes a real user-facing setting (`search.default_mode`), you can read and change kit settings by dotted key instead of editing `context/settings.json` by hand: `cmk config get search.default_mode` resolves across tiers (local > project > user), `cmk config set search.default_mode hybrid` writes the project tier (or `--local` for the gitignored per-machine tier, preserving sibling keys), and `cmk config --show-origin <key>` shows every tier that defines it — which value wins and which are shadowed.
 
 - **security(134): Poison_Guard screens more secret types.** The secret catalog gained fixed-prefix provider tokens — GitHub OAuth/app/refresh + fine-grained PATs, Stripe live keys, Google API keys, GitLab PATs, npm tokens, and Hugging Face tokens — so a captured fact carrying one is rejected before it lands on disk. Pure additions (literal prefixes + length floors, no entropy heuristics); each ships a benign-near-miss test so ordinary prose is never falsely blocked.

@@ -71,7 +71,7 @@ cmk doctor
 
 **Want everything the kit can do?** Run all six steps — the "(optional)" ones unlock semantic recall (step 3), scheduled background compression (step 4), and a memory pre-seeded from the rules you already own (step 5). Skipping them still works: search stays keyword-only, compression self-heals lazily at session start, and memory simply starts empty.
 
-`cmk install` is a complete entry point: it scaffolds `context/`, drops the `memory-write` skill into `.claude/skills/` (committed — it travels with `git clone`), and writes the 5 lifecycle hooks (PATH-resolved, cross-OS) into the project's `.claude/settings.json`. No separate `/plugin` step needed.
+`cmk install` is a complete entry point: it scaffolds `context/`, drops the `memory-write` skill into `.claude/skills/` (committed — it travels with `git clone`), writes the 5 lifecycle hooks (PATH-resolved, cross-OS) into the project's `.claude/settings.json`, and adds a `.gitattributes` block pinning the committed memory files to LF line endings (so a Windows clone with default git settings can't mangle them — your memory stays readable on every platform). No separate `/plugin` step needed.
 
 Step 4 (cron) is **optional** — skip it and the kit falls back to lazy-on-read compression on its own. For that and every other command — search, self-repair, `cmk persona generate`, native-memory coexistence (`cmk disable-native-memory`), and more — see the **[full CLI reference → `docs/CLI.md`](docs/CLI.md)**.
 

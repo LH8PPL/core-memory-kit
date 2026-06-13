@@ -31,7 +31,7 @@ cmk import-claude-md --yes    # (optional) seed memory from an existing CLAUDE.m
 cmk doctor         # verify, then restart Claude Code
 ```
 
-`cmk install` is a complete entry point: it scaffolds `context/`, drops the `memory-write` + `memory-search` skills into `.claude/skills/` (committed — travels with `git clone`), and writes the 5 lifecycle hooks (PATH-resolved, cross-OS) into the project's `.claude/settings.json`. It also **registers the kit's MCP server** in `.mcp.json` and allow-lists its tools (`mcp__cmk__*`) in `.claude/settings.json`, so Claude can drive memory as tools with no per-call prompt. No separate `/plugin` step needed. Use `cmk install --no-hooks` to skip the hooks + MCP wiring (scaffold-only).
+`cmk install` is a complete entry point: it scaffolds `context/`, drops the `memory-write` + `memory-search` skills into `.claude/skills/` (committed — travels with `git clone`), and writes the 5 lifecycle hooks (PATH-resolved, cross-OS) into the project's `.claude/settings.json`. It also **registers the kit's MCP server** in `.mcp.json` and allow-lists its tools (`mcp__cmk__*`) in `.claude/settings.json`, so Claude can drive memory as tools with no per-call prompt, and writes a `.gitattributes` block pinning committed memory to LF (so a Windows clone can't mangle line endings — your memory stays readable cross-platform). No separate `/plugin` step needed. Use `cmk install --no-hooks` to skip the hooks + MCP wiring (scaffold-only).
 
 > Installing the package globally adds the `cmk` CLI **and** the installer. It's the `cmk install` *subcommand* that wires the hooks — not the bare `npm install`.
 
