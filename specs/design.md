@@ -785,6 +785,14 @@ Patterns rejected (write fails with category='poison_guard'):
     /ghp_[A-Za-z0-9]{36}/                       (GitHub personal access token)
     /sk-(ant-|proj-)?[A-Za-z0-9_\-]{40,}/       (OpenAI / Anthropic style keys)
     /xox[bps]-[A-Za-z0-9-]{10,}/                (Slack tokens)
+    // Task 134 — fixed-prefix provider tokens (zero-FP by construction):
+    /gh[ousr]_[A-Za-z0-9]{36}/                  (GitHub oauth/user/server/refresh)
+    /github_pat_[A-Za-z0-9]{22}_[A-Za-z0-9]{59}/ (GitHub fine-grained PAT)
+    /[sr]k_live_[A-Za-z0-9]{24,}/               (Stripe live / restricted-live)
+    /AIza[A-Za-z0-9_-]{35}\b/                    (Google API key)
+    /glpat-[A-Za-z0-9_-]{20,}/                  (GitLab PAT)
+    /npm_[A-Za-z0-9]{36}/                        (npm access token)
+    /hf_[A-Za-z0-9]{34,}/                        (Hugging Face token)
 
   Prompt-injection / role-override (case-insensitive):
     /(?i)ignore (all |any |previous |prior )?(instructions?|prompts?|rules?)/

@@ -142,6 +142,49 @@ describe('Task 24.5 — checkPoisonGuard() boundary', () => {
       expect(r.rejected).toBe(true);
       expect(POISON_GUARD_CATEGORIES.SECRET_CATEGORIES).toContain(r.pattern_id);
     });
+
+    // Task 134 (D-130, "as long as it adds and not diminish"): fixed-prefix
+    // provider tokens — zero-FP by construction (a literal provider prefix +
+    // length floor, no entropy detection, no threshold loosening). Each ships
+    // BOTH sides: the real shape rejected AND a benign near-miss accepted.
+    describe('Task 134 — fixed-prefix provider tokens', () => {
+      const REJECTED = [
+        ['GitHub OAuth token (gho_)', 'gho_' + 'A'.repeat(36)],
+        ['GitHub user-to-server (ghu_)', 'ghu_' + 'B'.repeat(36)],
+        ['GitHub server-to-server (ghs_)', 'ghs_' + 'C'.repeat(36)],
+        ['GitHub refresh token (ghr_)', 'ghr_' + 'D'.repeat(36)],
+        ['GitHub fine-grained PAT (github_pat_)', 'github_pat_' + '1'.repeat(22) + '_' + 'a'.repeat(59)],
+        ['Stripe live secret (sk_live_)', 'sk_live_' + 'a'.repeat(24)],
+        ['Stripe restricted live (rk_live_)', 'rk_live_' + 'b'.repeat(24)],
+        ['Google API key (AIza)', 'AIza' + 'A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r'],
+        ['GitLab PAT (glpat-)', 'glpat-' + 'x'.repeat(20)],
+        ['npm token (npm_)', 'npm_' + 'z'.repeat(36)],
+        ['Hugging Face token (hf_)', 'hf_' + 'q'.repeat(34)],
+      ];
+      it.each(REJECTED)('%s: rejected', (_label, token) => {
+        const r = checkPoisonGuard(`my key is ${token} ok`);
+        expect(r.rejected).toBe(true);
+        expect(POISON_GUARD_CATEGORIES.SECRET_CATEGORIES).toContain(r.pattern_id);
+      });
+
+      // Benign near-misses: prose that shares a prefix-ish fragment but is NOT
+      // a token (wrong length, wrong shape, a real English word) must PASS —
+      // a false positive is a silently-lost memory (the guard's documented cost).
+      const ACCEPTED = [
+        ['the word "ghost" is not a gho_ token', 'the ghost in the machine'],
+        ['"shaky" is not ghs_', 'the build felt shaky today'],
+        ['short gho_ fragment below the floor', 'config flag gho_x is tiny'],
+        ['"Stripe" the company name in prose', 'we evaluated Stripe for live payments'],
+        ['"AIza" too short to be a Google key', 'the AIza prefix alone is harmless'],
+        ['"npm install" prose, not npm_ token', 'run npm install to set up'],
+        ['"half" is not hf_', 'we cut the batch in half'],
+        ['glpat in prose without the dash+body', 'the glpat naming felt odd'],
+      ];
+      it.each(ACCEPTED)('%s: accepted (no false positive)', (_label, text) => {
+        const r = checkPoisonGuard(text);
+        expect(r.rejected).toBe(false);
+      });
+    });
   });
 
   describe('prompt-injection patterns rejected (design §6.7)', () => {
