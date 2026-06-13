@@ -447,6 +447,12 @@ export async function prepareSemanticSimilarity({
   extractorImpl,
   cacheLookupImpl,
 } = {}) {
+  // Honor the global semantic kill-switch (consistency with
+  // prepareSemanticBackend) — the near-dup guard degrades to {} just like
+  // search degrades to keyword. Skipped when a test injects an extractor.
+  if (!extractorImpl && process.env.CMK_DISABLE_SEMANTIC === '1') {
+    return { ok: false, reason: 'embedder-disabled' };
+  }
   const load = extractorImpl ?? (() => loadExtractor(modelId));
   const extractor = await load();
   if (!extractor) return { ok: false, reason: 'embedder-not-installed' };

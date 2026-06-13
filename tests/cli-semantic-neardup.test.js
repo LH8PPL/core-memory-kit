@@ -16,7 +16,7 @@
 // Degrades gracefully to literal dedup when the embedder is absent.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { prepareSemanticSimilarity } from '../packages/cli/src/semantic-backend.mjs';
@@ -100,6 +100,52 @@ describe('Task 143 — prepareSemanticSimilarity (Door 1)', () => {
     const sim = r.similarityFn(UV_A, 'use uv not pip today');
     expect(sim).toBeGreaterThan(0); // literal overlap still scores
     expect(sim).toBeLessThanOrEqual(1);
+  });
+
+  it('REAL cache-snapshot path: reads the index-db embedding_cache, closes the db, looks up by sha', async () => {
+    // Exercises the production lookup branch (openIndexDb → Map snapshot →
+    // sha lookup) instead of the cacheLookupImpl seam — the branch Sonar
+    // flagged as uncovered new code. Seed the cache the way syncSemanticIndex
+    // writes it: content_sha = sha256(`${model}\n${text}`), vector = Float32 blob.
+    const { openIndexDb } = await import('../packages/cli/src/index-db.mjs');
+    const { createHash } = await import('node:crypto');
+    const db = openIndexDb({ projectRoot });
+    try {
+      // Only the embedding_cache table is needed for the lookup path — a
+      // plain table, no sqlite-vec extension required (ensureSemanticSchema
+      // would demand the vec0 virtual tables + the loaded extension).
+      db.exec('CREATE TABLE IF NOT EXISTS embedding_cache (content_sha TEXT PRIMARY KEY, model TEXT NOT NULL, vector BLOB NOT NULL)');
+      const model = 'fake-model';
+      const put = db.prepare('INSERT OR REPLACE INTO embedding_cache(content_sha, model, vector) VALUES (?, ?, ?)');
+      for (const [text, vec] of Object.entries(VECTORS)) {
+        const sha = createHash('sha256').update(`${model}\n${text}`).digest('hex');
+        put.run(sha, model, Buffer.from(new Float32Array(vec).buffer));
+      }
+    } finally {
+      db.close();
+    }
+    const r = await prepareSemanticSimilarity({
+      projectRoot,
+      newText: UV_A,
+      modelId: 'fake-model',
+      extractorImpl: async () => fakeExtractor(VECTORS),
+      // no cacheLookupImpl → the REAL openIndexDb snapshot path runs
+    });
+    expect(r.ok).toBe(true);
+    expect(r.similarityFn(UV_A, UV_B)).toBeGreaterThan(0.95);
+    expect(r.similarityFn(UV_A, OTHER)).toBeLessThan(0.1);
+  });
+
+  it('embed throw → not-ok with embed-failed reason (the model-errored branch)', async () => {
+    const r = await prepareSemanticSimilarity({
+      projectRoot,
+      newText: UV_A,
+      extractorImpl: async () => async () => {
+        throw new Error('onnx runtime blew up');
+      },
+    });
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/^embed-failed: /);
   });
 });
 
@@ -224,6 +270,31 @@ describe('Task 143 — prepareNearDupGuard (the shared adapter gate, Door 1)', (
       },
     });
     expect(throwing).toEqual({});
+  });
+
+  it('REAL dispatch — keyword project (default resolver) returns {} without touching the embedder', async () => {
+    // No seams: exercises the production resolveDefaultSearchMode → a fresh
+    // install defaults to keyword, so the guard early-returns {} (the
+    // dynamic-import + real-resolver branch Sonar flagged as uncovered).
+    const extra = await prepareNearDupGuard({ projectRoot, text: UV_A });
+    expect(extra).toEqual({});
+  });
+
+  it('REAL dispatch — semantic-configured project with no embedder degrades to {} (CMK_DISABLE_SEMANTIC)', async () => {
+    const settingsPath = join(projectRoot, 'context', 'settings.json');
+    writeFileSync(settingsPath, JSON.stringify({ search: { default_mode: 'hybrid' } }), 'utf8');
+    const prev = process.env.CMK_DISABLE_SEMANTIC;
+    process.env.CMK_DISABLE_SEMANTIC = '1';
+    try {
+      // Real resolveDefaultSearchMode reads hybrid → real prepareSemanticSimilarity
+      // runs → the disabled embedder yields not-ok → {} (graceful degradation),
+      // exercising the production path end-to-end with no seams.
+      const extra = await prepareNearDupGuard({ projectRoot, text: UV_A });
+      expect(extra).toEqual({});
+    } finally {
+      if (prev === undefined) delete process.env.CMK_DISABLE_SEMANTIC;
+      else process.env.CMK_DISABLE_SEMANTIC = prev;
+    }
   });
 });
 
