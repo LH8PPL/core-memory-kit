@@ -17,7 +17,7 @@ import { mkdtempSync, rmSync, readFileSync, writeFileSync, mkdirSync, existsSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { configGet, configSet, configShowOrigin } from '../packages/cli/src/config-core.mjs';
-import { runConfigGet, runConfigSet, runConfigShowOrigin } from '../packages/cli/src/subcommands.mjs';
+import { runConfigGet, runConfigSet, runConfigShowOrigin, runConfigCli } from '../packages/cli/src/subcommands.mjs';
 
 let sandbox;
 let projectRoot;
@@ -73,6 +73,16 @@ describe('Task 129 — configGet (Door 1)', () => {
     const r = configGet('anything.here', { projectRoot, userDir });
     expect(r.found).toBe(false);
   });
+
+  it('a MALFORMED settings file is treated as absent, never throws (the catch branch)', () => {
+    writeFileSync(join(projectRoot, 'context', 'settings.json'), '{ not valid json', 'utf8');
+    seed(userDir, { search: { default_mode: 'keyword' } });
+    // Project tier is unparseable → skipped → falls through to user.
+    const r = configGet('search.default_mode', { projectRoot, userDir });
+    expect(r.found).toBe(true);
+    expect(r.value).toBe('keyword');
+    expect(r.tier).toBe('user');
+  });
 });
 
 describe('Task 129 — configSet (Doors 1+2)', () => {
@@ -114,6 +124,12 @@ describe('Task 129 — configSet (Doors 1+2)', () => {
     const r = configSet('   ', 'x', { projectRoot, userDir });
     expect(r.ok).toBe(false);
     expect(r.error).toMatch(/key/i);
+  });
+
+  it('rejects an unknown tier (the invalid-tier branch)', () => {
+    const r = configSet('a.b', 'c', { projectRoot, userDir, tier: 'galaxy' });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/tier must be one of/);
   });
 
   it('refuses prototype-pollution keys (__proto__/constructor/prototype) — skill-review blocking fix', () => {
@@ -186,5 +202,41 @@ describe('Task 129 — CLI wrappers (the dep-injected surface)', () => {
     const text = out.join('\n');
     expect(text).toMatch(/project.*"hybrid"/);
     expect(text).toMatch(/user.*"keyword".*shadowed by project/);
+  });
+
+  it('runConfigShowOrigin on an unset key → exit 2 + stderr (the not-found branch)', () => {
+    const errs = [];
+    runConfigShowOrigin('nope.here', { cwd: projectRoot, userDir, log: () => {}, logError: (m) => errs.push(String(m)) });
+    expect(errs.join('\n')).toMatch(/not set in any tier/);
+    expect(process.exitCode).toBe(2);
+  });
+
+  it('runConfigSet surfaces a core error (empty key) → exit 2', () => {
+    const errs = [];
+    runConfigSet('   ', 'c', { cwd: projectRoot, userDir, log: () => {}, logError: (m) => errs.push(String(m)) });
+    expect(errs.join('\n')).toMatch(/key is required/);
+    expect(process.exitCode).toBe(2);
+  });
+
+  it('an unknown --tier flag maps safely to the project tier (handler coercion)', () => {
+    // The handler maps any unrecognized tier flag → project (never an error
+    // from the handler; configSet's own tier guard is the core-level check).
+    const out = [];
+    runConfigSet('a.b', 'c', { cwd: projectRoot, userDir, tier: 'galaxy', log: (m) => out.push(String(m)), logError: () => {} });
+    expect(out.join('\n')).toMatch(/project tier/);
+  });
+
+  it('runConfigCli routes --show-origin to the resolver', () => {
+    seed(join(projectRoot, 'context'), { search: { default_mode: 'hybrid' } });
+    const out = [];
+    runConfigCli({ showOrigin: 'search.default_mode', cwd: projectRoot, userDir, log: (m) => out.push(String(m)), logError: () => {} });
+    expect(out.join('\n')).toMatch(/project.*"hybrid"/);
+  });
+
+  it('runConfigCli with no subcommand → exit 2 + guidance (the bare-parent branch)', () => {
+    const errs = [];
+    runConfigCli({ cwd: projectRoot, userDir, log: () => {}, logError: (m) => errs.push(String(m)) });
+    expect(errs.join('\n')).toMatch(/specify a subcommand/);
+    expect(process.exitCode).toBe(2);
   });
 });

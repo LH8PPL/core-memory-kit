@@ -1341,11 +1341,13 @@ export function runConfigShowOrigin(key, options = {}) {
 
 // The parent `cmk config` action: handle the --show-origin flag here; the
 // get/set children carry their own actions (wired in the registry below).
-function runConfigCli(options /* , command */) {
+// Exported for the branch test (the no-subcommand path).
+export function runConfigCli(options /* , command */) {
   if (options?.showOrigin) {
-    return runConfigShowOrigin(options.showOrigin, {});
+    return runConfigShowOrigin(options.showOrigin, options);
   }
-  console.error(
+  const logError = options?.logError ?? console.error;
+  logError(
     'cmk config: specify a subcommand — `get <key>`, `set <key> <value>`, or `--show-origin <key>`.',
   );
   process.exitCode = 2;
