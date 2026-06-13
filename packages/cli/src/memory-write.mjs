@@ -293,6 +293,11 @@ function doAdd(opts) {
     newTrust,
     scratchpadPath,
     sectionTitle: opts.section,
+    // Task 143 (D-130): the async adapters may inject a semantic similarity
+    // fn (prepareSemanticSimilarity) + its threshold; absent → the literal
+    // tokenJaccard default (graceful degradation).
+    similarityFn: opts.similarityFn,
+    similarityThreshold: opts.similarityThreshold,
   });
   // Defensive guard against a future detectConflicts schema-error
   // path. Today the upstream validator catches bad opts before this
@@ -304,7 +309,17 @@ function doAdd(opts) {
   if (conflict.action === 'error') {
     return conflict;
   }
-  if (conflict.conflict === true && conflict.action === 'queue') {
+  // Task 143 (D-130): near-dup proposals. The pre-143 contract queues only
+  // when new.trust < existing.trust — an EQUAL-trust paraphrase ("use uv not
+  // pip" twice) takes the 'supersede' action and APPENDS, which is exactly
+  // the memory-rot case. When the caller opts in (queueNearDups, set by the
+  // semantic-equipped adapters), ANY above-threshold match routes to the
+  // conflict queue as a reviewable proposal — never auto-dropped, never
+  // silently duplicated. Default behavior unchanged.
+  const routeToQueue =
+    conflict.conflict === true &&
+    (conflict.action === 'queue' || (opts.queueNearDups === true && conflict.action === 'supersede'));
+  if (routeToQueue) {
     // Compute the proposed ID using the same canonical-id derivation
     // appendScratchpadBullet would have used, then route to the queue.
     // (Task 25b fix: generateId is positional `(tier, text)`, not

@@ -89,3 +89,35 @@ export function rememberRich(text, options = {}, deps = {}) {
 export function richFactTitle(text, options = {}) {
   return (options.title && String(options.title).trim()) || String(text).trim().split('\n')[0].slice(0, 80);
 }
+
+/**
+ * Task 143 (D-130): the write-time near-dup guard for the EXPLICIT terse
+ * capture paths (cmk remember / mk_remember). Returns extra memoryWrite
+ * options — `{similarityFn, queueNearDups: true}` when this project is
+ * semantic-configured AND the local embedder is available; `{}` otherwise.
+ *
+ * One shared gate for both adapters (the shared-modules rule). Best-effort
+ * by contract: ANY failure (no embedder, model error, db hiccup) returns {}
+ * so capture proceeds on the literal pipeline — losing a capture to a
+ * similarity upgrade would invert the kit's priorities. The auto-extract
+ * hook path deliberately does NOT call this (its detached child is
+ * budget-constrained; the landed corpus gets the doctor's batch near-dup
+ * view, Task 144, and re-curation, Task 95).
+ *
+ * @param {object} opts - { projectRoot, text, prepareImpl?, resolveModeImpl? } (seams for tests).
+ * @returns {Promise<object>} extra memoryWrite options (possibly empty).
+ */
+export async function prepareNearDupGuard({ projectRoot, text, prepareImpl, resolveModeImpl } = {}) {
+  try {
+    const { resolveDefaultSearchMode, prepareSemanticSimilarity, SEMANTIC_NEARDUP_THRESHOLD } = await import('./semantic-backend.mjs');
+    const mode = (resolveModeImpl ?? resolveDefaultSearchMode)({ projectRoot });
+    if (mode === 'keyword') return {};
+    const sem = await (prepareImpl ?? prepareSemanticSimilarity)({ projectRoot, newText: text });
+    if (!sem.ok) return {};
+    // The MEASURED bge-base threshold (see SEMANTIC_NEARDUP_THRESHOLD) — the
+    // generic 0.85 default would miss the canonical "use uv not pip" pair.
+    return { similarityFn: sem.similarityFn, similarityThreshold: SEMANTIC_NEARDUP_THRESHOLD, queueNearDups: true };
+  } catch {
+    return {};
+  }
+}
