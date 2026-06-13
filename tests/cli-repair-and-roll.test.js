@@ -204,6 +204,31 @@ describe('Task 39 — runRepair', () => {
       expect(index.error).toMatch(/reindex failed: db locked/);
       expect(r.errors).toBeGreaterThanOrEqual(1);
     });
+
+    // Cut-gate v0.3.1 finding: the REAL reindexFull needs a `db` argument
+    // (it calls db.exec), but repairIndex called it without one — so
+    // `cmk repair --index` / `--all` threw "Cannot read properties of
+    // undefined (reading 'exec')" since Task 49. Every prior test injected a
+    // reindexer mock, so the real call-shape contract was never exercised
+    // (the seam-injection blind spot). This test uses the PRODUCTION path
+    // (no injected reindexer) against a real installed project.
+    it('repair --index runs the REAL reindexFull (opens its own db) — no injected reindexer', async () => {
+      const { install } = await import('../packages/cli/src/install.mjs');
+      await install({ projectRoot, userTier: userDir });
+      // Seed a fact so reindex has something to index.
+      const { writeFact } = await import('../packages/cli/src/write-fact.mjs');
+      writeFact({
+        tier: 'P', type: 'project', slug: 'repair-real-reindex',
+        title: 'real reindex seed', body: 'the staging cluster deploys weekly',
+        writeSource: 'user-explicit', trust: 'high',
+        sourceFile: 'test', sourceLine: 1, sourceSha1: 'abc', projectRoot,
+      });
+      const r = await runRepair({ projectRoot, userDir, scope: 'index' }); // NO reindexer
+      const index = r.repairs.find((x) => x.kind === 'index');
+      expect(index.changed).toBe(true);
+      expect(index.error).toBeUndefined();
+      expect(r.errors).toBe(0);
+    });
   });
 
   describe('scope: all (default) runs all three', () => {

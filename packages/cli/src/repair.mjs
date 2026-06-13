@@ -159,12 +159,25 @@ function repairLocks({ projectRoot, userDir, staleLockMs, now, ts }) {
  * @param {Function} [opts.reindexer]  test-injected reindex function; defaults to import('./index-rebuild.mjs').reindexFull
  */
 async function repairIndex({ projectRoot, userDir, reindexer }) {
+  // Production reindexFull requires a `db` (it calls db.exec) — repairIndex
+  // must open + own + close it, exactly like runReindex does. The earlier
+  // code called reindexFull({projectRoot,userDir}) with NO db, so
+  // `cmk repair --index`/`--all` threw "undefined (reading 'exec')" since
+  // Task 49 (cut-gate v0.3.1 finding — every test mocked the reindexer, so
+  // the real call-shape was never exercised). An injected reindexer (tests)
+  // takes whatever args it wants; we only open a db for the real one.
   let reindexFn = reindexer;
+  let db = null;
   if (!reindexFn) {
-    const mod = await import('./index-rebuild.mjs');
-    reindexFn = mod.reindexFull;
+    const [{ reindexFull }, { openIndexDb }] = await Promise.all([
+      import('./index-rebuild.mjs'),
+      import('./index-db.mjs'),
+    ]);
+    reindexFn = reindexFull;
+    db = openIndexDb({ projectRoot });
   }
   if (typeof reindexFn !== 'function') {
+    if (db) db.close();
     return {
       kind: 'index',
       changed: false,
@@ -172,7 +185,9 @@ async function repairIndex({ projectRoot, userDir, reindexer }) {
     };
   }
   try {
-    const r = await reindexFn({ projectRoot, userDir });
+    const r = db
+      ? await reindexFn({ projectRoot, userDir, db })
+      : await reindexFn({ projectRoot, userDir });
     return {
       kind: 'index',
       changed: true,
@@ -184,6 +199,8 @@ async function repairIndex({ projectRoot, userDir, reindexer }) {
       changed: false,
       error: `reindex failed: ${err?.message ?? err}`,
     };
+  } finally {
+    if (db) db.close();
   }
 }
 
