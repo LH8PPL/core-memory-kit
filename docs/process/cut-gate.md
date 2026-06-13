@@ -597,9 +597,11 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 **Health & repair**
 
 - [ ] **F-11**
-      - `cmk doctor` → HC-1..HC-7 accurate
+      - `cmk doctor` → HC-1..HC-8 accurate (HC-8 = native bindings / npm-12 readiness, new v0.3.1) + the trailing **Memory health (informational)** line renders
       - `cmk repair --hooks` re-wires if settings drift
-      - `cmk config get/set` — _v0.1.x stub; expect "not yet implemented" (doctor + repair are the live health surface). Not a failure._
+      - **`cmk repair --index` → "(index): fixed → reindex completed"** (NOT an error). _v0.3.1: this ran the REAL reindexFull which needs a db; the bug where repair passed no db (since Task 49, masked by every test mocking the reindexer) was found by THIS cut-gate probe — keep it on the real path, no injected reindexer._
+      - `cmk repair --all` → all three (hooks/locks/index) report cleanly
+      - **`cmk config set <key> <value>` / `get <key>` / `--show-origin <key>`** — REAL as of v0.3.1 (Task 129): `set search.default_mode hybrid` → `get` returns it → `--show-origin` shows the tier. `--local` writes the gitignored tier. _(Was a stub pre-v0.3.1; the "not yet implemented" expectation is GONE.)_
 
 **Native coexistence & import**
 

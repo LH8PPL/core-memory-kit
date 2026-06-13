@@ -8,10 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-BJQaGQ6H) Iterative, thorough research approach—adds items even near session end rather than closing prematurely
-  <!-- source: auto-extract-session, source_line: 1, sha1: c630212f969756a9032d0555a635cc9e0e9aae57, write: auto-extract, trust: high, at: 2026-06-12T12:16:44Z -->
-- (P-9GQSPN2C) Proactively seeks good ideas and practices from peer/sibling projects to steal or adapt ("anything else we can steal or make our own?")
-  <!-- source: auto-extract-session, source_line: 1, sha1: 8e783ae4a448bab4e7c0e4924c285f06ff4902ad, write: auto-extract, trust: high, at: 2026-06-12T12:30:31Z -->
 - (P-F5M3VBTG) User gates session close with verification question "is everything in lane? slotted to a version?"
   <!-- source: auto-extract-session, source_line: 1, sha1: a2db1d208b6b8367838434c145a397b5ac3a8a08, write: auto-extract, trust: high, at: 2026-06-12T12:32:09Z -->
 - (P-ZRQRa277) kit needs decisions.md feature
@@ -22,6 +18,10 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: cbe837116c5cd2e49872d96cd5690aaa67273382, write: auto-extract, trust: high, at: 2026-06-13T12:48:37Z -->
 - (P-V77JZTJR) Live validation must happen before committing major dependency migrations; don't bundle v0.3.1's test pass with v0.3.2's breaking change
   <!-- source: auto-extract-session, source_line: 1, sha1: d148f9015ae0e2ecf3def936cae9b9557d1c9df0, write: auto-extract, trust: high, at: 2026-06-13T12:48:37Z -->
+- (P-FPYJVM79) Chose "no measurable regression" for storage backend — search speed is the kit's core purpose and non-negotiable
+  <!-- source: auto-extract-session, source_line: 1, sha1: 3c353a7f8f6ce22f71c917663f2d58ecc52ff2da, write: auto-extract, trust: high, at: 2026-06-13T12:59:33Z -->
+- (P-ZCRT7N2H) Accepts one-time install UX friction (binding prompt); will not sacrifice permanent per-query performance for convenience
+  <!-- source: auto-extract-session, source_line: 1, sha1: 8e76f60c88c99f4514377369731a302938a250c5, write: auto-extract, trust: high, at: 2026-06-13T12:59:33Z -->
 
 ## Environment Notes
 
