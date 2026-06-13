@@ -149,6 +149,7 @@ Most-used commands below; **full reference with examples: [`docs/CLI.md`](docs/C
 | --- | --- |
 | `cmk install [--with-semantic]` | Scaffold `context/` + the `memory-write`/`memory-search` skills + `.gitignore` lines + CLAUDE.md block + wire hooks + register the MCP server & allow-list `mcp__cmk__*` (complete entry point). `--with-semantic` adds the local embedder + flips search to hybrid-by-default; `--no-hooks` = scaffold-only |
 | `cmk doctor` | Run HC-1..HC-8 health checks, surface repair commands |
+| `cmk config get <key>` / `set <key> <value> [--local]` / `--show-origin <key>` | Read/write kit settings (`context/settings.json`) without hand-editing JSON — dotted keys (e.g. `search.default_mode`), resolved across tiers (local > project > user); `--show-origin` shows which tier a value came from |
 | `cmk repair --hooks` / `--locks` / `--index` / `--all` | Idempotent self-repair |
 | `cmk roll --scope now\|today\|recent` | Manually trigger one of the compression pipelines |
 | `cmk search "<query>" [--mode keyword\|semantic\|hybrid] [--scope facts\|transcripts]` | Search memory — by meaning with the embedder installed (hybrid is the project default after `--with-semantic`); `--scope transcripts` searches the raw session record (last resort) |

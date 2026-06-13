@@ -33,6 +33,7 @@ import { readHookStdin } from './read-hook-stdin.mjs';
 import { runLazyCompress } from './lazy-compress.mjs';
 import { runDoctor } from './doctor.mjs';
 import { importAnthropicMemory } from './import-anthropic-memory.mjs';
+import { configGet, configSet, configShowOrigin } from './config-core.mjs';
 import { importClaudeMd } from './import-claude-md.mjs';
 import { extractTranscript, discoverSessions } from './transcripts.mjs';
 import { runRepair } from './repair.mjs';
@@ -1282,6 +1283,74 @@ async function runDoctorCli(/* options */) {
   }
 }
 
+// Task 129 (D-121): `cmk config` — real, replacing the v0.1.0 stub. Dotted-key
+// get/set/--show-origin over the per-tier settings.json files. Dep-injectable
+// (cwd/userDir/log/logError) on the runImportClaudeMd pattern for testing the
+// CLI surface. The pure resolution/mutation lives in config-core.mjs.
+const TIER_FLAG_TO_NAME = { local: 'local', project: 'project', user: 'user' };
+
+export function runConfigGet(key, options = {}) {
+  const projectRoot = options?.cwd ?? resolvePath(process.cwd());
+  const userDir = options?.userDir ?? join(homedir(), '.claude-memory-kit');
+  const log = options?.log ?? console.log;
+  const logError = options?.logError ?? console.error;
+  const r = configGet(key, { projectRoot, userDir });
+  if (!r.found) {
+    logError(`cmk config get: '${key}' is not set in any tier`);
+    process.exitCode = 2;
+    return r;
+  }
+  log(typeof r.value === 'string' ? r.value : JSON.stringify(r.value));
+  return r;
+}
+
+export function runConfigSet(key, value, options = {}) {
+  const projectRoot = options?.cwd ?? resolvePath(process.cwd());
+  const userDir = options?.userDir ?? join(homedir(), '.claude-memory-kit');
+  const log = options?.log ?? console.log;
+  const logError = options?.logError ?? console.error;
+  const tier = TIER_FLAG_TO_NAME[options?.tier ?? 'project'] ?? 'project';
+  const r = configSet(key, value, { projectRoot, userDir, tier });
+  if (!r.ok) {
+    logError(`cmk config set: ${r.error}`);
+    process.exitCode = 2;
+    return r;
+  }
+  log(`cmk config set: ${key} = ${value} (${r.tier} tier)`);
+  return r;
+}
+
+export function runConfigShowOrigin(key, options = {}) {
+  const projectRoot = options?.cwd ?? resolvePath(process.cwd());
+  const userDir = options?.userDir ?? join(homedir(), '.claude-memory-kit');
+  const log = options?.log ?? console.log;
+  const logError = options?.logError ?? console.error;
+  const r = configShowOrigin(key, { projectRoot, userDir });
+  if (!r.found) {
+    logError(`cmk config --show-origin: '${key}' is not set in any tier`);
+    process.exitCode = 2;
+    return r;
+  }
+  for (const e of r.entries) {
+    const val = typeof e.value === 'string' ? `"${e.value}"` : JSON.stringify(e.value);
+    const note = e.winner ? '' : `   (shadowed by ${e.shadowedBy})`;
+    log(`${e.tier.padEnd(8)} ${e.path}   ${val}${note}`);
+  }
+  return r;
+}
+
+// The parent `cmk config` action: handle the --show-origin flag here; the
+// get/set children carry their own actions (wired in the registry below).
+function runConfigCli(options /* , command */) {
+  if (options?.showOrigin) {
+    return runConfigShowOrigin(options.showOrigin, {});
+  }
+  console.error(
+    'cmk config: specify a subcommand — `get <key>`, `set <key> <value>`, or `--show-origin <key>`.',
+  );
+  process.exitCode = 2;
+}
+
 async function runRepairCli(options /* , command */) {
   const projectRoot = resolvePath(process.cwd());
   const userDir = join(homedir(), '.claude-memory-kit');
@@ -1572,7 +1641,10 @@ async function runMcpDispatch(childName) {
     }
     return;
   }
-  console.error(`cmk mcp: ${NOTICE_PREFIX} (unknown sub-verb '${childName}')`);
+  // A bare `cmk mcp` (no sub-verb) reaches here post-Task-129 (the parent
+  // action is now wired) — commander passes an options object, not a string.
+  const verb = typeof childName === 'string' ? childName : '(none)';
+  console.error(`cmk mcp: ${NOTICE_PREFIX} (run \`cmk mcp serve\`; got sub-verb '${verb}')`);
   process.exitCode = 2;
 }
 
@@ -1583,7 +1655,10 @@ async function runQueueDispatch(childName) {
   if (childName === 'review') {
     return runQueueReview();
   }
-  console.log(`cmk queue: ${NOTICE_PREFIX} (unknown sub-verb '${childName}')`);
+  // A bare `cmk queue` reaches here post-Task-129 (parent action wired);
+  // commander passes an options object, not a string sub-verb.
+  const verb = typeof childName === 'string' ? childName : '(none)';
+  console.log(`cmk queue: ${NOTICE_PREFIX} (run \`cmk queue review\` or \`cmk queue conflicts\`; got '${verb}')`);
   process.exitCode = 2;
 }
 
@@ -1944,27 +2019,32 @@ export const subcommands = [
   },
   {
     name: 'config',
-    description: 'settings access (per design §7.2)',
-    milestone: 'v0.1.x',
+    description: 'read/write kit settings (context/settings.json) without hand-editing JSON',
+    milestone: 129,
     optionSpec: [
-      { flags: '--show-origin <key>', description: 'print where each value comes from (project / user / local tier)' },
+      { flags: '--show-origin <key>', description: 'print every tier that defines a setting (winner + shadowed) — the "where did this come from?" debug surface' },
     ],
     children: [
       {
         name: 'get',
-        description: 'print the resolved value of a setting',
-        argSpec: [{ flags: '<key>', description: 'setting key (dotted path)' }],
+        description: 'print the resolved value of a setting (dotted key; local > project > user)',
+        argSpec: [{ flags: '<key>', description: 'setting key (dotted path, e.g. search.default_mode)' }],
+        action: (key, options) => runConfigGet(key, options),
       },
       {
         name: 'set',
-        description: 'set a setting in the current tier',
+        description: 'set a setting in the project tier (or --local)',
         argSpec: [
           { flags: '<key>', description: 'setting key (dotted path)' },
-          { flags: '<value>', description: 'new value' },
+          { flags: '<value>', description: 'new value (true/false/number coerced; else string)' },
         ],
+        optionSpec: [
+          { flags: '--local', description: 'write to the local tier (context.local/, gitignored) instead of project' },
+        ],
+        action: (key, value, options) => runConfigSet(key, value, { tier: options?.local ? 'local' : 'project' }),
       },
     ],
-    action: stub('config', 'v0.1.x'),
+    action: runConfigCli,
   },
   {
     name: 'import-anthropic-memory',
