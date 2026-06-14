@@ -22,6 +22,7 @@
 
 import { resolveReviewQueue } from './review-queue.mjs';
 import { resolveConflictQueue } from './conflict-queue.mjs';
+import { resolvePersonaReviewQueue } from './auto-persona.mjs';
 import { mergeFacts } from './merge-facts.mjs';
 
 // Stateless optimistic resolvers (no per-entry judgement — that's the point).
@@ -55,5 +56,20 @@ export async function autoDrainQueues({ tier = 'P', projectRoot, userDir, scratc
     mergeFn: mergeFacts, // never invoked under KEEP_OLD; wired for correctness
   });
 
-  return { review, conflict };
+  // Persona-review queue (D-154): the medium-confidence cross-project persona
+  // candidates that were ROUTED here with the promise of an auto-drain that was
+  // never implemented — so they stranded (the v0.3.1 cold-open found the user's
+  // architecture philosophy stuck here). Drain it optimistically like the review
+  // queue (sync; userDir-scoped so it runs regardless of `tier`). Best-effort: a
+  // persona-drain hiccup must not fail the project-tier review/conflict drain.
+  let persona = { promoted: 0, drained: 0, queuePath: null };
+  if (userDir) {
+    try {
+      persona = resolvePersonaReviewQueue({ userDir });
+    } catch {
+      // best-effort; the queue file survives for the next pass
+    }
+  }
+
+  return { review, conflict, persona };
 }

@@ -80,7 +80,7 @@ Source: <https://openai.com/index/memory-and-new-controls-for-chatgpt/> · deep-
 - **Gated?** **No pre-save gate.** Auto-saves and *notifies* (*"it will notify you that a memory has been created"*). Human control is **post-hoc edit/delete**, never a pre-promotion approval queue. Frequency is again first-class.
 
 ### Local article corroboration
-- **"Beyond the Log: Time-Aware Blueprint for AI Agent Memory"** (`C:\Projects\liorwiki\raw\`) — durability is a **schema shape**, not a gate. Every fact normalizes to one of seven temporal shapes (State, Event, Plan, Relationship, **Preference**, Absence, **Timeless**); "Preference"/"Timeless" are the durable-trait shapes; ingest matches a `state_key`, closes/opens validity windows automatically. No approval.
+- **"Beyond the Log: Time-Aware Blueprint for AI Agent Memory"** (the maintainer's personal article archive) — durability is a **schema shape**, not a gate. Every fact normalizes to one of seven temporal shapes (State, Event, Plan, Relationship, **Preference**, Absence, **Timeless**); "Preference"/"Timeless" are the durable-trait shapes; ingest matches a `state_key`, closes/opens validity windows automatically. No approval.
 - **"Engineering Memory for AI Agents: A Practical Beginner's Guide"** — save *"user preferences, important decisions, **repeated behavior patterns**, long-term goals, recurring task details"*; skip one-time comments. **Repetition is the signal**, applied by the model, not queued.
 
 ---
