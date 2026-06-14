@@ -119,7 +119,7 @@ Remove-Item -Recurse -Force $env:USERPROFILE\.claude-memory-kit
 Validates scaffold integrity + the Task-69 skill surface.
 
 ```powershell
-mkdir C:\Temp\cut-gate9; cd C:\Temp\cut-gate9
+mkdir C:\Temp\cut-gate10; cd C:\Temp\cut-gate10
 git init
 cmk install --with-semantic          # v0.3.0: the one-flag semantic enablement (G7) — ~260 MB once + the model pre-warm; takes a minute
 cmk doctor
@@ -327,9 +327,9 @@ which carries raw, un-screened text, so it must never be committed.
 
 ```powershell
 # The security half (deterministic): the diagnostic log is gitignored.
-git -C C:\Temp\cut-gate9 check-ignore context\sessions\probe.extract.log
+git -C C:\Temp\cut-gate10 check-ignore context\sessions\probe.extract.log
 # The trace half (observational): if any build turn was graded LOW, you'll see it.
-findstr /S /C:"low_trust_discarded" C:\Temp\cut-gate9\context\sessions\*.extract.log
+findstr /S /C:"low_trust_discarded" C:\Temp\cut-gate10\context\sessions\*.extract.log
 ```
 
 - [ ] **★ B6 — PASS (must):**
@@ -403,7 +403,7 @@ findstr /S /C:"\"tier\":\"U\"" %USERPROFILE%\.claude-memory-kit\.locks\audit.log
 - [ ] **C3 — Poison_Guard.**
       `cmk remember "key sk-ant-api03-AAArealishlookinglongtokenvalue00"`
       → **rejected** (exit 2), nothing written anywhere.
-      _(The token must be ≥40 chars after `sk-` — the guard's minimum, tuned to real key lengths (~95) without false-positives on short `sk-` words. The pre-2026-06-11 example here ended in a literal `...` and was 27 chars — UNDER the minimum, so it sailed through and landed a fake secret in project memory (the cut-gate9 find): probe strings must actually trip the pattern they test, same class as the D-84 real-input rule.)_
+      _(The token must be ≥40 chars after `sk-` — the guard's minimum, tuned to real key lengths (~95) without false-positives on short `sk-` words. The pre-2026-06-11 example here ended in a literal `...` and was 27 chars — UNDER the minimum, so it sailed through and landed a fake secret in project memory (the cut-gate10 find): probe strings must actually trip the pattern they test, same class as the D-84 real-input rule.)_
 
 - [ ] **C4 — sanitization.**
       `cmk remember "venv at C:\Users\<you>\proj\.venv"`
@@ -559,7 +559,7 @@ The headline gate. Each rung exercises a different layer of the new recall stack
 ## 6. Session 3 — the cold-open (the wedge, wow #1)  ⬅️ a BRAND-NEW project
 
 ```powershell
-mkdir C:\Temp\cut-gate-coldopen9; cd C:\Temp\cut-gate-coldopen9
+mkdir C:\Temp\cut-gate-coldopen10; cd C:\Temp\cut-gate-coldopen10
 git init; cmk install; code .
 ```
 Ask: *"Start a new Python backend for me - set up the structure."*
@@ -572,7 +572,7 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 
 ---
 
-## 7. Full feature sweep — every `cmk` subcommand  (~20 min, in `C:\Temp\cut-gate9`)
+## 7. Full feature sweep — every `cmk` subcommand  (~20 min, in `C:\Temp\cut-gate10`)
 
 **Recall & index**
 
@@ -693,7 +693,7 @@ Ask: *"Start a new Python backend for me - set up the structure."*
       **PASS:** non-empty, items recognizable from this session.
 
 - [ ] **F-19 — `uninstall` is clean + `init-user-tier` re-seeds (lifecycle, in the throwaway dir ONLY).**
-      In `C:\Temp\cut-gate9` (NEVER a real project):
+      In `C:\Temp\cut-gate10` (NEVER a real project):
       ```powershell
       cmk uninstall                # removes hooks + the CLAUDE.md managed block; context/ stays (your data)
       git status                   # nothing unexpected staged; CLAUDE.md outside the markers byte-preserved
@@ -727,8 +727,8 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 
 ## 9. Portability ("another computer")
 
-In `C:\Temp\cut-gate9`: `git add -A; git commit -m "wip"`.
-Clone elsewhere (`git clone C:\Temp\cut-gate9 C:\Temp\cut-gate-clone`), open *that* in Claude Code.
+In `C:\Temp\cut-gate10`: `git add -A; git commit -m "wip"`.
+Clone elsewhere (`git clone C:\Temp\cut-gate10 C:\Temp\cut-gate-clone`), open *that* in Claude Code.
 
 - [ ] **★ H1**
       the clone already has the project memory (`context/` is committed — tenet T2).
