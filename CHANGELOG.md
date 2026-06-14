@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+## [0.3.1] — 2026-06-14
+
 ### Added
 
 - **install: `cmk install` now scaffolds a `.gitattributes` that pins committed memory to LF line endings.** Default Windows git (`autocrlf=true`) rewrites line endings at clone, which could make committed facts unreadable on a Windows checkout. The reader already self-heals (v0.3.0); this prevents the mangling at the source so your memory travels intact across platforms. Idempotent managed block (refreshed in place; everything else in your `.gitattributes` is preserved).
