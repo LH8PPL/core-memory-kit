@@ -126,10 +126,9 @@ describe('Task 75.1 — the memory-search recall skill (canonical source)', () =
   const text = readFileSync(RECALL_SKILL, 'utf8');
   const fm = frontmatter(text);
 
-  it('frontmatter: name, auto-invoke description with trigger phrases + skip conditions', () => {
+  it('frontmatter: name, auto-invoke description leads with a GENERAL intent + skip conditions', () => {
     expect(fm.name).toBe('memory-search');
     const d = fm.description ?? '';
-    expect(d).toMatch(/what did we decide/i); // the canonical recall trigger
     expect(d).toMatch(/skip/i); // skip conditions embedded (memsearch pattern)
     // Agent-Skills hard limits (over = silent non-load) + best-practices.
     expect(d.length, 'description MUST be <= 1024 chars (silent non-load over it)').toBeLessThanOrEqual(1024);
@@ -137,21 +136,28 @@ describe('Task 75.1 — the memory-search recall skill (canonical source)', () =
     expect(d, 'no XML angle brackets').not.toMatch(/<[a-z/]/i);
   });
 
-  // Cut-gate v0.3.1 finding: structure/architecture/location questions ("how is
-  // this built", "where does X live") were re-deriving from code instead of
-  // recalling — the OLD skip-clause ("skip when about current code state") told
-  // the model to Read/Grep exactly those, even though the structure is a recorded
-  // decision in the deep archive. The fix: name structure questions as triggers
-  // AND narrow the skip-clause to uncommitted/live code only.
-  it('description triggers on STRUCTURE / ARCHITECTURE / "where does X live" questions (the recall-hole fix)', () => {
+  // Cut-gate v0.3.1 (recall-trigger fix, evidence-based — D-153): the recall
+  // ladder crawled code on structure/roundabout questions. Research across 9 real
+  // memory systems (Anthropic skill-creator ground-truth + memsearch, our
+  // inspiration) showed: lead with a GENERAL intent principle (semantic matching
+  // generalizes from intent, not a phrase-list), make examples illustrative incl.
+  // an OBLIQUE one, and reference the per-prompt hint (memsearch's key move —
+  // links our existing UserPromptSubmit nudge to the skill). These pins guard the
+  // generality, not specific phrasings.
+  it('description leads with a GENERAL intent principle + illustrative (incl. oblique) examples + the hint reference', () => {
     const d = (fm.description ?? '').toLowerCase();
-    // structure/architecture/layout phrasings are recall triggers
-    expect(d).toMatch(/structure|architecture|layout/);
-    expect(d).toMatch(/where does .* live|where .* belong/);
-    // the skip-clause must NOT bounce all "current code state" to Read/Grep —
-    // it must be narrowed so recorded-decision questions search memory first.
+    // the generalizer — fires on the intent class, however phrased (not a checklist)
+    expect(d).toMatch(/however the question is phrased|regardless of (how|phrasing)/);
+    expect(d).toMatch(/illustrative|not a checklist|not exhaustive/);
+    // structure/architecture/where-things-live is in-scope (the recall-hole class)
+    expect(d).toMatch(/architecture|where things live|how\/where\/why/);
+    // an oblique/roundabout example teaches breadth
+    expect(d).toMatch(/spread out|how come|remind me/);
+    // memsearch's key move: the skill fires on the per-prompt "Memory available" hint
+    expect(d).toMatch(/memory available.*hint|hint.*appears/);
+    // skip-clause narrowed to genuinely-live code (not all "current code state")
     expect(d).not.toMatch(/skip when the question is purely about current code state/);
-    expect(d).toMatch(/uncommitted|in-progress|live code/);
+    expect(d).toMatch(/uncommitted|just-edited|live code/);
   });
 
   it('runs forked (context: fork) so raw recall never pollutes the main context', () => {
