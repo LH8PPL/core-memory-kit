@@ -69,7 +69,17 @@ describe('Task 69.0 — the memory-write skill is SAFE (canonical source)', () =
 
   it('frontmatter has name + description (the two required Agent-Skills fields)', () => {
     expect(fm.name, 'missing name:').toBe('memory-write');
-    expect((fm.description ?? '').length, 'description must be non-empty').toBeGreaterThan(0);
+    const d = fm.description ?? '';
+    expect(d.length, 'description must be non-empty').toBeGreaterThan(0);
+    // Anthropic Agent-Skills hard limit: description MAX 1024 chars — over it,
+    // the skill SILENTLY fails to load (no error). The cut-gate v0.3.1 recall fix
+    // nearly shipped a 1340-char description; this guard is why it can't recur.
+    expect(d.length, 'description MUST be <= 1024 chars (Agent-Skills hard limit; over = silent non-load)').toBeLessThanOrEqual(1024);
+    // Third-person only (the description is injected into the system prompt;
+    // first/second person harms skill discovery — Anthropic best-practices).
+    expect(d, 'description must be third-person (no "you"/"your"/"I can")').not.toMatch(/\b(you|your|I can|I will)\b/i);
+    // No XML angle brackets (platform security rule — rejected at load).
+    expect(d, 'description must not contain XML angle brackets').not.toMatch(/<[a-z/]/i);
   });
 
   it('allowed-tools grants Bash(cmk ...) but NEVER Edit or Write (the F1 leak class)', () => {
@@ -120,7 +130,28 @@ describe('Task 75.1 — the memory-search recall skill (canonical source)', () =
     expect(fm.name).toBe('memory-search');
     const d = fm.description ?? '';
     expect(d).toMatch(/what did we decide/i); // the canonical recall trigger
-    expect(d).toMatch(/skip when/i); // skip conditions embedded (memsearch pattern)
+    expect(d).toMatch(/skip/i); // skip conditions embedded (memsearch pattern)
+    // Agent-Skills hard limits (over = silent non-load) + best-practices.
+    expect(d.length, 'description MUST be <= 1024 chars (silent non-load over it)').toBeLessThanOrEqual(1024);
+    expect(d, 'third-person only (system-prompt injection)').not.toMatch(/\b(you|your|I can|I will)\b/i);
+    expect(d, 'no XML angle brackets').not.toMatch(/<[a-z/]/i);
+  });
+
+  // Cut-gate v0.3.1 finding: structure/architecture/location questions ("how is
+  // this built", "where does X live") were re-deriving from code instead of
+  // recalling — the OLD skip-clause ("skip when about current code state") told
+  // the model to Read/Grep exactly those, even though the structure is a recorded
+  // decision in the deep archive. The fix: name structure questions as triggers
+  // AND narrow the skip-clause to uncommitted/live code only.
+  it('description triggers on STRUCTURE / ARCHITECTURE / "where does X live" questions (the recall-hole fix)', () => {
+    const d = (fm.description ?? '').toLowerCase();
+    // structure/architecture/layout phrasings are recall triggers
+    expect(d).toMatch(/structure|architecture|layout/);
+    expect(d).toMatch(/where does .* live|where .* belong/);
+    // the skip-clause must NOT bounce all "current code state" to Read/Grep —
+    // it must be narrowed so recorded-decision questions search memory first.
+    expect(d).not.toMatch(/skip when the question is purely about current code state/);
+    expect(d).toMatch(/uncommitted|in-progress|live code/);
   });
 
   it('runs forked (context: fork) so raw recall never pollutes the main context', () => {

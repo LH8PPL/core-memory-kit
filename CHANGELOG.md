@@ -38,6 +38,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 - **a failed index rebuild after a capture is no longer silent.** `cmk` keeps `context/memory/INDEX.md` current on every write (best-effort). If that rebuild ever failed (e.g. an auto-extract hook killed mid-rebuild), the committed index could quietly fall behind the actual facts with no trace. The failure now records an audit entry, and `cmk doctor` (HC-4) already flags the drift with `cmk reindex` as the one-command fix — the fact itself is always safely on disk.
 
+- **recall: "how is this built / where does X live" questions now reach memory instead of re-reading the code.** The `memory-search` recall skill's auto-trigger was tuned for *"what did we decide about X"* phrasings, and its skip-clause ("skip when about current code state → use Read/Grep") wrongly bounced **structure / architecture / "where does X live"** questions to a code crawl — even though the project's structure is a recorded decision in memory. The skill description, the per-prompt hint, and the CLAUDE.md recall preamble now all name structure/architecture/layout questions as recall triggers, and the skip-clause is narrowed to genuinely-live code (an uncommitted value, a file edited this turn). So a returning session recalls the architecture instead of reconstructing it from the files.
+
 ### Changed
 
 - **internal: content fingerprints migrated from SHA-1 to SHA-256.** The non-cryptographic content hashes used for dedup, change-detection, and provenance (`source_sha1`, the reindex diff key) now use SHA-256, consolidated into one shared helper. No user action needed; existing memory re-indexes itself once on first use after upgrade. (On-disk field names are unchanged for back-compat.)

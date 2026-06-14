@@ -63,7 +63,8 @@ export function buildMemoryHint({ projectRoot, prompt } = {}) {
   }
   return (
     '[claude-memory-kit] Recorded memory available beyond the session snapshot — ' +
-    'use the memory-search skill when the answer may already be recorded (prior decisions, history, conventions).'
+    'use the memory-search skill when the answer may already be recorded (prior decisions, history, conventions, ' +
+    'project structure/architecture, where things live). Recall it; do not re-read the code to reconstruct it.'
   );
 }
 
