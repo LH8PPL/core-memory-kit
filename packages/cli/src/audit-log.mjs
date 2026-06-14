@@ -33,6 +33,7 @@ export const REASON_CODES = Object.freeze({
   FACT_CREATED: 'fact-created', // writeFact: a new fact file was written (Task 123.A — the default create audit; callers emitting a richer code opt out via audit:false)
   DUPLICATE: 'duplicate', // writeFact: same path + same id
   DUPLICATE_ELSEWHERE: 'duplicate-elsewhere', // writeFact: different path + same id
+  INDEX_REBUILD_FAILED: 'index-rebuild-failed', // writeFact: the fact landed on disk but the best-effort INDEX.md rebuild threw (e.g. a detached auto-extract child killed mid-rebuild). Surfaces what was previously a SILENTLY swallowed catch (D-152) so a lagging committed INDEX is diagnosable; the next reindex/cmk reindex self-heals.
   USER_REQUESTED: 'user-requested', // forget: user-initiated tombstone
   CURATED_MERGE: 'curated-merge', // mergeFacts: explicit merge of A + B → C
   SCRATCHPAD_APPEND: 'scratchpad-append', // scratchpad: appendScratchpadBullet (Task 12)

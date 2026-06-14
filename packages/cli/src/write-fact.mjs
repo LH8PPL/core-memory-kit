@@ -261,10 +261,32 @@ export function writeFact(opts = {}) {
   // 2026-06-03 — "users should get it working from the start"). Best-effort: the
   // fact is already durably on disk, so an index-rebuild hiccup must not turn a
   // successful capture into an error — the next reindex/search self-heals.
+  //
+  // D-152: the failure is OBSERVABLE, not silently swallowed. A detached
+  // auto-extract child whose reindex was killed mid-rebuild (hook ceiling) used
+  // to leave INDEX.md lagging with ZERO trace — so a stale committed INDEX was
+  // undiagnosable (the user caught a 5-fact lag in the cut-gate). On throw we
+  // now record an INDEX_REBUILD_FAILED audit entry; HC-4 still detects the drift
+  // and `cmk reindex` corrects it. The `_reindexFn` seam is test-only.
+  const doReindex = opts._reindexFn ?? reindex;
   try {
-    reindex({ tier: opts.tier, projectRoot: opts.projectRoot, userDir: opts.userDir, warn: () => {} });
-  } catch {
-    // index rebuild is best-effort; capture already succeeded
+    doReindex({ tier: opts.tier, projectRoot: opts.projectRoot, userDir: opts.userDir, warn: () => {} });
+  } catch (reindexErr) {
+    // index rebuild is best-effort; capture already succeeded — but leave a
+    // trace so a lagging committed INDEX is diagnosable, never silent.
+    try {
+      appendAuditEntry(tierRoot, {
+        ts: createdAt,
+        action: 'index-rebuild-failed',
+        tier: opts.tier,
+        id,
+        reasonCode: REASON_CODES.INDEX_REBUILD_FAILED,
+        paths: { after: path },
+        extra: { error: String(reindexErr?.message ?? reindexErr) },
+      });
+    } catch {
+      // even the audit append is best-effort; the fact is already on disk
+    }
   }
 
   // Default create-audit (Task 123.A / D-103). writeFact is the single boundary
