@@ -18,6 +18,7 @@
 
 import { resolve as resolvePath } from 'node:path';
 import { hashContent } from './content-hash.mjs';
+import { sanitizePrivacyTags } from './privacy.mjs';
 import { writeFact as defaultWriteFact } from './write-fact.mjs';
 import { buildRichFactBody, slugifyFact } from './rich-fact.mjs';
 
@@ -53,8 +54,17 @@ export function rememberRich(text, options = {}, deps = {}) {
   const projectRoot = deps.projectRoot ?? resolvePath(process.cwd());
   const write = deps.writeFact ?? defaultWriteFact;
 
-  const headline = String(text).trim();
-  const title = (options.title && String(options.title).trim()) || headline.split('\n')[0].slice(0, 80);
+  // Strip <private>…</private> BEFORE deriving/slicing the title (cut-gate
+  // v0.3.1 clean-build finding). writeFact also strips, but it receives a title
+  // already sliced to 80 chars — and an 80-char cut that lands inside a private
+  // span SEVERS the closing tag, so writeFact's `<private>…</private>` regex no
+  // longer matches and the secret survives in the frontmatter title + INDEX.md.
+  // Stripping the intact text here means the slice only ever sees redacted text.
+  const headline = sanitizePrivacyTags(String(text).trim());
+  const safeTitle = options.title
+    ? sanitizePrivacyTags(String(options.title).trim())
+    : '';
+  const title = safeTitle || headline.split('\n')[0].slice(0, 80);
   const body = buildRichFactBody({ text: headline, why: options.why, how: options.how });
   // `links` arrives as an ARRAY from the MCP tool (z.array) and as a
   // comma-STRING from the CLI flag — accept both. The old `String(links)` path
@@ -87,7 +97,10 @@ export function rememberRich(text, options = {}, deps = {}) {
 
 /** The title rememberRich() will derive for `text`/`options` (for caller messages). */
 export function richFactTitle(text, options = {}) {
-  return (options.title && String(options.title).trim()) || String(text).trim().split('\n')[0].slice(0, 80);
+  // Mirror rememberRich: strip <private> before slicing so the preview a caller
+  // echoes to the console never carries private content either (cut-gate v0.3.1).
+  const safeTitle = options.title ? sanitizePrivacyTags(String(options.title).trim()) : '';
+  return safeTitle || sanitizePrivacyTags(String(text).trim()).split('\n')[0].slice(0, 80);
 }
 
 /**

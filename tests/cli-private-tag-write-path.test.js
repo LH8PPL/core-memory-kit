@@ -21,6 +21,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { memoryWrite } from '../packages/cli/src/memory-write.mjs';
 import { writeFact } from '../packages/cli/src/write-fact.mjs';
+import { rememberRich } from '../packages/cli/src/remember-core.mjs';
 import { REDACTED_PLACEHOLDER } from '../packages/cli/src/privacy.mjs';
 import { install } from '../packages/cli/src/install.mjs';
 
@@ -116,6 +117,38 @@ describe('Task: <private> stripped on the writeFact (fact file) path (Doors 1+2)
     expect(memoryMd()).not.toContain(SECRET);
     const index = readFileSync(join(projectRoot, 'context', 'memory', 'INDEX.md'), 'utf8');
     expect(index).not.toContain(SECRET);
+  });
+
+  // Cut-gate v0.3.1 (clean-build re-run) finding: the title is derived from the
+  // raw text and sliced to 80 chars BEFORE the privacy strip. When the slice
+  // lands INSIDE a <private>…</private> span it severs the closing tag, so
+  // sanitizePrivacyTags' `<private>[\s\S]*?</private>` regex no longer matches
+  // and the secret survives in the title (frontmatter + INDEX.md). The fix
+  // strips in rememberRich BEFORE deriving/slicing the title.
+  it('rememberRich: a <private> tag whose CLOSING tag is severed by the 80-char title slice still does not leak', () => {
+    // The cut-gate's exact shape. `pw0` is a short secret positioned so it
+    // survives the 80-char title cut INTACT while the closing </private> is
+    // severed (→ "</priv") — so the strip regex can't match the broken span.
+    // The secret must still not reach the title (frontmatter + INDEX.md).
+    const pw = 'hunterSEKRET';
+    const text = `note ${'x'.repeat(24)} <private>${pw} and more words here</private> tail`;
+    // Guard the fixture itself: the secret must survive the 80-char cut INTACT
+    // while the closing </private> is SEVERED (so the strip regex can't match
+    // the broken span) — otherwise the test wouldn't exercise the bug.
+    const titleSlice = text.slice(0, 80);
+    expect(titleSlice).toContain(pw);
+    expect(titleSlice).toContain('<private>');
+    expect(titleSlice).not.toContain('</private>');
+    const r = rememberRich(text, { type: 'project' }, { projectRoot });
+    expect(r.action).toBe('created');
+    const files = factFiles();
+    expect(files.length).toBeGreaterThan(0);
+    for (const n of files) {
+      const content = readFileSync(join(projectRoot, 'context', 'memory', n), 'utf8');
+      expect(content).not.toContain(pw); // body AND the frontmatter title
+    }
+    const index = readFileSync(join(projectRoot, 'context', 'memory', 'INDEX.md'), 'utf8');
+    expect(index).not.toContain(pw);
   });
 
   it('id is computed from the REDACTED body (dedup keys on what lands, not the secret)', () => {
