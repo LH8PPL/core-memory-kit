@@ -10,7 +10,7 @@ source_line: 1
 source_sha1: 6df00f6d841d049036fe36b8becf8288680da47648e534b6c18dd01f7c1dcc5e
 ---
 
-When making comparative claims about how related projects (memsearch, mempalace, graphiti, etc.) handle a capability, must verify by reading actual research materials first, not by inferring from partial data or one example. User maintains comprehensive research briefs in `/c/Projects/liorwiki/` including `competitive-recall-research-brief.md` covering memory project architectures. These are the authoritative reference.
+When making comparative claims about how related projects (memsearch, mempalace, graphiti, etc.) handle a capability, must verify by reading actual research materials first, not by inferring from partial data or one example. User maintains comprehensive research briefs in the maintainer's personal research wiki including a competitive-recall research brief covering memory project architectures. These are the authoritative reference.
 
 **Why:** Prevents unfounded claims about competitive landscape that could misdirect architecture; the kit's core value depends on understanding how others solved the same recall problem.
 

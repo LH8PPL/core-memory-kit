@@ -12,7 +12,7 @@ source_sha1: b76b8918c1ec2fdf02d8cd1448befb50da1419923220fb7d3877ea40166f03e1
 
 Pre-commit validation catches two classes of issues:
 - **Format/limit validator** — catches schema violations (1024-char skill description limit)
-- **Privacy validator** — blocks names/tokens from being committed (caught "liorwiki" reference)
+- **Privacy validator** — blocks names/tokens from being committed (caught a personal-wiki path reference)
 
 Both validators are integrated into prerun checks and stress-test flow.
 
