@@ -26,6 +26,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 - **import(142): `cmk import-claude-md` — onboard from the rules file you already own.** New installs no longer start empty: one command parses an existing `CLAUDE.md` (default), `.cursorrules`, `AGENTS.md`, or any rules file into typed granular facts (`user`/`feedback`/`project`/`reference`, inferred from headings) through the kit's safe write path — Poison_Guard secret screening, home-path sanitization, dedup against existing memory — with `write_source: imported`, `trust: medium`, and real `source_file`/`source_line` provenance. Code fences and the kit's own managed block are never imported. `--dry-run` previews; apply requires explicit `--yes`.
 
+### Fixed
+
+- **privacy: `<private>` content is now stripped on every write path, not just the prompt hook.** Previously `<private>…</private>` was redacted only by the prompt-capture hook, so a fact written via `cmk remember`, `mk_remember`, or an import could carry the secret verbatim into committed memory. It's now stripped at the shared write boundary (terse bullets and rich fact files, all tiers) before anything touches disk — and the content-addressed id is computed from the redacted text, so dedup keys on what actually lands.
+
+- **privacy: a `<private>` secret could survive in a fact's *title* when an 80-character title trim severed the closing tag.** A fact's title is derived from the captured text and trimmed to 80 characters; if that trim landed inside a `<private>…</private>` span it broke the closing tag, the redaction regex no longer matched, and the secret leaked into the frontmatter title + the index. The strip now runs before the title is derived, so a trimmed title can never carry private content (verified end-to-end: title, filename, and index all redacted).
+
+- **`cmk repair --index` now actually rebuilds the index.** The repair path invoked the full reindex without the database handle it needs, so `cmk repair --index` / `--all` silently did nothing — masked because every test mocked the reindexer. It now opens the db and runs the real rebuild on the real path.
+
+- **a failed index rebuild after a capture is no longer silent.** `cmk` keeps `context/memory/INDEX.md` current on every write (best-effort). If that rebuild ever failed (e.g. an auto-extract hook killed mid-rebuild), the committed index could quietly fall behind the actual facts with no trace. The failure now records an audit entry, and `cmk doctor` (HC-4) already flags the drift with `cmk reindex` as the one-command fix — the fact itself is always safely on disk.
+
+### Changed
+
+- **internal: content fingerprints migrated from SHA-1 to SHA-256.** The non-cryptographic content hashes used for dedup, change-detection, and provenance (`source_sha1`, the reindex diff key) now use SHA-256, consolidated into one shared helper. No user action needed; existing memory re-indexes itself once on first use after upgrade. (On-disk field names are unchanged for back-compat.)
+
 ## [0.3.0] — 2026-06-11
 
 ### Fixed

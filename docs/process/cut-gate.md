@@ -2,12 +2,14 @@
 
 **The single guide to run before tagging a release.** Version-agnostic — reused every cut.
 
-> **Cutting now: `v0.3.0`** — **RECALL, the wow-#2 release** ("ask in your own words, get the right memory — with reasoning"):
-> **semantic + hybrid search** (Task 65 — R@5 0.941/paraphrase 1.000 on the bench, fully local), **one-flag enablement** (`cmk install --with-semantic`, Task 46),
-> the **recall TRIGGER** (Task 75 complete: the authority preamble + the auto-invoked `memory-search` skill + the mid-session hint),
-> and the **L3 raw tier** (Task 104: transcripts record tool activity + `--scope transcripts` searches them — the waterfall's floor).
-> This is a **MINOR** (`npm run release -- minor`) — 0.3.0 is the reserved recall version per RELEASE-PLAN.md.
-> _Replace `0.3.0` / `v0.3.0` in the commands below if you reuse this guide for a later cut._
+> **Cutting now: `v0.3.1`** — **the within-paradigm POLISH patch** (make the kit better without changing what it is — D-130):
+> the v0.3.x feature sweep (config / import-claude-md / near-dup-at-write / status line / memory-health doctor / Poison_Guard catalog / npm-12 readiness / `.gitattributes`)
+> **plus four cut-gate bug-fixes** found by re-running this gate on a clean build: the `<private>` write-path leak + title-truncation leak (**C5/C6**), `cmk repair --index` rebuilding for real (**F-11**), and a failed index rebuild becoming observable + the SHA-256 fingerprint migration (**F-11b**).
+> This is a **PATCH** (`npm run release -- patch`) — 0.3.x is the polish lane; the differentiator (recall) shipped at 0.3.0, so additive polish is patch-level per RELEASE-PLAN.md + the one-differentiator-per-minor rule.
+> _The version-agnostic checks below stand every cut; the v0.3.1-specific gates are **C5, C6, F-11, F-11b** (privacy + index integrity) and the **G7/W2 semantic ladder** (re-verify recall still hits)._
+> _Replace `0.3.1` / `v0.3.1` in the commands below if you reuse this guide for a later cut._
+>
+> **Original banner (v0.3.0 cut, pre-2026-06-14 — kept per the decision-trail rule):** RECALL, the wow-#2 release — semantic + hybrid search (Task 65), one-flag enablement (Task 46), the recall trigger (Task 75), the L3 raw tier (Task 104). That was a MINOR (the reserved recall version). v0.3.1 is the patch that polishes it + fixes what the clean-build cut-gate caught.
 
 It exercises every kit feature end-to-end on the **real installed artifact**:
 install (with MCP-server registration), the memory-write skill, the **MCP tools driven in conversation**,
@@ -64,21 +66,34 @@ The ladder: authority preamble → auto-invoked `memory-search` skill → semant
 
 **Standing checks (re-run; not new this cut):** the **v0.2.3 conversational surface M0–M3** (Tasks 108/117), the **v0.2.2 rich-auto-capture** headline **B9** (Task 103), and the **§19 retention arc B5–B8 + D5** (Tasks 91–94).
 **The table above lists only what's NEW this cut — the body below is the FULL end-to-end sweep (every section, every release; ~70 checks).** Nothing standing was removed; the v0.2.3 additions are §4b, the v0.2.2 headline is B9, the retention arc is B5–B8.
+
+### Also new in v0.3.1 — the polish-patch gates
+
+The v0.3.x feature sweep is covered by the standing sections below (config → **F-11**, `--with-semantic` near-dup → **C** + W2, memory-health → **F-11**, status line → SessionStart, npm-12 → **G1**/HC-8). The v0.3.1-SPECIFIC new gates — all four found by re-running this gate on a clean build:
+
+| Check | Fix | What it verifies |
+| --- | --- | --- |
+| **★ C5** | #179 | `<private>` stripped on the `cmk remember`/`mk_remember`/import write path (not just the prompt hook) — secret absent from body, title, filename, INDEX |
+| **★ C6** | #180 | `<private>` survives an 80-char TITLE trim that severs the closing tag — strip runs before the title is derived |
+| **★ F-11b** | #181 | INDEX drift is DETECTED by HC-4 (+ `cmk reindex` heals it); a failed rebuild leaves an audit trace instead of a silent stale committed INDEX |
+| **★ F-11** | #178 | `cmk repair --index` runs the REAL reindex (was a silent no-op — masked by mocked tests) |
+
+Plus the SHA-256 fingerprint migration (internal; no probe — the suite + the unchanged on-disk field names cover it).
 _Note: `mk_search` now also takes `scope`; the tool count stays **11**. The B5/B7 probes overwrite `settings.json` wholesale — fine in their throwaway dirs (a real project's `search.default_mode` would be lost; don't reuse the probe line outside them)._
 
 ---
 
 ## 0. Cut the release locally, then build the REAL artifact
 
-**0a — cut the release locally FIRST.** This bumps `package.json` + finalizes the CHANGELOG so the artifact you test below actually reports `0.3.0` (without this, `npm pack` builds the OLD `0.2.4`). It is a **local commit only** — the tag-push (the outward publish) stays the very last step, after every ★ passes.
+**0a — cut the release locally FIRST.** This bumps `package.json` + finalizes the CHANGELOG so the artifact you test below actually reports `0.3.1` (without this, `npm pack` builds the OLD `0.3.0`). It is a **local commit only** — the tag-push (the outward publish) stays the very last step, after every ★ passes.
 
 ```powershell
 cd C:\Projects\claude-memory-kit
 git checkout main; git pull
-npm run release -- minor             # 0.3.0 is the MINOR recall-wow release (RELEASE-PLAN.md); [Unreleased] → ## [0.3.0]; package.json 0.2.4 → 0.3.0
+npm run release -- patch             # 0.3.1 is a PATCH in the polish lane (RELEASE-PLAN.md); [Unreleased] → ## [0.3.1]; package.json 0.3.0 → 0.3.1
 git diff                             # review: ONLY the version bump + CHANGELOG consolidation
 git add CHANGELOG.md packages\cli\package.json
-git commit -m "release: v0.3.0"      # local release commit — do NOT tag yet (that's the last step)
+git commit -m "release: v0.3.1"      # local release commit — do NOT tag yet (that's the last step)
 git push origin main
 ```
 
@@ -86,16 +101,16 @@ git push origin main
 
 ```powershell
 cd C:\Projects\claude-memory-kit\packages\cli
-npm pack                             # → lh8ppl-claude-memory-kit-0.3.0.tgz
+npm pack                             # → lh8ppl-claude-memory-kit-0.3.1.tgz
 npm uninstall -g @lh8ppl/claude-memory-kit
-npm install -g .\lh8ppl-claude-memory-kit-0.3.0.tgz
-cmk --version                        # ✅ 0.3.0
+npm install -g .\lh8ppl-claude-memory-kit-0.3.1.tgz
+cmk --version                        # ✅ 0.3.1
 
 # Wipe the user tier so capture-from-zero is honest (back it up first if you care)
 Remove-Item -Recurse -Force $env:USERPROFILE\.claude-memory-kit
 ```
 
-- [ ] **G0** — `cmk --version` → `0.3.0` _(if it says `0.2.4`, you skipped 0a — run `npm run release -- minor` first; if it says `0.2.5`, you ran `patch` by mistake — `git checkout CHANGELOG.md packages\cli\package.json` and re-run with `minor`)_
+- [ ] **G0** — `cmk --version` → `0.3.1` _(if it says `0.3.0`, you skipped 0a — run `npm run release -- patch` first; if it bumped to `0.4.0`, you ran `minor` by mistake — `git checkout CHANGELOG.md packages\cli\package.json` and re-run with `patch`)_
 
 ---
 
@@ -394,6 +409,24 @@ findstr /S /C:"\"tier\":\"U\"" %USERPROFILE%\.claude-memory-kit\.locks\audit.log
       `cmk remember "venv at C:\Users\<you>\proj\.venv"`
       → the file shows `~\…`, **never** your username.
 
+- [ ] **★ C5 — `<private>` stripped on the `cmk remember` write path (Task #179 / v0.3.1).**
+      The prompt hook isn't the only privacy boundary — a direct CLI/MCP capture must redact too.
+      ```powershell
+      cmk remember "deploy host is prod-7 <private>root pw is hunter2-SECRET</private> use the bastion" --type project
+      Select-String -Path context\memory\*.md,context\memory\INDEX.md -Pattern "hunter2-SECRET"
+      ```
+      **PASS:** the search finds **nothing** (secret absent from body, title, filename, AND INDEX); the fact body shows `[private content redacted]`.
+      _(Pre-v0.3.1 the tag was honored only by the UserPromptSubmit hook, so `cmk remember`/`mk_remember`/import wrote the secret verbatim — the cut-gate finding.)_
+
+- [ ] **★ C6 — `<private>` survives an 80-char TITLE trim (Task #180 / v0.3.1).**
+      The title is derived from the text then trimmed to 80 chars — a trim that severs the closing `</private>` must not leak.
+      ```powershell
+      cmk remember "note xxxxxxxxxxxxxxxxxxxxxxxx <private>hunterSEKRET and more words here</private> tail" --type project
+      Select-String -Path context\memory\*.md,context\memory\INDEX.md -Pattern "hunterSEKRET"
+      ```
+      **PASS:** nothing found — the strip runs BEFORE the title is derived, so a trimmed title can't carry the secret.
+      _(The closing tag falls past char 80 → without the fix the redaction regex misses the broken span and the secret lands in the frontmatter `title:` + INDEX.)_
+
 ---
 
 ## 4b. The conversational surface — Claude drives the tools (Tasks 108 + 117)  ⬅️ the v0.2.3 headline (standing)
@@ -603,6 +636,19 @@ Ask: *"Start a new Python backend for me - set up the structure."*
       - `cmk repair --all` → all three (hooks/locks/index) report cleanly
       - **`cmk config set <key> <value>` / `get <key>` / `--show-origin <key>`** — REAL as of v0.3.1 (Task 129): `set search.default_mode hybrid` → `get` returns it → `--show-origin` shows the tier. `--local` writes the gitignored tier. _(Was a stub pre-v0.3.1; the "not yet implemented" expectation is GONE.)_
 
+- [ ] **★ F-11b — INDEX drift is DETECTED, and a failed rebuild leaves a TRACE (Task #181 / D-152 / v0.3.1).**
+      `INDEX.md` is the committed, human-readable index — a derived view of the fact files that the writer keeps current on every capture. Two guarantees this cut adds:
+      - **Detection:** delete a line from `context\memory\INDEX.md` (simulate drift), then `cmk doctor` → **HC-4 FAILS** with `recoveryCommand: cmk reindex`; run `cmk reindex` → HC-4 back to PASS.
+      - **Observability:** a rebuild that *fails* (vs. the happy path) now records an `index-rebuild-failed` audit entry instead of being silently swallowed — so a committed INDEX that fell behind is diagnosable, not invisible.
+      ```powershell
+      # Detection half (deterministic): break the INDEX, confirm HC-4 catches it, reindex heals it.
+      cmk doctor | Select-String "HC-4"           # PASS first
+      # (hand-remove a fact line from context\memory\INDEX.md)
+      cmk doctor | Select-String "HC-4"           # now FAIL → "cmk reindex"
+      cmk reindex; cmk doctor | Select-String "HC-4"   # PASS again
+      ```
+      **PASS:** HC-4 fails on the broken INDEX and recovers after `cmk reindex`; the fact FILES were never at risk (INDEX is derived). _(Pre-v0.3.1 a hook-killed rebuild could leave a stale committed INDEX with ZERO trace — the cut-gate finding.)_
+
 **Native coexistence & import**
 
 - [ ] **F-12**
@@ -692,7 +738,8 @@ Clone elsewhere (`git clone C:\Temp\cut-gate9 C:\Temp\cut-gate-clone`), open *th
 ## Verdict + the cut
 
 **Cut if** every **★** passes —
-`G1–G3, G2b, G5, G6, G7, R1, R2, M0, M1, M2, W1–W4, B2, B9, B3, B4, B5, B6, B7, D1, D3, E1, F-3, L3, H1`.
+`G1–G3, G2b, G5, G6, G7, R1, R2, M0, M1, M2, W1–W4, B2, B9, B3, B4, B5, B6, B7, C5, C6, D1, D3, E1, F-3, F-11b, L3, H1`.
+_(v0.3.1 adds **C5/C6** — the `<private>` write-path + title-trim leaks — and **F-11b** — INDEX drift detection — to the gate; all three were clean-build cut-gate findings this cut.)_
 _(D3's old "decide if the recall variance is acceptable" clause is GONE — v0.3.0 shipped the Task-75 fix; D3 is a hard gate now.)_
 **The W1–W4 recall ladder + D3 are the v0.3.0 headline** — the skill fires, paraphrase recall hits, the raw record is reachable, and memory-first answering is a gate. **M0–M2 stay the standing conversational gate** (the v0.2.3 headline); **B9 stays the standing rich-auto-capture gate** (the v0.2.2 headline) — if `context\memory\` has no `write_source: auto-extract` rich file, investigate before shipping.
 
@@ -707,21 +754,21 @@ The tag triggers an **immutable** npm publish; whatever docs are committed at th
 
 - [ ] **CHANGELOG consolidated** — `[Unreleased]` folded into `## [X.Y.Z] — <date>`; `[Unreleased]` reset; `print-release-notes.mjs <version>` parses the section.
 - [ ] **★ READMEs reflect THIS version** — both the **root `README.md`** (status line + "What it does") **and** the **npm landing `packages/cli/README.md`** describe this version's headline capability + its new commands. _(Lesson from v0.2.0: the tag beat the README refresh, so the immutable npm 0.2.0 page shipped a stale landing page — fixed only by a 0.2.1 patch. The npm landing page is `packages/cli/README.md`, NOT the root one.)_
-- [ ] **`packages/cli/package.json` version** = the version you're about to tag (`0.3.0`).
+- [ ] **`packages/cli/package.json` version** = the version you're about to tag (`0.3.1`).
 
 **To publish (your outward action):**
 
 ```powershell
-git tag v0.3.0
-git push origin v0.3.0
+git tag v0.3.1
+git push origin v0.3.1
 ```
 
-`publish.yml` runs the suite, publishes `@lh8ppl/claude-memory-kit@0.3.0` to npm with provenance,
-and creates the GitHub Release from the `[0.3.0]` CHANGELOG section.
+`publish.yml` runs the suite, publishes `@lh8ppl/claude-memory-kit@0.3.1` to npm with provenance,
+and creates the GitHub Release from the `[0.3.1]` CHANGELOG section.
 
 **Verify after:**
-- `npm view @lh8ppl/claude-memory-kit version` → `0.3.0`
+- `npm view @lh8ppl/claude-memory-kit version` → `0.3.1`
 - the npm page shows a **provenance** badge
-- the GitHub Release matches `## [0.3.0]`
+- the GitHub Release matches `## [0.3.1]`
 
 Per-finding notes go in a dated doc under [`../journey/`](../journey/), not here — this stays a clean script.
