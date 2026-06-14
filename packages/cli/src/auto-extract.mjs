@@ -48,8 +48,8 @@ import {
   appendFileSync,
 } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { createHash } from 'node:crypto';
 import { generateId } from '@lh8ppl/cmk-canonicalize';
+import { hashContent } from './content-hash.mjs';
 import { memoryWrite } from './memory-write.mjs';
 import { writeFact } from './write-fact.mjs';
 import { buildRichFactBody, slugifyFact } from './rich-fact.mjs';
@@ -663,10 +663,9 @@ function routeRichFact({ candidate, projectRoot, ts }) {
     sourceFile: 'auto-extract',
     sourceLine: 1,
     // Content fingerprint for the provenance field — NOT a security context.
-    // Matches the kit's sha1-of-content convention (write-fact.mjs caller in
-    // subcommands.runRememberRich, memory-write.mjs); writeFact dedups by the
-    // content-addressed id, this is just source_sha1. // NOSONAR
-    sourceSha1: createHash('sha1').update(body).digest('hex'), // NOSONAR
+    // Routes through the shared hashContent (SHA-256, D-149); writeFact dedups
+    // by the content-addressed id, this is just source_sha1 metadata.
+    sourceSha1: hashContent(body),
     createdAt: ts,
     projectRoot,
   });

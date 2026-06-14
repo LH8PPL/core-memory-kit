@@ -17,7 +17,7 @@
 // to keep (design §10.1), not the core's.
 
 import { resolve as resolvePath } from 'node:path';
-import { createHash } from 'node:crypto';
+import { hashContent } from './content-hash.mjs';
 import { writeFact as defaultWriteFact } from './write-fact.mjs';
 import { buildRichFactBody, slugifyFact } from './rich-fact.mjs';
 
@@ -76,10 +76,10 @@ export function rememberRich(text, options = {}, deps = {}) {
     trust: options.trust ?? 'high',
     sourceFile: 'user-explicit',
     sourceLine: 1,
-    // Content fingerprint for provenance/dedup — NOT a security context. Matches
-    // the kit's sha1-of-content convention (memory-write.mjs, index-rebuild.mjs);
-    // writeFact dedups by content-addressed id, this is the source_sha1 field. // NOSONAR
-    sourceSha1: createHash('sha1').update(body).digest('hex'), // NOSONAR
+    // Content fingerprint for provenance/dedup — NOT a security context.
+    // Routes through the shared hashContent (SHA-256, D-149); writeFact dedups
+    // by content-addressed id, this is the source_sha1 metadata field.
+    sourceSha1: hashContent(body),
     related,
     projectRoot,
   });

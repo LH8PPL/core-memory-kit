@@ -43,8 +43,8 @@ import {
   mkdirSync,
 } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { createHash } from 'node:crypto';
 import { generateId } from '@lh8ppl/cmk-canonicalize';
+import { hashContent } from './content-hash.mjs';
 import {
   resolveTierRoot,
   resolveScratchpadPath,
@@ -355,7 +355,7 @@ function appendBulletGuarded(opts) {
   // Caller MUST have run Poison_Guard already. This is the inner
   // write step — delegates to the existing scratchpad writer which
   // handles dedup + cap + consolidation + audit + ID derivation.
-  const sha1 = createHash('sha1').update(opts.text, 'utf8').digest('hex');
+  const sha1 = hashContent(opts.text);
   const ts = opts.now ?? nowIso();
   return appendScratchpadBullet({
     tier: opts.tier,

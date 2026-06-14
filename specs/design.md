@@ -438,7 +438,7 @@ Every bullet in a scratchpad file and every fact in the granular archive carries
 | `id` | string | Citation ID from §3 (e.g. `P-S79MJHFN`) |
 | `source_file` | string | Path to the source transcript/session |
 | `source_line` | int | Line in source (1-indexed) |
-| `source_sha1` | string | SHA-1 of source at capture time (detects drift) |
+| `source_sha1` | string | SHA-256 of source at capture time (detects drift). Field name kept for on-disk back-compat; algorithm is SHA-256 since the kit-wide fingerprint migration (D-149). |
 | `write_source` | enum | `user-explicit` / `auto-extract` / `compressor` / `manual-edit` / `imported` |
 | `trust` | enum | `high` / `medium` / `low` |
 | `created_at` | ISO 8601 UTC | timestamp at write time |
@@ -1508,6 +1508,8 @@ WAL mode allows many readers + one writer concurrently.
 | Boot (`cmk reindex --boot`) | Walk markdown, compare mtime+sha1, re-index only changed files, **and prune index rows for source files that no longer exist** (Task 110) |
 | Runtime (file-watcher) | `inotify`/`fswatch`/`chokidar` watches `context/`, debounce 500ms, re-index on FS event (`unlink` → drop that file's rows) |
 | Recovery (`cmk reindex --full`) | Drop DB, rebuild from markdown |
+
+> **Fingerprint algorithm (D-149).** The `files`-table diff key (column `sha1`, name kept for back-compat) is a **SHA-256** content fingerprint since the kit-wide migration — routed through the single `content-hash.mjs` `hashContent()` helper along with every other fingerprint site (provenance `source_sha1`, transcript-chunk dedup, conflict-merge keys). These digests are non-cryptographic (change-detection + dedup), not security primitives. **Upgrade behavior:** on the first boot after the algorithm change every existing checkpoint mismatches once and self-heals via this same "digest changed → re-index" path — no manual action, no data loss.
 
 #### 9.2.1 Mutations auto-propagate to search — no manual reindex (Task 110 / F-7 / D-84)
 
