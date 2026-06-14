@@ -430,8 +430,12 @@ export function appendPersonaReviewQueue({ userDir, entries, now }) {
 //     <!-- target: TARGET, section: SECTION, confidence: C, reason: ..., ... -->
 // The HTML comment is authoritative for target/section/confidence (the bracket
 // prefix is human-readable redundancy); fall back to the bracket if absent.
-const PERSONA_QUEUE_LINE_RE = /^- \([UPL]-[^)]+\)\s+\[(.+?)\s+§\s+(.+?)\]\s+(.+)$/;
-const PERSONA_QUEUE_META_RE = /target:\s*(.+?),\s*section:\s*(.+?),\s*confidence:\s*(\w+)/;
+// ReDoS-safe: NEGATED character classes (not lazy `.+?...+?` pairs) so the regex
+// is linear — each group matches "anything but the delimiter that ends it", which
+// cannot backtrack across that delimiter (the canonicalize stripTrailingPunct
+// lesson — Task 140 / D-143 — applied at write).
+const PERSONA_QUEUE_LINE_RE = /^- \([UPL]-[^)]+\)\s+\[([^§\]]+)§([^\]]+)\]\s+(\S.*)$/;
+const PERSONA_QUEUE_META_RE = /target:\s*([^,]+),\s*section:\s*([^,]+),\s*confidence:\s*(\w+)/;
 export function parsePersonaReviewQueue(text) {
   const lines = (text ?? '').split(/\r?\n/);
   const candidates = [];
