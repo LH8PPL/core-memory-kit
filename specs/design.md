@@ -438,7 +438,7 @@ Every bullet in a scratchpad file and every fact in the granular archive carries
 | `id` | string | Citation ID from §3 (e.g. `P-S79MJHFN`) |
 | `source_file` | string | Path to the source transcript/session |
 | `source_line` | int | Line in source (1-indexed) |
-| `source_sha1` | string | SHA-1 of source at capture time (detects drift) |
+| `source_sha1` | string | SHA-256 of source at capture time (detects drift). Field name kept for on-disk back-compat; algorithm is SHA-256 since the kit-wide fingerprint migration (D-149). |
 | `write_source` | enum | `user-explicit` / `auto-extract` / `compressor` / `manual-edit` / `imported` |
 | `trust` | enum | `high` / `medium` / `low` |
 | `created_at` | ISO 8601 UTC | timestamp at write time |
@@ -1508,6 +1508,8 @@ WAL mode allows many readers + one writer concurrently.
 | Boot (`cmk reindex --boot`) | Walk markdown, compare mtime+sha1, re-index only changed files, **and prune index rows for source files that no longer exist** (Task 110) |
 | Runtime (file-watcher) | `inotify`/`fswatch`/`chokidar` watches `context/`, debounce 500ms, re-index on FS event (`unlink` → drop that file's rows) |
 | Recovery (`cmk reindex --full`) | Drop DB, rebuild from markdown |
+
+> **Fingerprint algorithm (D-149).** The `files`-table diff key (column `sha1`, name kept for back-compat) is a **SHA-256** content fingerprint since the kit-wide migration — routed through the single `content-hash.mjs` `hashContent()` helper along with every other fingerprint site (provenance `source_sha1`, transcript-chunk dedup, conflict-merge keys). These digests are non-cryptographic (change-detection + dedup), not security primitives. **Upgrade behavior:** on the first boot after the algorithm change every existing checkpoint mismatches once and self-heals via this same "digest changed → re-index" path — no manual action, no data loss.
 
 #### 9.2.1 Mutations auto-propagate to search — no manual reindex (Task 110 / F-7 / D-84)
 
@@ -2646,7 +2648,7 @@ Ship trigger: v0.2. Tracked as tasks.md Task 55. Cross-ref: Task 45 (auto-person
 
 **v0.1.x / v0.2 candidates.** Surfaced by the code-review-excellence pass on the auto-persona core (PR #83). None block the feature (the automatic path ships + works); each has a trigger:
 
-1. **Re-apply `privacy.mjs` to the classification corpus.** `autoPersona` sends project-tier fact bodies to the [[CompressorBackend]] for classification + promotes the result to the (cross-project) user tier. Today it relies on capture-time `<private>` filtering (verified present in `auto-extract` + `write-fact`), so committed facts are already private-stripped. Defense-in-depth: re-run the corpus through `privacy.mjs` before classification, so a private fact that slipped capture-time filtering can't be promoted cross-project. Trigger: any evidence private content reaches a committed fact file.
+1. **Re-apply `privacy.mjs` to the classification corpus.** `autoPersona` sends project-tier fact bodies to the [[CompressorBackend]] for classification + promotes the result to the (cross-project) user tier. `<private>` filtering runs at the SHARED WRITE BOUNDARY — `sanitizePrivacyTags` is the first step in both `memoryWrite` (terse bullets) and `writeFact` (fact files), on every tier (cut-gate v0.3.1 finding + fix: it had been wired ONLY into the UserPromptSubmit hook, so a direct `cmk remember`/`mk_remember`/import wrote the secret verbatim — the earlier "verified present in auto-extract + write-fact" claim here was STALE/false until that fix). So committed facts are now private-stripped at write time regardless of capture path. Defense-in-depth still worth doing: re-run the corpus through `privacy.mjs` before classification, so a private fact that somehow predates the boundary fix can't be promoted cross-project. Trigger: any evidence private content reaches a committed fact file.
 2. **Bound the classification corpus.** `assembleProjectCorpus` concatenates all project-tier facts + `MEMORY.md` with no size cap before sending to the backend. Fine for normal projects; a very large fact archive could exceed a sensible input budget (cost/quality). Trigger: a project whose corpus exceeds N KB → truncate/window (most-recent or highest-trust first).
 3. **Live-Haiku spawn smoke for the classifier prompt (Door 3).** `autoPersona`'s tests use mock backends; the real Haiku call uses the *classifier* prompt, which has no live spawn-smoke (the weekly-curate live smoke exercises the *curate* prompt). The spawn mechanism is identical (`HaikuViaAnthropicApi`, already smoke-tested), so this is a prompt-shape gap, not a spawn gap. Trigger: a classifier-prompt regression the mock tests can't catch.
 

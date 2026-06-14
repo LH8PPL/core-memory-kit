@@ -26,8 +26,8 @@
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import { createHash } from 'node:crypto';
 import { canonicalize, generateId } from '@lh8ppl/cmk-canonicalize';
+import { hashContent } from './content-hash.mjs';
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { writeFact } from './write-fact.mjs';
@@ -294,9 +294,9 @@ export async function importClaudeMd({
       trust: 'medium',
       sourceFile: sourceFileField,
       sourceLine: p.line,
-      // Content fingerprint for provenance — NOT a security context (the kit's
-      // sha1-of-content convention; see remember-core.mjs). // NOSONAR
-      sourceSha1: createHash('sha1').update(p.text, 'utf8').digest('hex'), // NOSONAR
+      // Content fingerprint for provenance — NOT a security context. Routes
+      // through the shared hashContent (SHA-256, D-149); see remember-core.mjs.
+      sourceSha1: hashContent(p.text),
       projectRoot,
       // writeFact's default create-audit is replaced by the richer-semantic
       // IMPORT_APPLIED entry below (the merge-facts precedent).

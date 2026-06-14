@@ -169,10 +169,16 @@ describe('Task 23 — runAutoExtract() boundary', () => {
         now: '2026-05-25T10:00:00Z',
       });
       const memory = readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8');
-      // Match the sha1 field in the inline HTML comment and assert hex shape.
-      const m = memory.match(/sha1:\s*([0-9a-f]+)/);
-      expect(m).not.toBeNull();
-      expect(m[1]).toMatch(/^[0-9a-f]{40}$/);
+      // Match the REAL captured bullet's sha1 — not the all-zero seed sentinel
+      // (scaffolded template bullets carry `sha1: 0000…`, 40 zeros, as a
+      // not-a-real-digest marker; see inject-context SEED_SHA1_RE). The `sha1:`
+      // field name is kept for on-disk back-compat; a real captured digest is
+      // SHA-256 (64 hex chars) since the convention migration (D-149).
+      const digests = [...memory.matchAll(/sha1:\s*([0-9a-f]+)/g)]
+        .map((x) => x[1])
+        .filter((d) => !/^0+$/.test(d));
+      expect(digests.length).toBeGreaterThan(0);
+      for (const d of digests) expect(d).toMatch(/^[0-9a-f]{64}$/);
     });
 
     it('medium-trust candidate → appended to queues/review.md; MEMORY.md unchanged', async () => {

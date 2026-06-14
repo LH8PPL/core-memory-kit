@@ -40,7 +40,7 @@ import {
 } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { writeBullet } from './provenance.mjs';
-import { createHash } from 'node:crypto';
+import { hashContent } from './content-hash.mjs';
 
 const MEMORY_REL = ['context', 'MEMORY.md'];
 
@@ -236,7 +236,7 @@ export async function importAnthropicMemory({
   // an import failed and search degraded to the stale index (cut-gate9 F-13).
   const bulletLines = proposals
     .map((p) => {
-      const sha1 = createHash('sha1').update(p.text, 'utf8').digest('hex');
+      const sha1 = hashContent(p.text);
       const formatted = writeBullet({
         id: p.id,
         text: p.text,

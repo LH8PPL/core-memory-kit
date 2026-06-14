@@ -50,7 +50,7 @@ import {
 import { join } from 'node:path';
 import { resolveTierRoot, VALID_TIERS } from './tier-paths.mjs';
 import { writeBullet } from './provenance.mjs';
-import { createHash } from 'node:crypto';
+import { hashContent } from './content-hash.mjs';
 import { nowIso, appendAuditEntry, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { generateId } from '@lh8ppl/cmk-canonicalize';
@@ -792,7 +792,7 @@ export function mergeScratchpadBullets({
   // no `write:` key, so the first reindex after a merge-both resolution hit
   // the NOT-NULL observations.write_source constraint. Canonical shape via
   // the shared builder; the merged_from trail lives in the audit entry below.
-  const sha1 = createHash('sha1').update(combinedText, 'utf8').digest('hex');
+  const sha1 = hashContent(combinedText);
   const formatted = writeBullet({
     id: newId,
     text: combinedText,

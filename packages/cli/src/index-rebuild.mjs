@@ -42,11 +42,11 @@
 // established sources of truth and does NOT re-implement bullet/frontmatter
 // parsing or path resolution.
 
-import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, join, relative } from 'node:path';
 import chokidar from 'chokidar';
 import { INDEX_DB_SCHEMA } from './index-db.mjs';
+import { hashContent } from './content-hash.mjs';
 import { syncTranscriptChunks } from './transcript-index.mjs';
 import { readBullet, parseBulletProvenance } from './provenance.mjs';
 import { parse as parseFrontmatter } from './frontmatter.mjs';
@@ -95,8 +95,12 @@ export function listObservationSources({ projectRoot, userDir }) {
 
 // --- Helpers ----------------------------------------------------------
 
+// Content fingerprint for the `files`-table mtime+sha1 diff key. The column
+// name stays `sha1` for checkpoint back-compat; hashContent is SHA-256 (D-149).
+// On the first boot after the algorithm change every checkpoint mismatches
+// once and self-heals via the normal reindex.
 function sha1OfContent(content) {
-  return createHash('sha1').update(content, 'utf8').digest('hex');
+  return hashContent(content);
 }
 
 function isoToEpochMs(iso) {

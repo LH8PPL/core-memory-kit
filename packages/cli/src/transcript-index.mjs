@@ -15,7 +15,7 @@
 //   chunkTranscript(text) → [{heading, body, sourceLine, chunkIdx}]  (pure)
 //   syncTranscriptChunks({db, projectRoot, now?}) → {files, chunks}
 
-import { createHash } from 'node:crypto';
+import { hashContent } from './content-hash.mjs';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -57,8 +57,11 @@ export function chunkTranscript(text) {
   return chunks;
 }
 
+// Transcript-chunk fingerprint for the `files`-table diff key (column name
+// `sha1` kept for checkpoint back-compat; algorithm is SHA-256 via hashContent,
+// D-149). Self-heals on the first post-upgrade boot like the observation index.
 function sha1(text) {
-  return createHash('sha1').update(text, 'utf8').digest('hex');
+  return hashContent(text);
 }
 
 // Task 126 (D-119) — the raw-tier scope covers BOTH halves of the session

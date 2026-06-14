@@ -43,8 +43,8 @@ import {
   mkdirSync,
 } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { createHash } from 'node:crypto';
 import { generateId } from '@lh8ppl/cmk-canonicalize';
+import { hashContent } from './content-hash.mjs';
 import {
   resolveTierRoot,
   resolveScratchpadPath,
@@ -58,6 +58,7 @@ import { parseBulletProvenance, isProvenanceCommentLine } from './provenance.mjs
 import { checkPoisonGuard, logPoisonGuardRejection } from './poison-guard.mjs';
 import { detectConflicts, writeConflictEntry } from './conflict-queue.mjs';
 import { sanitizeHomePaths } from './sanitize.mjs';
+import { sanitizePrivacyTags } from './privacy.mjs';
 
 const VALID_ACTIONS = new Set(['add', 'replace', 'remove']);
 
@@ -253,15 +254,21 @@ function doAdd(opts) {
   if (errors.length > 0) {
     return errorResult({ category: ERROR_CATEGORIES.SCHEMA, errors });
   }
-  // Privacy (write-path fix #1): abstract home-dir paths to `~` for
-  // committed/shared tiers (P/U) BEFORE the bullet is screened, conflict-
-  // checked, dedup-keyed, and written — so a captured fact never ships the
-  // local username and stays portable. Local tier (L) keeps machine paths
-  // verbatim (its purpose). Everything downstream uses `addOpts`.
+  // Privacy: strip <private>…</private> FIRST, on EVERY tier (cut-gate
+  // v0.3.1 finding — the tag was honored only by the UserPromptSubmit hook,
+  // so `cmk remember`/`mk_remember` wrote the secret verbatim). Runs before
+  // home-path sanitization, Poison_Guard, conflict-check, dedup, and the
+  // write — so the redacted text is what everything downstream sees, on
+  // committed AND local tiers (private content must not reach context.local
+  // either). The same single-safe-path philosophy as Poison_Guard.
+  const privacyStripped = sanitizePrivacyTags(opts.text);
+  // Then abstract home-dir paths to `~` for committed/shared tiers (P/U) so a
+  // captured fact never ships the local username + stays portable; local
+  // tier (L) keeps machine paths verbatim (its purpose).
   const sanitizedText =
     opts.tier === 'P' || opts.tier === 'U'
-      ? sanitizeHomePaths(opts.text)
-      : opts.text;
+      ? sanitizeHomePaths(privacyStripped)
+      : privacyStripped;
   const addOpts =
     sanitizedText === opts.text ? opts : { ...opts, text: sanitizedText };
 
@@ -348,7 +355,7 @@ function appendBulletGuarded(opts) {
   // Caller MUST have run Poison_Guard already. This is the inner
   // write step — delegates to the existing scratchpad writer which
   // handles dedup + cap + consolidation + audit + ID derivation.
-  const sha1 = createHash('sha1').update(opts.text, 'utf8').digest('hex');
+  const sha1 = hashContent(opts.text);
   const ts = opts.now ?? nowIso();
   return appendScratchpadBullet({
     tier: opts.tier,

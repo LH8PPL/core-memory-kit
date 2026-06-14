@@ -21,6 +21,7 @@ import { reindex } from './reindex.mjs';
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { sanitizeHomePaths } from './sanitize.mjs';
+import { sanitizePrivacyTags } from './privacy.mjs';
 import { checkPoisonGuard, logPoisonGuardRejection } from './poison-guard.mjs';
 
 const VALID_TYPES = new Set(['user', 'feedback', 'project', 'reference']);
@@ -157,6 +158,14 @@ export function writeFact(opts = {}) {
   // — that's its purpose. The id hashes the SANITIZED body, so dedup keys on
   // what actually lands on disk.
   let { body, title } = opts;
+  // Privacy: strip <private>…</private> FIRST, on EVERY tier (cut-gate
+  // v0.3.1 finding — the tag was honored only by the UserPromptSubmit hook,
+  // so a fact written via cmk remember/mk_remember/import kept the secret).
+  // Runs before home-path sanitization, Poison_Guard, and id-generation, so
+  // the redacted body is what gets screened, hashed (dedup keys on what
+  // lands), and written.
+  body = sanitizePrivacyTags(body);
+  title = sanitizePrivacyTags(title);
   if (opts.tier === 'P' || opts.tier === 'U') {
     body = sanitizeHomePaths(body);
     title = sanitizeHomePaths(title);
