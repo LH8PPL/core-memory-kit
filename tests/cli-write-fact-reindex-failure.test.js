@@ -9,7 +9,7 @@
 // Door 5 N/A: no message-queue surface.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, existsSync, readdirSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { writeFact } from '../packages/cli/src/write-fact.mjs';
@@ -72,5 +72,38 @@ describe('writeFact — INDEX rebuild failure is observable, not swallowed (D-15
     // And the INDEX.md was actually written (the happy path still holds).
     expect(existsSync(join(projectRoot, 'context', 'memory', 'INDEX.md'))).toBe(true);
     expect(readFileSync(join(projectRoot, 'context', 'memory', 'INDEX.md'), 'utf8')).toContain('a-fact');
+  });
+
+  // The self-heal contract (D-152, the user's "users won't run cmk reindex" point):
+  // INDEX.md is best-effort, so it CAN lag if a rebuild is interrupted. But the
+  // recovery is automatic, not manual — because reindex() rebuilds INDEX WHOLESALE
+  // from every fact file (not append-only), the NEXT successful writeFact fully
+  // heals any prior drift with no `cmk reindex` command. This pins that as a
+  // guarantee (previously incidental: nothing asserted it).
+  it('a later successful write fully rebuilds a drifted INDEX — no manual reindex (D-152 self-heal)', () => {
+    const factDir = join(projectRoot, 'context', 'memory');
+    const indexPath = join(factDir, 'INDEX.md');
+
+    // 1. Write fact A normally — INDEX lists it.
+    const a = writeFact(baseOpts({ slug: 'fact-a', title: 'fact a', body: 'alpha body one' }));
+    expect(a.action).toBe('created');
+    expect(readFileSync(indexPath, 'utf8')).toContain('fact-a');
+
+    // 2. Simulate the interrupted-rebuild lag: strip A's line from INDEX.md by
+    //    hand (the file on disk for A is untouched — only the derived view drifts).
+    const drifted = readFileSync(indexPath, 'utf8')
+      .split('\n')
+      .filter((l) => !l.includes('fact-a'))
+      .join('\n');
+    writeFileSync(indexPath, drifted, 'utf8');
+    expect(readFileSync(indexPath, 'utf8')).not.toContain('fact-a'); // drift confirmed
+
+    // 3. A later normal capture (fact B) heals it: INDEX now lists BOTH A and B,
+    //    because reindex rebuilds from all fact files — the user ran no command.
+    const b = writeFact(baseOpts({ slug: 'fact-b', title: 'fact b', body: 'beta body two' }));
+    expect(b.action).toBe('created');
+    const healed = readFileSync(indexPath, 'utf8');
+    expect(healed).toContain('fact-a'); // the drifted entry is back — self-healed
+    expect(healed).toContain('fact-b'); // and the new one is there too
   });
 });
