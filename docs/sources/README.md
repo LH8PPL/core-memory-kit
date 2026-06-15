@@ -13,6 +13,8 @@ Detailed notes on individual external sources we've consulted. Each source gets 
 |---|---|---|---|
 | [kiro-spec-driven-deep-dive.md](kiro-spec-driven-deep-dive.md) | [kiro.dev "From Chat to Specs"](https://kiro.dev/blog/from-chat-to-specs-deep-dive/) | Blog post | 2026-05-21 |
 | [simon-scrapes-master-claude-memory.md](simon-scrapes-master-claude-memory.md) | [Simon Scrapes — Master Claude Memory (YouTube)](https://www.youtube.com/watch?v=rFWxRZ5D-lM) + [companion Notion](https://scrapeshq.notion.site/claude-memory-systems) | Video + writeup | 2026-05-21 |
+| [basic-memory-deep-dive.md](basic-memory-deep-dive.md) | [Basic Memory (basicmachines-co)](https://github.com/basicmachines-co/basic-memory) | Open-source project (repo + docs) — informed ADR-0002 | 2026-05-22 |
+| [hermes-agent-deep-dive.md](hermes-agent-deep-dive.md) | [Hermes Agent (Nous Research)](https://github.com/NousResearch/hermes-agent) | Open-source project + article — informed ADR-0002/0003/0006 | 2026-05-22 |
 | [gul-jabeen-claude-memory-guide-2026.md](gul-jabeen-claude-memory-guide-2026.md) | [Gul Jabeen — "Claude Code Memory Management: The Complete Guide (2026)" (Medium)](https://medium.com/data-science-collective/claude-code-memory-management-the-complete-guide-2026-b0df6300c4e8) | Article (raw clipping) — verified `~` partial in [`../research/2026-05-26-claude-code-memory-guide-verification.md`](../research/2026-05-26-claude-code-memory-guide-verification.md) | 2026-05-26 |
 
 ## When to write a notes file
