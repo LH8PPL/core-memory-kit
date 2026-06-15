@@ -435,7 +435,11 @@ export function appendPersonaReviewQueue({ userDir, entries, now }) {
 // cannot backtrack across that delimiter (the canonicalize stripTrailingPunct
 // lesson — Task 140 / D-143 — applied at write).
 const PERSONA_QUEUE_LINE_RE = /^- \([UPL]-[^)]+\)\s+\[([^§\]]+)§([^\]]+)\]\s+(\S.*)$/;
-const PERSONA_QUEUE_META_RE = /target:\s*([^,]+),\s*section:\s*([^,]+),\s*confidence:\s*(\w+)/;
+// No `\s*` sits adjacent to a `[^,]+` capture: `\s*` and `[^,]+` both match a
+// space, and that overlap is the super-linear-backtracking ambiguity Sonar
+// flags. Each value is captured by `[^,]+` (which absorbs leading/trailing
+// space — we `.trim()` below), with the `,` and label as fixed delimiters.
+const PERSONA_QUEUE_META_RE = /target:([^,]+),\s*section:([^,]+),\s*confidence:\s*(\w+)/;
 export function parsePersonaReviewQueue(text) {
   const lines = (text ?? '').split(/\r?\n/);
   const candidates = [];
