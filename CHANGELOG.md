@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Added
+
+- **digest(147): `cmk digest` + a standing `context/DECISIONS.md` decision journal.** `cmk digest` prints a readable summary of everything in memory (facts grouped by type, with trust + date) — and maintains `context/DECISIONS.md`, a **committed, append-only** chronological log of every decision (`type: project` fact) and its **Why**. The journal is the view the kit was missing: decisions are captured but scattered across per-fact files; this assembles them into one page that travels with `git clone` and shows up in the PR diff that captured the decision. It is **never regenerated and never rolls** — a superseded or forgotten decision stays, annotated `_(retracted …)_` in place, because the value of a decision log is the trail (what you decided *and* what you moved away from). Distinct from the digest itself, which is a regenerated current-knowledge snapshot.
+
 ### Fixed
 
 - **search(153): natural queries with dots, hyphens, or version strings no longer crash.** `cmk search "v0.3"` (or asking Claude to recall something via `mk_search`) used to fail with an `FTS5 parse error` because characters like `.`, `-`, and `:` have special meaning in the search engine's grammar. Queries are now auto-sanitized — each word that needs it is quoted for you — so `v0.3`, `user-explicit`, and `section:search` all just find results. Multi-word queries keep their "match all words" behavior, and an explicit `"quoted phrase"` you type yourself is still honored as a phrase search.

@@ -870,6 +870,32 @@ function runReindex(options /* , command */) {
 }
 
 /**
+ * `cmk digest` (Task 147) — print a regenerated, readable render of everything
+ * the kit currently knows, AND sync the append-only context/DECISIONS.md
+ * journal (the permanent decision ledger; D-161). The digest goes to stdout;
+ * the journal is a committed file the sync maintains in place.
+ */
+async function runDigestCli(options) {
+  const projectRoot = resolvePath(process.cwd());
+  const { digest } = await import('./digest.mjs');
+  const { syncDecisionsJournal } = await import('./decisions-journal.mjs');
+
+  // Keep the permanent decision journal current (append-only; best-effort —
+  // a journal hiccup must not break the digest render).
+  const sync = syncDecisionsJournal({ projectRoot });
+
+  console.log(digest({ projectRoot }));
+
+  if (sync.written) {
+    console.log(`\ncontext/DECISIONS.md updated (+${sync.appended} bytes) — the append-only decision journal.`);
+  } else if (sync.error) {
+    console.error(`\n(decision journal not updated: ${sync.error})`);
+  } else {
+    console.log('\ncontext/DECISIONS.md is up to date.');
+  }
+}
+
+/**
  * `cmk forget <id-or-query>` — wired in Task 9. Tombstones the matching
  * fact (moves it to <tier>/<memory|fragments>/archive/tombstones/<id>.md
  * with deleted_at/deleted_reason/deleted_by frontmatter) and strips any
@@ -2018,6 +2044,12 @@ export const subcommands = [
     description: 'run health checks HC-1..HC-9; print structured report with self-repair commands',
     milestone: 37,
     action: runDoctorCli,
+  },
+  {
+    name: 'digest',
+    description: 'print a readable digest of everything in memory + sync the append-only DECISIONS.md decision journal',
+    milestone: 147,
+    action: runDigestCli,
   },
   {
     name: 'config',
