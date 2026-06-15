@@ -38,6 +38,20 @@ jobs:
         with:
           node-version: 20
       - run: npm ci --no-audit --no-fund
+      # Cache the HF test model (bge-small) — SAME step as ci.yml's test +
+      # coverage jobs (Task 125.3 / PR #152). Without it this job's uncached
+      # runner re-fetches the model, hits the HF Hub's shared-IP rate limit
+      # (HTTP 429), and the semantic-backend tests FAIL — which aborts the
+      # vitest run before `coverage/lcov.info` is written, so Sonar finds no
+      # LCOV and reports new_coverage:0% (the v0.3.1 cut-gate PR #184 symptom).
+      # The cacheDir is INSIDE node_modules (@huggingface/transformers
+      # DEFAULT_CACHE_DIR) and `npm ci` wipes node_modules, so this restores
+      # AFTER npm ci. See docs/journey/DECISION-LOG.md D-155.
+      - uses: actions/cache@v5
+        with:
+          path: node_modules/@huggingface/transformers/.cache
+          key: hf-models-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: hf-models-${{ runner.os }}-
       # Generate coverage/lcov.info for Sonar to ingest. `|| true` so a coverage
       # threshold miss doesn't block the Sonar scan (the `coverage` job in ci.yml
       # is the hard threshold gate; here we only need the lcov for Sonar).

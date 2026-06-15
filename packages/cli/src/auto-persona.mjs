@@ -38,7 +38,7 @@
 // promotion primitive), audit-log, result-shapes, cooldown, compressor.
 // Per design §16.16 + §6.2 (conflict) + §6.8 (auto-drain) + §8.3 + tasks.md 45.
 
-import { readFileSync, appendFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, appendFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { generateId } from '@lh8ppl/cmk-canonicalize';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
@@ -423,6 +423,91 @@ export function appendPersonaReviewQueue({ userDir, entries, now }) {
   const header = `## ${ts} — persona-synthesis (pending review)`;
   appendFileSync(queuePath, `${header}\n${blocks.join('\n')}\n\n`, 'utf8');
   return queuePath;
+}
+
+// Parse persona-review.md back into candidate objects. The queue lines are
+//   - (U-XXXXXXXX) [TARGET § SECTION] <text>
+//     <!-- target: TARGET, section: SECTION, confidence: C, reason: ..., ... -->
+// The HTML comment is authoritative for target/section/confidence (the bracket
+// prefix is human-readable redundancy); fall back to the bracket if absent.
+// ReDoS-safe: NEGATED character classes (not lazy `.+?...+?` pairs) so the regex
+// is linear — each group matches "anything but the delimiter that ends it", which
+// cannot backtrack across that delimiter (the canonicalize stripTrailingPunct
+// lesson — Task 140 / D-143 — applied at write).
+const PERSONA_QUEUE_LINE_RE = /^- \([UPL]-[^)]+\)\s+\[([^§\]]+)§([^\]]+)\]\s+(\S.*)$/;
+// No `\s*` sits adjacent to a `[^,]+` capture: `\s*` and `[^,]+` both match a
+// space, and that overlap is the super-linear-backtracking ambiguity Sonar
+// flags. Each value is captured by `[^,]+` (which absorbs leading/trailing
+// space — we `.trim()` below), with the `,` and label as fixed delimiters.
+const PERSONA_QUEUE_META_RE = /target:([^,]+),\s*section:([^,]+),\s*confidence:\s*(\w+)/;
+export function parsePersonaReviewQueue(text) {
+  const lines = (text ?? '').split(/\r?\n/);
+  const candidates = [];
+  for (let i = 0; i < lines.length; i++) {
+    const m = PERSONA_QUEUE_LINE_RE.exec(lines[i].trim());
+    if (!m) continue;
+    let [, target, section, body] = m;
+    let confidence = 'medium';
+    const meta = PERSONA_QUEUE_META_RE.exec(lines[i + 1] ?? '');
+    if (meta) {
+      target = meta[1].trim();
+      section = meta[2].trim();
+      confidence = meta[3].trim().toLowerCase();
+    }
+    candidates.push({ target: target.trim(), section: section.trim(), confidence, text: body.trim() });
+  }
+  return candidates;
+}
+
+/**
+ * Auto-drain the persona-review queue (the down-payment for Task 151 / D-154).
+ *
+ * The medium-confidence persona candidates were ROUTED to persona-review.md with
+ * the documented promise that "the daily/weekly auto-drain acts on them" — but
+ * that drain was never implemented, so they STRANDED (the v0.3.1 cold-open found
+ * the user's architecture philosophy stuck here, never reaching the persona).
+ * This makes the promise real: the same optimistic auto-promote the review queue
+ * already gets (D-6) — trust the synthesis, mistakes self-correct via `cmk forget`
+ * (the post-hoc-reversibility model every surveyed memory system uses instead of
+ * a pre-promotion human gate). NOT a manual command: runs inside autoDrainQueues
+ * on the daily/weekly maintenance passes. The full recurrence-scored redesign is
+ * Task 151 (v0.4); this just stops the stranding.
+ *
+ * @returns {{promoted: number, drained: number, queuePath: string|null}}
+ */
+export function resolvePersonaReviewQueue({ userDir, now, settings } = {}) {
+  const userTierRoot = resolveTierRoot({ tier: 'U', userDir });
+  const queuePath = join(userTierRoot, 'queues', 'persona-review.md');
+  let text;
+  try {
+    text = readFileSync(queuePath, 'utf8');
+  } catch {
+    return { promoted: 0, drained: 0, queuePath: null }; // no queue → nothing to drain
+  }
+  const candidates = parsePersonaReviewQueue(text);
+  if (candidates.length === 0) return { promoted: 0, drained: 0, queuePath };
+
+  // Re-feed through the SAME promote path the synthesis uses (home-path sanitize
+  // + Poison_Guard + dedup + audit all inherited). OPTIMISTIC AUTO-DRAIN: these
+  // candidates already SURVIVED a synthesis pass without being superseded; the
+  // drain IS the decision to promote them (the field-standard "auto-promote then
+  // post-hoc revert via cmk forget" posture — see the persona-promotion research
+  // note). So force confidence:'high' to clear promoteCandidatesToUserTier's
+  // confidence gate — otherwise they'd re-queue forever (the gate that stranded
+  // them in the first place). The full recurrence-scored model is Task 151 (v0.4).
+  const promotable = candidates.map((c) => ({ ...c, confidence: 'high' }));
+  const r = promoteCandidatesToUserTier({ candidates: promotable, userDir, now, settings });
+  const promoted = r.promoted?.length ?? 0;
+
+  // Clear the queue — the candidates are now resolved (promoted or de-duped into
+  // existing persona). Leave a tombstone header so the file isn't silently empty.
+  const ts = now ?? new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  writeFileSync(
+    queuePath,
+    `<!-- persona-review queue — auto-drained ${ts}: ${candidates.length} candidate(s) promoted to the persona. -->\n`,
+    'utf8',
+  );
+  return { promoted, drained: candidates.length, queuePath };
 }
 
 export function promoteCandidatesToUserTier({ candidates, userDir, now, settings, trust = 'medium', source = 'persona-synthesis' }) {
