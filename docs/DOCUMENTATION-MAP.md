@@ -39,6 +39,7 @@ A session that has lost all memory must be able to read **only the three spine f
 | [`docs/RELEASE-PLAN.md`](RELEASE-PLAN.md) | Forward complement to CHANGELOG: which version each task ships in (release lanes + the one-differentiator-per-minor rule). |
 | [`SECURITY.md`](../SECURITY.md) | Threat model + disclosure contact. |
 | [`HEALTH-CHECKS.md`](../HEALTH-CHECKS.md) | HC-* diagnostics + self-repair. |
+| [`CONTRIBUTING.md`](../CONTRIBUTING.md) | Dev setup, test workflow, and conventions for contributing to the kit itself. |
 
 ## Zone 3 — History / paper trail (append-only; explains the Spine; NEVER current state)
 
