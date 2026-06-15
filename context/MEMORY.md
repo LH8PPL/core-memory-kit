@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-FaMS2LTW) D-144 (housekeeping) is the post-Task-129 step in the remaining v0.3.x queue
-  <!-- source: review-promote, source_line: 1, sha1: f7197d26b6a8501673e57389b12ba135585e3dbe56263563cbf64ea81dea8557, write: user-explicit, trust: high, at: 2026-06-15T11:57:42Z -->
 - (P-YL3LWC69) D-126 (.gitattributes CRLF prevention follow-up) is the final v0.3.x queue item before release-ready state
   <!-- source: review-promote, source_line: 1, sha1: 3b6859d4fb9e289701c11a5104ace99801ff9e098ca1a4280d7f338b9643d719, write: user-explicit, trust: high, at: 2026-06-15T11:57:42Z -->
 - (P-YUCE6EAH) Merge workflow for this PR: squash merge + delete branch
@@ -20,6 +18,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: c88836d31ba0ac45e81c0ae041d107203cc38025146e599c3a96243689231183, write: auto-extract, trust: high, at: 2026-06-15T12:04:44Z -->
 - (P-ZVQEMWJA) Confirmed proposed v0.3.2 scope is better (tasks 153, 152, 134, gitattributes, conditional 141b)
   <!-- source: auto-extract-session, source_line: 1, sha1: 2584063e1893f438ccb6d84872f1ebe9932543e19c4cc3438dacbf4bdc895452, write: auto-extract, trust: high, at: 2026-06-15T12:08:53Z -->
+- (P-F94ZJMYV) Always monitor CI without asking for permission or pausing to confirm; this is the standing approach for this repo going forward.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 50555dbd75e324903b8f912527fb119e99f5fb378b286b696b636125b25e0889, write: auto-extract, trust: high, at: 2026-06-15T15:07:33Z -->
 
 ## Environment Notes
 
