@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-F5M3VBTG) User gates session close with verification question "is everything in lane? slotted to a version?"
-  <!-- source: auto-extract-session, source_line: 1, sha1: a2db1d208b6b8367838434c145a397b5ac3a8a08, write: auto-extract, trust: high, at: 2026-06-12T12:32:09Z -->
 - (P-ZRQRa277) kit needs decisions.md feature
   <!-- source: auto-extract-session, source_line: 1, sha1: 7ebd10b0433a1dc8148e633bf9b525f53ca113ba, write: auto-extract, trust: high, at: 2026-06-12T12:43:49Z -->
 - (P-T7ZLD7YB) Autopilot standing permission for v0.3.x queue starting Task 141a
@@ -22,6 +20,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: 3c353a7f8f6ce22f71c917663f2d58ecc52ff2da, write: auto-extract, trust: high, at: 2026-06-13T12:59:33Z -->
 - (P-ZCRT7N2H) Accepts one-time install UX friction (binding prompt); will not sacrifice permanent per-query performance for convenience
   <!-- source: auto-extract-session, source_line: 1, sha1: 8e76f60c88c99f4514377369731a302938a250c5, write: auto-extract, trust: high, at: 2026-06-13T12:59:33Z -->
+- (P-7MXBHAWU) User reviews multiple adjacent/competing projects to extract design patterns and learnings for active roadmaps.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 4d422a9e2dd5e926e25f8b60612a7b9caf6b93a1d2708e8a8418cfb571f5eabf, write: auto-extract, trust: high, at: 2026-06-15T07:55:57Z -->
 
 ## Environment Notes
 
