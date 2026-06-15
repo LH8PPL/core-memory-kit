@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Fixed
+
+- **search(153): natural queries with dots, hyphens, or version strings no longer crash.** `cmk search "v0.3"` (or asking Claude to recall something via `mk_search`) used to fail with an `FTS5 parse error` because characters like `.`, `-`, and `:` have special meaning in the search engine's grammar. Queries are now auto-sanitized — each word that needs it is quoted for you — so `v0.3`, `user-explicit`, and `section:search` all just find results. Multi-word queries keep their "match all words" behavior, and an explicit `"quoted phrase"` you type yourself is still honored as a phrase search.
+
 ## [0.3.1] — 2026-06-14
 
 ### Added
