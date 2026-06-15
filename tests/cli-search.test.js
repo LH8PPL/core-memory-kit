@@ -22,6 +22,7 @@ import { fileURLToPath } from 'node:url';
 import {
   search,
   reciprocalRankFusion,
+  prepareFtsQuery,
   SEARCH_MODES,
 } from '../packages/cli/src/search.mjs';
 import { openIndexDb } from '../packages/cli/src/index-db.mjs';
@@ -316,32 +317,123 @@ describe('Task 30 — cmk search', () => {
     });
   });
 
-  describe('FTS5 parse-error class (I1 — Task 30 code-review)', () => {
-    it('FTS5 NOT-operator on hyphenated query → schema errorResult (no crash)', () => {
-      seedObservation(db, { id: 'P-AAAAAAAA', body: 'pnpm fact', write_source: 'user-explicit' });
-      // `user-explicit` is a kit `write_source` enum value AND a query
-      // that FTS5 parses as `user AND NOT explicit` because `-` is the
-      // NOT operator. Earlier draft of search.mjs let SqliteError bubble
-      // as an uncaught throw, crashing the CLI with a stack trace
-      // instead of a clean schema error.
+  // Task 153 — query sanitization. Before this task, queries containing
+  // FTS5-special chars (`.`, `-`, `:`) or bare reserved words crashed with
+  // a schema error and a "wrap in quotes" hint the user had to act on. Now
+  // prepareFtsQuery auto-quotes the offending tokens (the SQLite-sanctioned
+  // escape, per the FTS5 spec §3 + basic-memory's implementation), so a
+  // natural query like `v0.3` just finds results. The old error-asserting
+  // tests below were INVERTED to assert success — a justified test change:
+  // the new behavior is strictly better (recall "just works"), not a
+  // test-edited-to-pass-broken-code change. See
+  // docs/research/2026-06-15-fts5-query-preparation-cross-system.md.
+  describe('FTS5 query sanitization (Task 153)', () => {
+    it('version string with a dot → finds results, no crash (the reported bug)', () => {
+      seedObservation(db, { id: 'P-AAAAAAAA', body: 'v0.3 release shipped to npm' });
+      seedObservation(db, { id: 'P-BBBBBBBB', body: 'unrelated note about rust' });
+      const r = search({ db, query: 'v0.3' });
+      expect(r.action).toBe('found');
+      expect(r.results).toHaveLength(1);
+      expect(r.results[0].id).toBe('P-AAAAAAAA');
+    });
+
+    it('multi-token query containing a version string → finds results', () => {
+      seedObservation(db, { id: 'P-AAAAAAAA', body: 'the v0.3 queue has remaining tasks to ship' });
+      // The exact shape that crashed in the live session:
+      // "v0.3 queue remaining tasks ship".
+      const r = search({ db, query: 'v0.3 queue remaining tasks ship' });
+      expect(r.action).toBe('found');
+      expect(r.results.map((x) => x.id)).toContain('P-AAAAAAAA');
+    });
+
+    it('hyphenated query (the kit write_source enum) → finds results', () => {
+      seedObservation(db, { id: 'P-AAAAAAAA', body: 'this fact has user-explicit provenance', write_source: 'user-explicit' });
       const r = search({ db, query: 'user-explicit' });
-      expect(r.action).toBe('error');
-      expect(r.errorCategory).toBe('schema');
-      expect(r.errors[0]).toMatch(/FTS5 parse error/);
+      expect(r.action).toBe('found');
+      expect(r.results[0].id).toBe('P-AAAAAAAA');
     });
 
-    it('FTS5 reserved-word query (bare AND) → schema errorResult', () => {
-      seedObservation(db, { id: 'P-AAAAAAAA', body: 'foo' });
+    it('colon-containing query → finds results (no unknown-column crash)', () => {
+      seedObservation(db, { id: 'P-AAAAAAAA', body: 'design section nine three covers search' });
+      const r = search({ db, query: 'section:search' });
+      // The `:` no longer crashes; quoted, it tokenizes to section + search.
+      expect(r.action).toBe('found');
+    });
+
+    it('bare reserved word (AND) → literal search, no crash', () => {
+      seedObservation(db, { id: 'P-AAAAAAAA', body: 'rock AND roll all night' });
       const r = search({ db, query: 'AND' });
-      expect(r.action).toBe('error');
-      expect(r.errorCategory).toBe('schema');
+      // Quoted "AND" is a valid literal token, not the boolean operator.
+      expect(r.action).toBe('found');
     });
 
-    it('FTS5 column-filter on unknown column → schema errorResult', () => {
-      seedObservation(db, { id: 'P-AAAAAAAA', body: 'foo' });
-      const r = search({ db, query: 'badcol:hello' });
-      expect(r.action).toBe('error');
-      expect(r.errorCategory).toBe('schema');
+    it('plain multi-word query keeps implicit-AND semantics (recall not narrowed)', () => {
+      // Both words appear in A but spread apart (not adjacent); B has only one.
+      // Distinct stems on purpose — the FTS schema uses `porter` stemming, so
+      // the excluded doc must not share a stem with either query word.
+      seedObservation(db, { id: 'P-AAAAAAAA', body: 'kubernetes runs here and elephants graze nearby' });
+      seedObservation(db, { id: 'P-BBBBBBBB', body: 'kubernetes runs here with no large animals at all' });
+      // Per-token (not whole-query-phrase) quoting: the two words are AND'd,
+      // not required to be adjacent — A has both kubernetes + elephant(s),
+      // B has kubernetes but not elephant. A whole-query phrase wrap would
+      // have required adjacency and wrongly dropped A too.
+      const r = search({ db, query: 'kubernetes elephants' });
+      expect(r.action).toBe('found');
+      expect(r.results.map((x) => x.id)).toContain('P-AAAAAAAA');
+      expect(r.results.map((x) => x.id)).not.toContain('P-BBBBBBBB');
+    });
+
+    it('an already-quoted phrase is preserved (power-user phrase search still works)', () => {
+      seedObservation(db, { id: 'P-AAAAAAAA', body: 'thin routes service repository layered' });
+      seedObservation(db, { id: 'P-BBBBBBBB', body: 'routes and thin words far apart not adjacent' });
+      const r = search({ db, query: '"thin routes"' });
+      expect(r.action).toBe('found');
+      // The phrase requires adjacency: only P-AAAAAAAA has "thin routes" together.
+      expect(r.results.map((x) => x.id)).toContain('P-AAAAAAAA');
+      expect(r.results.map((x) => x.id)).not.toContain('P-BBBBBBBB');
+    });
+  });
+
+  // Direct unit tests of the pure prepareFtsQuery helper (boundary test —
+  // it's exported for isolated verification like reciprocalRankFusion).
+  describe('prepareFtsQuery (Task 153 — pure helper)', () => {
+    it('passes a plain bareword through untouched', () => {
+      expect(prepareFtsQuery('pnpm')).toBe('pnpm');
+    });
+
+    it('leaves a plain multi-word query as implicit-AND barewords', () => {
+      expect(prepareFtsQuery('layered architecture')).toBe('layered architecture');
+    });
+
+    it('quotes a token containing a dot', () => {
+      expect(prepareFtsQuery('v0.3')).toBe('"v0.3"');
+    });
+
+    it('quotes only the special token in a mixed query', () => {
+      expect(prepareFtsQuery('ship v0.3 now')).toBe('ship "v0.3" now');
+    });
+
+    it('quotes a hyphenated token', () => {
+      expect(prepareFtsQuery('user-explicit')).toBe('"user-explicit"');
+    });
+
+    it('quotes a bare reserved word so it is literal', () => {
+      expect(prepareFtsQuery('AND')).toBe('"AND"');
+    });
+
+    it('preserves an already-quoted phrase verbatim', () => {
+      expect(prepareFtsQuery('"thin routes"')).toBe('"thin routes"');
+    });
+
+    it('escapes an embedded double quote by doubling it', () => {
+      // FTS5 escapes a literal " inside a quoted string SQL-style (""),
+      // per sqlite.org/fts5 §3. A token like he"llo must not break out.
+      expect(prepareFtsQuery('he"llo')).toBe('"he""llo"');
+    });
+
+    it('returns an empty string for empty/whitespace input', () => {
+      expect(prepareFtsQuery('')).toBe('');
+      expect(prepareFtsQuery('   ')).toBe('');
     });
   });
 

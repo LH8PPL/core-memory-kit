@@ -136,6 +136,109 @@ function validateInput(opts) {
   return { errors, mode, scope };
 }
 
+// --- FTS5 query sanitization (Task 153) -------------------------------
+//
+// FTS5's MATCH grammar (sqlite.org/fts5 §3) treats many characters a user
+// would type in a natural query as operators or syntax errors:
+//   - a bareword may ONLY contain letters / digits / underscore / non-ASCII;
+//     a `.`, `-`, `:`, `+`, `^`, `(`, etc. in a bareword is a SYNTAX ERROR.
+//   - `AND` / `OR` / `NOT` (case-sensitive) are reserved boolean operators.
+// So `cmk search v0.3` crashed (`v0` then `.3` → `.` violates the bareword
+// grammar), and `cmk search user-explicit` parsed `-` as a column-exclude.
+//
+// The SQLite-sanctioned fix is to double-quote the offending token: inside a
+// quoted string the tokenizer treats `.`/`-`/`:` as separators, so `"v0.3"`
+// tokenizes to `v0` + `3` and matches the literal content. We quote
+// PER-TOKEN (not the whole query) so a plain multi-word query keeps its
+// implicit-AND semantics (better recall) rather than collapsing to a strict
+// adjacency phrase. A token the user already quoted is left untouched.
+//
+// Validated against the FTS5 spec AND basic-memory's real implementation
+// (the kit's closest FTS5 + markdown-native design analog). Full rationale:
+// docs/research/2026-06-15-fts5-query-preparation-cross-system.md.
+
+// A bareword that FTS5 accepts as-is: letters, digits, underscore, non-ASCII.
+// Anything else in the token means it must be quoted to be a literal.
+const FTS5_BAREWORD_RE = /^[\p{L}\p{N}_]+$/u;
+const FTS5_RESERVED_WORDS = new Set(['AND', 'OR', 'NOT']);
+
+// Quote a single token for literal FTS5 matching, escaping embedded `"`
+// SQL-style (double it) per the spec. Used only when the token isn't a safe
+// bareword.
+function quoteFtsToken(token) {
+  return `"${token.replace(/"/g, '""')}"`;
+}
+
+/**
+ * Transform a raw user query into an FTS5-safe MATCH string.
+ *
+ * Per-token: a safe bareword passes through untouched (preserving
+ * implicit-AND between words); a token with FTS5-special characters or a
+ * bare reserved word (AND/OR/NOT) is double-quoted (literal). A token the
+ * user already wrapped in `"…"` is preserved verbatim — explicit phrase
+ * search still works for power users.
+ *
+ * Exported for isolated unit testing (like reciprocalRankFusion).
+ *
+ * @param {string} raw the user's query
+ * @returns {string} an FTS5-safe MATCH expression ('' for empty input)
+ */
+export function prepareFtsQuery(raw) {
+  if (typeof raw !== 'string') return '';
+  const trimmed = raw.trim();
+  if (trimmed === '') return '';
+
+  return tokenizeQuery(trimmed)
+    .map((token) => {
+      // Already a user-quoted phrase (`"…"`, possibly multi-word): leave it
+      // exactly as typed — explicit phrase search still works for power users.
+      if (token.length >= 2 && token.startsWith('"') && token.endsWith('"')) {
+        return token;
+      }
+      // Safe bareword that isn't a reserved operator: pass through.
+      if (FTS5_BAREWORD_RE.test(token) && !FTS5_RESERVED_WORDS.has(token)) {
+        return token;
+      }
+      // Everything else (special chars, or a bare AND/OR/NOT): quote literal.
+      return quoteFtsToken(token);
+    })
+    .join(' ');
+}
+
+// Split a query into tokens, keeping a double-quoted span (which may contain
+// spaces, e.g. `"thin routes"`) as ONE token. A naive whitespace split would
+// tear `"thin routes"` into `"thin` + `routes"` and corrupt the quoting.
+// Unbalanced trailing quote: the final quoted run extends to end-of-string.
+function tokenizeQuery(query) {
+  const tokens = [];
+  let i = 0;
+  while (i < query.length) {
+    if (/\s/.test(query[i])) {
+      i += 1;
+      continue;
+    }
+    if (query[i] === '"') {
+      // A `"` at a token boundary opens a phrase span: consume up to and
+      // including the closing quote (or end-of-string if unbalanced).
+      let j = i + 1;
+      while (j < query.length && query[j] !== '"') j += 1;
+      const end = j < query.length ? j + 1 : query.length;
+      tokens.push(query.slice(i, end));
+      i = end;
+    } else {
+      // A run of non-space characters. A `"` that appears MID-run (e.g.
+      // `he"llo`) is part of this token, NOT a phrase delimiter — it'll be
+      // escaped + quoted as a literal by prepareFtsQuery. Only whitespace
+      // ends the run.
+      let j = i;
+      while (j < query.length && !/\s/.test(query[j])) j += 1;
+      tokens.push(query.slice(i, j));
+      i = j;
+    }
+  }
+  return tokens;
+}
+
 // --- Keyword (FTS5 BM25) backend --------------------------------------
 
 const KEYWORD_BASE_SQL = `
@@ -158,7 +261,7 @@ WHERE observations_fts MATCH @query
 
 function buildKeywordSql(opts) {
   const clauses = [];
-  const params = { query: opts.query };
+  const params = { query: prepareFtsQuery(opts.query) };
   if (opts.tier !== undefined) {
     clauses.push('o.tier = @tier');
     params.tier = opts.tier;
@@ -265,7 +368,7 @@ function runTranscriptKeywordSearch(db, opts) {
   try {
     rows = db
       .prepare(TRANSCRIPT_KEYWORD_SQL)
-      .all({ query: opts.query, limit: opts.limit ?? DEFAULT_LIMIT });
+      .all({ query: prepareFtsQuery(opts.query), limit: opts.limit ?? DEFAULT_LIMIT });
   } catch (err) {
     if (err?.code === 'SQLITE_ERROR' || /fts5:|no such column:/i.test(err?.message ?? '')) {
       throw new FTS5ParseError(err, opts.query);
