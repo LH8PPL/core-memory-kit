@@ -38,8 +38,14 @@ const getArg = (flag, def) => {
   const i = args.indexOf(flag);
   return i !== -1 && args[i + 1] ? Number(args[i + 1]) : def;
 };
-const N = getArg('--n', 40);
-const CORPUS = getArg('--corpus', 500);
+// N = number of timed SAMPLES; BATCH = queries per sample. Each sample times
+// BATCH back-to-back queries, so the measured unit is ~tens of ms — large
+// enough that Windows timer granularity + sub-ms jitter become a rounding
+// error (the ±100% swing on single sub-ms ops was pure timer noise). The
+// per-query time = sample / BATCH.
+const N = getArg('--n', 25);
+const BATCH = getArg('--batch', 200);
+const CORPUS = getArg('--corpus', 2000);
 const VEC_DIM = 384; // bge-base is 768; 384 keeps the bench light, same shape
 const RATIO_BAR = 1.03;
 
@@ -50,7 +56,10 @@ function pct(sorted, p) {
 }
 function summarize(times) {
   const s = [...times].sort((a, b) => a - b);
-  return { min: s[0], median: pct(s, 50), p95: pct(s, 95) };
+  const mean = s.reduce((a, b) => a + b, 0) / s.length;
+  const variance = s.reduce((a, b) => a + (b - mean) ** 2, 0) / s.length;
+  const rsd = mean === 0 ? 0 : Math.sqrt(variance) / mean; // relative std dev
+  return { min: s[0], median: pct(s, 50), p95: pct(s, 95), rsd };
 }
 
 // --- deterministic corpus -------------------------------------------------
@@ -138,11 +147,18 @@ function time1(fn) {
 // better-sqlite3 AND node:sqlite in one process collides on the extension's
 // global state ("vec0 constructor error: bad parameter or other API misuse").
 // Each driver gets a clean process; the parent compares their JSON output.
+// Each sample times BATCH back-to-back calls (so the unit is ~tens of ms,
+// swamping sub-ms timer jitter); the recorded value is per-query (sample/BATCH).
 function benchOp(fn) {
-  for (let i = 0; i < 5; i++) fn(); // warmup
-  const times = [];
-  for (let i = 0; i < N; i++) times.push(time1(fn));
-  return summarize(times);
+  for (let i = 0; i < BATCH; i++) fn(); // warmup one full batch
+  const perQuery = [];
+  for (let s = 0; s < N; s++) {
+    const t0 = process.hrtime.bigint();
+    for (let i = 0; i < BATCH; i++) fn();
+    const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+    perQuery.push(ms / BATCH);
+  }
+  return summarize(perQuery);
 }
 
 // --- child mode: bench ONE driver, print JSON to stdout -------------------
@@ -174,7 +190,7 @@ function runChildProcess(driver) {
   const { execFileSync } = require('node:child_process');
   const out = execFileSync(
     process.execPath,
-    ['--experimental-sqlite', fileURLToPath(import.meta.url), '--driver', driver, '--n', String(N), '--corpus', String(CORPUS)],
+    ['--experimental-sqlite', fileURLToPath(import.meta.url), '--driver', driver, '--n', String(N), '--corpus', String(CORPUS), '--batch', String(BATCH)],
     { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] },
   );
   return JSON.parse(out);
@@ -196,16 +212,20 @@ function runParent() {
   console.log('(separate processes because better-sqlite3 + node:sqlite collide on the shared sqlite-vec extension; median-of-rounds tames cold-start noise)\n');
 
   const keys = ['fts', 'vec', 'inc'];
-  // Collect ROUNDS p95 samples per driver per op, then take the median p95.
+  // Collect ROUNDS median-per-query samples per driver per op, then take the
+  // median across rounds. Also track the worst within-round rsd so we can SEE
+  // whether the measurement is clean enough to trust a 3% bar.
   const samples = { better: { fts: [], vec: [], inc: [] }, node: { fts: [], vec: [], inc: [] } };
+  const rsds = { better: { fts: [], vec: [], inc: [] }, node: { fts: [], vec: [], inc: [] } };
   for (let r = 0; r < ROUNDS; r++) {
     process.stderr.write(`round ${r + 1}/${ROUNDS}...\n`);
     for (const driver of ['better', 'node']) {
       const res = runChildProcess(driver);
-      for (const k of keys) samples[driver][k].push(res[k].p95);
+      for (const k of keys) { samples[driver][k].push(res[k].median); rsds[driver][k].push(res[k].rsd); }
     }
   }
   const agg = (driver, k) => medianOf(samples[driver][k]);
+  const aggRsd = (driver, k) => medianOf(rsds[driver][k]);
 
   const ops = [
     { key: 'fts', label: 'FTS5 keyword query' },
@@ -214,27 +234,40 @@ function runParent() {
   ];
 
   let allPass = true;
+  let noisy = false;
   for (const { key, label } of ops) {
-    const b = { p95: agg('better', key), median: agg('better', key) };
-    const n = { p95: agg('node', key), median: agg('node', key) };
-    const ratio = b.p95 === 0 ? (n.p95 === 0 ? 1 : Infinity) : n.p95 / b.p95;
+    const bMed = agg('better', key);
+    const nMed = agg('node', key);
+    const bRsd = aggRsd('better', key);
+    const nRsd = aggRsd('node', key);
+    const ratio = bMed === 0 ? (nMed === 0 ? 1 : Infinity) : nMed / bMed;
     const pass = ratio <= RATIO_BAR;
+    // A measurement is only trustworthy at a 3% bar if its own noise (rsd) is
+    // well below 3%. Flag when noise rivals the signal.
+    const clean = Math.max(bRsd, nRsd) < 0.03;
+    if (!clean) noisy = true;
     if (!pass) allPass = false;
     console.log(`[${pass ? 'PASS' : 'FAIL'}] ${label}`);
-    console.log(`   better-sqlite3  median-p95=${fmt(b.p95)}`);
-    console.log(`   node:sqlite     median-p95=${fmt(n.p95)}`);
-    console.log(`   ratio (node/better) = ${ratio.toFixed(3)}  (bar ≤ ${RATIO_BAR})\n`);
+    console.log(`   better-sqlite3  per-query=${fmt(bMed)}  (noise ±${(bRsd * 100).toFixed(1)}%)`);
+    console.log(`   node:sqlite     per-query=${fmt(nMed)}  (noise ±${(nRsd * 100).toFixed(1)}%)`);
+    console.log(`   ratio (node/better) = ${ratio.toFixed(3)}  (bar ≤ ${RATIO_BAR})  ${clean ? '✓ measurement clean' : '⚠ NOISY — noise ≥ 3%, ratio not trustworthy'}\n`);
   }
 
   console.log('='.repeat(60));
-  if (allPass) {
-    console.log('VERDICT: PASS — node:sqlite meets the no-measurable-regression bar on all gated paths.');
+  if (noisy) {
+    console.log('VERDICT: INCONCLUSIVE — the measurement noise (rsd) rivals or exceeds the 3% bar,');
+    console.log('so the ratio cannot be trusted. Run on a quieter machine, raise --batch / --corpus,');
+    console.log('or wire this into CI. (The PASS/FAIL above is noise, not signal.)');
+    process.exitCode = 2;
+  } else if (allPass) {
+    console.log('VERDICT: PASS — node:sqlite meets the no-measurable-regression bar on all gated paths (clean measurement).');
     console.log("Spikes 1 (FTS5) + 2 (sqlite-vec loadExtension) already passed → 141b migration is GO (pending the user's call).");
+    process.exitCode = 0;
   } else {
-    console.log('VERDICT: FAIL — node:sqlite regresses a gated read/search path beyond the noise floor.');
+    console.log('VERDICT: FAIL — node:sqlite regresses a gated read/search path beyond the noise floor (clean measurement).');
     console.log("141b does NOT ship; better-sqlite3 stays, 141a's install-time ask remains the npm-12 answer.");
+    process.exitCode = 1;
   }
-  process.exitCode = allPass ? 0 : 1;
 }
 
 try {
