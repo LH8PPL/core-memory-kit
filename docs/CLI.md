@@ -74,6 +74,14 @@ Render the canonical Markdown citation link for an observation (`mk_cite` parity
 ### `cmk recent-activity [--window 1h|24h|7d] [--limit <n>]`
 List recently added observations within a time window (`mk_recent_activity` parity; default window 24h, limit 20). The "what did the kit capture lately?" view.
 
+### `cmk digest`
+Print a readable digest of everything in memory (facts grouped by type, with trust + date), AND sync `context/DECISIONS.md` — the **append-only decision journal**. Two surfaces, two lifecycles:
+- The **digest** is a *regenerated* snapshot of current knowledge (printed to stdout) — like a rebuilt index, it reflects only what exists now.
+- **`context/DECISIONS.md`** is a *committed, append-only* chronological log of every decision (`type: project` facts) and its **Why**. Unlike the digest it is **never regenerated and never rolls**: a superseded or forgotten decision stays in the file, annotated `_(retracted …)_` in place — because the value of a decision log is the trail (what you decided *and* what you moved away from). It travels with `git clone` and shows up in the PR diff that captured the decision.
+```bash
+cmk digest
+```
+
 ### `cmk doctor`
 Run the 8 health checks (HC-1..HC-8); reports PASS/FAIL/SKIP with a repair command per failure. HC-8 (npm 12 readiness) verifies the native bindings load and emits the exact `--allow-scripts` remediation when npm blocked an install script. The report ends with an informational **memory-health section** (content quality: fact count + trust distribution, old-and-untouched facts, possible duplicate pairs, pending queue items) — read-only, never affects the exit code.
 ```bash

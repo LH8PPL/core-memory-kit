@@ -172,6 +172,12 @@ function scrubAllScratchpads(tierRoot, id) {
     if (!entry.isFile()) continue;
     if (!entry.name.endsWith('.md')) continue;
     if (entry.name === 'INDEX.md') continue;
+    // DECISIONS.md is the APPEND-ONLY decision journal (Task 147 / D-161), NOT
+    // a scratchpad — forget must NOT strip its id-bearing lines (the marker +
+    // **Fact:** line). The journal sync marks the entry RETRACTED in place
+    // instead (preserving the trail). Scrubbing it here would delete the
+    // entry's marker and break the retract-in-place path (composition bug).
+    if (entry.name === 'DECISIONS.md') continue;
     const p = join(tierRoot, entry.name);
     const r = scrubScratchpadFile(p, id);
     if (r.changed) edits.push({ path: p, removed: r.removed });

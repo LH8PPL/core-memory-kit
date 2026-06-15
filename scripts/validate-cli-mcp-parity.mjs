@@ -51,7 +51,7 @@ export const PARITY_MAP = {
 // MCP surface" decision; adding a new CLI verb forces a choice between this set
 // and PARITY_MAP (an unclassified verb fails the guard).
 export const CLI_ONLY = new Set([
-  'install', 'uninstall', 'init-user-tier', 'reindex', 'doctor', 'config',
+  'install', 'uninstall', 'init-user-tier', 'reindex', 'doctor', 'config', 'digest',
   'import-anthropic-memory', 'import-claude-md', 'transcripts', 'purge', 'roll', 'repair',
   'daily-distill', 'weekly-curate', 'persona', 'disable-native-memory',
   'enable-native-memory', 'compress', 'register-crons', 'mcp', 'version',
