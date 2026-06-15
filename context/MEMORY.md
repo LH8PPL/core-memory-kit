@@ -8,10 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-ZRQRa277) kit needs decisions.md feature
-  <!-- source: auto-extract-session, source_line: 1, sha1: 7ebd10b0433a1dc8148e633bf9b525f53ca113ba, write: auto-extract, trust: high, at: 2026-06-12T12:43:49Z -->
-- (P-T7ZLD7YB) Autopilot standing permission for v0.3.x queue starting Task 141a
-  <!-- source: auto-extract-session, source_line: 1, sha1: d86edee56b823cf037865747c0567b8399b0cf42, write: auto-extract, trust: high, at: 2026-06-12T15:48:38Z -->
 - (P-UKXW3FN9) v0.3.1 will release the current feature batch (live-tested first); v0.3.2 will include node:sqlite migration + remaining v0.3.x work
   <!-- source: auto-extract-session, source_line: 1, sha1: cbe837116c5cd2e49872d96cd5690aaa67273382, write: auto-extract, trust: high, at: 2026-06-13T12:48:37Z -->
 - (P-V77JZTJR) Live validation must happen before committing major dependency migrations; don't bundle v0.3.1's test pass with v0.3.2's breaking change
@@ -22,6 +18,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: 8e76f60c88c99f4514377369731a302938a250c5, write: auto-extract, trust: high, at: 2026-06-13T12:59:33Z -->
 - (P-7MXBHAWU) User reviews multiple adjacent/competing projects to extract design patterns and learnings for active roadmaps.
   <!-- source: auto-extract-session, source_line: 1, sha1: 4d422a9e2dd5e926e25f8b60612a7b9caf6b93a1d2708e8a8418cfb571f5eabf, write: auto-extract, trust: high, at: 2026-06-15T07:55:57Z -->
+- (P-4ELVTGQB) I used https://github.com/SpillwaveSolutions/project-memory before starting claude-memory-kit
+  <!-- source: auto-extract-session, source_line: 1, sha1: 8851bd6ffe9205fb2947e0eb1e26b9fc84374d8fae5ff800a50803cc3d16848d, write: auto-extract, trust: high, at: 2026-06-15T11:49:13Z -->
 
 ## Environment Notes
 
