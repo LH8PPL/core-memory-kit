@@ -138,7 +138,10 @@ export function updateDecisionsJournal({ existingContent = '', facts = [], tombs
 
 // --- File-IO orchestration (the impure shell over the pure core) ----------
 
-const RICH_WHY_RE = /(?:^|\n)\s*\*\*Why:\*\*\s*([^\n]+)/;
+// Leading indent is [ \t]* (NOT \s*) so it can't match the newline the
+// (?:^|\n) anchor already consumed — that overlap is the backtracking
+// ambiguity SonarCloud flags as ReDoS. Disjoint character classes = linear.
+const RICH_WHY_RE = /(?:^|\n)[ \t]*\*\*Why:\*\*[ \t]*([^\n]+)/;
 
 /** Read decision-class facts (type:project) from the project tier. */
 function readProjectDecisionFacts(projectRoot) {
