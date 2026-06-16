@@ -7,3 +7,9 @@
 ## 2026-06-16T12:01:44Z — auto-extract (medium-trust, pending review)
 - (P-K6DKFXP4) Check documentation to verify technical claims rather than reasoning through uncertainty
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-16T12:01:44Z -->
+## 2026-06-16T13:07:39Z — auto-extract (medium-trust, pending review)
+- (P-DEQV4AUL) v0.3.2 ships FTS5 query fix (Task 153) + validate-index (Task 152)
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-16T13:07:39Z -->
+## 2026-06-16T13:07:39Z — auto-extract (medium-trust, pending review)
+- (P-Y9DZXM3D) Tasks 156 (DECISIONS.md AI-recall) and 155 (tombstone recovery flag) queued for v0.3.3
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-16T13:07:39Z -->
