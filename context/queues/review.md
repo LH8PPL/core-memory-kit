@@ -13,3 +13,12 @@
 ## 2026-06-16T13:07:39Z — auto-extract (medium-trust, pending review)
 - (P-Y9DZXM3D) Tasks 156 (DECISIONS.md AI-recall) and 155 (tombstone recovery flag) queued for v0.3.3
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-16T13:07:39Z -->
+## 2026-06-16T14:05:44Z — auto-extract (medium-trust, pending review)
+- (P-N6ZTVDUC) v0.3.2 shipped to npm (@lh8ppl/claude-memory-kit@0.3.2) with SLSA provenance and GitHub Release
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-16T14:05:44Z -->
+## 2026-06-16T14:05:44Z — auto-extract (medium-trust, pending review)
+- (P-KKYS67aQ) node:sqlite migration rejected—clean CI perf data showed 10% slower search performance
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-16T14:05:44Z -->
+## 2026-06-16T14:05:44Z — auto-extract (medium-trust, pending review)
+- (P-aG3GHZBE) v0.3.3 roadmap: Task 156 (DECISIONS.md AI-recall journal completion), Task 155 (tombstone recovery flag)
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-16T14:05:44Z -->
