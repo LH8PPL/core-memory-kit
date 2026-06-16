@@ -72,10 +72,17 @@ export function buildDecisionEntry(f) {
   return lines.join('\n');
 }
 
+// The kit's id char class — MUST match ID_PATTERN's base32 alphabet in
+// tier-paths.mjs (which includes a lowercase `a`). A uppercase-only class
+// `[A-Z2-9]` silently fails to match any id containing the lowercase `a`, so
+// such facts never register as "already journaled" → re-appended on EVERY
+// digest run (the non-idempotency bug the cut-gate caught).
+const ID_CHARS = '[PUL]-[2345679ABCDEFGHJKLMNPQRSTUVWXYZa]{8}';
+
 /** ids already present in the journal body (by their machine marker). */
 function journaledIds(content) {
   const ids = new Set();
-  const re = /<!-- decision:([PUL]-[A-Z2-9]{8}) -->/g;
+  const re = new RegExp(`<!-- decision:(${ID_CHARS}) -->`, 'g');
   let m;
   while ((m = re.exec(content)) !== null) ids.add(m[1]);
   return ids;
@@ -177,7 +184,7 @@ function readTombstonedIds(projectRoot) {
   const dir = join(projectRoot, 'context', 'memory', 'archive', 'tombstones');
   if (!existsSync(dir)) return ids;
   for (const name of readdirSync(dir)) {
-    const m = name.match(/^([PUL]-[A-Z2-9]{8})\.md$/);
+    const m = name.match(new RegExp(`^(${ID_CHARS})\\.md$`));
     if (m) ids.add(m[1]);
   }
   return ids;
