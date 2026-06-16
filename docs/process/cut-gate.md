@@ -2,14 +2,15 @@
 
 **The single guide to run before tagging a release.** Version-agnostic — reused every cut.
 
-> **Cutting now: `v0.3.1`** — **the within-paradigm POLISH patch** (make the kit better without changing what it is — D-130):
-> the v0.3.x feature sweep (config / import-claude-md / near-dup-at-write / status line / memory-health doctor / Poison_Guard catalog / npm-12 readiness / `.gitattributes`)
-> **plus four cut-gate bug-fixes** found by re-running this gate on a clean build: the `<private>` write-path leak + title-truncation leak (**C5/C6**), `cmk repair --index` rebuilding for real (**F-11**), and a failed index rebuild becoming observable + the SHA-256 fingerprint migration (**F-11b**).
+> **Cutting now: `v0.3.2`** — **the within-paradigm POLISH patch** (make the kit better without changing what it is — D-130):
+> **Task 147** (`cmk digest` + the standing append-only `context/DECISIONS.md` decision journal — the headline this cut), **Task 153** (FTS5 query sanitization — `cmk search "v0.3"` / `user-explicit` no longer crash), and **Task 152** (`validate-index-completeness` — dev-tooling, runs in `npm test`, no live probe).
+> **141b (the `node:sqlite` migration) was REJECTED on perf** (D-162): clean CI bench showed node:sqlite ~10% slower on FTS5 keyword search → better-sqlite3 stays, 141a's install-time ask remains the npm-12 answer. Nothing to test here — the kit's storage layer is unchanged.
 > This is a **PATCH** (`npm run release -- patch`) — 0.3.x is the polish lane; the differentiator (recall) shipped at 0.3.0, so additive polish is patch-level per RELEASE-PLAN.md + the one-differentiator-per-minor rule.
-> _The version-agnostic checks below stand every cut; the v0.3.1-specific gates are **C5, C6, F-11, F-11b** (privacy + index integrity) and the **G7/W2 semantic ladder** (re-verify recall still hits)._
-> _Replace `0.3.1` / `v0.3.1` in the commands below if you reuse this guide for a later cut._
+> _The version-agnostic checks below stand every cut; the v0.3.2-SPECIFIC gates are **DJ1, DJ2, DJ3** (digest + the decision journal) and **FQ1** (FTS5 query sanitization)._
+> _Replace `0.3.2` / `v0.3.2` in the commands below if you reuse this guide for a later cut._
 >
-> **Original banner (v0.3.0 cut, pre-2026-06-14 — kept per the decision-trail rule):** RECALL, the wow-#2 release — semantic + hybrid search (Task 65), one-flag enablement (Task 46), the recall trigger (Task 75), the L3 raw tier (Task 104). That was a MINOR (the reserved recall version). v0.3.1 is the patch that polishes it + fixes what the clean-build cut-gate caught.
+> **Prior banner (v0.3.1 cut, pre-2026-06-16 — kept per the decision-trail rule):** the within-paradigm sweep (config / import-claude-md / near-dup-at-write / status line / memory-health doctor / Poison_Guard catalog / npm-12 readiness / `.gitattributes`) + four clean-build cut-gate fixes (C5/C6 `<private>` leaks, F-11 repair --index, F-11b index-drift trace). The v0.3.1-specific gates were **C5, C6, F-11, F-11b** — still run them (standing now).
+> **Original banner (v0.3.0 cut, pre-2026-06-14 — kept per the decision-trail rule):** RECALL, the wow-#2 release — semantic + hybrid search (Task 65), one-flag enablement (Task 46), the recall trigger (Task 75), the L3 raw tier (Task 104). That was a MINOR (the reserved recall version).
 
 It exercises every kit feature end-to-end on the **real installed artifact**:
 install (with MCP-server registration), the memory-write skill, the **MCP tools driven in conversation**,
@@ -81,6 +82,19 @@ The v0.3.x feature sweep is covered by the standing sections below (config → *
 Plus the SHA-256 fingerprint migration (internal; no probe — the suite + the unchanged on-disk field names cover it).
 _Note: `mk_search` now also takes `scope`; the tool count stays **11**. The B5/B7 probes overwrite `settings.json` wholesale — fine in their throwaway dirs (a real project's `search.default_mode` would be lost; don't reuse the probe line outside them)._
 
+### Also new in v0.3.2 — the digest + decision-journal gates
+
+The headline this cut is **`cmk digest` + the standing append-only `context/DECISIONS.md`** (Task 147) — the chronological decision journal the kit was missing. Plus the **FTS5 query crash fix** (Task 153). All four v0.3.2-specific ★ gates run in §4c (digest/journal) and §4 (FTS5):
+
+| Check | Feature | What it verifies |
+| --- | --- | --- |
+| **★ DJ1** | Task 147 | `cmk digest` prints a readable memory page (facts by type) AND creates `context/DECISIONS.md` from `type:project` decision facts (title + when + Why) |
+| **★ DJ2** | Task 147 / D-161 | the journal is **append-only**: a second `cmk digest` doesn't duplicate; a forgotten decision's entry **survives, marked `_(retracted …)_` in place** (never deleted — the trail is the point) |
+| **★ DJ3** | Task 147 | only `type:project` facts journal (a `feedback`/`reference` fact does NOT appear in `DECISIONS.md`) |
+| **★ FQ1** | Task 153 | `cmk search "v0.3"` / `"user-explicit"` / `"section:search"` return results (or clean "no results"), **never the old `FTS5 parse error` crash** |
+
+_Task 152 (`validate-index-completeness`) is dev-tooling — it runs in `npm test`, no live probe._
+
 ---
 
 ## 0. Cut the release locally, then build the REAL artifact
@@ -90,10 +104,10 @@ _Note: `mk_search` now also takes `scope`; the tool count stays **11**. The B5/B
 ```powershell
 cd C:\Projects\claude-memory-kit
 git checkout main; git pull
-npm run release -- patch             # 0.3.1 is a PATCH in the polish lane (RELEASE-PLAN.md); [Unreleased] → ## [0.3.1]; package.json 0.3.0 → 0.3.1
+npm run release -- patch             # 0.3.2 is a PATCH in the polish lane (RELEASE-PLAN.md); [Unreleased] → ## [0.3.2]; package.json 0.3.1 → 0.3.2
 git diff                             # review: ONLY the version bump + CHANGELOG consolidation
 git add CHANGELOG.md packages\cli\package.json
-git commit -m "release: v0.3.1"      # local release commit — do NOT tag yet (that's the last step)
+git commit -m "release: v0.3.2"      # local release commit — do NOT tag yet (that's the last step)
 git push origin main
 ```
 
@@ -101,16 +115,16 @@ git push origin main
 
 ```powershell
 cd C:\Projects\claude-memory-kit\packages\cli
-npm pack                             # → lh8ppl-claude-memory-kit-0.3.1.tgz
+npm pack                             # → lh8ppl-claude-memory-kit-0.3.2.tgz
 npm uninstall -g @lh8ppl/claude-memory-kit
-npm install -g .\lh8ppl-claude-memory-kit-0.3.1.tgz
-cmk --version                        # ✅ 0.3.1
+npm install -g .\lh8ppl-claude-memory-kit-0.3.2.tgz
+cmk --version                        # ✅ 0.3.2
 
 # Wipe the user tier so capture-from-zero is honest (back it up first if you care)
 Remove-Item -Recurse -Force $env:USERPROFILE\.claude-memory-kit
 ```
 
-- [ ] **G0** — `cmk --version` → `0.3.1` _(if it says `0.3.0`, you skipped 0a — run `npm run release -- patch` first; if it bumped to `0.4.0`, you ran `minor` by mistake — `git checkout CHANGELOG.md packages\cli\package.json` and re-run with `patch`)_
+- [ ] **G0** — `cmk --version` → `0.3.2` _(if it says `0.3.1`, you skipped 0a — run `npm run release -- patch` first; if it bumped to `0.4.0`, you ran `minor` by mistake — `git checkout CHANGELOG.md packages\cli\package.json` and re-run with `patch`)_
 
 ---
 
@@ -428,6 +442,55 @@ findstr /S /C:"\"tier\":\"U\"" %USERPROFILE%\.claude-memory-kit\.locks\audit.log
       **PASS:** nothing found — the strip runs BEFORE the title is derived, so a trimmed title can't carry the secret.
       _(The closing tag falls past char 80 → without the fix the redaction regex misses the broken span and the secret lands in the frontmatter `title:` + INDEX.)_
 
+- [ ] **★ FQ1 — FTS5 query sanitization: dots / hyphens / colons no longer crash (Task 153 — new in v0.3.2).**
+      A natural query containing FTS5-special chars used to crash with `FTS5 parse error` — `cmk search "v0.3 queue"` was the live report. Now the query is auto-quoted per-token.
+      ```powershell
+      cmk remember "v0.3.1 shipped to npm with the recall fix" | Out-Null
+      cmk search "v0.3"                  # finds the fact — NOT a crash
+      cmk search "v0.3 queue remaining"  # the exact shape that crashed — clean (hit or "no results")
+      cmk search "user-explicit"         # the kit's own enum value — clean
+      cmk search "section:search"        # a colon — clean (no unknown-column crash)
+      ```
+      **PASS:** every query returns results or a clean "no results" line + exit 0 — **never** an `FTS5 parse error` / stack trace. Plain multi-word queries still work (implicit-AND preserved).
+      _(Pre-v0.3.2 the `.` in `v0.3` violated FTS5's bareword grammar → uncaught crash; `user-explicit` parsed `-` as a NOT operator. The fix per-token-quotes special tokens — the SQLite-sanctioned escape.)_
+
+---
+
+## 4c. `cmk digest` + the decision journal (Task 147)  ⬅️ the v0.3.2 headline
+
+`cmk digest` prints a readable page of everything in memory AND maintains `context/DECISIONS.md` —
+a committed, **append-only** chronological log of every decision (`type:project` fact) + its *why*.
+Run these in the build terminal (`C:\Temp\cut-gate12`), after Session 1 has captured some facts.
+
+- [ ] **★ DJ1 — `cmk digest` renders + creates `DECISIONS.md` (Task 147).**
+      ```powershell
+      cmk remember "We chose FTS5 keyword search for the kit" --type project --title "FTS5 keyword search" --why "Markdown stays the source of truth; the index is regenerable" | Out-Null
+      cmk digest                          # prints the digest page to the terminal
+      type context\DECISIONS.md
+      ```
+      **PASS:** `cmk digest` prints a "Memory digest" page grouping facts by type; `context\DECISIONS.md` exists and contains the decision (its title, a `**When:**` date, the `**Why:**`, and the `P-…` fact id).
+
+- [ ] **★ DJ2 — the journal is APPEND-ONLY: idempotent + retract-in-place (Task 147 / D-161).**
+      The journal is NOT regenerated from live facts — a superseded/forgotten decision STAYS (annotated), because the value of a decision log is the trail (what you decided AND moved away from).
+      ```powershell
+      cmk digest | Out-Null                                  # 2nd run, nothing new
+      type context\DECISIONS.md                              # the FTS5 decision appears EXACTLY ONCE (not duplicated)
+      $id = (Select-String context\DECISIONS.md -Pattern 'P-[A-Z2-9]{8}' | Select-Object -First 1).Matches.Value
+      cmk forget $id --yes | Out-Null                        # forget the decision
+      cmk digest | Out-Null                                  # re-sync the journal
+      type context\DECISIONS.md                              # the entry SURVIVES, now marked _(retracted <date>)_
+      ```
+      **PASS:** the decision appears exactly once after the 2nd digest (no dup); after forget + digest its entry is **still present**, annotated `_(retracted …)_` under the heading — **never removed**.
+      _(A regenerated-from-live journal would silently ERASE the forgotten decision — the decision-trail-preservation failure D-161 exists to prevent.)_
+
+- [ ] **★ DJ3 — only `type:project` facts journal (Task 147).**
+      ```powershell
+      cmk remember "Keep replies terse" --type feedback --title "terse-replies" | Out-Null
+      cmk digest | Out-Null
+      Select-String context\DECISIONS.md -Pattern "terse-replies"
+      ```
+      **PASS:** the `feedback` fact does **NOT** appear in `DECISIONS.md` (the journal is decisions-only; feedback/reference/user facts are excluded). It still shows in `cmk digest`'s full page under "Working-style & preferences".
+
 ---
 
 ## 4b. The conversational surface — Claude drives the tools (Tasks 108 + 117)  ⬅️ the v0.2.3 headline (standing)
@@ -560,7 +623,7 @@ The headline gate. Each rung exercises a different layer of the new recall stack
 ## 6. Session 3 — the cold-open (the wedge, wow #1)  ⬅️ a BRAND-NEW project
 
 ```powershell
-mkdir C:\Temp\cut-gate-coldopen11; cd C:\Temp\cut-gate-coldopen11
+mkdir C:\Temp\cut-gate-coldopen12; cd C:\Temp\cut-gate-coldopen12
 git init; cmk install; code .
 ```
 Ask: *"Start a new Python backend for me - set up the structure."*
@@ -739,9 +802,9 @@ Clone elsewhere (`git clone C:\Temp\cut-gate11 C:\Temp\cut-gate-clone`), open *t
 ## Verdict + the cut
 
 **Cut if** every **★** passes —
-`G1–G3, G2b, G5, G6, G7, R1, R2, M0, M1, M2, W1–W4, B2, B9, B3, B4, B5, B6, B7, C5, C6, D1, D3, E1, F-3, F-11b, L3, H1`.
-_(v0.3.1 adds **C5/C6** — the `<private>` write-path + title-trim leaks — and **F-11b** — INDEX drift detection — to the gate; all three were clean-build cut-gate findings this cut.)_
-_(D3's old "decide if the recall variance is acceptable" clause is GONE — v0.3.0 shipped the Task-75 fix; D3 is a hard gate now.)_
+`G1–G3, G2b, G5, G6, G7, R1, R2, M0, M1, M2, W1–W4, B2, B9, B3, B4, B5, B6, B7, C5, C6, FQ1, DJ1, DJ2, DJ3, D1, D3, E1, F-3, F-11b, L3, H1`.
+_(v0.3.2 adds **FQ1** — FTS5 query sanitization (no crash on dots/hyphens/colons) — and **DJ1/DJ2/DJ3** — `cmk digest` + the append-only `DECISIONS.md` journal (renders, append-only/retract-in-place, decisions-only) — to the gate. 141b was rejected on perf (D-162); no storage-layer test.)_
+_(v0.3.1's **C5/C6/F-11b** are now standing gates. D3's old "decide if the recall variance is acceptable" clause is GONE — v0.3.0 shipped the Task-75 fix; D3 is a hard gate now.)_
 **The W1–W4 recall ladder + D3 are the v0.3.0 headline** — the skill fires, paraphrase recall hits, the raw record is reachable, and memory-first answering is a gate. **M0–M2 stay the standing conversational gate** (the v0.2.3 headline); **B9 stays the standing rich-auto-capture gate** (the v0.2.2 headline) — if `context\memory\` has no `write_source: auto-extract` rich file, investigate before shipping.
 
 (B8, D5, D6 are observational — they confirm the new graduation/inject/self-heal behavior when it fires,
@@ -755,21 +818,21 @@ The tag triggers an **immutable** npm publish; whatever docs are committed at th
 
 - [ ] **CHANGELOG consolidated** — `[Unreleased]` folded into `## [X.Y.Z] — <date>`; `[Unreleased]` reset; `print-release-notes.mjs <version>` parses the section.
 - [ ] **★ READMEs reflect THIS version** — both the **root `README.md`** (status line + "What it does") **and** the **npm landing `packages/cli/README.md`** describe this version's headline capability + its new commands. _(Lesson from v0.2.0: the tag beat the README refresh, so the immutable npm 0.2.0 page shipped a stale landing page — fixed only by a 0.2.1 patch. The npm landing page is `packages/cli/README.md`, NOT the root one.)_
-- [ ] **`packages/cli/package.json` version** = the version you're about to tag (`0.3.1`).
+- [ ] **`packages/cli/package.json` version** = the version you're about to tag (`0.3.2`).
 
 **To publish (your outward action):**
 
 ```powershell
-git tag v0.3.1
-git push origin v0.3.1
+git tag v0.3.2
+git push origin v0.3.2
 ```
 
-`publish.yml` runs the suite, publishes `@lh8ppl/claude-memory-kit@0.3.1` to npm with provenance,
-and creates the GitHub Release from the `[0.3.1]` CHANGELOG section.
+`publish.yml` runs the suite, publishes `@lh8ppl/claude-memory-kit@0.3.2` to npm with provenance,
+and creates the GitHub Release from the `[0.3.2]` CHANGELOG section.
 
 **Verify after:**
-- `npm view @lh8ppl/claude-memory-kit version` → `0.3.1`
+- `npm view @lh8ppl/claude-memory-kit version` → `0.3.2`
 - the npm page shows a **provenance** badge
-- the GitHub Release matches `## [0.3.1]`
+- the GitHub Release matches `## [0.3.2]`
 
 Per-finding notes go in a dated doc under [`../journey/`](../journey/), not here — this stays a clean script.
