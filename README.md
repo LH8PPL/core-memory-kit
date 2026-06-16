@@ -37,7 +37,6 @@ You work. It learns — automatically, no buttons. Next session, it remembers th
 - **Captures automatically** — a background pass reads each turn and saves durable facts (decisions, conventions, tool quirks) as searchable notes. No "save" button.
 - **Recalls by meaning** — ask in your own words ("where do credentials go") and get the right fact even with zero keyword overlap. Fully local, zero API calls — **R@5 0.941 / paraphrase 1.000** ([benchmarks](#benchmarks)).
 - **Learns how you work, everywhere** — state a habit once ("always use uv, never pip") and a brand-new project cold-opens already knowing it.
-- **Keeps a decision journal** — `cmk digest` maintains a committed, append-only `DECISIONS.md`: every decision and its *why*, in order, in the PR diff.
 - **Stays private + bounded** — secrets are screened before any write, machine paths are abstracted to `~`, and rolling compression keeps memory small as history grows.
 - **Per-project, in your repo** — `context/` lives in your project and travels with `git clone`. Each project keeps its own memory.
 
@@ -95,7 +94,6 @@ You rarely need to type these yourself: Claude drives the same operations as too
 | `cmk search "<query>" [--mode keyword\|semantic\|hybrid]` | Search memory — by meaning with the embedder; hybrid is the default after `--with-semantic` |
 | `cmk remember "<fact>"` | Capture a fact explicitly (deduped, secret-screened, path-abstracted) |
 | `cmk forget <id>` | Tombstone a fact (audit trail preserved) |
-| `cmk digest` | Print a readable digest of all memory + sync the append-only `DECISIONS.md` journal |
 | `cmk lessons promote <id>` | Carry one project fact into your cross-project user tier |
 | `cmk doctor` | Run health checks, surface a repair command per failure |
 

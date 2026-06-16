@@ -3,10 +3,11 @@
 **The single guide to run before tagging a release.** Version-agnostic — reused every cut.
 
 > **Cutting now: `v0.3.2`** — **the within-paradigm POLISH patch** (make the kit better without changing what it is — D-130):
-> **Task 147** (`cmk digest` + the standing append-only `context/DECISIONS.md` decision journal — the headline this cut), **Task 153** (FTS5 query sanitization — `cmk search "v0.3"` / `user-explicit` no longer crash), and **Task 152** (`validate-index-completeness` — dev-tooling, runs in `npm test`, no live probe).
+> **Task 153** (FTS5 query sanitization — `cmk search "v0.3"` / `user-explicit` no longer crash — the headline user-facing fix this cut) and **Task 152** (`validate-index-completeness` — dev-tooling, runs in `npm test`, no live probe).
+> **HELD for v0.3.3 (D-164):** `cmk digest` + the `context/DECISIONS.md` journal (Task 147) — the CODE is merged + tested, but it is NOT framed as a shipped feature until it is **recall-complete** (the AI must recall the decision timeline from the journal, not just write a file a human opens — the kit's "you don't manage memory, it just works" thesis). The recall wiring + a live recall gate land in v0.3.3. So **DJ1–DJ3 below test the journal CODE (still run them — the code ships in main) but are NOT v0.3.2 cut-blockers.**
 > **141b (the `node:sqlite` migration) was REJECTED on perf** (D-162): clean CI bench showed node:sqlite ~10% slower on FTS5 keyword search → better-sqlite3 stays, 141a's install-time ask remains the npm-12 answer. Nothing to test here — the kit's storage layer is unchanged.
 > This is a **PATCH** (`npm run release -- patch`) — 0.3.x is the polish lane; the differentiator (recall) shipped at 0.3.0, so additive polish is patch-level per RELEASE-PLAN.md + the one-differentiator-per-minor rule.
-> _The version-agnostic checks below stand every cut; the v0.3.2-SPECIFIC gates are **DJ1, DJ2, DJ3** (digest + the decision journal) and **FQ1** (FTS5 query sanitization)._
+> _The version-agnostic checks below stand every cut; the v0.3.2 cut-blocker gate is **FQ1** (FTS5 query sanitization). DJ1–DJ3 run but are journal-CODE checks held for the v0.3.3 feature framing._
 > _Replace `0.3.2` / `v0.3.2` in the commands below if you reuse this guide for a later cut._
 >
 > **Prior banner (v0.3.1 cut, pre-2026-06-16 — kept per the decision-trail rule):** the within-paradigm sweep (config / import-claude-md / near-dup-at-write / status line / memory-health doctor / Poison_Guard catalog / npm-12 readiness / `.gitattributes`) + four clean-build cut-gate fixes (C5/C6 `<private>` leaks, F-11 repair --index, F-11b index-drift trace). The v0.3.1-specific gates were **C5, C6, F-11, F-11b** — still run them (standing now).
@@ -818,7 +819,8 @@ Clone elsewhere (`git clone C:\Temp\cut-gate14 C:\Temp\cut-gate-clone`), open *t
 ## Verdict + the cut
 
 **Cut if** every **★** passes —
-`G1–G4, G2b, G5, G6, G7, R1, R2, M0, M1, M2, W1–W4, B2, B9, B3, B4, B5, B6, B7, C5, C6, FQ1, DJ1, DJ2, DJ3, D1, D3, E1, F-3, F-11b, L3, H1`.
+`G1–G4, G2b, G5, G6, G7, R1, R2, M0, M1, M2, W1–W4, B2, B9, B3, B4, B5, B6, B7, C5, C6, FQ1, D1, D3, E1, F-3, F-11b, L3, H1`.
+_(v0.3.2 cut-blockers. **DJ1–DJ3 are NOT cut-blockers this cut** — the `cmk digest`/DECISIONS.md feature is HELD for v0.3.3 until recall-complete (D-164); run the DJ probes to confirm the merged code is sound, but they don't gate the v0.3.2 tag.)_
 _(v0.3.2 adds **FQ1** — FTS5 query sanitization (no crash on dots/hyphens/colons) — and **DJ1/DJ2/DJ3** — `cmk digest` + the append-only `DECISIONS.md` journal (renders, append-only/retract-in-place, decisions-only) — to the gate. 141b was rejected on perf (D-162); no storage-layer test.)_
 _(v0.3.1's **C5/C6/F-11b** are now standing gates. D3's old "decide if the recall variance is acceptable" clause is GONE — v0.3.0 shipped the Task-75 fix; D3 is a hard gate now.)_
 **The W1–W4 recall ladder + D3 are the v0.3.0 headline** — the skill fires, paraphrase recall hits, the raw record is reachable, and memory-first answering is a gate. **M0–M2 stay the standing conversational gate** (the v0.2.3 headline); **B9 stays the standing rich-auto-capture gate** (the v0.2.2 headline) — if `context\memory\` has no `write_source: auto-extract` rich file, investigate before shipping.

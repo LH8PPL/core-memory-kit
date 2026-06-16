@@ -10,13 +10,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [0.3.2] — 2026-06-16
 
-### Added
-
-- **digest(147): `cmk digest` + a standing `context/DECISIONS.md` decision journal.** `cmk digest` prints a readable summary of everything in memory (facts grouped by type, with trust + date) — and maintains `context/DECISIONS.md`, a **committed, append-only** chronological log of every decision (`type: project` fact) and its **Why**. The journal is the view the kit was missing: decisions are captured but scattered across per-fact files; this assembles them into one page that travels with `git clone` and shows up in the PR diff that captured the decision. It is **never regenerated and never rolls** — a superseded or forgotten decision stays, annotated `_(retracted …)_` in place, because the value of a decision log is the trail (what you decided *and* what you moved away from). Distinct from the digest itself, which is a regenerated current-knowledge snapshot.
-
 ### Fixed
 
 - **search(153): natural queries with dots, hyphens, or version strings no longer crash.** `cmk search "v0.3"` (or asking Claude to recall something via `mk_search`) used to fail with an `FTS5 parse error` because characters like `.`, `-`, and `:` have special meaning in the search engine's grammar. Queries are now auto-sanitized — each word that needs it is quoted for you — so `v0.3`, `user-explicit`, and `section:search` all just find results. Multi-word queries keep their "match all words" behavior, and an explicit `"quoted phrase"` you type yourself is still honored as a phrase search.
+
+<!--
+HELD FOR v0.3.3 (not shipped in 0.3.2): `cmk digest` + the standing
+`context/DECISIONS.md` decision journal. The CODE is merged (the command + the
+append-only journal work), but the feature is NOT framed as shipped until it is
+RECALL-COMPLETE — the AI must be able to recall the decision timeline/evolution
+from the journal, not just have a file written for a human to open. That recall
+wiring (a directive + a live-verified recall gate) lands in v0.3.3, where this
+entry graduates to ## [0.3.3]. Principle: a feature isn't shipped until it works
+end-to-end (write AND automatic AI-recall) — the kit's "you don't manage memory,
+it just works" thesis. See Task 156 / D-164.
+-->
 
 ## [0.3.1] — 2026-06-14
 

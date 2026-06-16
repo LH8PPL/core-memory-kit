@@ -64,7 +64,6 @@ Most-used commands (full list via `cmk --help`):
 | `cmk repair --hooks` / `--locks` / `--index` / `--all` | Idempotent self-repair |
 | `cmk search "<query>" [--mode keyword\|semantic\|hybrid] [--scope facts\|transcripts]` | Search memory — by meaning with the embedder (hybrid default after `--with-semantic`); `--scope transcripts` = the raw session record |
 | `cmk get <id…>` / `cmk timeline <id>` / `cmk cite <id>` / `cmk recent-activity` | Read the index back — full fact bodies + provenance, sequential context around an observation, a canonical citation link, recent changes (the CLI side of the `mk_*` MCP read tools) |
-| `cmk digest` | Print a readable digest of all memory **and** sync `context/DECISIONS.md` — a committed, append-only decision journal (every `type:project` decision + its *why*; superseded/forgotten entries stay, marked `_(retracted …)_`) |
 | `cmk roll --scope now\|today\|recent` | Manually trigger a compression pipeline |
 | `cmk register-crons [--dry-run] [--unregister]` | Register daily + weekly jobs with cron / launchd / Task Scheduler |
 | `cmk forget <id>` | Tombstone a fact — disappears from `cmk search` immediately, no manual reindex (audit trail preserved) |
