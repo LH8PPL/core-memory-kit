@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-TLTURYF7) Start v0.3.2 now and include Task 153 (FTS5 parse fix) in this release
-  <!-- source: auto-extract-session, source_line: 1, sha1: c88836d31ba0ac45e81c0ae041d107203cc38025146e599c3a96243689231183, write: auto-extract, trust: high, at: 2026-06-15T12:04:44Z -->
 - (P-ZVQEMWJA) Confirmed proposed v0.3.2 scope is better (tasks 153, 152, 134, gitattributes, conditional 141b)
   <!-- source: auto-extract-session, source_line: 1, sha1: 2584063e1893f438ccb6d84872f1ebe9932543e19c4cc3438dacbf4bdc895452, write: auto-extract, trust: high, at: 2026-06-15T12:08:53Z -->
 - (P-F94ZJMYV) Always monitor CI without asking for permission or pausing to confirm; this is the standing approach for this repo going forward.
@@ -20,6 +18,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: ec6fae03294c81a8f14d672a3623dce6288193c22f2639a15bab4993a2b430c4, write: auto-extract, trust: high, at: 2026-06-15T18:26:48Z -->
 - (P-9N4JG45F) The journal/decision-recall feature's PRIMARY value is automatic AI recall when users ask; human-readable output is secondary ("top gap, not the actual solution")
   <!-- source: auto-extract-session, source_line: 1, sha1: f450e730fd6283d627d65bf178437d7cbfae93d612fc8c31d65eebc713923d37, write: auto-extract, trust: high, at: 2026-06-16T11:47:49Z -->
+- (P-64UMEVFG) User questions whether kept branches are necessary; signals active concern about branch clutter and cleanup.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 50d2bcc21ce72259ff3f44f4f24b051aa4469c0060768d5c2386b9601c9eb234, write: auto-extract, trust: high, at: 2026-06-16T15:13:31Z -->
 
 ## Environment Notes
 
