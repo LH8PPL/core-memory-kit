@@ -1521,6 +1521,19 @@ The regular user never runs `cmk reindex` (D-85: the conversation is the interfa
 
 **Boundary — forget vs. `--include-tombstoned` (§9.3):** the prune removes a forgotten fact's index row entirely (its source moved to `archive/tombstones/`, which is never walked by `listObservationSources`). So a forgotten fact does NOT reappear in `cmk search --include-tombstoned` — that flag surfaces rows whose `deleted_at` column is set *in the index*, which forget's move-to-archive doesn't feed. This is deliberate: "forget" means gone-from-search. The tombstoned content is still recoverable via `cmk get <id>` / `resolveFact` (which read the tombstone file directly, not the index), so the audit trail is preserved without keeping the fact searchable. (Before Task 110, forget left the row as a *live* observation — `deleted_at` null — so it surfaced in *default* search: the actual bug, not a working `--include-tombstoned`.)
 
+#### 9.2.2 Same id in two source files → id-keyed write with archive-beats-scratchpad precedence (Bug 1 / D-165)
+
+A single fact legitimately lives in **two** indexed source files at once: the hot `MEMORY.md` Active-Threads bullet (the working copy) AND its granular `context/memory/<type>_*.md` archive file — both carry the **same content-addressed id** (`cmk remember` dual-writes them). But `observations.id` is a global `PRIMARY KEY`. The original `replaceObservationsForFile` deleted by `source_file` then plain-`INSERT`ed, so when reindex processed the *second* source holding that id, the INSERT hit `UNIQUE constraint failed: observations.id` and aborted the **whole** reindex. (Self-inflicted by the kit's architecture: it's the only researched system that combined a rolling-window scratchpad with a stable-id per-fact archive — see the [2026-06-16 research note](../docs/research/2026-06-16-index-uniqueness-id-vs-file-scoped-delete.md); three markdown-first analogs — TencentDB, basic-memory, memweave — all key replacement on the id, never a composite `(id, file)` key.)
+
+**The rule:** the write is keyed on the **id**, not the file, with deterministic precedence so the surviving row is independent of source walk order:
+
+- A **`fact`**-kind source (the granular archive — the canonical Why/How home) does an explicit `DELETE FROM observations WHERE id = ?` **then** `INSERT` — it always wins the id, overwriting any scratchpad row already present.
+- A **`scratchpad`**-kind source does `INSERT … ON CONFLICT(id) DO NOTHING` — it only lands when no row exists yet; it never overwrites a fact row.
+
+Whichever source is walked first, the **archive** row is the one that survives, so `cmk get`/`cmk search` provenance deterministically points at the granular file (with its full Why/How), and a fact present in both places collapses to exactly one searchable row.
+
+**FTS5 correctness (the self-review catch):** the fact path uses an **explicit DELETE-by-id**, NOT `INSERT OR REPLACE`. `observations_fts` is an external-content FTS5 table whose only safe delete is the `obs_after_delete` trigger firing the `'delete'` sentinel with the OLD row's column values (the external-content sync pattern documented at sqlite.org/fts5 section 4.4.3, implemented in `index-db.mjs`). `INSERT OR REPLACE` reuses the conflicting row's rowid, leaving the old scratchpad body **orphaned** in the FTS index (it keeps `MATCH`-ing with no backing observation — silent stale-hit corruption). The explicit DELETE fires the sentinel cleanly, then the plain INSERT re-indexes — the same delete-then-insert pattern every other kit writer uses against this table. Pinned by a Door-4 orphan-guard test (`MATCH 'scratchpad'` → 0, `ftsCount == obsCount`).
+
 ### 9.3 Hybrid search (`cmk search`)
 
 ```text

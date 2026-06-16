@@ -295,6 +295,40 @@ function parseSource(source, { projectRoot, userDir }) {
 
 // --- DB write helpers -------------------------------------------------
 
+// Bug 1 (2026-06-16, fact P-UCG4RKNL): the kit dual-writes a fact to BOTH the
+// MEMORY.md scratchpad bullet AND its granular archive file, both carrying the
+// SAME content-addressed id. `observations.id` is a global PRIMARY KEY, so a
+// plain INSERT of the second source's row collided (`UNIQUE constraint failed:
+// observations.id`) and aborted the whole reindex. The fix is id-keyed upsert
+// with deterministic ARCHIVE-BEATS-SCRATCHPAD precedence — validated against
+// three markdown-first analogs that all key replacement on the id, never the
+// file (TencentDB `ON CONFLICT(record_id) DO UPDATE`; basic-memory
+// resolve-permalink precedence + partial unique index; memweave content-hash
+// dedup). See docs/research/2026-06-16-index-uniqueness-id-vs-file-scoped-delete.md.
+//
+// Two precedence-keyed paths, order-INDEPENDENT (the source walk order must not
+// change the surviving row):
+//   - fact (granular archive = the canonical Why/How home) → explicit
+//     DELETE-by-id then INSERT: always wins, overwriting any scratchpad row for
+//     the id.
+//   - scratchpad (the hot working-copy bullet) → ON CONFLICT(id) DO NOTHING:
+//     inserts only when no row exists yet; never overwrites a fact row.
+// Whichever is walked first, the fact row is the one that survives.
+//
+// FTS5 CORRECTNESS (the self-review catch): the fact path uses an explicit
+// DELETE-by-id, NOT `INSERT OR REPLACE`. `observations_fts` is an
+// external-content FTS5 table whose only safe delete path is the
+// `obs_after_delete` trigger firing the 'delete' SENTINEL with the OLD row's
+// column values (index-db.mjs §4.4.3 comment). `INSERT OR REPLACE` reuses the
+// conflicting row's rowid, so its internal delete+insert leaves the OLD
+// scratchpad body orphaned in the FTS index (it keeps MATCH-ing with no backing
+// row — silent stale-hit corruption). An explicit `DELETE FROM observations
+// WHERE id = ?` fires obs_after_delete cleanly (sentinel removes the old terms),
+// then the plain INSERT fires obs_after_insert. This is the same delete-then-
+// insert pattern every other writer in the kit uses against this table.
+
+const DELETE_OBSERVATION_BY_ID_SQL = `DELETE FROM observations WHERE id = ?`;
+
 const INSERT_OBSERVATION_SQL = `
 INSERT INTO observations
   (id, tier, source_file, source_line, source_sha1, heading_path, body,
@@ -302,6 +336,16 @@ INSERT INTO observations
 VALUES
   (@id, @tier, @source_file, @source_line, @source_sha1, @heading_path, @body,
    @write_source, @trust, @created_at, @superseded_by, @deleted_at)
+`;
+
+const INSERT_SCRATCHPAD_OBSERVATION_SQL = `
+INSERT INTO observations
+  (id, tier, source_file, source_line, source_sha1, heading_path, body,
+   write_source, trust, created_at, superseded_by, deleted_at)
+VALUES
+  (@id, @tier, @source_file, @source_line, @source_sha1, @heading_path, @body,
+   @write_source, @trust, @created_at, @superseded_by, @deleted_at)
+ON CONFLICT(id) DO NOTHING
 `;
 
 const UPSERT_FILE_SQL = `
@@ -322,10 +366,48 @@ const DELETE_OBSERVATIONS_FOR_PATH_SQL = `DELETE FROM observations WHERE source_
  */
 function replaceObservationsForFile(db, { source, observations, mtime, sha1, projectRoot, userDir, now }) {
   const source_file = relativeSource(source.path, { projectRoot, userDir });
+  // File-scoped delete clears THIS file's own rows so a re-index of a changed
+  // file is idempotent. It only matches rows whose source_file is this path, so
+  // a fact's row (source_file = context/memory/*.md) is untouched when the
+  // scratchpad (context/MEMORY.md) is re-indexed, and vice versa — the
+  // cross-file id collision is handled by the precedence-keyed insert below,
+  // NOT by this delete (Bug 1).
   db.prepare(DELETE_OBSERVATIONS_FOR_PATH_SQL).run(source_file);
-  const insert = db.prepare(INSERT_OBSERVATION_SQL);
-  for (const obs of observations) {
-    insert.run(obs);
+  // Archive-beats-scratchpad precedence (Bug 1): a fact row wins the id by
+  // explicitly deleting any existing row for that id first (firing the FTS
+  // 'delete' sentinel cleanly) then inserting; a scratchpad row yields via
+  // ON CONFLICT(id) DO NOTHING. Within a FULL pass (reindexFull, or a
+  // reindexBoot that re-walks both sources) this is order-independent — the
+  // fact row always wins (listObservationSources walks scratchpad-before-facts
+  // per tier, but either order lands the same surviving row).
+  //
+  // INCREMENTAL caveat (skill-review I1): on the mtime-skip boot path / the
+  // single-file watcher path, only the CHANGED source is re-processed. If a
+  // fact file is removed while its scratchpad twin (same id) is untouched, the
+  // orphan-prune drops the fact row and the skipped scratchpad's DO-NOTHING
+  // insert never re-fires — so the id momentarily vanishes from search until
+  // the scratchpad is next edited (which re-inserts it). `cmk forget` does NOT
+  // hit this: it tombstones the fact AND scrubs the scratchpad bullet in the
+  // same op (forget.mjs scrubAllScratchpads), so the only window is a manual
+  // hand-`rm` of a context/memory/*.md leaving the bullet behind — a rare,
+  // self-healing transition, documented + tested rather than resurrected.
+  //
+  // The DELETE-by-id is UNQUALIFIED (no tier/source_file filter) by design and
+  // safe: ids are content-addressed WITH the tier as a prefix (`P-`/`L-`/`U-`),
+  // so a P-tier and U-tier fact can never share an id — no cross-tier delete is
+  // possible. (Defended by the P/U-same-content tier test below.)
+  if (source.kind === 'fact') {
+    const deleteById = db.prepare(DELETE_OBSERVATION_BY_ID_SQL);
+    const insert = db.prepare(INSERT_OBSERVATION_SQL);
+    for (const obs of observations) {
+      deleteById.run(obs.id);
+      insert.run(obs);
+    }
+  } else {
+    const insert = db.prepare(INSERT_SCRATCHPAD_OBSERVATION_SQL);
+    for (const obs of observations) {
+      insert.run(obs);
+    }
   }
   db.prepare(UPSERT_FILE_SQL).run({
     path: source_file,
@@ -370,6 +452,9 @@ export function reindexBoot({ projectRoot, userDir, db, now }) {
       userDir,
       now: ts,
     });
+    // observationsAffected counts insert-ATTEMPTS, not net rows: a fact that
+    // displaces a same-id scratchpad row (Bug 1 precedence) is net-zero but
+    // counts as one here. It's a "work done" metric, not a row-count invariant.
     return result.observations.length;
   });
 
@@ -537,6 +622,9 @@ export function reindexFull({ projectRoot, userDir, db, now }) {
       userDir,
       now: ts,
     });
+    // observationsAffected counts insert-ATTEMPTS, not net rows: a fact that
+    // displaces a same-id scratchpad row (Bug 1 precedence) is net-zero but
+    // counts as one here. It's a "work done" metric, not a row-count invariant.
     return result.observations.length;
   });
 

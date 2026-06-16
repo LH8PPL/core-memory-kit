@@ -404,6 +404,199 @@ describe('Task 29 — index-rebuild', () => {
       const remaining = db.prepare('SELECT id FROM observations ORDER BY id').all();
       expect(remaining.map((r) => r.id)).toEqual(['P-AAAAAAAA']);
     });
+
+    // Bug 1 (2026-06-16, fact P-UCG4RKNL): `cmk remember` dual-writes a fact
+    // to BOTH the MEMORY.md scratchpad bullet AND its granular archive file,
+    // both carrying the SAME id. `observations.id` is a global PRIMARY KEY but
+    // `replaceObservationsForFile` deletes by `source_file` only — so the
+    // second source's INSERT collided (`UNIQUE constraint failed:
+    // observations.id`) and aborted the whole reindex. Fix (research note
+    // 2026-06-16-index-uniqueness-id-vs-file-scoped-delete.md): id-keyed upsert
+    // with archive-beats-scratchpad precedence (TencentDB upsert-by-id +
+    // basic-memory resolve-precedence). Contract: ONE row per id, provenance =
+    // the granular archive file (the canonical Why/How home).
+    it('Bug 1 — same id in scratchpad AND granular archive reindexes to ONE archive-provenance row (full)', () => {
+      const DUP = 'P-DUPDUPDU';
+      seedScratchpad(projectRoot, [
+        bulletInput({ id: 'P-AAAAAAAA', text: 'distinct', line: 5 }),
+        bulletInput({ id: DUP, text: 'scratchpad copy of the dup fact', line: 7 }),
+      ]);
+      const factPath = seedFactFile(projectRoot, {
+        id: DUP,
+        type: 'project',
+        title: 'dup fact',
+        body: 'archive copy of the dup fact',
+        write_source: 'user-explicit',
+        trust: 'high',
+        at: '2026-05-27T10:00:00Z',
+        slug: 'dup-fact',
+      });
+
+      // Must not throw the UNIQUE-constraint crash.
+      expect(() => reindexFull({ projectRoot, userDir, db })).not.toThrow();
+
+      // Exactly ONE row for the dup id (not two, not zero).
+      const rows = db
+        .prepare('SELECT id, source_file, body FROM observations WHERE id = ?')
+        .all(DUP);
+      expect(rows).toHaveLength(1);
+
+      // The surviving row's provenance is the granular ARCHIVE file, not the
+      // scratchpad bullet — deterministic precedence regardless of walk order.
+      expect(rows[0].source_file).toBe('context/memory/project_dup-fact.md');
+      expect(rows[0].source_file).not.toBe('context/MEMORY.md');
+      // And it carries the archive body, not the scratchpad text.
+      expect(rows[0].body).toContain('archive copy');
+
+      // Over-mutation guard: the distinct fact is untouched.
+      expect(
+        db.prepare('SELECT COUNT(*) AS n FROM observations WHERE id = ?').get('P-AAAAAAAA').n,
+      ).toBe(1);
+      // Total: 2 distinct ids (the dup collapsed to one), not 3.
+      expect(db.prepare('SELECT COUNT(*) AS n FROM observations').get().n).toBe(2);
+      // FTS5 stays consistent — the dup is MATCH-able exactly once.
+      const fts = db
+        .prepare("SELECT COUNT(*) AS n FROM observations_fts WHERE observations_fts MATCH 'archive'")
+        .get().n;
+      expect(fts).toBe(1);
+      // FTS5 orphan guard (Door 4): INSERT OR REPLACE deletes the conflicting
+      // scratchpad row; that delete MUST fire obs_after_delete so the external-
+      // content FTS5 'delete' sentinel removes the old scratchpad body. If it
+      // didn't, the scratchpad text would orphan in observations_fts and keep
+      // MATCH-ing with no backing observations row (silent stale-hit
+      // corruption). The dup scratchpad body was 'scratchpad copy …' — assert
+      // it no longer MATCHes anything.
+      const orphan = db
+        .prepare("SELECT COUNT(*) AS n FROM observations_fts WHERE observations_fts MATCH 'scratchpad'")
+        .get().n;
+      expect(orphan).toBe(0);
+      // And the FTS row count equals the observations row count (no orphans at
+      // all) — the external-content invariant.
+      const obsCount = db.prepare('SELECT COUNT(*) AS n FROM observations').get().n;
+      const ftsCount = db.prepare('SELECT COUNT(*) AS n FROM observations_fts').get().n;
+      expect(ftsCount).toBe(obsCount);
+      expect(factPath).toContain('project_dup-fact.md');
+    });
+
+    it('Bug 1 — same id in scratchpad AND granular archive reindexes to ONE archive-provenance row (boot)', () => {
+      const DUP = 'P-DUPDUPDU';
+      seedScratchpad(projectRoot, [
+        bulletInput({ id: DUP, text: 'scratchpad copy', line: 5 }),
+      ]);
+      seedFactFile(projectRoot, {
+        id: DUP,
+        type: 'project',
+        title: 'dup fact',
+        body: 'archive copy of the dup fact',
+        write_source: 'user-explicit',
+        trust: 'high',
+        at: '2026-05-27T10:00:00Z',
+        slug: 'dup-fact',
+      });
+
+      expect(() => reindexBoot({ projectRoot, userDir, db })).not.toThrow();
+
+      const rows = db
+        .prepare('SELECT id, source_file FROM observations WHERE id = ?')
+        .all(DUP);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].source_file).toBe('context/memory/project_dup-fact.md');
+    });
+
+    // Bug 1 / skill-review I1 — incremental-boot transition: a fact file is
+    // removed (hand-rm, NOT `cmk forget` which scrubs the bullet too) while its
+    // same-id scratchpad twin stays put. On the mtime-skip boot path the
+    // untouched scratchpad is skipped, so the orphan-prune drops the fact row
+    // and the scratchpad's DO-NOTHING insert doesn't re-fire → the id is
+    // momentarily absent until the scratchpad is next edited. This test PINS
+    // that documented, self-healing window so a future change that "fixes" it
+    // into a resurrect-path is a conscious decision, not an accident.
+    it('Bug 1 I1 — hand-removing the fact file (bullet left) drops the id until the scratchpad is re-touched (documented self-healing window)', () => {
+      const DUP = 'P-DUPDUPDU';
+      seedScratchpad(projectRoot, [
+        bulletInput({ id: DUP, text: 'scratchpad twin', line: 5 }),
+      ]);
+      const factPath = seedFactFile(projectRoot, {
+        id: DUP,
+        type: 'project',
+        title: 'dup fact',
+        body: 'archive copy',
+        write_source: 'user-explicit',
+        trust: 'high',
+        at: '2026-05-27T10:00:00Z',
+        slug: 'dup-fact',
+      });
+      // First boot: both sources walked → one archive-provenance row.
+      reindexBoot({ projectRoot, userDir, db });
+      expect(
+        db.prepare('SELECT source_file FROM observations WHERE id = ?').get(DUP).source_file,
+      ).toBe('context/memory/project_dup-fact.md');
+
+      // Hand-remove the fact file ONLY (scratchpad bullet untouched, mtime same).
+      rmSync(factPath);
+      reindexBoot({ projectRoot, userDir, db });
+      // Documented window: the id is absent (skipped scratchpad never re-fired;
+      // fact row pruned). NOT the archive provenance, NOT a crash — just absent.
+      expect(
+        db.prepare('SELECT COUNT(*) AS n FROM observations WHERE id = ?').get(DUP).n,
+      ).toBe(0);
+
+      // Self-heal: editing the scratchpad re-fires its insert → the bullet's
+      // row returns (now scratchpad-provenance, since the archive is gone).
+      seedScratchpad(projectRoot, [
+        bulletInput({ id: DUP, text: 'scratchpad twin edited', line: 5 }),
+      ]);
+      reindexBoot({ projectRoot, userDir, db });
+      const healed = db
+        .prepare('SELECT source_file FROM observations WHERE id = ?')
+        .get(DUP);
+      expect(healed.source_file).toBe('context/MEMORY.md');
+    });
+
+    // Bug 1 / skill-review M1 — the unqualified `DELETE WHERE id = ?` on the
+    // fact path is safe ONLY because the tier is a prefix of the content-
+    // addressed id (generateId → `${tier}-${hash}`), so a P-tier and U-tier
+    // fact with identical content get DIFFERENT ids and can never collide. Pin
+    // that invariant: same body in P and U tiers → both rows survive reindex.
+    it('Bug 1 M1 — same content in P and U tiers keeps BOTH rows (tier-prefixed ids never cross-delete)', () => {
+      const sameBody = 'a fact whose text is identical across tiers';
+      const pPath = seedFactFile(projectRoot, {
+        id: 'P-AAAAAAAA',
+        type: 'project',
+        title: 'p copy',
+        body: sameBody,
+        write_source: 'user-explicit',
+        trust: 'high',
+        at: '2026-05-27T10:00:00Z',
+        slug: 'p-copy',
+      });
+      // Write the U-tier twin directly via writeFact (userDir tier).
+      const uRes = writeFact({
+        projectRoot,
+        userDir,
+        tier: 'U',
+        type: 'project',
+        slug: 'u-copy',
+        title: 'u copy',
+        body: sameBody,
+        writeSource: 'user-explicit',
+        trust: 'high',
+        sourceFile: 'MEMORY.md',
+        sourceLine: 1,
+        sourceSha1: 'a'.repeat(40),
+        createdAt: '2026-05-27T10:00:00Z',
+        id: 'U-AAAAAAAA',
+      });
+      expect(uRes.action).not.toBe('error');
+
+      reindexFull({ projectRoot, userDir, db });
+      const ids = db
+        .prepare("SELECT id FROM observations WHERE id IN ('P-AAAAAAAA','U-AAAAAAAA') ORDER BY id")
+        .all()
+        .map((r) => r.id);
+      expect(ids).toEqual(['P-AAAAAAAA', 'U-AAAAAAAA']);
+      expect(pPath).toContain('project_p-copy.md');
+    });
   });
 
   describe('FTS5 mirror correctness through reindex paths', () => {
