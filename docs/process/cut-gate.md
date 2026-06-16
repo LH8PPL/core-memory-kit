@@ -691,8 +691,9 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 **Memory management**
 
 - [ ] **F-7**
-      `cmk forget <id> --yes` → tombstones (moved to `archive\tombstones`, still resolvable — NOT hard-deleted).
+      `cmk forget <id> --yes` → tombstones: the fact file is **moved to `archive\tombstones\<id>.md`** (body preserved — NOT hard-deleted), and its DB row is pruned.
       **Since v0.2.3:** the fact **disappears from `cmk search` immediately** — no manual `cmk reindex` (Task 110); the free-speech / two-step path is **M2**.
+      **`cmk get <id>` returns `not found`** — `get` is **live-only by design** (forget prunes the row; recovery is the archive file on disk, not a `get` read). Automatic recall never resurfaces a forgotten fact (a deleted fact must stay invisible to the agent). An opt-in `cmk get --include-tombstoned` recovery flag is planned (v0.3.3/v0.4); until then the archive file is the recovery path.
       _(`--yes` is required in v0.1.0; `<id>` must be a **fact** id — see F-3.)_
 
 - [ ] **F-8**

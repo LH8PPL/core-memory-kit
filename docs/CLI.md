@@ -55,7 +55,7 @@ cmk search "deploy steps" --min-trust high --tier P --limit 5
 ```
 
 ### `cmk get <ids…>`
-Fetch full observation bodies + provenance by citation ID (parity with the `mk_get` MCP tool). Takes one or more ids from `cmk search` output; also reads tombstoned facts (the recovery path after `cmk forget`).
+Fetch full observation bodies + provenance by citation ID (parity with the `mk_get` MCP tool). Takes one or more ids from `cmk search` output. **Live facts only** — a forgotten (tombstoned) id returns `not found`. After `cmk forget`, the fact's body persists on disk in `context/memory/archive/tombstones/<id>.md` (the durable recovery artifact); read it there to recover. Automatic recall never resurfaces a forgotten fact by design — forgetting it makes it invisible to the agent, not re-asserted from memory. _(An explicit opt-in `cmk get --include-tombstoned` recovery flag is planned — see RELEASE-PLAN; until then, the archive file is the recovery path.)_
 ```bash
 cmk get P-S79MJHFN
 cmk get P-S79MJHFN P-QT4CMNXH      # batch
