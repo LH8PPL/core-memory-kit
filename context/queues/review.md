@@ -4,3 +4,6 @@
 ## 2026-06-16T11:25:54Z — auto-extract (medium-trust, pending review)
 - (P-D2BR4VYX) Auto-recall agents do not and should not read tombstoned facts; recovery is always human-initiated.
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-16T11:25:54Z -->
+## 2026-06-16T12:01:44Z — auto-extract (medium-trust, pending review)
+- (P-K6DKFXP4) Check documentation to verify technical claims rather than reasoning through uncertainty
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-16T12:01:44Z -->
