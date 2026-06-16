@@ -133,7 +133,7 @@ Remove-Item -Recurse -Force $env:USERPROFILE\.claude-memory-kit
 Validates scaffold integrity + the Task-69 skill surface.
 
 ```powershell
-mkdir C:\Temp\cut-gate11; cd C:\Temp\cut-gate11
+mkdir C:\Temp\cut-gate14; cd C:\Temp\cut-gate14
 git init
 cmk install --with-semantic          # v0.3.0: the one-flag semantic enablement (G7) — ~260 MB once + the model pre-warm; takes a minute
 cmk doctor
@@ -173,11 +173,26 @@ code .
       The "Memory write rules" block is a few invariants + a pointer to the skill,
       **not** the old multi-step procedure.
 
-- [ ] **G4 — scaffold reads clean.**
-      Type: `context\MEMORY.md`, `SOUL.md`, `context.local\machine-paths.md`
-      → no kit-internal cruft (no `Task 12`, `design §16.16`, dev-speak),
-        no literal `{{TODAY}}`, no `C:\Users\<you>`.
-      `.claude\settings.json` has the hooks + the `Bash(cmk:*)` allow-list.
+- [ ] **★ G4 — scaffold reads clean (READ EVERY FILE IN ALL THREE TIERS — not a spot-check).**
+      A scaffold regression (a leaked username, an unrendered `{{TODAY}}`, malformed
+      frontmatter, a real machine path in a committed tier) can hide in a file the
+      named checks skip — so **enumerate and read every memory file across all three
+      tiers**, not just MEMORY.md/SOUL.md (the user's standing rule, 2026-06-16):
+      ```powershell
+      # User tier (cross-project):
+      Get-ChildItem -Recurse $env:USERPROFILE\.claude-memory-kit -File | % { "`n===== $($_.FullName) ====="; Get-Content $_.FullName }
+      # Project tier (committed):
+      Get-ChildItem -Recurse context -File | % { "`n===== $($_.FullName) ====="; Get-Content $_.FullName }
+      # Local tier (gitignored):
+      Get-ChildItem -Recurse context.local -File | % { "`n===== $($_.FullName) ====="; Get-Content $_.FullName }
+      ```
+      **PASS — every file must show:**
+      - no kit-internal cruft (no `Task 12`, `design §16.16`, dev-speak)
+      - no literal `{{TODAY}}` or any other unrendered placeholder (dates are real)
+      - **no real username (`C:\Users\<you>` / your name)** anywhere in a COMMITTED tier (user + project) — a public-repo leak is a cut-blocker; `context.local/` (gitignored) may hold real paths but a fresh scaffold shouldn't
+      - example bullets clearly marked `(example)` so a user knows to replace them
+      - well-formed frontmatter (the seed `2020-01-01` / all-zero sha1 are deliberate sentinels — fine)
+      `.claude\settings.json` has the 5 hooks + the `Bash(cmk:*)` allow-list.
 
 - [ ] **★ G6 — `cmk install` registered the MCP server (Task 108 — new in v0.2.3).**
       Install now wires the MCP surface so Claude can run every memory op in chat, prompt-free:
@@ -342,9 +357,9 @@ which carries raw, un-screened text, so it must never be committed.
 
 ```powershell
 # The security half (deterministic): the diagnostic log is gitignored.
-git -C C:\Temp\cut-gate11 check-ignore context\sessions\probe.extract.log
+git -C C:\Temp\cut-gate14 check-ignore context\sessions\probe.extract.log
 # The trace half (observational): if any build turn was graded LOW, you'll see it.
-findstr /S /C:"low_trust_discarded" C:\Temp\cut-gate11\context\sessions\*.extract.log
+findstr /S /C:"low_trust_discarded" C:\Temp\cut-gate14\context\sessions\*.extract.log
 ```
 
 - [ ] **★ B6 — PASS (must):**
@@ -418,7 +433,7 @@ findstr /S /C:"\"tier\":\"U\"" %USERPROFILE%\.claude-memory-kit\.locks\audit.log
 - [ ] **C3 — Poison_Guard.**
       `cmk remember "key sk-ant-api03-AAArealishlookinglongtokenvalue00"`
       → **rejected** (exit 2), nothing written anywhere.
-      _(The token must be ≥40 chars after `sk-` — the guard's minimum, tuned to real key lengths (~95) without false-positives on short `sk-` words. The pre-2026-06-11 example here ended in a literal `...` and was 27 chars — UNDER the minimum, so it sailed through and landed a fake secret in project memory (the cut-gate11 find): probe strings must actually trip the pattern they test, same class as the D-84 real-input rule.)_
+      _(The token must be ≥40 chars after `sk-` — the guard's minimum, tuned to real key lengths (~95) without false-positives on short `sk-` words. The pre-2026-06-11 example here ended in a literal `...` and was 27 chars — UNDER the minimum, so it sailed through and landed a fake secret in project memory (the cut-gate14 find): probe strings must actually trip the pattern they test, same class as the D-84 real-input rule.)_
 
 - [ ] **C4 — sanitization.**
       `cmk remember "venv at C:\Users\<you>\proj\.venv"`
@@ -623,7 +638,7 @@ The headline gate. Each rung exercises a different layer of the new recall stack
 ## 6. Session 3 — the cold-open (the wedge, wow #1)  ⬅️ a BRAND-NEW project
 
 ```powershell
-mkdir C:\Temp\cut-gate-coldopen12; cd C:\Temp\cut-gate-coldopen12
+mkdir C:\Temp\cut-gate-coldopen14; cd C:\Temp\cut-gate-coldopen14
 git init; cmk install; code .
 ```
 Ask: *"Start a new Python backend for me - set up the structure."*
@@ -636,7 +651,7 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 
 ---
 
-## 7. Full feature sweep — every `cmk` subcommand  (~20 min, in `C:\Temp\cut-gate11`)
+## 7. Full feature sweep — every `cmk` subcommand  (~20 min, in `C:\Temp\cut-gate14`)
 
 **Recall & index**
 
@@ -757,7 +772,7 @@ Ask: *"Start a new Python backend for me - set up the structure."*
       **PASS:** non-empty, items recognizable from this session.
 
 - [ ] **F-19 — `uninstall` is clean + `init-user-tier` re-seeds (lifecycle, in the throwaway dir ONLY).**
-      In `C:\Temp\cut-gate11` (NEVER a real project):
+      In `C:\Temp\cut-gate14` (NEVER a real project):
       ```powershell
       cmk uninstall                # removes hooks + the CLAUDE.md managed block; context/ stays (your data)
       git status                   # nothing unexpected staged; CLAUDE.md outside the markers byte-preserved
@@ -791,8 +806,8 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 
 ## 9. Portability ("another computer")
 
-In `C:\Temp\cut-gate11`: `git add -A; git commit -m "wip"`.
-Clone elsewhere (`git clone C:\Temp\cut-gate11 C:\Temp\cut-gate-clone`), open *that* in Claude Code.
+In `C:\Temp\cut-gate14`: `git add -A; git commit -m "wip"`.
+Clone elsewhere (`git clone C:\Temp\cut-gate14 C:\Temp\cut-gate-clone`), open *that* in Claude Code.
 
 - [ ] **★ H1**
       the clone already has the project memory (`context/` is committed — tenet T2).
@@ -802,7 +817,7 @@ Clone elsewhere (`git clone C:\Temp\cut-gate11 C:\Temp\cut-gate-clone`), open *t
 ## Verdict + the cut
 
 **Cut if** every **★** passes —
-`G1–G3, G2b, G5, G6, G7, R1, R2, M0, M1, M2, W1–W4, B2, B9, B3, B4, B5, B6, B7, C5, C6, FQ1, DJ1, DJ2, DJ3, D1, D3, E1, F-3, F-11b, L3, H1`.
+`G1–G4, G2b, G5, G6, G7, R1, R2, M0, M1, M2, W1–W4, B2, B9, B3, B4, B5, B6, B7, C5, C6, FQ1, DJ1, DJ2, DJ3, D1, D3, E1, F-3, F-11b, L3, H1`.
 _(v0.3.2 adds **FQ1** — FTS5 query sanitization (no crash on dots/hyphens/colons) — and **DJ1/DJ2/DJ3** — `cmk digest` + the append-only `DECISIONS.md` journal (renders, append-only/retract-in-place, decisions-only) — to the gate. 141b was rejected on perf (D-162); no storage-layer test.)_
 _(v0.3.1's **C5/C6/F-11b** are now standing gates. D3's old "decide if the recall variance is acceptable" clause is GONE — v0.3.0 shipped the Task-75 fix; D3 is a hard gate now.)_
 **The W1–W4 recall ladder + D3 are the v0.3.0 headline** — the skill fires, paraphrase recall hits, the raw record is reachable, and memory-first answering is a gate. **M0–M2 stay the standing conversational gate** (the v0.2.3 headline); **B9 stays the standing rich-auto-capture gate** (the v0.2.2 headline) — if `context\memory\` has no `write_source: auto-extract` rich file, investigate before shipping.
