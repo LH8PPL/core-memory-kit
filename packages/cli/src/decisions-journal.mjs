@@ -32,6 +32,7 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse as parseFrontmatter } from './frontmatter.mjs';
+import { ID_PATTERN } from './tier-paths.mjs';
 
 export const DECISIONS_HEADER =
   '# Decisions\n\n' +
@@ -72,12 +73,13 @@ export function buildDecisionEntry(f) {
   return lines.join('\n');
 }
 
-// The kit's id char class — MUST match ID_PATTERN's base32 alphabet in
-// tier-paths.mjs (which includes a lowercase `a`). A uppercase-only class
-// `[A-Z2-9]` silently fails to match any id containing the lowercase `a`, so
-// such facts never register as "already journaled" → re-appended on EVERY
-// digest run (the non-idempotency bug the cut-gate caught).
-const ID_CHARS = '[PUL]-[2345679ABCDEFGHJKLMNPQRSTUVWXYZa]{8}';
+// The kit's id matcher, DERIVED from the canonical ID_PATTERN (tier-paths.mjs)
+// so the base32 alphabet lives in exactly ONE place and can't drift. The
+// original bug: this module hardcoded `[A-Z2-9]` (uppercase only), but the real
+// alphabet includes a lowercase `a` — so any id containing `a` never matched
+// "already journaled" → re-appended on EVERY digest run (the cut-gate find).
+// Strip the `^…$` anchors to embed the pattern inside larger regexes.
+const ID_CHARS = ID_PATTERN.source.replace(/^\^/, '').replace(/\$$/, '');
 
 /** ids already present in the journal body (by their machine marker). */
 function journaledIds(content) {
