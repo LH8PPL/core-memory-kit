@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0 # full history so gitleaks scans every commit
-      - uses: gitleaks/gitleaks-action@v2
+      - uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
