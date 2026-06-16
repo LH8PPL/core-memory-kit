@@ -91,3 +91,7 @@ context/transcripts/.extract-*.tmp
 context/transcripts/
 context/sessions/
 packages/cli/context/
+
+# Logo design scratch files (the shippable assets live in docs/public/assets/)
+docs/public/*.html
+docs/public/A _ Restore.png
