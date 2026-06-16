@@ -62,6 +62,22 @@ describe('updateDecisionsJournal — append-only semantics (D-161)', () => {
     expect(out).toContain('P-AAAAAAAA');
   });
 
+  it('does NOT duplicate a decision whose id contains a lowercase `a` (cut-gate12 regression)', () => {
+    // The kit's base32 alphabet (ID_PATTERN in tier-paths.mjs) includes a
+    // lowercase `a`. The journaledIds dedup regex was `[A-Z2-9]` (uppercase
+    // only), so any id like `P-a22RRSE9` never matched "already journaled" →
+    // re-appended on EVERY `cmk digest` run (non-idempotency). Every other
+    // fixture here uses uppercase-only ids, which is why the suite missed it.
+    const lower = fact({ id: 'P-a22RRSE9', title: 'fact with a lowercase a id' });
+    const first = updateDecisionsJournal({
+      existingContent: '', facts: [lower], tombstonedIds: new Set(), now: '2026-06-16T12:00:00Z',
+    });
+    const second = updateDecisionsJournal({
+      existingContent: first, facts: [lower], tombstonedIds: new Set(), now: '2026-06-16T13:00:00Z',
+    });
+    expect(second.split('<!-- decision:P-a22RRSE9 -->').length - 1).toBe(1);
+  });
+
   it('does NOT duplicate a decision already in the journal', () => {
     const first = updateDecisionsJournal({
       existingContent: '',
