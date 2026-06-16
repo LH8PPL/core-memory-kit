@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/LH8PPL/claude-memory-kit/main/docs/public/assets/logo-restore.svg" alt="claude-memory-kit" width="96">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/LH8PPL/claude-memory-kit/main/docs/public/assets/wordmark-dark.svg">
+    <img src="https://raw.githubusercontent.com/LH8PPL/claude-memory-kit/main/docs/public/assets/wordmark.svg" alt="claude-memory-kit" width="340">
+  </picture>
 </p>
 
 # @lh8ppl/claude-memory-kit

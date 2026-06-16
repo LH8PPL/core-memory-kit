@@ -1,8 +1,9 @@
 <p align="center">
-  <img src="docs/public/assets/logo-restore.svg" alt="claude-memory-kit" width="96">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/public/assets/wordmark-dark.svg">
+    <img src="docs/public/assets/wordmark.svg" alt="claude-memory-kit" width="340">
+  </picture>
 </p>
-
-<h1 align="center">claude-memory-kit</h1>
 
 <p align="center">
   <strong>Persistent, per-project memory for <a href="https://docs.claude.com/en/docs/claude-code">Claude Code</a> — plain markdown, committed with your code, recalled by meaning.</strong>
