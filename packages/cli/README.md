@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/LH8PPL/claude-memory-kit/main/docs/public/assets/logo-restore.svg" alt="claude-memory-kit" width="96">
+</p>
+
 # @lh8ppl/claude-memory-kit
 
 **`cmk`** — the CLI for [claude-memory-kit](https://github.com/LH8PPL/claude-memory-kit), a per-project, in-repo memory system for [Claude Code](https://docs.claude.com/en/docs/claude-code). It fixes Claude's per-session amnesia so you don't have to re-tell the backstory every time you start a new session.
