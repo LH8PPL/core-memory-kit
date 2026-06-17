@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Added
+
+- **Decision-journal recall (156): ask the AI how a decision evolved, not just what it is.** The `context/DECISIONS.md` journal (added in 0.3.2) records every decision append-only — including the ones you later superseded or retracted. It's now **recallable**: `cmk search "<topic>" --scope decisions` (or `mk_search` with `scope: "decisions"`) searches the journal for decision **history** — "what did we reject", "did X change", "why did we move away from Y" — and returns the superseded/retracted entries the live fact store no longer carries. The memory-search skill and the injected recall directive now point Claude at it for evolution/"what did we reject" questions, so you can just *ask* ("weren't we using Postgres? what changed?") and the AI consults the journal. This completes the decision-journal feature: it's no longer write-only.
+
 ## [0.3.2] — 2026-06-16
 
 ### Fixed

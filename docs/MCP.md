@@ -9,7 +9,7 @@ The kit ships an **MCP server** so Claude can run every memory operation **in co
 | Tool | CLI equivalent | What it does |
 | --- | --- | --- |
 | `mk_remember` | `cmk remember` | Capture a fact. With `why` / `how` / `title` / `type` it writes a structured **Why/How fact file**; otherwise a terse bullet. Runs the same Poison_Guard + dedup + audit path as the CLI. |
-| `mk_search` | `cmk search` | Search by keyword or meaning (`mode`: keyword/semantic/hybrid — hybrid is the project default after `cmk install --with-semantic`). `scope: "transcripts"` searches the raw session record as a last resort. |
+| `mk_search` | `cmk search` | Search by keyword or meaning (`mode`: keyword/semantic/hybrid — hybrid is the project default after `cmk install --with-semantic`). `scope: "transcripts"` searches the raw session record as a last resort; `scope: "decisions"` searches the decision journal for decision-history / "what did we reject" queries. |
 | `mk_get` | `cmk get` | Full fact body + provenance for one or more ids. |
 | `mk_timeline` | `cmk timeline` | Sequential context around an observation. |
 | `mk_cite` | `cmk cite` | A canonical citation link for an id. |
@@ -27,7 +27,7 @@ Verified against the server's schemas (`packages/cli/src/mcp-server.mjs`); names
 | Tool | Parameters |
 | --- | --- |
 | `mk_remember` | `text` (required, ≤5000) · `tier` U/P/L (U/L are captured to P with a promotion note — `mk_lessons_promote` is the cross-project path) · rich capture: `why` + `how` (≤5000 each), `title` (≤200), `type` feedback/project/reference/user, `links` (related fact names) · `cites` is not recorded yet — omit |
-| `mk_search` | `query` (required) · `mode` keyword/semantic/hybrid (omit = the project default) · `scope` facts/transcripts (transcripts = the session record, last resort) · `tier` U/P/L · `since` ISO date · `limit` ≤1000 · `min_trust` low/medium/high (the fact-only filters don't apply under `scope: "transcripts"`) |
+| `mk_search` | `query` (required) · `mode` keyword/semantic/hybrid (omit = the project default) · `scope` facts/transcripts/decisions (transcripts = the session record, last resort; decisions = the decision journal, for history/"what did we reject") · `tier` U/P/L · `since` ISO date · `limit` ≤1000 · `min_trust` low/medium/high (the fact-only filters + semantic/hybrid don't apply under `scope: "transcripts"` or `"decisions"`) |
 | `mk_get` | `ids` (required, 1–100 per call — batch, don't loop) |
 | `mk_timeline` | `anchor` (required id) · `depth_before` / `depth_after` (≤50, default 5 each) |
 | `mk_cite` | `id` (required) |

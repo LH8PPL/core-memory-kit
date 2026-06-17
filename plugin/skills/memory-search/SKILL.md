@@ -63,6 +63,26 @@ Hits are raw turn excerpts (dialogue + the tools the agent ran), keyed
 whole turns. If something found here is durably useful, say so in the
 summary so the caller can capture it as a proper fact.
 
+## Decision HISTORY — the `decisions` scope
+
+For "what did we DECIDE about X" a normal fact search (steps 1-3) is enough —
+the decision fact carries its own **Why**. But when the question is about how a
+decision **evolved**, what we **reject**ed or moved away from, or **why X
+changed** ("did we ever consider Y?", "weren't we using Postgres?", "what did
+we decide and did it change?"), search the **decision journal** — the
+append-only `context/DECISIONS.md`, which keeps superseded + retracted entries
+the live fact store no longer carries:
+
+- MCP: `mk_search` with `scope: "decisions"`.
+- CLI: `cmk search "<topic>" --scope decisions`
+
+Hits are decision entries keyed by their fact id, labelled `decision` (or
+`decision (retracted)` for a reversed one). The retracted/superseded entries
+ARE the answer to "what did we reject" — surface them explicitly, with the
+date, so the caller sees the trail. Use this scope IN ADDITION to the fact
+ladder when the question has a history/evolution axis; the fact search answers
+the "current decision", the journal answers "how it got there".
+
 ## When the query is vague
 
 If you cannot form a concrete query, look at recent activity first, then

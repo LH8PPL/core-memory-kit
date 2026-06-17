@@ -507,6 +507,19 @@ Run these in the build terminal (`C:\Temp\cut-gate12`), after Session 1 has capt
       ```
       **PASS:** the `feedback` fact does **NOT** appear in `DECISIONS.md` (the journal is decisions-only; feedback/reference/user facts are excluded). It still shows in `cmk digest`'s full page under "Working-style & preferences".
 
+- [ ] **★ DJ4 — the journal is RECALLABLE: `--scope decisions` surfaces decision history incl. the retracted trail (Task 156 / D-168).**
+      The journal is write-complete (DJ1-3) AND recall-complete: the AI can query the decision history, including what was reversed. This is the half that makes DECISIONS.md a real feature (D-164: not shipped until write AND automatic recall work).
+      ```powershell
+      cmk remember "Use Postgres for the store" --type project --title "store-choice" | Out-Null
+      cmk digest | Out-Null                                    # journal the decision
+      cmk search "store" --scope decisions                     # recall it from the journal
+      $id = (Select-String context\DECISIONS.md -Pattern 'P-[2-9A-HJ-NP-Za]{8}' | Select-Object -First 1).Matches.Value
+      cmk forget $id --yes | Out-Null ; cmk digest | Out-Null  # reverse + re-sync
+      cmk search "store" --scope decisions                     # the retracted entry STILL recalls
+      ```
+      **PASS:** the first `--scope decisions` search returns the decision (labelled `decision`, keyed by its `P-…` id, clean snippet — no `<!-- decision -->` plumbing); after forget+digest the SAME search still returns it, now labelled `decision (retracted)` — so "what did we reject" is answerable from recall, not just by opening the file.
+      _Live (in-chat) half — flag for the manual session: ask Claude a decision-HISTORY question ("weren't we using X? what changed?") and confirm it consults the journal (`--scope decisions` / `mk_search scope:decisions`), surfacing the superseded entry. Behavioral directive (like W1/E1) — can't be auto-asserted._
+
 ---
 
 ## 4b. The conversational surface — Claude drives the tools (Tasks 108 + 117)  ⬅️ the v0.2.3 headline (standing)

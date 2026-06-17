@@ -698,4 +698,117 @@ describe('Task 30 — cmk search', () => {
       expect(r.results[0].id).toBe('T:context/transcripts/2026-06-10.md:3');
     });
   });
+
+  // Task 156 (D-168) — scope='decisions' scans context/DECISIONS.md (the
+  // append-only decision journal). The journal is deliberately NOT FTS-indexed
+  // (derived view, skipped like INDEX.md), so this scope reads the file directly
+  // — the recall path for decision-HISTORY / "what did we reject" queries the
+  // flat fact store can't answer. Mirrors the transcripts-scope precedent (a
+  // separate derived corpus reached through the existing search verb).
+  describe("scope='decisions' (Task 156 — the decision journal)", () => {
+    // A realistic journal: two live decisions + one RETRACTED (the "what did we
+    // reject" trail the live fact store no longer carries).
+    const JOURNAL = [
+      '# Decisions',
+      '',
+      '> Append-only decision journal — every decision the kit captured, in order, with its why.',
+      '',
+      '<!-- decision:P-AAAAAAAA -->',
+      '### Use Postgres for the primary store',
+      '**When:** 2026-03-01 · **Fact:** `P-AAAAAAAA`',
+      '**Why:** team familiarity + JSONB support',
+      '',
+      '<!-- decision:P-BBBBBBBB -->',
+      '### Switch the primary store to SQLite _(retracted 2026-05-01)_',
+      '**When:** 2026-05-01 · **Fact:** `P-BBBBBBBB`',
+      '**Why:** single-file portability won out over Postgres ops cost',
+      '',
+      '<!-- decision:P-CCCCCCCC -->',
+      '### Adopt hybrid RRF search at k=60',
+      '**When:** 2026-06-01 · **Fact:** `P-CCCCCCCC`',
+      '**Why:** keyword alone missed paraphrases; k=60 is the IR default',
+    ].join('\n');
+
+    function seedJournal(content = JOURNAL) {
+      mkdirSync(join(sandbox, 'context'), { recursive: true });
+      writeFileSync(join(sandbox, 'context', 'DECISIONS.md'), content, 'utf8');
+    }
+
+    it('keyword search over the journal: returns matching entries with their fact ids', () => {
+      seedJournal();
+      const r = search({ db, projectRoot: sandbox, query: 'SQLite', scope: 'decisions' });
+      expect(r.action).toBe('found');
+      expect(r.scope).toBe('decisions');
+      expect(r.results).toHaveLength(1);
+      const hit = r.results[0];
+      expect(hit.id).toBe('P-BBBBBBBB');
+      expect(hit.source_file).toBe('context/DECISIONS.md');
+      expect(hit.snippet).toContain('SQLite');
+    });
+
+    it('surfaces a RETRACTED entry (the "what did we reject" trail) WITH its retraction marker', () => {
+      seedJournal();
+      // The Postgres→SQLite supersede: querying the topic must surface the
+      // retracted decision, marked, so recall can answer "did this change?".
+      const r = search({ db, projectRoot: sandbox, query: 'store', scope: 'decisions' });
+      expect(r.action).toBe('found');
+      const retracted = r.results.find((x) => x.id === 'P-BBBBBBBB');
+      expect(retracted).toBeDefined();
+      expect(retracted.retracted).toBe(true);
+      expect(retracted.snippet).toMatch(/retracted/);
+    });
+
+    it('multiple matches come back (history axis — not collapsed to one)', () => {
+      seedJournal();
+      const r = search({ db, projectRoot: sandbox, query: 'store', scope: 'decisions' });
+      // Both the Postgres and the SQLite store decisions mention "store".
+      expect(r.results.map((x) => x.id).sort()).toEqual(['P-AAAAAAAA', 'P-BBBBBBBB']);
+    });
+
+    it('the DEFAULT (facts) scope never reads the journal', () => {
+      seedJournal();
+      seedObservation(db, { id: 'P-DDDDDDDD', body: 'a curated fact about Postgres' });
+      const r = search({ db, projectRoot: sandbox, query: 'Postgres' });
+      expect(r.results).toHaveLength(1);
+      expect(r.results[0].id).toBe('P-DDDDDDDD'); // the fact, not the journal entry
+    });
+
+    it('does NOT match the literal word "decision" via the marker plumbing (self-review false-positive)', () => {
+      seedJournal();
+      // The query "decision" appears in EVERY entry's `<!-- decision:ID -->`
+      // marker — but matching must run on the cleaned signal (title/When/Why),
+      // so a topic word that only occurs in the plumbing returns nothing.
+      const r = search({ db, projectRoot: sandbox, query: 'decision', scope: 'decisions' });
+      expect(r.action).toBe('found');
+      expect(r.results).toEqual([]); // none of the 3 titles/Whys contain "decision"
+    });
+
+    it('empty/missing journal → found with zero results (not an error)', () => {
+      // no seedJournal() — context/DECISIONS.md does not exist
+      const r = search({ db, projectRoot: sandbox, query: 'anything', scope: 'decisions' });
+      expect(r.action).toBe('found');
+      expect(r.results).toEqual([]);
+    });
+
+    it('rejects fact-only filters under the decisions scope (entries carry no tier/trust/created_at index)', () => {
+      seedJournal();
+      for (const opts of [{ tier: 'P' }, { minTrust: 'high' }, { since: '2026-06-01T00:00:00Z' }]) {
+        const r = search({ db, projectRoot: sandbox, query: 'x', scope: 'decisions', ...opts });
+        expect(r.action).toBe('error');
+        expect(r.errorCategory).toBe('schema');
+        expect(r.errors.join(' ')).toMatch(/decisions scope/);
+      }
+    });
+
+    it('rejects semantic/hybrid mode under the decisions scope (journal is not embedded)', () => {
+      seedJournal();
+      const r = search({
+        db, projectRoot: sandbox, query: 'x', scope: 'decisions',
+        mode: 'semantic', semanticBackend: () => [],
+      });
+      expect(r.action).toBe('error');
+      expect(r.errorCategory).toBe('schema');
+      expect(r.errors.join(' ')).toMatch(/decisions scope/);
+    });
+  });
 });

@@ -29,6 +29,7 @@ The `cmk doctor` health checks verify each layer is wired correctly: install int
 The snapshot injected at session start is a **bounded hot index, not everything** — there is a deeper, queryable archive. When a question is "what did we decide / what's our X / how does the user work / what's the setup / **how is this project structured or built / where does X live / what's the architecture**," **query your memory instead of re-deriving the answer from scratch** — the structure is a recorded decision, recall it before re-reading the files to reconstruct it:
 
 - **`cmk search "<topic>"`** — find any captured fact (decisions, preferences, config, lessons) across the project + user tiers.
+- **`cmk search "<topic>" --scope decisions`** — the append-only **decision journal** (`context/DECISIONS.md`). Use it for decision **history / evolution** — "what did we reject", "did X change", "why did we move away from Y" — it keeps superseded + retracted decisions the live fact store drops. (A plain `cmk search` answers "what's the current decision"; this answers "how it got there".)
 - **`context/memory/<type>_<slug>.md`** — the granular fact archive with full **Why / How** rationale (`context/memory/INDEX.md` lists them).
 - **`~/.claude-memory-kit/` (`USER.md` / `HABITS.md` / `LESSONS.md`)** — how this user works across *all* their projects.
 

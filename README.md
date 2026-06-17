@@ -91,7 +91,7 @@ You rarely need to type these yourself: Claude drives the same operations as too
 | Command | Purpose |
 | --- | --- |
 | `cmk install [--with-semantic]` | Scaffold + wire hooks + register the MCP server (complete entry point) |
-| `cmk search "<query>" [--mode keyword\|semantic\|hybrid]` | Search memory — by meaning with the embedder; hybrid is the default after `--with-semantic` |
+| `cmk search "<query>" [--mode keyword\|semantic\|hybrid] [--scope facts\|transcripts\|decisions]` | Search memory — by meaning with the embedder (hybrid is the default after `--with-semantic`); `--scope decisions` recalls how a decision evolved ("what did we reject / why did X change") from the append-only journal |
 | `cmk remember "<fact>"` | Capture a fact explicitly (deduped, secret-screened, path-abstracted) |
 | `cmk forget <id>` | Tombstone a fact (audit trail preserved) |
 | `cmk lessons promote <id>` | Carry one project fact into your cross-project user tier |

@@ -42,6 +42,8 @@
 // hybrid + semantic paths. Production callers (the `cmk search` CLI in
 // subcommands.mjs) pass undefined; v0.1.x lands the real backend.
 
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { VALID_TIERS } from './tier-paths.mjs';
 
@@ -58,9 +60,16 @@ const MAX_LIMIT = 1000;
 // index (L1, the default). 'transcripts' = the SEPARATE raw-transcript
 // chunk index (the L3 last-resort tier) — reached ONLY when explicitly
 // asked, so raw history never pollutes curated results.
+// Task 156 (D-168) — 'decisions' = the append-only decision journal
+// (context/DECISIONS.md). Deliberately NOT FTS-indexed (a derived view,
+// skipped like INDEX.md), so this scope scans the markdown file directly. It
+// is the recall path for decision-HISTORY / "what did we reject / why did X
+// change" queries — the journal carries the retract/supersede trail the flat
+// fact store no longer holds. Keyword-only (the journal is not embedded).
 export const SEARCH_SCOPES = Object.freeze({
   FACTS: 'facts',
   TRANSCRIPTS: 'transcripts',
+  DECISIONS: 'decisions',
 });
 
 const TRUST_ORDINAL = Object.freeze({
@@ -117,8 +126,12 @@ function validateInput(opts) {
     }
   }
   const scope = opts.scope ?? SEARCH_SCOPES.FACTS;
-  if (scope !== SEARCH_SCOPES.FACTS && scope !== SEARCH_SCOPES.TRANSCRIPTS) {
-    errors.push(`scope: must be one of facts/transcripts (got ${JSON.stringify(scope)})`);
+  if (
+    scope !== SEARCH_SCOPES.FACTS &&
+    scope !== SEARCH_SCOPES.TRANSCRIPTS &&
+    scope !== SEARCH_SCOPES.DECISIONS
+  ) {
+    errors.push(`scope: must be one of facts/transcripts/decisions (got ${JSON.stringify(scope)})`);
   }
   if (scope === SEARCH_SCOPES.TRANSCRIPTS) {
     // Chunks carry no tier/trust/created_at — rejecting these is more honest
@@ -131,6 +144,26 @@ function validateInput(opts) {
       if (opts[key] !== undefined) {
         errors.push(`${label}: not supported under the transcripts scope (raw chunks carry no ${label})`);
       }
+    }
+  }
+  if (scope === SEARCH_SCOPES.DECISIONS) {
+    // The journal is a flat markdown file, not the index: it carries no
+    // tier/trust/created_at columns and isn't embedded. Reject those filters +
+    // semantic/hybrid modes (same explicit-vs-configured honesty as transcripts).
+    for (const [key, label] of [
+      ['tier', 'tier'],
+      ['minTrust', 'minTrust'],
+      ['since', 'since'],
+    ]) {
+      if (opts[key] !== undefined) {
+        errors.push(`${label}: not supported under the decisions scope (journal entries carry no ${label})`);
+      }
+    }
+    if (mode !== SEARCH_MODES.KEYWORD) {
+      errors.push(`mode: only keyword is supported under the decisions scope (the journal is not embedded)`);
+    }
+    if (typeof opts.projectRoot !== 'string' || opts.projectRoot.length === 0) {
+      errors.push('projectRoot: required for the decisions scope (to locate context/DECISIONS.md)');
     }
   }
   return { errors, mode, scope };
@@ -394,6 +427,68 @@ function flattenSnippet(s) {
   return flat.length > TRANSCRIPT_SNIPPET_MAX ? flat.slice(0, TRANSCRIPT_SNIPPET_MAX) + '…' : flat;
 }
 
+// --- Decisions-scope keyword backend (Task 156, the decision journal) ---
+
+// The journal entry shape (decisions-journal.mjs buildDecisionEntry):
+//   <!-- decision:P-XXXXXXXX -->
+//   ### <title>                       (a retracted entry carries _(retracted DATE)_)
+//   **When:** <date> · **Fact:** `<id>`
+//   **Why:** <why>                    (optional)
+// Entries are separated by the machine marker; we split on it, match the query
+// as a case-insensitive substring over the entry text, and report the retract
+// marker so recall can answer "did this change / what did we reject".
+const DECISION_MARKER_RE = /<!--\s*decision:([PUL]-[^\s]+)\s*-->/g;
+const DECISIONS_SNIPPET_MAX = 240;
+
+function runDecisionsKeywordSearch(_db, opts) {
+  const file = join(opts.projectRoot, 'context', 'DECISIONS.md');
+  if (!existsSync(file)) return []; // no journal yet → empty, not an error
+  const content = readFileSync(file, 'utf8');
+
+  // Split the body into entry spans keyed by the decision marker. Each match's
+  // span runs from its marker to the next marker (or EOF).
+  const markers = [];
+  let m;
+  DECISION_MARKER_RE.lastIndex = 0;
+  while ((m = DECISION_MARKER_RE.exec(content)) !== null) {
+    markers.push({ id: m[1], start: m.index });
+  }
+
+  const needle = opts.query.trim().toLowerCase();
+  const hits = [];
+  for (let i = 0; i < markers.length; i++) {
+    const start = markers[i].start;
+    const end = i + 1 < markers.length ? markers[i + 1].start : content.length;
+    const block = content.slice(start, end);
+    // Strip the plumbing (the `<!-- decision:ID -->` marker + the `### ` heading
+    // hashes) BEFORE matching, so the query matches the human signal (title /
+    // When / Why) — NOT the literal word "decision" inside every marker comment
+    // (the self-review false-positive: searching "decision" matched all entries
+    // via their markers). Uses a FRESH regex (not the shared module-level
+    // DECISION_MARKER_RE) so the loop's .exec lastIndex isn't clobbered.
+    const cleaned = block
+      .replace(/<!--\s*decision:[PUL]-[^\s]+\s*-->/g, '')
+      .replace(/^#{1,6}\s+/gm, '');
+    if (!cleaned.toLowerCase().includes(needle)) continue;
+
+    // The line offset of the marker = source_line drill-back into DECISIONS.md.
+    const sourceLine = content.slice(0, start).split('\n').length;
+    const retracted = /_\(retracted\b/.test(block);
+    hits.push({
+      id: markers[i].id,
+      snippet: flattenSnippet(cleaned).slice(0, DECISIONS_SNIPPET_MAX),
+      source_file: 'context/DECISIONS.md',
+      source_line: sourceLine,
+      retracted,
+      // No FTS rank for a flat-file scan; preserve journal (chronological)
+      // order via the marker index so the score is stable + deterministic.
+      score: i,
+    });
+    if (hits.length >= (opts.limit ?? DEFAULT_LIMIT)) break;
+  }
+  return hits;
+}
+
 // --- Reciprocal-rank fusion (hybrid mode) -----------------------------
 
 /**
@@ -445,8 +540,9 @@ export function search(opts = {}) {
   // Scope dispatch (Task 104.2): the transcripts scope swaps the keyword
   // backend; semantic/hybrid use the caller-prepared backend exactly like
   // the facts scope (prepareSemanticBackend({scope}) embeds the right table).
-  const keywordBackend =
-    scope === SEARCH_SCOPES.TRANSCRIPTS ? runTranscriptKeywordSearch : runKeywordSearch;
+  let keywordBackend = runKeywordSearch;
+  if (scope === SEARCH_SCOPES.TRANSCRIPTS) keywordBackend = runTranscriptKeywordSearch;
+  else if (scope === SEARCH_SCOPES.DECISIONS) keywordBackend = runDecisionsKeywordSearch;
 
   // Semantic + hybrid require an injected backend. Production v0.1.0
   // passes undefined → error with the not-yet-shipped hint. A future

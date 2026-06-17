@@ -416,6 +416,8 @@ async function runSearch(queryParts, options) {
     let mode = explicitMode ?? resolveDefaultSearchMode({ projectRoot });
     // Task 104.2 — the L3 raw tier: `--scope transcripts` searches the
     // separate transcript-chunk index (synthetic T: ids; no tier/trust).
+    // Task 156 — `--scope decisions` scans context/DECISIONS.md (the decision
+    // journal) for decision-history / "what did we reject" recall.
     const scope = options?.scope ?? 'facts';
     let semanticBackend;
     if (mode === SEARCH_MODES.SEMANTIC || mode === SEARCH_MODES.HYBRID) {
@@ -443,6 +445,7 @@ async function runSearch(queryParts, options) {
       query,
       mode,
       scope,
+      projectRoot, // Task 156: the decisions scope reads context/DECISIONS.md
       minTrust: options?.minTrust,
       tier: options?.tier,
       since: options?.since,
@@ -464,9 +467,15 @@ async function runSearch(queryParts, options) {
     for (const hit of r.results) {
       // Plain-text output suitable for terminal piping. Snippet uses
       // FTS5's <b>...</b> markers; preserved as-is so callers can pipe
-      // to a TUI that renders them OR strip via sed. Transcript hits carry
-      // no tier/trust (raw chunks) — the column shows the scope instead.
-      const provenance = hit.tier ? `${hit.tier}/${hit.trust}` : 'transcript';
+      // to a TUI that renders them OR strip via sed. Hits with no tier/trust
+      // (raw transcript chunks; decision-journal entries) show the scope's
+      // label instead — 'transcript' for the L3 raw tier, 'decision' for the
+      // journal (Task 156), plus a `(retracted)` marker so the "what did we
+      // reject" trail is visible at a glance.
+      let provenance;
+      if (hit.tier) provenance = `${hit.tier}/${hit.trust}`;
+      else if (r.scope === 'decisions') provenance = hit.retracted ? 'decision (retracted)' : 'decision';
+      else provenance = 'transcript';
       console.log(
         `${hit.id}\t${provenance}\t${hit.source_file}:${hit.source_line}\t${hit.snippet}`,
       );
