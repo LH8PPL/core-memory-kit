@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Fixed
+
+- **reindex(157): `cmk reindex --full` no longer crashes on a dual-written fact.** A fact captured via `cmk remember` lives in both the working scratchpad and its archive file with the same id; a full reindex hit a `UNIQUE constraint failed` and aborted. The index now replaces by id with deterministic precedence (the archive copy wins), so reindex is robust and search results de-duplicate cleanly. Affects anyone who ran a manual `cmk reindex --full`; automatic indexing was unaffected.
+
 ### Added
 
 - **Tombstone recovery (155): `cmk get <id> --include-tombstoned` un-forgets a fact — for you, never for the AI.** A `cmk forget` removes a fact from all recall, but its body is kept in the archive. You can now recover it: `cmk get <id> --include-tombstoned` reads the archive and returns the forgotten fact's body + when/why it was deleted. This is a **human-only** flag — the AI's `mk_get` tool stays tombstone-blind, so a fact you forgot never resurfaces in Claude's recall (a deleted fact staying deleted is the whole point). A live fact always takes precedence; recovery is a fallback only when the id isn't live.
