@@ -10,7 +10,7 @@
 // recent-activity), so they are the single source for read-result shape.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { install } from '../packages/cli/src/install.mjs';
@@ -108,6 +108,29 @@ describe('read-core (108b shared read cores)', () => {
       const id = rememberThenForget('secret recovery body', 'recover-me');
       const rows = getObservations(db, [id], { includeTombstoned: true }); // no projectRoot
       expect(rows[0]).toEqual({ id, error: 'not found' });
+    });
+
+    it('a malformed/frontmatter-less tombstone degrades gracefully (raw body, null provenance, no crash)', () => {
+      // A human runs --include-tombstoned precisely when something went wrong;
+      // a garbled tombstone must still surface its content, not throw.
+      const id = 'P-MFA9NMBC';
+      const tombDir = join(projectRoot, 'context', 'memory', 'archive', 'tombstones');
+      mkdirSync(tombDir, { recursive: true });
+      writeFileSync(join(tombDir, `${id}.md`), 'just raw text, no frontmatter at all', 'utf8');
+      const rows = getObservations(db, [id], { includeTombstoned: true, projectRoot });
+      expect(rows[0].tombstoned).toBe(true);
+      expect(rows[0].body).toContain('just raw text');
+      expect(rows[0].deleted_at).toBeNull(); // unknown provenance, honestly null
+      expect(rows[0].error).toBeUndefined();
+    });
+
+    it('a path-traversal id is rejected by ID_PATTERN BEFORE any file read (no archive escape)', () => {
+      // The validation-before-join order is the path-traversal defense. Lock it:
+      // a crafted id must fail format-validation, never reach readTombstone.
+      for (const evil of ['P-../../etc', 'P-AAAA/../x', '../../secret']) {
+        const rows = getObservations(db, [evil], { includeTombstoned: true, projectRoot }); // validate-test-ids: ignore
+        expect(rows[0]).toEqual({ id: evil, error: 'invalid id format' });
+      }
     });
   });
 

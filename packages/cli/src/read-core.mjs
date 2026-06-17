@@ -55,18 +55,27 @@ export function getObservations(db, ids, { includeTombstoned = false, projectRoo
  * Read-only; never un-tombstones (that would be a separate `restore` verb).
  */
 function readTombstone(projectRoot, id) {
+  // SAFETY: `id` is interpolated into the path, but every caller reaches here
+  // ONLY after getObservations' `ID_PATTERN.test(id)` gate (anchored
+  // /^[PUL]-[base32]{8}$/ — no `.`/`/`/`\`), so it cannot path-traverse out of
+  // the tombstones dir. Do NOT call readTombstone before that validation.
   const tombPath = join(
     projectRoot, 'context', 'memory', 'archive', 'tombstones', `${id}.md`,
   );
   if (!existsSync(tombPath)) return null;
   const { frontmatter, body } = parseFrontmatter(readFileSync(tombPath, 'utf8'));
   const fm = frontmatter ?? {};
+  // `tombstoned: true` is the SOLE discriminator for recovered-vs-live — a live
+  // row never carries it. Consumers must key off this, NOT off `deleted_at`
+  // presence (a live row can carry a null deleted_at too). A malformed/garbled
+  // tombstone still returns its raw body + null provenance (graceful degrade —
+  // a human recovering is precisely the case where something went wrong).
   return {
     id,
     body: body ?? '',
     heading_path: fm.title ?? null,
     source_file: `context/memory/archive/tombstones/${id}.md`,
-    source_line: 1,
+    source_line: 1, // synthetic — the tombstone file has no meaningful source line
     tier: fm.tier ?? null,
     trust: fm.trust ?? null,
     write_source: fm.write_source ?? null,
