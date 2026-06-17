@@ -47,7 +47,7 @@ Most capture is automatic (the Stop hook extracts facts each turn) — use `cmk 
 ### `cmk search <query…> [flags]`
 Search accumulated memory.
 - `--mode keyword|semantic|hybrid` — the project default is `keyword`, or `hybrid` after `cmk install --with-semantic` (the `search.default_mode` setting). Semantic/hybrid need the optional local embedder; explicitly requesting them without it exits 2 with the install hint, while a configured default degrades gracefully to keyword.
-- `--scope facts|transcripts` — `facts` (default) searches curated memory; `transcripts` searches the raw session record (verbatim transcripts + compressed session summaries) — the last-resort recall tier; hits are `T:<file>:<line>` locations, and fact-only filters (tier/trust/since) don't apply.
+- `--scope facts|transcripts|decisions` — `facts` (default) searches curated memory; `transcripts` searches the raw session record (verbatim transcripts + compressed session summaries) — the last-resort recall tier; hits are `T:<file>:<line>` locations, and fact-only filters (tier/trust/since) don't apply. `decisions` searches the append-only decision journal (`context/DECISIONS.md`) — use it for decision **history / evolution / "what did we reject"** queries; it returns superseded + retracted decisions the live fact store no longer carries (keyword-only; fact-only filters don't apply).
 - `--min-trust low|medium|high` · `--tier U|P|L` · `--since <ISO date>` · `--limit <n>` (default 20) · `--include-tombstoned`.
 ```bash
 cmk search "postgres"

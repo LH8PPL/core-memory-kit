@@ -155,6 +155,7 @@ function makeMkSearch({ db, semanticBackend, projectRoot }) {
       db, query,
       mode: wantMode,
       scope,
+      projectRoot, // Task 156: the decisions scope reads context/DECISIONS.md
       tier,
       since,
       limit,
@@ -563,7 +564,7 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
       inputSchema: {
         query: z.string().min(1).describe('search query'),
         mode: z.enum(['keyword', 'semantic', 'hybrid']).optional(),
-        scope: z.enum(['facts', 'transcripts']).optional().describe("'facts' (default) = curated memory; 'transcripts' = the raw session record — the LAST-RESORT recall tier, search it only when curated memory has no answer"),
+        scope: z.enum(['facts', 'transcripts', 'decisions']).optional().describe("'facts' (default) = curated memory; 'transcripts' = the raw session record (LAST-RESORT — only when curated memory has no answer); 'decisions' = the append-only decision journal (context/DECISIONS.md) — use for decision-HISTORY / evolution / 'what did we reject / why did X change' queries (it returns superseded + retracted entries the live fact store no longer carries)"),
         tier: z.enum(['U', 'P', 'L']).optional(),
         since: z.string().optional().describe('ISO 8601 timestamp'),
         limit: z.number().int().positive().max(1000).optional(),
