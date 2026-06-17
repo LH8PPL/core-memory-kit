@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+## [0.3.3] — 2026-06-17
+
 ### Fixed
 
 - **reindex(157): `cmk reindex --full` no longer crashes on a dual-written fact.** A fact captured via `cmk remember` lives in both the working scratchpad and its archive file with the same id; a full reindex hit a `UNIQUE constraint failed` and aborted. The index now replaces by id with deterministic precedence (the archive copy wins), so reindex is robust and search results de-duplicate cleanly. Affects anyone who ran a manual `cmk reindex --full`; automatic indexing was unaffected.
@@ -22,18 +24,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ### Fixed
 
 - **search(153): natural queries with dots, hyphens, or version strings no longer crash.** `cmk search "v0.3"` (or asking Claude to recall something via `mk_search`) used to fail with an `FTS5 parse error` because characters like `.`, `-`, and `:` have special meaning in the search engine's grammar. Queries are now auto-sanitized — each word that needs it is quoted for you — so `v0.3`, `user-explicit`, and `section:search` all just find results. Multi-word queries keep their "match all words" behavior, and an explicit `"quoted phrase"` you type yourself is still honored as a phrase search.
-
-<!--
-HELD FOR v0.3.3 (not shipped in 0.3.2): `cmk digest` + the standing
-`context/DECISIONS.md` decision journal. The CODE is merged (the command + the
-append-only journal work), but the feature is NOT framed as shipped until it is
-RECALL-COMPLETE — the AI must be able to recall the decision timeline/evolution
-from the journal, not just have a file written for a human to open. That recall
-wiring (a directive + a live-verified recall gate) lands in v0.3.3, where this
-entry graduates to ## [0.3.3]. Principle: a feature isn't shipped until it works
-end-to-end (write AND automatic AI-recall) — the kit's "you don't manage memory,
-it just works" thesis. See Task 156 / D-164.
--->
 
 ## [0.3.1] — 2026-06-14
 
