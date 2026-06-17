@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-ZVQEMWJA) Confirmed proposed v0.3.2 scope is better (tasks 153, 152, 134, gitattributes, conditional 141b)
-  <!-- source: auto-extract-session, source_line: 1, sha1: 2584063e1893f438ccb6d84872f1ebe9932543e19c4cc3438dacbf4bdc895452, write: auto-extract, trust: high, at: 2026-06-15T12:08:53Z -->
 - (P-F94ZJMYV) Always monitor CI without asking for permission or pausing to confirm; this is the standing approach for this repo going forward.
   <!-- source: auto-extract-session, source_line: 1, sha1: 50555dbd75e324903b8f912527fb119e99f5fb378b286b696b636125b25e0889, write: auto-extract, trust: high, at: 2026-06-15T15:07:33Z -->
 - (P-7Q5U4XTK) Rename README section "What it does" to "Features" — clearer language for capability list
@@ -20,6 +18,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: f450e730fd6283d627d65bf178437d7cbfae93d612fc8c31d65eebc713923d37, write: auto-extract, trust: high, at: 2026-06-16T11:47:49Z -->
 - (P-64UMEVFG) User questions whether kept branches are necessary; signals active concern about branch clutter and cleanup.
   <!-- source: auto-extract-session, source_line: 1, sha1: 50d2bcc21ce72259ff3f44f4f24b051aa4469c0060768d5c2386b9601c9eb234, write: auto-extract, trust: high, at: 2026-06-16T15:13:31Z -->
+- (P-3FEV3J72) Probes for honest assessment of testing coverage — what was actually live-tested (real data, real binary) vs. synthetic-tested vs. untested.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 1d20b8f88bcd90fce9af90a7e581874316305a62cddd8bb4000e7557565d04b0, write: auto-extract, trust: high, at: 2026-06-17T06:29:13Z -->
 
 ## Environment Notes
 
