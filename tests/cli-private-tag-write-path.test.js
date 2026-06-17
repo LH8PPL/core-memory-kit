@@ -151,6 +151,55 @@ describe('Task: <private> stripped on the writeFact (fact file) path (Doors 1+2)
     expect(index).not.toContain(pw);
   });
 
+  // F-V0.3.3-2 (cut-gate C4): the username leaked into the fact FILENAME +
+  // INDEX when no --title was given. The body was home-path-sanitized
+  // (C:\Users\you → ~) but the slug was derived from the raw title BEFORE
+  // sanitizeHomePaths ran — same ordering bug the v0.3.1 fix above closed for
+  // <private>, missed for home paths. A committed filename carrying the real
+  // username is a public-repo leak. Fix: sanitizeHomePaths before slugifyFact.
+  it('rememberRich: a home-dir path in the text never leaks the username into the filename or INDEX', () => {
+    const user = 'alice-mcphersonsh'; // a realistic username token (NOT the maintainer's)
+    const text = `venv at C:\\Users\\${user}\\proj\\.venv`;
+    // Fixture self-guard: the input MUST actually contain the raw username (a
+    // single real backslash + the interpolated name), else the test would pass
+    // vacuously — the trap that nearly shipped this fix unverified.
+    expect(text).toContain(`\\Users\\${user}\\`);
+    expect(text).toContain(user);
+    const r = rememberRich(text, { type: 'project' }, { projectRoot });
+    expect(r.action).toBe('created');
+
+    const files = factFiles();
+    expect(files.length).toBeGreaterThan(0);
+    // The username must appear in NO committed filename …
+    for (const n of files) {
+      expect(n).not.toContain(user);
+      // … nor anywhere inside the fact body / frontmatter title.
+      const content = readFileSync(join(projectRoot, 'context', 'memory', n), 'utf8');
+      expect(content).not.toContain(user);
+      // The path IS still captured — abstracted to ~ (recovery + portability).
+      expect(content).toContain('~');
+    }
+    // … nor in the INDEX (which embeds the filename in its link target).
+    const index = readFileSync(join(projectRoot, 'context', 'memory', 'INDEX.md'), 'utf8');
+    expect(index).not.toContain(user);
+    // … nor in the scratchpad.
+    expect(memoryMd()).not.toContain(user);
+  });
+
+  it('rememberRich: home-path sanitize also applies when an explicit --title carries the username', () => {
+    const user = 'bob-qzxnadeveloper';
+    const r = rememberRich('some deploy note', {
+      type: 'project',
+      title: `paths under C:\\Users\\${user}\\app`,
+    }, { projectRoot });
+    expect(r.action).toBe('created');
+    for (const n of factFiles()) {
+      expect(n).not.toContain(user);
+      expect(readFileSync(join(projectRoot, 'context', 'memory', n), 'utf8')).not.toContain(user);
+    }
+    expect(readFileSync(join(projectRoot, 'context', 'memory', 'INDEX.md'), 'utf8')).not.toContain(user);
+  });
+
   it('id is computed from the REDACTED body (dedup keys on what lands, not the secret)', () => {
     const withSecret = writeFact({
       tier: 'P', type: 'project', slug: 'a', title: 'a',
