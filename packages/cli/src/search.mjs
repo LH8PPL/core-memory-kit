@@ -445,13 +445,20 @@ function runDecisionsKeywordSearch(_db, opts) {
   if (!existsSync(file)) return []; // no journal yet → empty, not an error
   const content = readFileSync(file, 'utf8');
 
-  // Split the body into entry spans keyed by the decision marker. Each match's
-  // span runs from its marker to the next marker (or EOF).
+  // Split the body into entry spans keyed by the decision marker. Each span runs
+  // from its marker to the next marker (or EOF). A marker is an entry boundary
+  // ONLY at line-start — the writer (buildDecisionEntry) always emits it first
+  // on its own line, so a marker QUOTED inside a Why/body (a meta-decision about
+  // the journal format, or a fact citing another's marker) does NOT false-split
+  // the entry (skill-review I2). DECISION_MARKER_RE is module-level /g + reset
+  // here; the function is fully synchronous (no await between reset and the
+  // loop), so there is no shared-state re-entrancy hazard.
   const markers = [];
   let m;
   DECISION_MARKER_RE.lastIndex = 0;
   while ((m = DECISION_MARKER_RE.exec(content)) !== null) {
-    markers.push({ id: m[1], start: m.index });
+    const atLineStart = m.index === 0 || content[m.index - 1] === '\n';
+    if (atLineStart) markers.push({ id: m[1], start: m.index });
   }
 
   const needle = opts.query.trim().toLowerCase();
@@ -473,17 +480,29 @@ function runDecisionsKeywordSearch(_db, opts) {
 
     // The line offset of the marker = source_line drill-back into DECISIONS.md.
     const sourceLine = content.slice(0, start).split('\n').length;
-    const retracted = /_\(retracted\b/.test(block);
+    // Retracted-tag detection mirrors the WRITER's contract: the tag sits on its
+    // own line DIRECTLY after the `### ` heading (decisions-journal.mjs §2), so
+    // scope the check there — NOT a raw-block substring, which would mislabel an
+    // active entry whose Why merely MENTIONS "_(retracted" (skill-review I1).
+    const headingIdx = block.indexOf('### ');
+    const afterHeading =
+      headingIdx === -1 ? '' : block.slice(block.indexOf('\n', headingIdx) + 1);
+    const retracted = afterHeading.startsWith('_(retracted');
     hits.push({
       id: markers[i].id,
       snippet: flattenSnippet(cleaned).slice(0, DECISIONS_SNIPPET_MAX),
       source_file: 'context/DECISIONS.md',
       source_line: sourceLine,
       retracted,
-      // No FTS rank for a flat-file scan; preserve journal (chronological)
-      // order via the marker index so the score is stable + deterministic.
+      // `score` is POSITIONAL (the marker index), NOT an FTS relevance rank —
+      // the journal is chronological, so a lower score = an earlier decision.
+      // Don't fuse/sort this against the facts/transcripts scopes' rank scores.
       score: i,
     });
+    // NB: `limit` is a CHRONOLOGICAL head, not a relevance top-N — it returns
+    // the first N matches in journal (oldest→newest) order, so a strongly
+    // relevant decision far down a long journal can be cut. Acceptable: the
+    // journal is bounded and chronological by design (M1, deliberate).
     if (hits.length >= (opts.limit ?? DEFAULT_LIMIT)) break;
   }
   return hits;

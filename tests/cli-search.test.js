@@ -719,7 +719,10 @@ describe('Task 30 — cmk search', () => {
       '**Why:** team familiarity + JSONB support',
       '',
       '<!-- decision:P-BBBBBBBB -->',
-      '### Switch the primary store to SQLite _(retracted 2026-05-01)_',
+      '### Switch the primary store to SQLite',
+      // The writer (decisions-journal.mjs §2) emits the retract tag on its OWN
+      // line directly under the heading — NOT inline in the title.
+      '_(retracted 2026-05-01)_',
       '**When:** 2026-05-01 · **Fact:** `P-BBBBBBBB`',
       '**Why:** single-file portability won out over Postgres ops cost',
       '',
@@ -781,6 +784,62 @@ describe('Task 30 — cmk search', () => {
       const r = search({ db, projectRoot: sandbox, query: 'decision', scope: 'decisions' });
       expect(r.action).toBe('found');
       expect(r.results).toEqual([]); // none of the 3 titles/Whys contain "decision"
+    });
+
+    it('I1 — an ACTIVE entry whose Why merely mentions "_(retracted" is NOT labelled retracted', () => {
+      // skill-review I1: the retract tag sits on its own line under the heading;
+      // a Why that discusses retraction must not flip the flag.
+      const journal = [
+        '# Decisions',
+        '',
+        '<!-- decision:P-EEEEEEEE -->',
+        '### Keep the old rule in place',
+        '**When:** 2026-06-01 · **Fact:** `P-EEEEEEEE`',
+        '**Why:** we considered marking it _(retracted) but decided to keep it active',
+      ].join('\n');
+      seedJournal(journal);
+      const r = search({ db, projectRoot: sandbox, query: 'old rule', scope: 'decisions' });
+      expect(r.results).toHaveLength(1);
+      expect(r.results[0].id).toBe('P-EEEEEEEE');
+      expect(r.results[0].retracted).toBe(false); // active, despite the Why mention
+    });
+
+    it('I1 — a genuinely retracted entry (tag on the line under the heading) IS labelled retracted', () => {
+      const journal = [
+        '# Decisions',
+        '',
+        '<!-- decision:P-FFFFFFFF -->',
+        '### Reverse the SQLite move',
+        '_(retracted 2026-06-05)_',
+        '**When:** 2026-06-01 · **Fact:** `P-FFFFFFFF`',
+        '**Why:** went back to the prior store',
+      ].join('\n');
+      seedJournal(journal);
+      const r = search({ db, projectRoot: sandbox, query: 'SQLite', scope: 'decisions' });
+      expect(r.results).toHaveLength(1);
+      expect(r.results[0].retracted).toBe(true);
+    });
+
+    it('I2 — an entry whose Why QUOTES the marker syntax stays ONE entry (no false split)', () => {
+      // skill-review I2: a marker mid-line (not at line-start) is body text, not
+      // an entry boundary — the writer only ever emits markers at line-start.
+      const journal = [
+        '# Decisions',
+        '',
+        '<!-- decision:P-GGGGGGGG -->',
+        '### Journal marker format',
+        '**When:** 2026-06-01 · **Fact:** `P-GGGGGGGG`',
+        '**Why:** each entry begins with <!-- decision:P-HHHHHHHH --> as its machine marker',
+      ].join('\n');
+      seedJournal(journal);
+      const r = search({ db, projectRoot: sandbox, query: 'marker format', scope: 'decisions' });
+      // ONE real entry (P-GGGGGGGG); the quoted P-HHHHHHHH is NOT a second hit.
+      expect(r.results).toHaveLength(1);
+      expect(r.results[0].id).toBe('P-GGGGGGGG');
+      // And a search that would only match the quoted-marker text still maps to
+      // the real entry, never a phantom P-HHHHHHHH entry.
+      const r2 = search({ db, projectRoot: sandbox, query: 'machine marker', scope: 'decisions' });
+      expect(r2.results.map((x) => x.id)).toEqual(['P-GGGGGGGG']);
     });
 
     it('empty/missing journal → found with zero results (not an error)', () => {
