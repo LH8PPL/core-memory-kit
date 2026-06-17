@@ -21,6 +21,8 @@ import {
   buildTimeline,
   recentActivity,
 } from '../packages/cli/src/read-core.mjs';
+import { writeFact } from '../packages/cli/src/write-fact.mjs';
+import { forget } from '../packages/cli/src/forget.mjs';
 
 let sandbox, projectRoot, db;
 
@@ -53,6 +55,60 @@ describe('read-core (108b shared read cores)', () => {
     expect(rows[0].trust).toBe('high');
     expect(rows[1]).toEqual({ id: 'P-BBBBBBBB', error: 'not found' });
     expect(rows[2]).toEqual({ id: 'not-an-id', error: 'invalid id format' });
+  });
+
+  // Task 155 (D-163) — opt-in tombstone recovery on `getObservations`. The
+  // default stays live-only (a forgotten id → not found); ONLY an explicit
+  // includeTombstoned + projectRoot reads context/memory/archive/tombstones/.
+  // This is the HUMAN-only recovery path; MCP mk_get never passes the flag.
+  describe('getObservations --include-tombstoned (Task 155 / D-163)', () => {
+    // Write a real fact, then forget it (real chain → tombstone file + pruned row).
+    function rememberThenForget(body, title) {
+      const w = writeFact({
+        projectRoot, tier: 'P', type: 'project', slug: title, title, body,
+        writeSource: 'user-explicit', trust: 'high',
+        sourceFile: 'MEMORY.md', sourceLine: 1, sourceSha1: 'a'.repeat(40),
+        createdAt: '2026-05-27T10:00:00Z',
+      });
+      expect(w.action).not.toBe('error');
+      const f = forget({ idOrQuery: w.id, projectRoot, userDir: join(sandbox, 'user'), yes: true });
+      expect(f.action).toBe('tombstoned');
+      return w.id;
+    }
+
+    it('default (no flag): a forgotten id returns {error:"not found"} — live-only', () => {
+      const id = rememberThenForget('the deploy target is fly.io', 'deploy-target');
+      const rows = getObservations(db, [id]); // no opts → default
+      expect(rows[0]).toEqual({ id, error: 'not found' });
+    });
+
+    it('includeTombstoned + projectRoot: recovers the tombstoned body + deletion provenance', () => {
+      const id = rememberThenForget('the deploy target is fly.io', 'deploy-target');
+      const rows = getObservations(db, [id], { includeTombstoned: true, projectRoot });
+      expect(rows[0].id).toBe(id);
+      expect(rows[0].body).toContain('fly.io');
+      expect(rows[0].tombstoned).toBe(true);        // flagged as recovered, not live
+      expect(rows[0].deleted_at).toBeTruthy();       // deletion provenance carried
+      expect(rows[0].error).toBeUndefined();
+    });
+
+    it('includeTombstoned does NOT resurrect a live fact path (a real live hit still wins)', () => {
+      seed(db, { id: 'P-AAAAAAAA', body: 'a live fact' });
+      const rows = getObservations(db, ['P-AAAAAAAA'], { includeTombstoned: true, projectRoot });
+      expect(rows[0].body).toBe('a live fact');
+      expect(rows[0].tombstoned).toBeUndefined();    // live → not flagged tombstoned
+    });
+
+    it('includeTombstoned with a genuinely-unknown id still returns not found', () => {
+      const rows = getObservations(db, ['P-ZZZZZZZZ'], { includeTombstoned: true, projectRoot });
+      expect(rows[0]).toEqual({ id: 'P-ZZZZZZZZ', error: 'not found' });
+    });
+
+    it('includeTombstoned WITHOUT projectRoot is a no-op (can’t locate the archive) → not found', () => {
+      const id = rememberThenForget('secret recovery body', 'recover-me');
+      const rows = getObservations(db, [id], { includeTombstoned: true }); // no projectRoot
+      expect(rows[0]).toEqual({ id, error: 'not found' });
+    });
   });
 
   it('citeLink: canonical link for a valid id; ok:false for a bad one', () => {

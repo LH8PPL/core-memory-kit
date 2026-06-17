@@ -241,6 +241,42 @@ describe('Task 31 — MCP server', () => {
       const parsed = JSON.parse(r.content[0].text);
       expect(parsed[0].error).toBe('invalid id format');
     });
+
+    // D-163 CONTRACT LOCK (Task 155): mk_get is tombstone-BLIND. A forgotten
+    // fact whose body still sits in the archive must NOT be recoverable through
+    // the MCP tool — resurfacing a deleted fact to the agent is the worst
+    // memory-product failure. Recovery is a HUMAN-only `cmk get
+    // --include-tombstoned`. This test fails loudly if a future change ever
+    // threads includeTombstoned into mk_get.
+    it('does NOT recover a tombstoned fact (D-163 — agent stays tombstone-blind)', async () => {
+      const tombId = 'P-TPP4NMBC';
+      const tombDir = join(projectRoot, 'context', 'memory', 'archive', 'tombstones');
+      mkdirSync(tombDir, { recursive: true });
+      writeFileSync(
+        join(tombDir, `${tombId}.md`),
+        [
+          '---',
+          `id: ${tombId}`,
+          'type: project',
+          'title: forgotten-secret',
+          'tier: P',
+          'trust: high',
+          'write_source: user-explicit',
+          'created_at: 2026-05-27T10:00:00Z',
+          'deleted_at: 2026-06-01T10:00:00Z',
+          'deleted_by: user-explicit',
+          '---',
+          'the deploy target the user explicitly forgot',
+        ].join('\n'),
+        'utf8',
+      );
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const r = await invokeTool(server, 'mk_get', { ids: [tombId] });
+      const parsed = JSON.parse(r.content[0].text);
+      // Tombstone-blind: not found, and the forgotten body NEVER appears.
+      expect(parsed[0]).toEqual({ id: tombId, error: 'not found' });
+      expect(r.content[0].text).not.toContain('deploy target');
+    });
   });
 
   describe('mk_timeline', () => {
