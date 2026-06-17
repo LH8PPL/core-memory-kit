@@ -518,7 +518,13 @@ Run these in the build terminal (`C:\Temp\cut-gate12`), after Session 1 has capt
       cmk search "store" --scope decisions                     # the retracted entry STILL recalls
       ```
       **PASS:** the first `--scope decisions` search returns the decision (labelled `decision`, keyed by its `P-…` id, clean snippet — no `<!-- decision -->` plumbing); after forget+digest the SAME search still returns it, now labelled `decision (retracted)` — so "what did we reject" is answerable from recall, not just by opening the file.
-      _Live (in-chat) half — flag for the manual session: ask Claude a decision-HISTORY question ("weren't we using X? what changed?") and confirm it consults the journal (`--scope decisions` / `mk_search scope:decisions`), surfacing the superseded entry. Behavioral directive (like W1/E1) — can't be auto-asserted._
+
+      **DJ4-live (the behavioral half — run in a real Claude Code session, NOT the terminal).** The CLI half above proves the *mechanism*; this proves Claude actually *reaches for it* from the recall directive. After the steps above (a real journal with at least one retracted decision exists), open a session in this project and paste ONE of these — then watch what tool Claude runs:
+      - **Prompt A (evolution):** "We've gone back and forth on the data store — what did we actually decide, and did it ever change?"
+      - **Prompt B ("what did we reject"):** "Did we ever consider and reject anything for the store? What and why?"
+      - **Prompt C (direct history):** "Show me the decision history for the store — including anything we reversed."
+
+      **PASS (live):** Claude consults the journal — it runs `mk_search` with `scope: "decisions"` (or `cmk search … --scope decisions` via the memory-search skill), and its answer surfaces the **superseded/retracted** decision (e.g. "we picked Postgres, then reversed it — retracted on `<date>`"), not just the current live fact. **FAIL (live):** Claude answers only from the live fact / the injected snapshot and never queries the journal scope, OR claims no history exists. _Behavioral directive (like W1/E1) — can't be auto-asserted; this is the one DECISIONS.md gate a human must eyeball. If it FAILS, the recall directive (injected CLAUDE.md "Recalling memory" + the memory-search skill "Decision HISTORY" step) isn't triggering — that's a v0.3.3 blocker, not a nit._
 
 ---
 
