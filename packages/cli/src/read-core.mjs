@@ -6,7 +6,10 @@
 // surfaces, one implementation. Pure (db + args in, plain data out); the MCP
 // adapter wraps the result in a content envelope, the CLI adapter prints it.
 
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { ID_PATTERN } from './tier-paths.mjs';
+import { parse as parseFrontmatter } from './frontmatter.mjs';
 
 const GET_COLUMNS =
   'id, body, heading_path, source_file, source_line, tier, trust, ' +
@@ -15,15 +18,74 @@ const GET_COLUMNS =
 /**
  * Fetch full observation rows by id. An invalid-format or missing id becomes
  * a `{ id, error }` entry (the array stays positionally aligned with `ids`).
+ *
+ * Task 155 (D-163) — opt-in tombstone recovery. By DEFAULT this is live-only:
+ * a forgotten id (its index row pruned by Task 110, the body moved to
+ * `context/memory/archive/tombstones/<id>.md`) returns `not found`. The
+ * automatic recall surfaces (the SessionStart snapshot, `mk_search`, `mk_get`)
+ * MUST stay on this default — a deleted fact must remain invisible to the agent
+ * (resurfacing it is the worst memory-product failure). ONLY an explicit
+ * HUMAN-driven `cmk get --include-tombstoned` opts in, passing
+ * `{ includeTombstoned: true, projectRoot }`; on a live miss it then reads the
+ * tombstone file directly and returns its body marked `tombstoned: true`.
+ *
+ * @param {object} [opts]
+ * @param {boolean} [opts.includeTombstoned=false] human-only recovery opt-in
+ * @param {string}  [opts.projectRoot] required when includeTombstoned (to find the archive)
  */
-export function getObservations(db, ids) {
+export function getObservations(db, ids, { includeTombstoned = false, projectRoot } = {}) {
   const stmt = db.prepare(`SELECT ${GET_COLUMNS} FROM observations WHERE id = ?`);
   return ids.map((id) => {
     if (!ID_PATTERN.test(id)) return { id, error: 'invalid id format' };
     const row = stmt.get(id);
-    if (!row) return { id, error: 'not found' };
-    return row;
+    if (row) return row; // a LIVE hit always wins — recovery is a miss-only fallback
+    // Live miss. Recovery is opt-in AND needs projectRoot to locate the archive.
+    if (includeTombstoned && projectRoot) {
+      const recovered = readTombstone(projectRoot, id);
+      if (recovered) return recovered;
+    }
+    return { id, error: 'not found' };
   });
+}
+
+/**
+ * Read a tombstoned fact's body + deletion provenance from
+ * `<projectRoot>/context/memory/archive/tombstones/<id>.md`. Returns a row-like
+ * object marked `tombstoned: true`, or null if no tombstone exists for the id.
+ * Read-only; never un-tombstones (that would be a separate `restore` verb).
+ */
+function readTombstone(projectRoot, id) {
+  // SAFETY: `id` is interpolated into the path, but every caller reaches here
+  // ONLY after getObservations' `ID_PATTERN.test(id)` gate (anchored
+  // /^[PUL]-[base32]{8}$/ — no `.`/`/`/`\`), so it cannot path-traverse out of
+  // the tombstones dir. Do NOT call readTombstone before that validation.
+  const tombPath = join(
+    projectRoot, 'context', 'memory', 'archive', 'tombstones', `${id}.md`,
+  );
+  if (!existsSync(tombPath)) return null;
+  const { frontmatter, body } = parseFrontmatter(readFileSync(tombPath, 'utf8'));
+  const fm = frontmatter ?? {};
+  // `tombstoned: true` is the SOLE discriminator for recovered-vs-live — a live
+  // row never carries it. Consumers must key off this, NOT off `deleted_at`
+  // presence (a live row can carry a null deleted_at too). A malformed/garbled
+  // tombstone still returns its raw body + null provenance (graceful degrade —
+  // a human recovering is precisely the case where something went wrong).
+  return {
+    id,
+    body: body ?? '',
+    heading_path: fm.title ?? null,
+    source_file: `context/memory/archive/tombstones/${id}.md`,
+    source_line: 1, // synthetic — the tombstone file has no meaningful source line
+    tier: fm.tier ?? null,
+    trust: fm.trust ?? null,
+    write_source: fm.write_source ?? null,
+    created_at: fm.created_at ?? fm.at ?? null,
+    superseded_by: fm.superseded_by ?? null,
+    deleted_at: fm.deleted_at ?? null,
+    deleted_reason: fm.deleted_reason ?? null,
+    deleted_by: fm.deleted_by ?? null,
+    tombstoned: true,
+  };
 }
 
 /** The canonical Markdown citation link for an id. Pure (no DB). */

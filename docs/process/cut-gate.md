@@ -707,7 +707,8 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 - [ ] **F-7**
       `cmk forget <id> --yes` → tombstones: the fact file is **moved to `archive\tombstones\<id>.md`** (body preserved — NOT hard-deleted), and its DB row is pruned.
       **Since v0.2.3:** the fact **disappears from `cmk search` immediately** — no manual `cmk reindex` (Task 110); the free-speech / two-step path is **M2**.
-      **`cmk get <id>` returns `not found`** — `get` is **live-only by design** (forget prunes the row; recovery is the archive file on disk, not a `get` read). Automatic recall never resurfaces a forgotten fact (a deleted fact must stay invisible to the agent). An opt-in `cmk get --include-tombstoned` recovery flag is planned (v0.3.3/v0.4); until then the archive file is the recovery path.
+      **`cmk get <id>` returns `not found`** — `get` is **live-only by default** (forget prunes the row). Automatic recall never resurfaces a forgotten fact (a deleted fact must stay invisible to the agent).
+      **F-7b (Task 155 / D-163) — human-only recovery:** `cmk get <id> --include-tombstoned` recovers the forgotten body + `deleted_at`/`deleted_by`, marked `tombstoned: true`. **PASS:** plain `cmk get <id>` → `not found`; `cmk get <id> --include-tombstoned` → the body returns. **The D-163 lock:** the MCP `mk_get` tool is tombstone-blind — there is NO `include_tombstoned` param on it, so the AI can never recover a forgotten fact (verified by the contract-lock test `does NOT recover a tombstoned fact (D-163)`). _Live (in-chat) check for the manual session: ask Claude to recall the forgotten fact via memory — it must NOT surface it._
       _(`--yes` is required in v0.1.0; `<id>` must be a **fact** id — see F-3.)_
 
 - [ ] **F-8**

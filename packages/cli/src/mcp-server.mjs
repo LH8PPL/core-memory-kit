@@ -182,6 +182,13 @@ function makeMkSearch({ db, semanticBackend, projectRoot }) {
 function makeMkGet({ db }) {
   // Thin adapter over the shared read core (read-core.getObservations) — the
   // SAME logic the CLI `cmk get` calls (ADR-0014 parity).
+  //
+  // D-163 (BINDING): mk_get is tombstone-BLIND and must stay that way. It calls
+  // getObservations WITHOUT `includeTombstoned`, so a forgotten fact returns
+  // `not found`. Tombstone recovery is a HUMAN-only verb (`cmk get
+  // --include-tombstoned`); the agent must NEVER recover a fact the user
+  // forgot (resurfacing a deleted fact is the worst memory-product failure).
+  // Do NOT add an includeTombstoned param to this tool.
   return async ({ ids }) => ({
     content: [{ type: 'text', text: JSON.stringify(getObservations(db, ids), null, 2) }],
   });

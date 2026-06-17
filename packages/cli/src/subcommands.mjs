@@ -521,10 +521,19 @@ export function withReadDb(fn, deps = {}) {
   }
 }
 
-export function runGet(ids, _options = {}, _command, deps = {}) {
+export function runGet(ids, options = {}, _command, deps = {}) {
   const log = deps.log ?? console.log;
   const list = Array.isArray(ids) ? ids : [ids];
-  const rows = withReadDb((db) => getObservations(db, list), deps);
+  // Task 155 (D-163): `--include-tombstoned` is the HUMAN-only recovery opt-in.
+  // It's a CLI flag ONLY — the MCP mk_get tool never exposes it, so automatic
+  // recall stays tombstone-blind. projectRoot is resolved the same way
+  // withReadDb does, so the tombstone-file fallback can find the archive.
+  const includeTombstoned = options.includeTombstoned === true;
+  const projectRoot = deps.projectRoot ?? resolvePath(process.cwd());
+  const rows = withReadDb(
+    (db) => getObservations(db, list, { includeTombstoned, projectRoot }),
+    deps,
+  );
   log(JSON.stringify(rows, null, 2));
   // All-missing/invalid → exit 2 (lets a script tell "nothing matched" from a hit).
   if (rows.length > 0 && rows.every((r) => r.error)) process.exitCode = 2;
@@ -2008,6 +2017,12 @@ export const subcommands = [
     description: 'fetch full observation bodies + provenance by ID (parity with the mk_get MCP tool)',
     milestone: 108,
     argSpec: [{ flags: '<ids...>', description: 'one or more citation IDs (e.g. P-S79MJHFN)' }],
+    optionSpec: [
+      {
+        flags: '--include-tombstoned',
+        description: 'also recover forgotten (tombstoned) facts from the archive — human-only; the AI never reads tombstones',
+      },
+    ],
     action: runGet,
   },
   {

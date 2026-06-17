@@ -55,10 +55,14 @@ cmk search "deploy steps" --min-trust high --tier P --limit 5
 ```
 
 ### `cmk get <ids…>`
-Fetch full observation bodies + provenance by citation ID (parity with the `mk_get` MCP tool). Takes one or more ids from `cmk search` output. **Live facts only** — a forgotten (tombstoned) id returns `not found`. After `cmk forget`, the fact's body persists on disk in `context/memory/archive/tombstones/<id>.md` (the durable recovery artifact); read it there to recover. Automatic recall never resurfaces a forgotten fact by design — forgetting it makes it invisible to the agent, not re-asserted from memory. _(An explicit opt-in `cmk get --include-tombstoned` recovery flag is planned — see RELEASE-PLAN; until then, the archive file is the recovery path.)_
+Fetch full observation bodies + provenance by citation ID (parity with the `mk_get` MCP tool). Takes one or more ids from `cmk search` output. **Live facts only by default** — a forgotten (tombstoned) id returns `not found`. After `cmk forget`, the fact's body persists on disk in `context/memory/archive/tombstones/<id>.md` (the durable recovery artifact). Automatic recall never resurfaces a forgotten fact by design — forgetting it makes it invisible to the agent, not re-asserted from memory.
+
+- `--include-tombstoned` — **human-only recovery opt-in.** On a live miss, also reads the tombstone archive and returns the forgotten fact's body + deletion provenance (`deleted_at` / `deleted_by`), marked `tombstoned: true`. This flag exists ONLY on the CLI; the `mk_get` MCP tool is tombstone-blind, so the AI can never recover a fact you forgot (D-163). A live fact always wins — recovery is a miss-only fallback.
+
 ```bash
 cmk get P-S79MJHFN
 cmk get P-S79MJHFN P-QT4CMNXH      # batch
+cmk get P-S79MJHFN --include-tombstoned   # recover a forgotten fact (human-only)
 ```
 
 ### `cmk timeline <anchor> [--before <n>] [--after <n>]`
@@ -135,7 +139,7 @@ These also ship as standalone bins for the scheduler: `cmk-daily-distill`, `cmk-
 Override an observation's trust level. IDs come from `cmk search` (e.g. `P-S79MJHFN`).
 
 ### `cmk forget <id-or-query> [--yes] [--reason <text>] [--deleted-by <enum>]`
-Tombstone a fact (preserves an audit trail). `--yes` required. **Disappears from `cmk search` immediately** — forget reindexes in-band, so no manual `cmk reindex` (Task 110). The content stays recoverable via `cmk get <id>` (reads the tombstone archive). Claude can also do this in conversation via the `mk_forget` tool.
+Tombstone a fact (preserves an audit trail). `--yes` required. **Disappears from `cmk search` immediately** — forget reindexes in-band, so no manual `cmk reindex` (Task 110). The content stays recoverable by a human via `cmk get <id> --include-tombstoned` (reads the tombstone archive) — never by the AI (D-163). Claude can also do this in conversation via the `mk_forget` tool.
 ```bash
 cmk forget P-S79MJHFN --yes --reason "superseded"
 ```
