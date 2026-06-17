@@ -10,7 +10,7 @@
 // returns text with home-dir prefixes abstracted to `~`, preserving the rest.
 
 import { describe, it, expect } from 'vitest';
-import { sanitizeHomePaths } from '../packages/cli/src/sanitize.mjs';
+import { sanitizeHomePaths, sanitizeForTitle } from '../packages/cli/src/sanitize.mjs';
 
 describe('sanitizeHomePaths — home-dir abstraction (#1 privacy)', () => {
   it('abstracts a Windows C:\\Users\\<name> prefix, keeping the tail', () => {
@@ -69,5 +69,36 @@ describe('sanitizeHomePaths — home-dir abstraction (#1 privacy)', () => {
   it('is a no-op on non-string input', () => {
     expect(sanitizeHomePaths(undefined)).toBe(undefined);
     expect(sanitizeHomePaths(42)).toBe(42);
+  });
+});
+
+// sanitizeForTitle (F-V0.3.3-2) — the ONE helper every slug-derivation site
+// uses so a home path or <private> secret can't reach a committed FILENAME.
+// Locks the contract at the source for all three callers (cmk remember /
+// mk_remember, auto-extract, import-claude-md).
+describe('sanitizeForTitle — title→slug sanitizer (F-V0.3.3-2)', () => {
+  it('abstracts a Windows username path (the cut-blocker shape) so a slug can never carry it', () => {
+    const out = sanitizeForTitle('venv at C:\\Users\\alice-mcphersonsh\\proj\\.venv');
+    expect(out).not.toContain('alice-mcphersonsh');
+    expect(out).toContain('~');
+  });
+
+  it('strips <private> content (the v0.3.1 sibling) from the title', () => {
+    const out = sanitizeForTitle('deploy host prod-7 <private>root pw hunter2</private> tail');
+    expect(out).not.toContain('hunter2');
+    expect(out).not.toContain('<private>');
+  });
+
+  it('handles a home path INSIDE a <private> block (privacy-first order — no fragment survives)', () => {
+    const out = sanitizeForTitle('x <private>creds at C:\\Users\\bob-secret\\.aws</private> y');
+    expect(out).not.toContain('bob-secret'); // the whole private span (path included) is gone
+  });
+
+  it('trims and is a no-op-safe on plain text', () => {
+    expect(sanitizeForTitle('  layered FastAPI, port 8000  ')).toBe('layered FastAPI, port 8000');
+  });
+
+  it('coerces non-string input via String() (callers may pass odd types)', () => {
+    expect(sanitizeForTitle(42)).toBe('42');
   });
 });

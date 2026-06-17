@@ -18,8 +18,7 @@
 
 import { resolve as resolvePath } from 'node:path';
 import { hashContent } from './content-hash.mjs';
-import { sanitizePrivacyTags } from './privacy.mjs';
-import { sanitizeHomePaths } from './sanitize.mjs';
+import { sanitizeForTitle } from './sanitize.mjs';
 import { writeFact as defaultWriteFact } from './write-fact.mjs';
 import { buildRichFactBody, slugifyFact } from './rich-fact.mjs';
 
@@ -56,17 +55,14 @@ export function rememberRich(text, options = {}, deps = {}) {
   const write = deps.writeFact ?? defaultWriteFact;
 
   // Sanitize BEFORE deriving/slicing the title — the slug is `slugifyFact(title)`,
-  // so anything still in the title here lands in the committed FILENAME + the
-  // INDEX.md link, which writeFact's later body/title sanitization can't undo.
-  // TWO sanitizers, both must run pre-title (each closes a cut-gate finding):
-  //   - sanitizePrivacyTags: <private>…</private> (v0.3.1 — an 80-char title cut
-  //     that severs the closing tag would defeat writeFact's regex downstream).
-  //   - sanitizeHomePaths: C:\Users\<you> → ~ (F-V0.3.3-2, v0.3.3 cut-gate C4 —
-  //     the body was abstracted but the slug was derived from the RAW username,
-  //     leaking it into the filename + INDEX; a public-repo username leak).
-  const clean = (s) => sanitizeHomePaths(sanitizePrivacyTags(String(s).trim()));
-  const headline = clean(text);
-  const safeTitle = options.title ? clean(options.title) : '';
+  // so anything still in the title here lands in the committed FILENAME + INDEX,
+  // which writeFact's later body/title sanitization can't undo. sanitizeForTitle
+  // (the ONE shared helper — sanitize.mjs) strips <private> + abstracts home
+  // paths, the two cut-gate findings (v0.3.1 + F-V0.3.3-2). The body itself keeps
+  // its <private> redaction via the headline below; home paths in the body are
+  // abstracted by writeFact downstream.
+  const headline = sanitizeForTitle(text);
+  const safeTitle = options.title ? sanitizeForTitle(options.title) : '';
   const title = safeTitle || headline.split('\n')[0].slice(0, 80);
   const body = buildRichFactBody({ text: headline, why: options.why, how: options.how });
   // `links` arrives as an ARRAY from the MCP tool (z.array) and as a
@@ -100,13 +96,11 @@ export function rememberRich(text, options = {}, deps = {}) {
 
 /** The title rememberRich() will derive for `text`/`options` (for caller messages). */
 export function richFactTitle(text, options = {}) {
-  // Mirror rememberRich EXACTLY: both sanitizers before slicing, so the preview
-  // a caller echoes to the console never carries private content (<private>,
-  // v0.3.1) OR the username (home paths, F-V0.3.3-2) — and stays identical to
-  // the title rememberRich actually derives.
-  const clean = (s) => sanitizeHomePaths(sanitizePrivacyTags(String(s).trim()));
-  const safeTitle = options.title ? clean(options.title) : '';
-  return safeTitle || clean(text).split('\n')[0].slice(0, 80);
+  // Mirror rememberRich EXACTLY (the SAME sanitizeForTitle helper) so the preview
+  // a caller echoes never carries <private> content or the username, and stays
+  // identical to the title rememberRich actually derives + stores.
+  const safeTitle = options.title ? sanitizeForTitle(options.title) : '';
+  return safeTitle || sanitizeForTitle(text).split('\n')[0].slice(0, 80);
 }
 
 /**

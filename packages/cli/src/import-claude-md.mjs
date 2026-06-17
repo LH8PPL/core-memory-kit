@@ -32,7 +32,7 @@ import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { writeFact } from './write-fact.mjs';
 import { slugifyFact } from './rich-fact.mjs';
-import { sanitizeHomePaths } from './sanitize.mjs';
+import { sanitizeHomePaths, sanitizeForTitle } from './sanitize.mjs';
 import { parse as parseFrontmatter } from './frontmatter.mjs';
 
 const DEFAULT_FILE = 'CLAUDE.md';
@@ -280,7 +280,12 @@ export async function importClaudeMd({
   // absolute --file argument (the D-51 name-privacy class).
   const sourceFileField = sanitizeHomePaths(fileRel);
   for (const p of proposals) {
-    const title = p.text.split('\n')[0].slice(0, 80);
+    // Sanitize BEFORE deriving the title/slug (F-V0.3.3-2) — p.text is the RAW
+    // rule text (the `sanitized` above feeds only the dedup key/id), and the
+    // slug becomes the committed filename, which writeFact won't sanitize. A
+    // CLAUDE.md rule mentioning C:\Users\you\ would otherwise leak the username
+    // into the imported fact's filename. Same one helper as the other slug sites.
+    const title = sanitizeForTitle(p.text).split('\n')[0].slice(0, 80);
     let slug = slugifyFact(title);
     if (usedSlugs.has(`${p.type}/${slug}`)) slug = `${slug}-l${p.line}`;
     usedSlugs.add(`${p.type}/${slug}`);

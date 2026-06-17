@@ -13,6 +13,8 @@
 // (local, gitignored) — machine-specific absolute paths are the whole point
 // of the local tier, so they stay verbatim there.
 
+import { sanitizePrivacyTags } from './privacy.mjs';
+
 // Each pattern matches an absolute home-directory prefix up to (but not
 // including) the next path separator / whitespace / quote, so the remainder
 // of the path is preserved. Username char class excludes separators, spaces,
@@ -36,4 +38,32 @@ export function sanitizeHomePaths(text) {
   let out = text;
   for (const re of HOME_PATH_PATTERNS) out = out.replace(re, '~');
   return out;
+}
+
+/**
+ * Sanitize a string that is about to become a fact TITLE — and therefore the
+ * fact's SLUG (`slugifyFact(title)`) and committed FILENAME + INDEX.md link.
+ *
+ * THE INVARIANT (F-V0.3.3-2, cut-blocker): a slug is derived from the title
+ * BEFORE `writeFact` runs, and `writeFact` only sanitizes the body + the
+ * frontmatter `title:` field — NOT the slug/filename. So anything still in the
+ * title at slug-derivation time leaks into the COMMITTED FILENAME, which no
+ * downstream sanitization can undo. Every caller that derives a slug from
+ * user/Haiku text MUST route the title through THIS helper first, so the leak
+ * class is closed in ONE place instead of being re-missed per call site
+ * (cmk remember had it; auto-extract had the same bug — the comment there even
+ * wrongly claimed "writeFact already sanitizes").
+ *
+ * Two transforms, both required, privacy-first:
+ *   - sanitizePrivacyTags: strip `<private>…</private>` (v0.3.1 — a later
+ *     80-char title slice that severs the closing tag defeats writeFact's regex).
+ *   - sanitizeHomePaths: `C:\Users\<you>` → `~` (F-V0.3.3-2 — the username leak).
+ * Privacy-first is the safe order: the private span (which may itself contain a
+ * home path) is removed wholesale before homepath-sanitize ever sees a fragment.
+ *
+ * @param {string} s
+ * @returns {string} the redacted + abstracted, trimmed string (safe to slug)
+ */
+export function sanitizeForTitle(s) {
+  return sanitizeHomePaths(sanitizePrivacyTags(String(s).trim()));
 }

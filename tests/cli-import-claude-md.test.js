@@ -477,3 +477,26 @@ describe('Task 142 — runImportClaudeMd CLI wrapper', () => {
     process.exitCode = 0;
   });
 });
+
+describe('Task 142 — F-V0.3.3-2: an imported rule with a username path never leaks it into the filename', () => {
+  it('a CLAUDE.md rule mentioning C:\\Users\\<you> imports without leaking the username into the fact filename or INDEX', async () => {
+    const user = 'felix-marrowdane';
+    // A rule line carrying an absolute home path (CLAUDE.md files often do).
+    const rule = `- the local model cache lives at C:\\Users\\${user}\\.cache\\hf`;
+    // Fixture self-guard: the rule MUST carry the raw username.
+    expect(rule).toContain(`\\Users\\${user}\\`);
+    seedRulesFile(`# Tooling\n\n${rule}\n`);
+
+    const r = await importClaudeMd({ projectRoot, acceptAll: true });
+    expect(r.accepted).toBeGreaterThan(0);
+
+    const facts = readFactFiles();
+    expect(facts.length).toBeGreaterThan(0);
+    for (const f of facts) {
+      expect(f.name).not.toContain(user); // not in the committed FILENAME
+      expect(f.text).not.toContain(user); // not in the committed body/title
+    }
+    const index = readFileSync(join(factDir(), 'INDEX.md'), 'utf8');
+    expect(index).not.toContain(user);
+  });
+});

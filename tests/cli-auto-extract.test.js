@@ -1116,6 +1116,47 @@ describe('Task 103 — rich fact synthesis (auto-extract → fact store)', () =>
     expect(text).toContain('**How to apply:** new endpoints add a route then service then repo slice');
   });
 
+  // F-V0.3.3-2 (skill-review B1): auto-extract runs EVERY turn with no user
+  // action, so a home path in Haiku's candidate TITLE would leak the username
+  // into a committed fact FILENAME (the slug is derived from the title before
+  // writeFact runs — writeFact only sanitizes the body/frontmatter, not the
+  // slug). The fix routes candidate.title through sanitizeForTitle. This is the
+  // higher-stakes sibling of the cmk remember leak.
+  it('a username path in the candidate title never reaches the committed filename (F-V0.3.3-2)', async () => {
+    const user = 'dana-quillfaxen';
+    const block = [
+      'BEGIN_FACT',
+      'type: project',
+      `title: cache dir is C:\\Users\\${user}\\AppData\\cmk`,
+      'body: the cache lives in the user AppData tree',
+      'why: per-user cache isolation',
+      'how: read it from the resolved home dir at runtime',
+      'END_FACT',
+    ];
+    // Fixture self-guard: the title MUST actually contain the raw username, else
+    // the test passes vacuously (the diagnosis-time trap).
+    expect(block[2]).toContain(`\\Users\\${user}\\`);
+    const turnFile = writeTurnFile(projectRoot, {
+      user: 'where does the cache live?',
+      assistant: 'in your user AppData tree',
+    });
+    const r = await runAutoExtract({
+      turnFile,
+      projectRoot,
+      haikuBackend: mockBackend(...block),
+      now: '2026-06-17T10:00:00Z',
+    });
+    expect(r.action).toBe('extracted');
+    const facts = readFactFiles();
+    expect(facts).toHaveLength(1);
+    // The username must appear in NEITHER the filename NOR the committed body.
+    expect(facts[0].name).not.toContain(user);
+    expect(facts[0].text).not.toContain(user);
+    // And the INDEX (which embeds the filename) is clean too.
+    const index = readFileSync(join(projectRoot, 'context', 'memory', 'INDEX.md'), 'utf8');
+    expect(index).not.toContain(user);
+  });
+
   it('extract.log records rich_facts_written (Door 4)', async () => {
     const turnFile = writeTurnFile(projectRoot, 'a turn');
     await runAutoExtract({
