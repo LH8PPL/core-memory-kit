@@ -53,6 +53,7 @@ import { hashContent } from './content-hash.mjs';
 import { memoryWrite } from './memory-write.mjs';
 import { writeFact } from './write-fact.mjs';
 import { buildRichFactBody, slugifyFact } from './rich-fact.mjs';
+import { sanitizeForTitle } from './sanitize.mjs';
 import { HaikuTimeoutError } from './compressor.mjs';
 import { pidIsAlive } from './lock-discipline.mjs';
 import { nowIso } from './audit-log.mjs';
@@ -638,9 +639,16 @@ function routeMedium({ candidate, projectRoot, ts }) {
 // Direct-to-fact-store (NOT the review queue the terse medium-trust path uses):
 // the point of Task 103 is AUTOMATIC native-parity capture — native writes its
 // fact files with no approval step, so parity requires the same. The fact store
-// is searchable-but-not-full-trust-injected, writeFact already screens every
-// write (home-path sanitize + Poison_Guard + schema + INDEX/reindex), and a
-// later explicit `cmk remember` (trust:high) supersedes. See design §6.4.
+// is searchable-but-not-full-trust-injected, writeFact screens the body +
+// frontmatter (Poison_Guard + home-path sanitize + schema + INDEX/reindex), and
+// a later explicit `cmk remember` (trust:high) supersedes. See design §6.4.
+//
+// CAVEAT (F-V0.3.3-2): writeFact does NOT sanitize the SLUG/filename — the slug
+// is `slugifyFact(title)` derived HERE, before writeFact runs. So the title MUST
+// be routed through sanitizeForTitle first, or a home path in Haiku's candidate
+// title (auto-extract runs every turn, no user action) leaks the username into a
+// COMMITTED filename. This was the same bug as cmk remember — the old comment
+// here wrongly assumed "writeFact already sanitizes" the whole write.
 //
 // trust:medium / write_source:auto-extract marks it as a Haiku synthesis
 // (proposal-grade), below the explicit-high tier. The body is built by the SAME
@@ -652,11 +660,14 @@ function routeRichFact({ candidate, projectRoot, ts }) {
     why: candidate.why,
     how: candidate.how,
   });
+  // Sanitize the title BEFORE deriving the slug (F-V0.3.3-2) — writeFact won't
+  // catch a home path in the slug/filename. One helper, same as cmk remember.
+  const title = sanitizeForTitle(candidate.title);
   return writeFact({
     tier: 'P',
     type: candidate.type,
-    slug: slugifyFact(candidate.title),
-    title: candidate.title,
+    slug: slugifyFact(title),
+    title,
     body,
     writeSource: 'auto-extract',
     trust: 'medium',
