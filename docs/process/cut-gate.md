@@ -478,6 +478,16 @@ findstr /S /C:"\"tier\":\"U\"" %USERPROFILE%\.claude-memory-kit\.locks\audit.log
       **PASS:** every query returns results or a clean "no results" line + exit 0 — **never** an `FTS5 parse error` / stack trace. Plain multi-word queries still work (implicit-AND preserved).
       _(Pre-v0.3.2 the `.` in `v0.3` violated FTS5's bareword grammar → uncaught crash; `user-explicit` parsed `-` as a NOT operator. The fix per-token-quotes special tokens — the SQLite-sanctioned escape.)_
 
+- [ ] **★ RX1 — `cmk reindex --full` survives a dual-written fact, no UNIQUE crash (Task 157 / D-165 — new in v0.3.3).**
+      A rich `cmk remember` dual-writes a fact to BOTH the `MEMORY.md` scratchpad bullet AND its `context/memory/*.md` archive with the same id. Pre-v0.3.3 a full reindex hit `UNIQUE constraint failed: observations.id` and aborted the whole rebuild.
+      ```powershell
+      cmk remember "Use id-keyed index replacement so reindex is robust" --type project --title "reindex-fix" --why "archive beats scratchpad" | Out-Null
+      cmk reindex --full                 # the operation that crashed pre-v0.3.3
+      cmk search "reindex-fix"           # the fact resolves to ONE row (no dup)
+      ```
+      **PASS:** `cmk reindex --full` completes with no `UNIQUE constraint` error + exit 0; the dual-written fact returns as a single hit (archive copy wins). **FAIL:** the reindex crashes or aborts, or the fact returns duplicated.
+      _(Pre-v0.3.3 `replaceObservationsForFile` deleted by `source_file` only, so the 2nd source holding the same global-PK id collided. Fixed to id-keyed replacement with archive-beats-scratchpad precedence.)_
+
 ---
 
 ## 4c. `cmk digest` + the decision journal (Task 147)  ⬅️ the v0.3.2 headline
@@ -530,12 +540,13 @@ Run these in the build terminal (`C:\Temp\cut-gate12`), after Session 1 has capt
       cmk digest                                               # usually already done — auto-syncs (DJ5); run as fallback
       type context\DECISIONS.md                                # confirm it exists + lists this project's decisions
       ```
-      Restart Claude Code (the MCP server is long-lived; a session from before step 0b's reinstall errors `unknown-scope:decisions`). Then in a fresh session, ask about a decision that was SUPERSEDED this build (the snapshot won't carry it, so Claude must reach for the journal):
-      - "What did we settle on for `<the area that changed>`, and did it ever change?"
-      - "Did we consider and reject anything for `<that area>`? What and why?"
+      Restart Claude Code (the MCP server is long-lived; a session from before step 0b's reinstall errors `unknown-scope:decisions`). Then in a fresh session, ask **naturally** about something that was SUPERSEDED this build (the snapshot won't carry the retired choice, so Claude must reach for the journal). Talk like a forgetful teammate — do NOT say "search the decisions scope" or "what's the decision history":
+      - *"weren't we doing `<the old approach>` at some point? what happened to that?"*
+      - *"weren't we using `<X>` here? did that change?"*
+      - *"did we ever try `<the rejected idea>` — or am I misremembering?"*
 
-      **PASS:** Claude runs `mk_search {scope:"decisions"}` and its answer names the superseded/retracted decision from the journal.
-      **FAIL:** the journal exists but Claude never queries the `decisions` scope, or claims no history exists.
+      **PASS:** Claude reaches for the journal (`mk_search {scope:"decisions"}`) on its own and its answer names the superseded/retracted decision — "yes, we used `<old>`, then moved to `<new>` on `<date>`". It surfaces the *retired* trail, not just the current state.
+      **FAIL:** the journal exists but Claude never consults the `decisions` scope, answers only from current facts/snapshot, or claims no such history.
       **NOT-A-RESULT:** if `context\DECISIONS.md` doesn't exist, the gate is untested — a good answer from the facts is not a pass.
 
 - [ ] **★ DJ5 — the journal auto-populates with no `cmk digest` (v0.3.3).**
@@ -550,6 +561,16 @@ Run these in the build terminal (`C:\Temp\cut-gate12`), after Session 1 has capt
       **FAIL:** the file is absent after the hook, or only `cmk digest` can produce it.
 
       Fallback (no-clean-exit session): delete `context\DECISIONS.md`, capture a decision, run `node <kit>\packages\cli\bin\cmk-compress-lazy.mjs`, re-check `Test-Path` → True.
+
+- [ ] **★ DJ6-live — the journal populated ON ITS OWN, in a real session (v0.3.3 / Task 159; behavioral).**
+      The in-chat counterpart to DJ5 — proves the auto-sync works through the real hooks, not just the bin. In a real Claude Code session on the project, make a decision conversationally (don't run any `cmk` command):
+      - *"ok let's go with `<some choice>` for `<some thing>` — `<a reason>`."* (let Claude capture it however it does)
+      End the session cleanly (close the window), then reopen / start a fresh session and check the file from the terminal: `type context\DECISIONS.md`.
+      **PASS:** the decision you made by talking is in `DECISIONS.md` — with NO `cmk digest` and no manual command ever run. The journal kept itself current across the session boundary.
+      **FAIL:** the decision isn't journalled, or it only appears after a manual `cmk digest`.
+      _(DJ5 proves the mechanism via the bin; this proves the real hook fires it end-to-end — the D-164 "it just works" bar.)_
+
+_(Tombstone recovery + the agent-stays-blind behavioral check live at **F-7b / F-7b-live** in §7 — not duplicated here.)_
 
 ---
 
@@ -604,12 +625,15 @@ then:
 The headline gate. Each rung exercises a different layer of the new recall stack.
 
 - [ ] **★ W1 — the recall skill FIRES (Tasks 75.0–75.2).**
-      Say: *"what did we decide about how this project is structured?"* (or any "what did we decide about X").
+      Ask **naturally**, the way you'd actually talk — NOT a "what did we decide about X" trigger phrase (that tests string-matching, not Claude's judgment). Pick any:
+      - *"remind me how this thing is laid out — I forget where the logic lives."*
+      - *"wait, why did we set it up this way again?"*
+      - *"before I add to this, what's the convention here?"*
       **PASS, all three:**
-      1. Claude **invokes the `memory-search` skill on its own** (you'll see the skill/agent activity) — not a `Grep`/`Read` crawl of the code.
+      1. Claude **invokes the `memory-search` skill on its own** (you'll see the skill/agent activity) — not a `Grep`/`Read` crawl of the code, and not a generic answer that ignores memory.
       2. The answer is a **curated summary with citation ids** (`P-XXXXXXXX`) — not raw file dumps.
-      3. It happens **mid-session** too (the per-prompt hint keeps the awareness alive after the snapshot scrolls) — ask again ~20 turns in.
-      _(Pre-v0.3.0 this was D3's "~50/50, ship anyway". If the skill never fires, the trigger description needs work — blocker.)_
+      3. It happens **mid-session** too (the per-prompt hint keeps the awareness alive after the snapshot scrolls) — ask again, casually, ~20 turns in.
+      _(The point of the oblique phrasing: real recall has to fire on how a user TALKS, not on a magic phrase. If it only fires on "what did we decide about X", the trigger is too brittle — a finding, not a pass. Pre-v0.3.0 this was D3's "~50/50, ship anyway".)_
 
 - [ ] **★ W2 — paraphrase recall (Tasks 65 + 46).**
       In the terminal — a question with **ZERO keyword overlap** with what you said in Session 1
@@ -740,8 +764,9 @@ Ask: *"Start a new Python backend for me - set up the structure."*
       **Since v0.2.3:** the fact **disappears from `cmk search` immediately** — no manual `cmk reindex` (Task 110); the free-speech / two-step path is **M2**.
       **`cmk get <id>` returns `not found`** — `get` is **live-only by default** (forget prunes the row). Automatic recall never resurfaces a forgotten fact (a deleted fact must stay invisible to the agent).
       **F-7b (Task 155 / D-163) — human-only recovery:** `cmk get <id> --include-tombstoned` recovers the forgotten body + `deleted_at`/`deleted_by`, marked `tombstoned: true`. **PASS:** plain `cmk get <id>` → `not found`; `cmk get <id> --include-tombstoned` → the body returns. **The D-163 lock:** the MCP `mk_get` tool is tombstone-blind — there is NO `include_tombstoned` param on it, so the AI can never recover a forgotten fact (verified by the contract-lock test `does NOT recover a tombstoned fact (D-163)`).
-      **F-7b-live (the agent-stays-blind check — run in a real Claude Code session).** After forgetting a fact (use M2's Fly.io staging fact, or any `cmk forget`-ten id), open a session and ask Claude to recall it by content — paste:
-      - **Prompt:** "Where does our staging environment run?" (or, for whatever you forgot: "What did we decide about &lt;the forgotten topic&gt;?")
+      **F-7b-live (the agent-stays-blind check — run in a real Claude Code session).** After forgetting a fact (use M2's Fly.io staging fact, or any `cmk forget`-ten id), open a session and ask **naturally** — as if you genuinely forgot you forgot it. Do NOT say "the forgotten fact" or "recover X" (that tells Claude it exists):
+      - *"where does our staging run again?"*
+      - *"remind me what we landed on for staging."*
       **PASS (live):** Claude says it has no record / doesn't know — it does NOT surface the forgotten value (no "Fly.io"), and it does NOT secretly recover it via `mk_get`. **FAIL (live):** Claude names the forgotten fact, OR runs any tool that returns the tombstoned body — that's a D-163 violation (the agent resurfaced a fact you deleted), a hard blocker. _Behavioral directive (like W1/M2) — the human eyeballs that the forget is honored in recall, not just in the index._
       _(`--yes` is required in v0.1.0; `<id>` must be a **fact** id — see F-3.)_
 
