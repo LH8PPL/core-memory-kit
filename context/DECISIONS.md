@@ -2505,3 +2505,94 @@
 <!-- decision:P-RES031CG -->
 ### RESUME — v0.3.1 cut-gate near-complete; PR
 **When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+### RESUME — v0.3.1 cut-gate near-complete; PR
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-WSD3WEUY -->
+### Skills installation complete — user ran `npx skills@latest add mattpocock/skills
+**When:** 2026-06-18 · **Fact:** `P-WSD3WEUY`
+
+<!-- decision:P-PRCXC9EQ -->
+### expects GitHub CI automation to run on PR/merge
+**When:** 2026-06-18 · **Fact:** `P-PRCXC9EQ`
+
+<!-- decision:P-N5NPMLYY -->
+### Test prompts should use natural language with subtle behavioral triggers, not ex
+**When:** 2026-06-18 · **Fact:** `P-N5NPMLYY`
+
+<!-- decision:P-9Z63AQE7 -->
+### `claude --print` Haiku Latency & Compression Timeout Margin
+**When:** 2026-06-18 · **Fact:** `P-9Z63AQE7`
+**Why:** The 50s timeout was calibrated against expected latency (21–50s). Actual latency has degraded significantly, causing compressions to time out and now.md to grow unbounded if failures recur across sessions.
+
+<!-- decision:P-D6YGVW9L -->
+### Compression Retry Mechanism
+**When:** 2026-06-18 · **Fact:** `P-D6YGVW9L`
+**Why:** If compression times out, the feature fails safely but silently — input is not lost. However, if failures are consistent (e.g., due to persistent CLI latency), now.md accumulates unbounded across sessions until a compression finally beats the timeout clock.
+
+<!-- decision:P-RX6DWHZD -->
+### System-touching features are skipped in automated verification runs
+**When:** 2026-06-18 · **Fact:** `P-RX6DWHZD`
+**Why:** Protects the user's real system and data from unintended side effects during automated testing.
+
+<!-- decision:P-VZF4U3TP -->
+### Tag-ready criterion: core features pass; known issues cleanly deferred
+**When:** 2026-06-18 · **Fact:** `P-VZF4U3TP`
+**Why:** Allows shipping working features while deferring known architectural issues to future releases without false urgency or version coupling.
+
+<!-- decision:P-KRGYHRUX -->
+### Decisions Scope Semantic Fallback Warning (Task 156 Bug)
+**When:** 2026-06-18 · **Fact:** `P-KRGYHRUX`
+**Why:** Headline feature (Task 156, decisions recall) works but looks broken. Cosmetic defect in flagship feature kills user confidence on first impression.
+
+<!-- decision:P-a2QWV6V4 -->
+### Decisions Scope Uses Direct File Read, Not Vector DB
+**When:** 2026-06-18 · **Fact:** `P-a2QWV6V4`
+**Why:** Task 156 established this design to reuse the file-read precedent and maintain the journal as a live markdown view. Semantic search requires indexed data; the journal is neither indexed nor stored as table rows.
+
+<!-- decision:P-5M3QY5B6 -->
+### v0.3.3 Bug — Semantic Backend Attempted for Keyword-Only Decisions Scope
+**When:** 2026-06-18 · **Fact:** `P-5M3QY5B6`
+**Why:** The default search mode is hybrid (attempts semantic first), and the code does not short-circuit for decisions scope before attempting semantic. `search.mjs:163` has explicit validation that decisions is keyword-only, but `subcommands.mjs` ignores this and tries semantic anyway, generating a false-failure warning for expected behavior.
+
+<!-- decision:P-RRENWMU7 -->
+### Fix for `--scope decisions` Warning Bug in Memory Search
+**When:** 2026-06-18 · **Fact:** `P-RRENWMU7`
+**Why:** This is a real CLI bug affecting the v0.3.3 cut-gate; the fix and test metrics are durable reference for similar scope-handling issues.
+
+<!-- decision:P-497V47QC -->
+### Claude Memory Kit Update Workflow
+**When:** 2026-06-18 · **Fact:** `P-497V47QC`
+**Why:** Users need a clear process to adopt new versions; the kit has no `cmk update` wrapper command yet (v0.3.3)
+
+<!-- decision:P-FBXSRRa9 -->
+### Kit Update & Drift Detection Gaps (v0.3.4 Task)
+**When:** 2026-06-18 · **Fact:** `P-FBXSRRa9`
+**Why:** Basic product expectation ("how do I update?") has no answer; v0.3.3 ready to ship but these are gaps for v0.3.4
+
+<!-- decision:P-MXZUV2UY -->
+### Windows EBUSY on npm Global Update
+**When:** 2026-06-18 · **Fact:** `P-MXZUV2UY`
+**Why:** Real user blocker — cryptic error with no guidance if they try to update the global binary while IDE is open
+
+<!-- decision:P-5PJXVSSG -->
+### Plugin Install and Bootstrap Are Separate One-Time Steps
+**When:** 2026-06-18 · **Fact:** `P-5PJXVSSG`
+**Why:** Clarifies why two commands are required and prevents confusion about whether bootstrap is redundant or a plugin issue.
+
+<!-- decision:P-7GQ4N9NJ -->
+### Updating CMK Requires Re-running Bootstrap on Project Files
+**When:** 2026-06-18 · **Fact:** `P-7GQ4N9NJ`
+**Why:** The two-step update process (global machinery + per-project scaffold) is not obvious; users will expect a single update command to handle everything and will hit stale memory files.
+
+<!-- decision:P-JZ3JaU7L -->
+### Windows EBUSY When Updating CMK During Claude Code Runtime
+**When:** 2026-06-18 · **Fact:** `P-JZ3JaU7L`
+**Why:** Real blocker for Windows users. The EBUSY error is cryptic with no guidance on the cause or fix.
+
+<!-- decision:P-5ZRXEHUW -->
+### Release Gate-Test Pattern (claude-memory-kit)
+**When:** 2026-06-18 · **Fact:** `P-5ZRXEHUW`
+**Why:** Prevents shipping half-baked features; ensures solid user experience and builds user trust in kit quality.
