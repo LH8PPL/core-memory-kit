@@ -287,8 +287,16 @@ Mapping for this project (invoke proactively at the start of the task or sub-tas
 | Writing Python code | `python-pro` |
 | Writing pytest tests | `python-testing-patterns` |
 | Reviewing a PR (yours or the user's request to review) | `code-review-excellence` |
+| Building a feature / fixing a bug test-first (red→green→refactor, vertical tracer slices) | `tdd` |
+| A hard bug / perf regression — something broken/throwing/failing/slow that needs a diagnosis loop | `diagnosing-bugs` |
+| Designing or restructuring a module's interface; deciding where a seam goes; making code more testable | `codebase-design` |
+| Pinning down domain terminology / ubiquitous language; recording an architectural decision (ADR) | `domain-modeling` |
+| Stress-testing a plan or design before building (the user wants it grilled / interviewed) | `grilling` |
+| Building a throwaway prototype to answer a state/logic or UI design question | `prototype` (manual-invoke only) |
 
-Concrete rule: at the start of a task whose sub-tasks include the domain above, call the Skill tool BEFORE writing the code or doing the review. Example: Task 5.3 (Python implementation of canonicalize) → invoke `python-pro` first. Task 5.6 (writing pytest cases) → invoke `python-testing-patterns` first.
+These six dev-tooling skills live in `.claude/skills/` (gitignored, per-machine — adopted verbatim from mattpocock/skills, D-170). They own the *procedural HOW* so it doesn't bloat this always-loaded file (the overflow→ignored risk, D-170); CLAUDE.md keeps only the *kit-specific* deltas that compose with them (the five exit doors, over-mutation guard, caller-map, the live-test/two-pass-review disciplines below).
+
+Concrete rule: at the start of a task whose sub-tasks include the domain above, call the Skill tool BEFORE writing the code / doing the review / diagnosing the bug. Examples: Task 5.3 (Python impl of canonicalize) → `python-pro` first; Task 5.6 (pytest cases) → `python-testing-patterns` first; building a feature test-first → `tdd` first; a "do we have a bug?" / something-crashes detour → `diagnosing-bugs` first; the user asks to grill a plan → `grilling`.
 
 **ONE holistic `code-review-excellence` pass per PR, not fragmented.** When a PR's surface includes multiple concerns (e.g., a new module + spec docs + tests + a separate SKILL.md), the review covers all of it in one pass — integration risk concentrates across the whole change. Per the user's Task 24 launch instruction: *"ONE holistic code-review-excellence pass on the whole Task 24 PR. NOT a separate pass for SKILL.md alone. The SKILL.md, the Poison_Guard regex catalog, the routeHigh integration in auto-extract.mjs, and the trust-routing logic all need to be reviewed together — integration risk concentrates across the whole change, and fragmented review re-derives context anyway."* Same applies to every campaign PR — call the skill once with the full PR diff as scope, get one consolidated findings table.
 
