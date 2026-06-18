@@ -30,11 +30,13 @@ This installs the `cmk` CLI **and** the 5 lifecycle hook bins. The `cmk install`
 In Claude Code:
 
 ```text
-/plugin marketplace add LH8PPL/claude-memory-kit
-/plugin install claude-memory-kit
+/plugin marketplace add LH8PPL/claude-memory-kit   # add this repo as a plugin source (once per machine)
+/plugin install claude-memory-kit                  # install the global machinery — hooks + skills (once per machine)
+cd ~/my-project                                    # the project you want memory in — bootstrap scaffolds into the CURRENT dir
+/claude-memory-kit:bootstrap                        # scaffold this project's context/ memory tree (once per project)
 ```
 
-Restart Claude Code. The plugin bundles the hooks (it sets `${CLAUDE_PLUGIN_ROOT}` and loads `plugin/hooks/hooks.json`) plus the `bootstrap` and `memory-write` skills. To scaffold this project's `context/`, run the bootstrap skill — say *"bootstrap the memory system"*. This route does **not** require the npm CLI; add it later (`npm install -g @lh8ppl/claude-memory-kit`) only if you want `cmk search` / `cmk doctor` / cron.
+Restart Claude Code afterward so the hooks load. The first two commands are **global** (per machine — the plugin sets `${CLAUDE_PLUGIN_ROOT}` and loads `plugin/hooks/hooks.json` plus the `bootstrap` / `memory-write` / `memory-search` skills); `bootstrap` is **per project** (run it again after a `cd` in each project you want memory in). This route does **not** require the npm CLI; add it later (`npm install -g @lh8ppl/claude-memory-kit`) only if you want `cmk search` / `cmk doctor` / cron.
 
 ## 2. Scaffold the kit into your project (Route A)
 
