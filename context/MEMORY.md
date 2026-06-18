@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-ZZNLF7US) lost track of what Task 159 was doing; signals confusion promptly rather than continuing silently
-  <!-- source: auto-extract-session, source_line: 1, sha1: c797c4961422e70427a3b85d881e284d4f07dff467a31aff247d20c2f1bd1bc4, write: auto-extract, trust: high, at: 2026-06-18T06:53:08Z -->
 - (P-754HQESG) Decision-trail work (A) is non-negotiable priority—"no matter what is a must."
   <!-- source: auto-extract-session, source_line: 1, sha1: 1372bafb182f0c7df5e2f206c74dac32340e866576e3e25df0976807ad74328a, write: auto-extract, trust: high, at: 2026-06-18T06:59:48Z -->
 - (P-4aSAFL3J) User accepts technical divergences from research/design IF they were reasoned against the original beforehand.
@@ -20,6 +18,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: 4799d88cb8c207c1f4e76d253cd21f79b98ef1a594646a879ce80377fc702dfd, write: auto-extract, trust: high, at: 2026-06-18T07:47:23Z -->
 - (P-WSD3WEUY) Skills installation complete — user ran `npx skills@latest add mattpocock/skills`, interactive setup succeeded, skills now in global scope
   <!-- source: auto-extract-session, source_line: 1, sha1: 561a0fbf84d47dcfc41976281886386f129875324357b4de76c683d42fbb81fd, write: auto-extract, trust: high, at: 2026-06-18T07:58:45Z -->
+- (P-PRCXC9EQ) expects GitHub CI automation to run on PR/merge
+  <!-- source: auto-extract-session, source_line: 1, sha1: f47de1cbc1d26b9d510795089d77a624b0a2f92aca06a8b6b998bdc9496f3f24, write: auto-extract, trust: high, at: 2026-06-18T08:17:26Z -->
 
 ## Environment Notes
 

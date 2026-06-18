@@ -46,3 +46,6 @@
 ## 2026-06-18T07:23:23Z — auto-extract (medium-trust, pending review)
 - (P-6DNYCTB2) Code-review-excellence is pre-existing skill, not one of 6 newly adopted; produced concrete value (caught I1 bug)
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-18T07:23:23Z -->
+## 2026-06-18T08:19:22Z — auto-extract (medium-trust, pending review)
+- (P-A2XCSPSa) CHANGELOG date for v0.3.3 is 2026-06-18
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-18T08:19:22Z -->
