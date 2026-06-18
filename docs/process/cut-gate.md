@@ -105,10 +105,10 @@ _Task 152 (`validate-index-completeness`) is dev-tooling — it runs in `npm tes
 ```powershell
 cd C:\Projects\claude-memory-kit
 git checkout main; git pull
-npm run release -- patch             # 0.3.2 is a PATCH in the polish lane (RELEASE-PLAN.md); [Unreleased] → ## [0.3.2]; package.json 0.3.1 → 0.3.2
+npm run release -- patch             # patch unless RELEASE-PLAN.md says minor/major; [Unreleased] → ## [X.Y.Z]; bumps package.json
 git diff                             # review: ONLY the version bump + CHANGELOG consolidation
 git add CHANGELOG.md packages\cli\package.json
-git commit -m "release: v0.3.2"      # local release commit — do NOT tag yet (that's the last step)
+git commit -m "release: vX.Y.Z"      # local release commit — do NOT tag yet (that's the last step)
 git push origin main
 ```
 
@@ -116,16 +116,16 @@ git push origin main
 
 ```powershell
 cd C:\Projects\claude-memory-kit\packages\cli
-npm pack                             # → lh8ppl-claude-memory-kit-0.3.2.tgz
+npm pack                             # → lh8ppl-claude-memory-kit-<version>.tgz
 npm uninstall -g @lh8ppl/claude-memory-kit
-npm install -g .\lh8ppl-claude-memory-kit-0.3.2.tgz
-cmk --version                        # ✅ 0.3.2
+npm install -g .\lh8ppl-claude-memory-kit-*.tgz   # the freshly-packed tarball
+cmk --version                        # ✅ matches packages/cli/package.json
 
 # Wipe the user tier so capture-from-zero is honest (back it up first if you care)
 Remove-Item -Recurse -Force $env:USERPROFILE\.claude-memory-kit
 ```
 
-- [ ] **G0** — `cmk --version` → `0.3.2` _(if it says `0.3.1`, you skipped 0a — run `npm run release -- patch` first; if it bumped to `0.4.0`, you ran `minor` by mistake — `git checkout CHANGELOG.md packages\cli\package.json` and re-run with `patch`)_
+- [ ] **G0** — `cmk --version` matches the version in `packages/cli/package.json` _(if it's an older version, you're testing a stale global — re-run the `npm install -g` above against the freshly-packed `.tgz`)_
 
 ---
 
