@@ -8,18 +8,18 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-754HQESG) Decision-trail work (A) is non-negotiable priority—"no matter what is a must."
-  <!-- source: auto-extract-session, source_line: 1, sha1: 1372bafb182f0c7df5e2f206c74dac32340e866576e3e25df0976807ad74328a, write: auto-extract, trust: high, at: 2026-06-18T06:59:48Z -->
-- (P-4aSAFL3J) User accepts technical divergences from research/design IF they were reasoned against the original beforehand.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 908f38908a13d64e05d1dbdd11474086b2bdacc4d44bf6c5b5e8ce6911bb7246, write: auto-extract, trust: high, at: 2026-06-18T06:59:48Z -->
-- (P-JTWUL9ZX) Don't invent new documentation structures; follow the established documentation procedure for this project
-  <!-- source: auto-extract-session, source_line: 1, sha1: 43ccb1c0fb23a2c3e39743c7f291c52a789c76a21a3599d598c892655afdf396, write: auto-extract, trust: high, at: 2026-06-18T07:01:40Z -->
-- (P-V33QABGS) Use the official installer (npx skills@latest add) rather than manual commands for tool setup
-  <!-- source: auto-extract-session, source_line: 1, sha1: 4799d88cb8c207c1f4e76d253cd21f79b98ef1a594646a879ce80377fc702dfd, write: auto-extract, trust: high, at: 2026-06-18T07:47:23Z -->
-- (P-WSD3WEUY) Skills installation complete — user ran `npx skills@latest add mattpocock/skills`, interactive setup succeeded, skills now in global scope
-  <!-- source: auto-extract-session, source_line: 1, sha1: 561a0fbf84d47dcfc41976281886386f129875324357b4de76c683d42fbb81fd, write: auto-extract, trust: high, at: 2026-06-18T07:58:45Z -->
-- (P-PRCXC9EQ) expects GitHub CI automation to run on PR/merge
-  <!-- source: auto-extract-session, source_line: 1, sha1: f47de1cbc1d26b9d510795089d77a624b0a2f92aca06a8b6b998bdc9496f3f24, write: auto-extract, trust: high, at: 2026-06-18T08:17:26Z -->
+- (P-N5NPMLYY) Test prompts should use natural language with subtle behavioral triggers, not exact prescriptive phrasing
+  <!-- source: auto-extract-session, source_line: 1, sha1: 2147f04b3a2fa92d7eb652a676449c195bd0edd6a155b89576cb1a755d6dbab9, write: auto-extract, trust: high, at: 2026-06-18T08:45:43Z -->
+- (P-RDZ6SE7C) User explicitly prefers concise responses; doesn't want walls of text
+  <!-- source: auto-extract-session, source_line: 1, sha1: a2a6a38bc0c5638d7d3ec27a84421092c4de7bad7e8772eb59cecc03fd134b6d, write: auto-extract, trust: high, at: 2026-06-18T12:58:52Z -->
+- (P-P9XLPJ2X) Assistant has a pattern of running without sufficient thought/planning ("running without looking, and doing unnecessary things, again")
+  <!-- source: auto-extract-session, source_line: 1, sha1: 94b6dea088baed875e7a6b6a9cd7e1232a76fcd74e2bc5ae8f41b81c1b894b8c, write: auto-extract, trust: high, at: 2026-06-18T12:58:52Z -->
+- (P-4D76WXZP) Approved cleanup and ready to proceed to next phase (VS Code on cut-gate16)
+  <!-- source: auto-extract-session, source_line: 1, sha1: 4fa91a17b998de21ed716e6bac8800f0ffa7e215da586953df2eba456d845067, write: auto-extract, trust: high, at: 2026-06-18T13:04:03Z -->
+- (P-MaPBRMaZ) Installation command for this project updated to: cmk install --with-semantic
+  <!-- source: auto-extract-session, source_line: 1, sha1: c35e90e0a13b7c9b49d3052a92d26b8fcefba56c959dade7d18ef4ae55613af7, write: auto-extract, trust: high, at: 2026-06-18T15:14:41Z -->
+- (P-E4HX6VVU) Corrects mechanism-only testing (bash) by steering toward behavioral testing via actual intended architecture (skill).
+  <!-- source: auto-extract-session, source_line: 1, sha1: 39c85f867c080fad94a1ccfa1cc85e546490b24c4ad87d43ae8c53a79097f295, write: auto-extract, trust: high, at: 2026-06-18T18:26:30Z -->
 
 ## Environment Notes
 

@@ -47,11 +47,13 @@ cmk doctor         # verify, then restart Claude Code
 Inside Claude Code:
 
 ```text
-/plugin marketplace add LH8PPL/claude-memory-kit
-/plugin install claude-memory-kit
+/plugin marketplace add LH8PPL/claude-memory-kit   # add this repo as a plugin source (once per machine)
+/plugin install claude-memory-kit                  # install the global machinery — hooks + skills (once per machine)
+cd ~/my-project                                    # the project you want memory in — bootstrap scaffolds into the CURRENT dir
+/claude-memory-kit:bootstrap                        # scaffold this project's context/ memory tree (once per project)
 ```
 
-Then say *"bootstrap the memory system"* to scaffold this project's `context/`. The plugin bundles the hooks + the `bootstrap`, `memory-write`, and `memory-search` skills, so it's complete without the npm CLI (add the CLI later only if you want `cmk search` / `cmk doctor` / cron).
+The first two commands are **global** (per machine); `bootstrap` is **per project** — run it again (after a `cd`) in each project. The plugin bundles the hooks + the `bootstrap`, `memory-write`, and `memory-search` skills, so it's complete without the npm CLI (add the CLI later only if you want `cmk search` / `cmk doctor` / cron).
 
 ## CLI
 

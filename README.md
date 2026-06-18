@@ -63,12 +63,13 @@ cmk doctor                    # verify, then restart Claude Code
 ### Route B — Claude Code plugin
 
 ```text
-/plugin marketplace add LH8PPL/claude-memory-kit
-/plugin install claude-memory-kit
-/claude-memory-kit:bootstrap
+/plugin marketplace add LH8PPL/claude-memory-kit   # add this repo as a plugin source (once per machine)
+/plugin install claude-memory-kit                  # install the global machinery — hooks + skills (once per machine)
+cd ~/my-project                                    # the project you want memory in — bootstrap scaffolds into the CURRENT dir
+/claude-memory-kit:bootstrap                        # scaffold this project's context/ memory tree (once per project)
 ```
 
-The plugin bundles the hooks + skills, so it's complete without the npm CLI. Add the CLI later only if you want `cmk search` / `cmk doctor` / cron.
+The first two commands are **global** (per machine); the last is **per project** — so you run `bootstrap` again (after a `cd`) in each project you want memory in. The plugin bundles the hooks + skills, so it's complete without the npm CLI. Add the CLI later only if you want `cmk search` / `cmk doctor` / cron.
 
 Full walkthrough: **[QUICKSTART.md](QUICKSTART.md)**. Both routes are verified on Windows / macOS / Linux in CI.
 
