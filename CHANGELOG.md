@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **search(156): `cmk search --scope decisions` no longer shows a scary "unknown-scope" warning when semantic search is on.** The decision-journal scope is keyword-only by design (the journal is a plain markdown file, not embedded), but with the hybrid default (after `cmk install --with-semantic`) it would print `semantic default unavailable (unknown-scope:decisions)` — or, with an explicit `--mode`, fail outright. It now recognizes the scope is keyword-only and just returns results, silently. The recall itself always worked; the alarming message is gone.
 - **reindex(157): `cmk reindex --full` no longer crashes on a dual-written fact.** A fact captured via `cmk remember` lives in both the working scratchpad and its archive file with the same id; a full reindex hit a `UNIQUE constraint failed` and aborted. The index now replaces by id with deterministic precedence (the archive copy wins), so reindex is robust and search results de-duplicate cleanly. Affects anyone who ran a manual `cmk reindex --full`; automatic indexing was unaffected.
 
 ### Added

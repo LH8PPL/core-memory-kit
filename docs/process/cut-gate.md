@@ -540,14 +540,19 @@ Run these in the build terminal (`C:\Temp\cut-gate12`), after Session 1 has capt
       cmk digest                                               # usually already done — auto-syncs (DJ5); run as fallback
       type context\DECISIONS.md                                # confirm it exists + lists this project's decisions
       ```
-      Restart Claude Code (the MCP server is long-lived; a session from before step 0b's reinstall errors `unknown-scope:decisions`). Then in a fresh session, ask **naturally** about something that was SUPERSEDED this build (the snapshot won't carry the retired choice, so Claude must reach for the journal). Talk like a forgetful teammate — do NOT say "search the decisions scope" or "what's the decision history":
+      Restart Claude Code (the MCP server is long-lived). Then in a fresh session, ask **naturally** about something that was SUPERSEDED this build. Talk like a forgetful teammate — do NOT say "search the decisions scope" or "what's the decision history":
       - *"weren't we doing `<the old approach>` at some point? what happened to that?"*
       - *"weren't we using `<X>` here? did that change?"*
       - *"did we ever try `<the rejected idea>` — or am I misremembering?"*
 
-      **PASS:** Claude reaches for the journal (`mk_search {scope:"decisions"}`) on its own and its answer names the superseded/retracted decision — "yes, we used `<old>`, then moved to `<new>` on `<date>`". It surfaces the *retired* trail, not just the current state.
-      **FAIL:** the journal exists but Claude never consults the `decisions` scope, answers only from current facts/snapshot, or claims no such history.
-      **NOT-A-RESULT:** if `context\DECISIONS.md` doesn't exist, the gate is untested — a good answer from the facts is not a pass.
+      **PASS:** Claude reaches for memory on its own and names the superseded/retracted decision — "yes, we used `<old>`, then moved to `<new>` on `<date>`". It surfaces the *retired* trail, not just the current state.
+      **FAIL:** Claude never consults memory, answers only from current code/snapshot, or claims no such history.
+      **NOT-A-RESULT:** if `context\DECISIONS.md` doesn't exist, the gate is untested.
+
+      **⚠️ The honest nuance (cut-gate-16, 2026-06-18) — this gate has TWO things to verify, don't conflate them:**
+      1. **Decision-history recall works** — confirmed live: the `memory-search` skill, asked a natural "what did we decide about X, did it change?" question, returns the full trail with the rejection reason. ✅ BUT it may answer from the **fact store** (`type:project` facts that ALSO record the decision), NOT necessarily the `--scope decisions` journal scan. A great answer alone does NOT prove the journal path fired.
+      2. **The JOURNAL-SPECIFIC value** (the reason the scope exists) is the **retracted/superseded trail the fact store DROPS** — `cmk forget`-ten or `superseded_by`-annotated decisions that live ONLY in `DECISIONS.md`. To prove the journal scope adds value: forget (or supersede) a decision this build, then ask about it naturally — the fact store won't have it, so a correct answer MUST come from the journal. THAT is the unproven edge; target it explicitly.
+      _(Fixed v0.3.3: `--scope decisions` under a hybrid default no longer emits `unknown-scope:decisions` / exit-2 — it's keyword-only by design and now coerces silently. If you still see that warning, you're on a pre-fix binary — reinstall.)_
 
 - [ ] **★ DJ5 — the journal auto-populates with no `cmk digest` (v0.3.3).**
       In a throwaway project with the kit installed. **Do NOT run `cmk digest`.**
@@ -708,7 +713,7 @@ The headline gate. Each rung exercises a different layer of the new recall stack
 
 ```powershell
 mkdir C:\Temp\cut-gate-coldopen16; cd C:\Temp\cut-gate-coldopen16
-git init; cmk install; code .
+git init; cmk install --with-semantic; code .
 ```
 Ask: *"Start a new Python backend for me - set up the structure."*
 

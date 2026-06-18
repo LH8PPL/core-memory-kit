@@ -419,6 +419,16 @@ async function runSearch(queryParts, options) {
     // Task 156 — `--scope decisions` scans context/DECISIONS.md (the decision
     // journal) for decision-history / "what did we reject" recall.
     const scope = options?.scope ?? 'facts';
+    // Task 156 / v0.3.3 cut-gate-16: the `decisions` scope is keyword-only BY
+    // DESIGN — it scans the flat `context/DECISIONS.md` journal, which is NOT
+    // embedded (no vec table). So it can never go through the semantic backend.
+    // Coerce to keyword BEFORE the semantic block, silently — a user who has the
+    // hybrid default (from `--with-semantic`) must not see a scary
+    // "unknown-scope:decisions" warning (configured default) or hard exit-2
+    // (explicit --mode) for using a real, shipped scope. The recall just works.
+    if (scope === 'decisions') {
+      mode = SEARCH_MODES.KEYWORD;
+    }
     let semanticBackend;
     if (mode === SEARCH_MODES.SEMANTIC || mode === SEARCH_MODES.HYBRID) {
       const { prepareSemanticBackend } = await import('./semantic-backend.mjs');

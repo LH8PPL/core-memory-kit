@@ -156,6 +156,32 @@ describe('Task 85 — cmk subcommand handlers (in-process dispatch coverage)', (
       expect(process.exitCode).toBe(2);
       expect(errs.join('\n')).toMatch(/semantic backend unavailable/);
     });
+
+    // The decisions scope is keyword-only BY DESIGN (the journal is a flat
+    // markdown file, not embedded) — so it must NEVER attempt the semantic
+    // backend, and the user must NEVER see an "unknown-scope:decisions" warning
+    // for using a real, shipped scope. (v0.3.3 cut-gate-16 finding.)
+    it('--scope decisions with configured hybrid default → keyword silently, NO unknown-scope warning, exit 0', async () => {
+      await cmd('remember').action(['we chose better-sqlite3 over node:sqlite on perf'], { type: 'project', title: 'sqlite-choice' });
+      await cmd('digest').action({}); // build the journal so the scope has something to find
+      writeFileSync(settingsPath(), JSON.stringify({ search: { default_mode: 'hybrid' } }), 'utf8');
+      process.env.CMK_DISABLE_SEMANTIC = '1';
+      await cmd('search').action(['sqlite'], { scope: 'decisions' });
+      expect(process.exitCode ?? 0).toBe(0);
+      // The bug: it emitted "unknown-scope:decisions" / "semantic default unavailable".
+      expect(errs.join('\n')).not.toMatch(/unknown-scope/);
+      expect(errs.join('\n')).not.toMatch(/semantic default unavailable/);
+    });
+
+    it('--scope decisions with EXPLICIT --mode=hybrid → keyword silently, NOT exit 2', async () => {
+      await cmd('remember').action(['we chose better-sqlite3 over node:sqlite on perf'], { type: 'project', title: 'sqlite-choice' });
+      await cmd('digest').action({});
+      await cmd('search').action(['sqlite'], { scope: 'decisions', mode: 'hybrid' });
+      // decisions is keyword-only — an explicit non-keyword mode must NOT hard-fail
+      // (exit 2) on the headline recall path; it coerces to keyword and returns results.
+      expect(process.exitCode ?? 0).toBe(0);
+      expect(errs.join('\n')).not.toMatch(/unknown-scope|semantic backend unavailable/);
+    });
   });
 
   it('trust → updates a fact\'s trust level', () => {
