@@ -49,3 +49,15 @@
 ## 2026-06-18T08:19:22Z — auto-extract (medium-trust, pending review)
 - (P-A2XCSPSa) CHANGELOG date for v0.3.3 is 2026-06-18
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-18T08:19:22Z -->
+## 2026-06-18T12:58:52Z — auto-extract (medium-trust, pending review)
+- (P-54X6D2DM) cmk-compress-session must be invoked by Claude Code at session-end, not manually; code documents this; manual run causes hangs
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-18T12:58:52Z -->
+## 2026-06-18T14:18:21Z — auto-extract (medium-trust, pending review)
+- (P-YA74AXRJ) Nested-`claude` invocations from inside an active Claude Code session timeout at 50s; this affected D6 but is environmental, not a kit defect.
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-18T14:18:21Z -->
+## 2026-06-18T14:18:21Z — auto-extract (medium-trust, pending review)
+- (P-DV52LVVN) D6 (now→today roll) fail-safe behavior confirmed: timeout logs cleanly, now.md is preserved, retry happens next SessionStart—nothing lost.
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-18T14:18:21Z -->
+## 2026-06-18T14:18:21Z — auto-extract (medium-trust, pending review)
+- (P-LD7RPCTX) Honest uncertainty flagging: can't be 100% sure whether compress timeout is environmental or real without running it outside the harness; both readings are plausible.
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-18T14:18:21Z -->

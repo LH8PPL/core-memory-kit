@@ -2300,3 +2300,208 @@
 <!-- decision:P-RES031CG -->
 ### RESUME — v0.3.1 cut-gate near-complete; PR
 **When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+### RESUME — v0.3.1 cut-gate near-complete; PR
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-3FEV3J72 -->
+### Probes for honest assessment of testing coverage — what was actually live-tested
+**When:** 2026-06-17 · **Fact:** `P-3FEV3J72`
+
+<!-- decision:P-AZZD4XCF -->
+### Before tagging v0.3.3, user wants comprehensive confirmation that all vague gate
+**When:** 2026-06-17 · **Fact:** `P-AZZD4XCF`
+
+<!-- decision:P-aCAV54FE -->
+### Don't assume execution scope without explicit permission; user corrected "i didn
+**When:** 2026-06-17 · **Fact:** `P-aCAV54FE`
+
+<!-- decision:P-YZZWTMEP -->
+### Renamed `$env:USERPROFILE\.claude-memory-kit` as backup before running destructi
+**When:** 2026-06-17 · **Fact:** `P-YZZWTMEP`
+
+<!-- decision:P-5UMXLADZ -->
+### Specified clear scope boundary — execute all steps up to "## 2. Session 1," stop
+**When:** 2026-06-17 · **Fact:** `P-5UMXLADZ`
+
+<!-- decision:P-9X52U9EP -->
+### Prefers centralized helpers over code duplication (affirmed for multi-site bug f
+**When:** 2026-06-17 · **Fact:** `P-9X52U9EP`
+
+<!-- decision:P-4KZ72VGV -->
+### Task Done-Goal Explicitness Rule
+**When:** 2026-06-18 · **Fact:** `P-4KZ72VGV`
+**Why:** D-169 was missed because automatic behavior was tested, but every test ran `cmk digest` manually first — masking that the automatic hook wasn't implemented. Explicit checkboxes make gaps impossible to ignore. This rule bookends the existing "live-test every task" rule.
+
+<!-- decision:P-6ZS6ZAL6 -->
+### Test Anti-pattern — Setup Commands Masking Automation
+**When:** 2026-06-18 · **Fact:** `P-6ZS6ZAL6`
+**Why:** D-169: DECISIONS.md auto-population was fully tested but every test started with manual `cmk digest`. The feature worked in tests, failed in real use.
+
+<!-- decision:P-4SVME7QG -->
+### cut-guide.md should be minimal, easy to read; use for live manual testing; move
+**When:** 2026-06-18 · **Fact:** `P-4SVME7QG`
+
+<!-- decision:P-4XHUNa9W -->
+### Scaffolded Skills Drift After Binary Updates Without cmk install
+**When:** 2026-06-18 · **Fact:** `P-4XHUNa9W`
+**Why:** Stale skills silently under-perform (don't trigger), causing the agent to bypass them and hand-solve instead. This is also a real cmk doctor gap worth addressing for all users.
+
+<!-- decision:P-ZZNLF7US -->
+### lost track of what Task 159 was doing; signals confusion promptly rather than co
+**When:** 2026-06-18 · **Fact:** `P-ZZNLF7US`
+
+<!-- decision:P-79TK4TaF -->
+### Memory Kit Index File (INDEX.md) Architecture
+**When:** 2026-06-18 · **Fact:** `P-79TK4TaF`
+**Why:** This is the kit's internal architecture. Understanding it is key to designing efficient session-start logic (e.g., Task 159's decision journal refresh).
+
+<!-- decision:P-6RaEC34F -->
+### prioritizes finishing v0.3.3 and moving on; willing to defer semantic search to
+**When:** 2026-06-18 · **Fact:** `P-6RaEC34F`
+
+<!-- decision:P-VVUK5RU7 -->
+### Task 159: Auto-Updating Decision Journal
+**When:** 2026-06-18 · **Fact:** `P-VVUK5RU7`
+**Why:** v0.3.3 release blocker. Manual decision logs don't scale; automation keeps the journal honest.
+
+<!-- decision:P-PZ4LH3CW -->
+### CMK Decision Trail Requires Divergence Recording
+**When:** 2026-06-18 · **Fact:** `P-PZ4LH3CW`
+**Why:** Traceability and informed review. Future maintainers must know both the original decision and the reasons for change; prevents the same design question from being reconsidered.
+
+<!-- decision:P-C5SL7RaW -->
+### Journal Staleness Check Uses INDEX.md Mtime Proxy
+**When:** 2026-06-18 · **Fact:** `P-C5SL7RaW`
+**Why:** Session-start budget is tight; INDEX.md is a required artifact maintained by kit infrastructure anyway.
+
+<!-- decision:P-LTCCJKT9 -->
+### Journal Staleness Detection Uses Separate Boolean, Not Verdict
+**When:** 2026-06-18 · **Fact:** `P-LTCCJKT9`
+**Why:** Single-verdict slot constraint makes shared detection impossible for independent concerns. This is a compositional invariant of the kit's architecture.
+
+<!-- decision:P-XZLFTK2A -->
+### Decision-Trail Recording Convention for Divergences
+**When:** 2026-06-18 · **Fact:** `P-XZLFTK2A`
+**Why:** Maintains traceability and accountability; enables future context recovery and decision history.
+
+<!-- decision:P-754HQESG -->
+### Decision-trail work (A) is non-negotiable priority—"no matter what is a must."
+**When:** 2026-06-18 · **Fact:** `P-754HQESG`
+
+<!-- decision:P-QF6B7HQW -->
+### New Skills System & Auto-Invocation Gap
+**When:** 2026-06-18 · **Fact:** `P-QF6B7HQW`
+**Why:** Skills exist to prevent silent divergences and improve discipline, but the auto-invocation layer isn't working as designed.
+
+<!-- decision:P-4aSAFL3J -->
+### User accepts technical divergences from research/design IF they were reasoned ag
+**When:** 2026-06-18 · **Fact:** `P-4aSAFL3J`
+
+<!-- decision:P-JTWUL9ZX -->
+### Don't invent new documentation structures; follow the established documentation
+**When:** 2026-06-18 · **Fact:** `P-JTWUL9ZX`
+
+<!-- decision:P-FWFK4ARZ -->
+### Documentation-map Spine drifts while DECISION-LOG stays current
+**When:** 2026-06-18 · **Fact:** `P-FWFK4ARZ`
+**Why:** Drift occurs because releases are cut and documented elsewhere without proactively refreshing the Spine. This repeats the same error class as Task 159 triplication and cut-gate-as-journal — state in multiple places, not maintained in the designated home.
+
+<!-- decision:P-2TSXUZHR -->
+### `.claude/skills/` Gitignore Creates Broken CLAUDE.md References on Clone
+**When:** 2026-06-18 · **Fact:** `P-2TSXUZHR`
+**Why:** The dev-skills are durable tools referenced in a standing instruction document. When the tools are gitignored but the doc is committed, fresh clones get broken pointers silently. This is structural drift, not content drift.
+
+<!-- decision:P-QRHBWWLH -->
+### Skill Adoption Verification Standard
+**When:** 2026-06-18 · **Fact:** `P-QRHBWWLH`
+**Why:** Grounds tool-keeping decisions in evidence rather than theory; prevents accumulation of unused tools
+
+<!-- decision:P-TaFGHHD9 -->
+### Skills Don't Trigger From CLAUDE.md or Hooks
+**When:** 2026-06-18 · **Fact:** `P-TaFGHHD9`
+**Why:** It's non-obvious. Most would expect CLAUDE.md or hooks to be the invocation mechanism. Understanding the real mechanism prevents wasted attempts and false assumptions.
+
+<!-- decision:P-V33QABGS -->
+### Use the official installer (npx skills@latest add) rather than manual commands f
+**When:** 2026-06-18 · **Fact:** `P-V33QABGS`
+
+<!-- decision:P-FJZFLaP9 -->
+### adopt-third-party-skills-via-installer-personal-tier
+**When:** 2026-06-18 · **Fact:** `P-FJZFLaP9`
+**Why:** This session botched it twice: first hand-copied 6 of a 33-skill interdependent system into the gitignored project `.claude/skills/` (missing the installer, CONTEXT.md, sibling skills, the user-invoked grill-me entry points), then I judged them worthless WITHOUT reading them. Primary-source research (Claude Code skills+hooks docs + mattpocock's writing-great-skills + README) showed the correct model: installer → personal tier → auto-discovery → author's descriptions do the triggering. The user: "dont do it manually you are suppose to use the installer" and "read the readme for fuck sake."
+
+<!-- decision:P-MB6XBZRR -->
+### Task 159 Multi-Stage Verification Gate
+**When:** 2026-06-18 · **Fact:** `P-MB6XBZRR`
+**Why:** Task 159 is performance-critical with subtle interactions (lazy bin + journal sync). Multi-stage gate catches issues unit tests alone miss; the I1 fix was only visible in live-test, and skill-review caught a separate issue self-review missed.
+
+<!-- decision:P-6L5CWR9G -->
+### CI Pipeline Configuration
+**When:** 2026-06-18 · **Fact:** `P-6L5CWR9G`
+**Why:** These define what "CI is green" means in this repo; understanding the full matrix is essential for release QA, troubleshooting, and future expansion
+
+<!-- decision:P-3GPCJWXQ -->
+### Cut-Gate Sandbox Isolation
+**When:** 2026-06-18 · **Fact:** `P-3GPCJWXQ`
+**Why:** Install flows write memory files. Testing against real setup risks data loss or corruption.
+
+<!-- decision:P-YHQU4aTH -->
+### Cut-Gate Test Workflow
+**When:** 2026-06-18 · **Fact:** `P-YHQU4aTH`
+**Why:** Established pattern used consistently across 15+ test runs; proven reliable
+
+<!-- decision:P-4JXMa5HF -->
+### cmk install --with-semantic Command
+**When:** 2026-06-18 · **Fact:** `P-4JXMa5HF`
+**Why:** Core setup command for semantic search with documented graceful degradation on DLL lock failure.
+
+<!-- decision:P-MQMPUBBN -->
+### Cut-Gate 16 — Setup & Terminal Tests Complete
+**When:** 2026-06-18 · **Fact:** `P-MQMPUBBN`
+**Why:** Clear checkpoint. Terminal half is done; prevents re-deriving setup in next session. Signals readiness for in-chat testing phase.
+
+<!-- decision:P-WX5WPTTJ -->
+### cmk-compress-session requires SessionEnd hook invocation; manual terminal runs hang
+**When:** 2026-06-18 · **Fact:** `P-WX5WPTTJ`
+**Why:** Manual invocation during cut-gate testing created hung node processes. Understanding the hook-based design and correct testing patterns prevents this in future work.
+
+<!-- decision:P-32TD3JaT -->
+### CMK Tool Invocation: cmk-compress-session vs cmk-compress-lazy
+**When:** 2026-06-18 · **Fact:** `P-32TD3JaT`
+**Why:** Manual testing of cmk-compress-session led to confusion and hung processes; understanding the tool's intended context prevents wasted debugging.
+
+<!-- decision:P-GD3QTG9V -->
+### Version 0.3.3 Release — cut-gate16 Test Session State
+**When:** 2026-06-18 · **Fact:** `P-GD3QTG9V`
+**Why:** Clear record of final validation state before release.
+
+<!-- decision:P-AZKXQRHC -->
+### cut-gate16 Test Workflow Phases
+**When:** 2026-06-18 · **Fact:** `P-AZKXQRHC`
+**Why:** The phases are a structured verification checklist for the memory kit's core functionality. Running them in-chat (not terminal) lets Claude Code exercise its memory integration directly.
+
+<!-- decision:P-JQ76A4W6 -->
+### Doc Version Strings Should Be Parameterized
+**When:** 2026-06-18 · **Fact:** `P-JQ76A4W6`
+**Why:** Docs go stale; the tarball example in the guide had 0.3.2 but the actual install is 0.3.3. Parameterized docs are maintenance-free.
+
+<!-- decision:P-ZXF759KP -->
+### §5 Test Scorecard — Gates W1 through D6
+**When:** 2026-06-18 · **Fact:** `P-ZXF759KP`
+**Why:** Tracks which parts of the kit test plan have passed, which are blocked by harness issues, and which remain.
+
+<!-- decision:P-XVEYV7a4 -->
+### D6 Fail-Safe Behavior on Compress Timeout
+**When:** 2026-06-18 · **Fact:** `P-XVEYV7a4`
+**Why:** D6 gate failure is acceptable because the kit does not corrupt or lose state; it degrades gracefully.
+
+<!-- decision:P-YZHN6DP6 -->
+### Nested-claude Spawn Timeout in Test Harness
+**When:** 2026-06-18 · **Fact:** `P-YZHN6DP6`
+**Why:** D6 gate failed with `haiku_timeout`, but the failure pattern (timing out when called from inside Claude Code) repeats across multiple test attempts. Points to harness artifact, not kit bug.
+
+<!-- decision:P-RES031CG -->
+### RESUME — v0.3.1 cut-gate near-complete; PR
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
