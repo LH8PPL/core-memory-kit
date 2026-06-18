@@ -27,6 +27,7 @@ import {
   markCronRegistered,
   unmarkCronRegistered,
   cronSentinelPath,
+  isJournalStale,
 } from '../packages/cli/src/lazy-compress.mjs';
 import { injectContext } from '../packages/cli/src/inject-context.mjs';
 import { MockHaikuBackend } from '../packages/cli/src/compressor.mjs';
@@ -61,6 +62,14 @@ function seedNowMd(body = '## 2026-05-27T10:00:00Z — user\n\na prior-session t
 
 function readFileTrim(path) {
   return existsSync(path) ? readFileSync(path, 'utf8').trim() : '';
+}
+
+// Task 159 added an unconditional `scope:'journal-sync'` entry to lazy-compress.log
+// (written before the compress action). Tests that want the compress ACTION entry
+// must select by scope, not by line position [0] — the journal entry now precedes it.
+function readLazyEntry(logPath) {
+  const entries = readFileSync(logPath, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+  return entries.find((e) => e.scope === 'lazy-compress');
 }
 
 function seedRecentMd(body, ageMs, baseMs = Date.now()) {
@@ -191,6 +200,67 @@ describe('Task 35 — detectStaleness (cheap inline staleness check)', () => {
   });
 });
 
+// Task 159 (D-169): the journal-staleness check is INDEPENDENT of the compress
+// pipeline's single verdict — a session can be compress-fresh yet have new
+// decisions to journal. So isJournalStale is its own boolean (not a competing
+// detectStaleness verdict), used as an ADDITIONAL spawn condition in
+// inject-context and synced unconditionally inside runLazyCompress.
+describe('Task 159 — isJournalStale (independent of compress staleness)', () => {
+  // isJournalStale uses context/memory/INDEX.md mtime as the O(1) freshness
+  // proxy (write-fact.mjs rewrites INDEX.md on every fact write, so INDEX.md ≥
+  // newest fact always). So a faithful seed writes BOTH a project_*.md (the
+  // "a decision fact exists" gate) AND touches INDEX.md (the freshness signal),
+  // mirroring what the real writer does.
+  const memDir = () => join(projectRoot, 'context', 'memory');
+  function seedDecisionFact(id, title) {
+    mkdirSync(memDir(), { recursive: true });
+    const fm = ['---', `id: ${id}`, 'type: project', `title: ${title}`, 'created_at: 2026-06-18T10:00:00Z', 'trust: high', '---', '', `Body of ${title}.`, ''].join('\n');
+    writeFileSync(join(memDir(), `project_${id}.md`), fm, 'utf8');
+    writeFileSync(join(memDir(), 'INDEX.md'), `# Index\n- ${id}\n`, 'utf8'); // the real writer rewrites INDEX on every fact write
+  }
+  function writeJournal(body = '# Decisions\n') {
+    writeFileSync(join(projectRoot, 'context', 'DECISIONS.md'), body, 'utf8');
+  }
+  const ageFile = (p, ms) => { const t = (Date.now() - ms) / 1000; utimesSync(p, t, t); };
+
+  it('is stale when a decision fact exists but DECISIONS.md is missing', () => {
+    seedDecisionFact('P-AAAAAAAA', 'A decision');
+    expect(isJournalStale(projectRoot)).toBe(true);
+  });
+
+  it('is NOT stale when there are no decision facts at all', () => {
+    // fresh install: no project facts → nothing to journal → not stale
+    expect(isJournalStale(projectRoot)).toBe(false);
+  });
+
+  it('is stale when INDEX.md (the fresh-write proxy) is NEWER than DECISIONS.md', () => {
+    writeJournal();
+    ageFile(join(projectRoot, 'context', 'DECISIONS.md'), 60_000); // journal into the past
+    seedDecisionFact('P-BBBBBBBB', 'A newer decision');             // INDEX.md mtime = now
+    expect(isJournalStale(projectRoot)).toBe(true);
+  });
+
+  it('is NOT stale when DECISIONS.md is newer than INDEX.md', () => {
+    seedDecisionFact('P-CCCCCCCC', 'An old decision');
+    ageFile(join(memDir(), 'INDEX.md'), 60_000);                    // index into the past
+    writeJournal('# Decisions\n\n<!-- decision:P-CCCCCCCC -->\n### An old decision\n'); // journal = now
+    expect(isJournalStale(projectRoot)).toBe(false);
+  });
+
+  it('is NOT stale (defensive) when a fact exists but INDEX.md is absent (pre-index repo)', () => {
+    // a fact exists + journal exists but no INDEX.md yet → treat as fresh (a
+    // reindex will create INDEX; the session-end sync covers the journal anyway).
+    mkdirSync(memDir(), { recursive: true });
+    writeFileSync(join(memDir(), 'project_P-DDDDDDDD.md'), '---\nid: P-DDDDDDDD\ntype: project\ntitle: x\n---\nbody\n', 'utf8');
+    writeJournal();
+    expect(isJournalStale(projectRoot)).toBe(false);
+  });
+
+  it('returns false defensively when projectRoot is missing', () => {
+    expect(isJournalStale(undefined)).toBe(false);
+  });
+});
+
 describe('Task 35 — runLazyCompress (delegates to daily-distill or weekly-curate)', () => {
   describe('Validation (Door 1)', () => {
     it('rejects missing projectRoot', async () => {
@@ -220,8 +290,61 @@ describe('Task 35 — runLazyCompress (delegates to daily-distill or weekly-cura
       // NDJSON log entry written
       const logPath = join(projectRoot, 'context', '.locks', 'lazy-compress.log');
       expect(existsSync(logPath)).toBe(true);
-      const entry = JSON.parse(readFileSync(logPath, 'utf8').trim().split('\n')[0]);
+      const entry = readLazyEntry(logPath); // by scope, not position (Task 159 added a journal-sync entry)
       expect(entry.reason).toBe('cron-active');
+    });
+  });
+
+  describe('Task 159 — unconditional journal sync (D-169)', () => {
+    function seedDecisionFact(id, title) {
+      const dir = join(projectRoot, 'context', 'memory');
+      mkdirSync(dir, { recursive: true });
+      const fm = ['---', `id: ${id}`, 'type: project', `title: ${title}`, 'created_at: 2026-06-18T10:00:00Z', 'trust: high', '---', '', `Body of ${title}.`, ''].join('\n');
+      writeFileSync(join(dir, `project_${id}.md`), fm, 'utf8');
+    }
+
+    it('syncs DECISIONS.md even when compress is cron-active-skipped (independent of the compress verdict)', async () => {
+      // The composition proof: the journal sync must NOT be gated by the
+      // compress verdict — cron handles compress, but the journal still needs
+      // rendering at SessionStart for a no-clean-exit session.
+      seedDecisionFact('P-AAAAAAAA', 'A decision made this session');
+      markCronRegistered({ projectRoot });
+      const journalPath = join(projectRoot, 'context', 'DECISIONS.md');
+      expect(existsSync(journalPath)).toBe(false);
+
+      const r = await runLazyCompress({
+        projectRoot,
+        backend: mockBackend('output'),
+        now: '2026-06-18T12:00:00Z',
+      });
+
+      // compress still skips on cron-active …
+      expect(r.action).toBe('skipped');
+      expect(r.reason).toBe('cron-active');
+      // … but the journal was rendered anyway (Door 2: real disk state).
+      expect(existsSync(journalPath)).toBe(true);
+      expect(readFileSync(journalPath, 'utf8')).toContain('A decision made this session');
+    });
+
+    it('writes a Door-4 journal-sync NDJSON entry to lazy-compress.log (observability)', async () => {
+      // I1 from skill-review: the unconditional sync must leave a trace, like
+      // every other action in runLazyCompress — else a silent fallback-path
+      // failure (e.g. a DECISIONS.md permission error) is undebuggable.
+      seedDecisionFact('P-BBBBBBBB', 'A decision to log');
+      const r = await runLazyCompress({
+        projectRoot,
+        backend: mockBackend('output'),
+        now: '2026-06-18T12:00:00Z',
+      });
+      expect(r).toBeTruthy();
+      const logPath = join(projectRoot, 'context', '.locks', 'lazy-compress.log');
+      expect(existsSync(logPath)).toBe(true);
+      const entries = readFileSync(logPath, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+      const journalEntry = entries.find((e) => e.scope === 'journal-sync');
+      expect(journalEntry, 'no journal-sync entry in lazy-compress.log').toBeTruthy();
+      expect(journalEntry.action).toBe('written');
+      expect(journalEntry.written).toBe(true);
+      expect(journalEntry.appended).toBeGreaterThan(0);
     });
   });
 
@@ -250,7 +373,7 @@ describe('Task 35 — runLazyCompress (delegates to daily-distill or weekly-cura
       // Door 4 — NDJSON shape: cooldown branch has stable schema with
       // verdict + delegated_to null sentinels (M1 fix).
       const logPath = join(projectRoot, 'context', '.locks', 'lazy-compress.log');
-      const entry = JSON.parse(readFileSync(logPath, 'utf8').trim().split('\n')[0]);
+      const entry = readLazyEntry(logPath); // by scope, not position (Task 159 journal-sync entry precedes it)
       expect(entry.scope).toBe('lazy-compress');
       expect(entry.action).toBe('skipped');
       expect(entry.reason).toBe('cooldown');
@@ -345,7 +468,7 @@ describe('Task 35 — runLazyCompress (delegates to daily-distill or weekly-cura
         now: '2026-05-28T10:00:00Z',
       });
       const logPath = join(projectRoot, 'context', '.locks', 'lazy-compress.log');
-      const entry = JSON.parse(readFileSync(logPath, 'utf8').trim().split('\n')[0]);
+      const entry = readLazyEntry(logPath); // by scope, not position (Task 159 journal-sync entry precedes it)
       expect(entry.scope).toBe('lazy-compress');
       expect(entry.action).toBe('skipped');
     });
@@ -358,7 +481,7 @@ describe('Task 35 — runLazyCompress (delegates to daily-distill or weekly-cura
         now: '2026-05-28T10:00:00Z',
       });
       const logPath = join(projectRoot, 'context', '.locks', 'lazy-compress.log');
-      const entry = JSON.parse(readFileSync(logPath, 'utf8').trim().split('\n')[0]);
+      const entry = readLazyEntry(logPath); // by scope, not position (Task 159 journal-sync entry precedes it)
       expect(entry.scope).toBe('lazy-compress');
       expect(entry.delegated_to).toBe('daily-distill');
       expect(entry.success).toBe(true);
@@ -426,6 +549,50 @@ describe('Task 35 — inject-context spawn integration (35.4 #1 + #2)', () => {
     });
     expect(spawnCalls).toBe(0);
     expect(r.lazyTrigger.verdict).toBe('cron-active');
+  });
+
+  // Task 159 (D-169): the journal is synced by the detached lazy worker, so a
+  // session that's compress-FRESH but has new un-journaled decisions must still
+  // spawn (otherwise the journal never renders without a clean SessionEnd).
+  it('Task 159 — spawns when compress is fresh but the decision journal is stale', () => {
+    seedTodayFile('2026-05-28');
+    seedRecentMd('## fresh\n', 60_000); // compress-fresh
+    // seed a decision fact (+ INDEX.md, the fresh-write proxy) with no
+    // DECISIONS.md → journal stale
+    const memDir = join(projectRoot, 'context', 'memory');
+    mkdirSync(memDir, { recursive: true });
+    writeFileSync(
+      join(memDir, 'project_P-AAAAAAAA.md'),
+      ['---', 'id: P-AAAAAAAA', 'type: project', 'title: A decision', 'created_at: 2026-05-28T09:00:00Z', 'trust: high', '---', '', 'body', ''].join('\n'),
+      'utf8',
+    );
+    writeFileSync(join(memDir, 'INDEX.md'), '# Index\n- P-AAAAAAAA\n', 'utf8');
+    let spawnCalls = 0;
+    const testSpawnLazy = () => {
+      spawnCalls += 1;
+      return { spawned: true, pid: 999 };
+    };
+    const r = injectContext({ cwd: projectRoot, userDir, now: '2026-05-28T10:00:00Z', testSpawnLazy });
+    expect(spawnCalls).toBe(1);
+    // the compress verdict is still 'fresh' — the spawn is journal-driven.
+    expect(r.lazyTrigger.verdict).toBe('fresh');
+    expect(r.lazyTrigger.journalStale).toBe(true);
+    expect(r.lazyTrigger.spawned).toBe(true);
+  });
+
+  it('Task 159 — does NOT spawn when compress is fresh AND the journal is current', () => {
+    seedTodayFile('2026-05-28');
+    seedRecentMd('## fresh\n', 60_000);
+    // no decision facts → journal not stale
+    let spawnCalls = 0;
+    const testSpawnLazy = () => {
+      spawnCalls += 1;
+      return { spawned: true, pid: 999 };
+    };
+    const r = injectContext({ cwd: projectRoot, userDir, now: '2026-05-28T10:00:00Z', testSpawnLazy });
+    expect(spawnCalls).toBe(0);
+    expect(r.lazyTrigger.verdict).toBe('fresh');
+    expect(r.lazyTrigger.journalStale).toBe(false);
   });
 });
 

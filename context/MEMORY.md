@@ -8,18 +8,18 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-3FEV3J72) Probes for honest assessment of testing coverage — what was actually live-tested (real data, real binary) vs. synthetic-tested vs. untested.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 1d20b8f88bcd90fce9af90a7e581874316305a62cddd8bb4000e7557565d04b0, write: auto-extract, trust: high, at: 2026-06-17T06:29:13Z -->
-- (P-AZZD4XCF) Before tagging v0.3.3, user wants comprehensive confirmation that all vague gates are found and fixed — not just the two discovered this session
-  <!-- source: auto-extract-session, source_line: 1, sha1: 6c85bd777cc4f2d5458f667be71207dbc0b5f9fd2e167d4169d91026b314f8fe, write: auto-extract, trust: high, at: 2026-06-17T07:38:35Z -->
-- (P-aCAV54FE) Don't assume execution scope without explicit permission; user corrected "i didn't ask you to run anything" when assistant was about to execute commands.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 569c8d690d79d5599ec3f4983fed937bc25ba8ac755154a7e65bd47e8209e53c, write: auto-extract, trust: high, at: 2026-06-17T08:10:05Z -->
-- (P-YZZWTMEP) Renamed `$env:USERPROFILE\.claude-memory-kit` as backup before running destructive setup steps
-  <!-- source: auto-extract-session, source_line: 1, sha1: ec62384158bf3281227d17b7a5995fc126c2d7702a7e336f3ae0d9e01d090b64, write: auto-extract, trust: high, at: 2026-06-17T08:17:39Z -->
-- (P-5UMXLADZ) Specified clear scope boundary — execute all steps up to "## 2. Session 1," stop there before proceeding to session-1 work
-  <!-- source: auto-extract-session, source_line: 1, sha1: d0b5277f20049865421645b3659d7e6544fde8c0b12524e8a488ead17a513981, write: auto-extract, trust: high, at: 2026-06-17T08:17:39Z -->
-- (P-9X52U9EP) Prefers centralized helpers over code duplication (affirmed for multi-site bug fixes)
-  <!-- source: auto-extract-session, source_line: 1, sha1: d54aaa753b153d782295d5a4879d9d0bc4e8ddbd6c3833b1623bdb4469aa206c, write: auto-extract, trust: high, at: 2026-06-17T14:36:23Z -->
+- (P-ZZNLF7US) lost track of what Task 159 was doing; signals confusion promptly rather than continuing silently
+  <!-- source: auto-extract-session, source_line: 1, sha1: c797c4961422e70427a3b85d881e284d4f07dff467a31aff247d20c2f1bd1bc4, write: auto-extract, trust: high, at: 2026-06-18T06:53:08Z -->
+- (P-754HQESG) Decision-trail work (A) is non-negotiable priority—"no matter what is a must."
+  <!-- source: auto-extract-session, source_line: 1, sha1: 1372bafb182f0c7df5e2f206c74dac32340e866576e3e25df0976807ad74328a, write: auto-extract, trust: high, at: 2026-06-18T06:59:48Z -->
+- (P-4aSAFL3J) User accepts technical divergences from research/design IF they were reasoned against the original beforehand.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 908f38908a13d64e05d1dbdd11474086b2bdacc4d44bf6c5b5e8ce6911bb7246, write: auto-extract, trust: high, at: 2026-06-18T06:59:48Z -->
+- (P-JTWUL9ZX) Don't invent new documentation structures; follow the established documentation procedure for this project
+  <!-- source: auto-extract-session, source_line: 1, sha1: 43ccb1c0fb23a2c3e39743c7f291c52a789c76a21a3599d598c892655afdf396, write: auto-extract, trust: high, at: 2026-06-18T07:01:40Z -->
+- (P-V33QABGS) Use the official installer (npx skills@latest add) rather than manual commands for tool setup
+  <!-- source: auto-extract-session, source_line: 1, sha1: 4799d88cb8c207c1f4e76d253cd21f79b98ef1a594646a879ce80377fc702dfd, write: auto-extract, trust: high, at: 2026-06-18T07:47:23Z -->
+- (P-WSD3WEUY) Skills installation complete — user ran `npx skills@latest add mattpocock/skills`, interactive setup succeeded, skills now in global scope
+  <!-- source: auto-extract-session, source_line: 1, sha1: 561a0fbf84d47dcfc41976281886386f129875324357b4de76c683d42fbb81fd, write: auto-extract, trust: high, at: 2026-06-18T07:58:45Z -->
 
 ## Environment Notes
 

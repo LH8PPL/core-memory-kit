@@ -103,7 +103,18 @@ The user is direct and tight on time. Match the energy.
 
 ## Engineering discipline (binding)
 
-**Test-driven development + boundary testing → invoke the `tdd` skill.** The how-to (write the failing test first / watch it fail / never change the test to pass it; test the public interface not internal helpers; a good test survives refactors; vertical tracer-bullet slices not horizontal "all tests then all code") lives in the on-demand **`tdd`** skill (`.claude/skills/tdd/`, with `tests.md` + `mocking.md` depth). Invoke it when building a feature or fixing a bug test-first. The kit-specific testing rules below (the five exit doors, over-mutation guard, integration coverage, fixture-ID alphabet) are NOT in that skill — they stay here and compose with it.
+**Test-driven development.** Always:
+
+1. Write the test first (the public-contract boundary test).
+2. Watch it fail.
+3. Implement the code until tests pass.
+4. Never change the test to make it pass. Change the code.
+
+**Boundary testing** (per Ousterhout, *A Philosophy of Software Design*):
+
+- Test the **public interface** of each module. Not the internal helpers.
+- A good test survives refactors. If a refactor breaks a test that was testing the contract, the refactor broke the contract — that's the test working.
+- The test for `writeFact()` checks what file lands where with what frontmatter. NOT how `_parseFrontmatter()` happens to handle YAML.
 
 **The five exit doors** (per Goldberg's *nodejs-testing-best-practices*) — when writing a test, walk this checklist and assert every applicable door:
 
@@ -128,7 +139,11 @@ Most kit tests assert (1) and (2). The ones that miss (3) or (4) are the ones wh
 
 Do this **before** the edit, not after a red suite. Precedent (2026-06-01): the `installTier` placeholder fix added a required `vars` arg but missed the `initUserTier` caller → `cmk init-user-tier` crashed; the full suite caught it, which is the expensive path. The retroactive caller-map confirmed the break — but run upfront it would have caught it for free. (And the verification grep itself had a multi-line-import false-negative — a token grep is a starting point, not proof; read the actual call sites.) This is the same class as the composition rules above, applied at edit time rather than test time.
 
-**Deep modules + the design vocabulary → invoke the `codebase-design` skill.** The principle (broad modules behind narrow interfaces; don't fragment cohesive logic into shallow helpers) + the shared vocabulary (Module / Interface / Depth / Seam / Adapter / Leverage / Locality), the deletion test, and "one adapter = hypothetical seam, two = real" live in the on-demand **`codebase-design`** skill (`.claude/skills/codebase-design/`). Invoke it when designing or restructuring a module's interface or deciding where a seam goes. Kit example of the principle: `install.mjs` is one module with one public boundary (`install({ … })`) over ~10 internal helpers.
+**Deep modules with simple interfaces:**
+
+- Wrap related code into broad modules that expose narrow surfaces.
+- Don't fragment cohesive logic into many shallow helpers.
+- Example: `install.mjs` is one module with one public boundary (`install({ ... })`) backed by ~10 internal helpers.
 
 **Incremental build:**
 
@@ -287,16 +302,10 @@ Mapping for this project (invoke proactively at the start of the task or sub-tas
 | Writing Python code | `python-pro` |
 | Writing pytest tests | `python-testing-patterns` |
 | Reviewing a PR (yours or the user's request to review) | `code-review-excellence` |
-| Building a feature / fixing a bug test-first (red→green→refactor, vertical tracer slices) | `tdd` |
-| A hard bug / perf regression — something broken/throwing/failing/slow that needs a diagnosis loop | `diagnosing-bugs` |
-| Designing or restructuring a module's interface; deciding where a seam goes; making code more testable | `codebase-design` |
-| Pinning down domain terminology / ubiquitous language; recording an architectural decision (ADR) | `domain-modeling` |
-| Stress-testing a plan or design before building (the user wants it grilled / interviewed) | `grilling` |
-| Building a throwaway prototype to answer a state/logic or UI design question | `prototype` (manual-invoke only) |
 
-These six dev-tooling skills live in `.claude/skills/` (gitignored, per-machine — adopted verbatim from mattpocock/skills, D-170). They own the *procedural HOW* so it doesn't bloat this always-loaded file (the overflow→ignored risk, D-170); CLAUDE.md keeps only the *kit-specific* deltas that compose with them (the five exit doors, over-mutation guard, caller-map, the live-test/two-pass-review disciplines below).
+Concrete rule: at the start of a task whose sub-tasks include the domain above, call the Skill tool BEFORE writing the code or doing the review. Example: Task 5.3 (Python implementation of canonicalize) → invoke `python-pro` first. Task 5.6 (writing pytest cases) → invoke `python-testing-patterns` first.
 
-Concrete rule: at the start of a task whose sub-tasks include the domain above, call the Skill tool BEFORE writing the code / doing the review / diagnosing the bug. Examples: Task 5.3 (Python impl of canonicalize) → `python-pro` first; Task 5.6 (pytest cases) → `python-testing-patterns` first; building a feature test-first → `tdd` first; a "do we have a bug?" / something-crashes detour → `diagnosing-bugs` first; the user asks to grill a plan → `grilling`.
+**Personal dev-tooling skills (installed at `~/.claude/skills/`, auto-discovered in every project — NOT in this repo).** mattpocock/skills are installed at the **user tier** via their own installer, not copied here (a botched project-local copy was removed — D-170 revised). They are upstream/untouched and the model invokes them on their own descriptions; this naming just reinforces the trigger. Reach for them when the work fits: **`grill-me` / `grilling`** before building anything non-trivial (interview the user, resolve the design tree — the fix for "the agent built the wrong thing"); **`diagnosing-bugs`** for a hard bug / perf regression (reproduce → minimise → hypothesise → instrument → fix → regression-test); **`tdd`** for a feature/bugfix test-first; **`codebase-design`** for module/seam design. They COMPLEMENT this file (always-loaded rules) — they hold the on-demand *procedure*, CLAUDE.md holds the always-true *rules*.
 
 **ONE holistic `code-review-excellence` pass per PR, not fragmented.** When a PR's surface includes multiple concerns (e.g., a new module + spec docs + tests + a separate SKILL.md), the review covers all of it in one pass — integration risk concentrates across the whole change. Per the user's Task 24 launch instruction: *"ONE holistic code-review-excellence pass on the whole Task 24 PR. NOT a separate pass for SKILL.md alone. The SKILL.md, the Poison_Guard regex catalog, the routeHigh integration in auto-extract.mjs, and the trust-routing logic all need to be reviewed together — integration risk concentrates across the whole change, and fragmented review re-derives context anyway."* Same applies to every campaign PR — call the skill once with the full PR diff as scope, get one consolidated findings table.
 
@@ -334,7 +343,7 @@ The kit doesn't become usable until **Task 23** (auto-extract subagent + memory-
 ## When in doubt
 
 Re-read the journey log. If still in doubt, ask the user with one specific question — not four bullet-pointed options.
-<!-- claude-memory-kit:start v0.2.4 -->
+<!-- claude-memory-kit:start v0.3.3 -->
 ## Memory System — claude-memory-kit
 
 This project uses **claude-memory-kit** for per-project, in-repo memory that survives session boundaries. Memory lives in `context/` (committed) and `context.local/` (gitignored). Cross-project memory lives at `~/.claude-memory-kit/` (or `$MEMORY_KIT_USER_DIR`).
@@ -363,13 +372,16 @@ The `cmk doctor` health checks verify each layer is wired correctly: install int
 
 ### Recalling memory (for Claude)
 
-The snapshot injected at session start is a **bounded hot index, not everything** — there is a deeper, queryable archive. When a question is "what did we decide / what's our X / how does the user work / what's the setup," **query your memory instead of re-deriving the answer from scratch**:
+The snapshot injected at session start is a **bounded hot index, not everything** — there is a deeper, queryable archive. When a question is "what did we decide / what's our X / how does the user work / what's the setup / **how is this project structured or built / where does X live / what's the architecture**," **query your memory instead of re-deriving the answer from scratch** — the structure is a recorded decision, recall it before re-reading the files to reconstruct it:
 
 - **`cmk search "<topic>"`** — find any captured fact (decisions, preferences, config, lessons) across the project + user tiers.
+- **`cmk search "<topic>" --scope decisions`** — the append-only **decision journal** (`context/DECISIONS.md`). Use it for decision **history / evolution** — "what did we reject", "did X change", "why did we move away from Y" — it keeps superseded + retracted decisions the live fact store drops. (A plain `cmk search` answers "what's the current decision"; this answers "how it got there".)
 - **`context/memory/<type>_<slug>.md`** — the granular fact archive with full **Why / How** rationale (`context/memory/INDEX.md` lists them).
 - **`~/.claude-memory-kit/` (`USER.md` / `HABITS.md` / `LESSONS.md`)** — how this user works across *all* their projects.
 
 Reach for these *first* — re-deriving an answer the project already recorded (by re-reading files, re-searching, or working it out again) wastes the memory that exists precisely so you don't have to. Recall from memory first, then verify against the source if needed.
+
+**Authority rule:** when injected memory contradicts your assumptions, injected memory wins — it is the ground truth for documented knowledge and prior decisions (terminal/tool output stays the ground truth for live system state; official docs for version-specifics). Never treat a question as novel when the answer is already in your prompt.
 
 ### Memory write rules (for Claude)
 

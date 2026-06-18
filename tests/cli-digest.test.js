@@ -14,6 +14,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildDigest, digest } from '../packages/cli/src/digest.mjs';
 import { syncDecisionsJournal } from '../packages/cli/src/decisions-journal.mjs';
+import { runSessionEndTasks } from '../packages/cli/src/session-end-tasks.mjs';
 
 let sandbox;
 let memDir;
@@ -147,5 +148,40 @@ describe('syncDecisionsJournal — file-IO append-only writer (Door 2: disk stat
     // No memory dir → no facts → empty journal write OR a soft error; either
     // way it must not throw. (Empty facts → header-only write is acceptable.)
     expect(r).toBeTypeOf('object');
+  });
+});
+
+describe('Task 159 — the SESSION-END path populates DECISIONS.md with NO `cmk digest` (D-169 automatic-path, integration)', () => {
+  // The load-bearing automatic-path test (the D-169 done-criteria rule): this
+  // drives the REAL runSessionEndTasks (no mocks of the journal) against a real
+  // fact corpus and asserts DECISIONS.md renders — WITHOUT ANY `cmk digest` /
+  // syncDecisionsJournal call in the test setup. A test that ran the populating
+  // command first would structurally mask "nobody runs it automatically" — so
+  // there is deliberately no such setup here.
+  it('renders the journal from the session-end hook alone', async () => {
+    seedFact({ id: 'P-AAAAAAAA', type: 'project', title: 'Adopt id-keyed replacement', why: 'archive beats scratchpad' });
+    seedFact({ id: 'P-BBBBBBBB', type: 'project', title: 'Session-end auto-sync the journal', why: 'D-164 automatic-or-not-shipped' });
+    const journalPath = join(sandbox, 'context', 'DECISIONS.md');
+    expect(existsSync(journalPath)).toBe(false); // precondition: no journal yet, no digest ever run
+
+    // No-op backend: compress + persona are best-effort (allSettled) and have no
+    // sessions/ tree here, so they skip; the journal step is what we're proving.
+    const makeBackend = () => ({ compress: async () => ({ output: '' }) });
+    const { journalOutcome } = await runSessionEndTasks({
+      projectRoot: sandbox,
+      userDir: join(sandbox, 'user'),
+      makeBackend,
+      now: '2026-06-18T12:00:00Z',
+    });
+
+    expect(journalOutcome.status).toBe('fulfilled');
+    expect(journalOutcome.value.written).toBe(true);
+    // Door 2: the real file exists on disk and lists BOTH decisions.
+    expect(existsSync(journalPath)).toBe(true);
+    const body = readFileSync(journalPath, 'utf8');
+    expect(body).toContain('Adopt id-keyed replacement');
+    expect(body).toContain('Session-end auto-sync the journal');
+    expect(body).toContain('P-AAAAAAAA');
+    expect(body).toContain('P-BBBBBBBB');
   });
 });

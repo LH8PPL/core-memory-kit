@@ -494,56 +494,62 @@ Run these in the build terminal (`C:\Temp\cut-gate12`), after Session 1 has capt
       ```
       **PASS:** `cmk digest` prints a "Memory digest" page grouping facts by type; `context\DECISIONS.md` exists and contains the decision (its title, a `**When:**` date, the `**Why:**`, and the `P-…` fact id).
 
-- [ ] **★ DJ2 — the journal is APPEND-ONLY: idempotent + retract-in-place (Task 147 / D-161).**
-      The journal is NOT regenerated from live facts — a superseded/forgotten decision STAYS (annotated), because the value of a decision log is the trail (what you decided AND moved away from).
+- [ ] **★ DJ2 — append-only: idempotent + retract-in-place.**
       ```powershell
       cmk digest | Out-Null                                  # 2nd run, nothing new
-      type context\DECISIONS.md                              # the FTS5 decision appears EXACTLY ONCE (not duplicated)
+      type context\DECISIONS.md                              # FTS5 decision appears once
       $id = (Select-String context\DECISIONS.md -Pattern 'P-[A-Z2-9]{8}' | Select-Object -First 1).Matches.Value
-      cmk forget $id --yes | Out-Null                        # forget the decision
-      cmk digest | Out-Null                                  # re-sync the journal
-      type context\DECISIONS.md                              # the entry SURVIVES, now marked _(retracted <date>)_
+      cmk forget $id --yes | Out-Null
+      cmk digest | Out-Null
+      type context\DECISIONS.md                              # entry survives, now retracted
       ```
-      **PASS:** the decision appears exactly once after the 2nd digest (no dup); after forget + digest its entry is **still present**, annotated `_(retracted …)_` under the heading — **never removed**.
-      _(A regenerated-from-live journal would silently ERASE the forgotten decision — the decision-trail-preservation failure D-161 exists to prevent.)_
+      **PASS:** the decision appears exactly once after the 2nd digest; after forget + digest its entry is still present, annotated `_(retracted …)_`, never removed.
 
-- [ ] **★ DJ3 — only `type:project` facts journal (Task 147).**
+- [ ] **★ DJ3 — only `type:project` facts journal.**
       ```powershell
       cmk remember "Keep replies terse" --type feedback --title "terse-replies" | Out-Null
       cmk digest | Out-Null
       Select-String context\DECISIONS.md -Pattern "terse-replies"
       ```
-      **PASS:** the `feedback` fact does **NOT** appear in `DECISIONS.md` (the journal is decisions-only; feedback/reference/user facts are excluded). It still shows in `cmk digest`'s full page under "Working-style & preferences".
+      **PASS:** the `feedback` fact does NOT appear in `DECISIONS.md`. (It still shows in the `cmk digest` page under working-style.)
 
-- [ ] **★ DJ4 — the journal is RECALLABLE: `--scope decisions` surfaces decision history incl. the retracted trail (Task 156 / D-168).**
-      The journal is write-complete (DJ1-3) AND recall-complete: the AI can query the decision history, including what was reversed. This is the half that makes DECISIONS.md a real feature (D-164: not shipped until write AND automatic recall work).
+- [ ] **★ DJ4 — recallable: `--scope decisions` surfaces history incl. retracted.**
       ```powershell
       cmk remember "Use Postgres for the store" --type project --title "store-choice" | Out-Null
-      cmk digest | Out-Null                                    # journal the decision
-      cmk search "store" --scope decisions                     # recall it from the journal
+      cmk digest | Out-Null
+      cmk search "store" --scope decisions
       $id = (Select-String context\DECISIONS.md -Pattern 'P-[2-9A-HJ-NP-Za]{8}' | Select-Object -First 1).Matches.Value
-      cmk forget $id --yes | Out-Null ; cmk digest | Out-Null  # reverse + re-sync
-      cmk search "store" --scope decisions                     # the retracted entry STILL recalls
+      cmk forget $id --yes | Out-Null ; cmk digest | Out-Null
+      cmk search "store" --scope decisions
       ```
-      **PASS:** the first `--scope decisions` search returns the decision (labelled `decision`, keyed by its `P-…` id, clean snippet — no `<!-- decision -->` plumbing); after forget+digest the SAME search still returns it, now labelled `decision (retracted)` — so "what did we reject" is answerable from recall, not just by opening the file.
+      **PASS:** the first search returns the decision (labelled `decision`, clean snippet); after forget + digest the same search still returns it, labelled `decision (retracted)`.
 
-      **DJ4-live (the behavioral half — run in a real Claude Code session, NOT the terminal).** The CLI half above proves the *mechanism*; this proves Claude actually *reaches for it* from the recall directive.
-
-      **⚠️ PREREQUISITE (the v0.3.3-cut-gate-15 miss — the journal must EXIST in the LIVE project).** The terminal steps above run in your throwaway dev terminal, NOT the live project. The live project (e.g. `C:\Temp\cut-gate15`) only has a `context\DECISIONS.md` if `cmk digest` has run THERE — and a fresh build session never runs it. Without the file, `--scope decisions` returns `[]` and Claude answers from the FACT store instead (which it does well — masking the gap). So FIRST, in the live project's terminal, build the journal with a real superseded decision drawn from THIS project's history:
+- [ ] **★ DJ4-live — Claude reaches for the journal in chat (behavioral, real session).**
+      Setup, in the LIVE project terminal:
       ```powershell
-      # in the LIVE project dir (e.g. C:\Temp\cut-gate15):
-      cmk digest                                               # builds context\DECISIONS.md from the project's type:project decision facts
+      cmk digest                                               # usually already done — auto-syncs (DJ5); run as fallback
       type context\DECISIONS.md                                # confirm it exists + lists this project's decisions
-      # If a real reversal happened this build (e.g. broadcast → session-per-connection), forget the superseded fact so the journal marks it retracted:
-      # $id = (the superseded decision's P-… id, from `cmk search "<old approach>"`)
-      # cmk forget $id --yes ; cmk digest
       ```
-      ALSO restart Claude Code AFTER step 0b's reinstall (the MCP server is long-lived — a session started before the reinstall talks to the OLD binary, so `--scope decisions` errors `unknown-scope:decisions`; the cut-gate-15 run hit exactly this). THEN, in a fresh session, ask a decision-HISTORY question about THIS project's real evolution — and watch what tool Claude runs:
-      - **Prompt A (evolution):** "What did we actually settle on for `<the area that changed>`, and did it ever change?" (cut-gate-15: the chat topology — broadcast vs per-connection)
-      - **Prompt B ("what did we reject"):** "Did we consider and then reject anything for `<that area>`? What and why?"
-      - **Prompt C (direct history):** "Show me the decision history for `<that area>` — including anything we reversed."
+      Restart Claude Code (the MCP server is long-lived; a session from before step 0b's reinstall errors `unknown-scope:decisions`). Then in a fresh session, ask about a decision that was SUPERSEDED this build (the snapshot won't carry it, so Claude must reach for the journal):
+      - "What did we settle on for `<the area that changed>`, and did it ever change?"
+      - "Did we consider and reject anything for `<that area>`? What and why?"
 
-      **PASS (live):** with the journal present, Claude runs `mk_search {scope:"decisions"}` (or `cmk search … --scope decisions`) and its answer surfaces the **superseded/retracted** decision (e.g. "we picked broadcast, then reversed to per-connection — retracted `<date>`") from the JOURNAL, not just reconstructed from the live facts. **FAIL (live):** the journal EXISTS but Claude never queries the `decisions` scope and answers only from the snapshot/facts, OR claims no history exists. **NOT-A-RESULT (the cut-gate-15 trap):** if `context\DECISIONS.md` doesn't exist, the gate is UNTESTED, not passed — a great answer from the facts is not a DJ4 pass. _Behavioral directive (like W1/E1) — a human must eyeball it. If it FAILS with the journal present, the recall directive (injected CLAUDE.md "Recalling memory" + the memory-search skill "Decision HISTORY" step) isn't triggering — a v0.3.3 blocker. Note: when the SessionStart snapshot already fully answers the question, Claude legitimately may not query the journal — to force the journal path, ask about a SUPERSEDED/retracted decision the snapshot doesn't carry (the journal's unique value is exactly the retired trail)._
+      **PASS:** Claude runs `mk_search {scope:"decisions"}` and its answer names the superseded/retracted decision from the journal.
+      **FAIL:** the journal exists but Claude never queries the `decisions` scope, or claims no history exists.
+      **NOT-A-RESULT:** if `context\DECISIONS.md` doesn't exist, the gate is untested — a good answer from the facts is not a pass.
+
+- [ ] **★ DJ5 — the journal auto-populates with no `cmk digest` (v0.3.3).**
+      In a throwaway project with the kit installed. **Do NOT run `cmk digest`.**
+      ```powershell
+      cmk remember "Adopt id-keyed index replacement" --type project --title "index-replace" --why "archive beats scratchpad" | Out-Null
+      node <kit>\packages\cli\bin\cmk-compress-session.mjs    # the session-end hook
+      Test-Path context\DECISIONS.md                          # expect True
+      Select-String context\DECISIONS.md -Pattern "index-replace"   # the journal entry is keyed by --title, not the remember text
+      ```
+      **PASS:** `context\DECISIONS.md` exists and lists the decision (its `--title`, a `**When:**` date, the `**Why:**`) — no `cmk digest` was run.
+      **FAIL:** the file is absent after the hook, or only `cmk digest` can produce it.
+
+      Fallback (no-clean-exit session): delete `context\DECISIONS.md`, capture a decision, run `node <kit>\packages\cli\bin\cmk-compress-lazy.mjs`, re-check `Test-Path` → True.
 
 ---
 

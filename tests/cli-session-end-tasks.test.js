@@ -23,15 +23,17 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { compressMock, personaMock, graduateMock } = vi.hoisted(() => ({
+const { compressMock, personaMock, graduateMock, journalMock } = vi.hoisted(() => ({
   compressMock: vi.fn(),
   personaMock: vi.fn(),
   graduateMock: vi.fn(),
+  journalMock: vi.fn(),
 }));
 
 vi.mock('../packages/cli/src/compress-session.mjs', () => ({ compressSession: compressMock }));
 vi.mock('../packages/cli/src/auto-persona.mjs', () => ({ autoPersona: personaMock }));
 vi.mock('../packages/cli/src/graduate-session.mjs', () => ({ graduateAllScratchpads: graduateMock }));
+vi.mock('../packages/cli/src/decisions-journal.mjs', () => ({ syncDecisionsJournal: journalMock }));
 
 const { runSessionEndTasks, summarizeSessionEnd } = await import(
   '../packages/cli/src/session-end-tasks.mjs'
@@ -43,8 +45,11 @@ beforeEach(() => {
   compressMock.mockReset();
   personaMock.mockReset();
   graduateMock.mockReset();
+  journalMock.mockReset();
   // Default: graduation sweep is a synchronous no-op unless a test overrides it.
   graduateMock.mockReturnValue({ results: [], totalGraduated: 0, totalConsolidated: 0 });
+  // Default: journal sync is a synchronous no-op unless a test overrides it.
+  journalMock.mockReturnValue({ written: false, appended: 0 });
 });
 
 describe('runSessionEndTasks — concurrency (D-42 composition fix)', () => {
@@ -217,6 +222,60 @@ describe('runSessionEndTasks — Task 94.3 graduation sweep (sequential, after p
   });
 });
 
+describe('runSessionEndTasks — Task 159 decision-journal auto-sync (D-169)', () => {
+  it('syncs the decision journal at session end with NO manual `cmk digest` (Door 3)', async () => {
+    // The load-bearing automatic-path assertion: the journal renders from the
+    // session-end hook, with no human-run command. (D-164 / the D-169 done-criteria rule.)
+    compressMock.mockResolvedValue({ action: 'compressed' });
+    personaMock.mockResolvedValue({ action: 'promoted', promoted: [], queued: [] });
+    journalMock.mockReturnValue({ written: true, appended: 120, path: '/proj/context/DECISIONS.md' });
+
+    const { journalOutcome } = await runSessionEndTasks({
+      projectRoot: '/proj',
+      userDir: '/userdir',
+      makeBackend: () => ({ compress: vi.fn() }),
+      now: '2026-06-18T00:00:00Z',
+    });
+
+    expect(journalMock).toHaveBeenCalledWith({ projectRoot: '/proj', now: '2026-06-18T00:00:00Z' });
+    expect(journalOutcome.status).toBe('fulfilled');
+    expect(journalOutcome.value.written).toBe(true);
+    expect(journalOutcome.value.appended).toBe(120);
+  });
+
+  it('still syncs the journal even when BOTH Haiku passes reject (allSettled isolation)', async () => {
+    compressMock.mockRejectedValue(new Error('c'));
+    personaMock.mockRejectedValue(new Error('p'));
+    journalMock.mockReturnValue({ written: false, appended: 0 });
+
+    const { journalOutcome } = await runSessionEndTasks({
+      projectRoot: '/proj',
+      userDir: '/userdir',
+      makeBackend: () => ({ compress: vi.fn() }),
+    });
+
+    expect(journalMock).toHaveBeenCalledTimes(1);
+    expect(journalOutcome.status).toBe('fulfilled');
+  });
+
+  it('captures a synchronous journal throw as a rejected outcome (never rejects the hook)', async () => {
+    compressMock.mockResolvedValue({ action: 'compressed' });
+    personaMock.mockResolvedValue({ action: 'promoted', promoted: [], queued: [] });
+    journalMock.mockImplementation(() => {
+      throw new Error('journal boom');
+    });
+
+    const { journalOutcome } = await runSessionEndTasks({
+      projectRoot: '/proj',
+      userDir: '/userdir',
+      makeBackend: () => ({ compress: vi.fn() }),
+    });
+
+    expect(journalOutcome.status).toBe('rejected');
+    expect(journalOutcome.reason.message).toBe('journal boom');
+  });
+});
+
 describe('runSessionEndTasks — allSettled isolation (best-effort)', () => {
   it('a persona failure does not discard the compress result', async () => {
     compressMock.mockResolvedValue({ action: 'compressed', duration_ms: 5 });
@@ -348,5 +407,36 @@ describe('summarizeSessionEnd — stderr line rendering', () => {
       personaOutcome: { status: 'fulfilled', value: { action: 'promoted', promoted: [], queued: [] } },
     });
     expect(lines).toHaveLength(2);
+  });
+
+  it('renders a fulfilled journal outcome as a fourth line when present (Task 159)', () => {
+    const lines = summarizeSessionEnd({
+      compressOutcome: { status: 'fulfilled', value: { action: 'compressed', duration_ms: 5 } },
+      personaOutcome: { status: 'fulfilled', value: { action: 'promoted', promoted: [], queued: [] } },
+      graduationOutcome: { status: 'fulfilled', value: { totalGraduated: 0, totalConsolidated: 0 } },
+      journalOutcome: { status: 'fulfilled', value: { written: true, appended: 240 } },
+    });
+    expect(lines).toHaveLength(4);
+    expect(lines[3]).toContain('journal (written: true, appended: 240)');
+    expect(lines[3].endsWith('\n')).toBe(true);
+  });
+
+  it('renders a rejected journal outcome as a failure line', () => {
+    const lines = summarizeSessionEnd({
+      compressOutcome: { status: 'fulfilled', value: { action: 'compressed', duration_ms: 5 } },
+      personaOutcome: { status: 'fulfilled', value: { action: 'promoted', promoted: [], queued: [] } },
+      graduationOutcome: { status: 'fulfilled', value: { totalGraduated: 0, totalConsolidated: 0 } },
+      journalOutcome: { status: 'rejected', reason: new Error('boom-j') },
+    });
+    expect(lines[3]).toContain('journal sync failed: boom-j');
+  });
+
+  it('omits the journal line entirely when journalOutcome is absent (back-compat)', () => {
+    const lines = summarizeSessionEnd({
+      compressOutcome: { status: 'fulfilled', value: { action: 'compressed', duration_ms: 5 } },
+      personaOutcome: { status: 'fulfilled', value: { action: 'promoted', promoted: [], queued: [] } },
+      graduationOutcome: { status: 'fulfilled', value: { totalGraduated: 0, totalConsolidated: 0 } },
+    });
+    expect(lines).toHaveLength(3);
   });
 });
