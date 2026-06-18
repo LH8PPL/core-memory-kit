@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-N5NPMLYY) Test prompts should use natural language with subtle behavioral triggers, not exact prescriptive phrasing
-  <!-- source: auto-extract-session, source_line: 1, sha1: 2147f04b3a2fa92d7eb652a676449c195bd0edd6a155b89576cb1a755d6dbab9, write: auto-extract, trust: high, at: 2026-06-18T08:45:43Z -->
 - (P-RDZ6SE7C) User explicitly prefers concise responses; doesn't want walls of text
   <!-- source: auto-extract-session, source_line: 1, sha1: a2a6a38bc0c5638d7d3ec27a84421092c4de7bad7e8772eb59cecc03fd134b6d, write: auto-extract, trust: high, at: 2026-06-18T12:58:52Z -->
 - (P-P9XLPJ2X) Assistant has a pattern of running without sufficient thought/planning ("running without looking, and doing unnecessary things, again")
@@ -20,6 +18,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: c35e90e0a13b7c9b49d3052a92d26b8fcefba56c959dade7d18ef4ae55613af7, write: auto-extract, trust: high, at: 2026-06-18T15:14:41Z -->
 - (P-E4HX6VVU) Corrects mechanism-only testing (bash) by steering toward behavioral testing via actual intended architecture (skill).
   <!-- source: auto-extract-session, source_line: 1, sha1: 39c85f867c080fad94a1ccfa1cc85e546490b24c4ad87d43ae8c53a79097f295, write: auto-extract, trust: high, at: 2026-06-18T18:26:30Z -->
+- (P-4LCSC9ZY) Release verification must include testing the actual installed/packaged artifact, not just source code, tests, and CI.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 14b853f79933b006ac849e79a25abcc952f950770fc70dab9144d2f9b46a17c6, write: auto-extract, trust: high, at: 2026-06-18T19:13:16Z -->
 
 ## Environment Notes
 
