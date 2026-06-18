@@ -123,7 +123,12 @@ describe('Task 145 — the hook output carries systemMessage (Doors 1+2)', () =>
       sourceSha1: 'abc123',
       projectRoot,
     });
-    const r = await injectContext({ cwd: projectRoot, userDir, now: NOW });
+    // testSpawnLazy: this test asserts the systemMessage OUTPUT shape, not spawn
+    // behavior. The seeded project fact + no DECISIONS.md makes the journal stale
+    // (Task 159), which would otherwise detach a REAL cmk-compress-lazy child that
+    // holds a handle on the sandbox → afterEach rmSync EPERM on Windows. Inject a
+    // no-op spawner (the same pattern the cli-lazy-compress inject tests use).
+    const r = await injectContext({ cwd: projectRoot, userDir, now: NOW, testSpawnLazy: () => ({ spawned: false }) });
     expect(r.hookOutput.hookSpecificOutput.additionalContext).toBe(r.snapshot);
     expect(typeof r.hookOutput.systemMessage).toBe('string');
     expect(r.hookOutput.systemMessage).toMatch(/^claude-memory-kit:/);

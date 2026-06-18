@@ -44,6 +44,7 @@ import {
 import { dailyDistill } from './daily-distill.mjs';
 import { weeklyCurate } from './weekly-curate.mjs';
 import { compressSession } from './compress-session.mjs';
+import { syncDecisionsJournal } from './decisions-journal.mjs';
 
 const DEFAULT_DAILY_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const DEFAULT_WEEKLY_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -129,6 +130,61 @@ function recentMdMtimeMs(projectRoot) {
     return statSync(p).mtimeMs;
   } catch {
     return null;
+  }
+}
+
+const MEMORY_REL = ['context', 'memory'];
+const DECISIONS_MD_REL = ['context', 'DECISIONS.md'];
+
+/**
+ * Task 159 (D-169): is the decision journal behind the captured decision facts?
+ *
+ * INDEPENDENT of compress staleness — a compress-fresh session can still have
+ * new `type:project` decision facts that aren't yet rendered into DECISIONS.md.
+ * So this is its OWN boolean (NOT a competing detectStaleness verdict, which can
+ * only return ONE action and would suppress compress work). Used as an ADDITIONAL
+ * spawn condition in inject-context, and the journal is synced unconditionally
+ * inside runLazyCompress.
+ *
+ * **O(1) — runs inline on EVERY SessionStart, so it must compose with the 500ms
+ * NFR-1 budget.** It uses `context/memory/INDEX.md` as the freshness proxy:
+ * `write-fact.mjs` rewrites INDEX.md on every fact write, so `INDEX.md` mtime ≥
+ * the newest fact file always (verified). Comparing two file mtimes is O(1) — vs
+ * stat-every-fact, which was ~130ms on a 307-fact corpus and grew linearly (a
+ * self-review find; that approach would blow the budget on a large repo).
+ *
+ * Stale ⇔ a `project_*.md` fact exists (short-circuit on the first one — no stat)
+ * AND (DECISIONS.md is missing OR older than INDEX.md). Trade-off: INDEX.md
+ * covers ALL fact types, so a feedback-only write can flag the journal stale →
+ * one spurious detached sync (~175ms, idempotent, never a correctness issue) —
+ * acceptable for an O(1) check on the hot SessionStart path. Defensive: any
+ * throw → false (never block SessionStart on a stat error).
+ *
+ * @param {string} projectRoot
+ * @returns {boolean}
+ */
+export function isJournalStale(projectRoot) {
+  if (!projectRoot) return false;
+  try {
+    const memDir = join(projectRoot, ...MEMORY_REL);
+    if (!existsSync(memDir)) return false;
+    // Any project (decision) fact at all? Short-circuit on the first — no stat,
+    // just the dirent name. No project facts → nothing to journal → not stale.
+    const hasDecisionFact = readdirSync(memDir).some(
+      (name) => name.startsWith('project_') && name.endsWith('.md'),
+    );
+    if (!hasDecisionFact) return false;
+    const journalPath = join(projectRoot, ...DECISIONS_MD_REL);
+    if (!existsSync(journalPath)) return true; // facts exist, journal missing → stale
+    // INDEX.md is the O(1) freshness proxy (rewritten on every fact write). If
+    // it's absent (pre-index repo), fall back to "facts exist + journal exists"
+    // → treat as fresh (a reindex will create INDEX.md; the session-end sync
+    // covers the journal regardless).
+    const indexPath = join(memDir, 'INDEX.md');
+    if (!existsSync(indexPath)) return false;
+    return statSync(indexPath).mtimeMs > statSync(journalPath).mtimeMs;
+  } catch {
+    return false;
   }
 }
 
@@ -253,6 +309,31 @@ export async function runLazyCompress({
       duration_ms: Date.now() - t0,
     });
   }
+
+  // Task 159 (D-169): sync the decision journal UNCONDITIONALLY, before any
+  // compress gate. This is the SessionStart fallback path for sessions that never
+  // cleanly closed (Claude Code fires SessionEnd only on clean window-close — the
+  // Task-105/D-75 class), where the primary session-end sync never ran. It must
+  // run regardless of the compress verdict (cooldown / cron-active / fresh) — a
+  // cron-active or compress-fresh session can still have new decisions. Cheap pure
+  // file I/O (~175ms), idempotent (a no-change run rewrites nothing), best-effort
+  // (syncDecisionsJournal has its own try/catch + soft-error return). It does NOT
+  // touch the Haiku cooldown — that gate is for the LLM compress passes only.
+  // Door 4: log the outcome to lazy-compress.log so a silent fallback-path
+  // failure (e.g. a DECISIONS.md permissions error) leaves a trace — the rest of
+  // this function is fully NDJSON-observable, and the journal sync must be too.
+  const journalResult = syncDecisionsJournal({ projectRoot, now: ts });
+  writeLazyLogEntry({
+    projectRoot,
+    entry: {
+      ts,
+      scope: 'journal-sync',
+      action: journalResult?.error ? 'error' : journalResult?.written ? 'written' : 'no-change',
+      written: journalResult?.written ?? false,
+      appended: journalResult?.appended ?? 0,
+      ...(journalResult?.error ? { error: journalResult.error } : {}),
+    },
+  });
 
   // Cooldown gate up front — composes with shared 120s marker.
   if (isCooldownActive({ projectRoot, now: ts, cooldownMs })) {

@@ -35,7 +35,7 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { SCRATCHPADS_BY_TIER, resolveTierRoot, ID_PATTERN } from './tier-paths.mjs';
 import { nowIso } from './audit-log.mjs';
-import { detectStaleness } from './lazy-compress.mjs';
+import { detectStaleness, isJournalStale } from './lazy-compress.mjs';
 import { isProvenanceCommentLine, parseBulletProvenance } from './provenance.mjs';
 import { listConflictQueue } from './conflict-queue.mjs';
 import { listReviewQueue } from './review-queue.mjs';
@@ -787,18 +787,28 @@ export function injectContext({
   let lazyTrigger = null;
   try {
     const verdict = detectStaleness({ projectRoot, now: ts });
-    lazyTrigger = { verdict: verdict.action, reason: verdict.reason };
-    if (
+    // Task 159 (D-169): journal-staleness is an INDEPENDENT spawn trigger — the
+    // detached lazy worker syncs DECISIONS.md unconditionally, so a session that's
+    // compress-fresh (or cron-active) but has new un-journaled decisions must
+    // still spawn, else the journal never renders without a clean SessionEnd
+    // (the Task-105/D-75 no-clean-exit class). Cron handles compress but NOT the
+    // journal, so cron-active + a stale journal SHOULD spawn (compress skips
+    // inside, the journal syncs). It is NOT a competing detectStaleness verdict
+    // (one verdict → one compress dispatch; folding journal in would suppress
+    // compress work — the separately-correct-jointly-broken class).
+    const journalStale = isJournalStale(projectRoot);
+    lazyTrigger = { verdict: verdict.action, reason: verdict.reason, journalStale };
+    const compressStale =
       verdict.action === 'stale-now' ||
       verdict.action === 'stale-daily' ||
-      verdict.action === 'stale-weekly'
-    ) {
+      verdict.action === 'stale-weekly';
+    if (compressStale || journalStale) {
       const spawner = typeof testSpawnLazy === 'function' ? testSpawnLazy : spawnLazyCompress;
       const spawnResult = spawner(projectRoot, compressLazyPath);
       lazyTrigger = { ...lazyTrigger, ...spawnResult };
     }
   } catch (err) {
-    // detectStaleness should be defensive; if it throws, log + continue.
+    // detectStaleness / isJournalStale should be defensive; if they throw, log + continue.
     lazyTrigger = { verdict: 'error', error: err?.message ?? String(err) };
   }
 

@@ -22,3 +22,27 @@
 ## 2026-06-16T14:05:44Z — auto-extract (medium-trust, pending review)
 - (P-aG3GHZBE) v0.3.3 roadmap: Task 156 (DECISIONS.md AI-recall journal completion), Task 155 (tombstone recovery flag)
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-16T14:05:44Z -->
+## 2026-06-18T06:40:32Z — auto-extract (medium-trust, pending review)
+- (P-CLTKNaVa) Memory routing gap caught — I was writing to harness slug path instead of kit's documented in-repo context/; asking if this needs addressing
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-18T06:40:32Z -->
+## 2026-06-18T06:53:08Z — auto-extract (medium-trust, pending review)
+- (P-94DQYLBM) INDEX.md is the kit's metadata index of all 307 memory facts; touched on every fact save
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-18T06:53:08Z -->
+## 2026-06-18T06:53:08Z — auto-extract (medium-trust, pending review)
+- (P-BFTDUAQT) DECISIONS.md is the decision journal; Task 159 makes it auto-update automatically
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-18T06:53:08Z -->
+## 2026-06-18T06:55:13Z — auto-extract (medium-trust, pending review)
+- (P-DCP2GLQY) Task 159 made two undocumented divergences from research spec: used `isJournalStale()` boolean instead of `detectStaleness` verdict; used INDEX.md mtime proxy instead of checking newest fact file. Code is sound; decision trail has a gap.
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-18T06:55:13Z -->
+## 2026-06-18T06:55:13Z — auto-extract (medium-trust, pending review)
+- (P-UY6XTETK) Expects implementation choices to be traceable to (or explicitly justified against) prior research and documented decisions. Surfaced via probing question "did you go over all the docs?"
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-18T06:55:13Z -->
+## 2026-06-18T07:23:23Z — auto-extract (medium-trust, pending review)
+- (P-HGAHKL9H) 6 mattpocock skills (tdd, grilling, diagnosing-bugs, codebase-design, domain-modeling, prototype) are gitignored; prevents travel between machines
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-18T07:23:23Z -->
+## 2026-06-18T07:23:23Z — auto-extract (medium-trust, pending review)
+- (P-WCBPVNEa) Skills available but not invoked despite matching work; violates Skill agency rule (skills auto-fire, shouldn't need manual command)
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-18T07:23:23Z -->
+## 2026-06-18T07:23:23Z — auto-extract (medium-trust, pending review)
+- (P-6DNYCTB2) Code-review-excellence is pre-existing skill, not one of 6 newly adopted; produced concrete value (caught I1 bug)
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-18T07:23:23Z -->

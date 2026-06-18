@@ -35,6 +35,7 @@
 import { compressSession } from './compress-session.mjs';
 import { autoPersona } from './auto-persona.mjs';
 import { graduateAllScratchpads } from './graduate-session.mjs';
+import { syncDecisionsJournal } from './decisions-journal.mjs';
 
 /**
  * Run the two independent SessionEnd Haiku passes concurrently.
@@ -45,7 +46,7 @@ import { graduateAllScratchpads } from './graduate-session.mjs';
  * @param {() => object} opts.makeBackend - factory returning a fresh CompressorBackend
  *   per call (each concurrent pass gets its own instance — no shared state).
  * @param {string} [opts.now] - ISO timestamp override (tests).
- * @returns {Promise<{compressOutcome: PromiseSettledResult, personaOutcome: PromiseSettledResult, graduationOutcome: PromiseSettledResult}>}
+ * @returns {Promise<{compressOutcome: PromiseSettledResult, personaOutcome: PromiseSettledResult, graduationOutcome: PromiseSettledResult, journalOutcome: PromiseSettledResult}>}
  */
 export async function runSessionEndTasks({ projectRoot, userDir, makeBackend, now }) {
   const [compressOutcome, personaOutcome] = await Promise.allSettled([
@@ -75,7 +76,30 @@ export async function runSessionEndTasks({ projectRoot, userDir, makeBackend, no
     graduationOutcome = { status: 'rejected', reason: err };
   }
 
-  return { compressOutcome, personaOutcome, graduationOutcome };
+  // Task 159 (D-169): auto-sync the decision journal. This is what makes
+  // DECISIONS.md "automatic" (D-164) — Task 147 BUILT the append logic but wired
+  // it to ONLY the manual `cmk digest`, so the journal never populated on its own.
+  // Same shape as the graduation sweep: SEQUENTIAL, pure local file I/O (reads the
+  // type:project fact files auto-extract wrote per-turn → rewrites DECISIONS.md),
+  // no Haiku/network (~175ms), no hook-ceiling risk, wrapped so a throw can't reject
+  // the hook. DISJOINT from compress (sessions/ tree) + persona (user-tier) +
+  // graduation (persona scratchpads) — nothing else in the block touches DECISIONS.md,
+  // so no lock contention. Session-end is the natural "this session's decisions
+  // landed → render them" boundary (squad's session-end Scribe instinct, made
+  // deterministic — the kit's typed-fact substrate needs no LLM to merge).
+  // syncDecisionsJournal is already best-effort (its own try/catch returns
+  // {written:false,error}); the wrapper here guards the unexpected synchronous throw.
+  let journalOutcome;
+  try {
+    journalOutcome = {
+      status: 'fulfilled',
+      value: syncDecisionsJournal({ projectRoot, now }),
+    };
+  } catch (err) {
+    journalOutcome = { status: 'rejected', reason: err };
+  }
+
+  return { compressOutcome, personaOutcome, graduationOutcome, journalOutcome };
 }
 
 /**
@@ -86,7 +110,7 @@ export async function runSessionEndTasks({ projectRoot, userDir, makeBackend, no
  * @param {{compressOutcome: PromiseSettledResult, personaOutcome: PromiseSettledResult}} outcomes
  * @returns {string[]}
  */
-export function summarizeSessionEnd({ compressOutcome, personaOutcome, graduationOutcome }) {
+export function summarizeSessionEnd({ compressOutcome, personaOutcome, graduationOutcome, journalOutcome }) {
   const lines = [];
 
   if (compressOutcome.status === 'fulfilled') {
@@ -120,6 +144,19 @@ export function summarizeSessionEnd({ compressOutcome, personaOutcome, graduatio
     } else {
       const e = graduationOutcome.reason;
       lines.push(`cmk-compress-session: graduation failed: ${e?.message ?? e}\n`);
+    }
+  }
+
+  // journalOutcome is optional (Task 159) — pre-159 callers render no journal line.
+  if (journalOutcome) {
+    if (journalOutcome.status === 'fulfilled') {
+      const j = journalOutcome.value ?? {};
+      lines.push(
+        `cmk-compress-session: journal (written: ${j.written ?? false}, appended: ${j.appended ?? 0})\n`,
+      );
+    } else {
+      const e = journalOutcome.reason;
+      lines.push(`cmk-compress-session: journal sync failed: ${e?.message ?? e}\n`);
     }
   }
 

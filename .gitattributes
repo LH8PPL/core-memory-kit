@@ -23,3 +23,22 @@
 *.yml text eol=lf
 *.yaml text eol=lf
 *.sh text eol=lf
+
+# claude-memory-kit:gitattributes:start v0.3.3
+# claude-memory-kit — added by `cmk install`. Do not edit by hand;
+# `cmk install` refreshes these lines idempotently. Remove via
+# `cmk uninstall`.
+#
+# Force LF on the COMMITTED memory files. The kit's frontmatter parser uses
+# a strict-LF boundary and split('\n') readers; default Windows git
+# (autocrlf=true) rewrites line endings at clone, which made every fact
+# invisible to search on a Windows checkout (D-126). The read side now
+# self-heals (tolerant CRLF reads), but pinning LF here PREVENTS the
+# mangling so it never has to.
+#
+# Scoped to the text extensions the kit actually commits (.md + .json) under
+# context/ — NOT a blanket `context/** text`, so a future committed binary
+# under context/ is never force-normalized + corrupted.
+context/**/*.md text eol=lf
+context/**/*.json text eol=lf
+# claude-memory-kit:gitattributes:end
