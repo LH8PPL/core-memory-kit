@@ -527,12 +527,23 @@ Run these in the build terminal (`C:\Temp\cut-gate12`), after Session 1 has capt
       ```
       **PASS:** the first `--scope decisions` search returns the decision (labelled `decision`, keyed by its `P-…` id, clean snippet — no `<!-- decision -->` plumbing); after forget+digest the SAME search still returns it, now labelled `decision (retracted)` — so "what did we reject" is answerable from recall, not just by opening the file.
 
-      **DJ4-live (the behavioral half — run in a real Claude Code session, NOT the terminal).** The CLI half above proves the *mechanism*; this proves Claude actually *reaches for it* from the recall directive. After the steps above (a real journal with at least one retracted decision exists), open a session in this project and paste ONE of these — then watch what tool Claude runs:
-      - **Prompt A (evolution):** "We've gone back and forth on the data store — what did we actually decide, and did it ever change?"
-      - **Prompt B ("what did we reject"):** "Did we ever consider and reject anything for the store? What and why?"
-      - **Prompt C (direct history):** "Show me the decision history for the store — including anything we reversed."
+      **DJ4-live (the behavioral half — run in a real Claude Code session, NOT the terminal).** The CLI half above proves the *mechanism*; this proves Claude actually *reaches for it* from the recall directive.
 
-      **PASS (live):** Claude consults the journal — it runs `mk_search` with `scope: "decisions"` (or `cmk search … --scope decisions` via the memory-search skill), and its answer surfaces the **superseded/retracted** decision (e.g. "we picked Postgres, then reversed it — retracted on `<date>`"), not just the current live fact. **FAIL (live):** Claude answers only from the live fact / the injected snapshot and never queries the journal scope, OR claims no history exists. _Behavioral directive (like W1/E1) — can't be auto-asserted; this is the one DECISIONS.md gate a human must eyeball. If it FAILS, the recall directive (injected CLAUDE.md "Recalling memory" + the memory-search skill "Decision HISTORY" step) isn't triggering — that's a v0.3.3 blocker, not a nit._
+      **⚠️ PREREQUISITE (the v0.3.3-cut-gate-15 miss — the journal must EXIST in the LIVE project).** The terminal steps above run in your throwaway dev terminal, NOT the live project. The live project (e.g. `C:\Temp\cut-gate15`) only has a `context\DECISIONS.md` if `cmk digest` has run THERE — and a fresh build session never runs it. Without the file, `--scope decisions` returns `[]` and Claude answers from the FACT store instead (which it does well — masking the gap). So FIRST, in the live project's terminal, build the journal with a real superseded decision drawn from THIS project's history:
+      ```powershell
+      # in the LIVE project dir (e.g. C:\Temp\cut-gate15):
+      cmk digest                                               # builds context\DECISIONS.md from the project's type:project decision facts
+      type context\DECISIONS.md                                # confirm it exists + lists this project's decisions
+      # If a real reversal happened this build (e.g. broadcast → session-per-connection), forget the superseded fact so the journal marks it retracted:
+      # $id = (the superseded decision's P-… id, from `cmk search "<old approach>"`)
+      # cmk forget $id --yes ; cmk digest
+      ```
+      ALSO restart Claude Code AFTER step 0b's reinstall (the MCP server is long-lived — a session started before the reinstall talks to the OLD binary, so `--scope decisions` errors `unknown-scope:decisions`; the cut-gate-15 run hit exactly this). THEN, in a fresh session, ask a decision-HISTORY question about THIS project's real evolution — and watch what tool Claude runs:
+      - **Prompt A (evolution):** "What did we actually settle on for `<the area that changed>`, and did it ever change?" (cut-gate-15: the chat topology — broadcast vs per-connection)
+      - **Prompt B ("what did we reject"):** "Did we consider and then reject anything for `<that area>`? What and why?"
+      - **Prompt C (direct history):** "Show me the decision history for `<that area>` — including anything we reversed."
+
+      **PASS (live):** with the journal present, Claude runs `mk_search {scope:"decisions"}` (or `cmk search … --scope decisions`) and its answer surfaces the **superseded/retracted** decision (e.g. "we picked broadcast, then reversed to per-connection — retracted `<date>`") from the JOURNAL, not just reconstructed from the live facts. **FAIL (live):** the journal EXISTS but Claude never queries the `decisions` scope and answers only from the snapshot/facts, OR claims no history exists. **NOT-A-RESULT (the cut-gate-15 trap):** if `context\DECISIONS.md` doesn't exist, the gate is UNTESTED, not passed — a great answer from the facts is not a DJ4 pass. _Behavioral directive (like W1/E1) — a human must eyeball it. If it FAILS with the journal present, the recall directive (injected CLAUDE.md "Recalling memory" + the memory-search skill "Decision HISTORY" step) isn't triggering — a v0.3.3 blocker. Note: when the SessionStart snapshot already fully answers the question, Claude legitimately may not query the journal — to force the journal path, ask about a SUPERSEDED/retracted decision the snapshot doesn't carry (the journal's unique value is exactly the retired trail)._
 
 ---
 
