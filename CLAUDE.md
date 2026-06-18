@@ -103,18 +103,7 @@ The user is direct and tight on time. Match the energy.
 
 ## Engineering discipline (binding)
 
-**Test-driven development.** Always:
-
-1. Write the test first (the public-contract boundary test).
-2. Watch it fail.
-3. Implement the code until tests pass.
-4. Never change the test to make it pass. Change the code.
-
-**Boundary testing** (per Ousterhout, *A Philosophy of Software Design*):
-
-- Test the **public interface** of each module. Not the internal helpers.
-- A good test survives refactors. If a refactor breaks a test that was testing the contract, the refactor broke the contract — that's the test working.
-- The test for `writeFact()` checks what file lands where with what frontmatter. NOT how `_parseFrontmatter()` happens to handle YAML.
+**Test-driven development + boundary testing → invoke the `tdd` skill.** The how-to (write the failing test first / watch it fail / never change the test to pass it; test the public interface not internal helpers; a good test survives refactors; vertical tracer-bullet slices not horizontal "all tests then all code") lives in the on-demand **`tdd`** skill (`.claude/skills/tdd/`, with `tests.md` + `mocking.md` depth). Invoke it when building a feature or fixing a bug test-first. The kit-specific testing rules below (the five exit doors, over-mutation guard, integration coverage, fixture-ID alphabet) are NOT in that skill — they stay here and compose with it.
 
 **The five exit doors** (per Goldberg's *nodejs-testing-best-practices*) — when writing a test, walk this checklist and assert every applicable door:
 
@@ -139,11 +128,7 @@ Most kit tests assert (1) and (2). The ones that miss (3) or (4) are the ones wh
 
 Do this **before** the edit, not after a red suite. Precedent (2026-06-01): the `installTier` placeholder fix added a required `vars` arg but missed the `initUserTier` caller → `cmk init-user-tier` crashed; the full suite caught it, which is the expensive path. The retroactive caller-map confirmed the break — but run upfront it would have caught it for free. (And the verification grep itself had a multi-line-import false-negative — a token grep is a starting point, not proof; read the actual call sites.) This is the same class as the composition rules above, applied at edit time rather than test time.
 
-**Deep modules with simple interfaces:**
-
-- Wrap related code into broad modules that expose narrow surfaces.
-- Don't fragment cohesive logic into many shallow helpers.
-- Example: `install.mjs` is one module with one public boundary (`install({ ... })`) backed by ~10 internal helpers.
+**Deep modules + the design vocabulary → invoke the `codebase-design` skill.** The principle (broad modules behind narrow interfaces; don't fragment cohesive logic into shallow helpers) + the shared vocabulary (Module / Interface / Depth / Seam / Adapter / Leverage / Locality), the deletion test, and "one adapter = hypothetical seam, two = real" live in the on-demand **`codebase-design`** skill (`.claude/skills/codebase-design/`). Invoke it when designing or restructuring a module's interface or deciding where a seam goes. Kit example of the principle: `install.mjs` is one module with one public boundary (`install({ … })`) over ~10 internal helpers.
 
 **Incremental build:**
 
