@@ -1837,3 +1837,466 @@
 ### DECISIONS.md is append-only permanent journal not regenerated
 **When:** 2026-06-15 · **Fact:** `P-3C9V6a76`
 **Why:** Arrived at by reasoning through what happens when a decision-fact is superseded/forgotten over time. A regenerated-from-live DECISIONS.md (my first instinct, mirroring INDEX.md) would erase superseded decisions — destroying the journal's entire value (the why-we-changed trail). The MEMORY.md parking model also must NOT apply: old decisions are the MOST valuable part of a decision log, so it's unbounded and never rolls. Append-permanent for the journal vs regenerate for the digest — the difference IS the MEMORY.md-vs-decision-log distinction. Squad appends because it has no DB; the kit appends-with-structure (links/supersession/no-junk) because it does.
+
+<!-- decision:P-RES031CG -->
+### RESUME — v0.3.1 cut-gate near-complete; PR
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-YL3LWC69 -->
+### D-126 (.gitattributes CRLF prevention follow-up) is the final v0.3.x queue item
+**When:** 2026-06-15 · **Fact:** `P-YL3LWC69`
+
+<!-- decision:P-YUCE6EAH -->
+### Merge workflow for this PR: squash merge + delete branch
+**When:** 2026-06-15 · **Fact:** `P-YUCE6EAH`
+
+<!-- decision:P-9SN5DHQT -->
+### For v0.3.2, only proceed with node:sqlite migration (141b) if perf tests show p9
+**When:** 2026-06-15 · **Fact:** `P-9SN5DHQT`
+
+<!-- decision:P-TLTURYF7 -->
+### Start v0.3.2 now and include Task 153 (FTS5 parse fix) in this release
+**When:** 2026-06-15 · **Fact:** `P-TLTURYF7`
+
+<!-- decision:P-ZVQEMWJA -->
+### Confirmed proposed v0.3.2 scope is better (tasks 153, 152, 134, gitattributes, c
+**When:** 2026-06-15 · **Fact:** `P-ZVQEMWJA`
+
+<!-- decision:P-F94ZJMYV -->
+### Always monitor CI without asking for permission or pausing to confirm; this is t
+**When:** 2026-06-15 · **Fact:** `P-F94ZJMYV`
+
+<!-- decision:P-TAPT7BH7 -->
+### Expand condensed content to 2 lines when it feels cramped; prioritize breathing
+**When:** 2026-06-15 · **Fact:** `P-TAPT7BH7`
+
+<!-- decision:P-7Q5U4XTK -->
+### Rename README section "What it does" to "Features" — clearer language for capabi
+**When:** 2026-06-15 · **Fact:** `P-7Q5U4XTK`
+
+<!-- decision:P-SC3W3ZDV -->
+### Autopilot merge rules for install-surface changes
+**When:** 2026-06-15 · **Fact:** `P-SC3W3ZDV`
+**Why:** Future sessions need to know which changes require user approval and which proceed automatically, to avoid unintended ship-surface deployments.
+
+<!-- decision:P-T42VTJBJ -->
+### Task 141b spike results node:sqlite migration
+**When:** 2026-06-15 · **Fact:** `P-T42VTJBJ`
+**Why:** The three 141b gates were the precondition for the node:sqlite migration. Two pass cleanly; the perf gate is inconclusive on this hardware (noise >> the 3% bar). Cherry-picking a passing run would be the lazy-framing failure — the honest result is 'can't measure 3% here.' The decision now needs either a clean machine or a user call on other grounds.
+
+<!-- decision:P-3U4WSVEM -->
+### Autopilot Stop-Condition for Install-Surface Decisions
+**When:** 2026-06-15 · **Fact:** `P-3U4WSVEM`
+**Why:** Install-surface changes have high blast radius and warrant explicit user judgment.
+
+<!-- decision:P-DSRXEXRL -->
+### Task 141b Spike Results — Perf Inconclusive on Dev Machine
+**When:** 2026-06-15 · **Fact:** `P-DSRXEXRL`
+**Why:** Stable measurement impossible on variable dev machine. Cannot proceed without clean data (guessing or cherry-picking would be the trap).
+
+<!-- decision:P-AE2R9TUU -->
+### v0.3.2 Release Status
+**When:** 2026-06-15 · **Fact:** `P-AE2R9TUU`
+**Why:** v0.3.2 is release-ready without 141b. Task 141a already covers npm-12 pain. 141b ships later with stable perf data.
+
+<!-- decision:P-PMJYQEC5 -->
+### sqlite-vec Incompatibility Between better-sqlite3 and node:sqlite
+**When:** 2026-06-15 · **Fact:** `P-PMJYQEC5`
+**Why:** Explains why the 141b benchmark produced ±50% variance and why detecting the target 3% perf difference was impossible. Documents a hard constraint on how these libraries can be compared.
+
+<!-- decision:P-66XJQTaM -->
+### Benchmark Noise Floor on Dev Laptop
+**When:** 2026-06-15 · **Fact:** `P-66XJQTaM`
+**Why:** Migration 141b depends on verifying D-147. The user will not push an unverified gate; data quality is the blocker.
+
+<!-- decision:P-5UJHaH4F -->
+### Benchmark Harness Noise Floor Rule (3% RSD threshold)
+**When:** 2026-06-15 · **Fact:** `P-5UJHaH4F`
+**Why:** Implemented to ensure harness honesty after the user's earlier question "do you get the same results?" This prevents false verdicts on noisy hardware and makes measurement limits transparent.
+
+<!-- decision:P-5NZCD94Q -->
+### v0.3.2 Release Scope and 141b Gate
+**When:** 2026-06-16 · **Fact:** `P-5NZCD94Q`
+**Why:** v0.3.2 scope is locked; 141b is the sole pending decision before release can be cut
+
+<!-- decision:P-CUV74RDV -->
+### Task 141b node:sqlite migration rejected on perf
+**When:** 2026-06-16 · **Fact:** `P-CUV74RDV`
+**Why:** The whole migration was gated on D-147's three spikes; the perf gate is decisive. CI gave clean measurement (noise « the 3% bar) showing node:sqlite is ~10% slower on FTS5 keyword search — the hot path users pay every query. The kit's core purpose is fast local recall; a permanent 10% search regression to avoid a one-time npm-12 install prompt is the wrong trade (the user's settled principle). This closes 141b honestly on real data, not laptop noise.
+
+<!-- decision:P-WB2VQPWN -->
+### 141b Is Rejected — Decision Rationale
+**When:** 2026-06-16 · **Fact:** `P-WB2VQPWN`
+**Why:** Decision grounded in clean, repeatable CI data. User's persistent questioning of noisy laptop results led to escalating to CI, which provided the definitive answer.
+
+<!-- decision:P-LF5GNVaZ -->
+### CI Triggering Capability
+**When:** 2026-06-16 · **Fact:** `P-LF5GNVaZ`
+**Why:** Assistant was over-cautious about automation scope. This capability exists and is faster than asking user to click.
+
+<!-- decision:P-6AW7LDQH -->
+### v0.3.2 Release Scope Locked
+**When:** 2026-06-16 · **Fact:** `P-6AW7LDQH`
+**Why:** All planned tasks completed; 141b rejected on clean data. Release is unblocked pending manual tag push.
+
+<!-- decision:P-B4CANFVU -->
+### Cut-Gate Verification Probes
+**When:** 2026-06-16 · **Fact:** `P-B4CANFVU`
+**Why:** These probes verify the built artifact before publishing. Knowing their names helps locate them in the release guide.
+
+<!-- decision:P-7T2BCHL6 -->
+### Release Workflow: Commit, Cut-Gate, Tag-Push
+**When:** 2026-06-16 · **Fact:** `P-7T2BCHL6`
+**Why:** This is the repeatable release process. Capturing the workflow and ownership boundaries avoids re-deriving at the next release.
+
+<!-- decision:P-AUF4MDTR -->
+### Doctor Health Check Baseline (Fresh Install)
+**When:** 2026-06-16 · **Fact:** `P-AUF4MDTR`
+**Why:** Distinguishes expected vs. actual health issues early in setup validation.
+
+<!-- decision:P-FGJMCQNP -->
+### v0.3.2 New Validation Gates
+**When:** 2026-06-16 · **Fact:** `P-FGJMCQNP`
+**Why:** These are new features shipped in 0.3.2; knowing their guide locations ensures they are tested during release validation.
+
+<!-- decision:P-6VTN4QSS -->
+### Windows npm Uninstall – better_sqlite3.node Lock
+**When:** 2026-06-16 · **Fact:** `P-6VTN4QSS`
+**Why:** Helps distinguish a non-blocker (EPERM on .node) from actual failures during uninstall/install cycles.
+
+<!-- decision:P-2CFEBV9Y -->
+### Cut-Gate Pre-Release Validation Checklist (G0-G7)
+**When:** 2026-06-16 · **Fact:** `P-2CFEBV9Y`
+**Why:** These gates catch breaking changes, misconfiguration, and integration regressions before user-facing Session 1. They form the kit's cut validation checklist.
+
+<!-- decision:P-5PC4DaJF -->
+### Windows npm Uninstall EPERM With better_sqlite3
+**When:** 2026-06-16 · **Fact:** `P-5PC4DaJF`
+**Why:** EPERM during teardown/rebuild is a frequent false alarm on Windows. Knowing it is harmless and expected prevents misdiagnosis and unnecessary re-runs.
+
+<!-- decision:P-6JFTXAPN -->
+### G4 Gate Upgraded to Mandatory Full-Sweep
+**When:** 2026-06-16 · **Fact:** `P-6JFTXAPN`
+**Why:** Prevent accidentally committed secrets/paths in public release. The upgrade ensures this cannot be missed.
+
+<!-- decision:P-DRaNKRTM -->
+### Three-Tier Memory Architecture
+**When:** 2026-06-16 · **Fact:** `P-DRaNKRTM`
+**Why:** Understanding the tier structure is essential for correct memory placement and avoiding committed-tier leaks.
+
+<!-- decision:P-ZFEHNQY7 -->
+### First-Time MCP Server Approval in Claude Code
+**When:** 2026-06-16 · **Fact:** `P-ZFEHNQY7`
+**Why:** Claude Code enforces this security policy on all MCP servers defined in committed config
+
+<!-- decision:P-UBV99YJ7 -->
+### MCP Server and Settings File Organization
+**When:** 2026-06-16 · **Fact:** `P-UBV99YJ7`
+**Why:** Project-scoped tools must travel with `git clone` so all teammates get the same MCP servers, while user-specific customizations remain local
+
+<!-- decision:P-aD27LQ3H -->
+### journaledIds Regex Incompleteness — Unbounded DECISIONS.md Growth (DJ2)
+**When:** 2026-06-16 · **Fact:** `P-aD27LQ3H`
+**Why:** Regression-test gap—fixtures didn't exercise the real alphabet. Ship-blocker for v0.3.2 (digest/journaling is a headline feature). Fix lands on main before tag.
+
+<!-- decision:P-DPLXZCXJ -->
+### Capture-completeness vs capture-perception gap (persona-queue delay)
+**When:** 2026-06-16 · **Fact:** `P-DPLXZCXJ`
+**Why:** User's instinct about incompleteness is valid as a UX signal, but correctly identified as a promotion/visibility issue rather than a missing-facts issue.
+
+<!-- decision:P-9HCCG4RQ -->
+### Release Validation Gate Structure
+**When:** 2026-06-16 · **Fact:** `P-9HCCG4RQ`
+**Why:** Separates repeatable, fast validation from expensive manual review. Unblocks parallel work and provides clear visibility into validation progress.
+
+<!-- decision:P-9PXGBNLT -->
+### F-7 Spec vs Code Mismatch: Tombstone Reading in cmk get
+**When:** 2026-06-16 · **Fact:** `P-9PXGBNLT`
+**Why:** Future cut-gate specification updates or F-7 work could accidentally claim unimplemented behavior. The spec must reflect the intentional live-only design.
+
+<!-- decision:P-VUC9TB6X -->
+### MCP Server Staleness Workaround
+**When:** 2026-06-16 · **Fact:** `P-VUC9TB6X`
+**Why:** MCP servers can drift out of sync mid-session, causing queries to fail against pre-fix code even though the fix is deployed. Quick restart avoids confusion when debugging apparent regressions.
+
+<!-- decision:P-YFUW6ABE -->
+### Read Path Inconsistency — `get` Lacks Deleted_at Filter
+**When:** 2026-06-16 · **Fact:** `P-YFUW6ABE`
+**Why:** Flagged during fact-probing work as a gap: the CLI and MCP surfaces have different coverage, surfacing this inconsistency. If recovery features are added, this pattern should be fixed.
+
+<!-- decision:P-MEVGaRK7 -->
+### Tombstone Data Lifecycle — Forget vs. Purge
+**When:** 2026-06-16 · **Fact:** `P-MEVGaRK7`
+**Why:** Product decision pending on recovery surfaces. Current architecture is the constraint: data exists (kept by design), so recovery would be a read operation, not a reconstruct. This context informs scope and feasibility.
+
+<!-- decision:P-49BQNG9V -->
+### Automatic recall never reads tombstones; recovery is human-only opt-in
+**When:** 2026-06-16 · **Fact:** `P-49BQNG9V`
+**Why:** Memory flagged this as an unsettled gap (the journal-vs-digest visibility split was decided in D-161, but whether the snapshot injector / mk_search hard-exclude tombstoned facts was never decided). Settling it: tombstones invisible to auto-recall because confidently-wrong recall (resurfacing a deleted fact) is catastrophic for a memory product; the negative-knowledge case has a better home (retract-in-place). Distinguishes forget (delete) from supersede (evolve) cleanly.
+
+<!-- decision:P-XZSUPBWU -->
+### Auto-recall agents are blind to tombstoned facts
+**When:** 2026-06-16 · **Fact:** `P-XZSUPBWU`
+**Why:** An agent confidently recalling a fact the user explicitly deleted is the worst failure mode a memory product can have. Keeping tombstones invisible to agents enforces the invariant that "forget" is truly permanent from the agent's perspective.
+
+<!-- decision:P-ZVZ5a6RK -->
+### Retracts and forgets are semantically distinct
+**When:** 2026-06-16 · **Fact:** `P-ZVZ5a6RK`
+**Why:** These two deletion modes serve different needs. Retracts preserve the story of how decisions evolved (important for continuity). Forgets remove visibility entirely (important for cleaning up unwanted facts). Conflating them leads to either losing decision history or accidentally auto-recovering deleted facts.
+
+<!-- decision:P-JYH2P5QC -->
+### DECISIONS.md is write-only for AI recall — not in any recall directive or test
+**When:** 2026-06-16 · **Fact:** `P-JYH2P5QC`
+**Why:** Task 147 built DECISIONS.md as a human-readable decision journal, but the AI's recall directives were never updated to consult it, and it's not indexed for search — so the journal's unique value (decision evolution, retracted/rejected decisions) is unreachable by automatic recall. This is the same class as the tombstone gap: a surface exists but recall doesn't reach it. Surfaced by the user asking 'when I mention Kamal, where do you look, and when would you go to DECISIONS.md?' — answer: never, today.
+
+<!-- decision:P-GHN4aLTN -->
+### Task 156 DECISIONS.md recall is v0.3.3 the next version firm
+**When:** 2026-06-16 · **Fact:** `P-GHN4aLTN`
+**Why:** I initially slotted the DECISIONS.md-recall gap vaguely as "v0.3.3/v0.4"; the user pushed back wanting it to be the NEXT version, not punted. Firming to v0.3.3 because leaving a just-shipped headline feature (the decision journal) un-recallable by the AI across two minor versions is the wrong call — it completes v0.3.2's feature.
+
+<!-- decision:P-FCK9J9CM -->
+### RESUME v0.3.2 cut-gate in progress
+**When:** 2026-06-16 · **Fact:** `P-FCK9J9CM`
+**Why:** A long multi-thread cut-gate session with high context-loss risk; if it compacts or VS Code restarts, the next session needs to know exactly where the cut stands — what passed, what's left, that main is uncut, and the next outward step — without re-deriving it from scratch. This is the kit's own amnesia-prevention applied to its own release.
+
+<!-- decision:P-9N4JG45F -->
+### The journal/decision-recall feature's PRIMARY value is automatic AI recall when
+**When:** 2026-06-16 · **Fact:** `P-9N4JG45F`
+
+<!-- decision:P-H33RCKS4 -->
+### Rebuild+Reinstall Before Session 2 (Release Cut Workflow)
+**When:** 2026-06-16 · **Fact:** `P-H33RCKS4`
+**Why:** Session 2 tests recall via `mk_search` (MCP server). Stale server = stale code = re-hitting fixed bugs. The release-cut chain is: fix → save → verify-on-current-code.
+
+<!-- decision:P-A396Z6JP -->
+### Windows DLL Lock Blocks NPM Reinstall (better_sqlite3.node)
+**When:** 2026-06-16 · **Fact:** `P-A396Z6JP`
+**Why:** The Node.js native module loads the DLL into the process; the file stays locked until the process exits.
+
+<!-- decision:P-X2VUTU3Z -->
+### Close VS Code to close Claude Code on cut-gate14
+**When:** 2026-06-16 · **Fact:** `P-X2VUTU3Z`
+**Why:** Environment-specific constraint relevant to session lifecycle and testing procedures.
+
+<!-- decision:P-MV3GBMZ2 -->
+### FQ1 (FTS5 fix) in installed 0.3.2, ready for Session 2 recall tests
+**When:** 2026-06-16 · **Fact:** `P-MV3GBMZ2`
+**Why:** Session 2 tests recall via `mk_search` (MCP server), which requires FQ1. Clarifies that rebuild is unnecessary for S2.
+
+<!-- decision:P-FKVJZZQL -->
+### MCP server may retain stale code in memory after package updates
+**When:** 2026-06-16 · **Fact:** `P-FKVJZZQL`
+**Why:** Session 2 recall tests use `mk_search` (MCP server). Stale server can error even if fixes are on disk.
+
+<!-- decision:P-F7XQXFKL -->
+### VS Code Windows Are Independent Claude Code Sessions
+**When:** 2026-06-16 · **Fact:** `P-F7XQXFKL`
+**Why:** Critical for parallel work and troubleshooting; prevents confusion about session/server state; allows independent problem-solving in different windows without risk to other conversations
+
+<!-- decision:P-N9FJU9Ta -->
+### Project Configuration & Tech Stack
+**When:** 2026-06-16 · **Fact:** `P-N9FJU9Ta`
+**Why:** Standing configuration that every session should apply consistently to maintain code quality and structure.
+
+<!-- decision:P-JY9ZGT5C -->
+### Three-Session Release Validation Methodology
+**When:** 2026-06-16 · **Fact:** `P-JY9ZGT5C`
+**Why:** Validates that memory recall, memory-search skill, and persona transfer are working correctly before release.
+
+<!-- decision:P-YFBTYUPQ -->
+### Session 2 recall passed; broken install root-caused + recovered
+**When:** 2026-06-16 · **Fact:** `P-YFBTYUPQ`
+**Why:** Session 2 is a cut-gate milestone (recall is the kit's wow). Recording that recall passed strongly even through a broken install, that the two scary-looking findings (cmk crash + DECISIONS.md dup) were both the stale-install root cause not new bugs, and how the reinstall recovered — so the cut can proceed and a future session doesn't re-investigate.
+
+<!-- decision:P-VTLX4QYR -->
+### v0.3.2 cut-gate complete E1 wedge passed ready to tag
+**When:** 2026-06-16 · **Fact:** `P-VTLX4QYR`
+**Why:** The cold-open (E1) is the kit's single most important gate — the wedge that justifies the whole product. It passed live with the best-case result (persona transferred to a zero-history project, even the subtle repo-exception nuance). Recording that all gates passed + the bugs the cut-gate caught means the cut decision is fully traceable and a future session knows v0.3.2 was properly gated.
+
+<!-- decision:P-RHaM3HDa -->
+### Release & Publish Workflow (Git Tag to npm)
+**When:** 2026-06-16 · **Fact:** `P-RHaM3HDa`
+**Why:** Repeatable, verifiable release process ensures consistency, transparency, and auditability
+
+<!-- decision:P-AX32FX5V -->
+### v0.3.2 Release Inventory & v0.3.3 Feature Queue
+**When:** 2026-06-16 · **Fact:** `P-AX32FX5V`
+**Why:** Clear record of what shipped vs. what's in flight; documents feature readiness gates
+
+<!-- decision:P-9TVaG53C -->
+### onnxruntime-node CI Download Flakiness
+**When:** 2026-06-16 · **Fact:** `P-9TVaG53C`
+**Why:** Distinguishes transient network flakes from real code/release problems; prevents false alarm investigation
+
+<!-- decision:P-B93GXMBD -->
+### v0.3.2 published to npm with provenance
+**When:** 2026-06-16 · **Fact:** `P-B93GXMBD`
+**Why:** Closes the v0.3.2 release loop — records what shipped, that the cut-gate caught 3 bugs, and the transient onnxruntime-node ETIMEDOUT publish failure + its retry fix (so a future cut doesn't panic when publish.yml fails on that dependency's network install).
+
+<!-- decision:P-Q2GaW43C -->
+### Cut-Gate Process Validated Release Quality
+**When:** 2026-06-16 · **Fact:** `P-Q2GaW43C`
+**Why:** Cut-gate is the quality checkpoint that prevents bugs from reaching users. This session proved it catches real problems—it earned its keep.
+
+<!-- decision:P-6GK6PZ2Z -->
+### node:sqlite Migration Decision
+**When:** 2026-06-16 · **Fact:** `P-6GK6PZ2Z`
+**Why:** Search is a critical operation; existing implementation met all requirements. The regression eliminated any benefit from the migration.
+
+<!-- decision:P-SURaZQS4 -->
+### Tombstone Auto-Recall Design Decision
+**When:** 2026-06-16 · **Fact:** `P-SURaZQS4`
+**Why:** Respects user intent and data integrity—deleted records should not auto-surface in the AI system.
+
+<!-- decision:P-UCG4RKNL -->
+### Two post-v0.3.2 bugs index corruption and stale snapshot for v0.3.3
+**When:** 2026-06-16 · **Fact:** `P-UCG4RKNL`
+**Why:** Context is about to auto-compact (2% left); these two bugs ARE the cross-session-amnesia failure the kit exists to prevent, found on the kit itself right after shipping v0.3.2. Must be durable so the next session (which may itself hit the stale snapshot) can pick up the diagnosis and fix, not re-investigate.
+
+<!-- decision:P-T6Q2QWHE -->
+### Version Snapshot in recent.md Guards Against Cross-Session Amnesia
+**When:** 2026-06-16 · **Fact:** `P-T6Q2QWHE`
+**Why:** New sessions load memory to understand project state. A stale version snapshot would make them think an older version is current (e.g., v0.3.1 when v0.3.2 shipped). The snapshot is a guard rail for session continuity.
+
+<!-- decision:P-64UMEVFG -->
+### User questions whether kept branches are necessary; signals active concern about
+**When:** 2026-06-16 · **Fact:** `P-64UMEVFG`
+
+<!-- decision:P-N5AC9UXY -->
+### Cut-Gate Review Process
+**When:** 2026-06-17 · **Fact:** `P-N5AC9UXY`
+**Why:** The project distinguishes live-tested (real data) from synthetic-tested (fixtures) from untested (behavioral). Unverified items are explicitly flagged rather than claimed complete.
+
+<!-- decision:P-RR5a6aER -->
+### Testing Verification Levels
+**When:** 2026-06-17 · **Fact:** `P-RR5a6aER`
+**Why:** Prevents false claims of completeness. Unverified paths are flagged for cut-gate review.
+
+<!-- decision:P-AZa9JRMS -->
+### Contract-Lock Testing Pattern
+**When:** 2026-06-17 · **Fact:** `P-AZa9JRMS`
+**Why:** Status-code tests verify the happy/error paths but miss contract violations; contract-lock tests catch edge cases and breaches directly.
+
+<!-- decision:P-aFKRUUYV -->
+### D-163 Invariant — Agent Must Never See Forgotten Facts
+**When:** 2026-06-17 · **Fact:** `P-aFKRUUYV`
+**Why:** Agent leaking recovered forgotten facts would be a critical privacy breach; the invariant must be enforced by-default, not remembered.
+
+<!-- decision:P-2QSPCZCX -->
+### Five Focus Questions Code Review Framework
+**When:** 2026-06-17 · **Fact:** `P-2QSPCZCX`
+**Why:** These five areas are the highest-risk surface for new features — privacy leaks, path traversal, invariant violations, shape mutations, default-enabled footguns.
+
+<!-- decision:P-4EZT6FPU -->
+### Graceful Degrade on Malformed Archive Data
+**When:** 2026-06-17 · **Fact:** `P-4EZT6FPU`
+**Why:** Recovery happens *because* something went wrong; crashing would prevent recovery. A graceful-degrade contract should be locked by test.
+
+<!-- decision:P-UBU2NFWX -->
+### Path Traversal Protection — Anchored ID Pattern + Validate-Before-Join
+**When:** 2026-06-17 · **Fact:** `P-UBU2NFWX`
+**Why:** Whitelist-pattern validation before path construction is the correct defense; the ordering prevents regressions.
+
+<!-- decision:P-GF2UaLAH -->
+### Scope Documentation Discipline — Record *Why*, Not Just *What*
+**When:** 2026-06-17 · **Fact:** `P-GF2UaLAH`
+**Why:** Future reader (or user months later) understands the decision and won't re-open the question or accidentally build the deferred feature in ad-hoc ways.
+
+<!-- decision:P-DYCCQG9H -->
+### Release Trigger: Tag Push Publishes
+**When:** 2026-06-17 · **Fact:** `P-DYCCQG9H`
+**Why:** Separates user control over release timing from deterministic automation, preventing accidental early releases while keeping the publish step hands-free.
+
+<!-- decision:P-CATHYC5L -->
+### Release Workflow for claude-memory-kit
+**When:** 2026-06-17 · **Fact:** `P-CATHYC5L`
+**Why:** This is the established pattern for shipping claude-memory-kit releases. v0.3.3 is the current example. The tag push is the critical "outward step" where work transitions from local to external/public.
+
+<!-- decision:P-6NLDRFYV -->
+### DECISIONS.md Cut-Gate Structure (DJ1–DJ4)
+**When:** 2026-06-17 · **Fact:** `P-6NLDRFYV`
+**Why:** Ensures DECISIONS.md recall is reliable across the full lifecycle (create, digest, forget, recall-as-retracted). The mechanism/behavior split acknowledges what can vs cannot be auto-tested.
+
+<!-- decision:P-XK4aDSCY -->
+### DJ4 Verification Prompts (DECISIONS.md Recall Gate)
+**When:** 2026-06-17 · **Fact:** `P-XK4aDSCY`
+**Why:** DJ4 is a behavioral gate that cannot be auto-tested. These prompts operationalize the manual verification step, making it repeatable and executable.
+
+<!-- decision:P-QBWYD2Q9 -->
+### Behavioral Gate Standard Pattern (v0.3.3)
+**When:** 2026-06-17 · **Fact:** `P-QBWYD2Q9`
+**Why:** Vague gates ("ask a history question") are not executable by humans running manual pre-release verification. Every gate must be runnable by someone without deep project context.
+
+<!-- decision:P-KQ9WE2AU -->
+### v0.3.3 Release Staging State
+**When:** 2026-06-17 · **Fact:** `P-KQ9WE2AU`
+**Why:** Accurate pre-tagging state; unblocks final release step.
+
+<!-- decision:P-BPSaKX7V -->
+### Release Workflow with Destructive Manual Steps
+**When:** 2026-06-17 · **Fact:** `P-BPSaKX7V`
+**Why:** Workflow has irreversible steps; next session needs to know the release is staged but requires explicit user choice on scope before proceeding
+
+<!-- decision:P-EYGaT423 -->
+### PowerShell UTF-8 Display Artifact in cmk Cut-Gate Validation
+**When:** 2026-06-17 · **Fact:** `P-EYGaT423`
+**Why:** Prevents future cmk setup runs from falsely failing gate checks due to display artifacts masking correct file state on Windows
+
+<!-- decision:P-TTKBJN2D -->
+### Cut-Gate Testing Structure (Terminal vs Live-Session Gates)
+**When:** 2026-06-17 · **Fact:** `P-TTKBJN2D`
+**Why:** Determines what can run in CI/headless vs what needs user interaction; gate placement guides future test additions
+
+<!-- decision:P-GZUSMZVQ -->
+### PowerShell UTF-8 Encoding Fix for Cut-Gate G4 Reads
+**When:** 2026-06-17 · **Fact:** `P-GZUSMZVQ`
+**Why:** Get-Content on Windows console displays UTF-8 middots/emdashes as mojibake characters, causing false-positive "corruption" flags during verification
+
+<!-- decision:P-LCZ6Q27C -->
+### Version 0.3.3 Release Features and Test Coverage
+**When:** 2026-06-17 · **Fact:** `P-LCZ6Q27C`
+**Why:** Next session needs exact test coverage before final release; live gates are blocking for 0.3.3 tag
+
+<!-- decision:P-AW7WKGVT -->
+### Multi-Site Home-Path Slug-Leak Bug Class (v0.3.3 Cut-Blocker)
+**When:** 2026-06-17 · **Fact:** `P-AW7WKGVT`
+**Why:** Usernames/home paths in committed fact filenames compromise privacy—auto-extract is highest risk because it runs automatically on every conversation turn with zero user action. This is confirmed as v0.3.3 cut-blocker, not just the single-site remember-core issue.
+
+<!-- decision:P-647JJL4R -->
+### Session 2 Validation Gates (cut-gate15)
+**When:** 2026-06-17 · **Fact:** `P-647JJL4R`
+**Why:** Validates v0.3.3 headline features (memory-search skill auto-trigger, DECISIONS.md scope, recall directives) behaviorally; remaining gates require live Claude session to drive conversational flows.
+
+<!-- decision:P-7KRR6B6E -->
+### Memory Kit Validation Gates (D1–W4 + DJ4 Live Gate)
+**When:** 2026-06-17 · **Fact:** `P-7KRR6B6E`
+**Why:** Each gate tests a distinct recall layer (rule search, decision recall, paraphrase matching, decision history); passing all gates confirms end-to-end function. DJ4 specifically validates that decision-history (DECISIONS.md) recall fires in *live* sessions, not just at design time — a headline v0.3.3 feature.
+
+<!-- decision:P-KHB93CGB -->
+### DJ4 Live-Gate Test Passed (v0.3.3 Headline Feature)
+**When:** 2026-06-17 · **Fact:** `P-KHB93CGB`
+**Why:** DJ4 is the headline verification for v0.3.3. Confirms feature design is sound; infrastructure gotcha does not block the tag.
+
+<!-- decision:P-UTBXMFWR -->
+### June 17 11:12 Build: decisions Scope Implemented
+**When:** 2026-06-17 · **Fact:** `P-UTBXMFWR`
+**Why:** Distinguishes current-build capabilities from stale-process behavior when testing scope-based features.
+
+<!-- decision:P-SZX5LG7P -->
+### MCP Server Staleness Gotcha (D-80)
+**When:** 2026-06-17 · **Fact:** `P-SZX5LG7P`
+**Why:** Affects feature testing and verification during development, especially when iterating on schema or scope changes. First encountered during DJ4 (v0.3.3 headline feature) testing on Jun 17.
+
+<!-- decision:P-XCN5JURQ -->
+### DJ4-Live Test Prerequisites
+**When:** 2026-06-18 · **Fact:** `P-XCN5JURQ`
+**Why:** Without DECISIONS.md, `mk_search {scope:"decisions"}` has nothing to return; restarting picks up the current build and avoids stale-process masking; testing against a retracted decision exercises the journal's unique value over fact-based recall
+
+<!-- decision:P-MaWYNV6F -->
+### Stale MCP Process Workaround After Build Updates
+**When:** 2026-06-18 · **Fact:** `P-MaWYNV6F`
+**Why:** The processes are long-lived and bound to the binary they loaded with; new sessions spawn fresh processes, but old sessions continue serving the outdated version
+
+<!-- decision:P-RES031CG -->
+### RESUME — v0.3.1 cut-gate near-complete; PR
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
