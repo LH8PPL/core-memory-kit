@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Fixed
+
+- **Compression now recovers from a transient Haiku failure instead of leaving the session buffer stuck.** The lifecycle compression passes (daily distill, weekly curate, the lazy session-start roll) retry once with backoff on a transient timeout / overload, so an intermittent `claude --print` slowdown no longer strands `now.md` until the next session. Failures are also now logged with their exit code + reason for diagnosis. ([#206](https://github.com/LH8PPL/claude-memory-kit/pull/206))
+
 ## [0.3.3] — 2026-06-18
 
 ### Fixed
