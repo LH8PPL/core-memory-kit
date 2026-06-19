@@ -53,7 +53,11 @@ export function discoverLlmSpawnSites() {
       .split('\n')
       .map((l) => l.replace(/(^|\s)\/\/.*$/, ''))
       .join('\n');
-    if (!/\w+\.compress\(\{/.test(code)) continue;
+    // An LLM-prompt composition site is either a direct `backend.compress({...})`
+    // OR a `compressWithRetry(backend, {...})` (Task 161 / D-175 — the bounded-retry
+    // wrapper the ceiling-free verbs now call; the prompt object {input,instructions}
+    // is still composed at this site, so it must carry the Door-3.5 pin).
+    if (!/\w+\.compress\(\{/.test(code) && !/compressWithRetry\(\s*\w+\s*,\s*\{/.test(code)) continue;
     const testFile = `tests/cli-${module}.test.js`;
     const testPath = join(REPO, 'tests', `cli-${module}.test.js`);
     if (existsSync(testPath)) {
