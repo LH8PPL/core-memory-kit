@@ -21,6 +21,21 @@
 // they delegate the retry to the ceiling-free lazy path via the existing
 // restore-on-failure, D-79); only the ceiling-free paths (daily-distill /
 // weekly-curate / lazy compress) pass `maxAttempts: 2`.
+//
+// COOLDOWN INTERACTION (skill-review I-1): the 120s Haiku cooldown marker is touched
+// on SUCCESS only, and the callers gate `isCooldownActive` ONCE before the retry loop.
+// A retry WIDENS the existing "no marker until success" window (~50s → ~100s), so a
+// second hook firing mid-retry could pass the gate and start its own compress. This
+// is NOT a new bug class — the window pre-exists the retry — and the D-79 claim-rename
+// mutex (renameSync of now.md is the real lock) still prevents any corruption: only
+// one roll wins the rename; the other reads an empty buffer and skips. The retry only
+// makes a pre-existing benign window ~2× wider; no marker change is warranted.
+//
+// NO JITTER (skill-review M-2): the field (graphiti) jitters its backoff
+// (wait_random_exponential) to avoid thundering-herd across many concurrent clients.
+// The kit's compress is a single low-concurrency local process (one detached child at
+// a time, gated by the cooldown), so there is no herd to avoid — a plain exponential
+// backoff is sufficient and keeps the timing deterministic for tests.
 
 /**
  * Classify a compress() rejection as transient (worth a retry) or deterministic
@@ -60,8 +75,13 @@ export function isRetryableCompressError(err) {
   if (err.category === 'haiku_failed') {
     const stderr = String(err.stderr ?? '').toLowerCase();
     // Known-DETERMINISTIC classes: a re-call re-fails. Never retry these.
+    // (Skill-review I-2: `not found` was DROPPED — it appears in transient
+    // contexts too, e.g. a transient "host not found" / "upstream not found,
+    // retrying"; a deterministic 404 from `claude --print` is unlikely, and the
+    // conservative default below already catches a genuine unknown deterministic
+    // failure. Keeping only HIGH-CONFIDENCE deterministic markers.)
     if (
-      /auth|invalid[_ -]?(api[_ -]?)?key|unauthor|forbidden|permission|policy|invalid[_ -]?request|bad[_ -]?request|not[_ -]?found/.test(
+      /auth|invalid[_ -]?(api[_ -]?)?key|unauthor|forbidden|permission|policy|invalid[_ -]?request|bad[_ -]?request/.test(
         stderr,
       )
     ) {

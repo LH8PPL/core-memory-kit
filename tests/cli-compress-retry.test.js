@@ -59,6 +59,26 @@ describe('isRetryableCompressError', () => {
     });
     expect(isRetryableCompressError(authErr)).toBe(false);
   });
+
+  it('an unknown non-zero exit defaults to NOT retryable (conservative, fail-safe)', () => {
+    // Skill-review M/I: the Windows "is not recognized as an internal or external
+    // command" missing-binary message matches NEITHER list → conservative default.
+    const unknown = new HaikuFailedError('exit 1', {
+      exitCode: 1,
+      stderr: "'claude' is not recognized as an internal or external command",
+    });
+    expect(isRetryableCompressError(unknown)).toBe(false);
+  });
+
+  it('deterministic precedence: a stderr with BOTH a deterministic and a transient token is NOT retryable', () => {
+    // Skill-review I-2: the deterministic check runs FIRST and wins — an auth error
+    // that also mentions "retry" must not be retried (a re-call re-fails on auth).
+    const mixed = new HaikuFailedError('exit 1', {
+      exitCode: 1,
+      stderr: 'authentication failed — please retry after fixing your api key',
+    });
+    expect(isRetryableCompressError(mixed)).toBe(false);
+  });
 });
 
 describe('compressWithRetry', () => {
