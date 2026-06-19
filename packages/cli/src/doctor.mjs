@@ -1,4 +1,4 @@
-// `cmk doctor` — health checks HC-1..HC-8 (Task 37, T-031; memsearch HC-1/HC-7 removed in Task 120; HC-8 native bindings added in Task 141a).
+// `cmk doctor` — health checks HC-1..HC-9 (Task 37, T-031; memsearch HC-1/HC-7 removed in Task 120; HC-8 native bindings added in Task 141a; HC-9 version-drift/update-path added in Task 162 / D-176).
 //
 // Public boundary:
 //   async runDoctor({projectRoot, userDir, now, promptUser?, ...overrides})
@@ -46,6 +46,8 @@ import { cronSentinelPath } from './lazy-compress.mjs';
 import { getNativeAutoMemoryState } from './native-memory.mjs';
 import { checkKitBinding, checkEmbedderBinding } from './native-binding.mjs';
 import { resolveDefaultSearchMode } from './semantic-backend.mjs';
+import { checkVersionDrift } from './version-drift.mjs';
+import { getKitVersion } from './install.mjs';
 
 const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -541,10 +543,27 @@ async function hc8NativeBindings({ projectRoot, kitBindingProbe, embedderBinding
  * parameter lands at that PR alongside the actual consent flow — not
  * pre-empted in v0.1.0 to avoid the "forward-compat hooks rot" pattern.
  */
+// --- HC-9: project scaffold version matches the installed cmk (Task 162 / D-176) ---
+// After `npm i -g @latest`, a project's version-stamped scaffold stays at the OLD
+// version until `cmk install` re-runs there (the easily-forgotten per-project step).
+// HC-9 reads the project's CLAUDE.md managed-block version + the installed binary
+// version and tells the user to re-run `cmk install` when the project is behind.
+function hc9VersionDrift({ projectRoot, kitVersion }) {
+  const claudeMdPath = join(projectRoot, 'CLAUDE.md');
+  let claudeMdText = null;
+  try {
+    if (existsSync(claudeMdPath)) claudeMdText = readFileSync(claudeMdPath, 'utf8');
+  } catch {
+    claudeMdText = null; // unreadable → skip (treated as not-installed)
+  }
+  return checkVersionDrift({ claudeMdText, kitVersion });
+}
+
 export async function runDoctor({
   projectRoot,
   userDir,
   now,
+  kitVersion,
   kitBindingProbe,
   embedderBindingProbe,
 } = {}) {
@@ -569,10 +588,12 @@ export async function runDoctor({
   const c6 = hc6NativeAutoMemory({ projectRoot, now: ts });
   const c7 = hc7StaleLocks({ projectRoot, userDir: resolvedUserDir });
   const c8 = await hc8NativeBindings({ projectRoot, kitBindingProbe, embedderBindingProbe });
+  // HC-9: kitVersion injectable for tests; defaults to the installed binary's version.
+  const c9 = hc9VersionDrift({ projectRoot, kitVersion: kitVersion ?? getKitVersion() });
 
   return {
     action: 'completed',
-    checks: [c1, c2, c3, c4, c5, c6, c7, c8],
+    checks: [c1, c2, c3, c4, c5, c6, c7, c8, c9],
     duration_ms: Date.now() - t0,
   };
 }

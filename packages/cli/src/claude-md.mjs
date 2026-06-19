@@ -64,7 +64,10 @@ function buildBlock(content, version) {
  *     gracefully from a corrupted block (e.g. the user accidentally
  *     deleted the end marker by hand).
  */
-function findManagedBlock(text) {
+// Exported (Task 162) for version-drift.mjs (HC-9) — reads the managed-block
+// version marker without re-implementing the parser. Public contract: returns
+// `{version, corrupted, ...}` or null.
+export function findManagedBlock(text) {
   const startMatch = text.match(MARKER_START_RE);
   if (!startMatch) return null;
 
@@ -107,7 +110,9 @@ function parseVersion(v) {
  *   compareVersions('1.0.0', '1.0.0') === 0
  *   compareVersions('2.0.0', '1.9.9') === 1
  */
-function compareVersions(a, b) {
+// Exported (Task 162) for version-drift.mjs (HC-9). Public contract: -1/0/1,
+// strips a `-prerelease` suffix before comparing.
+export function compareVersions(a, b) {
   const av = parseVersion(a);
   const bv = parseVersion(b);
   for (let i = 0; i < 3; i++) {
