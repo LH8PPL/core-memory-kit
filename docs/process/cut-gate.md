@@ -96,6 +96,17 @@ The headline this cut is **`cmk digest` + the standing append-only `context/DECI
 
 _Task 152 (`validate-index-completeness`) is dev-tooling — it runs in `npm test`, no live probe._
 
+### Also new in v0.3.4 — the compression-retry + update-path gates
+
+The v0.3.4 headline is reliability: **the compression timeout fix (bounded transient-only retry, Task 161 / D-175)** and **the update path (docs + a `cmk doctor` drift-check, Task 162 / D-176)**. Two ★ gates, both in §7:
+
+| Check | Feature | What it verifies |
+| --- | --- | --- |
+| **★ RT1** | Task 161 / D-175 | a transient Haiku failure is RETRIED (ceiling-free paths) and recovers; the retry is observable as `retries: N` in compress.log (161.12); a deterministic failure fails fast (no retry). Run via the injected-flaky-backend probe in §7. |
+| **★ VD1** | Task 162 / D-176 | `cmk doctor` HC-9 PASSes on a fresh install; on a project whose CLAUDE.md `:start vX` marker is behind the installed binary, HC-9 FAILs with `→ repair: cmk install`. |
+
+_161.6a (structured `exit_code`/`error_detail` in compress.log) is exercised by RT1's deterministic-failure leg. The update DOCS (README/QUICKSTART §9) are reviewer-read, not a live probe._
+
 ---
 
 ## 0. Cut the release locally, then build the REAL artifact
@@ -134,7 +145,7 @@ Remove-Item -Recurse -Force $env:USERPROFILE\.claude-memory-kit
 Validates scaffold integrity + the Task-69 skill surface.
 
 ```powershell
-mkdir C:\Temp\cut-gate16; cd C:\Temp\cut-gate16
+mkdir C:\Temp\cut-gate17; cd C:\Temp\cut-gate17
 git init
 cmk install --with-semantic          # v0.3.0: the one-flag semantic enablement (G7) — ~260 MB once + the model pre-warm; takes a minute
 cmk doctor
@@ -143,7 +154,7 @@ code .
 
 - [ ] **★ G1 — install + doctor clean.**
       `cmk install` → "ready, hooks wired";
-      `cmk doctor` → **0 fail** (~`4 pass · 0 fail · 3 skip` on a fresh install — 7 checks now; the 2 memsearch checks were removed in Task 120).
+      `cmk doctor` → **0 fail** on a fresh install — **9 checks now** (HC-1..HC-9; the 2 memsearch checks were removed in Task 120, HC-8 native-bindings added in v0.3.1, HC-9 version-drift added in v0.3.4). HC-9 = PASS on a just-installed project (the scaffold marker matches the binary).
       Type:
         `/hooks` → the 5 `cmk-*` hooks are loaded.
 
@@ -366,9 +377,9 @@ which carries raw, un-screened text, so it must never be committed.
 
 ```powershell
 # The security half (deterministic): the diagnostic log is gitignored.
-git -C C:\Temp\cut-gate16 check-ignore context\sessions\probe.extract.log
+git -C C:\Temp\cut-gate17 check-ignore context\sessions\probe.extract.log
 # The trace half (observational): if any build turn was graded LOW, you'll see it.
-findstr /S /C:"low_trust_discarded" C:\Temp\cut-gate16\context\sessions\*.extract.log
+findstr /S /C:"low_trust_discarded" C:\Temp\cut-gate17\context\sessions\*.extract.log
 ```
 
 - [ ] **★ B6 — PASS (must):**
@@ -494,7 +505,7 @@ findstr /S /C:"\"tier\":\"U\"" %USERPROFILE%\.claude-memory-kit\.locks\audit.log
 
 `cmk digest` prints a readable page of everything in memory AND maintains `context/DECISIONS.md` —
 a committed, **append-only** chronological log of every decision (`type:project` fact) + its *why*.
-Run these in the build terminal (`C:\Temp\cut-gate12`), after Session 1 has captured some facts.
+Run these in the build terminal (`C:\Temp\cut-gate17`), after Session 1 has captured some facts.
 
 - [ ] **★ DJ1 — `cmk digest` renders + creates `DECISIONS.md` (Task 147).**
       ```powershell
@@ -712,7 +723,7 @@ The headline gate. Each rung exercises a different layer of the new recall stack
 ## 6. Session 3 — the cold-open (the wedge, wow #1)  ⬅️ a BRAND-NEW project
 
 ```powershell
-mkdir C:\Temp\cut-gate-coldopen16; cd C:\Temp\cut-gate-coldopen16
+mkdir C:\Temp\cut-gate-coldopen17; cd C:\Temp\cut-gate-coldopen17
 git init; cmk install --with-semantic; code .
 ```
 Ask: *"Start a new Python backend for me - set up the structure."*
@@ -725,7 +736,7 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 
 ---
 
-## 7. Full feature sweep — every `cmk` subcommand  (~20 min, in `C:\Temp\cut-gate16`)
+## 7. Full feature sweep — every `cmk` subcommand  (~20 min, in `C:\Temp\cut-gate17`)
 
 **Recall & index**
 
@@ -759,6 +770,14 @@ Ask: *"Start a new Python backend for me - set up the structure."*
       `cmk roll` → session rotation (no error on your OS).
       _(`cmk compress` requires `--lazy` in v0.1.0 — bare `cmk compress` is a v0.1.x stub.)_
 
+- [ ] **★ RT1 — compression RETRIES a transient failure + records the retry rate (Task 161 / D-175 + 161.12 — new in v0.3.4).**
+      The retry needs an INJECTED transient failure (you can't make real Haiku fail on demand). Run this probe from the repo (the build terminal), driving the REAL `compressWithRetry` with a backend that times out once then calls real Haiku:
+      ```powershell
+      cd C:\Projects\claude-memory-kit
+      node -e "import('./packages/cli/src/compress-retry.mjs').then(async m=>{const {HaikuTimeoutError,HaikuViaAnthropicApi}=await import('./packages/cli/src/compressor.mjs');const real=new HaikuViaAnthropicApi({model:'claude-haiku-4-5-20251001'});let n=0;const flaky={modelId:()=>real.modelId(),estimatedCostPerCall:b=>real.estimatedCostPerCall(b),async compress(o){n++;if(n===1)throw new HaikuTimeoutError('injected',{timeoutMs:50000});return real.compress(o)}};let retries=0;const r=await m.compressWithRetry(flaky,{input:'## t — user\n\nadd a retry\n',instructions:'Summarize terse.',preserveCitationIds:true,maxOutputBytes:4096,timeoutMs:50000},{maxAttempts:2,baseBackoffMs:600,onRetry:()=>retries++});console.log('attempts:',n,'retries:',retries,'recovered:',!!r.outputText);console.log('isRetryable(timeout):',m.isRetryableCompressError(new HaikuTimeoutError('x',{timeoutMs:1})),'isRetryable(ENOENT):',m.isRetryableCompressError(Object.assign(new Error('x'),{code:'ENOENT'})));});"
+      ```
+      **PASS:** `attempts: 2 · retries: 1 · recovered: true` AND `isRetryable(timeout): true · isRetryable(ENOENT): false`. **FAIL:** `attempts: 1` (no retry) / `recovered: false` / ENOENT classified retryable. _(The `retries` count is what 161.12 writes into compress.log so a degrading-environment retry RATE is visible; a deterministic failure fails fast — no wasted retry.)_
+
 - [ ] **F-6**
       `cmk register-crons` → registers host-scheduler jobs (then `cmk doctor` HC-6 passes); confirm no error.
 
@@ -789,7 +808,7 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 **Health & repair**
 
 - [ ] **F-11**
-      - `cmk doctor` → HC-1..HC-8 accurate (HC-8 = native bindings / npm-12 readiness, new v0.3.1) + the trailing **Memory health (informational)** line renders
+      - `cmk doctor` → HC-1..HC-9 accurate (HC-8 = native bindings / npm-12 readiness, v0.3.1; HC-9 = version-drift, v0.3.4) + the trailing **Memory health (informational)** line renders
       - `cmk repair --hooks` re-wires if settings drift
       - **`cmk repair --index` → "(index): fixed → reindex completed"** (NOT an error). _v0.3.1: this ran the REAL reindexFull which needs a db; the bug where repair passed no db (since Task 49, masked by every test mocking the reindexer) was found by THIS cut-gate probe — keep it on the real path, no injected reindexer._
       - `cmk repair --all` → all three (hooks/locks/index) report cleanly
@@ -807,6 +826,18 @@ Ask: *"Start a new Python backend for me - set up the structure."*
       cmk reindex; cmk doctor | Select-String "HC-4"   # PASS again
       ```
       **PASS:** HC-4 fails on the broken INDEX and recovers after `cmk reindex`; the fact FILES were never at risk (INDEX is derived). _(Pre-v0.3.1 a hook-killed rebuild could leave a stale committed INDEX with ZERO trace — the cut-gate finding.)_
+
+- [ ] **★ VD1 — HC-9 detects a project scaffold behind the installed `cmk` (Task 162 / D-176 — new in v0.3.4).**
+      After an update, a project's version-stamped scaffold (the CLAUDE.md `:start vX` block) lags until `cmk install` re-runs there. HC-9 is the kit telling the user. In `C:\Temp\cut-gate17`:
+      ```powershell
+      cmk doctor | Select-String "HC-9"            # PASS first (fresh install — marker matches the binary)
+      # Simulate drift: downgrade the CLAUDE.md marker to an older version
+      (Get-Content CLAUDE.md) -replace 'claude-memory-kit:start v[0-9.]+','claude-memory-kit:start v0.0.1' | Set-Content CLAUDE.md
+      cmk doctor | Select-String "HC-9"            # now FAIL → message names v0.0.1 + the binary version
+      cmk install                                  # re-stamp → marker back to current
+      cmk doctor | Select-String "HC-9"            # PASS again
+      ```
+      **PASS:** HC-9 is `[PASS]` on the fresh install, `[FAIL]` with `→ repair: cmk install` (message names the stale v0.0.1 + the installed version) after the downgrade, and `[PASS]` again after `cmk install` re-stamps. **FAIL:** HC-9 stays pass on the downgraded marker (drift undetected) or doesn't recover after re-install. _(This is the "you forgot to re-run install in this project after updating" guard — the easily-missed per-project step.)_
 
 **Native coexistence & import**
 
@@ -852,7 +883,7 @@ Ask: *"Start a new Python backend for me - set up the structure."*
       **PASS:** non-empty, items recognizable from this session.
 
 - [ ] **F-19 — `uninstall` is clean + `init-user-tier` re-seeds (lifecycle, in the throwaway dir ONLY).**
-      In `C:\Temp\cut-gate16` (NEVER a real project):
+      In `C:\Temp\cut-gate17` (NEVER a real project):
       ```powershell
       cmk uninstall                # removes hooks + the CLAUDE.md managed block; context/ stays (your data)
       git status                   # nothing unexpected staged; CLAUDE.md outside the markers byte-preserved
@@ -886,8 +917,8 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 
 ## 9. Portability ("another computer")
 
-In `C:\Temp\cut-gate16`: `git add -A; git commit -m "wip"`.
-Clone elsewhere (`git clone C:\Temp\cut-gate16 C:\Temp\cut-gate-clone`), open *that* in Claude Code.
+In `C:\Temp\cut-gate17`: `git add -A; git commit -m "wip"`.
+Clone elsewhere (`git clone C:\Temp\cut-gate17 C:\Temp\cut-gate-clone`), open *that* in Claude Code.
 
 - [ ] **★ H1**
       the clone already has the project memory (`context/` is committed — tenet T2).
