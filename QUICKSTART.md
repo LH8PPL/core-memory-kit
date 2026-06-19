@@ -127,7 +127,7 @@ Hybrid will fuse keyword + semantic (RRF) once the Layer-5b backend lands.
 
 | Command | Purpose |
 | --- | --- |
-| `cmk doctor` | Full health check (HC-1..HC-7) |
+| `cmk doctor` | Full health check (HC-1..HC-9) |
 | `cmk search "<query>"` | Search memory (default keyword) |
 | `cmk roll --scope now\|today\|recent` | Manually trigger compression |
 | `cmk repair --hooks\|--locks\|--index\|--all` | Idempotent self-repair |
@@ -135,6 +135,37 @@ Hybrid will fuse keyword + semantic (RRF) once the Layer-5b backend lands.
 | `cmk import-anthropic-memory --dry-run` | Preview merging Anthropic's native auto-memory |
 
 Full reference: `cmk --help`.
+
+## 9. Updating to a new version
+
+Updating is **two parts** on both routes: update the machinery, then re-stamp each project's scaffold. `cmk doctor`'s **HC-9** check tells you when a project is behind your installed `cmk`, so the per-project step is never silently forgotten.
+
+**Route A — npm:**
+
+```bash
+# Windows: close Claude Code first. Its MCP servers hold native DLLs (vec0.dll,
+# better_sqlite3.node) and npm can't overwrite a loaded file → EBUSY. macOS/Linux: skip.
+npm install -g @lh8ppl/claude-memory-kit@latest   # 1. update the global cmk CLI
+cd ~/my-project
+cmk install                                        # 2. re-stamp THIS project (per project)
+cmk doctor                                          # 3. verify (HC-9 = pass), then restart Claude Code
+```
+
+Updating the npm package **alone** does not update a project: the committed `context/`, the CLAUDE.md managed block, the hooks, and the skills all carry a `:start vX` version marker that only `cmk install` refreshes. Run it in each project you use the kit in — `cmk doctor` (HC-9) flags any that lag.
+
+**Route B — Claude Code plugin** (inside Claude Code):
+
+```text
+/plugin marketplace update claude-memory-kit   # 1. refresh available versions
+/plugin update claude-memory-kit               # 2. update the plugin (new hooks + skills)
+/reload-plugins                                # 3. apply it (hooks keep the OLD version until reload)
+cd ~/my-project
+/claude-memory-kit:bootstrap                    # 4. re-scaffold THIS project (per project)
+```
+
+The kit's marketplace is third-party, so Claude Code does **not** auto-update it — you refresh manually with `/plugin marketplace update`. As on the npm route, `/plugin update` refreshes the global machinery but not a project's scaffold, so re-run `bootstrap` per project (the plugin-path equivalent of `cmk install`).
+
+> **EBUSY on update (Windows):** if `npm install -g` fails with `EBUSY: resource busy or locked` on `vec0.dll` / `better_sqlite3.node`, Claude Code (or its MCP servers) is still running and holding those files. Close Claude Code fully and retry.
 
 ## Troubleshooting
 

@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Added
+
+- **A documented update path + drift detection.** New "Updating to a new version" guide for both install routes (README + QUICKSTART §9) — the npm two-step (`npm i -g @latest` → `cmk install` per project) and the plugin flow (`/plugin update` → `/reload-plugins` → re-`bootstrap`), with the Windows EBUSY "close Claude Code first" note. A new `cmk doctor` check (**HC-9**) flags a project whose scaffold is behind your installed `cmk` after an update, so the easily-forgotten per-project re-install never goes unnoticed.
+
 ### Fixed
 
 - **Compression now recovers from a transient Haiku failure instead of leaving the session buffer stuck.** The lifecycle compression passes (daily distill, weekly curate, the lazy session-start roll) retry once with backoff on a transient timeout / overload, so an intermittent `claude --print` slowdown no longer strands `now.md` until the next session. Failures are also now logged with their exit code + reason for diagnosis. ([#206](https://github.com/LH8PPL/claude-memory-kit/pull/206))

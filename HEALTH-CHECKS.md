@@ -12,6 +12,7 @@ Eight yes/no checks `cmk doctor` runs against the kit installation. Each has a s
 | HC-6 | Native Anthropic Auto Memory status detected | Inspect `~/.claude/projects/<slug>/memory/`; write single-line JSON snapshot to `context/.locks/native-memory-status.log`. Non-fatal informational. |
 | HC-7 | No stale lock files | `detectStaleLocks(projectRoot, {userDir})` from [packages/cli/src/lock-discipline.mjs](packages/cli/src/lock-discipline.mjs) returns no entries with `stale: true` |
 | HC-8 | Native bindings present (npm 12 readiness) | `require('better-sqlite3')` loads its `.node` binding; when `search.default_mode` is `hybrid`/`semantic`, the embedder import is probed too (distinguishing not-installed from installed-but-binding-broken). Fails with the exact `--allow-scripts` remediation when npm 12 blocked the install script (Task 141a, D-129) |
+| HC-9 | Project scaffold version matches the installed `cmk` | Compares the project's CLAUDE.md managed-block `:start vX` marker against the installed binary version (`getKitVersion()`). FAILs with `cmk install` when the binary is newer (you updated the global package but didn't re-stamp this project — Task 162, D-176); PASSes on match or a benign downgrade; SKIPs when the project has no managed block |
 
 **Severity on a fresh project:** HC-2, HC-3, and HC-5 report **SKIP**, not FAIL, when there's simply nothing to check yet — no distill built (HC-2), no Claude Code session captured here yet (HC-3), or cron not registered (HC-5, which is *optional*: the kit falls back to lazy-on-read compression). A clean install therefore reads `pass · 0 fail · skip` and `cmk doctor` exits `0`. These flip to **FAIL** only on a genuine problem: a *stale* distill (recent.md exists but > 2 days old), or transcripts that exist but stopped firing (> 3 days).
 
@@ -107,6 +108,16 @@ npm install -g @huggingface/transformers --allow-scripts=onnxruntime-node
 ```
 
 (`cmk install --with-semantic` passes that flag itself on npm ≥ 11.16.)
+
+### HC-9 — Project scaffold behind the installed `cmk` (re-stamp after an update)
+
+After you update the global package (`npm install -g @lh8ppl/claude-memory-kit@latest`), each project's version-stamped scaffold — the CLAUDE.md managed block, the hooks, the skills — stays at the old version until `cmk install` re-runs *there*. HC-9 catches the easily-forgotten per-project step. Repair (in the project HC-9 flagged):
+
+```bash
+cmk install
+```
+
+Then restart Claude Code so the refreshed hooks + MCP server load. (Full update flow for both the npm and plugin routes: [QUICKSTART.md §9](QUICKSTART.md).)
 
 ## Adding new health checks
 

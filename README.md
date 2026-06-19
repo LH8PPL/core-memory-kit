@@ -73,6 +73,35 @@ The first two commands are **global** (per machine); the last is **per project**
 
 Full walkthrough: **[QUICKSTART.md](QUICKSTART.md)**. Both routes are verified on Windows / macOS / Linux in CI.
 
+### Updating to a new version
+
+Updating has **two parts on both routes**: update the machinery, then re-stamp each project's scaffold. `cmk doctor` (HC-9) tells you when a project is behind, so you don't have to remember the per-project step.
+
+**Route A — npm:**
+
+```bash
+# Close Claude Code first — on Windows its MCP servers hold native DLLs and npm can't
+# overwrite a loaded file (EBUSY). On macOS/Linux you can skip this.
+npm install -g @lh8ppl/claude-memory-kit@latest   # 1. update the global cmk CLI
+cd ~/my-project
+cmk install                                        # 2. re-stamp THIS project's scaffold (per project)
+cmk doctor                                          # 3. verify (HC-9), then restart Claude Code
+```
+
+> Updating the npm package **alone** does not update a project — the committed `context/` + CLAUDE.md block + hooks stay at the old version until `cmk install` re-runs there. `cmk doctor` flags any project that's behind.
+
+**Route B — Claude Code plugin** (all inside Claude Code):
+
+```text
+/plugin marketplace update claude-memory-kit   # 1. refresh available versions (third-party marketplace = no auto-update)
+/plugin update claude-memory-kit               # 2. update the plugin (new hooks + skills)
+/reload-plugins                                # 3. apply it — hooks keep the OLD version until you reload
+cd ~/my-project
+/claude-memory-kit:bootstrap                    # 4. re-scaffold THIS project (per project — like `cmk install`)
+```
+
+> The parallel holds: both routes are *update the machinery + re-stamp each project*. The plugin's `/plugin update` refreshes the global hooks/skills but not a project's `context/` scaffold, so re-run `bootstrap` per project (mirrors the npm `cmk install` re-run).
+
 ## Three-tier model
 
 | Tier | Location | Scope | What lives here |
@@ -114,7 +143,7 @@ Keyword search structurally misses natural-language questions; the embedded sema
 
 ## Health checks
 
-`cmk doctor` runs eight checks (HC-1..HC-8), each reported PASS / FAIL / SKIP with a repair command. Details + recovery paths: **[HEALTH-CHECKS.md](HEALTH-CHECKS.md)**.
+`cmk doctor` runs nine checks (HC-1..HC-9), each reported PASS / FAIL / SKIP with a repair command — including **HC-9**, which flags a project whose scaffold is behind your installed `cmk` (re-run `cmk install` there). Details + recovery paths: **[HEALTH-CHECKS.md](HEALTH-CHECKS.md)**.
 
 > [!NOTE]
 > **npm 12 (July 2026):** npm 12 skips dependency install scripts by default, which can silently block the native build `better-sqlite3` needs. `cmk install` detects this and offers to fix it inline — or install with `--allow-scripts=better-sqlite3` up front.

@@ -91,16 +91,17 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
     });
   });
 
-  describe('37.6 #1 — all 8 HCs run in order; pass/fail/skip per check', () => {
-    // Contract update Task 141a: HC-8 (native bindings / npm 12 readiness)
-    // joined the audit — count + order extended, intent preserved.
-    it('emits exactly 8 checks with id HC-1..HC-8 in order', async () => {
+  describe('37.6 #1 — all 9 HCs run in order; pass/fail/skip per check', () => {
+    // Contract update Task 141a: HC-8 (native bindings / npm 12 readiness).
+    // Contract update Task 162: HC-9 (version-drift / update-path, D-176) joined
+    // — count + order extended, intent preserved.
+    it('emits exactly 9 checks with id HC-1..HC-9 in order', async () => {
       const r = await runDoctor({ projectRoot, userDir });
       expect(r.action).toBe('completed');
-      expect(r.checks.length).toBe(8);
+      expect(r.checks.length).toBe(9);
       const ids = r.checks.map((c) => c.id);
       expect(ids).toEqual([
-        'HC-1', 'HC-2', 'HC-3', 'HC-4', 'HC-5', 'HC-6', 'HC-7', 'HC-8',
+        'HC-1', 'HC-2', 'HC-3', 'HC-4', 'HC-5', 'HC-6', 'HC-7', 'HC-8', 'HC-9',
       ]);
       // Every check has the canonical shape
       for (const c of r.checks) {
@@ -110,6 +111,26 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
         expect(c).toHaveProperty('message');
         expect(['pass', 'fail', 'skip']).toContain(c.status);
       }
+    });
+  });
+
+  describe('HC-9 — version drift (Task 162 / D-176)', () => {
+    it('PASSES on a freshly-installed project (project marker == installed binary)', async () => {
+      // The beforeEach install() stamps the CURRENT kit version into CLAUDE.md, so a
+      // doctor run with the real binary version sees no drift.
+      const r = await runDoctor({ projectRoot, userDir });
+      const hc9 = r.checks.find((c) => c.id === 'HC-9');
+      expect(hc9.status).toBe('pass');
+    });
+
+    it('FAILS with "cmk install" when the installed binary is NEWER than the project marker', async () => {
+      // Simulate the user having updated the global cli (binary 99.0.0) without
+      // re-running install in this (older-stamped) project — the D-172 drift case.
+      const r = await runDoctor({ projectRoot, userDir, kitVersion: '99.0.0' });
+      const hc9 = r.checks.find((c) => c.id === 'HC-9');
+      expect(hc9.status).toBe('fail');
+      expect(hc9.recoveryCommand).toBe('cmk install');
+      expect(hc9.message).toMatch(/99\.0\.0/);
     });
   });
 
