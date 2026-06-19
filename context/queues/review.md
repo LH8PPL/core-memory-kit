@@ -82,3 +82,6 @@
 ## 2026-06-19T07:15:47Z — auto-extract (medium-trust, pending review)
 - (P-TSBAKGD7) Expects comprehensive accounting of work—what was kept, what was superseded but preserved, what was discarded, and why for each
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-19T07:15:47Z -->
+## 2026-06-19T21:10:58Z — auto-extract (medium-trust, pending review)
+- (P-WMN3HFPF) Prefer using recorded memory lookups and CLI tools (cmk search) instead of manually re-reading project files to re-derive facts.
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-19T21:10:58Z -->

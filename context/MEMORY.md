@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-YBJRDa6H) "autopilot" — user empowers assistant to decide scope for update-path documentation/tooling (paths, drift-check, one-command wrapper)
-  <!-- source: auto-extract-session, source_line: 1, sha1: ea1f657c8e6306ed0afdaee579376ff2b007b4e430b225baad7c182e0af96d5e, write: auto-extract, trust: high, at: 2026-06-19T14:33:54Z -->
 - (P-NDWKVJ27) User questioned whether the update task is necessary and doesn't remember the original rationale
   <!-- source: auto-extract-session, source_line: 1, sha1: c452519983f07d3e0ffd21f04dec6715a5c73220ccd55a5e68ba315e46c3f1f9, write: auto-extract, trust: high, at: 2026-06-19T14:48:53Z -->
 - (P-2MSZRDP7) User chose docs+drift-check now (not defer) — clear priority decision
@@ -20,6 +18,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: 42148ce12df8e3241e11abe34b45fa83de735d2f71ef54624a220abc299cb021, write: auto-extract, trust: high, at: 2026-06-19T20:45:55Z -->
 - (P-LHNFGNQX) Prefer paying architectural cost upfront to avoid maintenance friction later—"rather pay the structure cost now than fight it in six months"
   <!-- source: auto-extract-session, source_line: 1, sha1: f51d299722077f6b9a88177f455e8ddb62070ab0c17cba52023358a34050910e, write: auto-extract, trust: high, at: 2026-06-19T20:45:55Z -->
+- (P-GAaL225G) User's convention: claude-memory-kit backups go to ~\ (not temp directories)
+  <!-- source: auto-extract-session, source_line: 1, sha1: 408e4457a0b070a205c900fad27cc62f8a17351fa613640d6cecad76a0108ef2, write: auto-extract, trust: high, at: 2026-06-19T21:06:05Z -->
 
 ## Environment Notes
 
