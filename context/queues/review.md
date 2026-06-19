@@ -85,3 +85,6 @@
 ## 2026-06-19T21:10:58Z — auto-extract (medium-trust, pending review)
 - (P-WMN3HFPF) Prefer using recorded memory lookups and CLI tools (cmk search) instead of manually re-reading project files to re-derive facts.
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-19T21:10:58Z -->
+## 2026-06-19T21:22:40Z — auto-extract (medium-trust, pending review)
+- (P-XM9YAKRW) httpx2 deprecation in FastAPI TestClient — need to replace httpx dependency with httpx2 eventually
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-19T21:22:40Z -->
