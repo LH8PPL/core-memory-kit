@@ -357,6 +357,12 @@ export async function compressSession({
       duration_ms,
       success: false,
       error_category: errorCategory,
+      // Task 161 (D-173 observability): capture the STRUCTURED failure reason
+      // (subprocess exit code + stderr) so a `compress_failed` is diagnosable.
+      // Pre-161 the log kept only error_category — the WHY was discarded, which
+      // is why the kit's own 329-byte compress_failed could not be explained.
+      ...(err?.exitCode != null ? { exit_code: err.exitCode } : {}),
+      ...(err?.stderr ? { error_detail: String(err.stderr).slice(0, 500) } : {}),
     };
     writeCompressLogEntry({ projectRoot, date, entry });
     return {

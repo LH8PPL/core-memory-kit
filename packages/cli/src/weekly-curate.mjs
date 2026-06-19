@@ -418,6 +418,9 @@ export async function weeklyCurate({
         duration_ms,
         success: false,
         error_category: errorCategory,
+        // Task 161 (D-173 observability): structured failure reason — see compress-session.mjs.
+        ...(err?.exitCode != null ? { exit_code: err.exitCode } : {}),
+        ...(err?.stderr ? { error_detail: String(err.stderr).slice(0, 500) } : {}),
       },
     });
     return errorResult({
