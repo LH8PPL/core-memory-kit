@@ -332,6 +332,7 @@ export async function compressSession({
   // restoreRolling call, so the buffer is never stranded in the rolling file.
   // See design §8.5 for the composition rationale.
   let result;
+  let retries = 0; // Task 161.12: count retries (only the lazy maxAttempts:2 path can retry).
   try {
     // maxAttempts default 1 (hook contract: no retry); the lazy caller passes 2.
     // compressWithRetry is a no-op wrapper at maxAttempts:1 (single attempt, reraise).
@@ -344,7 +345,7 @@ export async function compressSession({
         maxOutputBytes,
         timeoutMs: 50_000,
       },
-      { maxAttempts },
+      { maxAttempts, onRetry: () => { retries += 1; } },
     );
   } catch (err) {
     // Distinguish HAIKU_TIMEOUT (slow Anthropic) from COMPRESS_FAILED
@@ -376,6 +377,7 @@ export async function compressSession({
       // is why the kit's own 329-byte compress_failed could not be explained.
       ...(err?.exitCode != null ? { exit_code: err.exitCode } : {}),
       ...(err?.stderr ? { error_detail: String(err.stderr).slice(0, 500) } : {}),
+      ...(retries > 0 ? { retries } : {}), // 161.12: failed AFTER retrying (lazy path)
     };
     writeCompressLogEntry({ projectRoot, date, entry });
     return {
@@ -416,6 +418,7 @@ export async function compressSession({
     cost_usd: result?.costUSD ?? 0,
     duration_ms,
     success: true,
+    ...(retries > 0 ? { retries } : {}), // 161.12: succeeded after a transient retry (lazy path)
   };
   writeCompressLogEntry({ projectRoot, date, entry });
 

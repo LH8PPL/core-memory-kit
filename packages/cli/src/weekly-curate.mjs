@@ -389,6 +389,7 @@ export async function weeklyCurate({
   const sourceDates = old.map((f) => f.date);
 
   let result;
+  let retries = 0; // Task 161.12: count retries so the log shows the retry RATE.
   try {
     // Task 161 / D-175: ceiling-free path (cron/detached child, NO 60s hook ceiling)
     // → bounded transient-only retry (maxAttempts:2 = one retry). See compress-retry.mjs.
@@ -401,7 +402,7 @@ export async function weeklyCurate({
         maxOutputBytes: archiveMaxBytes,
         timeoutMs: 50_000,
       },
-      { maxAttempts: 2 },
+      { maxAttempts: 2, onRetry: () => { retries += 1; } },
     );
     touchCooldownMarker({ projectRoot, now: ts });
   } catch (err) {
@@ -428,6 +429,7 @@ export async function weeklyCurate({
         // Task 161 (D-173 observability): structured failure reason — see compress-session.mjs.
         ...(err?.exitCode != null ? { exit_code: err.exitCode } : {}),
         ...(err?.stderr ? { error_detail: String(err.stderr).slice(0, 500) } : {}),
+        ...(retries > 0 ? { retries } : {}), // 161.12: failed AFTER retrying
       },
     });
     return errorResult({
@@ -497,6 +499,7 @@ export async function weeklyCurate({
       archived_days: old.length,
       current_days: current.length,
       recent_rebuild_action: recentResult?.action ?? 'skipped',
+      ...(retries > 0 ? { retries } : {}), // 161.12: succeeded after a transient retry
       ...(deletionErrors.length > 0 ? { deletion_errors: deletionErrors } : {}),
     },
   });

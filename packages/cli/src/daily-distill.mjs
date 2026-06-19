@@ -196,6 +196,7 @@ export async function dailyDistill({
   const instructions = buildDistillInstructions(maxOutputBytes);
 
   let result;
+  let retries = 0; // Task 161.12: count retries so the log shows the retry RATE.
   try {
     // Task 161 / D-175: ceiling-free path (cron/detached child, NO 60s hook ceiling)
     // → bounded transient-only retry. A re-call recovers the D-174 environmental
@@ -210,7 +211,7 @@ export async function dailyDistill({
         maxOutputBytes,
         timeoutMs: 50_000,
       },
-      { maxAttempts: 2 },
+      { maxAttempts: 2, onRetry: () => { retries += 1; } },
     );
     touchCooldownMarker({ projectRoot, now: ts });
   } catch (err) {
@@ -229,6 +230,7 @@ export async function dailyDistill({
         // Task 161 (D-173 observability): structured failure reason — see compress-session.mjs.
         ...(err?.exitCode != null ? { exit_code: err.exitCode } : {}),
         ...(err?.stderr ? { error_detail: String(err.stderr).slice(0, 500) } : {}),
+        ...(retries > 0 ? { retries } : {}), // 161.12: failed AFTER retrying
       },
     });
     return {
@@ -258,6 +260,7 @@ export async function dailyDistill({
         (typeof backend.modelId === 'function' ? backend.modelId() : null),
       cost_usd: result?.costUSD ?? 0,
       duration_ms, success: true, source_days: files.length,
+      ...(retries > 0 ? { retries } : {}), // 161.12: succeeded after a transient retry
     },
   });
   return {
