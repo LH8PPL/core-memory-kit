@@ -37,6 +37,7 @@ import { join, dirname } from 'node:path';
 import { nowIso } from './audit-log.mjs';
 import { ERROR_CATEGORIES } from './result-shapes.mjs';
 import { HaikuTimeoutError } from './compressor.mjs';
+import { compressWithRetry } from './compress-retry.mjs';
 import {
   DEFAULT_COOLDOWN_MS,
   isCooldownActive,
@@ -225,6 +226,12 @@ export async function compressSession({
   now,
   cooldownMs = DEFAULT_COOLDOWN_MS,
   maxOutputBytes = DEFAULT_MAX_OUTPUT_BYTES,
+  // Task 161 / D-175: retry policy. DEFAULT 1 = NO retry — the SessionEnd-hook
+  // contract: this fn runs under the 60s ceiling CONCURRENT with autoPersona, where
+  // a 50s attempt + a 50s retry = 100s blows the ceiling. The ceiling-free LAZY
+  // caller (runLazyCompress) passes maxAttempts:2 to opt into one retry; the hook
+  // keeps its restore-on-failure (D-79) and delegates the retry to that lazy path.
+  maxAttempts = 1,
 } = {}) {
   const ts = now ?? nowIso();
   const date = dateFromIso(ts);
@@ -326,13 +333,19 @@ export async function compressSession({
   // See design §8.5 for the composition rationale.
   let result;
   try {
-    result = await backend.compress({
-      input: wrapBufferForPrompt(buffer),
-      instructions,
-      preserveCitationIds: true,
-      maxOutputBytes,
-      timeoutMs: 50_000,
-    });
+    // maxAttempts default 1 (hook contract: no retry); the lazy caller passes 2.
+    // compressWithRetry is a no-op wrapper at maxAttempts:1 (single attempt, reraise).
+    result = await compressWithRetry(
+      backend,
+      {
+        input: wrapBufferForPrompt(buffer),
+        instructions,
+        preserveCitationIds: true,
+        maxOutputBytes,
+        timeoutMs: 50_000,
+      },
+      { maxAttempts },
+    );
   } catch (err) {
     // Distinguish HAIKU_TIMEOUT (slow Anthropic) from COMPRESS_FAILED
     // (non-zero subprocess exit / spawn ENOENT / etc). Analytics
@@ -357,6 +370,12 @@ export async function compressSession({
       duration_ms,
       success: false,
       error_category: errorCategory,
+      // Task 161 (D-173 observability): capture the STRUCTURED failure reason
+      // (subprocess exit code + stderr) so a `compress_failed` is diagnosable.
+      // Pre-161 the log kept only error_category — the WHY was discarded, which
+      // is why the kit's own 329-byte compress_failed could not be explained.
+      ...(err?.exitCode != null ? { exit_code: err.exitCode } : {}),
+      ...(err?.stderr ? { error_detail: String(err.stderr).slice(0, 500) } : {}),
     };
     writeCompressLogEntry({ projectRoot, date, entry });
     return {

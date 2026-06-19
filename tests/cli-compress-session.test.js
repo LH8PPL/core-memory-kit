@@ -382,6 +382,73 @@ describe('Task 22 — compressSession() boundary', () => {
       });
     });
 
+    it('SessionEnd-hook contract (D-175): default maxAttempts:1 — does NOT retry under the 60s ceiling', async () => {
+      // The hook path runs concurrent with autoPersona under the 60s ceiling; a
+      // 50s attempt + a 50s retry blows it. So compressSession defaults to a SINGLE
+      // attempt and delegates the retry to the ceiling-free lazy path.
+      const { HaikuTimeoutError } = await import('../packages/cli/src/compressor.mjs');
+      writeNowMd(projectRoot, 'content\n');
+      const calls = [];
+      const backend = {
+        calls,
+        modelId: () => 'mock',
+        estimatedCostPerCall: () => 0,
+        async compress(opts) { calls.push(opts); throw new HaikuTimeoutError('slow', { timeoutMs: 50_000 }); },
+      };
+      const r = await compressSession({ projectRoot, backend, now: '2026-05-26T10:00:00Z' });
+      expect(r.error_category).toBe('haiku_timeout');
+      expect(calls).toHaveLength(1); // NO retry — single attempt under the ceiling
+      // now.md restored (D-79) so the lazy path can re-roll it next SessionStart.
+      expect(readNowMd(projectRoot)).toContain('content');
+    });
+
+    it('lazy/ceiling-free contract (D-175): maxAttempts:2 retries a transient timeout and recovers', async () => {
+      const { HaikuTimeoutError } = await import('../packages/cli/src/compressor.mjs');
+      writeNowMd(projectRoot, 'content\n');
+      const queue = [new HaikuTimeoutError('slow', { timeoutMs: 50_000 })];
+      const calls = [];
+      const backend = {
+        calls,
+        modelId: () => 'mock',
+        estimatedCostPerCall: () => 0,
+        async compress(opts) {
+          calls.push(opts);
+          if (queue.length) throw queue.shift();
+          return { outputText: '## Decisions\n- recovered\n', inputTokens: 5, outputTokens: 3, costUSD: 0, preservedIds: [] };
+        },
+      };
+      const r = await compressSession({ projectRoot, backend, now: '2026-05-26T10:00:00Z', maxAttempts: 2 });
+      expect(calls).toHaveLength(2); // retried once
+      expect(r.action).toBe('compressed');
+      expect(readTodayMd(projectRoot, '2026-05-26')).toContain('recovered');
+    });
+
+    it('backend throws HaikuFailedError → compress.log captures exit_code + error_detail (Task 161 observability)', async () => {
+      // The D-173 investigation could not explain a real `compress_failed`
+      // because the log kept only error_category, discarding the subprocess
+      // exit code + stderr. This pins that a structured failure now writes
+      // the WHY into compress.log so the next failure is diagnosable.
+      const { HaikuFailedError } = await import('../packages/cli/src/compressor.mjs');
+      writeNowMd(projectRoot, 'content\n');
+      const backend = new MockHaikuBackend({
+        throwError: new HaikuFailedError('claude --print exit 7: authentication failed', {
+          exitCode: 7,
+          stderr: 'authentication failed',
+        }),
+      });
+      const r = await compressSession({
+        projectRoot,
+        backend,
+        now: '2026-05-26T10:00:00Z',
+      });
+      expect(r.error_category).toBe('compress_failed');
+      const log = readCompressLog(projectRoot, '2026-05-26');
+      expect(log).toHaveLength(1);
+      expect(log[0].error_category).toBe('compress_failed');
+      expect(log[0].exit_code).toBe(7);
+      expect(log[0].error_detail).toMatch(/authentication failed/);
+    });
+
     it('backend throws HaikuTimeoutError → error_category: haiku_timeout (Task 23.9 routing)', async () => {
       // Pin the contract that compressSession distinguishes timeout
       // from non-zero-exit at both the return struct AND the

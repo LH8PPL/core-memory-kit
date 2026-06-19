@@ -23,7 +23,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { dailyDistill } from '../packages/cli/src/daily-distill.mjs';
-import { MockHaikuBackend } from '../packages/cli/src/compressor.mjs';
+import { MockHaikuBackend, HaikuTimeoutError } from '../packages/cli/src/compressor.mjs';
 import { install } from '../packages/cli/src/install.mjs';
 import { touchCooldownMarker } from '../packages/cli/src/cooldown.mjs';
 
@@ -91,6 +91,32 @@ describe('Task 33 — dailyDistill', () => {
       expect(existsSync(recentPath)).toBe(true);
       const content = readFileSync(recentPath, 'utf8');
       expect(content).toContain('consolidated 7-day summary');
+    });
+
+    // Task 161 / D-175: daily-distill is a CEILING-FREE path (cron/detached child,
+    // no 60s hook ceiling), so it retries a transient Haiku failure once. A timeout
+    // on attempt 1 → retry → success → recent.md still written.
+    it('retries a transient timeout and recovers (ceiling-free path, maxAttempts:2)', async () => {
+      const now = '2026-05-28T23:00:00Z';
+      seedTodayFile(projectRoot, '2026-05-28', '## 2026-05-28\n\n- Decision: ship X\n');
+      // A backend that times out once, then succeeds.
+      const queue = [new HaikuTimeoutError('slow', { timeoutMs: 50_000 })];
+      const calls = [];
+      const backend = {
+        calls,
+        modelId: () => 'mock',
+        estimatedCostPerCall: () => 0,
+        async compress(opts) {
+          calls.push(opts);
+          if (queue.length) throw queue.shift();
+          return { outputText: '## Decisions\n- recovered after retry\n', inputTokens: 10, outputTokens: 5, costUSD: 0, preservedIds: [] };
+        },
+      };
+      const r = await dailyDistill({ projectRoot, backend, now });
+      expect(backend.calls).toHaveLength(2); // retried once
+      expect(r.action).toBe('distilled');
+      const recent = readFileSync(join(projectRoot, 'context', 'sessions', 'recent.md'), 'utf8');
+      expect(recent).toContain('recovered after retry');
     });
 
     it('the distill prompt carries the faithfulness/grounding rule (Task 84 / D-36)', async () => {

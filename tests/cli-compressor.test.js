@@ -243,4 +243,38 @@ describe('Task 23.6 — HaikuViaAnthropicApi', () => {
       /exit.*1|rate limit/i,
     );
   });
+
+  // Task 161 / 161.obs — the failure error must carry STRUCTURED diagnostic
+  // fields (category / exitCode / stderr), not just an embedded message string,
+  // so the compress callers can write the real reason into compress.log. The
+  // pre-161 behavior threw a plain Error and the log kept only error_category,
+  // discarding WHY the subprocess failed (the undiagnosable 329-byte
+  // compress_failed in the kit's own log — D-173 investigation).
+  it('compress rejects with a structured HaikuFailedError (category/exitCode/stderr) on non-zero exit', async () => {
+    const { EventEmitter } = await import('node:events');
+    const fakeSpawn = () => {
+      const child = new EventEmitter();
+      child.stdin = {
+        write: () => true,
+        end: () => {
+          setImmediate(() => {
+            child.stderr.emit('data', Buffer.from('claude: authentication failed\n', 'utf8'));
+            child.emit('close', 7);
+          });
+        },
+      };
+      child.stdout = new EventEmitter();
+      child.stderr = new EventEmitter();
+      child.kill = () => {};
+      return child;
+    };
+    const h = new HaikuViaAnthropicApi({ spawnFn: fakeSpawn });
+    const err = await h.compress({ input: 'x', maxOutputBytes: 100 }).then(
+      () => { throw new Error('expected rejection'); },
+      (e) => e,
+    );
+    expect(err.category).toBe('haiku_failed');
+    expect(err.exitCode).toBe(7);
+    expect(err.stderr).toMatch(/authentication failed/);
+  });
 });

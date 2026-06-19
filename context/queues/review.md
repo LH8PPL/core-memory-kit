@@ -61,3 +61,24 @@
 ## 2026-06-18T14:18:21Z — auto-extract (medium-trust, pending review)
 - (P-LD7RPCTX) Honest uncertainty flagging: can't be 100% sure whether compress timeout is environmental or real without running it outside the harness; both readings are plausible.
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-18T14:18:21Z -->
+## 2026-06-18T20:16:34Z — auto-extract (medium-trust, pending review)
+- (P-KKALEZCP) Only 2 of 19 systems (memsearch, Letta) cleanly implement A+B+C (buffer cap + deterministic pre-truncate + partial-evict); 2 more do ~2.5; the rest do 1–2.
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-18T20:16:34Z -->
+## 2026-06-18T20:23:01Z — auto-extract (medium-trust, pending review)
+- (P-5WHKZPR3) Kit's memory system uses a `now → today → recent → archive` rolling window; `now.md` grows unbounded within a session due to roll firing at session boundaries only (causes 470KB+ buffers).
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-18T20:23:01Z -->
+## 2026-06-18T20:23:01Z — auto-extract (medium-trust, pending review)
+- (P-WYEEXZRN) Root cause: roll mechanism fires only at SessionStart/SessionEnd, not turn boundaries, so `now.md` accumulates entire-session content before draining.
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-18T20:23:01Z -->
+## 2026-06-18T20:23:01Z — auto-extract (medium-trust, pending review)
+- (P-MXSa47QX) User prefers memory designs tailored to kit's actual architecture over patterns borrowed from other systems.
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-18T20:23:01Z -->
+## 2026-06-19T05:20:12Z — auto-extract (medium-trust, pending review)
+- (P-4TGBBBPB) 200KB input compresses in ~15s standalone (no contention); real-world failures occur across 8B–334KB range with zero size correlation, proving timeouts are environmental not input-driven.
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-19T05:20:12Z -->
+## 2026-06-19T05:34:45Z — auto-extract (medium-trust, pending review)
+- (P-E7AL69YL) observability-first approach — captures real failure data before implementing dependent features (retry); values measurement over assumptions
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-19T05:34:45Z -->
+## 2026-06-19T07:15:47Z — auto-extract (medium-trust, pending review)
+- (P-TSBAKGD7) Expects comprehensive accounting of work—what was kept, what was superseded but preserved, what was discarded, and why for each
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-19T07:15:47Z -->

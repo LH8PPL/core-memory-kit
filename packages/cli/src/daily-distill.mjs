@@ -28,6 +28,7 @@ import { join } from 'node:path';
 import { nowIso } from './audit-log.mjs';
 import { ERROR_CATEGORIES } from './result-shapes.mjs';
 import { HaikuTimeoutError } from './compressor.mjs';
+import { compressWithRetry } from './compress-retry.mjs';
 import {
   DEFAULT_COOLDOWN_MS,
   isCooldownActive,
@@ -196,13 +197,21 @@ export async function dailyDistill({
 
   let result;
   try {
-    result = await backend.compress({
-      input: buffer,
-      instructions,
-      preserveCitationIds: true,
-      maxOutputBytes,
-      timeoutMs: 50_000,
-    });
+    // Task 161 / D-175: ceiling-free path (cron/detached child, NO 60s hook ceiling)
+    // → bounded transient-only retry. A re-call recovers the D-174 environmental
+    // timeout / transient non-zero exit; a deterministic failure (ENOENT/auth) fails
+    // fast (isRetryableCompressError). maxAttempts:2 = one retry.
+    result = await compressWithRetry(
+      backend,
+      {
+        input: buffer,
+        instructions,
+        preserveCitationIds: true,
+        maxOutputBytes,
+        timeoutMs: 50_000,
+      },
+      { maxAttempts: 2 },
+    );
     touchCooldownMarker({ projectRoot, now: ts });
   } catch (err) {
     touchCooldownMarker({ projectRoot, now: ts });
@@ -217,6 +226,9 @@ export async function dailyDistill({
         ts, scope: 'daily-distill', input_bytes, output_bytes: 0,
         model_id: typeof backend.modelId === 'function' ? backend.modelId() : null,
         cost_usd: 0, duration_ms, success: false, error_category: errorCategory,
+        // Task 161 (D-173 observability): structured failure reason — see compress-session.mjs.
+        ...(err?.exitCode != null ? { exit_code: err.exitCode } : {}),
+        ...(err?.stderr ? { error_detail: String(err.stderr).slice(0, 500) } : {}),
       },
     });
     return {

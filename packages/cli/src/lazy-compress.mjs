@@ -411,6 +411,11 @@ export async function runLazyCompress({
       backend,
       now: ts,
       cooldownMs: 0,
+      // Task 161 / D-175: the lazy path is a DETACHED SessionStart child with NO 60s
+      // hook ceiling, so it opts into the one retry the hook path can't afford. This
+      // is where the SessionEnd-hook's failed roll (which restored now.md, D-79) gets
+      // its real bounded retry.
+      maxAttempts: 2,
     });
   } else if (verdict.action === 'stale-weekly') {
     delegatedTo = 'weekly-curate';

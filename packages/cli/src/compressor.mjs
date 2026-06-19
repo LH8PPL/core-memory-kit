@@ -94,6 +94,23 @@ export class HaikuTimeoutError extends Error {
   }
 }
 
+// Non-zero subprocess exit (the `compress_failed` category). Carries the
+// STRUCTURED exit code + captured stderr so callers can write the real
+// failure reason into compress.log — pre-161 this was a plain Error with
+// the detail buried in `.message`, and the log kept only `error_category`,
+// making a `compress_failed` undiagnosable (the 329-byte failure in the
+// kit's own log that the D-173 investigation could not explain). Mirrors
+// HaikuTimeoutError so the two failure modes carry parallel diagnostics.
+export class HaikuFailedError extends Error {
+  constructor(message, { exitCode, stderr }) {
+    super(message);
+    this.name = 'HaikuFailedError';
+    this.category = 'haiku_failed';
+    this.exitCode = exitCode ?? null;
+    this.stderr = stderr ?? '';
+  }
+}
+
 // SIGTERM → grace window → SIGKILL escalation. Exported so the kill
 // chain itself is independently testable against real OS processes
 // (see tests/spawn-smoke-kill-chain.test.js) — the production code
@@ -292,8 +309,9 @@ export class HaikuViaAnthropicApi extends CompressorBackend {
         if (settled) return; // timeout already fired
         if (code !== 0) {
           settleReject(
-            new Error(
+            new HaikuFailedError(
               `HaikuViaAnthropicApi: claude --print exit ${code}: ${stderr.trim() || '(no stderr)'}`,
+              { exitCode: code, stderr: stderr.trim() },
             ),
           );
           return;
