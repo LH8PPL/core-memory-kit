@@ -117,6 +117,10 @@ describe('Task 33 — dailyDistill', () => {
       expect(r.action).toBe('distilled');
       const recent = readFileSync(join(projectRoot, 'context', 'sessions', 'recent.md'), 'utf8');
       expect(recent).toContain('recovered after retry');
+      // Task 161.12: the success log entry records the retry (so the retry RATE is visible).
+      const logPath = join(projectRoot, 'context', 'sessions', `${now.slice(0, 10)}.distill.log`);
+      const lastLine = readFileSync(logPath, 'utf8').trim().split('\n').pop();
+      expect(JSON.parse(lastLine).retries).toBe(1);
     });
 
     it('the distill prompt carries the faithfulness/grounding rule (Task 84 / D-36)', async () => {

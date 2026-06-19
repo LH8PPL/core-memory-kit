@@ -108,6 +108,11 @@ export function isRetryableCompressError(err) {
  * @param {number} [config.baseBackoffMs=600] — exponential backoff base: wait `baseBackoffMs * 2**(attempt-1)` before attempt N+1. 0 disables the wait (tests).
  * @param {(err: unknown) => boolean} [config.isRetryable=isRetryableCompressError]
  * @param {(ms: number) => Promise<void>} [config.sleep] — injectable for tests.
+ * @param {(info: {attempt: number, error: unknown}) => void} [config.onRetry] — fired once
+ *   per retry (Task 161.12 observability), BEFORE the backoff, with the FAILED attempt
+ *   number + the (transient) error. Callers use it to record a `retries` count on their
+ *   compress.log entry so a frequent-retry rate (the degrading-environment signal D-174
+ *   is about) is visible. Not fired on a first-try success or a non-retryable failure.
  * @returns {Promise<any>} the backend.compress result; reraises the last error after exhaustion.
  */
 export async function compressWithRetry(
@@ -118,6 +123,7 @@ export async function compressWithRetry(
     baseBackoffMs = 600,
     isRetryable = isRetryableCompressError,
     sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
+    onRetry,
   } = {},
 ) {
   const attempts = Math.max(1, maxAttempts);
@@ -130,6 +136,14 @@ export async function compressWithRetry(
       // Stop immediately if this is the last attempt OR the error isn't transient.
       if (attempt >= attempts || !isRetryable(err)) {
         throw err;
+      }
+      // We're going to retry — surface it for observability (161.12), before the wait.
+      if (typeof onRetry === 'function') {
+        try {
+          onRetry({ attempt, error: err });
+        } catch {
+          // onRetry is best-effort instrumentation — never let it break the retry.
+        }
       }
       // Exponential backoff before the next attempt (skip the wait when base is 0).
       const delay = baseBackoffMs > 0 ? baseBackoffMs * 2 ** (attempt - 1) : 0;

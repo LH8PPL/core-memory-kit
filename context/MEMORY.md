@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-4LCSC9ZY) Release verification must include testing the actual installed/packaged artifact, not just source code, tests, and CI.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 14b853f79933b006ac849e79a25abcc952f950770fc70dab9144d2f9b46a17c6, write: auto-extract, trust: high, at: 2026-06-18T19:13:16Z -->
 - (P-F9SUD9EG) Prefers option 2 (bound inside CompressorBackend.compress implementation, not a shared helper)
   <!-- source: auto-extract-session, source_line: 1, sha1: 795c6406aefbbea51009cc9bdf68c582fcca7630f4db74f6151ce09e0b5e7297, write: auto-extract, trust: high, at: 2026-06-18T20:31:48Z -->
 - (P-GSRN46VV) Requires overflow handling be comprehensive — don't shift problem from now.md to today-*.md; scope must cover full compression flow
@@ -20,6 +18,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: ea1f657c8e6306ed0afdaee579376ff2b007b4e430b225baad7c182e0af96d5e, write: auto-extract, trust: high, at: 2026-06-19T14:33:54Z -->
 - (P-NDWKVJ27) User questioned whether the update task is necessary and doesn't remember the original rationale
   <!-- source: auto-extract-session, source_line: 1, sha1: c452519983f07d3e0ffd21f04dec6715a5c73220ccd55a5e68ba315e46c3f1f9, write: auto-extract, trust: high, at: 2026-06-19T14:48:53Z -->
+- (P-2MSZRDP7) User chose docs+drift-check now (not defer) — clear priority decision
+  <!-- source: auto-extract-session, source_line: 1, sha1: 8e9c7eb0c2800adbc6758655f28f9148b15cb42b8ce026853fa33b73f81abf71, write: auto-extract, trust: high, at: 2026-06-19T18:05:12Z -->
 
 ## Environment Notes
 

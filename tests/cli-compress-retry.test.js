@@ -122,4 +122,34 @@ describe('compressWithRetry', () => {
     ).rejects.toBeInstanceOf(HaikuTimeoutError);
     expect(backend.calls).toHaveLength(1); // single attempt — no retry under the ceiling
   });
+
+  // Task 161.12 — the retry must be OBSERVABLE (a frequent-retry rate is the
+  // degrading-environment signal D-174 is about). onRetry fires once per retry,
+  // BEFORE the backoff, with the failed attempt number + the (transient) error.
+  it('calls onRetry once per retry with {attempt, error} (observability — 161.12)', async () => {
+    const backend = sequencedBackend({ throwsThenSucceeds: [timeoutErr()], success: { outputText: 'ok' } });
+    const retries = [];
+    await compressWithRetry(
+      backend,
+      { input: 'x' },
+      { maxAttempts: 2, baseBackoffMs: 0, onRetry: (info) => retries.push(info) },
+    );
+    expect(retries).toHaveLength(1);
+    expect(retries[0].attempt).toBe(1); // the attempt that FAILED (before the retry)
+    expect(retries[0].error).toBeInstanceOf(HaikuTimeoutError);
+  });
+
+  it('does NOT call onRetry on a first-try success', async () => {
+    const backend = sequencedBackend({ success: { outputText: 'ok' } });
+    const retries = [];
+    await compressWithRetry(backend, { input: 'x' }, { maxAttempts: 2, onRetry: () => retries.push(1) });
+    expect(retries).toHaveLength(0);
+  });
+
+  it('does NOT call onRetry when a non-retryable error fails immediately', async () => {
+    const backend = sequencedBackend({ throwsThenSucceeds: [enoentErr()] });
+    const retries = [];
+    await compressWithRetry(backend, { input: 'x' }, { maxAttempts: 2, onRetry: () => retries.push(1) }).catch(() => {});
+    expect(retries).toHaveLength(0); // deterministic failure → no retry → no onRetry
+  });
 });
