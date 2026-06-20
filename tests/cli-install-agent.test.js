@@ -127,6 +127,19 @@ describe('Task 50.E/50.F — installAgent (Kiro)', () => {
       expect(r.legs.hooks).toBeUndefined();
     });
 
+    it('appends cleanly to a user file with many trailing newlines (no ReDoS regex)', () => {
+      const agentsPath = join(projectRoot, 'AGENTS.md');
+      // a pathological trailing-newline run — the input that would stress a
+      // `\n*$` backtracking regex; our non-regex trim handles it linearly.
+      writeFileSync(agentsPath, `# Rules${'\n'.repeat(5000)}`, 'utf8');
+      installAgent({ projectRoot, profile: agentsmd() });
+      const body = readFileSync(agentsPath, 'utf8');
+      expect(body).toContain('# Rules');
+      expect(body).toMatch(/claude-memory-kit:start/);
+      // exactly one blank line between the user content and our block
+      expect(body).toMatch(/# Rules\n\n<!-- claude-memory-kit:start/);
+    });
+
     it('byte-preserves the user content outside our block on uninstall', () => {
       const agentsPath = join(projectRoot, 'AGENTS.md');
       writeFileSync(agentsPath, '# My project rules\n\nUse tabs.\n', 'utf8');

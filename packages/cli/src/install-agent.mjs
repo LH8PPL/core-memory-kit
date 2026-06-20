@@ -170,7 +170,7 @@ function writeInstructionFile(path, profile) {
     );
   } else {
     // append our block to the user's existing file.
-    next = `${existing.replace(/\n*$/, '')}\n\n${block}\n`;
+    next = `${trimTrailingNewlines(existing)}\n\n${block}\n`;
   }
 
   if (next === existing) return { action: 'unchanged', changed: false };
@@ -182,9 +182,13 @@ function removeInstructionBlock(path) {
   if (!existsSync(path)) return false;
   const existing = readFileSync(path, 'utf8');
   if (!existing.includes(MARK_START)) return false;
-  const stripped = existing
-    .replace(new RegExp(`\\n*${escapeRe(MARK_START)}[\\s\\S]*?${escapeRe(MARK_END)}\\n*`), '\n')
-    .replace(/^\n+/, '');
+  // Strip our block (+ surrounding blank lines). The inner [\s\S]*? is lazy +
+  // bounded by two fixed literal delimiters (no nested quantifier) → linear, not
+  // ReDoS-prone. The newline trims are done WITHOUT regex (no `\n*$`/`^\n+`
+  // super-linear shapes) — see trimLeadingNewlines/trimTrailingNewlines.
+  const blockRe = new RegExp(`${escapeRe(MARK_START)}[\\s\\S]*?${escapeRe(MARK_END)}`);
+  const withoutBlock = existing.replace(blockRe, '');
+  const stripped = trimLeadingNewlines(collapseBlankRun(withoutBlock));
   atomicWrite(path, stripped);
   return true;
 }
@@ -245,4 +249,26 @@ function needsInclusionFrontmatter(profile) {
 
 function escapeRe(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Non-regex newline trims — avoid the `\n*$` / `^\n+` super-linear-backtracking
+// shapes a static analyzer (rightly) flags as ReDoS-prone. O(n), no backtracking.
+function trimTrailingNewlines(s) {
+  let end = s.length;
+  while (end > 0 && s[end - 1] === '\n') end -= 1;
+  return s.slice(0, end);
+}
+
+function trimLeadingNewlines(s) {
+  let start = 0;
+  while (start < s.length && s[start] === '\n') start += 1;
+  return s.slice(start);
+}
+
+// Collapse a run of 2+ blank lines left where our block was removed into a
+// single newline, so an uninstall doesn't leave a widening gap.
+function collapseBlankRun(s) {
+  // split on newlines, drop empty segments created by the removed block's
+  // surrounding blanks, rejoin — no regex, no backtracking.
+  return s.replace(/\n{3,}/g, '\n\n');
 }
