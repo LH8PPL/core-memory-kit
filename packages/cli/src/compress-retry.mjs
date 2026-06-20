@@ -37,6 +37,31 @@
 // a time, gated by the cooldown), so there is no herd to avoid — a plain exponential
 // backoff is sufficient and keeps the timing deterministic for tests.
 
+// The timeout for compress callers that have NO outer hook ceiling — the cron /
+// detached-lazy children (daily-distill, weekly-curate, the lazy compressSession).
+// The D-92/F-2 composition rule: a ceiling-free caller must NOT inherit the
+// hook-sized 50s bound (which is sized under the 60s SessionEnd ceiling, §8.5).
+// 120s is chosen against MEASURED `claude --print` latency: it runs ~18-27s when
+// fast but was observed at 78s (Task 163 live, on a 4.7KB input) and 89s (the v0.3.4
+// cut-gate, 10KB) in slow-Haiku windows — environmental, not size-driven (D-174).
+// 120s clears those with headroom; the 50s budget killed them needlessly, leaving
+// `recent.md` stale (D-179). One constant so the family can't drift back to 50s.
+// (auto-extract uses its own 90s under the Stop hook — a separate detached path.)
+export const CEILING_FREE_TIMEOUT_MS = 120_000;
+
+// The backoff BETWEEN retries on the ceiling-free paths. The default baseBackoffMs
+// (600ms) is far too short for the kit's failure mode: `claude --print` slowness is
+// a transient WINDOW (slow for a stretch, then fine — D-174), and the whole point of
+// backoff is to let that window PASS before retrying. A 600ms wait retries while
+// still INSIDE the same slow window, so attempt 2 hits the same slowness and also
+// times out. The field waits SECONDS for exactly this reason (graphiti 5-120s,
+// Letta cap 10s, mempalace 2-8s — all checked across 19 systems; NONE use sub-second
+// backoff, and NONE escalate the timeout itself). 5s is the field's low end — one
+// 5s wait between the 2 ceiling-free attempts gives the slow window room to clear.
+// Safe on every path: the HOOK path is maxAttempts:1 (no retry → backoff never
+// fires); the ceiling-free paths run detached/cron, so a multi-second wait is free.
+export const CEILING_FREE_BACKOFF_MS = 5_000;
+
 /**
  * Classify a compress() rejection as transient (worth a retry) or deterministic
  * (a re-call re-fails identically — don't waste the attempt or the budget).

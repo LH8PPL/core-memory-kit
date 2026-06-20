@@ -28,7 +28,7 @@ import { join } from 'node:path';
 import { nowIso } from './audit-log.mjs';
 import { ERROR_CATEGORIES } from './result-shapes.mjs';
 import { HaikuTimeoutError } from './compressor.mjs';
-import { compressWithRetry } from './compress-retry.mjs';
+import { compressWithRetry, CEILING_FREE_TIMEOUT_MS, CEILING_FREE_BACKOFF_MS } from './compress-retry.mjs';
 import {
   DEFAULT_COOLDOWN_MS,
   isCooldownActive,
@@ -209,9 +209,13 @@ export async function dailyDistill({
         instructions,
         preserveCitationIds: true,
         maxOutputBytes,
-        timeoutMs: 50_000,
+        // Ceiling-free (cron / detached lazy child, NO 60s hook ceiling) → the
+        // generous ceiling-free timeout, NOT the hook-sized 50s (D-92/F-2 + D-179).
+        timeoutMs: CEILING_FREE_TIMEOUT_MS,
       },
-      { maxAttempts: 2, onRetry: () => { retries += 1; } },
+      // 5s backoff between the 2 attempts (NOT the 600ms default) so a retry lands
+      // AFTER the transient slow-Haiku window, not inside it (D-179).
+      { maxAttempts: 2, baseBackoffMs: CEILING_FREE_BACKOFF_MS, onRetry: () => { retries += 1; } },
     );
     touchCooldownMarker({ projectRoot, now: ts });
   } catch (err) {
