@@ -110,6 +110,14 @@ export const ERROR_CATEGORIES = Object.freeze({
   // NO silent fallback to keyword — the user asked for semantic,
   // and the surface should fail-loud so they know what's missing.
   SEMANTIC_UNAVAILABLE: 'semantic_unavailable',
+
+  // A per-agent config file (Task 50, cross-agent install) could not be
+  // PARSED — it exists but its bytes aren't valid for the declared format
+  // (corrupt/hand-edited JSON, etc.). `mutateAgentConfig` returns this
+  // and REFUSES to write, so a malformed third-party config is never
+  // clobbered (the claude-mem rigor-drift bug class, inverted into a
+  // guarantee — design: cross-agent adapter seam note 2026-06-20 / D-180).
+  CONFIG_PARSE: 'config_parse',
 });
 
 export const ACTION_TYPES = Object.freeze({
