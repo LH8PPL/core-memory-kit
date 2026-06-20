@@ -301,6 +301,14 @@ async function runInstallForAgent({ ide, options, log, logError }) {
     for (const e of wired.errors || []) {
       logError(`  error: ${profile.displayName} ${e.leg}: ${(e.errors || []).join('; ')}`);
     }
+    // Report which legs DID land (every leg is independently idempotent +
+    // touch-only, so a re-run after fixing the flagged file is safe).
+    const landed = Object.entries(wired.legs || {})
+      .filter(([, action]) => action && action !== 'error')
+      .map(([leg]) => leg);
+    if (landed.length) {
+      logError(`  (${landed.join(' + ')} already wired; re-run after fixing the file above — safe, idempotent.)`);
+    }
     logError(
       `cmk install: ${projectName} scaffolded but ${profile.displayName} wiring failed (a config file could not be safely written — see above).`,
     );

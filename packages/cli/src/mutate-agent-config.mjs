@@ -168,7 +168,9 @@ function deepEqual(a, b) {
 
 // Atomic write: serialize to a temp sibling, then rename over the target.
 // rename is atomic on the same filesystem, so a reader never sees a partial file.
-function atomicWrite(path, contents) {
+// Exported so install-agent.mjs (the per-agent wiring) shares ONE implementation
+// — the kit's shared-module discipline (no two copies to drift).
+export function atomicWrite(path, contents) {
   mkdirSync(dirname(path), { recursive: true });
   const tmp = join(dirname(path), `.${basename(path)}.${process.pid}.tmp`);
   try {

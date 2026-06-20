@@ -160,5 +160,47 @@ describe('Task 50.E/50.F — installAgent (Kiro)', () => {
       expect(mcp.mcpServers['user-server']).toEqual({ command: 'theirs' });
       expect(mcp.mcpServers['claude-memory-kit']).toBeUndefined();
     });
+
+    it('prunes an emptied servers object (no kit-shaped husk left behind) — review I2', () => {
+      // ours is the ONLY server; after uninstall mcpServers should not linger as {}.
+      installAgent({ projectRoot, profile: kiro() });
+      uninstallAgent({ projectRoot, profile: kiro() });
+      const mcp = JSON.parse(readFileSync(join(projectRoot, '.kiro', 'settings', 'mcp.json'), 'utf8'));
+      expect(mcp.mcpServers).toBeUndefined();
+    });
+
+    it('uninstall removes ONLY our hook events, preserving a user-added hook in the same file — review M1', () => {
+      installAgent({ projectRoot, profile: kiro() });
+      // user adds their own hook event to the SAME .kiro/agents/cmk.json
+      const hooksPath = join(projectRoot, '.kiro', 'agents', 'cmk.json');
+      const cfg = JSON.parse(readFileSync(hooksPath, 'utf8'));
+      cfg.hooks.userCustom = [{ command: 'their-script' }];
+      writeFileSync(hooksPath, JSON.stringify(cfg, null, 2), 'utf8');
+
+      uninstallAgent({ projectRoot, profile: kiro() });
+
+      const after = JSON.parse(readFileSync(hooksPath, 'utf8'));
+      // their hook survived; ours (agentSpawn/stop) gone
+      expect(after.hooks.userCustom).toEqual([{ command: 'their-script' }]);
+      expect(after.hooks.agentSpawn).toBeUndefined();
+      expect(after.hooks.stop).toBeUndefined();
+    });
+  });
+
+  describe('partial install reports landed legs (review I1)', () => {
+    it('when hooks config is corrupt, MCP still lands and the result names it', () => {
+      // pre-seed a corrupt hooks file so the hooks leg errors AFTER MCP succeeds.
+      const hooksPath = join(projectRoot, '.kiro', 'agents', 'cmk.json');
+      mkdirSync(join(projectRoot, '.kiro', 'agents'), { recursive: true });
+      writeFileSync(hooksPath, '{ corrupt,,, ', 'utf8');
+
+      const r = installAgent({ projectRoot, profile: kiro() });
+      expect(r.action).toBe('error');
+      // MCP DID land (idempotent + safe to re-run) and the result records it
+      expect(r.legs.mcp).toBe('created');
+      expect(existsSync(join(projectRoot, '.kiro', 'settings', 'mcp.json'))).toBe(true);
+      // the corrupt hooks file was NOT clobbered
+      expect(readFileSync(hooksPath, 'utf8')).toBe('{ corrupt,,, ');
+    });
   });
 });

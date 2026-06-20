@@ -21,10 +21,11 @@ import {
 import { KIT_HOOKS_BLOCK } from '../packages/cli/src/settings-hooks.mjs';
 
 describe('Task 50.C/50.E — agent-profiles registry', () => {
-  it('registers claude-code + kiro', () => {
+  it('registers claude-code + kiro + agents-md', () => {
     expect(getAgentProfile('claude-code')).toBeDefined();
     expect(getAgentProfile('kiro')).toBeDefined();
-    expect(listAgentProfiles().map((p) => p.name).sort()).toEqual(['claude-code', 'kiro']);
+    expect(getAgentProfile('agents-md')).toBeDefined();
+    expect(listAgentProfiles().map((p) => p.name).sort()).toEqual(['agents-md', 'claude-code', 'kiro']);
   });
 
   it('the registry is frozen (profiles are immutable data)', () => {

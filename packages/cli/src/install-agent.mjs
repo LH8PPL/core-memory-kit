@@ -15,9 +15,9 @@
 //   installAgent({ projectRoot, profile }) → { action, agent, changed, legs, errors? }
 //   uninstallAgent({ projectRoot, profile }) → { action, agent, changed }
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync } from 'node:fs';
-import { dirname, basename, join } from 'node:path';
-import { mutateAgentConfig } from './mutate-agent-config.mjs';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { mutateAgentConfig, atomicWrite } from './mutate-agent-config.mjs';
 
 // The kit's MCP server entry — same shape settings-hooks.mjs writes for Claude
 // Code (`cmk mcp serve` over stdio). Agent-neutral: every agent registers the
@@ -113,14 +113,20 @@ export function uninstallAgent({ projectRoot, profile }) {
   if (profile.mcp) {
     const p = join(projectRoot, profile.mcp.path);
     if (removeJsonKey(p, [profile.mcp.serversKey, MCP_SERVER_NAME])) changed = true;
+    // prune an emptied servers object we leave behind (no kit-shaped residue).
+    pruneEmptyParent(p, [profile.mcp.serversKey]);
   }
-  // hooks: remove the whole `hooks` object we wrote (the agent's hook file is
-  // ours — we created it). If the user added their own hooks to the SAME file,
-  // we only created cmk's, so removing the top-level `hooks` we wrote is safe
-  // for the kit-owned file path; a shared file is out of scope for v0.4.0.
+  // hooks: remove ONLY the event keys WE wrote (symmetry with the MCP leg —
+  // remove our keys, preserve any the user added to the same `hooks` object).
+  // This is safe even if a future profile points hooks.path at a shared file.
   if (profile.hooks) {
     const p = join(projectRoot, profile.hooks.path);
-    if (removeJsonKey(p, ['hooks'])) changed = true;
+    const ourEvents = Object.keys(buildHookEntry(profile));
+    for (const ev of ourEvents) {
+      if (removeJsonKey(p, ['hooks', ev])) changed = true;
+    }
+    // prune an emptied `hooks` object we leave behind (no residue).
+    pruneEmptyParent(p, ['hooks']);
   }
   // instruction: strip our marker block, byte-preserve the rest.
   const instrPath = join(projectRoot, profile.instructionFile);
@@ -206,6 +212,30 @@ function removeJsonKey(path, keyPath) {
   return true;
 }
 
+// If the object at keyPath exists and is now empty ({}), remove it — so an
+// uninstall doesn't leave a kit-shaped `{"mcpServers":{}}` / `{"hooks":{}}`
+// husk in the user's config. No-op on a missing file / parse error / non-empty.
+function pruneEmptyParent(path, keyPath) {
+  if (!existsSync(path)) return;
+  let root;
+  try {
+    root = JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    return;
+  }
+  let cur = root;
+  for (let i = 0; i < keyPath.length - 1; i += 1) {
+    if (!cur || typeof cur !== 'object' || !(keyPath[i] in cur)) return;
+    cur = cur[keyPath[i]];
+  }
+  const last = keyPath[keyPath.length - 1];
+  const target = cur && typeof cur === 'object' ? cur[last] : undefined;
+  if (target && typeof target === 'object' && !Array.isArray(target) && Object.keys(target).length === 0) {
+    delete cur[last];
+    atomicWrite(path, `${JSON.stringify(root, null, 2)}\n`);
+  }
+}
+
 function needsInclusionFrontmatter(profile) {
   // Kiro steering files use `inclusion: always`. Driven by the profile's
   // instruction path living under a steering dir — kept simple for v0.4.0
@@ -215,21 +245,4 @@ function needsInclusionFrontmatter(profile) {
 
 function escapeRe(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function atomicWrite(path, contents) {
-  mkdirSync(dirname(path), { recursive: true });
-  const tmp = join(dirname(path), `.${basename(path)}.${process.pid}.tmp`);
-  try {
-    writeFileSync(tmp, contents, 'utf8');
-    renameSync(tmp, path);
-  } finally {
-    if (existsSync(tmp)) {
-      try {
-        unlinkSync(tmp);
-      } catch {
-        /* best-effort */
-      }
-    }
-  }
 }
