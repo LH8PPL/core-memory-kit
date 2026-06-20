@@ -39,6 +39,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync } from 'node:fs';
 import { dirname, basename, join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 
 const SUPPORTED_FORMATS = new Set(['json']);
@@ -170,12 +171,25 @@ function deepEqual(a, b) {
 // rename is atomic on the same filesystem, so a reader never sees a partial file.
 // Exported so install-agent.mjs (the per-agent wiring) shares ONE implementation
 // — the kit's shared-module discipline (no two copies to drift).
+//
+// Two Windows-specific hazards this guards against (BOTH real, BOTH surfaced by
+// the Task-50 stress runs — not "flakes": concrete EPERM-under-load failures):
+//   1. The tmp suffix is UNIQUE PER CALL (randomUUID), not `process.pid` — a
+//      single install sequence writes the same path several times (write →
+//      uninstall → prune) and vitest runs files concurrently in one worker
+//      (shared pid), so a pid-keyed tmp name could collide.
+//   2. `renameSync(tmp, target)` ONTO an existing file intermittently throws
+//      EPERM/EBUSY on Windows when the target is transiently locked (AV /
+//      indexer / another handle) under heavy parallel FS load. The kit already
+//      hit + documented this in persona-portability.mjs (restoreBackup); the
+//      proven fix is a short bounded retry. Without it, a `cmk install` on a
+//      busy Windows machine could spuriously fail mid-write.
 export function atomicWrite(path, contents) {
   mkdirSync(dirname(path), { recursive: true });
-  const tmp = join(dirname(path), `.${basename(path)}.${process.pid}.tmp`);
+  const tmp = join(dirname(path), `.${basename(path)}.${randomUUID()}.tmp`);
   try {
     writeFileSync(tmp, contents, 'utf8');
-    renameSync(tmp, path);
+    renameWithRetry(tmp, path);
   } finally {
     if (existsSync(tmp)) {
       try {
@@ -185,4 +199,40 @@ export function atomicWrite(path, contents) {
       }
     }
   }
+}
+
+// renameSync with a bounded retry + BACKOFF on transient Windows EPERM/EBUSY
+// (the target briefly locked by AV/indexer/another handle under load). A
+// no-delay spin doesn't work — the lock lasts milliseconds while 5 immediate
+// retries finish in microseconds (the Task-50 stress proved this: retry fired
+// but exhausted instantly). So we sleep between attempts with a synchronous
+// backoff (Atomics.wait — real sync sleep, no busy-spin). A non-transient error
+// (e.g. ENOENT on the source) reraises immediately so we don't mask a real bug.
+//
+// `rename` + `sleep` are injectable so the retry policy is unit-testable WITHOUT
+// mocking node:fs or actually sleeping — production passes nothing.
+export function renameWithRetry(from, to, attempts = 8, rename = renameSync, sleep = sleepMs) {
+  let lastErr;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      rename(from, to);
+      return;
+    } catch (err) {
+      if (err && (err.code === 'EPERM' || err.code === 'EBUSY' || err.code === 'EACCES')) {
+        lastErr = err; // transient lock under load — back off + retry
+        if (i < attempts - 1) sleep(Math.min(10 * 2 ** i, 250)); // 10,20,40…≤250ms
+        continue;
+      }
+      throw err; // anything else is a real error — don't mask it
+    }
+  }
+  throw lastErr;
+}
+
+// Synchronous sleep via Atomics.wait on a throwaway SharedArrayBuffer — blocks
+// the thread for `ms` without a CPU busy-spin. Used only on the (rare) Windows
+// transient-lock retry path, so the block is bounded + infrequent.
+function sleepMs(ms) {
+  if (ms <= 0) return;
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
