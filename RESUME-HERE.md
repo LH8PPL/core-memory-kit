@@ -1,19 +1,39 @@
-# RESUME HERE — 2026-06-20
+# RESUME HERE — 2026-06-20 (updated)
 
-> Breadcrumb written before you updated Claude Code + VS Code (context was low).
-> Everything is committed + pushed to `main`. Nothing is in flight. Safe to close.
+> Breadcrumb before you restart VS Code. Everything is committed to `main`. Safe to close.
+> When you reopen, the v0.3.5 hooks load fresh (the in-session compress fix takes full effect on restart).
 
-## Where things stand
+## Latest state (top of mind)
 
-- **v0.3.4 SHIPPED** ✅ — npm `@lh8ppl/claude-memory-kit@0.3.4` (provenance-signed) + GitHub Release `v0.3.4`. Verified live.
-  - Task 161 (compression timeout → bounded transient-only **retry**; D-174/D-175) + 161.12 (retry-rate logging) + Task 162 (update path → docs both routes + `cmk doctor` **HC-9** drift check; D-176).
-  - Verified by a full **cut-gate (cut-gate17)** on the real artifact — all gates incl. the new RT1/VD1 + the **E1 cold-open wedge passed clean**.
-- **Branch:** `main`, clean. Last commit `c6a6f53` (the Task-151 re-laning).
-- **Tag pushed by you; publish.yml succeeded.** No outward step pending.
+- **v0.3.5 is CODE-COMPLETE + DOGFOOD-VERIFIED on this machine — but NOT yet tagged/published.**
+  - The `release: v0.3.5` commit is on `main` (`b4ecf78`), **un-tagged**. npm still serves 0.3.4.
+  - **To publish (your outward step):** `git tag v0.3.5 && git push origin v0.3.5` → publish.yml ships npm + GitHub Release.
+- **This machine is running cmk 0.3.5** (installed from the local tarball, the cut-gate pattern — no publish needed to test).
+- **This repo: all 9 `cmk doctor` HCs PASS** (0 fail, 0 skip), crons registered, semantic on.
 
-## The one finding from the cut-gate (already filed, NOT a blocker)
+## What v0.3.5 fixed (Task 163 / D-179)
 
-**D-177** — the persona's architecture trait can graduate OUT of the injected `HABITS.md` (explicit `mk_lessons_promote` concentrates in HABITS § Working Style → overflow → cap-relief graduation → fragments → fragments aren't injected at cold-open). **Verified NOT a v0.3.4 regression** (9-file diff, none in the persona path; absent from HABITS in every prior backup; the wedge still WORKS because session-end auto-persona re-synthesizes it back — the E1 cold-open transferred it clean). Filed on **Task 151** with both failure mechanisms + candidate fixes.
+The ceiling-free compress callers (daily-distill, weekly-curate, lazy session-roll) used the hook-sized **50s** timeout despite having **no ceiling** → needless `haiku_timeout` when `claude --print` was slow → `recent.md` went 4 days stale. **Two-lever fix:**
+1. **Timeout** → 120s on the ceiling-free paths (`CEILING_FREE_TIMEOUT_MS`; D-92/F-2 rule).
+2. **Backoff** → 5s between retries (was 600ms; `CEILING_FREE_BACKOFF_MS`) so a retry lands AFTER the slow-Haiku window, not inside it.
+
+Grounded in a 19-system field check (escalating-timeout idea REJECTED — nobody does it; the backoff-too-short bug found). Live-proven: distill ran the real input in 77.9s (died at 50s, succeeds at 120s). Full suite 2030/2030, stress 5/5, two-pass review. Shipped via **PR #209** (merged).
+
+## What this session ALSO verified (the dogfood win)
+
+The full **update path** (v0.3.4's Task 162) end-to-end on this real repo:
+- `cmk install` (local-tarball 0.3.5) → **HC-9 went FAIL→PASS** (drift detect → re-stamp).
+- `cmk install --with-semantic` → hybrid recall on (your standing preference).
+- `cmk register-crons` → daily-distill 23:00 + weekly-curate Sun 09:00 → **HC-5 PASS**.
+- The compress fix → **HC-2 went FAIL→PASS** (recent.md 4d stale → 4h fresh).
+
+## What to do next (when you come back)
+
+**Two options — your call:**
+1. **Publish v0.3.5** (if you want it on npm): `git tag v0.3.5 && git push origin v0.3.5`, then I confirm publish.yml + npm.
+2. **Start v0.4.0 = Kiro (Task 50)** — the planned next feature. RESEARCH-FIRST: verify Kiro paths against **kiro.dev** (primary source), then build the per-agent adapter seam (`createProfile`-style factory). Prior art: [Taskmaster cross-IDE note](docs/research/2026-06-15-claude-task-master-cross-ide-profiles.md).
+
+**To resume, say:** `publish v0.3.5` OR `start v0.4.0`.
 
 ## The settled v0.4 map (decided this session — do NOT re-litigate)
 
@@ -21,37 +41,26 @@
 | --- | --- | --- |
 | **v0.4.0** | **Kiro** — cross-agent adapter seam + first agent | D-127 (firm) |
 | **v0.4.1** | Cursor | D-157 (locked) |
-| **v0.4.2/.3** | **Task 151 — FULL persona-promotion redesign** (recurrence-scored, LLM-judged; covers both D-177 mechanisms) | **D-178** |
+| **v0.4.2/.3** | **Task 151 — FULL persona-promotion redesign** (NOT a v0.3.5 down-payment — the user: "do the full thing for a real payoff") | D-178 |
 
-**D-178 (this session's call):** Task 151 pulled UP to early-v0.4 (the origin video's thesis = recall/injection is paramount, so 151 = injection-layer reliability = core, not v0.5 depth). **Do the FULL redesign once, NOT a v0.3.5 down-payment** (the user: "all the work + tests for a down-payment, get nothing out of it — do the full thing for a real payoff"). Kiro stays v0.4.0 (one-differentiator rule). The v0.3.1 down-payment (D-154) already shipped, so v0.4.2 is genuinely the full thing.
+## Open findings (filed, not blocking)
 
-## What to do next (when you come back)
+- **D-177** — persona graduation/routing soft-spot (a durable trait can transiently graduate out of injected HABITS; self-heals via re-synthesis, so the wedge still works). → Task 151 (v0.4).
+- **D-179 secondary** — the lazy compress cascade can starve daily/recent on a busy repo; designed mitigation = `cmk register-crons` (now done on this repo).
 
-**Start v0.4.0 = Kiro (Task 50).** It is **RESEARCH-FIRST**:
-1. Verify the Kiro paths/config against **kiro.dev** (primary source — the §5.1 convergent-third-party rule; don't assume from notes).
-2. Build the per-agent **adapter seam** (`createProfile`-style factory + lifecycle-hook wiring) — the seam is the real v0.4.0 work; Kiro is its first consumer.
-3. Prior art: the Taskmaster `createProfile` cross-IDE pattern ([research note](docs/research/2026-06-15-claude-task-master-cross-ide-profiles.md)) — 16 editors from one base + thin per-agent profiles. Design input, not a port.
+## Orientation (always-true pointers)
 
-**To resume, say:** `start v0.4.0` (or `start Task 50`).
-
-## Orientation (the always-true pointers)
-
-- Status / what's next: [`specs/tasks.md`](specs/tasks.md) "Current state" (top).
+- Status / next: [`specs/tasks.md`](specs/tasks.md) "Current state" (top).
 - Release map: [`docs/RELEASE-PLAN.md`](docs/RELEASE-PLAN.md).
-- Decision trail (read before re-opening anything): [`docs/journey/DECISION-LOG.md`](docs/journey/DECISION-LOG.md) — newest at top (D-178 → D-177 → D-176 → D-175 → D-174).
-- The origin source (what started the kit): `C:\Projects\youtube-to-slide\out\master-claude-memory-to-get-ahead-of-99-of-people\` (transcript.md + resources/Memory-System-Improvements-Plan.md). The kit already implements the whole "recommended setup" + the cross-project persona wedge beyond it.
+- Decision trail (read before re-opening anything): [`docs/journey/DECISION-LOG.md`](docs/journey/DECISION-LOG.md) — newest at top (D-179 → D-178 → D-177 → D-176 → D-175 → D-174).
+- Origin source (what started the kit): `C:\Projects\youtube-to-slide\out\master-claude-memory-to-get-ahead-of-99-of-people\`. The kit already implements the whole "recommended setup" + the cross-project persona wedge beyond it.
 
-## Cut-gate state (only matters if you re-run a cut-gate)
+## After you reopen VS Code
 
-- The cut-gate runbook is bumped to `cut-gate17` / `cut-gate-coldopen17` (your renamed dirs).
-- Your user-tier was wiped for cut-gate17's capture-from-zero. **Backup of your real persona:** `C:\Users\tamir.bn-sh\before-cut-gate17-v0.3.4-.claude-memory-kit` (+ a copy at `C:\tmp\cmk-user-tier-backup-2026-06-19`). To restore your real persona:
+- The 0.3.5 hooks load fresh on restart (the in-session compress fix activates for live sessions).
+- If `cmk doctor` shows anything off, it shouldn't — this repo was left at 9/9 PASS.
+- Your REAL cross-project persona backup (this repo's `~/.claude-memory-kit` currently holds the SYNTHETIC cut-gate persona): `C:\Users\tamir.bn-sh\before-cut-gate17-v0.3.4-.claude-memory-kit`. Restore only if you want your real persona back:
   ```powershell
   Remove-Item -Recurse -Force $env:USERPROFILE\.claude-memory-kit
   Copy-Item -Recurse "C:\Users\tamir.bn-sh\before-cut-gate17-v0.3.4-.claude-memory-kit" "$env:USERPROFILE\.claude-memory-kit"
   ```
-  _(The current `~/.claude-memory-kit` holds the SYNTHETIC cut-gate persona — uv/ruff/layered-architecture from the test sessions, not your real one.)_
-
-## After you update Claude Code + VS Code
-
-- The kit is installed on THIS repo (dogfood). If a `cmk doctor` shows **HC-9** drift after the update, just re-run `cmk install` here (that's exactly the v0.3.4 update-path feature working).
-- If the global `cmk` is stale: `npm install -g @lh8ppl/claude-memory-kit@latest` (close Claude Code first on Windows — EBUSY on the native DLLs).
