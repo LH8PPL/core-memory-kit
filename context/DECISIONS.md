@@ -2979,3 +2979,82 @@
 <!-- decision:P-WYEEXZRN -->
 ### Root cause: roll mechanism fires only at SessionStart/SessionEnd, not turn bound
 **When:** 2026-06-20 · **Fact:** `P-WYEEXZRN`
+
+<!-- decision:P-RES031CG -->
+### RESUME — v0.3.1 cut-gate near-complete; PR
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-4TGBBBPB -->
+### 200KB input compresses in ~15s standalone (no contention); real-world failures o
+**When:** 2026-06-20 · **Fact:** `P-4TGBBBPB`
+
+<!-- decision:P-MXSa47QX -->
+### User prefers memory designs tailored to kit's actual architecture over patterns
+**When:** 2026-06-20 · **Fact:** `P-MXSa47QX`
+
+<!-- decision:P-E7AL69YL -->
+### observability-first approach — captures real failure data before implementing de
+**When:** 2026-06-20 · **Fact:** `P-E7AL69YL`
+
+<!-- decision:P-ZMRE4MSU -->
+### Cascade-Starvation: Lazy Distill Limitation on Busy Repos
+**When:** 2026-06-20 · **Fact:** `P-ZMRE4MSU`
+**Why:** Known limitation (Task 105/D-75). Surfaces as unexpected staleness on high-activity projects. Lazy SessionStart fallback is insufficient as *sole* distill mechanism for hierarchical compression.
+
+<!-- decision:P-2RaREHLR -->
+### CMK Health Check Status (2026-06-20)
+**When:** 2026-06-20 · **Fact:** `P-2RaREHLR`
+**Why:** Captures current health state. Staleness is caused by two compounding issues: (1) cascade-starvation where stale-now verdict blocks stale-daily/weekly refresh cycles, (2) unretried haiku_timeout on weekly compression (predates v0.3.4). Cron not registered means no scheduled background distill; only lazy fallback on SessionStart. Native auto-memory running in parallel with kit layers.
+
+<!-- decision:P-BKCWY2C6 -->
+### Cron Job Registration Feature (HC-5)
+**When:** 2026-06-20 · **Fact:** `P-BKCWY2C6`
+**Why:** Without cron, lazy SessionStart fallback is the only automatic distill path, which starves on busy repos (cascade-starvation). Scheduled cron runs provide reliable daily/weekly cycles — the real fix for staleness on high-activity dogfood/test projects.
+
+<!-- decision:P-BDQ7XNU5 -->
+### Weekly Compression Timeout and v0.3.4 Retry Logic
+**When:** 2026-06-20 · **Fact:** `P-BDQ7XNU5`
+**Why:** Large compressions can timeout; v0.3.4 added retry recovery. The unretried timeout in this session predates the fix. With new install, future timeouts should auto-retry.
+
+<!-- decision:P-ABWV2PS7 -->
+### LLM Timeout Retries: Backoff Interval Strategy
+**When:** 2026-06-20 · **Fact:** `P-ABWV2PS7`
+**Why:** Short backoff intervals (< 1s) don't give slow LLM windows time to pass; they just hammer with back-to-back requests. Long waits (5–10s) align with field practice and let transient slowness resolve naturally.
+
+<!-- decision:P-6U7SCR5a -->
+### Register Crons for Staleness/Starvation Prevention
+**When:** 2026-06-20 · **Fact:** `P-6U7SCR5a`
+**Why:** Crons are the designed fix for staleness and cascade-starvation; background distill-curate cycle prevents memory degradation over time
+
+<!-- decision:P-Ta2YJJaB -->
+### Tag and Publish v0.3.5 Release
+**When:** 2026-06-20 · **Fact:** `P-Ta2YJJaB`
+**Why:** Release commit b4ecf78 is on main and ready; tagging is the publish gate that automates npm and GitHub release
+
+<!-- decision:P-WQDKTWEG -->
+### Close Claude Code Before Global cmk Install to Avoid EBUSY
+**When:** 2026-06-20 · **Fact:** `P-WQDKTWEG`
+**Why:** Claude Code's MCP processes hold file locks; npm needs exclusive DLL access during installation. DLL contention occurs on Windows.
+
+<!-- decision:P-NZE35AKR -->
+### Local Tarball Testing Path (Pre-Publish Gate)
+**When:** 2026-06-20 · **Fact:** `P-NZE35AKR`
+**Why:** Catches bugs before they reach npm; reduces risk of bad versions going public; aligns with established cut-gate.md pattern, proven effective for v0.3.5.
+
+<!-- decision:P-2WWX4ZHY -->
+### v0.3.5 Release Verified and Ready
+**When:** 2026-06-20 · **Fact:** `P-2WWX4ZHY`
+**Why:** Confirms end-to-end fix works and no blockers remain; safe to publish.
+
+<!-- decision:P-RES031CG -->
+### RESUME — v0.3.1 cut-gate near-complete; PR
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-TSBAKGD7 -->
+### Expects comprehensive accounting of work—what was kept, what was superseded but
+**When:** 2026-06-20 · **Fact:** `P-TSBAKGD7`
+
+<!-- decision:P-9YCUW5QH -->
+### Distill Performance Baselines (Slow vs Healthy Haiku)
+**When:** 2026-06-20 · **Fact:** `P-9YCUW5QH`
+**Why:** Manual distill run on 2026-06-20 took 240s and succeeded, confirming the v0.3.5 retry fix handles slow-Haiku windows where v0.3.4 would have failed entirely. This is the exact scenario the timeout/backoff tuning targets.
