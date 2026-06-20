@@ -1,14 +1,12 @@
 # RESUME HERE — 2026-06-20 (updated)
 
-> Breadcrumb before you restart VS Code. Everything is committed to `main`. Safe to close.
-> When you reopen, the v0.3.5 hooks load fresh (the in-session compress fix takes full effect on restart).
+> v0.3.5 is SHIPPED. Next action is v0.4.0 (Kiro). Everything is committed to `main`.
 
 ## Latest state (top of mind)
 
-- **v0.3.5 is CODE-COMPLETE + DOGFOOD-VERIFIED on this machine — but NOT yet tagged/published.**
-  - The `release: v0.3.5` commit is on `main` (`b4ecf78`), **un-tagged**. npm still serves 0.3.4.
-  - **To publish (your outward step):** `git tag v0.3.5 && git push origin v0.3.5` → publish.yml ships npm + GitHub Release.
-- **This machine is running cmk 0.3.5** (installed from the local tarball, the cut-gate pattern — no publish needed to test).
+- **✅ v0.3.5 SHIPPED 2026-06-20** — npm `@lh8ppl/claude-memory-kit@0.3.5` (provenance-signed) + GitHub Release `v0.3.5`; publish.yml success. Tag `v0.3.5` pushed.
+  - Post-publish live distill PROVED the fix end-to-end: a real slow-Haiku window where attempt-1 timed out at 120s → 5s backoff → attempt-2 succeeded (240s total). 0.3.4 would have failed this. This IS the bug the fix targets.
+- **This machine is running cmk 0.3.5** (now matches npm).
 - **This repo: all 9 `cmk doctor` HCs PASS** (0 fail, 0 skip), crons registered, semantic on.
 
 ## What v0.3.5 fixed (Task 163 / D-179)
@@ -29,11 +27,9 @@ The full **update path** (v0.3.4's Task 162) end-to-end on this real repo:
 
 ## What to do next (when you come back)
 
-**Two options — your call:**
-1. **Publish v0.3.5** (if you want it on npm): `git tag v0.3.5 && git push origin v0.3.5`, then I confirm publish.yml + npm.
-2. **Start v0.4.0 = Kiro (Task 50)** — the planned next feature. RESEARCH-FIRST: verify Kiro paths against **kiro.dev** (primary source), then build the per-agent adapter seam (`createProfile`-style factory). Prior art: [Taskmaster cross-IDE note](docs/research/2026-06-15-claude-task-master-cross-ide-profiles.md).
+**Start v0.4.0 = Kiro (Task 50)** — the planned next feature. RESEARCH-FIRST: verify Kiro paths against **kiro.dev** (primary source, the §5.1 convergent-third-party precedent), then build the per-agent adapter seam (`createProfile`-style factory + lifecycle-hook wiring). The seam is the real v0.4.0 work; Kiro is its first consumer. Prior art: [Taskmaster cross-IDE note](docs/research/2026-06-15-claude-task-master-cross-ide-profiles.md).
 
-**To resume, say:** `publish v0.3.5` OR `start v0.4.0`.
+**To resume, say:** `start v0.4.0`.
 
 ## The settled v0.4 map (decided this session — do NOT re-litigate)
 
