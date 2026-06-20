@@ -238,6 +238,10 @@ export async function compressSession({
   // window doesn't time out needlessly — the D-92/F-2 composition rule: a
   // ceiling-free caller must not inherit a ceiling-sized timeout.
   timeoutMs = 50_000,
+  // Backoff between retries (only the lazy maxAttempts:2 path retries). DEFAULT
+  // undefined → compressWithRetry's 600ms; the ceiling-free LAZY caller passes the
+  // 5s ceiling-free backoff so a retry lands AFTER the slow-Haiku window (D-179).
+  baseBackoffMs,
 } = {}) {
   const ts = now ?? nowIso();
   const date = dateFromIso(ts);
@@ -351,7 +355,9 @@ export async function compressSession({
         maxOutputBytes,
         timeoutMs,
       },
-      { maxAttempts, onRetry: () => { retries += 1; } },
+      // baseBackoffMs only forwarded when the caller set it (the lazy ceiling-free
+      // path passes the 5s backoff); undefined → compressWithRetry's 600ms default.
+      { maxAttempts, ...(baseBackoffMs != null ? { baseBackoffMs } : {}), onRetry: () => { retries += 1; } },
     );
   } catch (err) {
     // Distinguish HAIKU_TIMEOUT (slow Anthropic) from COMPRESS_FAILED

@@ -121,6 +121,9 @@ describe('Task 33 — dailyDistill', () => {
       const logPath = join(projectRoot, 'context', 'sessions', `${now.slice(0, 10)}.distill.log`);
       const lastLine = readFileSync(logPath, 'utf8').trim().split('\n').pop();
       expect(JSON.parse(lastLine).retries).toBe(1);
+      // D-179: daily-distill is CEILING-FREE → 120s timeout (not the hook-sized 50s), so a
+      // future edit can't silently revert it. Pin the value the verb actually sent.
+      expect(backend.calls[0].timeoutMs).toBe(120_000);
     });
 
     it('the distill prompt carries the faithfulness/grounding rule (Task 84 / D-36)', async () => {

@@ -39,7 +39,7 @@ import { canonicalize } from '@lh8ppl/cmk-canonicalize';
 import { nowIso } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { HaikuTimeoutError } from './compressor.mjs';
-import { compressWithRetry } from './compress-retry.mjs';
+import { compressWithRetry, CEILING_FREE_TIMEOUT_MS, CEILING_FREE_BACKOFF_MS } from './compress-retry.mjs';
 import {
   DEFAULT_COOLDOWN_MS,
   isCooldownActive,
@@ -344,7 +344,8 @@ export async function weeklyCurate({
       // corpus (heavier than a session summary) and runs as a cron/lazy child
       // with no 60s hook ceiling — give the classifier headroom so a large
       // corpus doesn't time out. (Corpus is byte-capped at PERSONA_CORPUS_BYTES.)
-      timeoutMs: 120_000,
+      // The shared ceiling-free timeout (D-92/F-2; was the original 120s literal).
+      timeoutMs: CEILING_FREE_TIMEOUT_MS,
     });
   }
 
@@ -400,11 +401,11 @@ export async function weeklyCurate({
         instructions,
         preserveCitationIds: true,
         maxOutputBytes: archiveMaxBytes,
-        // Ceiling-free → 120s, NOT the hook-sized 50s (D-92/F-2; matches this verb's
-        // own persona call above + daily-distill). The 50s caused needless timeouts.
-        timeoutMs: 120_000,
+        // Ceiling-free → the generous timeout, NOT the hook-sized 50s (D-92/F-2 + D-179).
+        timeoutMs: CEILING_FREE_TIMEOUT_MS,
       },
-      { maxAttempts: 2, onRetry: () => { retries += 1; } },
+      // 5s backoff so a retry lands after the slow-Haiku window, not inside it (D-179).
+      { maxAttempts: 2, baseBackoffMs: CEILING_FREE_BACKOFF_MS, onRetry: () => { retries += 1; } },
     );
     touchCooldownMarker({ projectRoot, now: ts });
   } catch (err) {

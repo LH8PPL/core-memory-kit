@@ -28,7 +28,7 @@ import { join } from 'node:path';
 import { nowIso } from './audit-log.mjs';
 import { ERROR_CATEGORIES } from './result-shapes.mjs';
 import { HaikuTimeoutError } from './compressor.mjs';
-import { compressWithRetry } from './compress-retry.mjs';
+import { compressWithRetry, CEILING_FREE_TIMEOUT_MS, CEILING_FREE_BACKOFF_MS } from './compress-retry.mjs';
 import {
   DEFAULT_COOLDOWN_MS,
   isCooldownActive,
@@ -209,15 +209,13 @@ export async function dailyDistill({
         instructions,
         preserveCitationIds: true,
         maxOutputBytes,
-        // Ceiling-free (cron / detached lazy child, NO 60s hook ceiling) → 120s, NOT
-        // the hook-sized 50s. The 50s caused needless `haiku_timeout` on real corpora
-        // when `claude --print` was slow-but-not-broken (the D-92/F-2 composition rule:
-        // a ceiling-free caller must not inherit a ceiling-sized timeout; matches
-        // weekly-curate's persona call). Surfaced live: recent.md went stale because
-        // daily-distill timed out at 50s on a slow-Haiku window it'd clear under 120s.
-        timeoutMs: 120_000,
+        // Ceiling-free (cron / detached lazy child, NO 60s hook ceiling) → the
+        // generous ceiling-free timeout, NOT the hook-sized 50s (D-92/F-2 + D-179).
+        timeoutMs: CEILING_FREE_TIMEOUT_MS,
       },
-      { maxAttempts: 2, onRetry: () => { retries += 1; } },
+      // 5s backoff between the 2 attempts (NOT the 600ms default) so a retry lands
+      // AFTER the transient slow-Haiku window, not inside it (D-179).
+      { maxAttempts: 2, baseBackoffMs: CEILING_FREE_BACKOFF_MS, onRetry: () => { retries += 1; } },
     );
     touchCooldownMarker({ projectRoot, now: ts });
   } catch (err) {

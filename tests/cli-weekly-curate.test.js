@@ -149,6 +149,9 @@ describe('Task 34 — weeklyCurate', () => {
       // day-file content must actually ride the prompt (unpinned before the
       // 137.1 audit; the D-122 separately-correct-jointly-broken shape).
       expect(backend.calls[0].input).toContain('Old decision #P-A2B2C3D4');
+      // D-179: weekly-curate's archive call is CEILING-FREE → 120s (not the hook-sized
+      // 50s); pin it so a future edit can't silently revert the ceiling-free budget.
+      expect(backend.calls[0].timeoutMs).toBe(120_000);
     });
   });
 

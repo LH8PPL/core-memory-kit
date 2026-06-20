@@ -44,6 +44,7 @@ import {
 import { dailyDistill } from './daily-distill.mjs';
 import { weeklyCurate } from './weekly-curate.mjs';
 import { compressSession } from './compress-session.mjs';
+import { CEILING_FREE_TIMEOUT_MS, CEILING_FREE_BACKOFF_MS } from './compress-retry.mjs';
 import { syncDecisionsJournal } from './decisions-journal.mjs';
 
 const DEFAULT_DAILY_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -416,9 +417,11 @@ export async function runLazyCompress({
       // is where the SessionEnd-hook's failed roll (which restored now.md, D-79) gets
       // its real bounded retry.
       maxAttempts: 2,
-      // Ceiling-free (detached child, no 60s ceiling) → 120s, NOT the hook-sized 50s
-      // compressSession defaults to (D-92/F-2; matches daily-distill / weekly-curate).
-      timeoutMs: 120_000,
+      // Ceiling-free (detached child, no 60s ceiling) → the generous timeout + the 5s
+      // backoff so a retry lands AFTER the slow-Haiku window (D-92/F-2 + D-179; matches
+      // daily-distill / weekly-curate). compressSession forwards both to compressWithRetry.
+      timeoutMs: CEILING_FREE_TIMEOUT_MS,
+      baseBackoffMs: CEILING_FREE_BACKOFF_MS,
     });
   } else if (verdict.action === 'stale-weekly') {
     delegatedTo = 'weekly-curate';
