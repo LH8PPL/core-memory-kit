@@ -2705,6 +2705,28 @@ For the kit: `cmk install --ide claude-code|cursor|codex|gemini-cli`. The kit's 
 
 This depends on §16.49 landing first (once `cmk install` owns hook-wiring for Claude Code, generalizing it to other agents via `--ide` is the natural extension). Ship trigger: v0.2, or earlier if a second-agent user materializes. Tracked as tasks.md Task 50. Cross-ref: ADR-0012 (cross-agent naming deferral), design §16.6 (IDE adapters seam).
 
+#### 16.50.1 Revised architecture — the adapter SEAM (D-180, 2026-06-20; supersedes the "per-agent adapter modules" sketch above)
+
+**Status: ACTIVE BUILD (v0.4.0). The paragraphs above are the original pre-research sketch — preserved per the decision-trail rule. The D-180 research-revisit ([cross-agent adapter seam note](../docs/research/2026-06-20-cross-agent-adapter-seam-task50.md): 66-note corpus survey + cloned-source deep-read of claude-mem/Taskmaster/opencode/roo/continue + kiro.dev primary verification) revised the architecture below.**
+
+**The load-bearing finding: do NOT build a per-agent `Installer` base class.** claude-mem (the one researched product that actually multi-agent-installs the three legs we install) proved it: a uniform `Installer.install()` interface is a leaky abstraction whose bodies share zero code — it breaks the moment agents differ in config *format* (Goose YAML, Codex TOML) or *mechanism* (Cursor whole-file vs Gemini surgical-merge vs Codex plugin-marketplace), and claude-mem's ~6 bespoke writers drifted in rigor (one surgical, one whole-file-clobber, one that discards user config on a JSON parse error). **What generalizes is the config-write PRIMITIVE, not the installer.**
+
+So the seam is two layers:
+
+1. **One shared, tested primitive — [`mutateAgentConfig`](../packages/cli/src/mutate-agent-config.mjs)** (Task 50.B, shipped). Signature: `mutateAgentConfig({ path, format, keyPath, entry, mode })`. It writes the kit's entry (an MCP registration, a hook entry) into ANY agent's config file with the kit's existing disciplines applied to third-party files:
+   - **touch-only-our-keys** = the marker-block byte-preservation invariant (over-mutation guard: seed N siblings, mutate one, assert N−1 untouched).
+   - **refuse-to-clobber-on-parse-error** = the safe-write / Poison_Guard fail-closed rule (a corrupt target is returned as `CONFIG_PARSE` error, NEVER overwritten — the exact claude-mem bug, inverted into a guarantee).
+   - **atomic (tmp + rename)** = the same pattern compress-session / persona-portability use.
+   - **idempotent `changed`-boolean** = re-running install is a no-op.
+   - `format`: `json` for v0.4.0; `yaml`/`toml` deferred until an agent needs them.
+2. **Per-agent profiles are DATA, not classes** (Task 50.C, a `defineAgentProfile({...})` factory). Each agent declares only what differs: `name`/`displayName`/`detect`/`instructionFile`/`mcpConfigPath`/`mcpServersKey`/`hookMechanism`/`eventMap`/`transcript:{dir,workspaceKey,parse}`. Markdown-canonical kit defaults (no `.mdc` transforms — we drop Taskmaster's `customReplacements`; `includeDefaultRules:false`; profileDir `'.'`). Adding an agent in a later version = one data declaration, not new code — the "don't reinvent the wheel every version" requirement (the user 2026-06-20).
+
+**Integration-type taxonomy** (the claude-mem insight — the type dictates which legs the adapter wires): `native-hooks+MCP` (full: Claude Code, Kiro) · `hooks(dedicated-file)+MCP` (Cursor) · `hooks(settings-merge)+context` (Gemini CLI) · `plugin-marketplace` (Codex) · `MCP-only` (Copilot/Warp/Roo/Antigravity/Goose) · `instruction-file-only` (the AGENTS.md breadth rung). A `validate-agent-adapter-parity.mjs` validator (Task 50.D) asserts every profile wires the legs its type declares, both directions.
+
+**Kiro specifics — primary-verified against kiro.dev (Task 50.E):** steering → `.kiro/steering/` (`inclusion: always`); MCP → `.kiro/settings/mcp.json` (`mcpServers`); hooks → **CLI agent-hooks** `agentSpawn`(=SessionStart-inject) + `stop`(=turn-end-capture) inside `.kiro/agents/<name>.json` — **NOT** the IDE "Agent Hooks" surface (the Taskmaster `.kiro/hooks/*.kiro.hook` claim was the wrong system; the §5.1 convergent-third-party precedent fired). **Transcript** (resolved on a real install): Kiro is a VS Code fork; per-session JSON at `%APPDATA%/Kiro/User/globalStorage/kiro.kiroagent/workspace-sessions/<base64url(workspacePath)>/<sessionId>.json`, `.history[].message{role,content[].text}` — so the kit's hardcoded Claude-Code transcript touchpoints (`~/.claude/projects/<slug>/<session>.jsonl`, `env -u CLAUDECODE`) become 3 per-agent params (`dir`/`workspaceKey`/`parse`).
+
+**Scope discipline:** do NOT registry-ize the agent matrix yet (single-digit N; opencode's data-row registry pays off at N≈75 — premature here). The data/code split is the *discipline*; the heavy infrastructure waits. Codex (plugin-marketplace) + YAML-config agents (Goose) are out of v0.4.0 scope (highest effort, lowest reuse). Cross-ref: tasks.md Task 50 (sub-tasks 50.A–50.H), D-180, the [research note](../docs/research/2026-06-20-cross-agent-adapter-seam-task50.md), ADR-0012, design §16.6.
+
 ### 16.51 First-class `/plugin` marketplace path (parallel to `cmk install`)
 
 **v0.1.x candidate (pairs with §16.49).**
