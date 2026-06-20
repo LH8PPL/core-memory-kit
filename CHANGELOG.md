@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Fixed
+
+- **Background memory compression no longer fails needlessly when Claude is slow, so `recent.md` / the archive stay fresh.** The lifecycle compression jobs that run with no time limit (daily distill, weekly curate, the session-start catch-up roll) were using the same 50-second budget as the in-session compressor, and retried too quickly — so a slow `claude --print` window could time them out and leave consolidated memory stale (a real case left `recent.md` 4 days behind). They now get a 120-second budget and wait between retries, matching the no-deadline nature of those background jobs. ([#209](https://github.com/LH8PPL/claude-memory-kit/pull/209))
+
 ## [0.3.4] — 2026-06-19
 
 ### Added
