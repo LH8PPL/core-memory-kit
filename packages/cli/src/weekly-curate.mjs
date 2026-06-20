@@ -400,7 +400,9 @@ export async function weeklyCurate({
         instructions,
         preserveCitationIds: true,
         maxOutputBytes: archiveMaxBytes,
-        timeoutMs: 50_000,
+        // Ceiling-free → 120s, NOT the hook-sized 50s (D-92/F-2; matches this verb's
+        // own persona call above + daily-distill). The 50s caused needless timeouts.
+        timeoutMs: 120_000,
       },
       { maxAttempts: 2, onRetry: () => { retries += 1; } },
     );

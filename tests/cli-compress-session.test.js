@@ -423,6 +423,37 @@ describe('Task 22 — compressSession() boundary', () => {
       expect(readTodayMd(projectRoot, '2026-05-26')).toContain('recovered');
     });
 
+    // The ceiling-free-timeout fix: compressSession defaults timeoutMs to 50s (the
+    // SessionEnd-hook contract, sized for the 60s ceiling), but the LAZY caller
+    // (detached SessionStart child, NO ceiling) must be able to pass a longer bound.
+    // The D-92/F-2 composition rule: a ceiling-free caller must not inherit a
+    // ceiling-sized timeout. Mirrors the maxAttempts param.
+    it('hook-path default timeoutMs is 50s (sized for the 60s SessionEnd ceiling)', async () => {
+      writeNowMd(projectRoot, 'content\n');
+      const calls = [];
+      const backend = {
+        calls,
+        modelId: () => 'mock',
+        estimatedCostPerCall: () => 0,
+        async compress(opts) { calls.push(opts); return { outputText: '## Decisions\n- ok\n', inputTokens: 5, outputTokens: 3, costUSD: 0, preservedIds: [] }; },
+      };
+      await compressSession({ projectRoot, backend, now: '2026-05-26T10:00:00Z' });
+      expect(calls[0].timeoutMs).toBe(50_000);
+    });
+
+    it('accepts a timeoutMs override so the ceiling-free lazy caller can pass 120s (D-92/F-2)', async () => {
+      writeNowMd(projectRoot, 'content\n');
+      const calls = [];
+      const backend = {
+        calls,
+        modelId: () => 'mock',
+        estimatedCostPerCall: () => 0,
+        async compress(opts) { calls.push(opts); return { outputText: '## Decisions\n- ok\n', inputTokens: 5, outputTokens: 3, costUSD: 0, preservedIds: [] }; },
+      };
+      await compressSession({ projectRoot, backend, now: '2026-05-26T10:00:00Z', timeoutMs: 120_000 });
+      expect(calls[0].timeoutMs).toBe(120_000);
+    });
+
     it('backend throws HaikuFailedError → compress.log captures exit_code + error_detail (Task 161 observability)', async () => {
       // The D-173 investigation could not explain a real `compress_failed`
       // because the log kept only error_category, discarding the subprocess

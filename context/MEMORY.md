@@ -8,18 +8,18 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-NWG4PSPL) Always create .venv for Python projects; install packages into it, not globally
-  <!-- source: auto-extract-session, source_line: 1, sha1: d5dde8236ee094bbc6fc134d51acc06d529e639b4e7a915cb23082a57e1ed317, write: auto-extract, trust: high, at: 2026-06-19T20:45:55Z -->
-- (P-TLKQFR7Z) Layered backend architecture: routes (thin, orchestrate transport only), services (business logic), repositories (data), schemas (Pydantic boundaries)
-  <!-- source: auto-extract-session, source_line: 1, sha1: 42148ce12df8e3241e11abe34b45fa83de735d2f71ef54624a220abc299cb021, write: auto-extract, trust: high, at: 2026-06-19T20:45:55Z -->
-- (P-LHNFGNQX) Prefer paying architectural cost upfront to avoid maintenance friction later—"rather pay the structure cost now than fight it in six months"
-  <!-- source: auto-extract-session, source_line: 1, sha1: f51d299722077f6b9a88177f455e8ddb62070ab0c17cba52023358a34050910e, write: auto-extract, trust: high, at: 2026-06-19T20:45:55Z -->
-- (P-GAaL225G) User's convention: claude-memory-kit backups go to ~\ (not temp directories)
-  <!-- source: auto-extract-session, source_line: 1, sha1: 408e4457a0b070a205c900fad27cc62f8a17351fa613640d6cecad76a0108ef2, write: auto-extract, trust: high, at: 2026-06-19T21:06:05Z -->
-- (P-KQGKWQUT) User reconsidering whether Task 151 (persona-redesign) should enter v0.4.0 despite prior settlement in curation lane
-  <!-- source: auto-extract-session, source_line: 1, sha1: 5ea46c71f4e4489b1a058b9149d08b0ce9d31d954f29d4326581963e2b6a09ff, write: auto-extract, trust: high, at: 2026-06-19T21:38:32Z -->
-- (P-HP6UTS9X) Don't do v0.3.5 down-payment (full work/tests, no kit payoff); do full 151 redesign in v0.4.2/.3 for actual shipping value
-  <!-- source: auto-extract-session, source_line: 1, sha1: 7397b2525878d661a803bb3f1e03b94c5f0215a31379d3476c19761d1f8d27f4, write: auto-extract, trust: high, at: 2026-06-19T21:54:53Z -->
+- (P-MXSa47QX) User prefers memory designs tailored to kit's actual architecture over patterns borrowed from other systems.
+  <!-- source: review-promote, source_line: 1, sha1: 33982b1ede01837d566cb9bc64d87c0c87724798d22d04585c50cc369f35777b, write: user-explicit, trust: high, at: 2026-06-20T07:19:02Z -->
+- (P-4TGBBBPB) 200KB input compresses in ~15s standalone (no contention); real-world failures occur across 8B–334KB range with zero size correlation, proving timeouts are environmental not input-driven.
+  <!-- source: review-promote, source_line: 1, sha1: 7631a1ae7bb9eff9a0705f765fc7ac26103ac534a5e5eb0e76be2e76acdc3e16, write: user-explicit, trust: high, at: 2026-06-20T07:19:02Z -->
+- (P-E7AL69YL) observability-first approach — captures real failure data before implementing dependent features (retry); values measurement over assumptions
+  <!-- source: review-promote, source_line: 1, sha1: 594f121bb17092b301750538c1b96bd70682d19c32dc96c5d3a27e1045734992, write: user-explicit, trust: high, at: 2026-06-20T07:19:03Z -->
+- (P-TSBAKGD7) Expects comprehensive accounting of work—what was kept, what was superseded but preserved, what was discarded, and why for each
+  <!-- source: review-promote, source_line: 1, sha1: 25e31fd2da806d57307050584104486f44310124bcf34814965d5b4d1a74b53a, write: user-explicit, trust: high, at: 2026-06-20T07:19:03Z -->
+- (P-WMN3HFPF) Prefer using recorded memory lookups and CLI tools (cmk search) instead of manually re-reading project files to re-derive facts.
+  <!-- source: review-promote, source_line: 1, sha1: 4e9cc95207108d334ec95942ef8c1afc80acf36304fccfb060146d0123368b94, write: user-explicit, trust: high, at: 2026-06-20T07:19:04Z -->
+- (P-XM9YAKRW) httpx2 deprecation in FastAPI TestClient — need to replace httpx dependency with httpx2 eventually
+  <!-- source: review-promote, source_line: 1, sha1: 4363eada958f1356bd5e36c5a51ceb09ea7c63e513e1ca87b833e8215400b571, write: user-explicit, trust: high, at: 2026-06-20T07:19:04Z -->
 
 ## Environment Notes
 

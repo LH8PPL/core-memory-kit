@@ -416,6 +416,9 @@ export async function runLazyCompress({
       // is where the SessionEnd-hook's failed roll (which restored now.md, D-79) gets
       // its real bounded retry.
       maxAttempts: 2,
+      // Ceiling-free (detached child, no 60s ceiling) → 120s, NOT the hook-sized 50s
+      // compressSession defaults to (D-92/F-2; matches daily-distill / weekly-curate).
+      timeoutMs: 120_000,
     });
   } else if (verdict.action === 'stale-weekly') {
     delegatedTo = 'weekly-curate';

@@ -2596,3 +2596,386 @@
 ### Release Gate-Test Pattern (claude-memory-kit)
 **When:** 2026-06-18 · **Fact:** `P-5ZRXEHUW`
 **Why:** Prevents shipping half-baked features; ensures solid user experience and builds user trust in kit quality.
+
+<!-- decision:P-RES031CG -->
+### RESUME — v0.3.1 cut-gate near-complete; PR
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-P9XLPJ2X -->
+### Assistant has a pattern of running without sufficient thought/planning ("running
+**When:** 2026-06-18 · **Fact:** `P-P9XLPJ2X`
+
+<!-- decision:P-RDZ6SE7C -->
+### User explicitly prefers concise responses; doesn't want walls of text
+**When:** 2026-06-18 · **Fact:** `P-RDZ6SE7C`
+
+<!-- decision:P-4D76WXZP -->
+### Approved cleanup and ready to proceed to next phase (VS Code on cut-gate16)
+**When:** 2026-06-18 · **Fact:** `P-4D76WXZP`
+
+<!-- decision:P-MaPBRMaZ -->
+### Installation command for this project updated to: cmk install --with-semantic
+**When:** 2026-06-18 · **Fact:** `P-MaPBRMaZ`
+
+<!-- decision:P-E4HX6VVU -->
+### Corrects mechanism-only testing (bash) by steering toward behavioral testing via
+**When:** 2026-06-18 · **Fact:** `P-E4HX6VVU`
+
+<!-- decision:P-4LCSC9ZY -->
+### Release verification must include testing the actual installed/packaged artifact
+**When:** 2026-06-18 · **Fact:** `P-4LCSC9ZY`
+
+<!-- decision:P-2GRPQKFa -->
+### Research Documentation Convention
+**When:** 2026-06-18 · **Fact:** `P-2GRPQKFa`
+**Why:** Shows what was originally asked vs. what was actually researched; prevents re-checking systems; documents decision rationale and scope changes transparently
+
+<!-- decision:P-FDATL4KY -->
+### Task 161 Decision D-173 — Bound Compaction Input
+**When:** 2026-06-18 · **Fact:** `P-FDATL4KY`
+**Why:** 17-of-19 system convergence validates bounded-input as proven, safe path. Closes gap from design inception.
+
+<!-- decision:P-5KXaLFDC -->
+### Context Buffer Stabilization: 19 Systems Classified by Approach
+**When:** 2026-06-18 · **Fact:** `P-5KXaLFDC`
+**Why:** The proposed A+B+C+D exceeds what 17/19 systems do. The two most-similar systems validate A+B+C but not D. This opens a simplification fork: is full A+B+C justified, or does B+C (with defensive A) suffice?
+
+<!-- decision:P-MYDY3DXF -->
+### A+C-Core Design Pivot (Memsearch-Anchored, B Dropped)
+**When:** 2026-06-18 · **Fact:** `P-MYDY3DXF`
+**Why:** 19-system union was overengineered; anchoring on the two most-similar systems (memsearch + Letta) reveals the core is just input-cap + recent-window, not four mechanisms.
+
+<!-- decision:P-BBEZ4YaD -->
+### Overflow-Handling Caveat—Single Buffer vs. Memsearch's Many Files
+**When:** 2026-06-18 · **Fact:** `P-BBEZ4YaD`
+**Why:** A+C alone work for memsearch's shape (many files) but `now.md` is single growing buffer; trimmed overflow needs explicit handling, not just window-keep.
+
+<!-- decision:P-M9J9M9LZ -->
+### Proposed Turn-Based Memory Roll Design
+**When:** 2026-06-18 · **Fact:** `P-M9J9M9LZ`
+**Why:** Kit uses single-file model, unlike memsearch/Letta/MemoryOS; using existing rolling window more frequently (per turn, not per session) fits actual architecture better than borrowing cap-the-buffer pattern.
+
+<!-- decision:P-6WEYN2TM -->
+### Compression Spiral Bug at Three Identical Call Sites
+**When:** 2026-06-18 · **Fact:** `P-6WEYN2TM`
+**Why:** The bug is systemic at three sites, not localized to one verb. Per-verb or per-buffer fixes are incomplete; the root issue is unbound input to backend.compress.
+
+<!-- decision:P-6M26BR9S -->
+### Durable Tiers Enable Safe Buffer Trimming
+**When:** 2026-06-18 · **Fact:** `P-6M26BR9S`
+**Why:** When bounding input to compression, the "where does overflow go?" concern dissolves. Old content can be safely trimmed from derived buffers because it's already in the durable record.
+
+<!-- decision:P-PAKDAWVL -->
+### NOW_MD_ASSISTANT_CAP Precedent
+**When:** 2026-06-18 · **Fact:** `P-PAKDAWVL`
+**Why:** Shows the kit isn't starting from zero on input bounding — the precedent already exists. The solution should extend this pattern rather than invent a new mechanism.
+
+<!-- decision:P-F9SUD9EG -->
+### Prefers option 2 (bound inside CompressorBackend.compress implementation, not a
+**When:** 2026-06-18 · **Fact:** `P-F9SUD9EG`
+
+<!-- decision:P-GSRN46VV -->
+### Requires overflow handling be comprehensive — don't shift problem from now.md to
+**When:** 2026-06-18 · **Fact:** `P-GSRN46VV`
+
+<!-- decision:P-DTS22L9D -->
+### Wants research re-visited before final commit — pick direction, validate sources
+**When:** 2026-06-18 · **Fact:** `P-DTS22L9D`
+
+<!-- decision:P-SFaECJRK -->
+### Compression Timeout Root Cause: Environmental Contention, Not Input Size
+**When:** 2026-06-19 · **Fact:** `P-SFaECJRK`
+**Why:** The original design premise (A+C to cap input size and prevent "compounding spiral") is falsified. Failures hit 8KB and 329-byte inputs equally. The buffer grows only because failures leave it un-drained; failures are transient/environmental, not size-induced.
+
+<!-- decision:P-PVAPFJMR -->
+### Compress Logger Observability Gap
+**When:** 2026-06-19 · **Fact:** `P-PVAPFJMR`
+**Why:** Without stderr/exit-code in the log, the kit can't diagnose actual failure reasons. This prevents knowing whether failures are transient (worth retrying) or deterministic (unfixable by retry).
+
+<!-- decision:P-TASRaWE2 -->
+### Structured Error Logging for Compress Failures
+**When:** 2026-06-19 · **Fact:** `P-TASRaWE2`
+**Why:** Observability gap prevented distinguishing transient failures (retry helps) from deterministic ones (retry re-fails). Structured logging enables data-driven retry design instead of assumptions.
+
+<!-- decision:P-7KJS5Q7K -->
+### Compression Retry Strategy for claude-memory-kit
+**When:** 2026-06-19 · **Fact:** `P-7KJS5Q7K`
+**Why:** Transient failures (timeouts, 5xx) are non-deterministic and retry-recoverable; deterministic failures need design fixes, not retries. The ecosystem confirms this pattern.
+
+<!-- decision:P-6SESSZ33 -->
+### SessionEnd Hook No-Retry Constraint
+**When:** 2026-06-19 · **Fact:** `P-6SESSZ33`
+**Why:** Protect concurrent persona call latency SLA while maintaining compression safety and reliability.
+
+<!-- decision:P-YCA3aZYT -->
+### Decision Trail and Knowledge Preservation System
+**When:** 2026-06-19 · **Fact:** `P-YCA3aZYT`
+**Why:** The team frequently revisits decisions (e.g., size-cap design may return if future measurements show different constraints). Recording full context prevents re-deriving analysis and makes fallback decisions safe. Builds institutional memory and supports learning.
+
+<!-- decision:P-AV5aYUZJ -->
+### Live Cut-Gate Requirement — Unit-Green ≠ Works-on-Real-Input
+**When:** 2026-06-19 · **Fact:** `P-AV5aYUZJ`
+**Why:** Unit mocks diverge from production behavior; transient Haiku failures are real and can only be validated by exercising the real service.
+
+<!-- decision:P-GL7A4BXS -->
+### Retry Configuration Strategy by Path
+**When:** 2026-06-19 · **Fact:** `P-GL7A4BXS`
+**Why:** The ceiling-free paths have time budget for retry; SessionEnd-hook is constrained and must fail fast to stay under 60s ceiling, shifting retry burden to the lazy path.
+
+<!-- decision:P-63V2GTPD -->
+### Stress Gate Requirement for Spawn-Boundary Changes
+**When:** 2026-06-19 · **Fact:** `P-63V2GTPD`
+**Why:** Spawn-boundary code is concurrency-sensitive and unit tests alone do not surface race conditions or transient spawn failures under load.
+
+<!-- decision:P-F6KQVPPR -->
+### Task 161.11 Retry Implementation Live Verification (Passed)
+**When:** 2026-06-19 · **Fact:** `P-F6KQVPPR`
+**Why:** Retry logic near spawn boundaries is high-risk; transient vs. permanent failures must be classified correctly. Windows and POSIX have different exit-code semantics. Conservative default prevents loops; logging gaps must be tracked.
+
+<!-- decision:P-YBJRDa6H -->
+### "autopilot" — user empowers assistant to decide scope for update-path documentat
+**When:** 2026-06-19 · **Fact:** `P-YBJRDa6H`
+
+<!-- decision:P-SaAAX7XL -->
+### Claude-Memory-Kit Update Paths (npm vs Plugin)
+**When:** 2026-06-19 · **Fact:** `P-SaAAX7XL`
+**Why:** This decision point (which path to document/support) requires honest accounting of both user experiences. Both paths share the same fundamental workflow; both have identical "forgotten per-project step" failure mode.
+
+<!-- decision:P-ZKH65YMH -->
+### Known Quirks and Solutions
+**When:** 2026-06-19 · **Fact:** `P-ZKH65YMH`
+**Why:** These surface in real usage and block smooth UX in both paths (or are path-specific friction).
+
+<!-- decision:P-UG3CSVUB -->
+### Version Stamping and Scaffold Isolation
+**When:** 2026-06-19 · **Fact:** `P-UG3CSVUB`
+**Why:** This explains the silent failure: users update globally but forget per-project re-stamping, leaving mismatched versions. The separation is fundamental to the architecture.
+
+<!-- decision:P-NDWKVJ27 -->
+### User questioned whether the update task is necessary and doesn't remember the or
+**When:** 2026-06-19 · **Fact:** `P-NDWKVJ27`
+
+<!-- decision:P-DYPWAPD5 -->
+### Cut-Gate Testing Practice
+**When:** 2026-06-19 · **Fact:** `P-DYPWAPD5`
+**Why:** Real sessions expose integration issues, edge cases, and interactions that sandbox tests cannot. Task 161's compression-retry behavior only surfaced in actual use, not in isolated test suites.
+
+<!-- decision:P-W75PJXBP -->
+### Release Process for claude-memory-kit
+**When:** 2026-06-19 · **Fact:** `P-W75PJXBP`
+**Why:** Ensures consistent, repeatable release process with automated publishing via GitHub Actions.
+
+<!-- decision:P-2MSZRDP7 -->
+### User chose docs+drift-check now (not defer) — clear priority decision
+**When:** 2026-06-19 · **Fact:** `P-2MSZRDP7`
+
+<!-- decision:P-LaG5aW75 -->
+### Layered Backend Pattern
+**When:** 2026-06-19 · **Fact:** `P-LaG5aW75`
+**Why:** Separates concerns so services are testable/reusable without FastAPI; prevents architectural decay.
+
+<!-- decision:P-KYTE5Q9V -->
+### .venv Setup Requirement
+**When:** 2026-06-19 · **Fact:** `P-KYTE5Q9V`
+**Why:** Isolates dependencies; prevents version conflicts across projects.
+
+<!-- decision:P-NNNBBSJZ -->
+### Two Promotion Paths Route Facts Differently
+**When:** 2026-06-19 · **Fact:** `P-NNNBBSJZ`
+**Why:** The two capture mechanisms have different routing strategies — not a v0.3.4 code change (verified zero persona-related changes in v0.3.4), but which *mechanism fired* on that run. Auto-persona spreads; explicit-promote concentrates. This finding sharpens Task 151 for v0.4.
+
+<!-- decision:P-J4LZZ2YG -->
+### Backup Location and Naming Convention
+**When:** 2026-06-19 · **Fact:** `P-J4LZZ2YG`
+**Why:** Keeps versioned persona snapshots organized and easily findable during cut-gate testing and version comparisons; establishes a durable artifact location outside transient temp directories
+
+<!-- decision:P-V9KUSZJM -->
+### Fact Currency and Auto-Supersession Not Yet Implemented
+**When:** 2026-06-19 · **Fact:** `P-V9KUSZJM`
+**Why:** Projects evolve and generate multiple generations of design docs; the kit needs a way to surface current facts authoritatively. Task 66/95 planned for v0.4.
+
+<!-- decision:P-WZMCCFLE -->
+### Down-payment + full-redesign split pattern (D-154 precedent, v0.3.1)
+**When:** 2026-06-19 · **Fact:** `P-WZMCCFLE`
+**Why:** Captures urgency and ships the wedge-critical part without diluting committed minors or re-opening settled decisions.
+
+<!-- decision:P-FG56FKV2 -->
+### One-differentiator-per-minor rule (D-146)
+**When:** 2026-06-19 · **Fact:** `P-FG56FKV2`
+**Why:** Keeps release scope clear and focused. Violations delay both features and diffuse impact.
+
+<!-- decision:P-JYBXNXE7 -->
+### Task 151 classification and strategic weight
+**When:** 2026-06-19 · **Fact:** `P-JYBXNXE7`
+**Why:** Soft spots in foundational features affect downstream systems. New evidence (D-177 data) raises Task 151's importance relative to curation work.
+
+<!-- decision:P-XXYKQaRS -->
+### v0.3.5 patch vs v0.4.0 versioning logic
+**When:** 2026-06-19 · **Fact:** `P-XXYKQaRS`
+**Why:** Preserves single-differentiator rule, ships important fixes sooner, doesn't delay committed work.
+
+<!-- decision:P-MSZXZ6VS -->
+### Project Origin and Core Problem
+**When:** 2026-06-19 · **Fact:** `P-MSZXZ6VS`
+**Why:** This origin story is the foundation of all design decisions and prioritization. The kit exists to solve the user's real problem (forgetting context across sessions), not for its own sake. The video's thesis (recall reliability is the most important layer) validates why injection-layer quality is core product value.
+
+<!-- decision:P-SPBREG3F -->
+### HC-9 Drift After Claude Code Update (v0.3.4)
+**When:** 2026-06-20 · **Fact:** `P-SPBREG3F`
+**Why:** v0.3.4 detects when tool updates diverge the cached state and provides a simple recovery path. A future session encountering this drift needs to know it's not indicative of a real problem.
+
+<!-- decision:P-RES031CG -->
+### RESUME — v0.3.1 cut-gate near-complete; PR
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+### RESUME — v0.3.1 cut-gate near-complete; PR
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+### RESUME — v0.3.1 cut-gate near-complete; PR
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+### RESUME — v0.3.1 cut-gate near-complete; PR
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+### RESUME — v0.3.1 cut-gate near-complete; PR
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-NWG4PSPL -->
+### Always create .venv for Python projects; install packages into it, not globally
+**When:** 2026-06-19 · **Fact:** `P-NWG4PSPL`
+
+<!-- decision:P-TLKQFR7Z -->
+### Layered backend architecture: routes (thin, orchestrate transport only), service
+**When:** 2026-06-19 · **Fact:** `P-TLKQFR7Z`
+
+<!-- decision:P-LHNFGNQX -->
+### Prefer paying architectural cost upfront to avoid maintenance friction later—"ra
+**When:** 2026-06-19 · **Fact:** `P-LHNFGNQX`
+
+<!-- decision:P-GAaL225G -->
+### User's convention: claude-memory-kit backups go to ~\ (not temp directories)
+**When:** 2026-06-19 · **Fact:** `P-GAaL225G`
+
+<!-- decision:P-KQGKWQUT -->
+### User reconsidering whether Task 151 (persona-redesign) should enter v0.4.0 despi
+**When:** 2026-06-19 · **Fact:** `P-KQGKWQUT`
+
+<!-- decision:P-HP6UTS9X -->
+### Don't do v0.3.5 down-payment (full work/tests, no kit payoff); do full 151 redes
+**When:** 2026-06-19 · **Fact:** `P-HP6UTS9X`
+
+<!-- decision:P-RES031CG -->
+### RESUME — v0.3.1 cut-gate near-complete; PR
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+### RESUME — v0.3.1 cut-gate near-complete; PR
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+### RESUME — v0.3.1 cut-gate near-complete; PR
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+### RESUME — v0.3.1 cut-gate near-complete; PR
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-F29TVCRT -->
+### FQ1 test coverage gap — the cut-gate probe is CLI-only, not MCP tool (the actual
+**When:** 2026-06-20 · **Fact:** `P-F29TVCRT`
+
+<!-- decision:P-D2BR4VYX -->
+### Auto-recall agents do not and should not read tombstoned facts; recovery is alwa
+**When:** 2026-06-20 · **Fact:** `P-D2BR4VYX`
+
+<!-- decision:P-K6DKFXP4 -->
+### Check documentation to verify technical claims rather than reasoning through unc
+**When:** 2026-06-20 · **Fact:** `P-K6DKFXP4`
+
+<!-- decision:P-Y9DZXM3D -->
+### Tasks 156 (DECISIONS.md AI-recall) and 155 (tombstone recovery flag) queued for
+**When:** 2026-06-20 · **Fact:** `P-Y9DZXM3D`
+
+<!-- decision:P-DEQV4AUL -->
+### v0.3.2 ships FTS5 query fix (Task 153) + validate-index (Task 152)
+**When:** 2026-06-20 · **Fact:** `P-DEQV4AUL`
+
+<!-- decision:P-N6ZTVDUC -->
+### v0.3.2 shipped to npm (@lh8ppl/claude-memory-kit@0.3.2) with SLSA provenance and
+**When:** 2026-06-20 · **Fact:** `P-N6ZTVDUC`
+
+<!-- decision:P-CLTKNaVa -->
+### Memory routing gap caught — I was writing to harness slug path instead of kit's
+**When:** 2026-06-20 · **Fact:** `P-CLTKNaVa`
+
+<!-- decision:P-KKYS67aQ -->
+### node:sqlite migration rejected—clean CI perf data showed 10% slower search perfo
+**When:** 2026-06-20 · **Fact:** `P-KKYS67aQ`
+
+<!-- decision:P-aG3GHZBE -->
+### v0.3.3 roadmap: Task 156 (DECISIONS.md AI-recall journal completion), Task 155 (
+**When:** 2026-06-20 · **Fact:** `P-aG3GHZBE`
+
+<!-- decision:P-BFTDUAQT -->
+### DECISIONS.md is the decision journal; Task 159 makes it auto-update automaticall
+**When:** 2026-06-20 · **Fact:** `P-BFTDUAQT`
+
+<!-- decision:P-94DQYLBM -->
+### INDEX.md is the kit's metadata index of all 307 memory facts; touched on every f
+**When:** 2026-06-20 · **Fact:** `P-94DQYLBM`
+
+<!-- decision:P-DCP2GLQY -->
+### Task 159 made two undocumented divergences from research spec: used `isJournalSt
+**When:** 2026-06-20 · **Fact:** `P-DCP2GLQY`
+
+<!-- decision:P-UY6XTETK -->
+### Expects implementation choices to be traceable to (or explicitly justified again
+**When:** 2026-06-20 · **Fact:** `P-UY6XTETK`
+
+<!-- decision:P-HGAHKL9H -->
+### 6 mattpocock skills (tdd, grilling, diagnosing-bugs, codebase-design, domain-mod
+**When:** 2026-06-20 · **Fact:** `P-HGAHKL9H`
+
+<!-- decision:P-WCBPVNEa -->
+### Skills available but not invoked despite matching work; violates Skill agency ru
+**When:** 2026-06-20 · **Fact:** `P-WCBPVNEa`
+
+<!-- decision:P-6DNYCTB2 -->
+### Code-review-excellence is pre-existing skill, not one of 6 newly adopted; produc
+**When:** 2026-06-20 · **Fact:** `P-6DNYCTB2`
+
+<!-- decision:P-A2XCSPSa -->
+### CHANGELOG date for v0.3.3 is 2026-06-18
+**When:** 2026-06-20 · **Fact:** `P-A2XCSPSa`
+
+<!-- decision:P-54X6D2DM -->
+### cmk-compress-session must be invoked by Claude Code at session-end, not manually
+**When:** 2026-06-20 · **Fact:** `P-54X6D2DM`
+
+<!-- decision:P-YA74AXRJ -->
+### Nested-`claude` invocations from inside an active Claude Code session timeout at
+**When:** 2026-06-20 · **Fact:** `P-YA74AXRJ`
+
+<!-- decision:P-DV52LVVN -->
+### D6 (now→today roll) fail-safe behavior confirmed: timeout logs cleanly, now.md i
+**When:** 2026-06-20 · **Fact:** `P-DV52LVVN`
+
+<!-- decision:P-LD7RPCTX -->
+### Honest uncertainty flagging: can't be 100% sure whether compress timeout is envi
+**When:** 2026-06-20 · **Fact:** `P-LD7RPCTX`
+
+<!-- decision:P-KKALEZCP -->
+### Only 2 of 19 systems (memsearch, Letta) cleanly implement A+B+C (buffer cap + de
+**When:** 2026-06-20 · **Fact:** `P-KKALEZCP`
+
+<!-- decision:P-5WHKZPR3 -->
+### Kit's memory system uses a `now → today → recent → archive` rolling window; `now
+**When:** 2026-06-20 · **Fact:** `P-5WHKZPR3`
+
+<!-- decision:P-WYEEXZRN -->
+### Root cause: roll mechanism fires only at SessionStart/SessionEnd, not turn bound
+**When:** 2026-06-20 · **Fact:** `P-WYEEXZRN`

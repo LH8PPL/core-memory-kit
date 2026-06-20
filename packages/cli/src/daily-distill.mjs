@@ -209,7 +209,13 @@ export async function dailyDistill({
         instructions,
         preserveCitationIds: true,
         maxOutputBytes,
-        timeoutMs: 50_000,
+        // Ceiling-free (cron / detached lazy child, NO 60s hook ceiling) → 120s, NOT
+        // the hook-sized 50s. The 50s caused needless `haiku_timeout` on real corpora
+        // when `claude --print` was slow-but-not-broken (the D-92/F-2 composition rule:
+        // a ceiling-free caller must not inherit a ceiling-sized timeout; matches
+        // weekly-curate's persona call). Surfaced live: recent.md went stale because
+        // daily-distill timed out at 50s on a slow-Haiku window it'd clear under 120s.
+        timeoutMs: 120_000,
       },
       { maxAttempts: 2, onRetry: () => { retries += 1; } },
     );

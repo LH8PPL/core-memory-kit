@@ -58,7 +58,7 @@ A session that has lost all memory must be able to read **only the three spine f
 | [`archive/docs/conversation-log/`](../archive/docs/conversation-log/) | **RETIRED + ARCHIVED** narrative (2026-05-21/22). Do not add. |
 
 **Session handoff — pointers only, no state** (their state lives in `tasks.md`):
-[`docs/journey/RESUME-HERE-2026-05-28.md`](journey/RESUME-HERE-2026-05-28.md) · [`docs/BOOTSTRAP.md`](BOOTSTRAP.md). _(The PHASE-3-PLAN husk was folded into `tasks.md` and archived at `archive/docs/journey/PHASE-3-PLAN.md`.)_
+[`RESUME-HERE.md`](../RESUME-HERE.md) (repo-root current breadcrumb — the latest "pick up here" pointer, refreshed at session boundaries) · [`docs/journey/RESUME-HERE-2026-05-28.md`](journey/RESUME-HERE-2026-05-28.md) · [`docs/BOOTSTRAP.md`](BOOTSTRAP.md). _(The PHASE-3-PLAN husk was folded into `tasks.md` and archived at `archive/docs/journey/PHASE-3-PLAN.md`.)_
 
 ### Zone 4 — `archive/` (frozen; superseded/retired; never current state, never ref-validated)
 
