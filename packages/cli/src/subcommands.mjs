@@ -14,6 +14,8 @@
 // asserts exactly what's exported here, so coverage stays automatic.
 
 import { install as installAction, initUserTier as initUserTierAction } from './install.mjs';
+import { installAgent } from './install-agent.mjs';
+import { getAgentProfile, listAgentProfiles } from './agent-profiles.mjs';
 import { removeClaudeMdBlock } from './claude-md.mjs';
 import { reindex as reindexAction } from './reindex.mjs';
 import { openIndexDb } from './index-db.mjs';
@@ -169,6 +171,16 @@ export async function runInstall(options /* , command */) {
   // commander maps `--no-hooks` to options.hooks === false.
   const noHooks = !!(options && options.hooks === false);
   const verbose = !!(options && options.verbose);
+
+  // Task 50.F — cross-agent routing. Default is claude-code (the existing path,
+  // untouched). For another agent, scaffold the agent-neutral project tier via
+  // installAction with hooks OFF (the Claude-Code hook wiring doesn't apply), then
+  // wire THAT agent's legs (hooks + MCP + instruction file) via installAgent.
+  const ide = (options && options.ide) || 'claude-code';
+  if (ide !== 'claude-code') {
+    return runInstallForAgent({ ide, options, log, logError });
+  }
+
   const result = await installAction({
     force: !!(options && options.force),
     noHooks,
@@ -251,6 +263,79 @@ export async function runInstall(options /* , command */) {
   // Task 141a: the binding ask comes LAST — it's the one thing the user may
   // still need to act on, and the tail of install output is what gets read.
   await offerBindingFix(result.nativeBinding, options, { log, logError });
+}
+
+/**
+ * Task 50.F — `cmk install --ide <agent>` for a non-Claude-Code agent.
+ * Scaffolds the agent-neutral project tier (context/, CLAUDE.md block, gitignore —
+ * via installAction with hooks off, since the Claude-Code hook wiring doesn't
+ * apply), then wires THAT agent's legs (hooks + MCP + instruction file) via
+ * installAgent. One step — no second command (the user-friendly criterion).
+ */
+async function runInstallForAgent({ ide, options, log, logError }) {
+  const profile = getAgentProfile(ide);
+  if (!profile) {
+    const known = listAgentProfiles().map((p) => p.name).join(', ');
+    logError(`cmk install: unknown --ide '${ide}'. Supported: ${known}.`);
+    process.exitCode = 2;
+    return;
+  }
+
+  // 1) agent-neutral scaffold (context/ + the kit's own CLAUDE.md block live
+  //    regardless of agent). Hooks OFF — the agent's hooks are wired in step 2.
+  const scaffold = await installAction({
+    force: !!(options && options.force),
+    noHooks: true,
+    withSemantic: !!(options && options.withSemantic),
+    noSemantic: !!(options && options.semantic === false),
+    projectRoot: options?.cwd,
+    userTier: options?.userTier,
+    bindingProbe: options?.bindingProbe,
+  });
+
+  // 2) wire the agent's legs (hooks + MCP + instruction file) at its paths.
+  const wired = installAgent({ projectRoot: scaffold.projectRoot, profile });
+
+  const projectName = basename(scaffold.projectRoot);
+  if (wired.action === 'error') {
+    for (const e of wired.errors || []) {
+      logError(`  error: ${profile.displayName} ${e.leg}: ${(e.errors || []).join('; ')}`);
+    }
+    // Report which legs DID land (every leg is independently idempotent +
+    // touch-only, so a re-run after fixing the flagged file is safe).
+    const landed = Object.entries(wired.legs || {})
+      .filter(([, action]) => action && action !== 'error')
+      .map(([leg]) => leg);
+    if (landed.length) {
+      logError(`  (${landed.join(' + ')} already wired; re-run after fixing the file above — safe, idempotent.)`);
+    }
+    logError(
+      `cmk install: ${projectName} scaffolded but ${profile.displayName} wiring failed (a config file could not be safely written — see above).`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  // Describe what THIS integration type actually wired (instruction-only writes
+  // just the instruction file; full agents wire hooks + MCP too).
+  const wiredLegs = [
+    wired.legs.instruction ? 'instruction file' : null,
+    wired.legs.mcp ? 'MCP' : null,
+    wired.legs.hooks ? 'hooks' : null,
+  ].filter(Boolean);
+  log(
+    `cmk install: ${projectName} ready for ${profile.displayName} — context/ scaffolded, ${wiredLegs.join(' + ')} wired.`,
+  );
+  if (profile.integrationType === 'instruction-only') {
+    log('  Instruction-file only (no hooks/MCP) — a portable memory-awareness rung for tools that read AGENTS.md.');
+  } else {
+    log('  Restart the agent to activate. Complete install — one step, no separate command.');
+  }
+
+  if (scaffold.errors.length > 0) {
+    for (const e of scaffold.errors) logError(`  error: ${e.path}: ${e.error}`);
+    process.exitCode = 1;
+  }
 }
 
 /**
@@ -1966,6 +2051,7 @@ export const subcommands = [
     description: 'cross-OS one-shot install — scaffold 3-tier dirs + inject .gitignore + drop kit CLAUDE.md block + wire Claude Code hooks',
     milestone: 3,
     optionSpec: [
+      { flags: '--ide <agent>', description: 'target agent: claude-code (default) | kiro — wires that agent\'s hooks + MCP + instruction file' },
       { flags: '--force', description: 'allow downgrade of an existing newer-version CLAUDE.md block' },
       { flags: '--no-hooks', description: 'scaffold only; do NOT wire hooks into .claude/settings.json' },
       { flags: '--with-semantic', description: 'enable semantic recall: install the local embedder (~260 MB once), default search to hybrid, pre-warm the model' },
