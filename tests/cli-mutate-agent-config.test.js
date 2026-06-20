@@ -31,7 +31,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { mutateAgentConfig } from '../packages/cli/src/mutate-agent-config.mjs';
+import { mutateAgentConfig, renameWithRetry } from '../packages/cli/src/mutate-agent-config.mjs';
 
 let sandbox;
 let cfgPath;
@@ -208,6 +208,52 @@ describe('Task 50 — mutateAgentConfig (JSON)', () => {
       const dir = cfgPath.replace(/[/\\][^/\\]+$/, '');
       const leftovers = readdirSync(dir).filter((f) => f.includes('.tmp'));
       expect(leftovers).toEqual([]);
+    });
+  });
+
+  describe('renameWithRetry — the Windows-EPERM hardening (the real Task-50 stress bug)', () => {
+    // The bug: renameSync(tmp, target) throws EPERM on Windows when the target is
+    // briefly locked (AV/indexer/another handle) under parallel FS load — surfaced
+    // by the 5x stress run, NOT a flake. Same hazard persona-portability already
+    // documents; the fix is a bounded retry. `rename` is injected so the policy is
+    // tested without mocking the node:fs namespace.
+    const epermErr = () => Object.assign(new Error('EPERM: operation not permitted, rename'), { code: 'EPERM' });
+
+    const noSleep = () => {}; // inject a no-op sleep so tests don't actually wait
+
+    it('retries on a transient EPERM and succeeds once the lock clears', () => {
+      let calls = 0;
+      const flakyRename = () => {
+        calls += 1;
+        if (calls < 3) throw epermErr(); // locked for the first 2 attempts
+        // 3rd attempt succeeds (no-op fake)
+      };
+      expect(() => renameWithRetry('a', 'b', 5, flakyRename, noSleep)).not.toThrow();
+      expect(calls).toBe(3);
+    });
+
+    it('backs off between attempts (sleeps when the lock persists)', () => {
+      let calls = 0;
+      const sleeps = [];
+      const alwaysLocked = () => { calls += 1; throw epermErr(); };
+      expect(() => renameWithRetry('a', 'b', 4, alwaysLocked, (ms) => sleeps.push(ms))).toThrow(/EPERM/);
+      // slept between attempts (one fewer sleep than attempts — no sleep after the last)
+      expect(sleeps.length).toBe(3);
+      expect(sleeps[0]).toBeLessThan(sleeps[2]); // exponential backoff
+    });
+
+    it('gives up after the attempt budget and throws the last transient error', () => {
+      let calls = 0;
+      const alwaysLocked = () => { calls += 1; throw epermErr(); };
+      expect(() => renameWithRetry('a', 'b', 4, alwaysLocked, noSleep)).toThrow(/EPERM/);
+      expect(calls).toBe(4); // exactly the budget, no more
+    });
+
+    it('does NOT retry-mask a non-transient error (ENOENT reraises immediately)', () => {
+      let calls = 0;
+      const enoent = () => { calls += 1; throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' }); };
+      expect(() => renameWithRetry('a', 'b', 5, enoent, noSleep)).toThrow(/ENOENT/);
+      expect(calls).toBe(1); // no retry on a real error
     });
   });
 
