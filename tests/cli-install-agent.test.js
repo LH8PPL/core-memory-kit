@@ -110,6 +110,39 @@ describe('Task 50.E/50.F — installAgent (Kiro)', () => {
     });
   });
 
+  describe('AGENTS.md breadth rung (50.G — instruction-only, no hooks/MCP)', () => {
+    const agentsmd = () => getAgentProfile('agents-md');
+
+    it('emits a managed AGENTS.md block and wires NO hooks/MCP', () => {
+      const r = installAgent({ projectRoot, profile: agentsmd() });
+      expect(r.action).toBe('installed');
+
+      const agentsPath = join(projectRoot, 'AGENTS.md');
+      expect(existsSync(agentsPath)).toBe(true);
+      const body = readFileSync(agentsPath, 'utf8');
+      expect(body).toMatch(/claude-memory-kit:start/);
+      expect(body).toMatch(/cmk search/);
+      // instruction-only: no agent config files
+      expect(r.legs.mcp).toBeUndefined();
+      expect(r.legs.hooks).toBeUndefined();
+    });
+
+    it('byte-preserves the user content outside our block on uninstall', () => {
+      const agentsPath = join(projectRoot, 'AGENTS.md');
+      writeFileSync(agentsPath, '# My project rules\n\nUse tabs.\n', 'utf8');
+
+      installAgent({ projectRoot, profile: agentsmd() });
+      let body = readFileSync(agentsPath, 'utf8');
+      expect(body).toContain('My project rules'); // user content preserved on install
+      expect(body).toMatch(/claude-memory-kit:start/);
+
+      uninstallAgent({ projectRoot, profile: agentsmd() });
+      body = readFileSync(agentsPath, 'utf8');
+      expect(body).toContain('My project rules'); // still there after uninstall
+      expect(body).not.toMatch(/claude-memory-kit:start/); // our block gone
+    });
+  });
+
   describe('uninstall strips only our keys', () => {
     it('removes our MCP entry + hooks but preserves a sibling server', () => {
       const mcpPath = join(projectRoot, '.kiro', 'settings', 'mcp.json');

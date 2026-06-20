@@ -76,9 +76,23 @@ const kiro = defineAgentProfile({
   },
 });
 
+// ── AGENTS.md (Task 50.G — the instruction-only breadth rung) ────────────────
+// The cheap multi-tool reach: emit a managed block in AGENTS.md (the cross-tool
+// instruction-file convention several non-Claude agents read — Cursor, Zed,
+// Codex, gemini-cli, …). NO hooks, NO MCP — instruction surface only. For tools
+// we haven't built a full adapter for; a thin rung, not the depth play. (D-180 §5.)
+const agentsmd = defineAgentProfile({
+  name: 'agents-md',
+  displayName: 'AGENTS.md',
+  integrationType: 'instruction-only',
+  detect: { always: true }, // any repo can carry an AGENTS.md
+  instructionFile: 'AGENTS.md',
+});
+
 export const AGENT_PROFILES = Object.freeze({
   'claude-code': claudeCode,
   kiro,
+  'agents-md': agentsmd,
 });
 
 export function getAgentProfile(name) {

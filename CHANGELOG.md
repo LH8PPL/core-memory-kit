@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
-- **Cross-agent install — `cmk install --ide <agent>`** (Task 50; the v0.4.0 differentiator). The kit can now install into agents beyond Claude Code. `--ide kiro` wires Kiro's steering file (`.kiro/steering/`, `inclusion: always`), MCP registration (`.kiro/settings/mcp.json`), and CLI agent hooks (`.kiro/agents/`) — in one step. The memory core (store / search / compression / CLI) is identical across agents; only the per-agent wiring differs. Default remains `claude-code` (unchanged). Built on a shared, tested config-write primitive (`mutateAgentConfig` — touch-only-our-keys, refuses to clobber a corrupt config) so each future agent is a thin data profile, not new code.
+- **Cross-agent install — `cmk install --ide <agent>`** (Task 50; the v0.4.0 differentiator). The kit can now install into agents beyond Claude Code. `--ide kiro` wires Kiro's steering file (`.kiro/steering/`, `inclusion: always`), MCP registration (`.kiro/settings/mcp.json`), and CLI agent hooks (`.kiro/agents/`) — in one step. `--ide agents-md` emits a managed `AGENTS.md` block — a portable, instruction-only memory-awareness rung for the many tools that read `AGENTS.md` (no hooks/MCP). The memory core (store / search / compression / CLI) is identical across agents; only the per-agent wiring differs. Default remains `claude-code` (unchanged). Built on a shared, tested config-write primitive (`mutateAgentConfig` — touch-only-our-keys, refuses to clobber a corrupt config) so each future agent is a thin data profile, not new code.
 
 ## [0.3.5] — 2026-06-20
 

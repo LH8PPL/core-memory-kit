@@ -308,10 +308,21 @@ async function runInstallForAgent({ ide, options, log, logError }) {
     return;
   }
 
+  // Describe what THIS integration type actually wired (instruction-only writes
+  // just the instruction file; full agents wire hooks + MCP too).
+  const wiredLegs = [
+    wired.legs.instruction ? 'instruction file' : null,
+    wired.legs.mcp ? 'MCP' : null,
+    wired.legs.hooks ? 'hooks' : null,
+  ].filter(Boolean);
   log(
-    `cmk install: ${projectName} ready for ${profile.displayName} — context/ scaffolded, ${profile.displayName} hooks + MCP + steering wired.`,
+    `cmk install: ${projectName} ready for ${profile.displayName} — context/ scaffolded, ${wiredLegs.join(' + ')} wired.`,
   );
-  log('  Restart the agent to activate. Complete install — one step, no separate command.');
+  if (profile.integrationType === 'instruction-only') {
+    log('  Instruction-file only (no hooks/MCP) — a portable memory-awareness rung for tools that read AGENTS.md.');
+  } else {
+    log('  Restart the agent to activate. Complete install — one step, no separate command.');
+  }
 
   if (scaffold.errors.length > 0) {
     for (const e of scaffold.errors) logError(`  error: ${e.path}: ${e.error}`);
