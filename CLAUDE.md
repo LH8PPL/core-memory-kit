@@ -343,7 +343,7 @@ The kit doesn't become usable until **Task 23** (auto-extract subagent + memory-
 ## When in doubt
 
 Re-read the journey log. If still in doubt, ask the user with one specific question — not four bullet-pointed options.
-<!-- claude-memory-kit:start v0.3.3 -->
+<!-- claude-memory-kit:start v0.3.5 -->
 ## Memory System — claude-memory-kit
 
 This project uses **claude-memory-kit** for per-project, in-repo memory that survives session boundaries. Memory lives in `context/` (committed) and `context.local/` (gitignored). Cross-project memory lives at `~/.claude-memory-kit/` (or `$MEMORY_KIT_USER_DIR`).

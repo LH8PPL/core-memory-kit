@@ -8,10 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-MXSa47QX) User prefers memory designs tailored to kit's actual architecture over patterns borrowed from other systems.
-  <!-- source: review-promote, source_line: 1, sha1: 33982b1ede01837d566cb9bc64d87c0c87724798d22d04585c50cc369f35777b, write: user-explicit, trust: high, at: 2026-06-20T07:19:02Z -->
-- (P-4TGBBBPB) 200KB input compresses in ~15s standalone (no contention); real-world failures occur across 8B–334KB range with zero size correlation, proving timeouts are environmental not input-driven.
-  <!-- source: review-promote, source_line: 1, sha1: 7631a1ae7bb9eff9a0705f765fc7ac26103ac534a5e5eb0e76be2e76acdc3e16, write: user-explicit, trust: high, at: 2026-06-20T07:19:02Z -->
 - (P-E7AL69YL) observability-first approach — captures real failure data before implementing dependent features (retry); values measurement over assumptions
   <!-- source: review-promote, source_line: 1, sha1: 594f121bb17092b301750538c1b96bd70682d19c32dc96c5d3a27e1045734992, write: user-explicit, trust: high, at: 2026-06-20T07:19:03Z -->
 - (P-TSBAKGD7) Expects comprehensive accounting of work—what was kept, what was superseded but preserved, what was discarded, and why for each
@@ -20,6 +16,10 @@
   <!-- source: review-promote, source_line: 1, sha1: 4e9cc95207108d334ec95942ef8c1afc80acf36304fccfb060146d0123368b94, write: user-explicit, trust: high, at: 2026-06-20T07:19:04Z -->
 - (P-XM9YAKRW) httpx2 deprecation in FastAPI TestClient — need to replace httpx dependency with httpx2 eventually
   <!-- source: review-promote, source_line: 1, sha1: 4363eada958f1356bd5e36c5a51ceb09ea7c63e513e1ca87b833e8215400b571, write: user-explicit, trust: high, at: 2026-06-20T07:19:04Z -->
+- (P-7RV4P6CR) Accepted two-lever fix recommendation (120s timeout + 5s CEILING_FREE_BACKOFF_MS backoff)
+  <!-- source: auto-extract-session, source_line: 1, sha1: 74be525ac060418b6deb5b6894b106c652e915cec765635d134e140bef6d4542, write: auto-extract, trust: high, at: 2026-06-20T11:27:34Z -->
+- (P-LSJG9NCK) Established testing path in cut-gate.md (local tarball pack → install → verify) is the proven, safe gate and should be consulted before suggesting publish-first workflows.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 595265ff4da86c0d5a4f7f6b57fddfbca70694fd807a50339df19d404fd7b8a2, write: auto-extract, trust: high, at: 2026-06-20T12:24:41Z -->
 
 ## Environment Notes
 
