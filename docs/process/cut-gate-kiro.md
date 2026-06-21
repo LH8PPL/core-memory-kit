@@ -104,7 +104,8 @@ cmk doctor
       then `Restart Kiro to activate the hooks (steering + skills + MCP are immediate).`
       **PASS:** the summary names **all five** surfaces (`mcp + steering + skills + ide-hooks + cli-agent`). _(If your real `~/.aws` has NO Kiro default agent, the CLI agent takes the default silently — no "Note: you already have a Kiro CLI default agent" line. If you DO already have a Kiro default, you'll see that note here instead — and that's the guarded path KG7 forces deterministically.)_
 
-- [ ] **★ KG1b — `cmk doctor` clean.** `cmk doctor` → **0 fail** on a fresh install (HC-1..HC-9). _(The memory-core health checks are agent-agnostic; they pass the same as the Claude-Code gate.)_
+- [ ] **★ KG1b — `cmk doctor` clean (agent-aware HC-1).** `cmk doctor` → **0 fail** on a fresh Kiro install (HC-1..HC-9).
+      **HC-1 must read as a KIRO check, not a Claude one:** `[PASS] HC-1: ... Kiro capture/inject wired via IDE hooks (.kiro/hooks/) + CLI agent (~/.aws/amazonq/cli-agents/)`. **FAIL the gate** if HC-1 says `.claude/settings.json missing → cmk repair --hooks` — that's the pre-D-185 bug (doctor not agent-aware); you're on a stale binary, rebuild (§0b). _(D-185/D-186, found + fixed by this gate: HC-1 is a capability check — PASSes if the IDE hooks OR the CLI agent is present, so both a Kiro-IDE and a kiro-cli-only user read clean. The other memory-core checks are agent-agnostic.)_
 
 - [ ] **★ KG2 — MCP surface (shared IDE+CLI).**
       ```powershell
