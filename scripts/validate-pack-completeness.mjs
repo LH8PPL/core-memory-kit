@@ -56,6 +56,44 @@ export function listCanonicalTemplateFiles() {
   return out.sort();
 }
 
+/**
+ * Run `npm pack --dry-run --json`, retrying a transient spawn failure.
+ *
+ * `npm pack` spawns a heavy Node process; under stress-gate concurrency (5×
+ * full suite = many vitest workers contending for the machine) the spawn can
+ * fail transiently (EBUSY / temp-dir contention / a slow npm startup), and a
+ * bare `execSync` throws an opaque error that crashes vitest collection — the
+ * exact "i don't believe in flake" class. This is a transient EXTERNAL spawn,
+ * not a drift signal, so a bounded retry with backoff is the right resilience
+ * (the `renameWithRetry` precedent for the Windows EPERM flake). A genuine
+ * pack-drift failure surfaces in `checkPackCompleteness`, not here.
+ */
+function runNpmPack(attempts = 4, sleep = sleepMs) {
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      // --ignore-scripts: npm pack would otherwise re-run prepublishOnly, whose
+      // stdout pollutes the JSON on the same stream. Constant command string via
+      // execSync (npm is npm.cmd on Windows; the shell resolves it cross-platform)
+      // — no args array under shell, so no DEP0190 (the buildDefaultNpmRunner
+      // pattern). // platform-commands: ignore — `npm pack` is identical on all OSes
+      return execSync('npm pack --dry-run --json --ignore-scripts', {
+        cwd: CLI_PKG,
+        encoding: 'utf8',
+      });
+    } catch (err) {
+      lastErr = err;
+      if (i < attempts - 1) sleep(50 * 2 ** i); // 50, 100, 200ms
+    }
+  }
+  throw new Error(`npm pack failed after ${attempts} attempts: ${lastErr?.message ?? lastErr}`);
+}
+
+/** Synchronous sleep (no busy-spin) — same primitive as renameWithRetry. */
+function sleepMs(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 /** The `template/…` files npm would pack, from `npm pack --dry-run --json`. */
 export function packedTemplateFiles() {
   // Refresh the packaged copy first (the prepublishOnly mechanic) so we
@@ -63,15 +101,7 @@ export function packedTemplateFiles() {
   execFileSync(process.execPath, [join(REPO, 'scripts', 'prepublish-copy-template.mjs')], {
     stdio: 'ignore',
   });
-  // --ignore-scripts: npm pack would otherwise re-run prepublishOnly, whose
-  // stdout pollutes the JSON on the same stream. Constant command string via
-  // execSync (npm is npm.cmd on Windows; the shell resolves it cross-platform)
-  // — no args array under shell, so no DEP0190 (the buildDefaultNpmRunner
-  // pattern). // platform-commands: ignore — `npm pack` is identical on all OSes
-  const out = execSync('npm pack --dry-run --json --ignore-scripts', {
-    cwd: CLI_PKG,
-    encoding: 'utf8',
-  });
+  const out = runNpmPack();
   const parsed = JSON.parse(out);
   const files = (parsed[0]?.files ?? []).map((f) => norm(f.path));
   return files.filter((p) => p.startsWith('template/')).sort();
