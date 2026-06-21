@@ -102,14 +102,18 @@ describe('Task 50.F — cmk install --ide routing', () => {
 // the same repo). The installs are additive overlays — each writes ONLY its own
 // surface and never clobbers the other's; the shared context/ brain is reused.
 describe('Task 50 — dual-agent coexistence (D-188)', () => {
-  it('Claude Code then Kiro: the second install leaves the .claude surface intact', async () => {
+  it('Claude Code then Kiro: the second install leaves the .claude surface BYTE-intact', async () => {
     await runInstall(opts({ hooks: false })); // claude-code first
-    expect(existsSync(join(projectRoot, 'CLAUDE.md'))).toBe(true);
+    const claudeMdPath = join(projectRoot, 'CLAUDE.md');
+    expect(existsSync(claudeMdPath)).toBe(true);
     expect(existsSync(join(projectRoot, '.claude', 'skills', 'memory-write', 'SKILL.md'))).toBe(true);
+    // append a user sentinel OUTSIDE the kit markers — must survive verbatim
+    const before = readFileSync(claudeMdPath, 'utf8') + '\n<!-- my own note: do not touch -->\n';
+    writeFileSync(claudeMdPath, before, 'utf8');
 
     await runInstall(opts({ ide: 'kiro' })); // add Kiro
-    // Claude surface survives untouched
-    expect(existsSync(join(projectRoot, 'CLAUDE.md'))).toBe(true);
+    // Claude surface survives byte-for-byte (the kiro install never opened it)
+    expect(readFileSync(claudeMdPath, 'utf8')).toBe(before);
     expect(existsSync(join(projectRoot, '.claude', 'skills', 'memory-write', 'SKILL.md'))).toBe(true);
     // Kiro surface added
     expect(existsSync(join(projectRoot, '.kiro', 'hooks', 'cmk-capture.kiro.hook'))).toBe(true);
