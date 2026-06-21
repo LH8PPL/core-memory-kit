@@ -1,5 +1,7 @@
 // @doors: 1, 2
-// Door 3 N/A: file read/write only. Door 4 N/A: no log surface. Door 5 N/A.
+// Door 3 N/A: file read/write only — no subprocess spawn.
+// Door 4 N/A: no log/NDJSON surface.
+// Door 5 N/A: no message-queue interaction.
 
 // Tests for managed-block.mjs — the shared agent-config + instruction helpers
 // (deduped from install-agent.mjs + install-kiro.mjs).

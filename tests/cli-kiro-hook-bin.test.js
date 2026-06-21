@@ -15,8 +15,9 @@
 // payload captureTurn/injectContext expect from Kiro's actual inputs, then
 // routes via the dispatcher (50.J).
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { runKiroHook } from '../packages/cli/src/kiro-hook-bin.mjs';
+import { runHook } from '../packages/cli/src/subcommands.mjs';
 
 describe('Task 50.J/50.L — runKiroHook adapter', () => {
   it('stop event → reads the Kiro transcript for the turn, routes to capture', () => {
@@ -96,5 +97,24 @@ describe('Task 50.J/50.L — runKiroHook adapter', () => {
     });
     expect(r.exitCode).toBe(0);
     expect(r.stderr).toMatch(/transcript gone/);
+  });
+});
+
+// I1 (review): runHook (the production CLI action) must EXPLICITLY keep
+// process.exitCode 0 — a non-zero exit blocks the Kiro tool (AWS docs).
+describe('Task 50 — runHook keeps exit 0 (I1)', () => {
+  afterEach(() => { process.exitCode = 0; });
+  it('sets process.exitCode 0 even when capture throws', () => {
+    process.exitCode = 1; // simulate a prior verb having set it
+    runHook('stop', {}, undefined, {
+      cwd: '/proj',
+      env: {},
+      readKiroTurn: () => { throw new Error('boom'); },
+      inject: () => ({ ok: true, text: '' }),
+      capture: () => { throw new Error('boom'); },
+      log: () => {},
+      logError: () => {},
+    });
+    expect(process.exitCode).toBe(0);
   });
 });

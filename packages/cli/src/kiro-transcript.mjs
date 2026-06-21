@@ -102,8 +102,11 @@ export function readKiroTurn({ projectRoot, env = process.env } = {}) {
     const files = readdirSync(wsDir).filter((f) => f.endsWith('.json') && f !== 'sessions.json');
     if (files.length === 0) return empty;
 
+    // Sort files for a DETERMINISTIC pick (review M2): primary by dateCreated
+    // (desc), secondary by filename (desc) so an equal-stamp tie isn't decided by
+    // readdir order. The first after sort is the most-recent session.
     let best = null;
-    let bestStamp = -Infinity;
+    let bestKey = null; // [stamp, filename]
     for (const f of files) {
       let json;
       try {
@@ -111,9 +114,9 @@ export function readKiroTurn({ projectRoot, env = process.env } = {}) {
       } catch {
         continue;
       }
-      const stamp = Number(json.dateCreated) || 0;
-      if (stamp >= bestStamp) {
-        bestStamp = stamp;
+      const key = [Number(json.dateCreated) || 0, f];
+      if (bestKey === null || key[0] > bestKey[0] || (key[0] === bestKey[0] && key[1] > bestKey[1])) {
+        bestKey = key;
         best = json;
       }
     }

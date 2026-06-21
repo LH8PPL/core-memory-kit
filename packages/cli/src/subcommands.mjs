@@ -392,8 +392,11 @@ export function runHook(event, _options = {}, _command, deps = {}) {
     deps: {
       readKiroTurn: deps.readKiroTurn ?? readKiroTurn,
       // injectContext returns the assembled context string; normalize to {text}.
+      // userDir is passed through so cross-project user-tier memory surfaces on
+      // Kiro inject too (injectContext resolves $MEMORY_KIT_USER_DIR when userDir
+      // is absent, but pass it explicitly when the caller provides one).
       inject: deps.inject ?? ((args) => {
-        const text = injectContext({ cwd: args.cwd });
+        const text = injectContext({ cwd: args.cwd, ...(args.userDir ? { userDir: args.userDir } : {}) });
         return { ok: true, text: typeof text === 'string' ? text : text?.text ?? '' };
       }),
       capture: deps.capture ?? ((args) => captureTurn({ payload: args.payload, projectRoot: args.projectRoot })),
@@ -401,7 +404,10 @@ export function runHook(event, _options = {}, _command, deps = {}) {
   });
   if (r.stdout) log(r.stdout);
   if (r.stderr) logError(r.stderr);
-  // exitCode stays 0 (set by the dispatcher's contract); never set non-zero.
+  // I1 (review): make the always-exit-0 invariant EXPLICIT, not incidental — a
+  // non-zero exit from a Kiro hook BLOCKS the tool (AWS docs). Pin it so a prior
+  // verb's exitCode or a future throw-path can't leak through.
+  process.exitCode = 0;
 }
 
 /**
