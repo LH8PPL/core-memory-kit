@@ -1,26 +1,21 @@
-# RESUME HERE — 2026-06-21 (Kiro PR-2 open, awaiting review fixes)
+# RESUME HERE — 2026-06-21 (Kiro both PRs MERGED; only the live-test + v0.4.0 cut remain)
 
-> Branch `task-50-kiro-cli` (PR-2 = **PR #213, OPEN**). PR-1 (#212) already MERGED. **PAUSED by the user after the skill-review came back.**
+> On `main`. **PR-1 (#212, IDE) + PR-2 (#213, CLI) both MERGED.** All Kiro v0.4.0 CODE is in. Two things left: the batched **50.M live-test**, then **cut v0.4.0**.
 
-## ⏸ Where we paused (most current)
+## ✅ Done (both PRs merged to main)
 
-- **PR #213 is OPEN** (`task-50-kiro-cli`, 5 commits). Stress **5/5** clean. Full suite 2132/0. Housekeeping done (README/CHANGELOG/CLI.md/DECISION-LOG D-184/build-log).
-- **Two stress-gate flakes were root-caused + fixed on this branch** (both pre-existing, not product bugs, Windows-EPERM/spawn-concurrency class — same as `renameWithRetry`): `fc772f2` (pack-completeness `npm pack` spawn retry) + `43db882` (capture-turn `afterEach` best-effort temp cleanup).
-- **Self-review done. `code-review-excellence` skill-review done — NO Blocking findings.** The `~/.aws` safety + guarded-default + Rust-contract + always-exit-0 + uninstall over-mutation are all confirmed sound. **3 Important findings to fix BEFORE merge** (not blockers):
-  1. **I-1** — trigger-name composition drift: the dispatcher's `INJECT_EVENTS` knows `promptSubmit` (IDE) but NOT the Rust-contract `userPromptSubmit`; CLI agent wires only `agentSpawn`+`stop` (inject-once, no per-prompt recall). Either document the inject-once-by-design choice + add `userPromptSubmit` as a dispatcher alias, or wire per-prompt recall. (`kiro-hook-dispatch.mjs:29`, `kiro-cli-agent.mjs` `buildAgentConfig`.)
-  2. **I-2** — CLI leg never sets `changed`/never content-compares: `installKiroCliAgent` always `writeFileSync`s; mirror `kiro-ide-hooks.mjs:78-83` (compare existing-vs-new, return `changed`, OR into `installKiro`). Add a "second install → changed:false" test.
-  3. **I-3** — uninstall over-mutation test gap: add a test that seeds a sibling/user-authored agent (the `skipped-existing` `q_cli_default.json`), uninstalls, asserts the user file survives + `settings.json` untouched.
-  - **Minor (judgment, optional):** M-1 (MCP entry shape differs CLI `{command,args,timeout}` vs IDE `{type:'stdio',command,args}` — verify against the Amazon Q agent-config schema), M-2 (`isOurAgent` keys on a `description` substring — a structural `managedBy` marker would be unambiguous).
+- **PR-1 (#212):** shared 3 surfaces (MCP + steering + skills) + IDE hooks (`.kiro/hooks/*.kiro.hook`).
+- **PR-2 (#213, `efdfa17`):** the CLI agent-config (`~/.aws/amazonq/cli-agents/q_cli_default.json`, Rust contract) + guarded default-agent (5th surface). Two-pass review — no Blocking; all 5 findings (I-1 dispatcher `userPromptSubmit`/`promptSubmit` alias, I-2 content-compare idempotency, I-3 uninstall over-mutation test, M-1 MCP-shape comment, M-2 structural `managedBy` marker) fixed inline. Stress 5/5; CI green (3-OS install+doctor + Sonar). Plus two pre-existing flakes root-caused on the branch (pack-completeness `npm pack` retry; capture-turn teardown best-effort).
+- Decision trail: D-182 (settled spec) → D-183 (PR-1) → D-184 (PR-2).
 
-## ▶ To resume, say `continue Kiro PR-2`:
+## ▶ What's LEFT — say `start the Kiro live-test`:
 
-1. Fix I-1, I-2, I-3 inline (the user's standing "fix everything now") — consider M-1/M-2.
-2. `npm run stress` → 5/5 → push → update PR #213 body with the review + fixes → `gh pr merge 213 --squash --delete-branch` → pull main → flip 50.L note / journey log.
-3. Then the batched **50.M live-test** (after ALL v0.4.0 code lands) verifying BOTH surfaces, ALWAYS with `MEMORY_KIT_AWS_DIR` + `MEMORY_KIT_USER_DIR` sandboxes. Then cut v0.4.0.
+1. **The batched 50.M live-test** (the user's plan, P-FA4ALL42): ONE Kiro session, now that ALL v0.4.0 code is merged, verifying BOTH surfaces — IDE `.kiro.hook` capture-fires AND the CLI agent + default-agent resolution. The 8-point D-182 checklist (default resolves w/o `--agent`; inject+capture FIRE not just register; non-clobber guard; MCP reachable; timeout composition). **ALWAYS set `MEMORY_KIT_AWS_DIR=<tmp>` + `MEMORY_KIT_USER_DIR=<tmp>`** so the real `~/.aws`/user-tier are never touched. Record the result in 50.M + the DECISION-LOG.
+2. **Cut v0.4.0** once the live-test passes: `npm run release -- minor` → review diff → commit → the USER pushes the `vX.Y.Z` tag (their outward step; publish.yml does npm + GitHub Release).
 
 ---
 
-> (Earlier context-compact breadcrumb below — superseded by the section above for the most-current state.)
+> (Earlier breadcrumbs below — superseded by the section above for the most-current state.)
 
 ## Latest state (top of mind)
 
