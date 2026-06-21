@@ -33,6 +33,7 @@ npm install -g @lh8ppl/claude-memory-kit
 cd ~/my-project
 cmk install        # scaffolds context/ + the memory-write + memory-search skills AND wires the lifecycle hooks into .claude/settings.json
 cmk install --with-semantic   # (optional) local semantic recall — one-time ~260 MB, search defaults to hybrid
+cmk install --ide kiro        # (optional) target Kiro instead — wires the IDE + kiro-cli surfaces (MCP + steering + AGENTS.md + skills + hooks)
 cmk register-crons            # (optional) scheduled background compression — otherwise self-heals lazily
 cmk import-claude-md --yes    # (optional) seed memory from an existing CLAUDE.md / .cursorrules (--dry-run previews)
 cmk doctor         # verify, then restart Claude Code
@@ -41,6 +42,10 @@ cmk doctor         # verify, then restart Claude Code
 `cmk install` is a complete entry point: it scaffolds `context/`, drops the `memory-write` + `memory-search` skills into `.claude/skills/` (committed — travels with `git clone`), and writes the 5 lifecycle hooks (PATH-resolved, cross-OS) into the project's `.claude/settings.json`. It also **registers the kit's MCP server** in `.mcp.json` and allow-lists its tools (`mcp__cmk__*`) in `.claude/settings.json`, so Claude can drive memory as tools with no per-call prompt, and writes a `.gitattributes` block pinning committed memory to LF (so a Windows clone can't mangle line endings — your memory stays readable cross-platform). No separate `/plugin` step needed. Use `cmk install --no-hooks` to skip the hooks + MCP wiring (scaffold-only).
 
 > Installing the package globally adds the `cmk` CLI **and** the installer. It's the `cmk install` *subcommand* that wires the hooks — not the bare `npm install`.
+
+**Other agents (Kiro).** `cmk install --ide kiro` targets [Kiro](https://kiro.dev) (AWS's agentic IDE + `kiro-cli`) instead of Claude Code — one command wires both its GUI hooks (`.kiro/hooks/`) and its terminal CLI agent (`~/.aws/amazonq/cli-agents/`), plus MCP, steering, skills, and an `AGENTS.md` instruction file. A project can carry **both** agents (run both installs — they share one `context/` brain and never clobber each other). Restart Kiro to load its hooks.
+
+**Uninstall** is per-agent and conservative — it never deletes your `context/` memory: `cmk uninstall` removes the Claude Code surface; `cmk uninstall --ide kiro` removes the Kiro surface.
 
 ### Route B — Claude Code plugin marketplace
 

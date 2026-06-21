@@ -371,8 +371,13 @@ export async function install(options = {}) {
   // design §1.3. Same boundary as the tiers: idempotent skip-existing +
   // over-mutation-safe (a hand-edited skill survives a re-install). The skill
   // files carry no {{placeholders}}, so renderTemplate is a byte-passthrough.
+  //
+  // `.claude/skills/` is CLAUDE-CODE-SPECIFIC. A `--ide kiro` install gets its
+  // skills at `.kiro/skills/` (written by the Kiro orchestrator), so it passes
+  // skipClaudeFiles to avoid leaving a dead Claude skills dir on a Kiro project
+  // (the cut-gate find: a Kiro user shouldn't carry Claude Code's skill files).
   const skillsSrc = join(templateDir, '.claude', 'skills');
-  if (existsSync(skillsSrc)) {
+  if (!options.skipClaudeFiles && existsSync(skillsSrc)) {
     installTier(skillsSrc, join(projectRoot, '.claude', 'skills'), {
       created,
       skipped,
@@ -389,10 +394,18 @@ export async function install(options = {}) {
 
   // CLAUDE.md loader block — Task 4. Read the block content from the kit's
   // template/ and inject (or refresh) it inside marker delimiters. Never
-  // touches content outside the markers.
+  // touches content outside the markers. CLAUDE.md is CLAUDE-CODE-SPECIFIC
+  // (Kiro reads AGENTS.md + steering, not CLAUDE.md) — a --ide kiro install
+  // passes skipClaudeFiles so it doesn't drop a CLAUDE.md the Kiro user can't
+  // use (D-188). An EXISTING CLAUDE.md from a prior Claude-Code install is left
+  // untouched regardless (we simply don't write a fresh one).
   const claudeMdTemplatePath = join(templateDir, 'CLAUDE.md.template');
   let claudeMd = { action: 'skipped', path: join(projectRoot, 'CLAUDE.md') };
-  if (existsSync(claudeMdTemplatePath)) {
+  if (options.skipClaudeFiles) {
+    // a non-Claude-Code (--ide kiro) install: CLAUDE.md is intentionally not
+    // written; an existing one is left untouched. NOT an error.
+    claudeMd = { action: 'skipped', reason: 'non-claude-code-agent', path: join(projectRoot, 'CLAUDE.md') };
+  } else if (existsSync(claudeMdTemplatePath)) {
     const content = readFileSync(claudeMdTemplatePath, 'utf8');
     try {
       claudeMd = injectClaudeMdBlock({ projectRoot, content, version, force });

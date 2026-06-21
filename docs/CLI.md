@@ -21,8 +21,11 @@ cmk install --no-hooks      # scaffold-only
 cmk install --ide kiro      # wire Kiro (IDE + kiro-cli) instead of Claude Code
 ```
 
-### `cmk uninstall`
-Remove the managed CLAUDE.md kit block (preserves everything else byte-for-byte). Conservative — does not delete `context/`.
+### `cmk uninstall [--ide <agent>]`
+Remove one agent's kit-managed wiring. **Conservative** — preserves everything outside the kit's markers and **never deletes `context/`** (your memory data).
+- (no flag) → removes the **Claude Code** surface: the managed `CLAUDE.md` block (+ hooks).
+- `--ide kiro` → removes the **Kiro** surface: the `.kiro/` managed blocks (MCP entry, steering), the `AGENTS.md` managed block, the `.kiro/skills/` + `.kiro/hooks/` files, and the guarded `~/.aws/amazonq/cli-agents/` CLI agent.
+- On a dual-agent project, uninstalling one agent leaves the other (and the shared `context/`) working. To remove the memory data, delete `context/` yourself.
 
 ### `cmk hook`
 `cmk hook <agentSpawn|promptSubmit|stop>` — the **Kiro** hook entrypoint, called by Kiro's IDE + CLI hooks (not by users). `agentSpawn`/`promptSubmit` inject recalled memory into the agent's context; `stop` captures the turn from Kiro's transcript. Always exits 0 so a hook failure never breaks the Kiro session. Wired automatically by `cmk install --ide kiro`.
