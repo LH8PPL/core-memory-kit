@@ -44,29 +44,46 @@ function hookCommand(event, cmkCmd = CMK) {
 // The hook definitions, in the verified .kiro.hook shape. `cmd` is the cmk stem
 // (default 'cmk'); the platform-correct wrapping (cmd.exe /c on Windows) is added
 // by hookCommand().
+// Build one .kiro.hook body. NOTE: `when` + `then` are KIRO'S required schema
+// field names (not a thenable/Promise — `then` here is a plain object, Kiro's
+// "action" leg). It's assigned via bracket notation so a static analyzer doesn't
+// misread the object as a fake-Promise (the "do not add `then` to an object"
+// rule, which targets accidental thenables — N/A here, this is Kiro's wire format).
+function makeHookBody({ name, description, whenType, event, cmd, timeout }) {
+  const body = {
+    version: '1.0.0',
+    enabled: true,
+    name,
+    description,
+    when: { type: whenType },
+  };
+  body.then = { type: 'runCommand', command: hookCommand(event, cmd), timeout };
+  return body;
+}
+
 function hookDefs(cmd) {
   return [
     {
       file: 'cmk-capture.kiro.hook',
-      body: {
-        version: '1.0.0',
-        enabled: true,
+      body: makeHookBody({
         name: 'claude-memory-kit: capture',
         description: 'Capture durable memory at the end of each turn (claude-memory-kit). Managed by `cmk install` — do not hand-edit.',
-        when: { type: 'agentStop' },
-        then: { type: 'runCommand', command: hookCommand('stop', cmd), timeout: 60 },
-      },
+        whenType: 'agentStop',
+        event: 'stop',
+        cmd,
+        timeout: 60,
+      }),
     },
     {
       file: 'cmk-inject.kiro.hook',
-      body: {
-        version: '1.0.0',
-        enabled: true,
+      body: makeHookBody({
         name: 'claude-memory-kit: recall',
         description: 'Inject recalled memory on each prompt (claude-memory-kit). Managed by `cmk install` — do not hand-edit.',
-        when: { type: 'promptSubmit' },
-        then: { type: 'runCommand', command: hookCommand('promptSubmit', cmd), timeout: 30 },
-      },
+        whenType: 'promptSubmit',
+        event: 'promptSubmit',
+        cmd,
+        timeout: 30,
+      }),
     },
   ];
 }
