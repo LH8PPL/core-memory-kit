@@ -74,6 +74,27 @@ function seedSettingsJson(content) {
   writeFileSync(join(dir, 'settings.json'), JSON.stringify(content), 'utf8');
 }
 
+// A `--ide kiro` install: the kit's hooks live in .kiro/hooks/*.kiro.hook,
+// NOT .claude/settings.json. Used by the HC-1 Kiro-aware tests below.
+function seedKiroHooks({ capture = true, inject = true } = {}) {
+  const dir = join(projectRoot, '.kiro', 'hooks');
+  mkdirSync(dir, { recursive: true });
+  if (capture) {
+    writeFileSync(
+      join(dir, 'cmk-capture.kiro.hook'),
+      JSON.stringify({ when: { type: 'agentStop' }, then: { type: 'runCommand', command: 'cmd.exe /c cmk hook stop' } }),
+      'utf8',
+    );
+  }
+  if (inject) {
+    writeFileSync(
+      join(dir, 'cmk-inject.kiro.hook'),
+      JSON.stringify({ when: { type: 'promptSubmit' }, then: { type: 'runCommand', command: 'cmd.exe /c cmk hook promptSubmit' } }),
+      'utf8',
+    );
+  }
+}
+
 beforeEach(async () => {
   await makeFixture();
 });
@@ -244,6 +265,40 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       const r = await runDoctor({ projectRoot, userDir });
       const c2 = r.checks.find((c) => c.id === 'HC-1');
       expect(c2.status).toBe('fail');
+    });
+
+    // ── HC-1 is agent-aware (v0.4.0 / Task 50 — the cut-gate-kiro live-test find) ──
+    // A `--ide kiro` install wires .kiro/hooks/*.kiro.hook, NOT .claude/settings.json.
+    // HC-1 used to hard-check .claude/settings.json → false-FAILed on EVERY Kiro
+    // install with a `cmk repair --hooks` hint for the wrong agent. Now it detects
+    // the install kind and checks the right surface.
+    describe('HC-1 — agent-aware (Kiro install)', () => {
+      it('Kiro install (.kiro/hooks present, no .claude/settings.json) → HC-1 PASS', async () => {
+        seedKiroHooks(); // both cmk-capture + cmk-inject .kiro.hook
+        const r = await runDoctor({ projectRoot, userDir });
+        const c1 = r.checks.find((c) => c.id === 'HC-1');
+        expect(c1.status).toBe('pass'); // NOT a Claude-Code-shaped fail
+        expect(c1.message).toMatch(/[Kk]iro/); // names the surface it actually checked
+      });
+
+      it('Kiro install with a MISSING Kiro hook → HC-1 fail, repair points at cmk install --ide kiro (not Claude repair)', async () => {
+        seedKiroHooks({ capture: true, inject: false }); // capture present, inject missing
+        const r = await runDoctor({ projectRoot, userDir });
+        const c1 = r.checks.find((c) => c.id === 'HC-1');
+        expect(c1.status).toBe('fail');
+        expect(c1.message).toMatch(/cmk-inject/); // names the missing Kiro hook
+        // the repair hint must NOT be the Claude-Code `cmk repair --hooks`
+        expect(c1.recoveryCommand).not.toBe('cmk repair --hooks');
+        expect(c1.recoveryCommand).toMatch(/--ide kiro/);
+      });
+
+      it('a Claude-Code install is unaffected (no .kiro/) — still checks .claude/settings.json', async () => {
+        // both surfaces absent → Claude path (the default), still the Claude-shaped fail
+        const r = await runDoctor({ projectRoot, userDir });
+        const c1 = r.checks.find((c) => c.id === 'HC-1');
+        expect(c1.status).toBe('fail');
+        expect(c1.recoveryCommand).toBe('cmk repair --hooks'); // unchanged for Claude Code
+      });
     });
 
     // v0.2.0 severity fix: on a FRESH project (nothing distilled yet), a

@@ -59,9 +59,29 @@ const MEMORY_DIR_REL = ['context', 'memory'];
 const LOCKS_REL = ['context', '.locks'];
 const NATIVE_MEMORY_LOG_REL = ['context', '.locks', 'native-memory-status.log'];
 
+// Which agent was this project installed for? A `--ide kiro` install wires
+// .kiro/hooks/*.kiro.hook (+ .kiro/settings/mcp.json); a Claude Code install
+// wires .claude/settings.json. HC-1 must check the RIGHT surface — before
+// v0.4.0 it hard-checked .claude/settings.json and false-FAILed on every Kiro
+// install (the cut-gate-kiro live-test find, Task 50). Detection: an existing
+// .claude/settings.json means Claude Code; otherwise a .kiro/ dir means Kiro.
+// (A project with neither defaults to Claude Code — the historical behavior,
+// so a not-yet-installed project still reports the Claude-shaped repair hint.)
+function detectInstallKind(projectRoot) {
+  if (existsSync(join(projectRoot, '.claude', 'settings.json'))) return 'claude-code';
+  if (existsSync(join(projectRoot, '.kiro'))) return 'kiro';
+  return 'claude-code';
+}
+
 // --- HC-1: Stop + SessionStart hooks registered -----------------------
 function hc1Hooks({ projectRoot }) {
-  // Per design §5 — the kit's hooks live in .claude/settings.json
+  // Agent-aware (v0.4.0): a Kiro install keeps its hooks in .kiro/hooks/, so
+  // route to the Kiro check rather than false-failing on a missing
+  // .claude/settings.json with a Claude-Code repair hint.
+  if (detectInstallKind(projectRoot) === 'kiro') {
+    return hc1KiroHooks({ projectRoot });
+  }
+  // Per design §5 — the Claude Code hooks live in .claude/settings.json
   // alongside its plugin manifest. Required for auto-extract +
   // session-end compression to fire.
   const settingsPath = join(projectRoot, '.claude', 'settings.json');
@@ -138,6 +158,32 @@ function hc1Hooks({ projectRoot }) {
     name: 'Stop + SessionStart hooks registered',
     status: 'pass',
     message: 'all kit hooks wired to their correct event arrays in .claude/settings.json',
+  };
+}
+
+// --- HC-1 (Kiro variant): the .kiro/hooks/*.kiro.hook capture + inject hooks ---
+// A `--ide kiro` install wires two IDE hooks: cmk-capture.kiro.hook (agentStop →
+// capture) and cmk-inject.kiro.hook (promptSubmit → inject). Both must be present
+// for automatic memory to fire. The repair is a re-install (`cmk install --ide
+// kiro`), NOT the Claude-Code `cmk repair --hooks`.
+function hc1KiroHooks({ projectRoot }) {
+  const hooksDir = join(projectRoot, '.kiro', 'hooks');
+  const required = ['cmk-capture.kiro.hook', 'cmk-inject.kiro.hook'];
+  const missing = required.filter((f) => !existsSync(join(hooksDir, f)));
+  if (missing.length > 0) {
+    return {
+      id: 'HC-1',
+      name: 'Stop + SessionStart hooks registered',
+      status: 'fail',
+      message: `Kiro install: missing IDE hook(s) ${missing.join(', ')} in .kiro/hooks/`,
+      recoveryCommand: 'cmk install --ide kiro',
+    };
+  }
+  return {
+    id: 'HC-1',
+    name: 'Stop + SessionStart hooks registered',
+    status: 'pass',
+    message: 'Kiro IDE hooks wired (.kiro/hooks/cmk-capture + cmk-inject)',
   };
 }
 
