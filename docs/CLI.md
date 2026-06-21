@@ -22,6 +22,9 @@ cmk install --no-hooks      # scaffold-only
 ### `cmk uninstall`
 Remove the managed CLAUDE.md kit block (preserves everything else byte-for-byte). Conservative — does not delete `context/`.
 
+### `cmk hook`
+`cmk hook <agentSpawn|promptSubmit|stop>` — the **Kiro** hook entrypoint, called by Kiro's IDE + CLI hooks (not by users). `agentSpawn`/`promptSubmit` inject recalled memory into the agent's context; `stop` captures the turn from Kiro's transcript. Always exits 0 so a hook failure never breaks the Kiro session. Wired automatically by `cmk install --ide kiro`.
+
 ### `cmk init-user-tier`
 Scaffold the cross-project user tier at `~/.claude-memory-kit/` (honors `$MEMORY_KIT_USER_DIR`). Use on a new machine.
 

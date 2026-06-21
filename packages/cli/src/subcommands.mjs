@@ -15,7 +15,12 @@
 
 import { install as installAction, initUserTier as initUserTierAction } from './install.mjs';
 import { installAgent } from './install-agent.mjs';
+import { installKiro } from './install-kiro.mjs';
 import { getAgentProfile, listAgentProfiles } from './agent-profiles.mjs';
+import { runKiroHook } from './kiro-hook-bin.mjs';
+import { readKiroTurn } from './kiro-transcript.mjs';
+import { injectContext } from './inject-context.mjs';
+import { captureTurn } from './capture-turn.mjs';
 import { removeClaudeMdBlock } from './claude-md.mjs';
 import { reindex as reindexAction } from './reindex.mjs';
 import { openIndexDb } from './index-db.mjs';
@@ -293,10 +298,37 @@ async function runInstallForAgent({ ide, options, log, logError }) {
     bindingProbe: options?.bindingProbe,
   });
 
-  // 2) wire the agent's legs (hooks + MCP + instruction file) at its paths.
+  const projectName = basename(scaffold.projectRoot);
+
+  // 2) wire the agent's surfaces. Kiro has its OWN orchestrator (D-182): four
+  //    surfaces (MCP + steering + skills + IDE hooks), not the generic
+  //    installAgent's Claude-Code-shaped model.
+  if (ide === 'kiro') {
+    const r = installKiro({ projectRoot: scaffold.projectRoot });
+    if (r.action === 'error') {
+      for (const e of r.errors || []) {
+        logError(`  error: Kiro ${e.surface}: ${(e.errors || []).join('; ')}`);
+      }
+      logError(
+        `cmk install: ${projectName} scaffolded but Kiro wiring failed (a config file could not be safely written — see above).`,
+      );
+      process.exitCode = 1;
+      return;
+    }
+    log(
+      `cmk install: ${projectName} ready for Kiro — context/ scaffolded; ${r.surfaces.join(' + ')} wired.`,
+    );
+    log('  Restart Kiro to activate the hooks (steering + skills + MCP are immediate).');
+    if (scaffold.errors.length > 0) {
+      for (const e of scaffold.errors) logError(`  error: ${e.path}: ${e.error}`);
+      process.exitCode = 1;
+    }
+    return;
+  }
+
+  // Other agents: the generic per-profile installer.
   const wired = installAgent({ projectRoot: scaffold.projectRoot, profile });
 
-  const projectName = basename(scaffold.projectRoot);
   if (wired.action === 'error') {
     for (const e of wired.errors || []) {
       logError(`  error: ${profile.displayName} ${e.leg}: ${(e.errors || []).join('; ')}`);
@@ -336,6 +368,46 @@ async function runInstallForAgent({ ide, options, log, logError }) {
     for (const e of scaffold.errors) logError(`  error: ${e.path}: ${e.error}`);
     process.exitCode = 1;
   }
+}
+
+/**
+ * Task 50.J/50.L — `cmk hook <event>` — the Kiro hook entrypoint.
+ *
+ * Kiro's IDE + CLI hooks call `cmk hook <event>` (agentSpawn / promptSubmit /
+ * stop). Unlike Claude Code's hook bins (which read a stdin JSON payload), Kiro
+ * passes context via argv + env + cwd + its transcript file (probe-verified,
+ * P-CJYGTQYR). runKiroHook adapts that to the kit's inject/capture cores.
+ *
+ * ALWAYS exits 0 (the dispatcher guarantees it) — a crashed hook must never
+ * break the Kiro session. Inject output is printed to stdout (Kiro's runCommand
+ * adds it to the agent's context).
+ */
+export function runHook(event, _options = {}, _command, deps = {}) {
+  const log = deps.log ?? ((s) => process.stdout.write(s));
+  const logError = deps.logError ?? ((s) => process.stderr.write(`${s}\n`));
+  const r = runKiroHook({
+    argv: [event],
+    cwd: deps.cwd ?? process.cwd(),
+    env: deps.env ?? process.env,
+    deps: {
+      readKiroTurn: deps.readKiroTurn ?? readKiroTurn,
+      // injectContext returns the assembled context string; normalize to {text}.
+      // userDir is passed through so cross-project user-tier memory surfaces on
+      // Kiro inject too (injectContext resolves $MEMORY_KIT_USER_DIR when userDir
+      // is absent, but pass it explicitly when the caller provides one).
+      inject: deps.inject ?? ((args) => {
+        const text = injectContext({ cwd: args.cwd, ...(args.userDir ? { userDir: args.userDir } : {}) });
+        return { ok: true, text: typeof text === 'string' ? text : text?.text ?? '' };
+      }),
+      capture: deps.capture ?? ((args) => captureTurn({ payload: args.payload, projectRoot: args.projectRoot })),
+    },
+  });
+  if (r.stdout) log(r.stdout);
+  if (r.stderr) logError(r.stderr);
+  // I1 (review): make the always-exit-0 invariant EXPLICIT, not incidental — a
+  // non-zero exit from a Kiro hook BLOCKS the tool (AWS docs). Pin it so a prior
+  // verb's exitCode or a future throw-path can't leak through.
+  process.exitCode = 0;
 }
 
 /**
@@ -2059,6 +2131,13 @@ export const subcommands = [
       { flags: '--verbose', description: 'show the per-tier created/skipped file breakdown' },
     ],
     action: runInstall,
+  },
+  {
+    name: 'hook',
+    description: 'Kiro hook entrypoint — `cmk hook <agentSpawn|promptSubmit|stop>` (inject/capture; called by Kiro IDE + CLI hooks, not by users)',
+    milestone: 50,
+    argSpec: [{ flags: '<event>', description: 'the Kiro lifecycle event: agentSpawn | promptSubmit | stop' }],
+    action: runHook,
   },
   {
     name: 'uninstall',

@@ -18,6 +18,13 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { mutateAgentConfig, atomicWrite } from './mutate-agent-config.mjs';
+import {
+  removeJsonKey,
+  pruneEmptyParent,
+  escapeRe,
+  trimLeadingNewlines,
+  trimTrailingNewlines,
+} from './managed-block.mjs';
 
 // The kit's MCP server entry — same shape settings-hooks.mjs writes for Claude
 // Code (`cmk mcp serve` over stdio). Agent-neutral: every agent registers the
@@ -193,76 +200,15 @@ function removeInstructionBlock(path) {
   return true;
 }
 
-// Remove a nested key from a JSON file, preserving everything else. Returns true
-// if a change was written. Skips (returns false) on a missing file or parse error
-// (never clobbers a corrupt file — same discipline as mutateAgentConfig).
-function removeJsonKey(path, keyPath) {
-  if (!existsSync(path)) return false;
-  let root;
-  try {
-    root = JSON.parse(readFileSync(path, 'utf8'));
-  } catch {
-    return false;
-  }
-  let cur = root;
-  for (let i = 0; i < keyPath.length - 1; i += 1) {
-    if (cur === null || typeof cur !== 'object' || !(keyPath[i] in cur)) return false;
-    cur = cur[keyPath[i]];
-  }
-  const last = keyPath[keyPath.length - 1];
-  if (cur === null || typeof cur !== 'object' || !(last in cur)) return false;
-  delete cur[last];
-  atomicWrite(path, `${JSON.stringify(root, null, 2)}\n`);
-  return true;
-}
-
-// If the object at keyPath exists and is now empty ({}), remove it — so an
-// uninstall doesn't leave a kit-shaped `{"mcpServers":{}}` / `{"hooks":{}}`
-// husk in the user's config. No-op on a missing file / parse error / non-empty.
-function pruneEmptyParent(path, keyPath) {
-  if (!existsSync(path)) return;
-  let root;
-  try {
-    root = JSON.parse(readFileSync(path, 'utf8'));
-  } catch {
-    return;
-  }
-  let cur = root;
-  for (let i = 0; i < keyPath.length - 1; i += 1) {
-    if (!cur || typeof cur !== 'object' || !(keyPath[i] in cur)) return;
-    cur = cur[keyPath[i]];
-  }
-  const last = keyPath[keyPath.length - 1];
-  const target = cur && typeof cur === 'object' ? cur[last] : undefined;
-  if (target && typeof target === 'object' && !Array.isArray(target) && Object.keys(target).length === 0) {
-    delete cur[last];
-    atomicWrite(path, `${JSON.stringify(root, null, 2)}\n`);
-  }
-}
+// removeJsonKey / pruneEmptyParent / escapeRe / trim{Leading,Trailing}Newlines
+// are now shared from managed-block.mjs (deduped — the kit's shared-module
+// discipline; install-kiro.mjs uses the same source).
 
 function needsInclusionFrontmatter(profile) {
   // Kiro steering files use `inclusion: always`. Driven by the profile's
   // instruction path living under a steering dir — kept simple for v0.4.0
   // (only Kiro needs it); generalize when a second steering-style agent lands.
   return profile.instructionFile.includes('/steering/') || profile.name === 'kiro';
-}
-
-function escapeRe(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-// Non-regex newline trims — avoid the `\n*$` / `^\n+` super-linear-backtracking
-// shapes a static analyzer (rightly) flags as ReDoS-prone. O(n), no backtracking.
-function trimTrailingNewlines(s) {
-  let end = s.length;
-  while (end > 0 && s[end - 1] === '\n') end -= 1;
-  return s.slice(0, end);
-}
-
-function trimLeadingNewlines(s) {
-  let start = 0;
-  while (start < s.length && s[start] === '\n') start += 1;
-  return s.slice(start);
 }
 
 // Collapse a run of 2+ blank lines left where our block was removed into a

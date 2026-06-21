@@ -55,6 +55,9 @@ export const CLI_ONLY = new Set([
   'import-anthropic-memory', 'import-claude-md', 'transcripts', 'purge', 'roll', 'repair',
   'daily-distill', 'weekly-curate', 'persona', 'disable-native-memory',
   'enable-native-memory', 'compress', 'register-crons', 'mcp', 'version',
+  // `hook` is the Kiro hook entrypoint (called by Kiro's IDE/CLI hooks, never by
+  // the model via MCP) — infra/lifecycle, like the other hook bins (Task 50).
+  'hook',
 ]);
 
 /**
