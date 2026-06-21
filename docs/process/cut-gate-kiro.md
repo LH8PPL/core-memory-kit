@@ -53,15 +53,20 @@ git push origin main
 cd C:\Projects\claude-memory-kit\packages\cli
 npm pack                             # → lh8ppl-claude-memory-kit-<version>.tgz
 npm uninstall -g @lh8ppl/claude-memory-kit
-npm install -g .\lh8ppl-claude-memory-kit-*.tgz   # the freshly-packed tarball
+# Use the EXPLICIT filename npm pack printed — PowerShell does NOT glob `*.tgz`
+# the way bash does (a literal `*` → ENOENT). e.g. for v0.4.0:
+npm install -g .\lh8ppl-claude-memory-kit-0.4.0.tgz
 cmk --version                        # ✅ matches packages/cli/package.json
+# (If `npm uninstall -g` warned EPERM on better_sqlite3.node — a Windows file
+#  lock — it still removes the packages; the reinstall + the version check below
+#  confirm the new artifact is live. Harmless.)
 ```
 
 **0c — back up the real dirs (the binding backup rule).** The gate runs against your REAL `~/.claude-memory-kit` + `~/.aws`. Snapshot them first into the central backup root, then start the user tier clean so capture-from-zero is honest:
 
 ```powershell
 $bk = "C:\cut-gate-backups\12_v0.4.0_kiro"
-Remove-Item -Recurse -Force $bk -EA SilentlyContinue ; New-Item -ItemType Directory -Path $bk | Out-Null
+New-Item -ItemType Directory -Path $bk | Out-Null
 
 # user tier: kit-only → MOVE it aside (starts the gate from empty; restored verbatim after)
 if (Test-Path $env:USERPROFILE\.claude-memory-kit) {
@@ -72,7 +77,7 @@ if (Test-Path $env:USERPROFILE\.aws) {
   Copy-Item $env:USERPROFILE\.aws "$bk\BEFORE-.aws" -Recurse
 }
 # record what the cmk agent files looked like BEFORE (so restore knows what to remove)
-"$(Get-Date -o) — gate start. Pre-existing cmk agents in real ~/.aws:" | Out-File "$bk\NOTES.md"
+"$(Get-Date -Format o) — gate start. Pre-existing cmk agents in real ~/.aws:" | Out-File "$bk\NOTES.md"   # -Format o, NOT -o (ambiguous in PowerShell 5.1)
 Get-ChildItem $env:USERPROFILE\.aws\amazonq\cli-agents\*.json -EA SilentlyContinue | % { $_.Name } | Out-File "$bk\NOTES.md" -Append
 ```
 
@@ -364,7 +369,7 @@ $bk = "C:\cut-gate-backups\12_v0.4.0_kiro"
 Copy-Item $env:USERPROFILE\.claude-memory-kit       "$bk\AFTER-.claude-memory-kit" -Recurse -EA SilentlyContinue
 Copy-Item C:\Temp\kiro-gate                          "$bk\AFTER-test-project"       -Recurse -EA SilentlyContinue
 Copy-Item $env:USERPROFILE\.aws\amazonq\cli-agents   "$bk\AFTER-aws-cli-agents"     -Recurse -EA SilentlyContinue
-"$(Get-Date -o) — gate finished; artifacts copied above." | Out-File "$bk\NOTES.md" -Append
+"$(Get-Date -Format o) — gate finished; artifacts copied above." | Out-File "$bk\NOTES.md" -Append   # -Format o, NOT -o (PowerShell 5.1)
 
 # 2. RESTORE the user tier (it was MOVED aside in §0c — put the original back verbatim)
 Remove-Item -Recurse -Force $env:USERPROFILE\.claude-memory-kit -EA SilentlyContinue
