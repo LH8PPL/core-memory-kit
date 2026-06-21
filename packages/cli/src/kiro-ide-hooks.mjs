@@ -19,11 +19,31 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
-// Default command stem: the PATH-resolved `cmk` (npm route) — same as the kit's
-// Claude-Code hooks use bare bin names. The bin reads the Kiro event arg + stdin.
-const DEFAULT_CMD = 'cmk';
+// The hook command form is PLATFORM-SPECIFIC (the binding cross-platform rule),
+// and Kiro on Windows is the tricky case — LIVE-VERIFIED 2026-06-21 (P-PM2CD6CB):
+// Kiro runs a hook `runCommand` through WSL on Windows, and WSL has no node, so a
+// bare `cmk hook stop` fails ("node: not found"). Forcing the Windows-native
+// shell with `cmd.exe /c` reaches the real node+cmk (proven: `cmd.exe /c cmk
+// --version` → 0.3.5 in the Kiro chat). On macOS/Linux there's no WSL hop, so the
+// native `cmk` runs directly.
+//   Windows → `cmd.exe /c cmk hook <event>`
+//   macOS/Linux → `cmk hook <event>`
+// platform-commands: ignore (the Kiro-hook command runs in KIRO's shell, not the
+//   kit's — this is the one place we emit a cmd.exe form deliberately; the choice
+//   keys on the INSTALL host's process.platform, the right signal for "which OS
+//   will run these hooks").
+const IS_WINDOWS = process.platform === 'win32';
+const CMK = 'cmk';
 
-// The hook definitions, in the verified .kiro.hook shape.
+// Build the runCommand string for a given `cmk hook <event>` invocation.
+function hookCommand(event, cmkCmd = CMK) {
+  const inner = `${cmkCmd} hook ${event}`;
+  return IS_WINDOWS ? `cmd.exe /c ${inner}` : inner;
+}
+
+// The hook definitions, in the verified .kiro.hook shape. `cmd` is the cmk stem
+// (default 'cmk'); the platform-correct wrapping (cmd.exe /c on Windows) is added
+// by hookCommand().
 function hookDefs(cmd) {
   return [
     {
@@ -34,7 +54,7 @@ function hookDefs(cmd) {
         name: 'claude-memory-kit: capture',
         description: 'Capture durable memory at the end of each turn (claude-memory-kit). Managed by `cmk install` — do not hand-edit.',
         when: { type: 'agentStop' },
-        then: { type: 'runCommand', command: `${cmd} hook stop`, timeout: 60 },
+        then: { type: 'runCommand', command: hookCommand('stop', cmd), timeout: 60 },
       },
     },
     {
@@ -45,13 +65,13 @@ function hookDefs(cmd) {
         name: 'claude-memory-kit: recall',
         description: 'Inject recalled memory on each prompt (claude-memory-kit). Managed by `cmk install` — do not hand-edit.',
         when: { type: 'promptSubmit' },
-        then: { type: 'runCommand', command: `${cmd} hook promptSubmit`, timeout: 30 },
+        then: { type: 'runCommand', command: hookCommand('promptSubmit', cmd), timeout: 30 },
       },
     },
   ];
 }
 
-export function installKiroIdeHooks({ projectRoot, command = DEFAULT_CMD } = {}) {
+export function installKiroIdeHooks({ projectRoot, command = CMK } = {}) {
   if (!projectRoot) throw new Error('installKiroIdeHooks: projectRoot is required');
   const hooksDir = join(projectRoot, '.kiro', 'hooks');
 
@@ -71,7 +91,7 @@ export function installKiroIdeHooks({ projectRoot, command = DEFAULT_CMD } = {})
   return { action: 'installed', changed, hooks: written };
 }
 
-export function uninstallKiroIdeHooks({ projectRoot, command = DEFAULT_CMD } = {}) {
+export function uninstallKiroIdeHooks({ projectRoot, command = CMK } = {}) {
   if (!projectRoot) throw new Error('uninstallKiroIdeHooks: projectRoot is required');
   const hooksDir = join(projectRoot, '.kiro', 'hooks');
   let changed = false;

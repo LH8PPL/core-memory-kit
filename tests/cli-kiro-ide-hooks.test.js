@@ -55,6 +55,22 @@ describe('Task 50.K — Kiro IDE .kiro.hook writer', () => {
     expect(typeof hook.then.timeout).toBe('number');
   });
 
+  it('emits the platform-correct command form (Windows cmd.exe wrap; LIVE-verified P-PM2CD6CB)', () => {
+    installKiroIdeHooks({ projectRoot });
+    const hook = JSON.parse(
+      readFileSync(join(projectRoot, '.kiro', 'hooks', 'cmk-capture.kiro.hook'), 'utf8'),
+    );
+    // On Windows the command MUST be `cmd.exe /c cmk hook stop` — Kiro runs hook
+    // runCommand via WSL (no node) on Windows, so the bare `cmk` would fail; the
+    // cmd.exe form forces the Windows-native shell (live-proven: cmd.exe /c cmk
+    // --version → 0.3.5 in the Kiro chat). On POSIX it's the bare `cmk hook stop`.
+    if (process.platform === 'win32') {
+      expect(hook.then.command).toBe('cmd.exe /c cmk hook stop');
+    } else {
+      expect(hook.then.command).toBe('cmk hook stop');
+    }
+  });
+
   it('the inject hook fires on promptSubmit → cmk hook promptSubmit', () => {
     installKiroIdeHooks({ projectRoot });
     const hook = JSON.parse(
