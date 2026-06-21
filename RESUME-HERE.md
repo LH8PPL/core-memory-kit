@@ -1,62 +1,41 @@
-# RESUME HERE — 2026-06-20 (updated)
+# RESUME HERE — 2026-06-21 (Kiro rework in flight)
 
-> v0.3.5 is SHIPPED. Next action is v0.4.0 (Kiro). Everything is committed to `main`.
+> Context-compact breadcrumb. Branch `task-50-kiro-cli` (PR-2) is in flight. PR-1 already MERGED to main.
 
 ## Latest state (top of mind)
 
-- **✅ v0.3.5 SHIPPED 2026-06-20** — npm `@lh8ppl/claude-memory-kit@0.3.5` (provenance-signed) + GitHub Release `v0.3.5`; publish.yml success. Tag `v0.3.5` pushed.
-  - Post-publish live distill PROVED the fix end-to-end: a real slow-Haiku window where attempt-1 timed out at 120s → 5s backoff → attempt-2 succeeded (240s total). 0.3.4 would have failed this. This IS the bug the fix targets.
-- **This machine is running cmk 0.3.5** (now matches npm).
-- **This repo: all 9 `cmk doctor` HCs PASS** (0 fail, 0 skip), crons registered, semantic on.
+- **v0.3.5 SHIPPED** (npm + GitHub Release). Tag pushed earlier this session.
+- **Task 50 (cross-agent, Kiro) — REWORK in progress (D-182/D-183).** The original #210 Kiro profile was wrong against the live tool; reworked through a 14-project survey + the AWS Rust contract + live-testing on the user's real Kiro.
+- **PR-1 MERGED (#212):** shared 3 surfaces (MCP + steering + skills) + **IDE hooks** (`.kiro/hooks/*.kiro.hook`).
+- **PR-2 IN FLIGHT (branch `task-50-kiro-cli`, NOT pushed yet):** the **CLI agent-config** + guarded default-agent (50.L done, committed `9c85863`). Full suite 2132/0.
 
-## What v0.3.5 fixed (Task 163 / D-179)
+## What's built in PR-2 (committed, not pushed)
 
-The ceiling-free compress callers (daily-distill, weekly-curate, lazy session-roll) used the hook-sized **50s** timeout despite having **no ceiling** → needless `haiku_timeout` when `claude --print` was slow → `recent.md` went 4 days stale. **Two-lever fix:**
-1. **Timeout** → 120s on the ceiling-free paths (`CEILING_FREE_TIMEOUT_MS`; D-92/F-2 rule).
-2. **Backoff** → 5s between retries (was 600ms; `CEILING_FREE_BACKOFF_MS`) so a retry lands AFTER the slow-Haiku window, not inside it.
+- `kiro-cli-agent.mjs` — writes `~/.aws/amazonq/cli-agents/q_cli_default.json` (Amazon-Q Rust contract: `hooks{agentSpawn,stop}`, `timeout_ms`, platform `cmd.exe /c cmk hook` command). **Guarded default-agent** (named `cmk.json` + `skipped-existing` notice if a user default exists).
+- `kiro-hook-command.mjs` — shared platform-correct command (extracted from kiro-ide-hooks; both surfaces use it).
+- `installKiro` now wires the **5th surface** (`cli-agent`); reports `cliDefaultAgent`.
+- **`MEMORY_KIT_AWS_DIR` env override** sandboxes the `~/.aws` write (a live-test caught a real bug writing to the real `~/.aws` — see P-3Y6MCN2B).
 
-Grounded in a 19-system field check (escalating-timeout idea REJECTED — nobody does it; the backoff-too-short bug found). Live-proven: distill ran the real input in 77.9s (died at 50s, succeeds at 120s). Full suite 2030/2030, stress 5/5, two-pass review. Shipped via **PR #209** (merged).
+## What's LEFT for PR-2 → then v0.4.0
 
-## What this session ALSO verified (the dogfood win)
+1. **PR-2 housekeeping (next):** README + CHANGELOG (CLI-agent surface), DECISION-LOG D-183 update (or a D-184 for the CLI surface), build-log entry, the `cli-mcp-parity`/`doc-completeness` validators (the `hook` verb is already CLI_ONLY). Then stress 5/5 → push branch → PR-2 → two-pass review → merge.
+2. **The batched manual live-test (the user's plan, P-FA4ALL42):** do it ONCE after ALL v0.4.0 code lands — one Kiro session verifies BOTH surfaces (IDE `.kiro.hook` capture-fires + CLI agent + default-agent). The 8-point checklist (D-182). **ALWAYS set `MEMORY_KIT_AWS_DIR=<tmp>` + `MEMORY_KIT_USER_DIR=<tmp>`** so the real `~/.aws`/user-tier are never touched.
+3. **Cut v0.4.0** once both PRs merged + the live-test passes.
 
-The full **update path** (v0.3.4's Task 162) end-to-end on this real repo:
-- `cmk install` (local-tarball 0.3.5) → **HC-9 went FAIL→PASS** (drift detect → re-stamp).
-- `cmk install --with-semantic` → hybrid recall on (your standing preference).
-- `cmk register-crons` → daily-distill 23:00 + weekly-curate Sun 09:00 → **HC-5 PASS**.
-- The compress fix → **HC-2 went FAIL→PASS** (recent.md 4d stale → 4h fresh).
+## Key verified facts (all in memory — `cmk search "Kiro"`)
 
-## What to do next (when you come back)
+- Kiro hook input = argv(event) + env(`USER_PROMPT`) + cwd + transcript FILE, NOT stdin (P-CJYGTQYR).
+- Windows: Kiro runs hooks via WSL (no node) → command MUST be `cmd.exe /c cmk hook <event>` (P-PM2CD6CB, live-proven).
+- `.kiro.hook` format verified from a real GUI hook (P-WJRUQVSW). IDE hooks auto-fire `agentStop` with `runCommand` (the kit is the FIRST to do deterministic capture — 40+ surveyed hooks are all `askAgent`).
+- The CORE is shared: `cmk hook stop` and Claude Code's bin both call the SAME `captureTurn()`; Kiro files are only the input adapter (P-7QBE6A6M).
+- `~/.aws` write safety: always `MEMORY_KIT_AWS_DIR` in tests/live-checks (P-3Y6MCN2B).
 
-**Start v0.4.0 = Kiro (Task 50)** — the planned next feature. RESEARCH-FIRST: verify Kiro paths against **kiro.dev** (primary source, the §5.1 convergent-third-party precedent), then build the per-agent adapter seam (`createProfile`-style factory + lifecycle-hook wiring). The seam is the real v0.4.0 work; Kiro is its first consumer. Prior art: [Taskmaster cross-IDE note](docs/research/2026-06-15-claude-task-master-cross-ide-profiles.md).
+## Orientation
 
-**To resume, say:** `start v0.4.0`.
+- Status/next: [`specs/tasks.md`](specs/tasks.md) "Current state" + Task 50 (50.A–50.M; I/J/K/L done, M = live-test).
+- Decisions: [`DECISION-LOG.md`](docs/journey/DECISION-LOG.md) — D-180 → D-181 (wrong build) → D-182 (settled) → D-183 (PR-1).
+- Research: `docs/research/2026-06-20-kiro-automatic-memory-deep-research.md` + `2026-06-21-kiro-install-path-settled.md`.
 
-## The settled v0.4 map (decided this session — do NOT re-litigate)
+## To resume, say:
 
-| Version | What | Decision |
-| --- | --- | --- |
-| **v0.4.0** | **Kiro** — cross-agent adapter seam + first agent | D-127 (firm) |
-| **v0.4.1** | Cursor | D-157 (locked) |
-| **v0.4.2/.3** | **Task 151 — FULL persona-promotion redesign** (NOT a v0.3.5 down-payment — the user: "do the full thing for a real payoff") | D-178 |
-
-## Open findings (filed, not blocking)
-
-- **D-177** — persona graduation/routing soft-spot (a durable trait can transiently graduate out of injected HABITS; self-heals via re-synthesis, so the wedge still works). → Task 151 (v0.4).
-- **D-179 secondary** — the lazy compress cascade can starve daily/recent on a busy repo; designed mitigation = `cmk register-crons` (now done on this repo).
-
-## Orientation (always-true pointers)
-
-- Status / next: [`specs/tasks.md`](specs/tasks.md) "Current state" (top).
-- Release map: [`docs/RELEASE-PLAN.md`](docs/RELEASE-PLAN.md).
-- Decision trail (read before re-opening anything): [`docs/journey/DECISION-LOG.md`](docs/journey/DECISION-LOG.md) — newest at top (D-179 → D-178 → D-177 → D-176 → D-175 → D-174).
-- Origin source (what started the kit): `C:\Projects\youtube-to-slide\out\master-claude-memory-to-get-ahead-of-99-of-people\`. The kit already implements the whole "recommended setup" + the cross-project persona wedge beyond it.
-
-## After you reopen VS Code
-
-- The 0.3.5 hooks load fresh on restart (the in-session compress fix activates for live sessions).
-- If `cmk doctor` shows anything off, it shouldn't — this repo was left at 9/9 PASS.
-- Your REAL cross-project persona backup (this repo's `~/.claude-memory-kit` currently holds the SYNTHETIC cut-gate persona): `C:\Users\tamir.bn-sh\before-cut-gate17-v0.3.4-.claude-memory-kit`. Restore only if you want your real persona back:
-  ```powershell
-  Remove-Item -Recurse -Force $env:USERPROFILE\.claude-memory-kit
-  Copy-Item -Recurse "C:\Users\tamir.bn-sh\before-cut-gate17-v0.3.4-.claude-memory-kit" "$env:USERPROFILE\.claude-memory-kit"
-  ```
+`continue Kiro PR-2` (finish PR-2 housekeeping → push → PR → merge), or `start the Kiro live-test` (the batched manual check).
