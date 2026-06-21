@@ -47,6 +47,22 @@ describe('Task 50.J — Kiro hook dispatcher', () => {
       expect(calls).toEqual(['inject']);
     });
 
+    // I-1: the Amazon-Q/CLI Rust contract names the prompt trigger
+    // `userPromptSubmit` (the IDE .kiro.hook surface calls it `promptSubmit`).
+    // The dispatcher must recognize BOTH → inject, so a CLI agent wiring the
+    // contract name never routes to the silent no-op branch.
+    it('userPromptSubmit (the Rust-contract name) → inject, not no-op', () => {
+      const calls = [];
+      const r = dispatchKiroHook({
+        event: 'userPromptSubmit',
+        payload: {},
+        cwd: '/proj',
+        deps: { inject: () => { calls.push('inject'); return { ok: true, text: 'M' }; }, capture: () => {} },
+      });
+      expect(r.action).toBe('inject');
+      expect(calls).toEqual(['inject']);
+    });
+
     it('stop → capture (turn-end capture)', () => {
       const calls = [];
       const r = dispatchKiroHook({

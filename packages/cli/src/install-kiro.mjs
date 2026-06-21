@@ -99,6 +99,7 @@ export function installKiro({ projectRoot, awsDir } = {}) {
   //    above cover the GUI. Both reuse the same `cmk hook` dispatcher.
   const cli = installKiroCliAgent({ awsDir });
   cliDefaultAgent = cli.defaultAgent; // 'set' | 'skipped-existing'
+  if (cli.changed) changed = true;
   surfaces.push('cli-agent');
 
   return { action: 'installed', changed, surfaces, cliDefaultAgent };

@@ -32,7 +32,18 @@ import { kiroHookCommand } from './kiro-hook-command.mjs';
 const DEFAULT_AGENT_NAME = 'q_cli_default';
 const NAMED_AGENT_NAME = 'cmk';
 
-// The same MCP server entry the other surfaces register.
+// A structural ownership marker (M-2): uninstall keys on THIS, not a free-text
+// `description` substring — so a user agent that merely mentions "claude-memory-kit"
+// in its description is never mistaken for ours and deleted. Mirrors the kit's
+// managed-marker-block discipline. (Amazon Q ignores unknown top-level keys.)
+const MANAGED_BY = 'claude-memory-kit';
+
+// The MCP server entry for the Amazon-Q (= Kiro CLI) AGENT-CONFIG. NOTE: this is a
+// DIFFERENT schema from the IDE `.kiro/settings/mcp.json` entry (which is
+// `{type:'stdio', command, args}`). The Amazon-Q agent-config `mcpServers` shape is
+// `{command, args, timeout}` (no `type`; a `timeout` in ms) — verified against the
+// Amazon-Q agent contract, NOT carried over from the IDE surface. The two surfaces
+// legitimately diverge; do not unify them.
 const DEFAULT_MCP_ENTRY = Object.freeze({ command: 'cmk', args: ['mcp', 'serve'], timeout: 120000 });
 
 // The Amazon Q (= Kiro CLI) config root is `~/.aws/amazonq/`. An explicit
@@ -48,6 +59,7 @@ function amazonqRoot(awsDir) {
 function buildAgentConfig(name, mcpEntry) {
   const cfg = {
     name,
+    managedBy: MANAGED_BY, // structural ownership marker — the uninstall key (M-2)
     description: 'claude-memory-kit — automatic per-session memory (inject + capture)',
     prompt: 'file://AGENTS.md',
     mcpServers: { cmk: mcpEntry },
@@ -57,6 +69,13 @@ function buildAgentConfig(name, mcpEntry) {
   // hooks: object keyed by trigger → array of {command, timeout_ms}. Built without
   // a static `hooks:` literal carrying agentSpawn/stop so the structure stays
   // plain data; timeout_ms (NOT `timeout`) per the Rust contract.
+  //
+  // By design the CLI agent wires only agentSpawn (inject) + stop (capture) — NOT
+  // the contract's `userPromptSubmit` (per-prompt recall). agentSpawn caches the
+  // whole-conversation inject for the session, so a once-at-spawn inject is
+  // sufficient; per-prompt recall would re-inject the same snapshot every turn.
+  // (The dispatcher still RECOGNIZES `userPromptSubmit` → inject, so adding the
+  // trigger here later is a one-line change with no router drift — the I-1 seam.)
   cfg.hooks = {
     agentSpawn: [{ command: kiroHookCommand('agentSpawn'), timeout_ms: 10000 }],
     stop: [{ command: kiroHookCommand('stop'), timeout_ms: 30000 }],
@@ -80,14 +99,25 @@ export function installKiroCliAgent({ awsDir, mcpEntry = DEFAULT_MCP_ENTRY } = {
 
   if (takeDefault) {
     // we own the default — write q_cli_default.json (the zero-touch automatic path)
-    writeFileSync(defaultPath, `${JSON.stringify(buildAgentConfig(DEFAULT_AGENT_NAME, mcpEntry), null, 2)}\n`, 'utf8');
-    return { action: 'installed', defaultAgent: 'set', path: defaultPath };
+    const changed = writeIfChanged(defaultPath, buildAgentConfig(DEFAULT_AGENT_NAME, mcpEntry));
+    return { action: 'installed', defaultAgent: 'set', changed, path: defaultPath };
   }
 
   // a default already exists — install a NAMED cmk agent, don't clobber theirs.
   const namedPath = join(agentsDir, `${NAMED_AGENT_NAME}.json`);
-  writeFileSync(namedPath, `${JSON.stringify(buildAgentConfig(NAMED_AGENT_NAME, mcpEntry), null, 2)}\n`, 'utf8');
-  return { action: 'installed', defaultAgent: 'skipped-existing', path: namedPath };
+  const changed = writeIfChanged(namedPath, buildAgentConfig(NAMED_AGENT_NAME, mcpEntry));
+  return { action: 'installed', defaultAgent: 'skipped-existing', changed, path: namedPath };
+}
+
+// Write the serialized config only if it differs from what's on disk, so a
+// re-install of byte-identical content reports `changed: false` (idempotency —
+// the I-2 fix; mirrors kiro-ide-hooks' content-compare).
+function writeIfChanged(path, config) {
+  const serialized = `${JSON.stringify(config, null, 2)}\n`;
+  const existing = existsSync(path) ? readFileSync(path, 'utf8') : null;
+  if (existing === serialized) return false;
+  writeFileSync(path, serialized, 'utf8');
+  return true;
 }
 
 export function uninstallKiroCliAgent({ awsDir } = {}) {
@@ -106,11 +136,13 @@ export function uninstallKiroCliAgent({ awsDir } = {}) {
 
 // ── internal ─────────────────────────────────────────────────────────────────
 
-// Is the agent file at `path` one WE wrote? (description carries our marker.)
+// Is the agent file at `path` one WE wrote? Keyed on the structural `managedBy`
+// marker (M-2), NOT a free-text description substring — so a user's own agent
+// can never be mistaken for ours and deleted on uninstall.
 function isOurAgent(path) {
   try {
     const j = JSON.parse(readFileSync(path, 'utf8'));
-    return typeof j.description === 'string' && j.description.includes('claude-memory-kit');
+    return j.managedBy === MANAGED_BY;
   } catch {
     return false;
   }

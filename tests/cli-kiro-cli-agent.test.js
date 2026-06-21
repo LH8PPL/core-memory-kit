@@ -50,6 +50,8 @@ describe('Task 50.L — Kiro CLI agent-config + default-agent', () => {
       // carries MCP + the instruction prompt
       expect(agent.mcpServers).toBeDefined();
       expect(agent.prompt).toMatch(/AGENTS\.md/);
+      // structural ownership marker (M-2) — the uninstall key, not a description substring
+      expect(agent.managedBy).toBe('claude-memory-kit');
     });
 
     it('the hook command is platform-correct (cmd.exe /c on Windows)', () => {
@@ -65,6 +67,13 @@ describe('Task 50.L — Kiro CLI agent-config + default-agent', () => {
     it('reports that it set the default agent', () => {
       const r = installKiroCliAgent({ awsDir });
       expect(r.defaultAgent).toBe('set');
+    });
+
+    it('a second install of byte-identical content reports changed:false (idempotent)', () => {
+      const first = installKiroCliAgent({ awsDir });
+      expect(first.changed).toBe(true); // fresh write
+      const second = installKiroCliAgent({ awsDir });
+      expect(second.changed).toBe(false); // no-op re-install
     });
   });
 
@@ -99,6 +108,29 @@ describe('Task 50.L — Kiro CLI agent-config + default-agent', () => {
       expect(existsSync(agentPath())).toBe(true);
       uninstallKiroCliAgent({ awsDir });
       expect(existsSync(agentPath())).toBe(false);
+    });
+
+    // Over-mutation guard (the I-3 fix): when the user already had a default,
+    // we installed a NAMED cmk.json and left their q_cli_default.json alone —
+    // uninstall must remove ONLY our cmk.json and leave the user's file AND
+    // their settings.json byte-untouched (delete-one ≠ delete-all).
+    it('in the skipped-existing case, uninstall preserves the user default + settings', () => {
+      mkdirSync(join(awsDir, 'amazonq', 'cli-agents'), { recursive: true });
+      const userDefault = JSON.stringify({ name: 'q_cli_default', mine: true });
+      writeFileSync(agentPath(), userDefault, 'utf8');
+      const userSettings = JSON.stringify({ 'chat.defaultAgent': 'their-agent' });
+      writeFileSync(settingsPath(), userSettings, 'utf8');
+
+      const r = installKiroCliAgent({ awsDir });
+      expect(r.defaultAgent).toBe('skipped-existing');
+      const namedPath = join(awsDir, 'amazonq', 'cli-agents', 'cmk.json');
+      expect(existsSync(namedPath)).toBe(true); // our named agent landed
+
+      uninstallKiroCliAgent({ awsDir });
+
+      expect(existsSync(namedPath)).toBe(false); // ours gone
+      expect(readFileSync(agentPath(), 'utf8')).toBe(userDefault); // their default byte-untouched
+      expect(readFileSync(settingsPath(), 'utf8')).toBe(userSettings); // their settings byte-untouched
     });
   });
 });
