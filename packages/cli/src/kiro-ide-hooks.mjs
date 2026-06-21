@@ -41,51 +41,44 @@ function hookCommand(event, cmkCmd = CMK) {
   return IS_WINDOWS ? `cmd.exe /c ${inner}` : inner;
 }
 
-// The hook definitions, in the verified .kiro.hook shape. `cmd` is the cmk stem
-// (default 'cmk'); the platform-correct wrapping (cmd.exe /c on Windows) is added
-// by hookCommand().
-// Build one .kiro.hook body. NOTE: `when` + `then` are KIRO'S required schema
-// field names (not a thenable/Promise — `then` here is a plain object, Kiro's
-// "action" leg). It's assigned via bracket notation so a static analyzer doesn't
-// misread the object as a fake-Promise (the "do not add `then` to an object"
-// rule, which targets accidental thenables — N/A here, this is Kiro's wire format).
-function makeHookBody({ name, description, whenType, event, cmd, timeout }) {
-  const body = {
-    version: '1.0.0',
-    enabled: true,
-    name,
-    description,
-    when: { type: whenType },
-  };
-  body.then = { type: 'runCommand', command: hookCommand(event, cmd), timeout };
-  return body;
-}
-
-function hookDefs(cmd) {
+// One .kiro.hook spec. We intentionally do NOT put a `then` key on any JS object
+// here — Kiro's schema needs a top-level `then` (its "action" leg), but a JS
+// object with a `then` property is a "thenable" footgun (a static analyzer flags
+// it, and an accidental thenable can hijack a Promise chain). So we model the
+// action under a neutral `action` key and rename it to `then` ONLY at
+// serialization (serializeHook), where it's pure JSON data, never a live object.
+function hookSpecs(cmd) {
   return [
     {
       file: 'cmk-capture.kiro.hook',
-      body: makeHookBody({
-        name: 'claude-memory-kit: capture',
-        description: 'Capture durable memory at the end of each turn (claude-memory-kit). Managed by `cmk install` — do not hand-edit.',
-        whenType: 'agentStop',
-        event: 'stop',
-        cmd,
-        timeout: 60,
-      }),
+      version: '1.0.0',
+      enabled: true,
+      name: 'claude-memory-kit: capture',
+      description: 'Capture durable memory at the end of each turn (claude-memory-kit). Managed by `cmk install` — do not hand-edit.',
+      when: { type: 'agentStop' },
+      action: { type: 'runCommand', command: hookCommand('stop', cmd), timeout: 60 },
     },
     {
       file: 'cmk-inject.kiro.hook',
-      body: makeHookBody({
-        name: 'claude-memory-kit: recall',
-        description: 'Inject recalled memory on each prompt (claude-memory-kit). Managed by `cmk install` — do not hand-edit.',
-        whenType: 'promptSubmit',
-        event: 'promptSubmit',
-        cmd,
-        timeout: 30,
-      }),
+      version: '1.0.0',
+      enabled: true,
+      name: 'claude-memory-kit: recall',
+      description: 'Inject recalled memory on each prompt (claude-memory-kit). Managed by `cmk install` — do not hand-edit.',
+      when: { type: 'promptSubmit' },
+      action: { type: 'runCommand', command: hookCommand('promptSubmit', cmd), timeout: 30 },
     },
   ];
+}
+
+// Serialize a spec to the Kiro .kiro.hook JSON, mapping our internal `action`
+// key to Kiro's required `then` field. We build the object with a placeholder
+// key, then rename it in the JSON STRING — so no JS object literal ever carries
+// a `then` property (the thenable footgun the static analyzer guards against).
+const THEN_PLACEHOLDER = '__kiro_then__';
+function serializeHook(spec) {
+  const { file, action, ...rest } = spec;
+  const obj = { ...rest, [THEN_PLACEHOLDER]: action };
+  return `${JSON.stringify(obj, null, 2).replace(`"${THEN_PLACEHOLDER}"`, '"then"')}\n`;
 }
 
 export function installKiroIdeHooks({ projectRoot, command = CMK } = {}) {
@@ -94,16 +87,16 @@ export function installKiroIdeHooks({ projectRoot, command = CMK } = {}) {
 
   let changed = false;
   const written = [];
-  for (const { file, body } of hookDefs(command)) {
-    const path = join(hooksDir, file);
-    const serialized = `${JSON.stringify(body, null, 2)}\n`;
+  for (const spec of hookSpecs(command)) {
+    const path = join(hooksDir, spec.file);
+    const serialized = serializeHook(spec);
     const existing = existsSync(path) ? readFileSync(path, 'utf8') : null;
     if (existing !== serialized) {
       mkdirSync(hooksDir, { recursive: true });
       writeFileSync(path, serialized, 'utf8');
       changed = true;
     }
-    written.push(file);
+    written.push(spec.file);
   }
   return { action: 'installed', changed, hooks: written };
 }
@@ -113,12 +106,12 @@ export function uninstallKiroIdeHooks({ projectRoot, command = CMK } = {}) {
   const hooksDir = join(projectRoot, '.kiro', 'hooks');
   let changed = false;
   const removed = [];
-  for (const { file } of hookDefs(command)) {
-    const path = join(hooksDir, file);
+  for (const spec of hookSpecs(command)) {
+    const path = join(hooksDir, spec.file);
     if (existsSync(path)) {
       rmSync(path, { force: true });
       changed = true;
-      removed.push(file);
+      removed.push(spec.file);
     }
   }
   return { action: 'uninstalled', changed, hooks: removed };
