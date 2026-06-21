@@ -3058,3 +3058,238 @@
 ### Distill Performance Baselines (Slow vs Healthy Haiku)
 **When:** 2026-06-20 · **Fact:** `P-9YCUW5QH`
 **Why:** Manual distill run on 2026-06-20 took 240s and succeeded, confirming the v0.3.5 retry fix handles slow-Haiku windows where v0.3.4 would have failed entirely. This is the exact scenario the timeout/backoff tuning targets.
+
+<!-- decision:P-RES031CG -->
+### RESUME — v0.3.1 cut-gate near-complete; PR
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-XM9YAKRW -->
+### httpx2 deprecation in FastAPI TestClient — need to replace httpx dependency with
+**When:** 2026-06-20 · **Fact:** `P-XM9YAKRW`
+
+<!-- decision:P-WMN3HFPF -->
+### Prefer using recorded memory lookups and CLI tools (cmk search) instead of manua
+**When:** 2026-06-20 · **Fact:** `P-WMN3HFPF`
+
+<!-- decision:P-7RV4P6CR -->
+### Accepted two-lever fix recommendation (120s timeout + 5s CEILING_FREE_BACKOFF_MS
+**When:** 2026-06-20 · **Fact:** `P-7RV4P6CR`
+
+<!-- decision:P-LSJG9NCK -->
+### Established testing path in cut-gate.md (local tarball pack → install → verify)
+**When:** 2026-06-20 · **Fact:** `P-LSJG9NCK`
+
+<!-- decision:P-CRUFQECT -->
+### Before closing VS Code to reopen, user wants everything documented in RESUME-HER
+**When:** 2026-06-20 · **Fact:** `P-CRUFQECT`
+
+<!-- decision:P-2YP75JAJ -->
+### v0.3.5 verified: all 9 health checks pass; compress fix proven (recent.md 4h fre
+**When:** 2026-06-20 · **Fact:** `P-2YP75JAJ`
+
+<!-- decision:P-K4BM4YYX -->
+### Project Tracking Structure
+**When:** 2026-06-20 · **Fact:** `P-K4BM4YYX`
+**Why:** Explicit tracking + session markers let sessions resume without re-deriving state.
+
+<!-- decision:P-AGV23NTY -->
+### Task 50 cross-agent seam: target Kiro CLI agent-hooks (agentSpawn=SessionStart-i
+**When:** 2026-06-20 · **Fact:** `P-AGV23NTY`
+**Why:** The kit's whole inject-at-start/capture-at-turn-end model only ports to the CLI agent-hook surface; building against the IDE surface would mean no session-start trigger + an undocumented on-disk format.
+
+<!-- decision:P-SAX2JDHY -->
+### Task 50 adapter architecture: do NOT build a uniform Installer base class across
+**When:** 2026-06-20 · **Fact:** `P-SAX2JDHY`
+**Why:** Full-corpus survey: only claude-mem actually multi-agent-installs and its code is bespoke-per-agent; an Installer.install() interface is a leaky abstraction whose bodies share zero code. The generalizable part is the config-write primitive, which maps to the kit's existing marker-block byte-preservation + over-mutation-guard rules.
+
+<!-- decision:P-RT2G5VAY -->
+### Task 50 highest unverified risk: Kiro transcript format is UNKNOWN. The kit's ex
+**When:** 2026-06-20 · **Fact:** `P-RT2G5VAY`
+**Why:** The transcript layer is the one part of the Claude-Code integration that is deeply host-coupled and was NOT verifiable from docs; it gates the capture half of the kit's model on Kiro.
+
+<!-- decision:P-NC2URWTD -->
+### Kiro transcript format RESOLVED (verified on a real Kiro install, D-180 follow-u
+**When:** 2026-06-20 · **Fact:** `P-NC2URWTD`
+**Why:** This was flagged as Task 50's highest unverified risk (kit hardcodes Claude-Code transcript touchpoints). Now resolved to LOW — the format is clean + parseable; only 3 per-agent params change (transcript dir, workspace->dir base64url mapping, JSON .history parse shape).
+
+<!-- decision:P-VSTZ4B6M -->
+### Decision-Trail Preservation Rule
+**When:** 2026-06-20 · **Fact:** `P-VSTZ4B6M`
+**Why:** Preserves decision history and makes changes traceable; enables future readers to understand the reasoning and evolution
+
+<!-- decision:P-EJ2VUaJL -->
+### Documentation Structure and Authoritative Homes
+**When:** 2026-06-20 · **Fact:** `P-EJ2VUaJL`
+**Why:** Distributed documentation ensures each finding type lives in its canonical location and remains discoverable for future sessions
+
+<!-- decision:P-3H5NPLNC -->
+### README/CHANGELOG Update Timing
+**When:** 2026-06-20 · **Fact:** `P-3H5NPLNC`
+**Why:** Prevents "lazy-framing-as-docs anti-pattern" of documenting unshipped features as if they're already live
+
+<!-- decision:P-HVL7EQZS -->
+### Kiro CLI hooks gap (D-181 follow-up, found by reading kiro.dev/docs/cli/custom-a
+**When:** 2026-06-20 · **Fact:** `P-HVL7EQZS`
+**Why:** The kit's whole thesis (D-85/D-164) is memory that works automatically with no manual command. A hook that only fires under a manually-selected agent fails that — the same automatic-path failure class as D-169. The hook schema itself is correct ({hooks:{agentSpawn:[{command}],stop:[{command}]}}) but the DELIVERY mechanism (custom agent) is manual-only.
+
+<!-- decision:P-FSJ93TaZ -->
+### Kiro CLI auto-loading verified (D-181 follow-up, kiro.dev/docs/cli/steering prim
+**When:** 2026-06-20 · **Fact:** `P-FSJ93TaZ`
+**Why:** The current Kiro profile writes a custom steering file assuming inclusion:always auto-loads it (IDE convention). The CLI docs contradict this: custom steering needs agent-resources inclusion; AGENTS.md is the auto-loaded surface. So the profile's instruction leg is wired to a file the CLI won't auto-read.
+
+<!-- decision:P-6E53DZRM -->
+### Kiro IDE vs CLI hooks (verified quote from an AWS-builders article the user foun
+**When:** 2026-06-20 · **Fact:** `P-6E53DZRM`
+**Why:** The user correctly called out that I was confusing Claude Code's model with Kiro's. Kiro IDE and Kiro CLI are two surfaces sharing MCP+steering but differing on hooks. Real working implementations exist (AWS bash-hooks memory, langfuse integration, AgentCore memory blog) that should be studied before designing the kit's Kiro path.
+
+<!-- decision:P-N39ZJ69D -->
+### Kiro IDE hooks are a BETTER fit for the kit than I first concluded (verified acr
+**When:** 2026-06-20 · **Fact:** `P-N39ZJ69D`
+**Why:** This reverses my earlier 'CLI hooks are the target' conclusion. The IDE surface has automatic turn-end + shell-command-with-context-injection — a cleaner fit for the kit's auto-memory model than CLI custom-agent hooks (manual). The cost: the .kiro.hook format is undocumented, so it must be reverse-engineered from real repos + live-verified (the §5.1 convergent-third-party rule — and here even docs fail, so REAL files are the only primary source).
+
+<!-- decision:P-WJRUQVSW -->
+### Kiro IDE .kiro.hook on-disk format VERIFIED from a real hook created in the Kiro
+**When:** 2026-06-20 · **Fact:** `P-WJRUQVSW`
+**Why:** The docs refused to document the .kiro.hook format (UI-first). A real file from the user's Kiro install is the only primary source — and it reveals IDE hooks ARE installable from a file, which reopens the IDE-hooks path as a real option for the kit (automatic agentStop, no default-agent needed). The when/then structure differs from the CLI agent-config hook array.
+
+<!-- decision:P-55ZLLX6T -->
+### Decision (the user, 2026-06-21): rework Kiro support PROPERLY before v0.4.0 ship
+**When:** 2026-06-20 · **Fact:** `P-55ZLLX6T`
+**Why:** The user chose correctness-now over ship-broken. The default-agent decision needs the 'what did others do' evidence before deciding — AgentCore (a memory system, our closest analog) sets it; the non-memory tools don't. That suggests a memory kit SHOULD set it, but it's invasive (every kiro-cli session uses cmk's agent), so present it as the AgentCore-precedented recommendation with an opt-out.
+
+<!-- decision:P-X974ZW97 -->
+### Kiro has FOUR install surfaces, not three (the user's correction 2026-06-21): HO
+**When:** 2026-06-20 · **Fact:** `P-X974ZW97`
+**Why:** The user corrected my mental model: Kiro = hooks + steerings + skills + MCP. I'd been mapping only 3 of 4 surfaces. Skills is a real Kiro surface the kit should consider mapping its own skills to. Steering coexistence with agents is now verified from real DesignerPunk agent files (resources re-add).
+
+<!-- decision:P-4FLCNCaX -->
+### Kiro skills map NEARLY 1:1 to Claude Code skills (verified from real files 2026-
+**When:** 2026-06-20 · **Fact:** `P-4FLCNCaX`
+**Why:** The user's 4-surface correction (hooks/steering/skills/mcp) surfaced skills as a leg the kit's adapter omitted. Real-file inspection shows Kiro skills ≈ Claude Code skills (SKILL.md + frontmatter), so the kit's memory skills port directly — a high-value, low-risk leg that gives the model the memory-search/memory-write capabilities on Kiro the same way as on Claude Code.
+
+<!-- decision:P-YKG4GF25 -->
+### Decision (the user, 2026-06-21): the kit's Kiro support wires ALL FOUR surfaces 
+**When:** 2026-06-20 · **Fact:** `P-YKG4GF25`
+**Why:** The kit's thesis is automatic, deterministic memory (D-85/D-164). A skills/steering-only recall+capture would be model-compliance-dependent (the model has to choose to call memory-write). Hooks give the same deterministic capture-at-turn-end the kit relies on for Claude Code. The user chose completeness over install-simplicity — consistent with the kit's architecture-first values (U-VMASJQ55: accept upfront cost to avoid future friction).
+
+<!-- decision:P-P9FL3NYB -->
+### Kiro install path SETTLED (D-182, 2026-06-21, from a 14-real-project survey + th
+**When:** 2026-06-20 · **Fact:** `P-P9FL3NYB`
+**Why:** The user's push to check 15+ real projects + clone them settled the install path with EVIDENCE (a tally) not theory, and surfaced the authoritative source (Amazon-Q Rust) that corrects the stale published JSON schema. CLI-agent-config wins because IDE hooks can't do deterministic capture (askAgent only) — the kit's whole thesis is deterministic auto-capture.
+
+<!-- decision:P-WG6SMMV7 -->
+### CORRECTION to D-182 (2026-06-21): the survey's claim 'IDE .kiro.hook is disquali
+**When:** 2026-06-20 · **Fact:** `P-WG6SMMV7`
+**Why:** I let the research collapse to CLI-only and disqualified the IDE on a false premise (askAgent-only). The user caught it: 'why are you only talking about kiro cli and not kiro ide?'. Most Kiro users use the IDE; it was the original v0.4 target. The user's real hook proves IDE runCommand works. 3 of 4 surfaces (MCP/steering/skills) are SHARED IDE+CLI anyway; only hooks differ, and BOTH support deterministic capture.
+
+<!-- decision:P-F4WFAXAQ -->
+### Decision (the user, 2026-06-21): the Kiro rework wires BOTH IDE + CLI hook surfa
+**When:** 2026-06-20 · **Fact:** `P-F4WFAXAQ`
+**Why:** The user chose complete coverage over phased. Kiro IDE is the primary surface (their main work IDE) + CLI for terminal users. Both hook surfaces support deterministic capture (the runCommand correction). Consistent with the all-4-surfaces + rework-properly decisions — architecture-first completeness (U-VMASJQ55).
+
+<!-- decision:P-RES031CG -->
+### RESUME — v0.3.1 cut-gate near-complete; PR
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+### RESUME — v0.3.1 cut-gate near-complete; PR
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-BEWVGQJH -->
+### Published v0.3.5 via git tag + push (straightforward execution of tested fix).
+**When:** 2026-06-20 · **Fact:** `P-BEWVGQJH`
+
+<!-- decision:P-N2PGMBaF -->
+### CRITICAL Kiro-on-Windows hook constraint (LIVE-DISCOVERED 2026-06-21, would neve
+**When:** 2026-06-21 · **Fact:** `P-N2PGMBaF`
+**Why:** This is the kind of cross-platform composition failure (the kit's binding cross-platform rule) that ONLY live-testing finds — the whole reason the user pushed for live tests. A Kiro hook command that works on macOS/Linux (native bash) breaks on Windows (WSL routing + no node). The kit must emit a hook command that runs in Kiro's actual execution environment per-platform.
+
+<!-- decision:P-AU9A6457 -->
+### Kiro IDE hooks live-test WINS (2026-06-21, the user ran it in C:\Projects\Spec-D
+**When:** 2026-06-21 · **Fact:** `P-AU9A6457`
+**Why:** The live test the user ran validated the core IDE-hook mechanism end-to-end: hooks auto-fire on agentStop, runCommand executes, the kit's .kiro.hook format loads. Only the per-platform command form (Windows WSL) needs solving — a contained, solvable problem, not an architecture flaw. This is exactly the live verification that turns 'should work per docs' into 'verified fires'.
+
+<!-- decision:P-3K6D62MS -->
+### Windows Kiro Hooks Execute via WSL; Require cmd.exe /c Prefix
+**When:** 2026-06-21 · **Fact:** `P-3K6D62MS`
+**Why:** Discovered via live test on 2026-06-21 in Spec-Driven-Workshop. The probe `.kiro.hook` fired but failed with `node: not found`, surfacing the WSL layer. Static analysis alone would not have caught this cross-platform behavior.
+
+<!-- decision:P-PM2CD6CB -->
+### SOLVED — the Windows Kiro-hook command form (LIVE-VERIFIED 2026-06-21): 'cmd.exe
+**When:** 2026-06-21 · **Fact:** `P-PM2CD6CB`
+**Why:** This closes the only blocker found in the Kiro IDE live-test. The WSL/no-node problem (which only live-testing surfaced) is solved by cmd.exe /c forcing the Windows shell. Now the kit can emit a Kiro hook command that actually fires cmk on every platform.
+
+<!-- decision:P-CW9CLD2a -->
+### Kiro .kiro.hook path lesson (2026-06-21): paths in a .kiro.hook command string m
+**When:** 2026-06-21 · **Fact:** `P-CW9CLD2a`
+**Why:** A hand-written probe hook with C:\tmp\... single-backslashed broke Kiro's JSON parser. The kit must never emit a backslash path into a .kiro.hook. JSON.stringify + forward-slash paths is the safe pattern.
+
+<!-- decision:P-CJYGTQYR -->
+### Kiro hook ENVIRONMENT verified live (2026-06-21, the probe captured it before ha
+**When:** 2026-06-21 · **Fact:** `P-CJYGTQYR`
+**Why:** This is the load-bearing payload-shape question, answered live. Kiro's hook model (env+argv+transcript-file) is fundamentally DIFFERENT from Claude Code's (stdin JSON with assistant_response). The cmk hook bin must adapt per-agent: Claude Code reads stdin JSON; Kiro reads env+argv+transcript. Building it to expect a Kiro stdin payload would hang or capture nothing (the probe proved the hang).
+
+<!-- decision:P-4aNa5TZB -->
+### Kiro hook prior-art survey conclusion (2026-06-21, the boilerplate article + kir
+**When:** 2026-06-21 · **Fact:** `P-4aNa5TZB`
+**Why:** Confirms the kit is doing something novel (deterministic runCommand capture) that no published Kiro project does — they all use askAgent. So the probe is the ground truth + the kit can't lean on examples for the runCommand input model. The restart-to-activate-hooks detail is a real install-UX requirement to document.
+
+<!-- decision:P-XaPRJFWE -->
+### Kiro hook AUTHORITATIVE confirmations (2026-06-21, from the AWS builder article 
+**When:** 2026-06-21 · **Fact:** `P-XaPRJFWE`
+**Why:** This AWS primary-source article confirms every probe finding (USER_PROMPT env, runCommand→stdout→context, agentStop, exit-0-or-block) and surfaces a security requirement: the kit must sanitize USER_PROMPT before using it in a command. It also validates the kit's whole approach (runCommand deterministic capture is THE recommended pattern).
+
+<!-- decision:P-RZR74Pa2 -->
+### Kiro Hook Activation and Git Commit Cycle
+**When:** 2026-06-21 · **Fact:** `P-RZR74Pa2`
+**Why:** This is the documented Kiro lifecycle. Hooks are not hot-reloaded; the cycle is part of the system design.
+
+<!-- decision:P-aRER5PY3 -->
+### Kiro Hook Security Design is Injection-Safe
+**When:** 2026-06-21 · **Fact:** `P-aRER5PY3`
+**Why:** AWS's "Mastering Agent Hooks" article confirmed this approach is the authoritative best practice, not novel/risky. The security concern from the AWS article (sanitizing prompts) is already handled by the kit's existing infrastructure.
+
+<!-- decision:P-NTDLMK74 -->
+### PR-1 Task-50 Kiro Rework — Completion State (2026-06-21)
+**When:** 2026-06-21 · **Fact:** `P-NTDLMK74`
+**Why:** Modular approach lets each surface be verified before final orchestration. Orchestrator is the glue layer that enables the full user workflow.
+
+<!-- decision:P-9D56CKBV -->
+### PR Organization: Separate IDE (PR-1) and CLI (PR-2) Surfaces
+**When:** 2026-06-21 · **Fact:** `P-9D56CKBV`
+**Why:** IDE and CLI integration require different documentation and config models. Separating them maintains clear scope and prevents review confusion. IDE is now production-ready and deployable independently.
+
+<!-- decision:P-Y7Q532UC -->
+### SonarCloud as Security Gate for ReDoS Detection
+**When:** 2026-06-21 · **Fact:** `P-Y7Q532UC`
+**Why:** SonarCloud provides security-focused static analysis. Understanding its role and historical effectiveness (catching ReDoS) explains why it's the final merge gate.
+
+<!-- decision:P-JHZ6ZT27 -->
+### SonarCloud `then`-in-object False Positive (Schema Fields)
+**When:** 2026-06-21 · **Fact:** `P-JHZ6ZT27`
+**Why:** This rule fires reliably on any field named `then`. Without knowing it's a false positive in this context, developers may over-fix or be confused by the flag during CI.
+
+<!-- decision:P-GVUWGQKL -->
+### Claude Code vs Kiro Hook and Integration Differences
+**When:** 2026-06-21 · **Fact:** `P-GVUWGQKL`
+**Why:** Each agent has a different plugin/integration API and execution context; these differences are fundamental to how each tool works
+
+<!-- decision:P-HFQPUGUD -->
+### Shared Core + Thin Adapter Architecture Pattern
+**When:** 2026-06-21 · **Fact:** `P-HFQPUGUD`
+**Why:** Different agents have fundamentally different input/output contracts; the core must be shared for consistency and maintainability, but the adapters must differ
+
+<!-- decision:P-7QBE6A6M -->
+### Kiro vs Claude Code integration: the CORE is shared (verified 2026-06-21), only 
+**When:** 2026-06-21 · **Fact:** `P-7QBE6A6M`
+**Why:** The user asked 'isn't the kiro integration code supposed to be the same as claude code integration code?' — the answer (verified in code): YES for the core (it IS the same, reused not reimplemented), NO for the adapter (Claude Code and Kiro are different programs with different hook config/input/transcript contracts). The thin adapter is the only divergence, and every difference maps to a real tool difference.
+
+<!-- decision:P-FA4ALL42 -->
+### Plan (the user, 2026-06-21): do the manual Kiro live-capture test ONCE, after AL
+**When:** 2026-06-21 · **Fact:** `P-FA4ALL42`
+**Why:** The user prefers one consolidated live-test session over two. PR-1 proved the hook RUNS (cmd.exe /c cmk --version → 0.3.5); the capture-fires-end-to-end test waits until PR-2 lands so both IDE + CLI surfaces are verified together at the v0.4.0 cut.
+
+<!-- decision:P-3Y6MCN2B -->
+### Kiro CLI agent-config goes to ~/.aws/amazonq/cli-agents/ (Amazon Q's real locati
+**When:** 2026-06-21 · **Fact:** `P-3Y6MCN2B`
+**Why:** A user-tier write (the Kiro CLI agent at ~/.aws) needs the same sandbox-isolation as MEMORY_KIT_USER_DIR. The live-test rule (run against a sandbox that can't touch real state) caught this — the routing's undefined userTier fell through to the real home. This is the test-isolation discipline applied to a NEW user-tier location (~/.aws).

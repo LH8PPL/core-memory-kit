@@ -8,10 +8,19 @@
 // differs.
 //
 // Kiro lifecycle events → kit operation:
-//   agentSpawn     → inject  (runs once, cached whole-conversation = SessionStart)
-//   promptSubmit   → inject  (per-prompt recall)
-//   stop           → capture (turn-end, the deterministic capture spine)
-//   <anything else>→ no-op   (forward-compatible: a new Kiro event never crashes)
+//   agentSpawn               → inject  (runs once, cached whole-conversation = SessionStart)
+//   promptSubmit /           → inject  (per-prompt recall). The IDE .kiro.hook surface
+//     userPromptSubmit                  emits `promptSubmit`; the Amazon-Q/CLI Rust contract
+//                                       names the same trigger `userPromptSubmit`. BOTH are
+//                                       recognized so the dispatcher is vocabulary-agnostic
+//                                       across the two hook surfaces (the I-1 composition fix:
+//                                       the CLI agent-config currently wires only
+//                                       agentSpawn+stop by design — inject-once is sufficient
+//                                       since agentSpawn caches the whole-conversation inject —
+//                                       but if a future CLI agent wires the contract's
+//                                       userPromptSubmit trigger, it routes to inject, not no-op).
+//   stop                     → capture (turn-end, the deterministic capture spine)
+//   <anything else>          → no-op   (forward-compatible: a new Kiro event never crashes)
 //
 // CRITICAL INVARIANT: always exit 0. A non-zero exit from a Kiro hook can break
 // the session (the PILOT caveat — aws-bash-hooks §6). Every error is caught,
@@ -26,7 +35,9 @@
 //   import); tests pass fakes. Keeping the router dep-free makes it trivially
 //   testable and keeps the inject/capture cores out of the no-op event path.
 
-const INJECT_EVENTS = new Set(['agentSpawn', 'promptSubmit']);
+// `promptSubmit` (IDE .kiro.hook) and `userPromptSubmit` (Amazon-Q Rust contract)
+// are the SAME trigger under two surface vocabularies — both map to inject.
+const INJECT_EVENTS = new Set(['agentSpawn', 'promptSubmit', 'userPromptSubmit']);
 const CAPTURE_EVENTS = new Set(['stop']);
 
 export function dispatchKiroHook({ event, payload = {}, cwd, userDir, deps = {} } = {}) {

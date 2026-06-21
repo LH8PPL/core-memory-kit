@@ -902,6 +902,10 @@ describe('Task 132 — turn file carries the pre-append dedup snapshot', () => {
     // The detached stub child can still hold the dir on Windows for a
     // beat — async backoff instead of failing the test on cleanup
     // (EPERM; the PR #22/#23 Windows flake class, handled not disclaimed).
+    // Under 5x-stress concurrency the hold can outlast the retry budget, so
+    // the FINAL attempt is best-effort: a temp-dir cleanup EPERM is OS-level
+    // flakiness AFTER the test body already passed — the OS reaps %TEMP%
+    // anyway, and throwing here would turn a clean test into a phantom fail.
     for (let i = 0; i < 10; i++) {
       try {
         rmSync(sandbox, { recursive: true, force: true });
@@ -910,7 +914,11 @@ describe('Task 132 — turn file carries the pre-append dedup snapshot', () => {
         await new Promise((r) => setTimeout(r, 150));
       }
     }
-    rmSync(sandbox, { recursive: true, force: true });
+    try {
+      rmSync(sandbox, { recursive: true, force: true });
+    } catch {
+      /* best-effort: leave it for the OS temp reaper rather than fail a passed test */
+    }
   });
 
   it('DEDUP_CONTEXT = the PREVIOUS now.md entry, never the current turn', () => {
