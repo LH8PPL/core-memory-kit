@@ -1,6 +1,26 @@
-# RESUME HERE — 2026-06-21 (Kiro rework in flight)
+# RESUME HERE — 2026-06-21 (Kiro PR-2 open, awaiting review fixes)
 
-> Context-compact breadcrumb. Branch `task-50-kiro-cli` (PR-2) is in flight. PR-1 already MERGED to main.
+> Branch `task-50-kiro-cli` (PR-2 = **PR #213, OPEN**). PR-1 (#212) already MERGED. **PAUSED by the user after the skill-review came back.**
+
+## ⏸ Where we paused (most current)
+
+- **PR #213 is OPEN** (`task-50-kiro-cli`, 5 commits). Stress **5/5** clean. Full suite 2132/0. Housekeeping done (README/CHANGELOG/CLI.md/DECISION-LOG D-184/build-log).
+- **Two stress-gate flakes were root-caused + fixed on this branch** (both pre-existing, not product bugs, Windows-EPERM/spawn-concurrency class — same as `renameWithRetry`): `fc772f2` (pack-completeness `npm pack` spawn retry) + `43db882` (capture-turn `afterEach` best-effort temp cleanup).
+- **Self-review done. `code-review-excellence` skill-review done — NO Blocking findings.** The `~/.aws` safety + guarded-default + Rust-contract + always-exit-0 + uninstall over-mutation are all confirmed sound. **3 Important findings to fix BEFORE merge** (not blockers):
+  1. **I-1** — trigger-name composition drift: the dispatcher's `INJECT_EVENTS` knows `promptSubmit` (IDE) but NOT the Rust-contract `userPromptSubmit`; CLI agent wires only `agentSpawn`+`stop` (inject-once, no per-prompt recall). Either document the inject-once-by-design choice + add `userPromptSubmit` as a dispatcher alias, or wire per-prompt recall. (`kiro-hook-dispatch.mjs:29`, `kiro-cli-agent.mjs` `buildAgentConfig`.)
+  2. **I-2** — CLI leg never sets `changed`/never content-compares: `installKiroCliAgent` always `writeFileSync`s; mirror `kiro-ide-hooks.mjs:78-83` (compare existing-vs-new, return `changed`, OR into `installKiro`). Add a "second install → changed:false" test.
+  3. **I-3** — uninstall over-mutation test gap: add a test that seeds a sibling/user-authored agent (the `skipped-existing` `q_cli_default.json`), uninstalls, asserts the user file survives + `settings.json` untouched.
+  - **Minor (judgment, optional):** M-1 (MCP entry shape differs CLI `{command,args,timeout}` vs IDE `{type:'stdio',command,args}` — verify against the Amazon Q agent-config schema), M-2 (`isOurAgent` keys on a `description` substring — a structural `managedBy` marker would be unambiguous).
+
+## ▶ To resume, say `continue Kiro PR-2`:
+
+1. Fix I-1, I-2, I-3 inline (the user's standing "fix everything now") — consider M-1/M-2.
+2. `npm run stress` → 5/5 → push → update PR #213 body with the review + fixes → `gh pr merge 213 --squash --delete-branch` → pull main → flip 50.L note / journey log.
+3. Then the batched **50.M live-test** (after ALL v0.4.0 code lands) verifying BOTH surfaces, ALWAYS with `MEMORY_KIT_AWS_DIR` + `MEMORY_KIT_USER_DIR` sandboxes. Then cut v0.4.0.
+
+---
+
+> (Earlier context-compact breadcrumb below — superseded by the section above for the most-current state.)
 
 ## Latest state (top of mind)
 
