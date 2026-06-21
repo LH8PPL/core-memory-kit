@@ -7,8 +7,10 @@
 // config) silently mis-reads a BOM'd file. The cut-gate-kiro live-test surfaced
 // this: the Kiro default-agent guard read a BOM'd `settings.json`, the parse
 // threw into its catch, and the guard concluded "no default agent set" — then
-// CLOBBERED the user's existing default (the D-184 class). These helpers make the
-// kit's config reads BOM-tolerant; route user-config JSON reads through them.
+// CLOBBERED the user's existing default (D-187; the same silent-clobber class as
+// D-184). These helpers make the kit's config reads BOM-tolerant; route every
+// USER-AUTHORED config JSON read through them (kiro-cli-agent, mutate-agent-
+// config, doctor HC-1, settings-hooks, config-core, semantic-backend).
 
 import { existsSync, readFileSync } from 'node:fs';
 
@@ -22,6 +24,11 @@ export function stripBom(text) {
  * Read + parse a JSON file, tolerating a leading BOM. Never throws: a missing
  * file or malformed JSON returns `fallback` (default `undefined`) so callers can
  * branch on the value instead of wrapping every read in try/catch.
+ *
+ * NOTE: missing-file and malformed-JSON both collapse to `fallback`. A caller
+ * that must DISTINGUISH the two (e.g. to surface a "parse error" message, or to
+ * refuse-to-clobber a corrupt file like mutate-agent-config / settings-hooks)
+ * should NOT use this — use `stripBom(readFileSync(...))` before its own parse.
  *
  * @param {string} path
  * @param {{ fallback?: any }} [opts]

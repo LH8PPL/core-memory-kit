@@ -38,6 +38,7 @@ import {
   KIT_COMMAND_TOKENS,
 } from '../packages/cli/src/settings-hooks.mjs';
 import { readAuditLog } from '../packages/cli/src/audit-log.mjs';
+import { stripBom } from '../packages/cli/src/read-json.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = join(dirname(__filename), '..');
@@ -278,6 +279,19 @@ describe('Task 49 — writeKitHooks boundary (the shared install/repair seam)', 
     expect(r.error).toMatch(/parse error/);
     // File left exactly as the user had it — never silently overwritten.
     expect(readFileSync(settingsPath, 'utf8')).toBe(broken);
+  });
+
+  it('wires hooks into a BOM-prefixed (Windows-editor) settings.json — not a false parse error (D-187)', () => {
+    mkdirSync(dirname(settingsPath), { recursive: true });
+    const BOM = '﻿';
+    // a VALID settings.json that merely carries a leading UTF-8 BOM
+    writeFileSync(settingsPath, `${BOM}${JSON.stringify({ permissions: { allow: ['Bash(ls)'] } })}`, 'utf8');
+    const r = writeKitHooks(settingsPath);
+    expect(r.changed).toBe(true); // hooks wired — NOT blocked by the BOM
+    expect(r.error).toBeUndefined();
+    const settings = JSON.parse(stripBom(readFileSync(settingsPath, 'utf8')));
+    expect(settings.hooks).toBeDefined(); // the kit's hooks landed
+    expect(settings.permissions.allow).toContain('Bash(ls)'); // user content preserved
   });
 
   it('KIT_HOOKS_BLOCK + KIT_COMMAND_TOKENS stay in sync with the 5 bins', () => {
