@@ -8,15 +8,17 @@ Most commands operate on the **project tier** (`<repo>/context/`) by default, us
 
 ## Setup & lifecycle
 
-### `cmk install [--force] [--no-hooks] [--with-semantic | --no-semantic]`
+### `cmk install [--force] [--no-hooks] [--with-semantic | --no-semantic] [--ide <agent>]`
 Scaffold the kit into the current project: creates the 3-tier `context/` layout, injects `.gitignore` entries, drops the managed CLAUDE.md block, and **wires the 5 lifecycle hooks** into `.claude/settings.json`. Idempotent (re-running skips existing files). Restart Claude Code afterward so hooks load.
 - `--force` — allow downgrading an existing newer-version CLAUDE.md block.
 - `--no-hooks` — scaffold only; don't touch `.claude/settings.json`.
 - `--with-semantic` — install the optional local embedder (`npm install -g @huggingface/transformers`, ~260 MB once), pre-warm the model, and set `search.default_mode: hybrid` for this project — bare `cmk search` then recalls by meaning, no flags. `--no-semantic` pins keyword-only.
+- `--ide <agent>` — target an agent other than Claude Code (default `claude-code`). `--ide kiro` wires Kiro for **both** the IDE (GUI) and the `kiro-cli` terminal: MCP (`.kiro/settings/mcp.json`), steering (`.kiro/steering/cmk.md`), the memory skills (`.kiro/skills/`), automatic IDE hooks (`.kiro/hooks/*.kiro.hook` — `agentStop` capture + `promptSubmit` recall), and a CLI agent-config (`~/.aws/amazonq/cli-agents/q_cli_default.json`) carrying the same `agentSpawn`/`stop` hooks, registered as the default agent (guarded — never clobbers an existing default; installs a named `cmk` agent + a notice instead). Both hook surfaces drive the same `cmk hook` dispatcher. Restart Kiro to activate the hooks. `--ide agents-md` emits a managed `AGENTS.md` block for tools that read it.
 ```bash
 cd ~/my-project && cmk install
 cmk install --with-semantic # + local semantic recall, hybrid by default
 cmk install --no-hooks      # scaffold-only
+cmk install --ide kiro      # wire Kiro (IDE + kiro-cli) instead of Claude Code
 ```
 
 ### `cmk uninstall`
