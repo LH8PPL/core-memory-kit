@@ -19,6 +19,10 @@
 // Public surface:
 //   parseKiroSessionHistory(jsonText) → [{role, text}]   (ordered turns)
 //   workspaceKeyForPath(workspacePath) → string          (the base64url dir key)
+//   readKiroTurn({projectRoot, env}) → {userText, assistantText}  (latest turn)
+
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 
 /**
  * Parse a Kiro session JSON into ordered {role, text} turns.
@@ -68,4 +72,61 @@ export function workspaceKeyForPath(workspacePath) {
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=/g, '_');
+}
+
+/**
+ * Read the latest user+assistant turn from Kiro's transcript for a project.
+ *
+ * Composes the verified pieces (probe P-CJYGTQYR + D-180):
+ *   - the globalStorage dir is given to the hook via env CONTINUE_GLOBAL_DIR
+ *     (= …/Kiro/User/globalStorage/kiro.kiroagent), so we don't guess the path;
+ *   - the per-project dir is workspace-sessions/<base64url(projectRoot)>;
+ *   - the most-recent <sessionId>.json (by dateCreated, else mtime) is the live
+ *     session; its history[] is parsed to the latest user + assistant text.
+ *
+ * Pure + defensive: any missing dir / absent env / parse error returns empty
+ * strings, never throws (a capture hook must never crash the Kiro session).
+ *
+ * @param {{projectRoot:string, env?:object}} args
+ * @returns {{userText:string, assistantText:string}}
+ */
+export function readKiroTurn({ projectRoot, env = process.env } = {}) {
+  const empty = { userText: '', assistantText: '' };
+  try {
+    const globalDir = env.CONTINUE_GLOBAL_DIR;
+    if (!globalDir || !projectRoot) return empty;
+    const wsDir = join(globalDir, 'workspace-sessions', workspaceKeyForPath(projectRoot));
+    if (!existsSync(wsDir)) return empty;
+
+    // pick the most-recent session file (by dateCreated in the JSON, else mtime).
+    const files = readdirSync(wsDir).filter((f) => f.endsWith('.json') && f !== 'sessions.json');
+    if (files.length === 0) return empty;
+
+    let best = null;
+    let bestStamp = -Infinity;
+    for (const f of files) {
+      let json;
+      try {
+        json = JSON.parse(readFileSync(join(wsDir, f), 'utf8'));
+      } catch {
+        continue;
+      }
+      const stamp = Number(json.dateCreated) || 0;
+      if (stamp >= bestStamp) {
+        bestStamp = stamp;
+        best = json;
+      }
+    }
+    if (!best || !Array.isArray(best.history)) return empty;
+
+    const turns = parseKiroSessionHistory(JSON.stringify(best));
+    const lastUser = [...turns].reverse().find((t) => t.role === 'user');
+    const lastAssistant = [...turns].reverse().find((t) => t.role === 'assistant');
+    return {
+      userText: lastUser?.text || '',
+      assistantText: lastAssistant?.text || '',
+    };
+  } catch {
+    return empty;
+  }
 }
