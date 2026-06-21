@@ -439,26 +439,29 @@ export function runHook(event, _options = {}, _command, deps = {}) {
 export function runUninstall(options /*, command */) {
   const projectRoot = resolvePath((options && options.cwd) || process.cwd());
   const ide = (options && options.ide) || 'claude-code';
+  // Injectable log sinks (mirror runInstall) so tests can capture output.
+  const log = options?.log ?? console.log;
+  const logError = options?.logError ?? console.error;
 
   if (ide === 'kiro') {
     const r = uninstallKiro({ projectRoot, awsDir: options?.awsDir });
-    console.log(
+    log(
       `cmk uninstall (kiro): ${r.changed ? 'removed the Kiro managed surface' : 'nothing to remove'} — context/ preserved.`,
     );
     return;
   }
   if (ide !== 'claude-code') {
-    console.error(`cmk uninstall: unknown --ide '${ide}'. Supported: claude-code, kiro.`);
+    logError(`cmk uninstall: unknown --ide '${ide}'. Supported: claude-code, kiro.`);
     process.exitCode = 2;
     return;
   }
 
   const result = removeClaudeMdBlock({ projectRoot });
-  console.log(`cmk uninstall: CLAUDE.md=${result.action} (${result.path})`);
+  log(`cmk uninstall: CLAUDE.md=${result.action} (${result.path})`);
   if (result.action === 'not-found') {
-    console.log('  (no kit-managed block found; CLAUDE.md left unchanged)');
+    log('  (no kit-managed block found; CLAUDE.md left unchanged)');
   } else if (result.action === 'no-file') {
-    console.log('  (no CLAUDE.md to uninstall from)');
+    log('  (no CLAUDE.md to uninstall from)');
   }
 }
 

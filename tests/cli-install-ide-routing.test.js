@@ -161,4 +161,34 @@ describe('Task 50 — dual-agent coexistence (D-188)', () => {
     expect(existsSync(join(projectRoot, 'CLAUDE.md'))).toBe(true);
     expect(existsSync(join(projectRoot, 'context', 'MEMORY.md'))).toBe(true);
   });
+
+  it('cmk uninstall (default, no --ide) removes the Claude Code CLAUDE.md block, preserves .kiro', async () => {
+    await runInstall(opts({ hooks: false })); // claude-code
+    await runInstall(opts({ ide: 'kiro' })); // + kiro
+    expect(existsSync(join(projectRoot, 'CLAUDE.md'))).toBe(true);
+
+    runUninstall(opts({})); // default → claude-code surface
+
+    // the kit-managed CLAUDE.md block is stripped (the file may remain if it had
+    // other content, but our markers are gone)
+    const claudeMd = join(projectRoot, 'CLAUDE.md');
+    if (existsSync(claudeMd)) {
+      expect(readFileSync(claudeMd, 'utf8')).not.toMatch(/claude-memory-kit:start/);
+    }
+    // Kiro surface untouched
+    expect(existsSync(join(projectRoot, '.kiro', 'hooks', 'cmk-capture.kiro.hook'))).toBe(true);
+  });
+
+  it('cmk uninstall --ide <unknown> → exit 2 with a supported list, removes nothing', () => {
+    runUninstall(opts({ ide: 'made-up' }));
+    expect(process.exitCode).toBe(2);
+    expect(errs.join('\n')).toMatch(/unknown --ide 'made-up'/);
+    expect(errs.join('\n')).toMatch(/claude-code, kiro/);
+  });
+
+  it('cmk uninstall --ide kiro on a fresh project reports nothing to remove (no crash)', () => {
+    runUninstall(opts({ ide: 'kiro' })); // never installed
+    expect(process.exitCode).not.toBe(2);
+    expect(logs.join('\n')).toMatch(/nothing to remove|Kiro/i);
+  });
 });
