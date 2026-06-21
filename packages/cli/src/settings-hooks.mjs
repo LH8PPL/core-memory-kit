@@ -57,6 +57,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { stripBom } from './read-json.mjs';
 
 /**
  * Canonical npm-route hooks block. Shell form (no `args`), PATH-resolved
@@ -122,7 +123,9 @@ export function writeKitHooks(settingsPath) {
   let settings = {};
   if (existsSync(settingsPath)) {
     try {
-      settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+      // stripBom: a Windows-editor BOM must not make a valid settings.json read
+      // as corrupt and block hook wiring (D-187). Real corruption still errors.
+      settings = JSON.parse(stripBom(readFileSync(settingsPath, 'utf8')));
     } catch (err) {
       return {
         changed: false,
@@ -250,7 +253,9 @@ export function writeKitMcpServer(projectRoot) {
   let config = {};
   if (existsSync(mcpPath)) {
     try {
-      config = JSON.parse(readFileSync(mcpPath, 'utf8'));
+      // stripBom: a BOM'd .mcp.json must not read as corrupt and block MCP
+      // registration (D-187). Real corruption still errors.
+      config = JSON.parse(stripBom(readFileSync(mcpPath, 'utf8')));
     } catch (err) {
       return { changed: false, path: mcpPath, error: `${mcpPath} parse error: ${err?.message ?? err}` };
     }

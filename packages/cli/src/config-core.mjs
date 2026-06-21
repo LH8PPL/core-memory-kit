@@ -21,9 +21,10 @@
 // (observations have their own provenance/shadowed_by surface, §6); this is
 // the concrete settings half the semantic default forced into existence.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { resolveTierRoot } from './tier-paths.mjs';
+import { parseJsonFile } from './read-json.mjs';
 
 // Highest-precedence first.
 const TIERS = Object.freeze([
@@ -47,14 +48,11 @@ function settingsPathFor(tierName, { projectRoot, userDir }) {
 }
 
 function readSettings(path) {
-  if (!existsSync(path)) return null;
-  try {
-    return JSON.parse(readFileSync(path, 'utf8'));
-  } catch {
-    // A malformed settings file is treated as absent for resolution — never
-    // throw on a read (a hand-broken JSON shouldn't crash `cmk config get`).
-    return null;
-  }
+  // BOM-tolerant (parseJsonFile): a settings.json written by a Windows editor
+  // carries a UTF-8 BOM that a bare JSON.parse would reject (D-187). A missing
+  // OR malformed file resolves to null — never throw on a read (a hand-broken
+  // JSON shouldn't crash `cmk config get`).
+  return parseJsonFile(path, { fallback: null });
 }
 
 // Walk a dotted path; returns {found, value}. `found` distinguishes a key

@@ -91,6 +91,23 @@ describe('Task 50.L — Kiro CLI agent-config + default-agent', () => {
       expect(settings['chat.defaultAgent']).toBe('their-agent');
     });
 
+    // D-187 (cut-gate-kiro live find): a settings.json written by a Windows
+    // editor / PowerShell `Set-Content -Encoding utf8` carries a UTF-8 BOM. The
+    // guard read it with a bare JSON.parse → threw → concluded "no default" →
+    // CLOBBERED the user's default with q_cli_default.json. The guard must be
+    // BOM-tolerant (this test seeds the BOM the bare-JSON.parse choked on).
+    it('does NOT clobber an existing chat.defaultAgent when settings.json has a UTF-8 BOM', () => {
+      mkdirSync(join(awsDir, 'amazonq'), { recursive: true });
+      const BOM = '﻿';
+      writeFileSync(settingsPath(), `${BOM}${JSON.stringify({ 'chat.defaultAgent': 'their-agent' })}`, 'utf8');
+
+      const r = installKiroCliAgent({ awsDir });
+      expect(r.defaultAgent).toBe('skipped-existing'); // guard SAW the BOM'd default
+      // the kit wrote the NAMED cmk.json, NOT q_cli_default.json (no clobber)
+      expect(existsSync(join(awsDir, 'amazonq', 'cli-agents', 'cmk.json'))).toBe(true);
+      expect(existsSync(agentPath())).toBe(false); // no q_cli_default.json from us
+    });
+
     it('does NOT clobber an existing q_cli_default.json the user authored', () => {
       mkdirSync(join(awsDir, 'amazonq', 'cli-agents'), { recursive: true });
       writeFileSync(agentPath(), JSON.stringify({ name: 'q_cli_default', mine: true }), 'utf8');

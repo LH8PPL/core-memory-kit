@@ -28,7 +28,7 @@
 // ≤1500-char chunking rule is satisfied by construction).
 
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { parseJsonFile } from './read-json.mjs';
 import { join } from 'node:path';
 
 // The D-105 ladder's WINNER (bake-off 2026-06-10, bench:recall on the Task-99
@@ -383,14 +383,12 @@ const VALID_DEFAULT_MODES = new Set(['keyword', 'semantic', 'hybrid']);
  * default — no surprise model downloads on machines that never opted in).
  */
 export function resolveDefaultSearchMode({ projectRoot }) {
-  try {
-    const p = join(projectRoot, 'context', 'settings.json');
-    if (!existsSync(p)) return 'keyword';
-    const mode = JSON.parse(readFileSync(p, 'utf8'))?.search?.default_mode;
-    return VALID_DEFAULT_MODES.has(mode) ? mode : 'keyword';
-  } catch {
-    return 'keyword';
-  }
+  // BOM-tolerant (parseJsonFile): a Windows-editor BOM on context/settings.json
+  // must not silently downgrade a `hybrid` user to keyword (D-187). Missing or
+  // malformed → keyword.
+  const p = join(projectRoot, 'context', 'settings.json');
+  const mode = parseJsonFile(p, { fallback: null })?.search?.default_mode;
+  return VALID_DEFAULT_MODES.has(mode) ? mode : 'keyword';
 }
 
 /**

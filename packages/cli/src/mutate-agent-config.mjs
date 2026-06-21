@@ -41,6 +41,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, unlinkS
 import { dirname, basename, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
+import { stripBom } from './read-json.mjs';
 
 const SUPPORTED_FORMATS = new Set(['json']);
 
@@ -77,7 +78,11 @@ export function mutateAgentConfig({ path, format, keyPath, entry, mode = 'merge'
   if (fileExists) {
     let raw;
     try {
-      raw = readFileSync(path, 'utf8');
+      // stripBom: a user's config file written by a Windows editor may carry a
+      // leading UTF-8 BOM, which would otherwise make the JSON.parse below refuse
+      // a perfectly valid file as "corrupt" (D-187). Strip only the BOM; the
+      // refuse-to-clobber-on-real-corruption guarantee below is unchanged.
+      raw = stripBom(readFileSync(path, 'utf8'));
     } catch (err) {
       return errorResult({ category: ERROR_CATEGORIES.CONFIG_PARSE, errors: [`could not read ${path}: ${err.message}`], changed: false, path });
     }

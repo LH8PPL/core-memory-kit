@@ -49,6 +49,7 @@ import { resolveDefaultSearchMode } from './semantic-backend.mjs';
 import { checkVersionDrift } from './version-drift.mjs';
 import { getKitVersion } from './install.mjs';
 import { hasOurCliAgent } from './kiro-cli-agent.mjs';
+import { stripBom } from './read-json.mjs';
 
 const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -109,7 +110,9 @@ function hc1Hooks({ projectRoot, awsDir }) {
   }
   let settings;
   try {
-    settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    // stripBom: a Windows-editor BOM on .claude/settings.json must not make a
+    // valid file read as a parse error → false HC-1 FAIL (D-187).
+    settings = JSON.parse(stripBom(readFileSync(settingsPath, 'utf8')));
   } catch (err) {
     return {
       id: 'HC-1',
