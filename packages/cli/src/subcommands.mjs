@@ -15,7 +15,7 @@
 
 import { install as installAction, initUserTier as initUserTierAction } from './install.mjs';
 import { installAgent } from './install-agent.mjs';
-import { installKiro } from './install-kiro.mjs';
+import { installKiro, uninstallKiro } from './install-kiro.mjs';
 import { getAgentProfile, listAgentProfiles } from './agent-profiles.mjs';
 import { runKiroHook } from './kiro-hook-bin.mjs';
 import { readKiroTurn } from './kiro-transcript.mjs';
@@ -288,6 +288,11 @@ async function runInstallForAgent({ ide, options, log, logError }) {
 
   // 1) agent-neutral scaffold (context/ + the kit's own CLAUDE.md block live
   //    regardless of agent). Hooks OFF — the agent's hooks are wired in step 2.
+  //    skipClaudeFiles: `.claude/skills/` + `CLAUDE.md` are Claude-Code-specific;
+  //    a non-CC agent gets its instructions from its own surface (Kiro →
+  //    .kiro/skills/ + .kiro/steering/ + AGENTS.md), so we must not leave dead
+  //    Claude files on the project (D-188). An EXISTING Claude install's files
+  //    are untouched — we just don't create fresh ones.
   const scaffold = await installAction({
     force: !!(options && options.force),
     noHooks: true,
@@ -296,6 +301,9 @@ async function runInstallForAgent({ ide, options, log, logError }) {
     projectRoot: options?.cwd,
     userTier: options?.userTier,
     bindingProbe: options?.bindingProbe,
+    spawnNpm: options?.spawnNpm,
+    warmEmbedder: options?.warmEmbedder,
+    skipClaudeFiles: true,
   });
 
   const projectName = basename(scaffold.projectRoot);
@@ -420,14 +428,31 @@ export function runHook(event, _options = {}, _command, deps = {}) {
 }
 
 /**
- * `cmk uninstall` — wired in Task 4. Strips the kit-managed block from
- * the project's CLAUDE.md (if present). Everything outside the markers
- * is byte-preserved. Does NOT touch context/, context.local/, the user
- * tier, or .gitignore — `cmk uninstall` is conservative; users delete
- * those by hand if they really want to.
+ * `cmk uninstall [--ide <agent>]` — remove ONE agent's kit-managed surface,
+ * scoped by `--ide` exactly like `cmk install` (D-189). Default (no flag)
+ * removes the Claude Code surface (the CLAUDE.md managed block); `--ide kiro`
+ * removes the Kiro surface (the .kiro/ managed blocks + skills + IDE hooks + the
+ * guarded ~/.aws CLI agent + the AGENTS.md block). BOTH are conservative: they
+ * NEVER touch context/, context.local/, the user tier, or .gitignore — the
+ * shared brain is sacred. Everything outside the kit's markers is byte-preserved.
  */
-function runUninstall(/* options, command */) {
-  const projectRoot = resolvePath(process.cwd());
+export function runUninstall(options /*, command */) {
+  const projectRoot = resolvePath((options && options.cwd) || process.cwd());
+  const ide = (options && options.ide) || 'claude-code';
+
+  if (ide === 'kiro') {
+    const r = uninstallKiro({ projectRoot, awsDir: options?.awsDir });
+    console.log(
+      `cmk uninstall (kiro): ${r.changed ? 'removed the Kiro managed surface' : 'nothing to remove'} — context/ preserved.`,
+    );
+    return;
+  }
+  if (ide !== 'claude-code') {
+    console.error(`cmk uninstall: unknown --ide '${ide}'. Supported: claude-code, kiro.`);
+    process.exitCode = 2;
+    return;
+  }
+
   const result = removeClaudeMdBlock({ projectRoot });
   console.log(`cmk uninstall: CLAUDE.md=${result.action} (${result.path})`);
   if (result.action === 'not-found') {
@@ -2150,8 +2175,11 @@ export const subcommands = [
   },
   {
     name: 'uninstall',
-    description: 'remove the CLAUDE.md kit block (preserves everything else byte-for-byte)',
+    description: 'remove the kit-managed surface (preserves everything else byte-for-byte; never touches context/)',
     milestone: 4,
+    optionSpec: [
+      { flags: '--ide <agent>', description: 'which agent to uninstall: claude-code (default) | kiro — removes only THAT agent\'s managed surface' },
+    ],
     action: runUninstall,
   },
   {

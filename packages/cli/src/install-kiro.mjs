@@ -43,7 +43,7 @@ const MCP_ENTRY = Object.freeze({ type: 'stdio', command: 'cmk', args: ['mcp', '
 
 const STEERING_PATH = ['steering', 'cmk.md'];
 const STEERING_FRONTMATTER = '---\ninclusion: always\n---\n\n';
-const STEERING_BODY = [
+const MEMORY_BODY = [
   '# claude-memory-kit',
   '',
   'This project uses claude-memory-kit for durable, in-repo memory across sessions.',
@@ -51,6 +51,15 @@ const STEERING_BODY = [
   'preferences, and project facts; the curated tiers live under `context/`.',
   'Capture durable facts with `cmk remember` — never hand-edit the memory files.',
 ].join('\n');
+const STEERING_BODY = MEMORY_BODY;
+
+// AGENTS.md — Kiro's real, always-loaded instruction file (kiro.dev/docs/steering:
+// auto-included from the project root, no inclusion modes). The CLI agent-config's
+// `prompt: file://AGENTS.md` resolves to THIS (D-188). A managed block so it
+// coexists with any user AGENTS.md content; no frontmatter (AGENTS.md is the
+// cross-tool standard — inclusion modes are a Kiro-steering-only feature).
+const AGENTS_MD_PATH = 'AGENTS.md';
+const AGENTS_MD_BODY = MEMORY_BODY;
 
 export function installKiro({ projectRoot, awsDir } = {}) {
   if (!projectRoot) throw new Error('installKiro: projectRoot is required');
@@ -84,6 +93,13 @@ export function installKiro({ projectRoot, awsDir } = {}) {
   if (writeManagedBlock(kiro(STEERING_PATH), { body: STEERING_BODY, frontmatter: STEERING_FRONTMATTER })) changed = true;
   surfaces.push('steering');
 
+  // ── AGENTS.md (project root) — Kiro's always-loaded instruction file; the CLI
+  //    agent-config's prompt:file://AGENTS.md points here (D-188). Managed block,
+  //    no frontmatter. Coexists with a Claude-Code CLAUDE.md (each agent reads
+  //    its own) and with any user-authored AGENTS.md content.
+  if (writeManagedBlock(join(projectRoot, AGENTS_MD_PATH), { body: AGENTS_MD_BODY })) changed = true;
+  surfaces.push('agents-md');
+
   // ── skills ───────────────────────────────────────────────────────────────
   const skills = installKiroSkills({ projectRoot });
   if (skills.changed) changed = true;
@@ -116,6 +132,11 @@ export function uninstallKiro({ projectRoot, awsDir } = {}) {
 
   // steering: strip our marker block (byte-preserve the rest).
   if (removeManagedBlock(kiro(STEERING_PATH))) changed = true;
+
+  // AGENTS.md: strip our marker block only (a user's own AGENTS.md content,
+  // outside our markers, is byte-preserved; an emptied file is left in place —
+  // same conservative discipline as steering).
+  if (removeManagedBlock(join(projectRoot, AGENTS_MD_PATH))) changed = true;
 
   // skills + IDE hooks + CLI agent-config: remove our files only.
   if (uninstallKiroSkills({ projectRoot }).changed) changed = true;

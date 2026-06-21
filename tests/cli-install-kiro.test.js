@@ -60,11 +60,29 @@ describe('Task 50 — installKiro (all 4 surfaces)', () => {
     // IDE hooks
     expect(existsSync(p('hooks', 'cmk-capture.kiro.hook'))).toBe(true);
     expect(existsSync(p('hooks', 'cmk-inject.kiro.hook'))).toBe(true);
+
+    // AGENTS.md (project root — Kiro's always-loaded instruction file; D-188)
+    const agentsMd = join(projectRoot, 'AGENTS.md');
+    expect(existsSync(agentsMd)).toBe(true);
+    expect(readFileSync(agentsMd, 'utf8')).toMatch(/claude-memory-kit/);
   });
 
   it('reports the surfaces it wired', () => {
     const r = installKiro({ projectRoot, awsDir });
-    expect(r.surfaces).toEqual(expect.arrayContaining(['mcp', 'steering', 'skills', 'ide-hooks', 'cli-agent']));
+    expect(r.surfaces).toEqual(
+      expect.arrayContaining(['mcp', 'steering', 'agents-md', 'skills', 'ide-hooks', 'cli-agent']),
+    );
+  });
+
+  it('AGENTS.md: appends our managed block, byte-preserving a user-authored AGENTS.md', () => {
+    const agentsMd = join(projectRoot, 'AGENTS.md');
+    mkdirSync(projectRoot, { recursive: true });
+    writeFileSync(agentsMd, '# My project agent rules\n\nAlways use uv.\n', 'utf8');
+    installKiro({ projectRoot, awsDir });
+    const body = readFileSync(agentsMd, 'utf8');
+    expect(body).toMatch(/My project agent rules/); // user content preserved
+    expect(body).toMatch(/Always use uv\./);
+    expect(body).toMatch(/claude-memory-kit:start/); // our managed block appended
   });
 
   it('is idempotent — a second install reports no change', () => {
@@ -110,6 +128,26 @@ describe('Task 50 — installKiro (all 4 surfaces)', () => {
       expect(mcp.mcpServers['claude-memory-kit']).toBeUndefined(); // ours gone
       expect(existsSync(p('skills', 'memory-search'))).toBe(false);
       expect(existsSync(p('hooks', 'cmk-capture.kiro.hook'))).toBe(false);
+    });
+
+    it('strips our AGENTS.md managed block but byte-preserves the user content', () => {
+      const agentsMd = join(projectRoot, 'AGENTS.md');
+      mkdirSync(projectRoot, { recursive: true });
+      writeFileSync(agentsMd, '# User rules\n\nAlways use uv.\n', 'utf8');
+      installKiro({ projectRoot, awsDir });
+      uninstallKiro({ projectRoot, awsDir });
+      const body = readFileSync(agentsMd, 'utf8');
+      expect(body).toMatch(/User rules/); // user content survives
+      expect(body).not.toMatch(/claude-memory-kit:start/); // our block gone
+    });
+
+    it('never touches context/ (the shared brain is preserved on uninstall)', () => {
+      mkdirSync(join(projectRoot, 'context'), { recursive: true });
+      writeFileSync(join(projectRoot, 'context', 'MEMORY.md'), '# shared brain\n', 'utf8');
+      installKiro({ projectRoot, awsDir });
+      uninstallKiro({ projectRoot, awsDir });
+      expect(existsSync(join(projectRoot, 'context', 'MEMORY.md'))).toBe(true);
+      expect(readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8')).toMatch(/shared brain/);
     });
   });
 });

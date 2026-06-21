@@ -56,7 +56,7 @@ cmk install --ide kiro        # target a different agent (Kiro) instead of Claud
 cmk doctor                    # verify, then restart Claude Code
 ```
 
-`cmk install` is the whole entry point: it scaffolds `context/`, drops the memory skills into `.claude/skills/`, wires the lifecycle hooks, and registers the MCP server so Claude can drive memory as tools — no `/plugin` step needed. Use `--ide <agent>` to target an agent other than Claude Code — `kiro` wires Kiro for **both** the IDE (GUI) and the `kiro-cli` terminal: MCP at `.kiro/settings/mcp.json`, steering at `.kiro/steering/`, the memory skills at `.kiro/skills/`, automatic IDE hooks at `.kiro/hooks/` that capture each turn + inject recalled memory, and a CLI agent-config at `~/.aws/amazonq/cli-agents/` carrying the same capture/inject hooks (registered as the default agent so they auto-fire — guarded so it never clobbers an existing default). Restart Kiro to activate its hooks. The memory core (store / search / compression) is identical across agents; only the per-agent wiring differs.
+`cmk install` is the whole entry point: it scaffolds `context/`, drops the memory skills into `.claude/skills/`, wires the lifecycle hooks, and registers the MCP server so Claude can drive memory as tools — no `/plugin` step needed. Use `--ide <agent>` to target an agent other than Claude Code — see **[Working with Kiro](#working-with-kiro)** below. The memory core (store / search / compression) is identical across agents; only the per-agent wiring differs.
 
 > [!TIP]
 > Prefer not to touch the terminal? Open the project in Claude Code and say *"install claude-memory-kit and set it up here."* Claude runs the commands; you just approve them. **Restart Claude Code once** when it's done (`/exit`, then `claude`) so the hooks load.
@@ -103,6 +103,49 @@ cd ~/my-project
 
 > The parallel holds: both routes are *update the machinery + re-stamp each project*. The plugin's `/plugin update` refreshes the global hooks/skills but not a project's `context/` scaffold, so re-run `bootstrap` per project (mirrors the npm `cmk install` re-run).
 
+## Working with Kiro
+
+[Kiro](https://kiro.dev) (the AWS agentic IDE + `kiro-cli`, built on Amazon Q) is a first-class target. One command wires it for **both** the IDE and the terminal:
+
+```bash
+cd ~/my-project
+cmk install --with-semantic --ide kiro   # wire Kiro (IDE + kiro-cli) in this project
+cmk doctor                                # verify, then RESTART Kiro so the hooks load
+```
+
+What `--ide kiro` writes:
+
+| Surface | Location | For |
+| --- | --- | --- |
+| **MCP server** | `.kiro/settings/mcp.json` | both — Kiro drives memory as tools |
+| **Steering** | `.kiro/steering/cmk.md` (`inclusion: always`) | both — memory-awareness in context |
+| **AGENTS.md** | `<repo>/AGENTS.md` | both — Kiro's always-loaded instruction file |
+| **Skills** | `.kiro/skills/memory-search` + `memory-write` | both |
+| **IDE hooks** | `.kiro/hooks/cmk-{capture,inject}.kiro.hook` | the **GUI** — capture each turn + recall |
+| **CLI agent** | `~/.aws/amazonq/cli-agents/q_cli_default.json` | **`kiro-cli`** — same capture/inject hooks |
+
+Notes:
+
+- **Restart Kiro** to activate the hooks; steering / skills / MCP are immediate.
+- The CLI agent registers as Kiro's **default agent** so its hooks auto-fire — but **guarded**: if you already have a default agent, the kit installs a named `cmk` agent instead and prints how to opt in (`kiro-cli --agent cmk`, or set `chat.defaultAgent` to `cmk`).
+- A Kiro install does **not** write Claude-Code-only files (`CLAUDE.md`, `.claude/skills/`) — Kiro reads `AGENTS.md` + steering instead.
+- The hook command is platform-correct (`cmd.exe /c cmk hook …` on Windows, where Kiro routes hooks through WSL).
+
+**Using both Claude Code and Kiro on the same repo?** The installs are additive — run both (`cmk install` and `cmk install --ide kiro`), in any order. Each writes only its own wiring and never clobbers the other's; they share one `context/` memory brain. `--with-semantic` set by either is preserved by the other.
+
+## Uninstalling
+
+`cmk uninstall` is **conservative** — it removes only the kit's managed wiring for one agent and **never deletes your `context/` memory** (your data) or any content outside the kit's markers.
+
+```bash
+cmk uninstall              # remove the Claude Code surface (CLAUDE.md block + hooks)
+cmk uninstall --ide kiro   # remove the Kiro surface (.kiro/ blocks + skills + IDE hooks + AGENTS.md block + the ~/.aws CLI agent)
+```
+
+- On a **dual-agent** project, uninstall one agent and the other keeps working — the shared `context/` is untouched either way.
+- To remove the memory data too, delete `context/` (and `context.local/`) yourself — the kit won't do it for you.
+- Plugin route: `/plugin uninstall claude-memory-kit` removes the global machinery; the project's `context/` stays.
+
 ## Three-tier model
 
 | Tier | Location | Scope | What lives here |
@@ -121,7 +164,8 @@ You rarely need to type these yourself: Claude drives the same operations as too
 
 | Command | Purpose |
 | --- | --- |
-| `cmk install [--with-semantic] [--ide claude-code\|kiro]` | Scaffold + wire hooks + register the MCP server (complete entry point). `--ide` targets a different agent (default `claude-code`; `kiro` wires Kiro for IDE + `kiro-cli` — MCP + steering + skills + IDE hooks + CLI agent-config) |
+| `cmk install [--with-semantic] [--ide claude-code\|kiro]` | Scaffold + wire hooks + register the MCP server (complete entry point). `--ide` targets a different agent (default `claude-code`; `kiro` wires Kiro for IDE + `kiro-cli` — MCP + steering + AGENTS.md + skills + IDE hooks + CLI agent-config). See [Working with Kiro](#working-with-kiro). |
+| `cmk uninstall [--ide claude-code\|kiro]` | Remove one agent's managed wiring (conservative — never deletes `context/`). Default removes the Claude Code surface; `--ide kiro` removes the Kiro surface. See [Uninstalling](#uninstalling). |
 | `cmk search "<query>" [--mode keyword\|semantic\|hybrid] [--scope facts\|transcripts\|decisions]` | Search memory — by meaning with the embedder (hybrid is the default after `--with-semantic`); `--scope decisions` recalls how a decision evolved ("what did we reject / why did X change") from the append-only journal |
 | `cmk remember "<fact>"` | Capture a fact explicitly (deduped, secret-screened, path-abstracted) |
 | `cmk forget <id>` | Tombstone a fact (audit trail preserved) |
