@@ -16,7 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
-- **`cmk doctor` is now agent-aware — HC-1 no longer false-FAILs on a Kiro install.** Before this, `cmk doctor` only knew about Claude Code: HC-1 hard-checked `.claude/settings.json`, so on a `--ide kiro` project (whose hooks live in `.kiro/hooks/*.kiro.hook`) it reported a scary **FAIL** with a wrong `cmk repair --hooks` hint — on the very feature this release ships. HC-1 now detects the install kind and checks the right surface: on a Kiro project it verifies the `cmk-capture` + `cmk-inject` IDE hooks and, if one is missing, points you at `cmk install --ide kiro` (not the Claude-Code repair). Claude Code installs are unchanged. (Found by the v0.4.0 Kiro live-test gate.)
+- **`cmk doctor` is now agent-aware — HC-1 no longer false-FAILs on a Kiro install.** Before this, `cmk doctor` only knew about Claude Code: HC-1 hard-checked `.claude/settings.json`, so on a `--ide kiro` project it reported a scary **FAIL** with a wrong `cmk repair --hooks` hint — on the very feature this release ships. HC-1 now detects the install kind and treats Kiro's capture/inject as a **capability** check: it PASSes if **either** the IDE hooks (`.kiro/hooks/cmk-capture` + `cmk-inject`) **or** a cmk-owned CLI agent (`~/.aws/amazonq/cli-agents/`) is present — so both a Kiro-IDE user and a `kiro-cli`-only user get a correct PASS — and FAILs (pointing at `cmk install --ide kiro`) only when neither surface exists. Claude Code installs are unchanged. (Found by the v0.4.0 Kiro live-test gate; the kiro-cli-only case caught by the two-pass code review.)
 
 ### Fixed
 
