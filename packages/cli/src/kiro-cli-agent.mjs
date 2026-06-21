@@ -28,6 +28,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { kiroHookCommand } from './kiro-hook-command.mjs';
+import { parseJsonFile } from './read-json.mjs';
 
 const DEFAULT_AGENT_NAME = 'q_cli_default';
 const NAMED_AGENT_NAME = 'cmk';
@@ -152,22 +153,18 @@ export function hasOurCliAgent({ awsDir } = {}) {
 
 // Is the agent file at `path` one WE wrote? Keyed on the structural `managedBy`
 // marker (M-2), NOT a free-text description substring — so a user's own agent
-// can never be mistaken for ours and deleted on uninstall.
+// can never be mistaken for ours and deleted on uninstall. BOM-tolerant
+// (parseJsonFile) — a Windows-editor BOM must not make us misread ownership.
 function isOurAgent(path) {
-  try {
-    const j = JSON.parse(readFileSync(path, 'utf8'));
-    return j.managedBy === MANAGED_BY;
-  } catch {
-    return false;
-  }
+  const j = parseJsonFile(path, { fallback: null });
+  return j != null && j.managedBy === MANAGED_BY;
 }
 
+// Read the user's `chat.defaultAgent` setting, if any. BOM-tolerant: a
+// settings.json written with a UTF-8 BOM (the Windows-editor / PowerShell
+// `Set-Content -Encoding utf8` default) must NOT parse-fail into null — that
+// made the guard miss an existing default and clobber it (D-187, cut-gate find).
 function readDefaultAgentSetting(settingsPath) {
-  if (!existsSync(settingsPath)) return null;
-  try {
-    const j = JSON.parse(readFileSync(settingsPath, 'utf8'));
-    return j['chat.defaultAgent'] ?? null;
-  } catch {
-    return null;
-  }
+  const j = parseJsonFile(settingsPath, { fallback: null });
+  return j != null ? (j['chat.defaultAgent'] ?? null) : null;
 }
