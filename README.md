@@ -56,7 +56,7 @@ cmk install --ide kiro        # target a different agent (Kiro) instead of Claud
 cmk doctor                    # verify, then restart Claude Code
 ```
 
-`cmk install` is the whole entry point: it scaffolds `context/`, drops the memory skills into `.claude/skills/`, wires the lifecycle hooks, and registers the MCP server so Claude can drive memory as tools — no `/plugin` step needed. Use `--ide <agent>` to target an agent other than Claude Code — `kiro` wires Kiro's steering file, MCP registration (`.kiro/settings/mcp.json`), and agent hooks (`.kiro/agents/`). The memory core (store / search / compression) is identical across agents; only the per-agent wiring differs.
+`cmk install` is the whole entry point: it scaffolds `context/`, drops the memory skills into `.claude/skills/`, wires the lifecycle hooks, and registers the MCP server so Claude can drive memory as tools — no `/plugin` step needed. Use `--ide <agent>` to target an agent other than Claude Code — `kiro` wires Kiro's four surfaces (MCP at `.kiro/settings/mcp.json`, steering at `.kiro/steering/`, the memory skills at `.kiro/skills/`, and automatic IDE hooks at `.kiro/hooks/` that capture each turn + inject recalled memory). Restart Kiro to activate its hooks. The memory core (store / search / compression) is identical across agents; only the per-agent wiring differs.
 
 > [!TIP]
 > Prefer not to touch the terminal? Open the project in Claude Code and say *"install claude-memory-kit and set it up here."* Claude runs the commands; you just approve them. **Restart Claude Code once** when it's done (`/exit`, then `claude`) so the hooks load.
@@ -121,7 +121,7 @@ You rarely need to type these yourself: Claude drives the same operations as too
 
 | Command | Purpose |
 | --- | --- |
-| `cmk install [--with-semantic] [--ide claude-code\|kiro]` | Scaffold + wire hooks + register the MCP server (complete entry point). `--ide` targets a different agent (default `claude-code`; `kiro` wires Kiro's steering + MCP + agent hooks) |
+| `cmk install [--with-semantic] [--ide claude-code\|kiro]` | Scaffold + wire hooks + register the MCP server (complete entry point). `--ide` targets a different agent (default `claude-code`; `kiro` wires Kiro's four surfaces — MCP + steering + skills + IDE hooks) |
 | `cmk search "<query>" [--mode keyword\|semantic\|hybrid] [--scope facts\|transcripts\|decisions]` | Search memory — by meaning with the embedder (hybrid is the default after `--with-semantic`); `--scope decisions` recalls how a decision evolved ("what did we reject / why did X change") from the append-only journal |
 | `cmk remember "<fact>"` | Capture a fact explicitly (deduped, secret-screened, path-abstracted) |
 | `cmk forget <id>` | Tombstone a fact (audit trail preserved) |

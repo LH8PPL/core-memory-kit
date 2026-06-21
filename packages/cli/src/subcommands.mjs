@@ -15,6 +15,7 @@
 
 import { install as installAction, initUserTier as initUserTierAction } from './install.mjs';
 import { installAgent } from './install-agent.mjs';
+import { installKiro } from './install-kiro.mjs';
 import { getAgentProfile, listAgentProfiles } from './agent-profiles.mjs';
 import { runKiroHook } from './kiro-hook-bin.mjs';
 import { readKiroTurn } from './kiro-transcript.mjs';
@@ -297,10 +298,37 @@ async function runInstallForAgent({ ide, options, log, logError }) {
     bindingProbe: options?.bindingProbe,
   });
 
-  // 2) wire the agent's legs (hooks + MCP + instruction file) at its paths.
+  const projectName = basename(scaffold.projectRoot);
+
+  // 2) wire the agent's surfaces. Kiro has its OWN orchestrator (D-182): four
+  //    surfaces (MCP + steering + skills + IDE hooks), not the generic
+  //    installAgent's Claude-Code-shaped model.
+  if (ide === 'kiro') {
+    const r = installKiro({ projectRoot: scaffold.projectRoot });
+    if (r.action === 'error') {
+      for (const e of r.errors || []) {
+        logError(`  error: Kiro ${e.surface}: ${(e.errors || []).join('; ')}`);
+      }
+      logError(
+        `cmk install: ${projectName} scaffolded but Kiro wiring failed (a config file could not be safely written — see above).`,
+      );
+      process.exitCode = 1;
+      return;
+    }
+    log(
+      `cmk install: ${projectName} ready for Kiro — context/ scaffolded; ${r.surfaces.join(' + ')} wired.`,
+    );
+    log('  Restart Kiro to activate the hooks (steering + skills + MCP are immediate).');
+    if (scaffold.errors.length > 0) {
+      for (const e of scaffold.errors) logError(`  error: ${e.path}: ${e.error}`);
+      process.exitCode = 1;
+    }
+    return;
+  }
+
+  // Other agents: the generic per-profile installer.
   const wired = installAgent({ projectRoot: scaffold.projectRoot, profile });
 
-  const projectName = basename(scaffold.projectRoot);
   if (wired.action === 'error') {
     for (const e of wired.errors || []) {
       logError(`  error: ${profile.displayName} ${e.leg}: ${(e.errors || []).join('; ')}`);

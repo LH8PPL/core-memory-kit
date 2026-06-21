@@ -54,13 +54,16 @@ describe('Task 50.F — cmk install --ide routing', () => {
     expect(existsSync(join(projectRoot, 'context', 'MEMORY.md'))).toBe(true);
   });
 
-  it('--ide kiro wires the agent legs end-to-end in one call', async () => {
+  it('--ide kiro wires all FOUR surfaces end-to-end in one call (D-182 rework)', async () => {
     await runInstall(opts({ ide: 'kiro' }));
 
-    // Door 2 — State: all three Kiro legs landed
+    // Door 2 — State: the four verified Kiro surfaces landed (MCP + steering +
+    // skills + IDE hooks). The D-182 rework replaced the old (wrong)
+    // .kiro/agents/cmk.json hook approach with the IDE .kiro.hook surface.
     expect(existsSync(join(projectRoot, '.kiro', 'settings', 'mcp.json'))).toBe(true);
-    expect(existsSync(join(projectRoot, '.kiro', 'agents', 'cmk.json'))).toBe(true);
-    expect(existsSync(join(projectRoot, '.kiro', 'steering', 'claude-memory-kit.md'))).toBe(true);
+    expect(existsSync(join(projectRoot, '.kiro', 'steering', 'cmk.md'))).toBe(true);
+    expect(existsSync(join(projectRoot, '.kiro', 'skills', 'memory-search', 'SKILL.md'))).toBe(true);
+    expect(existsSync(join(projectRoot, '.kiro', 'hooks', 'cmk-capture.kiro.hook'))).toBe(true);
     // the agent-neutral scaffold also ran
     expect(existsSync(join(projectRoot, 'context', 'MEMORY.md'))).toBe(true);
 
