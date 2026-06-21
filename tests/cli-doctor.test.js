@@ -74,6 +74,27 @@ function seedSettingsJson(content) {
   writeFileSync(join(dir, 'settings.json'), JSON.stringify(content), 'utf8');
 }
 
+// A `--ide kiro` install: the kit's hooks live in .kiro/hooks/*.kiro.hook,
+// NOT .claude/settings.json. Used by the HC-1 Kiro-aware tests below.
+function seedKiroHooks({ capture = true, inject = true } = {}) {
+  const dir = join(projectRoot, '.kiro', 'hooks');
+  mkdirSync(dir, { recursive: true });
+  if (capture) {
+    writeFileSync(
+      join(dir, 'cmk-capture.kiro.hook'),
+      JSON.stringify({ when: { type: 'agentStop' }, then: { type: 'runCommand', command: 'cmd.exe /c cmk hook stop' } }),
+      'utf8',
+    );
+  }
+  if (inject) {
+    writeFileSync(
+      join(dir, 'cmk-inject.kiro.hook'),
+      JSON.stringify({ when: { type: 'promptSubmit' }, then: { type: 'runCommand', command: 'cmd.exe /c cmk hook promptSubmit' } }),
+      'utf8',
+    );
+  }
+}
+
 beforeEach(async () => {
   await makeFixture();
 });
@@ -244,6 +265,102 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       const r = await runDoctor({ projectRoot, userDir });
       const c2 = r.checks.find((c) => c.id === 'HC-1');
       expect(c2.status).toBe('fail');
+    });
+
+    // ── HC-1 is agent-aware (v0.4.0 / Task 50 — the cut-gate-kiro live-test find) ──
+    // A `--ide kiro` install wires capture/inject through TWO surfaces: the IDE
+    // hooks (.kiro/hooks/*.kiro.hook) AND/OR the CLI agent (~/.aws/amazonq/cli-
+    // agents/). HC-1 used to hard-check .claude/settings.json → false-FAILed on
+    // EVERY Kiro install (D-185). The first fix checked only the IDE hooks →
+    // false-FAILed a kiro-cli-only install (D-186). HC-1 now PASSes if EITHER
+    // surface is present and FAILs only when NEITHER is.
+    //
+    // A cmk-owned `.kiro/steering/cmk.md` marks the project as a Kiro install;
+    // the `awsDir` override sandboxes the CLI-agent (~/.aws) probe.
+    describe('HC-1 — agent-aware (Kiro install)', () => {
+      let kiroSandbox;
+      let kiroAwsDir;
+
+      function seedKiroMarker() {
+        // the cmk-owned steering file → detectInstallKind returns 'kiro'
+        const dir = join(projectRoot, '.kiro', 'steering');
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(join(dir, 'cmk.md'), '---\ninclusion: always\n---\n', 'utf8');
+      }
+      function seedCliAgent() {
+        // a cmk-owned q_cli_default.json in the sandboxed ~/.aws
+        const dir = join(kiroAwsDir, 'amazonq', 'cli-agents');
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(
+          join(dir, 'q_cli_default.json'),
+          JSON.stringify({ name: 'q_cli_default', managedBy: 'claude-memory-kit' }),
+          'utf8',
+        );
+      }
+
+      beforeEach(() => {
+        kiroSandbox = mkdtempSync(join(tmpdir(), 'cmk-doctor-kiro-aws-'));
+        kiroAwsDir = join(kiroSandbox, 'aws'); // empty by default → no CLI agent
+      });
+      afterEach(() => {
+        rmSync(kiroSandbox, { recursive: true, force: true });
+      });
+
+      it('IDE-hooks install (both .kiro.hook present) → HC-1 PASS', async () => {
+        seedKiroMarker();
+        seedKiroHooks(); // both cmk-capture + cmk-inject
+        const r = await runDoctor({ projectRoot, userDir, awsDir: kiroAwsDir });
+        const c1 = r.checks.find((c) => c.id === 'HC-1');
+        expect(c1.status).toBe('pass'); // NOT a Claude-Code-shaped fail
+        expect(c1.message).toMatch(/IDE hooks/);
+      });
+
+      it('kiro-cli-only install (NO IDE hooks, but a cmk CLI agent in ~/.aws) → HC-1 PASS (D-186)', async () => {
+        seedKiroMarker();
+        // NO seedKiroHooks — the IDE surface is absent
+        seedCliAgent(); // the kiro-cli surface IS present
+        const r = await runDoctor({ projectRoot, userDir, awsDir: kiroAwsDir });
+        const c1 = r.checks.find((c) => c.id === 'HC-1');
+        expect(c1.status).toBe('pass'); // the regression the first fix would have FAILed
+        expect(c1.message).toMatch(/CLI agent/);
+      });
+
+      it('a partial IDE install (only one hook) still PASSes if the CLI agent is present', async () => {
+        seedKiroMarker();
+        seedKiroHooks({ capture: true, inject: false });
+        seedCliAgent();
+        const r = await runDoctor({ projectRoot, userDir, awsDir: kiroAwsDir });
+        const c1 = r.checks.find((c) => c.id === 'HC-1');
+        expect(c1.status).toBe('pass'); // either-surface capability check
+      });
+
+      it('NEITHER surface (Kiro marker but no hooks, no CLI agent) → HC-1 FAIL naming both, --ide kiro repair', async () => {
+        seedKiroMarker();
+        // no IDE hooks, no CLI agent (empty kiroAwsDir)
+        const r = await runDoctor({ projectRoot, userDir, awsDir: kiroAwsDir });
+        const c1 = r.checks.find((c) => c.id === 'HC-1');
+        expect(c1.status).toBe('fail');
+        expect(c1.message).toMatch(/\.kiro\/hooks/); // names the IDE surface
+        expect(c1.message).toMatch(/cli-agents/); // AND the CLI surface
+        expect(c1.recoveryCommand).not.toBe('cmk repair --hooks'); // not the Claude hint
+        expect(c1.recoveryCommand).toMatch(/--ide kiro/);
+      });
+
+      it('a stray .kiro/ WITHOUT the cmk marker does NOT flip to Kiro (I2)', async () => {
+        // some other tool's .kiro/ dir, no cmk.md steering marker
+        mkdirSync(join(projectRoot, '.kiro', 'random'), { recursive: true });
+        const r = await runDoctor({ projectRoot, userDir, awsDir: kiroAwsDir });
+        const c1 = r.checks.find((c) => c.id === 'HC-1');
+        // stays on the Claude-Code path (no .claude/settings.json → Claude fail)
+        expect(c1.recoveryCommand).toBe('cmk repair --hooks');
+      });
+
+      it('a Claude-Code install is unaffected (no .kiro marker) — still checks .claude/settings.json', async () => {
+        const r = await runDoctor({ projectRoot, userDir, awsDir: kiroAwsDir });
+        const c1 = r.checks.find((c) => c.id === 'HC-1');
+        expect(c1.status).toBe('fail');
+        expect(c1.recoveryCommand).toBe('cmk repair --hooks'); // unchanged for Claude Code
+      });
     });
 
     // v0.2.0 severity fix: on a FRESH project (nothing distilled yet), a

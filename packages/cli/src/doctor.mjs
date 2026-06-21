@@ -48,6 +48,7 @@ import { checkKitBinding, checkEmbedderBinding } from './native-binding.mjs';
 import { resolveDefaultSearchMode } from './semantic-backend.mjs';
 import { checkVersionDrift } from './version-drift.mjs';
 import { getKitVersion } from './install.mjs';
+import { hasOurCliAgent } from './kiro-cli-agent.mjs';
 
 const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -59,9 +60,41 @@ const MEMORY_DIR_REL = ['context', 'memory'];
 const LOCKS_REL = ['context', '.locks'];
 const NATIVE_MEMORY_LOG_REL = ['context', '.locks', 'native-memory-status.log'];
 
+// Which agent was this project installed for? A `--ide kiro` install wires
+// .kiro/ surfaces (hooks + steering/cmk.md + skills + settings/mcp.json); a
+// Claude Code install wires .claude/settings.json. HC-1 must check the RIGHT
+// surface — before v0.4.0 it hard-checked .claude/settings.json and false-FAILed
+// on every Kiro install (the cut-gate-kiro live-test find, Task 50).
+//
+// Detection precedence:
+//   1. .claude/settings.json present → Claude Code.
+//   2. a CMK-OWNED Kiro marker present (.kiro/steering/cmk.md — written by every
+//      installKiro run) → Kiro. We key on OUR marker, not a bare `.kiro/` dir, so
+//      a stray/unrelated .kiro/ (another tool's, or a partial non-cmk dir) does
+//      NOT flip the project to the Kiro path (I2).
+//   3. neither → Claude Code (historical default — a not-yet-installed project
+//      still reports the Claude-shaped repair hint).
+//
+// NOTE (I1, deliberate punt): a project installed for BOTH agents (.claude AND a
+// cmk .kiro marker) resolves to Claude Code by precedence — HC-1 checks only the
+// Claude surface. Dual-install is rare; the single-surface check is intentional
+// for v0.4.0, not an oversight. Revisit if dual-install becomes common.
+function detectInstallKind(projectRoot) {
+  if (existsSync(join(projectRoot, '.claude', 'settings.json'))) return 'claude-code';
+  if (existsSync(join(projectRoot, '.kiro', 'steering', 'cmk.md'))) return 'kiro';
+  return 'claude-code';
+}
+
 // --- HC-1: Stop + SessionStart hooks registered -----------------------
-function hc1Hooks({ projectRoot }) {
-  // Per design §5 — the kit's hooks live in .claude/settings.json
+function hc1Hooks({ projectRoot, awsDir }) {
+  // Agent-aware (v0.4.0): a Kiro install keeps its hooks in .kiro/hooks/ (IDE)
+  // and/or ~/.aws/amazonq/cli-agents/ (kiro-cli), so route to the Kiro check
+  // rather than false-failing on a missing .claude/settings.json with a
+  // Claude-Code repair hint.
+  if (detectInstallKind(projectRoot) === 'kiro') {
+    return hc1KiroHooks({ projectRoot, awsDir });
+  }
+  // Per design §5 — the Claude Code hooks live in .claude/settings.json
   // alongside its plugin manifest. Required for auto-extract +
   // session-end compression to fire.
   const settingsPath = join(projectRoot, '.claude', 'settings.json');
@@ -138,6 +171,51 @@ function hc1Hooks({ projectRoot }) {
     name: 'Stop + SessionStart hooks registered',
     status: 'pass',
     message: 'all kit hooks wired to their correct event arrays in .claude/settings.json',
+  };
+}
+
+// --- HC-1 (Kiro variant): capture + inject can fire via EITHER Kiro surface ----
+// Kiro wires capture/inject through TWO independent surfaces (D-186):
+//   • IDE hooks  → .kiro/hooks/{cmk-capture,cmk-inject}.kiro.hook  (the GUI user)
+//   • CLI agent  → ~/.aws/amazonq/cli-agents/{q_cli_default,cmk}.json with
+//                  agentSpawn(inject)+stop(capture) hooks  (the kiro-cli user)
+// HC-1 is a CAPABILITY check ("can capture/inject fire?"), not a single-file
+// check — so it PASSES if EITHER surface is present, and FAILs only when NEITHER
+// is. The original v0.4.0 fix checked only the IDE hooks, which false-FAILed a
+// working kiro-cli-only install (the surface lives in ~/.aws, which is also
+// machine-local and doesn't travel with a clone) — the same separately-correct-
+// jointly-broken class as D-184/D-185, one level down (skill-review B1).
+// `awsDir` is injectable so tests can sandbox the ~/.aws probe.
+function hc1KiroHooks({ projectRoot, awsDir }) {
+  const hooksDir = join(projectRoot, '.kiro', 'hooks');
+  const ideHooks = ['cmk-capture.kiro.hook', 'cmk-inject.kiro.hook'];
+  const ideMissing = ideHooks.filter((f) => !existsSync(join(hooksDir, f)));
+  const ideComplete = ideMissing.length === 0;
+  const cliAgent = hasOurCliAgent({ awsDir });
+
+  if (ideComplete || cliAgent) {
+    const surfaces = [];
+    if (ideComplete) surfaces.push('IDE hooks (.kiro/hooks/)');
+    if (cliAgent) surfaces.push('CLI agent (~/.aws/amazonq/cli-agents/)');
+    return {
+      id: 'HC-1',
+      name: 'Stop + SessionStart hooks registered',
+      status: 'pass',
+      message: `Kiro capture/inject wired via ${surfaces.join(' + ')}`,
+    };
+  }
+
+  // Neither surface present → genuinely not wired. Name both so a kiro-cli user
+  // isn't pushed at the IDE-only repair.
+  return {
+    id: 'HC-1',
+    name: 'Stop + SessionStart hooks registered',
+    status: 'fail',
+    message:
+      `Kiro install: no capture/inject surface found — neither the IDE hooks ` +
+      `(${ideMissing.join(', ')} in .kiro/hooks/) nor a cmk CLI agent in ` +
+      `~/.aws/amazonq/cli-agents/`,
+    recoveryCommand: 'cmk install --ide kiro',
   };
 }
 
@@ -566,6 +644,7 @@ export async function runDoctor({
   kitVersion,
   kitBindingProbe,
   embedderBindingProbe,
+  awsDir, // injectable: sandboxes the HC-1 Kiro CLI-agent (~/.aws) probe in tests
 } = {}) {
   const t0 = Date.now();
   if (!projectRoot) {
@@ -580,7 +659,7 @@ export async function runDoctor({
   const resolvedUserDir = userDir ?? join(homedir(), '.claude-memory-kit');
 
   // Run all checks in order.
-  const c1 = hc1Hooks({ projectRoot });
+  const c1 = hc1Hooks({ projectRoot, awsDir });
   const c2 = hc2DistillFreshness({ projectRoot, now: ts });
   const c3 = hc3Transcripts({ projectRoot, now: ts });
   const c4 = hc4IndexConsistency({ projectRoot });

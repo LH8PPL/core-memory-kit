@@ -134,6 +134,20 @@ export function uninstallKiroCliAgent({ awsDir } = {}) {
   return { action: 'uninstalled', changed };
 }
 
+// Does a cmk-owned CLI agent exist in ~/.aws/amazonq/cli-agents/ ? (either the
+// default `q_cli_default.json` we took, or the guarded `cmk.json`). Keyed on the
+// `managedBy` marker — a user's own agent never counts. Used by `cmk doctor`
+// HC-1: for a kiro-cli user, capture/inject fires via THIS surface, not the IDE
+// .kiro/hooks/ — so HC-1 must treat the CLI agent as a valid capture surface
+// (the D-186 fix; without it HC-1 false-FAILs a working kiro-cli-only install).
+export function hasOurCliAgent({ awsDir } = {}) {
+  const agentsDir = join(amazonqRoot(awsDir), 'cli-agents');
+  return [DEFAULT_AGENT_NAME, NAMED_AGENT_NAME].some((name) => {
+    const p = join(agentsDir, `${name}.json`);
+    return existsSync(p) && isOurAgent(p);
+  });
+}
+
 // ── internal ─────────────────────────────────────────────────────────────────
 
 // Is the agent file at `path` one WE wrote? Keyed on the structural `managedBy`
