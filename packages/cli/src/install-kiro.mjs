@@ -22,11 +22,16 @@
 //   installKiro({ projectRoot }) → { action, changed, surfaces, errors? }
 //   uninstallKiro({ projectRoot }) → { action, changed }
 
-import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { mutateAgentConfig, atomicWrite } from './mutate-agent-config.mjs';
+import { mutateAgentConfig } from './mutate-agent-config.mjs';
 import { installKiroSkills, uninstallKiroSkills } from './kiro-skills.mjs';
 import { installKiroIdeHooks, uninstallKiroIdeHooks } from './kiro-ide-hooks.mjs';
+import {
+  writeManagedBlock,
+  removeManagedBlock,
+  removeJsonKey,
+  pruneEmptyParent,
+} from './managed-block.mjs';
 
 const MCP_PATH = ['settings', 'mcp.json'];
 const MCP_SERVERS_KEY = 'mcpServers';
@@ -34,8 +39,7 @@ const MCP_SERVER_NAME = 'claude-memory-kit';
 const MCP_ENTRY = Object.freeze({ type: 'stdio', command: 'cmk', args: ['mcp', 'serve'] });
 
 const STEERING_PATH = ['steering', 'cmk.md'];
-const MARK_START = '<!-- claude-memory-kit:start -->';
-const MARK_END = '<!-- claude-memory-kit:end -->';
+const STEERING_FRONTMATTER = '---\ninclusion: always\n---\n\n';
 const STEERING_BODY = [
   '# claude-memory-kit',
   '',
@@ -73,7 +77,7 @@ export function installKiro({ projectRoot } = {}) {
   }
 
   // ── steering ───────────────────────────────────────────────────────────────
-  if (writeSteering(kiro(STEERING_PATH))) changed = true;
+  if (writeManagedBlock(kiro(STEERING_PATH), { body: STEERING_BODY, frontmatter: STEERING_FRONTMATTER })) changed = true;
   surfaces.push('steering');
 
   // ── skills ───────────────────────────────────────────────────────────────
@@ -99,98 +103,11 @@ export function uninstallKiro({ projectRoot } = {}) {
   pruneEmptyParent(kiro(MCP_PATH), [MCP_SERVERS_KEY]);
 
   // steering: strip our marker block (byte-preserve the rest).
-  if (removeSteeringBlock(kiro(STEERING_PATH))) changed = true;
+  if (removeManagedBlock(kiro(STEERING_PATH))) changed = true;
 
   // skills + hooks: remove our dirs/files only.
   if (uninstallKiroSkills({ projectRoot }).changed) changed = true;
   if (uninstallKiroIdeHooks({ projectRoot }).changed) changed = true;
 
   return { action: 'uninstalled', changed };
-}
-
-// ── internal: steering + json helpers ───────────────────────────────────────
-
-function writeSteering(path) {
-  const block = `${MARK_START}\n${STEERING_BODY}\n${MARK_END}`;
-  const desired = `---\ninclusion: always\n---\n\n${block}\n`;
-  let existing = existsSync(path) ? readFileSync(path, 'utf8') : '';
-  let next;
-  if (existing === '') {
-    next = desired;
-  } else if (existing.includes(MARK_START) && existing.includes(MARK_END)) {
-    next = existing.replace(
-      new RegExp(`${escapeRe(MARK_START)}[\\s\\S]*?${escapeRe(MARK_END)}`),
-      block,
-    );
-  } else {
-    next = `${trimTrailingNewlines(existing)}\n\n${block}\n`;
-  }
-  if (next === existing) return false;
-  atomicWrite(path, next);
-  return true;
-}
-
-function removeSteeringBlock(path) {
-  if (!existsSync(path)) return false;
-  const existing = readFileSync(path, 'utf8');
-  if (!existing.includes(MARK_START)) return false;
-  const blockRe = new RegExp(`${escapeRe(MARK_START)}[\\s\\S]*?${escapeRe(MARK_END)}`);
-  const stripped = trimLeadingNewlines(existing.replace(blockRe, '').replace(/\n{3,}/g, '\n\n'));
-  atomicWrite(path, stripped);
-  return true;
-}
-
-function removeJsonKey(path, keyPath) {
-  if (!existsSync(path)) return false;
-  let root;
-  try {
-    root = JSON.parse(readFileSync(path, 'utf8'));
-  } catch {
-    return false;
-  }
-  let cur = root;
-  for (let i = 0; i < keyPath.length - 1; i += 1) {
-    if (!cur || typeof cur !== 'object' || !(keyPath[i] in cur)) return false;
-    cur = cur[keyPath[i]];
-  }
-  const last = keyPath[keyPath.length - 1];
-  if (!cur || typeof cur !== 'object' || !(last in cur)) return false;
-  delete cur[last];
-  atomicWrite(path, `${JSON.stringify(root, null, 2)}\n`);
-  return true;
-}
-
-function pruneEmptyParent(path, keyPath) {
-  if (!existsSync(path)) return;
-  let root;
-  try {
-    root = JSON.parse(readFileSync(path, 'utf8'));
-  } catch {
-    return;
-  }
-  let cur = root;
-  for (let i = 0; i < keyPath.length - 1; i += 1) {
-    if (!cur || typeof cur !== 'object' || !(keyPath[i] in cur)) return;
-    cur = cur[keyPath[i]];
-  }
-  const last = keyPath[keyPath.length - 1];
-  const target = cur && typeof cur === 'object' ? cur[last] : undefined;
-  if (target && typeof target === 'object' && !Array.isArray(target) && Object.keys(target).length === 0) {
-    delete cur[last];
-    atomicWrite(path, `${JSON.stringify(root, null, 2)}\n`);
-  }
-}
-
-function escapeRe(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-function trimTrailingNewlines(s) {
-  let end = s.length;
-  while (end > 0 && s[end - 1] === '\n') end -= 1;
-  return s.slice(0, end);
-}
-function trimLeadingNewlines(s) {
-  let start = 0;
-  while (start < s.length && s[start] === '\n') start += 1;
-  return s.slice(start);
 }
