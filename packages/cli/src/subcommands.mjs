@@ -300,9 +300,9 @@ async function runInstallForAgent({ ide, options, log, logError }) {
 
   const projectName = basename(scaffold.projectRoot);
 
-  // 2) wire the agent's surfaces. Kiro has its OWN orchestrator (D-182): four
-  //    surfaces (MCP + steering + skills + IDE hooks), not the generic
-  //    installAgent's Claude-Code-shaped model.
+  // 2) wire the agent's surfaces. Kiro has its OWN orchestrator (D-182): five
+  //    surfaces (MCP + steering + skills + IDE hooks + the CLI agent-config),
+  //    not the generic installAgent's Claude-Code-shaped model.
   if (ide === 'kiro') {
     // awsDir: tests/sandboxes pass $MEMORY_KIT_AWS_DIR via options.awsDir to keep
     // the CLI-agent leg out of the real ~/.aws; production leaves it undefined →
