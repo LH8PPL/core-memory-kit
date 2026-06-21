@@ -304,7 +304,10 @@ async function runInstallForAgent({ ide, options, log, logError }) {
   //    surfaces (MCP + steering + skills + IDE hooks), not the generic
   //    installAgent's Claude-Code-shaped model.
   if (ide === 'kiro') {
-    const r = installKiro({ projectRoot: scaffold.projectRoot });
+    // awsDir: tests/sandboxes pass $MEMORY_KIT_AWS_DIR via options.awsDir to keep
+    // the CLI-agent leg out of the real ~/.aws; production leaves it undefined →
+    // the real ~/.aws/amazonq (where kiro-cli actually reads its agents).
+    const r = installKiro({ projectRoot: scaffold.projectRoot, awsDir: options?.awsDir });
     if (r.action === 'error') {
       for (const e of r.errors || []) {
         logError(`  error: Kiro ${e.surface}: ${(e.errors || []).join('; ')}`);
@@ -319,6 +322,12 @@ async function runInstallForAgent({ ide, options, log, logError }) {
       `cmk install: ${projectName} ready for Kiro — context/ scaffolded; ${r.surfaces.join(' + ')} wired.`,
     );
     log('  Restart Kiro to activate the hooks (steering + skills + MCP are immediate).');
+    // The CLI agent-config (kiro-cli) is automatic only when cmk is the default
+    // agent. If the user already has a default, surface the one manual step.
+    if (r.cliDefaultAgent === 'skipped-existing') {
+      log('  Note: you already have a Kiro CLI default agent — the kit installed a `cmk` agent instead.');
+      log('        Run `kiro-cli --agent cmk`, or set `chat.defaultAgent` to `cmk`, for automatic CLI memory.');
+    }
     if (scaffold.errors.length > 0) {
       for (const e of scaffold.errors) logError(`  error: ${e.path}: ${e.error}`);
       process.exitCode = 1;

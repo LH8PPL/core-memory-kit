@@ -1,0 +1,104 @@
+// @doors: 1, 2
+// Door 3 N/A: writes agent-config + settings JSON; no subprocess spawn.
+// Door 4 N/A: no NDJSON/audit surface at this leg.
+// Door 5 N/A: no message-queue interaction.
+
+// Tests for Task 50.L — the Kiro CLI agent-config + guarded default-agent.
+//
+// Kiro CLI (= Amazon Q Developer CLI) hooks live in an agent-config JSON
+// (.amazonq/cli-agents/<name>.json), and auto-fire ONLY for the resolved-active
+// agent — so the kit must register cmk as the DEFAULT agent (D-182). The shape
+// is the authoritative Rust contract (5 triggers, camelCase, timeout_ms), NOT
+// the stale agent-v1.json. Reuses the same `cmk hook <event>` dispatcher as the
+// IDE surface + Claude Code. Default registration is GUARDED — never clobbers a
+// user's existing default agent.
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { installKiroCliAgent, uninstallKiroCliAgent } from '../packages/cli/src/kiro-cli-agent.mjs';
+
+let sandbox;
+let awsDir;
+
+beforeEach(() => {
+  sandbox = mkdtempSync(join(tmpdir(), 'cmk-kiro-cli-'));
+  awsDir = join(sandbox, 'aws'); // the .aws base (sandboxed)
+  mkdirSync(awsDir, { recursive: true });
+});
+
+afterEach(() => {
+  rmSync(sandbox, { recursive: true, force: true });
+});
+
+const agentPath = () => join(awsDir, 'amazonq', 'cli-agents', 'q_cli_default.json');
+const settingsPath = () => join(awsDir, 'amazonq', 'settings.json');
+
+describe('Task 50.L — Kiro CLI agent-config + default-agent', () => {
+  describe('fresh install (no existing default)', () => {
+    it('writes q_cli_default.json with the Rust-contract hook shape', () => {
+      const r = installKiroCliAgent({ awsDir });
+      expect(r.action).toBe('installed');
+      expect(existsSync(agentPath())).toBe(true);
+
+      const agent = JSON.parse(readFileSync(agentPath(), 'utf8'));
+      // hooks: object keyed by trigger → array of {command, timeout_ms} (Rust contract)
+      expect(agent.hooks.agentSpawn[0].command).toMatch(/cmk hook agentSpawn/);
+      expect(agent.hooks.stop[0].command).toMatch(/cmk hook stop/);
+      expect(typeof agent.hooks.stop[0].timeout_ms).toBe('number'); // NOT `timeout`
+      // carries MCP + the instruction prompt
+      expect(agent.mcpServers).toBeDefined();
+      expect(agent.prompt).toMatch(/AGENTS\.md/);
+    });
+
+    it('the hook command is platform-correct (cmd.exe /c on Windows)', () => {
+      installKiroCliAgent({ awsDir });
+      const agent = JSON.parse(readFileSync(agentPath(), 'utf8'));
+      if (process.platform === 'win32') {
+        expect(agent.hooks.stop[0].command).toBe('cmd.exe /c cmk hook stop');
+      } else {
+        expect(agent.hooks.stop[0].command).toBe('cmk hook stop');
+      }
+    });
+
+    it('reports that it set the default agent', () => {
+      const r = installKiroCliAgent({ awsDir });
+      expect(r.defaultAgent).toBe('set');
+    });
+  });
+
+  describe('guarded default (the user already has one)', () => {
+    it('does NOT clobber an existing chat.defaultAgent — installs cmk agent but reports a notice', () => {
+      mkdirSync(join(awsDir, 'amazonq'), { recursive: true });
+      writeFileSync(settingsPath(), JSON.stringify({ 'chat.defaultAgent': 'their-agent' }), 'utf8');
+
+      const r = installKiroCliAgent({ awsDir });
+      // the cmk agent file still installs (named cmk, not q_cli_default, to avoid override)
+      expect(r.action).toBe('installed');
+      expect(r.defaultAgent).toBe('skipped-existing');
+      // their default is untouched
+      const settings = JSON.parse(readFileSync(settingsPath(), 'utf8'));
+      expect(settings['chat.defaultAgent']).toBe('their-agent');
+    });
+
+    it('does NOT clobber an existing q_cli_default.json the user authored', () => {
+      mkdirSync(join(awsDir, 'amazonq', 'cli-agents'), { recursive: true });
+      writeFileSync(agentPath(), JSON.stringify({ name: 'q_cli_default', mine: true }), 'utf8');
+
+      const r = installKiroCliAgent({ awsDir });
+      expect(r.defaultAgent).toBe('skipped-existing');
+      // their file is preserved (we wrote a named cmk.json instead)
+      expect(JSON.parse(readFileSync(agentPath(), 'utf8')).mine).toBe(true);
+    });
+  });
+
+  describe('uninstall', () => {
+    it('removes our agent-config but preserves user settings', () => {
+      installKiroCliAgent({ awsDir });
+      expect(existsSync(agentPath())).toBe(true);
+      uninstallKiroCliAgent({ awsDir });
+      expect(existsSync(agentPath())).toBe(false);
+    });
+  });
+});

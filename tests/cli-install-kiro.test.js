@@ -4,15 +4,17 @@
 // Door 4 N/A: no NDJSON/audit surface at this orchestrator level.
 // Door 5 N/A: no message-queue interaction.
 
-// Tests for Task 50 — installKiro: the all-4-surfaces Kiro orchestrator.
+// Tests for Task 50 — installKiro: the Kiro orchestrator (all surfaces).
 //
 // D-182: Kiro needs its OWN installer branch (not the generic installAgent that
-// assumed the wrong model). installKiro wires the FOUR verified surfaces:
-//   MCP      → .kiro/settings/mcp.json (mcpServers.cmk)
-//   steering → .kiro/steering/cmk.md (inclusion: always)
-//   skills   → .kiro/skills/{memory-search,memory-write}/SKILL.md
-//   IDE hooks→ .kiro/hooks/cmk-{capture,inject}.kiro.hook (agentStop/promptSubmit)
-// (The CLI agent-config hook surface + default-agent is 50.L, a later PR.)
+// assumed the wrong model). installKiro wires the verified surfaces:
+//   MCP       → .kiro/settings/mcp.json (mcpServers.cmk)
+//   steering  → .kiro/steering/cmk.md (inclusion: always)
+//   skills    → .kiro/skills/{memory-search,memory-write}/SKILL.md
+//   IDE hooks → .kiro/hooks/cmk-{capture,inject}.kiro.hook (agentStop/promptSubmit)
+//   CLI agent → ~/.aws/amazonq/cli-agents/ (agentSpawn/stop hooks + default-agent)
+// `userDir` is always passed in tests so the CLI-agent leg writes to a sandbox,
+// NEVER the real ~/.aws (the test-isolation rule for user-tier writes).
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -22,10 +24,12 @@ import { installKiro, uninstallKiro } from '../packages/cli/src/install-kiro.mjs
 
 let sandbox;
 let projectRoot;
+let awsDir;
 
 beforeEach(() => {
   sandbox = mkdtempSync(join(tmpdir(), 'cmk-install-kiro-'));
   projectRoot = join(sandbox, 'proj');
+  awsDir = join(sandbox, 'aws'); // sandbox the CLI-agent (~/.aws) leg so the CLI-agent leg never touches the real home
   mkdirSync(projectRoot, { recursive: true });
 });
 
@@ -37,7 +41,7 @@ const p = (...parts) => join(projectRoot, '.kiro', ...parts);
 
 describe('Task 50 — installKiro (all 4 surfaces)', () => {
   it('wires MCP + steering + skills + IDE hooks in one call', () => {
-    const r = installKiro({ projectRoot });
+    const r = installKiro({ projectRoot, awsDir });
     expect(r.action).toBe('installed');
 
     // MCP
@@ -59,13 +63,13 @@ describe('Task 50 — installKiro (all 4 surfaces)', () => {
   });
 
   it('reports the surfaces it wired', () => {
-    const r = installKiro({ projectRoot });
-    expect(r.surfaces).toEqual(expect.arrayContaining(['mcp', 'steering', 'skills', 'ide-hooks']));
+    const r = installKiro({ projectRoot, awsDir });
+    expect(r.surfaces).toEqual(expect.arrayContaining(['mcp', 'steering', 'skills', 'ide-hooks', 'cli-agent']));
   });
 
   it('is idempotent — a second install reports no change', () => {
-    installKiro({ projectRoot });
-    const r2 = installKiro({ projectRoot });
+    installKiro({ projectRoot, awsDir });
+    const r2 = installKiro({ projectRoot, awsDir });
     expect(r2.changed).toBe(false);
   });
 
@@ -76,7 +80,7 @@ describe('Task 50 — installKiro (all 4 surfaces)', () => {
       JSON.stringify({ mcpServers: { theirs: { command: 'x' } } }, null, 2),
       'utf8',
     );
-    installKiro({ projectRoot });
+    installKiro({ projectRoot, awsDir });
     const mcp = JSON.parse(readFileSync(p('settings', 'mcp.json'), 'utf8'));
     expect(mcp.mcpServers.theirs).toEqual({ command: 'x' });
     expect(mcp.mcpServers).toHaveProperty('claude-memory-kit');
@@ -85,7 +89,7 @@ describe('Task 50 — installKiro (all 4 surfaces)', () => {
   it('refuses to clobber a corrupt mcp.json (returns error, file untouched)', () => {
     mkdirSync(p('settings'), { recursive: true });
     writeFileSync(p('settings', 'mcp.json'), '{ broken,,, ', 'utf8');
-    const r = installKiro({ projectRoot });
+    const r = installKiro({ projectRoot, awsDir });
     expect(r.action).toBe('error');
     expect(readFileSync(p('settings', 'mcp.json'), 'utf8')).toBe('{ broken,,, ');
   });
@@ -98,8 +102,8 @@ describe('Task 50 — installKiro (all 4 surfaces)', () => {
         JSON.stringify({ mcpServers: { theirs: { command: 'x' } } }, null, 2),
         'utf8',
       );
-      installKiro({ projectRoot });
-      uninstallKiro({ projectRoot });
+      installKiro({ projectRoot, awsDir });
+      uninstallKiro({ projectRoot, awsDir });
 
       const mcp = JSON.parse(readFileSync(p('settings', 'mcp.json'), 'utf8'));
       expect(mcp.mcpServers.theirs).toEqual({ command: 'x' }); // preserved

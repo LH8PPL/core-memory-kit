@@ -18,28 +18,13 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { kiroHookCommand } from './kiro-hook-command.mjs';
 
-// The hook command form is PLATFORM-SPECIFIC (the binding cross-platform rule),
-// and Kiro on Windows is the tricky case — LIVE-VERIFIED 2026-06-21 (P-PM2CD6CB):
-// Kiro runs a hook `runCommand` through WSL on Windows, and WSL has no node, so a
-// bare `cmk hook stop` fails ("node: not found"). Forcing the Windows-native
-// shell with `cmd.exe /c` reaches the real node+cmk (proven: `cmd.exe /c cmk
-// --version` → 0.3.5 in the Kiro chat). On macOS/Linux there's no WSL hop, so the
-// native `cmk` runs directly.
-//   Windows → `cmd.exe /c cmk hook <event>`
-//   macOS/Linux → `cmk hook <event>`
-// platform-commands: ignore (the Kiro-hook command runs in KIRO's shell, not the
-//   kit's — this is the one place we emit a cmd.exe form deliberately; the choice
-//   keys on the INSTALL host's process.platform, the right signal for "which OS
-//   will run these hooks").
-const IS_WINDOWS = process.platform === 'win32';
 const CMK = 'cmk';
 
-// Build the runCommand string for a given `cmk hook <event>` invocation.
-function hookCommand(event, cmkCmd = CMK) {
-  const inner = `${cmkCmd} hook ${event}`;
-  return IS_WINDOWS ? `cmd.exe /c ${inner}` : inner;
-}
+// The platform-correct `cmk hook <event>` command (cmd.exe /c on Windows where
+// Kiro routes hooks through WSL) is shared from kiro-hook-command.mjs.
+const hookCommand = kiroHookCommand;
 
 // One .kiro.hook spec. We intentionally do NOT put a `then` key on any JS object
 // here — Kiro's schema needs a top-level `then` (its "action" leg), but a JS
