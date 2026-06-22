@@ -27,7 +27,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { kiroHookCommand, kiroGuardCommand } from './kiro-hook-command.mjs';
+import { kiroHookCommand, kiroGuardCommand, kiroCliAllowedCommands } from './kiro-hook-command.mjs';
 import { parseJsonFile } from './read-json.mjs';
 
 const DEFAULT_AGENT_NAME = 'q_cli_default';
@@ -66,6 +66,12 @@ function buildAgentConfig(name, mcpEntry) {
     mcpServers: { cmk: mcpEntry },
     resources: ['file://.kiro/steering/cmk.md', 'file://AGENTS.md'],
     useLegacyMcpJson: false,
+    // Pre-trust the kit's OWN hook commands so the default agent runs its
+    // inject/capture/guard hooks WITHOUT a per-command approval prompt (D-194).
+    // toolsSettings.shell.allowedCommands is the CLI-side trust list (regex per
+    // the Kiro agent config reference) — the CLI analog of the IDE's
+    // kiroAgent.trustedCommands. Scoped to the kit's commands only, never `.*`.
+    toolsSettings: { shell: { allowedCommands: kiroCliAllowedCommands() } },
   };
   // hooks: object keyed by trigger → array of {command, timeout_ms}. Built without
   // a static `hooks:` literal carrying agentSpawn/stop so the structure stays

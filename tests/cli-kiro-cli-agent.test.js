@@ -64,6 +64,24 @@ describe('Task 50.L — Kiro CLI agent-config + default-agent', () => {
       }
     });
 
+    it('pre-trusts the kit hook commands via toolsSettings.shell.allowedCommands (D-194)', () => {
+      installKiroCliAgent({ awsDir });
+      const agent = JSON.parse(readFileSync(agentPath(), 'utf8'));
+      const allowed = agent.toolsSettings?.shell?.allowedCommands;
+      expect(Array.isArray(allowed)).toBe(true);
+      // the kit's hook + guard commands are pre-trusted (regex, START-ANCHORED, platform-correct)
+      const hookRe = process.platform === 'win32' ? '^cmd\\.exe /c cmk hook .*' : '^cmk hook .*';
+      const guardRe = process.platform === 'win32' ? '^cmd\\.exe /c cmk-guard-memory' : '^cmk-guard-memory';
+      expect(allowed).toContain(hookRe);
+      expect(allowed).toContain(guardRe);
+      // every pattern is start-anchored (mirrors the IDE prefix-from-start semantics)
+      for (const p of allowed) expect(p.startsWith('^')).toBe(true);
+      // never a blanket allow
+      expect(allowed).not.toContain('.*');
+      expect(allowed).not.toContain('^.*');
+      expect(allowed).not.toContain('*');
+    });
+
     it('reports that it set the default agent', () => {
       const r = installKiroCliAgent({ awsDir });
       expect(r.defaultAgent).toBe('set');

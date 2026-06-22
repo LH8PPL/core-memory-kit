@@ -30,6 +30,7 @@ import { mutateAgentConfig } from './mutate-agent-config.mjs';
 import { installKiroSkills, uninstallKiroSkills } from './kiro-skills.mjs';
 import { installKiroIdeHooks, uninstallKiroIdeHooks } from './kiro-ide-hooks.mjs';
 import { installKiroCliAgent, uninstallKiroCliAgent } from './kiro-cli-agent.mjs';
+import { installKiroTrustedCommands, uninstallKiroTrustedCommands } from './kiro-trusted-commands.mjs';
 import {
   writeManagedBlock,
   removeManagedBlock,
@@ -68,6 +69,7 @@ export function installKiro({ projectRoot, awsDir } = {}) {
 
   const surfaces = [];
   const errors = [];
+  const warnings = []; // non-fatal surface failures (e.g. a corrupt user .vscode/settings.json)
   let changed = false;
   let cliDefaultAgent = null;
 
@@ -111,6 +113,27 @@ export function installKiro({ projectRoot, awsDir } = {}) {
   if (hooks.changed) changed = true;
   surfaces.push('ide-hooks');
 
+  // ── trusted commands (D-194) — pre-trust the kit's hook commands in the
+  //    workspace .vscode/settings.json so Kiro auto-runs them instead of
+  //    prompting "Run / Reject" on every hook fire. Without this the IDE hooks
+  //    above are wired but not silent. Array-union (preserves a user's existing
+  //    trustedCommands); refuse-to-clobber a corrupt settings.json.
+  //
+  //    NON-FATAL on error, UNLIKE the MCP leg above (skill-review I1): MCP is the
+  //    FIRST surface (a corrupt MCP config → clean abort, nothing written yet).
+  //    Trust runs LAST-but-one, after MCP/steering/AGENTS.md/skills/ide-hooks all
+  //    succeeded — and it's the LEAST critical surface (if it can't write, the
+  //    hooks still fire, they just prompt). So a user's pre-existing malformed
+  //    .vscode/settings.json must NOT abort an otherwise-good install: record the
+  //    warning, skip the surface, and continue to the CLI agent.
+  const trust = installKiroTrustedCommands({ projectRoot });
+  if (trust.action === 'error') {
+    warnings.push({ surface: 'trusted-commands', ...trust });
+  } else {
+    if (trust.changed) changed = true;
+    surfaces.push('trusted-commands');
+  }
+
   // ── CLI agent-config (kiro-cli, user-tier) — agentSpawn/stop hooks + the
   //    guarded default-agent. Covers terminal `kiro-cli` users; the IDE hooks
   //    above cover the GUI. Both reuse the same `cmk hook` dispatcher.
@@ -119,7 +142,9 @@ export function installKiro({ projectRoot, awsDir } = {}) {
   if (cli.changed) changed = true;
   surfaces.push('cli-agent');
 
-  return { action: 'installed', changed, surfaces, cliDefaultAgent };
+  const result = { action: 'installed', changed, surfaces, cliDefaultAgent };
+  if (warnings.length > 0) result.warnings = warnings;
+  return result;
 }
 
 export function uninstallKiro({ projectRoot, awsDir } = {}) {
@@ -158,6 +183,10 @@ export function uninstallKiro({ projectRoot, awsDir } = {}) {
   if (uninstallKiroSkills({ projectRoot }).changed) changed = true;
   if (uninstallKiroIdeHooks({ projectRoot }).changed) changed = true;
   if (uninstallKiroCliAgent({ awsDir }).changed) changed = true;
+
+  // trusted commands (D-194): remove ONLY our patterns from
+  // .vscode/settings.json, preserving the user's; prune an emptied key.
+  if (uninstallKiroTrustedCommands({ projectRoot }).changed) changed = true;
 
   return { action: 'uninstalled', changed };
 }

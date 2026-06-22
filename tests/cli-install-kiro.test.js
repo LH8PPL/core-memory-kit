@@ -70,8 +70,37 @@ describe('Task 50 — installKiro (all 4 surfaces)', () => {
   it('reports the surfaces it wired', () => {
     const r = installKiro({ projectRoot, awsDir });
     expect(r.surfaces).toEqual(
-      expect.arrayContaining(['mcp', 'steering', 'agents-md', 'skills', 'ide-hooks', 'cli-agent']),
+      expect.arrayContaining(['mcp', 'steering', 'agents-md', 'skills', 'ide-hooks', 'trusted-commands', 'cli-agent']),
     );
+  });
+
+  it('trusted-commands (D-194): writes kiroAgent.trustedCommands so IDE hooks auto-run', () => {
+    installKiro({ projectRoot, awsDir });
+    const settings = JSON.parse(readFileSync(join(projectRoot, '.vscode', 'settings.json'), 'utf8'));
+    const trusted = settings['kiroAgent.trustedCommands'];
+    expect(Array.isArray(trusted)).toBe(true);
+    // the kit's hook-command prefix is trusted (platform-correct)
+    const hookPattern = process.platform === 'win32' ? 'cmd.exe /c cmk hook *' : 'cmk hook *';
+    expect(trusted).toContain(hookPattern);
+  });
+
+  it('trusted-commands failure is NON-FATAL (skill-review I1): a corrupt .vscode/settings.json does not abort the install', () => {
+    // seed a corrupt user .vscode/settings.json BEFORE install
+    mkdirSync(join(projectRoot, '.vscode'), { recursive: true });
+    writeFileSync(join(projectRoot, '.vscode', 'settings.json'), '{ not valid json', 'utf8');
+
+    const r = installKiro({ projectRoot, awsDir });
+    // the install still SUCCEEDS — the other surfaces are wired
+    expect(r.action).toBe('installed');
+    expect(r.surfaces).toEqual(expect.arrayContaining(['mcp', 'steering', 'skills', 'ide-hooks', 'cli-agent']));
+    // trusted-commands is NOT in the surfaces (it failed) but is reported as a warning
+    expect(r.surfaces).not.toContain('trusted-commands');
+    expect(r.warnings).toBeDefined();
+    expect(r.warnings.some((w) => w.surface === 'trusted-commands')).toBe(true);
+    // the corrupt file is left untouched (refuse-to-clobber)
+    expect(readFileSync(join(projectRoot, '.vscode', 'settings.json'), 'utf8')).toBe('{ not valid json');
+    // the IDE hooks DID get written (they work, they'll just prompt until trusted)
+    expect(existsSync(join(projectRoot, '.kiro', 'hooks', 'cmk-inject.kiro.hook'))).toBe(true);
   });
 
   it('AGENTS.md: appends our managed block, byte-preserving a user-authored AGENTS.md', () => {

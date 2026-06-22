@@ -124,10 +124,12 @@ What `--ide kiro` writes:
 | **Skills** | `.kiro/skills/memory-search` + `memory-write` | both |
 | **IDE hooks** | `.kiro/hooks/cmk-{capture,inject}.kiro.hook` | the **GUI** — capture each turn + recall |
 | **CLI agent** | `~/.aws/amazonq/cli-agents/q_cli_default.json` | **`kiro-cli`** — same capture/inject hooks |
+| **Trusted commands** | `.vscode/settings.json` (`kiroAgent.trustedCommands`) + the CLI agent's `allowedCommands` | both — auto-approve the kit's hooks (no per-turn "Run / Reject") |
 
 Notes:
 
 - **Restart Kiro** to activate the hooks; steering / skills / MCP are immediate.
+- The kit **pre-trusts only its own hook commands** (`cmk hook *`, `cmk-guard-memory`) so they run silently — Kiro normally asks you to approve each hook command, which would prompt every turn. Your own trusted commands are preserved; the kit never adds a blanket wildcard.
 - The CLI agent registers as Kiro's **default agent** so its hooks auto-fire — but **guarded**: if you already have a default agent, the kit installs a named `cmk` agent instead and prints how to opt in (`kiro-cli --agent cmk`, or set `chat.defaultAgent` to `cmk`).
 - A Kiro install does **not** write Claude-Code-only files (`CLAUDE.md`, `.claude/skills/`) — Kiro reads `AGENTS.md` + steering instead.
 - The hook command is platform-correct (`cmd.exe /c cmk hook …` on Windows, where Kiro routes hooks through WSL).
