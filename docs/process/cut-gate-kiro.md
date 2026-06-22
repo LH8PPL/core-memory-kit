@@ -65,25 +65,40 @@ cmk --version                        # ✅ matches packages/cli/package.json
 **0c — back up the real dirs (the binding backup rule).** The gate runs against your REAL `~/.claude-memory-kit` + `~/.aws`. Snapshot them first into the central backup root, then start the user tier clean so capture-from-zero is honest:
 
 ```powershell
-$bk = "C:\cut-gate-backups\12_v0.4.0_kiro"
+# NEVER overwrite an existing backup — always a FRESH run dir. Find the next free _runN.
+$root = "C:\cut-gate-backups"
+$base = "12_v0.4.0_kiro"
+$run  = $base
+if (Test-Path "$root\$run") { $n = 2; while (Test-Path "$root\${base}_run$n") { $n++ }; $run = "${base}_run$n" }
+$bk = "$root\$run"
 New-Item -ItemType Directory -Path $bk | Out-Null
+"backup run dir: $bk"
 
+# Snapshot names are SELF-IDENTIFYING — prefixed with the run name (NOT a generic
+# BEFORE-), so a snapshot says which run it came from even if copied elsewhere.
 # user tier: kit-only → MOVE it aside (starts the gate from empty; restored verbatim after)
 if (Test-Path $env:USERPROFILE\.claude-memory-kit) {
-  Move-Item $env:USERPROFILE\.claude-memory-kit "$bk\BEFORE-.claude-memory-kit"
+  Move-Item $env:USERPROFILE\.claude-memory-kit "$bk\$run-.claude-memory-kit"
 }
 # ~/.aws: holds your REAL AWS creds/config → COPY (never move it out from under other tools)
 if (Test-Path $env:USERPROFILE\.aws) {
-  Copy-Item $env:USERPROFILE\.aws "$bk\BEFORE-.aws" -Recurse
+  Copy-Item $env:USERPROFILE\.aws "$bk\$run-.aws" -Recurse
 }
-# record what the cmk agent files looked like BEFORE (so restore knows what to remove)
-"$(Get-Date -Format o) — gate start. Pre-existing cmk agents in real ~/.aws:" | Out-File "$bk\NOTES.md"   # -Format o, NOT -o (ambiguous in PowerShell 5.1)
-Get-ChildItem $env:USERPROFILE\.aws\amazonq\cli-agents\*.json -EA SilentlyContinue | % { $_.Name } | Out-File "$bk\NOTES.md" -Append
+# record what the cmk agent files looked like BEFORE, AND their ownership (so restore
+# knows what to remove: a KIT-WRITTEN q_cli_default.json → delete on restore; a
+# USER-AUTHORED one → keep). $run is also written so the restore block can read it back.
+$notes = "$bk\NOTES.md"
+"$(Get-Date -Format o) — gate start (run=$run). Pre-existing cmk agents in real ~/.aws:" | Out-File $notes   # -Format o, NOT -o (ambiguous in PowerShell 5.1)
+Get-ChildItem $env:USERPROFILE\.aws\amazonq\cli-agents\*.json -EA SilentlyContinue | % {
+  $c = Get-Content $_.FullName -Raw
+  $owned = if ($c -match '"managedBy"\s*:\s*"claude-memory-kit"') { "KIT-WRITTEN (restore SHOULD delete)" } else { "USER-AUTHORED (restore must KEEP)" }
+  "  $($_.Name) -> $owned"
+} | Out-File $notes -Append
 ```
 
 - [ ] **G0** — `cmk --version` matches `packages/cli/package.json` _(older → you're testing a stale global; re-run `npm install -g` against the freshly-packed `.tgz`)._
 - [ ] **G0-kiro** — `kiro-cli --version` runs (kiro-cli is on PATH) AND Kiro IDE opens. _(Both clients are exercised; if you only have one, mark the other client's checks `unverified`, don't skip silently.)_
-- [ ] **G0-backup** — `C:\cut-gate-backups\12_v0.4.0_kiro\BEFORE-.claude-memory-kit` + `BEFORE-.aws` both exist, and `~/.claude-memory-kit` is now absent (moved aside) so capture starts from zero. _(`~/.aws` stays in place — it was copied, not moved.)_
+- [ ] **G0-backup** — the fresh run dir `C:\cut-gate-backups\$run\` holds `$run-.claude-memory-kit` + `$run-.aws` (run-prefixed, self-identifying), any prior `12_v0.4.0_kiro*` backup is untouched, and `~/.claude-memory-kit` is now absent (moved aside) so capture starts from zero. _(`~/.aws` stays in place — it was copied, not moved.)_
 
 ---
 
@@ -396,18 +411,23 @@ Record the live result (which checks passed, any findings) in **tasks.md 50.M** 
 **Then preserve the evidence + restore your real dirs (the binding restore — mirror of §0c):**
 
 ```powershell
-$bk = "C:\cut-gate-backups\12_v0.4.0_kiro"
+# Point at the run dir from §0c. Auto-pick the NEWEST 12_v0.4.0_kiro* dir (or set
+# $run by hand to the exact name §0c printed if you ran more than one).
+$root = "C:\cut-gate-backups"
+$bk   = (Get-ChildItem $root -Directory -Filter "12_v0.4.0_kiro*" | Sort-Object LastWriteTime -Desc | Select-Object -First 1).FullName
+$run  = Split-Path $bk -Leaf
+"restoring from run dir: $bk"
 
-# 1. PRESERVE the test artifacts as evidence (diff against the next run later)
-Copy-Item $env:USERPROFILE\.claude-memory-kit       "$bk\AFTER-.claude-memory-kit" -Recurse -EA SilentlyContinue
-Copy-Item C:\Temp\kiro-gate                          "$bk\AFTER-test-project"       -Recurse -EA SilentlyContinue
-Copy-Item $env:USERPROFILE\.aws\amazonq\cli-agents   "$bk\AFTER-aws-cli-agents"     -Recurse -EA SilentlyContinue
+# 1. PRESERVE the test artifacts as evidence (run-prefixed, self-identifying)
+Copy-Item $env:USERPROFILE\.claude-memory-kit       "$bk\$run-AFTER-.claude-memory-kit" -Recurse -EA SilentlyContinue
+Copy-Item C:\Temp\kiro-gate                          "$bk\$run-AFTER-test-project"       -Recurse -EA SilentlyContinue
+Copy-Item $env:USERPROFILE\.aws\amazonq\cli-agents   "$bk\$run-AFTER-aws-cli-agents"     -Recurse -EA SilentlyContinue
 "$(Get-Date -Format o) — gate finished; artifacts copied above." | Out-File "$bk\NOTES.md" -Append   # -Format o, NOT -o (PowerShell 5.1)
 
 # 2. RESTORE the user tier (it was MOVED aside in §0c — put the original back verbatim)
 Remove-Item -Recurse -Force $env:USERPROFILE\.claude-memory-kit -EA SilentlyContinue
-if (Test-Path "$bk\BEFORE-.claude-memory-kit") {
-  Move-Item "$bk\BEFORE-.claude-memory-kit" $env:USERPROFILE\.claude-memory-kit
+if (Test-Path "$bk\$run-.claude-memory-kit") {
+  Move-Item "$bk\$run-.claude-memory-kit" $env:USERPROFILE\.claude-memory-kit
 }
 
 # 3. RESTORE ~/.aws — it was COPIED (your real creds were never moved), so just
