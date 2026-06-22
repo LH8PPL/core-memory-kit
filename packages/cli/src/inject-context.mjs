@@ -31,7 +31,8 @@ import {
   closeSync,
 } from 'node:fs';
 import { spawn } from 'node:child_process';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { SCRATCHPADS_BY_TIER, resolveTierRoot, ID_PATTERN } from './tier-paths.mjs';
 import { nowIso } from './audit-log.mjs';
@@ -618,6 +619,32 @@ function enforceCap(orderedBlocks, capBytes, ts, reportCapBytes = capBytes) {
  * (testSpawnLazy parameter) — production callers pass nothing.
  */
 /**
+ * Resolve the path to `bin/cmk-compress-lazy.mjs` from THIS module's location
+ * (`src/` → `../bin/`), honoring the $CMK_COMPRESS_LAZY_PATH override. Returns
+ * null if it can't be found (→ the shell:true fallback).
+ *
+ * Why this exists (the cross-agent console-popup fix): the no-popup spawn (Task
+ * 81) only kicks in when `injectContext` receives a real `compressLazyPath` —
+ * otherwise `lazyCompressSpawnDescriptor` falls to the `shell:true` `.cmd` shim,
+ * which flashes a `node` console window on Windows. The Claude Code bin
+ * (`cmk-inject-context.mjs`) passed the path; the Kiro `cmk hook agentSpawn`
+ * path did NOT, so a real Kiro user got the popup (the cut-gate-kiro live find).
+ * Resolving it HERE (in injectContext's default) fixes EVERY caller — Claude
+ * bin, Kiro hook, any future agent — not just the ones that remember to pass it.
+ */
+export function resolveCompressLazyPath() {
+  const fromEnv = process.env.CMK_COMPRESS_LAZY_PATH;
+  if (fromEnv && existsSync(fromEnv)) return fromEnv;
+  try {
+    const here = dirname(fileURLToPath(import.meta.url)); // .../packages/cli/src
+    const candidate = join(here, '..', 'bin', 'cmk-compress-lazy.mjs');
+    return existsSync(candidate) ? candidate : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Pure spawn descriptor for the lazy-compress child (Task 81). Separated so the
  * Door-3 contract (node-direct + windowsHide, no shell, when the path is known)
  * is unit-assertable without a real spawn. Path known + present → `node <path>`
@@ -706,8 +733,12 @@ export function injectContext({
   // Resolved path to cmk-compress-lazy.mjs (passed by the bin wrapper, which
   // knows the install layout). Lets spawnLazyCompress run `node <path>`
   // directly instead of the shell:true `.cmd` shim — the Windows
-  // console-popup fix (Task 81). Absent → graceful shell:true fallback.
-  compressLazyPath,
+  // console-popup fix (Task 81). Absent → self-resolve from this module's
+  // location (resolveCompressLazyPath), so EVERY caller gets the no-popup
+  // node-direct spawn — not just the Claude bin that passed it explicitly. A
+  // caller may still override (e.g. tests). Only a genuinely-unfindable bin
+  // (corrupt install) falls to the shell:true descriptor.
+  compressLazyPath = resolveCompressLazyPath(),
 } = {}) {
   const ts = now ?? nowIso();
   const cap = typeof capBytes === 'number' ? capBytes : DEFAULT_CAP_BYTES;

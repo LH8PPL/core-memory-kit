@@ -42,6 +42,7 @@ import { fileURLToPath } from 'node:url';
 import {
   injectContext,
   lazyCompressSpawnDescriptor,
+  resolveCompressLazyPath,
   AUTHORITATIVE_MEMORY_PREAMBLE,
 } from '../packages/cli/src/inject-context.mjs';
 
@@ -856,6 +857,43 @@ describe('Task 81 — lazy-compress spawn descriptor (Windows console-popup fix)
     const dMissing = lazyCompressSpawnDescriptor('/proj', '/no/such/cmk-compress-lazy.mjs');
     expect(dMissing.command).toBe('cmk-compress-lazy');
     expect(dMissing.options.shell).toBe(true);
+  });
+
+  // The cross-agent console-popup fix (cut-gate-kiro live find): the no-popup
+  // path only kicks in when injectContext gets a real compressLazyPath. The
+  // Claude bin passed it; the Kiro `cmk hook agentSpawn` path did NOT → it hit
+  // the shell:true `.cmd` shim that flashes a `node` console on Windows. The fix
+  // moves resolution INTO injectContext (resolveCompressLazyPath), so every
+  // caller — including the Kiro hook — gets the node-direct, no-popup descriptor.
+  it('resolveCompressLazyPath() finds the real bin/cmk-compress-lazy.mjs', () => {
+    const p = resolveCompressLazyPath();
+    expect(p).toBeTruthy();
+    expect(p.replace(/\\/g, '/')).toMatch(/bin\/cmk-compress-lazy\.mjs$/);
+    expect(existsSync(p)).toBe(true);
+  });
+
+  it('the resolved default → a node-direct (NO shell) descriptor — the Kiro-path popup is gone', () => {
+    // exactly what injectContext now uses by default when a caller (Kiro hook)
+    // passes no compressLazyPath: resolve it, then build the descriptor.
+    const d = lazyCompressSpawnDescriptor('/proj', resolveCompressLazyPath());
+    expect(d.command).toBe(process.execPath); // node directly, not the .cmd shim
+    expect(d.options.shell).toBeUndefined(); // shell:true is the popup cause
+    expect(d.options.windowsHide).toBe(true);
+  });
+
+  it('respects $CMK_COMPRESS_LAZY_PATH override', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'cmk-lzenv-'));
+    const mjs = join(tmp, 'cmk-compress-lazy.mjs');
+    writeFileSync(mjs, '// stub\n');
+    const prev = process.env.CMK_COMPRESS_LAZY_PATH;
+    process.env.CMK_COMPRESS_LAZY_PATH = mjs;
+    try {
+      expect(resolveCompressLazyPath()).toBe(mjs);
+    } finally {
+      if (prev === undefined) delete process.env.CMK_COMPRESS_LAZY_PATH;
+      else process.env.CMK_COMPRESS_LAZY_PATH = prev;
+      rmSync(tmp, { recursive: true, force: true });
+    }
   });
 });
 

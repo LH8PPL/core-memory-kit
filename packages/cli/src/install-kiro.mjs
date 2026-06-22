@@ -25,6 +25,7 @@
 //   (awsDir sandboxes the CLI-agent leg in tests; production → real ~/.aws.)
 
 import { join } from 'node:path';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { mutateAgentConfig } from './mutate-agent-config.mjs';
 import { installKiroSkills, uninstallKiroSkills } from './kiro-skills.mjs';
 import { installKiroIdeHooks, uninstallKiroIdeHooks } from './kiro-ide-hooks.mjs';
@@ -127,16 +128,31 @@ export function uninstallKiro({ projectRoot, awsDir } = {}) {
   let changed = false;
 
   // MCP: remove only our server key, prune an emptied servers object.
-  if (removeJsonKey(kiro(MCP_PATH), [MCP_SERVERS_KEY, MCP_SERVER_NAME])) changed = true;
-  pruneEmptyParent(kiro(MCP_PATH), [MCP_SERVERS_KEY]);
+  const mcpPath = kiro(MCP_PATH);
+  const mcpTouched = removeJsonKey(mcpPath, [MCP_SERVERS_KEY, MCP_SERVER_NAME]);
+  if (mcpTouched) changed = true;
+  pruneEmptyParent(mcpPath, [MCP_SERVERS_KEY]);
 
   // steering: strip our marker block (byte-preserve the rest).
-  if (removeManagedBlock(kiro(STEERING_PATH))) changed = true;
+  const steeringPath = kiro(STEERING_PATH);
+  const steeringTouched = removeManagedBlock(steeringPath);
+  if (steeringTouched) changed = true;
 
   // AGENTS.md: strip our marker block only (a user's own AGENTS.md content,
-  // outside our markers, is byte-preserved; an emptied file is left in place —
-  // same conservative discipline as steering).
-  if (removeManagedBlock(join(projectRoot, AGENTS_MD_PATH))) changed = true;
+  // outside our markers, is byte-preserved).
+  const agentsMdPath = join(projectRoot, AGENTS_MD_PATH);
+  const agentsMdTouched = removeManagedBlock(agentsMdPath);
+  if (agentsMdTouched) changed = true;
+
+  // No husks (D-191): a file the kit created that uninstall just emptied —
+  // an empty AGENTS.md, a `{}` mcp.json, a frontmatter-only steering file —
+  // should be removed, not left as a confusing shell. removeIfHusk deletes
+  // ONLY when no user content remains. GATED on "the kit's removal step actually
+  // changed THIS file" (B2 defense-in-depth) — so a pristine, never-kit-managed
+  // file is never even a deletion candidate, narrowing the blast radius.
+  if (agentsMdTouched && removeIfHusk(agentsMdPath)) changed = true;
+  if (steeringTouched && removeIfHusk(steeringPath)) changed = true;
+  if (mcpTouched && removeIfHusk(mcpPath)) changed = true;
 
   // skills + IDE hooks + CLI agent-config: remove our files only.
   if (uninstallKiroSkills({ projectRoot }).changed) changed = true;
@@ -144,4 +160,46 @@ export function uninstallKiro({ projectRoot, awsDir } = {}) {
   if (uninstallKiroCliAgent({ awsDir }).changed) changed = true;
 
   return { action: 'uninstalled', changed };
+}
+
+// Is `trimmed` ONLY a YAML frontmatter block (opener `---`, a closing `---`,
+// and nothing but blank lines after the FIRST closing fence)? Line-scan, not a
+// backtracking regex (the managed-block.mjs ReDoS-safe-string-utils discipline)
+// — AND, critically, the closing fence must be the FIRST `---` after the opener
+// with nothing meaningful after it. A naive `---[\s\S]*?---$` regex backtracks
+// to a LATER `---` (a user's horizontal rule) and would match — then DELETE — a
+// file full of user prose bordered by `---` (the skill-review B1 data-loss bug).
+function isOnlyFrontmatter(trimmed) {
+  const lines = trimmed.split(/\r?\n/);
+  if (lines[0] !== '---') return false;
+  const close = lines.indexOf('---', 1);
+  if (close === -1) return false;
+  // nothing but blank lines may follow the first closing fence
+  return lines.slice(close + 1).every((l) => l.trim() === '');
+}
+
+// Delete a file the kit created IFF uninstall left it with no real content —
+// i.e. it's now empty, an empty JSON object (`{}`), or only YAML frontmatter.
+// Anything else (user prose, a sibling MCP server, user frontmatter+body) means
+// real content remains → keep the file. Conservative by construction: a
+// non-husk is never touched. Returns true if a file was removed.
+// (D-191 — no empty husks after a Kiro uninstall; B1-fixed predicate.)
+function removeIfHusk(path) {
+  if (!existsSync(path)) return false;
+  let raw;
+  try {
+    raw = readFileSync(path, 'utf8');
+  } catch {
+    return false;
+  }
+  const trimmed = raw.trim();
+  if (trimmed === '' || trimmed === '{}' || isOnlyFrontmatter(trimmed)) {
+    try {
+      rmSync(path, { force: true });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
