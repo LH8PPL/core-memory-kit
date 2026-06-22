@@ -38,6 +38,7 @@ You work. It learns — automatically, no buttons. Next session, it remembers th
 - **Recalls by meaning** — ask in your own words ("where do credentials go") and get the right fact even with zero keyword overlap. Fully local, zero API calls — **R@5 0.941 / paraphrase 1.000** ([benchmarks](#benchmarks)).
 - **Learns how you work, everywhere** — state a habit once ("always use uv, never pip") and a brand-new project cold-opens already knowing it.
 - **Stays private + bounded** — secrets are screened before any write, machine paths are abstracted to `~`, and rolling compression keeps memory small as history grows.
+- **Guards your memory from accidental deletion** — `cmk install` wires a hook that **blocks** a destructive command (`rm`, `Remove-Item`, `del`, `git clean`, `git reset --hard`, `find … -delete`, `truncate`, `>`-truncate) the moment it's aimed at a memory path — before it runs, on both Claude Code and Kiro. A safe command, or a delete of anything else, runs untouched.
 - **Per-project, in your repo** — `context/` lives in your project and travels with `git clone`. Each project keeps its own memory.
 
 ## Quickstart
@@ -200,6 +201,8 @@ Keyword search structurally misses natural-language questions; the embedded sema
 ## Security
 
 Every push and PR runs secret scanning (`gitleaks` + GitGuardian), CVE / supply-chain checks (`osv-scanner` + `npm audit` + Dependabot), and SAST (`CodeQL`). Releases publish from CI on a `v*` tag with a **signed npm provenance attestation**. Threat model + disclosure policy: [`SECURITY.md`](SECURITY.md).
+
+**Delete-guardrail.** `cmk install` wires a `PreToolUse` hook (`cmk-guard-memory`) that inspects every shell command the agent is about to run and **blocks it** when it's a destructive command aimed at a memory path (`context/`, the `~/.claude-memory-kit` persona tier, `MEMORY.md` / `DECISIONS.md`). It covers both agents — Claude Code (`Bash` / `PowerShell`) and Kiro (`execute_bash`) — and is **fail-open** (a broken guard never wedges your session; it just stops guarding). It's intentionally broad: a false block is recoverable by rephrasing, a false allow is the data loss it exists to prevent.
 
 ```bash
 npm view @lh8ppl/claude-memory-kit dist.attestations   # verify what you install

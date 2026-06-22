@@ -9,7 +9,7 @@ Most commands operate on the **project tier** (`<repo>/context/`) by default, us
 ## Setup & lifecycle
 
 ### `cmk install [--force] [--no-hooks] [--with-semantic | --no-semantic] [--ide <agent>]`
-Scaffold the kit into the current project: creates the 3-tier `context/` layout, injects `.gitignore` entries, drops the managed CLAUDE.md block, and **wires the 5 lifecycle hooks** into `.claude/settings.json`. Idempotent (re-running skips existing files). Restart Claude Code afterward so hooks load.
+Scaffold the kit into the current project: creates the 3-tier `context/` layout, injects `.gitignore` entries, drops the managed CLAUDE.md block, and **wires the lifecycle hooks** into `.claude/settings.json` (the 5 memory hooks + a `PreToolUse` **delete-guardrail**, below). Idempotent (re-running skips existing files). Restart Claude Code afterward so hooks load.
 - `--force` — allow downgrading an existing newer-version CLAUDE.md block.
 - `--no-hooks` — scaffold only; don't touch `.claude/settings.json`.
 - `--with-semantic` — install the optional local embedder (`npm install -g @huggingface/transformers`, ~260 MB once), pre-warm the model, and set `search.default_mode: hybrid` for this project — bare `cmk search` then recalls by meaning, no flags. `--no-semantic` pins keyword-only.
@@ -20,6 +20,8 @@ cmk install --with-semantic # + local semantic recall, hybrid by default
 cmk install --no-hooks      # scaffold-only
 cmk install --ide kiro      # wire Kiro (IDE + kiro-cli) instead of Claude Code
 ```
+
+**Memory delete-guardrail.** Beyond the 5 memory hooks, `cmk install` also wires a `PreToolUse` hook (`cmk-guard-memory`) on both agents — Claude Code (matcher `Bash|PowerShell`) and Kiro (`execute_bash`). It inspects every shell command the agent is about to run and **blocks it** (the tool never executes) when it's a destructive command (`rm`, `Remove-Item`, `del`, `git clean`, `git reset --hard`, `find … -delete`, `truncate`, `>`-truncate) aimed at a memory path (`context/`, the `~/.claude-memory-kit` persona tier, `MEMORY.md` / `DECISIONS.md`). It's **fail-open** (a broken guard never wedges the session) and intentionally broad (a false block is recoverable by rephrasing; a false allow is the data loss it prevents). `cmk-guard-memory` is an internal hook bin, not a command you run by hand.
 
 ### `cmk uninstall [--ide <agent>]`
 Remove one agent's kit-managed wiring. **Conservative** — preserves everything outside the kit's markers and **never deletes `context/`** (your memory data).
