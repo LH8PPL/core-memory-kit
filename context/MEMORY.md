@@ -8,18 +8,18 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-BK5H9TP6) Check broader product research corpus; don't rely on 2 cherry-picked exemplars
-  <!-- source: auto-extract-session, source_line: 1, sha1: 551ddf0f813f1f63f259203f30f73ddd53f2f512258cbd746498679eb61b7db6, write: auto-extract, trust: high, at: 2026-06-20T14:17:58Z -->
-- (P-B7AHUBR5) Tasks must have explicit done-criteria as checkboxes defined at task START before implementation (user corrected missing this structure)
-  <!-- source: auto-extract-session, source_line: 1, sha1: f8a063ca38bded020ec38279d48b32bcacb8bee834dc23fc5001fc379b10a57c, write: auto-extract, trust: high, at: 2026-06-20T16:19:06Z -->
-- (P-3SJHATQG) Original task iterations preserved with "decision-trail" markers when tasks restructured (shown as valued in corrected task structure)
-  <!-- source: auto-extract-session, source_line: 1, sha1: 5b5af4b5fa18e634f17c0e6a552aabebcc34c90d1943a28151a3b7d1b214dcc1, write: auto-extract, trust: high, at: 2026-06-20T16:19:06Z -->
-- (P-ZJZYKX6F) Checks for comprehensive documentation as a quality gate (research, decisions, design, narrative, code, tests)
-  <!-- source: auto-extract-session, source_line: 1, sha1: 5d5a1dd5435bac0cb863b7e16fad4b10ec540455d60ff7899c2b5d2c11d03a1a, write: auto-extract, trust: high, at: 2026-06-20T16:29:02Z -->
-- (P-LZEDDB4W) For multi-surface builds (like Kiro IDE/CLI): prefers sub-tasks, start with IDE then CLI; asks whether each surface needs separate test/review or bundled.
-  <!-- source: auto-extract-session, source_line: 1, sha1: dc09d782dbd5fe4b67de4d78c46c716840ce9b3ac1b5fffabc2dd6de49983670, write: auto-extract, trust: high, at: 2026-06-20T22:11:24Z -->
-- (P-GXB5XYKV) Deferred manual live-testing until v0.4.0 code completion, rather than incremental testing
-  <!-- source: auto-extract-session, source_line: 1, sha1: b890bee7f524f5c47d304cc8805d506568f963f525a1e766921533098dd890d7, write: auto-extract, trust: high, at: 2026-06-21T11:00:42Z -->
+- (P-HRFKJPPC) Release script correctly bumps version (0.3.5 → 0.4.0), updates CHANGELOG.md with new [0.4.0] section and date, resets [Unreleased], and bumps packages/cli/package.json in lockstep.
+  <!-- source: review-promote, source_line: 1, sha1: 5ba7d08d3e306fbe3475f3ee3c1a33e1ab1874d1735c79d4d18f17087a82ae9e, write: user-explicit, trust: high, at: 2026-06-21T20:00:05Z -->
+- (P-XPE6SMR3) Context files (MEMORY.md, INDEX.md, queues/review.md) are excluded from release commits; they are dogfooding artifacts (kit capturing facts about its own development process).
+  <!-- source: review-promote, source_line: 1, sha1: b852d145fe772be8823915ab08f84e22f5ce8efe6794bf4644d1df8c28f18bb0, write: user-explicit, trust: high, at: 2026-06-21T20:00:06Z -->
+- (P-BFMAB3GZ) Windows PowerShell doesn't expand `*` in npm install paths; use explicit filename like `lh8ppl-claude-memory-kit-0.4.0.tgz` instead of `*.tgz`.
+  <!-- source: review-promote, source_line: 1, sha1: c19e1b1aca3e95c760520e514f32280321692055c4584da8fd181bf42ecfd75f, write: user-explicit, trust: high, at: 2026-06-21T20:00:06Z -->
+- (P-7N6aAPR6) User expects documentation (guides/CLAUDE.md) to be updated with real-run gotchas discovered during development
+  <!-- source: review-promote, source_line: 1, sha1: 9f38ba68abc3d07b3a9e6b8f4b3495e7d142542c2de12f9a50937a0e189b7d50, write: user-explicit, trust: high, at: 2026-06-21T20:00:07Z -->
+- (P-2WR6CWJQ) Expressed concern about rebuild errors ("that is alot of errors") — skeptical of the situation, seeking clarity or resolution
+  <!-- source: review-promote, source_line: 1, sha1: b23a51c066689ccc1ca0c92d86df21db13d379e57dd0fee2c16bfe8dbfedaa86, write: user-explicit, trust: high, at: 2026-06-21T20:00:08Z -->
+- (P-79C7TQYP) user questions why `.claude/` folder exists on kiro-gate — signals it's unexpected or unnecessary
+  <!-- source: review-promote, source_line: 1, sha1: 29925c57b48f907043890f6e3afe4a8911a8c4fa1678dc287104a83c4cf884e0, write: user-explicit, trust: high, at: 2026-06-21T20:00:09Z -->
 
 ## Environment Notes
 

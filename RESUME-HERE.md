@@ -1,17 +1,24 @@
-# RESUME HERE — 2026-06-21 (Kiro both PRs MERGED; only the live-test + v0.4.0 cut remain)
+# RESUME HERE — 2026-06-21 (Kiro v0.4.0 — gate caught 4 cut-blockers, all fixed; live IDE/CLI test is what's left)
 
-> On `main`. **PR-1 (#212, IDE) + PR-2 (#213, CLI) both MERGED.** All Kiro v0.4.0 CODE is in. Two things left: the batched **50.M live-test**, then **cut v0.4.0**.
+> On `main`, mid the **`cut-gate-kiro.md` live-test (50.M)**. The release is cut locally (v0.4.0, NO tag). §0 + §1 (install/scaffold + KG1–KG10) all PASS. The gate's first steps surfaced **4 real cut-blockers** — all merged + fixed. What's left: the **live IDE/CLI hook-firing checks (KH/KC — need real Kiro)**, then cut v0.4.0.
 
-## ✅ Done (both PRs merged to main)
+## ✅ Done — all merged to main
 
-- **PR-1 (#212):** shared 3 surfaces (MCP + steering + skills) + IDE hooks (`.kiro/hooks/*.kiro.hook`).
-- **PR-2 (#213, `efdfa17`):** the CLI agent-config (`~/.aws/amazonq/cli-agents/q_cli_default.json`, Rust contract) + guarded default-agent (5th surface). Two-pass review — no Blocking; all 5 findings (I-1 dispatcher `userPromptSubmit`/`promptSubmit` alias, I-2 content-compare idempotency, I-3 uninstall over-mutation test, M-1 MCP-shape comment, M-2 structural `managedBy` marker) fixed inline. Stress 5/5; CI green (3-OS install+doctor + Sonar). Plus two pre-existing flakes root-caused on the branch (pack-completeness `npm pack` retry; capture-turn teardown best-effort).
-- Decision trail: D-182 (settled spec) → D-183 (PR-1) → D-184 (PR-2).
+- **Kiro 5 surfaces (PRs #212/#213):** MCP + steering + skills + IDE hooks (`.kiro/hooks/`) + CLI agent (`~/.aws/amazonq/cli-agents/`). D-182/183/184.
+- **The gate found 4 cut-blockers, all fixed + merged** (each "unit-green but broken on real input", the live-test class):
+  - **#214 (D-185/186):** `cmk doctor` was Claude-only → HC-1 false-FAILed on Kiro. Now agent-aware capability check (IDE hooks OR CLI agent).
+  - **#215 (D-187):** a BOM'd `settings.json` made the guard clobber the user's default agent. Kit-wide BOM-tolerant config reads (`read-json.mjs`).
+  - **#216 (D-188/189):** `--ide kiro` left dead `.claude/skills` + a broken `prompt:file://AGENTS.md`. Now a clean per-agent OVERLAY: writes `AGENTS.md`, skips (never clobbers) Claude files, dual-agent coexistence, `cmk uninstall --ide kiro`. Verified vs 5 primary sources.
+- **Gate doc** (`cut-gate-kiro.md`) updated: KG10 (AGENTS.md/no-Claude), KU1/KU2 (per-agent + dual-agent uninstall), KG1b (agent-aware HC-1).
+- **README** has the user-asked **"Working with Kiro" + "Uninstalling"** sections.
+- **Backups protocol:** real dirs backed up in `C:\cut-gate-backups\12_v0.4.0_kiro\` (BEFORE-*); gate runs against REAL `~/.aws` + user tier (no env-var sandbox); restore at the end. The KG7 guard probe is the one surgical `MEMORY_KIT_AWS_DIR` use.
 
-## ▶ What's LEFT — say `start the Kiro live-test`:
+## ▶ What's LEFT
 
-1. **The batched 50.M live-test** (the user's plan, P-FA4ALL42): ONE Kiro session, now that ALL v0.4.0 code is merged, verifying BOTH surfaces — IDE `.kiro.hook` capture-fires AND the CLI agent + default-agent resolution. The 8-point D-182 checklist (default resolves w/o `--agent`; inject+capture FIRE not just register; non-clobber guard; MCP reachable; timeout composition). **ALWAYS set `MEMORY_KIT_AWS_DIR=<tmp>` + `MEMORY_KIT_USER_DIR=<tmp>`** so the real `~/.aws`/user-tier are never touched. Record the result in 50.M + the DECISION-LOG.
-2. **Cut v0.4.0** once the live-test passes: `npm run release -- minor` → review diff → commit → the USER pushes the `vX.Y.Z` tag (their outward step; publish.yml does npm + GitHub Release).
+1. **Rebuild the artifact** so the global `cmk` has all 4 fixes (the gate tests the installed binary): §0b only — `cd packages/cli; npm pack; npm uninstall -g; npm install -g .\lh8ppl-claude-memory-kit-0.4.0.tgz`. (Version stays 0.4.0 — fixes are content. The EBUSY warning on uninstall is harmless.) Do NOT re-cut (§0a done) or re-backup (§0c done).
+2. **The live IDE/CLI checks — needs YOU in real Kiro** (say `start the Kiro live-test`): open `C:\Temp\kiro-gate` in Kiro IDE, run **Session 1** (the build arc, §2), then I verify **KH1/KH2/KH3** (IDE `agentStop` capture + `promptSubmit` inject FIRE). Then `kiro-cli chat` with NO `--agent` for **KC1–KC4** (default resolves + `agentSpawn`/`stop` fire + MCP reach). These are the only checks unit tests can't reach.
+3. **Cut v0.4.0** once the live checks pass: review the CHANGELOG/READMEs are current → the USER pushes the `v0.4.0` tag (publish.yml does npm + GitHub Release).
+4. **After the cut:** re-run `cmk install` on THIS dev repo to clear the HC-9 version-drift (deferred during the gate).
 
 ---
 

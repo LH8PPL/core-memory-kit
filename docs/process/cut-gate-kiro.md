@@ -186,6 +186,15 @@ cmk doctor
       ```
       **PASS — every file shows:** no kit-internal cruft (no `Task NN`, `design §`), no literal `{{TODAY}}`, **no real username in a committed tier** (public-repo leak = blocker), example bullets marked `(example)`, well-formed frontmatter.
 
+- [ ] **★ KG10 — AGENTS.md present, Claude-Code-only files ABSENT (D-188).** A Kiro install writes Kiro's instruction file (`AGENTS.md`, the cross-tool always-loaded standard) and does NOT drop Claude-Code-only files (`CLAUDE.md`, `.claude/skills/`) — Kiro can't read them, and the CLI agent-config's `prompt: file://AGENTS.md` must resolve.
+      ```powershell
+      "AGENTS.md present (expect True):  $(Test-Path AGENTS.md)"
+      type AGENTS.md                                  # a managed claude-memory-kit:start block
+      "CLAUDE.md ABSENT  (expect False): $(Test-Path CLAUDE.md)"
+      ".claude/ ABSENT   (expect False): $(Test-Path .claude)"
+      ```
+      **PASS:** `AGENTS.md` exists with the managed memory-awareness block; **no** `CLAUDE.md`, **no** `.claude/`. **FAIL** (the pre-D-188 leak): a dead `.claude/skills/` or a `CLAUDE.md` Kiro can't use, or a missing `AGENTS.md` (the CLI agent's `prompt` would point at nothing).
+
 Now **restart Kiro** (close + reopen the IDE; restart any kiro-cli session) so the hooks + MCP load, then `code .` (or open `C:\Temp\kiro-gate` in Kiro). The live checks (§2 onward) need the reloaded hooks.
 
 ---
@@ -331,16 +340,33 @@ The `cmk` CLI is agent-agnostic — this sweep is identical to [`cut-gate.md`](c
 
 **The one Kiro-specific lifecycle check:**
 
-- [ ] **★ KU1 — `cmk uninstall` removes ONLY our Kiro surfaces, byte-preserves the rest.**
+- [ ] **★ KU1 — `cmk uninstall --ide kiro` removes ONLY our Kiro surfaces, byte-preserves the rest, never touches `context/` (D-189).**
       In `C:\Temp\kiro-gate` (NEVER a real project):
       ```powershell
-      cmk uninstall                # or: cmk install --ide kiro then uninstall — confirm both surfaces removed
+      cmk uninstall --ide kiro     # the per-agent Kiro uninstall (NOT bare `cmk uninstall`, which is the Claude surface)
       dir .kiro\hooks              # cmk-capture/cmk-inject .kiro.hook GONE
       type .kiro\settings\mcp.json # our server key gone; a sibling user server (if any) preserved
       type .kiro\steering\cmk.md   # our marker block stripped; user content outside markers byte-preserved
+      type AGENTS.md               # our managed block stripped; user AGENTS.md content (if any) byte-preserved
       dir $env:USERPROFILE\.aws\amazonq\cli-agents   # our q_cli_default.json / cmk.json GONE; any user-authored agent preserved
+      "context/ preserved (expect True): $(Test-Path context\MEMORY.md)"
       ```
-      **PASS:** uninstall removes our IDE hooks + MCP key + steering block + skills + CLI agent-config, and leaves any user-authored sibling (a non-`managedBy:claude-memory-kit` agent, a sibling MCP server, user steering text) byte-untouched. **FAIL:** a user file was deleted, or a managed surface lingered.
+      **PASS:** uninstall removes our IDE hooks + MCP key + steering block + AGENTS.md block + skills + CLI agent-config; leaves any user-authored sibling (a non-`managedBy:claude-memory-kit` agent, a sibling MCP server, user steering/AGENTS.md text) byte-untouched; AND **`context/` is preserved** (the shared brain is never deleted). **FAIL:** a user file was deleted, `context/` was touched, or a managed surface lingered.
+
+- [ ] **★ KU2 — dual-agent coexistence (D-188).** A project can carry BOTH agents. In a throwaway project, install both and confirm neither clobbers the other; uninstall one and the other survives:
+      ```powershell
+      $d = "C:\Temp\kiro-dual"; Remove-Item -Recurse -Force $d -EA SilentlyContinue
+      mkdir $d > $null; Set-Location $d; git init | Out-Null
+      cmk install                  # Claude Code first → CLAUDE.md + .claude/skills
+      cmk install --ide kiro       # add Kiro → .kiro/ + AGENTS.md, Claude surface UNTOUCHED
+      "CLAUDE.md still here (True): $(Test-Path CLAUDE.md)"
+      "Kiro hooks added (True):     $(Test-Path .kiro\hooks\cmk-capture.kiro.hook)"
+      cmk uninstall --ide kiro     # remove ONLY Kiro
+      "Kiro gone (False):           $(Test-Path .kiro\hooks\cmk-capture.kiro.hook)"
+      "Claude survives (True):      $(Test-Path CLAUDE.md)"
+      Set-Location C:\Temp\kiro-gate; Remove-Item -Recurse -Force $d -EA SilentlyContinue
+      ```
+      **PASS:** both installs coexist (the second never clobbers the first); `cmk uninstall --ide kiro` removes only the Kiro surface and leaves the Claude one. **FAIL:** the second install clobbered the first, or uninstall removed the wrong agent's files.
 
 ---
 
@@ -355,7 +381,7 @@ Same as the Claude-Code gate — `context/` is committed and travels with `git c
 ## Verdict + the cut
 
 **Cut v0.4.0 if** every **★** passes —
-`KG1, KG1b, KG2, KG3, KG4, KG5, KG6, KG7, KG8, KG9, KH1, KH2, KH3, M0, M1, M2, KC1, KC2, KC3, KC4, E1, KU1, H1` (the Kiro surface + live gates) **and** the agent-agnostic standing gates from [`cut-gate.md`](cut-gate.md) (`B2, B9, B3, B4, C5, FQ1, F-3, F-11b` + the recall ladder where it overlaps).
+`KG1, KG1b, KG2, KG3, KG4, KG5, KG6, KG7, KG8, KG9, KG10, KH1, KH2, KH3, M0, M1, M2, KC1, KC2, KC3, KC4, E1, KU1, KU2, H1` (the Kiro surface + live gates) **and** the agent-agnostic standing gates from [`cut-gate.md`](cut-gate.md) (`B2, B9, B3, B4, C5, FQ1, F-3, F-11b` + the recall ladder where it overlaps).
 
 **The 50.M live-test is KH1/KH2 (IDE hooks FIRE) + KC1/KC2/KC3 (kiro-cli default-agent + hooks FIRE).** These are the checks unit tests structurally can't reach — "the hook is written correctly" (the suite proves that) ≠ "the hook fires and captures a real turn in a real Kiro session" (only this gate proves that). The D-182 8-point checklist maps to: default resolves w/o `--agent` (KC1), inject+capture FIRE not just register (KH1/KH2/KC2/KC3), non-clobber guard (KG7), MCP reachable (KG2/KC4/M0), timeout composition (KG5/KG6 carry the `timeout`/`timeout_ms` ceilings; KH3 proves a slow/failed hook exits 0).
 
