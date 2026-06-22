@@ -267,6 +267,7 @@ describe('Task 39 — runRepair', () => {
       expect(hooks.error).toBeUndefined();
       expect(hooks.changed).toBe(true);
       expect(hooks.events).toEqual([
+        'PreToolUse', // the memory delete-guardrail (D-192)
         'SessionStart',
         'UserPromptSubmit',
         'PostToolUse',

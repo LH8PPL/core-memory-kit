@@ -12,7 +12,8 @@
     "cmk-capture-prompt": "./bin/cmk-capture-prompt.mjs",
     "cmk-observe-edit": "./bin/cmk-observe-edit.mjs",
     "cmk-capture-turn": "./bin/cmk-capture-turn.mjs",
-    "cmk-compress-session": "./bin/cmk-compress-session.mjs"
+    "cmk-compress-session": "./bin/cmk-compress-session.mjs",
+    "cmk-guard-memory": "./bin/cmk-guard-memory.mjs"
   },
   "files": [
     "bin/",

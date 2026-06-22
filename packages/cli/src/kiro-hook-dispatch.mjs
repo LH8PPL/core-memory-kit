@@ -39,9 +39,14 @@
 // are the SAME trigger under two surface vocabularies — both map to inject.
 const INJECT_EVENTS = new Set(['agentSpawn', 'promptSubmit', 'userPromptSubmit']);
 const CAPTURE_EVENTS = new Set(['stop']);
+// preToolUse → the memory delete-guardrail (D-192). The ONE event that may exit
+// NON-zero: a non-zero preToolUse exit BLOCKS the Kiro tool (verified — the same
+// mechanism the always-exit-0 invariant exists for). The guard exits 2 ONLY on a
+// deliberate block; everything else (incl. a crashed guard via the catch) exits 0.
+const GUARD_EVENTS = new Set(['preToolUse']);
 
 export function dispatchKiroHook({ event, payload = {}, cwd, userDir, deps = {} } = {}) {
-  const { inject, capture } = deps;
+  const { inject, capture, guard } = deps;
 
   try {
     if (INJECT_EVENTS.has(event)) {
@@ -55,10 +60,22 @@ export function dispatchKiroHook({ event, payload = {}, cwd, userDir, deps = {} 
       capture({ payload, projectRoot: cwd, ...(userDir ? { userDir } : {}) });
       return { action: 'capture', exitCode: 0 };
     }
+    if (GUARD_EVENTS.has(event)) {
+      // guard() inspects the about-to-run tool command (from the Kiro payload)
+      // and returns { block, reason? }. A block → exit 2 (BLOCK the tool) with
+      // the reason on stderr; otherwise exit 0 (allow). If guard is not wired
+      // (older install), default to allow — fail-open, never block by accident.
+      const v = guard ? guard({ payload, cwd }) : { block: false };
+      if (v && v.block) {
+        return { action: 'blocked', exitCode: 2, stderr: v.reason ?? 'blocked by the memory delete-guardrail' };
+      }
+      return { action: 'allow', exitCode: 0 };
+    }
     // unknown / not-yet-handled event — no-op, forward-compatible.
     return { action: 'noop', exitCode: 0 };
   } catch (err) {
     // NEVER propagate — exit 0 with the error on stderr so the Kiro session lives.
+    // (A CRASHED guard fails OPEN here: a broken guardrail must not wedge the tool.)
     return { action: 'error', exitCode: 0, stderr: `cmk hook ${event}: ${err?.message ?? err}` };
   }
 }

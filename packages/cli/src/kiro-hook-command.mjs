@@ -23,3 +23,14 @@ export function kiroHookCommand(event, cmkCmd = 'cmk') {
   const inner = `${cmkCmd} hook ${event}`;
   return IS_WINDOWS ? `cmd.exe /c ${inner}` : inner;
 }
+
+/**
+ * Build the memory delete-guardrail command (D-192), platform-wrapped. Kiro's
+ * `preToolUse` delivers `{ tool_name, tool_input: { command } }` on STDIN — the
+ * SAME shape as Claude Code (verified from the real oh-my-kiro + vibekit
+ * preToolUse hooks). So the `cmk-guard-memory` bin (which reads that stdin and
+ * exits 2 to BLOCK) guards BOTH agents — no Kiro-specific adapter needed.
+ */
+export function kiroGuardCommand(binCmd = 'cmk-guard-memory') {
+  return IS_WINDOWS ? `cmd.exe /c ${binCmd}` : binCmd;
+}

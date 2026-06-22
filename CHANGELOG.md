@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Added
+
+- **A memory delete-guardrail — the kit now blocks a command that would delete your memory before it runs.** `cmk install` wires a `PreToolUse` hook (`cmk-guard-memory`) that inspects every shell command the agent is about to run and **blocks it** if it's a destructive command (`rm`, `Remove-Item`, `git clean`, `git reset --hard`, …) aimed at a memory path (`context/`, your `~/.claude-memory-kit` persona tier, `MEMORY.md`/`DECISIONS.md`). A safe command, or a delete of anything else, runs normally — only a memory delete is stopped (with a clear reason). Works for **both Claude Code and Kiro** (the Kiro CLI agent wires it as a `preToolUse` hook). Fail-open by design: a broken guardrail never wedges your session, it just stops guarding. This came from a real data-loss incident — an accidental `rm` after a directory change deleted a repo's session/transcript memory; the guardrail makes that unrunnable.
+
 ## [0.4.0] — 2026-06-21
 
 ### Added

@@ -8,6 +8,8 @@
 //   - PROJECT→ process.cwd()  (Kiro runs the hook in the project root)
 //   - PROMPT → process.env.USER_PROMPT  (set on promptSubmit; empty on stop)
 //   - TURN   → Kiro's transcript file (.history), NOT a stdin payload
+//   - TOOL   → (preToolUse) the about-to-run tool command; passed via env/argv
+//             (exact field flagged for the cut-gate-kiro live test, D-192)
 //
 // This is the per-agent adapter the cross-agent seam needs: Claude Code reads a
 // stdin JSON payload; Kiro reads argv+env+cwd+transcript. The dispatcher (50.J)
@@ -20,9 +22,9 @@
 
 import { dispatchKiroHook } from './kiro-hook-dispatch.mjs';
 
-export function runKiroHook({ argv = [], cwd = process.cwd(), env = process.env, deps = {} } = {}) {
+export function runKiroHook({ argv = [], cwd = process.cwd(), env = process.env, payload = {}, deps = {} } = {}) {
   const event = argv[0];
-  const { readKiroTurn, inject, capture } = deps;
+  const { readKiroTurn, inject, capture, guard } = deps;
 
   // Wrap the kit cores so the dispatcher's generic inject/capture contract is fed
   // Kiro's actual inputs.
@@ -41,10 +43,19 @@ export function runKiroHook({ argv = [], cwd = process.cwd(), env = process.env,
     return capture({ ...args, payload });
   };
 
+  // preToolUse guard (forward-compat path — the production Kiro install calls the
+  // cmk-guard-memory bin directly, which reads the stdin payload). If a guard dep
+  // is wired, pass the stdin payload through so it can read tool_input.command.
+  const wrappedGuard = guard ? (args) => guard({ ...args, payload }) : undefined;
+
   return dispatchKiroHook({
     event,
-    payload: {},
+    payload,
     cwd,
-    deps: { inject: wrappedInject, capture: wrappedCapture },
+    deps: {
+      inject: wrappedInject,
+      capture: wrappedCapture,
+      ...(wrappedGuard ? { guard: wrappedGuard } : {}),
+    },
   });
 }

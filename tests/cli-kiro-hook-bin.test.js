@@ -100,8 +100,9 @@ describe('Task 50.J/50.L — runKiroHook adapter', () => {
   });
 });
 
-// I1 (review): runHook (the production CLI action) must EXPLICITLY keep
-// process.exitCode 0 — a non-zero exit blocks the Kiro tool (AWS docs).
+// I1 (review): runHook (the production CLI action) keeps process.exitCode 0 for
+// every event EXCEPT a deliberate preToolUse BLOCK (which exits 2 to block the
+// Kiro tool — the memory delete-guardrail, D-192).
 describe('Task 50 — runHook keeps exit 0 (I1)', () => {
   afterEach(() => { process.exitCode = 0; });
   it('sets process.exitCode 0 even when capture throws', () => {
@@ -114,6 +115,45 @@ describe('Task 50 — runHook keeps exit 0 (I1)', () => {
       capture: () => { throw new Error('boom'); },
       log: () => {},
       logError: () => {},
+    });
+    expect(process.exitCode).toBe(0);
+  });
+});
+
+// preToolUse → the memory delete-guardrail (D-192). The ONE event that exits
+// non-zero, and only on a deliberate block.
+describe('Task 50 — runHook preToolUse guard (D-192)', () => {
+  afterEach(() => { process.exitCode = 0; });
+  it('exit 2 (BLOCK) when the guard says block', () => {
+    process.exitCode = 0;
+    let stderr = '';
+    runHook('preToolUse', {}, undefined, {
+      cwd: '/proj',
+      env: {},
+      guard: () => ({ block: true, reason: 'memory delete blocked' }),
+      inject: () => ({}),
+      capture: () => {},
+      log: () => {},
+      logError: (s) => { stderr += s; },
+    });
+    expect(process.exitCode).toBe(2);
+    expect(stderr).toMatch(/memory delete blocked/);
+  });
+  it('exit 0 (allow) when the guard says allow', () => {
+    process.exitCode = 0;
+    runHook('preToolUse', {}, undefined, {
+      cwd: '/proj', env: {},
+      guard: () => ({ block: false }),
+      inject: () => ({}), capture: () => {}, log: () => {}, logError: () => {},
+    });
+    expect(process.exitCode).toBe(0);
+  });
+  it('exit 0 (fail-open) when the guard THROWS — a crashed guard must not wedge the tool', () => {
+    process.exitCode = 0;
+    runHook('preToolUse', {}, undefined, {
+      cwd: '/proj', env: {},
+      guard: () => { throw new Error('boom'); },
+      inject: () => ({}), capture: () => {}, log: () => {}, logError: () => {},
     });
     expect(process.exitCode).toBe(0);
   });

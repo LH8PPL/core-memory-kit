@@ -21,6 +21,7 @@ import { runKiroHook } from './kiro-hook-bin.mjs';
 import { readKiroTurn } from './kiro-transcript.mjs';
 import { injectContext } from './inject-context.mjs';
 import { captureTurn } from './capture-turn.mjs';
+import { decideGuard } from './guard-memory.mjs';
 import { removeClaudeMdBlock } from './claude-md.mjs';
 import { reindex as reindexAction } from './reindex.mjs';
 import { openIndexDb } from './index-db.mjs';
@@ -391,14 +392,30 @@ async function runInstallForAgent({ ide, options, log, logError }) {
  * Task 50.J/50.L — `cmk hook <event>` — the Kiro hook entrypoint.
  *
  * Kiro's IDE + CLI hooks call `cmk hook <event>` (agentSpawn / promptSubmit /
- * stop). Unlike Claude Code's hook bins (which read a stdin JSON payload), Kiro
- * passes context via argv + env + cwd + its transcript file (probe-verified,
- * P-CJYGTQYR). runKiroHook adapts that to the kit's inject/capture cores.
+ * stop / preToolUse). Unlike Claude Code's hook bins (which read a stdin JSON
+ * payload), Kiro passes context via argv + env + cwd + its transcript file
+ * (probe-verified, P-CJYGTQYR). runKiroHook adapts that to the kit's cores.
  *
- * ALWAYS exits 0 (the dispatcher guarantees it) — a crashed hook must never
- * break the Kiro session. Inject output is printed to stdout (Kiro's runCommand
- * adds it to the agent's context).
+ * ALWAYS exits 0 EXCEPT a deliberate preToolUse BLOCK (exit 2 → the memory
+ * delete-guardrail, D-192). A crashed hook still exits 0 (fail-open).
  */
+/**
+ * Extract the about-to-run TOOL COMMAND from a preToolUse hook payload, for the
+ * memory delete-guardrail (D-192).
+ *
+ * Kiro's `preToolUse` delivers `{ tool_name, tool_input: { command } }` on STDIN
+ * — the SAME shape as Claude Code (VERIFIED from the real oh-my-kiro + vibekit
+ * preToolUse hooks: `cat | jq '.tool_input.command'`). So the production guard
+ * uses the `cmk-guard-memory` bin directly (it reads that stdin); this helper is
+ * the forward-compat path if a `cmk hook preToolUse` is ever wired instead. A
+ * `.command` fallback covers a flattened payload. No match → '' (fail-open).
+ */
+export function kiroToolCommand(payload, _cwd) {
+  const p = payload || {};
+  const cmd = p.tool_input?.command ?? p.command;
+  return typeof cmd === 'string' ? cmd : '';
+}
+
 export function runHook(event, _options = {}, _command, deps = {}) {
   const log = deps.log ?? ((s) => process.stdout.write(s));
   const logError = deps.logError ?? ((s) => process.stderr.write(`${s}\n`));
@@ -417,14 +434,19 @@ export function runHook(event, _options = {}, _command, deps = {}) {
         return { ok: true, text: typeof text === 'string' ? text : text?.text ?? '' };
       }),
       capture: deps.capture ?? ((args) => captureTurn({ payload: args.payload, projectRoot: args.projectRoot })),
+      // preToolUse → the memory delete-guardrail (D-192). Reads the about-to-run
+      // tool command out of the Kiro payload and returns {block, reason?}.
+      guard: deps.guard ?? ((args) => decideGuard(kiroToolCommand(args.payload, args.cwd))),
     },
   });
   if (r.stdout) log(r.stdout);
   if (r.stderr) logError(r.stderr);
-  // I1 (review): make the always-exit-0 invariant EXPLICIT, not incidental — a
-  // non-zero exit from a Kiro hook BLOCKS the tool (AWS docs). Pin it so a prior
-  // verb's exitCode or a future throw-path can't leak through.
-  process.exitCode = 0;
+  // The always-exit-0 invariant holds for EVERY event EXCEPT a deliberate
+  // preToolUse BLOCK (exit 2 → Kiro blocks the tool, D-192). Honor the
+  // dispatcher's exitCode (0 for inject/capture/noop/error; 2 only on a guard
+  // block) instead of hardcoding 0 — a crashed guard still fails open (the
+  // dispatcher's catch returns exitCode 0).
+  process.exitCode = typeof r.exitCode === 'number' ? r.exitCode : 0;
 }
 
 /**
