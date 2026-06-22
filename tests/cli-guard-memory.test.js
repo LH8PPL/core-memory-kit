@@ -33,6 +33,25 @@ describe('guard-memory — BLOCK a destructive command on a memory path', () => 
     'rm context/DECISIONS.md',
     'git clean -fd context/',
     'git reset --hard && rm -rf context/sessions',
+    // B1 (skill-review): an EXEMPT verb in FRONT must NOT launder a chained
+    // delete. These all start with echo/grep/cat/git-commit/git-log but chain a
+    // real memory delete — every one MUST block (per-segment evaluation).
+    'echo "cleaning up" && rm -rf context/sessions',
+    'echo x; rm -rf context/transcripts',
+    'cat foo && rm -rf context/memory',
+    'grep x package.json && rm -rf context/memory',
+    'git commit -m "x" && rm -rf context/memory',
+    'git log --oneline; rm -rf context/sessions',
+    'echo done && Remove-Item context/memory',
+    // I1: a delete inside a command substitution in an exempt command's arg.
+    'git commit -m "$(rm -rf context/memory)"',
+    'echo `rm -rf context/sessions`',
+    // I2: delete mechanisms with NO `rm` verb.
+    'find context/memory -delete',
+    'find context/memory -type f -delete',
+    'truncate -s0 context/MEMORY.md',
+    '> context/MEMORY.md',
+    ': > context/MEMORY.md',
   ];
   for (const cmd of blocked) {
     it(`blocks: ${cmd}`, () => {

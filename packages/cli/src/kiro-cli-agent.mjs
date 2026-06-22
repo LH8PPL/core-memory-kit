@@ -84,9 +84,12 @@ function buildAgentConfig(name, mcpEntry) {
     // bin directly (NOT `cmk hook`): Kiro's preToolUse delivers the SAME stdin
     // JSON `{tool_name, tool_input.command}` as Claude Code (verified from the
     // real oh-my-kiro + vibekit preToolUse hooks), so one bin guards both agents.
-    // `matcher: execute_bash` scopes it to the shell tool (Kiro's name — same as
-    // oh-my-kiro's security guards). A non-zero exit BLOCKS the tool (D-192).
-    preToolUse: [{ command: kiroGuardCommand(), timeout_ms: 5000, matcher: 'execute_bash' }],
+    // `matcher` is a glob alternation over the shell-tool names — `execute_bash`
+    // is the verified name (oh-my-kiro's guards), with `executeBash`/`shell`
+    // aliases so a tool-name variant can't slip a delete past the matcher (I3).
+    // A non-zero exit BLOCKS the tool. ⚠️ Whether Kiro's matcher supports the
+    // `|` alternation is flagged for the cut-gate-kiro live test (KG-guard).
+    preToolUse: [{ command: kiroGuardCommand(), timeout_ms: 5000, matcher: 'execute_bash|executeBash|shell' }],
   };
   return cfg;
 }

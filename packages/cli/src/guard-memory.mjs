@@ -15,15 +15,22 @@
 // deletes by hand); a false allow is the data loss we're preventing. So the
 // predicates favor over-blocking a memory delete over under-blocking one.
 
-// A command is destructive if it invokes a delete/destroy verb.
+// A command is destructive if it invokes a delete/destroy verb OR an equivalent
+// data-destroying mechanism that carries no `rm` token (find -delete, truncate,
+// a `>`/`:>` redirection that truncates a file). Skill-review I2: a memory file
+// can be destroyed with no `rm` at all.
 const DESTRUCTIVE = [
   /\brm\b/i, // unix rm
   /\bRemove-Item\b/i, // PowerShell
   /\brmdir\b/i,
   /\brd\b/i, // cmd rd
   /\bdel\b/i, // cmd del
+  /\bunlink\b/i,
   /\bgit\s+clean\b/i,
   /\bgit\s+reset\s+--hard\b/i,
+  /\bfind\b[^|]*-delete\b/i, // find … -delete
+  /\btruncate\b/i, // truncate -s0 file
+  /(^|[\s;&|])>\s*\S/, // a `>`/`> file` redirection (truncates the target to empty)
 ];
 
 // A path is a MEMORY path if the command mentions any of these. The bare
@@ -52,27 +59,57 @@ export function touchesMemory(cmd) {
   return typeof cmd === 'string' && MEMORY_TOKENS.some((re) => re.test(cmd));
 }
 
-// Commands that contain destructive verbs + memory tokens in their TEXT but
-// don't actually delete anything — a `git commit` whose MESSAGE describes a
-// delete (e.g. `git commit -m "remove rm from context/"`) must not be blocked.
-// (oh-my-kiro's block-dangerous.sh exempts `git commit` for the same reason.)
-const EXEMPT = [
-  /^\s*git\s+commit\b/i, // commit message prose, not an executable delete
+// A SEGMENT (not the whole command) may be exempt: it only MENTIONS a delete in
+// its text and can't itself execute one — a `git commit` whose message describes
+// a delete, an `echo`/`grep`/`cat` of text about a delete. (oh-my-kiro's
+// block-dangerous.sh exempts `git commit` for the same reason.) CRITICAL: this
+// is applied PER SEGMENT, never to a whole compound command — `echo x && rm -rf
+// context/memory` must NOT be exempted by its leading `echo` (skill-review B1).
+const SEGMENT_EXEMPT = [
+  /^\s*git\s+commit\b/i,
   /^\s*git\s+log\b/i,
-  /^\s*echo\b/i, // echoing text about a delete
-  /^\s*(grep|rg|cat|less|sed -n|awk)\b/i, // reading/searching text that mentions a delete
+  /^\s*echo\b/i,
+  /^\s*(grep|rg|cat|less|head|tail|sed -n|awk)\b/i,
 ];
+
+// Split a shell command into its sequenced segments on the separators that start
+// a NEW command: && || ; | and newlines. (A `>` redirection is NOT a separator —
+// it's handled as a destructive mechanism on its own segment.) Also surface any
+// $(...) / `...` command substitution as its own segment so a delete hidden in a
+// commit-message arg (`git commit -m "$(rm -rf context/memory)"`) is evaluated
+// on its own and can't ride the outer command's exemption (skill-review I1).
+function splitSegments(cmd) {
+  const segments = [];
+  // pull out command substitutions first, add them as standalone segments
+  const subRe = /\$\(([^)]*)\)|`([^`]*)`/g;
+  let m;
+  while ((m = subRe.exec(cmd)) !== null) {
+    const inner = m[1] ?? m[2];
+    if (inner && inner.trim()) segments.push(inner);
+  }
+  const stripped = cmd.replace(subRe, ' '); // remove subs so they don't leak into outer segments
+  for (const seg of stripped.split(/&&|\|\||;|\||\r?\n/)) {
+    if (seg.trim()) segments.push(seg);
+  }
+  return segments;
+}
+
+function isSegmentExempt(seg) {
+  return SEGMENT_EXEMPT.some((re) => re.test(seg));
+}
 
 /**
  * The pure decision. Returns { block: boolean, reason?: string }.
- * Blocks only when the command is BOTH destructive AND aimed at a memory path,
- * and is not an EXEMPT command (commit/echo/grep that merely MENTIONS a delete).
+ * Splits the command into segments and BLOCKS if ANY non-exempt segment is both
+ * destructive AND aimed at a memory path. Per-segment so an exempt verb in front
+ * (`echo …`, `git commit …`) cannot launder a chained real delete (B1/I1).
  */
 export function decideGuard(cmd) {
-  if (typeof cmd === 'string' && EXEMPT.some((re) => re.test(cmd))) {
-    return { block: false };
-  }
-  if (isDestructive(cmd) && touchesMemory(cmd)) {
+  if (typeof cmd !== 'string' || cmd.trim() === '') return { block: false };
+  const offending = splitSegments(cmd).some(
+    (seg) => !isSegmentExempt(seg) && isDestructive(seg) && touchesMemory(seg),
+  );
+  if (offending) {
     return {
       block: true,
       reason:
