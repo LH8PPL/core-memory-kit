@@ -56,7 +56,7 @@ context/.index/
 *.tgz
 .bench-logs/
 
-# claude-memory-kit:gitignore:start v0.3.5
+# claude-memory-kit:gitignore:start v0.4.0
 # claude-memory-kit — added by `cmk install`. Do not edit by hand;
 # `cmk install` refreshes these lines idempotently. Remove via
 # `cmk uninstall`.

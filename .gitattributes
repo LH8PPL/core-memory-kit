@@ -24,7 +24,7 @@
 *.yaml text eol=lf
 *.sh text eol=lf
 
-# claude-memory-kit:gitattributes:start v0.3.5
+# claude-memory-kit:gitattributes:start v0.4.0
 # claude-memory-kit — added by `cmk install`. Do not edit by hand;
 # `cmk install` refreshes these lines idempotently. Remove via
 # `cmk uninstall`.
