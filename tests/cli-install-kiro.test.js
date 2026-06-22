@@ -177,5 +177,32 @@ describe('Task 50 — installKiro (all 4 surfaces)', () => {
       expect(existsSync(p('settings', 'mcp.json'))).toBe(true);
       expect(JSON.parse(readFileSync(p('settings', 'mcp.json'), 'utf8')).mcpServers.theirs).toEqual({ command: 'x' });
     });
+
+    // B1 regression (skill-review): the husk predicate must NOT match a file
+    // that has user content bordered by `---`. A naive `---[\s\S]*?---$` regex
+    // backtracks to a later `---` (a user horizontal rule) and would DELETE the
+    // user's notes. These seed exactly that shape and assert the file SURVIVES.
+    it('KEEPS a steering file whose user notes END in a --- horizontal rule (no data loss)', () => {
+      installKiro({ projectRoot, awsDir });
+      const steer = p('steering', 'cmk.md');
+      // the kit steering already starts with `---\ninclusion: always\n---`; append
+      // user notes that THEMSELVES end in a `---` hr — the B1 trap.
+      writeFileSync(steer, readFileSync(steer, 'utf8') + '\n## My team notes\n\nUse tabs.\n\n---\n', 'utf8');
+      uninstallKiro({ projectRoot, awsDir });
+      expect(existsSync(steer)).toBe(true); // NOT deleted
+      expect(readFileSync(steer, 'utf8')).toMatch(/My team notes/); // user content intact
+      expect(readFileSync(steer, 'utf8')).not.toMatch(/claude-memory-kit:start/); // our block still gone
+    });
+
+    it('KEEPS an AGENTS.md with user frontmatter + body + a trailing --- (no data loss)', () => {
+      const agentsMd = join(projectRoot, 'AGENTS.md');
+      mkdirSync(projectRoot, { recursive: true });
+      // user authored: frontmatter, body, AND a trailing hr — the B1 trap shape
+      writeFileSync(agentsMd, '---\nowner: me\n---\n\n# My rules\n\nAlways use uv.\n\n---\n', 'utf8');
+      installKiro({ projectRoot, awsDir });
+      uninstallKiro({ projectRoot, awsDir });
+      expect(existsSync(agentsMd)).toBe(true);
+      expect(readFileSync(agentsMd, 'utf8')).toMatch(/My rules/);
+    });
   });
 });
