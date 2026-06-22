@@ -65,6 +65,10 @@ import { stripBom } from './read-json.mjs';
  * (modulo command form) plugin/hooks/hooks.json.
  */
 export const KIT_HOOKS_BLOCK = Object.freeze({
+  // PreToolUse — the memory delete-guardrail (D-192). Blocks a destructive
+  // shell command (rm / Remove-Item / git clean …) aimed at a memory path
+  // BEFORE it runs. The only kit hook that can exit non-zero (2 = block).
+  PreToolUse: [{ matcher: 'Bash|PowerShell', hooks: [{ type: 'command', command: 'cmk-guard-memory', timeout: 5 }] }],
   SessionStart: [{ hooks: [{ type: 'command', command: 'cmk-inject-context', timeout: 30 }] }],
   UserPromptSubmit: [{ hooks: [{ type: 'command', command: 'cmk-capture-prompt', timeout: 10 }] }],
   PostToolUse: [{ matcher: 'Write|Edit|MultiEdit', hooks: [{ type: 'command', command: 'cmk-observe-edit', async: true, timeout: 120 }] }],
@@ -82,6 +86,7 @@ export const KIT_HOOKS_BLOCK = Object.freeze({
  */
 export const KIT_COMMAND_TOKENS = Object.freeze([
   'cmk-version-check',
+  'cmk-guard-memory',
   'cmk-inject-context',
   'cmk-capture-prompt',
   'cmk-observe-edit',

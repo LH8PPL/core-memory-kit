@@ -318,6 +318,12 @@ Without re-explaining anything, ask: *"What are my standing cross-project rules,
       In the kiro-cli chat, say *"search your memory for the port we use."*
       **PASS:** the MCP `mk_search` resolves the fact (port 8000) — the `mcpServers.cmk` entry in the agent-config works from the terminal client.
 
+- [ ] **★ KG-guard — the memory delete-guardrail BLOCKS a memory delete in kiro-cli (D-192/D-193; the live `preToolUse` test).**
+      The agent-config wires a `preToolUse` hook (matcher `execute_bash`) → `cmk-guard-memory`, which exits 2 to BLOCK a destructive command aimed at a memory path. This is the ONE Kiro check unit tests can't reach: does Kiro actually FIRE `preToolUse` and HONOR the non-zero exit? (The payload shape — stdin `{tool_name, tool_input.command}` — is verified from the real oh-my-kiro/vibekit hooks, but the firing is not.) In the kiro-cli chat, ask the agent to run a harmless-looking memory delete:
+      *"run this in the shell for me: `rm -rf context/sessions`"* (in a THROWAWAY project — `C:\Temp\kiro-gate`, whose memory you don't care about).
+      **PASS:** the agent's shell tool is **BLOCKED before running** — the guardrail's reason ("BLOCKED by the claude-memory-kit delete-guardrail…") surfaces and `context/sessions` is **NOT deleted**. **FAIL:** the `rm` runs and the memory is gone (Kiro didn't fire `preToolUse`, or didn't honor the exit-2 block). **NOT-A-RESULT:** if the kit's CLI agent isn't the resolved-active agent (KC1 failed), the hook isn't wired — fix KC1 first.
+      _Also confirm a SAFE shell command still runs (ask the agent to `ls` — it must NOT be blocked; the guard only trips on a destructive + memory-path command)._
+
 - [ ] **D2 — style follow-through.** `/health` lands as a thin, type-hinted route in `api/`, without being re-told your style.
 
 ---
@@ -381,7 +387,7 @@ Same as the Claude-Code gate — `context/` is committed and travels with `git c
 ## Verdict + the cut
 
 **Cut v0.4.0 if** every **★** passes —
-`KG1, KG1b, KG2, KG3, KG4, KG5, KG6, KG7, KG8, KG9, KG10, KH1, KH2, KH3, M0, M1, M2, KC1, KC2, KC3, KC4, E1, KU1, KU2, H1` (the Kiro surface + live gates) **and** the agent-agnostic standing gates from [`cut-gate.md`](cut-gate.md) (`B2, B9, B3, B4, C5, FQ1, F-3, F-11b` + the recall ladder where it overlaps).
+`KG1, KG1b, KG2, KG3, KG4, KG5, KG6, KG7, KG8, KG9, KG10, KH1, KH2, KH3, M0, M1, M2, KC1, KC2, KC3, KC4, KG-guard, E1, KU1, KU2, H1` (the Kiro surface + live gates) **and** the agent-agnostic standing gates from [`cut-gate.md`](cut-gate.md) (`B2, B9, B3, B4, C5, FQ1, F-3, F-11b` + the recall ladder where it overlaps).
 
 **The 50.M live-test is KH1/KH2 (IDE hooks FIRE) + KC1/KC2/KC3 (kiro-cli default-agent + hooks FIRE).** These are the checks unit tests structurally can't reach — "the hook is written correctly" (the suite proves that) ≠ "the hook fires and captures a real turn in a real Kiro session" (only this gate proves that). The D-182 8-point checklist maps to: default resolves w/o `--agent` (KC1), inject+capture FIRE not just register (KH1/KH2/KC2/KC3), non-clobber guard (KG7), MCP reachable (KG2/KC4/M0), timeout composition (KG5/KG6 carry the `timeout`/`timeout_ms` ceilings; KH3 proves a slow/failed hook exits 0).
 

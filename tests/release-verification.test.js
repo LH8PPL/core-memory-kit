@@ -165,7 +165,7 @@ describe('Task 43 — release verification (pre-publish gates)', () => {
       expect(text).toMatch(/npm install -g @lh8ppl\/claude-memory-kit/);
     });
 
-    it('all 9 bins are declared (cmk + 3 cron entrypoints + 5 hook bins as of Task 49)', () => {
+    it('all 10 bins are declared (cmk + 3 cron entrypoints + 6 hook bins incl. the guardrail D-192)', () => {
       const pkg = JSON.parse(
         readFileSync(join(repoRoot, 'packages', 'cli', 'package.json'), 'utf8'),
       );
@@ -176,6 +176,7 @@ describe('Task 43 — release verification (pre-publish gates)', () => {
         'cmk-compress-lazy',
         'cmk-compress-session',
         'cmk-daily-distill',
+        'cmk-guard-memory',
         'cmk-inject-context',
         'cmk-observe-edit',
         'cmk-weekly-curate',

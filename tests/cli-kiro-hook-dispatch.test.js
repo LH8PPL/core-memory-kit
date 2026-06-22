@@ -80,6 +80,61 @@ describe('Task 50.J — Kiro hook dispatcher', () => {
       expect(calls[0].projectRoot).toBe('/proj');
       expect(calls[0].payload).toEqual({ assistant_response: 'hi' });
     });
+
+    // preToolUse → the memory delete-guardrail (D-192). The ONE event that may
+    // exit non-zero: a block → exit 2 (Kiro blocks the tool).
+    it('preToolUse + guard says BLOCK → exitCode 2 + reason on stderr', () => {
+      const r = dispatchKiroHook({
+        event: 'preToolUse',
+        payload: { command: 'rm -rf context/memory' },
+        cwd: '/proj',
+        deps: {
+          inject: () => ({ ok: true, text: '' }),
+          capture: () => {},
+          guard: () => ({ block: true, reason: 'nope — memory delete' }),
+        },
+      });
+      expect(r.action).toBe('blocked');
+      expect(r.exitCode).toBe(2);
+      expect(r.stderr).toMatch(/memory delete/);
+    });
+
+    it('preToolUse + guard says ALLOW → exitCode 0', () => {
+      const r = dispatchKiroHook({
+        event: 'preToolUse',
+        payload: { command: 'ls' },
+        cwd: '/proj',
+        deps: { inject: () => ({}), capture: () => {}, guard: () => ({ block: false }) },
+      });
+      expect(r.action).toBe('allow');
+      expect(r.exitCode).toBe(0);
+    });
+
+    it('preToolUse with NO guard dep (older install) → allow, fail-open (never block by accident)', () => {
+      const r = dispatchKiroHook({
+        event: 'preToolUse',
+        payload: { command: 'rm -rf context/memory' },
+        cwd: '/proj',
+        deps: { inject: () => ({}), capture: () => {} }, // no guard wired
+      });
+      expect(r.action).toBe('allow');
+      expect(r.exitCode).toBe(0);
+    });
+
+    it('preToolUse + guard THROWS → exitCode 0 (a crashed guard fails OPEN, never wedges the tool)', () => {
+      const r = dispatchKiroHook({
+        event: 'preToolUse',
+        payload: { command: 'rm -rf context/memory' },
+        cwd: '/proj',
+        deps: {
+          inject: () => ({}),
+          capture: () => {},
+          guard: () => { throw new Error('guard boom'); },
+        },
+      });
+      expect(r.exitCode).toBe(0); // fail-open via the dispatcher catch
+      expect(r.action).toBe('error');
+    });
   });
 
   describe('always exits 0 (a crashed hook must not break the Kiro session)', () => {
@@ -107,7 +162,7 @@ describe('Task 50.J — Kiro hook dispatcher', () => {
 
     it('an unknown event → exitCode 0, no-op (forward-compatible with new Kiro events)', () => {
       const r = dispatchKiroHook({
-        event: 'preToolUse',
+        event: 'someFutureEvent', // genuinely unknown (preToolUse is now the guard event)
         payload: {},
         cwd: '/proj',
         deps: { inject: () => ({ ok: true, text: '' }), capture: () => {} },

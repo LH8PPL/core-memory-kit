@@ -45,6 +45,7 @@ const REPO_ROOT = join(dirname(__filename), '..');
 const BIN_DIR = join(REPO_ROOT, 'packages', 'cli', 'bin');
 
 const EXPECTED_EVENTS = [
+  'PreToolUse',
   'SessionStart',
   'UserPromptSubmit',
   'PostToolUse',
@@ -52,6 +53,7 @@ const EXPECTED_EVENTS = [
   'SessionEnd',
 ];
 const EXPECTED_COMMANDS = {
+  PreToolUse: 'cmk-guard-memory',
   SessionStart: 'cmk-inject-context',
   UserPromptSubmit: 'cmk-capture-prompt',
   PostToolUse: 'cmk-observe-edit',
@@ -76,7 +78,7 @@ afterEach(() => {
 });
 
 describe('Task 49 — cmk install wires hooks (Door 1: result contract)', () => {
-  it('reports hooks.action === "wired" + the 5 events on a fresh install', async () => {
+  it('reports hooks.action === "wired" + the 6 events on a fresh install', async () => {
     const r = await install({ projectRoot, userTier });
     expect(r.hooks.action).toBe('wired');
     expect(r.hooks.path).toBe(settingsPath);
@@ -98,7 +100,7 @@ describe('Task 49 — cmk install wires hooks (Door 1: result contract)', () => 
 });
 
 describe('Task 49 — settings.json content (Door 2: state)', () => {
-  it('writes all 5 hooks at PATH-resolved bare bin names — NOT ${CLAUDE_PLUGIN_ROOT}, NO bash wrapper', async () => {
+  it('writes all 6 hooks at PATH-resolved bare bin names — NOT ${CLAUDE_PLUGIN_ROOT}, NO bash wrapper', async () => {
     await install({ projectRoot, userTier });
     const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
     for (const event of EXPECTED_EVENTS) {
@@ -200,8 +202,12 @@ describe('Task 49 — settings.json content (Door 2: state)', () => {
     const ssCommands = JSON.stringify(settings.hooks.SessionStart);
     expect(ssCommands).toContain('my-own-hook.sh');
     expect(ssCommands).toContain('cmk-inject-context');
-    // User's PreToolUse guard (an event the kit doesn't manage) untouched
-    expect(JSON.stringify(settings.hooks.PreToolUse)).toContain('guard.sh');
+    // User's PreToolUse guard is PRESERVED alongside the kit's own
+    // cmk-guard-memory (the kit now manages PreToolUse for the delete-guardrail,
+    // D-192 — and coexists with a user's existing PreToolUse hook).
+    const preCommands = JSON.stringify(settings.hooks.PreToolUse);
+    expect(preCommands).toContain('guard.sh'); // user's own — untouched
+    expect(preCommands).toContain('cmk-guard-memory'); // the kit's guardrail added
   });
 
   it('prunes a stale plugin-form Setup → cmk-version-check the npm route no longer emits', async () => {
@@ -233,7 +239,10 @@ describe('Task 49 — settings.json content (Door 2: state)', () => {
       settingsPath,
       JSON.stringify({
         hooks: {
-          PreToolUse: [], // user-authored empty array, no kit entry
+          // PreCompact is NOT kit-managed → its empty user array must be left
+          // untouched. (Can't use PreToolUse here anymore: the kit now manages it
+          // for the delete-guardrail, D-192, so it WOULD get a kit entry.)
+          PreCompact: [], // user-authored empty array, no kit entry
           Notification: [{ hooks: [{ type: 'command', command: 'notify-me.sh' }] }],
         },
       }),
@@ -242,7 +251,7 @@ describe('Task 49 — settings.json content (Door 2: state)', () => {
     await install({ projectRoot, userTier });
     const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
     // Empty user array preserved (not pruned), unrelated user hook intact
-    expect(settings.hooks.PreToolUse).toEqual([]);
+    expect(settings.hooks.PreCompact).toEqual([]);
     expect(JSON.stringify(settings.hooks.Notification)).toContain('notify-me.sh');
   });
 
@@ -294,7 +303,7 @@ describe('Task 49 — writeKitHooks boundary (the shared install/repair seam)', 
     expect(settings.permissions.allow).toContain('Bash(ls)'); // user content preserved
   });
 
-  it('KIT_HOOKS_BLOCK + KIT_COMMAND_TOKENS stay in sync with the 5 bins', () => {
+  it('KIT_HOOKS_BLOCK + KIT_COMMAND_TOKENS stay in sync with the 6 bins', () => {
     expect(Object.keys(KIT_HOOKS_BLOCK)).toEqual(EXPECTED_EVENTS);
     for (const cmd of Object.values(EXPECTED_COMMANDS)) {
       expect(KIT_COMMAND_TOKENS).toContain(cmd);

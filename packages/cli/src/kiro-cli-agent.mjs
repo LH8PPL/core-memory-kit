@@ -27,7 +27,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { kiroHookCommand } from './kiro-hook-command.mjs';
+import { kiroHookCommand, kiroGuardCommand } from './kiro-hook-command.mjs';
 import { parseJsonFile } from './read-json.mjs';
 
 const DEFAULT_AGENT_NAME = 'q_cli_default';
@@ -80,6 +80,16 @@ function buildAgentConfig(name, mcpEntry) {
   cfg.hooks = {
     agentSpawn: [{ command: kiroHookCommand('agentSpawn'), timeout_ms: 10000 }],
     stop: [{ command: kiroHookCommand('stop'), timeout_ms: 30000 }],
+    // preToolUse → the memory delete-guardrail (D-192). Calls the cmk-guard-memory
+    // bin directly (NOT `cmk hook`): Kiro's preToolUse delivers the SAME stdin
+    // JSON `{tool_name, tool_input.command}` as Claude Code (verified from the
+    // real oh-my-kiro + vibekit preToolUse hooks), so one bin guards both agents.
+    // `matcher` is a glob alternation over the shell-tool names — `execute_bash`
+    // is the verified name (oh-my-kiro's guards), with `executeBash`/`shell`
+    // aliases so a tool-name variant can't slip a delete past the matcher (I3).
+    // A non-zero exit BLOCKS the tool. ⚠️ Whether Kiro's matcher supports the
+    // `|` alternation is flagged for the cut-gate-kiro live test (KG-guard).
+    preToolUse: [{ command: kiroGuardCommand(), timeout_ms: 5000, matcher: 'execute_bash|executeBash|shell' }],
   };
   return cfg;
 }
