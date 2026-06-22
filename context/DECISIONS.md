@@ -3293,3 +3293,249 @@
 ### Kiro CLI agent-config goes to ~/.aws/amazonq/cli-agents/ (Amazon Q's real locati
 **When:** 2026-06-21 · **Fact:** `P-3Y6MCN2B`
 **Why:** A user-tier write (the Kiro CLI agent at ~/.aws) needs the same sandbox-isolation as MEMORY_KIT_USER_DIR. The live-test rule (run against a sandbox that can't touch real state) caught this — the routing's undefined userTier fell through to the real home. This is the test-isolation discipline applied to a NEW user-tier location (~/.aws).
+
+<!-- decision:P-RES031CG -->
+### RESUME — v0.3.1 cut-gate near-complete; PR
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-BK5H9TP6 -->
+### Check broader product research corpus; don't rely on 2 cherry-picked exemplars
+**When:** 2026-06-20 · **Fact:** `P-BK5H9TP6`
+
+<!-- decision:P-3SJHATQG -->
+### Original task iterations preserved with "decision-trail" markers when tasks rest
+**When:** 2026-06-20 · **Fact:** `P-3SJHATQG`
+
+<!-- decision:P-B7AHUBR5 -->
+### Tasks must have explicit done-criteria as checkboxes defined at task START befor
+**When:** 2026-06-20 · **Fact:** `P-B7AHUBR5`
+
+<!-- decision:P-ZJZYKX6F -->
+### Checks for comprehensive documentation as a quality gate (research, decisions, d
+**When:** 2026-06-20 · **Fact:** `P-ZJZYKX6F`
+
+<!-- decision:P-LZEDDB4W -->
+### For multi-surface builds (like Kiro IDE/CLI): prefers sub-tasks, start with IDE
+**When:** 2026-06-20 · **Fact:** `P-LZEDDB4W`
+
+<!-- decision:P-GXB5XYKV -->
+### Deferred manual live-testing until v0.4.0 code completion, rather than increment
+**When:** 2026-06-21 · **Fact:** `P-GXB5XYKV`
+
+<!-- decision:P-7T5EJATL -->
+### 5× Concurrency Stress Gate as Pre-PR Verification
+**When:** 2026-06-21 · **Fact:** `P-7T5EJATL`
+**Why:** Concurrency bugs are hard to trigger in single runs; stress gates reliably expose them.
+
+<!-- decision:P-PRaLBB4a -->
+### Windows EPERM/Spawn-Concurrency Flake Class and Fix Pattern
+**When:** 2026-06-21 · **Fact:** `P-PRaLBB4a`
+**Why:** These are concurrency-class bugs that only surface under stress; the stress gate reliably flushes them before PR.
+
+<!-- decision:P-J37A3AY6 -->
+### Stress Gate Test Harness — Binding 5× Rule for Merge
+**When:** 2026-06-21 · **Fact:** `P-J37A3AY6`
+**Why:** The two pre-existing concurrency flakes prove why 5× is non-negotiable — they would have shipped without it.
+
+<!-- decision:P-Z5TZW33W -->
+### Flake Root Causes — Windows-EPERM / Spawn-Concurrency
+**When:** 2026-06-21 · **Fact:** `P-Z5TZW33W`
+**Why:** Prevents false CI negatives; establishes these as environmental quirks, not code defects.
+
+<!-- decision:P-XT9KMHaA -->
+### Kiro v0.4.0 Release — Code Complete, Pre-Release Checkpoints
+**When:** 2026-06-21 · **Fact:** `P-XT9KMHaA`
+**Why:** Ensures IDE and CLI surfaces work together before shipping; user's stated release requirement.
+
+<!-- decision:P-VDNG6QTR -->
+### Manual live-test required before releasing — stated as "do the manual check when
+**When:** 2026-06-21 · **Fact:** `P-VDNG6QTR`
+
+<!-- decision:P-GaPYPMLa -->
+### Structure of cut-gate-kiro.md (Kiro Installation Verification Gate)
+**When:** 2026-06-21 · **Fact:** `P-GaPYPMLa`
+**Why:** Cut-gate docs are manual verification checklists before release; separate files avoid conditional complexity and keep IDE-specific flows self-contained and readable
+
+<!-- decision:P-GVYE3WV9 -->
+### Test-Gate Protocol — Backup Real Paths Instead of Env-Var Sandbox
+**When:** 2026-06-21 · **Fact:** `P-GVYE3WV9`
+**Why:** Testing real default paths catches real-world bugs that env-var sandboxing hides — the same principle as the "test real input" rule.
+
+<!-- decision:P-W372LWJa -->
+### cut-gate-backup-convention
+**When:** 2026-06-21 · **Fact:** `P-W372LWJa`
+**Why:** Flat backups cluttered the home dir, had no structure, and were easy to fat-finger in cleanup. Central + structured = safe to bulk-manage and AFTER-snapshots are evidence to diff against the next run.
+
+<!-- decision:P-GWQBHT2H -->
+### Release Cut Verification Checklist (claude-memory-kit)
+**When:** 2026-06-21 · **Fact:** `P-GWQBHT2H`
+**Why:** Prevents version-drift bugs and ensures clean release artifacts
+
+<!-- decision:P-6X7CCNCW -->
+### Release-Cut Workflow for claude-memory-kit
+**When:** 2026-06-21 · **Fact:** `P-6X7CCNCW`
+**Why:** This workflow is repeatable and ensures releases are clean (only version and changelog land), verified before committing, and properly tagged for automation.
+
+<!-- decision:P-EVZ5BUYa -->
+### Two-Phase Release: Commit/Gate, Then Tag/Publish
+**When:** 2026-06-21 · **Fact:** `P-EVZ5BUYa`
+**Why:** Safety model — allows full testing and gate checks (§0a/§0b/§0c) before npm goes live; prevents accidental releases
+
+<!-- decision:P-MGMaR2MH -->
+### npm pack + Global Install for Artifact Testing (§0b)
+**When:** 2026-06-21 · **Fact:** `P-MGMaR2MH`
+**Why:** Ensures the production tarball builds correctly and the global CLI binary is the new version before any integration testing.
+
+<!-- decision:P-XULJP7RH -->
+### Publish Trigger is Git Tag Push, Not Branch Commit
+**When:** 2026-06-21 · **Fact:** `P-XULJP7RH`
+**Why:** The safety model depends on decoupling the ordinary commit from the publish trigger. A bundled tag+push risks publishing before all gates have run.
+
+<!-- decision:P-5SACW7MP -->
+### Release Workflow Multi-Gate Process (§0a → §0c)
+**When:** 2026-06-21 · **Fact:** `P-5SACW7MP`
+**Why:** Separating commit and tag ensures no publish occurs until the entire gate sequence succeeds. Clear rollback point if any gate fails.
+
+<!-- decision:P-BEVBLNaP -->
+### Removes automatic destructive operations from scripts (Remove-Item) to prevent a
+**When:** 2026-06-21 · **Fact:** `P-BEVBLNaP`
+
+<!-- decision:P-L6JWNSFM -->
+### Gate/Restore Logic: q_cli_default.json Presence Determines Behavior
+**When:** 2026-06-21 · **Fact:** `P-L6JWNSFM`
+**Why:** The capture/restore logic is conditional on pre-gate state; the guide needs users to record this fact in NOTES.md
+
+<!-- decision:P-G92GKGUD -->
+### PowerShell 5.1 `-Format o` Requirement for ISO 8601 Date Format
+**When:** 2026-06-21 · **Fact:** `P-G92GKGUD`
+**Why:** The gate's NOTES.md header line was failing due to this ambiguity; documented fix is now in the guide
+
+<!-- decision:P-WSCLNW49 -->
+### PowerShell Glob Behavior: Explicit Filename Required for .tgz
+**When:** 2026-06-21 · **Fact:** `P-WSCLNW49`
+**Why:** Real-run gotcha; scripts relying on `*.tgz` glob fail silently on Windows
+
+<!-- decision:P-YMYUa2QG -->
+### HC-1 False-FAIL on Kiro (Recursive Agent-Awareness Bug)
+**When:** 2026-06-21 · **Fact:** `P-YMYUa2QG`
+**Why:** Skill-review caught a real cut-blocker self-review missed. The gate's output validity depends on doctor being correct across all agent surfaces. Hidden sub-bug within a fix.
+
+<!-- decision:P-PHDPCC2W -->
+### Rebuild Artifact After Bug Fix (Without Re-cutting Release)
+**When:** 2026-06-21 · **Fact:** `P-PHDPCC2W`
+**Why:** Global `cmk` is the pre-fix binary. Bug fixes are content-only; version stays unchanged. The binary must be re-packed and re-installed.
+
+<!-- decision:P-RPaCVQAN -->
+### CMK Version Bumping Convention
+**When:** 2026-06-21 · **Fact:** `P-RPaCVQAN`
+**Why:** Version increments only for feature releases or breaking changes; bug fixes are part of the same release
+
+<!-- decision:P-N3QLT54B -->
+### Global Binary Lag After Code Merge
+**When:** 2026-06-21 · **Fact:** `P-N3QLT54B`
+**Why:** npm maintains a local cache of global packages; merging to main does not trigger automatic re-installation
+
+<!-- decision:P-JZa9NZDF -->
+### Rebuilding the Global CMK Binary After Code Changes
+**When:** 2026-06-21 · **Fact:** `P-JZa9NZDF`
+**Why:** Global npm installs are cached locally; source changes don't propagate to the installed binary
+
+<!-- decision:P-7aNNUU4Z -->
+### npm uninstall EBUSY Error with better_sqlite3.node on Rebuild
+**When:** 2026-06-21 · **Fact:** `P-7aNNUU4Z`
+**Why:** This is a recurring papercut during rebuilds on Windows; users will hit it unpredictably depending on what's running in their session.
+
+<!-- decision:P-453YJ3aW -->
+### BOM Handling in Config File Readers
+**When:** 2026-06-21 · **Fact:** `P-453YJ3aW`
+**Why:** BOM is a recurring, silent, high-impact failure in Windows; cascades across multiple subsystems causing corrupted behavior or false refusals
+
+<!-- decision:P-a4J4QGEC -->
+### Verification Gate: Two-Phase Approach
+**When:** 2026-06-21 · **Fact:** `P-a4J4QGEC`
+**Why:** Decouples fast scaffolding checks from slow live-environment checks; allows gate to flow while environment setup happens
+
+<!-- decision:P-NQYBBLXL -->
+### Live-test gate structure and blocker findings
+**When:** 2026-06-21 · **Fact:** `P-NQYBBLXL`
+**Why:** The live-test gate is the release-validation step that prevents shipping broken builds. Early phases catch input-handling bugs; later phases verify IDE/CLI integration works.
+
+<!-- decision:P-L6DTEQRG -->
+### Post-#215 merge workflow (gate continuation)
+**When:** 2026-06-21 · **Fact:** `P-L6DTEQRG`
+**Why:** This is the planned workflow to complete the live-test gate and verify full IDE/CLI integration before release.
+
+<!-- decision:P-VJL254MX -->
+### EBUSY Workaround for Global Package Reinstalls (Native Bindings)
+**When:** 2026-06-21 · **Fact:** `P-VJL254MX`
+**Why:** Windows prevents overwriting files held open by processes; native Node bindings remain locked by running interpreters even after a process "exits" if the shared object is still referenced
+
+<!-- decision:P-ZWDH5NKZ -->
+### Kiro Configuration Structure: AGENTS.md, Not .claude/
+**When:** 2026-06-21 · **Fact:** `P-ZWDH5NKZ`
+**Why:** claude-memory-kit was generating unnecessary `.claude/` structure for Kiro projects, which Kiro ignores. Proper setup uses AGENTS.md at root only.
+
+<!-- decision:P-PJP9Z4B4 -->
+### Install System Dual-Agent Workflows (Cases A–D)
+**When:** 2026-06-21 · **Fact:** `P-PJP9Z4B4`
+**Why:** These four cases define the practical multi-agent usage patterns users will encounter. The install system must support all of them cleanly without manual workarounds or file litter.
+
+<!-- decision:P-EGMSHW6X -->
+### Install System Requirements Matrix (v0.4.0+)
+**When:** 2026-06-21 · **Fact:** `P-EGMSHW6X`
+**Why:** The install design is additive — Claude Code and Kiro coexist on the same repo. These requirements ensure neither agent's install mutates the other's surfaces and `context/` is treated as immutable.
+
+<!-- decision:P-QURQGMAV -->
+### Conservative uninstall scope — managed surfaces only, never `context/`
+**When:** 2026-06-21 · **Fact:** `P-QURQGMAV`
+**Why:** Minimizes accidental data loss and respects shared-brain architecture. Symmetric design makes tool behavior predictable and safe.
+
+<!-- decision:P-AC75HR2B -->
+### Semantic config is shared agent-neutral setting in `context/settings.json`
+**When:** 2026-06-21 · **Fact:** `P-AC75HR2B`
+**Why:** Semantic recall is a shared-brain feature. One config, one brain, both agents benefit. Idempotent setup prevents accidental loss of capability.
+
+<!-- decision:P-NJW35EEG -->
+### Confirms preference for 2-PR approach (PR-1 IDE surfaces, then PR-2 CLI hooks se
+**When:** 2026-06-21 · **Fact:** `P-NJW35EEG`
+
+<!-- decision:P-R6WKXMBK -->
+### Values code reuse; questions why Kiro integration differs from Claude Code integ
+**When:** 2026-06-21 · **Fact:** `P-R6WKXMBK`
+
+<!-- decision:P-U5NUXZAU -->
+### v0.4.0 release workflow: `npm run release -- minor` (assistant runs), then user
+**When:** 2026-06-21 · **Fact:** `P-U5NUXZAU`
+
+<!-- decision:P-QXMKJZGD -->
+### Separate gate files per IDE to avoid conditionals (cut-gate.md for Claude Code,
+**When:** 2026-06-21 · **Fact:** `P-QXMKJZGD`
+
+<!-- decision:P-R5DMD4JK -->
+### Coverage Gate Fix Workflow
+**When:** 2026-06-21 · **Fact:** `P-R5DMD4JK`
+**Why:** Systematic approach that addresses missing tests rather than superficial fixes; yields complete coverage.
+
+<!-- decision:P-VXG4XGXP -->
+### Log Sink Injection Pattern Across Install/Uninstall
+**When:** 2026-06-21 · **Fact:** `P-VXG4XGXP`
+**Why:** Allows tests to inject custom logging; maintains behavioral consistency across related tools.
+
+<!-- decision:P-LKBB3BNU -->
+### runUninstall Branch Coverage Map
+**When:** 2026-06-21 · **Fact:** `P-LKBB3BNU`
+**Why:** Missing branch coverage causes gate failure; all paths must be tested for SonarCloud to pass.
+
+<!-- decision:P-9GBJ6NUQ -->
+### SonarCloud Coverage Gate Threshold
+**When:** 2026-06-21 · **Fact:** `P-9GBJ6NUQ`
+**Why:** Hard constraint on the release process; future PRs will fail without adequate coverage.
+
+<!-- decision:P-RES031CG -->
+### RESUME — v0.3.1 cut-gate near-complete; PR
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-ZV4H36YB -->
+### Rebuild Global CMK CLI Binary (Release Process)
+**When:** 2026-06-22 · **Fact:** `P-ZV4H36YB`
+**Why:** The installed global binary is what gate tests validate and what IDE/CLI actually invoke. This rebuild ensures all merged fixes are live before live-test sessions.
