@@ -34,3 +34,23 @@ export function kiroHookCommand(event, cmkCmd = 'cmk') {
 export function kiroGuardCommand(binCmd = 'cmk-guard-memory') {
   return IS_WINDOWS ? `cmd.exe /c ${binCmd}` : binCmd;
 }
+
+/**
+ * The kit's hook commands as CLI agent-config `toolsSettings.shell.allowedCommands`
+ * REGEX patterns (D-194). Distinct from the IDE `kiroAgent.trustedCommands` shape:
+ * the CLI agent-config uses REGEX (per the Kiro agent config reference —
+ * `deniedCommands: ["git commit .*"]`), the IDE uses wildcard PREFIX. Without these,
+ * the kiro-cli default agent prompts to approve its OWN inject/capture/guard hooks.
+ * We escape the `cmd.exe` dot and anchor each to the kit's own commands only —
+ * never a blanket `.*`.
+ */
+export function kiroCliAllowedCommands() {
+  // Regex, START-ANCHORED (`^`) to mirror the IDE side's prefix-from-start
+  // semantics (skill-review M2 — an unanchored `cmk hook .*` could match a
+  // command that merely CONTAINS the phrase mid-string). `.` in cmd.exe is
+  // escaped; `.*` matches the hook event / guard tail.
+  const base = IS_WINDOWS
+    ? ['^cmd\\.exe /c cmk hook .*', '^cmd\\.exe /c cmk-guard-memory']
+    : ['^cmk hook .*', '^cmk-guard-memory'];
+  return base;
+}

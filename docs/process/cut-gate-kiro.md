@@ -102,9 +102,9 @@ Get-ChildItem $env:USERPROFILE\.aws\amazonq\cli-agents\*.json -EA SilentlyContin
 
 ---
 
-## 1. Scaffold + read every file — all 6 Kiro surfaces
+## 1. Scaffold + read every file — all 7 Kiro surfaces
 
-Validates scaffold integrity + that all six Kiro surfaces land in the verified paths.
+Validates scaffold integrity + that all seven Kiro surfaces land in the verified paths.
 
 ```powershell
 mkdir C:\Temp\kiro-gate; cd C:\Temp\kiro-gate
@@ -115,9 +115,9 @@ cmk doctor
 
 - [ ] **★ KG1 — install prints the Kiro success summary.**
       The install ends with:
-      `cmk install: kiro-gate ready for Kiro — context/ scaffolded; mcp + steering + agents-md + skills + ide-hooks + cli-agent wired.`
+      `cmk install: kiro-gate ready for Kiro — context/ scaffolded; mcp + steering + agents-md + skills + ide-hooks + trusted-commands + cli-agent wired.`
       then `Restart Kiro to activate the hooks (steering + skills + MCP are immediate).`
-      **PASS:** the summary names **all six** surfaces (`mcp + steering + agents-md + skills + ide-hooks + cli-agent`) — `agents-md` is the managed `AGENTS.md` block (D-188; verified by KG10). _(If your real `~/.aws` has NO Kiro default agent, the CLI agent takes the default silently — no "Note: you already have a Kiro CLI default agent" line. If you DO already have a Kiro default, you'll see that note here instead — and that's the guarded path KG7 forces deterministically.)_
+      **PASS:** the summary names **all seven** surfaces (`mcp + steering + agents-md + skills + ide-hooks + trusted-commands + cli-agent`) — `agents-md` is the managed `AGENTS.md` block (D-188; KG10), `trusted-commands` is the `.vscode/settings.json` `kiroAgent.trustedCommands` that auto-approves the kit's hooks (D-194; KG11). _(If your real `~/.aws` has NO Kiro default agent, the CLI agent takes the default silently — no "Note: you already have a Kiro CLI default agent" line. If you DO already have a Kiro default, you'll see that note here instead — and that's the guarded path KG7 forces deterministically.)_
 
 - [ ] **★ KG1b — `cmk doctor` clean (agent-aware HC-1).** `cmk doctor` → **0 fail** on a fresh Kiro install (HC-1..HC-9).
       **HC-1 must read as a KIRO check, not a Claude one:** `[PASS] HC-1: ... Kiro capture/inject wired via IDE hooks (.kiro/hooks/) + CLI agent (~/.aws/amazonq/cli-agents/)`. **FAIL the gate** if HC-1 says `.claude/settings.json missing → cmk repair --hooks` — that's the pre-D-185 bug (doctor not agent-aware); you're on a stale binary, rebuild (§0b). _(D-185/D-186, found + fixed by this gate: HC-1 is a capability check — PASSes if the IDE hooks OR the CLI agent is present, so both a Kiro-IDE and a kiro-cli-only user read clean. The other memory-core checks are agent-agnostic.)_
@@ -210,6 +210,14 @@ cmk doctor
       ```
       **PASS:** `AGENTS.md` exists with the managed memory-awareness block; **no** `CLAUDE.md`, **no** `.claude/`. **FAIL** (the pre-D-188 leak): a dead `.claude/skills/` or a `CLAUDE.md` Kiro can't use, or a missing `AGENTS.md` (the CLI agent's `prompt` would point at nothing).
 
+- [ ] **★ KG11 — trusted-commands written, so the hooks auto-run instead of prompting (D-194).** Kiro gates a hook's shell command behind a **"Run / Reject"** prompt unless it's pre-trusted; the kit pre-trusts ONLY its own hook commands. Two surfaces:
+      ```powershell
+      type .vscode\settings.json    # IDE side: kiroAgent.trustedCommands
+      # CLI side: the agent-config's toolsSettings.shell.allowedCommands
+      (Get-Content $env:USERPROFILE\.aws\amazonq\cli-agents\q_cli_default.json -Raw | ConvertFrom-Json).toolsSettings.shell.allowedCommands
+      ```
+      **PASS:** `.vscode/settings.json` has `kiroAgent.trustedCommands` containing the kit's hook prefix (`cmd.exe /c cmk hook *` on Windows; `cmk hook *` on POSIX) **and** the guard (`…cmk-guard-memory*`); the CLI agent-config's `toolsSettings.shell.allowedCommands` carries the regex equivalents (`cmd\.exe /c cmk hook .*`, `…cmk-guard-memory`). **Neither is a blanket `*` / `.*`** (the kit trusts only its OWN commands — the docs warn wildcards over-trust). **FAIL:** the trust list is missing → the IDE hook will pop a Run/Reject prompt on every fire (KH-trust below confirms the live behavior). _(The live confirmation that the prompt is GONE is KH-trust in §2 — this check verifies the trust entries are on disk.)_
+
 Now **restart Kiro** (close + reopen the IDE; restart any kiro-cli session) so the hooks + MCP load, then `code .` (or open `C:\Temp\kiro-gate` in Kiro). The live checks (§2 onward) need the reloaded hooks.
 
 ---
@@ -218,7 +226,8 @@ Now **restart Kiro** (close + reopen the IDE; restart any kiro-cli session) so t
 
 Same build arc as the Claude-Code gate, run in **Kiro IDE**. Each stage pairs a **Build** prompt with a **Say it out loud** preference — a real opinion, never "remember this". End each turn normally (the `agentStop` IDE hook fires capture).
 
-**Stage 0 — baseline.** *Build:* "Create a minimal Python web chat UI: a FastAPI server with a WebSocket endpoint and a single static `index.html`. Plain HTML/JS, no framework. Put the server in `app.py`." → "yes, run it" if offered.
+**Stage 0 — baseline.** *Build:* "Create a minimal Python web chat UI: a FastAPI server with a WebSocket endpoint and a single static `index.html`. Plain HTML/JS, no framework. Put the server in `app.py`." 
+→ "yes, run it" if offered.
 
 **Stage 1 — refactor to layers.** *Build:* "Refactor this into a layered FastAPI project - `app/{api,services,repositories,schemas,core}/` and `app/main.py`. WebSocket route into `api/`, connection/broadcast logic into a service, Pydantic schemas. Keep it on port 8000." *Say:* "How I build backends: FastAPI is the delivery layer, not the brain. Routes stay thin and orchestrate; logic lives in services; data access in boring repositories; Pydantic schemas are the boundary contracts. I'd rather pay the structure cost now than fight it in six months."
 
@@ -227,6 +236,10 @@ Same build arc as the Claude-Code gate, run in **Kiro IDE**. Each stage pairs a 
 **Stage 3 — stream + async rule + the universal rule.** *Build:* "Stream Claude's output to the browser as it arrives - push JSON frames over the WebSocket; the client appends to the live bubble." *Say:* "Async all the way down — nothing blocking in the event loop." **Then state one cross-project rule:** "From now on, in every project I work on, always use `uv` for packages, never `pip`, and always run `ruff` before committing."
 
 **Watch while you build (the IDE-hook live gates — the heart of 50.M):**
+
+- [ ] **★ KH-trust — the IDE hooks fire WITHOUT a "Run / Reject" prompt (D-194, the live confirmation of KG11).**
+      On the FIRST build turn after the restart, watch the chat: the kit's `cmk-inject` / `cmk-capture` hook commands (`cmd.exe /c cmk hook …`) must run **silently** — NO "Hook Command … Run / Reject" approval prompt. This is the live proof that `kiroAgent.trustedCommands` (KG11) auto-approves them.
+      **PASS:** turns proceed and capture/inject fire (KH1/KH2) with **no per-turn Run/Reject prompt** for a `cmk hook` command. **FAIL:** Kiro pops "Hook Command … Run / Reject" for `cmd.exe /c cmk hook promptSubmit` (or `stop`) — the trust entry didn't take. _(If it fails: confirm KG11's `.vscode/settings.json` has the entry, and that you opened the SAME project folder — `trustedCommands` is workspace-scoped. A stale Kiro session from before the install won't have re-read settings; fully restart.)_
 
 - [ ] **★ KH1 — the IDE capture hook FIRES and captures a real turn (`agentStop`).**
       After a build turn ends in Kiro IDE, the `cmk-capture.kiro.hook` ran `cmk hook stop` automatically. Verify the turn was captured:
@@ -369,10 +382,11 @@ The `cmk` CLI is agent-agnostic — this sweep is identical to [`cut-gate.md`](c
       type .kiro\settings\mcp.json # our server key gone; a sibling user server (if any) preserved
       type .kiro\steering\cmk.md   # our marker block stripped; user content outside markers byte-preserved
       type AGENTS.md               # our managed block stripped; user AGENTS.md content (if any) byte-preserved
+      type .vscode\settings.json   # our kiroAgent.trustedCommands entries GONE; a user's own trusted commands + sibling settings preserved (D-194)
       dir $env:USERPROFILE\.aws\amazonq\cli-agents   # our q_cli_default.json / cmk.json GONE; any user-authored agent preserved
       "context/ preserved (expect True): $(Test-Path context\MEMORY.md)"
       ```
-      **PASS:** uninstall removes our IDE hooks + MCP key + steering block + AGENTS.md block + skills + CLI agent-config; leaves any user-authored sibling (a non-`managedBy:claude-memory-kit` agent, a sibling MCP server, user steering/AGENTS.md text) byte-untouched; AND **`context/` is preserved** (the shared brain is never deleted). **FAIL:** a user file was deleted, `context/` was touched, or a managed surface lingered.
+      **PASS:** uninstall removes our IDE hooks + MCP key + steering block + AGENTS.md block + skills + trusted-commands + CLI agent-config; leaves any user-authored sibling (a non-`managedBy:claude-memory-kit` agent, a sibling MCP server, user steering/AGENTS.md text, the user's OWN `.vscode` trusted commands + settings) byte-untouched; AND **`context/` is preserved** (the shared brain is never deleted). **FAIL:** a user file was deleted, `context/` was touched, or a managed surface lingered.
 
 - [ ] **★ KU2 — dual-agent coexistence (D-188).** A project can carry BOTH agents. In a throwaway project, install both and confirm neither clobbers the other; uninstall one and the other survives:
       ```powershell
@@ -402,7 +416,7 @@ Same as the Claude-Code gate — `context/` is committed and travels with `git c
 ## Verdict + the cut
 
 **Cut v0.4.0 if** every **★** passes —
-`KG1, KG1b, KG2, KG3, KG4, KG5, KG6, KG7, KG8, KG9, KG10, KH1, KH2, KH3, M0, M1, M2, KC1, KC2, KC3, KC4, KG-guard, E1, KU1, KU2, H1` (the Kiro surface + live gates) **and** the agent-agnostic standing gates from [`cut-gate.md`](cut-gate.md) (`B2, B9, B3, B4, C5, FQ1, F-3, F-11b` + the recall ladder where it overlaps).
+`KG1, KG1b, KG2, KG3, KG4, KG5, KG6, KG7, KG8, KG9, KG10, KG11, KH-trust, KH1, KH2, KH3, M0, M1, M2, KC1, KC2, KC3, KC4, KG-guard, E1, KU1, KU2, H1` (the Kiro surface + live gates) **and** the agent-agnostic standing gates from [`cut-gate.md`](cut-gate.md) (`B2, B9, B3, B4, C5, FQ1, F-3, F-11b` + the recall ladder where it overlaps).
 
 **The 50.M live-test is KH1/KH2 (IDE hooks FIRE) + KC1/KC2/KC3 (kiro-cli default-agent + hooks FIRE).** These are the checks unit tests structurally can't reach — "the hook is written correctly" (the suite proves that) ≠ "the hook fires and captures a real turn in a real Kiro session" (only this gate proves that). The D-182 8-point checklist maps to: default resolves w/o `--agent` (KC1), inject+capture FIRE not just register (KH1/KH2/KC2/KC3), non-clobber guard (KG7), MCP reachable (KG2/KC4/M0), timeout composition (KG5/KG6 carry the `timeout`/`timeout_ms` ceilings; KH3 proves a slow/failed hook exits 0).
 
