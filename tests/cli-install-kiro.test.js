@@ -149,5 +149,33 @@ describe('Task 50 — installKiro (all 4 surfaces)', () => {
       expect(existsSync(join(projectRoot, 'context', 'MEMORY.md'))).toBe(true);
       expect(readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8')).toMatch(/shared brain/);
     });
+
+    // D-191: a clean install → uninstall must NOT leave empty husk files (an
+    // empty AGENTS.md, a {} mcp.json, a frontmatter-only steering file). The
+    // kit created those files; if uninstall empties them, remove them — but ONLY
+    // when no user content remains (the preserve-user-content test above is the
+    // guard that this doesn't over-delete).
+    it('removes kit-CREATED files left empty by uninstall (no husks)', () => {
+      installKiro({ projectRoot, awsDir }); // a fresh install — all files are ours
+      uninstallKiro({ projectRoot, awsDir });
+      // none of these kit-only files should remain as empty husks
+      expect(existsSync(join(projectRoot, 'AGENTS.md'))).toBe(false);
+      expect(existsSync(p('steering', 'cmk.md'))).toBe(false);
+      expect(existsSync(p('settings', 'mcp.json'))).toBe(false);
+    });
+
+    it('a husk-emptied mcp.json with a sibling server is KEPT (not over-deleted)', () => {
+      mkdirSync(p('settings'), { recursive: true });
+      writeFileSync(
+        p('settings', 'mcp.json'),
+        JSON.stringify({ mcpServers: { theirs: { command: 'x' } } }, null, 2),
+        'utf8',
+      );
+      installKiro({ projectRoot, awsDir });
+      uninstallKiro({ projectRoot, awsDir });
+      // our key gone, but the file stays because a user server remains
+      expect(existsSync(p('settings', 'mcp.json'))).toBe(true);
+      expect(JSON.parse(readFileSync(p('settings', 'mcp.json'), 'utf8')).mcpServers.theirs).toEqual({ command: 'x' });
+    });
   });
 });

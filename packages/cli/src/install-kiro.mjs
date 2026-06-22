@@ -25,6 +25,7 @@
 //   (awsDir sandboxes the CLI-agent leg in tests; production → real ~/.aws.)
 
 import { join } from 'node:path';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { mutateAgentConfig } from './mutate-agent-config.mjs';
 import { installKiroSkills, uninstallKiroSkills } from './kiro-skills.mjs';
 import { installKiroIdeHooks, uninstallKiroIdeHooks } from './kiro-ide-hooks.mjs';
@@ -134,9 +135,17 @@ export function uninstallKiro({ projectRoot, awsDir } = {}) {
   if (removeManagedBlock(kiro(STEERING_PATH))) changed = true;
 
   // AGENTS.md: strip our marker block only (a user's own AGENTS.md content,
-  // outside our markers, is byte-preserved; an emptied file is left in place —
-  // same conservative discipline as steering).
+  // outside our markers, is byte-preserved).
   if (removeManagedBlock(join(projectRoot, AGENTS_MD_PATH))) changed = true;
+
+  // No husks (D-191): a file the kit created that uninstall just emptied —
+  // an empty AGENTS.md, a `{}` mcp.json, a frontmatter-only steering file —
+  // should be removed, not left as a confusing shell. removeIfHusk deletes
+  // ONLY when no user content remains (so the preserve-user-content + sibling-
+  // server cases above are untouched).
+  if (removeIfHusk(join(projectRoot, AGENTS_MD_PATH))) changed = true;
+  if (removeIfHusk(kiro(STEERING_PATH))) changed = true;
+  if (removeIfHusk(kiro(MCP_PATH))) changed = true;
 
   // skills + IDE hooks + CLI agent-config: remove our files only.
   if (uninstallKiroSkills({ projectRoot }).changed) changed = true;
@@ -144,4 +153,34 @@ export function uninstallKiro({ projectRoot, awsDir } = {}) {
   if (uninstallKiroCliAgent({ awsDir }).changed) changed = true;
 
   return { action: 'uninstalled', changed };
+}
+
+// Delete a file the kit created IFF uninstall left it with no real content —
+// i.e. it's now empty, an empty JSON object (`{}`), or only YAML frontmatter
+// (`---\n…\n---` with nothing after). Anything else (user prose, a sibling MCP
+// server, user frontmatter+body) means real content remains → keep the file.
+// Conservative by construction: a non-husk is never touched. Returns true if a
+// file was removed. (D-191 — no empty husks after a Kiro uninstall.)
+function removeIfHusk(path) {
+  if (!existsSync(path)) return false;
+  let raw;
+  try {
+    raw = readFileSync(path, 'utf8');
+  } catch {
+    return false;
+  }
+  const trimmed = raw.trim();
+  const isEmpty = trimmed === '';
+  const isEmptyJson = trimmed === '{}';
+  // only-frontmatter: starts with `---`, has a closing `---`, nothing meaningful after.
+  const fmMatch = /^---\r?\n[\s\S]*?\r?\n---\s*$/.test(trimmed);
+  if (isEmpty || isEmptyJson || fmMatch) {
+    try {
+      rmSync(path, { force: true });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
