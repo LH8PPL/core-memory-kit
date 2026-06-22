@@ -52,11 +52,26 @@ export function touchesMemory(cmd) {
   return typeof cmd === 'string' && MEMORY_TOKENS.some((re) => re.test(cmd));
 }
 
+// Commands that contain destructive verbs + memory tokens in their TEXT but
+// don't actually delete anything — a `git commit` whose MESSAGE describes a
+// delete (e.g. `git commit -m "remove rm from context/"`) must not be blocked.
+// (oh-my-kiro's block-dangerous.sh exempts `git commit` for the same reason.)
+const EXEMPT = [
+  /^\s*git\s+commit\b/i, // commit message prose, not an executable delete
+  /^\s*git\s+log\b/i,
+  /^\s*echo\b/i, // echoing text about a delete
+  /^\s*(grep|rg|cat|less|sed -n|awk)\b/i, // reading/searching text that mentions a delete
+];
+
 /**
  * The pure decision. Returns { block: boolean, reason?: string }.
- * Blocks only when the command is BOTH destructive AND aimed at a memory path.
+ * Blocks only when the command is BOTH destructive AND aimed at a memory path,
+ * and is not an EXEMPT command (commit/echo/grep that merely MENTIONS a delete).
  */
 export function decideGuard(cmd) {
+  if (typeof cmd === 'string' && EXEMPT.some((re) => re.test(cmd))) {
+    return { block: false };
+  }
   if (isDestructive(cmd) && touchesMemory(cmd)) {
     return {
       block: true,

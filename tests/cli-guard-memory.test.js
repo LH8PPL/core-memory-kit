@@ -55,6 +55,13 @@ describe('guard-memory — ALLOW (no false positives)', () => {
     'git status',
     'npm test',
     'node scripts/validate-references.mjs',
+    // EXEMPT: destructive verbs + memory tokens appear in the TEXT but nothing
+    // is deleted (a commit message / echo / grep ABOUT a delete). The local
+    // guardrail blocked its own feature commit on this — the false-positive fix.
+    'git commit -m "remove rm from context/sessions cleanup"',
+    'git log --oneline context/MEMORY.md',
+    "echo 'we ran rm -rf context/memory by accident'",
+    'grep -rn "rm -rf context" docs/',
   ];
   for (const cmd of allowed) {
     it(`allows: ${cmd}`, () => {
