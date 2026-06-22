@@ -218,13 +218,13 @@ Now **restart Kiro** (close + reopen the IDE; restart any kiro-cli session) so t
 
 Same build arc as the Claude-Code gate, run in **Kiro IDE**. Each stage pairs a **Build** prompt with a **Say it out loud** preference — a real opinion, never "remember this". End each turn normally (the `agentStop` IDE hook fires capture).
 
-**Stage 0 — baseline.** *Build:* "Create a minimal Python web chat UI: a FastAPI server with a WebSocket endpoint and a single static `index.html`. Plain HTML/JS, no framework. Put the server in `app.py`." → run it if offered.
+**Stage 0 — baseline.** *Build:* "Create a minimal Python web chat UI: a FastAPI server with a WebSocket endpoint and a single static `index.html`. Plain HTML/JS, no framework. Put the server in `app.py`." → "yes, run it" if offered.
 
-**Stage 1 — refactor to layers.** *Build:* "Refactor into a layered FastAPI project — `app/{api,services,repositories,schemas,core}/` and `app/main.py`. WebSocket route into `api/`, broadcast logic into a service, Pydantic schemas. Keep port 8000." *Say:* "How I build backends: FastAPI is the delivery layer, not the brain. Routes stay thin and orchestrate; logic lives in services; data access in boring repositories; Pydantic schemas are the boundary contracts."
+**Stage 1 — refactor to layers.** *Build:* "Refactor this into a layered FastAPI project - `app/{api,services,repositories,schemas,core}/` and `app/main.py`. WebSocket route into `api/`, connection/broadcast logic into a service, Pydantic schemas. Keep it on port 8000." *Say:* "How I build backends: FastAPI is the delivery layer, not the brain. Routes stay thin and orchestrate; logic lives in services; data access in boring repositories; Pydantic schemas are the boundary contracts. I'd rather pay the structure cost now than fight it in six months."
 
-**Stage 2 — swap to Claude + typing/TDD rule.** *Build:* "Change it to a single-user chat with Claude via the Claude Agent SDK — a `ClaudeAgentService` wrapping `ClaudeSDKClient`, each WebSocket connection its own session." *Say:* "Type hints on every signature — Python 3.12+. Comments explain why, not what. And tests first: boundary test, watch it fail, then implement."
+**Stage 2 — swap to Claude + typing/TDD rule.** *Build:* "Change it to a single-user chat with Claude via the Claude Agent SDK (`claude-agent-sdk`) - a `ClaudeAgentService` wrapping `ClaudeSDKClient`, each WebSocket connection its own session." *Say:* "Type hints on every signature - Python 3.12+. Comments explain why, not what. And tests first: boundary test, watch it fail, then implement."
 
-**Stage 3 — stream + async rule + the universal rule.** *Build:* "Stream Claude's output to the browser as it arrives — push JSON frames over the WebSocket." *Say:* "Async all the way down — nothing blocking in the event loop." **Then one cross-project rule:** "From now on, in every project I work on, always use `uv` for packages, never `pip`, and always run `ruff` before committing."
+**Stage 3 — stream + async rule + the universal rule.** *Build:* "Stream Claude's output to the browser as it arrives - push JSON frames over the WebSocket; the client appends to the live bubble." *Say:* "Async all the way down — nothing blocking in the event loop." **Then state one cross-project rule:** "From now on, in every project I work on, always use `uv` for packages, never `pip`, and always run `ruff` before committing."
 
 **Watch while you build (the IDE-hook live gates — the heart of 50.M):**
 
