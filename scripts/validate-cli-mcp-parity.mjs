@@ -116,20 +116,47 @@ export function parseMcpTools(src) {
   return new Set([...src.matchAll(/registerTool\(\s*['"]([a-z_]+)['"]/g)].map((m) => m[1]));
 }
 
+/**
+ * Every MCP tool must be in the Kiro `autoApprove` list (D-196), both
+ * directions — so a NEW tool can't silently ship un-auto-approved (it would
+ * prompt Reject/Trust/Run in a Kiro chat, re-introducing the bug for that one
+ * tool), and a removed tool can't leave a stale autoApprove entry. (skill-review
+ * I1 — the explicit-list drift guard.)
+ */
+export function checkAutoApprove({ mcpTools, autoApprove }) {
+  const errors = [];
+  const approved = new Set(autoApprove);
+  for (const t of mcpTools) {
+    if (!approved.has(t)) {
+      errors.push(`MCP tool '${t}' is registered but NOT in MCP_AUTO_APPROVE (install-kiro.mjs) — it would prompt Reject/Trust/Run in Kiro (D-196)`);
+    }
+  }
+  for (const t of approved) {
+    if (!mcpTools.has(t)) {
+      errors.push(`MCP_AUTO_APPROVE lists '${t}' but no such MCP tool is registered (stale entry) — remove it from install-kiro.mjs`);
+    }
+  }
+  return errors;
+}
+
 async function runCli() {
   const { subcommands } = await import('../packages/cli/src/subcommands.mjs');
+  const { MCP_AUTO_APPROVE } = await import('../packages/cli/src/install-kiro.mjs');
   const cliVerbs = new Set(subcommands.map((s) => s.name));
   const mcpTools = parseMcpTools(
     readFileSync(join(REPO, 'packages/cli/src/mcp-server.mjs'), 'utf8'),
   );
-  const errors = checkParity({ cliVerbs, mcpTools });
+  const errors = [
+    ...checkParity({ cliVerbs, mcpTools }),
+    ...checkAutoApprove({ mcpTools, autoApprove: MCP_AUTO_APPROVE }),
+  ];
   if (errors.length > 0) {
     console.error('validate-cli-mcp-parity: FAIL');
     for (const e of errors) console.error('  - ' + e);
     process.exit(1);
   }
   console.log(
-    `validate-cli-mcp-parity: OK — ${Object.keys(PARITY_MAP).length} parity ops, ${mcpTools.size} MCP tools, ${cliVerbs.size} CLI verbs (all classified)`,
+    `validate-cli-mcp-parity: OK — ${Object.keys(PARITY_MAP).length} parity ops, ${mcpTools.size} MCP tools (all auto-approved for Kiro), ${cliVerbs.size} CLI verbs (all classified)`,
   );
 }
 

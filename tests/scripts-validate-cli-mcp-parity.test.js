@@ -15,11 +15,13 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   checkParity,
+  checkAutoApprove,
   parseMcpTools,
   PARITY_MAP,
   CLI_ONLY,
 } from '../scripts/validate-cli-mcp-parity.mjs';
 import { subcommands } from '../packages/cli/src/subcommands.mjs';
+import { MCP_AUTO_APPROVE } from '../packages/cli/src/install-kiro.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -77,5 +79,33 @@ describe('the live repo is in CLI↔MCP parity', () => {
     );
     const errors = checkParity({ cliVerbs, mcpTools, parityMap: PARITY_MAP, cliOnly: CLI_ONLY });
     expect(errors).toEqual([]);
+  });
+});
+
+describe('checkAutoApprove — every MCP tool is Kiro-auto-approved (D-196)', () => {
+  it('the REAL MCP tools all appear in MCP_AUTO_APPROVE (no drift)', () => {
+    const mcpTools = parseMcpTools(
+      readFileSync(join(REPO, 'packages/cli/src/mcp-server.mjs'), 'utf8'),
+    );
+    const errors = checkAutoApprove({ mcpTools, autoApprove: MCP_AUTO_APPROVE });
+    expect(errors).toEqual([]);
+  });
+
+  it('CATCHES a registered tool missing from the auto-approve list', () => {
+    const errors = checkAutoApprove({
+      mcpTools: new Set(['mk_remember', 'mk_newtool']),
+      autoApprove: ['mk_remember'],
+    });
+    expect(errors.length).toBe(1);
+    expect(errors[0]).toMatch(/mk_newtool.*NOT in MCP_AUTO_APPROVE/);
+  });
+
+  it('CATCHES a stale auto-approve entry with no registered tool', () => {
+    const errors = checkAutoApprove({
+      mcpTools: new Set(['mk_remember']),
+      autoApprove: ['mk_remember', 'mk_gone'],
+    });
+    expect(errors.length).toBe(1);
+    expect(errors[0]).toMatch(/mk_gone.*no such MCP tool/);
   });
 });

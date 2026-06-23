@@ -41,7 +41,33 @@ import {
 const MCP_PATH = ['settings', 'mcp.json'];
 const MCP_SERVERS_KEY = 'mcpServers';
 const MCP_SERVER_NAME = 'claude-memory-kit';
-const MCP_ENTRY = Object.freeze({ type: 'stdio', command: 'cmk', args: ['mcp', 'serve'] });
+// autoApprove pre-approves the kit's MCP tools so Kiro runs them WITHOUT a
+// per-call "Reject / Trust / Run" prompt (found live in cut-gate-kiro Session 1:
+// Kiro gates MCP TOOL calls separately from the shell-command hooks D-194 wired,
+// so mk_remember etc. prompted every time). Verified shape from kiro.dev/docs/mcp:
+// an `autoApprove` array of bare tool names INSIDE the server entry. Explicit
+// list of the 11 kit tools — scoped to OUR tools, never a `"*"` wildcard (which
+// would auto-approve any tool the server ever adds). mk_forget is safe to
+// auto-approve the CALL: it has its own two-step confirm-token before deleting.
+export const MCP_AUTO_APPROVE = Object.freeze([
+  'mk_remember',
+  'mk_search',
+  'mk_get',
+  'mk_timeline',
+  'mk_cite',
+  'mk_recent_activity',
+  'mk_trust',
+  'mk_lessons_promote',
+  'mk_forget',
+  'mk_queue_list',
+  'mk_queue_resolve',
+]);
+const MCP_ENTRY = Object.freeze({
+  type: 'stdio',
+  command: 'cmk',
+  args: ['mcp', 'serve'],
+  autoApprove: MCP_AUTO_APPROVE,
+});
 
 const STEERING_PATH = ['steering', 'cmk.md'];
 const STEERING_FRONTMATTER = '---\ninclusion: always\n---\n\n';

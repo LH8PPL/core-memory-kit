@@ -66,6 +66,12 @@ function buildAgentConfig(name, mcpEntry) {
     mcpServers: { cmk: mcpEntry },
     resources: ['file://.kiro/steering/cmk.md', 'file://AGENTS.md'],
     useLegacyMcpJson: false,
+    // Pre-approve the kit's MCP tools so the agent calls mk_remember etc. WITHOUT
+    // a per-call "Reject / Trust / Run" prompt. The CLI agent-config uses
+    // `allowedTools` at the agent top level (NOT the IDE's mcp.json `autoApprove`)
+    // with the `@server/tool` format (kiro.dev/docs/cli/custom-agents). `@cmk`
+    // allows all of the kit's own MCP server's tools — scoped to OUR server.
+    allowedTools: ['@cmk'],
     // Pre-trust the kit's OWN hook commands so the default agent runs its
     // inject/capture/guard hooks WITHOUT a per-command approval prompt (D-194).
     // toolsSettings.shell.allowedCommands is the CLI-side trust list (regex per

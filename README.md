@@ -118,13 +118,14 @@ What `--ide kiro` writes:
 
 | Surface | Location | For |
 | --- | --- | --- |
-| **MCP server** | `.kiro/settings/mcp.json` | both — Kiro drives memory as tools |
+| **MCP server** | `.kiro/settings/mcp.json` (with `autoApprove`) | both — Kiro drives memory as tools, pre-approved so `mk_remember` etc. run prompt-free |
 | **Steering** | `.kiro/steering/cmk.md` (`inclusion: always`) | both — memory-awareness in context |
 | **AGENTS.md** | `<repo>/AGENTS.md` | both — Kiro's always-loaded instruction file |
 | **Skills** | `.kiro/skills/memory-search` + `memory-write` | both |
 | **IDE hooks** | `.kiro/hooks/cmk-{capture,inject}.kiro.hook` | the **GUI** — capture each turn + recall |
 | **CLI agent** | `~/.aws/amazonq/cli-agents/q_cli_default.json` | **`kiro-cli`** — same capture/inject hooks |
 | **Trusted commands** | `.vscode/settings.json` (`kiroAgent.trustedCommands`) + the CLI agent's `allowedCommands` | both — auto-approve the kit's hooks (no per-turn "Run / Reject") |
+| **Auto-approved MCP tools** | `autoApprove` in `mcp.json` (IDE) + `allowedTools: ["@cmk"]` (CLI agent) | both — the kit's 11 memory tools run without a per-call "Reject / Trust / Run" |
 
 Notes:
 
