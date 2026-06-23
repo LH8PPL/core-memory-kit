@@ -27,6 +27,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import yaml from 'js-yaml';
 
 // Root defaults to the repo this script lives in; an explicit argv[2] lets the
 // test suite point it at a fixture tree (the "gate actually bites" negative path).
@@ -38,15 +39,25 @@ const pluginDir = join(repoRoot, 'plugin', 'skills');
 
 const errors = [];
 
+// STRICT-parse the frontmatter YAML — the same thing Kiro does (and Claude Code
+// does NOT, which is why an invalid-YAML description shipped latent until the
+// cut-gate-kiro live test rejected it). A naive line-split parser hides the bug:
+// a description with an unquoted `: ` (colon-space) is INVALID YAML — a strict
+// parser reads a new mapping key ("mapping values are not allowed here") and
+// rejects the whole frontmatter. Returns { data } on success or { yamlError } on
+// a genuine parse failure, so the caller can fail the gate with the YAML reason.
 function frontmatter(text) {
-  const m = text.match(/^---\n([\s\S]*?)\n---/);
-  if (!m) return {};
-  const out = {};
-  for (const line of m[1].split('\n')) {
-    const kv = line.match(/^([a-zA-Z0-9_-]+):\s?(.*)$/);
-    if (kv) out[kv[1]] = kv[2];
+  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!m) return { data: {} };
+  try {
+    const data = yaml.load(m[1]);
+    if (data === null || typeof data !== 'object' || Array.isArray(data)) {
+      return { yamlError: 'frontmatter is not a YAML mapping' };
+    }
+    return { data };
+  } catch (err) {
+    return { yamlError: err.message.split('\n')[0] };
   }
-  return out;
 }
 
 if (!existsSync(canonicalDir)) {
@@ -62,8 +73,18 @@ for (const name of skills) {
   const canonicalPath = join(canonicalDir, name, 'SKILL.md');
   if (!existsSync(canonicalPath)) continue;
   const text = readFileSync(canonicalPath, 'utf8');
-  const fm = frontmatter(text);
+  const parsed = frontmatter(text);
   const where = `template/.claude/skills/${name}/SKILL.md`;
+
+  // --- strict YAML (the Kiro-reject class) ---
+  // If the frontmatter isn't valid YAML, Kiro rejects the skill outright
+  // ("Invalid SKILL.md frontmatter"). Fail here, name the YAML reason, and skip
+  // the field checks (they'd be meaningless on unparseable frontmatter).
+  if (parsed.yamlError) {
+    errors.push(`${where}: invalid YAML frontmatter — Kiro will reject this skill (${parsed.yamlError})`);
+    continue;
+  }
+  const fm = parsed.data;
 
   // --- safety contract ---
   if (!fm.name) errors.push(`${where}: frontmatter missing \`name\``);

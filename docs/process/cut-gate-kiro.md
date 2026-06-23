@@ -134,12 +134,13 @@ cmk doctor
       ```
       **PASS:** `.kiro/steering/cmk.md` exists, carries `inclusion: always`, and its body tells Kiro to recall via `cmk search` before re-deriving. The kit content sits inside `cmk:start`/`:end` markers (byte-preserve on uninstall).
 
-- [ ] **★ KG4 — skills surface (shared IDE+CLI), ported + Kiro-safe.**
+- [ ] **★ KG4 — skills surface (shared IDE+CLI), ported + Kiro-safe + VALID YAML.**
       ```powershell
       type .kiro\skills\memory-search\SKILL.md
       type .kiro\skills\memory-write\SKILL.md
       ```
-      **PASS:** both `SKILL.md` files exist under `.kiro/skills/<name>/`, AND the **Claude-Code-only frontmatter keys are dropped** — `context:` and `allowed-tools:` must NOT appear (Kiro's skill frontmatter doesn't use them). The body (the recall / capture procedure) is intact.
+      The frontmatter must be **valid YAML** — this is structurally enforced pre-ship by `validate-skill-sources.mjs` (strict js-yaml parse, in `npm test`), so a shipped artifact can't carry an invalid one. The live signal is Kiro itself: if a `description` had a YAML-breaking char, Kiro pops *"Invalid SKILL.md frontmatter"* on project load (the D-195 cut-blocker).
+      **PASS:** both `SKILL.md` files exist under `.kiro/skills/<name>/`, the **Claude-Code-only frontmatter keys are dropped** (`context:` / `allowed-tools:` must NOT appear), the body is intact, **AND both frontmatters STRICT-PARSE as valid YAML** (D-195). **FAIL** (the D-195 cut-blocker): Kiro pops *"Invalid SKILL.md frontmatter"* on project load — caused by an unquoted `: ` (colon-space) or other YAML-breaking char in the `description` (Claude Code reads leniently and never surfaces it; Kiro strict-parses). The fix is a `description: >-` block scalar in the canonical `template/.claude/skills/<name>/SKILL.md`; `validate-skill-sources.mjs` now strict-parses to catch it pre-ship.
 
 - [ ] **★ KG5 — IDE hooks surface (the GUI client).**
       ```powershell

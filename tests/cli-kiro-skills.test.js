@@ -23,6 +23,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import yaml from 'js-yaml';
 import { installKiroSkills, uninstallKiroSkills } from '../packages/cli/src/kiro-skills.mjs';
 
 let sandbox;
@@ -67,6 +68,25 @@ describe('Task 50.I — Kiro skills leg', () => {
       expect(body).not.toMatch(/^allowed-tools:/m);
       // the skill BODY (instructions) is preserved
       expect(body).toMatch(/Poison_Guard|cmk remember|durable fact/i);
+    });
+
+    it('the translated frontmatter is VALID YAML — Kiro strict-parses it and rejects invalid (the cut-gate-kiro 7th cut-blocker)', () => {
+      // Kiro validates SKILL.md frontmatter with a strict YAML parser; an invalid
+      // description (e.g. an unquoted `: ` colon-space) makes it reject the skill
+      // ("Invalid SKILL.md frontmatter"). Claude Code reads leniently and never
+      // surfaced it. So assert the TRANSLATED output (what Kiro consumes) parses.
+      installKiroSkills({ projectRoot });
+      for (const name of ['memory-search', 'memory-write']) {
+        const text = readFileSync(join(projectRoot, '.kiro', 'skills', name, 'SKILL.md'), 'utf8');
+        const fm = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+        expect(fm, `${name}: has frontmatter`).not.toBeNull();
+        // strict-parse — throws on the colon-space class Kiro rejects
+        const parsed = yaml.load(fm[1]);
+        expect(parsed, `${name}: frontmatter is a mapping`).toBeTypeOf('object');
+        expect(parsed.name).toBe(name);
+        expect(typeof parsed.description).toBe('string');
+        expect(parsed.description.length).toBeGreaterThan(0);
+      }
     });
 
     it('is idempotent — a second install reports no change', () => {

@@ -1,6 +1,18 @@
 ---
 name: memory-write
-description: Captures a durable fact to project memory through the kit's safe write path (Poison_Guard secret/injection screening + home-path sanitization + dedup + conflict detection) — preferring the cmk MCP tools (mk_remember / mk_forget / mk_trust) when connected, falling back to the cmk CLI. Use when the user says "remember this", "note this", "save this", "from now on", "going forward", "I prefer", "I don't like", "we decided", "we agreed", or otherwise states a durable preference, decision, or environment fact worth carrying across sessions. Also covers correcting a saved fact ("update memory: X is now Y"), removing one ("forget about X"), and adjusting how much a saved fact is trusted ("trust this", "that's important — keep it", "that's not important / I'm not sure about that / low priority"). Skip throwaway chatter and facts that only matter to the current task.
+description: >-
+  Captures a durable fact to project memory through the kit's safe write path
+  (Poison_Guard secret/injection screening + home-path sanitization + dedup +
+  conflict detection) — preferring the cmk MCP tools (mk_remember / mk_forget /
+  mk_trust) when connected, falling back to the cmk CLI. Use when the user says
+  "remember this", "note this", "save this", "from now on", "going forward",
+  "I prefer", "I don't like", "we decided", "we agreed", or otherwise states a
+  durable preference, decision, or environment fact worth carrying across
+  sessions. Also covers correcting a saved fact ("update memory: X is now Y"),
+  removing one ("forget about X"), and adjusting how much a saved fact is trusted
+  ("trust this", "that's important — keep it", "that's not important / I'm not
+  sure about that / low priority"). Skip throwaway chatter and facts that only
+  matter to the current task.
 allowed-tools: mcp__cmk__mk_remember mcp__cmk__mk_forget mcp__cmk__mk_trust Bash(cmk remember *) Bash(cmk forget *) Bash(cmk trust *) Read
 ---
 
