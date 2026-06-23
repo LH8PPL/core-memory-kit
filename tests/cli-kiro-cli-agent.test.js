@@ -47,6 +47,14 @@ describe('Task 50.L — Kiro CLI agent-config + default-agent', () => {
       expect(agent.hooks.agentSpawn[0].command).toMatch(/cmk hook agentSpawn/);
       expect(agent.hooks.stop[0].command).toMatch(/cmk hook stop/);
       expect(typeof agent.hooks.stop[0].timeout_ms).toBe('number'); // NOT `timeout`
+      // preToolUse delete-guardrail matcher MUST be a LITERAL kiro-cli matcher,
+      // NOT a pipe-alternation. kiro-cli matchers are literal strings (no regex/
+      // glob) — the old 'execute_bash|executeBash|shell' matched a tool literally
+      // named that (= nothing) so the guard never fired and a Remove-Item deleted
+      // memory unblocked (the KG-guard live failure). '*' matches all tools.
+      expect(agent.hooks.preToolUse[0].matcher).toBe('*');
+      expect(agent.hooks.preToolUse[0].matcher).not.toContain('|'); // never a pipe-alternation
+      expect(agent.hooks.preToolUse[0].command).toMatch(/cmk-guard-memory/);
       // carries MCP + the instruction prompt
       expect(agent.mcpServers).toBeDefined();
       expect(agent.prompt).toMatch(/AGENTS\.md/);

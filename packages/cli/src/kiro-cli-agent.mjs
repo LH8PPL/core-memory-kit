@@ -96,12 +96,16 @@ function buildAgentConfig(name, mcpEntry) {
     // bin directly (NOT `cmk hook`): Kiro's preToolUse delivers the SAME stdin
     // JSON `{tool_name, tool_input.command}` as Claude Code (verified from the
     // real oh-my-kiro + vibekit preToolUse hooks), so one bin guards both agents.
-    // `matcher` is a glob alternation over the shell-tool names — `execute_bash`
-    // is the verified name (oh-my-kiro's guards), with `executeBash`/`shell`
-    // aliases so a tool-name variant can't slip a delete past the matcher (I3).
-    // A non-zero exit BLOCKS the tool. ⚠️ Whether Kiro's matcher supports the
-    // `|` alternation is flagged for the cut-gate-kiro live test (KG-guard).
-    preToolUse: [{ command: kiroGuardCommand(), timeout_ms: 5000, matcher: 'execute_bash|executeBash|shell' }],
+    // `matcher: '*'` — match ALL tools. The kiro-cli `matcher` is a LITERAL
+    // string, NOT a regex/glob: pipe alternation is NOT supported (kiro.dev/docs/
+    // cli/hooks). The old `'execute_bash|executeBash|shell'` matched a tool
+    // literally named that — i.e. NOTHING — so the hook never fired and a
+    // `Remove-Item -Recurse -Force context/sessions` deleted memory unblocked
+    // (the D-193 I3 risk, caught live by the cut-gate-kiro KG-guard). `'*'` is
+    // safe + future-proof: `decideGuard` already filters to destructive+memory
+    // commands regardless of tool name, so matching all tools costs nothing and
+    // catches every shell-tool variant. A non-zero exit (2) BLOCKS the tool.
+    preToolUse: [{ command: kiroGuardCommand(), timeout_ms: 5000, matcher: '*' }],
   };
   return cfg;
 }
