@@ -31,7 +31,7 @@ jobs:
     name: SonarQube Cloud
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # full history for accurate blame / new-code detection
       - uses: actions/setup-node@v6
