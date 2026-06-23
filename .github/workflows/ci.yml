@@ -18,6 +18,25 @@ permissions:
   contents: read
 
 jobs:
+  lint:
+    # The kit's 20 structural validators (npm run lint) — run as a SEPARATE,
+    # named, fast-failing check so a lint error (e.g. an invalid SKILL.md YAML
+    # frontmatter — the D-195 Kiro-reject class) surfaces in the PR UI in
+    # seconds, not buried inside the slow "Full test suite" run. `npm test`
+    # still runs these too (test = `npm run lint && vitest run`), so this is an
+    # early gate, not a duplicate source of truth — the validator chain lives in
+    # ONE place (the `lint` script). No HF model cache needed: validators don't
+    # touch the semantic backend.
+    name: Lint (structural validators)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+
   test:
     name: Full test suite (ubuntu)
     runs-on: ubuntu-latest
