@@ -33,6 +33,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse as parseFrontmatter } from './frontmatter.mjs';
 import { ID_PATTERN } from './tier-paths.mjs';
+import { trimTrailingNewlines } from './managed-block.mjs';
 
 export const DECISIONS_HEADER =
   '# Decisions\n\n' +
@@ -153,6 +154,63 @@ export function updateDecisionsJournal({ existingContent = '', facts = [], tombs
 
   if (!content.endsWith('\n')) content += '\n';
   return content;
+}
+
+/**
+ * Migrate an OLD-format journal (pre-Task-164.1: `### title` headings with no
+ * blank lines around them) to the lint-clean shape buildDecisionEntry now emits
+ * (`## title` with a blank line above + below). Append-only-safe: every entry +
+ * its content is preserved; only the heading level + surrounding blank lines
+ * change. Idempotent (already-clean content returns unchanged) and CRLF-tolerant
+ * (re-emits `\n`). Line-based (no backtracking regex — the ReDoS-safe discipline).
+ *
+ * The retraction tag (`_(retracted …)_`) sits on the line directly under the
+ * heading; it stays there (the blank-below goes AFTER the tag, matching the
+ * updateDecisionsJournal inserter).
+ *
+ * @param {string} content the DECISIONS.md content
+ * @returns {string} the normalized content (idempotent)
+ */
+export function normalizeDecisionsJournal(content) {
+  if (typeof content !== 'string' || content === '') return content;
+  const lines = content.split(/\r?\n/);
+  const out = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    // A decision entry begins with the machine marker. Normalize the heading
+    // that follows it (skipping any blank lines already present).
+    if (/^<!-- decision:/.test(line)) {
+      out.push(line);
+      // ensure exactly one blank line after the marker
+      let j = i + 1;
+      while (j < lines.length && lines[j].trim() === '') j += 1; // skip existing blanks
+      out.push('');
+      // the heading line (### or ## title) — demote ### -> ##
+      if (j < lines.length && /^#{2,3}\s/.test(lines[j])) {
+        const headingText = lines[j].replace(/^#{2,3}\s+/, '');
+        out.push(`## ${headingText}`);
+        let k = j + 1;
+        // an optional retraction tag stays directly under the heading
+        if (k < lines.length && lines[k].trim().startsWith('_(retracted')) {
+          out.push(lines[k]);
+          k += 1;
+        }
+        // ensure exactly one blank line below the heading (or heading+tag)
+        while (k < lines.length && lines[k].trim() === '') k += 1; // collapse existing blanks
+        out.push('');
+        i = k - 1; // continue after the blank we just normalized
+      } else {
+        // malformed entry (marker with no heading) — leave the rest as-is
+        i = j - 1;
+      }
+      continue;
+    }
+    out.push(line);
+  }
+  // collapse any accidental >1 trailing blank, keep a single trailing newline
+  let result = out.join('\n');
+  result = trimTrailingNewlines(result) + '\n';
+  return result;
 }
 
 // --- File-IO orchestration (the impure shell over the pure core) ----------

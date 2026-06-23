@@ -16,8 +16,11 @@
 // Per design §14 + tasks.md 39 (39.1–39.3).
 
 import {
+  existsSync,
+  readFileSync,
   statSync,
   unlinkSync,
+  writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
 import {
@@ -205,6 +208,34 @@ async function repairIndex({ projectRoot, userDir, reindexer }) {
 }
 
 /**
+ * Migrate committed memory markdown to the lint-clean shape (Task 164.9) — so a
+ * repo installed before the lint-clean generators (164.1–164.7) brings its
+ * existing memory up to the clean format a default markdownlint passes. Today
+ * this normalizes `context/DECISIONS.md` (old `### ` entries → `## ` +
+ * blank-surrounded). Idempotent + CRLF-tolerant: a no-op on already-clean
+ * content (changed:false), so it's safe to run repeatedly. ONLY rewrites a file
+ * whose normalized form actually differs — never a gratuitous write.
+ */
+async function repairMemoryFormat({ projectRoot }) {
+  const { normalizeDecisionsJournal } = await import('./decisions-journal.mjs');
+  const decisionsPath = join(projectRoot, 'context', 'DECISIONS.md');
+  if (!existsSync(decisionsPath)) {
+    return { kind: 'format', changed: false, detail: 'no DECISIONS.md' };
+  }
+  try {
+    const before = readFileSync(decisionsPath, 'utf8');
+    const after = normalizeDecisionsJournal(before);
+    if (after === before) {
+      return { kind: 'format', changed: false, detail: 'DECISIONS.md already lint-clean' };
+    }
+    writeFileSync(decisionsPath, after, 'utf8');
+    return { kind: 'format', changed: true, detail: 'DECISIONS.md migrated to lint-clean headings' };
+  } catch (err) {
+    return { kind: 'format', changed: false, error: `format migration failed: ${err?.message ?? err}` };
+  }
+}
+
+/**
  * Public boundary: run the repair pipeline.
  *
  * @returns {Promise<object>}
@@ -226,15 +257,15 @@ export async function runRepair({
       duration_ms: Date.now() - t0,
     });
   }
-  if (!['hooks', 'locks', 'index', 'all'].includes(scope)) {
+  if (!['hooks', 'locks', 'index', 'format', 'all'].includes(scope)) {
     return errorResult({
       category: ERROR_CATEGORIES.SCHEMA,
-      errors: [`invalid scope: ${scope}; expected 'hooks' | 'locks' | 'index' | 'all'`],
+      errors: [`invalid scope: ${scope}; expected 'hooks' | 'locks' | 'index' | 'format' | 'all'`],
       duration_ms: Date.now() - t0,
     });
   }
 
-  const scopes = scope === 'all' ? ['hooks', 'locks', 'index'] : [scope];
+  const scopes = scope === 'all' ? ['hooks', 'locks', 'index', 'format'] : [scope];
   const repairs = [];
   let errors = 0;
   for (const s of scopes) {
@@ -249,6 +280,11 @@ export async function runRepair({
     } else if (s === 'index') {
       // eslint-disable-next-line no-await-in-loop
       const r = await repairIndex({ projectRoot, userDir, reindexer });
+      if (r.error) errors += 1;
+      repairs.push(r);
+    } else if (s === 'format') {
+      // eslint-disable-next-line no-await-in-loop
+      const r = await repairMemoryFormat({ projectRoot });
       if (r.error) errors += 1;
       repairs.push(r);
     }

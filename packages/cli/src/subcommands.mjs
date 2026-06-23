@@ -1626,12 +1626,16 @@ export function runConfigCli(options /* , command */) {
 async function runRepairCli(options /* , command */) {
   const projectRoot = resolvePath(process.cwd());
   const userDir = join(homedir(), '.claude-memory-kit');
-  // Scope flags: --hooks / --locks / --index → run that one only.
-  // --all OR no flag → run all three.
+  // Scope flags: --hooks / --locks / --index / --format → run that one only.
+  // --all OR no flag → run all of them.
+  const only = (flag) =>
+    options?.[flag] &&
+    !['hooks', 'locks', 'index', 'format'].filter((f) => f !== flag).some((f) => options?.[f]);
   let scope;
-  if (options?.hooks && !options?.locks && !options?.index) scope = 'hooks';
-  else if (options?.locks && !options?.hooks && !options?.index) scope = 'locks';
-  else if (options?.index && !options?.hooks && !options?.locks) scope = 'index';
+  if (only('hooks')) scope = 'hooks';
+  else if (only('locks')) scope = 'locks';
+  else if (only('index')) scope = 'index';
+  else if (only('format')) scope = 'format';
   else scope = 'all';
 
   try {
@@ -2449,13 +2453,14 @@ export const subcommands = [
   },
   {
     name: 'repair',
-    description: 'idempotent self-repair — re-register hooks, reset stale locks, rebuild index',
+    description: 'idempotent self-repair — re-register hooks, reset stale locks, rebuild index, lint-clean memory',
     milestone: 39,
     optionSpec: [
       { flags: '--hooks', description: 're-register hooks from template (merges kit hooks into .claude/settings.json)' },
       { flags: '--locks', description: 'clear stale locks (>1h old by default)' },
       { flags: '--index', description: 'invoke `cmk reindex --full`' },
-      { flags: '--all', description: 'run all three repairs in order (default if no scope flag given)' },
+      { flags: '--format', description: 'migrate committed memory markdown to the lint-clean format (DECISIONS.md headings)' },
+      { flags: '--all', description: 'run all repairs in order (default if no scope flag given)' },
     ],
     action: runRepairCli,
   },

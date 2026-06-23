@@ -21,6 +21,7 @@ import { describe, it, expect } from 'vitest';
 import {
   buildDecisionEntry,
   updateDecisionsJournal,
+  normalizeDecisionsJournal,
   DECISIONS_HEADER,
 } from '../packages/cli/src/decisions-journal.mjs';
 
@@ -59,6 +60,67 @@ describe('buildDecisionEntry — one journal entry', () => {
     expect(lines[hIdx - 1]).toBe('');
     // blank line directly below the heading (MD022)
     expect(lines[hIdx + 1]).toBe('');
+  });
+});
+
+describe('normalizeDecisionsJournal — migrate old-format entries to lint-clean (Task 164.9)', () => {
+  // Old entries (pre-164.1) used `### title` with no blank lines around the
+  // heading → markdownlint MD001/MD022. The migration converts them in place to
+  // the `## title` + blank-surrounded shape buildDecisionEntry now emits, WITHOUT
+  // losing any content (append-only: every entry survives) — and it's idempotent.
+  const OLD = [
+    '# Decisions',
+    '',
+    '<!-- decision:P-AAAAAAAA -->',
+    '### embedder ladder policy',
+    '**When:** 2026-06-10 · **Fact:** `P-AAAAAAAA`',
+    '**Why:** the benchmark decides, not vibes',
+    '',
+    '<!-- decision:P-BBBBBBBB -->',
+    '### semantic backend choice',
+    '_(retracted 2026-06-12)_',
+    '**When:** 2026-06-10 · **Fact:** `P-BBBBBBBB`',
+    '**Why:** changed our mind',
+    '',
+  ].join('\n');
+
+  it('converts `### ` entries to `## ` with blank lines around the heading', () => {
+    const out = normalizeDecisionsJournal(OLD);
+    expect(out).not.toMatch(/^### /m); // no old-level headings remain
+    expect(out).toMatch(/<!-- decision:P-AAAAAAAA -->\n\n## embedder ladder policy\n\n/);
+  });
+
+  it('preserves the retraction tag directly under the (now ##) heading', () => {
+    const out = normalizeDecisionsJournal(OLD);
+    expect(out).toMatch(/## semantic backend choice\n_\(retracted 2026-06-12\)_/);
+  });
+
+  it('preserves every entry + its Why (append-only: no content lost)', () => {
+    const out = normalizeDecisionsJournal(OLD);
+    expect(out).toContain('**Why:** the benchmark decides, not vibes');
+    expect(out).toContain('**Why:** changed our mind');
+    expect(out).toContain('<!-- decision:P-AAAAAAAA -->');
+    expect(out).toContain('<!-- decision:P-BBBBBBBB -->');
+  });
+
+  it('is idempotent — re-normalizing already-clean content is a no-op', () => {
+    const once = normalizeDecisionsJournal(OLD);
+    const twice = normalizeDecisionsJournal(once);
+    expect(twice).toBe(once);
+  });
+
+  it('leaves already-`## ` content unchanged (a fresh journal needs no migration)', () => {
+    const clean = [
+      '# Decisions',
+      '',
+      '<!-- decision:P-CCCCCCCC -->',
+      '',
+      '## already clean',
+      '',
+      '**When:** 2026-06-20 · **Fact:** `P-CCCCCCCC`',
+      '',
+    ].join('\n');
+    expect(normalizeDecisionsJournal(clean)).toBe(clean);
   });
 });
 
