@@ -12,7 +12,7 @@
 // Runs in CI via `npm run validate:template` and is invoked from
 // tests/template-scaffolding.test.js as the public-contract check.
 
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { requiredDirs, requiredFiles, manifestSummary } from './template-manifest.mjs';
@@ -44,6 +44,48 @@ const violations = [];
 // template/ + scripts/ + package.json (e.g. the
 // template-scaffolding.test.js sandbox) don't ship the packages/
 // tree.
+// Task 164.10 — the scaffold templates a user gets must be lint-clean markdown
+// (so a user's CI markdownlint passes on committed context/). This is a pure
+// line-scan of the two cheapest-to-regress rules — MD022 (blanks around
+// headings) and MD060 (spaced table separators) — NOT a full markdownlint
+// (that needs a network/npx dep). It guards the regression class the 164.x
+// generator + template fixes closed: a future template edit that drops a blank
+// around a heading or writes a compact `|---|` table separator fails here.
+function checkTemplateLintClean() {
+  const mdTemplates = [
+    'template/project/MEMORY.md.template',
+    'template/project/SOUL.md.template',
+    'template/project/memory/INDEX.md.template',
+    'template/user/USER.md.template',
+    'template/user/HABITS.md.template',
+    'template/user/LESSONS.md.template',
+  ];
+  for (const rel of mdTemplates) {
+    const abs = join(REPO_ROOT, rel);
+    if (!existsSync(abs)) continue; // a missing-file violation is reported elsewhere
+    const lines = readFileSync(abs, 'utf8').split(/\r?\n/);
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i];
+      // MD022: an ATX heading must have a blank line above (unless first line)
+      // and below (unless last line). HTML comments + blank lines are fine.
+      if (/^#{1,6}\s/.test(line)) {
+        if (i > 0 && lines[i - 1].trim() !== '') {
+          violations.push(`LINT(MD022) ${rel}:${i + 1}: heading needs a blank line ABOVE — "${line.slice(0, 40)}"`);
+        }
+        if (i < lines.length - 1 && lines[i + 1].trim() !== '') {
+          violations.push(`LINT(MD022) ${rel}:${i + 1}: heading needs a blank line BELOW — "${line.slice(0, 40)}"`);
+        }
+      }
+      // MD060 (compact table separator): a `|---|---|` row with no spaces.
+      if (/^\s*\|(\s*:?-+:?\s*\|)+\s*$/.test(line) && /\|-/.test(line.replace(/\s/g, ''))) {
+        if (/\|-{1,}/.test(line) && !/\|\s-/.test(line)) {
+          violations.push(`LINT(MD060) ${rel}:${i + 1}: table separator needs spaces around pipes (\`| --- |\`) — "${line.slice(0, 40)}"`);
+        }
+      }
+    }
+  }
+}
+
 async function checkCapCoordination() {
   const tierPathsPath = join(REPO_ROOT, 'packages', 'cli', 'src', 'tier-paths.mjs');
   const injectContextPath = join(REPO_ROOT, 'packages', 'cli', 'src', 'inject-context.mjs');
@@ -179,6 +221,7 @@ for (const f of requiredFiles) {
 }
 
 await checkCapCoordination();
+checkTemplateLintClean();
 
 const summary = manifestSummary();
 
