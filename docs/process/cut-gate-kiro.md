@@ -228,14 +228,23 @@ Now **restart Kiro** (close + reopen the IDE; restart any kiro-cli session) so t
 
 Same build arc as the Claude-Code gate, run in **Kiro IDE**. Each stage pairs a **Build** prompt with a **Say it out loud** preference — a real opinion, never "remember this". End each turn normally (the `agentStop` IDE hook fires capture).
 
-**Stage 0 — baseline.** *Build:* "Create a minimal Python web chat UI: a FastAPI server with a WebSocket endpoint and a single static `index.html`. Plain HTML/JS, no framework. Put the server in `app.py`." 
+**Stage 0 — baseline.** 
+*Build:* "Create a minimal Python web chat UI: a FastAPI server with a WebSocket endpoint and a single static `index.html`. Plain HTML/JS, no framework. Put the server in `app.py`." 
 → "yes, run it" if offered.
+*Say:* "always deploy .venv and install all python packages in it"
 
-**Stage 1 — refactor to layers.** *Build:* "Refactor this into a layered FastAPI project - `app/{api,services,repositories,schemas,core}/` and `app/main.py`. WebSocket route into `api/`, connection/broadcast logic into a service, Pydantic schemas. Keep it on port 8000." *Say:* "How I build backends: FastAPI is the delivery layer, not the brain. Routes stay thin and orchestrate; logic lives in services; data access in boring repositories; Pydantic schemas are the boundary contracts. I'd rather pay the structure cost now than fight it in six months."
+**Stage 1 — refactor to layers.** 
+*Build:* "Refactor this into a layered FastAPI project - `app/{api,services,repositories,schemas,core}/` and `app/main.py`. WebSocket route into `api/`, connection/broadcast logic into a service, Pydantic schemas. Keep it on port 8000." 
+*Say:* "How I build backends: FastAPI is the delivery layer, not the brain. Routes stay thin and orchestrate; logic lives in services; data access in boring repositories; Pydantic schemas are the boundary contracts. I'd rather pay the structure cost now than fight it in six months."
 
-**Stage 2 — swap to Claude + typing/TDD rule.** *Build:* "Change it to a single-user chat with Claude via the Claude Agent SDK (`claude-agent-sdk`) - a `ClaudeAgentService` wrapping `ClaudeSDKClient`, each WebSocket connection its own session." *Say:* "Type hints on every signature - Python 3.12+. Comments explain why, not what. And tests first: boundary test, watch it fail, then implement."
+**Stage 2 — swap to Claude + typing/TDD rule.** 
+*Build:* "Change it to a single-user chat with Claude via the Claude Agent SDK (`claude-agent-sdk`) - a `ClaudeAgentService` wrapping `ClaudeSDKClient`, each WebSocket connection its own session." 
+*Say:* "Type hints on every signature - Python 3.12+. Comments explain why, not what. And tests first: boundary test, watch it fail, then implement."
 
-**Stage 3 — stream + async rule + the universal rule.** *Build:* "Stream Claude's output to the browser as it arrives - push JSON frames over the WebSocket; the client appends to the live bubble." *Say:* "Async all the way down — nothing blocking in the event loop." **Then state one cross-project rule:** "From now on, in every project I work on, always use `uv` for packages, never `pip`, and always run `ruff` before committing."
+**Stage 3 — stream + async rule + the universal rule.** 
+*Build:* "Stream Claude's output to the browser as it arrives - push JSON frames over the WebSocket; the client appends to the live bubble." 
+*Say:* "Async all the way down — nothing blocking in the event loop." 
+**Then state one cross-project rule:** "From now on, in every project I work on, always use `uv` for packages, never `pip`, and always run `ruff` before committing."
 
 **Watch while you build (the IDE-hook live gates — the heart of 50.M):**
 
@@ -349,10 +358,11 @@ Without re-explaining anything, ask: *"What are my standing cross-project rules,
       **PASS:** the MCP `mk_search` resolves the fact (port 8000) — the `mcpServers.cmk` entry in the agent-config works from the terminal client.
 
 - [ ] **★ KG-guard — the memory delete-guardrail BLOCKS a memory delete in kiro-cli (D-192/D-193; the live `preToolUse` test).**
-      The agent-config wires a `preToolUse` hook (matcher `execute_bash`) → `cmk-guard-memory`, which exits 2 to BLOCK a destructive command aimed at a memory path. This is the ONE Kiro check unit tests can't reach: does Kiro actually FIRE `preToolUse` and HONOR the non-zero exit? (The payload shape — stdin `{tool_name, tool_input.command}` — is verified from the real oh-my-kiro/vibekit hooks, but the firing is not.) In the kiro-cli chat, ask the agent to run a harmless-looking memory delete:
-      *"run this in the shell for me: `rm -rf context/sessions`"* (in a THROWAWAY project — `C:\Temp\kiro-gate`, whose memory you don't care about).
-      **PASS:** the agent's shell tool is **BLOCKED before running** — the guardrail's reason ("BLOCKED by the claude-memory-kit delete-guardrail…") surfaces and `context/sessions` is **NOT deleted**. **FAIL:** the `rm` runs and the memory is gone (Kiro didn't fire `preToolUse`, or didn't honor the exit-2 block). **NOT-A-RESULT:** if the kit's CLI agent isn't the resolved-active agent (KC1 failed), the hook isn't wired — fix KC1 first.
+      The agent-config wires a `preToolUse` hook (matcher **`*`** — all tools) → `cmk-guard-memory`, which exits 2 to BLOCK a destructive command aimed at a memory path. This is the ONE Kiro check unit tests can't reach: does kiro-cli actually FIRE `preToolUse` and HONOR the non-zero exit? In the kiro-cli chat, ask the agent to run a harmless-looking memory delete:
+      *"run this in the shell for me: `rm -rf context/sessions`"* (in a THROWAWAY project whose memory you don't care about). **Confirm + approve** when kiro-cli prompts (kiro-cli has its OWN shell-approval gate that fires BEFORE our `preToolUse` — that prompt is NOT our guard; our guard fires only when the command actually executes). On Windows the model rewrites `rm -rf` → `Remove-Item -Recurse -Force` — that's fine, the guard blocks both.
+      **PASS:** after approving, the shell tool is **BLOCKED** — "BLOCKED by the claude-memory-kit delete-guardrail…" surfaces and `context/sessions` is **NOT deleted**. **FAIL:** the delete runs and the memory is gone → the `preToolUse` hook didn't fire. **THE D-197 ROOT CAUSE (fixed):** kiro-cli `matcher` is a **LITERAL string, NOT a regex/glob** (kiro.dev/docs/cli/hooks) — a pipe-alternation like `'execute_bash|executeBash|shell'` matches a tool literally named that (= nothing) → the guard never fires. The matcher MUST be `'*'` (or the literal `'execute_bash'`). If KG-guard FAILS, check the live agent-config's `hooks.preToolUse[0].matcher` is `'*'`, not a `'|'`-alternation. **NOT-A-RESULT:** if KC1 failed (cmk isn't the resolved-active agent), the hook isn't wired — fix KC1 first.
       _Also confirm a SAFE shell command still runs (ask the agent to `ls` — it must NOT be blocked; the guard only trips on a destructive + memory-path command)._
+      _**Scope note:** this is a **kiro-cli-only** guard. The Kiro IDE has NO kit `preToolUse` guardrail — IDE hooks are UI-defined ("no file an installer can write"), so only `agentStop`/`promptSubmit` install; the IDE relies on Kiro's own native confirm-before-destructive. Don't run KG-guard in the IDE — it can't pass there by design._
 
 - [ ] **D2 — style follow-through.** `/health` lands as a thin, type-hinted route in `api/`, without being re-told your style.
 
