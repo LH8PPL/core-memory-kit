@@ -38,9 +38,22 @@ function extractHook(body) {
   return '';
 }
 
+// Wrap any bare http(s):// URL in angle brackets so it doesn't trip markdownlint
+// MD034 (no-bare-urls) when the INDEX ships in a user's committed repo. A URL
+// already inside `<…>` or `](…)` is left alone (the char before it isn't `<`/`(`).
+function autolinkBareUrls(text) {
+  return text.replace(/(^|[^<(])\b(https?:\/\/[^\s<>)\]]+)/g, '$1<$2>');
+}
+
 function formatIndexLine({ id, type, title, filename, hook }) {
-  const head = `- (${id}) [${type}] [${title}](${filename})`;
-  return hook ? `${head} — ${hook}` : head;
+  // Lint-clean the rendered INDEX line:
+  //   - the title goes inside `[title]` link text: trim + collapse internal
+  //     whitespace so a trailing space before `]` doesn't trip MD039
+  //     (no-space-in-links).
+  //   - the hook is trailing prose: wrap bare URLs (MD034).
+  const linkTitle = String(title ?? '').replace(/\s+/g, ' ').trim();
+  const head = `- (${id}) [${type}] [${linkTitle}](${filename})`;
+  return hook ? `${head} — ${autolinkBareUrls(hook)}` : head;
 }
 
 function listFactFiles(factDir) {

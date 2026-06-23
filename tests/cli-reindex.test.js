@@ -169,6 +169,28 @@ describe('Task 8 — reindex() boundary', () => {
       const hookPart = line.split(' — ')[1] ?? '';
       expect(hookPart.length).toBeLessThanOrEqual(90);
     });
+
+    it('lint-clean INDEX line: wraps a bare URL in the hook (<…>) and trims the title (Task 164.7)', () => {
+      // A body whose hook contains a bare URL would trip markdownlint MD034 in
+      // the committed INDEX; the formatter wraps it in <…>. A title with a
+      // trailing space would trip MD039 inside the [title] link; it's trimmed.
+      writeFact(
+        validFactOpts({
+          projectRoot,
+          slug: 'urlfact',
+          title: 'A title with trailing space ',
+          body: 'See https://example.com/path for details',
+        }),
+      );
+      const result = reindex({ tier: 'P', projectRoot });
+      const content = readFileSync(result.indexPath, 'utf8');
+      const line = content.split('\n').find((l) => l.includes('urlfact'));
+      // bare URL wrapped in the hook
+      expect(line).toContain('<https://example.com/path>');
+      expect(line).not.toMatch(/—[^<]*\bhttps:\/\/example\.com\/path\b(?!>)/);
+      // title trimmed inside the link text (no trailing space before `]`)
+      expect(line).toContain('[A title with trailing space]');
+    });
   });
 
   describe('add / remove / retitle round-trips', () => {

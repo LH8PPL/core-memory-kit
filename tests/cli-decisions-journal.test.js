@@ -21,6 +21,7 @@ import { describe, it, expect } from 'vitest';
 import {
   buildDecisionEntry,
   updateDecisionsJournal,
+  normalizeDecisionsJournal,
   DECISIONS_HEADER,
 } from '../packages/cli/src/decisions-journal.mjs';
 
@@ -46,6 +47,101 @@ describe('buildDecisionEntry — one journal entry', () => {
     const entry = buildDecisionEntry(fact({ why: null }));
     expect(entry).toContain('Use FTS5 keyword search');
     expect(entry).toContain('P-AAAAAAAA');
+  });
+
+  it('emits lint-clean markdown: h2 heading with a blank line above and below (MD022/MD001)', () => {
+    const entry = buildDecisionEntry(fact());
+    const lines = entry.split('\n');
+    const hIdx = lines.findIndex((l) => l.startsWith('## '));
+    expect(hIdx, 'has an h2 heading').toBeGreaterThan(-1);
+    // NOT an h3 (MD001 heading-increment: the journal h1 → entries must be h2)
+    expect(lines.some((l) => l.startsWith('### '))).toBe(false);
+    // blank line directly above the heading (MD022)
+    expect(lines[hIdx - 1]).toBe('');
+    // blank line directly below the heading (MD022)
+    expect(lines[hIdx + 1]).toBe('');
+  });
+});
+
+describe('normalizeDecisionsJournal — migrate old-format entries to lint-clean (Task 164.9)', () => {
+  // Old entries (pre-164.1) used `### title` with no blank lines around the
+  // heading → markdownlint MD001/MD022. The migration converts them in place to
+  // the `## title` + blank-surrounded shape buildDecisionEntry now emits, WITHOUT
+  // losing any content (append-only: every entry survives) — and it's idempotent.
+  const OLD = [
+    '# Decisions',
+    '',
+    '<!-- decision:P-AAAAAAAA -->',
+    '### embedder ladder policy',
+    '**When:** 2026-06-10 · **Fact:** `P-AAAAAAAA`',
+    '**Why:** the benchmark decides, not vibes',
+    '',
+    '<!-- decision:P-BBBBBBBB -->',
+    '### semantic backend choice',
+    '_(retracted 2026-06-12)_',
+    '**When:** 2026-06-10 · **Fact:** `P-BBBBBBBB`',
+    '**Why:** changed our mind',
+    '',
+  ].join('\n');
+
+  it('converts `### ` entries to `## ` with blank lines around the heading', () => {
+    const out = normalizeDecisionsJournal(OLD);
+    expect(out).not.toMatch(/^### /m); // no old-level headings remain
+    expect(out).toMatch(/<!-- decision:P-AAAAAAAA -->\n\n## embedder ladder policy\n\n/);
+  });
+
+  it('preserves the retraction tag directly under the (now ##) heading', () => {
+    const out = normalizeDecisionsJournal(OLD);
+    expect(out).toMatch(/## semantic backend choice\n_\(retracted 2026-06-12\)_/);
+  });
+
+  it('preserves every entry + its Why (append-only: no content lost)', () => {
+    const out = normalizeDecisionsJournal(OLD);
+    expect(out).toContain('**Why:** the benchmark decides, not vibes');
+    expect(out).toContain('**Why:** changed our mind');
+    expect(out).toContain('<!-- decision:P-AAAAAAAA -->');
+    expect(out).toContain('<!-- decision:P-BBBBBBBB -->');
+  });
+
+  it('is idempotent — re-normalizing already-clean content is a no-op', () => {
+    const once = normalizeDecisionsJournal(OLD);
+    const twice = normalizeDecisionsJournal(once);
+    expect(twice).toBe(once);
+  });
+
+  it('leaves already-`## ` content unchanged (a fresh journal needs no migration)', () => {
+    const clean = [
+      '# Decisions',
+      '',
+      '<!-- decision:P-CCCCCCCC -->',
+      '',
+      '## already clean',
+      '',
+      '**When:** 2026-06-20 · **Fact:** `P-CCCCCCCC`',
+      '',
+    ].join('\n');
+    expect(normalizeDecisionsJournal(clean)).toBe(clean);
+  });
+
+  it('tolerates a malformed entry (marker with no heading) without losing it', () => {
+    // A hand-edited/corrupt entry: a marker not followed by a heading. The
+    // migration must not crash or drop the marker — it leaves the rest as-is.
+    const malformed = [
+      '# Decisions',
+      '',
+      '<!-- decision:P-DDDDDDDD -->',
+      'some hand-written prose, no heading',
+      '',
+    ].join('\n');
+    const out = normalizeDecisionsJournal(malformed);
+    expect(out).toContain('<!-- decision:P-DDDDDDDD -->');
+    expect(out).toContain('some hand-written prose, no heading');
+  });
+
+  it('handles empty / non-string input gracefully', () => {
+    expect(normalizeDecisionsJournal('')).toBe('');
+    expect(normalizeDecisionsJournal(null)).toBe(null);
+    expect(normalizeDecisionsJournal(undefined)).toBe(undefined);
   });
 });
 

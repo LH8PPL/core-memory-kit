@@ -47,6 +47,7 @@ import {
 } from './cooldown.mjs';
 import { dailyDistill } from './daily-distill.mjs';
 import { autoPersona } from './auto-persona.mjs';
+import { trimTrailingNewlines } from './managed-block.mjs';
 import { initUserTier } from './install.mjs';
 import { autoDrainQueues } from './auto-drain.mjs';
 
@@ -449,8 +450,11 @@ export async function weeklyCurate({
   // Append to archive.md (NOT overwrite — archive is append-only history).
   const archivePath = archiveMdPath(projectRoot);
   mkdirSync(join(projectRoot, ...SESSIONS_REL), { recursive: true });
-  const suffix = dedupedOutput.endsWith('\n') ? '' : '\n';
-  appendFileSync(archivePath, dedupedOutput + suffix + '\n', 'utf8');
+  // Lint-clean append (MD012 no-multiple-blanks): the old `dedupedOutput + suffix
+  // + '\n'` could yield THREE consecutive newlines when Haiku output already ended
+  // in a blank line. Trim trailing newlines (ReDoS-safe helper), then append
+  // exactly one blank-line separator (`\n\n`).
+  appendFileSync(archivePath, `${trimTrailingNewlines(dedupedOutput)}\n\n`, 'utf8');
 
   // Delete OLD today-*.md files (audit retention via git history;
   // committed tier per .gitignore.fragment).

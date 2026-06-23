@@ -5,7 +5,7 @@ This file lists every per-fact memory file in `context/memory/`. **NOT auto-load
 ## Purpose vs. the bounded scratchpad
 
 | File | Purpose | Loaded at startup? | Cap |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `../MEMORY.md` | Hot working state (current threads, environment, pending decisions) | Yes | 2,500 chars |
 | `../USER.md` | User profile and preferences | Yes | 1,375 chars |
 | `./<type>_<slug>.md` (this dir) | Durable typed facts with reasoning | No | none |

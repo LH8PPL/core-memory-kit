@@ -481,12 +481,19 @@ function runDecisionsKeywordSearch(_db, opts) {
     // The line offset of the marker = source_line drill-back into DECISIONS.md.
     const sourceLine = content.slice(0, start).split('\n').length;
     // Retracted-tag detection mirrors the WRITER's contract: the tag sits on its
-    // own line DIRECTLY after the `### ` heading (decisions-journal.mjs §2), so
-    // scope the check there — NOT a raw-block substring, which would mislabel an
-    // active entry whose Why merely MENTIONS "_(retracted" (skill-review I1).
-    const headingIdx = block.indexOf('### ');
+    // own line DIRECTLY after the `## ` heading (decisions-journal.mjs §2 —
+    // buildDecisionEntry emits `## ` h2 entries; the retract inserter puts the
+    // tag at headingEnd+1), so scope the check there — NOT a raw-block substring,
+    // which would mislabel an active entry whose Why merely MENTIONS "_(retracted"
+    // (skill-review I1). Match the heading line-start (`\n## `) so body text
+    // containing `##` can't be mistaken for the heading. (Was `### ` — a
+    // pre-existing bug: the writer emits `## `, so this never matched and EVERY
+    // decision read `retracted:false` — Task 164.3.)
+    // The heading is a line-start `## ` (the block opens with the marker comment,
+    // so the heading is never at block offset 0 — match `\n## `).
+    const headingNl = block.indexOf('\n## ');
     const afterHeading =
-      headingIdx === -1 ? '' : block.slice(block.indexOf('\n', headingIdx) + 1);
+      headingNl === -1 ? '' : block.slice(block.indexOf('\n', headingNl + 1) + 1);
     const retracted = afterHeading.startsWith('_(retracted');
     hits.push({
       id: markers[i].id,

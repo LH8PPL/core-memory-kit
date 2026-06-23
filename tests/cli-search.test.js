@@ -708,26 +708,37 @@ describe('Task 30 — cmk search', () => {
   describe("scope='decisions' (Task 156 — the decision journal)", () => {
     // A realistic journal: two live decisions + one RETRACTED (the "what did we
     // reject" trail the live fact store no longer carries).
+    // The REAL on-disk format the writer (decisions-journal.mjs buildDecisionEntry)
+    // emits since Task 164.1: `## ` entry headings (h2, MD001) with a blank line
+    // around each heading (MD022). The retract tag sits on its OWN line DIRECTLY
+    // under the heading (the inserter puts it at headingEnd+1). This fixture
+    // matches production output byte-shape — NOT the stale `### ` form the old
+    // fixture used (which made the search.mjs:487 retraction reader pass on the
+    // wrong format — the 164.3 bug).
     const JOURNAL = [
       '# Decisions',
       '',
       '> Append-only decision journal — every decision the kit captured, in order, with its why.',
       '',
       '<!-- decision:P-AAAAAAAA -->',
-      '### Use Postgres for the primary store',
+      '',
+      '## Use Postgres for the primary store',
+      '',
       '**When:** 2026-03-01 · **Fact:** `P-AAAAAAAA`',
       '**Why:** team familiarity + JSONB support',
       '',
       '<!-- decision:P-BBBBBBBB -->',
-      '### Switch the primary store to SQLite',
-      // The writer (decisions-journal.mjs §2) emits the retract tag on its OWN
-      // line directly under the heading — NOT inline in the title.
+      '',
+      '## Switch the primary store to SQLite',
       '_(retracted 2026-05-01)_',
+      '',
       '**When:** 2026-05-01 · **Fact:** `P-BBBBBBBB`',
       '**Why:** single-file portability won out over Postgres ops cost',
       '',
       '<!-- decision:P-CCCCCCCC -->',
-      '### Adopt hybrid RRF search at k=60',
+      '',
+      '## Adopt hybrid RRF search at k=60',
+      '',
       '**When:** 2026-06-01 · **Fact:** `P-CCCCCCCC`',
       '**Why:** keyword alone missed paraphrases; k=60 is the IR default',
     ].join('\n');
@@ -793,7 +804,9 @@ describe('Task 30 — cmk search', () => {
         '# Decisions',
         '',
         '<!-- decision:P-EEEEEEEE -->',
-        '### Keep the old rule in place',
+        '',
+        '## Keep the old rule in place',
+        '',
         '**When:** 2026-06-01 · **Fact:** `P-EEEEEEEE`',
         '**Why:** we considered marking it _(retracted) but decided to keep it active',
       ].join('\n');
@@ -809,8 +822,10 @@ describe('Task 30 — cmk search', () => {
         '# Decisions',
         '',
         '<!-- decision:P-FFFFFFFF -->',
-        '### Reverse the SQLite move',
+        '',
+        '## Reverse the SQLite move',
         '_(retracted 2026-06-05)_',
+        '',
         '**When:** 2026-06-01 · **Fact:** `P-FFFFFFFF`',
         '**Why:** went back to the prior store',
       ].join('\n');
@@ -827,7 +842,9 @@ describe('Task 30 — cmk search', () => {
         '# Decisions',
         '',
         '<!-- decision:P-GGGGGGGG -->',
-        '### Journal marker format',
+        '',
+        '## Journal marker format',
+        '',
         '**When:** 2026-06-01 · **Fact:** `P-GGGGGGGG`',
         '**Why:** each entry begins with <!-- decision:P-HHHHHHHH --> as its machine marker',
       ].join('\n');

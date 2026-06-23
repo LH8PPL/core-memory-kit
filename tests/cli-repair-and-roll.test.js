@@ -232,7 +232,7 @@ describe('Task 39 — runRepair', () => {
   });
 
   describe('scope: all (default) runs all three', () => {
-    it('produces 3 repair entries: hooks, locks, index', async () => {
+    it('produces 4 repair entries: hooks, locks, index, format', async () => {
       const reindexer = async () => ({ observationsIndexed: 0 });
       const r = await runRepair({
         projectRoot,
@@ -241,7 +241,7 @@ describe('Task 39 — runRepair', () => {
         reindexer,
       });
       const kinds = r.repairs.map((x) => x.kind);
-      expect(kinds).toEqual(['hooks', 'locks', 'index']);
+      expect(kinds).toEqual(['hooks', 'locks', 'index', 'format']); // format added (Task 164.9)
     });
   });
 
@@ -287,6 +287,63 @@ describe('Task 39 — runRepair', () => {
       expect(settings.hooks.SessionStart[0].hooks[0].command).toBe('cmk-inject-context');
       // shell form: no `args` key (exec form would break on Windows npm shims)
       expect(settings.hooks.SessionStart[0].hooks[0].args).toBeUndefined();
+    });
+  });
+
+  describe('164.9 — --format migrates DECISIONS.md to lint-clean headings', () => {
+    const OLD_JOURNAL = [
+      '# Decisions',
+      '',
+      '<!-- decision:P-AAAAAAAA -->',
+      '### embedder ladder policy',
+      '**When:** 2026-06-10 · **Fact:** `P-AAAAAAAA`',
+      '**Why:** the benchmark decides',
+      '',
+    ].join('\n');
+
+    it('rewrites old `### ` entries to `## ` + blank-surrounded (changed:true)', async () => {
+      mkdirSync(join(projectRoot, 'context'), { recursive: true });
+      const path = join(projectRoot, 'context', 'DECISIONS.md');
+      writeFileSync(path, OLD_JOURNAL, 'utf8');
+
+      const r = await runRepair({ projectRoot, userDir, scope: 'format' });
+      const fmt = r.repairs.find((x) => x.kind === 'format');
+      expect(fmt.changed).toBe(true);
+
+      const after = readFileSync(path, 'utf8');
+      expect(after).not.toMatch(/^### /m);
+      expect(after).toMatch(/<!-- decision:P-AAAAAAAA -->\n\n## embedder ladder policy\n\n/);
+      // content preserved (append-only safety)
+      expect(after).toContain('**Why:** the benchmark decides');
+    });
+
+    it('is idempotent — a second --format on clean content is changed:false', async () => {
+      mkdirSync(join(projectRoot, 'context'), { recursive: true });
+      const path = join(projectRoot, 'context', 'DECISIONS.md');
+      writeFileSync(path, OLD_JOURNAL, 'utf8');
+      await runRepair({ projectRoot, userDir, scope: 'format' });
+      const r2 = await runRepair({ projectRoot, userDir, scope: 'format' });
+      const fmt = r2.repairs.find((x) => x.kind === 'format');
+      expect(fmt.changed).toBe(false);
+    });
+
+    it('no DECISIONS.md → changed:false, no error', async () => {
+      const r = await runRepair({ projectRoot, userDir, scope: 'format' });
+      const fmt = r.repairs.find((x) => x.kind === 'format');
+      expect(fmt.changed).toBe(false);
+      expect(fmt.error).toBeUndefined();
+    });
+
+    it('captures a read/write error gracefully (DECISIONS.md is a directory)', async () => {
+      // Force the catch path: a DIRECTORY at the DECISIONS.md path makes
+      // readFileSync throw (EISDIR) — the migration must report an error, not
+      // crash the whole repair run.
+      mkdirSync(join(projectRoot, 'context', 'DECISIONS.md'), { recursive: true });
+      const r = await runRepair({ projectRoot, userDir, scope: 'format' });
+      const fmt = r.repairs.find((x) => x.kind === 'format');
+      expect(fmt.changed).toBe(false);
+      expect(fmt.error).toMatch(/format migration failed/);
+      expect(r.errors).toBeGreaterThanOrEqual(1);
     });
   });
 

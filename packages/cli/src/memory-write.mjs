@@ -203,6 +203,27 @@ function findMatchingBullet({ lines, substring, sectionTitle }) {
   return null;
 }
 
+// Strip a bullet + its provenance comment (lines bulletIdx..commentIdx) and
+// collapse a resulting double blank line at the seam, so removing a bullet from
+// a blank-padded scratchpad doesn't leave two adjacent blank lines (MD012
+// no-multiple-blanks). Only the seam is touched — blanks elsewhere are
+// preserved. The bullet↔comment pair is removed together (the adjacency
+// invariant the whole kit depends on).
+function stripBulletPair(lines, bulletIdx, commentIdx) {
+  const kept = [...lines.slice(0, bulletIdx), ...lines.slice(commentIdx + 1)];
+  // If the splice put a blank line directly after a blank line at the seam,
+  // drop one. The seam is at index `bulletIdx` in `kept`.
+  if (
+    bulletIdx > 0 &&
+    bulletIdx < kept.length &&
+    kept[bulletIdx - 1].trim() === '' &&
+    kept[bulletIdx].trim() === ''
+  ) {
+    kept.splice(bulletIdx, 1);
+  }
+  return kept.join('\n');
+}
+
 // --- Tombstone writer (design §6.5) --------------------------------
 
 function writeTombstone({
@@ -438,10 +459,7 @@ function doReplace(opts) {
     });
   }
   // Strip the matched bullet + provenance comment.
-  const stripped = [
-    ...lines.slice(0, match.bulletIdx),
-    ...lines.slice(match.commentIdx + 1),
-  ].join('\n');
+  const stripped = stripBulletPair(lines, match.bulletIdx, match.commentIdx);
   writeFileSync(path, stripped, 'utf8');
 
   // Append the new bullet via the GUARDED inner path. We already ran
@@ -550,10 +568,7 @@ function doRemove(opts) {
   });
 
   // Strip from scratchpad.
-  const stripped = [
-    ...lines.slice(0, match.bulletIdx),
-    ...lines.slice(match.commentIdx + 1),
-  ].join('\n');
+  const stripped = stripBulletPair(lines, match.bulletIdx, match.commentIdx);
   writeFileSync(path, stripped, 'utf8');
 
   appendAuditEntry(tierRoot, {
