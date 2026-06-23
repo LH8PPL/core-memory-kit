@@ -97,6 +97,30 @@ Adjust how much a saved fact is trusted (`<id>` comes from `cmk search`):
 cmk trust <id> <low|medium|high>
 ```
 
+## Write the fact body as clean markdown
+
+Memory files are **committed to the repo**, so a teammate's CI may lint them. When
+you write a fact body (the `--why` / `--how` text, or any prose you capture), keep
+it lint-clean markdown so it doesn't trip a default linter:
+
+- **Nested list items: indent 4 spaces, not 2** (markdownlint MD007). A sub-bullet
+  under a bullet uses four spaces:
+
+  ```
+  - top-level point
+      - sub-point (4-space indent)
+  ```
+
+- **Wrap URLs** in `<https://example.com>` or `[text](https://example.com)` — never
+  a bare `https://…` in prose (MD034).
+- **Blank line above and below any heading** you write in a body (MD022), and don't
+  leave **two blank lines** in a row (MD012).
+- Keep it short, declarative prose — the body is a fact, not an essay.
+
+This is guidance for the body TEXT you pass. The kit's own structure (the bullet
+line, the provenance comment, the frontmatter) is already lint-clean by
+construction — you only control the prose.
+
 ## What NOT to capture
 
 - Throwaway chatter ("user said hi").
