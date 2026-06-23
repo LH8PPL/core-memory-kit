@@ -333,6 +333,18 @@ describe('Task 39 — runRepair', () => {
       expect(fmt.changed).toBe(false);
       expect(fmt.error).toBeUndefined();
     });
+
+    it('captures a read/write error gracefully (DECISIONS.md is a directory)', async () => {
+      // Force the catch path: a DIRECTORY at the DECISIONS.md path makes
+      // readFileSync throw (EISDIR) — the migration must report an error, not
+      // crash the whole repair run.
+      mkdirSync(join(projectRoot, 'context', 'DECISIONS.md'), { recursive: true });
+      const r = await runRepair({ projectRoot, userDir, scope: 'format' });
+      const fmt = r.repairs.find((x) => x.kind === 'format');
+      expect(fmt.changed).toBe(false);
+      expect(fmt.error).toMatch(/format migration failed/);
+      expect(r.errors).toBeGreaterThanOrEqual(1);
+    });
   });
 
   describe('I3 fix — Door-4 audit-log entries (REPAIR_HOOKS_APPLIED / REPAIR_LOCK_REMOVED)', () => {

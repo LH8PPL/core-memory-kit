@@ -122,6 +122,27 @@ describe('normalizeDecisionsJournal — migrate old-format entries to lint-clean
     ].join('\n');
     expect(normalizeDecisionsJournal(clean)).toBe(clean);
   });
+
+  it('tolerates a malformed entry (marker with no heading) without losing it', () => {
+    // A hand-edited/corrupt entry: a marker not followed by a heading. The
+    // migration must not crash or drop the marker — it leaves the rest as-is.
+    const malformed = [
+      '# Decisions',
+      '',
+      '<!-- decision:P-DDDDDDDD -->',
+      'some hand-written prose, no heading',
+      '',
+    ].join('\n');
+    const out = normalizeDecisionsJournal(malformed);
+    expect(out).toContain('<!-- decision:P-DDDDDDDD -->');
+    expect(out).toContain('some hand-written prose, no heading');
+  });
+
+  it('handles empty / non-string input gracefully', () => {
+    expect(normalizeDecisionsJournal('')).toBe('');
+    expect(normalizeDecisionsJournal(null)).toBe(null);
+    expect(normalizeDecisionsJournal(undefined)).toBe(undefined);
+  });
 });
 
 describe('updateDecisionsJournal — append-only semantics (D-161)', () => {
