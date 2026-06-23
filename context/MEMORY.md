@@ -8,16 +8,18 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-9LA7PNVS) User explicitly states: decide design questions now, not later. Deferral leads to indefinite postponement and loss of context. References task 150 as concrete example. Treat as standing working rule.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 2ef1415219fd565436ecd77acd960fe27676e46e3e3d7dc4e2e13a1e34f7f34b, write: auto-extract, trust: high, at: 2026-06-23T07:59:54Z -->
-- (P-ER7TUY96) User rejected "ignore all memory files" as a valid fix — confirms that blanket disabling is the wrong approach.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 983ef32911bdc2aab0b298e954a9174bef1070d79d026333123bde6cfcbd3320, write: auto-extract, trust: high, at: 2026-06-23T08:08:34Z -->
-- (P-L6WGWP39) User wants Super-Linter run on claude-memory-kit repo with all rules ON, no suppressions—wants to see raw, unconfigured output from a real linter product, not filtered results.
-  <!-- source: auto-extract-session, source_line: 1, sha1: bc9d689a552f5fefc3e508b259ba8009e3b0f1f34eb32496dfd769cd6fc39c04, write: auto-extract, trust: high, at: 2026-06-23T08:12:11Z -->
-- (P-9UJBANXP) Should run the actual tool (ground truth) FIRST, rather than theorizing beforehand about what issues might exist
-  <!-- source: auto-extract-session, source_line: 1, sha1: 5451fae73639be829265c25fefb2917c7a1f30707823fa81ccb59f29ecd263ca, write: auto-extract, trust: high, at: 2026-06-23T08:18:09Z -->
-- (P-PCW3J9PX) Prefers to continue pushing through complex multi-step work rather than pausing at natural checkpoints (chose "continue until you finish it all" when offered a pause point).
-  <!-- source: auto-extract-session, source_line: 1, sha1: 560d5d5802ad0f914362e27138f4c5910329c12645413e7d9d832650d1542881, write: auto-extract, trust: high, at: 2026-06-23T12:55:57Z -->
+- (P-WEMBP2VE) executed the permission test to validate guardrail behavior
+  <!-- source: auto-extract-session, source_line: 1, sha1: dae48a034b1b4e059cd003d2b1e8bd81a76e262e9a1cdde438ed6503980fdfa5, write: auto-extract, trust: high, at: 2026-06-23T19:56:23Z -->
+- (P-5GY3KT29) Expects tool recommendations backed by verification of actual tool behavior, not assumptions (challenged assistant to check super-linter repo before evaluating)
+  <!-- source: review-promote, source_line: 1, sha1: 2011aee49bc572557738ed94ff8db07c33fa358d06716ac8714fcccfa8590e6f, write: user-explicit, trust: high, at: 2026-06-23T20:00:01Z -->
+- (P-Z3BU5T69) User identified genuine cost (lint-portability) not originally weighed in inline-comment format decision
+  <!-- source: review-promote, source_line: 1, sha1: d4c42f2d278144b6ba9a893e0837c12c1ef03526ebcaa5e1c8aedbf78f2c4380, write: user-explicit, trust: high, at: 2026-06-23T20:00:02Z -->
+- (P-Ra5D4F96) Actual linter output is MD007 (not assumed MD013/MD033/MD041); fix: committed context/.markdownlint.json disabling MD007; markdownlint auto-applies per-directory configs, scoping exemption to context/ only.
+  <!-- source: review-promote, source_line: 1, sha1: a9b86396ff976ebeace9db15824ad1e285439dd023fbf98715c5546b92263d23, write: user-explicit, trust: high, at: 2026-06-23T20:00:02Z -->
+- (P-AD7CZaKC) Uses `failure#` naming convention for failed experiment directories — renamed kiro-gate to `failure6-kiro-gate` (implies prior failures 1–5)
+  <!-- source: review-promote, source_line: 1, sha1: 9c35a69a1d25c9b140d46a87290537fa79df27ced568d049448cfa70ecd6c256, write: user-explicit, trust: high, at: 2026-06-23T20:00:03Z -->
+- (P-53VHE5Z6) PR #224 opened with guardrail fix (matcher syntax corrected from pipe-alternation to '*')
+  <!-- source: review-promote, source_line: 1, sha1: ca2a1b5ae832a823d028207595109e5f6294102caeed48ab4803ad73757df02c, write: user-explicit, trust: high, at: 2026-06-23T20:00:03Z -->
 
 ## Environment Notes
 

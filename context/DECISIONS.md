@@ -5129,3 +5129,535 @@
 
 **When:** 2026-06-22 · **Fact:** `P-Ua3U9EYU`
 **Why:** Linux CI runners enforce case-sensitive path matching, unlike Windows. Documentation links must match actual path case.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-BFMAB3GZ -->
+
+## Windows PowerShell doesn't expand `*` in npm install paths; use explicit filenam
+
+**When:** 2026-06-21 · **Fact:** `P-BFMAB3GZ`
+
+<!-- decision:P-7N6aAPR6 -->
+
+## User expects documentation (guides/CLAUDE.md) to be updated with real-run gotcha
+
+**When:** 2026-06-21 · **Fact:** `P-7N6aAPR6`
+
+<!-- decision:P-2WR6CWJQ -->
+
+## Expressed concern about rebuild errors ("that is alot of errors") — skeptical of
+
+**When:** 2026-06-21 · **Fact:** `P-2WR6CWJQ`
+
+<!-- decision:P-79C7TQYP -->
+
+## user questions why `.claude/` folder exists on kiro-gate — signals it's unexpect
+
+**When:** 2026-06-21 · **Fact:** `P-79C7TQYP`
+
+<!-- decision:P-A3U2RTF9 -->
+
+## Removed old C:\Temp\kiro-gate directory; starting fresh install for Session 1 in
+
+**When:** 2026-06-22 · **Fact:** `P-A3U2RTF9`
+
+<!-- decision:P-ZTPYaJGJ -->
+
+## No gitignore or transcript-commit changes to the memory system going forward.
+
+**When:** 2026-06-22 · **Fact:** `P-ZTPYaJGJ`
+
+<!-- decision:P-a7Wa5MDE -->
+
+## Memory Review Discipline Before Commit
+
+**When:** 2026-06-22 · **Fact:** `P-a7Wa5MDE`
+**Why:** Manual review gates ensure auto-extracted facts are accurate, well-formed, and reflect genuine intent — prevents stale or incorrect captures from being recorded as durable knowledge.
+
+<!-- decision:P-a3WZNTCG -->
+
+## Doc-Completeness Validator — Hook Behavior Coverage Gap
+
+**When:** 2026-06-22 · **Fact:** `P-a3WZNTCG`
+**Why:** The guardrail shipped in #218 as a hook behavior but was missing from README and CLI docs. The validator only checked verb and tool coverage, not hook coverage, so the gap went undetected.
+
+<!-- decision:P-PHFV2EYC -->
+
+## Guardrail — Hook-Based Design vs. MCP Protection
+
+**When:** 2026-06-22 · **Fact:** `P-PHFV2EYC`
+**Why:** Readers and future maintainers may conflate the two protections. Clarity on implementation and scope prevents confusion about which layer is responsible for what.
+
+<!-- decision:P-EYMP4U6F -->
+
+## v0.4.0 Release Workflow — Gate Testing and Tag Push
+
+**When:** 2026-06-22 · **Fact:** `P-EYMP4U6F`
+**Why:** Kiro testing needs real IDE/CLI exercise. Tag push is user-controlled public action. Clear boundaries prevent deadlock.
+
+<!-- decision:P-NARQETJP -->
+
+## Kiro-Gate Testing Ritual: §0b (build) → §1 (fresh install) → Session 1
+
+**When:** 2026-06-22 · **Fact:** `P-NARQETJP`
+**Why:** This is the canonical gate for verifying the published npm artifact works end-to-end in a real environment before release
+
+<!-- decision:P-3EUEDZV2 -->
+
+## I do not run Kiro; Claude/assistant drives live Kiro sessions in this project
+
+**When:** 2026-06-22 · **Fact:** `P-3EUEDZV2`
+
+<!-- decision:P-SSM3G7RN -->
+
+## Windows NPM EBUSY on Better-SQLite3 Lock — Expected and Harmless
+
+**When:** 2026-06-22 · **Fact:** `P-SSM3G7RN`
+**Why:** Gate test (§0b line 60-62) warns of this pattern. Understanding it prevents false alarms on Windows systems and future gate runs.
+
+<!-- decision:P-F6GJP2QT -->
+
+## Claude-Memory-Kit: 5 Surfaces Architecture
+
+**When:** 2026-06-22 · **Fact:** `P-F6GJP2QT`
+**Why:** Kit completeness and functionality depend on all 5 surfaces being present, configured, and connected. They form the "surface layer" of validation (distinct from the "3 tiers" depth model).
+
+<!-- decision:P-Y4SVHUKL -->
+
+## Claude-Memory-Kit: Health Check Suite (HC-1 through HC-9)
+
+**When:** 2026-06-22 · **Fact:** `P-Y4SVHUKL`
+**Why:** Health checks surface misconfigurations, missing setup, and version skew. They gate readiness and help triage failures.
+
+<!-- decision:P-6GYCY7TY -->
+
+## cmk install: Scaffolding and Wiring
+
+**When:** 2026-06-22 · **Fact:** `P-6GYCY7TY`
+**Why:** `cmk install` is the initialization step that scaffolds the kit and wires all integration points. Knowing what it creates is essential for validating completeness (via `cmk doctor`) and troubleshooting wiring issues.
+
+<!-- decision:P-KL9G3TGV -->
+
+## 4-Stage FastAPI Build Plan with Embedded Rules
+
+**When:** 2026-06-22 · **Fact:** `P-KL9G3TGV`
+**Why:** Session 1 workflow; captures reasoning in hooks for future sessions' context.
+
+<!-- decision:P-FCN3SZZR -->
+
+## Kiro + CMK Setup Checklist (Pre-Session-1)
+
+**When:** 2026-06-22 · **Fact:** `P-FCN3SZZR`
+**Why:** Hooks are file-written but not loaded in IDE until restart; must restart to activate capture layer.
+
+<!-- decision:P-N6WZLTVT -->
+
+## Automated Capture via agentStop Hook
+
+**When:** 2026-06-22 · **Fact:** `P-N6WZLTVT`
+**Why:** Core test of automation: hook must work without polluting user utterances with memory syntax
+
+<!-- decision:P-XaK442KW -->
+
+## Kiro Gate Testing Workflow
+
+**When:** 2026-06-22 · **Fact:** `P-XaK442KW`
+**Why:** KH1 is the core live validation — ensures memory capture is fully automated via hooks, requiring no manual memory syntax in user utterances
+
+<!-- decision:P-TMFHERHX -->
+
+## User confirmed verbatim sync of gate docs (commit ea1a5a8); established standard
+
+**When:** 2026-06-22 · **Fact:** `P-TMFHERHX`
+
+<!-- decision:P-65NMVNVA -->
+
+## `cmk-guard-memory` is an internal hook binary, not a hand-run command (now clari
+
+**When:** 2026-06-22 · **Fact:** `P-65NMVNVA`
+
+<!-- decision:P-FTBVREBE -->
+
+## Test suite scale: full suite 2223/0 (all pass), stress gate 5/5 (all pass)
+
+**When:** 2026-06-22 · **Fact:** `P-FTBVREBE`
+
+<!-- decision:P-Z27PS9PP -->
+
+## cmake/cmk doctor validation passed all 11 file/config checks; ready for Session
+
+**When:** 2026-06-22 · **Fact:** `P-Z27PS9PP`
+
+<!-- decision:P-7G3EZ5HM -->
+
+## Kiro IDE must be restarted after hook + MCP write to load them; open `C:\Temp\ki
+
+**When:** 2026-06-22 · **Fact:** `P-7G3EZ5HM`
+
+<!-- decision:P-ECF3UXBP -->
+
+## Kiro Hook Trust Quirks & Design Lessons (D-194)
+
+**When:** 2026-06-22 · **Fact:** `P-ECF3UXBP`
+**Why:** These quirks represent edge cases + gotchas discovered in live testing; design principles prevent future bugs and security issues.
+
+<!-- decision:P-QB9MR3MK -->
+
+## Kiro Hook Trust System Configuration (D-194)
+
+**When:** 2026-06-22 · **Fact:** `P-QB9MR3MK`
+**Why:** Understanding the trust mechanism is essential for configuring Kiro hooks and avoiding "Run / Reject" prompts; the design preserves user customizations and prevents accidental overwrite.
+
+<!-- decision:P-5J3RE6YQ -->
+
+## Post-D194 artifact update workflow for Kiro trust fix verification
+
+**When:** 2026-06-22 · **Fact:** `P-5J3RE6YQ`
+**Why:** The Kiro IDE trust system requires kiroAgent.trustedCommands to be pre-configured in .vscode/settings.json. The D-194 fix adds this during cmk install --ide kiro. Pre-D-194 artifacts cannot exercise this behavior.
+
+<!-- decision:P-DM9VMNBE -->
+
+## D-194 Fix Merged to Main (PR #219, commit 96f57c9)
+
+**When:** 2026-06-22 · **Fact:** `P-DM9VMNBE`
+**Why:** This fix resolves the Run/Reject blocker. Live verification (KH-trust) requires the new code on disk, not the old artifact.
+
+<!-- decision:P-aSFM9AR2 -->
+
+## skill-md-yaml-colon-space-bug
+
+**When:** 2026-06-22 · **Fact:** `P-aSFM9AR2`
+**Why:** Found live in the v0.4.0 cut-gate-kiro (50.M) — 7th cross-agent cut-blocker, the Claude-tolerated/Kiro-strict class. KG4 only checked that Claude-only frontmatter keys were ABSENT, never that the YAML actually parses, so the gate missed it too.
+
+<!-- decision:P-JVBPP36Z -->
+
+## Strict YAML Validation — validate-skill-sources.mjs Enhancement
+
+**When:** 2026-06-23 · **Fact:** `P-JVBPP36Z`
+**Why:** Previous gap masked errors for months: Claude Code accepted invalid YAML while Kiro rejected it. This caused D-195. Strict validation upstream prevents cross-tool incompatibilities.
+
+<!-- decision:P-TEBXURXZ -->
+
+## Global `cmk` Artifact Version and Template Sync
+
+**When:** 2026-06-23 · **Fact:** `P-TEBXURXZ`
+**Why:** The global artifact and main branch can drift, so a fresh reinstall does not guarantee you get the latest template. This sync lag is especially problematic when testing fixes in a gate or test environment.
+
+<!-- decision:P-GATV2CKW -->
+
+## SKILL.md Description Block Scalar Format
+
+**When:** 2026-06-23 · **Fact:** `P-GATV2CKW`
+**Why:** Block scalars are the correct YAML format for multi-line text. Using plain strings breaks strict YAML validation.
+
+<!-- decision:P-WFF3CFAa -->
+
+## YAML Validator Lenient Parser Blind Spot
+
+**When:** 2026-06-23 · **Fact:** `P-WFF3CFAa`
+**Why:** Custom parsers can be dangerously lenient and hide real validation bugs, especially risky for YAML where strictness matters.
+
+<!-- decision:P-Z9KHPV72 -->
+
+## CI Lint Check Configuration
+
+**When:** 2026-06-23 · **Fact:** `P-Z9KHPV72`
+**Why:** Previously, lint checks existed but were invisible (buried in the full test suite) and used a lenient parser. The new explicit, fast-failing CI job provides immediate feedback and makes lint failures visible in PR status checks.
+
+<!-- decision:P-DTVMCA59 -->
+
+## Precise, Domain-Aware Validators Over Generic Tools
+
+**When:** 2026-06-23 · **Fact:** `P-DTVMCA59`
+**Why:** Generic linters do not understand the kit's contracts (SKILL.md structure, Kiro integration); precise, custom validators catch errors that off-the-shelf tools would miss.
+
+<!-- decision:P-WMRV9JB5 -->
+
+## Linting Memory Files Produces Excessive Noise
+
+**When:** 2026-06-23 · **Fact:** `P-WMRV9JB5`
+**Why:** Machine-generated memory has formatting constraints different from hand-authored docs. The kit deliberately ships memory templates with formatting that linters would flag. Linting them misidentifies intentional structure as violations.
+
+<!-- decision:P-ECVPNG2R -->
+
+## Markdown/YAML/Spell Linting Disabled in CI by Design
+
+**When:** 2026-06-23 · **Fact:** `P-ECVPNG2R`
+**Why:** Documented architectural decision that prevents accidental reintroduction of generic linters. Explains why actionlint + ShellCheck are the right CI additions (they don't touch memory files).
+
+<!-- decision:P-Da3BNKFC -->
+
+## user-ci-lints-memory-files-gap
+
+**When:** 2026-06-23 · **Fact:** `P-Da3BNKFC`
+**Why:** Surfaced by the user 2026-06-23: "if our memory files can not be inspected by a linter, then whoever uses this kit is going to have the same problem... at my work CI/CD my linter doesn't do a distinction, and it will flag our files." A real adoption blocker — not hypothetical (the user's own workplace CI). Never raised/decided before (checked DECISION-LOG + research).
+
+<!-- decision:P-9TRG76ST -->
+
+## scratchpad-inline-html-provenance-is-the-lint-outlier
+
+**When:** 2026-06-23 · **Fact:** `P-9TRG76ST`
+**Why:** The user pushed: "it cant be that we are so stupidly unique... dont just check their lint config, check their memory output." The actual-file check (6 cloned systems in /c/tmp) proved them right and narrowed the problem: our fact files match the field; only our scratchpad inline-comment provenance diverges + trips linters (MD033 inline-HTML, MD041 first-line-not-H1, MD013 long lines).
+
+<!-- decision:P-7NRWT77M -->
+
+## User has realized that kit users will encounter the same linter-failure problem,
+
+**When:** 2026-06-23 · **Fact:** `P-7NRWT77M`
+
+<!-- decision:P-EPA4NQEK -->
+
+## User's CI linter does not distinguish or exempt context/ files — all files are s
+
+**When:** 2026-06-23 · **Fact:** `P-EPA4NQEK`
+
+<!-- decision:P-H332ZKHJ -->
+
+## memory-lint-portability-research-28-projects
+
+**When:** 2026-06-23 · **Fact:** `P-H332ZKHJ`
+**Why:** The user (correctly) pushed back that the earlier conclusion rested on only 6 repos with no web research: "did you check more than 20? deep research on the web? actual code, configs, memory files, outputs?" The full research corrected a real error (MD033 false premise) and grounded the fix in ecosystem-canonical practice + a 28-project primary-source survey.
+
+<!-- decision:P-S43CB7UN -->
+
+## Expects claims substantiated through source inspection (code, configs, memory fi
+
+**When:** 2026-06-23 · **Fact:** `P-S43CB7UN`
+
+<!-- decision:P-VDSWaMS4 -->
+
+## Lint Exemption for Committed Memory Files
+
+**When:** 2026-06-23 · **Fact:** `P-VDSWaMS4`
+**Why:** Memory format uses inline comments for per-bullet provenance lifecycle. Markdownlint rules MD041 + MD013 flag these. Disable-directive signals "tool-managed file" (standard in ecosystem) and aligns with how other projects handle generated markdown.
+
+<!-- decision:P-VMVAYVHJ -->
+
+## adr-0009-inline-provenance-was-deliberate-but-lint-cost-unweighed
+
+**When:** 2026-06-23 · **Fact:** `P-VMVAYVHJ`
+**Why:** The user challenged the 'we're ahead of the field' framing as rationalization: 'this could also mean we took the wrong turn... they didn't do a convoluted way, they did it how md/yaml/json work.' Reading ADR-0009 showed the truth is BOTH: deliberate trade-off (token budget) AND a cost (lint-portability) the original decision never weighed. Honest reconciliation, not defense.
+
+<!-- decision:P-R7YX4WLU -->
+
+## Challenges the reasoning: "they avoid it" ≠ "we're ahead"; other systems may sim
+
+**When:** 2026-06-23 · **Fact:** `P-R7YX4WLU`
+
+<!-- decision:P-7PAWD7H5 -->
+
+## Prefers solutions aligned with format/system design naturally, not workarounds f
+
+**When:** 2026-06-23 · **Fact:** `P-7PAWD7H5`
+
+<!-- decision:P-CAKHLMRY -->
+
+## scratchpad-provenance-format-RESOLVED-keep-inline
+
+**When:** 2026-06-23 · **Fact:** `P-CAKHLMRY`
+**Why:** The user refused to defer the design question (rightly — deferral = it dies, like Task 150) and demanded real research over my framing: 'deep research on best practices, other projects, anything... the original thinking isn't wrong, just how we did it.' The research vindicated the original mechanism AND corrected a real error in our docs (MD033/MD041 don't fire) — so the decision is now evidence-grounded, not opinion.
+
+<!-- decision:P-GAPEQDQ3 -->
+
+## real-markdownlint-output-on-memory-MD007-not-MD013
+
+**When:** 2026-06-23 · **Fact:** `P-GAPEQDQ3`
+**Why:** The user insisted on checking actual outputs over theory ('check their memory output... actual code'). Running real markdownlint proved the provenance comment trips MD007 (indentation), NOT the MD013/MD033/MD041 the entire thread (and CLAUDE.md, and the research agents) assumed. Ground truth beats convergent theory.
+
+<!-- decision:P-Q3FHXP5B -->
+
+## Memory Format Linting Fix (MD007)
+
+**When:** 2026-06-23 · **Fact:** `P-Q3FHXP5B`
+**Why:** Original decision (ADR-0009) was made on incomplete information. Real linter output differs from theory. This fix uses linter's intended mechanism (per-directory config), not a workaround.
+
+<!-- decision:P-9LA7PNVS -->
+
+## User explicitly states: decide design questions now, not later. Deferral leads t
+
+**When:** 2026-06-23 · **Fact:** `P-9LA7PNVS`
+
+<!-- decision:P-AQEa5CEM -->
+
+## md007-is-model-output-indent-not-provenance-format
+
+**When:** 2026-06-23 · **Fact:** `P-AQEa5CEM`
+**Why:** The user pushed back on 'just ignore all memory files = the fix'. Reading the actual MD007 lines proved the provenance format is innocent — the errors are auto-extract model output (2-space sublists, bare URLs). This reframes the fix from 'exempt our format' to 'either relax prose-rules for data files OR make the model output lint-clean'.
+
+<!-- decision:P-BaBYLP4N -->
+
+## Fix Auto-Extract Output Quality, Not Just Lint Config
+
+**When:** 2026-06-23 · **Fact:** `P-BaBYLP4N`
+**Why:** The memory files don't fail because of the kit format; they fail because auto-extract prose is unpolished. Fixing the tool's output quality is more principled than configuring away linter rules.
+
+<!-- decision:P-ER7TUY96 -->
+
+## User rejected "ignore all memory files" as a valid fix — confirms that blanket d
+
+**When:** 2026-06-23 · **Fact:** `P-ER7TUY96`
+
+<!-- decision:P-L6WGWP39 -->
+
+## User wants Super-Linter run on claude-memory-kit repo with all rules ON, no supp
+
+**When:** 2026-06-23 · **Fact:** `P-L6WGWP39`
+
+<!-- decision:P-U2AD3CX4 -->
+
+## Super-Linter Ground-Truth Validation
+
+**When:** 2026-06-23 · **Fact:** `P-U2AD3CX4`
+**Why:** Actual linter output is definitive; theorizing without empirical data is incomplete
+
+<!-- decision:P-6aN7PGVG -->
+
+## super-linter-real-run-1058-md-findings-context-included
+
+**When:** 2026-06-23 · **Fact:** `P-6aN7PGVG`
+**Why:** The user demanded I run the REAL super-linter product instead of theorizing ('why are you theorizing... you can check docs and do live checks'). The run proved: code/workflows/yaml/json are clean (actionlint etc. find nothing), but markdown has 1058 findings incl. 824 in context/ — dominated by MD022 (842) from the compact heading style in both docs and committed memory. The provenance comments are innocent; the heading/list/URL STYLE is the real lint surface.
+
+<!-- decision:P-Y77aBUFL -->
+
+## Super-Linter Results and `.markdownlint.json` Fix
+
+**When:** 2026-06-23 · **Fact:** `P-Y77aBUFL`
+**Why:** Real tool evidence proves memory tier markdown collides with default rules. Users get hundreds of lint warnings immediately on kit install. A shipped `.markdownlint.json` unblocks adoption.
+
+<!-- decision:P-MY52BNZ4 -->
+
+## lint-clean-memory-output-plan-and-progress
+
+**When:** 2026-06-23 · **Fact:** `P-MY52BNZ4`
+**Why:** The user rejected 'relax the cosmetic rules' in favor of 'just fix it — emit correct markdown, add rules to the skill so the AI writes md the right way.' Right call: fixing at source means no config to ship, no exemption to explain, and the memory is genuinely clean markdown like every other system. Captured durably because the user explicitly warned this kind of task gets deferred-and-lost (like Task 150) — it must not.
+
+<!-- decision:P-F5LRAPF3 -->
+
+## lint-clean-full-process-directive
+
+**When:** 2026-06-23 · **Fact:** `P-F5LRAPF3`
+**Why:** The user rejected both 'relax the rules' and a rushed multi-file patch; wants the kit's own disciplined process (plan→design→tasks→TDD→implement→test→review) on the full 38-file format-contract surface, done locally due to flaky internet.
+
+<!-- decision:P-HVLU2aLG -->
+
+## read-side-audit-blank-in-pair-catastrophic-search-bug
+
+**When:** 2026-06-23 · **Fact:** `P-HVLU2aLG`
+**Why:** The user demanded the FULL surface (write + read + add/update/remove). The read-side audit proved the safe fix (blank-around-headings) is safe everywhere, the dangerous changes (blank-in-bullet-pair, bullet reindent) must NEVER happen, and surfaced a pre-existing LIVE bug (search.mjs retraction detection broken since DECISIONS.md went to ##). This is the safety map the whole reformat depends on.
+
+<!-- decision:P-TR9J39LM -->
+
+## Stress Test Gating Rule for PR Approval
+
+**When:** 2026-06-23 · **Fact:** `P-TR9J39LM`
+**Why:** Stress testing is critical for regression prevention. The jitter exception rule prevents random failures in unrelated code paths from incorrectly blocking PRs while ensuring real regressions are caught.
+
+<!-- decision:P-4WTWMTaK -->
+
+## stress-flake-self-induced-load-not-regression
+
+**When:** 2026-06-23 · **Fact:** `P-4WTWMTaK`
+**Why:** During Task 164's pre-PR stress gate, two 4/5 runs with different unrelated timing tests looked alarming but were machine-load artifacts from running stress alongside other background work — not a code regression. Worth recording so a future session doesn't misread a load-flake as a real concurrency bug (or waste the two-consecutive-clears clause on the wrong failure class).
+
+<!-- decision:P-EaGXETZL -->
+
+## v0.4.0 Local Installation Workflow
+
+**When:** 2026-06-23 · **Fact:** `P-EaGXETZL`
+**Why:** v0.4.0 bundles all durable fixes (SKILL.md valid YAML, Kiro hooks pre-trusted, memory lint-clean). Local install confirms artifact before publishing.
+
+<!-- decision:P-4HZAJ9X9 -->
+
+## Backup Strategy for Kiro Gate Testing
+
+**When:** 2026-06-23 · **Fact:** `P-4HZAJ9X9`
+**Why:** The Kiro gate test requires a clean environment without existing user config, but the real config and credentials must remain restorable. This approach enables both safely.
+
+<!-- decision:P-7MZ3G4EN -->
+
+## §1 Gate Run Verification — Expected Health Checks and Session 1 Handoff
+
+**When:** 2026-06-23 · **Fact:** `P-7MZ3G4EN`
+**Why:** The gate run proved all three blockers are fixed and working (D-195 SKILL.md valid, D-194 trusted-commands, Task 164 memory lint-clean). Silent hook firing is the critical confirmation before Session 1 proceeds.
+
+<!-- decision:P-EJFDYMR9 -->
+
+## task-164-followup-claude-md-template-md022
+
+**When:** 2026-06-23 · **Fact:** `P-EJFDYMR9`
+**Why:** Found while running the regular cut-gate (cut-gate18) on the post-Task-164 artifact. Task 164.8 made the 6 MEMORY/SOUL/USER/HABITS/LESSONS/INDEX templates lint-clean but didn't include CLAUDE.md.template (a Claude-Code instruction file, not a memory tier). The regression guard (checkTemplateLintClean) also doesn't cover it.
+
+<!-- decision:P-RBRAJMPX -->
+
+## kiro-mcp-autoapprove-missing-cut-blocker
+
+**When:** 2026-06-23 · **Fact:** `P-RBRAJMPX`
+**Why:** Found live by the user in Kiro Session 1: hooks auto-run (D-194 works) but MCP tool calls (mk_remember etc.) still prompt Reject/Trust/Run because Kiro has a SEPARATE trust gate for MCP tools vs shell hooks. The kit never wired it. User clicked Trust manually and asked to add it to the template.
+
+<!-- decision:P-NFH69QSF -->
+
+## MCP Tool Auto-Approve (D-196) Merged But Requires Artifact Rebuild for Live Sessions
+
+**When:** 2026-06-23 · **Fact:** `P-NFH69QSF`
+**Why:** D-196 is the 8th cross-agent gate cut-blocker. Live session proved 4 prior fixes work. MCP-tool approval test verifies config-level fix—final piece before shipping. Deferring rebuild keeps Session 1 feedback loop tight.
+
+<!-- decision:P-2B64YN7R -->
+
+## resume-v0-4-0-kiro-gate-8-fixes-shipped
+
+**When:** 2026-06-23 · **Fact:** `P-2B64YN7R`
+**Why:** Context hit 2% — checkpoint so the next session resumes the v0.4.0 Kiro live-gate exactly here without re-deriving. All 8 cross-agent cut-blockers found+fixed this session are merged; only the live Kiro session + tag-push remain (both user-driven).
+
+<!-- decision:P-FD93HDaQ -->
+
+## kiro-live-test-session1-d194-d196-proven
+
+**When:** 2026-06-23 · **Fact:** `P-FD93HDaQ`
+**Why:** The cut-gate-kiro 50.M live test — the surfaces unit tests can't reach. Session 1 on the post-D-196 artifact proved the hooks AND the MCP tools both run prompt-free by config (no manual Trust clicks), which is the whole point of D-194+D-196. Last session M1 prompted; this session it's silent.
+
+<!-- decision:P-V63LVV3H -->
+
+## kiro-session1-complete-wedge-proven-live
+
+**When:** 2026-06-23 · **Fact:** `P-V63LVV3H`
+**Why:** Session 1 of the cut-gate-kiro live test (50.M). Beyond the D-194/D-196 prompt-free proofs, it proved the WEDGE (cross-project promotion via mk_lessons_promote), rich linked facts, and memory-aware conflict-detection all work in a REAL Kiro session — the deep features unit tests can't reach.
+
+<!-- decision:P-3G3D55C9 -->
+
+## Kiro CLI V3 Trust-Model Incompatibility (V2 Config Format)
+
+**When:** 2026-06-23 · **Fact:** `P-3G3D55C9`
+**Why:** This is a version transition issue as Kiro shipped V3 early-access mid-flight. The kit's terminal surface remains functional, but version-specific behavior requires updating config. KC1 and KC2 gate proofs confirm the kit's core injection and memory recall work; V3 CLI just needs config format migration.
+
+<!-- decision:P-XPYaGJU4 -->
+
+## kiro-cli-allowedtools-doc-correct-but-still-prompts
+
+**When:** 2026-06-23 · **Fact:** `P-XPYaGJU4`
+**Why:** Corrects my earlier WRONG 'V3' finding (the banner was an ad; kiro-cli is 2.8.1). The real gap: allowedTools:@cmk is doc-verified-correct format yet the MCP tool still prompts in kiro-cli, while the IDE autoApprove works. A genuine kiro-cli MCP-trust gap to diagnose, but not a v0.4.0 blocker.
+
+<!-- decision:P-GMNRDK7C -->
+
+## kg-guard-kiro-cli-two-gates-rm-rewritten-to-removeitem
+
+**When:** 2026-06-23 · **Fact:** `P-GMNRDK7C`
+**Why:** The live KG-guard test (D-192/193 in kiro-cli). Surfaced that (a) kiro-cli has its OWN shell-approval gate before our preToolUse guard, and (b) the model rewrites rm -rf → Remove-Item on Windows — which our guard's dual-pattern coverage already anticipates. Awaiting the post-approval result to confirm our guard fires.
+
+<!-- decision:P-JHJXFDBJ -->
+
+## kg-guard-FAILED-matcher-pipe-alternation-not-literal
+
+**When:** 2026-06-23 · **Fact:** `P-JHJXFDBJ`
+**Why:** The live KG-guard test FAILED — our delete-guardrail let a Remove-Item delete context/sessions in kiro-cli. Root-caused to the preToolUse matcher being a pipe-alternation ("execute_bash|executeBash|shell") when kiro-cli matchers are LITERAL strings (no alternation) — so it matched nothing and never fired. Exactly the D-193 I3 risk. A real v0.4.0 cut-blocker on a headline safety feature.
+
+<!-- decision:P-HaQ9X72G -->
+
+## kiro-cli PreToolUse Matcher Syntax (Literal Strings Only)
+
+**When:** 2026-06-23 · **Fact:** `P-HaQ9X72G`
+**Why:** PR #224 discovered this during guardrail testing; the bug went undetected until explicitly tested, confirming it was a critical cut-blocker.
