@@ -48,6 +48,20 @@ describe('Task 50 — installKiro (all 4 surfaces)', () => {
     expect(existsSync(p('settings', 'mcp.json'))).toBe(true);
     const mcp = JSON.parse(readFileSync(p('settings', 'mcp.json'), 'utf8'));
     expect(mcp.mcpServers).toHaveProperty('claude-memory-kit');
+    // autoApprove (found live in cut-gate-kiro Session 1): Kiro gates MCP TOOL
+    // calls separately from shell hooks, so without this every mk_remember etc.
+    // pops a Reject/Trust/Run prompt. The server entry pre-approves the kit's
+    // 11 MCP tools (explicit list, scoped to our tools — not a "*" wildcard).
+    const auto = mcp.mcpServers['claude-memory-kit'].autoApprove;
+    expect(Array.isArray(auto)).toBe(true);
+    expect(auto).toEqual(
+      expect.arrayContaining([
+        'mk_remember', 'mk_search', 'mk_get', 'mk_timeline', 'mk_cite',
+        'mk_recent_activity', 'mk_trust', 'mk_lessons_promote', 'mk_forget',
+        'mk_queue_list', 'mk_queue_resolve',
+      ]),
+    );
+    expect(auto).not.toContain('*'); // scoped to the kit's tools, never a blanket wildcard
 
     // steering
     expect(existsSync(p('steering', 'cmk.md'))).toBe(true);

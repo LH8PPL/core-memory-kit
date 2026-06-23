@@ -122,11 +122,12 @@ cmk doctor
 - [ ] **★ KG1b — `cmk doctor` clean (agent-aware HC-1).** `cmk doctor` → **0 fail** on a fresh Kiro install (HC-1..HC-9).
       **HC-1 must read as a KIRO check, not a Claude one:** `[PASS] HC-1: ... Kiro capture/inject wired via IDE hooks (.kiro/hooks/) + CLI agent (~/.aws/amazonq/cli-agents/)`. **FAIL the gate** if HC-1 says `.claude/settings.json missing → cmk repair --hooks` — that's the pre-D-185 bug (doctor not agent-aware); you're on a stale binary, rebuild (§0b). _(D-185/D-186, found + fixed by this gate: HC-1 is a capability check — PASSes if the IDE hooks OR the CLI agent is present, so both a Kiro-IDE and a kiro-cli-only user read clean. The other memory-core checks are agent-agnostic.)_
 
-- [ ] **★ KG2 — MCP surface (shared IDE+CLI).**
+- [ ] **★ KG2 — MCP surface (shared IDE+CLI) + autoApprove (D-196).**
       ```powershell
-      type .kiro\settings\mcp.json        # mcpServers["claude-memory-kit"] = { type:"stdio", command:"cmk", args:["mcp","serve"] }
+      type .kiro\settings\mcp.json        # mcpServers["claude-memory-kit"] = { type:"stdio", command:"cmk", args:["mcp","serve"], autoApprove:[...] }
+      (Get-Content $env:USERPROFILE\.aws\amazonq\cli-agents\q_cli_default.json -Raw | ConvertFrom-Json).allowedTools  # CLI side: ["@cmk"]
       ```
-      **PASS:** `.kiro/settings/mcp.json` registers the `claude-memory-kit` stdio server.
+      **PASS:** `.kiro/settings/mcp.json` registers the `claude-memory-kit` stdio server **AND** carries an `autoApprove` array listing the kit's 11 MCP tools (`mk_remember` … `mk_queue_resolve`) — so Kiro runs them without a per-call "Reject / Trust / Run" prompt (D-196; found live in Session 1). The CLI agent-config carries the analog `allowedTools: ["@cmk"]` (the Amazon-Q agent uses `allowedTools` `@server/tool`, NOT `autoApprove`). **Neither is a `"*"` blanket** — scoped to the kit's own tools. **FAIL:** no `autoApprove` → every `mk_remember` in chat pops Reject/Trust/Run (M1-live confirms the prompt is gone).
 
 - [ ] **★ KG3 — steering surface (shared IDE+CLI).**
       ```powershell
@@ -304,9 +305,9 @@ The regular Kiro user **never types `cmk`** — they talk, and Kiro runs the MCP
       → `mk_remember, mk_search, mk_get, mk_timeline, mk_cite, mk_recent_activity, mk_trust, mk_lessons_promote, mk_forget, mk_queue_list, mk_queue_resolve` (**11**).
       **PASS:** all 11 resolve. **FAIL / empty:** the MCP server didn't launch — re-check KG2 + that you restarted Kiro.
 
-- [ ] **★ M1 — capture in chat, prompt-free.**
+- [ ] **★ M1 — capture in chat, PROMPT-FREE (the D-196 live confirmation of KG2's autoApprove).**
       Say: *"remember our staging runs on Fly.io — because it's cheap to spin ephemeral envs up and down."*
-      **PASS:** Kiro calls **`mk_remember`** (an MCP tool, not a shell command), silent on success; the "because" makes it a rich fact.
+      **PASS:** Kiro calls **`mk_remember`** (an MCP tool, not a shell command) and it runs with **NO "Reject / Trust / Run" prompt** — the `autoApprove`/`allowedTools` pre-approval (KG2/D-196) made it silent; the "because" makes it a rich fact. **FAIL:** Kiro pops a Reject/Trust/Run on the `mk_remember` call → the `autoApprove` didn't take (re-check KG2; a stale Kiro session from before the install won't have re-read `mcp.json` — fully restart).
 
 - [ ] **★ M2 — "forget X" → two-step, then gone.**
       Say: *"actually, forget the Fly.io staging decision."*

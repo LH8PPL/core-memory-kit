@@ -82,6 +82,18 @@ describe('Task 50.L — Kiro CLI agent-config + default-agent', () => {
       expect(allowed).not.toContain('*');
     });
 
+    it('pre-approves the kit MCP tools via allowedTools @cmk (the CLI-side MCP trust)', () => {
+      // Kiro gates MCP TOOL calls separately from shell hooks. The CLI agent-config
+      // uses `allowedTools` at the agent top level (NOT the IDE mcp.json autoApprove)
+      // with the @server/tool format; `@cmk` allows the kit's own MCP server's tools
+      // so mk_remember etc. don't prompt Reject/Trust/Run in a kiro-cli session.
+      installKiroCliAgent({ awsDir });
+      const agent = JSON.parse(readFileSync(agentPath(), 'utf8'));
+      expect(Array.isArray(agent.allowedTools)).toBe(true);
+      expect(agent.allowedTools).toContain('@cmk'); // the kit's server, scoped
+      expect(agent.allowedTools).not.toContain('*'); // never a blanket all-servers
+    });
+
     it('reports that it set the default agent', () => {
       const r = installKiroCliAgent({ awsDir });
       expect(r.defaultAgent).toBe('set');
