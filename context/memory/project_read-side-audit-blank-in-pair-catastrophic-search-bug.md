@@ -1,0 +1,18 @@
+---
+id: P-HVLU2aLG
+type: project
+title: read-side-audit-blank-in-pair-catastrophic-search-bug
+created_at: 2026-06-23T10:25:55Z
+write_source: user-explicit
+trust: high
+source_file: user-explicit
+source_line: 1
+source_sha1: ab6db32fddfeb9ef197d3c93d9d286a0bcc58add3cd3e4b1a31a248de5e616d1
+related: [lint-clean-full-process-directive, lint-clean-memory-output-plan-and-progress, super-linter-real-run-1058-md-findings-context-included]
+---
+
+READ-SIDE AUDIT COMPLETE (2 agents, all 38 structure-parsing modules, 2026-06-23) — the decisive findings for the lint-clean reformat. THREE format-change classes, ranked by blast radius: (1) BLANK LINE BETWEEN A BULLET AND ITS PROVENANCE COMMENT = CATASTROPHIC, DO NOT DO IT — ~10 parsers assume commentLine=lines[i+1] STRICTLY ADJACENT, all break SILENTLY: scratchpad.consolidate (eviction stops), index-rebuild.parseObservationsFromScratchpad (bullets VANISH from search), memory-write.findMatchingBullet (replace/remove no-op), forget.scrubScratchpadFile (orphan comments), graduation, trust, conflict-queue (trust→medium B-1 regression), auto-persona, inject-context ×3. The bullet+comment 2-line block is an INDIVISIBLE unit kit-wide. GOOD NEWS: markdown linters DON'T touch HTML comments, so blank-around-HEADINGS (the actual fix) never inserts a blank in the pair — verify the writer keeps them adjacent. (2) COLUMN-0 BULLET REINDENT (2→4 space) = breaks every ^- \( anchored matcher (provenance.BULLET_RE, scratchpad, graduation, forget, bullet-lookup, memory-write) → DON'T reindent top-level bullets (they're column-0 by contract; MD007 on the 2-space PROVENANCE-COMMENT indent needs a different answer — config or the comment isn't a real list item). (3) BLANK-LINES-AROUND-HEADINGS (the safe, needed fix) = SAFE EVERYWHERE — every heading detector is per-line regex /^##\s/ or .trim(), none depends on heading adjacency. ###→## SAFE except where noted. CONFIRMED LIVE BUG found: search.mjs:487 runDecisionsKeywordSearch reads block.indexOf('### ') for DECISIONS.md retraction tag, but decisions-journal already emits ## → retracted ALWAYS reads false in `cmk search --scope decisions` (the retraction flag is ALREADY broken pre-existing). Fix: search.mjs:487 ### → ## (or level-agnostic) + stale doc comment L432-434.
+
+**Why:** The user demanded the FULL surface (write + read + add/update/remove). The read-side audit proved the safe fix (blank-around-headings) is safe everywhere, the dangerous changes (blank-in-bullet-pair, bullet reindent) must NEVER happen, and surfaced a pre-existing LIVE bug (search.mjs retraction detection broken since DECISIONS.md went to ##). This is the safety map the whole reformat depends on.
+
+**How to apply:** DESIGN CONSTRAINTS for the reformat: (a) ONLY insert blanks AROUND headings + fix generator heading levels — NEVER touch the bullet↔comment adjacency, NEVER reindent column-0 bullets. (b) The MD007 2-space provenance-comment indent is NOT a real list item — answer it with markdownlint config (MD007 off for context/) OR leave it, NOT by reindenting. (c) Fix the pre-existing search.mjs:487 bug (### → ##) in the same effort. (d) SCOPE QUESTION to resolve: are queue/session files (queues/*.md, sessions/now.md, transcripts/) in lint scope? Their parsers (review-queue HEADING_RE, auto-extract readLastEntryFromNowMd) have ##-specific assumptions — if committed-memory-only (MEMORY.md, context/memory/*.md, DECISIONS.md) they're out of blast radius. Write-side fixes already done+tested: DECISIONS buildDecisionEntry, evicted-bullets. Write-side TODO (MD022 blank-below-heading): reindex:111 (## Files), scratchpad:218 (ensureSectionExists), auto-persona:423, import-anthropic:231, review-queue:168, compress-session append seam, weekly-curate:452 MD012.
