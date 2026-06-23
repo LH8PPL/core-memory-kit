@@ -421,7 +421,10 @@ export function appendPersonaReviewQueue({ userDir, entries, now }) {
   if (blocks.length === 0) return queuePath;
 
   const header = `## ${ts} — persona-synthesis (pending review)`;
-  appendFileSync(queuePath, `${header}\n${blocks.join('\n')}\n\n`, 'utf8');
+  // Blank line below the heading (MD022). SAFE: parsePersonaReviewQueue keys on
+  // the bullet line + its i+1 meta-comment, not on heading adjacency; the blank
+  // is between heading and the first bullet, never inside the bullet↔comment pair.
+  appendFileSync(queuePath, `${header}\n\n${blocks.join('\n')}\n\n`, 'utf8');
   return queuePath;
 }
 

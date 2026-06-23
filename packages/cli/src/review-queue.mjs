@@ -166,6 +166,9 @@ function serializeReviewQueue({ preamble, entries }) {
   const lines = [...preamble];
   for (const e of entries) {
     lines.push(`## ${e.ts} — auto-extract (medium-trust, pending review)`);
+    lines.push(''); // blank line below the heading (MD022). SAFE: parseReviewQueue
+    // scans i+1..i+5 for the bullet, so a blank heading→bullet gap is tolerated;
+    // the provenance stays at bulletLine+1 (the pair is never split).
     lines.push(`- (${e.id}) ${e.text}`);
     if (e.provenance) lines.push(e.provenance);
     lines.push('');

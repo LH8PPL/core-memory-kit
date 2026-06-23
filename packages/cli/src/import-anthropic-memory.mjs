@@ -253,7 +253,21 @@ export async function importAnthropicMemory({
     })
     .join('\n');
   mkdirSync(join(projectRoot, 'context'), { recursive: true });
-  appendFileSync(targetPath, sectionHeader + '\n' + bulletLines + '\n', 'utf8');
+  // Lint-clean append (MD022): guarantee exactly one blank line ABOVE the
+  // `## Imported …` heading when the target file already has content (the
+  // leading `\n` in sectionHeader assumes the file ends in `\n` — fragile if it
+  // doesn't). The blank below the heading is the `+ '\n'` after sectionHeader.
+  let prefix = '';
+  if (existsSync(targetPath)) {
+    const existing = readFileSync(targetPath, 'utf8');
+    if (existing.trim() !== '') {
+      prefix = existing.endsWith('\n\n') ? '' : existing.endsWith('\n') ? '' : '\n';
+    }
+  }
+  // sectionHeader already starts with `\n`, so a file ending in `\n` yields the
+  // needed blank line; prefix adds the missing one only when the file lacks a
+  // trailing newline.
+  appendFileSync(targetPath, prefix + sectionHeader + '\n' + bulletLines + '\n', 'utf8');
 
   let accepted = 0;
   for (const p of proposals) {

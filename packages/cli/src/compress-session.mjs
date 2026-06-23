@@ -206,10 +206,22 @@ function restoreRolling(projectRoot, rollingPath) {
 function appendToTodayMd({ projectRoot, date, body }) {
   const path = todayMdPath(projectRoot, date);
   mkdirSync(dirname(path), { recursive: true });
+  // Lint-clean append (MD022 blanks-around-headings): a same-day re-append puts
+  // the new block's leading `## ` heading right after the prior block, with only
+  // the prior block's single trailing `\n` above it → heading not blank-
+  // surrounded. Guarantee exactly one blank line ABOVE the new block when the
+  // file already has content.
+  let prefix = '';
+  if (existsSync(path)) {
+    const existing = readFileSync(path, 'utf8');
+    if (existing.trim() !== '') {
+      prefix = existing.endsWith('\n\n') ? '' : existing.endsWith('\n') ? '\n' : '\n\n';
+    }
+  }
   // Append with a trailing newline so successive same-day appends
   // don't collide on a missing terminator.
   const suffix = body.endsWith('\n') ? '' : '\n';
-  appendFileSync(path, body + suffix, 'utf8');
+  appendFileSync(path, prefix + body + suffix, 'utf8');
   return path;
 }
 

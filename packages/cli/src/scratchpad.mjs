@@ -215,7 +215,13 @@ export function ensureSectionExists(scratchpadPath, sectionTitle) {
   // No leading blank lines for an empty/whitespace-only file (the scaffolded
   // scratchpads are never empty, but keep the output clean if one ever is).
   const prefix = body ? `${body}\n\n` : '';
-  writeFileSync(scratchpadPath, `${prefix}## ${sectionTitle}\n`, 'utf8');
+  // Blank line AFTER the heading too (MD022 blanks-around-headings) — the first
+  // bullet appended into this section then lands after the blank, so the
+  // committed scratchpad is lint-clean. SAFE for readers: findSectionRange uses
+  // a whole-line trim-compare + insertIntoSection skips trailing blanks, so a
+  // blank under the heading doesn't change where bullets insert. The blank is
+  // between the HEADING and the bullet — never inside the bullet↔comment pair.
+  writeFileSync(scratchpadPath, `${prefix}## ${sectionTitle}\n\n`, 'utf8');
   return { created: true };
 }
 
