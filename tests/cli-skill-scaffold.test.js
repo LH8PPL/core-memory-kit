@@ -32,6 +32,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
+import yaml from 'js-yaml';
 import { install } from '../packages/cli/src/install.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -51,16 +52,17 @@ function sha(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
 
-/** Parse the YAML-ish frontmatter block into a flat string map (top-level keys). */
+/**
+ * STRICT-parse the frontmatter YAML (the same thing Kiro does). A naive
+ * line-split parser can't read a multi-line block scalar (`description: >-`) and
+ * silently returns an empty description — and, worse, it tolerates the invalid
+ * `: ` colon-space class Kiro rejects. js-yaml is the contract-accurate parser.
+ */
 function frontmatter(text) {
-  const m = text.match(/^---\n([\s\S]*?)\n---/);
+  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!m) return {};
-  const out = {};
-  for (const line of m[1].split('\n')) {
-    const kv = line.match(/^([a-zA-Z0-9_-]+):\s?(.*)$/);
-    if (kv) out[kv[1]] = kv[2];
-  }
-  return out;
+  const data = yaml.load(m[1]);
+  return data && typeof data === 'object' && !Array.isArray(data) ? data : {};
 }
 
 describe('Task 69.0 — the memory-write skill is SAFE (canonical source)', () => {

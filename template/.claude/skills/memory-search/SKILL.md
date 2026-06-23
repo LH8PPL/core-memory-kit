@@ -1,6 +1,19 @@
 ---
 name: memory-search
-description: Searches the project's recorded memory (claude-memory-kit) — decisions, conventions, architecture, the reasoning behind choices, and where things live — and returns a curated, cited summary. Fire whenever the answer might be something the project already established in past work, HOWEVER the question is phrased — any prior decision, convention, rationale, or "how/where/why is it this way" question, including oblique or roundabout asks ("why is everything so spread out?", "remind me what we settled on for X", "how come these files are tiny?"). Also fire when a "[claude-memory-kit] Memory available" hint appears on the prompt. The examples are illustrative, not a checklist — prefer recalling over re-deriving an answer from the code. The session-start snapshot is a bounded index; this skill reaches the rest. Skip only when the question is purely about uncommitted or just-edited live code that memory cannot know, concerns this conversation only, or the user asked to ignore memory.
+description: >-
+  Searches the project's recorded memory (claude-memory-kit) — decisions,
+  conventions, architecture, the reasoning behind choices, and where things live
+  — and returns a curated, cited summary. Fire whenever the answer might be
+  something the project already established in past work, HOWEVER the question is
+  phrased — any prior decision, convention, rationale, or "how/where/why is it
+  this way" question, including oblique or roundabout asks ("why is everything so
+  spread out?", "remind me what we settled on for X", "how come these files are
+  tiny?"). Also fire when a "[claude-memory-kit] Memory available" hint appears on
+  the prompt. The examples are illustrative, not a checklist — prefer recalling
+  over re-deriving an answer from the code. The session-start snapshot is a
+  bounded index; this skill reaches the rest. Skip only when the question is
+  purely about uncommitted or just-edited live code that memory cannot know,
+  concerns this conversation only, or the user asked to ignore memory.
 context: fork
 allowed-tools: mcp__cmk__mk_search mcp__cmk__mk_get mcp__cmk__mk_timeline mcp__cmk__mk_recent_activity Bash(cmk search *) Bash(cmk get *) Bash(cmk timeline *) Bash(cmk recent-activity *)
 ---
