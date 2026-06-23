@@ -62,9 +62,15 @@ function dateOnly(iso) {
  */
 export function buildDecisionEntry(f) {
   const date = dateOnly(f.createdAt);
+  // Blank lines around the `###` heading so the committed journal is lint-clean
+  // markdown (markdownlint MD022 "blanks-around-headings"). The HTML marker, the
+  // heading, and the When/Why block are each separated by a blank line — the
+  // generated memory passes a strict linter by construction, not by exemption.
   const lines = [
     markerFor(f.id),
-    `### ${f.title}`,
+    '',
+    `## ${f.title}`,
+    '',
     `**When:** ${date} · **Fact:** \`${f.id}\``,
   ];
   if (f.why && String(f.why).trim()) {
@@ -129,8 +135,12 @@ export function updateDecisionsJournal({ existingContent = '', facts = [], tombs
     // from attaching the retraction note to the NEXT entry's heading.
     const nextMarker = content.indexOf('<!-- decision:', idx + marker.length);
     const spanEnd = nextMarker === -1 ? content.length : nextMarker;
-    // Find this entry's heading line (the `### …` after the marker, within span).
-    const headingStart = content.indexOf('### ', idx);
+    // Find this entry's heading line (the `## …` after the marker, within span).
+    // Anchor on a line-start `## ` (newline-prefixed) so body text containing
+    // `##` can't be mistaken for the heading. buildDecisionEntry emits the
+    // heading on its own line right after the marker + a blank line.
+    const headingNl = content.indexOf('\n## ', idx);
+    const headingStart = headingNl === -1 ? -1 : headingNl + 1;
     if (headingStart === -1 || headingStart >= spanEnd) continue;
     const headingEnd = content.indexOf('\n', headingStart);
     if (headingEnd === -1) continue;

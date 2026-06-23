@@ -47,6 +47,19 @@ describe('buildDecisionEntry — one journal entry', () => {
     expect(entry).toContain('Use FTS5 keyword search');
     expect(entry).toContain('P-AAAAAAAA');
   });
+
+  it('emits lint-clean markdown: h2 heading with a blank line above and below (MD022/MD001)', () => {
+    const entry = buildDecisionEntry(fact());
+    const lines = entry.split('\n');
+    const hIdx = lines.findIndex((l) => l.startsWith('## '));
+    expect(hIdx, 'has an h2 heading').toBeGreaterThan(-1);
+    // NOT an h3 (MD001 heading-increment: the journal h1 → entries must be h2)
+    expect(lines.some((l) => l.startsWith('### '))).toBe(false);
+    // blank line directly above the heading (MD022)
+    expect(lines[hIdx - 1]).toBe('');
+    // blank line directly below the heading (MD022)
+    expect(lines[hIdx + 1]).toBe('');
+  });
 });
 
 describe('updateDecisionsJournal — append-only semantics (D-161)', () => {
