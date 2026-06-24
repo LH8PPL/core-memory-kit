@@ -8,18 +8,18 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-WEMBP2VE) executed the permission test to validate guardrail behavior
-  <!-- source: auto-extract-session, source_line: 1, sha1: dae48a034b1b4e059cd003d2b1e8bd81a76e262e9a1cdde438ed6503980fdfa5, write: auto-extract, trust: high, at: 2026-06-23T19:56:23Z -->
-- (P-5GY3KT29) Expects tool recommendations backed by verification of actual tool behavior, not assumptions (challenged assistant to check super-linter repo before evaluating)
-  <!-- source: review-promote, source_line: 1, sha1: 2011aee49bc572557738ed94ff8db07c33fa358d06716ac8714fcccfa8590e6f, write: user-explicit, trust: high, at: 2026-06-23T20:00:01Z -->
-- (P-Z3BU5T69) User identified genuine cost (lint-portability) not originally weighed in inline-comment format decision
-  <!-- source: review-promote, source_line: 1, sha1: d4c42f2d278144b6ba9a893e0837c12c1ef03526ebcaa5e1c8aedbf78f2c4380, write: user-explicit, trust: high, at: 2026-06-23T20:00:02Z -->
-- (P-Ra5D4F96) Actual linter output is MD007 (not assumed MD013/MD033/MD041); fix: committed context/.markdownlint.json disabling MD007; markdownlint auto-applies per-directory configs, scoping exemption to context/ only.
-  <!-- source: review-promote, source_line: 1, sha1: a9b86396ff976ebeace9db15824ad1e285439dd023fbf98715c5546b92263d23, write: user-explicit, trust: high, at: 2026-06-23T20:00:02Z -->
-- (P-AD7CZaKC) Uses `failure#` naming convention for failed experiment directories — renamed kiro-gate to `failure6-kiro-gate` (implies prior failures 1–5)
-  <!-- source: review-promote, source_line: 1, sha1: 9c35a69a1d25c9b140d46a87290537fa79df27ced568d049448cfa70ecd6c256, write: user-explicit, trust: high, at: 2026-06-23T20:00:03Z -->
-- (P-53VHE5Z6) PR #224 opened with guardrail fix (matcher syntax corrected from pipe-alternation to '*')
-  <!-- source: review-promote, source_line: 1, sha1: ca2a1b5ae832a823d028207595109e5f6294102caeed48ab4803ad73757df02c, write: user-explicit, trust: high, at: 2026-06-23T20:00:03Z -->
+- (P-9HAX6LAX) agentSpawn hook verified firing; D-198 configuration fix confirmed working; Kiro version 2.9.0
+  <!-- source: review-promote, source_line: 1, sha1: 222af275ce998c5cf4d4151f78310097402e2444e0babec7f9f373b3ea562eac, write: user-explicit, trust: high, at: 2026-06-24T20:00:03Z -->
+- (P-VRJ9JMX5) kiro-cli only passes env overrides to registry-type MCP servers, not stdio-type; since your server is stdio-type (personal), CMK_PROJECT_DIR is silently dropped (verified from kiro-cli changelog)
+  <!-- source: review-promote, source_line: 1, sha1: 114995a3b156bf43ab3f62488d930d448b1bdf3a9ac2d99b98b0f2dc626706d4, write: user-explicit, trust: high, at: 2026-06-24T20:00:03Z -->
+- (P-ZXUWSZWJ) The kit's code fix is correct; the blocking issue is kiro-cli's env-passing architecture, not the kit itself
+  <!-- source: review-promote, source_line: 1, sha1: 5310a7af2ea18cc16c39238aa5d3663cdf60ca0caa9bb1b4be3b4ed698e3a6ce, write: user-explicit, trust: high, at: 2026-06-24T20:00:03Z -->
+- (P-A79KMP6L) Only mk_remember MCP-tool calls are affected; CLI hooks (agentSpawn inject + stop capture) continue to work normally
+  <!-- source: review-promote, source_line: 1, sha1: 5490b1d95075cb9066b9e6544a88bb70845bb03fd51f65a34267d60741976ed5, write: user-explicit, trust: high, at: 2026-06-24T20:00:04Z -->
+- (P-TBKTT7FS) Kiro bug #5873 blocks manual `mk_remember` tool from routing to custom assistants like claude-memory-kit
+  <!-- source: review-promote, source_line: 1, sha1: 3b840077a942e945975319be45779eeb334cdfe61b7b7bdda995a1f0902bd0c0, write: user-explicit, trust: high, at: 2026-06-24T20:00:05Z -->
+- (P-LRC5G3V6) Clarifying scope — asking whether kiro-ide and claude-code are still pending fixes in mcp route (in addition to kiro-cli live test)
+  <!-- source: review-promote, source_line: 1, sha1: c660344e231b777c2f073d80ea4554f7dd032b2c55ff38bc8798429b51d7d294, write: user-explicit, trust: high, at: 2026-06-24T20:00:05Z -->
 
 ## Environment Notes
 

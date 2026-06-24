@@ -1,0 +1,18 @@
+---
+id: P-4GB6NFMA
+type: project
+title: cmk-remember-needs-project-flag-cwd-unreliable-in-kiro-cli-shell
+created_at: 2026-06-24T18:14:52Z
+write_source: user-explicit
+trust: high
+source_file: user-explicit
+source_line: 1
+source_sha1: f5cc0e9688a6cfcc907d205fa755629b9470d67db1d0de66abbc31259ea85627
+related: [v0.4.0-decision-remove-mcp-from-kiro-cli-agent-includemcpjson-false-document-gap, THE-FIX-use-cmk-remember-cli-not-mk-remember-mcp-in-kiro-cli]
+---
+
+ROOT CAUSE of cmk remember not landing in kiro-cli (2026-06-24): `cmk remember` resolves projectRoot from process.cwd() ONLY (subcommands.mjs:983 `deps.projectRoot ?? resolvePath(process.cwd())`) — NO walk-up, NO --project flag. The kiro-cli agent runs `cd /c/Temp/kiro-cli-gate5 && cmk remember ...` but kiro's terminal shell + the bash-style /c/Temp path makes the cd unreliable, so cmk remember runs in the WRONG cwd → writes to the wrong/no project → "✅ Remembered" but the fact is lost (gate5 has 0 audit entries; not in dev repo MEMORY.md either; genuinely misrouted). THE FIX (consistent with the mcp serve --project fix): add a `--project <dir>` flag to runRemember + runSearch (subcommands.mjs), resolving projectRoot = options.project ?? deps.projectRoot ?? process.cwd(). Then the kiro-cli AGENT PROMPT must instruct the model to ALWAYS pass --project with the ABSOLUTE project path (Windows form C:\Temp\... not /c/Temp), e.g. `cmk remember "<fact>" --project "<absolute project root>"`. The agent knows the path (it's the workspace root; the prompt can say "use the current working directory's absolute path"). Walk-up alone is WRONG here because kiro's cwd may be the DEV REPO which HAS a context/ → walk-up would pick the wrong project; the explicit --project is reliable. ALSO add --project to the trusted-commands regex (already `^cmk remember .*` covers it). PROGRESS THIS SESSION: popup FIXED (includeMcpJson:false → no MCP spawn → no cmd.exe window, user confirmed 'no pop up'); hooks WORK (automatic capture, gate4 now.md); only explicit cmk remember cwd-routing remains. BUILD: runRemember/runSearch --project flag + emphatic prompt to pass absolute --project + test + live-verify the fact lands in gate. If kiro STILL can't pass a correct absolute path, fall back to documenting explicit-save as best-effort + lean on hooks.
+
+**Why:** cmk remember resolves project from process.cwd() only; kiro-cli's shell runs `cd /c/Temp/gate5 && cmk remember` unreliably (bash path + kiro terminal cwd), so the fact writes to the wrong project — "Remembered" but lost. The fix: a --project flag on cmk remember/search (like mcp serve got) + the agent prompt passing the absolute path. Popup already fixed (includeMcpJson:false); hooks work; this is the last explicit-save gap.
+
+**How to apply:** BUILD (test-first): (1) runRemember (subcommands.mjs:982) + runSearch: add --project option; projectRoot = resolvePath(options.project ?? deps.projectRoot ?? process.cwd()). Register --project on the remember + search commands (optionSpec). (2) kiro-cli-agent.mjs prompt: instruct 'ALWAYS pass --project with the absolute Windows path of the project root (e.g. C:\\Temp\\proj), e.g. cmk remember \"<fact>\" --project \"<abs path>\" — do NOT rely on cd'. The model can get the abs path from the workspace/cwd. (3) trusted-commands `^cmk remember .*` already allows the flag. Test: runRemember honors --project over cwd; the prompt mentions --project. LIVE-VERIFY: state a pref in kiro-cli → cmk remember --project <gate> → fact LANDS in gate/context/MEMORY.md. If kiro can't supply a correct abs path, document explicit-save as best-effort + rely on hooks (which work). Relates the mcp serve --project fix (resolveMcpProjectRoot), the popup fix (includeMcpJson:false).

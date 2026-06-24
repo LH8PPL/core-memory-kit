@@ -1,0 +1,18 @@
+---
+id: P-V2CQQLQQ
+type: project
+title: FINAL-mcp-popup-is-kiro-cli-wraps-all-mcp-in-cmd-exe-not-kit-bug
+created_at: 2026-06-24T11:08:45Z
+write_source: user-explicit
+trust: high
+source_file: user-explicit
+source_line: 1
+source_sha1: e3e3d78b8489384399344255a98f869c8c638d9788d4f62016a6430b2862eef7
+related: [kiro-cli-mcp-popup-is-6th-cross-agent-instance-mcp-command-never-node-direct, FINAL-kiro-cli-v3-redesigned-hooks-pretooluse-superseded-by-permissions-yaml]
+---
+
+FINAL popup diagnosis — it's KIRO-CLI's behavior, NOT a kit bug, and NOT fixable by changing our command (2026-06-24). Caught live: with the gate mcp.json set to command:'node' (node-direct), kiro-cli STILL spawned `cmd.exe /C cmk mcp serve` (PID 27760 → node PID 1988) — meaning (a) kiro-cli had NOT reloaded my changed mcp.json (still launching the old 'cmk' command), AND (b) more importantly: kiro-cli wraps EVERY stdio MCP server in `cmd.exe /C` — proven by the user's OTHER servers in the same snapshot: `cmd.exe /d /s /c mcp-server-memory`, `cmd.exe /d /s /c mcp-remote https://...`, `cmd.exe /d /s /c npx mcp-remote`. ALL of them get cmd.exe/C-wrapped by kiro-cli, not just cmk. So the persistent cmd.exe console window is KIRO-CLI's OWN MCP-launch mechanism on Windows (it shells every stdio server through cmd.exe /C, which opens a visible console). This is DIFFERENT from the Task 81/D-190 class (those were the KIT's own detached spawns, which the kit controls). The MCP-server window is controlled by KIRO-CLI's spawn, which the kit CANNOT change via the command string (node-direct didn't help; kiro wraps node too). So: NOT the kit's bug, NOT the 6th-cross-agent-instance I claimed (that framing was wrong — the kit's command choice doesn't control kiro's wrapper). REMAINING OPTIONS (all limited): (1) a kiro-cli setting to hide MCP windows (check kiro.dev/docs/cli/v3 — V3 'improved trust model' may have it); (2) accept it as a kiro-cli platform cosmetic (every kiro-cli Windows user sees it for EVERY MCP server, ours included) — likely the honest answer; (3) file upstream w/ Amazon Q. The HOOK flashes (fast cmd.exe /c) are also kiro's wrapping. CONCLUSION for v0.4.0: the popup is a kiro-cli-on-Windows cosmetic that affects ALL MCP servers, not a kit defect — document it as a known kiro-cli quirk, do NOT block the cut. The kit WORKS (cmk default, capture/inject/MCP all function). RESTORE: gate mcp.json back to command:'cmk' via `cmk install --ide kiro` (node-direct gave no benefit + is less portable).
+
+**Why:** Corrects my earlier '6th cross-agent instance / node-direct fix' framing — that was WRONG. Live proof: kiro-cli wraps EVERY stdio MCP server in cmd.exe /C (the user's mcp-remote + mcp-server-memory get it too, not just cmk), so the console window is kiro-cli's OWN launch mechanism, not controllable by the kit's command string (node-direct didn't help). It's a kiro-cli-on-Windows cosmetic affecting all MCP servers, not a kit defect — don't block v0.4.0 on it.
+
+**How to apply:** Restore the gate mcp.json to command:'cmk' (re-run `cmk install --ide kiro`) — node-direct gave no benefit. For the popup: (1) check kiro.dev/docs/cli/v3 for an MCP-window / headless setting (V3's improved trust/UX may add one); (2) otherwise document as a known kiro-cli-on-Windows cosmetic (affects ALL stdio MCP servers, the kit included) in the kiro-cli gate's known-issues + README Kiro section; (3) optionally file upstream with Amazon Q Developer CLI. The kit cannot suppress kiro-cli's cmd.exe wrapper from the command string. NOT a v0.4.0 blocker — capture/inject/MCP all work; the window is cosmetic. Keep the kit's MCP entry as command:'cmk' (portable, what Claude Code uses). Stop pursuing a kit-side fix; the lever isn't ours.

@@ -1,0 +1,18 @@
+---
+id: P-GP54J2UE
+type: project
+title: CUT-BLOCKER-CLOSED-kiro-cli-explicit-memory-works-tools-star-fix-proven
+created_at: 2026-06-24T19:03:14Z
+write_source: user-explicit
+trust: high
+source_file: user-explicit
+source_line: 1
+source_sha1: 1e57077977d73901a2a1c0185fc59dec8179e2ca36088e19b82673f3bbe5c4e5
+related: [THE-ACTUAL-BUG-missing-tools-field-agent-had-no-shell-tool-enabled, v0.4.0-decision-remove-mcp-from-kiro-cli-agent-includemcpjson-false-document-gap]
+---
+
+★★★ CUT-BLOCKER CLOSED — kiro-cli explicit memory WORKS (2026-06-24, gate7, the tools:['*'] fix PROVEN LIVE). After adding `tools: ['*']` to the kiro-cli agent, the model ran `cmk remember "..." --why "..." --type user --project "C:\Temp\kiro-cli-gate7"` and it REALLY EXECUTED: real Shell output 'cmk remember: saved rich fact → ...gate7\context\memory\user_...md [P-DTRaa79G]'. ON DISK CONFIRMED: gate7 audit P-DTRaa79G created, a real rich fact file (frontmatter type:user trust:high write_source:user-explicit), AND cmk search finds it. The ENTIRE multi-hour saga (MCP #5873, allowlist #5376/#7431, cd #4579, env-not-flowed, cwd issues) was ALL MISDIAGNOSIS — the real cause was the agent config MISSING THE `tools` FIELD (no tools enabled → custom agent couldn't run ANY shell command → model faked '✅ Remembered'). One line: tools:['*']. NET kiro-cli STATUS — FULLY WORKING: popup FIXED (includeMcpJson:false), automatic memory via hooks WORKS, explicit cmk remember WORKS (P-DTRaa79G), cmk search recall WORKS. Claude Code + Kiro IDE always worked. KEEP includeMcpJson:false (the CLI shell commands now run via tools:['*'], so we don't need MCP in kiro-cli + it stays popup-free). All the code is correct: tools:['*'], --project flag + normalizeProjectPath (the model passes it, works), the no-cd prompt, includeMcpJson:false, @ name moot now, D-198 location, resolveMcpProjectRoot (Claude Code). LESSON (binding): when an agent 'calls a tool but nothing happens', CHECK THE AGENT'S `tools` CAPABILITY FIELD FIRST — a custom agent with no tools field can't run anything. I should have read the config-reference 'tools' field at the start instead of a rabbit-hole of upstream-bug-blaming. The user's reframe ('cmk remember is a tool like ls, how do you run tools in chat?') was the key. NEXT: revisit/correct the wrong 'kiro bug' memory notes; run full suite; consolidate branch fix-kiro-cli-mcp-project-resolution → ONE PR → two-pass review → merge → v0.4.0 tag.
+
+**Why:** PROVEN LIVE: tools:['*'] was the fix — the model ran cmk remember and it really executed (P-DTRaa79G rich fact landed in gate7, cmk search finds it). The whole multi-hour kiro-bug saga was misdiagnosis; the agent just had no tools enabled. kiro-cli is now fully working: popup fixed, automatic + explicit memory both work. Ship v0.4.0.
+
+**How to apply:** SHIP: (1) Full suite green. (2) Consolidate branch fix-kiro-cli-mcp-project-resolution into ONE PR: tools:['*'] (THE fix) + includeMcpJson:false (popup) + --project flag + normalizeProjectPath + no-cd prompt + D-198 location + resolveMcpProjectRoot + @ name + the docs. (3) Two-pass review (self + code-review-excellence). (4) DOCS: CHANGELOG + cut-gate-kiro-cli + README — kiro-cli fully works (no popup, automatic + explicit memory). (5) CORRECT the wrong memory notes (the #5873/#5376/#7431/#4579 'confirmed kiro bugs' were misdiagnoses — the cause was the missing tools field). (6) merge → v0.4.0 tag. Add a CLAUDE.md binding lesson: 'agent calls a tool but nothing runs → check the agent tools capability field FIRST (a custom agent with no tools field runs nothing).' kiro-cli + Kiro IDE + Claude Code all fully work for v0.4.0.

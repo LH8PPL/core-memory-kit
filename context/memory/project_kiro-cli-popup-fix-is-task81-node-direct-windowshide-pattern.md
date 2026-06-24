@@ -1,0 +1,18 @@
+---
+id: P-UAFX77EF
+type: project
+title: kiro-cli-popup-fix-is-task81-node-direct-windowshide-pattern-already-in-kit
+created_at: 2026-06-24T10:29:22Z
+write_source: user-explicit
+trust: high
+source_file: user-explicit
+source_line: 1
+source_sha1: a1fd36505686bc71bcacbf813610056ba492b03159a4bc08a7668e375e481305
+related: [kiro-cli-popup-real-cause-cmk-is-npm-shim-not-exe-mcp-and-hook-spawns-flash, kiro-cli-hook-cmd-exe-popup-window-flash-ux-bug]
+---
+
+THE kiro-cli popup fix is the SAME pattern the kit ALREADY uses for Claude Code (Task 81 — I was wrong that "Claude Code never had this"). Corrected understanding (2026-06-24): the kit fixed the Windows console-popup class for Claude Code via the NODE-DIRECT + windowsHide pattern: spawn `process.execPath` (the node.exe) on the resolved `.mjs` path, NEVER the npm `.cmd`/`.ps1` shim — because Windows wraps a shim in cmd.exe which flashes a console window (windowsHide:true hides the cmd.exe but NOT the detached node grandchild the shim launches). See inject-context.mjs lazyCompressSpawnDescriptor + resolveCompressLazyPath + capture-turn.mjs:278 + compressor.mjs:253 — all use {command: process.execPath, args:[mjsPath], options:{windowsHide:true}}. The comment at inject-context.mjs:626-633 EXPLICITLY says this was a cross-agent fix that the cut-gate-kiro live test surfaced (the Kiro `cmk hook agentSpawn` path didn't pass compressLazyPath → got the popup). SO: the kiro-cli MCP popup (cmd.exe /C cmk mcp serve, the persistent window — verified by PID 16468→node cmk.mjs) + the hook flashes have the SAME root cause (cmk is a shim) and the SAME fix (point the command at node + the .mjs path, not the cmk shim). FIX: install-kiro.mjs / kiro-cli-agent.mjs should emit the MCP entry as {command: <node>, args:[<cmk.mjs>,'mcp','serve']} and hooks as node-direct, NOT command:'cmk'. Use the kit's existing path-resolution (process.execPath + resolve the bin/cmk.mjs). Manually testing it on the gate's mcp.json now (node-direct started the server fine in a smoke test). This is a real code fix following the established Task-81 pattern, not a new invention. Note: the IDE hook may still need cmd.exe/c for its WSL hop — verify; the MCP + the kiro-cli hooks are the node-direct targets.
+
+**Why:** Corrects my wrong claim that Claude Code never had the popup. It DID — Task 81 fixed it with node-direct (process.execPath + .mjs path, never the cmk shim) + windowsHide. The kiro-cli MCP + hook popups are the SAME root cause (cmk is an npm shim Windows wraps in cmd.exe) and take the SAME established fix. This makes the kiro-cli popup a clean code fix following the kit's own proven pattern, not a new invention.
+
+**How to apply:** FIX (follow Task 81): in install-kiro.mjs (MCP entry) + kiro-cli-agent.mjs (hooks), emit the command pointing at node + the resolved cmk.mjs path instead of the 'cmk' shim. Reuse the kit's path-resolution (process.execPath for node; resolve bin/cmk.mjs relative to the module like resolveCompressLazyPath does). MCP: {command: nodePath, args:[cmkMjsPath,'mcp','serve']}. kiro-cli hooks: same node-direct form (the hook bins are cmk-guard-memory.mjs etc — point at node + the .mjs). VERIFY the IDE .kiro.hook side: it may still need cmd.exe/c for the WSL hop (Kiro IDE routes through WSL) — test; if so, IDE stays cmd.exe/c, CLI + MCP go node-direct. Test-first (a spawn-descriptor unit test like lazyCompressSpawnDescriptor), then live-verify the persistent cmd.exe window is GONE in kiro-cli. Restore the gate's mcp.json + agent from `cmk install --ide kiro` after manual testing. This is a v0.4.x UX task (cosmetic — capture/inject/default work regardless).
