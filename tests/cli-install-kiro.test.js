@@ -63,6 +63,15 @@ describe('Task 50 — installKiro (all 4 surfaces)', () => {
     );
     expect(auto).not.toContain('*'); // scoped to the kit's tools, never a blanket wildcard
 
+    // The IDE MCP entry is plain `cmk mcp serve` — no per-project arg/env (the IDE
+    // launches from the workspace; the server resolves the project from
+    // CLAUDE_PROJECT_DIR / cwd). kiro-cli does NOT use MCP (its agent sets
+    // includeMcpJson:false; explicit memory goes through `cmk remember`/`cmk
+    // search` shell commands), so the project-root never needs to ride in here.
+    const srv = mcp.mcpServers['claude-memory-kit'];
+    expect(srv.args).toEqual(['mcp', 'serve']);
+    expect(srv.env).toBeUndefined();
+
     // steering
     expect(existsSync(p('steering', 'cmk.md'))).toBe(true);
     expect(readFileSync(p('steering', 'cmk.md'), 'utf8')).toMatch(/inclusion:\s*always/);

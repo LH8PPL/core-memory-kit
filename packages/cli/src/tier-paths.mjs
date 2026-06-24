@@ -9,10 +9,57 @@
 //   resolveTierRoot({tier, projectRoot, userDir}) → absolute path
 //   resolveFactDir(tier, tierRoot) → absolute path to <memory|fragments>
 
+import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 export const VALID_TIERS = new Set(['U', 'P', 'L']);
+
+/**
+ * Normalize a project path that may arrive in a unix/git-bash form. kiro-cli's
+ * model sometimes emits a `/c/Temp/proj` style path (git-bash) for `--project`,
+ * which Windows `resolve()` mangles. Convert a leading `/<drive>/` → `<DRIVE>:/`.
+ * A normal Windows or POSIX absolute path passes through unchanged. Used by
+ * `cmk remember`/`cmk search` --project (the kiro-cli explicit-memory path).
+ */
+export function normalizeProjectPath(p) {
+  if (typeof p !== 'string') return p;
+  const m = /^\/([a-zA-Z])\/(.*)$/.exec(p); // /c/Temp/proj  →  c , Temp/proj
+  if (m) return `${m[1].toUpperCase()}:/${m[2]}`;
+  return p;
+}
+
+/**
+ * Resolve which project `cmk mcp serve` should serve (the Claude Code + Kiro IDE
+ * MCP path — kiro-cli doesn't use MCP). The MCP server is a long-lived child the
+ * agent launches, so it can't just trust cwd.
+ *
+ * Precedence: CLAUDE_PROJECT_DIR (Claude Code sets it in the spawned env) → walk
+ * UP from cwd to the nearest `context/` ancestor → cwd (last resort). Pure (env +
+ * cwd injected) so it's unit-testable without spawning.
+ *
+ * @param {object} [opts]
+ * @param {Record<string,string|undefined>} [opts.env=process.env]
+ * @param {string} [opts.cwd=process.cwd()]
+ * @returns {string} the resolved project root (absolute)
+ */
+export function resolveMcpProjectRoot({ env = process.env, cwd = process.cwd() } = {}) {
+  const fromClaude = env.CLAUDE_PROJECT_DIR;
+  if (fromClaude && fromClaude.trim() !== '') return resolve(fromClaude);
+
+  // walk up from cwd to the nearest dir that has a context/ subdir (an installed
+  // kit project), stopping at the filesystem root.
+  let dir = resolve(cwd);
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    if (existsSync(join(dir, 'context'))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) break; // reached the root
+    dir = parent;
+  }
+
+  return resolve(cwd); // last resort
+}
 
 // Matches IDs produced by @lh8ppl/cmk-canonicalize.generateId(). Tier prefix +
 // 8 chars from the custom 32-char base32 alphabet that excludes the six

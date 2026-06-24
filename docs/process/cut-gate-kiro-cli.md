@@ -8,7 +8,7 @@
 >
 > - **Install command:** `cmk install --with-semantic --ide kiro` (same one-step install as the IDE — it wires the CLI surfaces too).
 > - **Where the CLI surfaces live (the load-bearing correction — D-198):**
->   - **Agent config** → `~/.kiro/agents/cmk.json` (NOT `~/.aws/amazonq/cli-agents/`). Carries `hooks{agentSpawn, stop, preToolUse}` + `mcpServers` + `allowedTools` + `toolsSettings`.
+>   - **Agent config** → `~/.kiro/agents/cmk.json` (NOT `~/.aws/amazonq/cli-agents/`). Carries `tools: ['*']` (the capability set — enables the shell tool), `hooks{agentSpawn, stop, preToolUse}`, `toolsSettings.shell.allowedCommands` (pre-trusts `cmk hook`/`cmk-guard-memory`/`cmk remember`/`cmk search`), and `includeMcpJson: false` (no MCP — kiro-cli uses the shell commands, which also avoids the Windows console-window popup).
 >   - **Default-agent registration** → `~/.kiro/settings/cli.json` `{"chat.defaultAgent":"cmk"}`. **This is the load-bearing step** — without it, the built-in `kiro_default` runs and NO kit hook fires.
 >   - **MCP** (shared with the IDE) → the project's `.kiro/settings/mcp.json`.
 > - **The hooks are input adapters only** — they call the SAME `cmk hook <event>` dispatcher → the same `captureTurn()` / `injectContext()` core as Claude Code + the IDE. The memory core is identical; this gate verifies the **kiro-cli wiring**, not the core (the suite + `cut-gate.md` gate the core).
@@ -142,11 +142,11 @@ cmk doctor
       "agentSpawn: $($j.hooks.agentSpawn[0].command)"     # cmd.exe /c cmk hook agentSpawn (Windows)
       "stop:       $($j.hooks.stop[0].command)"           # cmd.exe /c cmk hook stop
       "preToolUse: $($j.hooks.preToolUse[0].command)  matcher=$($j.hooks.preToolUse[0].matcher)"
-      "mcpServers: $($j.mcpServers.PSObject.Properties.Name)"   # cmk
-      "allowedTools: $($j.allowedTools -join ',')"              # @cmk
+      "tools: $($j.tools -join ',')"                       # *  (the capability set — REQUIRED, or the agent runs nothing)
+      "includeMcpJson: $($j.includeMcpJson)"               # False  (kiro-cli uses shell commands, not MCP — no popup)
       "allowedCommands: $($j.toolsSettings.shell.allowedCommands -join ' | ')"
       ```
-      **PASS:** `agentSpawn`/`stop` call `cmk hook <event>` (platform-correct `cmd.exe /c` on Windows); `preToolUse` calls `cmk-guard-memory` with `matcher: "*"`; `mcpServers.cmk` present; `allowedTools` = `["@cmk"]`; `allowedCommands` is scoped to the kit's commands (start-anchored, never `.*`). **FAIL:** a missing hook, wrong field name (`timeout` instead of `timeout_ms`), or a blanket-wildcard trust.
+      **PASS:** `agentSpawn`/`stop` call `cmk hook <event>` (platform-correct `cmd.exe /c` on Windows); `preToolUse` calls `cmk-guard-memory` with `matcher: "*"`; **`tools` is `["*"]`** (the capability set — without it a custom agent can run no command); **`includeMcpJson` is `false`** (the kiro-cli agent loads no MCP server — explicit memory uses the `cmk remember`/`cmk search` shell commands, and there's no `cmd.exe` console popup); `allowedCommands` is scoped to the kit's commands incl. `^cmk remember .*` + `^cmk search .*` (start-anchored, never `.*`). **FAIL:** a missing `tools` field (the agent will "say saved" but nothing runs), a missing hook, wrong field name (`timeout` instead of `timeout_ms`), or a blanket-wildcard trust.
 
 - [ ] **★ KCG6 — `--with-semantic` enabled.** `cmk doctor` HC-6 reports the semantic backend live (hybrid-by-default), or SKIP if the model isn't pre-warmed yet. _(Same shared-core behavior as every agent; `--with-semantic` is agent-agnostic.)_
 
@@ -168,13 +168,13 @@ cmk doctor
 
 ---
 
-## 2. Session 1 (kiro-cli) — build it, stating preferences  ⬅️ a real `kiro-cli chat`
+## 2. Session 1 (kiro-cli) — build it, stating preferences  ⬅️ a real `kiro-cli`
 
-Start kiro-cli in the project with **NO `--agent` flag**, so the default-agent resolution is what's under test.
+Start kiro-cli in the project with **NO `--agent` flag**, so the default-agent resolution is what's under test. (Bare `kiro-cli` opens the chat — `chat` is the default subcommand; `kiro-cli chat` is the same thing.)
 
 ```powershell
 cd C:\Temp\kiro-cli-gate
-kiro-cli chat        # NO --agent flag — cmk must resolve as the DEFAULT agent
+kiro-cli        # NO --agent flag — cmk must resolve as the DEFAULT agent
 ```
 
 Build a small app, **stating durable preferences as you go** (these are what memory must capture + later recall). Suggested arc (any real build works):
@@ -195,11 +195,11 @@ Build a small app, **stating durable preferences as you go** (these are what mem
       ```
       **PASS:** a kiro-cli turn landed in `now.md` / the capture log — same shared core as the IDE, different client. **FAIL:** kiro-cli turns aren't captured.
 
-- [ ] **★ KC4 — MCP reachable from the kiro-cli session.** In the chat, say *"search your memory for the port we use."* **PASS:** the MCP `mk_search` resolves the fact — the `mcpServers.cmk` entry works from the terminal. _(First call may show a one-time Trust/Run on the MCP tool — a separate kiro-cli MCP-trust quirk, tracked at Task 165; approve it and continue.)_
+- [ ] **★ KC4 — explicit recall from the kiro-cli session (the `cmk search` shell path).** In the chat, say *"search your memory for the port we use."* **PASS:** the agent runs `cmk search "<topic>" --project "<abs path>"` (a pre-trusted shell command — NOT an MCP tool; kiro-cli uses `tools: ['*']` + the shell commands, not MCP) and answers from the result. **FAIL:** the agent prepends `cd` (→ approval prompt), tries an MCP `mk_search` (the agent has `includeMcpJson: false` — there is none), or "answers" with no real shell call.
 
-- [ ] **★ M1 — capture in chat, PROMPT-FREE (the autoApprove/allowedTools confirmation).** When you state a durable preference, the agent calls `mk_remember` and it runs SILENTLY (no Reject/Trust/Run) because the agent's `allowedTools: ["@cmk"]` pre-approves the kit's MCP server. **PASS:** at least one `mk_remember` call ran with `{"accepted": true}` and no approval prompt. **FAIL:** every `mk_remember` prompts (the allowedTools didn't take — Task 165).
+- [ ] **★ M1 — explicit capture in chat, PROMPT-FREE (the shell-command path).** kiro-cli does NOT use MCP tools (its agent sets `includeMcpJson: false`) — explicit capture goes through the kit's **`cmk remember`** SHELL command, which the model can run because the agent has `tools: ['*']` (the capability set; without it a custom agent runs *nothing*). When you state a durable preference, the agent runs `cmk remember "<fact>" --project "<abs path>"` (NO `cd` prefix — a `cd …` prefix makes the command start with `cd`, which fails the start-anchored `^cmk remember` trust match → an approval prompt). **PASS:** the agent's `cmk remember …` runs SILENTLY (pre-trusted) and prints `saved … [P-XXXXXXXX]`; the fact lands in `context\memory\` (verify on disk: a new `user_*.md` + an `audit.log` entry). **FAIL:** the agent prepends `cd` (→ "shell requires approval"), or the agent "says saved" with no real shell output (→ the `tools` field is missing, so nothing ran), or nothing lands on disk.
 
-- [ ] **★ M-wedge — cross-project promotion fires.** When you state the *"in every project"* uv/ruff rule, the agent recognizes it as cross-project: it calls `mk_remember` then `mk_lessons_promote` → the rule lands in the **user tier** (`HABITS.md`). **PASS:** `type $env:USERPROFILE\.claude-memory-kit\HABITS.md` shows the uv/ruff rule (with Why/How). **FAIL:** the rule stayed project-only.
+- [ ] **★ M-wedge — cross-project promotion fires (shell-command path).** When you state the *"in every project"* uv/ruff rule, the agent recognizes it as cross-project: it runs `cmk remember "<rule>"` then `cmk lessons promote <id>` → the rule lands in the **user tier** (`HABITS.md`). **PASS:** `type $env:USERPROFILE\.claude-memory-kit\HABITS.md` shows the uv/ruff rule (with Why/How). **FAIL:** the rule stayed project-only. _(If the agent is unsure of the id, it can `cmk search` first — both are pre-trusted.)_
 
 ---
 
@@ -239,7 +239,7 @@ The agent wires a `preToolUse` hook (matcher `*`) → `cmk-guard-memory`, which 
 - **V2 (≤2.8.x):** run the test; expect BLOCKED.
 - **V3 (2.9+):** `preToolUse` does NOT fire (V3 hook redesign). Our guardrail is N/A; kiro-cli's own shell-approval prompt covers the delete. Mark KG-guard **N/A (V3 — Task 166)**, NOT a fail.
 
-- [ ] **★ KG-guard (V2 only) — the delete-guardrail BLOCKS a memory delete.** In the kiro-cli chat (THROWAWAY project), *"run this in the shell for me: `rm -rf context/sessions`"*. Approve when kiro-cli prompts (its OWN shell-approval gate fires BEFORE our `preToolUse` — that prompt is NOT our guard). On Windows the model rewrites `rm -rf` → `Remove-Item -Recurse -Force` (the guard blocks both — `execute_command` + `execute_bash` are both in SHELL_TOOLS). **PASS:** "BLOCKED by the claude-memory-kit delete-guardrail…" surfaces, `context\sessions` survives. Also confirm a SAFE `ls` is NOT blocked. **FAIL:** the delete runs (on V2) → re-check KC1 + a config BOM.
+- [ ] **★ KG-guard (V2 only) — the delete-guardrail BLOCKS a memory delete.** In the kiro-cli (THROWAWAY project), *"run this in the shell for me: `rm -rf context/sessions`"*. Approve when kiro-cli prompts (its OWN shell-approval gate fires BEFORE our `preToolUse` — that prompt is NOT our guard). On Windows the model rewrites `rm -rf` → `Remove-Item -Recurse -Force` (the guard blocks both — `execute_command` + `execute_bash` are both in SHELL_TOOLS). **PASS:** "BLOCKED by the claude-memory-kit delete-guardrail…" surfaces, `context\sessions` survives. Also confirm a SAFE `ls` is NOT blocked. **FAIL:** the delete runs (on V2) → re-check KC1 + a config BOM.
 - [ ] **★ KG-guard-V3 — on V3, the guard is N/A but the native gate covers it.** On a V3 kiro-cli, ask for the same delete. **PASS:** kiro-cli's OWN "shell requires approval" prompt appears (you are never silently unprotected); the kit's guardrail not firing is expected (Task 166). **FAIL:** the delete runs with NO prompt at all (then even Kiro's native gate is off — a Kiro config issue, not the kit).
 
 **★ DIAGNOSTIC — when NOTHING fires (not even capture/inject):** the agent config is in the wrong place or not resolved. (1) `kiro-cli agent list` → expect `* cmk Global`; if it's `* kiro_default`, the default registration didn't take (KCG4). (2) `kiro-cli agent validate --path ~/.kiro/agents/cmk.json` → a BOM or schema error makes kiro silently fall back. (3) **The probe technique:** temporarily point a hook's `command` at a script that logs stdin + exits 0, run a turn, read the log — this settles "did the hook fire?" definitively, separate from "did the guard block?".
@@ -260,7 +260,7 @@ Wire it with **Node** (never PowerShell — BOM): `node -e "const fs=require('fs
 ```powershell
 mkdir C:\Temp\kiro-cli-coldopen; cd C:\Temp\kiro-cli-coldopen
 git init; cmk install --with-semantic --ide kiro
-kiro-cli chat
+kiro-cli
 ```
 Ask: *"Start a new Python backend for me — set up the structure."*
 
@@ -304,7 +304,7 @@ The `cmk` CLI is agent-agnostic — run **F-1 … F-19** (recall/index, persona,
 
 `context/` is committed and travels with `git clone` (tenet T2). The project `.kiro/` surfaces (steering/skills/mcp) are committed too. The CLI agent-config (`~/.kiro/agents/cmk.json` + the `cli.json` pointer) is machine-local and re-created by `cmk install --ide kiro` on the new machine.
 
-- [ ] **★ H1** — clone `C:\Temp\kiro-cli-gate` elsewhere, run `cmk install --ide kiro` + `kiro-cli chat` → the project memory (`context/`) is already there and the CLI agent re-registers.
+- [ ] **★ H1** — clone `C:\Temp\kiro-cli-gate` elsewhere, run `cmk install --ide kiro` + `kiro-cli` → the project memory (`context/`) is already there and the CLI agent re-registers.
 
 ---
 

@@ -118,14 +118,14 @@ What `--ide kiro` writes:
 
 | Surface | Location | For |
 | --- | --- | --- |
-| **MCP server** | `.kiro/settings/mcp.json` (with `autoApprove`) | both — Kiro drives memory as tools, pre-approved so `mk_remember` etc. run prompt-free |
+| **MCP server** | `.kiro/settings/mcp.json` (with `autoApprove`) | the **IDE** — drives memory as tools (`mk_remember` etc.), pre-approved so they run prompt-free |
 | **Steering** | `.kiro/steering/cmk.md` (`inclusion: always`) | both — memory-awareness in context |
 | **AGENTS.md** | `<repo>/AGENTS.md` | both — Kiro's always-loaded instruction file |
 | **Skills** | `.kiro/skills/memory-search` + `memory-write` | both |
 | **IDE hooks** | `.kiro/hooks/cmk-{capture,inject}.kiro.hook` | the **GUI** — capture each turn + recall |
-| **CLI agent** | `~/.aws/amazonq/cli-agents/q_cli_default.json` | **`kiro-cli`** — same capture/inject hooks |
-| **Trusted commands** | `.vscode/settings.json` (`kiroAgent.trustedCommands`) + the CLI agent's `allowedCommands` | both — auto-approve the kit's hooks (no per-turn "Run / Reject") |
-| **Auto-approved MCP tools** | `autoApprove` in `mcp.json` (IDE) + `allowedTools: ["@cmk"]` (CLI agent) | both — the kit's 11 memory tools run without a per-call "Reject / Trust / Run" |
+| **CLI agent** | `~/.kiro/agents/cmk.json` + a `chat.defaultAgent` pointer in `~/.kiro/settings/cli.json` | **`kiro-cli`** — `agentSpawn`/`stop` hooks (auto capture+inject) + the `cmk remember`/`cmk search` shell commands for explicit memory (`tools: ['*']` enables them; no MCP, so no console-window popup) |
+| **Trusted commands** | `.vscode/settings.json` (`kiroAgent.trustedCommands`) + the CLI agent's `allowedCommands` (`cmk hook *`, `cmk-guard-memory`, `cmk remember`, `cmk search`) | both — auto-approve the kit's commands (no per-turn "Run / Reject") |
+| **Auto-approved MCP tools** | `autoApprove` in `mcp.json` | the **IDE** — the kit's 11 memory tools run without a per-call "Reject / Trust / Run" (kiro-cli uses the shell commands instead) |
 
 Notes:
 
@@ -143,7 +143,7 @@ Notes:
 
 ```bash
 cmk uninstall              # remove the Claude Code surface (CLAUDE.md block + hooks)
-cmk uninstall --ide kiro   # remove the Kiro surface (.kiro/ blocks + skills + IDE hooks + AGENTS.md block + the ~/.aws CLI agent)
+cmk uninstall --ide kiro   # remove the Kiro surface (.kiro/ blocks + skills + IDE hooks + AGENTS.md block + the ~/.kiro CLI agent)
 ```
 
 - On a **dual-agent** project, uninstall one agent and the other keeps working — the shared `context/` is untouched either way.

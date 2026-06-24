@@ -62,6 +62,12 @@ export const MCP_AUTO_APPROVE = Object.freeze([
   'mk_queue_list',
   'mk_queue_resolve',
 ]);
+// The MCP entry for `.kiro/settings/mcp.json` — the KIRO IDE's MCP surface (the
+// IDE wires MCP tools to the chat; the kiro-cli agent sets includeMcpJson:false
+// and does NOT use MCP — it uses the `cmk remember`/`cmk search` shell commands).
+// `cmk mcp serve` resolves its project from CLAUDE_PROJECT_DIR (Claude Code) or
+// the launch cwd; the IDE launches from the workspace, so no per-project arg is
+// needed here (the IDE worked without one).
 const MCP_ENTRY = Object.freeze({
   type: 'stdio',
   command: 'cmk',

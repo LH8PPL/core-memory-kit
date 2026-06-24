@@ -32,7 +32,7 @@
 // a VALID field (the `description`, which validate accepts) as a belt.
 //
 // Public surface:
-//   installKiroCliAgent({ kiroDir?, mcpEntry? }) → { action, defaultAgent, changed, path }
+//   installKiroCliAgent({ kiroDir? }) → { action, defaultAgent, changed, path }
 //   uninstallKiroCliAgent({ kiroDir? }) → { action, changed }
 //   hasOurCliAgent({ kiroDir? }) → boolean
 //   (kiroDir overrides the ~/.kiro base; defaults to $MEMORY_KIT_KIRO_DIR or ~/.kiro.
@@ -53,11 +53,6 @@ const AGENT_NAME = 'cmk';
 // top-level `managedBy`, which kiro-cli's strict `agent validate` rejects). Used
 // as a belt on top of the well-known path for ownership detection on uninstall.
 const MANAGED_MARKER = '[claude-memory-kit]';
-
-// The MCP server entry for the kiro-cli AGENT-CONFIG `mcpServers`. Shape
-// `{command, args, timeout}` (no `type`; timeout in ms) — the agent-config
-// contract, distinct from the IDE `.kiro/settings/mcp.json` `{type, command, args}`.
-const DEFAULT_MCP_ENTRY = Object.freeze({ command: 'cmk', args: ['mcp', 'serve'], timeout: 120000 });
 
 // The kiro config root is `~/.kiro/`. $MEMORY_KIT_KIRO_DIR (or the back-compat
 // $MEMORY_KIT_AWS_DIR) overrides the BASE — REQUIRED in tests so the user-tier
@@ -81,10 +76,28 @@ function cliSettingsPathOf(kiroDir) {
 // top-level fields (kiro-cli `agent validate` is strict): name, description,
 // prompt, mcpServers, tools, allowedTools, resources, hooks, toolsSettings,
 // includeMcpJson, useLegacyMcpJson, model. NO `managedBy` (rejected).
-function buildAgentConfig(mcpEntry) {
+function buildAgentConfig() {
   const cfg = {
     name: AGENT_NAME,
     description: `claude-memory-kit — automatic per-session memory (inject + capture). ${MANAGED_MARKER}`,
+    // ★ `tools` is the agent's CAPABILITY SET — what it CAN use. WITHOUT it, a
+    // custom agent has NO tools: it cannot run shell commands at all, so the model
+    // "calls" cmk remember but nothing executes (the cut-gate-kiro-cli silent
+    // failure — kiro.dev/docs/cli/custom-agents/configuration-reference: "the
+    // tools field lists all tools the agent can potentially use"). `'*'` = all
+    // built-in tools (incl. shell, so `cmk remember`/`cmk search` actually run) +
+    // any MCP tools. This was THE missing piece behind the explicit-memory failure.
+    //
+    // ★ Do NOT "tighten" this to a scoped list. `tools` is the CAPABILITY set, NOT
+    // the security boundary — auto-execution is gated separately by `allowedTools`
+    // (absent) + `toolsSettings.shell.allowedCommands` (scoped to `^cmk …`) + the
+    // `preToolUse` delete-guardrail. With `'*'` but no `allowedTools`, every tool
+    // call EXCEPT the pre-trusted `^cmk` shell commands still hits kiro-cli's native
+    // Run/Reject/Trust prompt — so `'*'` widens capability, not silent execution.
+    // A hardcoded scoped list (e.g. `execute_bash`) would also silently drop the
+    // shell tool across the V2→V3 rename (`execute_bash`→`execute_command`),
+    // re-breaking this version-dependently. The approval gate is the boundary.
+    tools: ['*'],
     // INLINE prompt — NOT `file://AGENTS.md`. kiro-cli resolves a config's
     // `prompt`/`resources` file:// paths RELATIVE TO THE AGENT FILE'S DIR
     // (~/.kiro/agents/), per kiro.dev/docs/cli/custom-agents/configuration-
@@ -93,27 +106,43 @@ function buildAgentConfig(mcpEntry) {
     // the workspace root with no ref needed (it's "always included"), so the
     // project instruction loads regardless; this inline prompt is the
     // belt-and-suspenders recall/persist directive that travels WITH the agent.
+    // ★ kiro-cli memory = HOOKS (automatic) + CLI commands (explicit), NOT MCP.
+    // WHY no MCP here (the cut-gate-kiro-cli findings + Kiro issues #5873/#5662):
+    // kiro-cli does NOT wire MCP tools to a CUSTOM agent's LLM (only the built-in
+    // kiro_default gets them), so the MCP memory tools silently no-op. Loading the
+    // MCP server in the kiro-cli agent gains NOTHING (dead tools) and COSTS a
+    // visible `cmd.exe /C cmk mcp serve` console window every session on Windows
+    // (kiro's MCP launcher — not suppressible from the kit). So `includeMcpJson:
+    // false` keeps the kiro-cli agent OFF MCP entirely → no dead tools, no popup.
+    // (The Kiro IDE keeps its OWN MCP via `.kiro/settings/mcp.json`, where MCP
+    // WORKS — the IDE does not read this agent config, so it's unaffected.)
+    //
+    // The working memory paths in kiro-cli:
+    //   • AUTOMATIC — the agentSpawn (inject) + stop (capture) hooks below run
+    //     `cmk hook`, which kiro feeds the project cwd via the hook stdin payload,
+    //     so they capture/recall correctly with no model action.
+    //   • EXPLICIT recall — `cmk search` (a pre-trusted shell command).
     prompt:
-      'You have claude-memory-kit memory for this project. At the start of work, ' +
-      'recall relevant prior decisions/preferences via the cmk MCP tools (mk_search / ' +
-      'mk_recent_activity) before answering — do not re-derive what memory already ' +
-      'records. When a durable fact, decision, or preference arises, persist it with ' +
-      'mk_remember. Treat the project AGENTS.md as authoritative project instruction.',
-    mcpServers: { cmk: mcpEntry },
-    // NO `resources` file:// refs: a project-relative path (.kiro/steering/cmk.md,
-    // AGENTS.md) cannot resolve from the GLOBAL agent dir (~/.kiro/agents/) — it
-    // would resolve there, not at the project (D-198). AGENTS.md auto-loads from
-    // the workspace; the MCP tools carry the memory surface; the inline prompt
-    // carries the recall/persist directive. (If kiro ever supports cwd-relative
-    // resources, the steering re-add is the place to restore it.)
-    // `useLegacyMcpJson` and `includeMcpJson` are the SAME underlying setting in
-    // kiro-cli 2.8.1 — supplying BOTH fails `agent validate` ("duplicate field").
-    // Keep ONLY `useLegacyMcpJson: false` (re-reads the project .kiro/settings/
-    // mcp.json so the IDE + CLI share one MCP source).
-    useLegacyMcpJson: false,
-    // Pre-approve the kit's own MCP server's tools (no per-call Reject/Trust/Run).
-    allowedTools: ['@cmk'],
-    // Pre-trust the kit's OWN hook commands (no per-command approval) — D-194.
+      'You have claude-memory-kit memory for this project, captured automatically ' +
+      'each turn by the kit\'s hooks. Use the kit\'s SHELL COMMANDS for explicit ' +
+      'recall/save. ### CRITICAL command form — do NOT prefix a kit command with ' +
+      '`cd`. A `cd … && cmk …` prefix breaks kiro-cli\'s command allowlist (the ' +
+      'command then needs manual approval and may be skipped). Instead pass the ' +
+      'project root with `--project` and run the bare command. To RECALL: `cmk ' +
+      'search "<topic>" --project "<absolute project path>"` before answering (do ' +
+      'not re-derive what memory records). To SAVE: `cmk remember "<the fact>" ' +
+      '--project "<absolute project path>"` (add `--why "..." --how "..." --type ' +
+      'user|feedback|project` for a rich preference). The absolute project path is ' +
+      'this workspace\'s root. Treat AGENTS.md as authoritative project instruction.',
+    // includeMcpJson:false — the kiro-cli agent does NOT load any MCP server (see
+    // the rationale above: dead tools + a popup, no benefit). The IDE's MCP is
+    // wired separately in `.kiro/settings/mcp.json` and is untouched by this.
+    includeMcpJson: false,
+    // NO `allowedTools` — there are no MCP tools to pre-approve (includeMcpJson is
+    // false). The kit's shell commands are trusted via toolsSettings below.
+    // NO `resources` file:// refs: a project-relative path can't resolve from the
+    // GLOBAL agent dir (~/.kiro/agents/) — D-198. AGENTS.md auto-loads anyway.
+    // Pre-trust the kit's OWN hook + CLI commands (no per-command approval) — D-194.
     toolsSettings: { shell: { allowedCommands: kiroCliAllowedCommands() } },
   };
   // hooks: object keyed by trigger → array of {command, timeout_ms}. agentSpawn
@@ -128,7 +157,7 @@ function buildAgentConfig(mcpEntry) {
   return cfg;
 }
 
-export function installKiroCliAgent({ kiroDir, awsDir, mcpEntry = DEFAULT_MCP_ENTRY } = {}) {
+export function installKiroCliAgent({ kiroDir, awsDir } = {}) {
   kiroDir = kiroDir ?? awsDir; // `awsDir` accepted as a back-compat alias for the sandbox base
   const agentsDir = agentsDirOf(kiroDir);
   const agentPath = agentPathOf(kiroDir);
@@ -137,7 +166,7 @@ export function installKiroCliAgent({ kiroDir, awsDir, mcpEntry = DEFAULT_MCP_EN
   mkdirSync(agentsDir, { recursive: true });
 
   // 1. write the agent config
-  const changedAgent = writeIfChanged(agentPath, `${JSON.stringify(buildAgentConfig(mcpEntry), null, 2)}\n`);
+  const changedAgent = writeIfChanged(agentPath, `${JSON.stringify(buildAgentConfig(), null, 2)}\n`);
 
   // 2. register chat.defaultAgent — the LOAD-BEARING step. GUARDED: never clobber
   //    a user's existing default that ISN'T ours. If they already point at a

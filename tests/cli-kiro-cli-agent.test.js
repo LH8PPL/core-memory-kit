@@ -55,17 +55,35 @@ describe('Task 50.L — Kiro CLI agent-config + default-agent', () => {
       expect(agent.hooks.preToolUse[0].matcher).toBe('*');
       expect(agent.hooks.preToolUse[0].matcher).not.toContain('|');
       expect(agent.hooks.preToolUse[0].command).toMatch(/cmk-guard-memory/);
-      // carries MCP + an INLINE instruction prompt (NOT a file:// ref — those
-      // resolve relative to the agent-file dir, not the project root; D-198)
-      expect(agent.mcpServers).toBeDefined();
+      // The kiro-cli agent loads NO MCP server: includeMcpJson:false + no inline
+      // mcpServers. kiro-cli doesn't wire MCP tools to a custom agent (#5873) so
+      // they'd be dead, AND loading the server pops a cmd.exe console window every
+      // session. Memory works via the hooks (automatic) + cmk search/remember
+      // (shell). The IDE keeps its own MCP via .kiro/settings/mcp.json (untouched).
+      expect(agent.mcpServers).toBeUndefined();
+      expect(agent.includeMcpJson).toBe(false);
+      expect(agent.useLegacyMcpJson).toBeUndefined();
+      // an INLINE instruction prompt (NOT a file:// ref — those resolve relative
+      // to the agent-file dir, not the project root; D-198)
       expect(typeof agent.prompt).toBe('string');
       expect(agent.prompt).not.toMatch(/^file:\/\//); // inline text, not a path ref
-      expect(agent.prompt).toMatch(/mk_remember|mk_search/); // the recall/persist directive
+      // The prompt directs the agent to the kit's shell commands (it CAN run them
+      // because `tools: ['*']` enables the shell tool — the real fix), passing
+      // `--project` and NOT a `cd` prefix (a cd prefix breaks kiro-cli's command
+      // allowlist → manual approval, Kiro #4579; verified live).
+      expect(agent.prompt).toMatch(/cmk remember/);
+      expect(agent.prompt).toMatch(/cmk search/);
+      expect(agent.prompt).toMatch(/--project/);
+      expect(agent.prompt).toMatch(/do NOT prefix.*cd|not prefix.*`cd`|breaks.*allowlist/i);
       // NO project-relative file:// resources (can't resolve from ~/.kiro/agents/)
       const refs = JSON.stringify(agent.resources ?? []);
       expect(refs).not.toMatch(/file:\/\/(?!\/)/); // no relative file:// resource refs
       // name is `cmk` (NOT q_cli_default — that agent doesn't exist in kiro-cli)
       expect(agent.name).toBe('cmk');
+      // ★ the `tools` capability set MUST be present — without it a custom agent
+      // has NO tools and cannot run ANY shell command (so cmk remember/search
+      // silently never execute — the real cut-gate-kiro-cli bug). '*' = all tools.
+      expect(agent.tools).toContain('*');
       // ownership marker lives in a VALID field (description) — NOT a top-level
       // `managedBy`, which kiro-cli `agent validate` rejects as unknown (D-198).
       expect(agent.managedBy).toBeUndefined();
@@ -109,6 +127,11 @@ describe('Task 50.L — Kiro CLI agent-config + default-agent', () => {
       const guardRe = process.platform === 'win32' ? '^cmd\\.exe /c cmk-guard-memory' : '^cmk-guard-memory';
       expect(allowed).toContain(hookRe);
       expect(allowed).toContain(guardRe);
+      // `cmk remember` + `cmk search` are pre-trusted too — kiro-cli uses the CLI
+      // commands (not MCP tools) for explicit capture/recall (Kiro #5873), so they
+      // must run prompt-free like the hooks.
+      expect(allowed).toContain(process.platform === 'win32' ? '^cmk remember .*' : '^cmk remember .*');
+      expect(allowed).toContain(process.platform === 'win32' ? '^cmk search .*' : '^cmk search .*');
       // every pattern is start-anchored (mirrors the IDE prefix-from-start semantics)
       for (const p of allowed) expect(p.startsWith('^')).toBe(true);
       // never a blanket allow
@@ -117,16 +140,16 @@ describe('Task 50.L — Kiro CLI agent-config + default-agent', () => {
       expect(allowed).not.toContain('*');
     });
 
-    it('pre-approves the kit MCP tools via allowedTools @cmk (the CLI-side MCP trust)', () => {
-      // Kiro gates MCP TOOL calls separately from shell hooks. The CLI agent-config
-      // uses `allowedTools` at the agent top level (NOT the IDE mcp.json autoApprove)
-      // with the @server/tool format; `@cmk` allows the kit's own MCP server's tools
-      // so mk_remember etc. don't prompt Reject/Trust/Run in a kiro-cli session.
+    it('loads NO MCP server (includeMcpJson:false, no allowedTools) — no dead tools, no popup', () => {
+      // The kiro-cli agent is OFF MCP entirely: kiro-cli doesn't wire MCP tools to
+      // a custom agent (#5873) so they'd be dead, and loading the server pops a
+      // cmd.exe window every session. So there's nothing to pre-approve —
+      // allowedTools is absent (memory works via hooks + cmk search/remember).
       installKiroCliAgent({ kiroDir });
       const agent = JSON.parse(readFileSync(agentPath(), 'utf8'));
-      expect(Array.isArray(agent.allowedTools)).toBe(true);
-      expect(agent.allowedTools).toContain('@cmk'); // the kit's server, scoped
-      expect(agent.allowedTools).not.toContain('*'); // never a blanket all-servers
+      expect(agent.includeMcpJson).toBe(false);
+      expect(agent.mcpServers).toBeUndefined();
+      expect(agent.allowedTools).toBeUndefined(); // no MCP tools → nothing to approve
     });
 
     it('reports that it set the default agent', () => {

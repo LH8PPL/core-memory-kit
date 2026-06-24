@@ -73,6 +73,7 @@ import { createInterface } from 'node:readline';
 import { spawnSync } from 'node:child_process';
 import { checkKitBinding } from './native-binding.mjs';
 import { resolve as resolvePath, join, basename } from 'node:path';
+import { resolveMcpProjectRoot, normalizeProjectPath } from './tier-paths.mjs';
 
 const NOTICE_PREFIX = 'not yet implemented';
 
@@ -597,7 +598,10 @@ function runLessonsPromote(id, options = {}) {
  *   --include-tombstoned               (default false)
  */
 async function runSearch(queryParts, options) {
-  const projectRoot = resolvePath(process.cwd());
+  // --project <dir> overrides cwd (the kiro-cli fix, Kiro #4579 — no `cd` prefix).
+  const projectRoot = options?.project
+    ? resolvePath(normalizeProjectPath(options.project))
+    : resolvePath(process.cwd());
   const userDir =
     process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
   const query = Array.isArray(queryParts) ? queryParts.join(' ') : queryParts;
@@ -979,7 +983,13 @@ export function parseFactInput(options, { readFile, readStdin } = {}) {
 // (one model call, explicit path only). Commander awaits actions; the
 // terse-path tests were updated to await (contract change, intent preserved).
 export async function runRemember(textParts, options, deps = {}) {
-  const projectRoot = deps.projectRoot ?? resolvePath(process.cwd());
+  // --project <dir> overrides cwd (the kiro-cli fix, Kiro #4579): kiro-cli's
+  // command allowlist rejects a `cd … && cmk remember …` prefix, so the kiro-cli
+  // agent runs `cmk remember "<fact>" --project "<abs>"` with NO cd. normalize a
+  // git-bash `/c/Temp` path the model may emit → `C:/Temp`.
+  const projectRoot = options?.project
+    ? resolvePath(normalizeProjectPath(options.project))
+    : (deps.projectRoot ?? resolvePath(process.cwd()));
   const userDir =
     deps.userDir ?? process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
   const log = deps.log ?? console.log;
@@ -1900,11 +1910,13 @@ async function runCompress(options /* , command */) {
 
 async function runMcpDispatch(childName) {
   if (childName === 'serve') {
-    // Claude Code sets CLAUDE_PROJECT_DIR in the spawned MCP server's environment
-    // to the project root (code.claude.com/docs/en/mcp). Prefer it over cwd so the
-    // server indexes the right project even when Claude Code launches it with a
-    // different working directory. Falls back to cwd for a manual `cmk mcp serve`.
-    const projectRoot = resolvePath(process.env.CLAUDE_PROJECT_DIR ?? process.cwd());
+    // Which project does this server serve? Claude Code sets CLAUDE_PROJECT_DIR in
+    // the spawned server's env; otherwise fall back to the launch cwd (or walk up
+    // to the nearest `context/`). The kiro-cli surface does NOT use MCP at all (its
+    // agent sets includeMcpJson:false — explicit memory goes through the `cmk
+    // remember`/`cmk search` shell commands), so this server is the Claude Code +
+    // Kiro IDE path. See resolveMcpProjectRoot in tier-paths.mjs.
+    const projectRoot = resolveMcpProjectRoot();
     const userDir = process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
     // ALL logs to stderr per design §10.1; stdout is reserved for
     // JSON-RPC messages handled by the SDK's StdioServerTransport.
@@ -2234,6 +2246,7 @@ export const subcommands = [
       { flags: '--links <a,b>', description: 'rich: related fact names for [[cross-links]]' },
       { flags: '--from-file <path>', description: 'rich: read the fact as a JSON object from a file — shell-safe (content never touches argv; the safe way to capture backtick/quote-heavy Why/How). JSON keys: text (required), why, how, type, title, links. Self-contained — other flags are ignored.' },
       { flags: '--json', description: 'rich: read the fact as a JSON object from stdin (pipe-safe, shell-safe) — same JSON keys as --from-file' },
+      { flags: '--project <dir>', description: 'project root to write to (default: cwd). Used by the kiro-cli agent — kiro-cli rejects a `cd … &&` prefix (Kiro #4579), so it passes the project root explicitly instead.' },
     ],
     action: runRemember,
   },
@@ -2250,6 +2263,7 @@ export const subcommands = [
       { flags: '--since <date>', description: 'ISO date — exclude observations older than this' },
       { flags: '--limit <n>', description: 'max results (default: 20)' },
       { flags: '--include-tombstoned', description: 'include deleted observations in results' },
+      { flags: '--project <dir>', description: 'project root to search (default: cwd). Used by the kiro-cli agent (no `cd` prefix — Kiro #4579).' },
     ],
     action: runSearch,
   },
@@ -2537,7 +2551,9 @@ export const subcommands = [
     name: 'mcp',
     description: 'run the MCP server over stdio (invoked by Claude Code, not by humans)',
     milestone: 31,
-    children: [{ name: 'serve', description: 'start the stdio MCP server; JSON-RPC on stdin/stdout' }],
+    children: [
+      { name: 'serve', description: 'start the stdio MCP server; JSON-RPC on stdin/stdout' },
+    ],
     action: runMcpDispatch,
   },
   {

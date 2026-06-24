@@ -10,7 +10,7 @@
 // the self-test bug was that the *agent's own writes* bypassed the safe path.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -55,6 +55,22 @@ describe('cmk remember — durable capture CLI', () => {
     expect(r.status ?? 0).toBe(0);
     expect(r.stdout).toMatch(/saved to P\/MEMORY\.md/);
     expect(readMemory()).toContain('We standardized on pnpm');
+  });
+
+  it('--project <dir> writes to that project, NOT the cwd (the kiro-cli explicit path)', () => {
+    // kiro-cli runs `cmk remember "..." --project "<abs>"` (no `cd` — a cd prefix
+    // breaks the trust allowlist). The flag must steer the write to the named
+    // project regardless of the launch cwd. Run from the SANDBOX (not projectRoot)
+    // and assert the fact lands under projectRoot via --project.
+    const r = spawnSync(process.execPath, [CMK_BIN, 'remember', 'Routed via --project', '--project', projectRoot], {
+      cwd: sandbox, // NOT the project — only --project should route it
+      encoding: 'utf8',
+      env: { ...process.env, MEMORY_KIT_USER_DIR: userDir },
+    });
+    expect(r.status ?? 0).toBe(0);
+    expect(readMemory()).toContain('Routed via --project'); // landed under projectRoot
+    // and NOT under the cwd (sandbox) — no stray context/ created there
+    expect(existsSync(join(sandbox, 'context', 'MEMORY.md'))).toBe(false);
   });
 
   it('abstracts a home-dir path; the username never lands in committed MEMORY.md (#1)', () => {
