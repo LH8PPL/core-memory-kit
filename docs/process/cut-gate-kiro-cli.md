@@ -168,13 +168,13 @@ cmk doctor
 
 ---
 
-## 2. Session 1 (kiro-cli) — build it, stating preferences  ⬅️ a real `kiro-cli chat`
+## 2. Session 1 (kiro-cli) — build it, stating preferences  ⬅️ a real `kiro-cli`
 
-Start kiro-cli in the project with **NO `--agent` flag**, so the default-agent resolution is what's under test.
+Start kiro-cli in the project with **NO `--agent` flag**, so the default-agent resolution is what's under test. (Bare `kiro-cli` opens the chat — `chat` is the default subcommand; `kiro-cli chat` is the same thing.)
 
 ```powershell
 cd C:\Temp\kiro-cli-gate
-kiro-cli chat        # NO --agent flag — cmk must resolve as the DEFAULT agent
+kiro-cli        # NO --agent flag — cmk must resolve as the DEFAULT agent
 ```
 
 Build a small app, **stating durable preferences as you go** (these are what memory must capture + later recall). Suggested arc (any real build works):
@@ -239,7 +239,7 @@ The agent wires a `preToolUse` hook (matcher `*`) → `cmk-guard-memory`, which 
 - **V2 (≤2.8.x):** run the test; expect BLOCKED.
 - **V3 (2.9+):** `preToolUse` does NOT fire (V3 hook redesign). Our guardrail is N/A; kiro-cli's own shell-approval prompt covers the delete. Mark KG-guard **N/A (V3 — Task 166)**, NOT a fail.
 
-- [ ] **★ KG-guard (V2 only) — the delete-guardrail BLOCKS a memory delete.** In the kiro-cli chat (THROWAWAY project), *"run this in the shell for me: `rm -rf context/sessions`"*. Approve when kiro-cli prompts (its OWN shell-approval gate fires BEFORE our `preToolUse` — that prompt is NOT our guard). On Windows the model rewrites `rm -rf` → `Remove-Item -Recurse -Force` (the guard blocks both — `execute_command` + `execute_bash` are both in SHELL_TOOLS). **PASS:** "BLOCKED by the claude-memory-kit delete-guardrail…" surfaces, `context\sessions` survives. Also confirm a SAFE `ls` is NOT blocked. **FAIL:** the delete runs (on V2) → re-check KC1 + a config BOM.
+- [ ] **★ KG-guard (V2 only) — the delete-guardrail BLOCKS a memory delete.** In the kiro-cli (THROWAWAY project), *"run this in the shell for me: `rm -rf context/sessions`"*. Approve when kiro-cli prompts (its OWN shell-approval gate fires BEFORE our `preToolUse` — that prompt is NOT our guard). On Windows the model rewrites `rm -rf` → `Remove-Item -Recurse -Force` (the guard blocks both — `execute_command` + `execute_bash` are both in SHELL_TOOLS). **PASS:** "BLOCKED by the claude-memory-kit delete-guardrail…" surfaces, `context\sessions` survives. Also confirm a SAFE `ls` is NOT blocked. **FAIL:** the delete runs (on V2) → re-check KC1 + a config BOM.
 - [ ] **★ KG-guard-V3 — on V3, the guard is N/A but the native gate covers it.** On a V3 kiro-cli, ask for the same delete. **PASS:** kiro-cli's OWN "shell requires approval" prompt appears (you are never silently unprotected); the kit's guardrail not firing is expected (Task 166). **FAIL:** the delete runs with NO prompt at all (then even Kiro's native gate is off — a Kiro config issue, not the kit).
 
 **★ DIAGNOSTIC — when NOTHING fires (not even capture/inject):** the agent config is in the wrong place or not resolved. (1) `kiro-cli agent list` → expect `* cmk Global`; if it's `* kiro_default`, the default registration didn't take (KCG4). (2) `kiro-cli agent validate --path ~/.kiro/agents/cmk.json` → a BOM or schema error makes kiro silently fall back. (3) **The probe technique:** temporarily point a hook's `command` at a script that logs stdin + exits 0, run a turn, read the log — this settles "did the hook fire?" definitively, separate from "did the guard block?".
@@ -260,7 +260,7 @@ Wire it with **Node** (never PowerShell — BOM): `node -e "const fs=require('fs
 ```powershell
 mkdir C:\Temp\kiro-cli-coldopen; cd C:\Temp\kiro-cli-coldopen
 git init; cmk install --with-semantic --ide kiro
-kiro-cli chat
+kiro-cli
 ```
 Ask: *"Start a new Python backend for me — set up the structure."*
 
@@ -304,7 +304,7 @@ The `cmk` CLI is agent-agnostic — run **F-1 … F-19** (recall/index, persona,
 
 `context/` is committed and travels with `git clone` (tenet T2). The project `.kiro/` surfaces (steering/skills/mcp) are committed too. The CLI agent-config (`~/.kiro/agents/cmk.json` + the `cli.json` pointer) is machine-local and re-created by `cmk install --ide kiro` on the new machine.
 
-- [ ] **★ H1** — clone `C:\Temp\kiro-cli-gate` elsewhere, run `cmk install --ide kiro` + `kiro-cli chat` → the project memory (`context/`) is already there and the CLI agent re-registers.
+- [ ] **★ H1** — clone `C:\Temp\kiro-cli-gate` elsewhere, run `cmk install --ide kiro` + `kiro-cli` → the project memory (`context/`) is already there and the CLI agent re-registers.
 
 ---
 
