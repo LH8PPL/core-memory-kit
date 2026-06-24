@@ -87,6 +87,16 @@ function buildAgentConfig() {
     // tools field lists all tools the agent can potentially use"). `'*'` = all
     // built-in tools (incl. shell, so `cmk remember`/`cmk search` actually run) +
     // any MCP tools. This was THE missing piece behind the explicit-memory failure.
+    //
+    // ★ Do NOT "tighten" this to a scoped list. `tools` is the CAPABILITY set, NOT
+    // the security boundary — auto-execution is gated separately by `allowedTools`
+    // (absent) + `toolsSettings.shell.allowedCommands` (scoped to `^cmk …`) + the
+    // `preToolUse` delete-guardrail. With `'*'` but no `allowedTools`, every tool
+    // call EXCEPT the pre-trusted `^cmk` shell commands still hits kiro-cli's native
+    // Run/Reject/Trust prompt — so `'*'` widens capability, not silent execution.
+    // A hardcoded scoped list (e.g. `execute_bash`) would also silently drop the
+    // shell tool across the V2→V3 rename (`execute_bash`→`execute_command`),
+    // re-breaking this version-dependently. The approval gate is the boundary.
     tools: ['*'],
     // INLINE prompt — NOT `file://AGENTS.md`. kiro-cli resolves a config's
     // `prompt`/`resources` file:// paths RELATIVE TO THE AGENT FILE'S DIR
