@@ -48,9 +48,20 @@ export function kiroCliAllowedCommands() {
   // Regex, START-ANCHORED (`^`) to mirror the IDE side's prefix-from-start
   // semantics (skill-review M2 — an unanchored `cmk hook .*` could match a
   // command that merely CONTAINS the phrase mid-string). `.` in cmd.exe is
-  // escaped; `.*` matches the hook event / guard tail.
+  // escaped; `.*` matches the hook event / guard tail / command args.
+  //
+  // `cmk remember` + `cmk search` are pre-trusted because kiro-cli uses the CLI
+  // commands (not the MCP tools) for explicit capture/recall — kiro-cli does not
+  // wire MCP tools to a custom agent's LLM (Kiro #5873), so the shell commands are
+  // the working path. Pre-trusting them means they run WITHOUT a Run/Reject prompt
+  // (the same posture as the hook commands). Scoped to the kit's own verbs only.
   const base = IS_WINDOWS
-    ? ['^cmd\\.exe /c cmk hook .*', '^cmd\\.exe /c cmk-guard-memory']
-    : ['^cmk hook .*', '^cmk-guard-memory'];
+    ? [
+        '^cmd\\.exe /c cmk hook .*',
+        '^cmd\\.exe /c cmk-guard-memory',
+        '^cmk remember .*',
+        '^cmk search .*',
+      ]
+    : ['^cmk hook .*', '^cmk-guard-memory', '^cmk remember .*', '^cmk search .*'];
   return base;
 }
