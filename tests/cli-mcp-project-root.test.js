@@ -5,23 +5,18 @@
 // Door 5 N/A: no NDJSON/observability surface — a pure path resolver.
 
 // Tests for resolveMcpProjectRoot — how `cmk mcp serve` decides which project it
-// serves. The CUT-BLOCKER this fixes (2026-06-24): kiro-cli launches the MCP
-// server from a cwd that is NOT the project, and only Claude Code sets
-// CLAUDE_PROJECT_DIR, so mk_remember silently wrote to the wrong/no project in
-// kiro-cli. The resolver adds a kit-own env (CMK_PROJECT_DIR) + a walk-up
-// fallback so the server finds the project regardless of launcher cwd.
+// serves (the Claude Code + Kiro IDE MCP path; kiro-cli does not use MCP). The MCP
+// server is a long-lived child launched by the agent, so it can't just trust cwd.
 //
-// Precedence (most-specific first):
-//   1. CLAUDE_PROJECT_DIR  (Claude Code sets it)
-//   2. CMK_PROJECT_DIR     (the kit sets it in the kiro-cli mcp.json `env`)
-//   3. walk up from cwd to the nearest dir containing context/   (agent-agnostic)
-//   4. cwd                 (last resort)
+// Precedence: CLAUDE_PROJECT_DIR (Claude Code sets it) → walk up to the nearest
+// dir containing context/ → cwd (last resort). Plus normalizeProjectPath, used by
+// the `cmk remember`/`cmk search` --project flag (the kiro-cli explicit path).
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { resolveMcpProjectRoot } from '../packages/cli/src/tier-paths.mjs';
+import { resolveMcpProjectRoot, normalizeProjectPath } from '../packages/cli/src/tier-paths.mjs';
 
 let sandbox;
 beforeEach(() => {
@@ -32,42 +27,12 @@ afterEach(() => {
 });
 
 describe('resolveMcpProjectRoot — which project does `cmk mcp serve` serve', () => {
-  it('prefers an explicit --project arg above EVERYTHING (the kiro-cli args lever)', () => {
-    // kiro-cli only flows env to registry-type servers, not stdio ones, but it
-    // passes args verbatim — so --project is the lever that always survives.
-    const argProj = join(sandbox, 'arg-proj');
-    mkdirSync(join(argProj, 'context'), { recursive: true });
-    const r = resolveMcpProjectRoot({
-      projectArg: argProj,
-      env: { CLAUDE_PROJECT_DIR: join(sandbox, 'claude'), CMK_PROJECT_DIR: join(sandbox, 'cmk') },
-      cwd: join(sandbox, 'elsewhere'),
-    });
-    expect(r).toBe(argProj);
-  });
-
-  it('skips an empty --project arg and falls through to the next source', () => {
-    const proj = join(sandbox, 'env-proj');
-    mkdirSync(join(proj, 'context'), { recursive: true });
-    const r = resolveMcpProjectRoot({ projectArg: '', env: { CMK_PROJECT_DIR: proj }, cwd: sandbox });
-    expect(r).toBe(proj);
-  });
-
   it('prefers CLAUDE_PROJECT_DIR (Claude Code) above everything', () => {
     const proj = join(sandbox, 'claude-proj');
     mkdirSync(join(proj, 'context'), { recursive: true });
     const r = resolveMcpProjectRoot({
-      env: { CLAUDE_PROJECT_DIR: proj, CMK_PROJECT_DIR: join(sandbox, 'other') },
+      env: { CLAUDE_PROJECT_DIR: proj },
       cwd: join(sandbox, 'somewhere-else'),
-    });
-    expect(r).toBe(proj);
-  });
-
-  it('uses CMK_PROJECT_DIR when CLAUDE_PROJECT_DIR is unset (the kiro-cli fix)', () => {
-    const proj = join(sandbox, 'kiro-proj');
-    mkdirSync(join(proj, 'context'), { recursive: true });
-    const r = resolveMcpProjectRoot({
-      env: { CMK_PROJECT_DIR: proj },
-      cwd: join(sandbox, 'kiro-cli-launch-dir'), // kiro launches the MCP from HERE, not the project
     });
     expect(r).toBe(proj);
   });
@@ -95,12 +60,12 @@ describe('resolveMcpProjectRoot — which project does `cmk mcp serve` serve', (
     expect(r).toBe(orphan); // nothing better than cwd
   });
 
-  it('CMK_PROJECT_DIR beats the walk-up (explicit env wins over discovery)', () => {
-    const envProj = join(sandbox, 'env-proj');
-    const cwdProj = join(sandbox, 'cwd-proj');
-    mkdirSync(join(envProj, 'context'), { recursive: true });
-    mkdirSync(join(cwdProj, 'context'), { recursive: true });
-    const r = resolveMcpProjectRoot({ env: { CMK_PROJECT_DIR: envProj }, cwd: cwdProj });
-    expect(r).toBe(envProj);
+  it('normalizeProjectPath converts a git-bash /c/Temp path to C:/Temp (the kiro-cli model emits these)', () => {
+    expect(normalizeProjectPath('/c/Temp/kiro-gate')).toBe('C:/Temp/kiro-gate');
+    expect(normalizeProjectPath('/d/work/proj')).toBe('D:/work/proj');
+    // a normal Windows / POSIX path passes through unchanged
+    expect(normalizeProjectPath('C:\\Temp\\proj')).toBe('C:\\Temp\\proj');
+    expect(normalizeProjectPath('/home/me/proj')).toBe('/home/me/proj'); // not /<single-letter>/
+    expect(normalizeProjectPath(undefined)).toBe(undefined);
   });
 });

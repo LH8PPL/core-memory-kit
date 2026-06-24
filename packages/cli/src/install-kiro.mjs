@@ -24,7 +24,7 @@
 //   uninstallKiro({ projectRoot, awsDir? }) → { action, changed }
 //   (awsDir sandboxes the CLI-agent leg in tests; production → real ~/.aws.)
 
-import { join, resolve as resolvePath } from 'node:path';
+import { join } from 'node:path';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { mutateAgentConfig } from './mutate-agent-config.mjs';
 import { installKiroSkills, uninstallKiroSkills } from './kiro-skills.mjs';
@@ -62,27 +62,18 @@ export const MCP_AUTO_APPROVE = Object.freeze([
   'mk_queue_list',
   'mk_queue_resolve',
 ]);
-// The MCP entry bakes the absolute project root into the `args` as
-// `--project <dir>` so the spawned `cmk mcp serve` knows WHICH project to serve.
-// WHY args, not env (the cut-gate-kiro-cli find): kiro-cli launches the stdio MCP
-// server from a NON-project cwd, and per its OWN changelog (feed.json) it only
-// flows `env` to REGISTRY-type servers — NOT personal/stdio ones like ours — so
-// an `env` override is silently dropped and mk_remember wrote to the wrong/no
-// project (silent data loss). `args` ARE passed verbatim (the literal command
-// line), so `--project` is the lever kiro can't drop. We ALSO keep `env` as a
-// belt for agents (Claude Code) + future kiro versions that DO flow stdio env.
-// The path is absolute + machine-specific → re-resolved per machine by
-// `cmk install` (same posture as the lazy-compress bin path); a teammate who
-// clones re-runs install. `.kiro/settings/mcp.json` is workspace-scoped → per-project.
-function buildMcpEntry(projectRoot) {
-  return {
-    type: 'stdio',
-    command: 'cmk',
-    args: ['mcp', 'serve', '--project', projectRoot],
-    autoApprove: MCP_AUTO_APPROVE,
-    env: { CMK_PROJECT_DIR: projectRoot },
-  };
-}
+// The MCP entry for `.kiro/settings/mcp.json` — the KIRO IDE's MCP surface (the
+// IDE wires MCP tools to the chat; the kiro-cli agent sets includeMcpJson:false
+// and does NOT use MCP — it uses the `cmk remember`/`cmk search` shell commands).
+// `cmk mcp serve` resolves its project from CLAUDE_PROJECT_DIR (Claude Code) or
+// the launch cwd; the IDE launches from the workspace, so no per-project arg is
+// needed here (the IDE worked without one).
+const MCP_ENTRY = Object.freeze({
+  type: 'stdio',
+  command: 'cmk',
+  args: ['mcp', 'serve'],
+  autoApprove: MCP_AUTO_APPROVE,
+});
 
 const STEERING_PATH = ['steering', 'cmk.md'];
 const STEERING_FRONTMATTER = '---\ninclusion: always\n---\n\n';
@@ -119,7 +110,7 @@ export function installKiro({ projectRoot, awsDir } = {}) {
     path: kiro(MCP_PATH),
     format: 'json',
     keyPath: [MCP_SERVERS_KEY, MCP_SERVER_NAME],
-    entry: buildMcpEntry(resolvePath(projectRoot)),
+    entry: MCP_ENTRY,
   });
   if (mcp.action === 'error') {
     errors.push({ surface: 'mcp', ...mcp });

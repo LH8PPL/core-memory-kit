@@ -80,6 +80,14 @@ function buildAgentConfig() {
   const cfg = {
     name: AGENT_NAME,
     description: `claude-memory-kit — automatic per-session memory (inject + capture). ${MANAGED_MARKER}`,
+    // ★ `tools` is the agent's CAPABILITY SET — what it CAN use. WITHOUT it, a
+    // custom agent has NO tools: it cannot run shell commands at all, so the model
+    // "calls" cmk remember but nothing executes (the cut-gate-kiro-cli silent
+    // failure — kiro.dev/docs/cli/custom-agents/configuration-reference: "the
+    // tools field lists all tools the agent can potentially use"). `'*'` = all
+    // built-in tools (incl. shell, so `cmk remember`/`cmk search` actually run) +
+    // any MCP tools. This was THE missing piece behind the explicit-memory failure.
+    tools: ['*'],
     // INLINE prompt — NOT `file://AGENTS.md`. kiro-cli resolves a config's
     // `prompt`/`resources` file:// paths RELATIVE TO THE AGENT FILE'S DIR
     // (~/.kiro/agents/), per kiro.dev/docs/cli/custom-agents/configuration-
@@ -88,37 +96,43 @@ function buildAgentConfig() {
     // the workspace root with no ref needed (it's "always included"), so the
     // project instruction loads regardless; this inline prompt is the
     // belt-and-suspenders recall/persist directive that travels WITH the agent.
+    // ★ kiro-cli memory = HOOKS (automatic) + CLI commands (explicit), NOT MCP.
+    // WHY no MCP here (the cut-gate-kiro-cli findings + Kiro issues #5873/#5662):
+    // kiro-cli does NOT wire MCP tools to a CUSTOM agent's LLM (only the built-in
+    // kiro_default gets them), so the MCP memory tools silently no-op. Loading the
+    // MCP server in the kiro-cli agent gains NOTHING (dead tools) and COSTS a
+    // visible `cmd.exe /C cmk mcp serve` console window every session on Windows
+    // (kiro's MCP launcher — not suppressible from the kit). So `includeMcpJson:
+    // false` keeps the kiro-cli agent OFF MCP entirely → no dead tools, no popup.
+    // (The Kiro IDE keeps its OWN MCP via `.kiro/settings/mcp.json`, where MCP
+    // WORKS — the IDE does not read this agent config, so it's unaffected.)
+    //
+    // The working memory paths in kiro-cli:
+    //   • AUTOMATIC — the agentSpawn (inject) + stop (capture) hooks below run
+    //     `cmk hook`, which kiro feeds the project cwd via the hook stdin payload,
+    //     so they capture/recall correctly with no model action.
+    //   • EXPLICIT recall — `cmk search` (a pre-trusted shell command).
     prompt:
-      'You have claude-memory-kit memory for this project. At the start of work, ' +
-      'recall relevant prior decisions/preferences via the cmk MCP tools (mk_search / ' +
-      'mk_recent_activity) before answering — do not re-derive what memory already ' +
-      'records. When a durable fact, decision, or preference arises, persist it with ' +
-      'mk_remember. Treat the project AGENTS.md as authoritative project instruction.',
-    // NO inline `mcpServers` here — the agent reads the kit's MCP server from the
-    // PROJECT `.kiro/settings/mcp.json` via `includeMcpJson: true` (which the docs
-    // describe as additive: "all MCP servers defined in the global and local
-    // configurations in addition to the agent's"). WHY this matters (the
-    // cut-gate-kiro-cli silent-data-loss fix): the project mcp.json carries
-    // `env.CMK_PROJECT_DIR` (the absolute project root) so `cmk mcp serve` knows
-    // which project to write to — kiro-cli launches the server from a NON-project
-    // cwd, so without that env mk_remember silently wrote nowhere. A GLOBAL agent
-    // (~/.kiro/agents/cmk.json covers every project) CANNOT bake a per-project env
-    // into an inline mcpServers entry; the per-project mcp.json can. So we route
-    // ALL MCP through the env-carrying project mcp.json — ONE source, correct env.
-    includeMcpJson: true,
-    // NO `resources` file:// refs: a project-relative path (.kiro/steering/cmk.md,
-    // AGENTS.md) cannot resolve from the GLOBAL agent dir (~/.kiro/agents/) — it
-    // would resolve there, not at the project (D-198). AGENTS.md auto-loads from
-    // the workspace; the inline prompt carries the recall/persist directive.
-    // Pre-approve the kit's own MCP server's tools (no per-call Reject/Trust/Run).
-    // MUST match the server NAME in the project `.kiro/settings/mcp.json`, which is
-    // `claude-memory-kit` (install-kiro MCP_SERVER_NAME) — NOT `cmk`. When the
-    // agent carried its own inline `mcpServers: { cmk: … }` this was `@cmk`; once
-    // MCP moved to the project mcp.json via includeMcpJson (the env→args fix), the
-    // server is `claude-memory-kit`, so `@cmk` orphaned → mk_remember wasn't
-    // approved → kiro silently dropped the tool call (the gate3 finding).
-    allowedTools: ['@claude-memory-kit'],
-    // Pre-trust the kit's OWN hook commands (no per-command approval) — D-194.
+      'You have claude-memory-kit memory for this project, captured automatically ' +
+      'each turn by the kit\'s hooks. Use the kit\'s SHELL COMMANDS for explicit ' +
+      'recall/save. ### CRITICAL command form — do NOT prefix a kit command with ' +
+      '`cd`. A `cd … && cmk …` prefix breaks kiro-cli\'s command allowlist (the ' +
+      'command then needs manual approval and may be skipped). Instead pass the ' +
+      'project root with `--project` and run the bare command. To RECALL: `cmk ' +
+      'search "<topic>" --project "<absolute project path>"` before answering (do ' +
+      'not re-derive what memory records). To SAVE: `cmk remember "<the fact>" ' +
+      '--project "<absolute project path>"` (add `--why "..." --how "..." --type ' +
+      'user|feedback|project` for a rich preference). The absolute project path is ' +
+      'this workspace\'s root. Treat AGENTS.md as authoritative project instruction.',
+    // includeMcpJson:false — the kiro-cli agent does NOT load any MCP server (see
+    // the rationale above: dead tools + a popup, no benefit). The IDE's MCP is
+    // wired separately in `.kiro/settings/mcp.json` and is untouched by this.
+    includeMcpJson: false,
+    // NO `allowedTools` — there are no MCP tools to pre-approve (includeMcpJson is
+    // false). The kit's shell commands are trusted via toolsSettings below.
+    // NO `resources` file:// refs: a project-relative path can't resolve from the
+    // GLOBAL agent dir (~/.kiro/agents/) — D-198. AGENTS.md auto-loads anyway.
+    // Pre-trust the kit's OWN hook + CLI commands (no per-command approval) — D-194.
     toolsSettings: { shell: { allowedCommands: kiroCliAllowedCommands() } },
   };
   // hooks: object keyed by trigger → array of {command, timeout_ms}. agentSpawn

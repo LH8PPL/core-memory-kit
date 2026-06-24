@@ -19,7 +19,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { installKiro, uninstallKiro } from '../packages/cli/src/install-kiro.mjs';
 
 let sandbox;
@@ -63,16 +63,14 @@ describe('Task 50 — installKiro (all 4 surfaces)', () => {
     );
     expect(auto).not.toContain('*'); // scoped to the kit's tools, never a blanket wildcard
 
-    // The project root rides in via the `args` --project flag (the cut-gate-
-    // kiro-cli silent-data-loss fix): kiro-cli launches the stdio MCP server from
-    // a NON-project cwd and only flows env to REGISTRY-type servers (its own
-    // changelog), so an env override is silently dropped. args ARE passed verbatim
-    // → --project is the lever kiro can't drop. (env kept as a belt for Claude
-    // Code + future kiro versions that flow stdio env.) Without this, mk_remember
-    // reported "saved" but the fact never landed in the project.
+    // The IDE MCP entry is plain `cmk mcp serve` — no per-project arg/env (the IDE
+    // launches from the workspace; the server resolves the project from
+    // CLAUDE_PROJECT_DIR / cwd). kiro-cli does NOT use MCP (its agent sets
+    // includeMcpJson:false; explicit memory goes through `cmk remember`/`cmk
+    // search` shell commands), so the project-root never needs to ride in here.
     const srv = mcp.mcpServers['claude-memory-kit'];
-    expect(srv.args).toEqual(['mcp', 'serve', '--project', resolve(projectRoot)]);
-    expect(srv.env).toEqual({ CMK_PROJECT_DIR: resolve(projectRoot) });
+    expect(srv.args).toEqual(['mcp', 'serve']);
+    expect(srv.env).toBeUndefined();
 
     // steering
     expect(existsSync(p('steering', 'cmk.md'))).toBe(true);
