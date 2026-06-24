@@ -1,0 +1,18 @@
+---
+id: P-WS9FXPZK
+type: project
+title: FINAL-kiro-cli-v3-redesigned-hooks-pretooluse-superseded-by-permissions-yaml
+created_at: 2026-06-24T07:17:14Z
+write_source: user-explicit
+trust: high
+source_file: user-explicit
+source_line: 1
+source_sha1: b20b2baf45f6007295b97ba8c4496d1640e2463027bf2f588f68062bba40adaa
+related: [d198-proven-agentspawn-fires-but-pretooluse-not-on-2.9.0-execute-command-rename, TRUE-root-cause-kiro-cli-agent-config-wrong-location-no-hooks-fire]
+---
+
+FINAL VERDICT on the kiro-cli guardrail (2026-06-24, kiro-cli 2.9.0 = "V3"): preToolUse does NOT fire on 2.9.0 with ANY matcher ('*' or literal 'execute_command') — agentSpawn fired twice (the popups = session opens), preToolUse zero. ROOT CAUSE (primary source kiro.dev/docs/cli/v3/): KIRO CLI V3 REDESIGNED HOOKS as a BREAKING CHANGE — embedded agent-config hooks moved to STANDALONE .kiro/hooks/*.json files with PascalCase triggers, AND tool-blocking moved from preToolUse hooks to a NEW `permissions.yaml` capability-based system. So our camelCase embedded `preToolUse` is V2 syntax: 2.9.0 still honors V2 agentSpawn/stop (they fire) but NOT V2 preToolUse-for-blocking (superseded by permissions.yaml). The banner says it: "Migration tooling to bring your V2 configurations to V3 is coming soon." This is a DOCUMENTED KIRO PLATFORM SHIFT, not a kit bug. ALSO: 2.9.0 renamed the shell tool execute_bash→execute_command. NET STATE OF D-198: (1) the LOCATION fix is CORRECT + PROVEN — ~/.kiro/agents/cmk.json + chat.defaultAgent registration makes cmk the resolved default and agentSpawn/stop FIRE (capture + inject work — the core memory value!). SHIP IT. (2) the delete-GUARDRAIL via preToolUse does NOT work on V3/2.9.0 — needs either the V3 standalone .kiro/hooks/*.json PascalCase form OR permissions.yaml. Document as a known limitation: on kiro-cli V3 the guardrail relies on kiro-cli's OWN shell-approval gate (which DID prompt every time) until the kit adds V3 hook support. The IDE + Claude Code guardrails are unaffected (different mechanisms, both work). NEXT (separate task, post-D-198): add V3 hook support — research .kiro/hooks/*.json PascalCase schema + permissions.yaml; possibly emit BOTH V2 (for 2.8.x) and V3 (for 2.9+) forms.
+
+**Why:** Definitive: the kiro-cli guardrail can't work via preToolUse on 2.9.0 because V3 redesigned hooks (breaking change: standalone .kiro/hooks/*.json + PascalCase triggers + permissions.yaml for tool-blocking). Our V2 embedded preToolUse is unsupported for blocking there. BUT D-198's location fix is proven correct — agentSpawn/stop fire, so capture+inject (the core memory value) work on V3. D-198 ships; the guardrail-on-V3 is a separate follow-up.
+
+**How to apply:** SHIP D-198 (location fix) — it makes capture+inject work on kiro-cli (proven via agentSpawn firing). For CHANGELOG/docs: the kiro-cli delete-guardrail works on V2 (2.8.x) but NOT V3 (2.9+) where preToolUse was replaced by permissions.yaml; on V3 kiro-cli's own shell-approval gate covers destructive commands. SEPARATE follow-up task: V3 hook support — research kiro.dev/docs/cli/v3 + the hooks reference for the standalone .kiro/hooks/*.json PascalCase schema and permissions.yaml; emit V3 form (maybe alongside V2 for back-compat). Also add 'execute_command' to guard-memory.mjs SHELL_TOOLS regardless. RESTORE the real agent (un-wire the probes): re-run installKiroCliAgent({}) from the build to overwrite the probe-wired cmk.json with the clean guard-command version. Then commit D-198, two-pass review, PR. Update D-197→D-198 in DECISION-LOG (location was THE bug; matcher secondary; V3 hook redesign is why the guardrail leg is deferred).

@@ -1,0 +1,18 @@
+---
+id: P-2J2UHV2L
+type: project
+title: kg-guard-still-fails-with-star-matcher-hook-not-firing-or-env-payload
+created_at: 2026-06-23T20:38:58Z
+write_source: user-explicit
+trust: high
+source_file: user-explicit
+source_line: 1
+source_sha1: fe2ec68f86473428380e26b741022ac605bfb2fc15c775c60c698315affe3e01
+related: [guard-code-proven-correct-ps-pipe-exit0-was-artifact, kg-guard-retest-failed-was-stale-artifact-not-fix]
+---
+
+KG-guard STILL FAILS with matcher '*' confirmed live (2026-06-23, kiro-cli 2.8.1) — the matcher was NOT the (only) root cause. State: installed cmk src + live q_cli_default.json BOTH confirmed matcher:'*'; the EXACT hook command `cmd.exe /c cmk-guard-memory` returns EXIT 2 + BLOCKS when run with the real payload via file-redirect; the bin/logic are proven correct 3 ways. YET kiro-cli deleted context/sessions again. So kiro-cli is NOT firing our preToolUse hook (or not piping stdin / not honoring exit 2). PRIMARY-SOURCE FINDINGS: (1) patrickjduffy.net 'building a guardrail system for Kiro' DID make preToolUse block destructive cmds — but their working matcher is the LITERAL 'execute_bash' (NOT '*'), their hook entry is {matcher, command, description} at top level, and they mention the payload arrives via a `_HOOK_EVENT` ENV VAR (Python parses it), NOT necessarily stdin. (2) AWS issue #2623: agentSpawn hook 'running for all prompts' — hooks have real version-specific bugs in this CLI. TWO UNTESTED HYPOTHESES (do NOT assume — test each): (H1) '*' is not actually honored by 2.8.1 for preToolUse → try matcher:'execute_bash' (literal canonical, what the working example uses). (H2) kiro-cli 2.8.1 delivers the payload via the `_HOOK_EVENT` env var, not stdin → our bin reads empty stdin → fail-opens to exit 0 (allow). H2 would explain EVERYTHING: hook fires, but bin sees no stdin → allows. NEXT DIAGNOSTIC (decisive): make the hook command LOG that it ran + WHAT it received (stdin AND _HOOK_EVENT env) — e.g. temporarily point the hook at a script that dumps `env` + stdin to a file, run a delete, inspect. That tells us fire-vs-not AND stdin-vs-env in one shot. This is the diagnosing-bugs procedure: instrument before fixing. NOT a v0.4.0 tag until KG-guard passes live OR is consciously descoped.
+
+**Why:** The '*' matcher fix (D-197) did NOT make KG-guard pass — matcher confirmed '*' live, bin proven to block, yet kiro-cli still deleted memory. Root cause is now genuinely uncertain between (H1) '*' not honored → use literal 'execute_bash', and (H2) kiro-cli 2.8.1 passes the payload via _HOOK_EVENT env var not stdin → our stdin-reading bin fail-opens. Must instrument to decide, not guess. The guardrail is a headline safety feature still broken in kiro-cli.
+
+**How to apply:** DECISIVE next step (instrument, don't guess): temporarily set the gate's preToolUse hook command to a diagnostic that writes BOTH stdin and the full env (esp. _HOOK_EVENT / KIRO_* / Q_* vars) to a log file, then run a delete in kiro-cli and read the log. Outcomes: (a) log absent → hook didn't fire (matcher/version issue → try literal 'execute_bash'); (b) log present, stdin EMPTY but _HOOK_EVENT has the payload → H2 confirmed, fix the bin to read _HOOK_EVENT env as a fallback to stdin; (c) log present with stdin populated + exit 2 → kiro isn't honoring exit 2 (version bug, descope honestly). Compare against patrickjduffy.net's working config (matcher:'execute_bash', {matcher,command,description}). Check the cmk-guard-memory diff vs Claude Code's working hook (which DOES block — proven by it blocking my own commands). Update D-197/CHANGELOG/cut-gate once root-caused — the current D-197 'matcher was the bug' story is INCOMPLETE.
