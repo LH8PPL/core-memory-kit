@@ -111,7 +111,13 @@ function buildAgentConfig() {
     // would resolve there, not at the project (D-198). AGENTS.md auto-loads from
     // the workspace; the inline prompt carries the recall/persist directive.
     // Pre-approve the kit's own MCP server's tools (no per-call Reject/Trust/Run).
-    allowedTools: ['@cmk'],
+    // MUST match the server NAME in the project `.kiro/settings/mcp.json`, which is
+    // `claude-memory-kit` (install-kiro MCP_SERVER_NAME) — NOT `cmk`. When the
+    // agent carried its own inline `mcpServers: { cmk: … }` this was `@cmk`; once
+    // MCP moved to the project mcp.json via includeMcpJson (the env→args fix), the
+    // server is `claude-memory-kit`, so `@cmk` orphaned → mk_remember wasn't
+    // approved → kiro silently dropped the tool call (the gate3 finding).
+    allowedTools: ['@claude-memory-kit'],
     // Pre-trust the kit's OWN hook commands (no per-command approval) — D-194.
     toolsSettings: { shell: { allowedCommands: kiroCliAllowedCommands() } },
   };

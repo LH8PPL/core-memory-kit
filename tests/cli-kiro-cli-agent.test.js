@@ -124,15 +124,18 @@ describe('Task 50.L — Kiro CLI agent-config + default-agent', () => {
       expect(allowed).not.toContain('*');
     });
 
-    it('pre-approves the kit MCP tools via allowedTools @cmk (the CLI-side MCP trust)', () => {
-      // Kiro gates MCP TOOL calls separately from shell hooks. The CLI agent-config
-      // uses `allowedTools` at the agent top level (NOT the IDE mcp.json autoApprove)
-      // with the @server/tool format; `@cmk` allows the kit's own MCP server's tools
-      // so mk_remember etc. don't prompt Reject/Trust/Run in a kiro-cli session.
+    it('pre-approves the kit MCP tools via allowedTools @claude-memory-kit (the CLI-side MCP trust)', () => {
+      // Kiro gates MCP TOOL calls separately from shell hooks. allowedTools uses
+      // the @server format and MUST name the server as it appears in the project
+      // `.kiro/settings/mcp.json` — `claude-memory-kit` (install MCP_SERVER_NAME),
+      // NOT `cmk`. A mismatch (the old `@cmk`, orphaned once MCP moved to the
+      // project mcp.json) means mk_remember is NOT approved → kiro silently drops
+      // the tool call (the gate3 silent-data-loss finding).
       installKiroCliAgent({ kiroDir });
       const agent = JSON.parse(readFileSync(agentPath(), 'utf8'));
       expect(Array.isArray(agent.allowedTools)).toBe(true);
-      expect(agent.allowedTools).toContain('@cmk'); // the kit's server, scoped
+      expect(agent.allowedTools).toContain('@claude-memory-kit'); // the kit's server, by its real name
+      expect(agent.allowedTools).not.toContain('@cmk'); // the orphaned old name must be gone
       expect(agent.allowedTools).not.toContain('*'); // never a blanket all-servers
     });
 
