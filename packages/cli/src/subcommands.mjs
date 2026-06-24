@@ -1899,16 +1899,33 @@ async function runCompress(options /* , command */) {
   }
 }
 
-async function runMcpDispatch(childName) {
+// Read a `--flag <value>` (or `--flag=value`) from an argv array. Returns the
+// value string, or undefined if absent. Used by `cmk mcp serve --project <dir>`
+// (the kiro-cli project-root lever — args always flow, unlike stdio-server env).
+function readFlag(argv, flag) {
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === flag) return argv[i + 1];
+    if (argv[i].startsWith(`${flag}=`)) return argv[i].slice(flag.length + 1);
+  }
+  return undefined;
+}
+
+async function runMcpDispatch(childName, options) {
   if (childName === 'serve') {
     // Which project does this server serve? The launching AGENT decides the cwd,
     // and only Claude Code sets CLAUDE_PROJECT_DIR — kiro-cli launches the MCP
-    // server from a NON-project cwd and sets no Claude env, so mk_remember
-    // silently wrote to the wrong/no project there (the cut-gate-kiro-cli find).
-    // resolveMcpProjectRoot adds the kit's own CMK_PROJECT_DIR env (set in the
-    // kiro-cli per-project mcp.json) + a walk-up-to-context/ fallback. See
-    // tier-paths.mjs for the full precedence.
-    const projectRoot = resolveMcpProjectRoot();
+    // server from a NON-project cwd and (per its own changelog) only flows `env`
+    // for REGISTRY-type servers, NOT personal/stdio ones, so mk_remember silently
+    // wrote to the wrong/no project there (the cut-gate-kiro-cli find). The fix
+    // kiro CANNOT drop: a `--project <dir>` ARG, which kiro passes verbatim as
+    // part of the command line. `cmk install --ide kiro` bakes it into the
+    // mcp.json `args`. resolveMcpProjectRoot precedence: arg → CLAUDE_PROJECT_DIR
+    // → CMK_PROJECT_DIR → walk-up-to-context/ → cwd (see tier-paths.mjs).
+    // commander parses `--project <dir>` → options.project. Fall back to a raw
+    // argv scan for a direct `cmk mcp serve --project X` invocation that bypasses
+    // the option object (defensive; the install always uses the flag form).
+    const projectArg = options?.project ?? readFlag(process.argv, '--project');
+    const projectRoot = resolveMcpProjectRoot({ projectArg });
     const userDir = process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
     // ALL logs to stderr per design §10.1; stdout is reserved for
     // JSON-RPC messages handled by the SDK's StdioServerTransport.
@@ -2541,7 +2558,23 @@ export const subcommands = [
     name: 'mcp',
     description: 'run the MCP server over stdio (invoked by Claude Code, not by humans)',
     milestone: 31,
-    children: [{ name: 'serve', description: 'start the stdio MCP server; JSON-RPC on stdin/stdout' }],
+    children: [
+      {
+        name: 'serve',
+        description: 'start the stdio MCP server; JSON-RPC on stdin/stdout',
+        optionSpec: [
+          {
+            flags: '--project <dir>',
+            description:
+              'project root to serve (baked into the kiro-cli mcp.json args, since kiro-cli does not flow env to stdio servers; defaults to CLAUDE_PROJECT_DIR / cwd)',
+          },
+        ],
+        // OWN action so commander passes the parsed --project option through
+        // (the parent runMcpDispatch is called as sub.action('serve') with NO
+        // options — index.mjs:70 — so the flag would be dropped without this).
+        action: (options) => runMcpDispatch('serve', options),
+      },
+    ],
     action: runMcpDispatch,
   },
   {

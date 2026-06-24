@@ -32,6 +32,26 @@ afterEach(() => {
 });
 
 describe('resolveMcpProjectRoot — which project does `cmk mcp serve` serve', () => {
+  it('prefers an explicit --project arg above EVERYTHING (the kiro-cli args lever)', () => {
+    // kiro-cli only flows env to registry-type servers, not stdio ones, but it
+    // passes args verbatim — so --project is the lever that always survives.
+    const argProj = join(sandbox, 'arg-proj');
+    mkdirSync(join(argProj, 'context'), { recursive: true });
+    const r = resolveMcpProjectRoot({
+      projectArg: argProj,
+      env: { CLAUDE_PROJECT_DIR: join(sandbox, 'claude'), CMK_PROJECT_DIR: join(sandbox, 'cmk') },
+      cwd: join(sandbox, 'elsewhere'),
+    });
+    expect(r).toBe(argProj);
+  });
+
+  it('skips an empty --project arg and falls through to the next source', () => {
+    const proj = join(sandbox, 'env-proj');
+    mkdirSync(join(proj, 'context'), { recursive: true });
+    const r = resolveMcpProjectRoot({ projectArg: '', env: { CMK_PROJECT_DIR: proj }, cwd: sandbox });
+    expect(r).toBe(proj);
+  });
+
   it('prefers CLAUDE_PROJECT_DIR (Claude Code) above everything', () => {
     const proj = join(sandbox, 'claude-proj');
     mkdirSync(join(proj, 'context'), { recursive: true });

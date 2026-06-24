@@ -63,13 +63,16 @@ describe('Task 50 — installKiro (all 4 surfaces)', () => {
     );
     expect(auto).not.toContain('*'); // scoped to the kit's tools, never a blanket wildcard
 
-    // env.CMK_PROJECT_DIR (the cut-gate-kiro-cli silent-data-loss fix): kiro-cli
-    // launches the MCP server from a NON-project cwd + sets no Claude env, so the
-    // server must be told which project it serves. Without this, mk_remember
+    // The project root rides in via the `args` --project flag (the cut-gate-
+    // kiro-cli silent-data-loss fix): kiro-cli launches the stdio MCP server from
+    // a NON-project cwd and only flows env to REGISTRY-type servers (its own
+    // changelog), so an env override is silently dropped. args ARE passed verbatim
+    // → --project is the lever kiro can't drop. (env kept as a belt for Claude
+    // Code + future kiro versions that flow stdio env.) Without this, mk_remember
     // reported "saved" but the fact never landed in the project.
-    expect(mcp.mcpServers['claude-memory-kit'].env).toEqual({
-      CMK_PROJECT_DIR: resolve(projectRoot),
-    });
+    const srv = mcp.mcpServers['claude-memory-kit'];
+    expect(srv.args).toEqual(['mcp', 'serve', '--project', resolve(projectRoot)]);
+    expect(srv.env).toEqual({ CMK_PROJECT_DIR: resolve(projectRoot) });
 
     // steering
     expect(existsSync(p('steering', 'cmk.md'))).toBe(true);

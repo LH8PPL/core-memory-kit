@@ -62,20 +62,23 @@ export const MCP_AUTO_APPROVE = Object.freeze([
   'mk_queue_list',
   'mk_queue_resolve',
 ]);
-// The MCP entry carries `env.CMK_PROJECT_DIR` = the absolute project root so the
-// spawned `cmk mcp serve` knows WHICH project to serve. WHY (the cut-gate-kiro-cli
-// find): kiro-cli launches the MCP server from a cwd that is NOT the project and
-// sets no Claude env, so without this, mk_remember silently wrote to the wrong/no
-// project (resolveMcpProjectRoot falls back to cwd). kiro-cli's mcp.json supports
-// an `env` field (kiro.dev/docs/cli/mcp). The path is absolute + machine-specific
-// → re-resolved per machine by `cmk install` (same posture as the lazy-compress
-// bin path); a teammate who clones re-runs install. `.kiro/settings/mcp.json` is
-// already workspace-scoped, so this env is per-project.
+// The MCP entry bakes the absolute project root into the `args` as
+// `--project <dir>` so the spawned `cmk mcp serve` knows WHICH project to serve.
+// WHY args, not env (the cut-gate-kiro-cli find): kiro-cli launches the stdio MCP
+// server from a NON-project cwd, and per its OWN changelog (feed.json) it only
+// flows `env` to REGISTRY-type servers — NOT personal/stdio ones like ours — so
+// an `env` override is silently dropped and mk_remember wrote to the wrong/no
+// project (silent data loss). `args` ARE passed verbatim (the literal command
+// line), so `--project` is the lever kiro can't drop. We ALSO keep `env` as a
+// belt for agents (Claude Code) + future kiro versions that DO flow stdio env.
+// The path is absolute + machine-specific → re-resolved per machine by
+// `cmk install` (same posture as the lazy-compress bin path); a teammate who
+// clones re-runs install. `.kiro/settings/mcp.json` is workspace-scoped → per-project.
 function buildMcpEntry(projectRoot) {
   return {
     type: 'stdio',
     command: 'cmk',
-    args: ['mcp', 'serve'],
+    args: ['mcp', 'serve', '--project', projectRoot],
     autoApprove: MCP_AUTO_APPROVE,
     env: { CMK_PROJECT_DIR: projectRoot },
   };

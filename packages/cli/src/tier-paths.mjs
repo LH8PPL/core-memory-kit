@@ -21,25 +21,32 @@ export const VALID_TIERS = new Set(['U', 'P', 'L']);
  * working directories, so it can't just trust `process.cwd()`.
  *
  * Precedence (most-specific → least):
- *   1. CLAUDE_PROJECT_DIR — Claude Code sets this in the spawned server's env.
- *   2. CMK_PROJECT_DIR    — the kit sets this in the kiro-cli per-project
- *      `.kiro/settings/mcp.json` `env` (the D-198-sibling fix): kiro-cli launches
- *      the MCP server from a cwd that is NOT the project + sets no Claude env, so
- *      mk_remember silently wrote to the wrong/no project (the cut-gate find).
- *   3. walk UP from cwd to the nearest ancestor containing a `context/` dir —
+ *   1. an explicit `--project <dir>` ARG (`projectArg`) — the only lever kiro-cli
+ *      cannot drop. kiro-cli passes a server's `command`+`args` verbatim (the
+ *      literal command line) but only flows `env` for REGISTRY-type servers, NOT
+ *      personal/stdio ones (kiro-cli changelog: feed.json) — so for a stdio
+ *      server the project root MUST ride in via args, not env. `cmk install`
+ *      bakes it into the kiro-cli mcp.json `args`.
+ *   2. CLAUDE_PROJECT_DIR — Claude Code sets this in the spawned server's env.
+ *   3. CMK_PROJECT_DIR    — env override (works for agents that DO flow env;
+ *      kept as a belt, harmless where env is dropped).
+ *   4. walk UP from cwd to the nearest ancestor containing a `context/` dir —
  *      agent-agnostic discovery, robust to any launcher cwd at or under a project.
- *   4. cwd — last resort (a fresh/uninstalled dir; the server still runs).
+ *   5. cwd — last resort (a fresh/uninstalled dir; the server still runs).
  *
- * Pure (env + cwd injected) so it's unit-testable without spawning. Empty/missing
- * env values are skipped so an agent that sets `CMK_PROJECT_DIR=""` doesn't pin
- * the server to the filesystem root.
+ * Pure (arg + env + cwd injected) so it's unit-testable without spawning.
+ * Empty/missing values are skipped so an agent that passes `--project ""` or
+ * `CMK_PROJECT_DIR=""` doesn't pin the server to the filesystem root.
  *
  * @param {object} [opts]
+ * @param {string} [opts.projectArg] — an explicit project dir (from `--project`).
  * @param {Record<string,string|undefined>} [opts.env=process.env]
  * @param {string} [opts.cwd=process.cwd()]
  * @returns {string} the resolved project root (absolute)
  */
-export function resolveMcpProjectRoot({ env = process.env, cwd = process.cwd() } = {}) {
+export function resolveMcpProjectRoot({ projectArg, env = process.env, cwd = process.cwd() } = {}) {
+  if (projectArg && projectArg.trim() !== '') return resolve(projectArg);
+
   const fromClaude = env.CLAUDE_PROJECT_DIR;
   if (fromClaude && fromClaude.trim() !== '') return resolve(fromClaude);
 
