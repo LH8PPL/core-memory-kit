@@ -73,6 +73,7 @@ import { createInterface } from 'node:readline';
 import { spawnSync } from 'node:child_process';
 import { checkKitBinding } from './native-binding.mjs';
 import { resolve as resolvePath, join, basename } from 'node:path';
+import { resolveMcpProjectRoot } from './tier-paths.mjs';
 
 const NOTICE_PREFIX = 'not yet implemented';
 
@@ -1900,11 +1901,14 @@ async function runCompress(options /* , command */) {
 
 async function runMcpDispatch(childName) {
   if (childName === 'serve') {
-    // Claude Code sets CLAUDE_PROJECT_DIR in the spawned MCP server's environment
-    // to the project root (code.claude.com/docs/en/mcp). Prefer it over cwd so the
-    // server indexes the right project even when Claude Code launches it with a
-    // different working directory. Falls back to cwd for a manual `cmk mcp serve`.
-    const projectRoot = resolvePath(process.env.CLAUDE_PROJECT_DIR ?? process.cwd());
+    // Which project does this server serve? The launching AGENT decides the cwd,
+    // and only Claude Code sets CLAUDE_PROJECT_DIR — kiro-cli launches the MCP
+    // server from a NON-project cwd and sets no Claude env, so mk_remember
+    // silently wrote to the wrong/no project there (the cut-gate-kiro-cli find).
+    // resolveMcpProjectRoot adds the kit's own CMK_PROJECT_DIR env (set in the
+    // kiro-cli per-project mcp.json) + a walk-up-to-context/ fallback. See
+    // tier-paths.mjs for the full precedence.
+    const projectRoot = resolveMcpProjectRoot();
     const userDir = process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
     // ALL logs to stderr per design §10.1; stdout is reserved for
     // JSON-RPC messages handled by the SDK's StdioServerTransport.

@@ -24,7 +24,7 @@
 //   uninstallKiro({ projectRoot, awsDir? }) → { action, changed }
 //   (awsDir sandboxes the CLI-agent leg in tests; production → real ~/.aws.)
 
-import { join } from 'node:path';
+import { join, resolve as resolvePath } from 'node:path';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { mutateAgentConfig } from './mutate-agent-config.mjs';
 import { installKiroSkills, uninstallKiroSkills } from './kiro-skills.mjs';
@@ -62,12 +62,24 @@ export const MCP_AUTO_APPROVE = Object.freeze([
   'mk_queue_list',
   'mk_queue_resolve',
 ]);
-const MCP_ENTRY = Object.freeze({
-  type: 'stdio',
-  command: 'cmk',
-  args: ['mcp', 'serve'],
-  autoApprove: MCP_AUTO_APPROVE,
-});
+// The MCP entry carries `env.CMK_PROJECT_DIR` = the absolute project root so the
+// spawned `cmk mcp serve` knows WHICH project to serve. WHY (the cut-gate-kiro-cli
+// find): kiro-cli launches the MCP server from a cwd that is NOT the project and
+// sets no Claude env, so without this, mk_remember silently wrote to the wrong/no
+// project (resolveMcpProjectRoot falls back to cwd). kiro-cli's mcp.json supports
+// an `env` field (kiro.dev/docs/cli/mcp). The path is absolute + machine-specific
+// → re-resolved per machine by `cmk install` (same posture as the lazy-compress
+// bin path); a teammate who clones re-runs install. `.kiro/settings/mcp.json` is
+// already workspace-scoped, so this env is per-project.
+function buildMcpEntry(projectRoot) {
+  return {
+    type: 'stdio',
+    command: 'cmk',
+    args: ['mcp', 'serve'],
+    autoApprove: MCP_AUTO_APPROVE,
+    env: { CMK_PROJECT_DIR: projectRoot },
+  };
+}
 
 const STEERING_PATH = ['steering', 'cmk.md'];
 const STEERING_FRONTMATTER = '---\ninclusion: always\n---\n\n';
@@ -104,7 +116,7 @@ export function installKiro({ projectRoot, awsDir } = {}) {
     path: kiro(MCP_PATH),
     format: 'json',
     keyPath: [MCP_SERVERS_KEY, MCP_SERVER_NAME],
-    entry: MCP_ENTRY,
+    entry: buildMcpEntry(resolvePath(projectRoot)),
   });
   if (mcp.action === 'error') {
     errors.push({ surface: 'mcp', ...mcp });

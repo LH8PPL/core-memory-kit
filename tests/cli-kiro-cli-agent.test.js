@@ -55,9 +55,16 @@ describe('Task 50.L — Kiro CLI agent-config + default-agent', () => {
       expect(agent.hooks.preToolUse[0].matcher).toBe('*');
       expect(agent.hooks.preToolUse[0].matcher).not.toContain('|');
       expect(agent.hooks.preToolUse[0].command).toMatch(/cmk-guard-memory/);
-      // carries MCP + an INLINE instruction prompt (NOT a file:// ref — those
-      // resolve relative to the agent-file dir, not the project root; D-198)
-      expect(agent.mcpServers).toBeDefined();
+      // MCP is routed through the PROJECT `.kiro/settings/mcp.json` via
+      // includeMcpJson:true — NOT an inline mcpServers entry. The project mcp.json
+      // carries env.CMK_PROJECT_DIR (the cut-gate-kiro-cli silent-data-loss fix);
+      // a GLOBAL agent can't bake a per-project env, so there must be ONE MCP
+      // source (the env-carrying project one), not a duplicate env-less inline one.
+      expect(agent.mcpServers).toBeUndefined();
+      expect(agent.includeMcpJson).toBe(true);
+      expect(agent.useLegacyMcpJson).toBeUndefined(); // dropped (conflicts with includeMcpJson)
+      // an INLINE instruction prompt (NOT a file:// ref — those resolve relative
+      // to the agent-file dir, not the project root; D-198)
       expect(typeof agent.prompt).toBe('string');
       expect(agent.prompt).not.toMatch(/^file:\/\//); // inline text, not a path ref
       expect(agent.prompt).toMatch(/mk_remember|mk_search/); // the recall/persist directive
