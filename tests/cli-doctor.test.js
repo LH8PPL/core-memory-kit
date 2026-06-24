@@ -288,12 +288,14 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
         writeFileSync(join(dir, 'cmk.md'), '---\ninclusion: always\n---\n', 'utf8');
       }
       function seedCliAgent() {
-        // a cmk-owned q_cli_default.json in the sandboxed ~/.aws
-        const dir = join(kiroAwsDir, 'amazonq', 'cli-agents');
+        // a cmk-owned agent at the REAL kiro-cli location ~/.kiro/agents/cmk.json
+        // (D-198). Ownership marker lives in `description` (a valid field), NOT a
+        // top-level `managedBy` (which kiro-cli `agent validate` rejects).
+        const dir = join(kiroAwsDir, 'agents');
         mkdirSync(dir, { recursive: true });
         writeFileSync(
-          join(dir, 'q_cli_default.json'),
-          JSON.stringify({ name: 'q_cli_default', managedBy: 'claude-memory-kit' }),
+          join(dir, 'cmk.json'),
+          JSON.stringify({ name: 'cmk', description: 'claude-memory-kit … [claude-memory-kit]' }),
           'utf8',
         );
       }
@@ -341,7 +343,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
         const c1 = r.checks.find((c) => c.id === 'HC-1');
         expect(c1.status).toBe('fail');
         expect(c1.message).toMatch(/\.kiro\/hooks/); // names the IDE surface
-        expect(c1.message).toMatch(/cli-agents/); // AND the CLI surface
+        expect(c1.message).toMatch(/\.kiro\/agents/); // AND the CLI surface (D-198)
         expect(c1.recoveryCommand).not.toBe('cmk repair --hooks'); // not the Claude hint
         expect(c1.recoveryCommand).toMatch(/--ide kiro/);
       });

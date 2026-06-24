@@ -120,6 +120,13 @@ describe('guard-memory — evaluatePayload (the PreToolUse contract)', () => {
     const r = evaluatePayload({ tool_name: 'execute_bash', tool_input: { command: 'rm -rf context/sessions' } });
     expect(r.block).toBe(true);
   });
+  it('blocks a kiro-cli V3 execute_command payload deleting memory (the 2.9.0 tool rename — D-198)', () => {
+    const r = evaluatePayload({
+      tool_name: 'execute_command',
+      tool_input: { command: 'Remove-Item -Recurse -Force context/sessions' },
+    });
+    expect(r.block).toBe(true);
+  });
   it('ignores non-shell tools (Read/Edit/Write never blocked)', () => {
     expect(evaluatePayload({ tool_name: 'Read', tool_input: { file_path: 'context/MEMORY.md' } }).block).toBe(false);
     expect(evaluatePayload({ tool_name: 'Edit', tool_input: {} }).block).toBe(false);

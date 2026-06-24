@@ -315,7 +315,7 @@ async function runInstallForAgent({ ide, options, log, logError }) {
   if (ide === 'kiro') {
     // awsDir: tests/sandboxes pass $MEMORY_KIT_AWS_DIR via options.awsDir to keep
     // the CLI-agent leg out of the real ~/.aws; production leaves it undefined →
-    // the real ~/.aws/amazonq (where kiro-cli actually reads its agents).
+    // the real ~/.kiro (where kiro-cli actually reads its agents).
     const r = installKiro({ projectRoot: scaffold.projectRoot, awsDir: options?.awsDir });
     if (r.action === 'error') {
       for (const e of r.errors || []) {

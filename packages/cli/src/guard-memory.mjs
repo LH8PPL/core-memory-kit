@@ -124,11 +124,18 @@ export function decideGuard(cmd) {
 }
 
 // The shell-tool names across agents. Claude Code: `Bash` / `PowerShell`.
-// Kiro / Amazon-Q: `execute_bash` (and the legacy alias `executeBash`). Verified
-// from the real oh-my-kiro + vibekit preToolUse hooks (their guards match
-// `execute_bash|Bash`, payload `.tool_name` + `.tool_input.command` on STDIN —
-// the SAME shape as Claude Code, so one bin guards both agents). D-192.
-const SHELL_TOOLS = new Set(['Bash', 'PowerShell', 'execute_bash', 'executeBash', 'shell']);
+// Kiro / Amazon-Q: `execute_bash` (+ legacy alias `executeBash`); kiro-cli V3
+// (2.9.0) RENAMED it to `execute_command` (D-198, observed live in the cut-gate).
+// Payload `.tool_name` + `.tool_input.command` on STDIN — the SAME shape as
+// Claude Code, so one bin guards every agent. D-192.
+const SHELL_TOOLS = new Set([
+  'Bash',
+  'PowerShell',
+  'execute_bash',
+  'executeBash',
+  'execute_command', // kiro-cli V3 (2.9.0) rename — D-198
+  'shell',
+]);
 
 /**
  * Evaluate a PreToolUse payload (already parsed) from EITHER Claude Code or Kiro

@@ -89,7 +89,7 @@ function detectInstallKind(projectRoot) {
 // --- HC-1: Stop + SessionStart hooks registered -----------------------
 function hc1Hooks({ projectRoot, awsDir }) {
   // Agent-aware (v0.4.0): a Kiro install keeps its hooks in .kiro/hooks/ (IDE)
-  // and/or ~/.aws/amazonq/cli-agents/ (kiro-cli), so route to the Kiro check
+  // and/or ~/.kiro/agents/ (kiro-cli), so route to the Kiro check
   // rather than false-failing on a missing .claude/settings.json with a
   // Claude-Code repair hint.
   if (detectInstallKind(projectRoot) === 'kiro') {
@@ -180,7 +180,7 @@ function hc1Hooks({ projectRoot, awsDir }) {
 // --- HC-1 (Kiro variant): capture + inject can fire via EITHER Kiro surface ----
 // Kiro wires capture/inject through TWO independent surfaces (D-186):
 //   • IDE hooks  → .kiro/hooks/{cmk-capture,cmk-inject}.kiro.hook  (the GUI user)
-//   • CLI agent  → ~/.aws/amazonq/cli-agents/{q_cli_default,cmk}.json with
+//   • CLI agent  → ~/.kiro/agents/cmk.json with
 //                  agentSpawn(inject)+stop(capture) hooks  (the kiro-cli user)
 // HC-1 is a CAPABILITY check ("can capture/inject fire?"), not a single-file
 // check — so it PASSES if EITHER surface is present, and FAILs only when NEITHER
@@ -199,7 +199,7 @@ function hc1KiroHooks({ projectRoot, awsDir }) {
   if (ideComplete || cliAgent) {
     const surfaces = [];
     if (ideComplete) surfaces.push('IDE hooks (.kiro/hooks/)');
-    if (cliAgent) surfaces.push('CLI agent (~/.aws/amazonq/cli-agents/)');
+    if (cliAgent) surfaces.push('CLI agent (~/.kiro/agents/cmk.json)');
     return {
       id: 'HC-1',
       name: 'Stop + SessionStart hooks registered',
@@ -217,7 +217,7 @@ function hc1KiroHooks({ projectRoot, awsDir }) {
     message:
       `Kiro install: no capture/inject surface found — neither the IDE hooks ` +
       `(${ideMissing.join(', ')} in .kiro/hooks/) nor a cmk CLI agent in ` +
-      `~/.aws/amazonq/cli-agents/`,
+      `~/.kiro/agents/`,
     recoveryCommand: 'cmk install --ide kiro',
   };
 }

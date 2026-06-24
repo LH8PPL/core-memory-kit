@@ -8,7 +8,7 @@
 //   steering  → .kiro/steering/cmk.md (inclusion: always), managed marker block
 //   skills    → .kiro/skills/{memory-search,memory-write}/ via installKiroSkills
 //   IDE hooks → .kiro/hooks/cmk-{capture,inject}.kiro.hook via installKiroIdeHooks
-//   CLI agent → ~/.aws/amazonq/cli-agents/ (agentSpawn/stop hooks + guarded
+//   CLI agent → ~/.kiro/agents/cmk.json + ~/.kiro/settings/cli.json (agentSpawn/stop hooks + default-agent
 //               default-agent) via installKiroCliAgent — for kiro-cli users
 //
 // IDE hooks auto-fire with no agent selection; the CLI agent needs cmk to be the
