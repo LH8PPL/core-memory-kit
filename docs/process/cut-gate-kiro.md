@@ -273,6 +273,18 @@ Same build arc as the Claude-Code gate, run in **Kiro IDE**. Each stage pairs a 
       ```
       **PASS:** both print `exit=0`. **FAIL:** any non-zero exit (a real Kiro session would stall on that tool).
 
+### Kiro IDE 1.0 v1-hook probes (50.N.3 / D-203) — ⚠️ check your Kiro IDE version FIRST
+
+> **Which format does your Kiro IDE use?** Kiro IDE **1.0+** (released 2026-06-25) loads the **v1** consolidated file `.kiro/hooks/cmk.kiro.hook.json` and IGNORES the legacy `cmk-*.kiro.hook` files (they show an "upgrade badge"). Kiro **0.x** loads the legacy files and ignores the v1 json. The kit writes BOTH. **On 1.0, run KH1/KH2/KH3 + these 5 probes against the v1 file; on 0.x, the legacy KH1/KH2 above apply.**
+
+- [ ] **★ KHv1-load — does Kiro IDE 1.0 AUTO-LOAD the installer-written v1 file?** (D-203 item 1) After `cmk install --ide kiro`, open the project in Kiro IDE 1.0 and check the **Agent Hooks panel**. **PASS:** the 4 `claude-memory-kit:` hooks (recall / capture / delete-guard / observe-edit) appear ENABLED without you creating them in the GUI. **FAIL:** the panel is empty or shows them disabled/needs-create → the kit must add a post-install "reload Kiro window" step (or the GUI must import the file). _This is the load-bearing probe — if the file isn't auto-loaded, none of the IDE hooks fire._
+- [ ] **★ KHv1-guard — does the IDE `PreToolUse` hook BLOCK a memory delete?** (D-203 items 2+3) In the IDE chat, ask the agent to delete `context/sessions`. **PASS:** the `cmk-guard-memory` hook fires and the delete is BLOCKED (the agent reports it couldn't). Note WHICH exit code blocked (the guard exits 2; confirm the IDE honors non-zero / specifically 2). **FAIL:** the delete runs → either the hook didn't fire, the IDE doesn't pass the path the guard needs (D-203 item 2 — capture what argv/env/stdin the PreToolUse command got), or the IDE doesn't block on the guard's exit code (item 3).
+- [ ] **★ KHv1-observe — does `PostFileSave` fire observe-edit?** (D-203 item 4) Have the agent create a >50-line file. **PASS:** `context/sessions/now.md` gets a `… file=… lines=6X` summary. **FAIL:** no summary → the IDE `PostFileSave` matcher tokens differ, or the hook reads the edit differently than the kit's probe (capture the real payload).
+- [ ] **★ KHv1-capture-trigger — is `Stop` the right v1 session-end trigger?** (D-203 item 5) The kit uses `trigger: "Stop"` for turn-end capture, but v1's documented type list has `SessionStart` and no obvious `Stop`. **PASS:** capture fires at turn end (now.md grows). **FAIL:** capture never fires → check the Agent Hooks panel's trigger dropdown for the real session-end trigger name (e.g. `PostTaskExec`) and update `v1HookSet` in `kiro-ide-hooks.mjs`.
+- [ ] **★ KHv1-inject — does `UserPromptSubmit` inject recall in the IDE?** Ask a question whose answer is in memory. **PASS:** the answer reflects injected memory without a re-brief. **FAIL:** no recall → the inject hook's stdout isn't surfaced as context (the v1 stdout→context contract differs).
+
+> **If the v1 probes FAIL on a real Kiro IDE 1.0:** the IDE legs are "wired but the platform doesn't fire them as expected" — fall back to documenting the IDE limit honestly (like Task 165(b) originally did) and lean on the kiro-cli surface, which IS verified. Do NOT mark 50.N.3 done on green unit tests alone — these live probes are its real done-criteria (the unit tests only prove the FILE is written correctly, not that Kiro fires it).
+
 ---
 
 ## 3. Capture checks — read the files

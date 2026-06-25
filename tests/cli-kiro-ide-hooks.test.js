@@ -99,3 +99,73 @@ describe('Task 50.K — Kiro IDE .kiro.hook writer', () => {
     expect(existsSync(userHook)).toBe(true);
   });
 });
+
+// 50.N.3 / D-203 — Kiro IDE 1.0 deprecated the legacy .kiro.hook (when/then/
+// runCommand) format. v1 uses a consolidated .kiro/hooks/*.json:
+//   {"version":"v1","hooks":[{name, trigger, matcher?, action:{type:'command',
+//    command}, timeout?, enabled?}]} with PascalCase triggers. The kit emits the
+// v1 file (capture+inject+guard+observe) AND keeps the legacy files for 0.x.
+describe('50.N.3 — Kiro IDE v1 hook format (.kiro/hooks/cmk.kiro.hook.json)', () => {
+  function readV1() {
+    return JSON.parse(
+      readFileSync(join(projectRoot, '.kiro', 'hooks', 'cmk.kiro.hook.json'), 'utf8'),
+    );
+  }
+
+  it('writes a v1 consolidated file alongside the legacy .kiro.hook files (dual-emit)', () => {
+    installKiroIdeHooks({ projectRoot });
+    // v1 file present...
+    expect(existsSync(join(projectRoot, '.kiro', 'hooks', 'cmk.kiro.hook.json'))).toBe(true);
+    // ...AND the legacy files still present (0.x back-compat)
+    expect(existsSync(join(projectRoot, '.kiro', 'hooks', 'cmk-capture.kiro.hook'))).toBe(true);
+    expect(existsSync(join(projectRoot, '.kiro', 'hooks', 'cmk-inject.kiro.hook'))).toBe(true);
+  });
+
+  it('the v1 file has version:"v1" + a hooks array with PascalCase triggers + action.type "command"', () => {
+    installKiroIdeHooks({ projectRoot });
+    const v1 = readV1();
+    expect(v1.version).toBe('v1');
+    expect(Array.isArray(v1.hooks)).toBe(true);
+    for (const h of v1.hooks) {
+      // PascalCase trigger (not the legacy camelCase agentStop/promptSubmit)
+      expect(h.trigger).toMatch(/^[A-Z]/);
+      // deterministic command action (NOT then/runCommand)
+      expect(h.action.type).toBe('command');
+      expect(typeof h.action.command).toBe('string');
+      expect(h).not.toHaveProperty('when');
+      expect(h).not.toHaveProperty('then');
+    }
+  });
+
+  it('wires inject (UserPromptSubmit), capture, delete-guard (PreToolUse) + observe-edit (PostFileSave)', () => {
+    installKiroIdeHooks({ projectRoot });
+    const triggers = readV1().hooks.map((h) => h.trigger);
+    expect(triggers).toContain('UserPromptSubmit'); // inject
+    expect(triggers).toContain('PreToolUse');       // delete-guard (v1 can BLOCK)
+    expect(triggers).toContain('PostFileSave');     // observe-edit
+    // capture-at-turn-end uses whatever the resolved session-end trigger is —
+    // assert SOME hook runs `cmk hook stop` (the capture command)
+    const cmds = readV1().hooks.map((h) => h.action.command);
+    expect(cmds.some((c) => /cmk hook stop/.test(c))).toBe(true);
+  });
+
+  it('the v1 delete-guard fires cmk-guard-memory on PreToolUse', () => {
+    installKiroIdeHooks({ projectRoot });
+    const guard = readV1().hooks.find((h) => h.trigger === 'PreToolUse');
+    expect(guard).toBeTruthy();
+    expect(guard.action.command).toMatch(/cmk-guard-memory/);
+  });
+
+  it('the v1 observe-edit fires cmk hook postToolUse/observe on PostFileSave', () => {
+    installKiroIdeHooks({ projectRoot });
+    const obs = readV1().hooks.find((h) => h.trigger === 'PostFileSave');
+    expect(obs).toBeTruthy();
+    expect(obs.action.command).toMatch(/cmk hook (postToolUse|observe)/);
+  });
+
+  it('uninstall removes the v1 file too', () => {
+    installKiroIdeHooks({ projectRoot });
+    uninstallKiroIdeHooks({ projectRoot });
+    expect(existsSync(join(projectRoot, '.kiro', 'hooks', 'cmk.kiro.hook.json'))).toBe(false);
+  });
+});
