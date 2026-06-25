@@ -104,7 +104,7 @@ if (Test-Path $env:USERPROFILE\.kiro\settings\cli.json) {
 ## 1. Scaffold + read every CLI surface
 
 ```powershell
-mkdir C:\Temp\kiro-cli-gate; cd C:\Temp\kiro-cli-gate
+mkdir C:\Temp\kiro-cli-gate9; cd C:\Temp\kiro-cli-gate9
 git init
 cmk install --with-semantic --ide kiro
 cmk doctor
@@ -131,7 +131,7 @@ cmk doctor
 
 - [ ] **★ KCG4 — `kiro-cli agent list` resolves cmk as the DEFAULT.**
       ```powershell
-      cd C:\Temp\kiro-cli-gate
+      cd C:\Temp\kiro-cli-gate9
       kiro-cli agent list
       ```
       **PASS:** the active marker `*` is on **`cmk`** (shown `Global`), e.g. `* cmk    Global    claude-memory-kit …`. **FAIL:** `*` is on `kiro_default` (built-in) → the kit's default registration didn't take; nothing will fire.
@@ -173,7 +173,7 @@ cmk doctor
 Start kiro-cli in the project with **NO `--agent` flag**, so the default-agent resolution is what's under test. (Bare `kiro-cli` opens the chat — `chat` is the default subcommand; `kiro-cli chat` is the same thing.)
 
 ```powershell
-cd C:\Temp\kiro-cli-gate
+cd C:\Temp\kiro-cli-gate9
 kiro-cli        # NO --agent flag — cmk must resolve as the DEFAULT agent
 ```
 
@@ -191,7 +191,7 @@ Build a small app, **stating durable preferences as you go** (these are what mem
 
 - [ ] **★ KC3 — `stop` captures at turn-end in kiro-cli.**
       ```powershell
-      type C:\Temp\kiro-cli-gate\context\sessions\now.md     # a kiro-cli turn is captured here
+      type C:\Temp\kiro-cli-gate9\context\sessions\now.md     # a kiro-cli turn is captured here
       ```
       **PASS:** a kiro-cli turn landed in `now.md` / the capture log — same shared core as the IDE, different client. **FAIL:** kiro-cli turns aren't captured.
 
@@ -206,7 +206,7 @@ Build a small app, **stating durable preferences as you go** (these are what mem
 ## 3. Capture checks — read the files
 
 ```powershell
-cd C:\Temp\kiro-cli-gate
+cd C:\Temp\kiro-cli-gate9
 ```
 
 - [ ] **B1 — auto-capture fires.** Your decisions/prefs show up **without** "remember this".
@@ -220,7 +220,7 @@ cd C:\Temp\kiro-cli-gate
 ## 4. Explicit capture probes — run in the build terminal
 
 ```powershell
-cd C:\Temp\kiro-cli-gate
+cd C:\Temp\kiro-cli-gate9
 ```
 
 - [ ] **C1 — terse.** `cmk remember "We deploy with Kamal to Hetzner, never Vercel."` → appears in `context\MEMORY.md`.
@@ -277,7 +277,7 @@ The `cmk` CLI is agent-agnostic — run **F-1 … F-19** (recall/index, persona,
 **The kiro-cli-specific lifecycle check:**
 
 - [ ] **★ KU1 — `cmk uninstall --ide kiro` removes ONLY our kiro-cli + Kiro surfaces, byte-preserves the rest, never touches `context/`.**
-      In `C:\Temp\kiro-cli-gate` (NEVER a real project):
+      In `C:\Temp\kiro-cli-gate9` (NEVER a real project):
       ```powershell
       cmk uninstall --ide kiro
       "cmk agent gone (False):        $(Test-Path $env:USERPROFILE\.kiro\agents\cmk.json)"
@@ -306,7 +306,7 @@ The `cmk` CLI is agent-agnostic — run **F-1 … F-19** (recall/index, persona,
 
 `context/` is committed and travels with `git clone` (tenet T2). The project `.kiro/` surfaces (steering/skills/mcp) are committed too. The CLI agent-config (`~/.kiro/agents/cmk.json` + the `cli.json` pointer) is machine-local and re-created by `cmk install --ide kiro` on the new machine.
 
-- [ ] **★ H1** — clone `C:\Temp\kiro-cli-gate` elsewhere, run `cmk install --ide kiro` + `kiro-cli` → the project memory (`context/`) is already there and the CLI agent re-registers.
+- [ ] **★ H1** — clone `C:\Temp\kiro-cli-gate9` elsewhere, run `cmk install --ide kiro` + `kiro-cli` → the project memory (`context/`) is already there and the CLI agent re-registers.
 
 ---
 
@@ -330,7 +330,7 @@ $run  = Split-Path $bk -Leaf
 
 # 1. PRESERVE the test artifacts as evidence (run-prefixed, self-identifying)
 Copy-Item $env:USERPROFILE\.claude-memory-kit  "$bk\$run-AFTER-.claude-memory-kit" -Recurse -EA SilentlyContinue
-Copy-Item C:\Temp\kiro-cli-gate                "$bk\$run-AFTER-test-project"       -Recurse -EA SilentlyContinue
+Copy-Item C:\Temp\kiro-cli-gate9                "$bk\$run-AFTER-test-project"       -Recurse -EA SilentlyContinue
 Copy-Item $env:USERPROFILE\.kiro\agents        "$bk\$run-AFTER-kiro-agents"        -Recurse -EA SilentlyContinue
 "$(Get-Date -Format o) — kiro-cli gate finished; artifacts copied above." | Out-File "$bk\NOTES.md" -Append
 
@@ -350,7 +350,7 @@ if (Test-Path $cli) {
 }
 
 # 4. clean the throwaway project dirs (NOT the backups)
-Remove-Item -Recurse -Force C:\Temp\kiro-cli-gate, C:\Temp\kiro-cli-coldopen, C:\Temp\kiro-cli-guard, C:\Temp\kiro-cli-foreign -EA SilentlyContinue
+Remove-Item -Recurse -Force C:\Temp\kiro-cli-gate9, C:\Temp\kiro-cli-coldopen, C:\Temp\kiro-cli-guard, C:\Temp\kiro-cli-foreign -EA SilentlyContinue
 Remove-Item Env:\MEMORY_KIT_KIRO_DIR -EA SilentlyContinue
 ```
 

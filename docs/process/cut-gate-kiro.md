@@ -107,7 +107,7 @@ Get-ChildItem $env:USERPROFILE\.kiro\agents\*.json -EA SilentlyContinue | % {
 Validates scaffold integrity + that all seven Kiro surfaces land in the verified paths.
 
 ```powershell
-mkdir C:\Temp\kiro-gate; cd C:\Temp\kiro-gate
+mkdir C:\Temp\kiro-ide-gate2; cd C:\Temp\kiro-ide-gate2
 git init
 cmk install --with-semantic --ide kiro    # the Kiro install — all 5 surfaces + semantic recall (~260 MB once + model pre-warm)
 cmk doctor
@@ -180,7 +180,7 @@ cmk doctor
       (Get-Content "$g\settings\cli.json" -Raw | ConvertFrom-Json).'chat.defaultAgent'   # their default is byte-untouched (their-agent)
       dir "$g\agents"                        # the kit's cmk.json STILL landed (the user can run --agent cmk)
       Remove-Item Env:\MEMORY_KIT_KIRO_DIR    # clear it — the rest of the gate uses the REAL ~/.kiro
-      Set-Location C:\Temp\kiro-gate
+      Set-Location C:\Temp\kiro-ide-gate2
       ```
       **PASS:** the install prints the **`Note: you already have a Kiro CLI default agent — the kit installed a `cmk` agent instead.`** line; `cli.json` still says `chat.defaultAgent: their-agent` (untouched); the kit STILL wrote `cmk.json` but did NOT take over the default pointer. **FAIL:** the kit overwrote their default pointer or their settings.
 
@@ -221,7 +221,7 @@ cmk doctor
       ```
       **PASS:** `.vscode/settings.json` has `kiroAgent.trustedCommands` containing the kit's hook prefix (`cmd.exe /c cmk hook *` on Windows; `cmk hook *` on POSIX) **and** the guard (`…cmk-guard-memory*`); the CLI agent-config's `toolsSettings.shell.allowedCommands` carries the regex equivalents (`cmd\.exe /c cmk hook .*`, `…cmk-guard-memory`). **Neither is a blanket `*` / `.*`** (the kit trusts only its OWN commands — the docs warn wildcards over-trust). **FAIL:** the trust list is missing → the IDE hook will pop a Run/Reject prompt on every fire (KH-trust below confirms the live behavior). _(The live confirmation that the prompt is GONE is KH-trust in §2 — this check verifies the trust entries are on disk.)_
 
-Now **restart Kiro** (close + reopen the IDE; restart any kiro-cli session) so the hooks + MCP load, then `code .` (or open `C:\Temp\kiro-gate` in Kiro). The live checks (§2 onward) need the reloaded hooks.
+Now **restart Kiro** (close + reopen the IDE; restart any kiro-cli session) so the hooks + MCP load, then `code .` (or open `C:\Temp\kiro-ide-gate2` in Kiro). The live checks (§2 onward) need the reloaded hooks.
 
 ---
 
@@ -344,7 +344,7 @@ The regular Kiro user **never types `cmk`** — they talk, and Kiro runs the MCP
 This is the **CLI-agent live gate** — the half KG6 only proves on disk. Start `kiro-cli` in the project with **NO `--agent` flag**, so the default-agent resolution is what's under test.
 
 ```powershell
-cd C:\Temp\kiro-gate
+cd C:\Temp\kiro-ide-gate2
 # the CLI agent lives in your REAL ~/.kiro/agents/ (backed up in §0c)
 kiro-cli chat        # NO --agent flag — cmk must resolve as the DEFAULT agent
 ```
@@ -386,7 +386,7 @@ Without re-explaining anything, ask: *"What are my standing cross-project rules,
 ## 6. Session 3 — the cold-open (the wedge)  ⬅️ a BRAND-NEW Kiro project
 
 ```powershell
-mkdir C:\Temp\kiro-coldopen; cd C:\Temp\kiro-coldopen
+mkdir C:\Temp\kiro-ide-coldopen; cd C:\Temp\kiro-ide-coldopen
 git init; cmk install --with-semantic --ide kiro
 ```
 Open in Kiro (or `kiro-cli chat`). Ask: *"Start a new Python backend for me — set up the structure."*
@@ -395,14 +395,14 @@ Open in Kiro (or `kiro-cli chat`). Ask: *"Start a new Python backend for me — 
 
 ---
 
-## 7. Full feature sweep — every `cmk` subcommand  (~15 min, in `C:\Temp\kiro-gate`)
+## 7. Full feature sweep — every `cmk` subcommand  (~15 min, in `C:\Temp\kiro-ide-gate2`)
 
 The `cmk` CLI is agent-agnostic — this sweep is identical to [`cut-gate.md`](cut-gate.md) §7. Run **F-1 … F-19** there (recall/index, persona, lifecycle, memory-management, health/repair, native-coexistence, MCP/transcripts, the L2 ladder). They are not re-listed here; nothing about them is Kiro-specific.
 
 **The one Kiro-specific lifecycle check:**
 
 - [ ] **★ KU1 — `cmk uninstall --ide kiro` removes ONLY our Kiro surfaces, byte-preserves the rest, never touches `context/` (D-189).**
-      In `C:\Temp\kiro-gate` (NEVER a real project):
+      In `C:\Temp\kiro-ide-gate2` (NEVER a real project):
       ```powershell
       cmk uninstall --ide kiro     # the per-agent Kiro uninstall (NOT bare `cmk uninstall`, which is the Claude surface)
       dir .kiro\hooks              # cmk-capture/cmk-inject .kiro.hook GONE
@@ -426,7 +426,7 @@ The `cmk` CLI is agent-agnostic — this sweep is identical to [`cut-gate.md`](c
       cmk uninstall --ide kiro     # remove ONLY Kiro
       "Kiro gone (False):           $(Test-Path .kiro\hooks\cmk-capture.kiro.hook)"
       "Claude survives (True):      $(Test-Path CLAUDE.md)"
-      Set-Location C:\Temp\kiro-gate; Remove-Item -Recurse -Force $d -EA SilentlyContinue
+      Set-Location C:\Temp\kiro-ide-gate2; Remove-Item -Recurse -Force $d -EA SilentlyContinue
       ```
       **PASS:** both installs coexist (the second never clobbers the first); `cmk uninstall --ide kiro` removes only the Kiro surface and leaves the Claude one. **FAIL:** the second install clobbered the first, or uninstall removed the wrong agent's files.
 
@@ -436,7 +436,7 @@ The `cmk` CLI is agent-agnostic — this sweep is identical to [`cut-gate.md`](c
 
 Same as the Claude-Code gate — `context/` is committed and travels with `git clone` (tenet T2). The `.kiro/` surfaces (hooks/steering/skills/mcp) are committed too, so a clone is Kiro-ready; the CLI agent-config (`~/.kiro`) is machine-local and re-created by `cmk install --ide kiro` on the new machine.
 
-- [ ] **★ H1** — clone `C:\Temp\kiro-gate` elsewhere, open in Kiro → the project memory (`context/`) + the `.kiro/` surfaces are already there.
+- [ ] **★ H1** — clone `C:\Temp\kiro-ide-gate2` elsewhere, open in Kiro → the project memory (`context/`) + the `.kiro/` surfaces are already there.
 
 ---
 
@@ -461,7 +461,7 @@ $run  = Split-Path $bk -Leaf
 
 # 1. PRESERVE the test artifacts as evidence (run-prefixed, self-identifying)
 Copy-Item $env:USERPROFILE\.claude-memory-kit       "$bk\$run-AFTER-.claude-memory-kit" -Recurse -EA SilentlyContinue
-Copy-Item C:\Temp\kiro-gate                          "$bk\$run-AFTER-test-project"       -Recurse -EA SilentlyContinue
+Copy-Item C:\Temp\kiro-ide-gate2                          "$bk\$run-AFTER-test-project"       -Recurse -EA SilentlyContinue
 Copy-Item $env:USERPROFILE\.kiro\agents              "$bk\$run-AFTER-kiro-agents"        -Recurse -EA SilentlyContinue
 "$(Get-Date -Format o) — gate finished; artifacts copied above." | Out-File "$bk\NOTES.md" -Append   # -Format o, NOT -o (PowerShell 5.1)
 
@@ -482,7 +482,7 @@ if (Test-Path $cli) {
 #    (NOTES.md lists what was in ~/.kiro BEFORE — if cmk.json / a cmk default pointer pre-existed, do NOT remove them.)
 
 # 4. clean the throwaway project dirs (NOT the backups)
-Remove-Item -Recurse -Force C:\Temp\kiro-gate, C:\Temp\kiro-coldopen, C:\Temp\kiro-guard-kiro, C:\Temp\kiro-guard-proj -EA SilentlyContinue
+Remove-Item -Recurse -Force C:\Temp\kiro-ide-gate2, C:\Temp\kiro-ide-coldopen, C:\Temp\kiro-guard-kiro, C:\Temp\kiro-guard-proj -EA SilentlyContinue
 Remove-Item Env:\MEMORY_KIT_KIRO_DIR -EA SilentlyContinue   # in case the KG7 probe left it set
 ```
 
