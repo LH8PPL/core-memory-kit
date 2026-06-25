@@ -108,3 +108,72 @@ missed.
    Only presence sentinels + mtime cooldowns + append-only logs. The
    `cron-registered` sentinel even STORES a timestamp (`nowIso()`) that's never
    read.
+
+## Marker-vs-derive — the design fork, resolved (2026-06-25, second research pass)
+
+The first pass said "one persisted last-success timestamp" (logrotate). A focused
+follow-up — *for a file-based system where artifacts already encode state
+(ADR-0002)* — sharpened it to a **HYBRID**, with the deciding rule from GNU make
+§4.8 / anacron / logrotate:
+
+> **Derive when the work's product carries the signal; stamp ONLY when the signal
+> is "a run happened" with no artifact to stat.**
+
+Applied to the kit's 4 levels:
+
+- **`now` / `daily` / `weekly` → DERIVE (no marker).** `now.md` content, `recent.md`
+  mtime, `today-*.md` dates already encode success — the work rewrites them. A
+  separate marker = a 2nd truth source that drifts from the artifact = the ADR-0002
+  violation + the exact "two truths disagree" bug class we're fixing. Keep
+  `detectStaleness`'s current derive logic (it was never the broken part).
+- **cron liveness → ONE anacron-style heartbeat stamp.** This is the only signal NO
+  artifact expresses ("is the background scheduler alive"). Replace the
+  `cron-registered` sentinel (records *registration*) with a `cron-heartbeat` the
+  cron bins touch on every run (records *a run happened*), written AFTER the work
+  (crash-safe, marker-after ordering per SQLite §3.10). `detectStaleness` gates on
+  `now − heartbeat.mtime < ttl` (≈ 2× the cron interval), NOT existence. Stale/absent
+  → fall through to the lazy roll. Single writer (the cron bins); the lazy path never
+  writes it → no two-writers hazard.
+
+Sources: [GNU make §4.8 Empty Targets](https://www.gnu.org/software/make/manual/html_node/Empty-Targets.html) ·
+[anacron(8)](https://man7.org/linux/man-pages/man8/anacron.8.html) ·
+[logrotate.c](https://github.com/logrotate/logrotate/blob/main/logrotate.c) ·
+[SQLite atomic-commit §3.10](https://www.sqlite.org/atomiccommit.html).
+
+## Peer-code validation (2026-06-25, wide clone sweep — projects from OUR collection + 1 new find)
+
+Cloned + read the ACTUAL source (not docs) of the closest peers in our research
+collection (claude-mem, mem0, Letta, Graphiti) + **OpenWolf** (new find,
+<https://github.com/cytostack/openwolf>). Verdict: **the field's code strongly
+validates the hybrid; no peer does anything smarter.**
+
+- **OpenWolf — THE relevant peer** (only one with the kit's architecture: a scheduled
+  maintenance job that NEEDS a liveness check). It independently implements EXACTLY
+  the kit's two-part design: a `cron-state.json.last_heartbeat` stamp for
+  worker-liveness (CLI derives "N minutes ago" by AGE, never existence —
+  `src/cli/status.ts:97-101`) + `fs.statSync(cerebrumPath).mtimeMs` derive-from-artifact
+  for content freshness (`src/hooks/stop.ts:209-224`). Hybrid capture (Stop hook) +
+  scheduled compaction (in-process node-cron). **Validates both halves of our fix in
+  real code.** PORTING CAVEAT: OpenWolf's heartbeat is a 30-min daemon `setInterval`
+  (it has an always-on PM2 process); the kit has NO always-on process → the kit's
+  heartbeat must be stamped BY THE CRON JOB on each fire, liveness = "stamp age > 2×
+  interval" (anacron model). Concept ports; mechanism doesn't.
+- **claude-mem / mem0 / Letta / Graphiti — all event-driven-synchronous, NO cron.**
+  claude-mem (Stop-hook / BullMQ worker), mem0 (inline per `add()`), Letta (live
+  token-pressure every turn, evict at 0.75/0.30), Graphiti (inline per episode). They
+  SIDESTEP the freshness problem by never deferring — which validates the OTHER lesson:
+  **the lazy/derive path must be an always-available FLOOR that never fully disables**
+  (the Task 167 bug was the fallback disabling itself). Every peer with any freshness
+  signal keys off AGE/recency, never mere existence.
+
+**Two reinforcements for Task 167 from the peer code:** (a) the heartbeat is a
+freshness check (age threshold), NEVER an existence check — mirror OpenWolf's
+"minutes ago"; (b) keep the lazy/derive path as an always-available floor (mem0/
+graphiti) so a missing/stale heartbeat degrades to "do the work now," never to "skip
+because a sentinel exists."
+
+> **OpenWolf** ("a second brain for Claude Code" — 6 hook scripts, learning memory +
+> file index + token ledger, PM2 daemon + node-cron, AGPL-3.0, npm) is a strong NEW
+> addition to the kit's research collection — the closest hook-based Claude-Code memory
+> peer with a scheduled-maintenance architecture. Worth a fuller dive for the broader
+> kit (its file-index-freshness + token-ledger patterns), beyond just Task 167.
