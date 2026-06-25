@@ -100,12 +100,13 @@ describe('Task 50.K — Kiro IDE .kiro.hook writer', () => {
   });
 });
 
-// 50.N.3 / D-203 — Kiro IDE 1.0 deprecated the legacy .kiro.hook (when/then/
-// runCommand) format. v1 uses a consolidated .kiro/hooks/*.json:
+// 50.N.3 / D-203/D-203d — Kiro IDE 1.0 deprecated the legacy .kiro.hook (when/
+// then/runCommand) format. v1 uses clean per-hook .kiro/hooks/<name>.json files:
 //   {"version":"v1","hooks":[{name, trigger, matcher?, action:{type:'command',
-//    command}, timeout?, enabled?}]} with PascalCase triggers. The kit emits the
-// v1 file (capture+inject+guard+observe) AND keeps the legacy files for 0.x.
-describe('50.N.3 — Kiro IDE v1 hook format (.kiro/hooks/cmk.kiro.hook.json)', () => {
+//    command}, timeout, enabled}]} with PascalCase triggers. The kit emits the
+// four v1 files (cmk-{capture,inject,guard,observe}.json — Kiro's own convention,
+// ground-truth-verified D-203d) AND keeps the legacy .kiro.hook files for 0.x.
+describe('50.N.3 — Kiro IDE v1 hook format (.kiro/hooks/cmk-{capture,inject,guard,observe}.json)', () => {
   function readV1(file) {
     return JSON.parse(
       readFileSync(join(projectRoot, '.kiro', 'hooks', file), 'utf8'),
