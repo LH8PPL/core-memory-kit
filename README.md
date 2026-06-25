@@ -39,6 +39,7 @@ You work. It learns — automatically, no buttons. Next session, it remembers th
 - **Learns how you work, everywhere** — state a habit once ("always use uv, never pip") and a brand-new project cold-opens already knowing it.
 - **Stays private + bounded** — secrets are screened before any write, machine paths are abstracted to `~`, and rolling compression keeps memory small as history grows.
 - **Guards your memory from accidental deletion** — `cmk install` wires a hook that **blocks** a destructive command (`rm`, `Remove-Item`, `del`, `git clean`, `git reset --hard`, `find … -delete`, `truncate`, `>`-truncate) the moment it's aimed at a memory path — before it runs, on both Claude Code and Kiro. A safe command, or a delete of anything else, runs untouched.
+- **Works across your agents** — the same memory brain on **Claude Code**, the **Kiro IDE**, and the **`kiro-cli`** terminal. One `cmk install --ide kiro` wires Kiro end-to-end (IDE + terminal), and a project's `context/` is shared, so memory you build in one agent is there in the others. The kit pre-trusts its own hooks, tools, and skills so everything runs prompt-free — no per-call "Allow?" approvals. See **[Working with Kiro](#working-with-kiro)**.
 - **Per-project, in your repo** — `context/` lives in your project and travels with `git clone`. Each project keeps its own memory.
 
 ## Quickstart
@@ -126,6 +127,7 @@ What `--ide kiro` writes:
 | **CLI agent** | `~/.kiro/agents/cmk.json` + a `chat.defaultAgent` pointer in `~/.kiro/settings/cli.json` | **`kiro-cli`** — `agentSpawn`/`stop`/`userPromptSubmit`/`postToolUse` hooks (auto inject + capture + prompt-capture + large-edit observation) + the `cmk remember`/`cmk search` shell commands for explicit memory (`tools: ['*']` enables them; no MCP, so no console-window popup) |
 | **Trusted commands** | `.vscode/settings.json` (`kiroAgent.trustedCommands`) + the CLI agent's `allowedCommands` (`cmk hook *`, `cmk-guard-memory`, `cmk remember`, `cmk search`) | both — auto-approve the kit's commands (no per-turn "Run / Reject") |
 | **Auto-approved MCP tools** | `autoApprove` in `mcp.json` | the **IDE** — the kit's 11 memory tools run without a per-call "Reject / Trust / Run" (kiro-cli uses the shell commands instead) |
+| **Workspace permissions** (Kiro IDE 1.0+) | `~/.kiro/workspace-roots/<hash>/permissions.yaml` | the **IDE 1.0** — pre-trusts the kit's hooks, 11 MCP tools, and its two skills so even the first "Load skill: memory-write" runs with **no Allow prompt** (Kiro 1.0's per-workspace trust store) |
 
 Notes:
 
@@ -143,7 +145,7 @@ Notes:
 
 ```bash
 cmk uninstall              # remove the Claude Code surface (CLAUDE.md block + hooks)
-cmk uninstall --ide kiro   # remove the Kiro surface (.kiro/ blocks + skills + IDE hooks + AGENTS.md block + the ~/.kiro CLI agent)
+cmk uninstall --ide kiro   # remove the Kiro surface (.kiro/ blocks + skills + IDE hooks + AGENTS.md block + the ~/.kiro CLI agent + the kit's permissions.yaml rules)
 ```
 
 - On a **dual-agent** project, uninstall one agent and the other keeps working — the shared `context/` is untouched either way.
