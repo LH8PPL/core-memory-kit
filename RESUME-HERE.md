@@ -1,5 +1,7 @@
 # RESUME HERE — 2026-06-21 (Kiro v0.4.0 — gate caught 4 cut-blockers, all fixed; live IDE/CLI test is what's left)
 
+> **UPDATE: v0.4.0 SHIPPED** (npm + GitHub Release) — the three surfaces (Claude Code, Kiro IDE 1.0.52, kiro-cli V3 2.9.0) are all live-proven. The handoff state below is the point-in-time breadcrumb from BEFORE the cut; the operational `~/.aws` / `MEMORY_KIT_AWS_DIR` / `.kiro.hook` references in it have been corrected inline to the shipped paths (`~/.kiro/agents/cmk.json`, `MEMORY_KIT_KIRO_DIR`, v1 `.json` IDE hooks).
+>
 > On `main`, mid the **`cut-gate-kiro.md` live-test (50.M)**. The release is cut locally (v0.4.0, NO tag). §0 + §1 (install/scaffold + KG1–KG10) all PASS. The gate's first steps surfaced **4 real cut-blockers** — all merged + fixed. What's left: the **live IDE/CLI hook-firing checks (KH/KC — need real Kiro)**, then cut v0.4.0.
 
 ## ✅ Done — all merged to main
@@ -34,15 +36,15 @@
 
 ## What's built in PR-2 (committed, not pushed)
 
-- `kiro-cli-agent.mjs` — writes `~/.aws/amazonq/cli-agents/q_cli_default.json` (Amazon-Q Rust contract: `hooks{agentSpawn,stop}`, `timeout_ms`, platform `cmd.exe /c cmk hook` command). **Guarded default-agent** (named `cmk.json` + `skipped-existing` notice if a user default exists).
+- `kiro-cli-agent.mjs` — writes the kiro-cli agent config (`hooks{agentSpawn,userPromptSubmit,postToolUse,stop,preToolUse}`, `timeout_ms`, platform `cmd.exe /c cmk hook` command). **Guarded default-agent** (named `cmk.json` + `skipped-existing` notice if a user default exists). _(Superseded operational detail: this breadcrumb originally wrote `~/.aws/amazonq/cli-agents/q_cli_default.json` — that path was the **D-198 bug**; kiro-cli never read it. The shipped location is **`~/.kiro/agents/cmk.json`**, registered as default via `~/.kiro/settings/cli.json`.)_
 - `kiro-hook-command.mjs` — shared platform-correct command (extracted from kiro-ide-hooks; both surfaces use it).
 - `installKiro` now wires the **5th surface** (`cli-agent`); reports `cliDefaultAgent`.
-- **`MEMORY_KIT_AWS_DIR` env override** sandboxes the `~/.aws` write (a live-test caught a real bug writing to the real `~/.aws` — see P-3Y6MCN2B).
+- **`MEMORY_KIT_KIRO_DIR` env override** sandboxes the `~/.kiro` write (in tests/live-checks). _(Superseded operational detail: this breadcrumb originally named `MEMORY_KIT_AWS_DIR` sandboxing a `~/.aws` write — the write target moved to `~/.kiro` in D-198; `MEMORY_KIT_AWS_DIR` is now only a back-compat alias for the base.)_
 
 ## What's LEFT for PR-2 → then v0.4.0
 
 1. **PR-2 housekeeping (next):** README + CHANGELOG (CLI-agent surface), DECISION-LOG D-183 update (or a D-184 for the CLI surface), build-log entry, the `cli-mcp-parity`/`doc-completeness` validators (the `hook` verb is already CLI_ONLY). Then stress 5/5 → push branch → PR-2 → two-pass review → merge.
-2. **The batched manual live-test (the user's plan, P-FA4ALL42):** do it ONCE after ALL v0.4.0 code lands — one Kiro session verifies BOTH surfaces (IDE `.kiro.hook` capture-fires + CLI agent + default-agent). The 8-point checklist (D-182). **ALWAYS set `MEMORY_KIT_AWS_DIR=<tmp>` + `MEMORY_KIT_USER_DIR=<tmp>`** so the real `~/.aws`/user-tier are never touched.
+2. **The batched manual live-test (the user's plan, P-FA4ALL42):** do it ONCE after ALL v0.4.0 code lands — one Kiro session verifies BOTH surfaces (IDE hooks capture-fires + CLI agent + default-agent). The 8-point checklist (D-182). **ALWAYS set `MEMORY_KIT_KIRO_DIR=<tmp>` + `MEMORY_KIT_USER_DIR=<tmp>`** so the real `~/.kiro`/user-tier are never touched. _(Superseded operational detail: this breadcrumb originally said `MEMORY_KIT_AWS_DIR` / `~/.aws` / `.kiro.hook` — the CLI write target moved to `~/.kiro` (D-198) and the IDE format moved to v1 `.json` (D-203); the sandbox var is `MEMORY_KIT_KIRO_DIR`.)_
 3. **Cut v0.4.0** once both PRs merged + the live-test passes.
 
 ## Key verified facts (all in memory — `cmk search "Kiro"`)
@@ -51,7 +53,7 @@
 - Windows: Kiro runs hooks via WSL (no node) → command MUST be `cmd.exe /c cmk hook <event>` (P-PM2CD6CB, live-proven).
 - `.kiro.hook` format verified from a real GUI hook (P-WJRUQVSW). IDE hooks auto-fire `agentStop` with `runCommand` (the kit is the FIRST to do deterministic capture — 40+ surveyed hooks are all `askAgent`).
 - The CORE is shared: `cmk hook stop` and Claude Code's bin both call the SAME `captureTurn()`; Kiro files are only the input adapter (P-7QBE6A6M).
-- `~/.aws` write safety: always `MEMORY_KIT_AWS_DIR` in tests/live-checks (P-3Y6MCN2B).
+- `~/.kiro` write safety: always `MEMORY_KIT_KIRO_DIR` in tests/live-checks. _(Superseded operational detail: originally `MEMORY_KIT_AWS_DIR` / `~/.aws` — moved to `~/.kiro` in D-198; the AWS var is now a back-compat alias.)_
 
 ## Orientation
 

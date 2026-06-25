@@ -6,7 +6,7 @@
 >
 > - **Install command:** `cmk install --with-semantic --ide kiro` (NOT bare `cmk install`).
 > - **Two clients, one install.** Kiro is Amazon Q Developer CLI under the hood. `cmk install --ide kiro` wires **five surfaces** at once, covering **both** clients:
->   - **Kiro IDE (GUI)** → `.kiro/hooks/*.kiro.hook` files (auto-fire, no agent selection).
+>   - **Kiro IDE (GUI)** → `.kiro/hooks/` hook files (auto-fire, no agent selection). The kit **dual-emits** two formats: the v1 `cmk-{capture,inject,guard,observe}.json` (`{version:'v1', hooks:[{trigger, matcher?, action:{type:'command', command}, …}]}`, PascalCase triggers — the CURRENT format Kiro IDE **1.0+** loads, the full inject/capture/delete-guard/observe-edit set) AND the legacy `cmk-{capture,inject}.kiro.hook` (for Kiro **0.x**). On a 1.0 IDE the `.kiro.hook` files are inert (shown "legacy"); on a 0.x IDE the v1 `.json` files are ignored — no double-fire.
 >   - **kiro-cli (terminal)** → a `~/.kiro/agents/cmk.json` agent-config (registered as the default via `~/.kiro/settings/cli.json`) whose `hooks{}` fire only for the **default agent**.
 >   - **Shared by both:** MCP (`.kiro/settings/mcp.json`), steering (`.kiro/steering/cmk.md`), skills (`.kiro/skills/`).
 > - **The hook surfaces are input adapters only** — both call the SAME `cmk hook <event>` dispatcher → the same `captureTurn()` / `injectContext()` core as Claude Code. So the **memory core is identical**; this gate verifies the **Kiro wiring**, not the core again (the core is gated by [`cut-gate.md`](cut-gate.md) + the suite).
@@ -15,7 +15,7 @@
 > **Cutting now: `v0.4.0`** — the cross-agent breadth release; **Kiro is the first non-Claude-Code agent** (Task 50, D-182/D-183/D-184). This gate IS the v0.4.0 Kiro live-test (sub-task 50.M).
 > _Replace `0.4.0` / `v0.4.0` in the commands below if you reuse this guide for a later Kiro-touching cut._
 
-It exercises every Kiro surface end-to-end on the **real installed artifact**: install (all 5 surfaces), the scaffolded skills, the `.kiro.hook` IDE hooks (capture + inject), the kiro-cli agent-config + the guarded default-agent, the **MCP tools driven in a real Kiro session**, organic capture, recall, and the full `cmk` CLI — then the tag-push.
+It exercises every Kiro surface end-to-end on the **real installed artifact**: install (all 5 surfaces), the scaffolded skills, the IDE hooks (v1 `.json` for IDE 1.0+ and legacy `.kiro.hook` for 0.x, both dual-emitted; capture + inject + delete-guard + observe-edit), the kiro-cli agent-config + the guarded default-agent, the **MCP tools driven in a real Kiro session**, organic capture, recall, and the full `cmk` CLI — then the tag-push.
 
 ---
 
@@ -143,16 +143,27 @@ cmk doctor
       The frontmatter must be **valid YAML** — this is structurally enforced pre-ship by `validate-skill-sources.mjs` (strict js-yaml parse, in `npm test`), so a shipped artifact can't carry an invalid one. The live signal is Kiro itself: if a `description` had a YAML-breaking char, Kiro pops *"Invalid SKILL.md frontmatter"* on project load (the D-195 cut-blocker).
       **PASS:** both `SKILL.md` files exist under `.kiro/skills/<name>/`, the **Claude-Code-only frontmatter keys are dropped** (`context:` / `allowed-tools:` must NOT appear), the body is intact, **AND both frontmatters STRICT-PARSE as valid YAML** (D-195). **FAIL** (the D-195 cut-blocker): Kiro pops *"Invalid SKILL.md frontmatter"* on project load — caused by an unquoted `: ` (colon-space) or other YAML-breaking char in the `description` (Claude Code reads leniently and never surfaces it; Kiro strict-parses). The fix is a `description: >-` block scalar in the canonical `template/.claude/skills/<name>/SKILL.md`; `validate-skill-sources.mjs` now strict-parses to catch it pre-ship.
 
-- [ ] **★ KG5 — IDE hooks surface (the GUI client).**
+- [ ] **★ KG5 — IDE hooks surface (the GUI client). The kit dual-emits BOTH formats — verify both.**
       ```powershell
+      # v1 (Kiro IDE 1.0+ — the CURRENT format, full inject/capture/guard/observe set)
+      type .kiro\hooks\cmk-capture.json
+      type .kiro\hooks\cmk-inject.json
+      type .kiro\hooks\cmk-guard.json
+      type .kiro\hooks\cmk-observe.json
+      # legacy (Kiro 0.x back-compat — inert on 1.0)
       type .kiro\hooks\cmk-capture.kiro.hook
       type .kiro\hooks\cmk-inject.kiro.hook
       ```
-      **PASS — both files are valid `.kiro.hook` JSON in the verified shape:**
+      **PASS — the v1 `.json` files (CURRENT on IDE 1.0+) are valid in the migration-verified shape (D-203d):**
+      - Each is `{ "version":"v1", "hooks":[ { "name", "description", "trigger", "matcher"?, "action":{"type":"command","command":<cmd>}, "timeout", "enabled":true } ] }`.
+      - **PascalCase triggers, one hook per file:** `cmk-capture.json`→`Stop` (capture), `cmk-inject.json`→`UserPromptSubmit` (inject), `cmk-guard.json`→`PreToolUse` (`matcher:'*'`, delete-guard, blocks on non-zero exit), `cmk-observe.json`→`PostToolUse` (`matcher:'fs_write'`, observe-edit).
+      - `action.type:"command"`, **not an `askAgent`/LLM action** — the kit does DETERMINISTIC capture, which no surveyed Kiro project does.
+
+      **PASS — the legacy `.kiro.hook` files (Kiro 0.x back-compat) are still emitted in the verified shape:**
       - `cmk-capture.kiro.hook`: `{ "version":"1.0.0", "enabled":true, "name":"claude-memory-kit: capture", "when":{"type":"agentStop"}, "then":{"type":"runCommand", "command":<cmd>, "timeout":60} }`
       - `cmk-inject.kiro.hook`: same shape, `when.type":"promptSubmit"`, `then.timeout":30`.
-      - **The `command` is platform-correct:** on Windows it is **`cmd.exe /c cmk hook stop`** / `... promptSubmit` (Kiro routes hooks through WSL, which has no node — a bare `cmk hook` would fail with `node: not found`). On macOS/Linux it is the bare `cmk hook <event>`.
-      - **`runCommand`, not `askAgent`** — the kit does DETERMINISTIC capture (no LLM-in-the-loop), which no surveyed Kiro project does.
+      - On a **1.0** IDE these `.kiro.hook` files are **inert** (shown "legacy", not run); the v1 `.json` files fire. On a **0.x** IDE the reverse holds — no double-fire (D-203d).
+      - **The `command` is platform-correct (both formats):** on Windows it is **`cmd.exe /c cmk hook stop`** / `... userPromptSubmit` / etc. (Kiro routes hooks through WSL, which has no node — a bare `cmk hook` would fail with `node: not found`). On macOS/Linux it is the bare `cmk hook <event>`.
 
 - [ ] **★ KG6 — CLI agent-config surface (the terminal client), in your REAL `~/.kiro`.**
       ```powershell
@@ -213,13 +224,16 @@ cmk doctor
       ```
       **PASS:** `AGENTS.md` exists with the managed memory-awareness block; **no** `CLAUDE.md`, **no** `.claude/`. **FAIL** (the pre-D-188 leak): a dead `.claude/skills/` or a `CLAUDE.md` Kiro can't use, or a missing `AGENTS.md` (the CLI agent's `prompt` would point at nothing).
 
-- [ ] **★ KG11 — trusted-commands written, so the hooks auto-run instead of prompting (D-194).** Kiro gates a hook's shell command behind a **"Run / Reject"** prompt unless it's pre-trusted; the kit pre-trusts ONLY its own hook commands. Two surfaces:
+- [ ] **★ KG11 — trust written, so the hooks/MCP-tools/skills auto-run instead of prompting (D-194 / D-203h).** Kiro gates a hook's shell command (and an MCP-tool / skill-load) behind a **"Run / Reject" / "Allow"** prompt unless pre-trusted; the kit pre-trusts ONLY its own. THREE surfaces:
       ```powershell
-      type .vscode\settings.json    # IDE side: kiroAgent.trustedCommands
+      type .vscode\settings.json    # IDE 0.x side: kiroAgent.trustedCommands (Kiro 1.0 AUTO-MIGRATES this into permissions.yaml on first open)
+      # IDE 1.0 side: the per-workspace Trust v2 store the kit writes directly (D-203h).
+      # <hash> = sha256(projectRoot → forward-slash, no-trailing-slash, lowercase).slice(0,16)
+      Get-ChildItem $env:USERPROFILE\.kiro\workspace-roots\*\permissions.yaml | % { type $_ }
       # CLI side: the agent-config's toolsSettings.shell.allowedCommands
       (Get-Content $env:USERPROFILE\.kiro\agents\cmk.json -Raw | ConvertFrom-Json).toolsSettings.shell.allowedCommands
       ```
-      **PASS:** `.vscode/settings.json` has `kiroAgent.trustedCommands` containing the kit's hook prefix (`cmd.exe /c cmk hook *` on Windows; `cmk hook *` on POSIX) **and** the guard (`…cmk-guard-memory*`); the CLI agent-config's `toolsSettings.shell.allowedCommands` carries the regex equivalents (`cmd\.exe /c cmk hook .*`, `…cmk-guard-memory`). **Neither is a blanket `*` / `.*`** (the kit trusts only its OWN commands — the docs warn wildcards over-trust). **FAIL:** the trust list is missing → the IDE hook will pop a Run/Reject prompt on every fire (KH-trust below confirms the live behavior). _(The live confirmation that the prompt is GONE is KH-trust in §2 — this check verifies the trust entries are on disk.)_
+      **PASS:** (a) `.vscode/settings.json` has `kiroAgent.trustedCommands` containing the kit's hook prefix (`cmd.exe /c cmk hook *` on Windows; `cmk hook *` on POSIX) **and** the guard (`…cmk-guard-memory*`); (b) the IDE-1.0 `permissions.yaml` carries the kit's `rules` (`capability:shell` for `cmd.exe /c cmk hook *` + the guard, `capability:mcp` for `claude-memory-kit/<tool>`, `capability:skill` for `memory-write`/`memory-search`, all `effect:allow`); (c) the CLI agent-config's `toolsSettings.shell.allowedCommands` carries the regex equivalents (`cmd\.exe /c cmk hook .*`, `…cmk-guard-memory`). **None is a blanket `*` / `.*`** (the kit trusts only its OWN commands — the docs warn wildcards over-trust). **FAIL:** the trust is missing → the IDE pops a Run/Reject (or skill "Allow") prompt on fire (KH-trust below confirms the live behavior). _(The live confirmation that the prompt is GONE is KH-trust in §2 — this check verifies the trust entries are on disk.)_
 
 Now **restart Kiro** (close + reopen the IDE; restart any kiro-cli session) so the hooks + MCP load, then `code .` (or open `C:\Temp\kiro-ide-gate2` in Kiro). The live checks (§2 onward) need the reloaded hooks.
 
@@ -253,16 +267,16 @@ Same build arc as the Claude-Code gate, run in **Kiro IDE**. Each stage pairs a 
       On the FIRST build turn after the restart, watch the chat: the kit's `cmk-inject` / `cmk-capture` hook commands (`cmd.exe /c cmk hook …`) must run **silently** — NO "Hook Command … Run / Reject" approval prompt. This is the live proof that `kiroAgent.trustedCommands` (KG11) auto-approves them.
       **PASS:** turns proceed and capture/inject fire (KH1/KH2) with **no per-turn Run/Reject prompt** for a `cmk hook` command. **FAIL:** Kiro pops "Hook Command … Run / Reject" for `cmd.exe /c cmk hook promptSubmit` (or `stop`) — the trust entry didn't take. _(If it fails: confirm KG11's `.vscode/settings.json` has the entry, and that you opened the SAME project folder — `trustedCommands` is workspace-scoped. A stale Kiro session from before the install won't have re-read settings; fully restart.)_
 
-- [ ] **★ KH1 — the IDE capture hook FIRES and captures a real turn (`agentStop`).**
-      After a build turn ends in Kiro IDE, the `cmk-capture.kiro.hook` ran `cmk hook stop` automatically. Verify the turn was captured:
+- [ ] **★ KH1 — the IDE capture hook FIRES and captures a real turn (IDE 1.0: `cmk-capture.json` trigger `Stop`; IDE 0.x: `cmk-capture.kiro.hook` trigger `agentStop`).**
+      After a build turn ends in Kiro IDE, the capture hook ran `cmk hook stop` automatically. Verify the turn was captured:
       ```powershell
       type context\sessions\now.md          # the just-ended turn's content is here
       Get-ChildItem context\.locks\*.log | % { Select-String $_ -Pattern "capture|stop" } | Select-Object -First 5
       ```
       **PASS:** a real turn from this Kiro session landed in `now.md` / the capture log — with **no manual `cmk` command** run. **FAIL:** `now.md` is empty after several turns (the hook registered but never fired) — that's the 50.M blocker.
 
-- [ ] **★ KH2 — the IDE inject hook FIRES (`promptSubmit`) — recall is injected.**
-      Mid-session, the `cmk-inject.kiro.hook` ran `cmk hook promptSubmit`, surfacing recalled memory into Kiro's context. After a few turns, ask in Kiro IDE something memory should answer (e.g. *"what port are we on again?"*).
+- [ ] **★ KH2 — the IDE inject hook FIRES — recall is injected (IDE 1.0: `cmk-inject.json` trigger `UserPromptSubmit`; IDE 0.x: `cmk-inject.kiro.hook` trigger `promptSubmit`).**
+      Mid-session, the inject hook ran `cmk hook userPromptSubmit` (0.x: `promptSubmit`), surfacing recalled memory into Kiro's context. After a few turns, ask in Kiro IDE something memory should answer (e.g. *"what port are we on again?"*).
       **PASS:** Kiro answers from injected memory (port 8000, the layered structure) without re-reading the code — and the inject hook appears in the hook activity / `now.md` shows the recall path. **FAIL:** Kiro globs the code to re-derive what memory already holds.
 
 - [ ] **★ KH3 — a crashed hook never breaks the Kiro session (always-exit-0).**
@@ -405,7 +419,7 @@ The `cmk` CLI is agent-agnostic — this sweep is identical to [`cut-gate.md`](c
       In `C:\Temp\kiro-ide-gate2` (NEVER a real project):
       ```powershell
       cmk uninstall --ide kiro     # the per-agent Kiro uninstall (NOT bare `cmk uninstall`, which is the Claude surface)
-      dir .kiro\hooks              # cmk-capture/cmk-inject .kiro.hook GONE
+      dir .kiro\hooks              # ALL cmk hooks GONE — both v1 (cmk-*.json) and legacy (cmk-*.kiro.hook)
       type .kiro\settings\mcp.json # our server key gone; a sibling user server (if any) preserved
       type .kiro\steering\cmk.md   # our marker block stripped; user content outside markers byte-preserved
       type AGENTS.md               # our managed block stripped; user AGENTS.md content (if any) byte-preserved
@@ -422,9 +436,9 @@ The `cmk` CLI is agent-agnostic — this sweep is identical to [`cut-gate.md`](c
       cmk install                  # Claude Code first → CLAUDE.md + .claude/skills
       cmk install --ide kiro       # add Kiro → .kiro/ + AGENTS.md, Claude surface UNTOUCHED
       "CLAUDE.md still here (True): $(Test-Path CLAUDE.md)"
-      "Kiro hooks added (True):     $(Test-Path .kiro\hooks\cmk-capture.kiro.hook)"
+      "Kiro hooks added (True):     $(Test-Path .kiro\hooks\cmk-capture.json)"   # v1 (the current IDE-1.0 format)
       cmk uninstall --ide kiro     # remove ONLY Kiro
-      "Kiro gone (False):           $(Test-Path .kiro\hooks\cmk-capture.kiro.hook)"
+      "Kiro gone (False):           $(Test-Path .kiro\hooks\cmk-capture.json)"
       "Claude survives (True):      $(Test-Path CLAUDE.md)"
       Set-Location C:\Temp\kiro-ide-gate2; Remove-Item -Recurse -Force $d -EA SilentlyContinue
       ```
