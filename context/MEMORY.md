@@ -8,18 +8,18 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-DXZE3XDY) npm pack and global install of 0.4.0 succeeded; tarball includes all required modules (capture, inject, guard, observe hooks; kiro-ide-hooks.mjs; semantic-backend.mjs; etc.) verified present in output
-  <!-- source: review-promote, source_line: 1, sha1: 573cb0f15d9780e37a01f2fe392f518b5cddc9b5eb1a0d2a111e2eb73beafb7f, write: user-explicit, trust: high, at: 2026-06-25T13:38:46Z -->
-- (P-BGAC9PQX) Verifies whether proper tools (cmk kit) vs shortcuts (bash) were used — indicates preference for clean tool usage patterns
-  <!-- source: review-promote, source_line: 1, sha1: bfa911fe9de591250b44994f6843e23eed66b6b2584f6fcef32f3fa22ffea7ef, write: user-explicit, trust: high, at: 2026-06-25T13:38:47Z -->
-- (P-DGBPG6PG) Questioned whether fix is truly automatic and requires no user intervention.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 290e87ba375b5e4c50f0c38bb663b9e853ace3f19fc3b5c92bc4dd36dfbc1521, write: auto-extract, trust: high, at: 2026-06-25T13:53:52Z -->
-- (P-T4aUHMXa) Values research-grounded recommendations with clear, honest attribution of sources vs personal synthesis/extrapolation
-  <!-- source: auto-extract-session, source_line: 1, sha1: a57506ca84d546dcec9f11206fee1840d466ca501f3329f9bb3ea99cb78f0b96, write: auto-extract, trust: high, at: 2026-06-25T14:34:25Z -->
-- (P-7ZMV7DYS) Requires design decisions to be grounded in research; pushes back on assumptions without source backing.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 86dfc0e563537b6a70c3786797ad9fffe87ae515fe58a52a5daf95e76717c38a, write: auto-extract, trust: high, at: 2026-06-25T19:35:41Z -->
-- (P-WA6L3E4M) Learn from EverOS to validate and improve kit architecture across the project.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 7f96a2e52d4bad65574186a28746512223aa83954971436f5b86c91a2002a248, write: auto-extract, trust: high, at: 2026-06-25T19:40:46Z -->
+- (P-aa2R6AR6) Gate test for v0.4.1 must prove healing with only SessionStart (no manual commands allowed).
+  <!-- source: review-promote, source_line: 1, sha1: 3eb1dba1bae0841d5c66fda10e8fe11c02e1979580b27fadd22ee62dea814e36, write: user-explicit, trust: high, at: 2026-06-25T20:00:03Z -->
+- (P-7QH7CQPU) Research evaluation tiers (Tier 1 = kit peers, Tier 2 = mechanism refs, Tier 3 = new finds) now explicit; will declare tier upfront.
+  <!-- source: review-promote, source_line: 1, sha1: 5d31e63fa2a360a65fa04914eaaf49a2cda5c404809a39dac02c0d5d2833b29c, write: user-explicit, trust: high, at: 2026-06-25T20:00:03Z -->
+- (P-aM5ZNHVE) OpenWolf independently built the exact heartbeat fix (last_heartbeat via mtimeMs derive-from-artifact), validating the architecture.
+  <!-- source: review-promote, source_line: 1, sha1: eaee3558a0e9eb34326cc7c22d783992b3c8188b77d9859a5d61016780fd7513, write: user-explicit, trust: high, at: 2026-06-25T20:00:04Z -->
+- (P-WYZ57UX4) Q2 design rule (GNU make §4.8): derive when product carries signal; stamp for "run happened" not otherwise encoded in artifacts.
+  <!-- source: review-promote, source_line: 1, sha1: b1a792c9f78a06d2f2fbe76be09c99d9ab3886f5daa095b953eb450b9693c848, write: user-explicit, trust: high, at: 2026-06-25T20:00:05Z -->
+- (P-QUD4MMJ7) Confirmed preference for 2-button design (richer return value) over 3-button approach for cleaner-status query.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 862a01e8d60b77af695515ad19548eb5fd6fe2e7fb9601e5269a485df3ce5de3, write: auto-extract, trust: high, at: 2026-06-25T20:04:26Z -->
+- (P-K6XCJKFF) HC-10 cut because it's redundant with auto-heal and only high-end users would adopt doctor checks anyway.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 2b7402b195cf917908a4b6a32e6099676d39e878f23bdd637bb953bdd2121d50, write: auto-extract, trust: high, at: 2026-06-25T20:15:48Z -->
 
 ## Environment Notes
 

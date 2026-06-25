@@ -1137,6 +1137,34 @@ Composition:
 - **`inject-context.mjs` integration**: after snapshot assembly, calls `detectStaleness` synchronously. If non-fresh + non-cron-active, spawns `cmk compress --lazy` via `child_process.spawn` with `detached: true` + `stdio: 'ignore'` + `unref()`. The detached child's lifecycle is decoupled from the SessionStart hook — the hook returns its 500ms budget cleanly while the child runs in the background. The child writes to `<projectRoot>/context/.locks/lazy-compress.log` (NDJSON).
 - **Composition with shared cooldown**: `runLazyCompress` honors the 120s cooldown via the shared `cooldown.mjs` marker — same as `dailyDistill` / `weeklyCurate`. If multiple SessionStart fires happen within 120s (rapid-reopen scenario), only one Haiku call actually runs; the others see `skipped: cooldown`.
 
+### 8.2.3 `compaction-state.mjs` deep module (Task 167, v0.4.1) — SUPERSEDES the §8.2.2 `detectStaleness` gating
+
+**Tail-appended 2026-06-25 (D-206/D-207).** The §8.2.2 design above shipped a real bug: `detectStaleness` short-circuits to `cron-active` on the mere EXISTENCE of the `cron-registered` sentinel (§8.2.2 bullet 3), ABOVE the `stale-now` check — so a registered-but-never-fired cron (laptop asleep at 23:00) disabled the lazy roll, and `now.md` grew to 410 KB un-rolled (the v0.4.0 dogfood; the injected snapshot froze 5 days stale). **The §8.2.2 sentinel-presence gate is the part being replaced; the artifact-derived `stale-now`/`stale-daily`/`stale-weekly` logic is KEPT verbatim (it was never the broken part).**
+
+**The fix is a deep module (`compaction-state.mjs`) that owns the whole verdict.** Resolved via a 7-question design grilling + the marker-vs-derive research + the EverOS/OpenWolf peer-CODE sweep (research notes 2026-06-25):
+
+- **Interface — two methods (Q3):**
+
+  ```js
+  isCompactionNeeded({projectRoot, now, dailyTtlMs?, weeklyTtlMs?})
+    → {verdict: 'fresh' | 'stale-now' | 'stale-daily' | 'stale-weekly' | 'cron-active' | 'no-context-dir',
+       cronStale: boolean, heartbeatAge: number|null}
+
+  recordCronHeartbeat({projectRoot, now})   // the ONLY writer; cron bins call on each fire
+  ```
+
+  `isCompactionNeeded` absorbs `detectStaleness`; the rich return lets the lazy roll read `.verdict` and `cmk doctor` HC-10 read `.cronStale`/`.heartbeatAge` from ONE source (no standalone `isCronAlive` — a 3rd predicate would be a 2nd place the freshness rule is read, which drifts — the exact bug class this fixes).
+
+- **Marker-vs-derive = HYBRID (Q2; GNU make §4.8 rule: derive when the work's product carries the signal; stamp only "a run happened"):** DERIVE `now`/`daily`/`weekly` from the existing artifacts (`now.md` content, `recent.md` mtime, `today-*.md` dates — NO new marker; a 2nd source would drift from the artifacts it mirrors, violating ADR-0002). STAMP cron-liveness with ONE anacron-style `cron-heartbeat` the cron bins write per fire, gated on AGE (`now − heartbeat.mtime < ~2× cron interval`), NOT existence. Retire the `cron-registered` sentinel + `cronSentinelPath`. _Peer-validated: OpenWolf's `last_heartbeat`-by-age + EverOS's in-process APScheduler both schedule reliably only because they have an always-on process the kit lacks → the kit derives + stamps-per-fire._
+
+- **Correctness > startup speed (Q4 — "we're in the memory business", binding):** when `now.md` carries un-rolled prior-session content AND the cron looks dead, drain SYNCHRONOUSLY before injecting so THIS session reads clean (the §8.2.2 "detached, next-session" tradeoff is replaced for the stale-content case — it's exactly what let the bloat compound). A TIME BUDGET caps the sync portion (drain up to N seconds, finish remainder detached) so it never hangs the session start (offline / Haiku-down / a 400 KB pathological file).
+
+- **Cooldown (Q5):** touch the marker on SUCCESS only (a failed Haiku call must be free to retry — today every caller touches on success AND failure, blocking the next needed compress 120s). The stale-content sync-drain BYPASSES the cooldown (it's a cost guard; correctness wins); the routine opportunistic compress still respects it.
+
+- **Detectability (Q7):** a REQUIRED WARN line in `lazy-compress.log` on the stale-skip/heal path (the audit trail — free, automatic) + an OPTIONAL `cmk doctor` HC-10 (a dev/diagnostic nice-to-have reading the same rich return; informational, never "run X to fix" — the heal is automatic).
+
+Composes with Task 106 (the rename-race — a sync catch-up must keep the atomic `now.md → now.md.compressing-{ts}` rename) and §6 (rolling-window). See `tasks.md` Task 167 (167.A–F) for the build breakdown.
+
 `subcommands.mjs` wiring:
 
 - `cmk compress --lazy` invokes `runLazyCompress` (no other compress sub-verb exists in v0.1.0; the parent `compress` verb takes `--lazy` as the only documented flag).

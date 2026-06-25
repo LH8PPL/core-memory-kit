@@ -1,6 +1,6 @@
 # Health checks
 
-Eight yes/no checks `cmk doctor` runs against the kit installation. Each has a self-repair path. (The two memsearch checks — formerly HC-1 "installed" + HC-7 "reachable" — were removed in Task 120: the kit ships keyword-only and the Layer-5b semantic backend is not yet shipped; the backend choice is deferred per design §9.3.1.)
+The yes/no checks `cmk doctor` runs against the kit installation. Most have a self-repair path; HC-10 is informational (the kit self-heals automatically — no repair needed). (The two memsearch checks — formerly HC-1 "installed" + HC-7 "reachable" — were removed in Task 120: the kit ships keyword-only and the Layer-5b semantic backend is not yet shipped; the backend choice is deferred per design §9.3.1.)
 
 | ID | Check | How to verify |
 | --- | --- | --- |
@@ -13,6 +13,7 @@ Eight yes/no checks `cmk doctor` runs against the kit installation. Each has a s
 | HC-7 | No stale lock files | `detectStaleLocks(projectRoot, {userDir})` from [packages/cli/src/lock-discipline.mjs](packages/cli/src/lock-discipline.mjs) returns no entries with `stale: true` |
 | HC-8 | Native bindings present (npm 12 readiness) | `require('better-sqlite3')` loads its `.node` binding; when `search.default_mode` is `hybrid`/`semantic`, the embedder import is probed too (distinguishing not-installed from installed-but-binding-broken). Fails with the exact `--allow-scripts` remediation when npm 12 blocked the install script (Task 141a, D-129) |
 | HC-9 | Project scaffold version matches the installed `cmk` | Compares the project's CLAUDE.md managed-block `:start vX` marker against the installed binary version (`getKitVersion()`). FAILs with `cmk install` when the binary is newer (you updated the global package but didn't re-stamp this project — Task 162, D-176); PASSes on match or a benign downgrade; SKIPs when the project has no managed block |
+| HC-10 | Scheduled compaction is alive (informational) | Reads `isCompactionNeeded()` (`compaction-state.mjs`, Task 167): flags a **registered cron that looks dead** (the `cron-heartbeat` stamp older than ~2× the cron interval), a **stale `today-*.md`** (older than the latest session), or a **non-draining `now.md`**. **Informational, NOT a chore** — memory still self-heals automatically every session (the lazy roll is the floor); a dead cron is a degraded optimization, not data loss. Never prescribes a manual command. SKIPs when no cron is registered (the default — the lazy roll covers it) |
 
 **Severity on a fresh project:** HC-2, HC-3, and HC-5 report **SKIP**, not FAIL, when there's simply nothing to check yet — no distill built (HC-2), no Claude Code session captured here yet (HC-3), or cron not registered (HC-5, which is *optional*: the kit falls back to lazy-on-read compression). A clean install therefore reads `pass · 0 fail · skip` and `cmk doctor` exits `0`. These flip to **FAIL** only on a genuine problem: a *stale* distill (recent.md exists but > 2 days old), or transcripts that exist but stopped firing (> 3 days).
 
@@ -118,6 +119,17 @@ cmk install
 ```
 
 Then restart Claude Code so the refreshed hooks + MCP server load. (Full update flow for both the npm and plugin routes: [QUICKSTART.md §9](QUICKSTART.md).)
+
+### HC-10 — Scheduled compaction looks dead (informational, no action needed)
+
+This check does NOT require a fix — your memory still self-heals automatically every session (the SessionStart lazy roll is the floor; Task 167). It surfaces that your *optional* scheduled cleanup (`cmk register-crons`) isn't actually firing — usually because the machine is asleep at the scheduled time, or the OS scheduler didn't register the catch-up flag.
+
+If you want the nightly schedule working (a latency optimization, not required):
+
+1. Re-register: `cmk register-crons` (idempotent; on v0.4.1+ it sets the OS catch-up flag so a missed run runs on wake).
+2. Or just ignore it — the lazy roll covers compaction on every session start regardless.
+
+HC-10 never asks you to run a manual compaction; that path is automatic.
 
 ## Adding new health checks
 
