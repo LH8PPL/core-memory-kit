@@ -171,6 +171,9 @@ describe('Task 50.J — Kiro hook dispatcher', () => {
         },
       });
       expect(r.exitCode).toBe(0);
+      // a thrown observe surfaces via the outer catch as action:'error' (exit 0
+      // holds — there's no inject-after-observe to protect on postToolUse).
+      expect(r.action).toBe('error');
     });
 
     // preToolUse → the memory delete-guardrail (D-192). The ONE event that may

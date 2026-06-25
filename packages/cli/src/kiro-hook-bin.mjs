@@ -25,7 +25,13 @@ import { dispatchKiroHook } from './kiro-hook-dispatch.mjs';
 // 50.N.2 — Kiro's file-write tool names → Claude's PostToolUse-eligible names, so
 // the shared observeEdit core (keyed on Write/Edit/MultiEdit) recognizes a Kiro
 // file edit. `fs_write` is Kiro's create-or-edit-a-file tool (kiro.dev tool list);
-// it covers both the create + edit cases, mapping to Claude's Write/Edit class.
+// it covers both the create + edit cases, mapping to Claude's Write/Edit class
+// (observeEdit treats Write/Edit/MultiEdit identically — the target name only
+// appears in the summary line, so the map is behavior-neutral).
+// NOTE: if a real kiro-cli turns out to have a SEPARATE append/patch tool (e.g.
+// `fs_append`), add it here AND to the agent-config `matcher` (today scoped to the
+// literal `fs_write`). Flagged for the cut-gate to confirm `fs_write` is the only
+// file-mutation tool — no Kiro tool enumeration is captured in the research yet.
 const KIRO_EDIT_TOOL_MAP = Object.freeze({
   fs_write: 'Write',
   fsWrite: 'Write', // camelCase spelling tolerance

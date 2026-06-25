@@ -448,12 +448,26 @@ export function runHook(event, _options = {}, _command, deps = {}) {
   // stdin would hang the hook to its timeout — B1, the skill-review catch).
   //
   // postToolUse (50.N.2) is the ONE event whose data (tool_name/tool_input/
-  // tool_response) has no env fallback — per the kiro.dev hooks doc it arrives as
-  // a STDIN JSON payload that Kiro pipes AND closes (so the read gets EOF, no
-  // hang). We read stdin ONLY for postToolUse, TTY-guarded (readHookStdin returns
-  // '' on a TTY). Tests inject `deps.payload` to bypass the read entirely.
-  // NOTE: the live postToolUse fire (does Kiro actually pipe+close stdin here?) is
-  // flagged for the cut-gate — same verify-first posture as the IDE legs (50.N.3).
+  // tool_response) has no env fallback — it arrives as a STDIN JSON payload. We
+  // read stdin ONLY for postToolUse, TTY-guarded (readHookStdin returns '' on a
+  // TTY). Tests inject `deps.payload` to bypass the read entirely.
+  //
+  // WHY THIS IS SAFE (the precedent, not a guess): the kit ALREADY ships a
+  // stdin-reading hook in the SAME kiro-cli agent config — `cmk-guard-memory`
+  // (preToolUse) reads stdin the identical way (readHookStdin → readFileSync(0)).
+  // preToolUse and postToolUse are siblings in the same Amazon-Q hook contract,
+  // both delivering {tool_name, tool_input, …} on a piped-and-closed stdin. If
+  // Kiro left that stdin dangling-open, the already-merged guard would hang on
+  // every shell command — it doesn't. So this read rests on the same (verified-by-
+  // -contract-shape) assumption the guard already relies on, NOT a new risk.
+  // The 50.N.1 B1 fix removed a stdin read for events that have an ENV fallback
+  // (the prompt) — postToolUse has none, so the read is necessary here.
+  // VERIFICATION (surfaced, not buried): the live stdin-close + payload-shape
+  // assumption both this leg AND the preToolUse guard depend on is a BLOCKING
+  // cut-gate item (KG-observe, paired with KG-guard) — one real kiro-cli fs_write
+  // verifies both. Until that passes live, this leg is "structurally wired,
+  // live-unverified" (stated in the PR body + the 50.N.2 task, per the no-disclaimer
+  // -ships-latent rule).
   let payload = deps.payload;
   if (payload === undefined) {
     if (event === 'postToolUse') {

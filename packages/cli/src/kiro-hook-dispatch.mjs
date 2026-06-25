@@ -55,7 +55,7 @@ const GUARD_EVENTS = new Set(['preToolUse']);
 const OBSERVE_EVENTS = new Set(['postToolUse']);
 
 export function dispatchKiroHook({ event, payload = {}, cwd, userDir, deps = {} } = {}) {
-  const { inject, capture, capturePrompt, guard } = deps;
+  const { inject, capture, capturePrompt, observe, guard } = deps;
 
   try {
     if (INJECT_EVENTS.has(event)) {
@@ -84,8 +84,8 @@ export function dispatchKiroHook({ event, payload = {}, cwd, userDir, deps = {} 
       // capture; a throw must never wedge the tool/session. Older installs (no
       // observe dep) skip cleanly → noop. The runHook adapter maps Kiro's tool
       // name (fs_write → Write) before observeEdit's eligibility check.
-      if (typeof deps.observe === 'function') {
-        deps.observe({ payload, projectRoot: cwd, ...(userDir ? { userDir } : {}) });
+      if (typeof observe === 'function') {
+        observe({ payload, projectRoot: cwd, ...(userDir ? { userDir } : {}) });
         return { action: 'observe', exitCode: 0 };
       }
       return { action: 'noop', exitCode: 0 };
