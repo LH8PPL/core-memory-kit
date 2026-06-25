@@ -60,10 +60,29 @@ import {
 } from './register-crons.mjs';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 
 const __filename_subcommands = fileURLToPath(import.meta.url);
 const __dirname_subcommands = dirname(__filename_subcommands);
+
+/**
+ * Resolve the cmk-auto-extract.mjs bin path so the KIRO stop hook's captureTurn
+ * can spawn the detached auto-extract child (D-199 follow-up). Mirrors the Claude
+ * Code bin's resolution (env override → sibling bin/): without this, runHook
+ * called captureTurn with no autoExtractPath and the in-module default is null,
+ * so spawnAutoExtract short-circuits 'no-auto-extract-path' — capture writes the
+ * transcript but NEVER extracts facts → no wedge promotion. The CLI's runHook
+ * lives in src/, so the bin is a `../bin/` sibling.
+ * @param {Record<string,string|undefined>} [env=process.env]
+ * @returns {string|null} absolute path to the bin, or null if it can't be found
+ */
+export function resolveKiroAutoExtractPath(env = process.env) {
+  if (env.CMK_AUTO_EXTRACT_PATH && env.CMK_AUTO_EXTRACT_PATH.trim() !== '') {
+    return env.CMK_AUTO_EXTRACT_PATH;
+  }
+  const sibling = join(__dirname_subcommands, '..', 'bin', 'cmk-auto-extract.mjs');
+  return existsSync(sibling) ? sibling : null;
+}
 import { homedir } from 'node:os';
 import { forget as forgetAction } from './forget.mjs';
 import { overrideTrust as overrideTrustAction } from './trust.mjs';
@@ -434,7 +453,13 @@ export function runHook(event, _options = {}, _command, deps = {}) {
         const text = injectContext({ cwd: args.cwd, ...(args.userDir ? { userDir: args.userDir } : {}) });
         return { ok: true, text: typeof text === 'string' ? text : text?.text ?? '' };
       }),
-      capture: deps.capture ?? ((args) => captureTurn({ payload: args.payload, projectRoot: args.projectRoot })),
+      // Pass a RESOLVED autoExtractPath so captureTurn can spawn the detached
+      // auto-extract child (D-199 — else no extraction, no wedge promotion).
+      capture: deps.capture ?? ((args) => captureTurn({
+        payload: args.payload,
+        projectRoot: args.projectRoot,
+        autoExtractPath: resolveKiroAutoExtractPath(deps.env ?? process.env),
+      })),
       // preToolUse → the memory delete-guardrail (D-192). Reads the about-to-run
       // tool command out of the Kiro payload and returns {block, reason?}.
       guard: deps.guard ?? ((args) => decideGuard(kiroToolCommand(args.payload, args.cwd))),

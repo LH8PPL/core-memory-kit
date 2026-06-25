@@ -1,0 +1,33 @@
+{
+  "session_id": "test-session-uuid",
+  "cwd": "__PROJECT_ROOT__",
+  "created_at": "2026-06-24T20:28:00.000000000Z",
+  "updated_at": "2026-06-24T20:35:30.635823800Z",
+  "title": "Create a minimal Python web chat: a FastAPI server with a WebSocket endpoint",
+  "session_created_reason": "NewSession",
+  "session_state": {
+    "version": "1",
+    "agent_name": "cmk",
+    "goal": null,
+    "rts_model_state": { "conversation_id": "abc", "context_usage_percentage": 2.0 },
+    "permissions": {},
+    "conversation_metadata": {
+      "user_turn_start_request": null,
+      "last_request": null,
+      "user_turn_metadatas": [
+        {
+          "end_reason": "UserTurnEnd",
+          "end_timestamp": "2026-06-24T20:32:23.687544500Z",
+          "user_prompt_length": 95,
+          "result": { "Ok": { "content": [ { "kind": "text", "data": "Done. Two files created: app.py (FastAPI server) and index.html." } ] } }
+        },
+        {
+          "end_reason": "UserTurnEnd",
+          "end_timestamp": "2026-06-24T20:35:30.000000000Z",
+          "user_prompt_length": 110,
+          "result": { "Ok": { "content": [ { "kind": "text", "data": "Done. uv for packages, ruff before every commit, in every project from now on." } ] } }
+        }
+      ]
+    }
+  }
+}

@@ -27,6 +27,31 @@ function seedSession(sessionId, history, dateCreated) {
   writeFileSync(join(wsDir, `${sessionId}.json`), JSON.stringify({ sessionId, dateCreated, history }), 'utf8');
 }
 
+// kiro-cli session — the DIFFERENT schema + location vs the IDE (D-199 gate
+// finding): ~/.kiro/sessions/cli/<uuid>.json, matched by `cwd`, with the
+// assistant text at session_state.conversation_metadata.user_turn_metadatas[]
+//   .result.Ok.content[].data  (NO history[]; no CONTINUE_GLOBAL_DIR).
+function seedCliSession(kiroHome, sessionId, { cwd, updatedAt, turns }) {
+  const cliDir = join(kiroHome, '.kiro', 'sessions', 'cli');
+  mkdirSync(cliDir, { recursive: true });
+  const session = {
+    session_id: sessionId,
+    cwd,
+    updated_at: updatedAt,
+    session_state: {
+      agent_name: 'cmk',
+      conversation_metadata: {
+        user_turn_metadatas: turns.map((data, i) => ({
+          end_reason: 'UserTurnEnd',
+          user_prompt_length: 50 + i,
+          result: { Ok: { content: [{ kind: 'text', data }] } },
+        })),
+      },
+    },
+  };
+  writeFileSync(join(cliDir, `${sessionId}.json`), JSON.stringify(session), 'utf8');
+}
+
 beforeEach(() => {
   sandbox = mkdtempSync(join(tmpdir(), 'cmk-kiro-read-'));
   globalDir = join(sandbox, 'kiro.kiroagent');
@@ -62,8 +87,61 @@ describe('readKiroTurn — read the latest turn from Kiro transcript', () => {
     expect(r.userText).toBe('');
   });
 
-  it('returns empty when CONTINUE_GLOBAL_DIR is absent (no env → no crash)', () => {
-    const r = readKiroTurn({ projectRoot: PROJECT, env: {} });
+  it('returns empty when CONTINUE_GLOBAL_DIR is absent AND no CLI session exists', () => {
+    // env.HOME points at an empty sandbox (no ~/.kiro/sessions/cli) → empty.
+    const r = readKiroTurn({ projectRoot: PROJECT, env: { HOME: sandbox, USERPROFILE: sandbox } });
     expect(r.assistantText).toBe('');
+  });
+});
+
+describe('readKiroTurn — kiro-cli fallback (D-199: CLI schema + ~/.kiro/sessions/cli)', () => {
+  const CLI_PROJECT = 'C:\\Temp\\kiro-cli-cutgate';
+
+  it('reads the latest assistant turn from a kiro-cli session matched by cwd', () => {
+    // No CONTINUE_GLOBAL_DIR (the CLI never sets it) → must fall back to the CLI path.
+    seedCliSession(sandbox, 's-cli', {
+      cwd: CLI_PROJECT,
+      updatedAt: '2026-06-24T20:35:30.000Z',
+      turns: ['first reply', 'uv for packages, ruff before commit, every project'],
+    });
+    const r = readKiroTurn({
+      projectRoot: CLI_PROJECT,
+      env: { HOME: sandbox, USERPROFILE: sandbox },
+    });
+    expect(r.assistantText).toBe('uv for packages, ruff before commit, every project'); // the LAST turn
+  });
+
+  it('picks the most-recent CLI session for the cwd (by updated_at)', () => {
+    seedCliSession(sandbox, 'old', { cwd: CLI_PROJECT, updatedAt: '2026-06-24T10:00:00.000Z', turns: ['old reply'] });
+    seedCliSession(sandbox, 'new', { cwd: CLI_PROJECT, updatedAt: '2026-06-24T20:00:00.000Z', turns: ['new reply'] });
+    const r = readKiroTurn({ projectRoot: CLI_PROJECT, env: { HOME: sandbox, USERPROFILE: sandbox } });
+    expect(r.assistantText).toBe('new reply');
+  });
+
+  it('ignores CLI sessions whose cwd does NOT match the project (no cross-project leak)', () => {
+    seedCliSession(sandbox, 'other', { cwd: 'C:\\Temp\\some-other-proj', updatedAt: '2026-06-24T20:00:00.000Z', turns: ['other project reply'] });
+    const r = readKiroTurn({ projectRoot: CLI_PROJECT, env: { HOME: sandbox, USERPROFILE: sandbox } });
+    expect(r.assistantText).toBe(''); // no session for THIS cwd
+  });
+
+  it('returns empty (no throw) on a malformed CLI session file', () => {
+    const cliDir = join(sandbox, '.kiro', 'sessions', 'cli');
+    mkdirSync(cliDir, { recursive: true });
+    writeFileSync(join(cliDir, 'bad.json'), '{ not valid json', 'utf8');
+    const r = readKiroTurn({ projectRoot: CLI_PROJECT, env: { HOME: sandbox, USERPROFILE: sandbox } });
+    expect(r.assistantText).toBe('');
+  });
+
+  it('prefers the IDE path when CONTINUE_GLOBAL_DIR IS set (IDE unaffected by the CLI fallback)', () => {
+    // Seed BOTH an IDE session (for PROJECT) and a CLI session (for the same path);
+    // with CONTINUE_GLOBAL_DIR set, the IDE path wins — the CLI fallback only fires
+    // when the IDE path yields nothing.
+    seedSession('ide', [{ message: { role: 'assistant', content: [{ type: 'text', text: 'ide answer' }] } }], '1000');
+    seedCliSession(sandbox, 'cli', { cwd: PROJECT, updatedAt: '2026-06-24T20:00:00.000Z', turns: ['cli answer'] });
+    const r = readKiroTurn({
+      projectRoot: PROJECT,
+      env: { CONTINUE_GLOBAL_DIR: globalDir, HOME: sandbox, USERPROFILE: sandbox },
+    });
+    expect(r.assistantText).toBe('ide answer');
   });
 });
