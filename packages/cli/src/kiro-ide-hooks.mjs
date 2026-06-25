@@ -39,7 +39,9 @@ import { join } from 'node:path';
 import { kiroHookCommand, kiroGuardCommand } from './kiro-hook-command.mjs';
 
 const CMK = 'cmk';
-const V1_FILE = 'cmk.kiro.hook.json'; // the consolidated v1 file (Kiro IDE 1.0+)
+const V1_FILE = 'cmk.kiro.hook.json'; // the v1 known-good hooks (inject+guard+observe)
+const V1_CAPTURE_FILE = 'cmk.capture.kiro.hook.json'; // the v1 capture hook (isolated — guessed Stop trigger)
+const MANAGED = 'Managed by `cmk install` — do not hand-edit.';
 
 // The platform-correct `cmk hook <event>` command (cmd.exe /c on Windows where
 // Kiro routes hooks through WSL) is shared from kiro-hook-command.mjs.
@@ -91,8 +93,11 @@ function serializeHook(spec) {
 //   Stop             → capture (turn-end) — the session-end trigger (live-probe)
 //   PreToolUse       → delete-guard (cmk-guard-memory; CAN BLOCK on non-zero exit)
 //   PostFileSave     → observe-edit (record large edits)
-const MANAGED = 'Managed by `cmk install` — do not hand-edit.';
-function v1HookSet(cmd) {
+// The v1 KNOWN-GOOD hook set — triggers with documented v1 names: inject +
+// delete-guard + observe-edit. Kept SEPARATE from the capture hook below so a
+// rejection of the GUESSED capture trigger can't take these three down with it
+// (skill-review I2 blast-radius isolation).
+function v1KnownHookSet(cmd) {
   return {
     version: 'v1',
     hooks: [
@@ -105,21 +110,13 @@ function v1HookSet(cmd) {
         enabled: true,
       },
       {
-        name: 'claude-memory-kit: capture',
-        description: `Capture durable memory at the end of each turn (claude-memory-kit). ${MANAGED}`,
-        trigger: 'Stop', // v1 session-end trigger — flagged for the cut-gate probe (D-203 item 5)
-        action: { type: 'command', command: hookCommand('stop', cmd) },
-        timeout: 60,
-        enabled: true,
-      },
-      {
         name: 'claude-memory-kit: delete-guard',
         description: `Block a destructive command aimed at a memory path (claude-memory-kit). ${MANAGED}`,
         trigger: 'PreToolUse',
-        // matcher tool-name tokens are LIVE-UNVERIFIED (D-203 item 4) — '*' (all
-        // tools) is the conservative default; the guard itself filters to memory
-        // deletes, so an over-broad matcher costs nothing (it just runs the guard,
-        // which allows everything that isn't a memory delete).
+        // `matcher` for PreToolUse is a TOOL-NAME glob (D-203 item 4 — exact tokens
+        // live-unverified). `'*'` (all tools) is conservative; the guard itself
+        // filters to memory deletes, so an over-broad matcher costs nothing (runs
+        // the guard, which allows everything that isn't a memory delete).
         matcher: '*',
         action: { type: 'command', command: kiroGuardCommand() },
         timeout: 5,
@@ -128,8 +125,16 @@ function v1HookSet(cmd) {
       {
         name: 'claude-memory-kit: observe-edit',
         description: `Record large file edits (claude-memory-kit). ${MANAGED}`,
-        trigger: 'PostFileSave',
-        matcher: '.*',
+        // PostToolUse (NOT PostFileSave) — observe-edit needs a TOOL-USE payload
+        // ({tool_name:'fs_write', tool_input, tool_response}) that observeEdit reads;
+        // a file-SAVE lifecycle event wouldn't carry tool_name → silent noop
+        // (skill-review I1, the semantic-match fix). PostToolUse is the v1 sibling
+        // of the kiro-cli postToolUse leg (50.N.2), same payload shape.
+        trigger: 'PostToolUse',
+        // `matcher` for PostToolUse is a TOOL-NAME glob (like PreToolUse) — scope to
+        // the file-write tool. (NB: a PostFileSave matcher would be a file-path
+        // REGEX, a different domain — that asymmetry is why we use PostToolUse here.)
+        matcher: 'fs_write',
         action: { type: 'command', command: hookCommand('postToolUse', cmd) },
         timeout: 30,
         enabled: true,
@@ -138,8 +143,32 @@ function v1HookSet(cmd) {
   };
 }
 
-function serializeV1(cmd) {
-  return `${JSON.stringify(v1HookSet(cmd), null, 2)}\n`;
+// The capture hook — ISOLATED in its own file because its `Stop` trigger is a
+// GUESS (D-203 item 5: v1's documented type list has SessionStart but no clear
+// session-end trigger). If Kiro rejects the whole file on an unknown trigger,
+// only capture goes dark — inject/guard/observe (v1KnownHookSet) survive. Capture
+// also rides the per-turn path elsewhere, so losing it is the least-bad failure.
+function v1CaptureHookSet(cmd) {
+  return {
+    version: 'v1',
+    hooks: [
+      {
+        name: 'claude-memory-kit: capture',
+        description: `Capture durable memory at the end of each turn (claude-memory-kit). ${MANAGED}`,
+        trigger: 'Stop', // GUESS — flagged for the cut-gate probe (D-203 item 5)
+        action: { type: 'command', command: hookCommand('stop', cmd) },
+        timeout: 60,
+        enabled: true,
+      },
+    ],
+  };
+}
+
+function serializeV1Known(cmd) {
+  return `${JSON.stringify(v1KnownHookSet(cmd), null, 2)}\n`;
+}
+function serializeV1Capture(cmd) {
+  return `${JSON.stringify(v1CaptureHookSet(cmd), null, 2)}\n`;
 }
 
 export function installKiroIdeHooks({ projectRoot, command = CMK } = {}) {
@@ -160,18 +189,22 @@ export function installKiroIdeHooks({ projectRoot, command = CMK } = {}) {
     }
     written.push(spec.file);
   }
-  // 2. The v1 consolidated file (Kiro IDE 1.0+ — D-203). A 0.x IDE ignores it;
-  //    a 1.0 IDE ignores the stale .kiro.hook files above.
-  {
-    const path = join(hooksDir, V1_FILE);
-    const serialized = serializeV1(command);
+  // 2. The v1 files (Kiro IDE 1.0+ — D-203). A 0.x IDE ignores them; a 1.0 IDE
+  //    ignores the stale .kiro.hook files above. TWO files: the known-good set
+  //    (inject+guard+observe) + the isolated capture hook (guessed Stop trigger),
+  //    so a capture-trigger rejection can't dark the other three (review I2).
+  for (const [file, serialized] of [
+    [V1_FILE, serializeV1Known(command)],
+    [V1_CAPTURE_FILE, serializeV1Capture(command)],
+  ]) {
+    const path = join(hooksDir, file);
     const existing = existsSync(path) ? readFileSync(path, 'utf8') : null;
     if (existing !== serialized) {
       mkdirSync(hooksDir, { recursive: true });
       writeFileSync(path, serialized, 'utf8');
       changed = true;
     }
-    written.push(V1_FILE);
+    written.push(file);
   }
   return { action: 'installed', changed, hooks: written };
 }
@@ -181,8 +214,8 @@ export function uninstallKiroIdeHooks({ projectRoot, command = CMK } = {}) {
   const hooksDir = join(projectRoot, '.kiro', 'hooks');
   let changed = false;
   const removed = [];
-  // legacy .kiro.hook files + the v1 consolidated file — remove both.
-  const ourFiles = [...hookSpecs(command).map((s) => s.file), V1_FILE];
+  // legacy .kiro.hook files + the two v1 files — remove all.
+  const ourFiles = [...hookSpecs(command).map((s) => s.file), V1_FILE, V1_CAPTURE_FILE];
   for (const file of ourFiles) {
     const path = join(hooksDir, file);
     if (existsSync(path)) {
