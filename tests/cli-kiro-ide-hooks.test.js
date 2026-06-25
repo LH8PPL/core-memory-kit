@@ -100,86 +100,81 @@ describe('Task 50.K — Kiro IDE .kiro.hook writer', () => {
   });
 });
 
-// 50.N.3 / D-203 — Kiro IDE 1.0 deprecated the legacy .kiro.hook (when/then/
-// runCommand) format. v1 uses a consolidated .kiro/hooks/*.json:
+// 50.N.3 / D-203/D-203d — Kiro IDE 1.0 deprecated the legacy .kiro.hook (when/
+// then/runCommand) format. v1 uses clean per-hook .kiro/hooks/<name>.json files:
 //   {"version":"v1","hooks":[{name, trigger, matcher?, action:{type:'command',
-//    command}, timeout?, enabled?}]} with PascalCase triggers. The kit emits the
-// v1 file (capture+inject+guard+observe) AND keeps the legacy files for 0.x.
-describe('50.N.3 — Kiro IDE v1 hook format (.kiro/hooks/cmk.kiro.hook.json)', () => {
-  function readV1() {
+//    command}, timeout, enabled}]} with PascalCase triggers. The kit emits the
+// four v1 files (cmk-{capture,inject,guard,observe}.json — Kiro's own convention,
+// ground-truth-verified D-203d) AND keeps the legacy .kiro.hook files for 0.x.
+describe('50.N.3 — Kiro IDE v1 hook format (.kiro/hooks/cmk-{capture,inject,guard,observe}.json)', () => {
+  function readV1(file) {
     return JSON.parse(
-      readFileSync(join(projectRoot, '.kiro', 'hooks', 'cmk.kiro.hook.json'), 'utf8'),
+      readFileSync(join(projectRoot, '.kiro', 'hooks', file), 'utf8'),
     );
   }
-  function readV1Capture() {
-    return JSON.parse(
-      readFileSync(join(projectRoot, '.kiro', 'hooks', 'cmk.capture.kiro.hook.json'), 'utf8'),
-    );
-  }
+  // D-203d: Kiro IDE 1.0's own migration produced `cmk-capture.json` — clean
+  // per-hook `<name>.json` files. We match that convention exactly.
+  const V1_FILES = ['cmk-capture.json', 'cmk-inject.json', 'cmk-guard.json', 'cmk-observe.json'];
 
-  it('writes the v1 files alongside the legacy .kiro.hook files (dual-emit)', () => {
+  it('writes clean per-hook v1 .json files (Kiro 1.0 convention) alongside the legacy files', () => {
     installKiroIdeHooks({ projectRoot });
-    // v1 known-good file + the isolated capture file...
-    expect(existsSync(join(projectRoot, '.kiro', 'hooks', 'cmk.kiro.hook.json'))).toBe(true);
-    expect(existsSync(join(projectRoot, '.kiro', 'hooks', 'cmk.capture.kiro.hook.json'))).toBe(true);
-    // ...AND the legacy files still present (0.x back-compat)
+    for (const f of V1_FILES) {
+      expect(existsSync(join(projectRoot, '.kiro', 'hooks', f))).toBe(true);
+    }
+    // ...AND the legacy files still present (0.x back-compat; inert on 1.0 — D-203d)
     expect(existsSync(join(projectRoot, '.kiro', 'hooks', 'cmk-capture.kiro.hook'))).toBe(true);
     expect(existsSync(join(projectRoot, '.kiro', 'hooks', 'cmk-inject.kiro.hook'))).toBe(true);
   });
 
-  it('the v1 files have version:"v1" + hooks with PascalCase triggers + action.type "command"', () => {
+  it('every v1 file matches Kiro 1.0\'s ground-truth schema (version v1, 1 hook, PascalCase trigger, action.type command)', () => {
     installKiroIdeHooks({ projectRoot });
-    for (const v1 of [readV1(), readV1Capture()]) {
+    for (const f of V1_FILES) {
+      const v1 = readV1(f);
       expect(v1.version).toBe('v1');
-      expect(Array.isArray(v1.hooks)).toBe(true);
-      for (const h of v1.hooks) {
-        expect(h.trigger).toMatch(/^[A-Z]/); // PascalCase (not legacy agentStop/promptSubmit)
-        expect(h.action.type).toBe('command'); // deterministic (NOT then/runCommand)
-        expect(typeof h.action.command).toBe('string');
-        expect(h).not.toHaveProperty('when');
-        expect(h).not.toHaveProperty('then');
-      }
+      expect(v1.hooks).toHaveLength(1); // one hook per file → fully isolated
+      const h = v1.hooks[0];
+      expect(h.trigger).toMatch(/^[A-Z]/); // PascalCase (not legacy agentStop/promptSubmit)
+      expect(h.action.type).toBe('command'); // deterministic (NOT then/runCommand)
+      expect(typeof h.action.command).toBe('string');
+      expect(h).not.toHaveProperty('when');
+      expect(h).not.toHaveProperty('then');
     }
   });
 
-  it('the known-good file wires inject (UserPromptSubmit) + delete-guard (PreToolUse) + observe (PostToolUse)', () => {
+  it('capture → Stop (CONFIRMED by Kiro 1.0\'s migration, D-203d), exact cmk hook stop command', () => {
     installKiroIdeHooks({ projectRoot });
-    const triggers = readV1().hooks.map((h) => h.trigger);
-    expect(triggers).toContain('UserPromptSubmit'); // inject
-    expect(triggers).toContain('PreToolUse');       // delete-guard (v1 can BLOCK)
-    expect(triggers).toContain('PostToolUse');      // observe-edit (tool-use payload, NOT PostFileSave)
-    expect(triggers).not.toContain('Stop');         // capture is ISOLATED in its own file (I2)
+    const h = readV1('cmk-capture.json').hooks[0];
+    expect(h.trigger).toBe('Stop');
+    expect(h.action.command).toMatch(/cmk hook stop/);
   });
 
-  it('the capture hook is ISOLATED in its own file (guessed Stop trigger — blast-radius)', () => {
+  it('inject → UserPromptSubmit', () => {
     installKiroIdeHooks({ projectRoot });
-    const cap = readV1Capture();
-    expect(cap.hooks).toHaveLength(1);
-    expect(cap.hooks[0].trigger).toBe('Stop');
-    expect(cap.hooks[0].action.command).toMatch(/cmk hook stop/);
-    // and the known-good file does NOT contain the guessed-trigger hook
-    expect(readV1().hooks.some((h) => h.trigger === 'Stop')).toBe(false);
+    const h = readV1('cmk-inject.json').hooks[0];
+    expect(h.trigger).toBe('UserPromptSubmit');
+    expect(h.action.command).toMatch(/cmk hook userPromptSubmit/);
   });
 
-  it('the v1 delete-guard fires cmk-guard-memory on PreToolUse', () => {
+  it('delete-guard → PreToolUse fires cmk-guard-memory (v1 can BLOCK, supersedes 165b)', () => {
     installKiroIdeHooks({ projectRoot });
-    const guard = readV1().hooks.find((h) => h.trigger === 'PreToolUse');
-    expect(guard).toBeTruthy();
-    expect(guard.action.command).toMatch(/cmk-guard-memory/);
+    const h = readV1('cmk-guard.json').hooks[0];
+    expect(h.trigger).toBe('PreToolUse');
+    expect(h.action.command).toMatch(/cmk-guard-memory/);
   });
 
-  it('the v1 observe-edit fires cmk hook postToolUse on PostToolUse (tool-use payload, not file-save)', () => {
+  it('observe-edit → PostToolUse (matcher fs_write), NOT PostFileSave (tool-use payload, I1)', () => {
     installKiroIdeHooks({ projectRoot });
-    const obs = readV1().hooks.find((h) => h.trigger === 'PostToolUse');
-    expect(obs).toBeTruthy();
-    expect(obs.action.command).toMatch(/cmk hook postToolUse/);
-    expect(obs.matcher).toBe('fs_write'); // scoped to the file-write tool
+    const h = readV1('cmk-observe.json').hooks[0];
+    expect(h.trigger).toBe('PostToolUse');
+    expect(h.matcher).toBe('fs_write');
+    expect(h.action.command).toMatch(/cmk hook postToolUse/);
   });
 
-  it('uninstall removes both v1 files too', () => {
+  it('uninstall removes all v1 files too', () => {
     installKiroIdeHooks({ projectRoot });
     uninstallKiroIdeHooks({ projectRoot });
-    expect(existsSync(join(projectRoot, '.kiro', 'hooks', 'cmk.kiro.hook.json'))).toBe(false);
-    expect(existsSync(join(projectRoot, '.kiro', 'hooks', 'cmk.capture.kiro.hook.json'))).toBe(false);
+    for (const f of V1_FILES) {
+      expect(existsSync(join(projectRoot, '.kiro', 'hooks', f))).toBe(false);
+    }
   });
 });
