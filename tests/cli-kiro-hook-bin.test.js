@@ -1,6 +1,8 @@
-// @doors: 1, 2
-// Door 3 N/A: the adapter wires dispatchKiroHook with injected inject/capture
-//   deps in tests; the real detached spawn is covered by capture-turn's tests.
+// @doors: 1, 2, 3
+// Door 3: resolveKiroAutoExtractPath() must resolve the real cmk-auto-extract.mjs
+//   bin so the kiro stop hook's captureTurn can spawn the detached extract child
+//   (D-199 follow-up — the wedge-promotion path). The real detached spawn itself
+//   is covered by capture-turn's tests; here we pin that the PATH is wired.
 // Door 4 N/A: observability is captureTurn/injectContext's concern.
 // Door 5 N/A: no message-queue interaction.
 
@@ -16,8 +18,9 @@
 // routes via the dispatcher (50.J).
 
 import { describe, it, expect, afterEach } from 'vitest';
+import { existsSync } from 'node:fs';
 import { runKiroHook } from '../packages/cli/src/kiro-hook-bin.mjs';
-import { runHook } from '../packages/cli/src/subcommands.mjs';
+import { runHook, resolveKiroAutoExtractPath } from '../packages/cli/src/subcommands.mjs';
 
 describe('Task 50.J/50.L — runKiroHook adapter', () => {
   it('stop event → reads the Kiro transcript for the turn, routes to capture', () => {
@@ -42,6 +45,48 @@ describe('Task 50.J/50.L — runKiroHook adapter', () => {
     const cap = calls.find((c) => c[0] === 'capture')[1];
     expect(cap.payload.assistant_message).toBe('the answer');
     expect(cap.projectRoot).toBe('/proj');
+  });
+
+  // D-199 follow-up: the kiro stop hook MUST pass a real autoExtractPath to
+  // captureTurn, or the detached auto-extract never spawns → no fact extraction,
+  // no wedge promotion. (The bug: runHook called captureTurn WITHOUT autoExtractPath,
+  // and the in-module default is null → spawnAutoExtract short-circuits 'no-path'.)
+  it('the stop capture forwards a RESOLVED, existing autoExtractPath INTO captureTurn (the wiring, not just the resolver)', () => {
+    // Door 3: assert the PRODUCTION capture default actually calls captureTurn
+    // with the resolved autoExtractPath. We inject captureTurn (NOT capture) so
+    // the real default dep — the code under test — runs and we observe its args.
+    // (Overriding `capture` would bypass the wiring and pass even on a revert.)
+    let captured = null;
+    runHook('stop', {}, undefined, {
+      cwd: '/proj',
+      env: {},
+      readKiroTurn: () => ({ assistantText: 'we use uv in every project' }),
+      captureTurn: (args) => { captured = args; return { action: 'captured' }; },
+      log: () => {},
+      logError: () => {},
+    });
+    // the resolver returns the real, existing bin...
+    const p = resolveKiroAutoExtractPath();
+    expect(p).toMatch(/cmk-auto-extract\.mjs$/);
+    expect(existsSync(p)).toBe(true);
+    // ...and runHook's default capture dep FORWARDED it into captureTurn.
+    expect(captured).not.toBeNull();
+    expect(captured.autoExtractPath).toBe(p);
+    expect(captured.projectRoot).toBe('/proj');
+    expect(captured.payload.assistant_message).toBe('we use uv in every project');
+  });
+
+  it('the autoExtractPath honors the CMK_AUTO_EXTRACT_PATH env override end-to-end', () => {
+    let captured = null;
+    runHook('stop', {}, undefined, {
+      cwd: '/proj',
+      env: { CMK_AUTO_EXTRACT_PATH: '/custom/extract.mjs' },
+      readKiroTurn: () => ({ assistantText: 'a turn' }),
+      captureTurn: (args) => { captured = args; return { action: 'captured' }; },
+      log: () => {},
+      logError: () => {},
+    });
+    expect(captured.autoExtractPath).toBe('/custom/extract.mjs');
   });
 
   it('agentSpawn event → inject (no transcript read needed)', () => {
