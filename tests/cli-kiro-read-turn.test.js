@@ -262,6 +262,44 @@ describe('readKiroTurn — Kiro IDE 1.0 (D-203g: ~/.kiro/sessions/<hash>/sess_*/
     expect(r.assistantText).toBe('');
   });
 
+  it('reads a multi-part (array) content message — joins the text parts (review I1)', () => {
+    // a multi-part assistant message (images/documents) MAY serialize content as
+    // an array of {type:'text', text} parts like IDE-0.x — must NOT be dropped.
+    const sessDir = join(sandbox, '.kiro', 'sessions', 'h', 'sess_s');
+    mkdirSync(sessDir, { recursive: true });
+    writeFileSync(join(sessDir, 'session.json'), JSON.stringify({ workspacePaths: [IDE_PROJECT] }), 'utf8');
+    const line = JSON.stringify({
+      id: 'm0', timestamp: '2026-06-25T09:50:00.000Z',
+      payload: { type: 'assistant', content: [{ type: 'text', text: 'part one' }, { type: 'image', url: 'x' }, { type: 'text', text: 'part two' }] },
+    });
+    writeFileSync(join(sessDir, 'messages.jsonl'), line + '\n', 'utf8');
+    const r = readKiroTurn({ projectRoot: IDE_PROJECT, env: { HOME: sandbox, USERPROFILE: sandbox } });
+    expect(r.assistantText).toBe('part one\npart two'); // text parts joined, non-text dropped
+  });
+
+  it('matches a NON-FIRST entry in a multi-root workspacePaths array (review M2)', () => {
+    const sessDir = join(sandbox, '.kiro', 'sessions', 'h', 'sess_s');
+    mkdirSync(sessDir, { recursive: true });
+    writeFileSync(join(sessDir, 'session.json'), JSON.stringify({ workspacePaths: ['C:\\Other\\root', IDE_PROJECT] }), 'utf8');
+    writeFileSync(join(sessDir, 'messages.jsonl'), JSON.stringify({ id: 'm', timestamp: 't', payload: { type: 'assistant', content: 'multi-root reply' } }) + '\n', 'utf8');
+    const r = readKiroTurn({ projectRoot: IDE_PROJECT, env: { HOME: sandbox, USERPROFILE: sandbox } });
+    expect(r.assistantText).toBe('multi-root reply');
+  });
+
+  it('a stray FILE + a cli/ sibling at sessions/ root do not crash the walk (review M4)', () => {
+    const sessionsRoot = join(sandbox, '.kiro', 'sessions');
+    mkdirSync(sessionsRoot, { recursive: true });
+    // a stray FILE at the root (readdirSync(file) throws ENOTDIR → caught)
+    writeFileSync(join(sessionsRoot, 'stray.txt'), 'not a session', 'utf8');
+    // a cli/ sibling dir with a *.json (kiro-cli format, no sess_* children)
+    mkdirSync(join(sessionsRoot, 'cli'), { recursive: true });
+    writeFileSync(join(sessionsRoot, 'cli', 'x.json'), '{}', 'utf8');
+    // ...alongside a valid IDE-1.0 session
+    seedIdeV1Session(sandbox, { hash: 'h', sessionId: 's', workspacePath: IDE_PROJECT, mtimeMs: 2000, turns: [{ type: 'assistant', content: 'survives the walk' }] });
+    const r = readKiroTurn({ projectRoot: IDE_PROJECT, env: { HOME: sandbox, USERPROFILE: sandbox } });
+    expect(r.assistantText).toBe('survives the walk'); // walked past the noise, no crash
+  });
+
   it('prefers the IDE-0.x globalStorage path when CONTINUE_GLOBAL_DIR is set (1.0 is a fallback)', () => {
     // a mixed install: both an 0.x globalStorage session AND a 1.0 messages.jsonl.
     // With CONTINUE_GLOBAL_DIR set + a valid 0.x session, the 0.x path wins.

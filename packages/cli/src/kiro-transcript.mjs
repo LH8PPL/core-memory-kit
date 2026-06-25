@@ -168,12 +168,30 @@ export function parseKiroIdeV1Messages(jsonlText) {
       continue; // a malformed line never crashes the whole read
     }
     const type = msg?.payload?.type;
-    const content = msg?.payload?.content;
-    if (typeof content !== 'string' || content === '') continue;
-    if (type === 'user') userText = content; // keep the LAST one
-    else if (type === 'assistant') assistantText = content;
+    if (type !== 'user' && type !== 'assistant') continue;
+    const text = ideV1ContentText(msg?.payload?.content);
+    if (text === '') continue;
+    if (type === 'user') userText = text; // keep the LAST one
+    else assistantText = text;
   }
   return { userText, assistantText };
+}
+
+// IDE 1.0 payload.content is a STRING for plain messages (verified on a real
+// session), but a multi-part message (with images/documents) MAY serialize it as
+// an array of typed parts like IDE-0.x — so handle BOTH (review I1): a string is
+// returned as-is; an array joins the `text`-typed parts (the `{type:'text', text}`
+// shape, like extractText). Anything else → '' (drop, never crash). Defensive so a
+// multi-part assistant reply isn't silently dropped → capture-nothing recurrence.
+function ideV1ContentText(content) {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter((part) => part && part.type === 'text' && typeof part.text === 'string')
+      .map((part) => part.text)
+      .join('\n');
+  }
+  return '';
 }
 
 /**
@@ -196,7 +214,9 @@ export function readKiroIdeV1Turn({ projectRoot, env = process.env } = {}) {
     const want = norm(projectRoot);
 
     // walk <hash>/sess_*/ dirs; match by session.json.workspacePaths; pick latest
-    // messages.jsonl by mtime.
+    // messages.jsonl by mtime, tie-broken by path (review M1 — mirror the CLI/0.x
+    // readers' deterministic [stamp, path] tie-break so an equal mtime isn't
+    // decided by readdir order).
     let best = null; // [mtimeMs, messagesPath]
     for (const hash of readdirSync(sessionsRoot)) {
       const hashDir = join(sessionsRoot, hash);
@@ -204,7 +224,10 @@ export function readKiroIdeV1Turn({ projectRoot, env = process.env } = {}) {
       try {
         sessDirs = readdirSync(hashDir).filter((d) => d.startsWith('sess_'));
       } catch {
-        continue; // not a dir (e.g. the kiro-cli `cli/` sibling holds *.json files)
+        // a non-directory entry at sessions/ root → readdirSync throws ENOTDIR;
+        // skip it. (The `cli/` sibling IS a dir but has no sess_* children, so it
+        // falls out of the filter below — both cases are handled, never crash.)
+        continue;
       }
       for (const sd of sessDirs) {
         const dir = join(hashDir, sd);
@@ -225,7 +248,13 @@ export function readKiroIdeV1Turn({ projectRoot, env = process.env } = {}) {
         } catch {
           /* keep 0 */
         }
-        if (best === null || mtimeMs > best[0]) best = [mtimeMs, msgPath];
+        if (
+          best === null ||
+          mtimeMs > best[0] ||
+          (mtimeMs === best[0] && msgPath > best[1]) // deterministic tie-break (M1)
+        ) {
+          best = [mtimeMs, msgPath];
+        }
       }
     }
     if (!best) return empty;
