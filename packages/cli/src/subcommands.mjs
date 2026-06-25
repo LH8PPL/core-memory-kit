@@ -441,27 +441,14 @@ export function kiroToolCommand(payload, _cwd) {
 export function runHook(event, _options = {}, _command, deps = {}) {
   const log = deps.log ?? ((s) => process.stdout.write(s));
   const logError = deps.logError ?? ((s) => process.stderr.write(`${s}\n`));
-  // 50.N.1 — read the Kiro hook STDIN payload, but ONLY for the events that
-  // actually carry one (userPromptSubmit/promptSubmit → {prompt}; postToolUse →
-  // {tool_name,...}). agentSpawn/stop/preToolUse have no kit stdin payload (their
-  // inputs come from cwd/env/transcript), so we never touch fd 0 for them — which
-  // also keeps tests + manual runs from blocking on a read that would hang.
-  // TTY-safe regardless (readHookStdin returns '' on a TTY). Bad/empty → {}.
-  const STDIN_PAYLOAD_EVENTS = new Set(['userPromptSubmit', 'promptSubmit', 'postToolUse']);
-  let payload = deps.payload;
-  if (payload === undefined) {
-    if (STDIN_PAYLOAD_EVENTS.has(event)) {
-      try {
-        const readStdin = deps.readStdin ?? (() => readHookStdin({ isTTY: process.stdin.isTTY }));
-        const raw = readStdin();
-        payload = raw && raw.trim() !== '' ? JSON.parse(raw) : {};
-      } catch {
-        payload = {};
-      }
-    } else {
-      payload = {};
-    }
-  }
+  // 50.N.1 — the Kiro hook payload. Per the kit's probe-verified contract
+  // (kiro-hook-bin.mjs): Kiro's `runCommand` feeds input via argv + env
+  // (USER_PROMPT) + cwd + transcript, NOT a stdin JSON payload. So runHook does
+  // NOT blocking-read fd 0 — a dangling-open stdin from a `runCommand` subprocess
+  // would hang the hook to its timeout (B1, the skill-review catch). The prompt
+  // text reaches capturePrompt via env USER_PROMPT (the bin's wrappedCapturePrompt
+  // fallback). Tests inject `deps.payload` directly. Default → {}.
+  const payload = deps.payload ?? {};
   const r = runKiroHook({
     argv: [event],
     cwd: deps.cwd ?? process.cwd(),

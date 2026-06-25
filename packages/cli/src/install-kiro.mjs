@@ -22,7 +22,10 @@
 // Public surface:
 //   installKiro({ projectRoot, awsDir? }) → { action, changed, surfaces, cliDefaultAgent, errors? }
 //   uninstallKiro({ projectRoot, awsDir? }) → { action, changed }
-//   (awsDir sandboxes the CLI-agent leg in tests; production → real ~/.aws.)
+//   (awsDir is the kept-for-back-compat alias for the CLI-agent sandbox base —
+//    it sandboxes the CLI-agent leg in tests; production writes the real ~/.kiro
+//    [agents/cmk.json + settings/cli.json], NOT ~/.aws. The name predates the
+//    D-198 ~/.aws→~/.kiro relocation; MEMORY_KIT_KIRO_DIR is the current env var.)
 
 import { join } from 'node:path';
 import { existsSync, readFileSync, rmSync } from 'node:fs';

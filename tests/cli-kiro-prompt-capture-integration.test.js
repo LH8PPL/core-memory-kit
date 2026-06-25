@@ -62,6 +62,21 @@ describe('50.N.1 — kiro prompt-capture integration (private-strip on the real 
     expect(transcriptBody()).toContain('always use uv for packages, never pip');
   });
 
+  it('APPENDS a second prompt — the first is preserved (over-mutation guard, Door 2)', () => {
+    const call = (prompt) => runHook('userPromptSubmit', {}, undefined, {
+      cwd: sandbox, env: {}, payload: { prompt }, log: () => {}, logError: () => {},
+    });
+    call('first prompt about ports');
+    call('second prompt about uv');
+    const body = transcriptBody();
+    // BOTH entries survive, in order — appendFileSync, not overwrite.
+    expect(body).toContain('first prompt about ports');
+    expect(body).toContain('second prompt about uv');
+    expect(body.indexOf('first prompt')).toBeLessThan(body.indexOf('second prompt'));
+    // two distinct `## … — user` entries
+    expect((body.match(/— user/g) || []).length).toBe(2);
+  });
+
   it('an empty prompt writes no transcript (noop, no empty file)', () => {
     runHook('userPromptSubmit', {}, undefined, {
       cwd: sandbox,
