@@ -6438,3 +6438,240 @@
 
 **When:** 2026-06-24 · **Fact:** `P-XML7J7a5`
 **Why:** Security boundary: kit commands are internal and trusted; user commands need approval. D-199 eliminated unnecessary prompts for kit's own memory operations.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-9HAX6LAX -->
+
+## agentSpawn hook verified firing; D-198 configuration fix confirmed working; Kiro
+
+**When:** 2026-06-24 · **Fact:** `P-9HAX6LAX`
+
+<!-- decision:P-VRJ9JMX5 -->
+
+## kiro-cli only passes env overrides to registry-type MCP servers, not stdio-type;
+
+**When:** 2026-06-24 · **Fact:** `P-VRJ9JMX5`
+
+<!-- decision:P-ZXUWSZWJ -->
+
+## The kit's code fix is correct; the blocking issue is kiro-cli's env-passing arch
+
+**When:** 2026-06-24 · **Fact:** `P-ZXUWSZWJ`
+
+<!-- decision:P-A79KMP6L -->
+
+## Only mk_remember MCP-tool calls are affected; CLI hooks (agentSpawn inject + sto
+
+**When:** 2026-06-24 · **Fact:** `P-A79KMP6L`
+
+<!-- decision:P-TBKTT7FS -->
+
+## Kiro bug #5873 blocks manual `mk_remember` tool from routing to custom assistant
+
+**When:** 2026-06-24 · **Fact:** `P-TBKTT7FS`
+
+<!-- decision:P-H4KXTZTX -->
+
+## Cross-Project Rules Auto-Promote at Session End (Stop Hook)
+
+**When:** 2026-06-24 · **Fact:** `P-H4KXTZTX`
+**Why:** Understanding the auto-promotion flow prevents confusion: users don't need manual promotion commands to land cross-project rules in HABITS.md. The kit handles promotion automatically at session close, reducing friction.
+
+<!-- decision:P-A4JSRQYE -->
+
+## Kiro IDE Hook Architecture — 10 Available, 2 Currently Used
+
+**When:** 2026-06-25 · **Fact:** `P-A4JSRQYE`
+**Why:** Kiro's full hook surface is now understood; reveals capacity for remaining features without architectural surprises.
+
+<!-- decision:P-LUHU6TQQ -->
+
+## Kit Status After Cut Gate — Core Merged and Proven
+
+**When:** 2026-06-25 · **Fact:** `P-LUHU6TQQ`
+**Why:** Establishes stable baseline for next phase; clarifies which core features are locked in vs. still under development.
+
+<!-- decision:P-322V34Q2 -->
+
+## Task 50.N Completion State — Kiro Parity Campaign
+
+**When:** 2026-06-25 · **Fact:** `P-322V34Q2`
+**Why:** Next session will resume from exact state. IDE appears structurally done but live verification is the actual done-gate. Backup location + test count critical for safety.
+
+<!-- decision:P-PaVAMD9H -->
+
+## Pre-gate rebuild and server shutdown sequence
+
+**When:** 2026-06-25 · **Fact:** `P-PaVAMD9H`
+**Why:** npm can silently retain old code; MCP locking prevents clean rebuilds; user state must be captured before fresh install; on-disk checks reduce manual gate work.
+
+<!-- decision:P-9PPTD9RE -->
+
+## Two-phase gate workflow pattern
+
+**When:** 2026-06-25 · **Fact:** `P-9PPTD9RE`
+**Why:** User system-specific actions (rebuild, local state) must be done by the user; assistant can automate the rest. Clear phase separation reduces gate failures from missed setup steps.
+
+<!-- decision:P-ZGJTAGBD -->
+
+## v0.4.0 cut-gate structure and coverage
+
+**When:** 2026-06-25 · **Fact:** `P-ZGJTAGBD`
+**Why:** User's installed versions determine which probes are active vs skipped. IDE v1 is not in scope yet but is explicitly documented as such.
+
+<!-- decision:P-9TJHaTBG -->
+
+## Gate Testing Decision — Quick vs. Comprehensive Path
+
+**When:** 2026-06-25 · **Fact:** `P-9TJHaTBG`
+**Why:** This session added v1 IDE integration; gate testing should verify it or explicitly acknowledge it unverified
+
+<!-- decision:P-C7VPU7BC -->
+
+## Kiro-CLI Dual-Emit Architecture
+
+**When:** 2026-06-25 · **Fact:** `P-C7VPU7BC`
+**Why:** Provides flexibility in testing; choice is scope (quick/legacy vs. comprehensive/modern), not compatibility
+
+<!-- decision:P-7U47a2QG -->
+
+## Kiro IDE 1.0.52 Agent Hooks v2 Format Verification Gate
+
+**When:** 2026-06-25 · **Fact:** `P-7U47a2QG`
+**Why:** The v2 label indicates format change from v1. Documentation is authoritative; format mismatches could break hook system integration.
+
+<!-- decision:P-NSM4THF5 -->
+
+## Kiro 1.0 Hook Format Discovery via IDE-Generated Files
+
+**When:** 2026-06-25 · **Fact:** `P-NSM4THF5`
+**Why:** Documentation may be incomplete or out of sync with actual implementation. Reading what the tool itself writes is authoritative.
+
+<!-- decision:P-YW3DSPJ3 -->
+
+## Kiro 1.0 v1 Hook Schema and Installation Naming
+
+**When:** 2026-06-25 · **Fact:** `P-YW3DSPJ3`
+**Why:** Live IDE 1.0 gate confirmed v1 schema guesses and caught bug #231 (installer generating wrong filenames). This ground truth will guide all v1 hook generation; backward-compat safety is now proven.
+
+<!-- decision:P-CGX3WDW4 -->
+
+## Gate Project Ready for KHv1-load Validation
+
+**When:** 2026-06-25 · **Fact:** `P-CGX3WDW4`
+**Why:** Confirms fresh `cmk install` produces v1 hooks that IDE auto-loads.
+
+<!-- decision:P-9K72LLAW -->
+
+## Kiro IDE 1.0 Hook v1 Validation Protocol
+
+**When:** 2026-06-25 · **Fact:** `P-9K72LLAW`
+**Why:** Live validation that cmk install output produces working v1 hooks auto-loaded in Kiro IDE (different from migration-script test)
+
+<!-- decision:P-4WHH6D72 -->
+
+## CLI Installation Verification Workflow
+
+**When:** 2026-06-25 · **Fact:** `P-4WHH6D72`
+**Why:** Global CLI must be rebuilt after changes; verification ensures fix is active before testing downstream (Kiro IDE hooks, gate projects)
+
+<!-- decision:P-A52S4L4E -->
+
+## Kiro Caching Behavior & Workaround
+
+**When:** 2026-06-25 · **Fact:** `P-A52S4L4E`
+**Why:** Kiro spawns hook subprocesses, so it caches the *hook definition*, not always the CLI binary. Restart flushes Kiro's internal state.
+
+<!-- decision:P-XESLC4LQ -->
+
+## Kiro IDE Hook Testing — Multi-Step Gate Sequence
+
+**When:** 2026-06-25 · **Fact:** `P-XESLC4LQ`
+**Why:** Hooks may appear installed but not actually execute; fresh folder + systematic verification avoids false passes from stale state
+
+<!-- decision:P-RSXX6JWW -->
+
+## Global Install Auto-Recreates User-Tier Directory
+
+**When:** 2026-06-25 · **Fact:** `P-RSXX6JWW`
+**Why:** Observed during post-rebuild verification; important for test design and cleanup between runs
+
+<!-- decision:P-YZWV75GZ -->
+
+## Memory Tier System: Project-to-Cross-Project Promotion
+
+**When:** 2026-06-25 · **Fact:** `P-YZWV75GZ`
+**Why:** Allows validated workspace facts to surface as standing rules across all future projects.
+
+<!-- decision:P-MZMJWDC6 -->
+
+## PRs #232–#233: Kiro IDE 1.0 Integration Complete
+
+**When:** 2026-06-25 · **Fact:** `P-MZMJWDC6`
+**Why:** IDE 1.0 changed session storage location and introduced a new permission model; these fixes align the kit.
+
+<!-- decision:P-3JNMR9QC -->
+
+## CMK Workspace Rename Invalidates Per-Workspace Permissions Hash
+
+**When:** 2026-06-25 · **Fact:** `P-3JNMR9QC`
+**Why:** Renaming without re-installing silently breaks the permission binding. Re-installing immediately after rename keeps the permissions hash in sync with the folder's absolute path.
+
+<!-- decision:P-5ZSWJRRD -->
+
+## kiro-cli V3 Delete-Guardrail (preToolUse) Known Limitation
+
+**When:** 2026-06-25 · **Fact:** `P-5ZSWJRRD`
+**Why:** Prevents shipping with an uncaught assumption that the guardrail works everywhere. Limitations must be explicit and justified.
+
+<!-- decision:P-EDZEJ3TZ -->
+
+## Kiro v0.4.0 Multi-Surface Trust Mechanism Architecture
+
+**When:** 2026-06-25 · **Fact:** `P-EDZEJ3TZ`
+**Why:** v0.4.0 unifies memory behavior across three implementations. Live testing confirmed they work in isolation without conflicts. An implicit assumption (that kiro-cli would use the same mechanism as Kiro IDE) was caught by testing.
+
+<!-- decision:P-C27GVXL9 -->
+
+## Delete-Guardrail: Memory Protection via preToolUse Hook
+
+**When:** 2026-06-25 · **Fact:** `P-C27GVXL9`
+**Why:** Motivated by D-192 incident — an accidental `rm` after a `cd` deleted a repo's session/transcript memory. The guardrail makes such unintended deletions impossible.
+
+<!-- decision:P-JAP3QEMD -->
+
+## kiro-cli V3 Hook Redesign: Guard Dormant, Fallback Active
+
+**When:** 2026-06-25 · **Fact:** `P-JAP3QEMD`
+**Why:** Kiro CLI V3's hook redesign is a breaking change for the kit's V2-era `preToolUse` approach, but V3's own safety prompts activate as fallback — users remain protected via a different gate.
+
+<!-- decision:P-KWGTaLYN -->
+
+## Frozen Decision Log Philosophy
+
+**When:** 2026-06-25 · **Fact:** `P-KWGTaLYN`
+**Why:** Decision logs and research are records of *thinking at a point in time*; rewriting them erases that history. Inline change notes in operational docs serve future readers without corrupting the audit trail.
+
+<!-- decision:P-7USAABP2 -->
+
+## Multi-Surface Documentation Architecture
+
+**When:** 2026-06-25 · **Fact:** `P-7USAABP2`
+**Why:** The tool supports multiple agents (Claude Code, Kiro IDE, kiro-cli), so docs must span multiple entry points and use cases. Validators prevent drift as the codebase evolves.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
