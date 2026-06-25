@@ -4,7 +4,7 @@ Eight yes/no checks `cmk doctor` runs against the kit installation. Each has a s
 
 | ID | Check | How to verify |
 | --- | --- | --- |
-| HC-1 | Stop + SessionStart hooks registered | `.claude/settings.json` contains `cmk-inject-context` in SessionStart, `cmk-capture-turn` in Stop, `cmk-compress-session` in SessionEnd (structural walk, not substring match) |
+| HC-1 | Stop + SessionStart hooks registered (**agent-aware**, D-185/186) | **Claude Code:** `.claude/settings.json` has `cmk-inject-context` in SessionStart, `cmk-capture-turn` in Stop, `cmk-compress-session` in SessionEnd (structural walk, not substring match). **Kiro:** PASSes if the IDE hooks (`.kiro/hooks/`) OR the CLI agent (`~/.kiro/agents/cmk.json`) are present — a Kiro-IDE-only or kiro-cli-only user reads clean. It's a capability check (is capture/inject wired for *this* agent), not a Claude-only file check. |
 | HC-2 | Daily distill is fresh (≤ 2 days) | `context/sessions/recent.md` mtime is within 2 days of `now` |
 | HC-3 | Transcripts are firing (≤ 3 days) | At least one `context/transcripts/*.md` has mtime within 3 days |
 | HC-4 | INDEX.md matches `context/memory/` | `[PUL]-XXXXXXXX.md` filenames in INDEX = fact files on disk (excluding INDEX itself) |
