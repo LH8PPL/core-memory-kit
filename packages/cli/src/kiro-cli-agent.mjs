@@ -153,9 +153,14 @@ function buildAgentConfig() {
   // inject AND capturePrompt (the <private>-strip + transcript-append half of
   // Claude Code's UserPromptSubmit); kiro-cli's userPromptSubmit stdin carries
   // `prompt`, which capturePrompt reads.
+  // postToolUse (50.N.2) → observe-edit, scoped to the file-write tool with
+  // `matcher: 'fs_write'` (kiro-cli matchers are literal tool names — the runHook
+  // adapter maps fs_write → Write for the shared observeEdit core). Only fires on
+  // a file write, so it's cheap.
   cfg.hooks = {
     agentSpawn: [{ command: kiroHookCommand('agentSpawn'), timeout_ms: 10000 }],
     userPromptSubmit: [{ command: kiroHookCommand('userPromptSubmit'), timeout_ms: 10000 }],
+    postToolUse: [{ command: kiroHookCommand('postToolUse'), timeout_ms: 10000, matcher: 'fs_write' }],
     stop: [{ command: kiroHookCommand('stop'), timeout_ms: 30000 }],
     preToolUse: [{ command: kiroGuardCommand(), timeout_ms: 5000, matcher: '*' }],
   };

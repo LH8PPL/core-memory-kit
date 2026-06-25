@@ -128,6 +128,54 @@ describe('Task 50.J — Kiro hook dispatcher', () => {
       expect(calls[0].payload).toEqual({ assistant_response: 'hi' });
     });
 
+    // 50.N.2 — postToolUse → observe (the file-edit observation leg, matching
+    // Claude Code's PostToolUse → cmk-observe-edit).
+    it('postToolUse → observe (forwards the Kiro payload + projectRoot)', () => {
+      const calls = [];
+      const r = dispatchKiroHook({
+        event: 'postToolUse',
+        payload: { tool_name: 'fs_write', tool_input: { path: '/proj/app.py' } },
+        cwd: '/proj',
+        deps: {
+          inject: () => ({ ok: true, text: '' }),
+          capture: () => {},
+          observe: (args) => { calls.push(args); return { action: 'appended' }; },
+        },
+      });
+      expect(r.action).toBe('observe');
+      expect(r.exitCode).toBe(0);
+      expect(calls[0].projectRoot).toBe('/proj');
+      expect(calls[0].payload.tool_name).toBe('fs_write');
+    });
+
+    it('postToolUse with NO observe dep (older install) → noop, exit 0 (no crash)', () => {
+      const r = dispatchKiroHook({
+        event: 'postToolUse',
+        payload: { tool_name: 'fs_write' },
+        cwd: '/proj',
+        deps: { inject: () => ({ ok: true, text: '' }), capture: () => {} },
+      });
+      expect(r.exitCode).toBe(0);
+      expect(r.action).toBe('noop');
+    });
+
+    it('postToolUse + observe THROWS → exit 0 (best-effort, never wedges the session)', () => {
+      const r = dispatchKiroHook({
+        event: 'postToolUse',
+        payload: { tool_name: 'fs_write' },
+        cwd: '/proj',
+        deps: {
+          inject: () => ({ ok: true, text: '' }),
+          capture: () => {},
+          observe: () => { throw new Error('observe boom'); },
+        },
+      });
+      expect(r.exitCode).toBe(0);
+      // a thrown observe surfaces via the outer catch as action:'error' (exit 0
+      // holds — there's no inject-after-observe to protect on postToolUse).
+      expect(r.action).toBe('error');
+    });
+
     // preToolUse → the memory delete-guardrail (D-192). The ONE event that may
     // exit non-zero: a block → exit 2 (Kiro blocks the tool).
     it('preToolUse + guard says BLOCK → exitCode 2 + reason on stderr', () => {

@@ -55,6 +55,12 @@ describe('Task 50.L — Kiro CLI agent-config + default-agent', () => {
       // stdin carries `prompt`, which the kit's capturePrompt core reads.
       expect(agent.hooks.userPromptSubmit[0].command).toMatch(/cmk hook userPromptSubmit/);
       expect(typeof agent.hooks.userPromptSubmit[0].timeout_ms).toBe('number');
+      // 50.N.2 — postToolUse wired (observe-edit), scoped to the file-write tool.
+      // matcher is the literal kiro-cli tool name `fs_write` (the runHook adapter
+      // maps it → Write for the shared observeEdit core).
+      expect(agent.hooks.postToolUse[0].command).toMatch(/cmk hook postToolUse/);
+      expect(agent.hooks.postToolUse[0].matcher).toBe('fs_write');
+      expect(typeof agent.hooks.postToolUse[0].timeout_ms).toBe('number');
       // preToolUse delete-guardrail matcher is the kiro-cli literal '*' (all tools);
       // kiro-cli matchers are literal strings (D-197), never a pipe-alternation.
       expect(agent.hooks.preToolUse[0].matcher).toBe('*');

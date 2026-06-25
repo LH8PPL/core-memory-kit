@@ -123,7 +123,7 @@ What `--ide kiro` writes:
 | **AGENTS.md** | `<repo>/AGENTS.md` | both — Kiro's always-loaded instruction file |
 | **Skills** | `.kiro/skills/memory-search` + `memory-write` | both |
 | **IDE hooks** | `.kiro/hooks/cmk-{capture,inject}.kiro.hook` | the **GUI** — capture each turn + recall |
-| **CLI agent** | `~/.kiro/agents/cmk.json` + a `chat.defaultAgent` pointer in `~/.kiro/settings/cli.json` | **`kiro-cli`** — `agentSpawn`/`stop` hooks (auto capture+inject) + the `cmk remember`/`cmk search` shell commands for explicit memory (`tools: ['*']` enables them; no MCP, so no console-window popup) |
+| **CLI agent** | `~/.kiro/agents/cmk.json` + a `chat.defaultAgent` pointer in `~/.kiro/settings/cli.json` | **`kiro-cli`** — `agentSpawn`/`stop`/`userPromptSubmit`/`postToolUse` hooks (auto inject + capture + prompt-capture + large-edit observation) + the `cmk remember`/`cmk search` shell commands for explicit memory (`tools: ['*']` enables them; no MCP, so no console-window popup) |
 | **Trusted commands** | `.vscode/settings.json` (`kiroAgent.trustedCommands`) + the CLI agent's `allowedCommands` (`cmk hook *`, `cmk-guard-memory`, `cmk remember`, `cmk search`) | both — auto-approve the kit's commands (no per-turn "Run / Reject") |
 | **Auto-approved MCP tools** | `autoApprove` in `mcp.json` | the **IDE** — the kit's 11 memory tools run without a per-call "Reject / Trust / Run" (kiro-cli uses the shell commands instead) |
 

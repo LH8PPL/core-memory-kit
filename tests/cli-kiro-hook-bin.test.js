@@ -118,6 +118,46 @@ describe('Task 50.J/50.L — runKiroHook adapter', () => {
     expect(cp.payload.prompt).toBe('prompt from env');
   });
 
+  it('postToolUse → maps Kiro fs_write → Write before observe (50.N.2)', () => {
+    let obs = null;
+    runKiroHook({
+      argv: ['postToolUse'],
+      cwd: '/proj',
+      env: {},
+      payload: { tool_name: 'fs_write', tool_input: { path: '/proj/app.py' } },
+      deps: {
+        readKiroTurn: () => ({}),
+        inject: () => ({ ok: true, text: '' }),
+        capture: () => {},
+        observe: (args) => { obs = args; return { action: 'appended' }; },
+      },
+    });
+    expect(obs).not.toBeNull();
+    // the Kiro tool name was mapped to the observeEdit-eligible 'Write'...
+    expect(obs.payload.tool_name).toBe('Write');
+    // ...and the tool_input (with the path) is preserved
+    expect(obs.payload.tool_input.path).toBe('/proj/app.py');
+    expect(obs.projectRoot).toBe('/proj');
+  });
+
+  it('postToolUse → leaves a non-fs_write tool name unmapped (passes through)', () => {
+    let obs = null;
+    runKiroHook({
+      argv: ['postToolUse'],
+      cwd: '/proj',
+      env: {},
+      payload: { tool_name: 'execute_command' },
+      deps: {
+        readKiroTurn: () => ({}),
+        inject: () => ({ ok: true, text: '' }),
+        capture: () => {},
+        observe: (args) => { obs = args; },
+      },
+    });
+    // not a file-write tool → unmapped; observeEdit will noop it (not eligible)
+    expect(obs.payload.tool_name).toBe('execute_command');
+  });
+
   it('agentSpawn event → inject (no transcript read needed)', () => {
     const calls = [];
     const r = runKiroHook({

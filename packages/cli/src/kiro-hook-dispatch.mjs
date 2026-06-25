@@ -49,9 +49,13 @@ const PROMPT_CAPTURE_EVENTS = new Set(['promptSubmit', 'userPromptSubmit']);
 // mechanism the always-exit-0 invariant exists for). The guard exits 2 ONLY on a
 // deliberate block; everything else (incl. a crashed guard via the catch) exits 0.
 const GUARD_EVENTS = new Set(['preToolUse']);
+// 50.N.2 — postToolUse → observe (the file-edit observation leg, matching Claude
+// Code's PostToolUse → cmk-observe-edit). Kiro's file-write tool is `fs_write`
+// (not Write/Edit); the runHook adapter maps the Kiro tool name + reads the path.
+const OBSERVE_EVENTS = new Set(['postToolUse']);
 
 export function dispatchKiroHook({ event, payload = {}, cwd, userDir, deps = {} } = {}) {
-  const { inject, capture, capturePrompt, guard } = deps;
+  const { inject, capture, capturePrompt, observe, guard } = deps;
 
   try {
     if (INJECT_EVENTS.has(event)) {
@@ -74,6 +78,17 @@ export function dispatchKiroHook({ event, payload = {}, cwd, userDir, deps = {} 
       // Kiro adds it to the agent's context (the runCommand→stdout→context path).
       const stdout = r && typeof r.text === 'string' ? r.text : '';
       return { action: 'inject', exitCode: 0, stdout };
+    }
+    if (OBSERVE_EVENTS.has(event)) {
+      // postToolUse → observe (the file-edit observation leg). Best-effort like
+      // capture; a throw must never wedge the tool/session. Older installs (no
+      // observe dep) skip cleanly → noop. The runHook adapter maps Kiro's tool
+      // name (fs_write → Write) before observeEdit's eligibility check.
+      if (typeof observe === 'function') {
+        observe({ payload, projectRoot: cwd, ...(userDir ? { userDir } : {}) });
+        return { action: 'observe', exitCode: 0 };
+      }
+      return { action: 'noop', exitCode: 0 };
     }
     if (CAPTURE_EVENTS.has(event)) {
       capture({ payload, projectRoot: cwd, ...(userDir ? { userDir } : {}) });
