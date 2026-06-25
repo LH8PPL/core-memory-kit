@@ -15,9 +15,13 @@ zero server).
 
 ## Where EverOS is genuinely ahead of the kit
 
-- **Semantic search SHIPPED** — Markdown + SQLite + **LanceDB** (embedding + rerank),
-  live. The kit has this DEFERRED (ADR-0015 / Task 65). They're where we want to be on
-  recall.
+- **Semantic search** — Markdown + SQLite + **LanceDB** (embedding + rerank), live.
+  **CORRECTION: the kit is NOT behind here — Task 65 SHIPPED in v0.3.0** (sqlite-vec +
+  bge-base, hybrid RRF k=60, **R@5 0.941 / paraphrase 1.000**). We both have semantic
+  recall; the difference is mechanism (their LanceDB+cloud-embedder+server vs our
+  sqlite-vec+local-ONNX+no-server). Ours is arguably the better FIT for the kit's
+  no-server thesis. So this is NOT an EverOS advantage — it's architectural parity with
+  a local-first edge.
 - **Reflection / consolidation is more principled** — `ReflectionOrchestrator`:
   **Select → Merge → Re-extract → Deprecate** (clusters memcell-derived episodes,
   merges to one high-quality episode, re-extracts atomic facts, **deprecates originals

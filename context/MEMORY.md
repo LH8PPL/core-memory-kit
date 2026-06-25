@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-UBW47JKA) Maintaining backward compatibility across Kiro IDE versions (0.x → 1.0) is valued in this project design
-  <!-- source: review-promote, source_line: 1, sha1: 2f6bf7aeb0cacdfbfeec22fc6247fa0df3c39536305ac701bba8c4ed41f3f138, write: user-explicit, trust: high, at: 2026-06-25T13:38:46Z -->
 - (P-DXZE3XDY) npm pack and global install of 0.4.0 succeeded; tarball includes all required modules (capture, inject, guard, observe hooks; kiro-ide-hooks.mjs; semantic-backend.mjs; etc.) verified present in output
   <!-- source: review-promote, source_line: 1, sha1: 573cb0f15d9780e37a01f2fe392f518b5cddc9b5eb1a0d2a111e2eb73beafb7f, write: user-explicit, trust: high, at: 2026-06-25T13:38:46Z -->
 - (P-BGAC9PQX) Verifies whether proper tools (cmk kit) vs shortcuts (bash) were used — indicates preference for clean tool usage patterns
@@ -20,6 +18,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: a57506ca84d546dcec9f11206fee1840d466ca501f3329f9bb3ea99cb78f0b96, write: auto-extract, trust: high, at: 2026-06-25T14:34:25Z -->
 - (P-7ZMV7DYS) Requires design decisions to be grounded in research; pushes back on assumptions without source backing.
   <!-- source: auto-extract-session, source_line: 1, sha1: 86dfc0e563537b6a70c3786797ad9fffe87ae515fe58a52a5daf95e76717c38a, write: auto-extract, trust: high, at: 2026-06-25T19:35:41Z -->
+- (P-WA6L3E4M) Learn from EverOS to validate and improve kit architecture across the project.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 7f96a2e52d4bad65574186a28746512223aa83954971436f5b86c91a2002a248, write: auto-extract, trust: high, at: 2026-06-25T19:40:46Z -->
 
 ## Environment Notes
 
