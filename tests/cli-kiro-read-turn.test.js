@@ -12,7 +12,7 @@
 // parseKiroSessionHistory. Returns the latest user+assistant turn text.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readKiroTurn, workspaceKeyForPath } from '../packages/cli/src/kiro-transcript.mjs';
@@ -50,6 +50,31 @@ function seedCliSession(kiroHome, sessionId, { cwd, updatedAt, turns }) {
     },
   };
   writeFileSync(join(cliDir, `${sessionId}.json`), JSON.stringify(session), 'utf8');
+}
+
+// Kiro IDE 1.0 session — the THIRD schema (D-203g). Storage moved to
+// ~/.kiro/sessions/<workspace-hash>/sess_<uuid>/ with a session.json (metadata,
+// incl. workspacePaths) + a messages.jsonl (JSON-Lines, one
+// {id, timestamp, payload:{type, content}} per line; type ∈ user|assistant|…).
+// We match by session.json.workspacePaths (no hash-reversing) + latest mtime.
+function seedIdeV1Session(kiroHome, { hash, sessionId, workspacePath, mtimeMs, turns }) {
+  const sessDir = join(kiroHome, '.kiro', 'sessions', hash, `sess_${sessionId}`);
+  mkdirSync(sessDir, { recursive: true });
+  writeFileSync(
+    join(sessDir, 'session.json'),
+    JSON.stringify({ schemaVersion: '1', id: sessionId, workspacePaths: [workspacePath], status: 'idle' }),
+    'utf8',
+  );
+  // messages.jsonl — one JSON object per line
+  const lines = turns.map((t, i) =>
+    JSON.stringify({ id: `m${i}`, timestamp: `2026-06-25T09:5${i}:00.000Z`, payload: { type: t.type, content: t.content } }),
+  );
+  writeFileSync(join(sessDir, 'messages.jsonl'), lines.join('\n') + '\n', 'utf8');
+  // set mtime so latest-pick is deterministic
+  if (mtimeMs) {
+    const d = new Date(mtimeMs);
+    utimesSync(join(sessDir, 'messages.jsonl'), d, d);
+  }
 }
 
 beforeEach(() => {
@@ -175,5 +200,77 @@ describe('readKiroTurn — kiro-cli fallback (D-199: CLI schema + ~/.kiro/sessio
       env: { CONTINUE_GLOBAL_DIR: globalDir, HOME: sandbox, USERPROFILE: sandbox },
     });
     expect(r.assistantText).toBe('ide answer');
+  });
+});
+
+describe('readKiroTurn — Kiro IDE 1.0 (D-203g: ~/.kiro/sessions/<hash>/sess_*/messages.jsonl)', () => {
+  const IDE_PROJECT = 'C:\\Temp\\kiro-ide10-gate';
+
+  it('reads the latest assistant turn from an IDE 1.0 messages.jsonl matched by workspacePaths', () => {
+    // no CONTINUE_GLOBAL_DIR, no CLI session → must use the IDE-1.0 path.
+    seedIdeV1Session(sandbox, {
+      hash: '161d7a7aa56826cf',
+      sessionId: 's1',
+      workspacePath: IDE_PROJECT,
+      mtimeMs: 2000,
+      turns: [
+        { type: 'user', content: 'Create a FastAPI app' },
+        { type: 'assistant', content: 'Done. app.py has a /health endpoint.' },
+      ],
+    });
+    const r = readKiroTurn({ projectRoot: IDE_PROJECT, env: { HOME: sandbox, USERPROFILE: sandbox } });
+    expect(r.assistantText).toBe('Done. app.py has a /health endpoint.');
+    expect(r.userText).toBe('Create a FastAPI app');
+  });
+
+  it('picks the most-recent IDE 1.0 session for the workspace (by mtime)', () => {
+    seedIdeV1Session(sandbox, { hash: 'h1', sessionId: 'old', workspacePath: IDE_PROJECT, mtimeMs: 1000, turns: [{ type: 'assistant', content: 'old reply' }] });
+    seedIdeV1Session(sandbox, { hash: 'h2', sessionId: 'new', workspacePath: IDE_PROJECT, mtimeMs: 3000, turns: [{ type: 'assistant', content: 'new reply' }] });
+    const r = readKiroTurn({ projectRoot: IDE_PROJECT, env: { HOME: sandbox, USERPROFILE: sandbox } });
+    expect(r.assistantText).toBe('new reply');
+  });
+
+  it('ignores an IDE 1.0 session whose workspacePaths does NOT match (no cross-project leak)', () => {
+    seedIdeV1Session(sandbox, { hash: 'other', sessionId: 's', workspacePath: 'C:\\Temp\\some-other', mtimeMs: 5000, turns: [{ type: 'assistant', content: 'other project' }] });
+    const r = readKiroTurn({ projectRoot: IDE_PROJECT, env: { HOME: sandbox, USERPROFILE: sandbox } });
+    expect(r.assistantText).toBe('');
+  });
+
+  it('skips non-message payload types (tool_call, turn_end, ContextualHookInvoked) → only user/assistant text', () => {
+    seedIdeV1Session(sandbox, {
+      hash: 'h', sessionId: 's', workspacePath: IDE_PROJECT, mtimeMs: 2000,
+      turns: [
+        { type: 'user', content: 'do it' },
+        { type: 'turn_start', content: '' },
+        { type: 'ContextualHookInvoked', content: 'claude-memory-kit: recall' },
+        { type: 'tool_call', content: 'Write app.py' },
+        { type: 'assistant', content: 'the real answer' },
+        { type: 'turn_end', content: '' },
+      ],
+    });
+    const r = readKiroTurn({ projectRoot: IDE_PROJECT, env: { HOME: sandbox, USERPROFILE: sandbox } });
+    expect(r.assistantText).toBe('the real answer'); // not the hook/tool noise
+    expect(r.userText).toBe('do it');
+  });
+
+  it('returns empty (no throw) on a malformed messages.jsonl line', () => {
+    const sessDir = join(sandbox, '.kiro', 'sessions', 'h', 'sess_s');
+    mkdirSync(sessDir, { recursive: true });
+    writeFileSync(join(sessDir, 'session.json'), JSON.stringify({ workspacePaths: [IDE_PROJECT] }), 'utf8');
+    writeFileSync(join(sessDir, 'messages.jsonl'), '{ not json\n{also bad', 'utf8');
+    const r = readKiroTurn({ projectRoot: IDE_PROJECT, env: { HOME: sandbox, USERPROFILE: sandbox } });
+    expect(r.assistantText).toBe('');
+  });
+
+  it('prefers the IDE-0.x globalStorage path when CONTINUE_GLOBAL_DIR is set (1.0 is a fallback)', () => {
+    // a mixed install: both an 0.x globalStorage session AND a 1.0 messages.jsonl.
+    // With CONTINUE_GLOBAL_DIR set + a valid 0.x session, the 0.x path wins.
+    const PROJECT = 'c:\\Projects\\demo';
+    const wsDir = join(globalDir, 'workspace-sessions', workspaceKeyForPath(PROJECT));
+    mkdirSync(wsDir, { recursive: true });
+    writeFileSync(join(wsDir, 'ide.json'), JSON.stringify({ dateCreated: '1000', history: [{ message: { role: 'assistant', content: [{ type: 'text', text: '0.x answer' }] } }] }), 'utf8');
+    seedIdeV1Session(sandbox, { hash: 'h', sessionId: 's', workspacePath: PROJECT, mtimeMs: 9000, turns: [{ type: 'assistant', content: '1.0 answer' }] });
+    const r = readKiroTurn({ projectRoot: PROJECT, env: { CONTINUE_GLOBAL_DIR: globalDir, HOME: sandbox, USERPROFILE: sandbox } });
+    expect(r.assistantText).toBe('0.x answer');
   });
 });

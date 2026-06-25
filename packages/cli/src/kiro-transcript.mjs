@@ -21,9 +21,11 @@
 //   parseKiroCliSession(jsonText) → {assistantText}       (kiro-cli schema, D-199)
 //   readKiroCliTurn({projectRoot, env}) → {userText, assistantText}  (~/.kiro/sessions/cli)
 //   workspaceKeyForPath(workspacePath) → string          (the base64url dir key)
-//   readKiroTurn({projectRoot, env}) → {userText, assistantText}  (IDE, then CLI fallback)
+//   parseKiroIdeV1Messages(jsonlText) → {userText, assistantText}  (IDE 1.0 messages.jsonl)
+//   readKiroIdeV1Turn({projectRoot, env}) → {userText, assistantText}  (~/.kiro/sessions/<hash>/sess_*)
+//   readKiroTurn({projectRoot, env}) → {userText, assistantText}  (IDE-0.x → CLI → IDE-1.0)
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
@@ -141,6 +143,98 @@ export function readKiroCliTurn({ projectRoot, env = process.env } = {}) {
   }
 }
 
+/**
+ * Parse a Kiro IDE 1.0 messages.jsonl (D-203g) into the latest user + assistant
+ * text. IDE 1.0 moved session storage to ~/.kiro/sessions/<hash>/sess_<uuid>/ —
+ * a JSON-Lines `messages.jsonl`: one `{id, timestamp, payload:{type, content}}` per
+ * line; `payload.type ∈ {user, assistant, tool_call, tool_result, turn_start/end,
+ * ContextualHookInvoked, …}`; `payload.content` is the message text (string) for
+ * user/assistant. We take the LAST user + LAST assistant content. Primary-source
+ * verified on a real IDE-1.0 session.
+ * @param {string} jsonlText raw contents of a messages.jsonl
+ * @returns {{userText:string, assistantText:string}}
+ */
+export function parseKiroIdeV1Messages(jsonlText) {
+  const empty = { userText: '', assistantText: '' };
+  if (typeof jsonlText !== 'string') return empty;
+  let userText = '';
+  let assistantText = '';
+  for (const line of jsonlText.split('\n')) {
+    if (line.trim() === '') continue;
+    let msg;
+    try {
+      msg = JSON.parse(line);
+    } catch {
+      continue; // a malformed line never crashes the whole read
+    }
+    const type = msg?.payload?.type;
+    const content = msg?.payload?.content;
+    if (typeof content !== 'string' || content === '') continue;
+    if (type === 'user') userText = content; // keep the LAST one
+    else if (type === 'assistant') assistantText = content;
+  }
+  return { userText, assistantText };
+}
+
+/**
+ * Read the latest turn from a Kiro IDE 1.0 session (D-203g). Scans
+ * ~/.kiro/sessions/<workspace-hash>/sess_<uuid>/, matching session.json's
+ * `workspacePaths` to projectRoot (no hash-reversing), picking the most-recently-
+ * modified messages.jsonl. Pure + defensive (a capture hook must never crash).
+ * @param {{projectRoot:string, env?:object}} args
+ * @returns {{userText:string, assistantText:string}}
+ */
+export function readKiroIdeV1Turn({ projectRoot, env = process.env } = {}) {
+  const empty = { userText: '', assistantText: '' };
+  try {
+    if (!projectRoot) return empty;
+    const home = env.USERPROFILE || env.HOME || homedir();
+    const sessionsRoot = join(home, '.kiro', 'sessions');
+    if (!existsSync(sessionsRoot)) return empty;
+
+    const norm = (p) => p.replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase();
+    const want = norm(projectRoot);
+
+    // walk <hash>/sess_*/ dirs; match by session.json.workspacePaths; pick latest
+    // messages.jsonl by mtime.
+    let best = null; // [mtimeMs, messagesPath]
+    for (const hash of readdirSync(sessionsRoot)) {
+      const hashDir = join(sessionsRoot, hash);
+      let sessDirs;
+      try {
+        sessDirs = readdirSync(hashDir).filter((d) => d.startsWith('sess_'));
+      } catch {
+        continue; // not a dir (e.g. the kiro-cli `cli/` sibling holds *.json files)
+      }
+      for (const sd of sessDirs) {
+        const dir = join(hashDir, sd);
+        const metaPath = join(dir, 'session.json');
+        const msgPath = join(dir, 'messages.jsonl');
+        if (!existsSync(metaPath) || !existsSync(msgPath)) continue;
+        let meta;
+        try {
+          meta = JSON.parse(readFileSync(metaPath, 'utf8'));
+        } catch {
+          continue;
+        }
+        const paths = Array.isArray(meta?.workspacePaths) ? meta.workspacePaths : [];
+        if (!paths.some((p) => typeof p === 'string' && norm(p) === want)) continue;
+        let mtimeMs = 0;
+        try {
+          mtimeMs = statSync(msgPath).mtimeMs;
+        } catch {
+          /* keep 0 */
+        }
+        if (best === null || mtimeMs > best[0]) best = [mtimeMs, msgPath];
+      }
+    }
+    if (!best) return empty;
+    return parseKiroIdeV1Messages(readFileSync(best[1], 'utf8'));
+  } catch {
+    return empty;
+  }
+}
+
 // Join the text of all text-type content parts; ignore tool/other blocks.
 // Kiro's content is always an array of typed parts (verified on a real install);
 // a non-array is treated as "no text" rather than guessed at.
@@ -183,20 +277,29 @@ export function workspaceKeyForPath(workspacePath) {
  * @param {{projectRoot:string, env?:object}} args
  * @returns {{userText:string, assistantText:string}}
  */
+// The non-(IDE-0.x) fallback chain: kiro-CLI (~/.kiro/sessions/cli, D-199) → IDE
+// 1.0 (~/.kiro/sessions/<hash>/sess_*/messages.jsonl, D-203g). Tried when the
+// legacy IDE-0.x globalStorage path yields nothing. Returns the first non-empty.
+function readKiroFallbackTurn({ projectRoot, env }) {
+  const cli = readKiroCliTurn({ projectRoot, env });
+  if (cli.assistantText || cli.userText) return cli;
+  return readKiroIdeV1Turn({ projectRoot, env });
+}
+
 export function readKiroTurn({ projectRoot, env = process.env } = {}) {
   const empty = { userText: '', assistantText: '' };
   try {
     const globalDir = env.CONTINUE_GLOBAL_DIR;
-    // No IDE globalStorage (the CLI never sets CONTINUE_GLOBAL_DIR) → the kiro-CLI
-    // path: ~/.kiro/sessions/cli/<uuid>.json, a DIFFERENT schema (D-199). The IDE
-    // path stays the primary; the CLI is the fallback so the IDE is unaffected.
-    if (!globalDir || !projectRoot) return readKiroCliTurn({ projectRoot, env });
+    // No IDE-0.x globalStorage (the CLI/IDE-1.0 don't set CONTINUE_GLOBAL_DIR) →
+    // the fallback chain (kiro-CLI then IDE-1.0). The legacy IDE-0.x path stays
+    // PRIMARY when its env+dir are present, so an 0.x user is unaffected.
+    if (!globalDir || !projectRoot) return readKiroFallbackTurn({ projectRoot, env });
     const wsDir = join(globalDir, 'workspace-sessions', workspaceKeyForPath(projectRoot));
-    if (!existsSync(wsDir)) return readKiroCliTurn({ projectRoot, env });
+    if (!existsSync(wsDir)) return readKiroFallbackTurn({ projectRoot, env });
 
     // pick the most-recent session file (by dateCreated in the JSON, else mtime).
     const files = readdirSync(wsDir).filter((f) => f.endsWith('.json') && f !== 'sessions.json');
-    if (files.length === 0) return readKiroCliTurn({ projectRoot, env });
+    if (files.length === 0) return readKiroFallbackTurn({ projectRoot, env });
 
     // Sort files for a DETERMINISTIC pick (review M2): primary by dateCreated
     // (desc), secondary by filename (desc) so an equal-stamp tie isn't decided by
@@ -216,14 +319,14 @@ export function readKiroTurn({ projectRoot, env = process.env } = {}) {
         best = json;
       }
     }
-    if (!best || !Array.isArray(best.history)) return readKiroCliTurn({ projectRoot, env });
+    if (!best || !Array.isArray(best.history)) return readKiroFallbackTurn({ projectRoot, env });
 
     const turns = parseKiroSessionHistory(JSON.stringify(best));
     const lastUser = [...turns].reverse().find((t) => t.role === 'user');
     const lastAssistant = [...turns].reverse().find((t) => t.role === 'assistant');
-    // IDE session present but no assistant text → fall back to the CLI path (a
-    // mixed install where the same project was used from both surfaces).
-    if (!lastAssistant?.text && !lastUser?.text) return readKiroCliTurn({ projectRoot, env });
+    // IDE-0.x session present but no text → fall through (a mixed install where the
+    // same project was used from another surface).
+    if (!lastAssistant?.text && !lastUser?.text) return readKiroFallbackTurn({ projectRoot, env });
     return {
       userText: lastUser?.text || '',
       assistantText: lastAssistant?.text || '',
