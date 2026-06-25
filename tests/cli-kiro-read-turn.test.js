@@ -132,6 +132,38 @@ describe('readKiroTurn — kiro-cli fallback (D-199: CLI schema + ~/.kiro/sessio
     expect(r.assistantText).toBe('');
   });
 
+  it('matches a session whose cwd differs only in drive-letter case / trailing slash', () => {
+    // norm() lowercases + strips a trailing slash, so c:\Temp\proj\ ≡ C:\Temp\proj
+    seedCliSession(sandbox, 's', { cwd: 'c:\\Temp\\kiro-cli-cutgate\\', updatedAt: '2026-06-24T20:00:00.000Z', turns: ['matched despite case+slash'] });
+    const r = readKiroTurn({ projectRoot: 'C:\\Temp\\kiro-cli-cutgate', env: { HOME: sandbox, USERPROFILE: sandbox } });
+    expect(r.assistantText).toBe('matched despite case+slash');
+  });
+
+  it('picks by parsed timestamp, robust to ISO precision drift (ms vs nanosecond)', () => {
+    // lexical compare could mis-order mixed precision; Date.parse normalizes both.
+    seedCliSession(sandbox, 'older-longprecision', { cwd: CLI_PROJECT, updatedAt: '2026-06-24T20:00:00.100000000Z', turns: ['older'] });
+    seedCliSession(sandbox, 'newer-msprecision', { cwd: CLI_PROJECT, updatedAt: '2026-06-24T20:00:00.200Z', turns: ['newer'] });
+    const r = readKiroTurn({ projectRoot: CLI_PROJECT, env: { HOME: sandbox, USERPROFILE: sandbox } });
+    expect(r.assistantText).toBe('newer'); // .200 > .100 even though ".200Z" < ".100000000Z" lexically
+  });
+
+  it('returns empty when the latest turn is an Err result (no assistant text)', () => {
+    // parseKiroCliSession reads the LAST turn's result.Ok.content; an Err last
+    // turn (aborted/failed) yields no assistant text — documented contract.
+    const cliDir = join(sandbox, '.kiro', 'sessions', 'cli');
+    mkdirSync(cliDir, { recursive: true });
+    const session = {
+      cwd: CLI_PROJECT,
+      updated_at: '2026-06-24T20:00:00.000Z',
+      session_state: { conversation_metadata: { user_turn_metadatas: [
+        { result: { Err: { reason: 'aborted' } } },
+      ] } },
+    };
+    writeFileSync(join(cliDir, 'err.json'), JSON.stringify(session), 'utf8');
+    const r = readKiroTurn({ projectRoot: CLI_PROJECT, env: { HOME: sandbox, USERPROFILE: sandbox } });
+    expect(r.assistantText).toBe('');
+  });
+
   it('prefers the IDE path when CONTINUE_GLOBAL_DIR IS set (IDE unaffected by the CLI fallback)', () => {
     // Seed BOTH an IDE session (for PROJECT) and a CLI session (for the same path);
     // with CONTINUE_GLOBAL_DIR set, the IDE path wins — the CLI fallback only fires

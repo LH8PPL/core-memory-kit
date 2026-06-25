@@ -103,14 +103,18 @@ export function readKiroCliTurn({ projectRoot, env = process.env } = {}) {
     if (!existsSync(cliDir)) return empty;
 
     // Compare cwd by NORMALIZED separators + case, NOT path.resolve(): both
-    // projectRoot and json.cwd are already absolute (the hook's cwd and the
-    // session's recorded cwd from the same machine). resolve() would re-root a
-    // value against the current cwd if it ever looked relative — a real hazard.
+    // projectRoot and json.cwd are already absolute, same-machine, same-form
+    // paths (the hook's cwd and the session's recorded cwd). resolve() would
+    // re-root a value against the current cwd if it ever looked relative — a real
+    // hazard. ASSUMPTION: both sides are absolute drive-letter or matching-form
+    // paths; an extended-length (\\?\) or `~` form on one side only won't match
+    // (a missed match → empty capture, never a crash). Full-string equality, not
+    // a prefix test — so `C:\Temp\proj` and `C:\Temp\proj-2` correctly differ.
     const norm = (p) => p.replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase();
     const want = norm(projectRoot);
     const files = readdirSync(cliDir).filter((f) => f.endsWith('.json'));
     let best = null;
-    let bestStamp = null; // [updated_at string, filename] for a deterministic tie-break
+    let bestStamp = null; // [epochMs, filename] for a deterministic tie-break
     for (const f of files) {
       let json;
       try {
@@ -119,7 +123,11 @@ export function readKiroCliTurn({ projectRoot, env = process.env } = {}) {
         continue;
       }
       if (!json?.cwd || norm(json.cwd) !== want) continue;
-      const stamp = [String(json.updated_at ?? ''), f];
+      // Parse updated_at to epoch ms for a numeric compare — robust to ISO
+      // precision/offset drift (a future kiro-cli format change won't silently
+      // mis-order). Unparseable → 0, so the filename tie-break still orders it.
+      const epoch = Date.parse(json.updated_at) || 0;
+      const stamp = [epoch, f];
       if (bestStamp === null || stamp[0] > bestStamp[0] || (stamp[0] === bestStamp[0] && stamp[1] > bestStamp[1])) {
         bestStamp = stamp;
         best = json;
