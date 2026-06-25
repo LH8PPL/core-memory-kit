@@ -18,6 +18,8 @@
   <!-- source: review-promote, source_line: 1, sha1: 573cb0f15d9780e37a01f2fe392f518b5cddc9b5eb1a0d2a111e2eb73beafb7f, write: user-explicit, trust: high, at: 2026-06-25T13:38:46Z -->
 - (P-BGAC9PQX) Verifies whether proper tools (cmk kit) vs shortcuts (bash) were used — indicates preference for clean tool usage patterns
   <!-- source: review-promote, source_line: 1, sha1: bfa911fe9de591250b44994f6843e23eed66b6b2584f6fcef32f3fa22ffea7ef, write: user-explicit, trust: high, at: 2026-06-25T13:38:47Z -->
+- (P-DGBPG6PG) Questioned whether fix is truly automatic and requires no user intervention.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 290e87ba375b5e4c50f0c38bb663b9e853ace3f19fc3b5c92bc4dd36dfbc1521, write: auto-extract, trust: high, at: 2026-06-25T13:53:52Z -->
 
 ## Environment Notes
 
