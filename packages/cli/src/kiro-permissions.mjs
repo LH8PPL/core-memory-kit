@@ -30,7 +30,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import yaml from 'js-yaml';
 
@@ -43,29 +43,56 @@ const MCP_MATCH = MCP_AUTO_APPROVE.map((t) => `claude-memory-kit/${t}`);
 const SHELL_MATCH = Object.freeze(['cmd.exe /c cmk hook *', 'cmd.exe /c cmk-guard-memory*']);
 const SKILL_MATCH = Object.freeze(['memory-write', 'memory-search']);
 
-/** The kit's three trust rules (the canonical D-203h shape). */
-function ourRules() {
-  return [
-    { capability: 'shell', match: [...SHELL_MATCH], effect: 'allow' },
-    { capability: 'mcp', match: [...MCP_MATCH], effect: 'allow' },
-    { capability: 'skill', match: [...SKILL_MATCH], effect: 'allow' },
-  ];
+// The kit's owned MATCH ENTRIES, per capability+effect. Ownership is PER-ENTRY
+// (not per-rule): Kiro stores ONE rule per (capability, effect) with a combined
+// `match` array, so a user can co-locate their own match in the SAME rule as ours.
+// We add/remove only OUR entries and never drop a co-located user entry (the
+// over-mutation discipline — mirrors kiro-trusted-commands.mjs's per-entry filter,
+// skill-review B1).
+const OUR_MATCHES = Object.freeze({
+  shell: SHELL_MATCH,
+  mcp: MCP_MATCH,
+  skill: SKILL_MATCH,
+});
+function isOurMatch(capability, entry) {
+  const owned = OUR_MATCHES[capability];
+  return Array.isArray(owned) && owned.includes(entry);
 }
 
-// A rule is "ours" if its capability+match line up with the kit's tokens. Keyed
-// loosely (capability + any of our signature match entries) so a user's unrelated
-// shell/mcp/skill rule is NOT mistaken for ours.
-const OUR_SIGNATURES = Object.freeze({
-  shell: 'cmk hook',
-  mcp: 'claude-memory-kit/mk_remember',
-  skill: 'memory-write',
-});
-function isOurRule(rule) {
-  if (!rule || typeof rule.capability !== 'string') return false;
-  const sig = OUR_SIGNATURES[rule.capability];
-  if (!sig) return false;
-  const match = Array.isArray(rule.match) ? rule.match : [];
-  return match.some((m) => typeof m === 'string' && m.includes(sig));
+// Merge our match entries into an existing rules array, PER-ENTRY + PER-(capability,
+// effect:allow) rule. Preserves the user's rules + their co-located match entries;
+// adds only the missing OUR entries; keeps rule order stable (in-place, no float).
+function withOurRules(existing) {
+  // clone so we never mutate the parsed input
+  const rules = existing.map((r) => ({ ...r, match: Array.isArray(r.match) ? [...r.match] : r.match }));
+  for (const [capability, owned] of Object.entries(OUR_MATCHES)) {
+    // find the existing allow-rule for this capability (Kiro's convention: one per cap)
+    let rule = rules.find((r) => r && r.capability === capability && r.effect === 'allow' && Array.isArray(r.match));
+    if (!rule) {
+      rule = { capability, match: [], effect: 'allow' };
+      rules.push(rule);
+    }
+    for (const m of owned) if (!rule.match.includes(m)) rule.match.push(m);
+  }
+  return rules;
+}
+
+// Remove our match entries PER-ENTRY; drop a rule only if its match becomes empty
+// AND it was an allow-rule for a capability we own (never delete a user's rule).
+function withoutOurRules(existing) {
+  const out = [];
+  let changed = false;
+  for (const r of existing) {
+    if (!r || r.capability == null || r.effect !== 'allow' || !Array.isArray(r.match) || !OUR_MATCHES[r.capability]) {
+      out.push(r); // not a rule we touch
+      continue;
+    }
+    const kept = r.match.filter((m) => !isOurMatch(r.capability, m));
+    if (kept.length !== r.match.length) changed = true;
+    if (kept.length > 0) out.push({ ...r, match: kept }); // user entries survive
+    // else: the rule was ours-only → drop it
+  }
+  return { rules: out, changed };
 }
 
 /**
@@ -73,7 +100,17 @@ function isOurRule(rule) {
  * sha256(forward-slash + no-trailing-slash + lowercase).slice(0,16). (D-203h)
  */
 export function kiroWorkspaceHash(projectRoot) {
-  const norm = String(projectRoot).replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+  // resolve() a RELATIVE input to absolute (defense — Kiro keys on the absolute
+  // workspace root; a relative path would hash to a dir Kiro never reads, review
+  // M1). An ALREADY-absolute path (drive-letter `C:\…` or POSIX `/…`) is passed
+  // through verbatim — so a Windows path stays correct even when this runs on a
+  // POSIX CI (resolve() there would wrongly prepend cwd to `c:/…`). NOTE: only
+  // ordinary drive-letter paths are ground-truth-verified (D-203h); UNC/extended-
+  // length are untested.
+  const p = String(projectRoot);
+  const isAbsolute = /^[a-zA-Z]:[\\/]/.test(p) || /^[\\/]/.test(p);
+  const abs = isAbsolute ? p : resolve(p);
+  const norm = abs.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
   return createHash('sha256').update(norm).digest('hex').slice(0, 16);
 }
 
@@ -82,16 +119,20 @@ function permissionsPath(projectRoot, env) {
   return join(home, '.kiro', 'workspace-roots', kiroWorkspaceHash(projectRoot), 'permissions.yaml');
 }
 
-// Parse an existing permissions.yaml → its rules array (defensive: a missing/
-// malformed file yields []). Returns { rules, raw } so install can detect change.
+// Parse an existing permissions.yaml → its rules array. A missing file → []. A
+// MALFORMED file → { malformed: true } so the caller REFUSES to overwrite it
+// (mirrors kiro-trusted-commands' don't-clobber-a-corrupt-file posture, review
+// M3 — this writes to the user's HOME; never destroy content we couldn't parse).
 function readRules(path) {
   if (!existsSync(path)) return { rules: [], existed: false };
   let parsed;
   try {
     parsed = yaml.load(readFileSync(path, 'utf8'));
   } catch {
-    return { rules: [], existed: true }; // unreadable → treat as no rules (don't clobber-crash)
+    return { rules: [], existed: true, malformed: true };
   }
+  // a parse that yields a non-object (e.g. a stray scalar) is also unsafe to clobber.
+  if (parsed != null && typeof parsed !== 'object') return { rules: [], existed: true, malformed: true };
   const rules = parsed && Array.isArray(parsed.rules) ? parsed.rules : [];
   return { rules, existed: true };
 }
@@ -105,10 +146,9 @@ function serialize(rules) {
 export function installKiroPermissions({ projectRoot, env = process.env } = {}) {
   if (!projectRoot) throw new Error('installKiroPermissions: projectRoot is required');
   const path = permissionsPath(projectRoot, env);
-  const { rules: existing } = readRules(path);
-  // keep the user's rules (drop any prior copy of ours so we re-add the current set)
-  const userRules = existing.filter((r) => !isOurRule(r));
-  const merged = [...userRules, ...ourRules()];
+  const { rules: existing, malformed } = readRules(path);
+  if (malformed) return { action: 'skipped', changed: false, path, reason: 'malformed-permissions-yaml' };
+  const merged = withOurRules(existing); // per-entry merge — preserves order + user entries
   const serialized = serialize(merged);
 
   const prior = existsSync(path) ? readFileSync(path, 'utf8') : null;
@@ -126,10 +166,10 @@ export function uninstallKiroPermissions({ projectRoot, env = process.env } = {}
   const path = permissionsPath(projectRoot, env);
   if (!existsSync(path)) return { action: 'uninstalled', changed: false };
   const { rules: existing } = readRules(path);
-  const userRules = existing.filter((r) => !isOurRule(r));
-  if (userRules.length === existing.length) return { action: 'uninstalled', changed: false }; // none of ours
-  // preserve the user's rules; write back without ours (never delete the file —
-  // it may hold the user's own + Kiro's migration data).
-  writeFileSync(path, serialize(userRules), 'utf8');
+  const { rules: kept, changed: removed } = withoutOurRules(existing); // per-entry removal
+  if (!removed) return { action: 'uninstalled', changed: false }; // none of ours present
+  // preserve the user's rules + co-located entries; write back without ours (never
+  // delete the file — it may hold the user's own + Kiro's migration data).
+  writeFileSync(path, serialize(kept), 'utf8');
   return { action: 'uninstalled', changed: true };
 }

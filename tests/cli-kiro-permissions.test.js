@@ -93,7 +93,7 @@ describe('installKiroPermissions — writes the IDE 1.0 trust store (50.N.5)', (
     expect(y).toMatch(/memory-write/); // ours added
   });
 
-  it('uninstall removes ONLY the kit\'s rules; a user rule survives (over-mutation guard)', () => {
+  it('uninstall removes ONLY the kit\'s rules; a SEPARATE user rule survives (over-mutation guard)', () => {
     const p = permsPath();
     mkdirSync(join(p, '..'), { recursive: true });
     writeFileSync(p, 'rules:\n  - capability: shell\n    match:\n      - my-own-tool *\n    effect: allow\n', 'utf8');
@@ -104,14 +104,55 @@ describe('installKiroPermissions — writes the IDE 1.0 trust store (50.N.5)', (
     expect(y).not.toMatch(/memory-write/); // ours removed
   });
 
-  it('the output matches Kiro IDE 1.0\'s real format (rules → shell, mcp, skill; effect: allow)', () => {
+  // review B1/I4 — the critical over-mutation case: a user entry CO-LOCATED in the
+  // SAME (capability, effect:allow) rule as ours. Kiro stores one rule per
+  // capability, so a user granting trust to their own skill APPENDS to our skill
+  // rule. Uninstall must remove ONLY our match entries, never the user's.
+  it('uninstall preserves a user match entry CO-LOCATED in our skill rule (B1)', () => {
+    const p = permsPath();
+    mkdirSync(join(p, '..'), { recursive: true });
+    // a skill rule holding BOTH ours (memory-write) AND the user's (their-skill)
+    writeFileSync(p, 'rules:\n  - capability: skill\n    match:\n      - memory-write\n      - their-skill\n    effect: allow\n', 'utf8');
+    installKiroPermissions({ projectRoot, env: { USERPROFILE: kiroHome } });
+    uninstallKiroPermissions({ projectRoot, env: { USERPROFILE: kiroHome } });
+    const y = existsSync(p) ? readFileSync(p, 'utf8') : '';
+    expect(y).toMatch(/their-skill/);       // the user's co-located skill SURVIVES
+    expect(y).not.toMatch(/memory-write/);  // ours removed
+    expect(y).not.toMatch(/memory-search/);
+  });
+
+  it('install MERGES into an existing same-capability rule (no duplicate rule, user entry kept)', () => {
+    const p = permsPath();
+    mkdirSync(join(p, '..'), { recursive: true });
+    writeFileSync(p, 'rules:\n  - capability: skill\n    match:\n      - their-skill\n    effect: allow\n', 'utf8');
+    installKiroPermissions({ projectRoot, env: { USERPROFILE: kiroHome } });
+    const parsed = yaml.load(readFileSync(p, 'utf8'));
+    const skillRules = parsed.rules.filter((r) => r.capability === 'skill');
+    expect(skillRules).toHaveLength(1); // merged into ONE rule, not duplicated
+    expect(skillRules[0].match).toContain('their-skill'); // user entry kept
+    expect(skillRules[0].match).toContain('memory-write'); // ours added
+  });
+
+  it('REFUSES to overwrite a malformed permissions.yaml (M3 — never destroy unparseable content)', () => {
+    const p = permsPath();
+    mkdirSync(join(p, '..'), { recursive: true });
+    writeFileSync(p, 'this: is: not: valid: yaml: [unclosed', 'utf8');
+    const before = readFileSync(p, 'utf8');
+    const r = installKiroPermissions({ projectRoot, env: { USERPROFILE: kiroHome } });
+    expect(r.action).toBe('skipped');
+    expect(readFileSync(p, 'utf8')).toBe(before); // untouched
+  });
+
+  it('the output matches Kiro IDE 1.0\'s real format (the 3 capabilities present, effect: allow, 11 mcp tools)', () => {
     installKiroPermissions({ projectRoot, env: { USERPROFILE: kiroHome } });
     const parsed = yaml.load(readFileSync(permsPath(), 'utf8'));
     expect(Array.isArray(parsed.rules)).toBe(true);
-    const caps = parsed.rules.map((r) => r.capability);
-    expect(caps).toEqual(['shell', 'mcp', 'skill']); // the exact order Kiro wrote
-    expect(parsed.rules.every((r) => r.effect === 'allow')).toBe(true);
-    expect(parsed.rules.find((r) => r.capability === 'mcp').match).toHaveLength(11); // all 11 tools
+    const byCap = (c) => parsed.rules.find((r) => r.capability === c && r.effect === 'allow');
+    expect(byCap('shell')).toBeTruthy();
+    expect(byCap('mcp')).toBeTruthy();
+    expect(byCap('skill')).toBeTruthy();
+    expect(byCap('mcp').match).toHaveLength(11); // all 11 tools
+    expect(byCap('skill').match).toEqual(expect.arrayContaining(['memory-write', 'memory-search']));
   });
 });
 
