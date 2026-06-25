@@ -118,6 +118,53 @@ describe('Task 50.J/50.L — runKiroHook adapter', () => {
     expect(cp.payload.prompt).toBe('prompt from env');
   });
 
+  it('runHook postToolUse → reads the stdin payload via deps.readStdin + forwards it to observe', () => {
+    // exercises runHook's REAL stdin-read branch (the production path), injecting
+    // deps.readStdin so no actual fd 0 is touched. Covers the JSON-parse branch.
+    let obs = null;
+    runHook('postToolUse', {}, undefined, {
+      cwd: '/proj',
+      env: {},
+      // do NOT inject deps.payload — force the readStdin branch
+      readStdin: () => JSON.stringify({ tool_name: 'fs_write', tool_input: { path: 'x.py' } }),
+      observe: (args) => { obs = args; return { action: 'appended' }; },
+      log: () => {},
+      logError: () => {},
+    });
+    expect(obs).not.toBeNull();
+    expect(obs.payload.tool_name).toBe('Write'); // read from stdin → mapped
+    expect(obs.payload.tool_input.path).toBe('x.py');
+  });
+
+  it('runHook postToolUse → malformed stdin JSON degrades to {} (no crash)', () => {
+    // covers the catch branch of the stdin parse — a bad payload must not throw.
+    let called = false;
+    runHook('postToolUse', {}, undefined, {
+      cwd: '/proj',
+      env: {},
+      readStdin: () => '{ not json',
+      observe: () => { called = true; return { action: 'noop' }; },
+      log: () => {},
+      logError: () => {},
+    });
+    // observe still runs (with an empty-ish payload); no throw escaped.
+    expect(called).toBe(true);
+  });
+
+  it('runHook postToolUse → empty stdin yields {} payload (no read error)', () => {
+    let obs = null;
+    runHook('postToolUse', {}, undefined, {
+      cwd: '/proj',
+      env: {},
+      readStdin: () => '',
+      observe: (args) => { obs = args; },
+      log: () => {},
+      logError: () => {},
+    });
+    // empty stdin → {} payload; the bin's tool-name map leaves tool_name undefined
+    expect(obs.payload.tool_name).toBeUndefined();
+  });
+
   it('postToolUse → maps Kiro fs_write → Write before observe (50.N.2)', () => {
     let obs = null;
     runKiroHook({
