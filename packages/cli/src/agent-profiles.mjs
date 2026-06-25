@@ -47,8 +47,13 @@ const claudeCode = defineAgentProfile({
 
 // ── Kiro (Task 50.E) ─────────────────────────────────────────────────────────
 // Primary-verified against kiro.dev + a real install (D-180). VS Code fork.
-// Target the CLI agent-hook surface (agentSpawn/stop in .kiro/agents/<name>.json),
-// NOT the IDE Agent-Hooks surface.
+// Kiro wires BOTH hook surfaces (Task 50.N — full Claude-Code parity):
+//   • CLI agent-config (.kiro/agents/cmk.json "hooks") — the eventMap below;
+//   • IDE Agent-Hooks (.kiro/hooks/*.json v1 + legacy .kiro.hook) — kiro-ide-hooks.mjs.
+// Both drive the SAME `cmk hook <event>` dispatcher → the same inject/capture/
+// observe/guard cores; only the per-surface trigger names differ (CLI camelCase
+// vs IDE v1 PascalCase). All four legs (inject/capture/observe-edit/delete-guard)
+// are wired on both surfaces as of 50.N.1–50.N.3.
 const kiro = defineAgentProfile({
   name: 'kiro',
   displayName: 'Kiro',
@@ -58,8 +63,12 @@ const kiro = defineAgentProfile({
   instructionFile: '.kiro/steering/claude-memory-kit.md',
   mcp: { path: '.kiro/settings/mcp.json', serversKey: 'mcpServers' },
   hooks: {
-    mechanism: 'agent-config-json', // .kiro/agents/<name>.json "hooks" object
+    mechanism: 'agent-config-json', // .kiro/agents/<name>.json "hooks" object (CLI)
     path: '.kiro/agents/cmk.json',
+    // The CLI agent-config trigger names. The IDE v1 surface uses PascalCase
+    // equivalents (UserPromptSubmit/Stop/PostToolUse/PreToolUse) — see
+    // kiro-ide-hooks.mjs. postEdit→postToolUse + the delete-guard (preToolUse)
+    // are both wired (50.N.2/50.N.3).
     eventMap: {
       sessionStart: 'agentSpawn',
       promptSubmit: 'userPromptSubmit',
@@ -67,8 +76,13 @@ const kiro = defineAgentProfile({
       turnEnd: 'stop',
     },
   },
-  // Per-session JSON under globalStorage, keyed by base64url(workspacePath).
-  // (Path is the VS-Code-fork globalStorage; resolved at capture time.)
+  // Transcript — TWO schemas (D-200), resolved at capture time by readKiroTurn:
+  //   • IDE: per-session JSON under globalStorage, base64url(workspacePath), a
+  //     `history[]` array (the dir/key/parse below);
+  //   • kiro-CLI: ~/.kiro/sessions/cli/<uuid>.json, matched by `cwd`, a
+  //     `session_state.conversation_metadata.user_turn_metadatas[]` shape (the
+  //     fallback path — readKiroCliTurn). The fields here describe the IDE shape;
+  //     the CLI shape is handled by the readKiroTurn fallback, not a profile field.
   transcript: {
     dir: 'globalStorage/kiro.kiroagent/workspace-sessions',
     workspaceKey: 'base64url',
