@@ -22,6 +22,7 @@ import { readKiroTurn } from './kiro-transcript.mjs';
 import { injectContext } from './inject-context.mjs';
 import { captureTurn } from './capture-turn.mjs';
 import { capturePrompt } from './capture-prompt.mjs';
+import { observeEdit } from './observe-edit.mjs';
 import { decideGuard } from './guard-memory.mjs';
 import { removeClaudeMdBlock } from './claude-md.mjs';
 import { reindex as reindexAction } from './reindex.mjs';
@@ -441,14 +442,32 @@ export function kiroToolCommand(payload, _cwd) {
 export function runHook(event, _options = {}, _command, deps = {}) {
   const log = deps.log ?? ((s) => process.stdout.write(s));
   const logError = deps.logError ?? ((s) => process.stderr.write(`${s}\n`));
-  // 50.N.1 — the Kiro hook payload. Per the kit's probe-verified contract
-  // (kiro-hook-bin.mjs): Kiro's `runCommand` feeds input via argv + env
-  // (USER_PROMPT) + cwd + transcript, NOT a stdin JSON payload. So runHook does
-  // NOT blocking-read fd 0 — a dangling-open stdin from a `runCommand` subprocess
-  // would hang the hook to its timeout (B1, the skill-review catch). The prompt
-  // text reaches capturePrompt via env USER_PROMPT (the bin's wrappedCapturePrompt
-  // fallback). Tests inject `deps.payload` directly. Default → {}.
-  const payload = deps.payload ?? {};
+  // The Kiro hook payload. Most events (agentSpawn/promptSubmit/stop/preToolUse)
+  // get their input from argv + env (USER_PROMPT) + cwd + transcript, NOT stdin —
+  // and runHook must NOT blocking-read fd 0 for them (a dangling-open `runCommand`
+  // stdin would hang the hook to its timeout — B1, the skill-review catch).
+  //
+  // postToolUse (50.N.2) is the ONE event whose data (tool_name/tool_input/
+  // tool_response) has no env fallback — per the kiro.dev hooks doc it arrives as
+  // a STDIN JSON payload that Kiro pipes AND closes (so the read gets EOF, no
+  // hang). We read stdin ONLY for postToolUse, TTY-guarded (readHookStdin returns
+  // '' on a TTY). Tests inject `deps.payload` to bypass the read entirely.
+  // NOTE: the live postToolUse fire (does Kiro actually pipe+close stdin here?) is
+  // flagged for the cut-gate — same verify-first posture as the IDE legs (50.N.3).
+  let payload = deps.payload;
+  if (payload === undefined) {
+    if (event === 'postToolUse') {
+      try {
+        const readStdin = deps.readStdin ?? (() => readHookStdin({ isTTY: process.stdin.isTTY }));
+        const raw = readStdin();
+        payload = raw && raw.trim() !== '' ? JSON.parse(raw) : {};
+      } catch {
+        payload = {};
+      }
+    } else {
+      payload = {};
+    }
+  }
   const r = runKiroHook({
     argv: [event],
     cwd: deps.cwd ?? process.cwd(),
@@ -478,6 +497,12 @@ export function runHook(event, _options = {}, _command, deps = {}) {
       // + transcript-append half of Claude Code's UserPromptSubmit). Best-effort;
       // the dispatcher swallows a throw so inject still runs.
       capturePrompt: deps.capturePrompt ?? ((args) => capturePrompt({
+        payload: args.payload,
+        projectRoot: args.projectRoot,
+      })),
+      // 50.N.2 — postToolUse → observe-edit (the file-edit observation leg). The
+      // bin maps Kiro's fs_write → Write before this runs. Best-effort.
+      observe: deps.observe ?? ((args) => observeEdit({
         payload: args.payload,
         projectRoot: args.projectRoot,
       })),
