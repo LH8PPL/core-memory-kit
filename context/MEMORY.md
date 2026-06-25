@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-BLSBXKGL) Auto-load of .kiro/hooks/cmk.kiro.hook.json hooks is the critical verification point for IDE 1.0 upgrade (the "load-bearing KHv1-load probe"); if not auto-loaded, post-install GUI reload step may be needed
-  <!-- source: review-promote, source_line: 1, sha1: d053c478d240e63e55dd56c0397f53cba4e5df51155881f94cfe3efa8aa26185, write: user-explicit, trust: high, at: 2026-06-25T13:38:45Z -->
 - (P-UBW47JKA) Maintaining backward compatibility across Kiro IDE versions (0.x → 1.0) is valued in this project design
   <!-- source: review-promote, source_line: 1, sha1: 2f6bf7aeb0cacdfbfeec22fc6247fa0df3c39536305ac701bba8c4ed41f3f138, write: user-explicit, trust: high, at: 2026-06-25T13:38:46Z -->
 - (P-DXZE3XDY) npm pack and global install of 0.4.0 succeeded; tarball includes all required modules (capture, inject, guard, observe hooks; kiro-ide-hooks.mjs; semantic-backend.mjs; etc.) verified present in output
@@ -20,6 +18,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: 290e87ba375b5e4c50f0c38bb663b9e853ace3f19fc3b5c92bc4dd36dfbc1521, write: auto-extract, trust: high, at: 2026-06-25T13:53:52Z -->
 - (P-T4aUHMXa) Values research-grounded recommendations with clear, honest attribution of sources vs personal synthesis/extrapolation
   <!-- source: auto-extract-session, source_line: 1, sha1: a57506ca84d546dcec9f11206fee1840d466ca501f3329f9bb3ea99cb78f0b96, write: auto-extract, trust: high, at: 2026-06-25T14:34:25Z -->
+- (P-7ZMV7DYS) Requires design decisions to be grounded in research; pushes back on assumptions without source backing.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 86dfc0e563537b6a70c3786797ad9fffe87ae515fe58a52a5daf95e76717c38a, write: auto-extract, trust: high, at: 2026-06-25T19:35:41Z -->
 
 ## Environment Notes
 
