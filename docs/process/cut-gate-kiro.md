@@ -7,10 +7,10 @@
 > - **Install command:** `cmk install --with-semantic --ide kiro` (NOT bare `cmk install`).
 > - **Two clients, one install.** Kiro is Amazon Q Developer CLI under the hood. `cmk install --ide kiro` wires **five surfaces** at once, covering **both** clients:
 >   - **Kiro IDE (GUI)** → `.kiro/hooks/*.kiro.hook` files (auto-fire, no agent selection).
->   - **kiro-cli (terminal)** → a `~/.aws/amazonq/cli-agents/q_cli_default.json` agent-config whose `hooks{}` fire only for the **default agent**.
+>   - **kiro-cli (terminal)** → a `~/.kiro/agents/cmk.json` agent-config (registered as the default via `~/.kiro/settings/cli.json`) whose `hooks{}` fire only for the **default agent**.
 >   - **Shared by both:** MCP (`.kiro/settings/mcp.json`), steering (`.kiro/steering/cmk.md`), skills (`.kiro/skills/`).
 > - **The hook surfaces are input adapters only** — both call the SAME `cmk hook <event>` dispatcher → the same `captureTurn()` / `injectContext()` core as Claude Code. So the **memory core is identical**; this gate verifies the **Kiro wiring**, not the core again (the core is gated by [`cut-gate.md`](cut-gate.md) + the suite).
-> - **★★ Test the REAL paths — back up, run for real, restore (BINDING).** This gate runs against your **real** `~/.claude-memory-kit` (user tier) and **real** `~/.aws` (the CLI-agent surface) — because that is exactly what a real user hits; a sandbox would hide a path bug. The safety is a **backup-before / restore-after** protocol (§0b), NOT env-var redirection. (`~/.aws` holds your real AWS credentials — it is **copied**, never moved, and restored by deleting only the cmk agent files; see §0b.) A live-test once wrote a stray `q_cli_default.json` into the real `~/.aws` (D-184) — the backup is what makes that safe to verify for real.
+> - **★★ Test the REAL paths — back up, run for real, restore (BINDING).** This gate runs against your **real** `~/.claude-memory-kit` (user tier) and **real** `~/.kiro` (the CLI-agent surface) — because that is exactly what a real user hits; a sandbox would hide a path bug. The safety is a **backup-before / restore-after** protocol (§0b), NOT env-var redirection. (`~/.kiro` holds your real Kiro agents/settings — it is **copied**, never moved, and restored by deleting only the cmk agent files; see §0b.) A live-test once wrote a stray agent config into the WRONG location — the real `~/.aws/amazonq/cli-agents/` — which kiro-cli never read (D-184/D-198); the backup is what makes the now-correct `~/.kiro` write safe to verify for real.
 >
 > **Cutting now: `v0.4.0`** — the cross-agent breadth release; **Kiro is the first non-Claude-Code agent** (Task 50, D-182/D-183/D-184). This gate IS the v0.4.0 Kiro live-test (sub-task 50.M).
 > _Replace `0.4.0` / `v0.4.0` in the commands below if you reuse this guide for a later Kiro-touching cut._
@@ -29,7 +29,7 @@ It exercises every Kiro surface end-to-end on the **real installed artifact**: i
 
 > **★★ The real-input rule (binding — D-84).** A check **PASSES only when it ran on REAL input that exercises the feature** — never "the command didn't crash." A hook that is *registered* but never *fires-and-captures-a-real-turn* is **unverified**, not a pass (the whole point of 50.M: "docs-correct ≠ fires"). The IDE/CLI hook checks below FAIL if you only confirm the file exists.
 
-> **★★ The backup rule (binding — D-184).** Before ANY `cmk install --ide kiro` or live Kiro session, run the **§0b backup block** — it snapshots your real `~/.claude-memory-kit` + `~/.aws` into `C:\cut-gate-backups\12_v0.4.0_kiro\` (the central backup root). The gate writes to the **real** dirs; the **§Verdict restore block** preserves the test artifacts as evidence and puts your originals back. Paths below mean your REAL `~/.aws` / `~/.claude-memory-kit` — the backup is the safety net, not a redirect.
+> **★★ The backup rule (binding — D-184).** Before ANY `cmk install --ide kiro` or live Kiro session, run the **§0b backup block** — it snapshots your real `~/.claude-memory-kit` + `~/.kiro` into `C:\cut-gate-backups\12_v0.4.0_kiro\` (the central backup root). The gate writes to the **real** dirs; the **§Verdict restore block** preserves the test artifacts as evidence and puts your originals back. Paths below mean your REAL `~/.kiro` / `~/.claude-memory-kit` — the backup is the safety net, not a redirect.
 
 ---
 
@@ -62,7 +62,7 @@ cmk --version                        # ✅ matches packages/cli/package.json
 #  confirm the new artifact is live. Harmless.)
 ```
 
-**0c — back up the real dirs (the binding backup rule).** The gate runs against your REAL `~/.claude-memory-kit` + `~/.aws`. Snapshot them first into the central backup root, then start the user tier clean so capture-from-zero is honest:
+**0c — back up the real dirs (the binding backup rule).** The gate runs against your REAL `~/.claude-memory-kit` + `~/.kiro`. Snapshot them first into the central backup root, then start the user tier clean so capture-from-zero is honest:
 
 ```powershell
 # NEVER overwrite an existing backup — always a FRESH run dir. Find the next free _runN.
@@ -80,16 +80,16 @@ New-Item -ItemType Directory -Path $bk | Out-Null
 if (Test-Path $env:USERPROFILE\.claude-memory-kit) {
   Move-Item $env:USERPROFILE\.claude-memory-kit "$bk\$run-.claude-memory-kit"
 }
-# ~/.aws: holds your REAL AWS creds/config → COPY (never move it out from under other tools)
-if (Test-Path $env:USERPROFILE\.aws) {
-  Copy-Item $env:USERPROFILE\.aws "$bk\$run-.aws" -Recurse
+# ~/.kiro: holds your REAL Kiro agents/settings → COPY (never move it out from under other tools)
+if (Test-Path $env:USERPROFILE\.kiro) {
+  Copy-Item $env:USERPROFILE\.kiro "$bk\$run-.kiro" -Recurse
 }
 # record what the cmk agent files looked like BEFORE, AND their ownership (so restore
-# knows what to remove: a KIT-WRITTEN q_cli_default.json → delete on restore; a
+# knows what to remove: a KIT-WRITTEN cmk.json → delete on restore; a
 # USER-AUTHORED one → keep). $run is also written so the restore block can read it back.
 $notes = "$bk\NOTES.md"
-"$(Get-Date -Format o) — gate start (run=$run). Pre-existing cmk agents in real ~/.aws:" | Out-File $notes   # -Format o, NOT -o (ambiguous in PowerShell 5.1)
-Get-ChildItem $env:USERPROFILE\.aws\amazonq\cli-agents\*.json -EA SilentlyContinue | % {
+"$(Get-Date -Format o) — gate start (run=$run). Pre-existing cmk agents in real ~/.kiro:" | Out-File $notes   # -Format o, NOT -o (ambiguous in PowerShell 5.1)
+Get-ChildItem $env:USERPROFILE\.kiro\agents\*.json -EA SilentlyContinue | % {
   $c = Get-Content $_.FullName -Raw
   $owned = if ($c -match '"managedBy"\s*:\s*"claude-memory-kit"') { "KIT-WRITTEN (restore SHOULD delete)" } else { "USER-AUTHORED (restore must KEEP)" }
   "  $($_.Name) -> $owned"
@@ -98,7 +98,7 @@ Get-ChildItem $env:USERPROFILE\.aws\amazonq\cli-agents\*.json -EA SilentlyContin
 
 - [ ] **G0** — `cmk --version` matches `packages/cli/package.json` _(older → you're testing a stale global; re-run `npm install -g` against the freshly-packed `.tgz`)._
 - [ ] **G0-kiro** — `kiro-cli --version` runs (kiro-cli is on PATH) AND Kiro IDE opens. _(Both clients are exercised; if you only have one, mark the other client's checks `unverified`, don't skip silently.)_
-- [ ] **G0-backup** — the fresh run dir `C:\cut-gate-backups\$run\` holds `$run-.claude-memory-kit` + `$run-.aws` (run-prefixed, self-identifying), any prior `12_v0.4.0_kiro*` backup is untouched, and `~/.claude-memory-kit` is now absent (moved aside) so capture starts from zero. _(`~/.aws` stays in place — it was copied, not moved.)_
+- [ ] **G0-backup** — the fresh run dir `C:\cut-gate-backups\$run\` holds `$run-.claude-memory-kit` + `$run-.kiro` (run-prefixed, self-identifying), any prior `12_v0.4.0_kiro*` backup is untouched, and `~/.claude-memory-kit` is now absent (moved aside) so capture starts from zero. _(`~/.kiro` stays in place — it was copied, not moved.)_
 
 ---
 
@@ -117,15 +117,15 @@ cmk doctor
       The install ends with:
       `cmk install: kiro-gate ready for Kiro — context/ scaffolded; mcp + steering + agents-md + skills + ide-hooks + trusted-commands + cli-agent wired.`
       then `Restart Kiro to activate the hooks (steering + skills + MCP are immediate).`
-      **PASS:** the summary names **all seven** surfaces (`mcp + steering + agents-md + skills + ide-hooks + trusted-commands + cli-agent`) — `agents-md` is the managed `AGENTS.md` block (D-188; KG10), `trusted-commands` is the `.vscode/settings.json` `kiroAgent.trustedCommands` that auto-approves the kit's hooks (D-194; KG11). _(If your real `~/.aws` has NO Kiro default agent, the CLI agent takes the default silently — no "Note: you already have a Kiro CLI default agent" line. If you DO already have a Kiro default, you'll see that note here instead — and that's the guarded path KG7 forces deterministically.)_
+      **PASS:** the summary names **all seven** surfaces (`mcp + steering + agents-md + skills + ide-hooks + trusted-commands + cli-agent`) — `agents-md` is the managed `AGENTS.md` block (D-188; KG10), `trusted-commands` is the `.vscode/settings.json` `kiroAgent.trustedCommands` that auto-approves the kit's hooks (D-194; KG11). _(If your real `~/.kiro` has NO Kiro default agent, the CLI agent takes the default silently — no "Note: you already have a Kiro CLI default agent" line. If you DO already have a Kiro default, you'll see that note here instead — and that's the guarded path KG7 forces deterministically.)_
 
 - [ ] **★ KG1b — `cmk doctor` clean (agent-aware HC-1).** `cmk doctor` → **0 fail** on a fresh Kiro install (HC-1..HC-9).
-      **HC-1 must read as a KIRO check, not a Claude one:** `[PASS] HC-1: ... Kiro capture/inject wired via IDE hooks (.kiro/hooks/) + CLI agent (~/.aws/amazonq/cli-agents/)`. **FAIL the gate** if HC-1 says `.claude/settings.json missing → cmk repair --hooks` — that's the pre-D-185 bug (doctor not agent-aware); you're on a stale binary, rebuild (§0b). _(D-185/D-186, found + fixed by this gate: HC-1 is a capability check — PASSes if the IDE hooks OR the CLI agent is present, so both a Kiro-IDE and a kiro-cli-only user read clean. The other memory-core checks are agent-agnostic.)_
+      **HC-1 must read as a KIRO check, not a Claude one:** `[PASS] HC-1: ... Kiro capture/inject wired via IDE hooks (.kiro/hooks/) + CLI agent (~/.kiro/agents/)`. **FAIL the gate** if HC-1 says `.claude/settings.json missing → cmk repair --hooks` — that's the pre-D-185 bug (doctor not agent-aware); you're on a stale binary, rebuild (§0b). _(D-185/D-186, found + fixed by this gate: HC-1 is a capability check — PASSes if the IDE hooks OR the CLI agent is present, so both a Kiro-IDE and a kiro-cli-only user read clean. The other memory-core checks are agent-agnostic.)_
 
 - [ ] **★ KG2 — MCP surface (shared IDE+CLI) + autoApprove (D-196).**
       ```powershell
       type .kiro\settings\mcp.json        # mcpServers["claude-memory-kit"] = { type:"stdio", command:"cmk", args:["mcp","serve"], autoApprove:[...] }
-      (Get-Content $env:USERPROFILE\.aws\amazonq\cli-agents\q_cli_default.json -Raw | ConvertFrom-Json).allowedTools  # CLI side: ["@cmk"]
+      (Get-Content $env:USERPROFILE\.kiro\agents\cmk.json -Raw | ConvertFrom-Json).allowedTools  # CLI side: ["@cmk"]
       ```
       **PASS:** `.kiro/settings/mcp.json` registers the `claude-memory-kit` stdio server **AND** carries an `autoApprove` array listing the kit's 11 MCP tools (`mk_remember` … `mk_queue_resolve`) — so Kiro runs them without a per-call "Reject / Trust / Run" prompt (D-196; found live in Session 1). The CLI agent-config carries the analog `allowedTools: ["@cmk"]` (the Amazon-Q agent uses `allowedTools` `@server/tool`, NOT `autoApprove`). **Neither is a `"*"` blanket** — scoped to the kit's own tools. **FAIL:** no `autoApprove` → every `mk_remember` in chat pops Reject/Trust/Run (M1-live confirms the prompt is gone).
 
@@ -154,34 +154,35 @@ cmk doctor
       - **The `command` is platform-correct:** on Windows it is **`cmd.exe /c cmk hook stop`** / `... promptSubmit` (Kiro routes hooks through WSL, which has no node — a bare `cmk hook` would fail with `node: not found`). On macOS/Linux it is the bare `cmk hook <event>`.
       - **`runCommand`, not `askAgent`** — the kit does DETERMINISTIC capture (no LLM-in-the-loop), which no surveyed Kiro project does.
 
-- [ ] **★ KG6 — CLI agent-config surface (the terminal client), in your REAL `~/.aws`.**
+- [ ] **★ KG6 — CLI agent-config surface (the terminal client), in your REAL `~/.kiro`.**
       ```powershell
-      type $env:USERPROFILE\.aws\amazonq\cli-agents\q_cli_default.json
+      type $env:USERPROFILE\.kiro\agents\cmk.json
+      (Get-Content $env:USERPROFILE\.kiro\settings\cli.json -Raw | ConvertFrom-Json).'chat.defaultAgent'   # → cmk (the load-bearing default registration)
       ```
       **PASS — the agent-config is the Amazon-Q Rust-contract shape:**
-      - `"managedBy": "claude-memory-kit"` (the structural ownership marker — the uninstall key, NOT a description substring).
+      - `"description"` carries the `claude-memory-kit` ownership marker (the structural uninstall key — D-198 moved it out of a top-level `managedBy`, which kiro-cli rejects as an unknown field).
       - `"hooks"` is an OBJECT keyed by trigger → array of `{command, timeout_ms}`: `agentSpawn` (timeout_ms 10000, inject) + `stop` (timeout_ms 30000, capture). **`timeout_ms`, NOT `timeout`** (the stale `agent-v1.json` shape is `{command}`-only — this must be the Rust contract).
       - the `command` is platform-correct (`cmd.exe /c cmk hook <event>` on Windows).
-      - carries `mcpServers.cmk` + `prompt: "file://AGENTS.md"` + `resources` listing the steering file.
-      - **This is the REAL path kiro-cli reads** — which is why the §0b backup copied `~/.aws` first (it'll be restored). _(If you already had a Kiro default agent, the kit wrote `cmk.json` here instead, NOT `q_cli_default.json` — see KG7; check `cmk.json` in that case.)_
+      - carries `tools: ["*"]` (the capability set — without it the agent runs no command, D-199) and `includeMcpJson: false` (kiro-cli uses the `cmk` shell commands, not MCP — no `cmd.exe` popup).
+      - **This is the REAL path kiro-cli reads** (`~/.kiro/agents/cmk.json`, registered as the default in `~/.kiro/settings/cli.json` — D-198) — which is why the §0c backup copied `~/.kiro` first (it'll be restored). _(If you already had a Kiro default agent, the kit still installs `cmk.json` but does NOT take over your `chat.defaultAgent` pointer — see KG7.)_
 
 - [ ] **★ KG7 — the guarded default-agent (non-clobber).** Deterministic probe in a SECOND sandbox where a default already exists:
-      This is the ONE probe that uses a throwaway `~/.aws` — because it deliberately simulates *someone else's* existing default to prove the kit won't clobber it. The kit's `MEMORY_KIT_AWS_DIR` escape hatch points the CLI-agent leg at a temp dir for this one block, then is cleared:
+      This is the ONE probe that uses a throwaway `~/.kiro` — because it deliberately simulates *someone else's* existing default to prove the kit won't clobber it. The kit's `MEMORY_KIT_KIRO_DIR` escape hatch points the CLI-agent leg at a temp dir for this one block, then is cleared:
       ```powershell
-      $g = "C:\Temp\kiro-guard-aws"; Remove-Item -Recurse -Force $g -EA SilentlyContinue
-      mkdir "$g\amazonq" > $null
+      $g = "C:\Temp\kiro-guard-kiro"; Remove-Item -Recurse -Force $g -EA SilentlyContinue
+      New-Item -ItemType Directory "$g\settings" -Force > $null
       # simulate a user who already has a default agent
-      '{ "chat.defaultAgent": "their-agent" }' | Set-Content "$g\amazonq\settings.json" -Encoding utf8
+      '{ "chat.defaultAgent": "their-agent" }' | Set-Content "$g\settings\cli.json" -Encoding utf8
       $h = "C:\Temp\kiro-guard-proj"; Remove-Item -Recurse -Force $h -EA SilentlyContinue
       mkdir $h > $null; Set-Location $h; git init | Out-Null
-      $env:MEMORY_KIT_AWS_DIR = $g           # surgical: redirect ONLY this guard probe off the real ~/.aws
+      $env:MEMORY_KIT_KIRO_DIR = $g          # surgical: redirect ONLY this guard probe off the real ~/.kiro
       cmk install --ide kiro                 # watch the summary
-      type "$g\amazonq\settings.json"        # their default is byte-untouched
-      dir "$g\amazonq\cli-agents"            # a NAMED cmk.json landed; NO q_cli_default.json written by us
-      Remove-Item Env:\MEMORY_KIT_AWS_DIR     # clear it — the rest of the gate uses the REAL ~/.aws
+      (Get-Content "$g\settings\cli.json" -Raw | ConvertFrom-Json).'chat.defaultAgent'   # their default is byte-untouched (their-agent)
+      dir "$g\agents"                        # the kit's cmk.json STILL landed (the user can run --agent cmk)
+      Remove-Item Env:\MEMORY_KIT_KIRO_DIR    # clear it — the rest of the gate uses the REAL ~/.kiro
       Set-Location C:\Temp\kiro-gate
       ```
-      **PASS:** the install prints the **`Note: you already have a Kiro CLI default agent — the kit installed a `cmk` agent instead.`** line; `settings.json` still says `chat.defaultAgent: their-agent` (untouched); the kit wrote `cmk.json`, NOT `q_cli_default.json`. **FAIL:** the kit overwrote their default or their settings.
+      **PASS:** the install prints the **`Note: you already have a Kiro CLI default agent — the kit installed a `cmk` agent instead.`** line; `cli.json` still says `chat.defaultAgent: their-agent` (untouched); the kit STILL wrote `cmk.json` but did NOT take over the default pointer. **FAIL:** the kit overwrote their default pointer or their settings.
 
 - [ ] **★ KG8 — `--with-semantic` enabled hybrid-by-default (same as Claude-Code G7).**
       ```powershell
@@ -216,7 +217,7 @@ cmk doctor
       ```powershell
       type .vscode\settings.json    # IDE side: kiroAgent.trustedCommands
       # CLI side: the agent-config's toolsSettings.shell.allowedCommands
-      (Get-Content $env:USERPROFILE\.aws\amazonq\cli-agents\q_cli_default.json -Raw | ConvertFrom-Json).toolsSettings.shell.allowedCommands
+      (Get-Content $env:USERPROFILE\.kiro\agents\cmk.json -Raw | ConvertFrom-Json).toolsSettings.shell.allowedCommands
       ```
       **PASS:** `.vscode/settings.json` has `kiroAgent.trustedCommands` containing the kit's hook prefix (`cmd.exe /c cmk hook *` on Windows; `cmk hook *` on POSIX) **and** the guard (`…cmk-guard-memory*`); the CLI agent-config's `toolsSettings.shell.allowedCommands` carries the regex equivalents (`cmd\.exe /c cmk hook .*`, `…cmk-guard-memory`). **Neither is a blanket `*` / `.*`** (the kit trusts only its OWN commands — the docs warn wildcards over-trust). **FAIL:** the trust list is missing → the IDE hook will pop a Run/Reject prompt on every fire (KH-trust below confirms the live behavior). _(The live confirmation that the prompt is GONE is KH-trust in §2 — this check verifies the trust entries are on disk.)_
 
@@ -332,14 +333,14 @@ This is the **CLI-agent live gate** — the half KG6 only proves on disk. Start 
 
 ```powershell
 cd C:\Temp\kiro-gate
-# the CLI agent lives in your REAL ~/.aws/amazonq/cli-agents/ (backed up in §0c)
+# the CLI agent lives in your REAL ~/.kiro/agents/ (backed up in §0c)
 kiro-cli chat        # NO --agent flag — cmk must resolve as the DEFAULT agent
 ```
 
 Without re-explaining anything, ask: *"What are my standing cross-project rules, and how is this project structured?"* then *"Add a `/health` endpoint."*
 
 - [ ] **★ KC1 — the default agent resolves with no `--agent` flag.**
-      `kiro-cli chat` started the **cmk** agent automatically (because the kit registered `q_cli_default.json` in the sandbox).
+      `kiro-cli chat` started the **cmk** agent automatically (because the kit registered `cmk` as the default in `~/.kiro/settings/cli.json`).
       **PASS:** the session runs as the cmk agent (its `agentSpawn` hook fired — see KC2); you never passed `--agent`. **FAIL:** kiro-cli starts a different/blank agent → the default-agent registration didn't take (the D-182 bug the guard exists to avoid).
 
 - [ ] **★ KC2 — `agentSpawn` injects at session start (the SessionStart analog).**
@@ -397,7 +398,7 @@ The `cmk` CLI is agent-agnostic — this sweep is identical to [`cut-gate.md`](c
       type .kiro\steering\cmk.md   # our marker block stripped; user content outside markers byte-preserved
       type AGENTS.md               # our managed block stripped; user AGENTS.md content (if any) byte-preserved
       type .vscode\settings.json   # our kiroAgent.trustedCommands entries GONE; a user's own trusted commands + sibling settings preserved (D-194)
-      dir $env:USERPROFILE\.aws\amazonq\cli-agents   # our q_cli_default.json / cmk.json GONE; any user-authored agent preserved
+      dir $env:USERPROFILE\.kiro\agents   # our cmk.json GONE + our chat.defaultAgent pointer un-registered; any user-authored agent preserved
       "context/ preserved (expect True): $(Test-Path context\MEMORY.md)"
       ```
       **PASS:** uninstall removes our IDE hooks + MCP key + steering block + AGENTS.md block + skills + trusted-commands + CLI agent-config; leaves any user-authored sibling (a non-`managedBy:claude-memory-kit` agent, a sibling MCP server, user steering/AGENTS.md text, the user's OWN `.vscode` trusted commands + settings) byte-untouched; AND **`context/` is preserved** (the shared brain is never deleted). **FAIL:** a user file was deleted, `context/` was touched, or a managed surface lingered.
@@ -421,7 +422,7 @@ The `cmk` CLI is agent-agnostic — this sweep is identical to [`cut-gate.md`](c
 
 ## 8. Portability
 
-Same as the Claude-Code gate — `context/` is committed and travels with `git clone` (tenet T2). The `.kiro/` surfaces (hooks/steering/skills/mcp) are committed too, so a clone is Kiro-ready; the CLI agent-config (`~/.aws`) is machine-local and re-created by `cmk install --ide kiro` on the new machine.
+Same as the Claude-Code gate — `context/` is committed and travels with `git clone` (tenet T2). The `.kiro/` surfaces (hooks/steering/skills/mcp) are committed too, so a clone is Kiro-ready; the CLI agent-config (`~/.kiro`) is machine-local and re-created by `cmk install --ide kiro` on the new machine.
 
 - [ ] **★ H1** — clone `C:\Temp\kiro-gate` elsewhere, open in Kiro → the project memory (`context/`) + the `.kiro/` surfaces are already there.
 
@@ -449,7 +450,7 @@ $run  = Split-Path $bk -Leaf
 # 1. PRESERVE the test artifacts as evidence (run-prefixed, self-identifying)
 Copy-Item $env:USERPROFILE\.claude-memory-kit       "$bk\$run-AFTER-.claude-memory-kit" -Recurse -EA SilentlyContinue
 Copy-Item C:\Temp\kiro-gate                          "$bk\$run-AFTER-test-project"       -Recurse -EA SilentlyContinue
-Copy-Item $env:USERPROFILE\.aws\amazonq\cli-agents   "$bk\$run-AFTER-aws-cli-agents"     -Recurse -EA SilentlyContinue
+Copy-Item $env:USERPROFILE\.kiro\agents              "$bk\$run-AFTER-kiro-agents"        -Recurse -EA SilentlyContinue
 "$(Get-Date -Format o) — gate finished; artifacts copied above." | Out-File "$bk\NOTES.md" -Append   # -Format o, NOT -o (PowerShell 5.1)
 
 # 2. RESTORE the user tier (it was MOVED aside in §0c — put the original back verbatim)
@@ -458,15 +459,19 @@ if (Test-Path "$bk\$run-.claude-memory-kit") {
   Move-Item "$bk\$run-.claude-memory-kit" $env:USERPROFILE\.claude-memory-kit
 }
 
-# 3. RESTORE ~/.aws — it was COPIED (your real creds were never moved), so just
-#    delete ONLY the cmk agent files the gate added. Leave everything else intact.
-Remove-Item $env:USERPROFILE\.aws\amazonq\cli-agents\q_cli_default.json -EA SilentlyContinue  # if WE wrote it (check NOTES.md — skip if it pre-existed)
-Remove-Item $env:USERPROFILE\.aws\amazonq\cli-agents\cmk.json           -EA SilentlyContinue
-#    (NOTES.md lists what was in ~/.aws BEFORE — if q_cli_default.json pre-existed, do NOT delete it; the kit wrote cmk.json in that case.)
+# 3. RESTORE ~/.kiro — it was COPIED (your real agents/settings were never moved), so just
+#    delete ONLY the cmk files the gate added + un-register our default pointer. Leave the rest.
+Remove-Item $env:USERPROFILE\.kiro\agents\cmk.json -EA SilentlyContinue   # if WE wrote it (check NOTES.md — skip if it pre-existed)
+$cli = "$env:USERPROFILE\.kiro\settings\cli.json"
+if (Test-Path $cli) {
+  $j = Get-Content $cli -Raw | ConvertFrom-Json
+  if ($j.'chat.defaultAgent' -eq 'cmk') { $j.PSObject.Properties.Remove('chat.defaultAgent'); ($j | ConvertTo-Json) | Set-Content $cli -Encoding utf8 }
+}
+#    (NOTES.md lists what was in ~/.kiro BEFORE — if cmk.json / a cmk default pointer pre-existed, do NOT remove them.)
 
 # 4. clean the throwaway project dirs (NOT the backups)
-Remove-Item -Recurse -Force C:\Temp\kiro-gate, C:\Temp\kiro-coldopen, C:\Temp\kiro-guard-aws, C:\Temp\kiro-guard-proj -EA SilentlyContinue
-Remove-Item Env:\MEMORY_KIT_AWS_DIR -EA SilentlyContinue   # in case the KG7 probe left it set
+Remove-Item -Recurse -Force C:\Temp\kiro-gate, C:\Temp\kiro-coldopen, C:\Temp\kiro-guard-kiro, C:\Temp\kiro-guard-proj -EA SilentlyContinue
+Remove-Item Env:\MEMORY_KIT_KIRO_DIR -EA SilentlyContinue   # in case the KG7 probe left it set
 ```
 
 ### ★ Pre-tag gate (BEFORE the tag — docs lag the code otherwise)

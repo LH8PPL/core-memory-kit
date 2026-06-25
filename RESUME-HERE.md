@@ -4,7 +4,7 @@
 
 ## ✅ Done — all merged to main
 
-- **Kiro 5 surfaces (PRs #212/#213):** MCP + steering + skills + IDE hooks (`.kiro/hooks/`) + CLI agent (`~/.aws/amazonq/cli-agents/`). D-182/183/184.
+- **Kiro 5 surfaces (PRs #212/#213):** MCP + steering + skills + IDE hooks (`.kiro/hooks/`) + CLI agent (`~/.kiro/agents/cmk.json`, registered as default via `~/.kiro/settings/cli.json` — moved from the original `~/.aws/amazonq/cli-agents/` in D-198). D-182/183/184.
 - **The gate found 6 cut-blockers, all fixed + merged** (each "unit-green but broken on real input" / "a Claude-Code-only mechanism not carried to the Kiro path"):
   - **#214 (D-185/186):** `cmk doctor` was Claude-only → HC-1 false-FAILed on Kiro. Now agent-aware capability check (IDE hooks OR CLI agent).
   - **#215 (D-187):** a BOM'd `settings.json` made the guard clobber the user's default agent. Kit-wide BOM-tolerant config reads (`read-json.mjs`).
@@ -12,7 +12,7 @@
   - **#217 (D-190/191):** the Kiro `agentSpawn` hook flashed a `node` console window (Task-81 fix wasn't carried to the Kiro path → `injectContext` self-resolves the bin now); `cmk uninstall --ide kiro` left empty husks AND its first-cut husk-remover had a skill-review-caught data-loss bug (a regex that deleted user steering notes bordered by `---`) → fixed to a ReDoS-safe line-scan + gated on per-file changed. User Qs ("why `.claude`?", "are you sure uninstall works?") + the two-pass review caught all of it.
 - **Gate doc** (`cut-gate-kiro.md`) updated: KG10 (AGENTS.md/no-Claude), KU1/KU2 (per-agent + dual-agent uninstall), KG1b (agent-aware HC-1).
 - **README** has the user-asked **"Working with Kiro" + "Uninstalling"** sections.
-- **Backups protocol:** real dirs backed up in `C:\cut-gate-backups\12_v0.4.0_kiro\` (BEFORE-*); gate runs against REAL `~/.aws` + user tier (no env-var sandbox); restore at the end. The KG7 guard probe is the one surgical `MEMORY_KIT_AWS_DIR` use.
+- **Backups protocol:** real dirs backed up in `C:\cut-gate-backups\12_v0.4.0_kiro\` (BEFORE-*); gate runs against REAL `~/.kiro` + user tier (no env-var sandbox); restore at the end. The KG7 guard probe is the one surgical `MEMORY_KIT_KIRO_DIR` use.
 
 ## ▶ What's LEFT
 
