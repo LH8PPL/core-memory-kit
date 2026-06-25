@@ -34,6 +34,7 @@ import { installKiroSkills, uninstallKiroSkills } from './kiro-skills.mjs';
 import { installKiroIdeHooks, uninstallKiroIdeHooks } from './kiro-ide-hooks.mjs';
 import { installKiroCliAgent, uninstallKiroCliAgent } from './kiro-cli-agent.mjs';
 import { installKiroTrustedCommands, uninstallKiroTrustedCommands } from './kiro-trusted-commands.mjs';
+import { installKiroPermissions, uninstallKiroPermissions } from './kiro-permissions.mjs';
 import {
   writeManagedBlock,
   removeManagedBlock,
@@ -52,19 +53,11 @@ const MCP_SERVER_NAME = 'claude-memory-kit';
 // list of the 11 kit tools — scoped to OUR tools, never a `"*"` wildcard (which
 // would auto-approve any tool the server ever adds). mk_forget is safe to
 // auto-approve the CALL: it has its own two-step confirm-token before deleting.
-export const MCP_AUTO_APPROVE = Object.freeze([
-  'mk_remember',
-  'mk_search',
-  'mk_get',
-  'mk_timeline',
-  'mk_cite',
-  'mk_recent_activity',
-  'mk_trust',
-  'mk_lessons_promote',
-  'mk_forget',
-  'mk_queue_list',
-  'mk_queue_resolve',
-]);
+// MCP_AUTO_APPROVE now lives in the leaf kiro-constants.mjs (shared with
+// kiro-permissions, no import cycle); imported for local use + re-exported for
+// back-compat (existing importers of install-kiro.MCP_AUTO_APPROVE keep working).
+import { MCP_AUTO_APPROVE } from './kiro-constants.mjs';
+export { MCP_AUTO_APPROVE };
 // The MCP entry for `.kiro/settings/mcp.json` — the KIRO IDE's MCP surface (the
 // IDE wires MCP tools to the chat; the kiro-cli agent sets includeMcpJson:false
 // and does NOT use MCP — it uses the `cmk remember`/`cmk search` shell commands).
@@ -169,6 +162,22 @@ export function installKiro({ projectRoot, awsDir } = {}) {
     surfaces.push('trusted-commands');
   }
 
+  // ── IDE-1.0 permissions (50.N.5 / D-203h/i) — Kiro IDE 1.0's AUTHORITATIVE trust
+  //    is ~/.kiro/workspace-roots/<hash>/permissions.yaml (NOT .vscode; Kiro
+  //    migrates .vscode into it). The `.vscode` trustedCommands above keep 0.x +
+  //    pre-migration working; this pre-trusts the kit's shell + mcp + SKILL on 1.0
+  //    so even the first memory-write skill-load runs prompt-free (the one thing
+  //    `.vscode` has NO setting for). Best-effort like trusted-commands — a write
+  //    failure never aborts the install.
+  let permissions;
+  try {
+    permissions = installKiroPermissions({ projectRoot });
+    if (permissions.changed) changed = true;
+    surfaces.push('permissions');
+  } catch (err) {
+    warnings.push({ surface: 'permissions', action: 'error', error: err?.message ?? String(err) });
+  }
+
   // ── CLI agent-config (kiro-cli, user-tier) — agentSpawn/stop hooks + the
   //    guarded default-agent. Covers terminal `kiro-cli` users; the IDE hooks
   //    above cover the GUI. Both reuse the same `cmk hook` dispatcher.
@@ -222,6 +231,15 @@ export function uninstallKiro({ projectRoot, awsDir } = {}) {
   // trusted commands (D-194): remove ONLY our patterns from
   // .vscode/settings.json, preserving the user's; prune an emptied key.
   if (uninstallKiroTrustedCommands({ projectRoot }).changed) changed = true;
+
+  // IDE-1.0 permissions (50.N.5): remove ONLY our rules from
+  // ~/.kiro/workspace-roots/<hash>/permissions.yaml, preserving the user's.
+  // Best-effort (the file is per-user, may be absent); never abort uninstall.
+  try {
+    if (uninstallKiroPermissions({ projectRoot }).changed) changed = true;
+  } catch {
+    /* best-effort — a missing/locked permissions.yaml never blocks uninstall */
+  }
 
   return { action: 'uninstalled', changed };
 }
