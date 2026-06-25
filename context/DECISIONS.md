@@ -6675,3 +6675,108 @@
 ## RESUME — v0.3.1 cut-gate near-complete; PR
 
 **When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-VaK5DNNa -->
+
+## The rolling session summary (recent.md) does NOT retire RESOLVED threads — a com
+
+**When:** 2026-06-25 · **Fact:** `P-VaK5DNNa`
+**Why:** A stale 'pending' line in the injected context is the cross-session-amnesia failure the kit exists to kill, applied to the kit's own session summaries. The next session reads a resolved epic as still-open.
+
+<!-- decision:P-YCBLRF9U -->
+
+## Memory Kit Architecture — Complementary Kit and CLAUDE.md
+
+**When:** 2026-06-25 · **Fact:** `P-YCBLRF9U`
+**Why:** This project dogfoods its own memory architecture. The dual-system design ensures facts are routed correctly (always-on enforcement vs. discoverable recall) and appropriately reinforced.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-LRC5G3V6 -->
+
+## Clarifying scope — asking whether kiro-ide and claude-code are still pending fix
+
+**When:** 2026-06-24 · **Fact:** `P-LRC5G3V6`
+
+<!-- decision:P-VK9WUZX6 -->
+
+## Kiro IDE 1.0.52 is available for Windows download (user discovered on download p
+
+**When:** 2026-06-25 · **Fact:** `P-VK9WUZX6`
+
+<!-- decision:P-25BQ2BVY -->
+
+## User chose to upgrade to Kiro IDE 1.0.52; will perform upgrade, rebuild, and clo
+
+**When:** 2026-06-25 · **Fact:** `P-25BQ2BVY`
+
+<!-- decision:P-7BXYT6ZP -->
+
+## Prefers clean, isolated test folders over reusing existing ones
+
+**When:** 2026-06-25 · **Fact:** `P-7BXYT6ZP`
+
+<!-- decision:P-DASHLKGA -->
+
+## Always use uv for package management, never pip — stated as standing rule for al
+
+**When:** 2026-06-25 · **Fact:** `P-DASHLKGA`
+
+<!-- decision:P-BWHEKQ2D -->
+
+## User set aside memory fragments across multiple test/check/version cycles and lo
+
+**When:** 2026-06-25 · **Fact:** `P-BWHEKQ2D`
+
+<!-- decision:P-43S5U24A -->
+
+## Kit core legs now fully working + merged (inject, capture, auto-extract, wedge,
+
+**When:** 2026-06-25 · **Fact:** `P-43S5U24A`
+
+<!-- decision:P-GTCNZECK -->
+
+## Next step is a choice: build parity legs first, or resume live cut-gate first to
+
+**When:** 2026-06-25 · **Fact:** `P-GTCNZECK`
+
+<!-- decision:P-PRHD66CF -->
+
+## Discovery: Kiro IDE exposes 10 available hooks (Pre Tool Use, File Save, + 8 oth
+
+**When:** 2026-06-25 · **Fact:** `P-PRHD66CF`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-T4X5L2LP -->
+
+## Lazy-on-SessionStart Roll Doesn't Fire on Size-Bloated now.md
+
+**When:** 2026-06-25 · **Fact:** `P-T4X5L2LP`
+**Why:** The kit's core promise is self-refreshing snapshots. This is a gap — bloated snapshots can break the durability contract across session boundaries.
