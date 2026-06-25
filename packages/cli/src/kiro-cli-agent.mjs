@@ -146,11 +146,16 @@ function buildAgentConfig() {
     toolsSettings: { shell: { allowedCommands: kiroCliAllowedCommands() } },
   };
   // hooks: object keyed by trigger → array of {command, timeout_ms}. agentSpawn
-  // (inject) + stop (capture) + preToolUse (the delete-guardrail). timeout_ms
-  // (NOT `timeout`). preToolUse `matcher: '*'` (all tools) — kiro-cli matchers
-  // are literal strings, not regex (D-197); the bin exits 2 to BLOCK.
+  // (inject) + userPromptSubmit (inject + prompt-capture) + stop (capture) +
+  // preToolUse (the delete-guardrail). timeout_ms (NOT `timeout`). preToolUse
+  // `matcher: '*'` (all tools) — kiro-cli matchers are literal strings, not regex
+  // (D-197); the bin exits 2 to BLOCK. userPromptSubmit (50.N.1) routes to BOTH
+  // inject AND capturePrompt (the <private>-strip + transcript-append half of
+  // Claude Code's UserPromptSubmit); kiro-cli's userPromptSubmit stdin carries
+  // `prompt`, which capturePrompt reads.
   cfg.hooks = {
     agentSpawn: [{ command: kiroHookCommand('agentSpawn'), timeout_ms: 10000 }],
+    userPromptSubmit: [{ command: kiroHookCommand('userPromptSubmit'), timeout_ms: 10000 }],
     stop: [{ command: kiroHookCommand('stop'), timeout_ms: 30000 }],
     preToolUse: [{ command: kiroGuardCommand(), timeout_ms: 5000, matcher: '*' }],
   };

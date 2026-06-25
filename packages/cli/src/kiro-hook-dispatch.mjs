@@ -46,10 +46,24 @@ const CAPTURE_EVENTS = new Set(['stop']);
 const GUARD_EVENTS = new Set(['preToolUse']);
 
 export function dispatchKiroHook({ event, payload = {}, cwd, userDir, deps = {} } = {}) {
-  const { inject, capture, guard } = deps;
+  const { inject, capture, capturePrompt, guard } = deps;
 
   try {
     if (INJECT_EVENTS.has(event)) {
+      // The prompt-submit events (promptSubmit / userPromptSubmit) do BOTH inject
+      // (recall) AND capturePrompt — the <private>-strip + transcript-append half,
+      // matching Claude Code's UserPromptSubmit (cmk-capture-prompt). agentSpawn is
+      // inject-only (no prompt to capture). capturePrompt is BEST-EFFORT: a throw
+      // must never break inject or the session (50.N.1). Older installs without
+      // the dep skip it cleanly.
+      if (event !== 'agentSpawn' && typeof capturePrompt === 'function') {
+        try {
+          capturePrompt({ payload, projectRoot: cwd, ...(userDir ? { userDir } : {}) });
+        } catch (err) {
+          // swallow — capture is best-effort; inject below still runs.
+          process.stderr.write(`cmk hook ${event}: capturePrompt failed: ${err?.message ?? err}\n`);
+        }
+      }
       const r = inject({ cwd, ...(userDir ? { userDir } : {}) });
       // injectContext returns the text to surface as context; print on stdout so
       // Kiro adds it to the agent's context (the runCommand→stdout→context path).

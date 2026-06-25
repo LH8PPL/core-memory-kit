@@ -21,6 +21,7 @@ import { runKiroHook } from './kiro-hook-bin.mjs';
 import { readKiroTurn } from './kiro-transcript.mjs';
 import { injectContext } from './inject-context.mjs';
 import { captureTurn } from './capture-turn.mjs';
+import { capturePrompt } from './capture-prompt.mjs';
 import { decideGuard } from './guard-memory.mjs';
 import { removeClaudeMdBlock } from './claude-md.mjs';
 import { reindex as reindexAction } from './reindex.mjs';
@@ -440,10 +441,32 @@ export function kiroToolCommand(payload, _cwd) {
 export function runHook(event, _options = {}, _command, deps = {}) {
   const log = deps.log ?? ((s) => process.stdout.write(s));
   const logError = deps.logError ?? ((s) => process.stderr.write(`${s}\n`));
+  // 50.N.1 — read the Kiro hook STDIN payload, but ONLY for the events that
+  // actually carry one (userPromptSubmit/promptSubmit → {prompt}; postToolUse →
+  // {tool_name,...}). agentSpawn/stop/preToolUse have no kit stdin payload (their
+  // inputs come from cwd/env/transcript), so we never touch fd 0 for them — which
+  // also keeps tests + manual runs from blocking on a read that would hang.
+  // TTY-safe regardless (readHookStdin returns '' on a TTY). Bad/empty → {}.
+  const STDIN_PAYLOAD_EVENTS = new Set(['userPromptSubmit', 'promptSubmit', 'postToolUse']);
+  let payload = deps.payload;
+  if (payload === undefined) {
+    if (STDIN_PAYLOAD_EVENTS.has(event)) {
+      try {
+        const readStdin = deps.readStdin ?? (() => readHookStdin({ isTTY: process.stdin.isTTY }));
+        const raw = readStdin();
+        payload = raw && raw.trim() !== '' ? JSON.parse(raw) : {};
+      } catch {
+        payload = {};
+      }
+    } else {
+      payload = {};
+    }
+  }
   const r = runKiroHook({
     argv: [event],
     cwd: deps.cwd ?? process.cwd(),
     env: deps.env ?? process.env,
+    payload,
     deps: {
       readKiroTurn: deps.readKiroTurn ?? readKiroTurn,
       // injectContext returns the assembled context string; normalize to {text}.
@@ -463,6 +486,13 @@ export function runHook(event, _options = {}, _command, deps = {}) {
         payload: args.payload,
         projectRoot: args.projectRoot,
         autoExtractPath: resolveKiroAutoExtractPath(deps.env ?? process.env),
+      })),
+      // 50.N.1 — prompt-capture on the prompt-submit events (the <private>-strip
+      // + transcript-append half of Claude Code's UserPromptSubmit). Best-effort;
+      // the dispatcher swallows a throw so inject still runs.
+      capturePrompt: deps.capturePrompt ?? ((args) => capturePrompt({
+        payload: args.payload,
+        projectRoot: args.projectRoot,
       })),
       // preToolUse → the memory delete-guardrail (D-192). Reads the about-to-run
       // tool command out of the Kiro payload and returns {block, reason?}.

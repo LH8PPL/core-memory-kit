@@ -36,31 +36,78 @@ describe('Task 50.J — Kiro hook dispatcher', () => {
       expect(r.stdout).toContain('MEMORY');
     });
 
-    it('promptSubmit → inject (per-prompt recall)', () => {
+    // 50.N.1: promptSubmit does BOTH inject (recall) AND capturePrompt (the
+    // <private>-strip + transcript-append half) — matching Claude Code's
+    // UserPromptSubmit which fires cmk-capture-prompt (inject hint + capture).
+    it('promptSubmit → inject AND capturePrompt (per-prompt recall + prompt capture)', () => {
       const calls = [];
       dispatchKiroHook({
         event: 'promptSubmit',
-        payload: {},
+        payload: { prompt: 'a question' },
         cwd: '/proj',
-        deps: { inject: (a) => { calls.push('inject'); return { ok: true, text: '' }; }, capture: () => {} },
+        deps: {
+          inject: () => { calls.push('inject'); return { ok: true, text: '' }; },
+          capturePrompt: (a) => { calls.push(['capturePrompt', a]); },
+          capture: () => {},
+        },
       });
-      expect(calls).toEqual(['inject']);
+      expect(calls).toContain('inject');
+      const cp = calls.find((c) => c[0] === 'capturePrompt');
+      expect(cp).toBeTruthy();
+      expect(cp[1].payload.prompt).toBe('a question');
+      expect(cp[1].projectRoot).toBe('/proj');
     });
 
     // I-1: the Amazon-Q/CLI Rust contract names the prompt trigger
     // `userPromptSubmit` (the IDE .kiro.hook surface calls it `promptSubmit`).
-    // The dispatcher must recognize BOTH → inject, so a CLI agent wiring the
-    // contract name never routes to the silent no-op branch.
-    it('userPromptSubmit (the Rust-contract name) → inject, not no-op', () => {
+    // Both → inject AND capturePrompt, so a CLI agent wiring the contract name
+    // never routes to the silent no-op branch and captures the prompt too.
+    it('userPromptSubmit (the Rust-contract name) → inject AND capturePrompt', () => {
       const calls = [];
       const r = dispatchKiroHook({
         event: 'userPromptSubmit',
-        payload: {},
+        payload: { prompt: 'rule X' },
         cwd: '/proj',
-        deps: { inject: () => { calls.push('inject'); return { ok: true, text: 'M' }; }, capture: () => {} },
+        deps: {
+          inject: () => { calls.push('inject'); return { ok: true, text: 'M' }; },
+          capturePrompt: (a) => { calls.push(['capturePrompt', a]); },
+          capture: () => {},
+        },
       });
       expect(r.action).toBe('inject');
-      expect(calls).toEqual(['inject']);
+      expect(calls).toContain('inject');
+      expect(calls.some((c) => c[0] === 'capturePrompt')).toBe(true);
+    });
+
+    // capturePrompt is best-effort: a throw must NOT break inject or the session.
+    it('promptSubmit with capturePrompt THROWING still injects + exits 0', () => {
+      const calls = [];
+      const r = dispatchKiroHook({
+        event: 'promptSubmit',
+        payload: { prompt: 'q' },
+        cwd: '/proj',
+        deps: {
+          inject: () => { calls.push('inject'); return { ok: true, text: 'M' }; },
+          capturePrompt: () => { throw new Error('capture boom'); },
+          capture: () => {},
+        },
+      });
+      expect(r.exitCode).toBe(0);
+      expect(r.action).toBe('inject');
+      expect(r.stdout).toBe('M'); // inject still surfaced despite the capture throw
+      expect(calls).toContain('inject');
+    });
+
+    // a dispatcher with NO capturePrompt dep (older install) → inject only, no crash.
+    it('promptSubmit with NO capturePrompt dep → inject only (forward/back compat)', () => {
+      const r = dispatchKiroHook({
+        event: 'promptSubmit',
+        payload: { prompt: 'q' },
+        cwd: '/proj',
+        deps: { inject: () => ({ ok: true, text: 'M' }), capture: () => {} },
+      });
+      expect(r.exitCode).toBe(0);
+      expect(r.action).toBe('inject');
     });
 
     it('stop → capture (turn-end capture)', () => {

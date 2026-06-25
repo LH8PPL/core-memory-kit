@@ -50,6 +50,11 @@ describe('Task 50.L — Kiro CLI agent-config + default-agent', () => {
       expect(agent.hooks.agentSpawn[0].command).toMatch(/cmk hook agentSpawn/);
       expect(agent.hooks.stop[0].command).toMatch(/cmk hook stop/);
       expect(typeof agent.hooks.stop[0].timeout_ms).toBe('number'); // NOT `timeout`
+      // 50.N.1 — userPromptSubmit wired (inject + prompt-capture, the <private>
+      // -strip half of Claude Code's UserPromptSubmit). kiro-cli's userPromptSubmit
+      // stdin carries `prompt`, which the kit's capturePrompt core reads.
+      expect(agent.hooks.userPromptSubmit[0].command).toMatch(/cmk hook userPromptSubmit/);
+      expect(typeof agent.hooks.userPromptSubmit[0].timeout_ms).toBe('number');
       // preToolUse delete-guardrail matcher is the kiro-cli literal '*' (all tools);
       // kiro-cli matchers are literal strings (D-197), never a pipe-alternation.
       expect(agent.hooks.preToolUse[0].matcher).toBe('*');
