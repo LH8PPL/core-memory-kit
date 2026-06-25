@@ -24,7 +24,7 @@ import { dispatchKiroHook } from './kiro-hook-dispatch.mjs';
 
 export function runKiroHook({ argv = [], cwd = process.cwd(), env = process.env, payload = {}, deps = {} } = {}) {
   const event = argv[0];
-  const { readKiroTurn, inject, capture, guard } = deps;
+  const { readKiroTurn, inject, capture, capturePrompt, guard } = deps;
 
   // Wrap the kit cores so the dispatcher's generic inject/capture contract is fed
   // Kiro's actual inputs.
@@ -43,6 +43,20 @@ export function runKiroHook({ argv = [], cwd = process.cwd(), env = process.env,
     return capture({ ...args, payload });
   };
 
+  // 50.N.1 — prompt-capture on the prompt-submit events. The prompt text comes
+  // from the stdin payload (kiro-cli `userPromptSubmit` carries `prompt`) OR env
+  // USER_PROMPT (the IDE legacy surface). capturePrompt reads `payload.prompt`,
+  // so build a payload that carries whichever is present.
+  const wrappedCapturePrompt = capturePrompt
+    ? (args) => {
+        const prompt =
+          (payload && typeof payload.prompt === 'string' && payload.prompt) ||
+          env.USER_PROMPT ||
+          '';
+        return capturePrompt({ ...args, payload: { ...payload, prompt } });
+      }
+    : undefined;
+
   // preToolUse guard (forward-compat path — the production Kiro install calls the
   // cmk-guard-memory bin directly, which reads the stdin payload). If a guard dep
   // is wired, pass the stdin payload through so it can read tool_input.command.
@@ -55,6 +69,7 @@ export function runKiroHook({ argv = [], cwd = process.cwd(), env = process.env,
     deps: {
       inject: wrappedInject,
       capture: wrappedCapture,
+      ...(wrappedCapturePrompt ? { capturePrompt: wrappedCapturePrompt } : {}),
       ...(wrappedGuard ? { guard: wrappedGuard } : {}),
     },
   });

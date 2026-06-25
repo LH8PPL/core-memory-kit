@@ -21,6 +21,7 @@ import { runKiroHook } from './kiro-hook-bin.mjs';
 import { readKiroTurn } from './kiro-transcript.mjs';
 import { injectContext } from './inject-context.mjs';
 import { captureTurn } from './capture-turn.mjs';
+import { capturePrompt } from './capture-prompt.mjs';
 import { decideGuard } from './guard-memory.mjs';
 import { removeClaudeMdBlock } from './claude-md.mjs';
 import { reindex as reindexAction } from './reindex.mjs';
@@ -440,10 +441,19 @@ export function kiroToolCommand(payload, _cwd) {
 export function runHook(event, _options = {}, _command, deps = {}) {
   const log = deps.log ?? ((s) => process.stdout.write(s));
   const logError = deps.logError ?? ((s) => process.stderr.write(`${s}\n`));
+  // 50.N.1 — the Kiro hook payload. Per the kit's probe-verified contract
+  // (kiro-hook-bin.mjs): Kiro's `runCommand` feeds input via argv + env
+  // (USER_PROMPT) + cwd + transcript, NOT a stdin JSON payload. So runHook does
+  // NOT blocking-read fd 0 — a dangling-open stdin from a `runCommand` subprocess
+  // would hang the hook to its timeout (B1, the skill-review catch). The prompt
+  // text reaches capturePrompt via env USER_PROMPT (the bin's wrappedCapturePrompt
+  // fallback). Tests inject `deps.payload` directly. Default → {}.
+  const payload = deps.payload ?? {};
   const r = runKiroHook({
     argv: [event],
     cwd: deps.cwd ?? process.cwd(),
     env: deps.env ?? process.env,
+    payload,
     deps: {
       readKiroTurn: deps.readKiroTurn ?? readKiroTurn,
       // injectContext returns the assembled context string; normalize to {text}.
@@ -463,6 +473,13 @@ export function runHook(event, _options = {}, _command, deps = {}) {
         payload: args.payload,
         projectRoot: args.projectRoot,
         autoExtractPath: resolveKiroAutoExtractPath(deps.env ?? process.env),
+      })),
+      // 50.N.1 — prompt-capture on the prompt-submit events (the <private>-strip
+      // + transcript-append half of Claude Code's UserPromptSubmit). Best-effort;
+      // the dispatcher swallows a throw so inject still runs.
+      capturePrompt: deps.capturePrompt ?? ((args) => capturePrompt({
+        payload: args.payload,
+        projectRoot: args.projectRoot,
       })),
       // preToolUse → the memory delete-guardrail (D-192). Reads the about-to-run
       // tool command out of the Kiro payload and returns {block, reason?}.

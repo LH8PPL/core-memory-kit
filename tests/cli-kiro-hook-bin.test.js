@@ -89,6 +89,35 @@ describe('Task 50.J/50.L — runKiroHook adapter', () => {
     expect(captured.autoExtractPath).toBe('/custom/extract.mjs');
   });
 
+  it('userPromptSubmit → runHook reads the stdin payload + forwards the prompt to capturePrompt (50.N.1)', () => {
+    let cp = null;
+    runHook('userPromptSubmit', {}, undefined, {
+      cwd: '/proj',
+      env: {},
+      // inject the stdin payload (kiro-cli userPromptSubmit carries {prompt})
+      payload: { prompt: 'always use uv, in every project' },
+      capturePrompt: (args) => { cp = args; },
+      log: () => {},
+      logError: () => {},
+    });
+    expect(cp).not.toBeNull();
+    expect(cp.payload.prompt).toBe('always use uv, in every project');
+    expect(cp.projectRoot).toBe('/proj');
+  });
+
+  it('userPromptSubmit → falls back to env USER_PROMPT when stdin has no prompt (IDE legacy)', () => {
+    let cp = null;
+    runHook('userPromptSubmit', {}, undefined, {
+      cwd: '/proj',
+      env: { USER_PROMPT: 'prompt from env' },
+      payload: {}, // no stdin prompt
+      capturePrompt: (args) => { cp = args; },
+      log: () => {},
+      logError: () => {},
+    });
+    expect(cp.payload.prompt).toBe('prompt from env');
+  });
+
   it('agentSpawn event → inject (no transcript read needed)', () => {
     const calls = [];
     const r = runKiroHook({

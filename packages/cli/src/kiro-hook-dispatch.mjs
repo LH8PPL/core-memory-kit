@@ -39,6 +39,11 @@
 // are the SAME trigger under two surface vocabularies — both map to inject.
 const INJECT_EVENTS = new Set(['agentSpawn', 'promptSubmit', 'userPromptSubmit']);
 const CAPTURE_EVENTS = new Set(['stop']);
+// 50.N.1 — the prompt-submit events that ALSO capture the prompt (the <private>
+// -strip + transcript-append half of Claude Code's UserPromptSubmit). An explicit
+// ALLOW-set (not "INJECT minus agentSpawn") so a future inject-only event added to
+// INJECT_EVENTS never silently starts calling capturePrompt with no prompt.
+const PROMPT_CAPTURE_EVENTS = new Set(['promptSubmit', 'userPromptSubmit']);
 // preToolUse → the memory delete-guardrail (D-192). The ONE event that may exit
 // NON-zero: a non-zero preToolUse exit BLOCKS the Kiro tool (verified — the same
 // mechanism the always-exit-0 invariant exists for). The guard exits 2 ONLY on a
@@ -46,10 +51,24 @@ const CAPTURE_EVENTS = new Set(['stop']);
 const GUARD_EVENTS = new Set(['preToolUse']);
 
 export function dispatchKiroHook({ event, payload = {}, cwd, userDir, deps = {} } = {}) {
-  const { inject, capture, guard } = deps;
+  const { inject, capture, capturePrompt, guard } = deps;
 
   try {
     if (INJECT_EVENTS.has(event)) {
+      // The prompt-submit events (promptSubmit / userPromptSubmit) do BOTH inject
+      // (recall) AND capturePrompt — the <private>-strip + transcript-append half,
+      // matching Claude Code's UserPromptSubmit (cmk-capture-prompt). agentSpawn is
+      // inject-only (no prompt to capture). capturePrompt is BEST-EFFORT: a throw
+      // must never break inject or the session (50.N.1). Older installs without
+      // the dep skip it cleanly.
+      if (PROMPT_CAPTURE_EVENTS.has(event) && typeof capturePrompt === 'function') {
+        try {
+          capturePrompt({ payload, projectRoot: cwd, ...(userDir ? { userDir } : {}) });
+        } catch (err) {
+          // swallow — capture is best-effort; inject below still runs.
+          process.stderr.write(`cmk hook ${event}: capturePrompt failed: ${err?.message ?? err}\n`);
+        }
+      }
       const r = inject({ cwd, ...(userDir ? { userDir } : {}) });
       // injectContext returns the text to surface as context; print on stdout so
       // Kiro adds it to the agent's context (the runCommand→stdout→context path).
