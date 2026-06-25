@@ -16,3 +16,6 @@
 ## 2026-06-25T09:08:12Z — auto-extract (medium-trust, pending review)
 - (P-UBW47JKA) Maintaining backward compatibility across Kiro IDE versions (0.x → 1.0) is valued in this project design
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-25T09:08:12Z -->
+## 2026-06-25T11:26:15Z — auto-extract (medium-trust, pending review)
+- (P-DXZE3XDY) npm pack and global install of 0.4.0 succeeded; tarball includes all required modules (capture, inject, guard, observe hooks; kiro-ide-hooks.mjs; semantic-backend.mjs; etc.) verified present in output
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-25T11:26:15Z -->
