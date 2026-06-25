@@ -5661,3 +5661,780 @@
 
 **When:** 2026-06-23 · **Fact:** `P-HaQ9X72G`
 **Why:** PR #224 discovered this during guardrail testing; the bug went undetected until explicitly tested, confirming it was a critical cut-blocker.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-9UJBANXP -->
+
+## Should run the actual tool (ground truth) FIRST, rather than theorizing beforeha
+
+**When:** 2026-06-23 · **Fact:** `P-9UJBANXP`
+
+<!-- decision:P-PCW3J9PX -->
+
+## Prefers to continue pushing through complex multi-step work rather than pausing
+
+**When:** 2026-06-23 · **Fact:** `P-PCW3J9PX`
+
+<!-- decision:P-GZG5U2PN -->
+
+## Standard gate procedure includes `cmk install --with-semantic` to enable semanti
+
+**When:** 2026-06-23 · **Fact:** `P-GZG5U2PN`
+
+<!-- decision:P-GE2TD65T -->
+
+## User manually approved MCP tool by clicking "always add it" button (workaround f
+
+**When:** 2026-06-23 · **Fact:** `P-GE2TD65T`
+
+<!-- decision:P-7TMEXMA3 -->
+
+## User is not on Kiro CLI V3; user is on kiro-cli 2.8.1 (the V3 banner was just an
+
+**When:** 2026-06-23 · **Fact:** `P-7TMEXMA3`
+
+<!-- decision:P-WEMBP2VE -->
+
+## executed the permission test to validate guardrail behavior
+
+**When:** 2026-06-23 · **Fact:** `P-WEMBP2VE`
+
+<!-- decision:P-5GY3KT29 -->
+
+## Expects tool recommendations backed by verification of actual tool behavior, not
+
+**When:** 2026-06-23 · **Fact:** `P-5GY3KT29`
+
+<!-- decision:P-Ra5D4F96 -->
+
+## Actual linter output is MD007 (not assumed MD013/MD033/MD041); fix: committed co
+
+**When:** 2026-06-23 · **Fact:** `P-Ra5D4F96`
+
+<!-- decision:P-Z3BU5T69 -->
+
+## User identified genuine cost (lint-portability) not originally weighed in inline
+
+**When:** 2026-06-23 · **Fact:** `P-Z3BU5T69`
+
+<!-- decision:P-53VHE5Z6 -->
+
+## PR #224 opened with guardrail fix (matcher syntax corrected from pipe-alternatio
+
+**When:** 2026-06-23 · **Fact:** `P-53VHE5Z6`
+
+<!-- decision:P-AD7CZaKC -->
+
+## Uses `failure#` naming convention for failed experiment directories — renamed ki
+
+**When:** 2026-06-23 · **Fact:** `P-AD7CZaKC`
+
+<!-- decision:P-C6YZVTNX -->
+
+## Dogfood Memory Architecture — Session Recall vs. Authoritative Docs
+
+**When:** 2026-06-23 · **Fact:** `P-C6YZVTNX`
+**Why:** This separation avoids polluting the authoritative record with session scaffolding while preserving the option to capture valuable session context. Manual commits keep signal-to-noise ratio high in the repo.
+
+<!-- decision:P-AAXE5QX3 -->
+
+## D-197 Delete-Guardrail Matcher Fix (PR #224, Commit 0dae3f3)
+
+**When:** 2026-06-23 · **Fact:** `P-AAXE5QX3`
+**Why:** The old matcher pattern failed to consistently intercept delete commands. The wildcard matcher is more robust and catches all deletion attempts.
+
+<!-- decision:P-CJ556YPJ -->
+
+## D-197 End-to-End Live Re-test Workflow
+
+**When:** 2026-06-23 · **Fact:** `P-CJ556YPJ`
+**Why:** This workflow is the only proof that the guard fix works live in the real Kiro environment. Unit tests pass, but this test confirms the config, artifact, and hook integration all work end-to-end.
+
+<!-- decision:P-G39LPLQG -->
+
+## kg-guard-retest-failed-was-stale-artifact-not-fix
+
+**When:** 2026-06-23 · **Fact:** `P-G39LPLQG`
+**Why:** Prevents misreading the D-197 re-test: the matcher '*' fix is correct on main, but the live test ran the STALE pre-merge installed cmk (old pipe-string matcher), so it failed. Not a fix failure — a deploy gap. The live-test-current-repo-code rule applied to the install artifact.
+
+<!-- decision:P-GHNBU9J4 -->
+
+## Live KG-guard Config Location and Verification
+
+**When:** 2026-06-23 · **Fact:** `P-GHNBU9J4`
+**Why:** KG-guard reads this live config, not the source code. An outdated config means the test exercises old behavior even if the code was fixed.
+
+<!-- decision:P-ESQMFH5J -->
+
+## Testing Workflow for claude-memory-kit Fixes
+
+**When:** 2026-06-23 · **Fact:** `P-ESQMFH5J`
+**Why:** Until you rebuild the tgz after a merge, every live test runs pre-merge code. Testing against a stale global install will fail even if the fix is correct in the repository.
+
+<!-- decision:P-KZ5YCCGB -->
+
+## guard-code-proven-correct-ps-pipe-exit0-was-artifact
+
+**When:** 2026-06-23 · **Fact:** `P-KZ5YCCGB`
+**Why:** Corrects a scary mid-diagnosis false alarm: a PowerShell-pipe exit-0 made it look like the delete-guard logic was broken even in the current build. It is NOT — proven 3 ways (in-process block, file-redirect bin block exit 2, dev-repo guard blocking my own commands live). The live KG-guard failure was purely the stale installed artifact (old pipe-string matcher), which the merged '*' fix + a rebuild resolves.
+
+<!-- decision:P-36CEKTXX -->
+
+## better_sqlite3 EPERM Cleanup Warning
+
+**When:** 2026-06-23 · **Fact:** `P-36CEKTXX`
+**Why:** This warning is expected/ignorable—failure during cleanup doesn't mean the build or installation failed. Knowing this prevents unnecessary troubleshooting or reinstallation attempts in future testing cycles.
+
+<!-- decision:P-2J2UHV2L -->
+
+## kg-guard-still-fails-with-star-matcher-hook-not-firing-or-env-payload
+
+**When:** 2026-06-23 · **Fact:** `P-2J2UHV2L`
+**Why:** The '*' matcher fix (D-197) did NOT make KG-guard pass — matcher confirmed '*' live, bin proven to block, yet kiro-cli still deleted memory. Root cause is now genuinely uncertain between (H1) '*' not honored → use literal 'execute_bash', and (H2) kiro-cli 2.8.1 passes the payload via _HOOK_EVENT env var not stdin → our stdin-reading bin fail-opens. Must instrument to decide, not guess. The guardrail is a headline safety feature still broken in kiro-cli.
+
+<!-- decision:P-LTKSACUC -->
+
+## KG-guard kiro-cli failure — diagnosis plan (D-197 incomplete)
+
+**When:** 2026-06-23 · **Fact:** `P-LTKSACUC`
+**Why:** Root cause unknown; hypothesis-driven diagnosis settles the issue in one test cycle vs. continued guessing.
+
+<!-- decision:P-YXPPE2Z7 -->
+
+## TRUE-root-cause-kiro-cli-agent-config-wrong-location-no-hooks-fire
+
+**When:** 2026-06-23 · **Fact:** `P-YXPPE2Z7`
+**Why:** The instrumented probe proved NO hooks fire in kiro-cli, and `kiro-cli agent list` showed the active agent is the built-in 'kiro_default' from ~/.kiro/agents/ — while the kit writes q_cli_default.json to the OLD ~/.aws/amazonq/cli-agents/ location that 2.8.1 ignores. This supersedes D-197's incomplete 'matcher' root cause: the real bug is the config LOCATION + default-agent resolution, which is why the guard, agentSpawn, and stop hooks all silently never ran. A real v0.4.0 cut-blocker for the kiro-cli surface.
+
+<!-- decision:P-EC97GY7E -->
+
+## d198-fix-built-kiro-dir-location-open-file-uri-resolution-question
+
+**When:** 2026-06-24 · **Fact:** `P-EC97GY7E`
+**Why:** The real root-cause fix (D-198: agent config to ~/.kiro/agents/ + cli.json default registration) is built, unit-green, and SCHEMA-validated against real kiro-cli (which caught the includeMcpJson dup + the managedBy rejection). But a runtime path-resolution question remains: kiro-cli resolves file:// resources relative to the agent-file dir, which would break our project-root AGENTS.md/steering refs — must verify before claiming inject works.
+
+<!-- decision:P-XNG4DaB2 -->
+
+## kiro-cli-rejects-bom-in-agent-config-ps-convertto-json-adds-it
+
+**When:** 2026-06-24 · **Fact:** `P-XNG4DaB2`
+**Why:** A BOM from PowerShell ConvertTo-Json broke the live cmk agent ('invalid agent config' → fell back to kiro_default), looking like the D-198 fix failed when it hadn't. kiro-cli's own config reader is NOT BOM-tolerant (the inverse of the kit's D-187 read-tolerance). The kit writes clean UTF-8 so production is unaffected; only hand-editing via PowerShell injects the BOM.
+
+<!-- decision:P-9DYNAHaZ -->
+
+## Kiro-CLI Agent Configuration and Verification
+
+**When:** 2026-06-24 · **Fact:** `P-9DYNAHaZ`
+**Why:** Configuration location and verification approach are essential for kiro-cli agent setup debugging and fix validation
+
+<!-- decision:P-WZMQDPUU -->
+
+## D-198 Fix — agentSpawn Hook Now Fires
+
+**When:** 2026-06-24 · **Fact:** `P-WZMQDPUU`
+**Why:** Confirms the fix resolved the "agent cmk not found" issue; agent resolution now works correctly
+
+<!-- decision:P-RVCKGMZV -->
+
+## Hook Payload Delivery — stdin, Not Environment
+
+**When:** 2026-06-24 · **Fact:** `P-RVCKGMZV`
+**Why:** Clarifies payload delivery mechanism; guides how to capture/parse hooks in probes or guards
+
+<!-- decision:P-BKZ97QGE -->
+
+## d198-proven-agentspawn-fires-but-pretooluse-not-on-2.9.0-execute-command-rename
+
+**When:** 2026-06-24 · **Fact:** `P-BKZ97QGE`
+**Why:** D-198 (the location fix) is PROVEN correct — agentSpawn fires, cmk is the resolved default. But on kiro-cli 2.9.0 the shell tool was renamed execute_bash→execute_command and preToolUse did not fire even with matcher '*'; the docs still say execute_bash so they lag the binary. The guardrail leg's live status on 2.9.0 is the last open question; agentSpawn/inject/capture work.
+
+<!-- decision:P-6JXPBCLV -->
+
+## kiro-cli 2.9.0 Tool Renaming and preToolUse Matcher Configuration
+
+**When:** 2026-06-24 · **Fact:** `P-6JXPBCLV`
+**Why:** The hook location fix (D-198) was confirmed correct, but hooks weren't firing because the matcher didn't align with the actual 2.9.0 tool name. This explains the discrepancy between docs and runtime behavior.
+
+<!-- decision:P-WS9FXPZK -->
+
+## FINAL-kiro-cli-v3-redesigned-hooks-pretooluse-superseded-by-permissions-yaml
+
+**When:** 2026-06-24 · **Fact:** `P-WS9FXPZK`
+**Why:** Definitive: the kiro-cli guardrail can't work via preToolUse on 2.9.0 because V3 redesigned hooks (breaking change: standalone .kiro/hooks/*.json + PascalCase triggers + permissions.yaml for tool-blocking). Our V2 embedded preToolUse is unsupported for blocking there. BUT D-198's location fix is proven correct — agentSpawn/stop fire, so capture+inject (the core memory value) work on V3. D-198 ships; the guardrail-on-V3 is a separate follow-up.
+
+<!-- decision:P-U5QSXFNa -->
+
+## d198-shipped-pr225-kiro-cli-capture-inject-proven-live
+
+**When:** 2026-06-24 · **Fact:** `P-U5QSXFNa`
+**Why:** D-198 (the real root-cause fix for kiro-cli hooks not firing) is built, two-pass-reviewed, and PROVEN live (agentSpawn fires, cmk is the resolved default). Capture+inject — the core automatic-memory value — now work on kiro-cli. Shipped to PR #225. The guardrail-on-V3 gap is consciously deferred to Task 166 with Kiro's native fallback documented honestly.
+
+<!-- decision:P-NSAE3H4P -->
+
+## Agent capture/inject proven live across Claude Code, Kiro IDE, and kiro-cli
+
+**When:** 2026-06-24 · **Fact:** `P-NSAE3H4P`
+**Why:** Confirms core functionality works; unblocks v0.4.0 finalization after E1 (cold-open) and KU1/KU2 (uninstall flows).
+
+<!-- decision:P-LZZa6KWT -->
+
+## kiro-cli agent config reads from ~/.kiro/agents/ (not ~/.aws/amazonq/cli-agents/)
+
+**When:** 2026-06-24 · **Fact:** `P-LZZa6KWT`
+**Why:** Root cause of "cmk agent not firing in kiro-cli" despite D-197's logic fix being correct; explains the "dead file" symptom. Critical for debugging agent-not-found issues going forward.
+
+<!-- decision:P-FM4YBQNC -->
+
+## Kiro V3 hooks redesigned; first-class delete-guard fallback to shell-approval
+
+**When:** 2026-06-24 · **Fact:** `P-FM4YBQNC`
+**Why:** Breaking platform change; scopes v0.4.0 functionality and expectation. Honest limitation worth documenting rather than shipping broken behavior.
+
+<!-- decision:P-CSJNFQaK -->
+
+## User wants direct, hands-on verification before accepting completion — "i didnt
+
+**When:** 2026-06-24 · **Fact:** `P-CSJNFQaK`
+
+<!-- decision:P-2SPaSRR7 -->
+
+## Gate Guides as Standalone Documentation Siblings
+
+**When:** 2026-06-24 · **Fact:** `P-2SPaSRR7`
+**Why:** Modularity ensures users can follow ONE gate variant without needing to understand or reference the others. Each guide is a complete, independent resource.
+
+<!-- decision:P-2XR9VMNM -->
+
+## kiro-cli Agent Configuration and Debugging Techniques
+
+**When:** 2026-06-24 · **Fact:** `P-2XR9VMNM`
+**Why:** Each check/technique corresponds to a real bug discovered this session (D-198, BOM corruption, location misdiagnosis). Baking them into the gate prevents re-discovery in future debugging.
+
+<!-- decision:P-A26UKEUT -->
+
+## Prefers gate guides as standalone siblings without cross-references between Clau
+
+**When:** 2026-06-24 · **Fact:** `P-A26UKEUT`
+
+<!-- decision:P-THB4NE6Z -->
+
+## EBUSY Lock on better_sqlite3.node During Global Install
+
+**When:** 2026-06-24 · **Fact:** `P-THB4NE6Z`
+**Why:** Prior session's install "succeeded" but left stale code due to EBUSY; npm output is misleading. The verify check prevents repeating this silent failure.
+
+<!-- decision:P-ETG53B43 -->
+
+## npm install works with Claude Code open in this repo
+
+**When:** 2026-06-24 · **Fact:** `P-ETG53B43`
+**Why:** User feedback + repeated successful pattern validate this as safe; file-locking concerns do not apply here
+
+<!-- decision:P-Q7YRKUF6 -->
+
+## User always reinstalls npm while Claude Code is open; established workflow that
+
+**When:** 2026-06-24 · **Fact:** `P-Q7YRKUF6`
+
+<!-- decision:P-9LPPCKBT -->
+
+## kiro-cli-hook-cmd-exe-popup-window-flash-ux-bug
+
+**When:** 2026-06-24 · **Fact:** `P-9LPPCKBT`
+**Why:** The clean gate surfaced a real UX bug: kiro-cli hooks flash a visible cmd.exe console window every fire on Windows because the command is `cmd.exe /c cmk hook`. The cmd.exe wrapper exists for the IDE's WSL hop but is shared with the CLI agent, which may not need it. Annoying for every kiro-cli user on Windows.
+
+<!-- decision:P-G3VXJKVP -->
+
+## User encountered annoying popup when running kiro-cli and wants it removed
+
+**When:** 2026-06-24 · **Fact:** `P-G3VXJKVP`
+
+<!-- decision:P-CGEE2XSH -->
+
+## kiro-cli-popup-real-cause-cmk-is-npm-shim-not-exe-mcp-and-hook-spawns-flash
+
+**When:** 2026-06-24 · **Fact:** `P-CGEE2XSH`
+**Why:** The popup is NOT just the hook's cmd.exe/c (removing it didn't help). The real cause: cmk is an npm .ps1/.cmd shim (no native cmk.exe), so every kiro-cli launch of cmk — the MCP server AND hooks — gets shell-wrapped by Windows and flashes a console window (both cmd.exe + PowerShell). A Windows-shim interaction, needs a real fix (hidden-window shim, native exe, or a kiro-cli setting), not a config tweak.
+
+<!-- decision:P-FK5RXGDE -->
+
+## kiro-cli spawns MCP in cmd.exe wrapper; Claude Code spawns headless
+
+**When:** 2026-06-24 · **Fact:** `P-FK5RXGDE`
+**Why:** Understanding the spawn mechanism directs the fix strategy — it's a launcher integration problem, not an MCP problem
+
+<!-- decision:P-44DQF4BX -->
+
+## node-direct MCP invocation workaround — applied but unvalidated in kiro-cli UI
+
+**When:** 2026-06-24 · **Fact:** `P-44DQF4BX`
+**Why:** Attempting to eliminate the cmd.exe window on startup without modifying kiro-cli's launcher
+
+<!-- decision:P-UAFX77EF -->
+
+## kiro-cli-popup-fix-is-task81-node-direct-windowshide-pattern-already-in-kit
+
+**When:** 2026-06-24 · **Fact:** `P-UAFX77EF`
+**Why:** Corrects my wrong claim that Claude Code never had the popup. It DID — Task 81 fixed it with node-direct (process.execPath + .mjs path, never the cmk shim) + windowsHide. The kiro-cli MCP + hook popups are the SAME root cause (cmk is an npm shim Windows wraps in cmd.exe) and take the SAME established fix. This makes the kiro-cli popup a clean code fix following the kit's own proven pattern, not a new invention.
+
+<!-- decision:P-GELYMC3Q -->
+
+## kiro-cli-mcp-popup-is-6th-cross-agent-instance-mcp-command-never-node-direct
+
+**When:** 2026-06-24 · **Fact:** `P-GELYMC3Q`
+**Why:** The docs trail (Task 81 + D-190) shows the popup class was fixed twice — but only for the lazy-compress detached spawn, NEVER for the MCP server registration (still command:'cmk' in install-agent.mjs + install-kiro.mjs). Claude Code tolerates command:'cmk' (headless spawn); kiro-cli wraps it in cmd.exe → the persistent window. This is the 6th instance of the documented Claude-tolerated/Kiro-breaks cross-agent class, with the SAME established node-direct fix.
+
+<!-- decision:P-J7QS7HRQ -->
+
+## Fixed the same cmd.exe window issue across Claude Code CLI and MCP components, c
+
+**When:** 2026-06-24 · **Fact:** `P-J7QS7HRQ`
+
+<!-- decision:P-U7UUPTA2 -->
+
+## Kiro-CLI MCP Registration Configuration Gap
+
+**When:** 2026-06-24 · **Fact:** `P-U7UUPTA2`
+**Why:** Without conversion, kiro-cli shows persistent cmd.exe window on spawn. Claude Code avoids it by spawning headless, which masks the gap in headless contexts.
+
+<!-- decision:P-C3RVE6LD -->
+
+## Node-Direct Process Spawning To Prevent Cmd.exe Windows
+
+**When:** 2026-06-24 · **Fact:** `P-C3RVE6LD`
+**Why:** Cmd.exe wrappers create visible persistent windows on Windows, breaking UX—especially critical for CLI tools. Claude Code success validates the approach.
+
+<!-- decision:P-BCFL24PC -->
+
+## Prefers direct, action-oriented responses; dislikes verbose context re-hashing—w
+
+**When:** 2026-06-24 · **Fact:** `P-BCFL24PC`
+
+<!-- decision:P-V2CQQLQQ -->
+
+## FINAL-mcp-popup-is-kiro-cli-wraps-all-mcp-in-cmd-exe-not-kit-bug
+
+**When:** 2026-06-24 · **Fact:** `P-V2CQQLQQ`
+**Why:** Corrects my earlier '6th cross-agent instance / node-direct fix' framing — that was WRONG. Live proof: kiro-cli wraps EVERY stdio MCP server in cmd.exe /C (the user's mcp-remote + mcp-server-memory get it too, not just cmk), so the console window is kiro-cli's OWN launch mechanism, not controllable by the kit's command string (node-direct didn't help). It's a kiro-cli-on-Windows cosmetic affecting all MCP servers, not a kit defect — don't block v0.4.0 on it.
+
+<!-- decision:P-XXHHNAMD -->
+
+## AWS guardrail sample repo as reference for task 166 investigation
+
+**When:** 2026-06-24 · **Fact:** `P-XXHHNAMD`
+**Why:** The project's V3 guardrail hooks may have format issues or be broken on 2.9.0. AWS's official working example provides a baseline for comparison to identify root cause.
+
+<!-- decision:P-ZDBaD7AT -->
+
+## kiro-cli wraps MCP servers in cmd.exe (undocumented platform behavior)
+
+**When:** 2026-06-24 · **Fact:** `P-ZDBaD7AT`
+**Why:** Users and developers may initially interpret the cmd.exe popup as a bug or misconfiguration issue. Identifying it as inherent platform behavior prevents wasted investigation and explains why configuration-level fixes don't exist.
+
+<!-- decision:P-GRTXENC5 -->
+
+## CUT-BLOCKER-mcp-mk-remember-silent-dataloss-kiro-cli-claude-project-dir-only
+
+**When:** 2026-06-24 · **Fact:** `P-GRTXENC5`
+**Why:** The clean gate surfaced a SILENT DATA-LOSS bug: mk_remember in kiro-cli says 'saved' but nothing persists to the project, because the MCP server resolves projectRoot from CLAUDE_PROJECT_DIR (Claude-Code-only) and falls back to process.cwd() (kiro-cli's cwd, not the project). The 6th instance of the Claude-tolerated/Kiro-breaks cross-agent class, and the worst kind. A v0.4.0 cut-blocker — the core capture path silently fails in kiro-cli.
+
+<!-- decision:P-RJ2QDBCQ -->
+
+## mk-remember-kiro-cli-fix-cmk-project-dir-env-project-local-agent
+
+**When:** 2026-06-24 · **Fact:** `P-RJ2QDBCQ`
+**Why:** Confirmed the mk_remember silent-data-loss root cause (kiro launches MCP from non-project cwd; CLAUDE_PROJECT_DIR is Claude-only) and the fix direction: the agent mcpServers entry supports `env` (not cwd), and a project-local kiro agent can bake env:{CMK_PROJECT_DIR:<absPath>} which mcp serve must honor. A v0.4.0 cut-blocker — capture must persist in kiro-cli.
+
+<!-- decision:P-WQ4TBSYG -->
+
+## mk-remember-fix-self-review-agent-config-inline-mcp-composition-risk
+
+**When:** 2026-06-24 · **Fact:** `P-WQ4TBSYG`
+**Why:** Self-review caught that the kiro-cli agent-config has its OWN env-less inline mcpServers.cmk entry (global, can't bake a path). The docs are ambiguous on whether kiro uses the agent's entry or the project mcp.json (which has the env). So the fix is proven for the project-mcp.json path but the agent-config composition is unverified — must live-test which entry kiro launches before claiming the cut-blocker is fully closed.
+
+<!-- decision:P-9APUUDZY -->
+
+## kiro-cli MCP Server Source Consolidation Strategy
+
+**When:** 2026-06-24 · **Fact:** `P-9APUUDZY`
+**Why:** Ambiguous MCP source selection creates composition bugs that static tests cannot detect. Only live integration testing caught the silent data-loss risk. Consolidating eliminates ambiguity and makes the system predictable.
+
+<!-- decision:P-YQ4CN37B -->
+
+## Global CLI Rebuild and Reinstall Workflow
+
+**When:** 2026-06-24 · **Fact:** `P-YQ4CN37B`
+**Why:** Needed to test CLI changes without npm publish. The uninstall+install cycle ensures clean state and avoids stale cached behavior.
+
+<!-- decision:P-WL22GQ9J -->
+
+## kiro-cli Integration Test Gate and Reinstall
+
+**When:** 2026-06-24 · **Fact:** `P-WL22GQ9J`
+**Why:** Interactive session testing is the authoritative proof of memory persistence. Code inspection alone is insufficient.
+
+<!-- decision:P-CGLT2JD7 -->
+
+## Memory Persistence Validation Workflow (End-to-End)
+
+**When:** 2026-06-24 · **Fact:** `P-CGLT2JD7`
+**Why:** This workflow empirically proves memory persistence works end-to-end. It's the definitive test — if facts land in context/ after a live session, the fix is working.
+
+<!-- decision:P-4RGSVUAN -->
+
+## always use bare `kiro-cli` command; `chat` subcommand is default and unnecessary
+
+**When:** 2026-06-24 · **Fact:** `P-4RGSVUAN`
+
+<!-- decision:P-DK6C2GKG -->
+
+## Prefer fresh, isolated test folders over reusing existing folders contaminated b
+
+**When:** 2026-06-24 · **Fact:** `P-DK6C2GKG`
+
+<!-- decision:P-2F6HQJHF -->
+
+## Binary Test Outcome Framework for Feature Validation
+
+**When:** 2026-06-24 · **Fact:** `P-2F6HQJHF`
+**Why:** Binary outcomes eliminate guesswork and remove the need for follow-up debugging; each result is actionable and complete.
+
+<!-- decision:P-4JQZL6HE -->
+
+## MCP Server State Isolation in Testing
+
+**When:** 2026-06-24 · **Fact:** `P-4JQZL6HE`
+**Why:** Without isolation, a test result can be false-positive or false-negative due to stale env state from a prior run. Killing old servers ensures the test truly validates the current code path, not cached behavior.
+
+<!-- decision:P-Y3LNUP3A -->
+
+## DEFINITIVE-kiro-cli-does-not-pass-mcp-json-env-to-stdio-server
+
+**When:** 2026-06-24 · **Fact:** `P-Y3LNUP3A`
+**Why:** Exhaustively proven: kiro-cli does not deliver the mcp.json `env` field to the spawned MCP server, so CMK_PROJECT_DIR never reaches it, so mk_remember silently fails (agent says "saved", nothing persists). The kit's code fix is correct (proven by a direct env-set test that DID land) but kiro doesn't provide the lever. A kiro-cli platform bug, not a kit bug — but it breaks MCP-driven capture in kiro-cli.
+
+<!-- decision:P-GB6HWR94 -->
+
+## Always use uv for Python packages in this project, never pip.
+
+**When:** 2026-06-24 · **Fact:** `P-GB6HWR94`
+
+<!-- decision:P-67N3M6LT -->
+
+## kiro-cli Does Not Pass MCP Environment Variables
+
+**When:** 2026-06-24 · **Fact:** `P-67N3M6LT`
+**Why:** Breaks reliable memory capture via kiro-cli; confirmed by direct testing
+
+<!-- decision:P-RP9NNKAY -->
+
+## kiro-cli-env-only-flows-for-registry-type-not-stdio-mcp-feed-json-proof
+
+**When:** 2026-06-24 · **Fact:** `P-RP9NNKAY`
+**Why:** kiro-cli's own changelog (feed.json) proves it: mcp.json `env` only flows to REGISTRY-TYPE MCP servers, not personal/stdio ones like ours. So CMK_PROJECT_DIR is silently dropped → mk_remember silent-data-loss. Primary-source confirmation of the kiro-cli limitation behind the cut-blocker; the kit's code fix is correct but kiro won't deliver the env to a stdio server.
+
+<!-- decision:P-WH4B9VPD -->
+
+## kiro-cli MCP server env passing limitation
+
+**When:** 2026-06-24 · **Fact:** `P-WH4B9VPD`
+**Why:** Root cause of MCP capture failures in kiro v0.4.0. The blocking issue is upstream in kiro-cli, not in the kit's code (which was correct).
+
+<!-- decision:P-FFQDSQEV -->
+
+## kiro-cli env-passing limitation
+
+**When:** 2026-06-24 · **Fact:** `P-FFQDSQEV`
+**Why:** This limitation was discovered during debugging and is documented in kiro's own changelog. It is a hard constraint of how kiro-cli routes configuration to MCP servers.
+
+<!-- decision:P-YX5A7RWJ -->
+
+## kiro-cli --project workaround for project-path passing
+
+**When:** 2026-06-24 · **Fact:** `P-YX5A7RWJ`
+**Why:** env is not passed to stdio servers by kiro. The --project arg was proven to work in code (suite 2268/0) and is the only lever that kiro-cli cannot drop.
+
+<!-- decision:P-5D5PDC5E -->
+
+## Live test workflow for kiro-cli --project fix
+
+**When:** 2026-06-24 · **Fact:** `P-5D5PDC5E`
+**Why:** This is the definitive live test to prove whether kiro-cli passes command-line args to stdio MCP servers. Designed to run after code commit.
+
+<!-- decision:P-6WKMHaB6 -->
+
+## User trusts assistant to take autonomous action; delegates decisively with "just
+
+**When:** 2026-06-24 · **Fact:** `P-6WKMHaB6`
+
+<!-- decision:P-XA74FDKH -->
+
+## Cut-Blocker Fix: --project Routing and @claude-memory-kit Approval
+
+**When:** 2026-06-24 · **Fact:** `P-XA74FDKH`
+**Why:** These are the two-part root cause of the cut-blocker. Validation proves both are wired correctly and facts flow end-to-end. Unblocks merge.
+
+<!-- decision:P-5SDX2A4Y -->
+
+## kiro-cli-mcp-list-reveals-agent-server-link-broken-includemcpjson-shows-legacy
+
+**When:** 2026-06-24 · **Fact:** `P-5SDX2A4Y`
+**Why:** kiro-cli mcp list shows the cmk agent's server as [legacy] and the real attachment on kiro_default not cmk — so includeMcpJson:true (Option B) doesn't properly wire the project mcp.json server to the cmk agent, and mk_remember calls go nowhere. The server itself is correct (direct calls write); the agent→server link is broken. Likely Option B (dropping the agent's inline mcpServers) was wrong; a project-local agent with inline mcpServers may be the real fix.
+
+<!-- decision:P-234QKaCL -->
+
+## CONFIRMED-kiro-bugs-5873-5662-custom-agents-dont-get-mcp-tools
+
+**When:** 2026-06-24 · **Fact:** `P-234QKaCL`
+**Why:** The user's call to check upstream found the definitive root cause: kiro-cli issues #5873 + #5662 confirm custom agents (.kiro/agents/*.json) do NOT receive MCP tools — only kiro_default does — and NEITHER inline mcpServers NOR includeMcpJson works for them. So mk_remember silently fails in kiro-cli by a CONFIRMED KIRO BUG, not a kit bug, and no kit config fixes it. This kills the project-local-agent fix and settles the v0.4.0 stance.
+
+<!-- decision:P-9TBJ9J5P -->
+
+## chose option A — proceed with merge and documentation of the Kiro CLI limitation
+
+**When:** 2026-06-24 · **Fact:** `P-9TBJ9J5P`
+
+<!-- decision:P-aPAXAYVX -->
+
+## Kiro CLI: Known Limitation — Bug #5873 Blocks Manual mk_remember
+
+**When:** 2026-06-24 · **Fact:** `P-aPAXAYVX`
+**Why:** Future sessions need to know kiro-cli's primary working feature (automatic capture) and why manual saves are unavailable, so docs reflect reality and users have clear guidance.
+
+<!-- decision:P-GJ6NK9QE -->
+
+## THE-FIX-use-cmk-remember-cli-not-mk-remember-mcp-in-kiro-cli
+
+**When:** 2026-06-24 · **Fact:** `P-GJ6NK9QE`
+**Why:** The user's insight cracked the cut-blocker: `cmk remember` (CLI shell command) bypasses the Kiro MCP bug (#5873) that breaks the mk_remember MCP tool. PROVEN to land in gate4. The skill already has a CLI fallback but doesn't trigger it because the MCP server looks connected (no error). So instructing Kiro to prefer the CLI `cmk remember` makes explicit capture work in kiro-cli NOW, without waiting for Kiro to fix #5873.
+
+<!-- decision:P-3JGE7aaB -->
+
+## cli-route-fix-prompt-vs-skill-conflict-ide-cli-share-skill
+
+**When:** 2026-06-24 · **Fact:** `P-3JGE7aaB`
+**Why:** The user asked how IDE vs cli are distinguished — surfacing that my CLI-route prompt (kiro-cli-only, correct) conflicts with the shared .kiro/skills/memory-write skill which says 'prefer MCP'. The same skill is read by the IDE (MCP works) and kiro-cli (MCP broken), so it can't simply be flipped. Must resolve whether the agent prompt outranks the skill, or make the skill agent-aware.
+
+<!-- decision:P-UB6G75DX -->
+
+## Kiro Bug #5873 — Explicit Tool Route Blocked
+
+**When:** 2026-06-24 · **Fact:** `P-UB6G75DX`
+**Why:** Tool is unavailable; CLI workaround is functional and documented.
+
+<!-- decision:P-96D7W57M -->
+
+## Kiro-CLI Memory Integration — Test Procedure
+
+**When:** 2026-06-24 · **Fact:** `P-96D7W57M`
+**Why:** Kiro bug #5873 blocks explicit tool route; CLI route is workaround. Live test confirms full integration before merge.
+
+<!-- decision:P-DRML7RX3 -->
+
+## v0.4.0-decision-remove-mcp-from-kiro-cli-agent-includemcpjson-false-document-gap
+
+**When:** 2026-06-24 · **Fact:** `P-DRML7RX3`
+**Why:** User chose: remove MCP from kiro-cli + document, ship v0.4.0. Hooks work in kiro-cli (automatic memory functions); both explicit-save routes (MCP #5873, CLI cmk remember cwd-flaky) are broken by kiro V3 bugs. The popup is kiro's MCP launcher. The fix: includeMcpJson:false on the kiro-cli agent stops the MCP spawn (no popup) without touching the IDE (which reads mcp.json directly + where MCP works).
+
+<!-- decision:P-JBaZNZ95 -->
+
+## kiro-cli Explicit Save Limitation (Known)
+
+**When:** 2026-06-24 · **Fact:** `P-JBaZNZ95`
+**Why:** Testing showed `cmk remember` facts didn't land due to kiro's shell cwd behavior — not a cmk defect, but an environment constraint.
+
+<!-- decision:P-T5SJYZVa -->
+
+## kiro-cli MCP Configuration — Disable to Kill Popup
+
+**When:** 2026-06-24 · **Fact:** `P-T5SJYZVa`
+**Why:** kiro-cli was spawning a non-functional MCP server, causing an annoying popup (issue #5873). Disabling MCP here removes dead weight while preserving MCP for other surfaces.
+
+<!-- decision:P-QJLBaF99 -->
+
+## Memory Routes by Execution Surface
+
+**When:** 2026-06-24 · **Fact:** `P-QJLBaF99`
+**Why:** Execution contexts differ in capabilities. kiro-cli cannot reliably use MCP but captures memory via shell hooks.
+
+<!-- decision:P-H4KU6775 -->
+
+## Disable MCP in IDE Wrappers With includeMcpJson: false
+
+**When:** 2026-06-24 · **Fact:** `P-H4KU6775`
+**Why:** Some IDEs don't support MCP or users want a minimal footprint; the fix improves UX. Memory capture still works via hooks.
+
+<!-- decision:P-4GB6NFMA -->
+
+## cmk-remember-needs-project-flag-cwd-unreliable-in-kiro-cli-shell
+
+**When:** 2026-06-24 · **Fact:** `P-4GB6NFMA`
+**Why:** cmk remember resolves project from process.cwd() only; kiro-cli's shell runs `cd /c/Temp/gate5 && cmk remember` unreliably (bash path + kiro terminal cwd), so the fact writes to the wrong project — "Remembered" but lost. The fix: a --project flag on cmk remember/search (like mcp serve got) + the agent prompt passing the absolute path. Popup already fixed (includeMcpJson:false); hooks work; this is the last explicit-save gap.
+
+<!-- decision:P-C3MJVGP5 -->
+
+## FINAL-kiro-doesnt-execute-shell-commands-for-custom-agents-explicit-memory-dead
+
+**When:** 2026-06-24 · **Fact:** `P-C3MJVGP5`
+**Why:** The user's 'did you read the code?' push led to the definitive root cause: reading subcommands.mjs:983 proved cmk remember is cwd-only (correct), and running the agent's EXACT command manually LANDED — but the session's identical command did NOTHING (0 audit, no now.md) and the model used a hallucinated tool name + fabricated '✅ Remembered'. So kiro doesn't execute shell commands for custom agents either (parallel to MCP #5873) — the model fakes it. ALL model-initiated explicit memory is dead in kiro-cli; only hooks (kiro-run, not model-run) work. No kit fix helps.
+
+<!-- decision:P-NBWU27JQ -->
+
+## Kiro-cli automatic memory capture works
+
+**When:** 2026-06-24 · **Fact:** `P-NBWU27JQ`
+**Why:** The whole point of the kit is "fire and forget" memory across sessions; this is the feature that matters most and the one that works
+
+<!-- decision:P-U9SMNCL4 -->
+
+## Kiro-cli custom agent tool limitation
+
+**When:** 2026-06-24 · **Fact:** `P-U9SMNCL4`
+**Why:** This explains why the manual "remember this" command appears to succeed but doesn't actually persist (the assistant sees a fake ✅ but nothing runs). Future sessions need to know this is by design (platform limit), not a kit defect.
+
+<!-- decision:P-Z94F92ZE -->
+
+## CORRECTED-cd-prefix-breaks-allowlist-kiro-4579-project-flag-is-the-fix
+
+**When:** 2026-06-24 · **Fact:** `P-Z94F92ZE`
+**Why:** The user's question (what do projects do for in-chat scripts) led to confirmed Kiro bug #4579: cd-prefixed commands break the start-anchored allowedCommands match. Our agent ran `cd ... && cmk remember`, which fails our `^cmk remember` allowlist → blocked. So commands DO work for custom agents; the cd prefix is the specific breakage — and it's FIXABLE: tell the agent to use `cmk remember --project <abs>` with NO cd. My earlier 'custom agents can't run commands / it's unfixable' conclusion was WRONG; the --project flag I was building is the correct fix.
+
+<!-- decision:P-D6E2HXN3 -->
+
+## Kiro #4579 Workaround: Replace `cd` with `--project` Flag
+
+**When:** 2026-06-24 · **Fact:** `P-D6E2HXN3`
+**Why:** Unblocks explicit memory save in kiro-cli custom-agent contexts (critical blocker resolved)
+
+<!-- decision:P-E2WMaTAE -->
+
+## TRULY-FINAL-kiro-windows-allowlist-bug-5376-7431-blocks-correct-commands-unfixable
+
+**When:** 2026-06-24 · **Fact:** `P-E2WMaTAE`
+**Why:** Evidence-complete: the agent ran the perfect command (--project, no cd, matches the allowlist) and kiro STILL blocked it (no audit, no tool_result), while the identical command lands when I run it. This is confirmed Kiro Windows allowlist bugs #5376/#7431 — kiro rejects commands that genuinely match allowedCommands. Every kit lever (MCP/CLI/--project/no-cd/allowlist) is correct; kiro blocks anyway. Not fixable from the kit. Hooks work (kiro runs them). Ship with automatic memory + documented explicit gap.
+
+<!-- decision:P-5NAAPaWR -->
+
+## design-correction-project-flag-is-outside-chat-not-model-in-chat-command
+
+**When:** 2026-06-24 · **Fact:** `P-5NAAPaWR`
+**Why:** The user clarified: --project is for outside-the-chat invocation (hooks/scripts), and putting it in the model's in-chat command is wrong design — it relies on the model running commands (blocked by kiro's allowlist bug) and is fragile. The right design: memory is automatic via hooks (which work); the model never runs memory commands. This sidesteps kiro's bug entirely and matches how real kiro projects (AgentCore) work.
+
+<!-- decision:P-SLa3TB2R -->
+
+## --project flag is supposed to run outside the chat context, not within it
+
+**When:** 2026-06-24 · **Fact:** `P-SLa3TB2R`
+
+<!-- decision:P-6YCQPD3K -->
+
+## THE-ACTUAL-BUG-missing-tools-field-agent-had-no-shell-tool-enabled
+
+**When:** 2026-06-24 · **Fact:** `P-6YCQPD3K`
+**Why:** The user's reframe (cmk remember is just a tool like ls — how do you run tools in chat?) led to the real bug: our kiro-cli agent had NO `tools` field, so the custom agent had zero tools enabled and literally couldn't run shell commands — every '✅ Remembered' was the model pretending. Kiro's docs: tools is the capability set; must include 'shell' or '*'. This was never a kiro bug; we forgot to enable tools. All my 'confirmed kiro bugs' diagnoses were wrong.
+
+<!-- decision:P-63PNEKQQ -->
+
+## Looking for the native way to run tools (like cmk_remember) in kiro-cli chat, eq
+
+**When:** 2026-06-24 · **Fact:** `P-63PNEKQQ`
+
+<!-- decision:P-5CXRTFVP -->
+
+## Questioning whether their approach is wrong, if there's a bug, or if the system
+
+**When:** 2026-06-24 · **Fact:** `P-5CXRTFVP`
+
+<!-- decision:P-AKRHWKJB -->
+
+## Tool Execution in kiro-cli Requires `tools: ['*']` Config
+
+**When:** 2026-06-24 · **Fact:** `P-AKRHWKJB`
+**Why:** Tool execution was mysteriously failing (no error, just inert calls) because the permission gate was missing entirely — invisible until explicitly diagnosed
+
+<!-- decision:P-GP54J2UE -->
+
+## CUT-BLOCKER-CLOSED-kiro-cli-explicit-memory-works-tools-star-fix-proven
+
+**When:** 2026-06-24 · **Fact:** `P-GP54J2UE`
+**Why:** PROVEN LIVE: tools:['*'] was the fix — the model ran cmk remember and it really executed (P-DTRaa79G rich fact landed in gate7, cmk search finds it). The whole multi-hour kiro-bug saga was misdiagnosis; the agent just had no tools enabled. kiro-cli is now fully working: popup fixed, automatic + explicit memory both work. Ship v0.4.0.
+
+<!-- decision:P-CJCM9CJM -->
+
+## confirmed tests passed ("run all the commands nad the response looks promising")
+
+**When:** 2026-06-24 · **Fact:** `P-CJCM9CJM`
+
+<!-- decision:P-F2GYBEY5 -->
+
+## Gate-Folder Testing Methodology
+
+**When:** 2026-06-24 · **Fact:** `P-F2GYBEY5`
+**Why:** Numbered gates decouple testing from active development and make regression detection obvious. The pattern is repeatable and traceable.
+
+<!-- decision:P-UaE4C5MH -->
+
+## Missing `tools: ['*']` Field Was the Shell Blocker
+
+**When:** 2026-06-24 · **Fact:** `P-UaE4C5MH`
+**Why:** Understanding the root cause prevents regression and explains why prior refactors stalled. The fix is minimal and isolated.
+
+<!-- decision:P-SSULEHW2 -->
+
+## CHECKPOINT-kiro-cli-fully-works-tools-fix-cleanup-done-ready-for-pr
+
+**When:** 2026-06-24 · **Fact:** `P-SSULEHW2`
+**Why:** Context at 2% — durable checkpoint. kiro-cli now fully works (tools:['*'] was the fix, proven live; popup fixed; explicit memory via cmk remember/search works) and the dead MCP machinery is cleaned up (committed a60b11a). All 3 agents work. Remaining: test the bare-no-project question, two-pass review, docs, correct the misdiagnosis notes, consolidate → PR → v0.4.0 tag.
+
+<!-- decision:P-SXSPGGEC -->
+
+## Kiro-CLI Agent `tools` Field Configuration Fix
+
+**When:** 2026-06-24 · **Fact:** `P-SXSPGGEC`
+**Why:** Agents without `tools` cannot execute tools; they can only return text and may fake success responses.
+
+<!-- decision:P-ATGVZCWS -->
+
+## Kiro-CLI Fully Functional State (Commit a60b11a)
+
+**When:** 2026-06-24 · **Fact:** `P-ATGVZCWS`
+**Why:** Represents the end state of a long debugging cycle; system is stable and proven.
+
+<!-- decision:P-GLSAMG6N -->
+
+## User principle: don't defer bugs to v0.5.0, because deferred work doesn't get re
+
+**When:** 2026-06-24 · **Fact:** `P-GLSAMG6N`
+
+<!-- decision:P-aPBH9EMa -->
+
+## kiro-cli cut gate procedure
+
+**When:** 2026-06-24 · **Fact:** `P-aPBH9EMa`
+**Why:** Test leftovers (esp. `cmk.json`) mask whether the shipped code works on a genuinely fresh install; backing up first makes it safe to clean before testing
+
+<!-- decision:P-SVXNQMZK -->
+
+## Test artifacts can contaminate fresh-install testing
+
+**When:** 2026-06-24 · **Fact:** `P-SVXNQMZK`
+**Why:** A gate test needs to simulate a real user's first install; pre-existing config defeats that simulation
+
+<!-- decision:P-LWJQU7a6 -->
+
+## Cutgate Fresh Install Test Sequence
+
+**When:** 2026-06-24 · **Fact:** `P-LWJQU7a6`
+**Why:** Tests that the kit ships and installs cleanly on a fresh system without test state contamination skewing results
+
+<!-- decision:P-XML7J7a5 -->
+
+## Kit Shell Permission & Command Trust Boundary
+
+**When:** 2026-06-24 · **Fact:** `P-XML7J7a5`
+**Why:** Security boundary: kit commands are internal and trusted; user commands need approval. D-199 eliminated unnecessary prompts for kit's own memory operations.
