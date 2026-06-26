@@ -123,11 +123,16 @@ describe('Task 49 — settings.json content (Door 2: state)', () => {
     let settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
     expect(settings.permissions.allow).toContain('Bash(cmk:*)');
     expect(settings.permissions.allow).toContain('Skill(memory-write)');
+    // Task 169 — Claude Code 2.1.x needs the `:*` wildcard form TOO, or the bare
+    // `Skill(memory-write)` alone no longer suppresses the prompt (the v0.4.1
+    // cut-gate find: CC itself wrote BOTH forms when the user clicked "allow").
+    expect(settings.permissions.allow).toContain('Skill(memory-write:*)');
     // Task 133 — the RECALL skill needs the same treatment (the Task-90 class
     // repeating: Task 75.1 scaffolded memory-search but never allow-listed it,
     // so W1's "auto-fires, prompt-free" hit a "Use skill?" prompt — found by
     // the cut-gate9 pre-session file check, 2026-06-11).
     expect(settings.permissions.allow).toContain('Skill(memory-search)');
+    expect(settings.permissions.allow).toContain('Skill(memory-search:*)'); // Task 169
     // Task 108b — the MCP tools are allow-listed too (R2 / D-80): the model's
     // memory ops via mk_remember / mk_forget / … run without a per-call prompt.
     expect(settings.permissions.allow).toContain('mcp__cmk__*');

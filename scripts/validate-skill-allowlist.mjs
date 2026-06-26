@@ -44,12 +44,22 @@ export function readScaffoldedSkillDirs() {
     .sort();
 }
 
-/** The Skill(<name>) entries inside settings-hooks.mjs's KIT_ALLOW array. */
+/**
+ * The Skill(<name>) entries inside settings-hooks.mjs's KIT_ALLOW array.
+ *
+ * Task 169: Claude Code 2.1.x needs BOTH `Skill(<name>)` AND `Skill(<name>:*)`
+ * to suppress the skill-approval prompt, so KIT_ALLOW carries both forms. The
+ * `:*` wildcard suffix is NORMALIZED OFF here — both `Skill(memory-write)` and
+ * `Skill(memory-write:*)` map to the base skill `memory-write` — so the parity
+ * check stays a check on the BASE skill set (every scaffolded skill has an
+ * allow entry), not a literal-string match that the wildcard variant would break.
+ */
 export function parseKitAllowSkills() {
   const src = readFileSync(SETTINGS_HOOKS, 'utf8');
   const arrayMatch = src.match(/const KIT_ALLOW\s*=\s*\[([^\]]*)\]/);
   if (!arrayMatch) return [];
-  return [...arrayMatch[1].matchAll(/Skill\(([^)]+)\)/g)].map((m) => m[1]).sort();
+  const names = [...arrayMatch[1].matchAll(/Skill\(([^)]+)\)/g)].map((m) => m[1].replace(/:\*$/, ''));
+  return [...new Set(names)].sort();
 }
 
 /**
