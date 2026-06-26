@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+## [0.4.1] — 2026-06-26
+
 ### Fixed
 
 - **Bounded memory now self-heals reliably even with a dead scheduled cron** (Task 167) — the session-buffer roll (`now.md` → daily summary) no longer gets suppressed by a registered-but-never-firing cron (e.g. a laptop asleep at the scheduled time). Memory compaction runs on every session start and never compounds. The cron-liveness check keys off whether a run *actually happened* (an anacron-style heartbeat), not whether a scheduler is merely registered.
