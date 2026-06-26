@@ -49,6 +49,7 @@ describe('Task 46 — install --with-semantic / --no-semantic', () => {
         npmCalls.push(['npm', 'install', '-g', '@huggingface/transformers']);
         return { status: 0 };
       },
+      probeEmbedder: async () => ({ ok: true }), // Task 170: gate on import, not npm exit
       warmEmbedder: fakeWarm,
     });
     expect(npmCalls).toHaveLength(1);
@@ -58,17 +59,55 @@ describe('Task 46 — install --with-semantic / --no-semantic', () => {
     expect(settings.search.default_mode).toBe('hybrid');
   });
 
-  it('npm failure → error action, settings NOT flipped (no half-state), keyword unaffected', async () => {
+  it('Task 170: npm SUCCEEDS but the embedder does NOT import → error, NO hybrid half-state', async () => {
+    // The symmetric half (skill-review Important): a status-0 npm with a broken/
+    // partial native module must NOT write a hybrid default with no working
+    // embedder (every search would degrade to a fallback warning). Gate the
+    // status-0 path on the import probe too.
+    const r = await install({
+      projectRoot,
+      userTier: userDir,
+      withSemantic: true,
+      spawnNpm: () => ({ status: 0 }),
+      probeEmbedder: async () => ({ ok: false, reason: 'binding-broken' }),
+      warmEmbedder: fakeWarm,
+    });
+    expect(r.semantic.action).toBe('error');
+    if (existsSync(settingsPath())) {
+      const settings = JSON.parse(readFileSync(settingsPath(), 'utf8'));
+      expect(settings?.search?.default_mode).not.toBe('hybrid');
+    }
+  });
+
+  it('npm non-zero BUT the embedder imports → ENABLED anyway (Task 170: verify the thing worked, not npm exit)', async () => {
+    // The v0.4.1 cut-gate find: a benign cleanup-EBUSY made npm exit non-zero
+    // AFTER the package installed successfully. The kit must PROBE whether the
+    // embedder actually imports — if it does, enable hybrid regardless of npm's
+    // noisy exit code (the D-199 class: verify reality, not the exit code).
+    const r = await install({
+      projectRoot,
+      userTier: userDir,
+      withSemantic: true,
+      spawnNpm: () => ({ status: 1 }), // npm reports failure...
+      probeEmbedder: async () => ({ ok: true }), // ...but the embedder IS importable
+      warmEmbedder: fakeWarm,
+    });
+    expect(r.semantic).toMatchObject({ action: 'enabled', defaultMode: 'hybrid' });
+    const settings = JSON.parse(readFileSync(settingsPath(), 'utf8'));
+    expect(settings.search.default_mode).toBe('hybrid');
+  });
+
+  it('npm failure AND the embedder does NOT import → error, settings NOT flipped (genuine failure)', async () => {
     const r = await install({
       projectRoot,
       userTier: userDir,
       withSemantic: true,
       spawnNpm: () => ({ status: 1 }),
+      probeEmbedder: async () => ({ ok: false, reason: 'not-installed' }), // genuinely absent
       warmEmbedder: fakeWarm,
     });
     expect(r.semantic.action).toBe('error');
     expect(r.errors.length).toBeGreaterThan(0);
-    // settings.json either absent or without a hybrid default.
     if (existsSync(settingsPath())) {
       const settings = JSON.parse(readFileSync(settingsPath(), 'utf8'));
       expect(settings?.search?.default_mode).not.toBe('hybrid');

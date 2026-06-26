@@ -494,7 +494,12 @@ export async function install(options = {}) {
   // the pin-off; checked first below).
   let semantic = { action: 'skipped' };
   if (options.withSemantic) {
-    semantic = await enableSemantic({ projectRoot, spawnNpm: options.spawnNpm, warm: options.warmEmbedder });
+    semantic = await enableSemantic({
+      projectRoot,
+      spawnNpm: options.spawnNpm,
+      warm: options.warmEmbedder,
+      probeEmbedder: options.probeEmbedder,
+    });
     if (semantic.action === 'error') errors.push({ path: 'semantic', error: semantic.error });
   } else if (options.noSemantic) {
     const r = mergeProjectSettings(projectRoot, { search: { default_mode: 'keyword' } });
@@ -571,15 +576,43 @@ export function buildDefaultNpmRunner({ spawnSyncImpl = spawnSync } = {}) {
   };
 }
 
-async function enableSemantic({ projectRoot, spawnNpm, warm }) {
+async function enableSemantic({ projectRoot, spawnNpm, warm, probeEmbedder }) {
   // 1. Install the optional embedder globally (it resolves as a sibling of
   // the globally-installed kit). Injectable for tests.
   const runNpm = spawnNpm ?? buildDefaultNpmRunner();
   const npm = runNpm();
-  if (npm.status !== 0) {
+
+  // Task 170 (the v0.4.1 cut-gate find): gate on whether the embedder ACTUALLY
+  // IMPORTS, NOT on npm's exit code — verify the thing worked, not the command's
+  // exit (the D-199 class). Two failure modes the exit code gets wrong, BOTH
+  // sides:
+  //   - npm exits NON-ZERO but the package installed fine: on Windows a benign
+  //     cleanup-EBUSY (npm failing to unlink a leftover temp DLL still locked by
+  //     a running process — sharp-win32-x64 / libvips) makes npm exit non-zero
+  //     AFTER a successful install. Trusting the exit FALSELY reported "NOT
+  //     enabled" while the embedder was present + importable (the live find).
+  //   - npm exits ZERO but the import is BROKEN (partial/corrupt native module):
+  //     trusting the exit would wrongly write a hybrid default with no working
+  //     embedder — every search would degrade to the fallback warning (the
+  //     half-state this function exists to avoid).
+  // So PROBE the import once, and enable hybrid IFF it imports — regardless of
+  // npm's exit. The install must be AUTOMATIC: the user does nothing and never
+  // needs a manual `cmk config set` to recover from a benign npm warning.
+  const probe = probeEmbedder ?? (async () => {
+    const { checkEmbedderBinding } = await import('./native-binding.mjs');
+    return checkEmbedderBinding();
+  });
+  let imported;
+  try {
+    imported = await probe();
+  } catch {
+    imported = { ok: false };
+  }
+  if (!imported?.ok) {
+    const detail = npm.status !== 0 ? (npm.error ?? `exit ${npm.status}`) : (imported?.reason ?? 'embedder import failed');
     return {
       action: 'error',
-      error: `npm install -g @huggingface/transformers failed (${npm.error ?? `exit ${npm.status}`}) — semantic recall NOT enabled; keyword search is unaffected`,
+      error: `semantic embedder not usable after install (${detail}) — semantic recall NOT enabled; keyword search is unaffected`,
     };
   }
   // 2. Flip the project default to hybrid ONLY after the dependency landed
