@@ -6780,3 +6780,265 @@
 
 **When:** 2026-06-25 · **Fact:** `P-T4X5L2LP`
 **Why:** The kit's core promise is self-refreshing snapshots. This is a gap — bloated snapshots can break the durability contract across session boundaries.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-BLSBXKGL -->
+
+## Auto-load of .kiro/hooks/cmk.kiro.hook.json hooks is the critical verification p
+
+**When:** 2026-06-25 · **Fact:** `P-BLSBXKGL`
+
+<!-- decision:P-4H5WZL6N -->
+
+## The kit dual-emits to support both IDE 0.x and 1.0+; either version can run the
+
+**When:** 2026-06-25 · **Fact:** `P-4H5WZL6N`
+
+<!-- decision:P-UBW47JKA -->
+
+## Maintaining backward compatibility across Kiro IDE versions (0.x → 1.0) is value
+
+**When:** 2026-06-25 · **Fact:** `P-UBW47JKA`
+
+<!-- decision:P-DXZE3XDY -->
+
+## npm pack and global install of 0.4.0 succeeded; tarball includes all required mo
+
+**When:** 2026-06-25 · **Fact:** `P-DXZE3XDY`
+
+<!-- decision:P-BGAC9PQX -->
+
+## Verifies whether proper tools (cmk kit) vs shortcuts (bash) were used — indicate
+
+**When:** 2026-06-25 · **Fact:** `P-BGAC9PQX`
+
+<!-- decision:P-Ma5V7DXV -->
+
+## now.md Bloat Creates Silent-Failure Trap in Lazy Roll
+
+**When:** 2026-06-25 · **Fact:** `P-Ma5V7DXV`
+**Why:** Future sessions may encounter stale injected context because the roll failed silently. Diagnosing this requires understanding the trap; recovery requires knowing about the manual command. This is critical for session health troubleshooting.
+
+<!-- decision:P-W7B3A3FK -->
+
+## Task 167 - Lazy Roll Robustness Extension (v0.4.x)
+
+**When:** 2026-06-25 · **Fact:** `P-W7B3A3FK`
+**Why:** Task 105 works reliably at ~10 KB scale, but fails silently at 400+ KB. Task 167 extends the mechanism to be robust at scale.
+
+<!-- decision:P-DZDQSDQG -->
+
+## now.md bloat root cause was cron-active short-circuit not timeout
+
+**When:** 2026-06-25 · **Fact:** `P-DZDQSDQG`
+**Why:** I first guessed "the Haiku roll timed out on 410 KB" and wrote that into the task. Reading lazy-compress.log corrected me: the roll was SKIPPED every time (cron-active, then cooldown), never attempted. A registered-but-dead cron disabled the only working compression path. This is the "did you check the primary source?" lesson applied to a root-cause claim — the log is the primary source; my recall was wrong.
+
+<!-- decision:P-PY2TL4GZ -->
+
+## Auto-Heal Path for v0.4.1 (Task 167) — D-169 Binding
+
+**When:** 2026-06-25 · **Fact:** `P-PY2TL4GZ`
+**Why:** User's question exposed a gap in initial 167.C spec (manual command violated D-169). Redesign ensures shipped path is automatic.
+
+<!-- decision:P-DGBPG6PG -->
+
+## Questioned whether fix is truly automatic and requires no user intervention.
+
+**When:** 2026-06-25 · **Fact:** `P-DGBPG6PG`
+
+<!-- decision:P-X362NWKX -->
+
+## Compaction-State Module — v0.4.1 Core Architecture Refactoring
+
+**When:** 2026-06-25 · **Fact:** `P-X362NWKX`
+**Why:** Scattered state-ownership is the root cause of the bug. Architecture review and bug analysis converged on the same solution.
+
+<!-- decision:P-46FTFCCW -->
+
+## architecture review priorities and the persona-routing-into-151 fold
+
+**When:** 2026-06-25 · **Fact:** `P-46FTFCCW`
+**Why:** The /improve-codebase-architecture review found 6 deepening candidates. #2 (persona-routing) overlaps directly with Task 151's planned rewrite of the persona-promotion surface — doing it standalone in v0.4.1 would refactor code 151 rewrites in v0.4.2. The user agreed #1/#2/#3 are all worth doing but #2's timing must align with 151 to avoid churn.
+
+<!-- decision:P-T4aUHMXa -->
+
+## Values research-grounded recommendations with clear, honest attribution of sourc
+
+**When:** 2026-06-25 · **Fact:** `P-T4aUHMXa`
+
+<!-- decision:P-Q9MSP5YP -->
+
+## Derive-vs-Stamp Design Rule
+
+**When:** 2026-06-25 · **Fact:** `P-Q9MSP5YP`
+**Why:** ADR-0002 prefers state encoded in artifacts; explicit markers should be minimal and justified. Reduces marker bloat and keeps artifacts as source of truth.
+
+<!-- decision:P-SGSDY7A6 -->
+
+## OpenWolf — Scheduled-Job Architecture Peer
+
+**When:** 2026-06-25 · **Fact:** `P-SGSDY7A6`
+**Why:** Real-world validation that heartbeat approach works at scale; confirms both architecture fit and derive-from-artifact strategy.
+
+<!-- decision:P-7ZMV7DYS -->
+
+## Requires design decisions to be grounded in research; pushes back on assumptions
+
+**When:** 2026-06-25 · **Fact:** `P-7ZMV7DYS`
+
+<!-- decision:P-U3SBN4DY -->
+
+## Three-Tier Research Evaluation System
+
+**When:** 2026-06-25 · **Fact:** `P-U3SBN4DY`
+**Why:** Clarifies how research sources are evaluated and prevents conflating peer architecture with mechanism precedent with novelty.
+
+<!-- decision:P-B3HBA67G -->
+
+## EverOS comparison — same thesis opposite architecture not better
+
+**When:** 2026-06-25 · **Fact:** `P-B3HBA67G`
+**Why:** The user asked "is this better than us?" after finding EverOS. The honest answer requires separating product class from quality: EverOS is more capable as a standalone memory backend but gave up the kit's entire edge (zero-server, zero-setup, no-key, hooks-into-the-agent). Judging "better" without that distinction would be the lazy-framing class. EverOS also validates ADR-0002 by convergence and offers a reflection model worth borrowing for Task 151.
+
+<!-- decision:P-WA6L3E4M -->
+
+## Learn from EverOS to validate and improve kit architecture across the project.
+
+**When:** 2026-06-25 · **Fact:** `P-WA6L3E4M`
+
+<!-- decision:P-7KDNP4NS -->
+
+## Reflection Model Upgrade: `deprecated_by` Frontmatter
+
+**When:** 2026-06-25 · **Fact:** `P-7KDNP4NS`
+**Why:** Task 151 (persona consolidation) needs a robust reflection strategy; EverOS's pattern is proven and more systematic.
+
+<!-- decision:P-5NAPNM6G -->
+
+## Zero-Server + Local-First Is the Kit's Deliberate Design
+
+**When:** 2026-06-25 · **Fact:** `P-5NAPNM6G`
+**Why:** Design choice (D-23) is validated by peer comparison. Zero-infrastructure is the kit's value prop and differentiator from peer systems.
+
+<!-- decision:P-D6CCPVXQ -->
+
+## npm v12 Install-Scripts Breaking Change (July 2026 Deadline)
+
+**When:** 2026-06-25 · **Fact:** `P-D6CCPVXQ`
+**Why:** npm v12 is a shipping reality; once it releases, any user installing the kit without the fix will silently fail. This is a critical production risk with an immovable deadline.
+
+<!-- decision:P-JNYKR9YS -->
+
+## Agent Research Resources Location
+
+**When:** 2026-06-25 · **Fact:** `P-JNYKR9YS`
+**Why:** Avoids redundant research per new agent; existing documentation is the authoritative source.
+
+<!-- decision:P-aRHH7Va5 -->
+
+## ADR-0002: Derive State from Artifacts, Avoid Markers
+
+**When:** 2026-06-25 · **Fact:** `P-aRHH7Va5`
+**Why:** Artifact mtimes are durable and already integrated into the system; markers add failure modes and sync risks.
+
+<!-- decision:P-EJGWN6U5 -->
+
+## Deep-Module Principle: Smaller Interfaces via Internal Hiding
+
+**When:** 2026-06-25 · **Fact:** `P-EJGWN6U5`
+**Why:** smaller interfaces reduce cognitive load, avoid two-writer hazards, and clarify intent; richer returns provide diagnostics without method proliferation
+
+<!-- decision:P-YY4A9JAK -->
+
+## Initial spec (167.C) violated D-169 (automatic-path rule) by naming manual `cmk
+
+**When:** 2026-06-25 · **Fact:** `P-YY4A9JAK`
+
+<!-- decision:P-YZQD9K4U -->
+
+## Task 167 compaction-state module interface — two methods rich return
+
+**When:** 2026-06-25 · **Fact:** `P-YZQD9K4U`
+**Why:** Grilling the compaction-state deep module (architecture review #1 = Task 167.A). The fork was 2 methods vs 3 (a standalone isCronAlive). The deep-module principle + the Task 167 bug class itself (two sources of one truth disagreeing) make 2-with-a-rich-return correct: richness lives in the return value, not extra buttons, so there's exactly one place the cron-liveness rule is computed. The user needed the doctor to still get the liveness info — solved by the rich return, not a 3rd method.
+
+<!-- decision:P-U6G6HABS -->
+
+## Compaction Logic Redesign: 7-Question Fork Analysis
+
+**When:** 2026-06-25 · **Fact:** `P-U6G6HABS`
+**Why:** Prevents compound bloat bug while maintaining fast startup for normal cases. Synchronous drain is rare safety net, not common case.
+
+<!-- decision:P-EJP5KTP3 -->
+
+## Cooldown Marker Bug — Fires on Both Success and Failure
+
+**When:** 2026-06-25 · **Fact:** `P-EJP5KTP3`
+**Why:** This is the 167.F sibling bug discovered in audit. Failed calls shouldn't trigger cooldown blocking since they didn't consume resources and should be allowed to retry.
+
+<!-- decision:P-UPJDK2UN -->
+
+## Task 167 cooldown — success-only touch + sync-drain bypasses it
+
+**When:** 2026-06-25 · **Fact:** `P-UPJDK2UN`
+**Why:** Grilling Task 167 Q5. The cooldown today (touched on success AND failure by 5 callers) both blocks failed-call retries and could block the very stale-content heal Q4 said must happen now. Resolving with the 'we're in the memory business' principle (P-9V3K7KEA): the cooldown is a cost guard, correctness beats cost, so the urgent drain bypasses it while the opportunistic compress still respects it.
+
+<!-- decision:P-M7CY5H6V -->
+
+## Cut-Gate Test Pattern for Automatic Cron-Drain Healing
+
+**When:** 2026-06-25 · **Fact:** `P-M7CY5H6V`
+**Why:** The original D-169 bug shipped with green tests because every test pre-ran `cmk compress`, making the automatic path invisible to the test suite.
+
+<!-- decision:P-7PNY7XKE -->
+
+## Test Hierarchy for Automatic-Path Verification
+
+**When:** 2026-06-25 · **Fact:** `P-7PNY7XKE`
+**Why:** Integration bugs (mechanism works, but never triggers automatically) are invisible to unit tests alone. The D-169 root cause was exactly this gap.
+
+<!-- decision:P-6PGKSVT3 -->
+
+## Task 167 testing — agent-run unit + live agent-loop, user does nothing
+
+**When:** 2026-06-25 · **Fact:** `P-6PGKSVT3`
+**Why:** The user: 'cant we do an agent loop live test like cut-gate, me doing all this testing will kill me' then 'i dont even need to say go, this is part of the tests'. Correct on both: testing is the agent's job (binding rule), and the live end-to-end check IS part of 'tested' (the binding live-test-every-task rule), not an optional extra. The original bug shipped green because every test ran the compaction command first — so the live test must fire ONLY a session and forbid any manual drain call, or it masks the automatic path again.
+
+<!-- decision:P-E9GEZARN -->
+
+## HC-10: Proactive Dead Cron Detection (Question 7)
+
+**When:** 2026-06-25 · **Fact:** `P-E9GEZARN`
+**Why:** Catches scheduler liveness independently from bloat state. Distinguishes reactive safety (automatic heal) from proactive optimization (scheduled compaction). Single source prevents drift and future confusion about where truth lives.
+
+<!-- decision:P-GYFDaTKF -->
+
+## Billing Model: Subscription (No API Token Cost)
+
+**When:** 2026-06-25 · **Fact:** `P-GYFDaTKF`
+**Why:** Removes token cost as a gating factor when designing testing strategy. Tests can be gated on wall-clock time and rate-limits instead of cost.
+
+<!-- decision:P-DDRMSBPC -->
+
+## Task 167 — drop HC-10 doctor check, keep only the free auto log
+
+**When:** 2026-06-25 · **Fact:** `P-DDRMSBPC`
+**Why:** Grilling Task 167 Q7. I proposed a proactive cmk doctor HC-10 for dead-cron detection; the user cut it as redundant ceremony aimed at the wrong audience (only power users run doctor; the heal already fixes the real problem). Keeps 167 focused on the automatic fix that helps everyone, not an opt-in warning for the few who need it least.
+
+<!-- decision:P-QVG7KT6J -->
+
+## HC-10 — Compaction Liveness Diagnostic (Dev Nice-to-Have)
+
+**When:** 2026-06-25 · **Fact:** `P-QVG7KT6J`
+**Why:** User confirmed it as a nice-to-have; valuable for observability without blocking correctness flow.
+
+<!-- decision:P-YGSF2T6T -->
+
+## Task 167 Design Resolved — Implementation Ready
+
+**When:** 2026-06-25 · **Fact:** `P-YGSF2T6T`
+**Why:** Core design is final. Unblocks build. Future sessions need locked decisions without re-deriving.

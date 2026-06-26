@@ -24,7 +24,6 @@ import { join } from 'node:path';
 import {
   detectStaleness,
   runLazyCompress,
-  runSyncDrainIfNeeded,
   markCronRegistered,
   unmarkCronRegistered,
   cronSentinelPath,
@@ -743,85 +742,6 @@ describe('Task 105 — now.md lazy-roll on SessionStart (D-75)', () => {
       });
       expect(spawnCalls).toBe(0);
       expect(r.lazyTrigger.verdict).toBe('fresh');
-    });
-  });
-
-  describe('Task 167 (Q4) — runSyncDrainIfNeeded: correctness-over-speed inline drain', () => {
-    it('drains a stale-now now.md SYNCHRONOUSLY and reports drained:true', async () => {
-      // The trap state: un-rolled now.md + a dead cron. The sync-drain must roll
-      // it inline (await) so THIS session reads clean — not the detached
-      // heal-next-session that let now.md compound to 410 KB.
-      const nowPath = seedNowMd();
-      markCronRegistered({ projectRoot });
-      const hb = cronSentinelPath(projectRoot);
-      const old = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
-      utimesSync(hb, old, old); // dead cron
-
-      const r = await runSyncDrainIfNeeded({
-        projectRoot,
-        backend: mockBackend('rolled today summary'),
-        now: new Date().toISOString(),
-        budgetMs: 20_000,
-      });
-
-      expect(r.drained).toBe(true);
-      // Door 2 (state): now.md is actually drained.
-      expect(readFileTrim(nowPath)).toBe('');
-    });
-
-    it('does NOT drain when now.md is empty (nothing urgent) → drained:false', async () => {
-      // Empty now.md = no stale content. The sync-drain is for the urgent
-      // stale-now case only; daily/weekly stays on the detached path.
-      seedTodayFile('2026-05-10'); // stale-weekly, but not stale-now
-      const r = await runSyncDrainIfNeeded({
-        projectRoot,
-        backend: mockBackend('rolled today summary'),
-        now: new Date().toISOString(),
-        budgetMs: 20_000,
-      });
-      expect(r.drained).toBe(false);
-      expect(r.reason).toBe('not-stale-now');
-    });
-
-    it('a slow/timed-out Haiku returns cleanly (timedOut:true, drained:false) — NO dangling work for process.exit to kill (skill-review fix)', async () => {
-      // The inner compressSession timeout is bounded by the budget, so a slow
-      // Haiku surfaces as a haiku_timeout verdict (buffer restored by the failure
-      // path) — NOT a dangling promise the bin's process.exit(0) would kill
-      // mid-write and strand the claimed buffer.
-      const { HaikuTimeoutError, MockHaikuBackend: MHB } = await import('../packages/cli/src/compressor.mjs');
-      const nowPath = seedNowMd();
-      const slow = new MHB({
-        throwError: new HaikuTimeoutError('subprocess did not return within budget', { timeoutMs: 18_000 }),
-      });
-      const r = await runSyncDrainIfNeeded({
-        projectRoot,
-        backend: slow,
-        now: new Date().toISOString(),
-        budgetMs: 20_000,
-      });
-      expect(r.timedOut).toBe(true);
-      expect(r.drained).toBe(false);
-      // Door 2: the buffer is preserved (restored by compressSession's failure
-      // path) — never lost to a killed mid-write.
-      expect(readFileTrim(nowPath)).not.toBe('');
-    });
-
-    it('bypasses the cooldown (Q5: correctness > cost) — drains even with a fresh cooldown', async () => {
-      // The opportunistic compress respects the cooldown; the urgent stale-now
-      // drain does NOT. A fresh cooldown must not block the heal.
-      const { touchCooldownMarker } = await import('../packages/cli/src/cooldown.mjs');
-      const nowPath = seedNowMd();
-      const now = new Date().toISOString();
-      touchCooldownMarker({ projectRoot, now }); // cooldown is FRESH
-
-      const r = await runSyncDrainIfNeeded({
-        projectRoot,
-        backend: mockBackend('rolled today summary'),
-        now,
-        budgetMs: 20_000,
-      });
-      expect(r.drained).toBe(true);
-      expect(readFileTrim(nowPath)).toBe('');
     });
   });
 });

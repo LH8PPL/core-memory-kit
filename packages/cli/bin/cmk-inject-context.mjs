@@ -22,8 +22,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const readHookStdinPath = join(__dirname, '..', 'src', 'read-hook-stdin.mjs');
 const modulePath = join(__dirname, '..', 'src', 'inject-context.mjs');
-const lazyCompressModulePath = join(__dirname, '..', 'src', 'lazy-compress.mjs');
-const compressorModulePath = join(__dirname, '..', 'src', 'compressor.mjs');
 
 // Resolve the sibling lazy-compress bin (ships in this same bin/ dir) so
 // inject-context can spawn `node <path>` directly instead of the shell:true
@@ -61,28 +59,17 @@ try {
 // is discarded; readHookStdin returns '' for a TTY so a manual run finishes.
 readHookStdin({ isTTY: process.stdin.isTTY });
 
-// Task 167 (D-207, Q4): "we're in the memory business" — correctness > startup
-// speed. BEFORE assembling the snapshot, synchronously drain a stale-now now.md
-// (un-rolled prior-session content) so THIS session reads the rolled state, not
-// stale memory. runSyncDrainIfNeeded is a no-op unless the trap state exists
-// (stale-now content); it's bounded by an internal budget well under the 30s
-// SessionStart hook ceiling, and never throws. Best-effort: any failure to load
-// the drain modules just falls back to the detached lazy path inside injectContext.
-try {
-  const [{ runSyncDrainIfNeeded }, { HaikuViaAnthropicApi }] = await Promise.all([
-    import(pathToFileURL(lazyCompressModulePath).href),
-    import(pathToFileURL(compressorModulePath).href),
-  ]);
-  await runSyncDrainIfNeeded({
-    projectRoot: process.cwd(),
-    backend: new HaikuViaAnthropicApi(),
-    budgetMs: 20_000, // < the 30s SessionStart hook ceiling (§8.5 composition)
-  });
-} catch (err) {
-  // Never block session start on a drain failure — the detached lazy path in
-  // injectContext is the fallback. Log to stderr (hook logs), not stdout.
-  process.stderr.write(`cmk-inject-context: sync-drain skipped: ${err?.message ?? String(err)}\n`);
-}
+// Task 167 NOTE (D-207, the live-test revision): an earlier design (Q4) tried a
+// SYNCHRONOUS now.md drain HERE, before injectContext, to make THIS session read
+// the rolled state. The live test proved that doesn't fit: a real now→today Haiku
+// roll takes ~18–37s, but the SessionStart hook ceiling is 30s — so the
+// synchronous drain reliably timed out and fell back to the detached path anyway.
+// The research (claude-mem/mem0/Letta) confirms the event-driven peers compact at
+// session END (the Stop hook, no user waiting), NOT session start. So the kit
+// keeps the now→today roll on the DETACHED SessionStart path (spawned inside
+// injectContext) + the SessionEnd compress-session hook — and the real fix is the
+// cron-liveness gate (167.A), which stops a dead cron from suppressing that roll.
+// now.md heals next session via the detached roll and never compounds.
 
 try {
   const r = injectContext({ cwd: process.cwd(), compressLazyPath });
