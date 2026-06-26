@@ -141,7 +141,9 @@ git push origin main
 cd C:\Projects\claude-memory-kit\packages\cli
 npm pack                             # → lh8ppl-claude-memory-kit-<version>.tgz
 npm uninstall -g @lh8ppl/claude-memory-kit
-npm install -g .\lh8ppl-claude-memory-kit-*.tgz   # the freshly-packed tarball
+# Use the EXPLICIT filename, NOT a *.tgz glob — PowerShell does NOT expand the
+# wildcard, so npm gets the literal `*` and fails ENOENT. Substitute the version.
+npm install -g .\lh8ppl-claude-memory-kit-0.4.1.tgz   # the freshly-packed tarball
 cmk --version                        # ✅ matches packages/cli/package.json
 
 # BACK UP the user tier, then start clean so capture-from-zero is honest.
