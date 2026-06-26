@@ -8,6 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Fixed
+
+- **Bounded memory now self-heals reliably even with a dead scheduled cron** (Task 167) — the session-buffer roll (`now.md` → daily summary) no longer gets suppressed by a registered-but-never-firing cron (e.g. a laptop asleep at the scheduled time). Memory compaction runs on every session start and never compounds. The cron-liveness check keys off whether a run *actually happened* (an anacron-style heartbeat), not whether a scheduler is merely registered.
+- **A stray `~/context/` no longer hijacks project discovery** (Task 168) — `cmk mcp serve` and the session-start memory injection now stop at your home directory when walking up to find the project, so an unrelated `context/` folder in your home can't be served as the wrong project. Windows 8.3 short-name paths are canonicalized before comparison.
+
+### Added
+
+- **`cmk doctor` HC-10 — scheduled-compaction liveness** (Task 167) — an informational check that flags a registered cron that has stopped firing. Memory self-heals each session regardless, so it never prescribes a manual command; it SKIPs when no cron is registered (the default).
+- **Windows Task Scheduler catch-up** (Task 167) — `cmk register-crons` now sets `StartWhenAvailable` so a missed nightly run (machine off/asleep) runs on wake instead of being silently dropped.
+
 ## [0.4.0] — 2026-06-21
 
 ### Added

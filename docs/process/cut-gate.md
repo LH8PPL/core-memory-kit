@@ -107,6 +107,18 @@ The v0.3.4 headline is reliability: **the compression timeout fix (bounded trans
 
 _161.6a (structured `exit_code`/`error_detail` in compress.log) is exercised by RT1's deterministic-failure leg. The update DOCS (README/QUICKSTART §9) are reviewer-read, not a live probe._
 
+### Also new in v0.4.1 — the now.md-roll-at-scale + discovery gates
+
+The v0.4.1 headline is robustness: **the now.md-roll cron-liveness fix (Task 167 / D-206..D-208)** + **project-root discovery hardening (Task 168)**. The core fix is that a registered-but-DEAD cron no longer suppresses the lazy now→today roll, so `now.md` heals every session and never compounds to the 5-day-stale freeze the v0.4.0 dogfood hit.
+
+| Check | Feature | What it verifies |
+| --- | --- | --- |
+| **★ NR1** | Task 167 / D-206 | A bloated `now.md` + a DEAD cron heartbeat heals automatically — by STARTING A SESSION, no manual command. Run the scripted agent-loop: `npm run live-verify:now-roll` (from the repo, real `claude --print`) → both scenarios PASS (single + multi-session). This is the load-bearing v0.4.1 gate. |
+| **★ NR2** | Task 167 / 167.F | HC-10 is informational: `cmk doctor` on a fresh install (no cron) → HC-10 = **SKIP** (not FAIL). It never prescribes a manual heal. |
+| **★ NR3** | Task 168 | `cmk mcp serve` / inject discovery does NOT escape into a stray `~/context/`: from a temp dir with no project, the resolver returns its own cwd, never the home dir. (Covered by the suite's regression test; a live spot-check is optional.) |
+
+**The honest note for NR1:** the heal is automatic but ASYNCHRONOUS — the SessionStart hook spawns a DETACHED roll (a real Haiku roll is 18–37 s, > the 30 s hook ceiling, so it can't be synchronous — D-208). `npm run live-verify:now-roll` waits for the detached child, exactly as the next real session would find it. Do NOT expect `now.md` to be drained the instant the hook returns.
+
 ---
 
 ## 0. Cut the release locally, then build the REAL artifact
@@ -154,7 +166,7 @@ code .
 
 - [ ] **★ G1 — install + doctor clean.**
       `cmk install` → "ready, hooks wired";
-      `cmk doctor` → **0 fail** on a fresh install — **9 checks now** (HC-1..HC-9; the 2 memsearch checks were removed in Task 120, HC-8 native-bindings added in v0.3.1, HC-9 version-drift added in v0.3.4). HC-9 = PASS on a just-installed project (the scaffold marker matches the binary).
+      `cmk doctor` → **0 fail** on a fresh install — **10 checks now** (HC-1..HC-10; the 2 memsearch checks were removed in Task 120, HC-8 native-bindings added in v0.3.1, HC-9 version-drift added in v0.3.4, **HC-10 compaction-liveness added in v0.4.1 (Task 167)**). HC-9 = PASS on a just-installed project (the scaffold marker matches the binary). **HC-10 = SKIP** on a fresh install with no cron registered (it's informational — memory self-heals each session via the lazy roll; only flags a *registered but dead* cron).
       Type:
         `/hooks` → the 5 `cmk-*` hooks are loaded.
 
@@ -808,7 +820,7 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 **Health & repair**
 
 - [ ] **F-11**
-      - `cmk doctor` → HC-1..HC-9 accurate (HC-8 = native bindings / npm-12 readiness, v0.3.1; HC-9 = version-drift, v0.3.4) + the trailing **Memory health (informational)** line renders
+      - `cmk doctor` → HC-1..HC-10 accurate (HC-8 = native bindings / npm-12 readiness, v0.3.1; HC-9 = version-drift, v0.3.4; HC-10 = compaction-liveness, v0.4.1 — SKIP when no cron registered) + the trailing **Memory health (informational)** line renders
       - `cmk repair --hooks` re-wires if settings drift
       - **`cmk repair --index` → "(index): fixed → reindex completed"** (NOT an error). _v0.3.1: this ran the REAL reindexFull which needs a db; the bug where repair passed no db (since Task 49, masked by every test mocking the reindexer) was found by THIS cut-gate probe — keep it on the real path, no injected reindexer._
       - `cmk repair --all` → all three (hooks/locks/index) report cleanly
