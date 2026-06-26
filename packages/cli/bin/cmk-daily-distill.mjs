@@ -26,12 +26,15 @@ const __dirname = dirname(__filename);
 // relative to bin/ → ../src/ for both modules.
 const dailyDistillModulePath = join(__dirname, '..', 'src', 'daily-distill.mjs');
 const compressorModulePath = join(__dirname, '..', 'src', 'compressor.mjs');
+const compactionStateModulePath = join(__dirname, '..', 'src', 'compaction-state.mjs');
 
 let dailyDistill;
 let HaikuViaAnthropicApi;
+let recordCronHeartbeat;
 try {
   ({ dailyDistill } = await import(pathToFileURL(dailyDistillModulePath).href));
   ({ HaikuViaAnthropicApi } = await import(pathToFileURL(compressorModulePath).href));
+  ({ recordCronHeartbeat } = await import(pathToFileURL(compactionStateModulePath).href));
 } catch (err) {
   process.stderr.write(
     `cmk-daily-distill: failed to load modules: ${err?.message ?? err}\n`,
@@ -51,6 +54,17 @@ const envRoot = process.env.CMK_PROJECT_DIR && process.env.CMK_PROJECT_DIR.lengt
   ? process.env.CMK_PROJECT_DIR
   : null;
 const projectRoot = argvRoot ?? envRoot ?? process.cwd();
+
+// Task 167 (D-207): record the cron HEARTBEAT on every fire — BEFORE the distill
+// work, so a run that crashes mid-distill still proves "the cron is alive" (the
+// anacron model: a run HAPPENED, regardless of outcome). This is the durable
+// liveness signal the lazy-roll gate keys off (by age); without it a registered
+// cron would read "dead" after 48h even while firing nightly. Best-effort.
+try {
+  recordCronHeartbeat?.({ projectRoot });
+} catch {
+  // never let a heartbeat write failure abort the distill
+}
 
 try {
   const backend = new HaikuViaAnthropicApi();

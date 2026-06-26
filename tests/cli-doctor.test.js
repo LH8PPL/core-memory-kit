@@ -116,13 +116,13 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
     // Contract update Task 141a: HC-8 (native bindings / npm 12 readiness).
     // Contract update Task 162: HC-9 (version-drift / update-path, D-176) joined
     // — count + order extended, intent preserved.
-    it('emits exactly 9 checks with id HC-1..HC-9 in order', async () => {
+    it('emits exactly 10 checks with id HC-1..HC-10 in order', async () => {
       const r = await runDoctor({ projectRoot, userDir });
       expect(r.action).toBe('completed');
-      expect(r.checks.length).toBe(9);
+      expect(r.checks.length).toBe(10);
       const ids = r.checks.map((c) => c.id);
       expect(ids).toEqual([
-        'HC-1', 'HC-2', 'HC-3', 'HC-4', 'HC-5', 'HC-6', 'HC-7', 'HC-8', 'HC-9',
+        'HC-1', 'HC-2', 'HC-3', 'HC-4', 'HC-5', 'HC-6', 'HC-7', 'HC-8', 'HC-9', 'HC-10',
       ]);
       // Every check has the canonical shape
       for (const c of r.checks) {
@@ -132,6 +132,40 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
         expect(c).toHaveProperty('message');
         expect(['pass', 'fail', 'skip']).toContain(c.status);
       }
+    });
+  });
+
+  describe('HC-10 — scheduled compaction liveness (Task 167 / D-207, informational)', () => {
+    it('SKIPs when no cron is registered (the default — the lazy roll covers it)', async () => {
+      const r = await runDoctor({ projectRoot, userDir });
+      const hc10 = r.checks.find((c) => c.id === 'HC-10');
+      expect(hc10).toBeDefined();
+      expect(hc10.status).toBe('skip');
+    });
+
+    it('FLAGS a dead cron (stale heartbeat) — informational, never prescribes a manual heal', async () => {
+      const { recordCronHeartbeat, cronHeartbeatPath } = await import('../packages/cli/src/compaction-state.mjs');
+      const { utimesSync } = await import('node:fs');
+      recordCronHeartbeat({ projectRoot });
+      // Age the heartbeat past the 48h TTL.
+      const hb = cronHeartbeatPath(projectRoot);
+      const old = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
+      utimesSync(hb, old, old);
+
+      const r = await runDoctor({ projectRoot, userDir });
+      const hc10 = r.checks.find((c) => c.id === 'HC-10');
+      expect(hc10.status).toBe('fail');
+      // Informational: tells the user it self-heals; NEVER a "run cmk compress" chore.
+      expect(hc10.message.toLowerCase()).toContain('self-heal');
+      expect(hc10).not.toHaveProperty('recoveryCommand');
+    });
+
+    it('PASSES on a live cron (fresh heartbeat)', async () => {
+      const { recordCronHeartbeat } = await import('../packages/cli/src/compaction-state.mjs');
+      recordCronHeartbeat({ projectRoot }); // fresh
+      const r = await runDoctor({ projectRoot, userDir });
+      const hc10 = r.checks.find((c) => c.id === 'HC-10');
+      expect(hc10.status).toBe('pass');
     });
   });
 

@@ -44,6 +44,7 @@ import { fileURLToPath } from 'node:url';
 import { runAutoExtract } from '../packages/cli/src/auto-extract.mjs';
 import { MockHaikuBackend } from '../packages/cli/src/compressor.mjs';
 import { install } from '../packages/cli/src/install.mjs';
+import { isCooldownActive, touchCooldownMarker } from '../packages/cli/src/cooldown.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = join(dirname(__filename), '..');
@@ -745,6 +746,36 @@ describe('Task 23 — runAutoExtract() boundary', () => {
       expect(r.observation_count).toBe(0);
       // The handler doesn't throw — surfaces the failure in the result
       // so the caller (bin script) can log + exit 0.
+    });
+
+    it('Task 167.F: a FAILED Haiku call does NOT touch the cooldown (so the next compress can retry)', async () => {
+      // The cooldown means "I SUCCESSFULLY spent the budget", not "I tried". A
+      // failed auto-extract must NOT hold the cooldown fresh — otherwise a
+      // transient failure blocks the next NEEDED compress for 120s (167.F / Q5).
+      const failing = new MockHaikuBackend({
+        throwError: new Error('haiku call failed: rate-limited'),
+      });
+      const turnFile = writeTurnFile(projectRoot, 'a turn');
+      const now = '2026-05-25T10:00:00Z';
+      const r = await runAutoExtract({ turnFile, projectRoot, haikuBackend: failing, now });
+      expect(r.action).toBe('error');
+      // Door 2 (state): the cooldown marker must NOT be fresh after a FAILED call.
+      expect(isCooldownActive({ projectRoot, now, cooldownMs: 120_000 })).toBe(false);
+    });
+
+    it('Task 167.F: a SUCCESSFUL Haiku call DOES touch the cooldown', async () => {
+      // The success path still touches it (the budget WAS spent) — over-mutation
+      // guard that the 167.F change only removed the catch-block touch, not the
+      // success touch.
+      // A valid response with no durable facts: the Haiku call SUCCEEDED (budget
+      // spent), just nothing to extract → the success-path cooldown touch fires.
+      const ok = new MockHaikuBackend({
+        responses: [{ outputText: '', inputTokens: 100, outputTokens: 0, costUSD: 0.0001, preservedIds: [] }],
+      });
+      const turnFile = writeTurnFile(projectRoot, 'a turn');
+      const now = '2026-05-25T10:00:00Z';
+      await runAutoExtract({ turnFile, projectRoot, haikuBackend: ok, now });
+      expect(isCooldownActive({ projectRoot, now, cooldownMs: 120_000 })).toBe(true);
     });
 
     it('Haiku throws HaikuTimeoutError → action:error, error_category: haiku_timeout (Task 23.9 routing)', async () => {

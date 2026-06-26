@@ -59,6 +59,18 @@ try {
 // is discarded; readHookStdin returns '' for a TTY so a manual run finishes.
 readHookStdin({ isTTY: process.stdin.isTTY });
 
+// Task 167 NOTE (D-207, the live-test revision): an earlier design (Q4) tried a
+// SYNCHRONOUS now.md drain HERE, before injectContext, to make THIS session read
+// the rolled state. The live test proved that doesn't fit: a real now→today Haiku
+// roll takes ~18–37s, but the SessionStart hook ceiling is 30s — so the
+// synchronous drain reliably timed out and fell back to the detached path anyway.
+// The research (claude-mem/mem0/Letta) confirms the event-driven peers compact at
+// session END (the Stop hook, no user waiting), NOT session start. So the kit
+// keeps the now→today roll on the DETACHED SessionStart path (spawned inside
+// injectContext) + the SessionEnd compress-session hook — and the real fix is the
+// cron-liveness gate (167.A), which stops a dead cron from suppressing that roll.
+// now.md heals next session via the detached roll and never compounds.
+
 try {
   const r = injectContext({ cwd: process.cwd(), compressLazyPath });
   process.stdout.write(JSON.stringify(r.hookOutput));

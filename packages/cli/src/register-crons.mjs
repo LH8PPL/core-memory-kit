@@ -303,6 +303,37 @@ export function registerCron(opts = {}) {
     // schtasks path + the verbatim argv). Production never passes it.
     const spawn = opts.spawn ?? spawnSync;
     const r = spawn(schtasksExe, argv, { encoding: 'utf8', windowsHide: true, timeout: 10_000 });
+
+    // Task 167.E (D-207): set StartWhenAvailable so a missed nightly run (laptop
+    // asleep at 23:00) runs on wake instead of being silently dropped. schtasks
+    // /Create has NO CLI flag for this (verified — not in the help); it's settable
+    // only via XML or PowerShell. We use a follow-up PowerShell Set-ScheduledTask,
+    // BEST-EFFORT: a failure here never fails registration — the lazy roll
+    // (167.A/D) is the guarantee; this is a catch-up OPTIMIZATION. NB: this only
+    // covers a missed run while the machine is OFF/asleep; all OS catch-up
+    // mechanisms COALESCE multiple missed periods into one run (research note).
+    if (r.status === 0) {
+      const psExe = join(
+        process.env.SystemRoot || process.env.windir || 'C:\\Windows',
+        'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe',
+      );
+      const psScript =
+        `try { Set-ScheduledTask -TaskName '${entryName}' ` +
+        `-Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable) ` +
+        `-ErrorAction Stop | Out-Null } catch { exit 1 }`;
+      try {
+        spawn(psExe, ['-NoProfile', '-NonInteractive', '-Command', psScript], {
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 10_000,
+        });
+        // We intentionally ignore the PS exit status — registration already
+        // succeeded; catch-up is best-effort.
+      } catch {
+        // never let the catch-up call abort a successful registration
+      }
+    }
+
     return {
       action: r.status === 0 ? 'registered' : 'error',
       platform,

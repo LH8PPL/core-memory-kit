@@ -22,7 +22,7 @@
 - **Guards your memory from an accidental delete** — `cmk install` wires a delete-guardrail (`cmk-guard-memory`) that **blocks** a destructive command (`rm`, `Remove-Item`, `del`, `git clean`, `git reset --hard`, `find … -delete`, `truncate`, `>`-truncate) the moment it's aimed at a memory path — *before* it runs, on Claude Code (`Bash` / `PowerShell`) and the Kiro IDE (`PreToolUse`). Fail-open (a broken guard never wedges your session) and intentionally broad (a false block is recoverable; a false allow is the data loss it prevents). A safe command, or a delete of anything else, runs untouched. (On `kiro-cli` V3, Kiro's own shell-approval prompt covers deletes — first-class kit guard support there is a planned follow-up.)
 - **Don't start empty — import the rules you already own** — `cmk import-claude-md` parses an existing `CLAUDE.md` / `.cursorrules` / `AGENTS.md` into typed, searchable facts through the same safe write path (secret screening, sanitization, dedup), with provenance back to source file + line. `--dry-run` previews first.
 - **Per-project, in-repo** — `context/` lives inside your project and travels with `git clone`. Each project keeps its own memory.
-- **9 health checks** — `cmk doctor` validates hook wiring, distill freshness, transcript firing, INDEX consistency, cron registration, native-memory coexistence, stale locks, native-binding health (npm 12 readiness), and version drift (a project scaffold behind your installed `cmk` after an update) — each failure with a repair command.
+- **10 health checks** — `cmk doctor` validates hook wiring, distill freshness, transcript firing, INDEX consistency, cron registration, native-memory coexistence, stale locks, native-binding health (npm 12 readiness), version drift (a project scaffold behind your installed `cmk` after an update), and scheduled-compaction liveness (an informational heads-up if your optional nightly cron stops firing — memory self-heals each session regardless) — each failure with a repair command.
 
 ## Install — pick ONE route
 
@@ -69,7 +69,7 @@ Most-used commands (full list via `cmk --help`):
 | Command | Purpose |
 | --- | --- |
 | `cmk install` | Scaffold `context/` + the `memory-write`/`memory-search` skills + `.gitignore` + CLAUDE.md block + wire hooks (`--no-hooks` for scaffold-only) |
-| `cmk doctor` | Run HC-1..HC-9 health checks, surface repair commands |
+| `cmk doctor` | Run HC-1..HC-10 health checks, surface repair commands |
 | `cmk repair --hooks` / `--locks` / `--index` / `--all` | Idempotent self-repair |
 | `cmk search "<query>" [--mode keyword\|semantic\|hybrid] [--scope facts\|transcripts\|decisions]` | Search memory — by meaning with the embedder (hybrid default after `--with-semantic`); `--scope transcripts` = the raw session record; `--scope decisions` = the decision journal (history / "what did we reject") |
 | `cmk get <id…>` / `cmk timeline <id>` / `cmk cite <id>` / `cmk recent-activity` | Read the index back — full fact bodies + provenance, sequential context around an observation, a canonical citation link, recent changes (the CLI side of the `mk_*` MCP read tools) |

@@ -43,6 +43,7 @@ import { basename, join } from 'node:path';
 import { nowIso } from './audit-log.mjs';
 import { detectStaleLocks } from './lock-discipline.mjs';
 import { cronSentinelPath } from './lazy-compress.mjs';
+import { isCompactionNeeded } from './compaction-state.mjs';
 import { getNativeAutoMemoryState } from './native-memory.mjs';
 import { checkKitBinding, checkEmbedderBinding } from './native-binding.mjs';
 import { resolveDefaultSearchMode } from './semantic-backend.mjs';
@@ -640,6 +641,45 @@ function hc9VersionDrift({ projectRoot, kitVersion }) {
   return checkVersionDrift({ claudeMdText, kitVersion });
 }
 
+// --- HC-10: Scheduled compaction liveness (Task 167 / D-207) ----------
+// INFORMATIONAL — memory self-heals automatically every session (the lazy roll
+// is the floor, 167.A/D), so a dead cron is a degraded OPTIMIZATION, not data
+// loss. NEVER prescribes a manual heal (no recoveryCommand). A DEV/diagnostic
+// aid (it surfaced THIS bug class) + a heads-up for a power user. SKIPs when no
+// cron is registered (the default) — the lazy roll covers compaction there.
+function hc10CompactionLiveness({ projectRoot, now }) {
+  const v = isCompactionNeeded({ projectRoot, now });
+  // No cron registered (heartbeatAge null) → nothing to check; the lazy roll owns
+  // compaction. SKIP (consistent with HC-5's optional-cron posture).
+  if (v.heartbeatAge === null) {
+    return {
+      id: 'HC-10',
+      name: 'Scheduled compaction is alive',
+      status: 'skip',
+      message: 'no scheduled cron registered (optional) — memory self-heals each session via the lazy roll.',
+    };
+  }
+  if (v.cronStale) {
+    const days = Math.floor(v.heartbeatAge / (24 * 60 * 60 * 1000));
+    return {
+      id: 'HC-10',
+      name: 'Scheduled compaction is alive',
+      status: 'fail',
+      // Informational framing — NO recoveryCommand. The kit self-heals; this is a
+      // heads-up that the OPTIONAL nightly schedule isn't firing (asleep at 23:00,
+      // a registration that didn't take catch-up). Re-running register-crons is a
+      // user choice, not a required repair.
+      message: `your scheduled compaction looks dead (last ran ~${days}d ago) — memory still self-heals automatically each session, so no action is needed; run \`cmk register-crons\` only if you want the nightly schedule back.`,
+    };
+  }
+  return {
+    id: 'HC-10',
+    name: 'Scheduled compaction is alive',
+    status: 'pass',
+    message: 'scheduled compaction heartbeat is fresh',
+  };
+}
+
 export async function runDoctor({
   projectRoot,
   userDir,
@@ -672,10 +712,11 @@ export async function runDoctor({
   const c8 = await hc8NativeBindings({ projectRoot, kitBindingProbe, embedderBindingProbe });
   // HC-9: kitVersion injectable for tests; defaults to the installed binary's version.
   const c9 = hc9VersionDrift({ projectRoot, kitVersion: kitVersion ?? getKitVersion() });
+  const c10 = hc10CompactionLiveness({ projectRoot, now: ts });
 
   return {
     action: 'completed',
-    checks: [c1, c2, c3, c4, c5, c6, c7, c8, c9],
+    checks: [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10],
     duration_ms: Date.now() - t0,
   };
 }

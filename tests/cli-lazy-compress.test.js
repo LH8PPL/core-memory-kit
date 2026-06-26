@@ -620,11 +620,32 @@ describe('Task 105 — now.md lazy-roll on SessionStart (D-75)', () => {
       expect(v.action).toBe('stale-now');
     });
 
-    it('cron-active still wins over stale-now (sentinel short-circuits everything)', () => {
+    // Task 167 (D-207, Q4) REVERSED the old contract: this test previously
+    // asserted "cron-active wins over stale-now (sentinel short-circuits
+    // everything)" — which WAS the bug. A live cron handles daily/weekly on its
+    // schedule, but it NEVER does the now→today roll (that's the SessionEnd/lazy
+    // path), so un-rolled now.md content must drain THIS session regardless. The
+    // old behavior let now.md grow to 410 KB because a (possibly dead) registered
+    // cron suppressed the only roll that drains it.
+    it('Task 167: stale-now WINS over a live cron (the now→today roll is never the cron\'s job)', () => {
+      seedNowMd();
+      markCronRegistered({ projectRoot }); // writes a FRESH heartbeat (live cron)
+      const v = detectStaleness({ projectRoot, now: '2026-05-28T10:00:00Z' });
+      expect(v.action).toBe('stale-now');
+    });
+
+    it('Task 167: a DEAD cron (stale heartbeat) does NOT suppress the roll — cronStale flagged', () => {
+      // The PRIMARY bug: a registered-but-never-fired cron used to disable the
+      // lazy roll forever. Now a stale heartbeat falls through to stale-now.
       seedNowMd();
       markCronRegistered({ projectRoot });
+      // Age the heartbeat past the 48h TTL by stamping it 5 days before `now`.
+      const hb = cronSentinelPath(projectRoot);
+      const old = new Date(Date.parse('2026-05-28T10:00:00Z') - 5 * 24 * 60 * 60 * 1000);
+      utimesSync(hb, old, old);
       const v = detectStaleness({ projectRoot, now: '2026-05-28T10:00:00Z' });
-      expect(v.action).toBe('cron-active');
+      expect(v.action).toBe('stale-now');
+      expect(v.cronStale).toBe(true);
     });
   });
 

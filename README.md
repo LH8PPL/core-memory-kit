@@ -194,7 +194,7 @@ Keyword search structurally misses natural-language questions; the embedded sema
 
 ## Health checks
 
-`cmk doctor` runs nine checks (HC-1..HC-9), each reported PASS / FAIL / SKIP with a repair command — including **HC-9**, which flags a project whose scaffold is behind your installed `cmk` (re-run `cmk install` there). Details + recovery paths: **[HEALTH-CHECKS.md](HEALTH-CHECKS.md)**.
+`cmk doctor` runs ten checks (HC-1..HC-10), each reported PASS / FAIL / SKIP with a repair command — including **HC-9**, which flags a project whose scaffold is behind your installed `cmk` (re-run `cmk install` there), and **HC-10**, an informational heads-up if your optional scheduled compaction stops firing (memory self-heals each session regardless). Details + recovery paths: **[HEALTH-CHECKS.md](HEALTH-CHECKS.md)**.
 
 > [!NOTE]
 > **npm 12 (July 2026):** npm 12 skips dependency install scripts by default, which can silently block the native build `better-sqlite3` needs. `cmk install` detects this and offers to fix it inline — or install with `--allow-scripts=better-sqlite3` up front.
