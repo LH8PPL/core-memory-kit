@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-aa2R6AR6) Gate test for v0.4.1 must prove healing with only SessionStart (no manual commands allowed).
-  <!-- source: review-promote, source_line: 1, sha1: 3eb1dba1bae0841d5c66fda10e8fe11c02e1979580b27fadd22ee62dea814e36, write: user-explicit, trust: high, at: 2026-06-25T20:00:03Z -->
 - (P-7QH7CQPU) Research evaluation tiers (Tier 1 = kit peers, Tier 2 = mechanism refs, Tier 3 = new finds) now explicit; will declare tier upfront.
   <!-- source: review-promote, source_line: 1, sha1: 5d31e63fa2a360a65fa04914eaaf49a2cda5c404809a39dac02c0d5d2833b29c, write: user-explicit, trust: high, at: 2026-06-25T20:00:03Z -->
 - (P-aM5ZNHVE) OpenWolf independently built the exact heartbeat fix (last_heartbeat via mtimeMs derive-from-artifact), validating the architecture.
@@ -20,6 +18,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: 862a01e8d60b77af695515ad19548eb5fd6fe2e7fb9601e5269a485df3ce5de3, write: auto-extract, trust: high, at: 2026-06-25T20:04:26Z -->
 - (P-K6XCJKFF) HC-10 cut because it's redundant with auto-heal and only high-end users would adopt doctor checks anyway.
   <!-- source: auto-extract-session, source_line: 1, sha1: 2b7402b195cf917908a4b6a32e6099676d39e878f23bdd637bb953bdd2121d50, write: auto-extract, trust: high, at: 2026-06-25T20:15:48Z -->
+- (P-7TCUN4G4) Will not ship a version with bugs — a stated quality mandate
+  <!-- source: auto-extract-session, source_line: 1, sha1: 2da5315780502dc9229585fe9ea189a8064bbf1fda4bd23ae9d40991164346de, write: auto-extract, trust: high, at: 2026-06-26T11:36:40Z -->
 
 ## Environment Notes
 

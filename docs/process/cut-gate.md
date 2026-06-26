@@ -144,9 +144,25 @@ npm uninstall -g @lh8ppl/claude-memory-kit
 npm install -g .\lh8ppl-claude-memory-kit-*.tgz   # the freshly-packed tarball
 cmk --version                        # ✅ matches packages/cli/package.json
 
-# Wipe the user tier so capture-from-zero is honest (back it up first if you care)
-Remove-Item -Recurse -Force $env:USERPROFILE\.claude-memory-kit
+# BACK UP the user tier, then start clean so capture-from-zero is honest.
+# NEVER plain-delete it — MOVE it to a timestamped backup so a real persona is
+# always recoverable (the established pattern: gate-noise + any genuine tier go to
+# C:\cut-gate-backups\, never the bin). Moving (not copying-then-deleting) leaves
+# the live path absent so the gate captures from zero, with the old tier preserved.
+$stamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+$backupRoot = "C:\cut-gate-backups\user-tier_$stamp"
+New-Item -ItemType Directory -Force -Path (Split-Path $backupRoot) | Out-Null
+if (Test-Path $env:USERPROFILE\.claude-memory-kit) {
+  Move-Item -Path $env:USERPROFILE\.claude-memory-kit -Destination $backupRoot
+  Write-Host "user tier backed up → $backupRoot"
+}
+# Same for the stray ~/context scaffold (test debris) if present — back up, don't bin.
+if (Test-Path $env:USERPROFILE\context) {
+  Move-Item -Path $env:USERPROFILE\context -Destination "$backupRoot-stray-context"
+}
 ```
+
+> **Restore after the gate** (if you backed up a real tier): `Move-Item $backupRoot $env:USERPROFILE\.claude-memory-kit` (move the gate-created one aside first if you want to keep it). The backups live under `C:\cut-gate-backups\` and are never auto-deleted.
 
 - [ ] **G0** — `cmk --version` matches the version in `packages/cli/package.json` _(if it's an older version, you're testing a stale global — re-run the `npm install -g` above against the freshly-packed `.tgz`)_
 
