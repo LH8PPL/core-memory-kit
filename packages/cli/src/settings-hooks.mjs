@@ -212,7 +212,21 @@ export function writeKitHooks(settingsPath) {
   // Task 133: memory-search joins memory-write — every scaffolded skill needs
   // its own allow entry or the model's invocation trips a "Use skill?" prompt
   // (the Task-90 class; 75.1 scaffolded the skill but missed this).
-  const KIT_ALLOW = ['Bash(cmk:*)', 'Skill(memory-write)', 'Skill(memory-search)', 'mcp__cmk__*'];
+  // Task 169 (the v0.4.1 cut-gate find, 2026-06-26): Claude Code 2.1.x changed
+  // skill-permission matching — the bare `Skill(memory-write)` rule alone no
+  // longer suppressed the "Use skill?" prompt; when the user clicked "allow for
+  // this project", Claude Code wrote BOTH `Skill(memory-write)` AND
+  // `Skill(memory-write:*)` into settings.local.json. So the kit emits BOTH forms
+  // (bare for older CC, `:*` for 2.1.x+) — pending a docs re-verification of the
+  // current skill-permission syntax.
+  const KIT_ALLOW = [
+    'Bash(cmk:*)',
+    'Skill(memory-write)',
+    'Skill(memory-write:*)',
+    'Skill(memory-search)',
+    'Skill(memory-search:*)',
+    'mcp__cmk__*',
+  ];
   if (!settings.permissions || typeof settings.permissions !== 'object') {
     settings.permissions = {};
   }

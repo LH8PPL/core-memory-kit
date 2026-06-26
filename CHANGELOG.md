@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 - **Bounded memory now self-heals reliably even with a dead scheduled cron** (Task 167) — the session-buffer roll (`now.md` → daily summary) no longer gets suppressed by a registered-but-never-firing cron (e.g. a laptop asleep at the scheduled time). Memory compaction runs on every session start and never compounds. The cron-liveness check keys off whether a run *actually happened* (an anacron-style heartbeat), not whether a scheduler is merely registered.
 - **A stray `~/context/` no longer hijacks project discovery** (Task 168) — `cmk mcp serve` and the session-start memory injection now stop at your home directory when walking up to find the project, so an unrelated `context/` folder in your home can't be served as the wrong project. Windows 8.3 short-name paths are canonicalized before comparison.
+- **Capture stays prompt-free on Claude Code 2.1.x** (Task 169) — recent Claude Code versions changed how skill permissions match, so the kit's allow-list now also writes the `Skill(<name>:*)` wildcard form. Without it, the first time the model saved a memory you'd hit a "Use skill /memory-write?" approval prompt — the kit's auto-capture is meant to be invisible, so it now allow-lists both forms.
 
 ### Added
 
