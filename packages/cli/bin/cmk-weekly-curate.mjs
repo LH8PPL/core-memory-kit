@@ -20,12 +20,15 @@ const __dirname = dirname(__filename);
 
 const weeklyCurateModulePath = join(__dirname, '..', 'src', 'weekly-curate.mjs');
 const compressorModulePath = join(__dirname, '..', 'src', 'compressor.mjs');
+const compactionStateModulePath = join(__dirname, '..', 'src', 'compaction-state.mjs');
 
 let weeklyCurate;
 let HaikuViaAnthropicApi;
+let recordCronHeartbeat;
 try {
   ({ weeklyCurate } = await import(pathToFileURL(weeklyCurateModulePath).href));
   ({ HaikuViaAnthropicApi } = await import(pathToFileURL(compressorModulePath).href));
+  ({ recordCronHeartbeat } = await import(pathToFileURL(compactionStateModulePath).href));
 } catch (err) {
   process.stderr.write(
     `cmk-weekly-curate: failed to load modules: ${err?.message ?? err}\n`,
@@ -48,6 +51,15 @@ const projectRoot = argvRoot ?? envRoot ?? process.cwd();
 // auto-promotes it into the user tier. Without userDir the curate runs
 // project-only (backward-compatible).
 const userDir = join(homedir(), '.claude-memory-kit');
+
+// Task 167 (D-207): record the cron heartbeat on every fire (anacron model —
+// proves the cron is alive regardless of curate outcome). The lazy-roll gate
+// keys off its age. Best-effort; never abort the curate on a heartbeat failure.
+try {
+  recordCronHeartbeat?.({ projectRoot });
+} catch {
+  // best-effort
+}
 
 try {
   const backend = new HaikuViaAnthropicApi();

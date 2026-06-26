@@ -51,11 +51,12 @@ describe('Task 41 — README references v0.1.0 surface (no stale references)', (
     expect(text).not.toMatch(/install\.ps1\b/);
   });
 
-  it('references the 9 health checks (HC-1..HC-9) — HC-8 native bindings (Task 141a); HC-9 version-drift (Task 162)', () => {
+  it('references the 10 health checks (HC-1..HC-10) — HC-9 version-drift (Task 162); HC-10 compaction-liveness (Task 167)', () => {
     text = readFileSync(join(repoRoot, 'README.md'), 'utf8');
-    expect(text).toMatch(/HC-1\.\.HC-9/);
+    expect(text).toMatch(/HC-1\.\.HC-10/);
     expect(text).not.toMatch(/HC-1\.\.HC-7\b/); // stale counts must not linger
     expect(text).not.toMatch(/HC-1\.\.HC-8\b/);
+    expect(text).not.toMatch(/HC-1\.\.HC-9\b/);
     expect(text).not.toMatch(/memsearch/i);
   });
 

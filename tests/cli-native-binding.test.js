@@ -127,10 +127,10 @@ describe('Task 141a — npmSupportsAllowScripts (Doors 1+3)', () => {
 });
 
 describe('Task 141a — doctor HC-8, the backstop (Doors 1+2)', () => {
-  it('passes on a healthy binding (9 checks total now — HC-9 added in Task 162)', async () => {
+  it('passes on a healthy binding (10 checks total now — HC-10 added in Task 167)', async () => {
     await install({ projectRoot, userTier: userDir });
     const r = await runDoctor({ projectRoot, userDir });
-    expect(r.checks.length).toBe(9);
+    expect(r.checks.length).toBe(10);
     const hc8 = r.checks.find((c) => c.id === 'HC-8');
     expect(hc8).toBeTruthy();
     expect(hc8.status).toBe('pass');

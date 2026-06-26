@@ -29,9 +29,7 @@ import {
   existsSync,
   mkdirSync,
   readdirSync,
-  readFileSync,
   statSync,
-  writeFileSync,
   unlinkSync,
 } from 'node:fs';
 import { join } from 'node:path';
@@ -46,44 +44,58 @@ import { weeklyCurate } from './weekly-curate.mjs';
 import { compressSession } from './compress-session.mjs';
 import { CEILING_FREE_TIMEOUT_MS, CEILING_FREE_BACKOFF_MS } from './compress-retry.mjs';
 import { syncDecisionsJournal } from './decisions-journal.mjs';
+import {
+  isCompactionNeeded,
+  recordCronHeartbeat,
+  cronHeartbeatPath,
+} from './compaction-state.mjs';
 
 const DEFAULT_DAILY_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const DEFAULT_WEEKLY_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-const SESSIONS_REL = ['context', 'sessions'];
 const LOCKS_REL = ['context', '.locks'];
-const NOW_MD_REL = ['context', 'sessions', 'now.md'];
-const RECENT_MD_REL = ['context', 'sessions', 'recent.md'];
-const CRON_SENTINEL_REL = ['context', '.locks', 'cron-registered'];
 const LAZY_LOG_REL = ['context', '.locks', 'lazy-compress.log'];
 
-const TODAY_RE = /^today-(\d{4}-\d{2}-\d{2})\.md$/;
+// Task 167 (D-206/D-207): the cron-liveness gate moved from a presence-only
+// `cron-registered` sentinel to an anacron-style `cron-heartbeat` (in
+// compaction-state.mjs), gated on AGE not existence — a registered-but-dead cron
+// no longer disables the lazy roll. These three exports are kept as thin
+// back-compat shims so existing callers (register-crons / doctor / subcommands /
+// tests) keep working; they now operate on the heartbeat.
+//
+// **Decision-trail (the retired sentinel):** the old `cron-registered` marker
+// recorded "a cron was REGISTERED" (written once at register-crons time, never
+// updated). detectStaleness short-circuited to 'cron-active' on its mere
+// existence — so a cron that never actually fired (laptop asleep at 23:00)
+// disabled the lazy fallback forever and now.md grew to 410 KB (the v0.4.0
+// dogfood). The heartbeat records "a run HAPPENED" and is re-stamped each fire.
 
 /**
- * Path helper for the cron-registered sentinel marker file. Public so
- * register-crons.mjs can write/remove it without re-deriving the path.
+ * Back-compat alias for the cron-liveness marker path. Now points at the
+ * `cron-heartbeat` stamp (was `cron-registered`). Retained for callers that still
+ * import it; prefer `cronHeartbeatPath` from compaction-state.mjs in new code.
  */
 export function cronSentinelPath(projectRoot) {
-  return join(projectRoot, ...CRON_SENTINEL_REL);
+  return cronHeartbeatPath(projectRoot);
 }
 
 /**
- * Write the cron-registered sentinel marker. Called by registerCron
- * after a successful host-scheduler registration.
+ * Record that the cron is alive. Now writes the anacron-style heartbeat (was: a
+ * one-time registration sentinel). `register-crons` calls it on registration so a
+ * just-registered cron reads alive until its first real run re-stamps it; the
+ * cron BINS also call `recordCronHeartbeat` on each fire (the durable liveness
+ * signal). Both go to the same stamp.
  */
 export function markCronRegistered({ projectRoot }) {
-  if (!projectRoot) return;
-  const locksDir = join(projectRoot, ...LOCKS_REL);
-  mkdirSync(locksDir, { recursive: true });
-  writeFileSync(cronSentinelPath(projectRoot), nowIso() + '\n', 'utf8');
+  recordCronHeartbeat({ projectRoot });
 }
 
 /**
- * Remove the cron-registered sentinel marker. Called by unregisterCron.
- * Best-effort — if the marker is missing, that's already the desired state.
+ * Remove the cron-liveness heartbeat (on unregister). Best-effort — a missing
+ * stamp is already the desired "no live cron" state.
  */
 export function unmarkCronRegistered({ projectRoot }) {
   if (!projectRoot) return;
-  const path = cronSentinelPath(projectRoot);
+  const path = cronHeartbeatPath(projectRoot);
   if (existsSync(path)) {
     try {
       unlinkSync(path);
@@ -91,18 +103,6 @@ export function unmarkCronRegistered({ projectRoot }) {
       // best-effort
     }
   }
-}
-
-function listTodayFiles(projectRoot) {
-  const sessionsDir = join(projectRoot, ...SESSIONS_REL);
-  if (!existsSync(sessionsDir)) return [];
-  const matches = [];
-  for (const name of readdirSync(sessionsDir)) {
-    const m = TODAY_RE.exec(name);
-    if (!m) continue;
-    matches.push({ name, date: m[1], path: join(sessionsDir, name) });
-  }
-  return matches;
 }
 
 // Task 105 (D-75): does now.md carry prior-session content? The now→today
@@ -114,25 +114,10 @@ function listTodayFiles(projectRoot) {
 // capture-turn writes haven't fired yet), so non-empty ⇒ stale. Emptiness must
 // match compressSession's own `buffer.trim() === ''` check so the spawn verdict
 // and the actual roll agree (else we'd spawn for a roll that immediately skips).
-function nowMdHasContent(projectRoot) {
-  const p = join(projectRoot, ...NOW_MD_REL);
-  if (!existsSync(p)) return false;
-  try {
-    return readFileSync(p, 'utf8').trim() !== '';
-  } catch {
-    return false;
-  }
-}
-
-function recentMdMtimeMs(projectRoot) {
-  const p = join(projectRoot, ...RECENT_MD_REL);
-  if (!existsSync(p)) return null;
-  try {
-    return statSync(p).mtimeMs;
-  } catch {
-    return null;
-  }
-}
+// Task 167 (D-207): nowMdHasContent / recentMdMtimeMs / listTodayFiles + the
+// now/daily/weekly derive logic moved to compaction-state.mjs (the deep module
+// that owns the verdict). detectStaleness now delegates there; only isJournalStale
+// (an INDEPENDENT signal, not part of the compaction verdict) stays here.
 
 const MEMORY_REL = ['context', 'memory'];
 const DECISIONS_MD_REL = ['context', 'DECISIONS.md'];
@@ -210,66 +195,14 @@ export function detectStaleness({
   dailyTtlMs = DEFAULT_DAILY_TTL_MS,
   weeklyTtlMs = DEFAULT_WEEKLY_TTL_MS,
 } = {}) {
-  if (!projectRoot) {
-    return { action: 'no-context-dir', reason: 'missing-project-root' };
-  }
-  // Cron sentinel short-circuits everything.
-  if (existsSync(cronSentinelPath(projectRoot))) {
-    return { action: 'cron-active', reason: 'cron-sentinel-present' };
-  }
-  const sessionsDir = join(projectRoot, ...SESSIONS_REL);
-  if (!existsSync(sessionsDir)) {
-    return { action: 'no-context-dir', reason: 'sessions-dir-missing' };
-  }
-
-  // Task 105 (D-75): a non-empty now.md is the now→today roll the SessionEnd
-  // hook would have done. It takes PRECEDENCE over daily/weekly because it's
-  // the FIRST pipeline level (now → today → recent → archive) — roll it this
-  // SessionStart; the today→recent + weekly levels cascade on subsequent
-  // SessionStarts once now.md is drained. (cron-active above still wins — a
-  // registered cron owns the whole pipeline.)
-  if (nowMdHasContent(projectRoot)) {
-    return { action: 'stale-now', reason: 'now-md-has-prior-session-content' };
-  }
-
-  const ts = now ?? nowIso();
-  const nowMs = new Date(ts).getTime();
-  const files = listTodayFiles(projectRoot);
-
-  // Weekly check: any today-*.md older than weeklyTtlMs by its date stamp
-  // (NOT mtime — the file's date is the canonical age signal; mtime can
-  // drift if someone touched the file).
-  const weeklyCutoffMs = nowMs - weeklyTtlMs;
-  const hasOldToday = files.some((f) => {
-    const fileMs = new Date(f.date + 'T00:00:00Z').getTime();
-    return Number.isFinite(fileMs) && fileMs < weeklyCutoffMs;
-  });
-  if (hasOldToday) {
-    return { action: 'stale-weekly', reason: 'today-file-older-than-7d' };
-  }
-
-  // Task 36 I1 fix: if there are NO today-*.md files at all, the
-  // pipeline has nothing to compress — return fresh regardless of
-  // recent.md mtime. Previously this check only fired when recent.md
-  // was MISSING; for the stale-but-no-input case (e.g., right after
-  // weeklyCurate archived every today file), the daily-stale branch
-  // would fire and the SessionStart hook would spawn lazy-compress
-  // forever (no new today file means no work; dailyDistill would
-  // return skipped:no-input but not touch recent.md, so the next
-  // SessionStart sees the same stale verdict).
-  if (files.length === 0) {
-    return { action: 'fresh', reason: 'no-input' };
-  }
-
-  // Daily check: recent.md missing OR older than dailyTtlMs.
-  const mtimeMs = recentMdMtimeMs(projectRoot);
-  if (mtimeMs === null) {
-    return { action: 'stale-daily', reason: 'recent-md-missing' };
-  }
-  if (nowMs - mtimeMs > dailyTtlMs) {
-    return { action: 'stale-daily', reason: 'recent-md-older-than-ttl' };
-  }
-  return { action: 'fresh', reason: 'within-ttl' };
+  // Task 167 (D-207): delegate to the compaction-state deep module. This is a
+  // thin back-compat adapter — it maps the rich `{verdict, cronStale,
+  // heartbeatAge}` return onto the legacy `{action, reason}` shape callers
+  // (inject-context, runLazyCompress) already consume. The KEY behavior change
+  // vs the old body: `cron-active` is now gated on heartbeat FRESHNESS (age), not
+  // sentinel existence, so a dead cron falls through to the stale verdicts.
+  const r = isCompactionNeeded({ projectRoot, now, dailyTtlMs, weeklyTtlMs });
+  return { action: r.verdict, reason: r.reason, cronStale: r.cronStale, heartbeatAge: r.heartbeatAge };
 }
 
 function writeLazyLogEntry({ projectRoot, entry }) {
@@ -464,4 +397,101 @@ export async function runLazyCompress({
     delegatedTo,
     duration_ms,
   };
+}
+
+/**
+ * Task 167 (D-207, Q4): the synchronous catch-up drain — "we're in the memory
+ * business", correctness > startup speed.
+ *
+ * When now.md carries un-rolled prior-session content (verdict 'stale-now'), drain
+ * it INLINE (await) so the CURRENT session reads clean — instead of the detached
+ * heal-next-session path, which let now.md compound to 410 KB across sessions
+ * (D-206). Called by the SessionStart bin BEFORE injectContext assembles the
+ * snapshot.
+ *
+ * Bounded by `budgetMs` (raced against the compress) so it can never hang the
+ * session start past the SessionStart hook's 30s ceiling (offline / Haiku-down /
+ * a pathologically large now.md): if the budget elapses first, the drain
+ * continues to its natural end in the background (the underlying compressSession
+ * keeps running) and the caller falls back to the detached path — but never
+ * blocks. Returns {drained, reason, timedOut}.
+ *
+ * BYPASSES the cooldown (Q5): the cooldown is a COST guard for the opportunistic
+ * compress; an urgent stale-now heal is correctness-critical and ignores it. Only
+ * the stale-now verdict triggers the sync drain — daily/weekly stay on the
+ * detached path (no urgent stale content to lose).
+ */
+export async function runSyncDrainIfNeeded({
+  projectRoot,
+  backend,
+  now,
+  budgetMs = 20_000,
+  dailyTtlMs = DEFAULT_DAILY_TTL_MS,
+  weeklyTtlMs = DEFAULT_WEEKLY_TTL_MS,
+} = {}) {
+  const ts = now ?? nowIso();
+  if (!projectRoot || !backend || typeof backend.compress !== 'function') {
+    return { drained: false, reason: 'missing-args', timedOut: false };
+  }
+
+  const verdict = isCompactionNeeded({ projectRoot, now: ts, dailyTtlMs, weeklyTtlMs });
+  if (verdict.verdict !== 'stale-now') {
+    return { drained: false, reason: 'not-stale-now', timedOut: false };
+  }
+
+  // Bypass the cooldown (cooldownMs: 0) — correctness over cost. Race the drain
+  // against the budget so a slow/offline Haiku can't hang session start.
+  const drainPromise = compressSession({
+    projectRoot,
+    backend,
+    now: ts,
+    cooldownMs: 0,
+    maxAttempts: 2,
+    timeoutMs: CEILING_FREE_TIMEOUT_MS,
+    baseBackoffMs: CEILING_FREE_BACKOFF_MS,
+  });
+
+  let timer;
+  const budgetPromise = new Promise((resolve) => {
+    timer = setTimeout(() => resolve({ __timedOut: true }), budgetMs);
+    if (typeof timer.unref === 'function') timer.unref();
+  });
+
+  let raceResult;
+  try {
+    raceResult = await Promise.race([drainPromise, budgetPromise]);
+  } catch (err) {
+    clearTimeout(timer);
+    writeLazyLogEntry({
+      projectRoot,
+      entry: { ts, scope: 'sync-drain', action: 'error', error: err?.message ?? String(err) },
+    });
+    return { drained: false, reason: 'drain-error', timedOut: false };
+  }
+  clearTimeout(timer);
+
+  if (raceResult && raceResult.__timedOut) {
+    // The budget elapsed first. The compress keeps running to completion in the
+    // background (we don't cancel it — letting it finish drains now.md for the
+    // NEXT session); this session falls back to its pre-drain snapshot.
+    writeLazyLogEntry({
+      projectRoot,
+      entry: { ts, scope: 'sync-drain', action: 'timed-out', budget_ms: budgetMs },
+    });
+    return { drained: false, reason: 'budget-elapsed', timedOut: true };
+  }
+
+  const drained = raceResult?.action !== 'error';
+  writeLazyLogEntry({
+    projectRoot,
+    entry: {
+      ts,
+      scope: 'sync-drain',
+      action: drained ? 'drained' : 'error',
+      success: drained,
+      ...(raceResult?.errorCategory ? { error_category: raceResult.errorCategory } : {}),
+      ...(raceResult?.error_category ? { error_category: raceResult.error_category } : {}),
+    },
+  });
+  return { drained, reason: drained ? 'stale-now-drained' : 'drain-failed', timedOut: false };
 }

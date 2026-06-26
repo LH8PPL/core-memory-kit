@@ -239,9 +239,18 @@ describe('Task 27 — Layer 4 checkpoint review fixes', () => {
       expect(r.action).toBe('compressed');
     });
 
-    it('auto-extract still touches the marker on HAIKU_FAILED (so a failing Haiku does not get re-tried by compress-session immediately)', async () => {
-      // Mock a backend that throws (non-timeout). The catch path should
-      // still touch the marker.
+    it('Task 167.F REVERSED: auto-extract does NOT touch the marker on HAIKU_FAILED (a failed call must be free to retry)', async () => {
+      // **Original contract (pre-Task-167, preserved as decision-trail):** this
+      // test asserted the catch path STILL touched the cooldown on failure, so a
+      // failing Haiku blocked compress-session for 120s ("don't re-spend the
+      // budget on the broken call").
+      // **Task 167.F (D-207, Q5) reverses it:** the cooldown means "I
+      // SUCCESSFULLY spent the budget", not "I tried". A FAILED call did not
+      // spend it, and blocking the next NEEDED compress for 120s after a
+      // *transient* failure was the SECONDARY cause of the 410 KB now.md bloat.
+      // Correctness > cost — a failed call leaves the marker untouched so the
+      // next compress can retry.
+      // Mock a backend that throws (non-timeout).
       const throwingBackend = {
         compress: async () => {
           throw new Error('mock-haiku-fail');
@@ -263,7 +272,8 @@ describe('Task 27 — Layer 4 checkpoint review fixes', () => {
         '.locks',
         'last-haiku-call.ts',
       );
-      expect(existsSync(marker)).toBe(true);
+      // 167.F: the marker is NOT touched on failure → the next compress can retry.
+      expect(existsSync(marker)).toBe(false);
     });
   });
 

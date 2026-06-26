@@ -858,18 +858,25 @@ export async function runAutoExtract({
         // ceiling is free. Live-test finding (2026-06-01, live-test-4 baseline).
         timeoutMs: 90_000,
       });
-      // Touch the cooldown marker IMMEDIATELY after the Haiku call
-      // resolves — this is the "we spent the budget" signal that
-      // compress-session.mjs reads to skip its own Haiku call within
-      // 120s of ours. Touching on success only (not in the catch below)
-      // would mean a failing Haiku in the auto-extract path doesn't
-      // block compress-session — which would then re-spend the budget
-      // on the failure. The catch path below also touches.
+      // Touch the cooldown marker after a SUCCESSFUL Haiku call — the
+      // "we spent the budget" signal compress-session.mjs reads to skip its
+      // own Haiku call within 120s of ours.
+      //
+      // **Original behavior (pre-Task-167, preserved as decision-trail):** the
+      // catch block below ALSO touched the cooldown ("spent the budget,
+      // succeeded OR failed"), so a failing Haiku here blocked compress-session
+      // for 120s — on the theory that a failure shouldn't let the next caller
+      // re-spend the budget on the same broken call.
+      // **Task 167.F change (D-207, Q5):** the cooldown now fires on SUCCESS
+      // ONLY. A FAILED call did NOT successfully spend the budget — blocking the
+      // next NEEDED compress for 120s after a *transient* failure is the wrong
+      // gate (it was the SECONDARY cause of the 410 KB now.md bloat: after the
+      // dead cron, failed-call cooldowns kept the roll skipped). Correctness >
+      // cost — a transient failure must be free to retry.
       touchCooldownMarker({ projectRoot, now: ts });
     } catch (err) {
-      // Spent the Haiku budget (succeeded OR failed); touch the
-      // cooldown so compress-session skips within 120s.
-      touchCooldownMarker({ projectRoot, now: ts });
+      // Task 167.F: do NOT touch the cooldown on failure (see the success-path
+      // comment above) — a failed call must not block the next compress's retry.
       // Route on the error TYPE — distinguishes "took too long"
       // (HAIKU_TIMEOUT) from "subprocess exited non-zero"
       // (HAIKU_FAILED). Using `instanceof HaikuTimeoutError`

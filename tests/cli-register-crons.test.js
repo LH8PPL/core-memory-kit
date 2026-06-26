@@ -229,14 +229,17 @@ describe('Task 33 — register-crons', () => {
     });
 
     it('registerCron(platform:win32) execs the ABSOLUTE System32 schtasks.exe with verbatim argv (Door 3)', () => {
-      let captured;
+      const calls = [];
       const fakeSpawn = (exe, args, opts) => {
-        captured = { exe, args, opts };
+        calls.push({ exe, args, opts });
         return { status: 0, stdout: 'SUCCESS: created', stderr: '' };
       };
       const r = registerCron({ command: winCommand, entryName: CRON_ENTRY_NAME, platform: 'win32', spawn: fakeSpawn });
       expect(r.action).toBe('registered');
       expect(r.executed).toBe(true);
+      // The FIRST spawn is the schtasks /Create (167.E adds a 2nd PS call after).
+      const captured = calls.find((c) => /schtasks\.exe$/i.test(c.exe));
+      expect(captured).toBeDefined();
       // Door 3 — the spawned program is the ABSOLUTE System32 schtasks.exe, not a
       // bare PATH name (PATH-hijack guard, Sonar S4036).
       expect(captured.exe).toMatch(/[\\/]System32[\\/]schtasks\.exe$/i);
@@ -253,6 +256,38 @@ describe('Task 33 — register-crons', () => {
       expect(r.action).toBe('error');
       expect(r.error).toContain('schtasks exit 1');
       expect(r.output).toContain('Access is denied');
+    });
+
+    it('Task 167.E: after a successful /Create, sets StartWhenAvailable via a best-effort PowerShell call (OS catch-up for a missed run)', () => {
+      // schtasks /Create has NO StartWhenAvailable flag (verified — not in the CLI
+      // help); it's settable only via XML or PowerShell. So a missed nightly run
+      // (laptop asleep at 23:00) is silently dropped by default. 167.E flips it on
+      // best-effort with a follow-up Set-ScheduledTask call.
+      const calls = [];
+      const fakeSpawn = (exe, args) => {
+        calls.push({ exe, args });
+        return { status: 0, stdout: 'SUCCESS', stderr: '' };
+      };
+      const r = registerCron({ command: winCommand, entryName: CRON_ENTRY_NAME, platform: 'win32', spawn: fakeSpawn });
+      expect(r.action).toBe('registered');
+      // Two execs: the schtasks /Create, then the PowerShell StartWhenAvailable.
+      const psCall = calls.find((c) => /powershell/i.test(c.exe) || c.args.some((a) => /StartWhenAvailable/i.test(a)));
+      expect(psCall).toBeDefined();
+      expect(psCall.args.some((a) => /StartWhenAvailable/i.test(a))).toBe(true);
+      expect(psCall.args.some((a) => a.includes(CRON_ENTRY_NAME))).toBe(true);
+    });
+
+    it('Task 167.E: a FAILED StartWhenAvailable call does NOT fail registration (best-effort backstop)', () => {
+      // The lazy roll (167.A/D) is the guarantee; the catch-up flag is a best-effort
+      // optimization. A PS failure must leave action:registered.
+      let n = 0;
+      const fakeSpawn = () => {
+        n += 1;
+        // First call (schtasks) succeeds; second call (PowerShell) fails.
+        return n === 1 ? { status: 0, stdout: 'SUCCESS', stderr: '' } : { status: 1, stdout: '', stderr: 'PS boom' };
+      };
+      const r = registerCron({ command: winCommand, entryName: CRON_ENTRY_NAME, platform: 'win32', spawn: fakeSpawn });
+      expect(r.action).toBe('registered'); // registration still succeeded
     });
 
     it('macOS strips the wrapping quotes so launchd execs a real path, not a literally-quoted one', () => {

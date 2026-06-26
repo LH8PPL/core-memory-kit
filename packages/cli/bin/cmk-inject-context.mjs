@@ -22,6 +22,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const readHookStdinPath = join(__dirname, '..', 'src', 'read-hook-stdin.mjs');
 const modulePath = join(__dirname, '..', 'src', 'inject-context.mjs');
+const lazyCompressModulePath = join(__dirname, '..', 'src', 'lazy-compress.mjs');
+const compressorModulePath = join(__dirname, '..', 'src', 'compressor.mjs');
 
 // Resolve the sibling lazy-compress bin (ships in this same bin/ dir) so
 // inject-context can spawn `node <path>` directly instead of the shell:true
@@ -58,6 +60,29 @@ try {
 // console that never sends EOF (Task 101; DECISION-LOG 2026-06-06). The payload
 // is discarded; readHookStdin returns '' for a TTY so a manual run finishes.
 readHookStdin({ isTTY: process.stdin.isTTY });
+
+// Task 167 (D-207, Q4): "we're in the memory business" — correctness > startup
+// speed. BEFORE assembling the snapshot, synchronously drain a stale-now now.md
+// (un-rolled prior-session content) so THIS session reads the rolled state, not
+// stale memory. runSyncDrainIfNeeded is a no-op unless the trap state exists
+// (stale-now content); it's bounded by an internal budget well under the 30s
+// SessionStart hook ceiling, and never throws. Best-effort: any failure to load
+// the drain modules just falls back to the detached lazy path inside injectContext.
+try {
+  const [{ runSyncDrainIfNeeded }, { HaikuViaAnthropicApi }] = await Promise.all([
+    import(pathToFileURL(lazyCompressModulePath).href),
+    import(pathToFileURL(compressorModulePath).href),
+  ]);
+  await runSyncDrainIfNeeded({
+    projectRoot: process.cwd(),
+    backend: new HaikuViaAnthropicApi(),
+    budgetMs: 20_000, // < the 30s SessionStart hook ceiling (§8.5 composition)
+  });
+} catch (err) {
+  // Never block session start on a drain failure — the detached lazy path in
+  // injectContext is the fallback. Log to stderr (hook logs), not stdout.
+  process.stderr.write(`cmk-inject-context: sync-drain skipped: ${err?.message ?? String(err)}\n`);
+}
 
 try {
   const r = injectContext({ cwd: process.cwd(), compressLazyPath });

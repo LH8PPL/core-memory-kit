@@ -336,12 +336,16 @@ export async function autoPersona(opts = {}) {
       // ceiling, so it passes a generous value — the explicit command can wait.
       timeoutMs,
     });
-    // Spent a Haiku call — refresh the shared cooldown marker so the next
-    // gated caller backs off. (touch even on cooldownMs:0 cycles: the call
+    // Spent a Haiku call SUCCESSFULLY — refresh the shared cooldown marker so the
+    // next gated caller backs off. (touch even on cooldownMs:0 cycles: the call
     // happened, so the marker should reflect it for any LATER gated caller.)
     touchCooldownMarker({ projectRoot, now: ts });
   } catch (err) {
-    touchCooldownMarker({ projectRoot, now: ts });
+    // Task 167.F (D-207, Q5): do NOT touch the cooldown on FAILURE — a failed
+    // Haiku call did not successfully spend the budget, and blocking the next
+    // needed compress for 120s after a transient failure is the wrong gate
+    // (correctness > cost; a transient failure must be free to retry). Original
+    // pre-167 behavior touched here too; preserved as decision-trail.
     return errorResult({
       category: ERROR_CATEGORIES.COMPRESS_FAILED,
       errors: [err?.message ?? String(err)],
