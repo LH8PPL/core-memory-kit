@@ -14,9 +14,11 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir, homedir } from 'node:os';
 import { join } from 'node:path';
 import { resolveMcpProjectRoot, normalizeProjectPath } from '../packages/cli/src/tier-paths.mjs';
+
+const homedirForTest = homedir();
 
 let sandbox;
 beforeEach(() => {
@@ -58,6 +60,21 @@ describe('resolveMcpProjectRoot — which project does `cmk mcp serve` serve', (
     mkdirSync(orphan, { recursive: true });
     const r = resolveMcpProjectRoot({ env: {}, cwd: orphan });
     expect(r).toBe(orphan); // nothing better than cwd
+  });
+
+  it('Task 168: does NOT escape into a stray ~/context/ (the home dir is the discovery boundary)', () => {
+    // Regression for the real bug: the walk-up climbed above the intended project
+    // into the user's HOME (the sandbox tmpdir IS under ~/AppData/Local/Temp), found
+    // a stray `~/context/` (test debris / a cmk run that scaffolded in home), and
+    // served the WRONG project from an unrelated subdir. The home dir is now the
+    // discovery boundary, so a deep orphan with no project of its own returns its
+    // own cwd — NEVER a stray ancestor `context/` at or above home.
+    const orphan = join(sandbox, 'deep', 'sub', 'dir');
+    mkdirSync(orphan, { recursive: true });
+    const r = resolveMcpProjectRoot({ env: {}, cwd: orphan });
+    expect(r).toBe(orphan);
+    // It must not have walked up into home (the path is shorter than the orphan).
+    expect(r.length).toBeGreaterThan(homedirForTest.length);
   });
 
   it('normalizeProjectPath converts a git-bash /c/Temp path to C:/Temp (the kiro-cli model emits these)', () => {

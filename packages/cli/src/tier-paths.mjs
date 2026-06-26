@@ -9,9 +9,49 @@
 //   resolveTierRoot({tier, projectRoot, userDir}) → absolute path
 //   resolveFactDir(tier, tierRoot) → absolute path to <memory|fragments>
 
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+
+// Canonicalize a path for comparison: resolve 8.3 short names (Windows
+// `TAMIR~1.BN-`) + symlinks to their real long form, so a short-name path and
+// its long-name twin compare equal. Falls back to `resolve(p)` if the path
+// doesn't exist (realpathSync throws on a missing path). Exported so the project
+// discovery in inject-context.mjs shares ONE implementation (Task 168 — the
+// home-boundary + canonicalize logic must not drift across the two walkers).
+export function canonicalPath(p) {
+  try {
+    return realpathSync.native ? realpathSync.native(p) : realpathSync(p);
+  } catch {
+    return resolve(p);
+  }
+}
+
+/**
+ * Walk up from `cwd` to the nearest ancestor that has one of the `markers`
+ * subdirs (a kit-installed project), STOPPING at the home directory — a stray
+ * `~/context/` (test debris, or a `cmk` run that scaffolded in home) must NOT be
+ * served as a project from an unrelated subdir (Task 168). Returns the discovered
+ * root, or `resolve(cwd)` if none found below home.
+ *
+ * @param {string} cwd            starting directory
+ * @param {string[]} markers      subdir names that mark a project root (e.g.
+ *                                ['context'] or ['context', 'context.local'])
+ */
+export function discoverRootUpward(cwd, markers = ['context']) {
+  const home = canonicalPath(homedir());
+  let dir = resolve(cwd);
+  // Defensive bound: walk no more than 64 ancestors.
+  for (let i = 0; i < 64; i++) {
+    const atHome = canonicalPath(dir) === home;
+    if (!atHome && markers.some((m) => existsSync(join(dir, m)))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) break; // reached the filesystem root
+    if (atHome) break; // do not climb above $HOME into a stray ancestor context/
+    dir = parent;
+  }
+  return resolve(cwd); // last resort
+}
 
 export const VALID_TIERS = new Set(['U', 'P', 'L']);
 
@@ -47,18 +87,12 @@ export function resolveMcpProjectRoot({ env = process.env, cwd = process.cwd() }
   const fromClaude = env.CLAUDE_PROJECT_DIR;
   if (fromClaude && fromClaude.trim() !== '') return resolve(fromClaude);
 
-  // walk up from cwd to the nearest dir that has a context/ subdir (an installed
-  // kit project), stopping at the filesystem root.
-  let dir = resolve(cwd);
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    if (existsSync(join(dir, 'context'))) return dir;
-    const parent = dirname(dir);
-    if (parent === dir) break; // reached the root
-    dir = parent;
-  }
-
-  return resolve(cwd); // last resort
+  // Walk up to the nearest `context/`-bearing project, STOPPING at home (Task 168
+  // — a stray `~/context/` must not be served from an unrelated subdir; a real
+  // project's context/ lives below home, or via the explicit CLAUDE_PROJECT_DIR
+  // handled above). Shared with inject-context's discoverProjectRoot via the
+  // single discoverRootUpward implementation.
+  return discoverRootUpward(cwd, ['context']);
 }
 
 // Matches IDs produced by @lh8ppl/cmk-canonicalize.generateId(). Tier prefix +
