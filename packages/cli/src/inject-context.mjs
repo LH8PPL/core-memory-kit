@@ -34,7 +34,7 @@ import { spawn } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
-import { SCRATCHPADS_BY_TIER, resolveTierRoot, ID_PATTERN } from './tier-paths.mjs';
+import { SCRATCHPADS_BY_TIER, resolveTierRoot, ID_PATTERN, discoverRootUpward } from './tier-paths.mjs';
 import { nowIso } from './audit-log.mjs';
 import { detectStaleness, isJournalStale } from './lazy-compress.mjs';
 import { isProvenanceCommentLine, parseBulletProvenance } from './provenance.mjs';
@@ -171,21 +171,14 @@ function latestDaySession(sessionsDir) {
 // kit's project-tier root convention is `<repo>/context/`; the walk-up
 // matches `git rev-parse --show-toplevel`'s semantics for nested invocations
 // (a hook may fire while Claude Code's cwd is in a sub-package).
+// Task 168: discovery walks up to the nearest project root, recognizing EITHER
+// tier directory — `context/` (committed) OR `context.local/` (gitignored local)
+// — so a local-only project resolves correctly, and STOPPING at the home dir so a
+// stray `~/context/` can't hijack discovery from an unrelated subdir. Shares the
+// single `discoverRootUpward` implementation with resolveMcpProjectRoot (one
+// home-boundary + canonicalize algorithm, no drift across the two walkers).
 function discoverProjectRoot(cwd) {
-  let dir = cwd;
-  // Defensive bound: walk no more than 64 ancestors.
-  for (let i = 0; i < 64; i++) {
-    if (existsSync(join(dir, 'context'))) return dir;
-    const parent = join(dir, '..');
-    const norm = statSync(parent).isDirectory() ? parent : null;
-    if (!norm || norm === dir) break;
-    // Stop at the filesystem root.
-    if (/^[A-Za-z]:\\?$|^\/$/.test(dir)) break;
-    dir = parent;
-  }
-  // Fall back to `cwd` — the per-tier readers will return empty for
-  // absent dirs, so this stays safe.
-  return cwd;
+  return discoverRootUpward(cwd, ['context', 'context.local']);
 }
 
 function tierDirExists(tier, tierRoot) {

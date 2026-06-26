@@ -626,6 +626,15 @@ describe('Task 18 — injectContext() boundary', () => {
     });
 
     it('tier_truncated_to_budget events land in truncation.log as NDJSON', () => {
+      // Task 168: seed a `context/` marker so discoverProjectRoot anchors on THIS
+      // projectRoot (the truncation.log is written under <discoveredRoot>/context/
+      // .locks/). Without a tier marker, discovery walks up into an ancestor and
+      // the log lands elsewhere — the real-world bug fixed in discoverProjectRoot,
+      // but the test must also reflect that a real project HAS a context/ dir.
+      writeFile(
+        join(projectRoot, 'context', 'MEMORY.md'),
+        '# MEMORY\n\n## Active Threads\nproject-memory-marker\n',
+      );
       // 3 × 2500 = 7500 > 4975 U-budget → truncation fires.
       writeFile(
         join(userDir, 'HABITS.md'),
