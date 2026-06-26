@@ -783,6 +783,29 @@ describe('Task 105 — now.md lazy-roll on SessionStart (D-75)', () => {
       expect(r.reason).toBe('not-stale-now');
     });
 
+    it('a slow/timed-out Haiku returns cleanly (timedOut:true, drained:false) — NO dangling work for process.exit to kill (skill-review fix)', async () => {
+      // The inner compressSession timeout is bounded by the budget, so a slow
+      // Haiku surfaces as a haiku_timeout verdict (buffer restored by the failure
+      // path) — NOT a dangling promise the bin's process.exit(0) would kill
+      // mid-write and strand the claimed buffer.
+      const { HaikuTimeoutError, MockHaikuBackend: MHB } = await import('../packages/cli/src/compressor.mjs');
+      const nowPath = seedNowMd();
+      const slow = new MHB({
+        throwError: new HaikuTimeoutError('subprocess did not return within budget', { timeoutMs: 18_000 }),
+      });
+      const r = await runSyncDrainIfNeeded({
+        projectRoot,
+        backend: slow,
+        now: new Date().toISOString(),
+        budgetMs: 20_000,
+      });
+      expect(r.timedOut).toBe(true);
+      expect(r.drained).toBe(false);
+      // Door 2: the buffer is preserved (restored by compressSession's failure
+      // path) — never lost to a killed mid-write.
+      expect(readFileTrim(nowPath)).not.toBe('');
+    });
+
     it('bypasses the cooldown (Q5: correctness > cost) — drains even with a fresh cooldown', async () => {
       // The opportunistic compress respects the cooldown; the urgent stale-now
       // drain does NOT. A fresh cooldown must not block the heal.

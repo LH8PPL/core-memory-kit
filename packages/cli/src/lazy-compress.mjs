@@ -409,12 +409,17 @@ export async function runLazyCompress({
  * (D-206). Called by the SessionStart bin BEFORE injectContext assembles the
  * snapshot.
  *
- * Bounded by `budgetMs` (raced against the compress) so it can never hang the
- * session start past the SessionStart hook's 30s ceiling (offline / Haiku-down /
- * a pathologically large now.md): if the budget elapses first, the drain
- * continues to its natural end in the background (the underlying compressSession
- * keeps running) and the caller falls back to the detached path — but never
- * blocks. Returns {drained, reason, timedOut}.
+ * Bounded by `budgetMs` so it can never hang the session start past the
+ * SessionStart hook's 30s ceiling (offline / Haiku-down / a pathologically large
+ * now.md). The budget bounds the INNER compressSession call directly (its
+ * `timeoutMs` is set just under `budgetMs`, single attempt — no retry could fit a
+ * 20s budget), so on a slow/offline Haiku the compress ABORTS CLEANLY within the
+ * budget and returns an error verdict — it does NOT leave a dangling promise that
+ * the bin's `process.exit(0)` would kill mid-write (skill-review finding: a killed
+ * compressSession could strand the claimed buffer in `now.md.rolling-{ts}`). On a
+ * within-budget failure the buffer is restored by compressSession's own failure
+ * path (Task 106/D-79) and the detached lazy roll retries next session. Returns
+ * {drained, reason, timedOut}.
  *
  * BYPASSES the cooldown (Q5): the cooldown is a COST guard for the opportunistic
  * compress; an urgent stale-now heal is correctness-critical and ignores it. Only
@@ -439,41 +444,37 @@ export async function runSyncDrainIfNeeded({
     return { drained: false, reason: 'not-stale-now', timedOut: false };
   }
 
-  // Bypass the cooldown (cooldownMs: 0) — correctness over cost. Race the drain
-  // against the budget so a slow/offline Haiku can't hang session start.
-  const drainPromise = compressSession({
-    projectRoot,
-    backend,
-    now: ts,
-    cooldownMs: 0,
-    maxAttempts: 2,
-    timeoutMs: CEILING_FREE_TIMEOUT_MS,
-    baseBackoffMs: CEILING_FREE_BACKOFF_MS,
-  });
-
-  let timer;
-  const budgetPromise = new Promise((resolve) => {
-    timer = setTimeout(() => resolve({ __timedOut: true }), budgetMs);
-    if (typeof timer.unref === 'function') timer.unref();
-  });
-
-  let raceResult;
+  // The INNER compress timeout is bounded BY the budget (minus a small margin for
+  // the restore + log write), single attempt. This is the §8.5 composition rule:
+  // the inner subprocess timeout must fit under the outer ceiling (here, budgetMs,
+  // itself < the 30s hook ceiling) so the catch/finally/log all run before the
+  // bin exits — and crucially so NO compress work is still in flight when the bin
+  // calls process.exit(0) (which would kill it mid-write and strand the buffer).
+  // Bypass the cooldown (cooldownMs: 0) — correctness over cost.
+  const innerTimeoutMs = Math.max(2_000, budgetMs - 2_000);
+  let result;
   try {
-    raceResult = await Promise.race([drainPromise, budgetPromise]);
+    result = await compressSession({
+      projectRoot,
+      backend,
+      now: ts,
+      cooldownMs: 0,
+      maxAttempts: 1, // a retry can't fit a ~20s budget; one clean attempt
+      timeoutMs: innerTimeoutMs,
+    });
   } catch (err) {
-    clearTimeout(timer);
     writeLazyLogEntry({
       projectRoot,
       entry: { ts, scope: 'sync-drain', action: 'error', error: err?.message ?? String(err) },
     });
     return { drained: false, reason: 'drain-error', timedOut: false };
   }
-  clearTimeout(timer);
 
-  if (raceResult && raceResult.__timedOut) {
-    // The budget elapsed first. The compress keeps running to completion in the
-    // background (we don't cancel it — letting it finish drains now.md for the
-    // NEXT session); this session falls back to its pre-drain snapshot.
+  // A timeout surfaces as an error verdict from compressSession (haiku_timeout),
+  // with the buffer already restored by its failure path — NOT as a dangling
+  // promise. The detached lazy roll retries it next session.
+  const timedOut = result?.errorCategory === 'haiku_timeout' || result?.error_category === 'haiku_timeout';
+  if (timedOut) {
     writeLazyLogEntry({
       projectRoot,
       entry: { ts, scope: 'sync-drain', action: 'timed-out', budget_ms: budgetMs },
@@ -481,6 +482,7 @@ export async function runSyncDrainIfNeeded({
     return { drained: false, reason: 'budget-elapsed', timedOut: true };
   }
 
+  const raceResult = result;
   const drained = raceResult?.action !== 'error';
   writeLazyLogEntry({
     projectRoot,
