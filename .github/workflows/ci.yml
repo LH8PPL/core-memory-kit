@@ -53,7 +53,7 @@ jobs:
       # @huggingface/transformers src/env.js DEFAULT_CACHE_DIR), and npm ci
       # wipes node_modules — so this step must run AFTER npm ci (restore here,
       # auto-save at job end).
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: node_modules/@huggingface/transformers/.cache
           key: hf-models-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -78,7 +78,7 @@ jobs:
       - run: npm ci --no-audit --no-fund
       # Same HF model cache as the test job (Task 125.3) — test:coverage runs
       # the same semantic-backend tests.
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: node_modules/@huggingface/transformers/.cache
           key: hf-models-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
