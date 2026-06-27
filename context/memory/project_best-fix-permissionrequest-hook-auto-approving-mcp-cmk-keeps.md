@@ -1,0 +1,17 @@
+---
+id: P-S7ML4UPH
+type: project
+title: 'BEST FIX: PermissionRequest hook auto-approving mcp__cmk__* (keeps MCP path, narrow scope, matches existing hook pattern)'
+created_at: 2026-06-27T17:45:25Z
+write_source: user-explicit
+trust: high
+source_file: user-explicit
+source_line: 1
+source_sha1: 65df213287e2fd7d89793915b256a4f2d2e8d816b71ce80db2873817d83d91ef
+---
+
+BEST ZERO-POPUP FIX (CC 2.1.195, 2026-06-27): a PermissionRequest HOOK that auto-approves mcp__cmk__* is BETTER than re-steering the skill to the Bash CLI. The user proposed it (code.claude.com/docs/en/hooks-guide#auto-approve-specific-permission-prompts). MECHANISM (verified from docs): a PermissionRequest hook fires when CC is about to show a permission dialog; the hook writes JSON to stdout: {"hookSpecificOutput": {"hookEventName": "PermissionRequest", "decision": {"behavior": "allow"}}} and CC shows "Allowed by PermissionRequest hook" instead of the dialog. Scope it with matcher "mcp__cmk__.*" (the kit's OWN tools only) — docs explicitly say keep the matcher as narrow as possible (the warning is about .* approving everything; mcp__cmk__.* is exactly the narrow form they recommend). COMPARISON vs my steer-to-Bash-CLI idea: (1) hook KILLS the MCP popup directly AND KEEPS the superior MCP path (structured params, zero shell-quoting); the Bash-CLI route kills the popup but DOWNGRADES the capture path. (2) Both persist across sessions (hook fires every session; skill-text every session). (3) The "too invasive?" worry (the user's) is overweighted: auto-approving mcp__cmk__* approves only the kit's OWN explicitly-installed tools, NOT Bash/file-writes/third-party — same posture as enabledMcpjsonServers:[cmk] (vouch only for our own server). (4) The kit ALREADY ships a PreToolUse hook (cmk-guard-memory) wired by install — a PermissionRequest auto-approve hook is the SAME architecture, consistent not novel. (5) It's the honest expression of "install = it just works." VERDICT: prefer the PermissionRequest hook (matcher mcp__cmk__.*) auto-approving the kit's MCP tools. KEEP the skill's allowed-tools too if needed, OR the hook may make it redundant. Combine with enabledMcpjsonServers:[cmk] (server gate) — the hook handles the per-tool gate. Task 172 = wire this PermissionRequest hook in settings-hooks.mjs writeKitHooks at install + repair --hooks. STILL TO VERIFY LIVE: does the PermissionRequest hook actually suppress the mcp__cmk__ popup on 2.1.195 (test on fresh folder before shipping).
+
+**Why:** The user proposed a PermissionRequest auto-approve hook and asked if it beats re-steering to Bash. It does: it kills the MCP popup while KEEPING the superior structured-param MCP path, persists across sessions, is narrowly scoped to the kit's own tools (not invasive), and matches the kit's existing PreToolUse hook pattern. Re-steering to Bash works but downgrades the capture path.
+
+**How to apply:** Task 172: wire a PermissionRequest hook with matcher "mcp__cmk__.*" outputting {"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}} into the scaffolded settings.json via settings-hooks.mjs writeKitHooks (install + repair --hooks), alongside enabledMcpjsonServers:[cmk] (server gate). Verify LIVE on a fresh folder that it suppresses the mcp__cmk__ popup on 2.1.195. Then the skill's allowed-tools may be removable (hook covers the MCP grant) — test whether the Use-skill prompt also clears.

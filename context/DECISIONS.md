@@ -7274,3 +7274,171 @@
 ## RESUME — v0.3.1 cut-gate near-complete; PR
 
 **When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-QUD4MMJ7 -->
+
+## Confirmed preference for 2-button design (richer return value) over 3-button app
+
+**When:** 2026-06-25 · **Fact:** `P-QUD4MMJ7`
+
+<!-- decision:P-K6XCJKFF -->
+
+## HC-10 cut because it's redundant with auto-heal and only high-end users would ad
+
+**When:** 2026-06-25 · **Fact:** `P-K6XCJKFF`
+
+<!-- decision:P-7TCUN4G4 -->
+
+## Will not ship a version with bugs — a stated quality mandate
+
+**When:** 2026-06-26 · **Fact:** `P-7TCUN4G4`
+
+<!-- decision:P-X7ESVWDL -->
+
+## Always deploy .venv and install all Python packages into it
+
+**When:** 2026-06-26 · **Fact:** `P-X7ESVWDL`
+
+<!-- decision:P-W4YMBJ5Z -->
+
+## Kit install should pre-allow memory-write skill; appearance of permission prompt
+
+**When:** 2026-06-26 · **Fact:** `P-W4YMBJ5Z`
+
+<!-- decision:P-aE2QMEUG -->
+
+## User follows "new-folder rule" — each test gate gets a fresh isolated folder (pe
+
+**When:** 2026-06-26 · **Fact:** `P-aE2QMEUG`
+
+<!-- decision:P-KWZMaGB5 -->
+
+## Prefers simpler, more direct explanations; proactively asks for clarification wh
+
+**When:** 2026-06-26 · **Fact:** `P-KWZMaGB5`
+
+<!-- decision:P-LCUA399S -->
+
+## All 6 sub-tasks of task-167 completed; unit-tested, reviewed, skill-review caugh
+
+**When:** 2026-06-26 · **Fact:** `P-LCUA399S`
+
+<!-- decision:P-BCEHTFEP -->
+
+## 0.4.1 release gate workflow is: 0a (commit/push) → 0b (pack/install) → backup →
+
+**When:** 2026-06-26 · **Fact:** `P-BCEHTFEP`
+
+<!-- decision:P-LMNRQW2E -->
+
+## v0.4.1 all pre-Session-1 gates PASS; headline features (now-roll self-heal, HC-1
+
+**When:** 2026-06-26 · **Fact:** `P-LMNRQW2E`
+
+<!-- decision:P-DPZAN24U -->
+
+## Session 1 ready to begin in C:\Temp\cut-gate-v041 after Claude Code restart; gat
+
+**When:** 2026-06-26 · **Fact:** `P-DPZAN24U`
+
+<!-- decision:P-GWK57K7M -->
+
+## Skill Permission Wildcard Syntax
+
+**When:** 2026-06-26 · **Fact:** `P-GWK57K7M`
+**Why:** The docs at code.claude.com/docs/en/permissions definitively show the space form. Using the wrong syntax could explain why permission rules appear present but still prompt.
+
+<!-- decision:P-BWJKTNQY -->
+
+## Workspace Trust Requirement for `.claude/skills/`
+
+**When:** 2026-06-26 · **Fact:** `P-BWJKTNQY`
+**Why:** This is a security model in Claude Code. The trust dialog gates all permission rules and skill load for untrusted folders, preventing execution of unreviewed code.
+
+<!-- decision:P-JFS5DA2J -->
+
+## Diagnostic Test: `:*` Allow-List vs Workspace-Trust
+
+**When:** 2026-06-26 · **Fact:** `P-JFS5DA2J`
+**Why:** Determine root cause — is the allow-list rule broken (doesn't match `:*`/bare forms) or is workspace-trust the blocking gate?
+
+<!-- decision:P-P4JR23RD -->
+
+## Before/After Config Diff to Reveal Tool Behavior
+
+**When:** 2026-06-26 · **Fact:** `P-P4JR23RD`
+**Why:** Tool docs are often ambiguous or outdated; the tool's actual output is authoritative.
+
+<!-- decision:P-4UG42PaQ -->
+
+## Two-Sub-Test Method for Isolating Skill Permission Gating
+
+**When:** 2026-06-26 · **Fact:** `P-4UG42PaQ`
+**Why:** Kit behavior depends on what Claude Code actually writes, not docs. Sub-tests isolate tool initialization from kit correctness.
+
+<!-- decision:P-Z9LPQS3G -->
+
+## Workspace Trust and Skill Permissions Are Independent Gates
+
+**When:** 2026-06-26 · **Fact:** `P-Z9LPQS3G`
+**Why:** Kit settings are inert until folder trust accepted; testing Skill behavior before accepting trust produces false negatives.
+
+<!-- decision:P-TBUDHYTT -->
+
+## Diagnostic Test Statement for Skill Capture
+
+**When:** 2026-06-26 · **Fact:** `P-TBUDHYTT`
+**Why:** Isolates skill-permission behavior from other Session 1 elements. Prevents test contamination: if prompt-free capture works for one rule, full Session 1 can proceed cleanly.
+
+<!-- decision:P-L5WHXB9H -->
+
+## CC 2.1.x mcp__server__* wildcard does not auto-approve MCP tools — need specific tool names
+
+**When:** 2026-06-26 · **Fact:** `P-L5WHXB9H`
+**Why:** The whole prompt-free promise broke at the v0.4.1 gate. We chased the Skill() form (Task 169) but the live ground-truth test proved the Skill allow-list was already correct — the real gap is the MCP wildcard mcp__cmk__* not suppressing per-tool prompts on CC 2.1.x. Caught only by watching what CC itself writes (the read-what-the-tool-wrote technique), not by docs (which claim the wildcard works).
+
+<!-- decision:P-DW4Y4DLS -->
+
+## Claude Code 2.1.x MCP Wildcard Auto-Approve Change
+
+**When:** 2026-06-27 · **Fact:** `P-DW4Y4DLS`
+**Why:** CC's upstream security tightening; explains the v0.4.1 regression and why Bug 171 happened
+
+<!-- decision:P-DEaC6AAS -->
+
+## Fresh Folder Verification Workflow for claude-memory-kit Releases
+
+**When:** 2026-06-27 · **Fact:** `P-DEaC6AAS`
+**Why:** End-to-end verification that all three v0.4.1 fixes work together (Skill form, npm exit, MCP wildcards). Unit tests can't catch these; only live prompts will.
+
+<!-- decision:P-J9EDJSE7 -->
+
+## v0.4.1 Fixed Three Prompt-Free Installation Bugs
+
+**When:** 2026-06-27 · **Fact:** `P-J9EDJSE7`
+**Why:** None of these three breaks are visible to unit tests (they require live Skill prompts or real locked-DLL installs). The cut-gate found them by live testing; they drove D-209/210/211 and Tasks 169/170/171.
+
+<!-- decision:P-HGAQN79P -->
+
+## SESSION CHECKPOINT v0.4.1 cut-gate — 3 fixes merged, awaiting CC update retest
+
+**When:** 2026-06-27 · **Fact:** `P-HGAQN79P`
+**Why:** Context at 0% / auto-compact imminent. The v0.4.1 gate found 3 real prompt-free/install bugs (all merged) but is NOT done: the user is about to update Claude Code, which may fix the skill/MCP prompt at the source — so we must retest on a fresh folder before deciding whether Task 171 is even needed. Durable-state-first so the next session resumes exactly here.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
