@@ -58,6 +58,7 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { stripBom } from './read-json.mjs';
+import { MCP_AUTO_APPROVE } from './kiro-constants.mjs';
 
 /**
  * Canonical npm-route hooks block. Shell form (no `args`), PATH-resolved
@@ -219,6 +220,17 @@ export function writeKitHooks(settingsPath) {
   // `Skill(memory-write:*)` into settings.local.json. So the kit emits BOTH forms
   // (bare for older CC, `:*` for 2.1.x+) — pending a docs re-verification of the
   // current skill-permission syntax.
+  // Task 171 (v0.4.1 cut-gate ground-truth, 2026-06-26): the `mcp__cmk__*` server
+  // WILDCARD no longer suppresses the per-tool approval prompt on Claude Code
+  // 2.1.x — a DIRECT `mk_remember` call (the model using the MCP tool outside the
+  // skill's own `allowed-tools`) prompts "Do you want to proceed with
+  // mcp__cmk__mk_remember?", and CC writes the SPECIFIC tool name when allowed.
+  // (CC 2.1.x churned permission matching heavily — multiple changelog entries
+  // closed wildcard auto-approve holes, e.g. 2.1.145 "permission-prompt bypass".)
+  // The wildcard worked on older CC; it doesn't now. So allow-list each SPECIFIC
+  // cmk MCP tool (the canonical 11 in MCP_AUTO_APPROVE — shared with the Kiro
+  // pre-trust) AND keep `mcp__cmk__*` (harmless + future-proof). This is the same
+  // upstream-format-tracking the kit does for the Skill rule (D-209) and Kiro.
   const KIT_ALLOW = [
     'Bash(cmk:*)',
     'Skill(memory-write)',
@@ -226,6 +238,7 @@ export function writeKitHooks(settingsPath) {
     'Skill(memory-search)',
     'Skill(memory-search:*)',
     'mcp__cmk__*',
+    ...MCP_AUTO_APPROVE.map((tool) => `mcp__cmk__${tool}`),
   ];
   if (!settings.permissions || typeof settings.permissions !== 'object') {
     settings.permissions = {};
