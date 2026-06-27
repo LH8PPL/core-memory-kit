@@ -66,6 +66,20 @@ import { MCP_AUTO_APPROVE } from './kiro-constants.mjs';
  * (modulo command form) plugin/hooks/hooks.json.
  */
 export const KIT_HOOKS_BLOCK = Object.freeze({
+  // PermissionRequest — the prompt-free auto-approver (Task 172, the v0.4.1
+  // cut-gate fix). Fires when Claude Code is about to show a permission dialog
+  // for one of the kit's OWN surfaces and answers "allow" so capture/recall stay
+  // seamless. Two matchers: the kit's MCP tools (`mcp__cmk__.*`) and the Skill
+  // tool (the "Use skill?" prompt). The handler (cmk-approve-permission)
+  // self-checks the tool name and approves ONLY kit tools/skills — the matcher
+  // is the first narrowing, the handler's check is the second (defence in depth).
+  // Needed because CC 2.1.x stopped honouring `permissions.allow` MCP rules +
+  // skill `allowed-tools` for these prompts (anthropics/claude-code#17499,
+  // #18837→#14956); the PermissionRequest hook is the documented, working path.
+  PermissionRequest: [
+    { matcher: 'mcp__cmk__.*', hooks: [{ type: 'command', command: 'cmk-approve-permission', timeout: 5 }] },
+    { matcher: 'Skill', hooks: [{ type: 'command', command: 'cmk-approve-permission', timeout: 5 }] },
+  ],
   // PreToolUse — the memory delete-guardrail (D-192). Blocks a destructive
   // shell command (rm / Remove-Item / git clean …) aimed at a memory path
   // BEFORE it runs. The only kit hook that can exit non-zero (2 = block).
@@ -87,6 +101,7 @@ export const KIT_HOOKS_BLOCK = Object.freeze({
  */
 export const KIT_COMMAND_TOKENS = Object.freeze([
   'cmk-version-check',
+  'cmk-approve-permission',
   'cmk-guard-memory',
   'cmk-inject-context',
   'cmk-capture-prompt',
@@ -250,6 +265,21 @@ export function writeKitHooks(settingsPath) {
     if (!settings.permissions.allow.includes(rule)) {
       settings.permissions.allow.push(rule);
     }
+  }
+
+  // Task 172: pre-approve the kit's OWN project-scoped `.mcp.json` server so its
+  // tools connect without the per-project "approve this MCP server?" prompt.
+  // `enabledMcpjsonServers` names specific servers to approve (NOT
+  // `enableAllProjectMcpServers`, which would blanket-approve EVERY server in
+  // `.mcp.json` — too broad for a kit shipped to others; we vouch only for our
+  // own server). This clears the SERVER-approval gate; the PermissionRequest
+  // hook above clears the per-TOOL gate. Idempotent + preserves any servers the
+  // user already approved.
+  if (!Array.isArray(settings.enabledMcpjsonServers)) {
+    settings.enabledMcpjsonServers = [];
+  }
+  if (!settings.enabledMcpjsonServers.includes('cmk')) {
+    settings.enabledMcpjsonServers.push('cmk');
   }
 
   const after = JSON.stringify(settings);

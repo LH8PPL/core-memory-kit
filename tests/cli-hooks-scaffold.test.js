@@ -55,6 +55,7 @@ const BIN_DIR = join(REPO_ROOT, 'plugin', 'bin');
 // stub-shape contracts (`continue: true`, "not yet implemented") for
 // the entries that are still stubs.
 const EXPECTED_HOOKS = [
+  { event: 'PermissionRequest', stub: 'cmk-approve-permission', timeout: 5, async: false, matcher: 'mcp__cmk__.*', isStub: false },
   { event: 'Setup', stub: 'cmk-version-check', timeout: 30, async: false, isStub: true },
   { event: 'SessionStart', stub: 'cmk-inject-context', timeout: 30, async: false, isStub: false },
   { event: 'UserPromptSubmit', stub: 'cmk-capture-prompt', timeout: 10, async: false, isStub: false },
@@ -101,10 +102,16 @@ describe('Task 17 — hooks.json scaffold', () => {
   describe('per-hook shape (per design §5.1 verbatim)', () => {
     for (const expected of EXPECTED_HOOKS) {
       describe(`${expected.event}`, () => {
-        it('is an array with exactly one entry', () => {
+        // PermissionRequest (Task 172) is the one event with MORE than one
+        // entry — two matchers (mcp__cmk__.* + Skill) both routing to the same
+        // auto-approver bin. Every other kit event has exactly one entry. The
+        // per-entry shape assertions below check [0]; the Skill matcher entry
+        // is checked in its own test (cli-install-hooks + the matcher set test).
+        const expectedLen = expected.event === 'PermissionRequest' ? 2 : 1;
+        it(`is an array with exactly ${expectedLen} entr${expectedLen === 1 ? 'y' : 'ies'}`, () => {
           const obj = loadHooksJson();
           expect(Array.isArray(obj.hooks[expected.event])).toBe(true);
-          expect(obj.hooks[expected.event]).toHaveLength(1);
+          expect(obj.hooks[expected.event]).toHaveLength(expectedLen);
         });
 
         it('entry has a hooks: [...] array with exactly one command', () => {
@@ -229,7 +236,13 @@ describe('Task 17 — bin/cmk-<verb> hook scripts', () => {
           input: '',
           encoding: 'utf8',
         });
-        expect(() => JSON.parse(r.stdout)).not.toThrow();
+        // cmk-approve-permission (Task 172) is fail-silent — empty stdout is its
+        // valid "no opinion" output on empty/non-kit input.
+        if (stub === 'cmk-approve-permission') {
+          expect(r.stdout.trim()).toBe('');
+        } else {
+          expect(() => JSON.parse(r.stdout)).not.toThrow();
+        }
       });
 
       if (isStub) {
@@ -264,7 +277,14 @@ describe('Task 17 — bin/cmk-<verb> hook scripts', () => {
             input: '',
             encoding: 'utf8',
           });
-          expect(() => JSON.parse(r.stdout)).not.toThrow();
+          // cmk-approve-permission (Task 172) is fail-SILENT: empty stdout is
+          // its valid "no opinion" output (it only emits a JSON decision for a
+          // kit tool/skill). Every other real handler emits a JSON envelope.
+          if (stub === 'cmk-approve-permission') {
+            expect(r.stdout.trim()).toBe('');
+          } else {
+            expect(() => JSON.parse(r.stdout)).not.toThrow();
+          }
         });
       }
 
@@ -279,7 +299,13 @@ describe('Task 17 — bin/cmk-<verb> hook scripts', () => {
           encoding: 'utf8',
         });
         expect(r.status).toBe(0);
-        expect(() => JSON.parse(r.stdout)).not.toThrow();
+        // Auto-approver stays silent on a non-kit payload (a Stop-shaped one);
+        // others emit a JSON envelope. Empty stdout is valid for it only.
+        if (stub === 'cmk-approve-permission') {
+          expect(r.stdout.trim()).toBe('');
+        } else {
+          expect(() => JSON.parse(r.stdout)).not.toThrow();
+        }
       });
     });
   }

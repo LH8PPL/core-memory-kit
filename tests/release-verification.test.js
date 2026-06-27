@@ -171,6 +171,7 @@ describe('Task 43 — release verification (pre-publish gates)', () => {
       );
       expect(Object.keys(pkg.bin).sort()).toEqual([
         'cmk',
+        'cmk-approve-permission',
         'cmk-capture-prompt',
         'cmk-capture-turn',
         'cmk-compress-lazy',

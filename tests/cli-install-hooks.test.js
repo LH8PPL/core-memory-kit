@@ -45,6 +45,7 @@ const REPO_ROOT = join(dirname(__filename), '..');
 const BIN_DIR = join(REPO_ROOT, 'packages', 'cli', 'bin');
 
 const EXPECTED_EVENTS = [
+  'PermissionRequest',
   'PreToolUse',
   'SessionStart',
   'UserPromptSubmit',
@@ -53,6 +54,7 @@ const EXPECTED_EVENTS = [
   'SessionEnd',
 ];
 const EXPECTED_COMMANDS = {
+  PermissionRequest: 'cmk-approve-permission',
   PreToolUse: 'cmk-guard-memory',
   SessionStart: 'cmk-inject-context',
   UserPromptSubmit: 'cmk-capture-prompt',
@@ -78,7 +80,7 @@ afterEach(() => {
 });
 
 describe('Task 49 — cmk install wires hooks (Door 1: result contract)', () => {
-  it('reports hooks.action === "wired" + the 6 events on a fresh install', async () => {
+  it('reports hooks.action === "wired" + the 7 events on a fresh install', async () => {
     const r = await install({ projectRoot, userTier });
     expect(r.hooks.action).toBe('wired');
     expect(r.hooks.path).toBe(settingsPath);
@@ -100,7 +102,7 @@ describe('Task 49 — cmk install wires hooks (Door 1: result contract)', () => 
 });
 
 describe('Task 49 — settings.json content (Door 2: state)', () => {
-  it('writes all 6 hooks at PATH-resolved bare bin names — NOT ${CLAUDE_PLUGIN_ROOT}, NO bash wrapper', async () => {
+  it('writes all 7 hooks at PATH-resolved bare bin names — NOT ${CLAUDE_PLUGIN_ROOT}, NO bash wrapper', async () => {
     await install({ projectRoot, userTier });
     const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
     for (const event of EXPECTED_EVENTS) {
@@ -165,6 +167,43 @@ describe('Task 49 — settings.json content (Door 2: state)', () => {
     expect(settings.permissions.allow).toContain('Bash(npm test)');
     expect(settings.permissions.allow).toContain('Bash(cmk:*)');
     expect(settings.permissions.allow).toContain('Skill(memory-write)');
+  });
+
+  it('pre-approves the kit MCP server via enabledMcpjsonServers, idempotently + preserving the user list (Task 172)', () => {
+    // The SERVER-approval gate: CC prompts before using a project `.mcp.json`
+    // server unless it's named in enabledMcpjsonServers. We name ONLY "cmk"
+    // (not enableAllProjectMcpServers, which would blanket-approve every server).
+    const r1 = writeKitHooks(settingsPath);
+    expect(r1.changed).toBe(true);
+    let settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    expect(settings.enabledMcpjsonServers).toContain('cmk');
+    // Never the blanket form — that would be a security over-reach for a kit.
+    expect(settings.enableAllProjectMcpServers).toBeUndefined();
+
+    // Idempotent: a second write doesn't duplicate "cmk".
+    writeKitHooks(settingsPath);
+    settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    expect(settings.enabledMcpjsonServers.filter((s) => s === 'cmk')).toHaveLength(1);
+
+    // Over-mutation: a user's pre-existing approved server survives.
+    settings.enabledMcpjsonServers.push('github');
+    writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
+    writeKitHooks(settingsPath);
+    settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    expect(settings.enabledMcpjsonServers).toContain('github');
+    expect(settings.enabledMcpjsonServers).toContain('cmk');
+  });
+
+  it('wires the PermissionRequest auto-approver with BOTH matchers (mcp__cmk__.* + Skill) → cmk-approve-permission (Task 172)', async () => {
+    await install({ projectRoot, userTier });
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    const pr = settings.hooks.PermissionRequest;
+    expect(Array.isArray(pr)).toBe(true);
+    const matchers = pr.map((e) => e.matcher).sort();
+    expect(matchers).toEqual(['Skill', 'mcp__cmk__.*']);
+    for (const entry of pr) {
+      expect(entry.hooks[0].command).toBe('cmk-approve-permission');
+    }
   });
 
   it('uses SHELL form — no `args` key (exec form would break on Windows npm .cmd shims)', async () => {
@@ -320,7 +359,7 @@ describe('Task 49 — writeKitHooks boundary (the shared install/repair seam)', 
     expect(settings.permissions.allow).toContain('Bash(ls)'); // user content preserved
   });
 
-  it('KIT_HOOKS_BLOCK + KIT_COMMAND_TOKENS stay in sync with the 6 bins', () => {
+  it('KIT_HOOKS_BLOCK + KIT_COMMAND_TOKENS stay in sync with the 7 bins', () => {
     expect(Object.keys(KIT_HOOKS_BLOCK)).toEqual(EXPECTED_EVENTS);
     for (const cmd of Object.values(EXPECTED_COMMANDS)) {
       expect(KIT_COMMAND_TOKENS).toContain(cmd);
