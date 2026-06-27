@@ -112,7 +112,7 @@ describe('Task 49 — settings.json content (Door 2: state)', () => {
     expect(blob).not.toContain('bash ');
   });
 
-  it('allow-lists Bash(cmk:*) + Skill(memory-write) in permissions.allow, idempotently + preserving the user list (Task 79 + 90)', () => {
+  it('allow-lists Bash(cmk:*) + Skill(memory-write) in permissions.allow, idempotently + preserving the user list (Task 79 + 90)', async () => {
     // First write → permissions.allow gains BOTH the bash rule (so explicit cmk
     // captures don't trip the "Allow this bash command?" prompt — Task 79) AND
     // the skill rule (so a model-invoked /memory-write doesn't trip the "Use
@@ -136,6 +136,18 @@ describe('Task 49 — settings.json content (Door 2: state)', () => {
     // Task 108b — the MCP tools are allow-listed too (R2 / D-80): the model's
     // memory ops via mk_remember / mk_forget / … run without a per-call prompt.
     expect(settings.permissions.allow).toContain('mcp__cmk__*');
+    // Task 171 (v0.4.1 cut-gate ground-truth): the `mcp__cmk__*` WILDCARD does NOT
+    // suppress the per-tool approval prompt on Claude Code 2.1.x — CC prompts for
+    // `mcp__cmk__mk_remember` and writes the SPECIFIC name when allowed. So the kit
+    // must allow-list each specific MCP tool, not just the wildcard.
+    expect(settings.permissions.allow).toContain('mcp__cmk__mk_remember');
+    expect(settings.permissions.allow).toContain('mcp__cmk__mk_search');
+    expect(settings.permissions.allow).toContain('mcp__cmk__mk_forget');
+    // all 11 specific cmk MCP tools must be present
+    const { MCP_AUTO_APPROVE } = await import('../packages/cli/src/kiro-constants.mjs');
+    for (const tool of MCP_AUTO_APPROVE) {
+      expect(settings.permissions.allow).toContain(`mcp__cmk__${tool}`);
+    }
 
     // Idempotent: a second write doesn't duplicate any (over-mutation guard).
     writeKitHooks(settingsPath);

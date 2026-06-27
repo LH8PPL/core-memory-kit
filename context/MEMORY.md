@@ -8,18 +8,18 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-WYZ57UX4) Q2 design rule (GNU make §4.8): derive when product carries signal; stamp for "run happened" not otherwise encoded in artifacts.
-  <!-- source: review-promote, source_line: 1, sha1: b1a792c9f78a06d2f2fbe76be09c99d9ab3886f5daa095b953eb450b9693c848, write: user-explicit, trust: high, at: 2026-06-25T20:00:05Z -->
-- (P-QUD4MMJ7) Confirmed preference for 2-button design (richer return value) over 3-button approach for cleaner-status query.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 862a01e8d60b77af695515ad19548eb5fd6fe2e7fb9601e5269a485df3ce5de3, write: auto-extract, trust: high, at: 2026-06-25T20:04:26Z -->
-- (P-K6XCJKFF) HC-10 cut because it's redundant with auto-heal and only high-end users would adopt doctor checks anyway.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 2b7402b195cf917908a4b6a32e6099676d39e878f23bdd637bb953bdd2121d50, write: auto-extract, trust: high, at: 2026-06-25T20:15:48Z -->
-- (P-7TCUN4G4) Will not ship a version with bugs — a stated quality mandate
-  <!-- source: auto-extract-session, source_line: 1, sha1: 2da5315780502dc9229585fe9ea189a8064bbf1fda4bd23ae9d40991164346de, write: auto-extract, trust: high, at: 2026-06-26T11:36:40Z -->
-- (P-X7ESVWDL) Always deploy .venv and install all Python packages into it
-  <!-- source: auto-extract-session, source_line: 1, sha1: 4badeabb079a91ebf57e5a1b10be0393ec9345da4817db363cf138b9c966e49c, write: auto-extract, trust: high, at: 2026-06-26T15:55:32Z -->
-- (P-W4YMBJ5Z) Kit install should pre-allow memory-write skill; appearance of permission prompt means something broke
-  <!-- source: auto-extract-session, source_line: 1, sha1: 096737ad47b3b6423f968e56b9ee9ef5fad184f73588fcc0605a5f4b4ea4b754, write: auto-extract, trust: high, at: 2026-06-26T16:00:48Z -->
+- (P-LMNRQW2E) v0.4.1 all pre-Session-1 gates PASS; headline features (now-roll self-heal, HC-10, discovery boundary) verified end-to-end on real artifact
+  <!-- source: review-promote, source_line: 1, sha1: d7ac5571736526d4f88a2e049bf87c05f38bfd3303106fe53b8598f184384223, write: user-explicit, trust: high, at: 2026-06-26T20:00:04Z -->
+- (P-DPZAN24U) Session 1 ready to begin in C:\Temp\cut-gate-v041 after Claude Code restart; gate doc provides Stage 0-3 turn scripts
+  <!-- source: review-promote, source_line: 1, sha1: 2a02935a3725f093872fca27445dd85de02d25f5534fd50ea72c8e0fd765b1b0, write: user-explicit, trust: high, at: 2026-06-26T20:00:05Z -->
+- (P-aPH3CKPU) EBUSY on vec0.dll is cosmetic; npm install succeeds despite it (proven by `cmk --version` returning 0.4.1)
+  <!-- source: review-promote, source_line: 1, sha1: 64fa00f06e9e50c6fd86a047dba08025924b6ce031625d9646fb6bd2113ca79b, write: user-explicit, trust: high, at: 2026-06-26T20:00:05Z -->
+- (P-RUT3975R) install.mjs grew from 26.9kB to 28.5kB in 0.4.1 tarball, confirming Task 170 fix shipped
+  <!-- source: review-promote, source_line: 1, sha1: 34d23b961f9e8b15bde8b46441dd41ebd93d27d70caccab4f5f1c591a0a03975, write: user-explicit, trust: high, at: 2026-06-26T20:00:06Z -->
+- (P-4T6WJBUF) hadn't started `code .` yet; commands ended at `cmk install`
+  <!-- source: auto-extract-session, source_line: 1, sha1: 1609b7a32c6491c9e6e81948e2a8348491d6dc7e54ee835c76e5a169e2d3740b, write: auto-extract, trust: high, at: 2026-06-26T20:34:48Z -->
+- (P-VLC9D4Ya) Claude Code only prompts for permissions when something triggers it (when user states a preference), not on editor open
+  <!-- source: auto-extract-session, source_line: 1, sha1: dafb16e8c3ac577bfbcc10cebd923bbdb57593cc3bc52845645a60a888c80dc0, write: auto-extract, trust: high, at: 2026-06-26T20:34:48Z -->
 
 ## Environment Notes
 

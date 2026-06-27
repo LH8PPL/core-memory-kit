@@ -7042,3 +7042,235 @@
 
 **When:** 2026-06-25 · **Fact:** `P-YGSF2T6T`
 **Why:** Core design is final. Unblocks build. Future sessions need locked decisions without re-deriving.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-aa2R6AR6 -->
+
+## Gate test for v0.4.1 must prove healing with only SessionStart (no manual comman
+
+**When:** 2026-06-25 · **Fact:** `P-aa2R6AR6`
+
+<!-- decision:P-7QH7CQPU -->
+
+## Research evaluation tiers (Tier 1 = kit peers, Tier 2 = mechanism refs, Tier 3 =
+
+**When:** 2026-06-25 · **Fact:** `P-7QH7CQPU`
+
+<!-- decision:P-aM5ZNHVE -->
+
+## OpenWolf independently built the exact heartbeat fix (last_heartbeat via mtimeMs
+
+**When:** 2026-06-25 · **Fact:** `P-aM5ZNHVE`
+
+<!-- decision:P-WYZ57UX4 -->
+
+## Q2 design rule (GNU make §4.8): derive when product carries signal; stamp for "r
+
+**When:** 2026-06-25 · **Fact:** `P-WYZ57UX4`
+
+<!-- decision:P-MTVVY5FT -->
+
+## Cron-Liveness Fix (167.A) Solves Root Problem; Sync-Drain Is Secondary
+
+**When:** 2026-06-26 · **Fact:** `P-MTVVY5FT`
+**Why:** 167.A eliminates the *cause* of the original compounding bug (dead cron blocks roll). This makes synchronous drain (insurance against mid-session compounding) redundant.
+
+<!-- decision:P-MHHNDDZD -->
+
+## SessionStart Hook Ceiling Constrains Synchronous Operations
+
+**When:** 2026-06-26 · **Fact:** `P-MHHNDDZD`
+**Why:** The live test (real `claude --print`, actual call latency) exposed that Q4's synchronous-drain goal cannot fit the hook ceiling. This is a hard architectural constraint determining solution viability.
+
+<!-- decision:P-U32aXXFV -->
+
+## Peer Systems Synchronize Consolidation on Stop Hook (Session END)
+
+**When:** 2026-06-26 · **Fact:** `P-U32aXXFV`
+**Why:** Resolves tension between Q4 ("correctness over speed") and live-test ceiling conflict. Peers validate this works; kit already has the SessionEnd infrastructure.
+
+<!-- decision:P-A677aTMU -->
+
+## Task 167 shipped — live test overturned the grilled Q4 sync-drain (D-208)
+
+**When:** 2026-06-26 · **Fact:** `P-A677aTMU`
+**Why:** The biggest meta-lesson of the Task 167 build: a confident 7-question grilling + a green unit suite still shipped an INFEASIBLE mechanism (synchronous SessionStart drain). Only the real claude --print live test caught it — the live-test-every-task rule + the lazy-framing rule applied to our OWN grilled decision. A grilled decision is not immune to being wrong; the live test is the primary source that can overturn it.
+
+<!-- decision:P-P9HT6G2U -->
+
+## 30s Hook Ceiling Constraint & Real Haiku Roll Timing
+
+**When:** 2026-06-26 · **Fact:** `P-P9HT6G2U`
+**Why:** Hard environmental constraints (hook timeouts, resource limits) emerge only during real execution, not during design phases.
+
+<!-- decision:P-TQMDL5KK -->
+
+## Cron-Liveness Gate by Heartbeat Age (Task 167.A)
+
+**When:** 2026-06-26 · **Fact:** `P-TQMDL5KK`
+**Why:** Existence checks don't distinguish "never ran" from "dead." Age-based gates are resilient to process death and match production anacron behavior.
+
+<!-- decision:P-G6GWaMaZ -->
+
+## Pre-Existing Issue Triage
+
+**When:** 2026-06-26 · **Fact:** `P-G6GWaMaZ`
+**Why:** Bundling obscures which failures the current change caused vs. which predate it. Separate filing prevents silent accumulation.
+
+<!-- decision:P-FXY7PLY5 -->
+
+## Two-Pass Review Catches Concurrency Bugs
+
+**When:** 2026-06-26 · **Fact:** `P-FXY7PLY5`
+**Why:** Composition-level thinking (logic flow) and code-level thinking (implementation, cleanup, concurrency) catch different bug classes.
+
+<!-- decision:P-SEZYAQE5 -->
+
+## Extract Shared Discovery Logic to Prevent Drift
+
+**When:** 2026-06-26 · **Fact:** `P-SEZYAQE5`
+**Why:** Prevents the two implementations from diverging over time, which introduces subtle bugs.
+
+<!-- decision:P-5YNFGAUM -->
+
+## Project Root Discovery Must Stop at $HOME Boundary
+
+**When:** 2026-06-26 · **Fact:** `P-5YNFGAUM`
+**Why:** This was a real footgun: project discovery should be contained within its own tree, not escape upward into unrelated user directories.
+
+<!-- decision:P-K356XCRP -->
+
+## Windows Short-Name Path Canonicalization in Discovery
+
+**When:** 2026-06-26 · **Fact:** `P-K356XCRP`
+**Why:** Without this, project discovery could fail intermittently depending on how cwd was specified (short vs long form), especially on Windows.
+
+<!-- decision:P-VWaBFP75 -->
+
+## Kit Delete-Guardrail False Positive on Commit Messages
+
+**When:** 2026-06-26 · **Fact:** `P-VWaBFP75`
+**Why:** Prioritizes safety over user friction
+
+<!-- decision:P-Q2GEGHBU -->
+
+## Step 0b Backup Implementation (Not Delete)
+
+**When:** 2026-06-26 · **Fact:** `P-Q2GEGHBU`
+**Why:** Implements the standing backup-not-wipe rule for the gate process (user explicitly preferred this over deletion)
+
+<!-- decision:P-M2GBXRG3 -->
+
+## v0.4.1 Release & Gate Workflow
+
+**When:** 2026-06-26 · **Fact:** `P-M2GBXRG3`
+**Why:** v0.4.1 introduces new now-roll and discovery gates; staged verification ensures all checks pass before publication
+
+<!-- decision:P-U72QNAYa -->
+
+## Gate Check G0: CLI Version Verification
+
+**When:** 2026-06-26 · **Fact:** `P-U72QNAYa`
+**Why:** Confirms the packed `.tgz` was correctly installed to the global npm scope. Failure indicates a broken install that must be fixed before proceeding.
+
+<!-- decision:P-AMWUC52V -->
+
+## Release Workflow: Tag Timing (After Gates)
+
+**When:** 2026-06-26 · **Fact:** `P-AMWUC52V`
+**Why:** Prevents publishing to npm/GitHub until all gates confirm the artifact is sound. Provides a natural rollback point (do not tag if gates fail).
+
+<!-- decision:P-XHYR6U54 -->
+
+## npm Glob Expansion Fails in PowerShell; Use Explicit Filename
+
+**When:** 2026-06-26 · **Fact:** `P-XHYR6U54`
+**Why:** This is a fundamental difference between PowerShell (which does not auto-expand globs in command arguments) and bash (which does). npm relies on the shell to expand patterns, so it receives the literal string and cannot find the file.
+
+<!-- decision:P-9RRaRPE5 -->
+
+## npm Uninstall EPERM Error with sqlite-vec DLL on Windows
+
+**When:** 2026-06-26 · **Fact:** `P-9RRaRPE5`
+**Why:** Native bindings (`.dll` files) on Windows remain locked if any process has loaded them. npm cannot unlink a locked file.
+
+<!-- decision:P-U6Qa2BJZ -->
+
+## Now-Roll Self-Heal (v0.4.1 Headline Feature)
+
+**When:** 2026-06-26 · **Fact:** `P-U6Qa2BJZ`
+**Why:** Claude releases change output format; the kit must detect and adapt automatically to avoid breaking memory extraction in live sessions
+
+<!-- decision:P-K97X42ZV -->
+
+## Pre-Session-1 Gate Procedure (v0.4.1)
+
+**When:** 2026-06-26 · **Fact:** `P-K97X42ZV`
+**Why:** v0.4.1 is a robustness release; these gates verify the kit's core safety, feature, and boundary guarantees before live testing
+
+<!-- decision:P-G9KA7B72 -->
+
+## Kit Install Pre-Configuration Expectation
+
+**When:** 2026-06-26 · **Fact:** `P-G9KA7B72`
+**Why:** The kit's design contract is zero-friction setup — once installed, tools work without friction. Prompts after install violate this and signal a broken install or incompatibility.
+
+<!-- decision:P-RXFPBRQC -->
+
+## Allow-list Entries Centralized in settings-hooks.mjs
+
+**When:** 2026-06-26 · **Fact:** `P-RXFPBRQC`
+**Why:** Centralization prevents drift and inconsistency between distributions, making the kit maintainable and responsive to upstream changes.
+
+<!-- decision:P-L5LP3UW6 -->
+
+## Claude Code 2.1.191 Requires Both Skill() Forms in Allow-list
+
+**When:** 2026-06-26 · **Fact:** `P-L5LP3UW6`
+**Why:** The kit has used only the bare form since Task 90 (byte-unchanged). Claude Code 2.1.x changed its Skill() permission matching logic, requiring the kit to track this upstream change (as it does for Kiro hook-format updates). This is a real breaking change for end-users.
+
+<!-- decision:P-BU4L6RGR -->
+
+## Claude Code 2.1.x needs Skill(name:*) wildcard to suppress skill prompts
+
+**When:** 2026-06-26 · **Fact:** `P-BU4L6RGR`
+**Why:** The v0.4.1 cut-gate caught the kit's prompt-free capture breaking on CC 2.1.191 — the bare Skill(memory-write) the kit shipped since Task 90 stopped working. This is upstream format drift the kit must track (like Kiro hook formats), and it's invisible to unit tests (no test drives a live CC skill-approval), so only the live gate caught it.
+
+<!-- decision:P-NaE3TNXZ -->
+
+## Re-Pack + Verify Workflow for Cut-Gate Testing
+
+**When:** 2026-06-26 · **Fact:** `P-NaE3TNXZ`
+**Why:** The installed global cmk version has the old code. Re-packing + reinstalling ensures the gate tests the merged fix. Deleting settings.local.json prevents manual overrides from masking the real behavior.
+
+<!-- decision:P-FB9LL5S6 -->
+
+## CMK Fix Verification Workflow (Fresh Folder, v0.4.1)
+
+**When:** 2026-06-26 · **Fact:** `P-FB9LL5S6`
+**Why:** The `:*` fix to the allow-list needs end-to-end verification in a clean environment.
+
+<!-- decision:P-EEFMZVXB -->
+
+## cmk install --with-semantic trusts npm exit code not the actual embedder import (Task 170)
+
+**When:** 2026-06-26 · **Fact:** `P-EEFMZVXB`
+**Why:** The v0.4.1 cut-gate showed --with-semantic reporting failure while semantic search actually worked. This is the D-199 class (a tool's exit/success not matching reality) and it bites real Windows users: a locked-DLL cleanup EBUSY after a successful install makes the kit silently NOT enable semantic, even though the embedder is present and functional. The user caught it by asking 'are you sure semantic is not working?'.
+
+<!-- decision:P-JL4LU2VZ -->
+
+## Verification Sequence for Task 169 & 170 (Fresh Folder Gate)
+
+**When:** 2026-06-26 · **Fact:** `P-JL4LU2VZ`
+**Why:** Proves 0.4.1 tarball contains both fixes live, working despite DLL lock; fresh folder isolates test from session state
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
