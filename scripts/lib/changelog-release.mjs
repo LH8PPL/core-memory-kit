@@ -37,6 +37,18 @@ function parseSemver(v) {
   return [Number(m[1]), Number(m[2]), Number(m[3])];
 }
 
+/**
+ * Escape EVERY regex metacharacter in `s` so it can be safely interpolated
+ * into a `new RegExp(...)`. The version we interpolate is already
+ * semver-validated (digits + dots), but escaping only `.` left the value
+ * technically un-sanitized for any other metacharacter — closing the CodeQL
+ * js/incomplete-sanitization + js/regex-injection findings and keeping the
+ * builder correct even if the input source ever loosens.
+ */
+function escapeRegExp(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function bumpSemver(current, bump) {
   const [maj, min, pat] = parseSemver(current);
   switch (bump) {
@@ -132,7 +144,7 @@ export function assembleRelease({ changelogText, currentVersion, bump, version, 
 export function extractReleaseNotes(changelogText, version) {
   if (typeof changelogText !== 'string') throw new Error('extractReleaseNotes: changelogText required');
   parseSemver(version);
-  const esc = version.replace(/\./g, '\\.');
+  const esc = escapeRegExp(version);
   const headingRe = new RegExp(`^##\\s*\\[${esc}\\][^\\n]*$`, 'm');
   const m = headingRe.exec(changelogText);
   if (!m) throw new Error(`extractReleaseNotes: no "## [${version}]" section found`);

@@ -145,6 +145,29 @@ describe('extractReleaseNotes() — CI builds the GitHub release from CHANGELOG'
   it('throws when the version section is absent', () => {
     expect(() => extractReleaseNotes(SAMPLE, '9.9.9')).toThrow(/no "## \[9\.9\.9\]"/);
   });
+
+  // Task 173 — security: the version is interpolated into a RegExp. parseSemver
+  // already constrains it to digits+dots, but the heading match must escape ALL
+  // regex metacharacters so a value can never be treated as a pattern
+  // (CodeQL js/incomplete-sanitization + js/regex-injection). These assert the
+  // builder treats the version as a LITERAL, not a regex.
+  it('a version is matched LITERALLY, not as a regex pattern (regex-injection guard)', () => {
+    // parseSemver rejects non-semver first, so a metacharacter-laden version
+    // throws as "not a semver" — never reaching RegExp as an unescaped pattern.
+    expect(() => extractReleaseNotes(SAMPLE, '0.1.2|9.9.9')).toThrow(/not a semver/i);
+    expect(() => extractReleaseNotes(SAMPLE, '0.1.*')).toThrow(/not a semver/i);
+    expect(() => extractReleaseNotes(SAMPLE, '.*')).toThrow(/not a semver/i);
+  });
+
+  it('the dot in a version is matched literally, not as "any char"', () => {
+    // "0x1y2" would match if the heading regex used an unescaped "0.1.2".
+    // The CHANGELOG has "## [0.1.2]"; a same-shape-but-different-char heading
+    // must NOT be matched for version 0.1.2 — proving "." is escaped.
+    const crafted = SAMPLE.replace('## [0.1.2]', '## [0x1y2]\n\n- decoy.\n\n## [0.1.2]');
+    const notes = extractReleaseNotes(crafted, '0.1.2');
+    expect(notes).not.toMatch(/decoy/); // matched the real 0.1.2, not 0x1y2
+    expect(notes).toMatch(/cmk remember/);
+  });
 });
 
 describe('prepareReleaseFiles() — Door 2: writes CHANGELOG + bumps package.json', () => {
