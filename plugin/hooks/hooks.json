@@ -1,5 +1,9 @@
 {
   "hooks": {
+    "PermissionRequest": [
+      { "matcher": "mcp__cmk__.*", "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/cmk-approve-permission.mjs\"", "timeout": 5 }] },
+      { "matcher": "Skill", "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/cmk-approve-permission.mjs\"", "timeout": 5 }] }
+    ],
     "Setup": [{ "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/cmk-version-check.mjs\"", "timeout": 30 }] }],
     "SessionStart": [{ "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/cmk-inject-context.mjs\"", "timeout": 30 }] }],
     "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/cmk-capture-prompt.mjs\"", "timeout": 10 }] }],
