@@ -1,0 +1,47 @@
+# Working with Kiro
+
+[Kiro](https://kiro.dev) (the AWS agentic IDE + `kiro-cli`, built on Amazon Q) is a first-class target for claude-memory-kit. The memory core — store, search, compression, the three-tier model — is identical to the Claude Code experience; only the per-agent wiring differs. One command wires Kiro for **both** the IDE and the terminal.
+
+```bash
+cd ~/my-project
+cmk install --with-semantic --ide kiro   # wire Kiro (IDE + kiro-cli) in this project
+cmk doctor                                # verify, then RESTART Kiro so the hooks load
+```
+
+A Kiro install wires MCP, steering, an `AGENTS.md` instruction file, the memory skills, the IDE + CLI hooks, and the per-agent trust so everything runs prompt-free. It does **not** write Claude-Code-only files (`CLAUDE.md`, `.claude/skills/`) — Kiro reads `AGENTS.md` + steering instead.
+
+The full memory loop — inject, capture, edit-observation, explicit save, and cross-project promotion — is live-proven on **Kiro IDE 1.0** and **kiro-cli V3**.
+
+## What `--ide kiro` writes
+
+| Surface | Location | For |
+| --- | --- | --- |
+| **MCP server** | `.kiro/settings/mcp.json` (with `autoApprove`) | the **IDE** — drives memory as tools (`mk_remember` etc.), pre-approved so they run prompt-free |
+| **Steering** | `.kiro/steering/cmk.md` (`inclusion: always`) | both — memory-awareness in context |
+| **AGENTS.md** | `<repo>/AGENTS.md` | both — Kiro's always-loaded instruction file |
+| **Skills** | `.kiro/skills/memory-search` + `memory-write` | both |
+| **IDE hooks** | `.kiro/hooks/cmk-{capture,inject,guard,observe}.json` (Kiro IDE 1.0+ v1 format) + legacy `cmk-{capture,inject}.kiro.hook` (older Kiro) | the **GUI** — recall + capture + a delete-guard (`PreToolUse`) + large-edit observation (`PostToolUse`) |
+| **CLI agent** | `~/.kiro/agents/cmk.json` + a `chat.defaultAgent` pointer in `~/.kiro/settings/cli.json` | **`kiro-cli`** — `agentSpawn`/`stop`/`userPromptSubmit`/`postToolUse` hooks (auto inject + capture + prompt-capture + large-edit observation) + the `cmk remember`/`cmk search` shell commands for explicit memory (`tools: ['*']` enables them; no MCP, so no console-window popup) |
+| **Trusted commands** | `.vscode/settings.json` (`kiroAgent.trustedCommands`) + the CLI agent's `allowedCommands` (`cmk hook *`, `cmk-guard-memory`, `cmk remember`, `cmk search`) | both — auto-approve the kit's commands (no per-turn "Run / Reject") |
+| **Auto-approved MCP tools** | `autoApprove` in `mcp.json` | the **IDE** — the kit's 11 memory tools run without a per-call "Reject / Trust / Run" (kiro-cli uses the shell commands instead) |
+| **Workspace permissions** (Kiro IDE 1.0+) | `~/.kiro/workspace-roots/<hash>/permissions.yaml` | the **IDE 1.0** — pre-trusts the kit's hooks, 11 MCP tools, and its two skills so even the first "Load skill: memory-write" runs with **no Allow prompt** (Kiro 1.0's per-workspace trust store) |
+
+## Notes
+
+- **Restart Kiro** to activate the hooks; steering / skills / MCP are immediate.
+- The kit **pre-trusts only its own hook commands** (`cmk hook *`, `cmk-guard-memory`) so they run silently — Kiro normally asks you to approve each hook command, which would prompt every turn. Your own trusted commands are preserved; the kit never adds a blanket wildcard.
+- The CLI agent registers as Kiro's **default agent** so its hooks auto-fire — but **guarded**: if you already have a default agent, the kit installs a named `cmk` agent instead and prints how to opt in (`kiro-cli --agent cmk`, or set `chat.defaultAgent` to `cmk`).
+- A Kiro install does **not** write Claude-Code-only files (`CLAUDE.md`, `.claude/skills/`) — Kiro reads `AGENTS.md` + steering instead.
+- The hook command is platform-correct (`cmd.exe /c cmk hook …` on Windows, where Kiro routes hooks through WSL).
+
+## Using both Claude Code and Kiro on the same repo
+
+The installs are additive — run both (`cmk install` and `cmk install --ide kiro`), in any order. Each writes only its own wiring and never clobbers the other's; they share one `context/` memory brain. `--with-semantic` set by either is preserved by the other.
+
+## Uninstalling Kiro
+
+```bash
+cmk uninstall --ide kiro   # remove the Kiro surface (.kiro/ blocks + skills + IDE hooks + AGENTS.md block + the ~/.kiro CLI agent + the kit's permissions.yaml rules)
+```
+
+On a dual-agent project, uninstall one agent and the other keeps working — the shared `context/` is untouched either way.
