@@ -7442,3 +7442,246 @@
 ## RESUME — v0.3.1 cut-gate near-complete; PR
 
 **When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-YFTGDDA5 -->
+
+## CC update does not fix MCP prompt — Task 171 validated
+
+**When:** 2026-06-27 · **Fact:** `P-YFTGDDA5`
+**Why:** The user wanted to know whether the Claude Code update alone fixes the prompt-free regression before deciding if Task 171 is load-bearing. The live test answers it definitively: it does not.
+
+<!-- decision:P-27PL2ZB5 -->
+
+## mk_remember links param InputValidationError (rough edge)
+
+**When:** 2026-06-27 · **Fact:** `P-27PL2ZB5`
+**Why:** A tool that rejects the model's natural input on first try and forces a retry is a UX rough edge worth fixing — even though it self-recovers, it wastes a turn and could confuse a less-capable model.
+
+<!-- decision:P-YQX7SDVV -->
+
+## OPEN: cmk MCP per-tool prompt — systematic investigation pending
+
+**When:** 2026-06-27 · **Fact:** `P-YQX7SDVV`
+**Why:** Two wrong theories were chased today (Task 171 allow-list; a false 'dev repo is prompt-free' reference). The corrected facts must survive the restart so the investigation resumes from verified ground truth, not from a faded or wrong assumption.
+
+<!-- decision:P-B5XGGC3M -->
+
+## MCP prompt = two-gate model; Gate 1 (server approval) is the untested fix
+
+**When:** 2026-06-27 · **Fact:** `P-B5XGGC3M`
+**Why:** Re-reading all five CC docs end-to-end (the user's request) revealed the prompt is a two-independent-gate model. The kit clears Gate 2 (tool allow-list) correctly but never clears Gate 1 (server approval) — which is the likely real cause, and is cleared by a settings field the kit does not currently write.
+
+<!-- decision:P-PV532NCU -->
+
+## SOLVED: enableAllProjectMcpServers:true = prompt-free MCP capture
+
+**When:** 2026-06-27 · **Fact:** `P-PV532NCU`
+**Why:** This is the answer to the whole-session-long prompt-free regression. Live-proven via a controlled single-variable test on a fresh folder — the kit's core promise (automatic, prompt-free capture) depends on it, and it must be the documented fix going forward, superseding the disproven Task 171 theory.
+
+<!-- decision:P-JJRQT9V7 -->
+
+## CONFIRMED: enabledMcpjsonServers:["cmk"] narrow form = prompt-free + safer
+
+**When:** 2026-06-27 · **Fact:** `P-JJRQT9V7`
+**Why:** Both the broad (enableAllProjectMcpServers) and narrow (enabledMcpjsonServers:[cmk]) forms tested prompt-free; the narrow form is chosen because it approves only the kit's own server, the correct security posture for a tool shipped to others.
+
+<!-- decision:P-La4E54JK -->
+
+## SKILL gate: docs say Skill(name *) space; kit writes Skill(name:*) colon — plus workspace-trust prereq
+
+**When:** 2026-06-27 · **Fact:** `P-La4E54JK`
+**Why:** The skill-use prompt is a distinct second gate from the MCP gate and still fires in every fresh folder. The skills doc documents a space-form prefix syntax that differs from the colon form the kit writes, AND a workspace-trust prerequisite — either or both could be the cause; it must be observed live, not guessed.
+
+<!-- decision:P-GWVaLVBE -->
+
+## SKILL gate is likely workspace-trust (one-time), not rule syntax — space form ruled out
+
+**When:** 2026-06-27 · **Fact:** `P-GWVaLVBE`
+**Why:** The space-form Skill rule didn't suppress the prompt, ruling out the syntax theory; the folder has no trust record, pointing at the documented workspace-trust prerequisite as the real skill-gate cause. Must confirm whether it clears after one approval.
+
+<!-- decision:P-X6HLUKGM -->
+
+## SKILL gate: clicking allow persists nothing → workspace-trust is the suspect, not syntax
+
+**When:** 2026-06-27 · **Fact:** `P-X6HLUKGM`
+**Why:** The skill prompt re-fires every session because clicking allow stores no approval — distinct from the MCP gate which did persist. All three Skill rule forms are present and still prompt, which per the docs points to the workspace-trust prerequisite, not rule syntax. The trust state is the one unconfirmed variable.
+
+<!-- decision:P-LRRM4RPF -->
+
+## SKILL prompt = model-auto-invoke confirmation, not allow-list-governed; auto-extract hook path is already prompt-free
+
+**When:** 2026-06-27 · **Fact:** `P-LRRM4RPF`
+**Why:** After ruling out every Skill rule form and confirming clicking allow persists nothing, the skill prompt is the model-invoke confirmation layer, outside permissions.allow. The kit's core automatic capture rides the Stop hook (prompt-free); only the explicit skill path shows this confirmation — which reframes whether it's even a blocker.
+
+<!-- decision:P-MY56XZZ2 -->
+
+## DECISIVE: automatic capture (Stop hook → headless --print → in-process writeFact) is structurally prompt-free
+
+**When:** 2026-06-27 · **Fact:** `P-MY56XZZ2`
+**Why:** This resolves whether the skill/MCP prompts threaten the kit's core promise: they do not. The default auto-extract path uses a background hook + a headless toolless claude --print + direct JS writes, none of which can show a user prompt. The prompts only affect the explicit/agentic paths.
+
+<!-- decision:P-aDFRNUMD -->
+
+## ROOT CAUSE: SKILL.md allowed-tools frontmatter triggers the approval prompt (changelog 3140)
+
+**When:** 2026-06-27 · **Fact:** `P-aDFRNUMD`
+**Why:** The CC changelog states skills with no additional permissions run without approval; the kit's SKILL.md declares allowed-tools (additional permissions), which forces the Use-skill approval. This is the real, primary-source-grounded cause — not rule syntax or workspace trust — and explains why every allow-list attempt failed.
+
+<!-- decision:P-ZFY7KYAW -->
+
+## Skill fix works (allowed-tools removed); now MCP cold-start race on first call
+
+**When:** 2026-06-27 · **Fact:** `P-ZFY7KYAW`
+**Why:** Removing allowed-tools fixed the skill prompt but surfaced an MCP cold-start race: the on-screen 'server isn't connected yet' message indicates the first mk_remember call beats the stdio server's connection on a fresh session, despite enabledMcpjsonServers being set.
+
+<!-- decision:P-Z5NMSKZZ -->
+
+## TENSION: skill allowed-tools pre-grants MCP tools — removing it fixes skill prompt but un-fixes MCP tools
+
+**When:** 2026-06-27 · **Fact:** `P-Z5NMSKZZ`
+**Why:** v041g/h were fully prompt-free WITH the skill's allowed-tools, which was pre-granting the MCP tools during skill execution; removing allowed-tools (to fix the skill prompt) reintroduced per-tool MCP prompts. The two prompts are coupled, so the fix must address both together, not one at a time.
+
+<!-- decision:P-ZBS4a23S -->
+
+## CORRECTION: per-tool MCP first-use prompt within one turn (no 2nd message); only skill allowed-tools suppresses it
+
+**When:** 2026-06-27 · **Fact:** `P-ZBS4a23S`
+**Why:** My prior note implied a second user message and a cold-start race; the user clarified no second preference was given — Claude chained mk_remember then mk_lessons_promote autonomously, and each distinct MCP tool prompts on first use. The settings.json allow-list does not suppress these; only the skill's allowed-tools grant did, for the tools it lists.
+
+<!-- decision:P-3URUGUAa -->
+
+## ANSWERED: MCP per-tool 'allow' does NOT persist across sessions (dev repo: 0 stored approvals despite dozens of clicks)
+
+**When:** 2026-06-27 · **Fact:** `P-3URUGUAa`
+**Why:** The user asked whether allow persists across sessions — the answer determines whether the prompt is a one-time cost or a recurring annoyance. Disk proof from the heavily-clicked dev repo shows zero persisted approvals, so it recurs every session; the settings allow-list does not suppress it, making the skill's per-run allowed-tools grant the most viable suppression for the agentic path.
+
+<!-- decision:P-NT3M2GYT -->
+
+## ZERO-popup route: steer capture to Bash cmk CLI (allow-listed, same safe path) not the MCP tools
+
+**When:** 2026-06-27 · **Fact:** `P-NT3M2GYT`
+**Why:** The user's actual goal is no popup at all, not one-click. The MCP per-tool popup is unsuppressable on 2.1.195, but Bash(cmk:*) is allow-listed and cmk remember writes through the identical safe path — so steering capture to the CLI instead of MCP achieves true zero-popup. The skill currently steers to MCP, which is the root of the popups.
+
+<!-- decision:P-P49LTJYC -->
+
+## RESOLVED: --from-file gives shell-proof AND popup-free capture — no MCP-vs-Bash trade-off
+
+**When:** 2026-06-27 · **Fact:** `P-P49LTJYC`
+**Why:** The shell-escaping concern was the only real reason to keep the popup-causing MCP path; the kit's existing --from-file path is both shell-proof (D-81-safe) and popup-free (Bash allow-listed), eliminating the trade-off and clearing the way to a fully prompt-free capture design.
+
+<!-- decision:P-S7ML4UPH -->
+
+## BEST FIX: PermissionRequest hook auto-approving mcp__cmk__* (keeps MCP path, narrow scope, matches existing hook pattern)
+
+**When:** 2026-06-27 · **Fact:** `P-S7ML4UPH`
+**Why:** The user proposed a PermissionRequest auto-approve hook and asked if it beats re-steering to Bash. It does: it kills the MCP popup while KEEPING the superior structured-param MCP path, persists across sessions, is narrowly scoped to the kit's own tools (not invasive), and matches the kit's existing PreToolUse hook pattern. Re-steering to Bash works but downgrades the capture path.
+
+<!-- decision:P-4ZNAMQM9 -->
+
+## allowed-tools history: Task 108 introduced the MCP popup; Task 69 original was Bash-CLI-only (prompt-free)
+
+**When:** 2026-06-27 · **Fact:** `P-4ZNAMQM9`
+**Why:** Tracing when allowed-tools changed shows the MCP-popup behavior is not original — Task 108 added MCP tools to the skill grant and steered toward them. The original Task 69 skill was Bash-CLI-only and prompt-free, which reframes the Bash-CLI fix as a restore rather than a downgrade and confirms where any skill edit must land (4 copies).
+
+<!-- decision:P-6HARUCU5 -->
+
+## Q1: popup is a CC 2.1.x change not a kit regression; Q2: allowed-tools (skill-scoped) ≠ permissions.allow (project-scoped), needn't match
+
+**When:** 2026-06-27 · **Fact:** `P-6HARUCU5`
+**Why:** The user asked whether the popup came from a kit change (it didn't — git shows months-stable config, so it's CC 2.1.x) and whether allowed-tools must match permissions.allow (it doesn't — they're different-scoped mechanisms evaluated by different machinery, which is why the skill grant suppresses the popup but the project rule doesn't).
+
+<!-- decision:P-GSNNFRNE -->
+
+## External proof: allowed-tools for MCP tools is a known unresolved CC bug (#17499, #18837→#14956 cluster)
+
+**When:** 2026-06-27 · **Fact:** `P-GSNNFRNE`
+**Why:** Two GitHub issues from other developers confirm auto-approving MCP tools via skill allowed-tools is a known, unresolved Claude Code problem — Anthropic explicitly left the MCP case unaddressed (#17499) and allowed-tools enforcement is a recurring bug cluster (#18837/#14956). This means the kit must not depend on that surface and should use a different documented mechanism (PermissionRequest hook or Bash CLI).
+
+<!-- decision:P-4HQTBYFK -->
+
+## COMPLETE design: one PermissionRequest hook (mcp__cmk__.* + Skill matchers) kills both popups, documented mechanism
+
+**When:** 2026-06-27 · **Fact:** `P-4HQTBYFK`
+**Why:** Docs confirm PermissionRequest matches any tool name including Skill, so a single hook mechanism can auto-approve both the MCP popup and the skill popup — using the documented auto-approve path, not the buggy allowed-tools surface. This is the complete zero-popup design for Task 172.
+
+<!-- decision:P-MYNFF2PW -->
+
+## SOLVED: PermissionRequest hook (mcp__cmk__.* + Skill) = prompt-free capture, live-proven on 2.1.195
+
+**When:** 2026-06-27 · **Fact:** `P-MYNFF2PW`
+**Why:** This is the resolution of the whole-day prompt-free hunt: the user's PermissionRequest hook idea, live-proven on a fresh folder, auto-approves both the MCP and skill popups so capture completes with no click — using the documented hook mechanism (not the buggy allowed-tools), keeping the MCP path, safely scoped, and persistent across sessions.
+
+<!-- decision:P-BQ57723C -->
+
+## DECISION: keep all layers (allow-list + allowed-tools) + ADD the hook — defense-in-depth, future-proof for CC bug fixes
+
+**When:** 2026-06-27 · **Fact:** `P-BQ57723C`
+**Why:** The user chose to keep every rule added (allow-list + skill allowed-tools) as harmless belt-and-suspenders that will activate natively once Claude Code fixes its known allowed-tools/wildcard bugs, and add the PermissionRequest hook as the working fix today. Additive, not subtractive — keeps the superior MCP path and future-proofs.
+
+<!-- decision:P-YAEV66UK -->
+
+## BLOCKER: claude.exe Windows-incompatible after CC update — live spawn-smokes + live-verify can't run here
+
+**When:** 2026-06-27 · **Fact:** `P-YAEV66UK`
+**Why:** The 4 full-suite failures are the live claude --print spawn-smokes failing because the Claude Code native binary is Windows-incompatible after today's update — not a kit bug and not jitter (suite is green skipping live Haiku; the diff doesn't touch that path). This blocks the live-Haiku gate and the final live-verify until the binary is fixed; recording it honestly rather than dismissing it.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-FTWRHF7H -->
+
+## Claude.cmd Shim Workaround in .local/bin
+
+**When:** 2026-06-27 · **Fact:** `P-FTWRHF7H`
+**Why:** The broken @anthropic-ai/claude-code npm global install was being found by `claude.cmd` calls in tests. Uninstalling it alone would break `claude.cmd`. The shim ensures continuity without re-installing via npm.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
