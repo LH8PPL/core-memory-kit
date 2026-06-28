@@ -60,15 +60,30 @@ You work. It learns — automatically, no buttons. Next session, it remembers th
 
 ### Route A — npm (recommended)
 
+Install the CLI once, then run `cmk install` in each project — pick your agent:
+
 ```bash
 npm install -g @lh8ppl/claude-memory-kit
 cd ~/my-project
+```
+
+**Claude Code:**
+
+```bash
 cmk install                   # scaffold context/ + wire hooks (one step)
 cmk install --with-semantic   # optional: local semantic recall (~260 MB, once)
 cmk doctor                    # verify, then restart Claude Code
 ```
 
-`cmk install` is the whole entry point: it scaffolds `context/`, drops the memory skills into `.claude/skills/`, wires the lifecycle hooks, and registers the MCP server so Claude can drive memory as tools — no `/plugin` step needed.
+**Kiro** (IDE + `kiro-cli` — see [docs/KIRO.md](docs/KIRO.md)):
+
+```bash
+cmk install --ide kiro                   # wire Kiro end-to-end
+cmk install --ide kiro --with-semantic   # …with local semantic recall
+cmk doctor                                # verify, then restart Kiro
+```
+
+`cmk install` is the whole entry point: it scaffolds `context/`, drops the memory skills, wires the lifecycle hooks, and registers the MCP server so the agent can drive memory as tools — no `/plugin` step needed. A project can carry **both** agents — run both installs; they share one `context/`.
 
 > [!TIP]
 > Prefer not to touch the terminal? Open the project in Claude Code and say *"install claude-memory-kit and set it up here."* Claude runs the commands; you just approve them. **Restart Claude Code once** afterward (`/exit`, then `claude`) so the hooks load.
@@ -127,9 +142,16 @@ There's more — `cmk register-crons`, `cmk config`, `cmk persona generate/expor
 
 `cmk uninstall` is **conservative** — it removes only the kit's managed wiring for one agent and **never deletes your `context/` memory** (your data) or anything outside the kit's markers.
 
+**Claude Code:**
+
 ```bash
-cmk uninstall              # remove the Claude Code surface (CLAUDE.md block + hooks)
-cmk uninstall --ide kiro   # remove the Kiro surface (.kiro/ blocks + skills + IDE hooks + AGENTS.md + ~/.kiro CLI agent)
+cmk uninstall              # remove the CLAUDE.md block + hooks
+```
+
+**Kiro:**
+
+```bash
+cmk uninstall --ide kiro   # remove the .kiro/ blocks + skills + IDE hooks + AGENTS.md + ~/.kiro CLI agent
 ```
 
 On a dual-agent project, uninstall one and the other keeps working. To remove the memory data too, delete `context/` (and `context.local/`) yourself — the kit won't do it for you.
