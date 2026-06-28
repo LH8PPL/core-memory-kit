@@ -4,3 +4,6 @@
 ## 2026-06-28T07:09:12Z — auto-extract (medium-trust, pending review)
 - (P-BFVNEYaQ) User questioned the decision to mirror npm README to root's lean structure, implying they value npm page being comprehensive/standalone for its audience rather than a consistent-but-thin front door.
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-28T07:09:12Z -->
+## 2026-06-28T11:50:34Z — auto-extract (medium-trust, pending review)
+- (P-6HFUXBJN) Chose to finish the publish before updating About/topics, prioritizing critical work over cosmetic refinements.
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-28T11:50:34Z -->
