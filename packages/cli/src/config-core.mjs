@@ -100,25 +100,28 @@ function coerce(raw) {
 // (prototype-pollution resistance) and is analyzed by CodeQL in isolation, so
 // it's tested at its own boundary, not only through configSet.
 export function setDeep(obj, dottedKey, value) {
-  // Defense-in-depth: refuse prototype-polluting segments INSIDE the walker
-  // itself, not only at the public entry points (configGet/Set/ShowOrigin all
-  // pre-check via hasForbiddenSegment). A self-guarding utility stays safe even
-  // if a future caller forgets the guard — and it closes the CodeQL
-  // js/prototype-pollution-utility finding. Reuses the same helper as the entry
-  // points so the forbidden-segment set can't drift.
-  if (hasForbiddenSegment(dottedKey)) {
-    throw new Error(
-      `setDeep: forbidden key segment (${[...FORBIDDEN_KEYS].join('/')}) — prototype-pollution guard`,
-    );
-  }
   const parts = dottedKey.split('.');
   let cur = obj;
-  for (let i = 0; i < parts.length - 1; i++) {
+  for (let i = 0; i < parts.length; i++) {
     const p = parts[i];
-    if (cur[p] == null || typeof cur[p] !== 'object' || Array.isArray(cur[p])) cur[p] = {};
-    cur = cur[p];
+    // Defense-in-depth: refuse prototype-polluting segments AT THE ASSIGNMENT
+    // SITE, inside the walk loop — not as a pre-loop pass. CodeQL's
+    // js/prototype-pollution-utility recognizes the guard as a sanitizer only
+    // when it gates each property access in the loop (per its query-help docs),
+    // not a guard delegated to a helper or run before the loop. Uses the same
+    // FORBIDDEN_KEYS set as hasForbiddenSegment so the deny-list can't drift.
+    if (FORBIDDEN_KEYS.has(p)) {
+      throw new Error(
+        `setDeep: forbidden key segment (${[...FORBIDDEN_KEYS].join('/')}) — prototype-pollution guard`,
+      );
+    }
+    if (i === parts.length - 1) {
+      cur[p] = value;
+    } else {
+      if (cur[p] == null || typeof cur[p] !== 'object' || Array.isArray(cur[p])) cur[p] = {};
+      cur = cur[p];
+    }
   }
-  cur[parts[parts.length - 1]] = value;
 }
 
 /**
