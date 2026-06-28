@@ -5,97 +5,177 @@
   </picture>
 </p>
 
-# @lh8ppl/claude-memory-kit
+<p align="center">
+  <strong>Persistent, per-project memory for <a href="https://docs.claude.com/en/docs/claude-code">Claude Code</a> — plain markdown, committed with your code, recalled by meaning.</strong>
+</p>
 
-**`cmk`** — the CLI for [claude-memory-kit](https://github.com/LH8PPL/claude-memory-kit), a per-project, in-repo memory system for [Claude Code](https://docs.claude.com/en/docs/claude-code). It fixes Claude's per-session amnesia so you don't have to re-tell the backstory every time you start a new session.
+<p align="center">
+  <a href="https://www.npmjs.com/package/@lh8ppl/claude-memory-kit"><img src="https://img.shields.io/npm/v/@lh8ppl/claude-memory-kit?label=npm&color=blue" alt="npm"></a>
+  <a href="https://github.com/LH8PPL/claude-memory-kit/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/Node.js-bundled%20%C2%B7%20none%20required-brightgreen" alt="Node.js bundled, none required">
+  <a href="https://github.com/LH8PPL/claude-memory-kit/actions/workflows/ci.yml"><img src="https://github.com/LH8PPL/claude-memory-kit/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+</p>
 
-## What it does
+<p align="center">
+  <img src="https://img.shields.io/badge/Windows-supported-0078D6?logo=windows&logoColor=white" alt="Windows supported">
+  <img src="https://img.shields.io/badge/macOS-supported-000000?logo=apple&logoColor=white" alt="macOS supported">
+  <img src="https://img.shields.io/badge/Linux-supported-FCC624?logo=linux&logoColor=black" alt="Linux supported">
+</p>
 
-- **Cross-project persona — the wedge (v0.2)** — when you state how you work *everywhere* ("always use uv, never pip", "from now on run the linter before committing"), the per-turn auto-extract promotes it into your **user tier** (`~/.claude-memory-kit/`) **that turn**. So a brand-new project **cold-opens already knowing your style** — layered structure, your tooling, your testing discipline — with no hand-curation and no waiting. Carry it between your own machines with `cmk persona export`/`import`, or pin a single fact across projects with `cmk lessons promote`.
-- **Frozen snapshot at session start** — MEMORY.md + USER.md + SOUL.md + INDEX.md + today's session log inject once at the first tool call, so Claude sees your context every session without you re-telling it. The snapshot opens with an **authority instruction** ("when injected memory contradicts your assumptions, injected memory wins"), so the agent leads with its memory instead of re-deriving answers from the code.
-- **Auto-extract on every assistant turn** — a background `claude --print` subagent reads each turn and saves durable facts to memory. Durable project knowledge (setup/config, conventions, workflows, tool quirks) becomes a **rich Why/How fact file** (structured + searchable); lighter signals stay terse `MEMORY.md` bullets. Runs automatically, so the rich tier survives even when the model uses Claude Code's built-in memory instead. No manual writes needed.
-- **Claude knows WHEN to recall** — the auto-invoked `memory-search` skill fires on "what did we decide about X" / "have we seen this error before" and searches the deep archive in a forked side-context, returning a curated citation-backed summary. Read-only by contract.
-- **Explicit capture when you want it** — say "remember this" / "from now on" / "we decided" / "forget X" (the `memory-write` skill), or run `cmk remember "<fact>"`. Both dedup, screen for secrets, abstract machine paths to `~`, and write silently. For backtick/quote-heavy rich facts, capture them shell-safe as JSON: `cmk remember --from-file fact.json` (or `--json` from stdin) — content never touches the shell.
-- **Search + MCP — Claude runs every memory op for you, in conversation** — `cmk search "<term>"` (keyword over facts + scratchpads; with the optional local embedder, **semantic + hybrid recall**: ask in your own words and get the fact even with zero keyword overlap — measured R@5 0.941 / paraphrase 1.000 on the kit's benchmark, no API calls). `cmk install` registers the kit's **MCP server**, so Claude can do the whole memory surface as tools without you ever typing `cmk`: capture (`mk_remember`, rich Why/How too), recall (`mk_search` / `mk_get` / `mk_timeline` / `mk_cite`), adjust trust (`mk_trust`), promote a fact across projects (`mk_lessons_promote`), forget (`mk_forget` — previews first, then deletes on confirm), and clear the review/conflict queues (`mk_queue_list` / `mk_queue_resolve`). `cmk install` makes these run **prompt-free**: it wires a `PermissionRequest` hook that auto-approves the kit's **own** memory tools (`mcp__cmk__*`) and skills (so Claude saving/recalling a memory never stops to ask "proceed with mcp__cmk__…?" or "Use skill?"), pre-approves the kit's MCP server (`enabledMcpjsonServers`), and keeps a matching allow-list — nothing else is auto-approved.
-- **Bounded by compression** — session → daily → weekly Haiku rollups (cron or lazy-on-read) keep the snapshot small as history grows. The session-buffer rollup self-heals at session start too, so memory stays bounded even if you never cleanly close the window.
-- **Works across your agents — Claude Code, the Kiro IDE, and `kiro-cli`** — one `cmk install --ide kiro` wires Kiro end-to-end (the IDE 1.0 GUI **and** the terminal), and a project's `context/` is the shared memory brain, so what you build in one agent is there in the others. The kit pre-trusts its own hooks, MCP tools, and skills (per-agent: the IDE 1.0 `permissions.yaml`, kiro-cli's agent-config) so everything runs **prompt-free** — no per-call "Allow?". Live-proven on Kiro IDE 1.0 + kiro-cli V3.
-- **Guards your memory from an accidental delete** — `cmk install` wires a delete-guardrail (`cmk-guard-memory`) that **blocks** a destructive command (`rm`, `Remove-Item`, `del`, `git clean`, `git reset --hard`, `find … -delete`, `truncate`, `>`-truncate) the moment it's aimed at a memory path — *before* it runs, on Claude Code (`Bash` / `PowerShell`) and the Kiro IDE (`PreToolUse`). Fail-open (a broken guard never wedges your session) and intentionally broad (a false block is recoverable; a false allow is the data loss it prevents). A safe command, or a delete of anything else, runs untouched. (On `kiro-cli` V3, Kiro's own shell-approval prompt covers deletes — first-class kit guard support there is a planned follow-up.)
-- **Don't start empty — import the rules you already own** — `cmk import-claude-md` parses an existing `CLAUDE.md` / `.cursorrules` / `AGENTS.md` into typed, searchable facts through the same safe write path (secret screening, sanitization, dedup), with provenance back to source file + line. `--dry-run` previews first.
-- **Per-project, in-repo** — `context/` lives inside your project and travels with `git clone`. Each project keeps its own memory.
-- **10 health checks** — `cmk doctor` validates hook wiring, distill freshness, transcript firing, INDEX consistency, cron registration, native-memory coexistence, stale locks, native-binding health (npm 12 readiness), version drift (a project scaffold behind your installed `cmk` after an update), and scheduled-compaction liveness (an informational heads-up if your optional nightly cron stops firing — memory self-heals each session regardless) — each failure with a repair command.
+<p align="center">
+  <img src="https://img.shields.io/badge/Claude_Code-supported-6E56CF" alt="Claude Code supported">
+  <img src="https://img.shields.io/badge/Kiro-supported-6E56CF" alt="Kiro supported">
+</p>
 
-## Install — pick ONE route
+Claude forgets everything when a session ends — so every new chat you re-explain who you are, what you're building, and how you like things done. **claude-memory-kit** fixes that: it quietly captures your decisions, preferences, and project context, then hands them back at the start of every session. Everything is plain text inside your project, and it travels with the code — `git clone` brings the memory along.
 
-Each route is complete on its own. **Don't run both** — they wire the same hooks.
+> [!NOTE]
+> **Not a developer?** If you can open a project in Claude Code, you're set — let Claude run the setup for you (see [Quickstart](#quickstart)).
+
+## How it feels
+
+You open Claude Code on a project you haven't touched in weeks. Before you say anything, Claude already knows your stack, your conventions, and what you decided last time:
+
+```
+claude-memory-kit: 23 fact(s) in context, 2 captured in the last 24h, 1 conflict pending
+```
+
+You work. It learns — automatically, no buttons. Next session, it remembers this one too.
+
+## Features
+
+- **Remembers across sessions** — a frozen snapshot of your project + persona injects once at session start, so Claude leads with what it knows instead of re-deriving it from code.
+- **Captures automatically, prompt-free** — a background pass reads each turn and saves durable facts as searchable notes. No "save" button. When you *do* say "remember this," the kit auto-approves its **own** tools and skills so the save happens with no "Allow?" prompt — nothing else is touched.
+- **Recalls by meaning** — ask in your own words ("where do credentials go") and get the right fact even with zero keyword overlap. Fully local, zero API calls — **R@5 0.941 / paraphrase 1.000** ([benchmarks](#benchmarks)).
+- **Learns how you work, everywhere** — state a habit once ("always use uv, never pip") and a brand-new project cold-opens already knowing it.
+- **Stays private + bounded** — secrets are screened before any write, machine paths are abstracted to `~`, and rolling compression keeps memory small as history grows.
+- **Guards against accidental deletion** — a hook **blocks** a destructive command (`rm`, `git reset --hard`, …) the moment it targets a memory path, before it runs.
+- **Works across your agents** — the same memory brain on **Claude Code** and **[Kiro](https://kiro.dev)** (IDE + `kiro-cli`). A project's `context/` is shared, so memory you build in one is there in the other.
+- **Per-project, in your repo** — `context/` lives in your project and travels with `git clone`. Each project keeps its own memory.
+
+## Quickstart
+
+> [!IMPORTANT]
+> Pick **one** route — both wire the same hooks and are complete on their own.
 
 ### Route A — npm (recommended)
+
+Install the CLI once, then run `cmk install` in each project — pick your agent:
 
 ```bash
 npm install -g @lh8ppl/claude-memory-kit
 cd ~/my-project
-cmk install        # scaffolds context/ + the memory-write + memory-search skills AND wires the lifecycle hooks into .claude/settings.json
-cmk install --with-semantic   # (optional) local semantic recall — one-time ~260 MB, search defaults to hybrid
-cmk install --ide kiro        # (optional) target Kiro instead — wires the IDE + kiro-cli surfaces (MCP + steering + AGENTS.md + skills + hooks)
-cmk register-crons            # (optional) scheduled background compression — otherwise self-heals lazily
-cmk import-claude-md --yes    # (optional) seed memory from an existing CLAUDE.md / .cursorrules (--dry-run previews)
-cmk doctor         # verify, then restart Claude Code
 ```
 
-`cmk install` is a complete entry point: it scaffolds `context/`, drops the `memory-write` + `memory-search` skills into `.claude/skills/` (committed — travels with `git clone`), and writes the lifecycle hooks (PATH-resolved, cross-OS) into the project's `.claude/settings.json`. It also **registers the kit's MCP server** in `.mcp.json` and, so Claude can drive memory as tools **prompt-free**, wires a `PermissionRequest` hook that auto-approves the kit's own tools/skills (plus a matching allow-list + `enabledMcpjsonServers` for the server) — only the kit's own surfaces, nothing else. It writes a `.gitattributes` block pinning committed memory to LF (so a Windows clone can't mangle line endings — your memory stays readable cross-platform). No separate `/plugin` step needed. Use `cmk install --no-hooks` to skip the hooks + MCP wiring (scaffold-only).
+**Claude Code:**
 
-> Installing the package globally adds the `cmk` CLI **and** the installer. It's the `cmk install` *subcommand* that wires the hooks — not the bare `npm install`.
+```bash
+cmk install                   # scaffold context/ + wire hooks (one step)
+cmk install --with-semantic   # optional: local semantic recall (~260 MB, once)
+cmk doctor                    # verify, then restart Claude Code
+```
 
-**Other agents (Kiro).** `cmk install --ide kiro` targets [Kiro](https://kiro.dev) (AWS's agentic IDE + `kiro-cli`) instead of Claude Code — one command wires both its GUI hooks (`.kiro/hooks/`, v1 format on Kiro IDE 1.0 + legacy for older Kiro) and its terminal CLI agent (`~/.kiro/agents/cmk.json`), plus MCP, steering, skills, an `AGENTS.md` instruction file, and the per-agent trust so it all runs prompt-free. The full memory loop — inject, capture, edit-observation, explicit save, and cross-project promotion — is live-proven on **Kiro IDE 1.0** and **kiro-cli V3**. A project can carry **both** agents (run both installs — they share one `context/` brain and never clobber each other). Restart Kiro to load its hooks. See the [full Working-with-Kiro guide](https://github.com/LH8PPL/claude-memory-kit#working-with-kiro).
+**Kiro** (IDE + `kiro-cli` — see [the Kiro guide](https://github.com/LH8PPL/claude-memory-kit/blob/main/docs/KIRO.md)):
 
-**Uninstall** is per-agent and conservative — it never deletes your `context/` memory: `cmk uninstall` removes the Claude Code surface; `cmk uninstall --ide kiro` removes the Kiro surface.
+```bash
+cmk install --ide kiro                   # wire Kiro end-to-end
+cmk install --ide kiro --with-semantic   # …with local semantic recall
+cmk doctor                                # verify, then restart Kiro
+```
 
-### Route B — Claude Code plugin marketplace
+`cmk install` is the whole entry point: it scaffolds `context/`, drops the memory skills, wires the lifecycle hooks, and registers the MCP server so the agent can drive memory as tools — no `/plugin` step needed. A project can carry **both** agents — run both installs; they share one `context/`.
 
-Inside Claude Code:
+> [!TIP]
+> Prefer not to touch the terminal? Open the project in Claude Code and say *"install claude-memory-kit and set it up here."* Claude runs the commands; you just approve them. **Restart Claude Code once** afterward (`/exit`, then `claude`) so the hooks load.
+
+### Route B — Claude Code plugin
 
 ```text
 /plugin marketplace add LH8PPL/claude-memory-kit   # add this repo as a plugin source (once per machine)
-/plugin install claude-memory-kit                  # install the global machinery — hooks + skills (once per machine)
-cd ~/my-project                                    # the project you want memory in — bootstrap scaffolds into the CURRENT dir
-/claude-memory-kit:bootstrap                        # scaffold this project's context/ memory tree (once per project)
+/plugin install claude-memory-kit                  # install hooks + skills (once per machine)
+cd ~/my-project
+/claude-memory-kit:bootstrap                        # scaffold this project's memory (once per project)
 ```
 
-The first two commands are **global** (per machine); `bootstrap` is **per project** — run it again (after a `cd`) in each project. The plugin bundles the hooks + the `bootstrap`, `memory-write`, and `memory-search` skills, so it's complete without the npm CLI (add the CLI later only if you want `cmk search` / `cmk doctor` / cron).
+The plugin bundles the hooks + skills, so it's complete without the npm CLI. Add the CLI later only if you want `cmk search` / `cmk doctor` / cron.
+
+> [!NOTE]
+> **Updating** has two parts on both routes: update the machinery, then re-stamp each project (`cmk install` again, or `/claude-memory-kit:bootstrap`). `cmk doctor` flags any project that's behind so you don't have to remember.
+
+## How it works
+
+`context/` is the source of truth — plain markdown, committed with your code. A regenerable SQLite + FTS5 index (plus an optional local embedder) powers search. Memory lives in three tiers:
+
+| Tier | Location | Scope | What lives here |
+| --- | --- | --- | --- |
+| **Project** | `<repo>/context/` | committed — travels with `clone` | Decisions, conventions, file purposes |
+| **Local** | `<repo>/context.local/` | gitignored, per-machine | Machine paths, local tool versions |
+| **User** | `~/.claude-memory-kit/` | cross-project, per-person | Persona, cross-project lessons |
+
+Project memory follows the **repo** (teammates get it on clone). Your persona follows **you** — machine-local, never committed. Carry it between your own machines with `cmk persona export` / `import`.
 
 ## CLI
 
-Most-used commands (full list via `cmk --help`):
+You rarely type these yourself — Claude drives the same operations as tools mid-conversation through the kit's **MCP server** (full tool reference: **[docs/MCP.md](https://github.com/LH8PPL/claude-memory-kit/blob/main/docs/MCP.md)**). The commands:
 
 | Command | Purpose |
 | --- | --- |
-| `cmk install` | Scaffold `context/` + the `memory-write`/`memory-search` skills + `.gitignore` + CLAUDE.md block + wire hooks (`--no-hooks` for scaffold-only) |
-| `cmk doctor` | Run HC-1..HC-10 health checks, surface repair commands |
+| `cmk install [--with-semantic] [--ide claude-code\|kiro]` | Scaffold + wire hooks + register the MCP server (complete entry point) |
+| `cmk uninstall [--ide claude-code\|kiro]` | Remove one agent's wiring — conservative, never deletes `context/` |
+| `cmk doctor` | Run HC-1..HC-10 health checks; surface a repair command per failure |
 | `cmk repair --hooks` / `--locks` / `--index` / `--all` | Idempotent self-repair |
-| `cmk search "<query>" [--mode keyword\|semantic\|hybrid] [--scope facts\|transcripts\|decisions]` | Search memory — by meaning with the embedder (hybrid default after `--with-semantic`); `--scope transcripts` = the raw session record; `--scope decisions` = the decision journal (history / "what did we reject") |
-| `cmk get <id…>` / `cmk timeline <id>` / `cmk cite <id>` / `cmk recent-activity` | Read the index back — full fact bodies + provenance, sequential context around an observation, a canonical citation link, recent changes (the CLI side of the `mk_*` MCP read tools) |
+| `cmk search "<query>" [--mode keyword\|semantic\|hybrid] [--scope facts\|transcripts\|decisions]` | Search memory by meaning (hybrid default after `--with-semantic`); `--scope transcripts` = raw session record; `--scope decisions` = the decision journal (history / "what did we reject") |
+| `cmk remember "<fact>"` | Capture a fact explicitly (deduped, secret-screened, path-abstracted). `--from-file fact.json` for backtick/quote-heavy rich facts |
+| `cmk get <id…>` / `cmk timeline <id>` / `cmk cite <id>` / `cmk recent-activity` | Read the index back — full fact bodies + provenance, context around an observation, a citation link, recent changes (the CLI side of the `mk_*` MCP read tools) |
+| `cmk forget <id>` | Tombstone a fact — gone from `cmk search` immediately (audit trail preserved) |
+| `cmk lessons promote <id> [--to USER.md\|HABITS.md]` | Promote one project fact to your cross-project **user tier** so it applies in **every** project |
 | `cmk roll --scope now\|today\|recent` | Manually trigger a compression pipeline |
-| `cmk register-crons [--dry-run] [--unregister]` | Register daily + weekly jobs with cron / launchd / Task Scheduler |
-| `cmk forget <id>` | Tombstone a fact — disappears from `cmk search` immediately, no manual reindex (audit trail preserved) |
-| `cmk lessons promote <id> [--to USER.md\|HABITS.md]` | Promote one captured fact to your cross-project **user tier** (the safe path — sanitized, secret-screened, audited) so it applies in **every** project |
-| `cmk disable-native-memory` / `enable-native-memory` | Opt out of Claude Code's built-in Auto Memory so the kit is your single, lean memory layer (committable — travels with `git clone`) |
-| `cmk persona generate` | Run cross-project persona synthesis on demand (instead of waiting for the weekly pass) |
-| `cmk persona export <file>` / `import <file>` | Carry your cross-project persona (the user tier) to another of **your** machines — export to one portable bundle, import on the other (overwrites with backup + rollback). The persona stays private (never committed to a project) |
-| `cmk import-anthropic-memory [--dry-run] [--yes]` | Merge bullets from Anthropic's native auto-memory into MEMORY.md |
-| `cmk import-claude-md [file] [--dry-run] [--yes]` | Onboard from the rules you already own — parse an existing `CLAUDE.md` / `.cursorrules` / `AGENTS.md` into typed facts through the safe write path (Poison_Guard + sanitization + dedup) |
+| `cmk register-crons [--dry-run] [--unregister]` | Register daily + weekly compression jobs (cron / launchd / Task Scheduler) |
+| `cmk disable-native-memory` / `enable-native-memory` | Opt out of Claude Code's built-in Auto Memory so the kit is your single, lean layer |
+| `cmk persona generate` · `export <file>` · `import <file>` | Synthesize your cross-project persona on demand; carry it to another of **your** machines (private — never committed) |
+| `cmk import-claude-md [file]` · `import-anthropic-memory` | Seed memory from an existing `CLAUDE.md` / `.cursorrules` / `AGENTS.md`, or merge Anthropic's native auto-memory bullets (`--dry-run` previews) |
+
+Full reference with examples: **[docs/CLI.md](https://github.com/LH8PPL/claude-memory-kit/blob/main/docs/CLI.md)** or `cmk --help`.
+
+## Working with Kiro
+
+[Kiro](https://kiro.dev) (the AWS agentic IDE + `kiro-cli`) is a first-class target — `cmk install --ide kiro` wires it end-to-end for both the IDE and the terminal, and a project's `context/` is shared with Claude Code. The full setup, surface table, and dual-agent notes are in **[the Kiro guide](https://github.com/LH8PPL/claude-memory-kit/blob/main/docs/KIRO.md)**.
+
+## Uninstalling
+
+`cmk uninstall` is **conservative** — it removes only the kit's managed wiring for one agent and **never deletes your `context/` memory** (your data) or anything outside the kit's markers.
+
+**Claude Code:**
+
+```bash
+cmk uninstall              # remove the CLAUDE.md block + hooks
+```
+
+**Kiro:**
+
+```bash
+cmk uninstall --ide kiro   # remove the .kiro/ blocks + skills + IDE hooks + AGENTS.md + ~/.kiro CLI agent
+```
+
+On a dual-agent project, uninstall one and the other keeps working. To remove the memory data too, delete `context/` (and `context.local/`) yourself — the kit won't do it for you.
+
+## Benchmarks
+
+Recall quality is **measured, not claimed** — `npm run bench:recall` runs a LongMemEval-style harness through the kit's real write / index / search paths.
+
+| Pipeline | R@5 | Paraphrase recall | API calls |
+| --- | --- | --- | --- |
+| Keyword (FTS5 one-shot) | 0.176 | 0.000 | 0 |
+| Agentic keyword (iterative + LLM reformulation) | 0.529 | 0.300 | 1/query |
+| **Semantic (sqlite-vec + local bge-base, the default)** | **0.941** | **1.000** | **0** |
+
+Keyword search structurally misses natural-language questions; the embedded semantic backend closes the paraphrase gap entirely — locally, with no API calls.
 
 ## Requirements
 
 - Node.js ≥ 20
-- Claude Code (for the hook-driven auto-memory loop)
+- Claude Code (for the hook-driven auto-memory loop) — or [Kiro](https://kiro.dev)
 - Optional: `cmk install --with-semantic` for semantic/hybrid recall (installs the local `@huggingface/transformers` embedder, ~260 MB once — no API, no Python)
-
-## Three-tier model
-
-| Tier | Location | Scope |
-| --- | --- | --- |
-| **P** (project) | `<repo>/context/` | committed to git, travels with `clone` |
-| **L** (local) | `<repo>/context.local/` | gitignored, per-machine |
-| **U** (user) | `~/.claude-memory-kit/` | cross-project per-user |
 
 ## Documentation
 
