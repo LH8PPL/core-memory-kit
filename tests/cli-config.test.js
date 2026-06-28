@@ -16,7 +16,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { configGet, configSet, configShowOrigin } from '../packages/cli/src/config-core.mjs';
+import { configGet, configSet, configShowOrigin, setDeep } from '../packages/cli/src/config-core.mjs';
 import { runConfigGet, runConfigSet, runConfigShowOrigin, runConfigCli } from '../packages/cli/src/subcommands.mjs';
 
 let sandbox;
@@ -143,6 +143,34 @@ describe('Task 129 — configSet (Doors 1+2)', () => {
     // get + show-origin also refuse them (no read-side resolution either).
     expect(configGet('__proto__.polluted', { projectRoot, userDir }).found).toBe(false);
     expect(configShowOrigin('__proto__.x', { projectRoot, userDir }).found).toBe(false);
+  });
+
+  // Task 173 — the setDeep walker self-guards at its OWN boundary (not only via
+  // configSet's pre-check), so the prototype-pollution invariant holds even if a
+  // future caller forgets to guard. Tested directly because CodeQL analyzes the
+  // utility in isolation (js/prototype-pollution-utility).
+  it('setDeep throws on a forbidden segment and never pollutes Object.prototype', () => {
+    for (const bad of ['__proto__', 'a.constructor.x', 'deep.prototype.y']) {
+      expect(() => setDeep({}, bad, 'x'), `key ${bad}`).toThrow(/forbidden|prototype-pollution/i);
+    }
+    expect({}.x).toBeUndefined();
+    expect({}.y).toBeUndefined();
+    // A safe key still writes (the guard doesn't over-reject).
+    const o = {};
+    setDeep(o, 'a.b.c', 1);
+    expect(o.a.b.c).toBe(1);
+  });
+
+  // Task 173 — also covers configSet's catch path (the {ok:false,error} return
+  // when the write throws): a settings.json that exists as a DIRECTORY makes the
+  // read/write throw, which the handler must surface as an error, not a crash.
+  it('configSet returns {ok:false,error} when the settings path can not be written', () => {
+    // Make the project settings.json path a directory so writeFileSync throws.
+    const settingsDir = join(projectRoot, 'context', 'settings.json');
+    mkdirSync(settingsDir, { recursive: true });
+    const r = configSet('search.default_mode', 'hybrid', { projectRoot, userDir });
+    expect(r.ok).toBe(false);
+    expect(typeof r.error).toBe('string');
   });
 });
 

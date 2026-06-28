@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Security
+
+- **Resolved 3 CodeQL code-scanning alerts** (Task 173). Hardened the `cmk config set` key walker against prototype pollution (`__proto__`/`constructor`/`prototype` segments are refused at the utility itself, not only at the public entry points), and made the release-notes extractor escape **every** regex metacharacter in the version string (not just `.`) before matching. Neither was live-exploitable (the public config API already guarded; the version is semver-validated), but both are now correct in isolation and the alerts are cleared. No behavior change for users.
+
 ## [0.4.1] — 2026-06-27
 
 ### Fixed

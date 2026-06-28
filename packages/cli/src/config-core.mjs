@@ -96,7 +96,21 @@ function coerce(raw) {
   return raw;
 }
 
-function setDeep(obj, dottedKey, value) {
+// Exported for a direct unit test: this guard holds a security invariant
+// (prototype-pollution resistance) and is analyzed by CodeQL in isolation, so
+// it's tested at its own boundary, not only through configSet.
+export function setDeep(obj, dottedKey, value) {
+  // Defense-in-depth: refuse prototype-polluting segments INSIDE the walker
+  // itself, not only at the public entry points (configGet/Set/ShowOrigin all
+  // pre-check via hasForbiddenSegment). A self-guarding utility stays safe even
+  // if a future caller forgets the guard — and it closes the CodeQL
+  // js/prototype-pollution-utility finding. Reuses the same helper as the entry
+  // points so the forbidden-segment set can't drift.
+  if (hasForbiddenSegment(dottedKey)) {
+    throw new Error(
+      `setDeep: forbidden key segment (${[...FORBIDDEN_KEYS].join('/')}) — prototype-pollution guard`,
+    );
+  }
   const parts = dottedKey.split('.');
   let cur = obj;
   for (let i = 0; i < parts.length - 1; i++) {
