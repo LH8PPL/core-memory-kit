@@ -7685,3 +7685,241 @@
 ## RESUME — v0.3.1 cut-gate near-complete; PR
 
 **When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-aPH3CKPU -->
+
+## EBUSY on vec0.dll is cosmetic; npm install succeeds despite it (proven by `cmk -
+
+**When:** 2026-06-26 · **Fact:** `P-aPH3CKPU`
+
+<!-- decision:P-RUT3975R -->
+
+## install.mjs grew from 26.9kB to 28.5kB in 0.4.1 tarball, confirming Task 170 fix
+
+**When:** 2026-06-26 · **Fact:** `P-RUT3975R`
+
+<!-- decision:P-VLC9D4Ya -->
+
+## Claude Code only prompts for permissions when something triggers it (when user s
+
+**When:** 2026-06-26 · **Fact:** `P-VLC9D4Ya`
+
+<!-- decision:P-4T6WJBUF -->
+
+## hadn't started `code .` yet; commands ended at `cmk install`
+
+**When:** 2026-06-26 · **Fact:** `P-4T6WJBUF`
+
+<!-- decision:P-MBKF3ZVK -->
+
+## Do not ship fixes mid-diagnosis without consulting first — explore alternative s
+
+**When:** 2026-06-27 · **Fact:** `P-MBKF3ZVK`
+
+<!-- decision:P-DCaNUaDK -->
+
+## Document everything exhaustively when context is near capacity to enable clean h
+
+**When:** 2026-06-27 · **Fact:** `P-DCaNUaDK`
+
+<!-- decision:P-J3GFMTAQ -->
+
+## Task 172 live-verified from packed kit (no popup) — full suite + stress green — shipping
+
+**When:** 2026-06-28 · **Fact:** `P-J3GFMTAQ`
+**Why:** The prompt-free fix is proven end-to-end from the shipped artifact (packed → installed → default install auto-wires → no-click capture), with the full suite + stress green and the two-pass review complete. This closes the whole-day diagnosis and clears Task 172 to merge.
+
+<!-- decision:P-PYaMHTAR -->
+
+## Kit changes should be replicated to the live project after shipping in the kit (
+
+**When:** 2026-06-28 · **Fact:** `P-PYaMHTAR`
+
+<!-- decision:P-LLFCMSDM -->
+
+## Do not include LICENSE/CONTRIBUTING/CHANGELOG sections in README; those have ded
+
+**When:** 2026-06-28 · **Fact:** `P-LLFCMSDM`
+
+<!-- decision:P-H3Ga44XJ -->
+
+## README Structure for v0.4.1
+
+**When:** 2026-06-28 · **Fact:** `P-H3Ga44XJ`
+**Why:** README is scannable and progressive; secondary detail deferred to purpose-built docs; agent claims are explicit/verified
+
+<!-- decision:P-aWBaP97F -->
+
+## Secondary detail (Kiro reference) should live in separate docs (docs/KIRO.md), n
+
+**When:** 2026-06-28 · **Fact:** `P-aWBaP97F`
+
+<!-- decision:P-VPHZMR4X -->
+
+## Use GFM + GitHub admonition syntax for formatting
+
+**When:** 2026-06-28 · **Fact:** `P-VPHZMR4X`
+
+<!-- decision:P-L3EaTHK7 -->
+
+## Wants README structured like sinedied/tool-README repos (Azure serverless, run-o
+
+**When:** 2026-06-28 · **Fact:** `P-L3EaTHK7`
+
+<!-- decision:P-4MW445N2 -->
+
+## Don't proactively restructure documentation without explicit approval; user pref
+
+**When:** 2026-06-28 · **Fact:** `P-4MW445N2`
+
+<!-- decision:P-PRD9U7T3 -->
+
+## Documentation Structure & Tradeoff in claude-memory-kit
+
+**When:** 2026-06-28 · **Fact:** `P-PRD9U7T3`
+**Why:** npm landing page serves a different audience than root — people evaluating the package need enough info to decide without clicks elsewhere. Consistency vs. comprehensiveness at each landing page is a real structural tension in this project.
+
+<!-- decision:P-NWJFG9HH -->
+
+## npm Tarball & Doc Availability Strategy
+
+**When:** 2026-06-28 · **Fact:** `P-NWJFG9HH`
+**Why:** Balances fast npm installs (lean tarball) with a complete npm landing page for package evaluation; GitHub is the canonical deep-docs home
+
+<!-- decision:P-CRRQ4RT2 -->
+
+## Avoid Duplicating Authoritative Docs in Temp Locations
+
+**When:** 2026-06-28 · **Fact:** `P-CRRQ4RT2`
+**Why:** Only the authoritative doc is maintained; duplicates become stale and can mislead future sessions.
+
+<!-- decision:P-AV4F6Sa9 -->
+
+## User proactively checked whether newly-created checklist duplicates the authorit
+
+**When:** 2026-06-28 · **Fact:** `P-AV4F6Sa9`
+
+<!-- decision:P-ZB2AUXAV -->
+
+## Claude Code `cd &&` Compound Command Prompting Edge
+
+**When:** 2026-06-28 · **Fact:** `P-ZB2AUXAV`
+**Why:** This is a documented edge case (gate doc D-80 / §16.57). It does NOT indicate a capture flow failure; gate sessions 1-2 confirmed the actual capture sequences were prompt-free. Future sessions may encounter this when running verification commands.
+
+<!-- decision:P-G45AQZYN -->
+
+## Session 3 (E1) Cold-Open Test Procedure
+
+**When:** 2026-06-28 · **Fact:** `P-G45AQZYN`
+**Why:** E1 is the final gate before v0.4.1 release. It validates that user preferences (layered, uv, ruff) promoted to the tool's default persona in Session 1 are correctly baked in.
+
+<!-- decision:P-99XQ63aR -->
+
+## v0.4.1 cut-gate FULLY PASSED — all CLI + Sessions 1-3 green, E1 wedge proven
+
+**When:** 2026-06-28 · **Fact:** `P-99XQ63aR`
+**Why:** The full v0.4.1 cut-gate passed end-to-end from the packed artifact, including the prompt-free capture headline (Task 172) holding through a real build flow and the cold-open wedge proven — the kit is verified ready to tag and publish.
+
+<!-- decision:P-5BTBD4aX -->
+
+## FastAPI Layered Backend Scaffold (Async PostgreSQL, SQLAlchemy 2.0)
+
+**When:** 2026-06-28 · **Fact:** `P-5BTBD4aX`
+**Why:** Validated scaffold matching user's recorded architecture preferences (thin routes → services → repos, Pydantic boundaries). Includes non-obvious patterns: flush-vs-commit in repos, expire_on_commit=False, shared SQLite fixture for request-scoped sessions in tests.
+
+<!-- decision:P-7PX7BTVZ -->
+
+## GitHub Repository SEO Optimization — Topics & About
+
+**When:** 2026-06-28 · **Fact:** `P-7PX7BTVZ`
+**Why:** GitHub SEO guides and community best practices confirm these optimizations improve discoverability for developers searching for memory tools, semantic search, Claude/Kiro integration, and local-first solutions.
+
+<!-- decision:P-JCWYH36Z -->
+
+## GitHub About/Topics Require Manual Paste
+
+**When:** 2026-06-28 · **Fact:** `P-JCWYH36Z`
+**Why:** GitHub repo metadata is only editable by the owner via the web UI. This is a permissions constraint, not a Claude limitation, but it creates a two-step workflow that's easy to overlook.
+
+<!-- decision:P-3J72ZCKA -->
+
+## Claude-memory-kit: GitHub About Configuration & User Tier Initialization
+
+**When:** 2026-06-28 · **Fact:** `P-3J72ZCKA`
+**Why:** Configures GitHub repo's public metadata for discoverability; initializes fresh persona tracking state for ongoing habit capture
+
+<!-- decision:P-M5BFNR3R -->
+
+## Two Distinct Memory-Recall Mechanisms in the Kit
+
+**When:** 2026-06-28 · **Fact:** `P-M5BFNR3R`
+**Why:** When describing or pitching the kit, conflating these mechanisms under a single "recall" concept obscures both its architecture and its value. The auto-load is often the more surprising and valuable feature.
+
+<!-- decision:P-6MRTBLBH -->
+
+## CLAUDE.md CI/Validator Binding Rule
+
+**When:** 2026-06-28 · **Fact:** `P-6MRTBLBH`
+**Why:** A prior publish-failure revealed CI was not checked on direct-to-main, and validators only caught the issue post-release. This rule prevents recurrence.
+
+<!-- decision:P-aV37WG9C -->
+
+## Dependency PR Decision Process
+
+**When:** 2026-06-28 · **Fact:** `P-aV37WG9C`
+**Why:** Merging breaking changes for currency alone wastes time and risk. The hard gate is CI green + compelling value, not "latest version."
+
+<!-- decision:P-BYMDWX97 -->
+
+## Security Scanning Stack
+
+**When:** 2026-06-28 · **Fact:** `P-BYMDWX97`
+**Why:** The project has comprehensive, automated security coverage. Future sessions need to know what safety gates are in place and trust them.
+
+<!-- decision:P-3AE6UM2W -->
+
+## CodeQL Alerts Close on Main Commit, Not NPM Release
+
+**When:** 2026-06-28 · **Fact:** `P-3AE6UM2W`
+**Why:** Clarifies the relationship between CodeQL workflow and release management; the previous entry expected alerts to auto-close but didn't explain the mechanism or its independence from npm versioning
+
+<!-- decision:P-5AFG567T -->
+
+## RESUME: commit the in-loop setDeep guard to main to close CodeQL #29 (v0.4.2 shipped but #29 still open)
+
+**When:** 2026-06-28 · **Fact:** `P-5AFG567T`
+**Why:** Context ran out mid-decision. v0.4.2 published but CodeQL #29 (prototype-pollution) didn't actually close because the first guard was pre-loop; the corrected in-loop guard is done+tested but uncommitted. The alert closes on a main push (CodeQL re-scans main), independent of npm — so it needs only a commit to main, not a release.
+
+<!-- decision:P-BEJQYEaZ -->
+
+## CodeQL Alert #29 Fix—In-Loop Guard Requirement
+
+**When:** 2026-06-28 · **Fact:** `P-BEJQYEaZ`
+**Why:** Loop placement is non-obvious; shipping v0.4.2 claimed "3 alerts resolved" before CodeQL's docs were checked, leaving the actual fix incomplete. Future CodeQL alert work must consult query-help first.
+
+<!-- decision:P-MLNREYVT -->
+
+## PR #243—Final Checkpoint for Session Completion
+
+**When:** 2026-06-28 · **Fact:** `P-MLNREYVT`
+**Why:** Ensures continuity for next session. Clear termination condition (CodeQL re-scan closes #29).
+
+<!-- decision:P-MNA5QMCG -->
+
+## RESUME: PR #244 (direct === guard) to close CodeQL #37 — if it re-flags again, DISMISS as false-positive
+
+**When:** 2026-06-28 · **Fact:** `P-MNA5QMCG`
+**Why:** The CodeQL prototype-pollution alert keeps re-flagging through 3 guard forms; PR #244 uses CodeQL's exact documented === pattern (highest confidence). Context ran out, so the next session must verify the merge closes it, with a clear stop-condition: dismiss as false-positive if a 4th re-flag occurs (the runtime guard is sound + tested; not exploitable).
+
+<!-- decision:P-3WXW2EK4 -->
+
+## CodeQL Prototype-Pollution Guard Recognition
+
+**When:** 2026-06-28 · **Fact:** `P-3WXW2EK4`
+**Why:** PR #244 uses the direct `===` form per CodeQL's documented sanitizer. Previous attempts (#29, #37) with Set-lookup caused repeated re-flagging; took 3 iterations to discover the constraint.

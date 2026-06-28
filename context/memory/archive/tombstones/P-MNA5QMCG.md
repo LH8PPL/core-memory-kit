@@ -1,4 +1,7 @@
 ---
+deleted_at: 2026-06-28T18:06:07Z
+deleted_reason: 'resolved: PR #244 merged, CodeQL #37 fixed (0 open alerts) — resume-state no longer needed'
+deleted_by: user-explicit
 id: P-MNA5QMCG
 type: project
 title: 'RESUME: PR #244 (direct === guard) to close CodeQL #37 — if it re-flags again, DISMISS as false-positive'

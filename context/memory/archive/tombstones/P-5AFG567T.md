@@ -1,4 +1,7 @@
 ---
+deleted_at: 2026-06-28T18:06:08Z
+deleted_reason: 'resolved: in-loop guard superseded by direct-=== form on main; CodeQL #37 fixed'
+deleted_by: user-explicit
 id: P-5AFG567T
 type: project
 title: 'RESUME: commit the in-loop setDeep guard to main to close CodeQL #29 (v0.4.2 shipped but #29 still open)'
