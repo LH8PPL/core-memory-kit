@@ -104,16 +104,15 @@ export function setDeep(obj, dottedKey, value) {
   let cur = obj;
   for (let i = 0; i < parts.length; i++) {
     const p = parts[i];
-    // Defense-in-depth: refuse prototype-polluting segments AT THE ASSIGNMENT
-    // SITE, inside the walk loop — not as a pre-loop pass. CodeQL's
-    // js/prototype-pollution-utility recognizes the guard as a sanitizer only
-    // when it gates each property access in the loop (per its query-help docs),
-    // not a guard delegated to a helper or run before the loop. Uses the same
-    // FORBIDDEN_KEYS set as hasForbiddenSegment so the deny-list can't drift.
-    if (FORBIDDEN_KEYS.has(p)) {
-      throw new Error(
-        `setDeep: forbidden key segment (${[...FORBIDDEN_KEYS].join('/')}) — prototype-pollution guard`,
-      );
+    // Defense-in-depth: refuse prototype-polluting segments at the assignment
+    // site, inside the walk loop. CodeQL's js/prototype-pollution-utility
+    // recognizes a sanitizer only as DIRECT `===` comparisons against the
+    // dangerous names (per its query-help example `if (key === "__proto__" ||
+    // key === "constructor") ...`), NOT a Set/helper lookup — so this is spelled
+    // out explicitly. (FORBIDDEN_KEYS keeps the same names for the entry-point
+    // guards; this in-loop form is what the static analyzer reads.)
+    if (p === '__proto__' || p === 'constructor' || p === 'prototype') {
+      throw new Error(`setDeep: forbidden key segment (${p}) — prototype-pollution guard`);
     }
     if (i === parts.length - 1) {
       cur[p] = value;
