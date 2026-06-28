@@ -34,7 +34,7 @@ You work. It learns — automatically, no buttons. Next session, it remembers th
 ## Features
 
 - **Remembers across sessions** — a frozen snapshot of your project + persona injects once at session start, so Claude leads with what it knows instead of re-deriving it from code.
-- **Captures automatically** — a background pass reads each turn and saves durable facts (decisions, conventions, tool quirks) as searchable notes. No "save" button.
+- **Captures automatically, prompt-free** — a background pass reads each turn and saves durable facts (decisions, conventions, tool quirks) as searchable notes. No "save" button. When you *do* say "remember this" mid-conversation, the kit auto-approves its **own** memory tools and skills (a `PermissionRequest` hook scoped to `mcp__cmk__*` + the kit's skills) so the save happens without an "Allow?" prompt — nothing else is auto-approved.
 - **Recalls by meaning** — ask in your own words ("where do credentials go") and get the right fact even with zero keyword overlap. Fully local, zero API calls — **R@5 0.941 / paraphrase 1.000** ([benchmarks](#benchmarks)).
 - **Learns how you work, everywhere** — state a habit once ("always use uv, never pip") and a brand-new project cold-opens already knowing it.
 - **Stays private + bounded** — secrets are screened before any write, machine paths are abstracted to `~`, and rolling compression keeps memory small as history grows.
