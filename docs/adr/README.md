@@ -21,6 +21,7 @@ Each ADR captures one meaningful design decision: the context, what was decided,
 | [0013](0013-package-security-posture-and-ci-provenance-publish.md) | Package security posture + CI provenance publish (osv/gitleaks/CodeQL/Dependabot + signed npm publish) | accepted | 2026-05-29 |
 | [0014](0014-unify-cli-mcp-shared-core.md) | Unify CLI + MCP over one in-process memory-op core (executes ADR-0006's deferred "MCP for retrieval+writes" line) | accepted | 2026-06-07 |
 | [0015](0015-semantic-backend-sqlite-vec-plus-local-onnx-embedder.md) | Layer-5b semantic backend — sqlite-vec inside the existing index + an optional local ONNX embedder (bge-base-en-v1.5) | accepted | 2026-06-10 |
+| [0016](0016-recurrence-promotion-passive-trust-demote-not-evict.md) | Persona promotion — capped-recurrence gate + passive-outcome trust (folds Task 97) + demote-not-evict (Task 151, from the 7-system code-read) | accepted | 2026-06-29 |
 
 > **0009 and 0010 were "reserved + shipped" cases**: the decisions were made and implemented on 2026-05-22 (FR-29 + FR-28 in `requirements-revisions-proposed.md`; provenance and transcripts code in subsequent task PRs), but the ADR files themselves weren't written until the post-PR-31 audit campaign (PR-C, 2026-05-26) surfaced the gap. Both ADRs are backfilled from preserved evidence in the research base (`docs/sources/`, `docs/SOURCES.md`, `requirements-revisions-proposed.md`) — not reconstructed by inference. See each ADR's "Provenance of this ADR" meta-note for the specific evidence trail.
 

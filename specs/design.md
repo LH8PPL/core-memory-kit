@@ -3207,6 +3207,49 @@ The recall waterfall's floor. The kit's `context/transcripts/{date}.md` records 
 
 ---
 
+## 20. Persona-promotion redesign — recurrence gate + passive trust + demote-not-evict (Task 151, v0.4.3)
+
+_Canonical HOW for the persona-promotion redesign. Decision: [ADR-0016](../docs/adr/0016-recurrence-promotion-passive-trust-demote-not-evict.md). Evidence (7-system code-read): [research note](../docs/research/2026-06-29-curation-cluster-code-study.md). Supersedes the form-based `PERSONA_CONFIDENCE_RULE` + fixes the §19 graduation→fragments eviction for the durable persona. Replaces D-177's three holes._
+
+**The thesis.** The persona is a *recurrence-earned*, *outcome-trusted*, *never-deleted* fact base; the injected snapshot is a **validity-filtered VIEW** over it, not storage. Promotion is arithmetic (no LLM, no ritual); protection-at-cap is a *separate* passive-outcome trust signal; the durable tier is demoted-not-evicted. Cross-system consensus (7-system code-read, D-228): never-delete + status-flip; recurrence-CAPPED earns promotion; trust moves on outcome events, not a clock.
+
+### 20.1 Promotion gate — capped recurrence (replaces phrasing)
+
+Two signals, two fields (a unified score lets a noisy fact rank high — MemOS):
+
+- **`recurrence_count`** (frontmatter int): `++` when the SAME canonical fact re-surfaces — re-stated by auto-extract (same content-hash ID) OR surfaced by `cmk search`/`cmk cite`. The existing canonical-ID IS the re-surface detector.
+- **heat** (computed, lazy): `heat = min(recurrence_count, RECUR_CAP)·W_REC + exp(-Δhours/τ)` (τ = 24 h), recency at READ — no cron. The **cap is load-bearing** (MemOS `min(count·w, 2)`): recurrence is a tie-breaker, never the driver.
+- **promote** a working-scratchpad bullet → the user-tier persona when `recurrence_count ≥ 3`. Explicit-imperative stays a fast-path-to-promote. **No LLM on the hot path** (mem0 abandoned its per-fact judge for hash-dedup — too costly/unstable). Fixes **Hole A** (the form-gate strands demonstrated philosophy).
+
+### 20.2 Trust — evolving, passive, floored (the protection field; folds Task 97)
+
+- **`trust_score`** (float, in the **rebuildable index, NOT committed frontmatter** — D-218: a moving value = git-diff noise). Init from source (`user-explicit` > `auto-extract`).
+- **update** event-driven: `+0.1` reinforce / `−0.15` dampen / **floor `0.05`** (memclaw `_adjust_weights`; never zero, never auto-deleted). NO time-decay of the stored value.
+- **signals** PASSIVE only (D-169, zero ritual): contradiction-queue hit, `superseded_by` set, session-end restatement. We already produce all three.
+
+### 20.3 Eviction → DEMOTE-NOT-EVICT (fixes the cold-open / Hole B)
+
+- The snapshot is a VIEW; the durable tier is never hard-evicted to un-injected `fragments/`. At cap, **CONDENSE** `HABITS/LESSONS/USER.md` into a tighter form (git keeps the prior version — letta condense-not-delete), NOT a fragment-split.
+- The cap-relief sweep drops **low-trust AND long-unaccessed** bullets first; a high-trust persona trait is NEVER swept out of the injected scratchpads. (MemoryOS-LFU / MemOS-top-N value-blind sweeps ARE the bug; this section overrides §19's fragments-eviction for `trust_score`-high facts.)
+
+### 20.4 Routing + drain + mention (fixes Hole C; keeps D-169)
+
+- Explicit `lessons-promote` TOPIC-routes across USER/HABITS/LESSONS (like auto-persona's classifier) instead of piling into one `DEFAULT_SECTION` → no single-section overflow (**Hole C**).
+- Silent auto-drain stays (no queue the user drains); promotion auto-applies, post-hoc revert via `cmk forget`.
+- Optional in-conversation MENTION on a high-recurrence promotion ("noticed X across 3 projects — promoted it") — a heads-up, NOT a gate (awrshift warmth without re-introducing the human-in-the-loop).
+
+### 20.5 Re-curation op-set (151 consumes; full build = Task 95)
+
+ADD / UPDATE-in-place / **SUPERSEDE-mark (never DELETE)**: mem0 `md5` hash-dedup floor → graphiti `resolve_edge` (one LLM pass, *event-time wins, not the LLM*) → archive-with-provenance (memclaw `crystallized_from`). 151 needs only the supersede-on-contradiction path its trust signal (20.2) depends on; the full pass is Task 95.
+
+### 20.6 Composition
+
+- **Task 97** folds in as 151.6–151.8 (the `trust_score` field) — it IS the protection mechanism 20.3's sweep order needs.
+- **Task 66** (temporal validity, v0.4.4) builds the full validity-window engine; 151 consumes only the SUPERSEDE signal (graphiti event-time-wins), not the engine — no re-derivation.
+- **§19** (load-cap + graduation): this section OVERRIDES §19's fragments-graduation for `trust_score`-high persona facts (they condense, never graduate-out); §19's mechanism still governs genuinely-low-value overflow.
+
+---
+
 ## End of design.md v0.1.0
 
 Sections 1-17 = full design surface. Cross-references to specific FRs and ADRs throughout. The four absorbable changes from the spec-generator comparison (tombstones §6.5, review queue §6.2, native auto-memory detection HC-8, structured logging §6.1) are baked in. §17 was tail-appended 2026-05-26 after the working-product live-test surfaced the spawn-layer Windows bug.
