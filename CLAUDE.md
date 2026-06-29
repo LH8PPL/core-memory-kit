@@ -76,7 +76,7 @@ The user is direct and tight on time. Match the energy.
   | Every task + sub-task + checkbox state + dependencies + paused-conditions | [`specs/tasks.md`](specs/tasks.md) |
   | Campaign-PR queue + per-PR status + scopes + deferrals (as sub-tasks) | [`specs/tasks.md`](specs/tasks.md) (Task 23 tracker section) |
   | Per-PR narrative + meta-lessons + retrospectives | [`docs/journey/build-log.md`](docs/journey/build-log.md) |
-  | HOW things work (architecture, schemas, validators, v0.1.x candidates §16) | [`specs/design.md`](specs/design.md) |
+  | HOW things work (architecture, schemas, validators, v0.1.x candidates §16) | [`specs/design.md`](specs/design.md) — canonical mechanism + schema as a `§N` section. **Never spin up a standalone `docs/design/` file** (violates the design.md-is-Spine kernel, D-228); link OUT to a `docs/research/` note for heavy evidence + an ADR for the choice, don't inline. |
   | WHAT must ship (FRs, NFRs, acceptance criteria) | [`specs/requirements.md`](specs/requirements.md) and [`specs/requirements-revisions-proposed.md`](specs/requirements-revisions-proposed.md) (FR-28+) |
   | Architectural decisions | [`docs/adr/`](docs/adr/) |
   | External citations + verification status | [`docs/SOURCES.md`](docs/SOURCES.md) |

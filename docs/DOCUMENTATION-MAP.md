@@ -77,7 +77,7 @@ Holds docs that are genuinely done and were cited as provenance but are no longe
 | A decision / pivot / issue / bug / fix | [`DECISION-LOG.md`](journey/DECISION-LOG.md) (append) + its *effect* in the Spine + an [ADR](adr/) if architectural |
 | A task, sub-task, what's-next, a phase/roadmap change | [`tasks.md`](../specs/tasks.md) |
 | A new requirement (FR/NFR/US) | [`requirements.md`](../specs/requirements.md) |
-| A design / architecture / schema detail or deferred candidate | [`design.md`](../specs/design.md) |
+| A design / architecture / schema detail or deferred candidate | [`design.md`](../specs/design.md) — the **canonical mechanism + schema** only. **NEVER create a standalone `docs/design/` file** (it violates the design.md-is-Spine kernel — D-228). When a design rests on heavy evidence (a cross-system code study, a benchmark), the design.md section holds the HOW and **links OUT**: deep evidence → a `docs/research/` note; the architectural choice → an [ADR](adr/). design.md is large (~3,200 lines) — link-out evidence, don't inline it. |
 | A stable rule / working-style / discipline | [`CLAUDE.md`](../CLAUDE.md) (rules only) |
 | Per-PR narrative, retrospective, meta-lesson | [`build-log.md`](journey/build-log.md) |
 | A research finding | a dated note in [`docs/research/`](research/) **+ update [`research/INDEX.md`](research/INDEX.md)** |
