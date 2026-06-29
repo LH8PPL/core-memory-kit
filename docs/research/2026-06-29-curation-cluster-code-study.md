@@ -146,6 +146,14 @@ The recurrence-camp chose it for reasons that map exactly onto our constraints:
 
 _Full per-system reads archived in the workflow outputs (w9v5s4ppm / wd482rr8e / wzhn03479) under the session task dir; counterpart counter-examples (memobase's write-only `update_hits`, langmem's prompt-text "strengthen", basic-memory's near-miss schema-frequency) are the honest negative evidence that keep this from being cherry-picked. D-229._
 
+### ADDENDUM 2 (2026-06-29) — the SYNTHESIS↔RECURRENCE BRIDGE study (D-230)
+
+**Why.** Task 151.3 had one open integration question: our trait is LLM-BORN (synthesized, doesn't pre-exist), but the 5 strong-yes systems gate a unit that PRE-EXISTS the LLM (a segment/cluster carrying its own count). How does the synthesized trait get a recurrence signal — does the LLM count (Option A), or does arithmetic select-then-LLM-synthesizes (Option B-strict)? A 6th workflow (wv99dhd5d, backed up to `C:\cut-gate-backups\task-151-design-restructure\bridge-study-151.3.json.bak`) code-read the gate→synthesis handoff of all 5.
+
+**UNANIMOUS (5/5): arithmetic counts + selects the unit; the LLM NEVER counts recurrence.** The count is always code/SQL-maintained, and 4/5 don't even pass the number into the LLM context (honcho explicitly strips `times_derived` from the rendered string; MemoryOS hands the LLM raw pages only, no heat). Per system: MemoryOS (`N_visit` SQL, heat ≥5.0 gate → `gpt_user_profile_analysis(unanalyzed_pages)`), honcho (`times_derived` SQL, `ORDER BY times_derived DESC` selects → LLM synthesizes, count never serialized), memclaw Forge (`len(cluster)≥3` gate → `_distill_cluster`, output schema has zero count fields), EverOS (`count(member_id)≥2` SQL gate → LLM merges), captain-claw (inverted: LLM authors first, then `dream_cycles_seen≥2` SQL matures — even the outlier never lets the LLM gate).
+
+**THE WIRING (cite-and-sum, B-strict via citation):** the classifier emits `PERSONA CANDIDATE | … | source_fact_ids=[…]` (cites the facts it drew from) — NOT a count; code resolves the ids, validates them against the corpus (reject hallucinated), **sums their `recurrence_count`**, and that sum gates promotion. **Rejected Option A** (LLM emits the count) — 5/5 reject LLM-counting; it reintroduces the bug. **The honest caveat:** the sum is deterministic but trait MEMBERSHIP is the LLM's grouping choice — acceptable (grouping coherent facts IS synthesis), but not the arithmetic-pre-clustering guarantee the 3/5 cluster systems have (we'd prefer that IF we had an embedding-cluster primitive pre-LLM; we don't, so cite-and-sum is the faithful pragmatic adaptation). Feeds design.md §20.1 + Task 151.3. D-230._
+
 ---
 
 _Full per-system code reads (functions, formulas, prompts quoted) are in the workflow output
