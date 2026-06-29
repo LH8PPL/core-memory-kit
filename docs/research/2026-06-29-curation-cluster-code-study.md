@@ -97,5 +97,56 @@ off-hot-path consolidation pass only.
 
 ---
 
+## ADDENDUM (2026-06-29) — the WIDE durability-earning study: 15 systems, the honest count (D-229)
+
+**Why this addendum.** The Task 151.3 promotion-gate decision (Option B: recurrence GATES promotion,
+the LLM only SYNTHESIZES the trait wording) needed validation at scale. The maintainer's bar: 5+
+real projects with a durability mechanism, *both* same-shape and different-shape, code-read — not
+note-summaries, not inflated. Three further workflows code-read 9 more systems on the BROAD question
+("how does a memory EARN durability — recurrence / LLM-judgment / trained-trust / pure-self-edit /
+event-time?"), giving a 15-system total.
+
+### The full table (15 systems)
+
+| System | Shape like us? | Durability earned by | Option-B parallel |
+| --- | --- | --- | --- |
+| **MemoryOS** | No (server/vec) | recurrence — heat `N_visit+L+R ≥ 5.0`, reset post-promote | ✅ strong-yes |
+| **memclaw** | Partial (git-ish, fleet) | recurrence — Forge cluster `≥3`, fail-closed | ✅ strong-yes |
+| **honcho** | No (Postgres/pgvector) | recurrence — `times_derived++` on cosine≥0.95, retrieval sorts by it | ✅ strong-yes |
+| **EverOS** | Mixed (markdown-first + server) | recurrence — consolidation cluster `count ≥ 2`, sorts by count | ✅ strong-yes |
+| **captain-claw** | Partial (SQLite, local, hook) | recurrence — `dream_cycles_seen ≥ 2` gates raw→mature | ✅ strong-yes |
+| **MemOS** | No | recurrence (`recording_count`, weight 0.05) + rerank (0.9) | ⚠️ partial — recurrence present, not dominant |
+| **graphiti** | No (Neo4j) | event-time validity (`valid_at`/`invalid_at`) | ❌ no |
+| **cognee** | No (graph DB) | one-pass LLM confidence ≥0.75 + harm veto | ❌ no |
+| **claude-mem** | ✅ YES (md+SQLite+hooks) | one-pass LLM keep/skip + recency injection | ❌ no — *and no persona tier* |
+| **memobase** | No (FastAPI/Postgres) | one-pass LLM UPDATE/APPEND/ABORT; `update_hits` exists but WRITE-ONLY (never read) | ❌ no |
+| **MIRIX** | No (multi-agent server) | pure LLM self-edit of core block (letta-lineage) | ❌ no |
+| **TencentDB** | Partial (openclaw plugin) | LLM-invented `priority:number` | ❌ no |
+| **letta** | No | pure LLM self-edit (`core_memory_append`) | ❌ no |
+| **langmem** | No | "strengthen by recency/reliability" = PROMPT TEXT, not code | ❌ no |
+| **basic-memory** | ✅ YES (md+git+MCP) | human-authored; NO promotion, NO recurrence column | ❌ no — punts entirely |
+
+### The honest count (do NOT inflate)
+
+- **5 strong-yes** parallels to Option B (MemoryOS, memclaw, honcho, EverOS, captain-claw) — **but NONE are our exact shape** (server/DB/SQLite systems that happen to use recurrence). + MemOS partial.
+- **Among systems actually shaped like us** (markdown/git/local: basic-memory, claude-mem, iwe, the awrshift/nestwork/pulse8/nt cluster): **ZERO auto-promote by recurrence.** Our two closest twins (basic-memory, claude-mem) have **no persona tier at all** — they punt on auto-promotion.
+- So: "5+ projects similar to us did B" is **FALSE**. The truth is two-layered: the mechanism is **proven across 5 diverse architectures**, but **our class hasn't done it** — we'd be **first** to apply recurrence-gated promotion in the markdown/local/single-user class.
+
+### Why recurrence is nonetheless the right call FOR US (the reasons the code revealed)
+
+The recurrence-camp chose it for reasons that map exactly onto our constraints:
+1. **Cost / no per-turn LLM** — memclaw's comment: floors are *"pre-filters before the LLM so we don't waste tokens on under-evidenced clusters."* We are NOT an observer-LLM architecture (cognee/claude-mem reuse their per-turn LLM as the gate for free — an economy we don't have); recurrence is free to compute.
+2. **No ritual (D-169)** — recurrence needs no human feedback signal (unlike the `helpful_count`/`report_outcome` the LLM-judged systems lean on, which we can't ask for).
+3. **Deterministic / fail-closed** — `heat ≥ 5.0` is auditable + reproducible; an LLM judging thin evidence hallucinates confidence (MemoryOS resets `N_visit=0` post-promote so durability must be *re-earned* — the anti-assertion thesis).
+4. **It is the precise fix for the v0.3.1 cold-open bug** — a *demonstrated-but-not-declared* philosophy was stranded by a PHRASING gate; an arithmetic recurrence gate catches it because **the evidence was in the recurrence, not the wording.**
+
+### Verdict (Task 151.3)
+
+**Proceed with Option B** — on the strength of (a) 5 diverse proven parallels for the *mechanism*, (b) the honest finding that our shape-class punts (so it's first-in-class, not me-too), and (c) the four reasons above that make recurrence the only free, ritual-free, deterministic durability signal available to a markdown/local/single-user kit. NOT claimed as a "5 similar projects" consensus — that claim does not survive the peer read; the real provenance is "the field's scoring systems converge on recurrence; our peers leave it on the table; we adapt it to lead our class, layered on safety they lack (Poison_Guard / conflict-queue / decision-trail)."
+
+_Full per-system reads archived in the workflow outputs (w9v5s4ppm / wd482rr8e / wzhn03479) under the session task dir; counterpart counter-examples (memobase's write-only `update_hits`, langmem's prompt-text "strengthen", basic-memory's near-miss schema-frequency) are the honest negative evidence that keep this from being cherry-picked. D-229._
+
+---
+
 _Full per-system code reads (functions, formulas, prompts quoted) are in the workflow output
 archived at `C:\cut-gate-backups\task-151-design-restructure\7-system-code-study.json.bak`._

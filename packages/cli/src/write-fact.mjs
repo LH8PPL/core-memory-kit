@@ -106,6 +106,12 @@ function buildFrontmatterObject(opts, computed) {
     created_at: computed.createdAt,
     write_source: opts.writeSource,
     trust: opts.trust,
+    // Task 151.1 (ADR-0016 / design §20.1): the capped-recurrence promotion
+    // signal. Starts at 1 on create; the duplicate-hit path bumps it when the
+    // SAME canonical fact re-surfaces (same content-hash id). A promotion fact,
+    // so it lives in committed frontmatter (diffable) — unlike trust_score,
+    // which moves on every recall and lives in the rebuildable index (D-218).
+    recurrence_count: computed.recurrenceCount ?? 1,
     source_file: opts.sourceFile,
     source_line: opts.sourceLine,
     source_sha1: opts.sourceSha1,
@@ -139,6 +145,27 @@ function readExistingFactId(path) {
   if (!existsSync(path)) return null;
   const { frontmatter } = parse(readFileSync(path, 'utf8'));
   return frontmatter?.id ?? null;
+}
+
+// Task 151.1 (ADR-0016 / design §20.1): a duplicate write = the SAME canonical
+// fact re-surfaced → bump its `recurrence_count` in place. Only the bumped fact
+// is touched (the over-mutation guard). Returns the new count, or null if the
+// file can't be read/parsed (best-effort: a re-surface bump must never turn a
+// successful no-op into an error).
+function bumpRecurrence(path) {
+  try {
+    const { frontmatter, body } = parse(readFileSync(path, 'utf8'));
+    if (!frontmatter) return null;
+    const current = Number.isInteger(frontmatter.recurrence_count)
+      ? frontmatter.recurrence_count
+      : 1; // pre-151 facts have no field → treat as 1, this re-surface makes 2
+    const next = current + 1;
+    frontmatter.recurrence_count = next;
+    writeFileSync(path, format({ frontmatter, body }), 'utf8');
+    return next;
+  } catch {
+    return null;
+  }
 }
 
 export function writeFact(opts = {}) {
@@ -211,15 +238,18 @@ export function writeFact(opts = {}) {
   const existingIdAtPath = readExistingFactId(path);
   if (existingIdAtPath !== null) {
     if (existingIdAtPath === id) {
+      // Task 151.1: the same canonical fact re-surfaced → bump recurrence_count.
+      const recurrenceCount = bumpRecurrence(path);
       appendAuditEntry(tierRoot, {
         ts: createdAt,
-        action: 'skipped',
+        action: 'recurrence',
         tier: opts.tier,
         id,
-        reasonCode: REASON_CODES.DUPLICATE,
+        reasonCode: REASON_CODES.RECURRENCE,
+        extra: { recurrenceCount },
         paths: { before: path },
       });
-      return { action: 'skipped', skipReason: 'duplicate', id, path };
+      return { action: 'skipped', skipReason: 'duplicate', id, path, recurrenceCount };
     }
     return errorResult({
       category: ERROR_CATEGORIES.COLLISION,
@@ -233,12 +263,15 @@ export function writeFact(opts = {}) {
 
   const elsewhere = findExistingFactById(factDir, id);
   if (elsewhere) {
+    // Task 151.1: re-surface via a different slug → bump the ORIGINAL fact.
+    const recurrenceCount = bumpRecurrence(elsewhere);
     appendAuditEntry(tierRoot, {
       ts: createdAt,
-      action: 'skipped',
+      action: 'recurrence',
       tier: opts.tier,
       id,
       reasonCode: REASON_CODES.DUPLICATE_ELSEWHERE,
+      extra: { recurrenceCount },
       paths: { before: elsewhere, after: path },
     });
     return {
@@ -247,6 +280,7 @@ export function writeFact(opts = {}) {
       id,
       path,
       duplicateAt: elsewhere,
+      recurrenceCount,
     };
   }
 
