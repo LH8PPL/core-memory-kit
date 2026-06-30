@@ -665,6 +665,22 @@ describe('Task 18 — injectContext() boundary', () => {
       }
     });
 
+    // -- Task 74 — injectContext is SOURCE-AGNOSTIC (post-compaction re-inject) --
+    // The SessionStart hook is matcher-less (cli-install-hooks pins that), and
+    // injectContext never reads the hook `source` field — so a SessionStart fired
+    // with source:"compact" runs the SAME path and re-injects the frozen snapshot.
+    // This pins the inject half of the compact-survival contract (D-218): memory
+    // returns regardless of WHY SessionStart fired.
+    it('74: injectContext builds the same snapshot regardless of trigger source (so a compact-fired SessionStart re-injects)', () => {
+      seedThreeTierFixture({ projectRoot, userDir });
+      const r = injectContext({ cwd: projectRoot, userDir });
+      // The frozen memory is present + IS the additionalContext — exactly what a
+      // post-compact SessionStart re-injects (no `source` gate anywhere).
+      expect(r.hookOutput.hookSpecificOutput.additionalContext).toBe(r.snapshot);
+      expect(r.snapshot.length).toBeGreaterThan(0);
+      expect(r.snapshot).toContain('user-about-marker'); // a real injected fact is back
+    });
+
     it('default install (seeds only) injects NO placeholder seed bullets or scaffolding (#R)', async () => {
       // Decision-trail (CLAUDE.md "Decision-trail preservation"):
       //
