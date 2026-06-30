@@ -8446,3 +8446,124 @@ _(retracted 2026-06-29)_
 
 **When:** 2026-06-29 · **Fact:** `P-JBDL39TN`
 **Why:** This design was the open question blocking 151.3. The 15-system study empirically validated it. Saving this prevents re-deriving the same analysis.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-FQNMDSZN -->
+
+## Resume point Task 151.4 (Move 2 demote-not-evict)
+
+**When:** 2026-06-30 · **Fact:** `P-FQNMDSZN`
+
+<!-- decision:P-U3JGW7WP -->
+
+## Memory Commit Workflow — Hygiene & Privacy Validation
+
+**When:** 2026-06-30 · **Fact:** `P-U3JGW7WP`
+**Why:** Memory system integrity requires clean signal separation, privacy assurance, and gitignore discipline.
+
+<!-- decision:P-ZVBQV4NG -->
+
+## Persona Tier-U Cap Relief — Condense In Place (151.4)
+
+**When:** 2026-06-30 · **Fact:** `P-ZVBQV4NG`
+**Why:** Cap overflow + invisibility at cold-open was a real bug (confirmed pre-fix). In-place condense preserves tier-U visibility.
+
+<!-- decision:P-WG2UHVZX -->
+
+## Resume point Task 151.7 (trust update rule)
+
+**When:** 2026-06-30 · **Fact:** `P-WG2UHVZX`
+
+<!-- decision:P-ZTaNPL3T -->
+
+## Decision Logging in Task Entries
+
+**When:** 2026-06-30 · **Fact:** `P-ZTaNPL3T`
+**Why:** Preserves reasoning across sessions; prevents re-deriving the same design decision or losing dependency chains that feed into later work.
+
+<!-- decision:P-7D2GKaBC -->
+
+## Memory System Dogfooding — Internal Use as Test Case
+
+**When:** 2026-06-30 · **Fact:** `P-7D2GKaBC`
+**Why:** Ensures the memory system works for real workflows and scale, not just theory; dogfooding drives product design and reveals gaps.
+
+<!-- decision:P-S2SHMDGK -->
+
+## Research-Faithful Design in Sweep Order Implementation
+
+**When:** 2026-06-30 · **Fact:** `P-S2SHMDGK`
+**Why:** Grounding design decisions in research rather than intuition produces more robust, maintainable systems; research captures known best practices.
+
+<!-- decision:P-SZE7EEYa -->
+
+## Vitest Pool Corruption — Transient Load Failures
+
+**When:** 2026-06-30 · **Fact:** `P-SZE7EEYa`
+**Why:** Distinguishes transient vitest infrastructure issues from real code failures; prevents false-alarm debugging when all loads fail but no actual tests fail.
+
+<!-- decision:P-MY66RUPW -->
+
+## Documentation Architecture — Authoritative Files and Verification Checklist
+
+**When:** 2026-06-30 · **Fact:** `P-MY66RUPW`
+**Why:** Complete doc trail prevents shipping with missing context. CHANGELOG is particularly easy to miss when features are mostly internal mechanism, but recurrence promotion + persona persistence ARE user-visible.
+
+<!-- decision:P-aAPTRPN4 -->
+
+## Release Lane Independence Pattern
+
+**When:** 2026-06-30 · **Fact:** `P-aAPTRPN4`
+**Why:** Allows efficient release batching (multiple independent features per version) while maintaining clear traceability, decision ownership, and accountability per task.
+
+<!-- decision:P-PKQY4FNJ -->
+
+## Resume point Task 151.13 (last 151 sub-task)
+
+**When:** 2026-06-30 · **Fact:** `P-PKQY4FNJ`
+
+<!-- decision:P-YRNXAYa9 -->
+
+## Resume point v0.4.3 pre-merge (code-complete)
+
+**When:** 2026-06-30 · **Fact:** `P-YRNXAYa9`
+
+<!-- decision:P-L3X6TPYY -->
+
+## npm run stress — Transient Flake and Fresh-Run Workaround
+
+**When:** 2026-06-30 · **Fact:** `P-L3X6TPYY`
+**Why:** Tool quirk affecting pre-merge gate reliability; must rule out false negatives
+
+<!-- decision:P-ZZ3GYLUY -->
+
+## Two Minor Review Fixes (Commit 9d785d3)
+
+**When:** 2026-06-30 · **Fact:** `P-ZZ3GYLUY`
+**Why:** Resolved minor review findings; ensures consistent initialization and resource efficiency
+
+<!-- decision:P-NLDPRW9Z -->
+
+## Whole-Branch Architecture Verification Passed
+
+**When:** 2026-06-30 · **Fact:** `P-NLDPRW9Z`
+**Why:** Holistic coherence check required before merge to confirm integration is sound
+
+<!-- decision:P-JHCFGZ7U -->
+
+## Manual Verification Gates for Tasks 74 and 151
+
+**When:** 2026-06-30 · **Fact:** `P-JHCFGZ7U`
+**Why:** Features depend on runtime agent/session state that cannot be simulated. Honest caveats prevent over-claiming automation; live verification required before production.
+
+<!-- decision:P-LLZZSBP3 -->
+
+## Release Workflow and Commands for Production
+
+**When:** 2026-06-30 · **Fact:** `P-LLZZSBP3`
+**Why:** Multi-step release with specific tooling; npm script is canonical (prevents hand-edits). Tag push triggers automated CI. Stress test must pass 5/5 before merge.

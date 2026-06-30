@@ -8,18 +8,18 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-EM6G7Q53) Prefers to limit research scope and skip deep-reading when signal-to-noise is low, rather than invest heavily in all candidates.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 1b0bd7aec0713360ebe971136b78b673412de40e5f20e224699dbdac8ed7acea, write: auto-extract, trust: high, at: 2026-06-29T12:46:34Z -->
-- (P-A6RZGSWP) User confirms v0.4.3 (Task 151 persona-promotion redesign) as next release target
-  <!-- source: auto-extract-session, source_line: 1, sha1: dc5605480b53802cec07a97f90e8626e245426bb123369ddb3be1acbe839a133, write: auto-extract, trust: high, at: 2026-06-29T13:08:49Z -->
-- (P-EENQ2YUU) Expects complete research backing, not partial examples — flagged incomplete 2-system answer
-  <!-- source: auto-extract-session, source_line: 1, sha1: fcdf205877dec63d175a8c97c0c38f7f67da7657f2c706b3cbf07839960c9bc8, write: auto-extract, trust: high, at: 2026-06-29T13:14:58Z -->
-- (P-WKC2NJCT) chose "two fields" for persona promotion (recurrence-heat for promotion, outcome-trust for protection)
-  <!-- source: auto-extract-session, source_line: 1, sha1: dc1209bd38310cd08ad77dd07f8e6246ec47ab1dd0774446c878e740d2e73bf0, write: auto-extract, trust: high, at: 2026-06-29T13:48:15Z -->
-- (P-X95HB2BQ) User doesn't recall ADR-0016 specifics; gap in persistent context around gate/LLM role separation design.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 96487450200ba9ba230151cda51905b5da64acfc2a15e0219f291d50804b4384, write: auto-extract, trust: high, at: 2026-06-29T16:46:30Z -->
-- (P-EDXCNY3L) User's standing directive — document all major decisions/workflow in the Spine (design.md, ADRs, research notes, tasks.md); authoritative docs supersede memory-only for cross-session durability.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 2efc57b77c740c96c233510efb37bfc6c233d791880145c95c0bdb5ebd9ae867, write: auto-extract, trust: high, at: 2026-06-29T21:23:07Z -->
+- (P-7PPKYDGG) User conceptualizes memory linking as a graph structure ("isn't this like the start of graph for our memories?").
+  <!-- source: review-promote, source_line: 1, sha1: 473782b980995f1c7991f3ac0cd58bb29ce959c896db0da126072024df2b402d, write: user-explicit, trust: high, at: 2026-06-30T20:00:01Z -->
+- (P-Y3P5YUE6) Gathers research from multiple sources (articles, URLs) and shares collections with synthesis requests before committing task updates.
+  <!-- source: review-promote, source_line: 1, sha1: a0da9400b4d4c67edf30efa83789f91a36f78cf58075ba97fbef78d3bcc64937, write: user-explicit, trust: high, at: 2026-06-30T20:00:02Z -->
+- (P-MJW2TBYQ) Proceeding with full `patent` installation over manual registry sweep option (inferred from "what now?" after two-choice offer)
+  <!-- source: review-promote, source_line: 1, sha1: 6e7e4926ec2a2ae51c2f6a037485aff9d17aa3b93b2cb0d2f2985dcbe811686d, write: user-explicit, trust: high, at: 2026-06-30T20:00:03Z -->
+- (P-RHJaAYYU) 151.4 shipped (8390c33); persona tier-U cap-relief bug fixed + CRLF regression-tested; 2419/2419 tests green.
+  <!-- source: review-promote, source_line: 1, sha1: af9aa3f759ea89909da07095ce8bb40413dc3b95de781b099efeaae80f96d7f8, write: user-explicit, trust: high, at: 2026-06-30T20:00:04Z -->
+- (P-QLCRTNWP) Next: 151.5 (sweep order — low-trust-AND-stale first, high-trust persona never swept), feeds into trust_score field.
+  <!-- source: review-promote, source_line: 1, sha1: e83eb48553889662aed64f941c801dd97b7df957dbcf672d434dd1a529688aeb, write: user-explicit, trust: high, at: 2026-06-30T20:00:05Z -->
+- (P-a4NCHA2J) Commit 9d785d3 applied two minor fixes (recurrence-default consistency, per-call DB-open optimization); suite 2479/2479 green; stress 5/5 final gate in progress
+  <!-- source: review-promote, source_line: 1, sha1: d2e88c12cc63b4604f167e068e7c407c3bcb24beb54f6c1412e07f526b15a40b, write: user-explicit, trust: high, at: 2026-06-30T20:00:05Z -->
 
 ## Environment Notes
 
