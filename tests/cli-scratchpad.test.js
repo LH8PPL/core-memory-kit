@@ -432,6 +432,66 @@ describe('Task 12 — appendScratchpadBullet() boundary', () => {
 
       expect(r.bulletsConsolidated).toBe(3);
     });
+
+    // -- Task 151.5 — sweep ORDER on the WRITE surface (ADR-0016 §20.3) ---------
+    // The research-faithful sweep is a CONJUNCTION (low-trust AND long-unaccessed);
+    // high-trust is exempt at any age. Within the swept (stale, non-high) set, the
+    // LOW-trust bullets evict BEFORE the medium-trust ones — value-ordered, not the
+    // value-BLIND single-axis sweep (MemoryOS-LFU / MemOS-top-N) the research flags
+    // as the Task-151 bug. The eviction ORDER is observable via the archive (which
+    // records dropped bullets in eviction order). NOTE: keyed on the `trust` ENUM +
+    // capture-age today; 151.6 upgrades both axes to the real trust_score + access.
+    it('151.5: within the stale swept set, LOW-trust evicts before MEDIUM; high + recent survive (over-mutation)', () => {
+      const stale = '2026-04-01T00:00:00Z'; // >14d old (now 2026-05-24)
+      const recent = '2026-05-20T00:00:00Z'; // <14d old
+      const mkBullet = (id, at, trust) =>
+        `- (${id}) bullet ${id}\n  <!-- source: x.md, source_line: 1, sha1: ${'a'.repeat(40)}, write: manual-edit, trust: ${trust}, at: ${at} -->`;
+
+      const file = [
+        '<!--', 'Cap: 2500 chars.', 'Last distilled: 2026-05-24.', 'Last health check: 2026-05-24.', '-->',
+        '', '# Working Memory', '', '## Active Threads',
+        // File order is MEDIUM-before-LOW on purpose — so a file-order eviction
+        // would put medium first and FAIL the assertion below. Only the value
+        // SORT (low-trust first) makes low precede medium in the archive.
+        mkBullet('P-STLMEDA2', stale, 'medium'),
+        mkBullet('P-STLMEDB2', stale, 'medium'),
+        mkBullet('P-STLLWA2', stale, 'low'),
+        mkBullet('P-STLLWB2', stale, 'low'),
+        mkBullet('P-STLHGHA2', stale, 'high'), // exempt (high) — must survive
+        mkBullet('P-NEWLWA2', recent, 'low'), // recent low — must survive (not stale)
+        '', '## Environment Notes', '', '## Pending Decisions', '',
+      ].join('\n');
+      writeFileSync(memoryMd, file, 'utf8');
+      writeFileSync(
+        join(projectRoot, 'context', 'settings.json'),
+        JSON.stringify({ scratchpads: { 'MEMORY.md': { max_chars: 1500 } } }),
+        'utf8',
+      );
+
+      const r = appendScratchpadBullet(validBulletOpts({ projectRoot }));
+      expect(r.action).toBe('appended');
+      expect(r.consolidationRan).toBe(true);
+      const after = readFileSync(memoryMd, 'utf8');
+
+      // Over-mutation guard: high-trust + recent-low SURVIVE; only stale non-high go.
+      expect(after).toContain('P-STLHGHA2'); // high exempt
+      expect(after).toContain('P-NEWLWA2'); // recent (not long-unaccessed)
+      expect(after).not.toContain('P-STLLWA2');
+      expect(after).not.toContain('P-STLLWB2');
+      expect(after).not.toContain('P-STLMEDA2');
+      expect(after).not.toContain('P-STLMEDB2');
+
+      // The eviction ORDER (archive) puts the LOW-trust bullets before the MEDIUM.
+      const archive = readFileSync(
+        join(projectRoot, 'context', 'memory', 'archive', 'evicted-bullets.md'),
+        'utf8',
+      );
+      const firstLow = Math.min(archive.indexOf('P-STLLWA2'), archive.indexOf('P-STLLWB2'));
+      const lastMed = Math.max(archive.indexOf('P-STLMEDA2'), archive.indexOf('P-STLMEDB2'));
+      expect(firstLow).toBeGreaterThan(-1);
+      expect(lastMed).toBeGreaterThan(-1);
+      expect(firstLow).toBeLessThan(lastMed); // every low precedes the last medium
+    });
   });
 
   describe('cap relief: consolidation, then graduation (task 12.5 + Task 91)', () => {

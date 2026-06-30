@@ -502,6 +502,10 @@ function truncateTierToBudget(blockText, budget, valueById = new Map()) {
   // Drop order: lowest aggregate trust first → oldest first → later-in-file
   // first (the legacy tail tiebreak, so equal-value blocks still drop from the
   // end). High-value sections are evicted only after everything cheaper is gone.
+  // 151.5: this IS the value-ordered sweep (high-trust survives, low-trust drops
+  // first) — the inject half of ADR-0016 §20.3. 151.6: re-evaluate — when the real
+  // `trust_score` FLOAT + a last-access signal land, rank on those (continuous
+  // score + true access) instead of the `maxTrust` enum + `maxAtMs` capture-age.
   const dropOrder = [...sections].sort(
     (a, b) =>
       a.maxTrust - b.maxTrust ||

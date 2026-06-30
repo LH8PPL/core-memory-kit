@@ -227,6 +227,16 @@ export function ensureSectionExists(scratchpadPath, sectionTitle) {
 
 const EVICTED_ID_RE = /^- \(([PUL]-[A-Za-z0-9]+)\)/;
 
+// Sweep order (Task 151.5, ADR-0016 §20.3): within the stale, non-high swept
+// set, LOW-trust evicts before MEDIUM — value-ordered, not the value-BLIND
+// single-axis sweep (MemoryOS-LFU / MemOS-top-N) the research flags as the
+// Task-151 bug. The drop GATE stays a two-axis CONJUNCTION (not-high AND stale);
+// this only orders the eviction LIST (→ the archive + audit order), so a
+// debugger / a future partial-drop sees the cheapest bullets first.
+// 151.6: re-evaluate — keyed on the `trust` ENUM + capture-age today; when the
+// real trust_score FLOAT + a last-access signal land, key on those instead.
+const CONSOLIDATE_TRUST_ORDER = { low: 0, medium: 1, high: 2 };
+
 function consolidate(text, { nowDate }) {
   const lines = text.split(/\r?\n/); // Task 139: CRLF-tolerant
   const removeIdx = new Set();
@@ -253,14 +263,28 @@ function consolidate(text, { nowDate }) {
     removeIdx.add(i + 1);
     // Task 91.2: capture the dropped bullet so the caller can ARCHIVE it
     // (recoverable, per the §6.5 tombstone principle) instead of hard-deleting.
+    // Carry trust + age so the eviction list can be value-ordered (151.5).
     const idMatch = bulletLine.match(EVICTED_ID_RE);
-    evicted.push({ id: idMatch ? idMatch[1] : 'unknown', block: `${bulletLine}\n${commentLine}` });
+    evicted.push({
+      id: idMatch ? idMatch[1] : 'unknown',
+      block: `${bulletLine}\n${commentLine}`,
+      trust: prov.trust,
+      atMs: at.getTime(),
+    });
     bulletsRemoved++;
   }
 
   if (removeIdx.size === 0) {
     return { text, bulletsRemoved: 0, evicted: [] };
   }
+  // 151.5: order the eviction list LOW-trust first, then OLDEST first (the
+  // "long-unaccessed" axis, capture-age proxy until 151.6). The file removal
+  // (removeIdx) is unchanged — only the archive/audit order reflects value.
+  evicted.sort(
+    (a, b) =>
+      (CONSOLIDATE_TRUST_ORDER[a.trust] ?? 1) - (CONSOLIDATE_TRUST_ORDER[b.trust] ?? 1) ||
+      a.atMs - b.atMs,
+  );
   const out = lines.filter((_, i) => !removeIdx.has(i)).join('\n');
   return { text: out, bulletsRemoved, evicted };
 }
