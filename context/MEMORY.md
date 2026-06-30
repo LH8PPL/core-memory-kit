@@ -8,16 +8,18 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-FHAULU6M) Current session is test/gate data only ("not really me"); proceeding with v0.4.1 publication, implicit acceptance of discarding this tier data rather than restoring backup
-  <!-- source: auto-extract-session, source_line: 1, sha1: 13c9c832e37b9e4004ff0bf4748ba80a67c7e0846ab3cf2d13ac7b482f8e196c, write: auto-extract, trust: high, at: 2026-06-28T11:08:45Z -->
-- (P-Na6U7TPJ) Injection (passive, session-start auto-load) and active recall (user-initiated search) are distinct mechanisms, not the same thing. Both deserve separate mention in the kit's pitch.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 046b07c560472f8984457fd4d64f2bb947b6ee47df859942cf7c59cff756c983, write: auto-extract, trust: high, at: 2026-06-28T11:56:30Z -->
-- (P-LCYCaKMS) User pushed back on dropping "relevant" from product pitch—values precision over brevity when word conveys technical distinction.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 0179a37b9b8c06b2e1e86dc0908507abfd154ff6d4f4e07be8351bcb60dd7e01, write: auto-extract, trust: high, at: 2026-06-28T11:58:38Z -->
-- (P-M7EGA36Z) Requesting documentation of current session state before auto-context-compaction (housekeeping intent)
-  <!-- source: auto-extract-session, source_line: 1, sha1: b384fdd4a82bd75692b67dadc132598aa0559097024bf1ab4211696ae24eed65, write: auto-extract, trust: high, at: 2026-06-28T17:35:35Z -->
-- (P-G69aAGXa) Proposing to merge PR #243 now and bundle both #29 and #151 into single v0.4.3 release (not create v0.4.4 for #29 alone)
-  <!-- source: auto-extract-session, source_line: 1, sha1: 204eeda9b90738ac055022b96a78da85ac5f165695d5d30c15b77d9d8cf42aae, write: auto-extract, trust: high, at: 2026-06-28T17:36:47Z -->
+- (P-EM6G7Q53) Prefers to limit research scope and skip deep-reading when signal-to-noise is low, rather than invest heavily in all candidates.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 1b0bd7aec0713360ebe971136b78b673412de40e5f20e224699dbdac8ed7acea, write: auto-extract, trust: high, at: 2026-06-29T12:46:34Z -->
+- (P-A6RZGSWP) User confirms v0.4.3 (Task 151 persona-promotion redesign) as next release target
+  <!-- source: auto-extract-session, source_line: 1, sha1: dc5605480b53802cec07a97f90e8626e245426bb123369ddb3be1acbe839a133, write: auto-extract, trust: high, at: 2026-06-29T13:08:49Z -->
+- (P-EENQ2YUU) Expects complete research backing, not partial examples — flagged incomplete 2-system answer
+  <!-- source: auto-extract-session, source_line: 1, sha1: fcdf205877dec63d175a8c97c0c38f7f67da7657f2c706b3cbf07839960c9bc8, write: auto-extract, trust: high, at: 2026-06-29T13:14:58Z -->
+- (P-WKC2NJCT) chose "two fields" for persona promotion (recurrence-heat for promotion, outcome-trust for protection)
+  <!-- source: auto-extract-session, source_line: 1, sha1: dc1209bd38310cd08ad77dd07f8e6246ec47ab1dd0774446c878e740d2e73bf0, write: auto-extract, trust: high, at: 2026-06-29T13:48:15Z -->
+- (P-X95HB2BQ) User doesn't recall ADR-0016 specifics; gap in persistent context around gate/LLM role separation design.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 96487450200ba9ba230151cda51905b5da64acfc2a15e0219f291d50804b4384, write: auto-extract, trust: high, at: 2026-06-29T16:46:30Z -->
+- (P-EDXCNY3L) User's standing directive — document all major decisions/workflow in the Spine (design.md, ADRs, research notes, tasks.md); authoritative docs supersede memory-only for cross-session durability.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 2efc57b77c740c96c233510efb37bfc6c233d791880145c95c0bdb5ebd9ae867, write: auto-extract, trust: high, at: 2026-06-29T21:23:07Z -->
 
 ## Environment Notes
 

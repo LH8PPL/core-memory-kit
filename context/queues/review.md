@@ -1,21 +1,9 @@
-## 2026-06-28T07:05:43Z — auto-extract (medium-trust, pending review)
-- (P-ZYQVKVHZ) user's established practice is to run a cut-gate (full live verification) before tagging releases
-  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-28T07:05:43Z -->
-## 2026-06-28T07:09:12Z — auto-extract (medium-trust, pending review)
-- (P-BFVNEYaQ) User questioned the decision to mirror npm README to root's lean structure, implying they value npm page being comprehensive/standalone for its audience rather than a consistent-but-thin front door.
-  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-28T07:09:12Z -->
-## 2026-06-28T11:50:34Z — auto-extract (medium-trust, pending review)
-- (P-6HFUXBJN) Chose to finish the publish before updating About/topics, prioritizing critical work over cosmetic refinements.
-  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-28T11:50:34Z -->
-## 2026-06-28T12:18:31Z — auto-extract (medium-trust, pending review)
-- (P-BR5RAVUF) CI gates merge decisions; red CI blocks merging.
-  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-28T12:18:31Z -->
-## 2026-06-28T12:18:31Z — auto-extract (medium-trust, pending review)
-- (P-5KL5UKaE) Better-sqlite3 is a native binary; test changes before merge.
-  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-28T12:18:31Z -->
-## 2026-06-28T12:18:31Z — auto-extract (medium-trust, pending review)
-- (P-XZ469SEJ) Project uses Dependabot for automated dependency bumps.
-  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-28T12:18:31Z -->
-## 2026-06-28T17:36:47Z — auto-extract (medium-trust, pending review)
-- (P-Ba5UKVX6) Preference for bundling related fixes into fewer releases rather than creating separate versions for individual fixes
-  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-28T17:36:47Z -->
+## 2026-06-29T07:28:49Z — auto-extract (medium-trust, pending review)
+- (P-7PPKYDGG) User conceptualizes memory linking as a graph structure ("isn't this like the start of graph for our memories?").
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-29T07:28:49Z -->
+## 2026-06-29T11:32:36Z — auto-extract (medium-trust, pending review)
+- (P-Y3P5YUE6) Gathers research from multiple sources (articles, URLs) and shares collections with synthesis requests before committing task updates.
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-29T11:32:36Z -->
+## 2026-06-29T12:22:34Z — auto-extract (medium-trust, pending review)
+- (P-MJW2TBYQ) Proceeding with full `patent` installation over manual registry sweep option (inferred from "what now?" after two-choice offer)
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-29T12:22:34Z -->
