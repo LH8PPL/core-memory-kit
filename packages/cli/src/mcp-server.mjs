@@ -411,7 +411,12 @@ function makeMkTrust({ projectRoot, userDir }) {
 
 function makeMkLessonsPromote({ projectRoot, userDir }) {
   return async ({ id, to }) => {
-    const r = lessonsPromote({ id, projectRoot, userDir, to: to ?? 'LESSONS.md' });
+    // 151.9: pass `to` THROUGH (undefined when the caller omits it) so the offline
+    // TOPIC-router spreads the promote across USER/HABITS/LESSONS by content. The
+    // old `to ?? 'LESSONS.md'` forced every MCP-driven promote into LESSONS,
+    // bypassing the router (Hole C) — and the MCP path is the PRIMARY one (Claude
+    // drives the kit via the tool, not the CLI). An explicit `to` still wins.
+    const r = lessonsPromote({ id, projectRoot, userDir, to });
     if (r.action !== 'promoted' && r.action !== 'queued') return mcpToolError(r);
     return {
       content: [{ type: 'text', text: JSON.stringify(
@@ -421,6 +426,10 @@ function makeMkLessonsPromote({ projectRoot, userDir }) {
           id: r.id,
           target: r.target,
           section: r.section,
+          // 151.11: surface the optional high-recurrence MENTION so Claude MAY
+          // relay it in conversation (a heads-up, NOT a gate — never blocks; only
+          // present when the fact recurred enough to be worth a word).
+          ...(r.mention ? { mention: r.mention } : {}),
           ...(r.action === 'queued'
             ? { status: 'queued', hint: 'Promotion routed to the user-tier review/conflict queue — it lands once resolved.' }
             : {}),

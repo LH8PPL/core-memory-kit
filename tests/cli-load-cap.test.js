@@ -155,10 +155,15 @@ describe('Task 94 — load-cap, not write-cap (§19 / D-61)', () => {
     }
   });
 
-  it('94.2: a USER-tier scratchpad that fills GRADUATES to the user-tier fact store (not just project)', () => {
-    // The persona write-lock from cut-gate2 §6 (D-60): graduation was project-
-    // MEMORY.md-only. 94.2 lifts the gate so the user tier graduates too, into
-    // its OWN fact store (userDir/memory/), keeping the never-lose invariant.
+  it('94.2 → 151.4: a FULL USER-tier persona CONDENSES in place — never graduates to fragments (Hole B)', () => {
+    // DECISION TRAIL: 94.2 (D-60/D-61) originally lifted graduation to the user
+    // tier so the persona "graduated too" into userDir/fragments/ — keeping the
+    // never-lose-memory invariant. That mechanism turned out to BE Hole B: inject-
+    // context never reads fragments/, so a promoted high-trust trait graduated
+    // there VANISHED at cold-open. Task 151.4 (ADR-0016 §20.3) KEEPS 94.2's intent
+    // (never lose) but CHANGES the mechanism for the persona tier: CONDENSE in
+    // place + let the file grow past the inject budget (load-cap), NEVER graduate
+    // a persona trait out. So this test now asserts the inverse of the original.
     const userDir = join(sandbox, 'user-tier');
     mkdirSync(userDir, { recursive: true });
     writeFileSync(join(userDir, 'LESSONS.md'), buildLessonsMd({ targetBytes: 1100 }), 'utf8');
@@ -178,15 +183,13 @@ describe('Task 94 — load-cap, not write-cap (§19 / D-61)', () => {
     });
 
     expect(r.action).toBe('appended');
-    expect(r.bulletsGraduated).toBeGreaterThan(0); // graduation FIRED on the user tier
+    // 151.4: NOTHING graduates out of the persona.
+    expect(r.bulletsGraduated ?? 0).toBe(0);
 
-    // Door 2: graduated to the USER-tier fact store (userDir/fragments/ — the
-    // user-tier equivalent of the project's context/memory/), not the project one.
-    const userFactDir = join(userDir, 'fragments');
-    expect(existsSync(userFactDir)).toBe(true);
-    const userFacts = readdirSync(userFactDir).filter((f) => f.endsWith('.md') && f !== 'INDEX.md');
-    expect(userFacts.length).toBeGreaterThan(0);
-    // The new bullet still landed (never lost).
+    // Door 2: NO fragments/ file was created (the Hole-B eviction target).
+    expect(existsSync(join(userDir, 'fragments'))).toBe(false);
+    // The new bullet landed AND stays in the injected file (never lost, never
+    // demoted to an un-injected store).
     expect(readFileSync(join(userDir, 'LESSONS.md'), 'utf8')).toContain('always run the linter before pushing');
   });
 

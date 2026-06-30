@@ -119,6 +119,26 @@ The v0.4.1 headline is robustness: **the now.md-roll cron-liveness fix (Task 167
 
 **The honest note for NR1:** the heal is automatic but ASYNCHRONOUS — the SessionStart hook spawns a DETACHED roll (a real Haiku roll is 18–37 s, > the 30 s hook ceiling, so it can't be synchronous — D-208). `npm run live-verify:now-roll` waits for the detached child, exactly as the next real session would find it. Do NOT expect `now.md` to be drained the instant the hook returns.
 
+### Also new in v0.4.3 — the persona-promotion redesign gates (Task 151 + 70.4)
+
+The v0.4.3 headline is the **persona-promotion redesign** (Task 151, ADR-0016): a cross-project trait earns the user-tier persona by **RECURRENCE**, not by phrasing — and a full persona never **strands** a promoted trait at cold-open. Four moves + two riders (70.4 security, 74 verify-and-lock-in). The new gates (all live-verified in a throwaway sandbox during the v0.4.3 cut):
+
+| Check | Move | What it verifies | Reachability |
+| --- | --- | --- | --- |
+| **★ PR1** | Move 1 — recurrence gate | a re-stated rich fact bumps `recurrence_count` 1→2 + logs a `recurrence` audit line (the earned promotion signal) | CLI, deterministic |
+| **★ PR2** | Move 2 — demote-not-evict | a USER-tier persona over cap **CONDENSES** in place (keeps every bullet) — NEVER graduates to un-injected `fragments/` (the Hole-B cold-open bug) | CLI, deterministic |
+| **★ PR3** | Move 3 — evolving trust | a pre-151 index gains the `trust_score` column on `cmk search` — **non-destructive**, no crash (the migration). The score VALUE + evolution is **suite-covered-only** (no CLI/MCP readout by design) | CLI (migration only) |
+| **★ PR4** | Move 4 — topic-routing | three no-`--to` `cmk lessons promote` of three differently-shaped facts land in **three DIFFERENT** files (USER/HABITS/LESSONS), not all in LESSONS (fixes Hole C) | CLI, deterministic |
+| **★ PR5** | 70.4 — Unicode block | `cmk remember` with a real U+200B (zero-width) → **rejected (exit 2)**, nothing written, Door-4 log line with the span `***`-redacted; an ordinary-space control writes fine | CLI, deterministic |
+
+**Three honest MANUAL flags (LLM-driven — NOT CLI-assertable, the D-84 live-test rule):**
+
+- **The promotion GATE itself** (`cmk persona generate` → a medium trait promotes iff its cited facts' recurrence sums ≥ 3) only fires after a **live Haiku** classification produces `PERSONA CANDIDATE` lines with `source_fact_ids`. PR1 proves the *signal* (the count bumps); the *gate* is a manual live-Haiku session — confirm a recurrence-gated promote shows `(via recurrence-N)` in the audit trail.
+- **The optional warmth MENTION** (Move 4): the heads-up rides the `mk_lessons_promote` MCP envelope, but the **CLI swallows it** — and whether Claude actually *speaks* it in conversation is LLM-driven. Confirm in a live MCP session; do not claim verified for the spoken layer.
+- **The MCP write path** (`mk_remember`) for the Unicode block — PR5 covers the CLI write path; the MCP tool is driven by Claude in a live session.
+
+**The honest note for PR3:** `trust_score` is an INTERNAL index column with **zero** user-facing readout — no `cmk` command, no MCP tool prints it (`mk_trust` mutates the committed `trust` ENUM, a different field; inject + sweep rank on the enum by design, D-238). PR3 asserts only the COLUMN MIGRATION (the one CLI-observable effect); the score arithmetic + the dampen/reinforce evolution are covered by `cli-trust-score.test.js` + `cli-trust-signal.test.js` (direct-sqlite assertions the suite owns). Do NOT look for a score readout — there isn't one.
+
 ---
 
 ## 0. Cut the release locally, then build the REAL artifact
@@ -653,6 +673,102 @@ CLI suite structurally can't cover (Claude is in the loop).
 
 ---
 
+## 4d. The persona-promotion redesign (Task 151 + 70.4)  ⬅️ the v0.4.3 headline
+
+> Each probe below runs in a **throwaway sandbox** (`C:\temp\…` + a sandbox `MEMORY_KIT_USER_DIR`) against the **current-repo** binary (`node packages\cli\bin\cmk.mjs`), never the global `cmk` and never your real `context/` or `~\.claude-memory-kit`. All five were live-verified during the v0.4.3 cut.
+
+- [ ] **★ PR1 — a re-stated fact bumps `recurrence_count` (Move 1 — the earned promotion signal).**
+      The recurrence path lives ONLY in the **rich** write (`writeFact`), so the remember MUST carry a rich flag (`--why`/`--how`/`--type`/`--title`) — a *bare* `cmk remember "text"` writes an id-less `MEMORY.md` bullet and never bumps. Run the **byte-identical** rich remember **twice**:
+      ```powershell
+      $repo='C:\Projects\claude-memory-kit'; $bin="$repo\packages\cli\bin\cmk.mjs"
+      $sand="C:\temp\cmk-pr1"; $proj="$sand\proj"; Remove-Item -Recurse -Force $sand -EA SilentlyContinue
+      New-Item -ItemType Directory -Force "$proj","$sand\user" | Out-Null
+      $env:MEMORY_KIT_USER_DIR="$sand\user"; Push-Location $proj; git init | Out-Null
+      node $bin remember 'recurrence gate probe fact' --why 'the gate counts re-surfaces' --title 'recurrence gate probe' --type feedback
+      node $bin remember 'recurrence gate probe fact' --why 'the gate counts re-surfaces' --title 'recurrence gate probe' --type feedback
+      Pop-Location
+      $fact="$proj\context\memory\feedback_recurrence-gate-probe.md"
+      Select-String -Path $fact -Pattern 'recurrence_count:'                                   # → 2
+      (Get-ChildItem "$proj\context\memory" -Filter 'feedback_*.md').Count                     # → 1 (over-mutation guard)
+      Select-String -Path "$proj\context\.locks\audit.log" -Pattern '"action":"recurrence".*"recurrenceCount":2'
+      ```
+      **PASS:** the fact frontmatter shows `recurrence_count: 2`; **exactly one** `feedback_*.md` file exists (the 2nd identical remember did NOT create a fresh file); the audit log has a line with `"action":"recurrence"` + `"recurrenceCount":2`. **FAIL:** count stays 1, OR a second file appears (the id didn't match → the texts weren't byte-identical).
+      _(The 2nd remember hits the same content-addressed id → `bumpRecurrence` rewrites the file in place. STDOUT prints only `already captured (duplicate) [P-…]` — the count is observable in the file + audit line ONLY, never echoed. A single remember = `recurrence_count: 1`, zero recurrence audit lines: the trivial-path control.)_
+
+- [ ] **★ PR2 — a USER-tier persona over cap CONDENSES, never strands (Move 2 — the Hole-B fix).**
+      Seed `USER.md` with real high-trust bullets past its cap, drop the cap below the on-disk size, then run the real SessionEnd handler. The persona must keep **every** bullet and create **no** `fragments/` fact (the un-injected store that caused the v0.3.1 cold-open bug).
+      ```powershell
+      $repo='C:\Projects\claude-memory-kit'; $u='C:\temp\cmk-pr2\user'; $p='C:\temp\cmk-pr2\proj'
+      Remove-Item -Recurse -Force C:\temp\cmk-pr2 -EA SilentlyContinue
+      New-Item -ItemType Directory -Force $u,$p | Out-Null; Set-Location $p; git init | Out-Null
+      $env:MEMORY_KIT_USER_DIR=$u; $env:CMK_PROJECT_DIR=$p; $env:CMK_SKIP_LIVE_HAIKU='1'
+      node "$repo\packages\cli\bin\cmk.mjs" init-user-tier
+      # Fill USER.md § About past cap with REAL high-trust (U-…) bullets that carry condensable slack
+      # (trailing whitespace + a ≥2-blank-line run). The locked form is tests/cli-graduate-session.test.js:236.
+      # … (seed ~1800 bytes of trust:high bullets into $u\USER.md) …
+      $seeded=[regex]::Matches((Get-Content "$u\USER.md" -Raw),'\(U-[A-Za-z0-9]{8}\)')|%{$_.Value}|Sort-Object -Unique
+      $before=(Get-Item "$u\USER.md").Length
+      $fragBefore=@(Get-ChildItem "$u\fragments" -Filter *.md -EA SilentlyContinue|?{$_.Name -ne 'INDEX.md'}).Count
+      [IO.File]::WriteAllText("$u\settings.json",'{ "scratchpads": { "USER.md": { "max_chars": 700 } } }')  # cap BELOW size
+      '{}' | node "$repo\packages\cli\bin\cmk-compress-session.mjs" | Out-Null                  # real SessionEnd → sweep → condense (tier U)
+      $after=Get-Content "$u\USER.md" -Raw
+      $fragAfter=@(Get-ChildItem "$u\fragments" -Filter *.md -EA SilentlyContinue|?{$_.Name -ne 'INDEX.md'}).Count
+      ```
+      **PASS, all of:** every seeded `(U-…)` id is still in `USER.md` after the sweep (`$seeded | % { $after -match [regex]::Escape($_) }` all `True`); **no new** `fragments/` fact (`$fragAfter -eq $fragBefore`); **zero** `audit.log` lines with `action=graduated` AND `tier=U`. _(Bytes may stay > 700 — load-cap, not write-cap, D-61 — that's EXPECTED, not a failure.)_
+      _(**Two traps the gate author hit live, both fixed above:** (1) `init-user-tier` SCAFFOLDS a `fragments/` dir, so `Test-Path fragments` is always True — assert "no NEW fact .md", not "dir absent". (2) the seed bullets MUST be `trust:high` — `consolidate()` drops not-high stale bullets BEFORE condense runs, a D-84 trivial-path trap; and they need condensable slack or condense returns `noop` (bullets still survive, but bytes won't shrink). The ACTUAL persona accrual is LLM-driven — flagged MANUAL as B8; the CONDENSE step here is mechanical/no-LLM, so seeding `USER.md` directly makes it deterministic.)_
+
+- [ ] **★ PR3 — a pre-151 index gains `trust_score` on `cmk search`, non-destructively (Move 3 — the migration).**
+      `trust_score` is an internal column with **no** user-facing readout (see the §0 honest note). The only CLI-observable effect is the **migration**: an index built before 151.6 (no column) gets it added in place, the old row survives, and the command doesn't crash.
+      ```powershell
+      # Seed a genuine PRE-151 memory.db (observations table WITHOUT trust_score + one real row),
+      # then run `cmk search` (which opens the DB → migrateAddColumn), then re-open with sqlite and assert.
+      # Full runnable seed/verify .mjs in tests/cli-index-db.test.js:392 ("MIGRATION: … gains the column on open").
+      node "$repo\packages\cli\bin\cmk.mjs" search "survivor" --project $proj    # exits 0, does NOT crash on the ALTER path
+      # PRAGMA table_info(observations) now lists trust_score; row 'P-PRESERVE' body == 'survivor body'
+      ```
+      **PASS:** `cmk search` exits 0 (no crash on the duplicate-ALTER path); `PRAGMA table_info` lists `trust_score`; the pre-existing row's data is intact (non-destructive). **FAIL:** a crash, or the old row is gone (a destructive rebuild).
+      _(Bare `cmk reindex` does NOT trigger this — it returns before opening the SQLite DB. Use `cmk search` or `cmk reindex --boot|--full`. The score VALUE + its dampen/reinforce evolution is **suite-covered-only** — `cli-trust-score.test.js` + `cli-trust-signal.test.js` assert it via direct sqlite; there is no `cmk` command that prints a score.)_
+
+- [ ] **★ PR4 — no-`--to` promotes topic-route across USER/HABITS/LESSONS (Move 4 — the Hole-C fix).**
+      Before this, every no-arg `cmk lessons promote` funnelled into LESSONS § Cross-Project Lessons (single-section overflow → eviction). Now an offline router spreads by content. Capture three rich P-facts shaped for each route, promote each with **no `--to`**, and assert **three different** destination files.
+      ```powershell
+      $repo='C:\Projects\claude-memory-kit'; Remove-Item -Recurse -Force C:\temp\cmk-pr4 -EA SilentlyContinue
+      New-Item -ItemType Directory -Force C:\temp\cmk-pr4\user,C:\temp\cmk-pr4\proj | Out-Null
+      $env:MEMORY_KIT_USER_DIR='C:\temp\cmk-pr4\user'; $proj='C:\temp\cmk-pr4\proj'
+      node "$repo\packages\cli\bin\cmk.mjs" init-user-tier        # REQUIRED — promote does NOT create the user-tier files
+      Push-Location $proj; git init | Out-Null
+      node "$repo\packages\cli\bin\cmk.mjs" remember 'I prefer tabs over spaces in all my editors' --why 'muscle memory' --type feedback
+      node "$repo\packages\cli\bin\cmk.mjs" remember 'I always run the full test suite before I commit anything' --why 'caught breakage' --type feedback
+      node "$repo\packages\cli\bin\cmk.mjs" remember 'Learned the hard way that chokidar v5 drops glob patterns' --why 'lost an hour' --type feedback
+      # capture the three printed P-ids, then promote each with NO --to:
+      node "$repo\packages\cli\bin\cmk.mjs" lessons promote <P-id-1>     # → USER.md § Preferences
+      node "$repo\packages\cli\bin\cmk.mjs" lessons promote <P-id-2>     # → HABITS.md § Working Style
+      node "$repo\packages\cli\bin\cmk.mjs" lessons promote <P-id-3>     # → LESSONS.md § Tooling Lessons
+      Pop-Location
+      Select-String -Path C:\temp\cmk-pr4\user\USER.md,C:\temp\cmk-pr4\user\HABITS.md,C:\temp\cmk-pr4\user\LESSONS.md -Pattern 'U-[A-Za-z0-9]{8}'
+      ```
+      **PASS:** the three no-`--to` promotes print three **distinct** `→ <FILE> § <SECTION>` lines and the `Select-String` finds a reborn `U-…` id in **each of the three different files** — not all in LESSONS. **FAIL:** all three land in LESSONS (the router didn't fire), or a promote exits 3 with `not-promoted-no-file` (you skipped `init-user-tier`).
+      _(**Load-bearing setup the mapped probe missed:** `cmk init-user-tier` FIRST — without the scaffolded USER/HABITS/LESSONS.md, every promote routes to the review queue and exits 3. The facts must be RICH (`--why` forces a fact FILE with an id; a terse remember can't be promoted). `routeTopic` is pure/offline — no Haiku — so the routing is deterministic.)_
+
+- [ ] **★ PR5 — `cmk remember` rejects an invisible/zero-width Unicode char (Task 70.4 — the C3 sibling).**
+      A hidden-instruction vector: a zero-width char invisible to a reviewer can smuggle text past the eye and ship with `git clone`. Inject a **genuine** U+200B (verify the codepoint rides argv — a 6-char ASCII escape would false-pass) and use the **bare** remember form (the rich path logs the rejection but exits 0 — see note).
+      ```powershell
+      $repo='C:\Projects\claude-memory-kit'; $cmk="$repo\packages\cli\bin\cmk.mjs"
+      $gate='C:\temp\cmk-pr5\proj'; $env:MEMORY_KIT_USER_DIR='C:\temp\cmk-pr5\.user'
+      Remove-Item -Recurse -Force C:\temp\cmk-pr5 -EA SilentlyContinue
+      New-Item -ItemType Directory -Force $gate,$env:MEMORY_KIT_USER_DIR | Out-Null
+      Push-Location $gate; node $cmk install | Out-Null; Pop-Location
+      $zwsp=[char]0x200B; $text="a normal looking note${zwsp}with a hidden zero-width space"
+      ($text.ToCharArray() | ? { [int][char]$_ -eq 0x200B }).Count          # MUST be 1 (genuine codepoint)
+      node $cmk remember $text --project $gate; "REMEMBER_EXIT=$LASTEXITCODE"  # → exit 2
+      Get-Content "$gate\context\.locks\poison-guard.log" | Select-Object -Last 1   # Door 4
+      node $cmk remember "a normal looking note with a hidden zero-width space" --project $gate; "CLEAN_EXIT=$LASTEXITCODE"  # → 0, writes
+      ```
+      **PASS:** the zero-width remember **exits 2** with stderr `pattern_id=injection_invisible_unicode`, writes **nothing** (fact-file count unchanged, `MEMORY.md` byte-identical), and appends a `poison-guard.log` NDJSON line with the span `***`-redacted; the ordinary-space control **exits 0 and writes** (the guard discriminates, isn't blanket-rejecting). **FAIL:** exit 0 on the zero-width input, or the control is also rejected.
+      _(**Two load-bearing caveats:** (1) use the **bare** form — the RICH path (`--why`/`--type`/…) logs the same rejection but does NOT set exit 2 (it returns without `process.exitCode`); the C3-parallel exit-2 assertion needs bare `cmk remember "<text>"`. (2) pass `--project $gate` — a bare remember resolves projectRoot from cwd, and PowerShell resets cwd each call, so without `--project` the Door-4 log can land in the wrong dir. The MCP `mk_remember` write path is LLM-driven → MANUAL live-test.)_
+
+---
+
 ## 5. Session 2 — recall + recall-QUALITY  ⬅️ start a NEW session
 
 Start Session 2 as a **new chat in the SAME window** (don't cleanly close Session 1) — that's the
@@ -960,10 +1076,11 @@ Clone elsewhere (`git clone C:\Temp\cut-gate19 C:\Temp\cut-gate-clone`), open *t
 ## Verdict + the cut
 
 **Cut if** every **★** passes —
-`G1–G4, G2b, G5, G6, G7, R1, R2, M0, M1, M2, W1–W4, B2, B9, B3, B4, B5, B6, B7, C5, C6, FQ1, D1, D3, E1, F-3, F-11b, L3, H1`.
+`G1–G4, G2b, G5, G6, G7, R1, R2, M0, M1, M2, W1–W4, B2, B9, B3, B4, B5, B6, B7, C5, C6, FQ1, PR1–PR5, D1, D3, E1, F-3, F-11b, L3, H1`.
 _(v0.3.2 cut-blockers. **DJ1–DJ3 are NOT cut-blockers this cut** — the `cmk digest`/DECISIONS.md feature is HELD for v0.3.3 until recall-complete (D-164); run the DJ probes to confirm the merged code is sound, but they don't gate the v0.3.2 tag.)_
 _(v0.3.2 adds **FQ1** — FTS5 query sanitization (no crash on dots/hyphens/colons) — and **DJ1/DJ2/DJ3** — `cmk digest` + the append-only `DECISIONS.md` journal (renders, append-only/retract-in-place, decisions-only) — to the gate. 141b was rejected on perf (D-162); no storage-layer test.)_
 _(v0.3.1's **C5/C6/F-11b** are now standing gates. D3's old "decide if the recall variance is acceptable" clause is GONE — v0.3.0 shipped the Task-75 fix; D3 is a hard gate now.)_
+_(v0.4.3 adds **PR1–PR5** (§4d) — the persona-promotion redesign (recurrence-count bump / persona-condenses-not-strands / trust_score column migration / no-arg topic-routing / invisible-Unicode rejection). All five are CLI-deterministic. The LLM-driven layers — the promotion GATE itself (`cmk persona generate` + live Haiku), the spoken MENTION relay, and the `mk_remember` MCP write path — are flagged MANUAL in §0, not gated by PR1–PR5.)_
 **The W1–W4 recall ladder + D3 are the v0.3.0 headline** — the skill fires, paraphrase recall hits, the raw record is reachable, and memory-first answering is a gate. **M0–M2 stay the standing conversational gate** (the v0.2.3 headline); **B9 stays the standing rich-auto-capture gate** (the v0.2.2 headline) — if `context\memory\` has no `write_source: auto-extract` rich file, investigate before shipping.
 
 (B8, D5, D6 are observational — they confirm the new graduation/inject/self-heal behavior when it fires,

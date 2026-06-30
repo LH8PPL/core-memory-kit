@@ -157,8 +157,12 @@ cmk forget P-S79MJHFN --yes --reason "superseded"
 ### `cmk purge <id> --hard`
 Hard-delete an observation (irreversible; `--hard` required). **Not yet implemented (stub)** — use `cmk forget` (tombstone, recoverable) for normal deletion.
 
-### `cmk lessons promote <id>`
-Promote a project-tier lesson to the cross-project user tier.
+### `cmk lessons promote <id> [--to <file>] [--section <name>]`
+
+Promote a project-tier fact to the cross-project user tier. By default the fact is **topic-routed by content** — an identity/preference lands in `USER.md`, a working-style rule in `HABITS.md`, a cross-project lesson in `LESSONS.md` — so promotes spread across the persona instead of piling into one section. (Offline + deterministic; no LLM call.)
+
+- `--to <USER.md|HABITS.md|LESSONS.md>` — force the target file (overrides the router).
+- `--section <name>` — force the landing section. With `--to`, it's that file's section; **without `--to`, the section applies to the routed file** (so an unusual `--section X` with no `--to` can create section `X` inside whichever file the content routes to).
 
 ### `cmk persona generate`
 Synthesize your **cross-project doctrine** ("how you work everywhere") from this project's captured facts right now, instead of waiting for the weekly pass: high-confidence doctrine auto-promotes into the user tier (`~/.claude-memory-kit/`), and lower-confidence candidates are saved to `queues/persona-review.md`. A manual trigger for the pipeline `weekly-curate` runs automatically.

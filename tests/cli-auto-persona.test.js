@@ -21,11 +21,15 @@ import { join } from 'node:path';
 import {
   autoPersona,
   promoteCandidatesToUserTier,
+  parsePersonaCandidates,
+  resolveRecurrenceSum,
+  assembleProjectCorpus,
   assembleTranscriptWindow,
   buildClassifierInstructions,
   PERSONA_CONFIDENCE_RULE,
   PERSONA_CORPUS_BYTES,
 } from '../packages/cli/src/auto-persona.mjs';
+import { PROMOTE_THRESHOLD } from '../packages/cli/src/heat.mjs';
 import { runPersonaGenerate } from '../packages/cli/src/subcommands.mjs';
 import { appendScratchpadBullet } from '../packages/cli/src/scratchpad.mjs';
 import { touchCooldownMarker } from '../packages/cli/src/cooldown.mjs';
@@ -64,7 +68,7 @@ let userDir;
 const NOW = '2026-05-30T12:00:00Z';
 
 /** Seed a project-tier granular fact file (the autoPersona source corpus). */
-function seedFact({ slug, id, type, title, body }) {
+function seedFact({ slug, id, type, title, body, recurrenceCount }) {
   const dir = join(projectRoot, 'context', 'memory');
   mkdirSync(dir, { recursive: true });
   const fm = [
@@ -72,6 +76,9 @@ function seedFact({ slug, id, type, title, body }) {
     `id: ${id}`,
     `type: ${type}`,
     `title: ${title}`,
+    // 151.1: recurrence_count is the gate signal for cite-and-sum (151.3).
+    // Only written when the test cares — facts without it default to 1.
+    ...(recurrenceCount != null ? [`recurrence_count: ${recurrenceCount}`] : []),
     '---',
     '',
     body,
@@ -726,6 +733,129 @@ describe('Task 86c — autoPersona classifies the raw transcript (D-44)', () => 
     expect(f).not.toMatch(/RECENT CONVERSATION/);
   });
 
+  it('151.3: the FACTS prompt instructs the classifier to CITE source_fact_ids (not count)', () => {
+    const f = buildClassifierInstructions('facts');
+    expect(f).toMatch(/source_fact_ids/); // the citation it must emit
+    expect(f).toMatch(/\[P-/); // shows the bracketed-id form it should echo
+    // It must tell the model to CITE the facts, never to invent a recurrence COUNT
+    // (the whole point of cite-and-sum: the LLM groups, code counts — D-230).
+    expect(f.toLowerCase()).toMatch(/cite|the ids|do not (count|invent)/);
+    expect(f).not.toMatch(/recurrence=/); // never ask the LLM for a count
+  });
+
+  it('151.3: the TRANSCRIPT prompt does NOT ask for source_fact_ids (no citable ids there)', () => {
+    const t = buildClassifierInstructions('transcript');
+    expect(t).not.toMatch(/source_fact_ids/);
+  });
+
+  // -- The Hole-A regression: recurrence gate replaces the form gate ----------
+
+  it('151.3 HOLE A: a DEMONSTRATED (confidence=medium) trait whose cited facts sum ≥ threshold PROMOTES — no "always/never" wording needed', async () => {
+    seedUserTier();
+    // A philosophy DEMONSTRATED 3× across the project but never DECLARED as a rule.
+    // Pre-151.3 this stranded at the form gate (confidence!=='high' → queue).
+    seedFact({ slug: 'feedback_a', id: 'P-WGQAZFVC', type: 'feedback', title: 'design-first 1', body: 'Wrote the test before the code here.', recurrenceCount: 2 });
+    seedFact({ slug: 'feedback_b', id: 'P-MKTXVWZP', type: 'feedback', title: 'design-first 2', body: 'Wrote the test before the code again.', recurrenceCount: 1 });
+
+    // Classifier emits a MEDIUM candidate (inferred, not stated) that CITES the two
+    // facts. Their recurrence sums to 3 (= PROMOTE_THRESHOLD) → must promote.
+    const backend = classifierBackend([
+      'PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=medium | Works test-first as a matter of course | source_fact_ids=[P-WGQAZFVC, P-MKTXVWZP]',
+    ]);
+
+    const r = await autoPersona({ projectRoot, userDir, backend, now: NOW });
+
+    expect(r.action).toBe('promoted'); // Door 1
+    expect(r.promoted).toHaveLength(1);
+    const habits = readFileSync(join(userDir, 'HABITS.md'), 'utf8'); // Door 2
+    expect(habits).toMatch(/test-first/);
+    // The citation suffix must NOT leak into the persisted bullet text.
+    expect(habits).not.toMatch(/source_fact_ids/);
+    expect(habits).not.toMatch(/P-WGQAZFVC/);
+
+    // Door 4 — the audit trail names the recurrence path (via recurrence-N), so a
+    // debugger can tell this from the explicit-imperative fast-path.
+    const auditLog = join(userDir, '.locks', 'audit.log');
+    const entries = readFileSync(auditLog, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+    const promo = entries.find((e) => e.action === 'persona-promote');
+    expect(promo.reasonText).toMatch(/via recurrence-3/);
+  });
+
+  it('151.3: a medium trait whose cited facts sum BELOW threshold still QUEUES (no over-promote)', async () => {
+    seedUserTier();
+    seedFact({ slug: 'feedback_c', id: 'P-WGQAZFVC', type: 'feedback', title: 'one-off', body: 'Did a thing once.', recurrenceCount: 1 });
+    const backend = classifierBackend([
+      'PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=medium | A one-off habit | source_fact_ids=[P-WGQAZFVC]',
+    ]);
+
+    const r = await autoPersona({ projectRoot, userDir, backend, now: NOW });
+
+    expect(r.promoted).toHaveLength(0); // not promoted
+    expect(r.queued.length).toBeGreaterThan(0); // routed to review instead
+    const habits = readFileSync(join(userDir, 'HABITS.md'), 'utf8');
+    expect(habits).not.toMatch(/one-off habit/); // Door 2: nothing landed
+  });
+
+  it('151.3: the explicit-imperative fast-path is preserved — confidence=high promotes even with NO recurrence', async () => {
+    seedUserTier();
+    // A STATED standing rule, cited from a brand-new (recurrence 1) fact — below
+    // the recurrence threshold, but high confidence is its own promotion route.
+    seedFact({ slug: 'feedback_d', id: 'P-WGQAZFVC', type: 'feedback', title: 'stated', body: 'From now on, always X.', recurrenceCount: 1 });
+    const backend = classifierBackend([
+      'PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=high | Always does X in every project | source_fact_ids=[P-WGQAZFVC]',
+    ]);
+
+    const r = await autoPersona({ projectRoot, userDir, backend, now: NOW });
+
+    expect(r.action).toBe('promoted'); // high still promotes despite sum < threshold
+    expect(r.promoted).toHaveLength(1);
+  });
+
+  it('151.3: a medium trait citing a HALLUCINATED id does not promote (the id resolves to 0)', async () => {
+    seedUserTier();
+    seedFact({ slug: 'feedback_e', id: 'P-WGQAZFVC', type: 'feedback', title: 'real', body: 'A real fact.', recurrenceCount: 9 });
+    // Cites an id that is NOT in the corpus → contributes 0 → sum 0 → queue.
+    const backend = classifierBackend([
+      'PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=medium | Invented trait | source_fact_ids=[P-ZZZZZZZZ]',
+    ]);
+
+    const r = await autoPersona({ projectRoot, userDir, backend, now: NOW });
+
+    expect(r.promoted).toHaveLength(0); // hallucinated citation cannot promote
+    expect(r.queued.length).toBeGreaterThan(0);
+  });
+
+  it('151.3 Door 3: the corpus sent to the classifier carries the citable [P-...] id', async () => {
+    // The cite-and-sum contract has TWO halves: the prompt asks for source_fact_ids
+    // (pinned in buildClassifierInstructions tests) AND the corpus must actually
+    // SHOW the ids so the classifier has something to cite. Pin that the id reaches
+    // backend.compress's input on a real run — else a stripped corpus reopens Hole A
+    // silently (every candidate cites nothing → recurrenceSum 0 → nothing promotes).
+    seedUserTier();
+    seedFact({ slug: 'feedback_f', id: 'P-WGQAZFVC', type: 'feedback', title: 'a habit', body: 'Did a thing.', recurrenceCount: 3 });
+    let captured;
+    const backend = classifierBackend([], { onCompress: (a) => { captured = a; } });
+    await autoPersona({ projectRoot, userDir, backend, now: NOW });
+    expect(captured.input).toContain('P-WGQAZFVC'); // the citation handle is in the input
+  });
+
+  it('151.3 + D-44: a DEMONSTRATED (medium) candidate on the TRANSCRIPT path does NOT promote (no factIndex → no recurrence route)', async () => {
+    // The transcript path has no citable fact ids (empty factIndex), so a medium
+    // candidate carries recurrenceSum 0 and can ONLY promote via confidence=high.
+    // This guards the deliberate asymmetry: transcripts promote STATED rules, never
+    // demonstrated ones via recurrence (which would regress D-44's precision).
+    seedUserTier();
+    seedTranscript({
+      date: '2026-05-30',
+      body: ['## 2026-05-30T11:00:00Z — user', 'i wrote tests first this whole session', ''].join('\n'),
+    });
+    const backend = classifierBackend([
+      'PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=medium | Works test-first | source_fact_ids=[P-WGQAZFVC]',
+    ]);
+    const r = await autoPersona({ projectRoot, userDir, backend, now: NOW, source: 'transcript' });
+    expect(r.promoted ?? []).toHaveLength(0); // medium + no factIndex → not promoted
+  });
+
   it('source:"transcript" feeds the transcript window to the backend and promotes a high candidate (Door 2 + Door 3)', async () => {
     seedUserTier();
     seedTranscript({
@@ -832,5 +962,132 @@ describe('Task 111 — facts-corpus cap + caller-supplied timeout (F-2)', () => 
     const out = errs.join('\n');
     expect(out).toMatch(/did not return within/); // underlying cause preserved
     expect(out).toMatch(/timed out|Re-run/); // …plus the actionable hint
+  });
+});
+
+// ===========================================================================
+// Task 151.3 — cite-and-sum recurrence gate (ADR-0016, D-230).
+//
+// The classifier CITES the project facts it synthesized a trait from
+// (source_fact_ids=[…]); code resolves those ids against the corpus (rejecting
+// hallucinated ids) and SUMS their real recurrence_count. That arithmetic sum
+// — NOT phrasing, NOT an LLM count — gates promotion (sum ≥ PROMOTE_THRESHOLD).
+// The explicit-imperative (confidence=high) fast-path-to-promote is preserved.
+// 5/5 bridge-study systems: arithmetic counts + selects, the LLM never counts.
+// ===========================================================================
+
+describe('Task 151.3 — resolveRecurrenceSum (cite-and-sum gate arithmetic)', () => {
+  it('sums the recurrence_count of the cited facts', () => {
+    const factIndex = new Map([
+      ['P-AAAAAAAA', 2],
+      ['P-BBBBBBBB', 3],
+      ['P-CCCCCCCC', 1],
+    ]);
+    const r = resolveRecurrenceSum({ sourceFactIds: ['P-AAAAAAAA', 'P-BBBBBBBB'], factIndex });
+    expect(r.sum).toBe(5);
+    expect(r.resolved).toEqual(['P-AAAAAAAA', 'P-BBBBBBBB']);
+    expect(r.rejected).toEqual([]);
+  });
+
+  it('REJECTS hallucinated ids (not in the corpus) — they contribute 0', () => {
+    const factIndex = new Map([['P-AAAAAAAA', 4]]);
+    const r = resolveRecurrenceSum({
+      sourceFactIds: ['P-AAAAAAAA', 'P-ZZZZZZZZ'], // second id never existed
+      factIndex,
+    });
+    expect(r.sum).toBe(4); // only the real fact counts
+    expect(r.resolved).toEqual(['P-AAAAAAAA']);
+    expect(r.rejected).toEqual(['P-ZZZZZZZZ']);
+  });
+
+  it('no cited ids → sum 0 (a trait with no citation cannot pass the recurrence gate)', () => {
+    const r = resolveRecurrenceSum({ sourceFactIds: [], factIndex: new Map([['P-AAAAAAAA', 9]]) });
+    expect(r.sum).toBe(0);
+    expect(r.resolved).toEqual([]);
+  });
+
+  it('a single fact whose own recurrence_count clears the threshold gates on its own', () => {
+    const factIndex = new Map([['P-AAAAAAAA', PROMOTE_THRESHOLD]]);
+    const r = resolveRecurrenceSum({ sourceFactIds: ['P-AAAAAAAA'], factIndex });
+    expect(r.sum).toBe(PROMOTE_THRESHOLD);
+  });
+
+  it('deduplicates a repeated cited id (a fact cited twice is counted once)', () => {
+    const factIndex = new Map([['P-AAAAAAAA', 2]]);
+    const r = resolveRecurrenceSum({ sourceFactIds: ['P-AAAAAAAA', 'P-AAAAAAAA'], factIndex });
+    expect(r.sum).toBe(2); // counted once, not 4
+    expect(r.resolved).toEqual(['P-AAAAAAAA']);
+  });
+
+  it('resolves a LOWERCASE id echo (canonical ids are uppercase; tolerate sloppy LLM casing)', () => {
+    // The classifier was told "copy EXACTLY", but Haiku occasionally lowercases.
+    // The parser upper-cases on the way in, so the Map lookup must still hit.
+    const out = parsePersonaCandidates(
+      'PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=medium | A trait | source_fact_ids=[p-aaaaaaaa]',
+    );
+    expect(out[0].sourceFactIds).toEqual(['P-AAAAAAAA']); // normalized
+    const r = resolveRecurrenceSum({ sourceFactIds: out[0].sourceFactIds, factIndex: new Map([['P-AAAAAAAA', 5]]) });
+    expect(r.sum).toBe(5);
+  });
+
+  it('tolerates a missing/garbage factIndex (no throw — defensive)', () => {
+    expect(resolveRecurrenceSum({ sourceFactIds: ['P-AAAAAAAA'] }).sum).toBe(0);
+    expect(resolveRecurrenceSum({}).sum).toBe(0);
+  });
+});
+
+describe('Task 151.3 — parsePersonaCandidates extracts source_fact_ids', () => {
+  it('peels the source_fact_ids citation off the line, leaving clean text', () => {
+    const out = parsePersonaCandidates(
+      'PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=medium | Batches commits across surveys | source_fact_ids=[P-AAAAAAAA, P-BBBBBBBB]',
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0].text).toBe('Batches commits across surveys'); // ids stripped, not in the restatement
+    expect(out[0].sourceFactIds).toEqual(['P-AAAAAAAA', 'P-BBBBBBBB']);
+    expect(out[0].confidence).toBe('medium');
+  });
+
+  it('a line WITHOUT the citation still parses (back-compat) with empty sourceFactIds', () => {
+    const out = parsePersonaCandidates(
+      'PERSONA CANDIDATE | target=USER.md | section=Preferences | confidence=high | Prefers automation over rituals',
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0].text).toBe('Prefers automation over rituals');
+    expect(out[0].sourceFactIds).toEqual([]);
+  });
+
+  it('handles an empty citation list (source_fact_ids=[]) → empty array, clean text', () => {
+    const out = parsePersonaCandidates(
+      'PERSONA CANDIDATE | target=LESSONS.md | section=Process Lessons | confidence=medium | Some lesson | source_fact_ids=[]',
+    );
+    expect(out[0].text).toBe('Some lesson');
+    expect(out[0].sourceFactIds).toEqual([]);
+  });
+});
+
+describe('Task 151.3 — assembleProjectCorpus exposes fact ids + a recurrence index', () => {
+  it('returns {corpus, factIndex}; the corpus shows each fact id so the classifier can cite it', () => {
+    seedFact({ slug: 'feedback_uv', id: 'P-AAAAAAAA', type: 'feedback', title: 'uv', body: 'I always use uv.', recurrenceCount: 4 });
+    seedFact({ slug: 'feedback_terse', id: 'P-BBBBBBBB', type: 'feedback', title: 'terse', body: 'Be terse.', recurrenceCount: 2 });
+    const { corpus, factIndex } = assembleProjectCorpus({ projectRoot, userDir });
+    // The corpus must surface the citation handle (the id) next to each fact.
+    expect(corpus).toContain('P-AAAAAAAA');
+    expect(corpus).toContain('P-BBBBBBBB');
+    expect(corpus).toContain('I always use uv.'); // body still present
+    // The index carries the REAL recurrence_count for cite-and-sum.
+    expect(factIndex.get('P-AAAAAAAA')).toBe(4);
+    expect(factIndex.get('P-BBBBBBBB')).toBe(2);
+  });
+
+  it('a fact with no recurrence_count frontmatter defaults to 1 in the index', () => {
+    seedFact({ slug: 'feedback_x', id: 'P-CCCCCCCC', type: 'feedback', title: 'x', body: 'A fact.' }); // no recurrenceCount
+    const { factIndex } = assembleProjectCorpus({ projectRoot, userDir });
+    expect(factIndex.get('P-CCCCCCCC')).toBe(1);
+  });
+
+  it('no facts → empty corpus string + empty index', () => {
+    const { corpus, factIndex } = assembleProjectCorpus({ projectRoot, userDir });
+    expect(corpus).toBe('');
+    expect(factIndex.size).toBe(0);
   });
 });

@@ -8,6 +8,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Changed
+
+- **Persona promotion now earns its way in by RECURRENCE, not just phrasing** (Task 151, in progress for v0.4.3). A cross-project trait you keep *demonstrating* — but never explicitly declare as an "always/never" rule — now graduates into your persona once it has recurred enough, instead of being stranded by a wording gate. The classifier cites the facts it synthesized a trait from and the kit sums their real recurrence to decide; the LLM groups, code counts. (Closes the cold-open regression where a demonstrated-but-undeclared philosophy never reached the user tier.)
+- **Your persona survives a full cold-open even when it's large.** When a user-tier scratchpad (`USER.md`/`HABITS.md`/`LESSONS.md`) outgrows its inject budget, the kit now **condenses it in place** rather than moving your highest-trust traits to an un-injected archive — so a freshly promoted trait can't silently vanish from the next session's snapshot. Under pressure, the lowest-trust, least-recently-touched bullets yield first; a high-trust trait is never the one dropped.
+
+### Added
+
+- **An evolving per-fact trust score.** Each fact carries a `trust_score` in the rebuildable index (never in your committed files, so it adds no git noise), seeded higher for things you stated yourself than for things inferred automatically — and it rises and falls from passive outcomes (a contradiction or supersession lowers it, a restatement raises it) with no command to run.
+- **Explicit `cmk lessons promote` now spreads a promotion across your persona by topic** instead of always landing in one section — an identity/preference goes to `USER.md`, a working-style rule to `HABITS.md`, a cross-project lesson to `LESSONS.md` (offline, no LLM call; `--to`/`--section` still override).
+
+### Security
+
+- **Poison_Guard now blocks invisible / zero-width / bidi Unicode in captured memory** (Task 70.4). A hidden-instruction vector matters more for this kit than for any database-backed one: memory is committed to git, so a poisoned fact travels with `git clone` to every teammate. The write-time screen now rejects zero-width characters (U+200B/C/D, U+2060, U+FEFF), bidi overrides and isolates (the "Trojan Source" class — U+202A–E, U+2066–9), and the soft hyphen / Arabic letter mark / Mongolian vowel separator — while leaving ordinary text (whitespace, accents, CJK, emoji) untouched.
+
 ## [0.4.2] — 2026-06-28
 
 ### Security

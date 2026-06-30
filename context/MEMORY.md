@@ -8,16 +8,18 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-FHAULU6M) Current session is test/gate data only ("not really me"); proceeding with v0.4.1 publication, implicit acceptance of discarding this tier data rather than restoring backup
-  <!-- source: auto-extract-session, source_line: 1, sha1: 13c9c832e37b9e4004ff0bf4748ba80a67c7e0846ab3cf2d13ac7b482f8e196c, write: auto-extract, trust: high, at: 2026-06-28T11:08:45Z -->
-- (P-Na6U7TPJ) Injection (passive, session-start auto-load) and active recall (user-initiated search) are distinct mechanisms, not the same thing. Both deserve separate mention in the kit's pitch.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 046b07c560472f8984457fd4d64f2bb947b6ee47df859942cf7c59cff756c983, write: auto-extract, trust: high, at: 2026-06-28T11:56:30Z -->
-- (P-LCYCaKMS) User pushed back on dropping "relevant" from product pitch—values precision over brevity when word conveys technical distinction.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 0179a37b9b8c06b2e1e86dc0908507abfd154ff6d4f4e07be8351bcb60dd7e01, write: auto-extract, trust: high, at: 2026-06-28T11:58:38Z -->
-- (P-M7EGA36Z) Requesting documentation of current session state before auto-context-compaction (housekeeping intent)
-  <!-- source: auto-extract-session, source_line: 1, sha1: b384fdd4a82bd75692b67dadc132598aa0559097024bf1ab4211696ae24eed65, write: auto-extract, trust: high, at: 2026-06-28T17:35:35Z -->
-- (P-G69aAGXa) Proposing to merge PR #243 now and bundle both #29 and #151 into single v0.4.3 release (not create v0.4.4 for #29 alone)
-  <!-- source: auto-extract-session, source_line: 1, sha1: 204eeda9b90738ac055022b96a78da85ac5f165695d5d30c15b77d9d8cf42aae, write: auto-extract, trust: high, at: 2026-06-28T17:36:47Z -->
+- (P-Y3P5YUE6) Gathers research from multiple sources (articles, URLs) and shares collections with synthesis requests before committing task updates.
+  <!-- source: review-promote, source_line: 1, sha1: a0da9400b4d4c67edf30efa83789f91a36f78cf58075ba97fbef78d3bcc64937, write: user-explicit, trust: high, at: 2026-06-30T20:00:02Z -->
+- (P-MJW2TBYQ) Proceeding with full `patent` installation over manual registry sweep option (inferred from "what now?" after two-choice offer)
+  <!-- source: review-promote, source_line: 1, sha1: 6e7e4926ec2a2ae51c2f6a037485aff9d17aa3b93b2cb0d2f2985dcbe811686d, write: user-explicit, trust: high, at: 2026-06-30T20:00:03Z -->
+- (P-RHJaAYYU) 151.4 shipped (8390c33); persona tier-U cap-relief bug fixed + CRLF regression-tested; 2419/2419 tests green.
+  <!-- source: review-promote, source_line: 1, sha1: af9aa3f759ea89909da07095ce8bb40413dc3b95de781b099efeaae80f96d7f8, write: user-explicit, trust: high, at: 2026-06-30T20:00:04Z -->
+- (P-QLCRTNWP) Next: 151.5 (sweep order — low-trust-AND-stale first, high-trust persona never swept), feeds into trust_score field.
+  <!-- source: review-promote, source_line: 1, sha1: e83eb48553889662aed64f941c801dd97b7df957dbcf672d434dd1a529688aeb, write: user-explicit, trust: high, at: 2026-06-30T20:00:05Z -->
+- (P-a4NCHA2J) Commit 9d785d3 applied two minor fixes (recurrence-default consistency, per-call DB-open optimization); suite 2479/2479 green; stress 5/5 final gate in progress
+  <!-- source: review-promote, source_line: 1, sha1: d2e88c12cc63b4604f167e068e7c407c3bcb24beb54f6c1412e07f526b15a40b, write: user-explicit, trust: high, at: 2026-06-30T20:00:05Z -->
+- (P-aDHF9ZDD) When there's a documented procedure (like cut-gate.md), be directed to that doc rather than receiving raw command lists.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 0f21889617695b2df5d0f84507296fde1df198e4a91cefe893c59f7c2efb89c7, write: auto-extract, trust: high, at: 2026-06-30T20:25:46Z -->
 
 ## Environment Notes
 

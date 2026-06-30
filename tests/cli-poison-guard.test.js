@@ -337,4 +337,42 @@ describe('Task 24.5 — checkPoisonGuard() boundary', () => {
       expect(overlap).toEqual([]);
     });
   });
+
+  // -- Task 70.4 — invisible / zero-width / bidi Unicode (Hermes parity) --------
+  // A hidden-instruction vector in COMMITTED memory: characters invisible to a
+  // human reviewer (zero-width joiners, bidi overrides = the Trojan-Source class)
+  // can smuggle instructions past the eye + the other patterns. Reject them at
+  // write time so a poisoned fact never travels with `git clone`.
+  describe('Task 70.4 — invisible/zero-width/bidi Unicode rejected', () => {
+    it('a zero-width space (U+200B) is rejected', () => {
+      const r = checkPoisonGuard('a normal looking note​with a hidden zero-width space');
+      expect(r.rejected).toBe(true);
+      expect(POISON_GUARD_CATEGORIES.INJECTION_CATEGORIES).toContain(r.pattern_id);
+    });
+
+    it('zero-width joiner / non-joiner / BOM / word-joiner are rejected', () => {
+      for (const ch of ['‌', '‍', '﻿', '⁠']) {
+        expect(checkPoisonGuard(`text${ch}more`).rejected).toBe(true);
+      }
+    });
+
+    it('bidi overrides (the Trojan-Source class) are rejected', () => {
+      // LRE/RLE/PDF/LRO/RLO + the isolates LRI/RLI/FSI/PDI.
+      for (const ch of ['‪', '‫', '‬', '‭', '‮', '⁦', '⁧', '⁨', '⁩']) {
+        expect(checkPoisonGuard(`safe${ch}evil`).rejected).toBe(true);
+      }
+    });
+
+    it('other invisibles (soft hyphen, Arabic letter mark) are rejected', () => {
+      expect(checkPoisonGuard('hid­den').rejected).toBe(true); // U+00AD soft hyphen
+      expect(checkPoisonGuard('mark؜here').rejected).toBe(true); // U+061C Arabic letter mark
+    });
+
+    it('NO false positive on legitimate text — ASCII, accents, emoji, CJK pass', () => {
+      expect(checkPoisonGuard('a perfectly normal cross-project lesson').rejected).toBe(false);
+      expect(checkPoisonGuard('café — naïve façade, 北京, 🚀 ship it').rejected).toBe(false);
+      // A normal (non-zero-width) space must NOT trip it.
+      expect(checkPoisonGuard('two normal words').rejected).toBe(false);
+    });
+  });
 });

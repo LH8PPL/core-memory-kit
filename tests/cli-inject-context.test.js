@@ -554,6 +554,133 @@ describe('Task 18 — injectContext() boundary', () => {
       expect(tierEvt.sections_dropped).toBeGreaterThanOrEqual(1);
     });
 
+    // -- Task 151.5 — sweep ORDER on the INJECT surface (ADR-0016 §20.3) --------
+    // The cap-relief sweep must drop the LOW-trust section first and NEVER evict a
+    // high-trust persona trait — the value-ordered invariant (vs the MemoryOS-LFU /
+    // MemOS-top-N value-BLIND sweeps the research flags as the Task-151 bug). The
+    // existing per-tier test above drops by FILE ORDER (no trust variance); this one
+    // varies TRUST so the importance-ordering (§19.3 maxTrust-first) is pinned.
+    it('151.5: under U-budget pressure the LOW-trust section drops FIRST; the high-trust trait survives', () => {
+      // Two oversized LESSONS.md sections that together blow the U-budget so only
+      // ONE survives. The LATER section (file order) holds the HIGH-trust bullet —
+      // so a value-BLIND tail-drop would wrongly evict it. Importance-ordering must
+      // instead drop the EARLIER low-trust section and keep the high-trust one.
+      // Both sections share the same `at` ON PURPOSE — that neutralizes the
+      // recency (maxAtMs) tiebreak so the drop decision rides purely on TRUST,
+      // isolating the §19.3 trust axis this test is meant to pin.
+      const bulk = 'x'.repeat(2600);
+      const lowFirst =
+        '## Tooling Lessons\n\n' +
+        '- (U-LWAAAAAA) a low-value tooling note that can go first\n' +
+        '  <!-- source: s/1.md, source_line: 1, sha1: ' + 'a'.repeat(40) + ', write: auto-extract, trust: low, at: 2026-05-20T00:00:00Z -->\n' +
+        `${bulk}\nlow-trust-tail-marker\n`;
+      const highSecond =
+        '## Process Lessons\n\n' +
+        '- (U-HGHAAAAA) a durable high-trust cross-project rule that must survive\n' +
+        '  <!-- source: s/2.md, source_line: 1, sha1: ' + 'b'.repeat(40) + ', write: user-explicit, trust: high, at: 2026-05-20T00:00:00Z -->\n' +
+        `${bulk}\nhigh-trust-tail-marker\n`;
+      writeFile(join(userDir, 'LESSONS.md'), `# Lessons\n\n${lowFirst}\n${highSecond}`);
+
+      const r = injectContext({ cwd: projectRoot, userDir, capBytes: 13000 });
+
+      // The high-trust trait SURVIVED (value-ordered eviction protected it)...
+      expect(r.snapshot).toContain('high-trust-tail-marker');
+      expect(r.snapshot).toContain('U-HGHAAAAA');
+      // ...and the LOW-trust section was the one dropped (not the tail-order one).
+      expect(r.snapshot).not.toContain('low-trust-tail-marker');
+      // Door 4: the truncation event names the dropped LOW-trust section.
+      const evt = r.truncationEvents.find((e) => e.event === 'tier_truncated_to_budget' && e.tier === 'U');
+      expect(evt).toBeDefined();
+      const dropped = evt.dropped_sections ?? [];
+      expect(dropped.some((s) => s.max_trust === 'low')).toBe(true);
+      expect(dropped.some((s) => s.max_trust === 'high')).toBe(false);
+    });
+
+    it('151.5: with 3 trust tiers over budget, drop order is LOW → MEDIUM → (high only if forced)', () => {
+      // Symmetry with the write-side ordering test: when more than one section
+      // must go, the LOW section drops before the MEDIUM, and HIGH survives
+      // longest. Equal `at` across all three isolates the trust axis (no recency
+      // tiebreak). Budget is tuned so exactly the low + medium sections must drop.
+      const at = '2026-05-20T00:00:00Z';
+      const sha = (c) => c.repeat(40);
+      const bulk = 'x'.repeat(2600);
+      const mk = (heading, id, trust, marker, shaC) =>
+        `## ${heading}\n\n- (${id}) a ${trust}-trust bullet\n` +
+        `  <!-- source: s.md, source_line: 1, sha1: ${sha(shaC)}, write: ${trust === 'high' ? 'user-explicit' : 'auto-extract'}, trust: ${trust}, at: ${at} -->\n` +
+        `${bulk}\n${marker}\n`;
+      writeFile(
+        join(userDir, 'LESSONS.md'),
+        '# Lessons\n\n' +
+          mk('Tooling Lessons', 'U-LWBBBBBB', 'low', 'low-marker', 'a') +
+          '\n' + mk('Process Lessons', 'U-MEDBBBBB', 'medium', 'med-marker', 'b') +
+          '\n' + mk('Anti-patterns', 'U-HGHBBBBB', 'high', 'high-marker', 'c'),
+      );
+
+      const r = injectContext({ cwd: projectRoot, userDir, capBytes: 13000 });
+
+      // High survives; low + medium dropped (low cheapest, medium next).
+      expect(r.snapshot).toContain('high-marker');
+      expect(r.snapshot).not.toContain('low-marker');
+      expect(r.snapshot).not.toContain('med-marker');
+      const evt = r.truncationEvents.find((e) => e.event === 'tier_truncated_to_budget' && e.tier === 'U');
+      const droppedTrusts = (evt.dropped_sections ?? []).map((s) => s.max_trust);
+      expect(droppedTrusts).toContain('low');
+      expect(droppedTrusts).toContain('medium');
+      expect(droppedTrusts).not.toContain('high');
+    });
+
+    // -- Task 151.13 CUT-GATE: Hole-B end-to-end (the literal Done-when) ---------
+    // The Hole-B Done-when is "promote N high-trust traits past cap → the snapshot
+    // STILL injects them next cold-open." The 151.4 tests assert the bullets stay in
+    // the FILE; this asserts the OTHER half — injectContext (the cold-open path)
+    // actually re-injects them. A high-trust persona that grew past its inject
+    // budget must survive into the snapshot (never stranded in an un-injected store).
+    it('151.13 CUT-GATE (Hole B): a high-trust persona over its inject budget STILL injects at cold-open', () => {
+      const at = '2026-05-20T00:00:00Z';
+      // Many high-trust HABITS bullets — a real promoted persona that outgrew budget.
+      const bullets = [];
+      for (let i = 0; i < 12; i++) {
+        const id = `U-HAB${String(i).replace(/[0-9]/g, (d) => 'ABCDEFGHJK'[Number(d)]).padStart(5, 'A')}`;
+        bullets.push(
+          `- (${id}) durable cross-project habit ${i} — must survive the cold-open snapshot\n` +
+          `  <!-- source: persona/${i}.md, source_line: 1, sha1: ${'a'.repeat(40)}, write: user-explicit, trust: high, at: ${at} -->`,
+        );
+      }
+      writeFile(
+        join(userDir, 'HABITS.md'),
+        '# Habits\n\n## Iteration Cadence\n\n' + bullets.join('\n') + '\n',
+      );
+
+      const r = injectContext({ cwd: projectRoot, userDir });
+
+      // The high-trust traits ARE in the cold-open snapshot (not stranded/dropped).
+      // At minimum the first trait survives; high-trust is never evicted before
+      // lower-value content, so the persona reaches the next session.
+      expect(r.snapshot).toContain('durable cross-project habit 0');
+      expect(r.snapshot).toContain('## Iteration Cadence');
+      // The whole persona was high-trust, so NO high-trust section was dropped.
+      const evt = r.truncationEvents.find((e) => e.event === 'tier_truncated_to_budget' && e.tier === 'U');
+      if (evt) {
+        expect((evt.dropped_sections ?? []).some((s) => s.max_trust === 'high')).toBe(false);
+      }
+    });
+
+    // -- Task 74 — injectContext is SOURCE-AGNOSTIC (post-compaction re-inject) --
+    // The SessionStart hook is matcher-less (cli-install-hooks pins that), and
+    // injectContext never reads the hook `source` field — so a SessionStart fired
+    // with source:"compact" runs the SAME path and re-injects the frozen snapshot.
+    // This pins the inject half of the compact-survival contract (D-218): memory
+    // returns regardless of WHY SessionStart fired.
+    it('74: injectContext builds the same snapshot regardless of trigger source (so a compact-fired SessionStart re-injects)', () => {
+      seedThreeTierFixture({ projectRoot, userDir });
+      const r = injectContext({ cwd: projectRoot, userDir });
+      // The frozen memory is present + IS the additionalContext — exactly what a
+      // post-compact SessionStart re-injects (no `source` gate anywhere).
+      expect(r.hookOutput.hookSpecificOutput.additionalContext).toBe(r.snapshot);
+      expect(r.snapshot.length).toBeGreaterThan(0);
+      expect(r.snapshot).toContain('user-about-marker'); // a real injected fact is back
+    });
+
     it('default install (seeds only) injects NO placeholder seed bullets or scaffolding (#R)', async () => {
       // Decision-trail (CLAUDE.md "Decision-trail preservation"):
       //

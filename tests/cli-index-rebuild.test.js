@@ -389,6 +389,85 @@ describe('Task 29 — index-rebuild', () => {
       expect(afterCount).toBe(3);
     });
 
+    // -- Task 151.6 — trust_score is RECONSTRUCTED on (re)index (ADR-0016 §20.2) --
+    it('151.6: reindex populates trust_score from source — user-explicit > auto-extract; committed .md unchanged', () => {
+      // Two facts, SAME trust enum (high), DIFFERENT source. The user-attested one
+      // must seed a higher trust_score than the machine-derived one (memory-os
+      // source-based init). trust_score lives ONLY in the rebuildable index — the
+      // committed fact files carry no such field (D-218).
+      const explicitPath = seedFactFile(projectRoot, {
+        id: 'P-EXPLCTAA', type: 'feedback', title: 'e', body: 'user stated this',
+        write_source: 'user-explicit', trust: 'high', at: '2026-05-27T10:00:00Z', slug: 'explicit',
+      });
+      seedFactFile(projectRoot, {
+        id: 'P-AUTXTRAA', type: 'feedback', title: 'a', body: 'machine inferred this',
+        write_source: 'auto-extract', trust: 'high', at: '2026-05-27T10:00:00Z', slug: 'auto',
+      });
+
+      reindexFull({ projectRoot, userDir, db });
+
+      const explicit = db.prepare('SELECT trust_score FROM observations WHERE id = ?').get('P-EXPLCTAA');
+      const auto = db.prepare('SELECT trust_score FROM observations WHERE id = ?').get('P-AUTXTRAA');
+      expect(typeof explicit.trust_score).toBe('number');
+      expect(explicit.trust_score).toBeGreaterThan(auto.trust_score); // the design's invariant
+      // floor/ceil respected (never 0, never 1).
+      expect(explicit.trust_score).toBeGreaterThan(0);
+      expect(explicit.trust_score).toBeLessThan(1);
+
+      // The committed fact file is UNCHANGED by trust_score (it lives in the index).
+      const committed = readFileSync(explicitPath, 'utf8');
+      expect(committed).not.toMatch(/trust_score/);
+    });
+
+    it('151.6: rebuilding from scratch RECONSTRUCTS the same trust_score (rebuildable invariant)', () => {
+      seedFactFile(projectRoot, {
+        id: 'P-REBLDFAA', type: 'feedback', title: 'r', body: 'rebuildable fact',
+        write_source: 'user-explicit', trust: 'medium', at: '2026-05-27T10:00:00Z', slug: 'rebuild',
+      });
+      reindexFull({ projectRoot, userDir, db });
+      const first = db.prepare('SELECT trust_score FROM observations WHERE id = ?').get('P-REBLDFAA').trust_score;
+      // A second full rebuild (the DROP+recreate path) must land the SAME seed.
+      reindexFull({ projectRoot, userDir, db });
+      const second = db.prepare('SELECT trust_score FROM observations WHERE id = ?').get('P-REBLDFAA').trust_score;
+      expect(second).toBe(first);
+    });
+
+    // -- Task 151.13 CUT-GATE: existing-install MIGRATION (no recurrence_count) ---
+    // A fact written by a PRE-151 install has NO `recurrence_count` frontmatter.
+    // It must index cleanly (no skip/error) and still get a trust_score seeded —
+    // the recurrence term defaults to the baseline (1×), so the seed equals a
+    // recurrence_count:1 fact. This is the existing-user upgrade path: the index
+    // self-heals on the next reindex; no manual migration command (D-169).
+    it('151.13 CUT-GATE: a pre-151 fact (no recurrence_count frontmatter) indexes cleanly + gets trust_score', () => {
+      // Hand-write a fact file in the PRE-151 shape (no recurrence_count line) so
+      // we exercise the genuine existing-install case, not the current writer.
+      const memDir = join(projectRoot, 'context', 'memory');
+      mkdirSync(memDir, { recursive: true });
+      const legacy = [
+        '---', 'id: P-LEGACYAA', 'type: feedback', 'title: legacy fact',
+        'created_at: 2026-05-27T10:00:00Z', 'write_source: user-explicit', 'trust: high',
+        'source_file: x.md', 'source_line: 1', `source_sha1: ${'a'.repeat(40)}`,
+        '---', '', 'a fact captured before 151 shipped', '',
+      ].join('\n');
+      writeFileSync(join(memDir, 'feedback_legacy.md'), legacy, 'utf8');
+      // And a CURRENT-shape fact with recurrence_count: 1 — same signals → same seed.
+      seedFactFile(projectRoot, {
+        id: 'P-CURRENTA', type: 'feedback', title: 'current', body: 'a fact captured after 151',
+        write_source: 'user-explicit', trust: 'high', at: '2026-05-27T10:00:00Z', slug: 'current',
+      });
+
+      const r = reindexFull({ projectRoot, userDir, db });
+
+      // Door 1/2: the legacy fact indexed (not skipped) — no recurrence_count is fine.
+      expect((r.skipped ?? []).some((s) => /legacy/.test(s.path ?? ''))).toBe(false);
+      const legacyRow = db.prepare('SELECT trust_score FROM observations WHERE id = ?').get('P-LEGACYAA');
+      expect(legacyRow).toBeDefined();
+      expect(typeof legacyRow.trust_score).toBe('number');
+      // A missing recurrence_count seeds the SAME as recurrence_count: 1 (baseline).
+      const currentRow = db.prepare('SELECT trust_score FROM observations WHERE id = ?').get('P-CURRENTA');
+      expect(legacyRow.trust_score).toBe(currentRow.trust_score);
+    });
+
     it('full clears stale rows that no longer exist in source files', () => {
       seedScratchpad(projectRoot, [
         bulletInput({ id: 'P-AAAAAAAA', text: 'one', line: 5 }),

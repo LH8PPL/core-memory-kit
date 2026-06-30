@@ -29,7 +29,7 @@ import {
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { appendScratchpadBullet } from '../packages/cli/src/scratchpad.mjs';
-import { graduateForCapRelief } from '../packages/cli/src/graduation.mjs';
+import { graduateForCapRelief, condenseScratchpadForCapRelief } from '../packages/cli/src/graduation.mjs';
 
 // A MEMORY.md full of RECENT + HIGH-trust bullets — exactly the accumulation
 // consolidate() refuses to drop (high-trust is preserved regardless of age),
@@ -258,5 +258,171 @@ describe('Task 91 — MEMORY.md graduation (safety valve)', () => {
     expect(r.graduated).toEqual([]); // couldn't relieve → nothing committed
     expect(r.text).toBe(text); // original returned unchanged
     expect(factFiles(projectRoot)).toHaveLength(0); // the clean file was rolled back
+  });
+});
+
+// ===========================================================================
+// Task 151.4 — demote-not-evict for the USER-TIER PERSONA (ADR-0016, §20.3).
+//
+// HOLE B (the v0.3.1 cold-open bug): when a user-tier persona scratchpad
+// (USER/HABITS/LESSONS.md) exceeds its cap, graduateForCapRelief moved the
+// OLDEST high-trust persona bullets to <userDir>/fragments/ — which
+// inject-context NEVER reads — so a promoted trait VANISHED from the cold-open
+// snapshot. The fix: the persona tier CONDENSES in place (mechanical, no LLM —
+// LLM rewrite is Task 95) and NEVER graduates its high-trust bullets out. The
+// file may grow past the inject budget (load-cap, not write-cap); the snapshot
+// load-cap (§7.1.1, sweep order = 151.5) keeps high-trust injected.
+// ===========================================================================
+
+/** Build a user-tier persona scratchpad (HABITS.md) full of high-trust bullets. */
+function buildHabitsMd({ targetBytes, trust = 'high', at = '2026-05-24T10:00:00Z' }) {
+  const header = ['# Habits (cross-project working style)', '', '## Iteration Cadence', ''].join('\n');
+  const footer = ['', '## Destructive Operations', '', '## Communication Style', '', ''].join('\n');
+  const lines = [header];
+  const ids = [];
+  let i = 0;
+  while (true) {
+    // base32-safe id (excludes 0/1/8/O/I/l) — map each index digit to a safe
+    // letter and pad with 'A'.
+    const tail = String(i).replace(/[0-9]/g, (d) => 'ABCDEFGHJK'[Number(d)]);
+    const id = `U-HAB${tail.padStart(5, 'A')}`;
+    const bullet = `- (${id}) cross-project habit number ${i} that should stay injected at cold-open`;
+    const comment = `  <!-- source: persona/${i}.md, source_line: 1, sha1: ${'a'.repeat(40)}, write: user-explicit, trust: ${trust}, at: ${at} -->`;
+    const candidate = lines.join('\n') + '\n' + bullet + '\n' + comment + footer;
+    if (Buffer.byteLength(candidate, 'utf8') >= targetBytes) break;
+    lines.push(bullet);
+    lines.push(comment);
+    ids.push(id);
+    i++;
+  }
+  return { content: lines.join('\n') + footer, count: i, ids };
+}
+
+function fragmentFiles(userDir) {
+  const dir = join(userDir, 'fragments');
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir).filter((f) => f.endsWith('.md'));
+}
+
+describe('Task 151.4 — persona condenses, never evicts to fragments (Hole B)', () => {
+  let sandbox;
+  let projectRoot;
+  let userDir;
+  let habitsMd;
+
+  beforeEach(() => {
+    sandbox = mkdtempSync(join(tmpdir(), 'cmk-condense-test-'));
+    projectRoot = join(sandbox, 'proj');
+    userDir = join(sandbox, 'user');
+    mkdirSync(join(projectRoot, 'context'), { recursive: true });
+    mkdirSync(userDir, { recursive: true });
+    habitsMd = join(userDir, 'HABITS.md');
+  });
+
+  afterEach(() => {
+    rmSync(sandbox, { recursive: true, force: true });
+  });
+
+  it('THE HOLE-B REPRO: high-trust persona traits past cap STILL inject — none stranded in fragments', () => {
+    // A HABITS.md already over the 1800B cap, all high-trust (consolidate drops
+    // nothing). Append one more high-trust trait.
+    const { content, ids } = buildHabitsMd({ targetBytes: 1900 });
+    writeFileSync(habitsMd, content, 'utf8');
+
+    const r = appendScratchpadBullet({
+      tier: 'U',
+      scratchpad: 'HABITS.md',
+      section: 'Iteration Cadence',
+      text: 'a freshly promoted cross-project trait that must survive cold-open',
+      provenance: {
+        source: 'persona-synthesis', source_line: 1, sha1: 'b'.repeat(40),
+        write: 'user-explicit', trust: 'high', at: '2026-05-30T12:00:00Z',
+      },
+      userDir,
+      now: '2026-05-30T12:00:00Z',
+    });
+
+    // Door 1 — the write succeeds.
+    expect(r.action).toBe('appended');
+    // Door 1 — NOTHING graduated out of the persona (the Hole-B fix).
+    expect(r.bulletsGraduated ?? 0).toBe(0);
+
+    // Door 2 — every prior high-trust trait is STILL in the injected file...
+    const after = readFileSync(habitsMd, 'utf8');
+    for (const id of ids) expect(after).toContain(id);
+    // ...the new trait landed...
+    expect(after).toContain('must survive cold-open');
+    // ...and NO fragments file was created (the eviction target that vanishes).
+    expect(fragmentFiles(userDir)).toHaveLength(0);
+  });
+
+  it('over-mutation guard: a comfortable user-tier write touches nothing (no condense, no eviction)', () => {
+    const { content, ids } = buildHabitsMd({ targetBytes: 400 }); // well under cap
+    writeFileSync(habitsMd, content, 'utf8');
+
+    const r = appendScratchpadBullet({
+      tier: 'U', scratchpad: 'HABITS.md', section: 'Iteration Cadence',
+      text: 'one more small habit',
+      provenance: {
+        source: 'persona-synthesis', source_line: 1, sha1: 'c'.repeat(40),
+        write: 'user-explicit', trust: 'high', at: '2026-05-30T12:00:00Z',
+      },
+      userDir, now: '2026-05-30T12:00:00Z',
+    });
+
+    expect(r.action).toBe('appended');
+    expect(r.bulletsGraduated ?? 0).toBe(0);
+    const after = readFileSync(habitsMd, 'utf8');
+    for (const id of ids) expect(after).toContain(id);
+    expect(fragmentFiles(userDir)).toHaveLength(0);
+  });
+});
+
+describe('Task 151.4 — condenseScratchpadForCapRelief (mechanical, no LLM)', () => {
+  it('reclaims bytes by collapsing blank runs + trailing whitespace, dropping NO bullet', () => {
+    const text = [
+      '# Habits',
+      '',
+      '',
+      '', // a 3-blank run → collapses to 1
+      '## Iteration Cadence',
+      '- (U-HABAAAAA) first habit   ', // trailing spaces → trimmed
+      '  <!-- trust: high, at: 2026-05-24T10:00:00Z -->',
+      '',
+      '',
+      '- (U-HABBBBBB) second habit',
+      '  <!-- trust: high, at: 2026-05-24T10:00:00Z -->',
+      '',
+    ].join('\n');
+
+    const out = condenseScratchpadForCapRelief(text);
+
+    // Every bullet survives (no eviction — that is the whole point).
+    expect(out).toContain('U-HABAAAAA');
+    expect(out).toContain('U-HABBBBBB');
+    expect(out).toContain('first habit');
+    expect(out).toContain('second habit');
+    // It actually reclaimed bytes (collapsed blanks / trimmed trailing space).
+    expect(Buffer.byteLength(out, 'utf8')).toBeLessThan(Buffer.byteLength(text, 'utf8'));
+    // No triple-blank run remains.
+    expect(out).not.toMatch(/\n\n\n/);
+    // No trailing whitespace on the bullet line.
+    expect(out).not.toMatch(/first habit +\n/);
+  });
+
+  it('is idempotent — condensing already-tight text returns it unchanged', () => {
+    const tight = ['# Habits', '', '## Iteration Cadence', '- (U-HABAAAAA) a habit', '  <!-- trust: high -->', ''].join('\n');
+    expect(condenseScratchpadForCapRelief(tight)).toBe(tight);
+  });
+
+  it('CRLF-tolerant (Windows): a CRLF-authored persona file actually condenses (not a no-op)', () => {
+    // split('\n') would leave a trailing '\r' on every line and condense NOTHING —
+    // the exact Task 139 CRLF class. Build with \r\n and assert bytes drop.
+    const crlf = ['# Habits', '', '', '', '## Iteration Cadence', '- (U-HABAAAAA) a habit   ', '  <!-- trust: high -->', ''].join('\r\n');
+    const out = condenseScratchpadForCapRelief(crlf);
+    expect(Buffer.byteLength(out, 'utf8')).toBeLessThan(Buffer.byteLength(crlf, 'utf8'));
+    expect(out).toContain('U-HABAAAAA'); // bullet survived
+    expect(out).not.toMatch(/\n\n\n/); // blank run collapsed
+    expect(out).not.toMatch(/a habit +\n/); // trailing spaces trimmed
   });
 });

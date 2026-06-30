@@ -36,7 +36,7 @@ import {
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { writeBullet, parseBulletProvenance, isProvenanceCommentLine } from './provenance.mjs';
-import { graduateForCapRelief } from './graduation.mjs';
+import { graduateForCapRelief, condenseScratchpadForCapRelief } from './graduation.mjs';
 
 const VALID_TRUST = new Set(['high', 'medium', 'low']);
 const VALID_WRITE_SOURCES = new Set([
@@ -227,6 +227,19 @@ export function ensureSectionExists(scratchpadPath, sectionTitle) {
 
 const EVICTED_ID_RE = /^- \(([PUL]-[A-Za-z0-9]+)\)/;
 
+// Sweep order (Task 151.5, ADR-0016 §20.3): within the stale, non-high swept
+// set, LOW-trust evicts before MEDIUM — value-ordered, not the value-BLIND
+// single-axis sweep (MemoryOS-LFU / MemOS-top-N) the research flags as the
+// Task-151 bug. The drop GATE stays a two-axis CONJUNCTION (not-high AND stale);
+// this only orders the eviction LIST (→ the archive + audit order), so a
+// debugger / a future partial-drop sees the cheapest bullets first.
+// 151.6 re-eval RESOLVED (D-238): KEEP the `trust` ENUM here — the evolved
+// trust_score is a FLOOR/protection signal (memclaw/letta/graphiti), NOT a sweep-
+// ranking driver (rank-and-sweep-by-score = the MemoryOS-LFU/MemOS-top-N bug). The
+// floor (never-zero) + the enum's high-trust-exempt already deliver the protection;
+// no index-db I/O on this path. See design §20.3.
+const CONSOLIDATE_TRUST_ORDER = { low: 0, medium: 1, high: 2 };
+
 function consolidate(text, { nowDate }) {
   const lines = text.split(/\r?\n/); // Task 139: CRLF-tolerant
   const removeIdx = new Set();
@@ -253,14 +266,28 @@ function consolidate(text, { nowDate }) {
     removeIdx.add(i + 1);
     // Task 91.2: capture the dropped bullet so the caller can ARCHIVE it
     // (recoverable, per the §6.5 tombstone principle) instead of hard-deleting.
+    // Carry trust + age so the eviction list can be value-ordered (151.5).
     const idMatch = bulletLine.match(EVICTED_ID_RE);
-    evicted.push({ id: idMatch ? idMatch[1] : 'unknown', block: `${bulletLine}\n${commentLine}` });
+    evicted.push({
+      id: idMatch ? idMatch[1] : 'unknown',
+      block: `${bulletLine}\n${commentLine}`,
+      trust: prov.trust,
+      atMs: at.getTime(),
+    });
     bulletsRemoved++;
   }
 
   if (removeIdx.size === 0) {
     return { text, bulletsRemoved: 0, evicted: [] };
   }
+  // 151.5: order the eviction list LOW-trust first, then OLDEST first (the
+  // "long-unaccessed" axis, capture-age proxy until 151.6). The file removal
+  // (removeIdx) is unchanged — only the archive/audit order reflects value.
+  evicted.sort(
+    (a, b) =>
+      (CONSOLIDATE_TRUST_ORDER[a.trust] ?? 1) - (CONSOLIDATE_TRUST_ORDER[b.trust] ?? 1) ||
+      a.atMs - b.atMs,
+  );
   const out = lines.filter((_, i) => !removeIdx.has(i)).join('\n');
   return { text: out, bulletsRemoved, evicted };
 }
@@ -365,21 +392,23 @@ export function appendScratchpadBullet(opts = {}) {
     evictedBullets = consolidated.evicted ?? [];
   }
 
-  // 2b. Graduation (Task 91, generalized to all tiers by Task 94 / §19.2). If
-  // still over the LOAD-cap after stale-drop — which is what happens when the
-  // bullets are high-trust (consolidate() never drops those) — graduate the
-  // oldest high-trust bullets OUT of the hot index into the tier's permanent
-  // fact store, keeping the injected slice small (the write already succeeded
-  // via the load-cap; graduation is about injection budget, not write success).
-  // ALL FACT-BEARING TIERS (D-61): project (MEMORY.md + SOUL.md) AND the user-
-  // tier persona (USER/HABITS/LESSONS) — graduating into the tier's existing
-  // fact store (project context/memory/, user <userDir>/fragments/; writeFact
-  // already routes tier-U facts there). Local tier (machine-paths/overrides) is
-  // excluded: it's machine-specific config, not durable facts.
+  // 2b. Cap relief after stale-drop. The path DIFFERS by tier (Task 151.4, §20.3):
+  //   - PROJECT (tier P): GRADUATE the oldest high-trust bullets OUT of the hot
+  //     index into the permanent fact store (context/memory/*.md). Those stay
+  //     recall-reachable (`cmk search`), so moving them out of MEMORY.md is fine —
+  //     it's an injection-budget trim, not data loss.
+  //   - USER PERSONA (tier U): NEVER graduate — the persona's value IS being
+  //     injected at cold-open, and the user-tier graduation target (fragments/) is
+  //     NOT read by inject-context, so graduating a promoted trait there strands it
+  //     (Hole B — the v0.3.1 cold-open bug). Instead CONDENSE in place (mechanical,
+  //     no LLM — drops no bullet); if still over cap the file grows past the inject
+  //     budget (load-cap, not write-cap — D-61) and the snapshot load-cap + sweep
+  //     order (151.5) keeps the high-trust traits injected. LLM rewrite is Task 95.
+  // Local tier (machine-paths/overrides) is excluded: machine config, not facts.
   let bulletsGraduated = 0;
   let graduatedIds = [];
   let finalBytes = Buffer.byteLength(finalContent, 'utf8');
-  if (finalBytes > cap && (tier === 'P' || tier === 'U')) {
+  if (finalBytes > cap && tier === 'P') {
     const grad = graduateForCapRelief({
       text: finalContent,
       capBytes: cap,
@@ -391,6 +420,10 @@ export function appendScratchpadBullet(opts = {}) {
     finalContent = grad.text;
     graduatedIds = grad.graduated;
     bulletsGraduated = graduatedIds.length;
+    finalBytes = Buffer.byteLength(finalContent, 'utf8');
+  } else if (finalBytes > cap && tier === 'U') {
+    // Demote-not-evict: reclaim bytes without losing a single persona trait.
+    finalContent = condenseScratchpadForCapRelief(finalContent);
     finalBytes = Buffer.byteLength(finalContent, 'utf8');
   }
 
@@ -529,17 +562,23 @@ export function sweepScratchpadForCapRelief({
 
   let graduatedIds = [];
   if (Buffer.byteLength(working, 'utf8') > cap) {
-    // tier is already guaranteed P||U by the gate above.
-    const grad = graduateForCapRelief({
-      text: working,
-      capBytes: cap,
-      tier,
-      projectRoot,
-      userDir,
-      now: ts,
-    });
-    working = grad.text;
-    graduatedIds = grad.graduated;
+    // Task 151.4 (§20.3): PROJECT graduates to the recall-reachable fact store;
+    // USER PERSONA condenses in place — never graduates to un-injected fragments/
+    // (Hole B). tier is guaranteed P||U by the gate above.
+    if (tier === 'P') {
+      const grad = graduateForCapRelief({
+        text: working,
+        capBytes: cap,
+        tier,
+        projectRoot,
+        userDir,
+        now: ts,
+      });
+      working = grad.text;
+      graduatedIds = grad.graduated;
+    } else {
+      working = condenseScratchpadForCapRelief(working);
+    }
   }
 
   if (working === original) {

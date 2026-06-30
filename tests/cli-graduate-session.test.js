@@ -226,35 +226,42 @@ describe('Task 94.3 — proactive SessionEnd graduation sweep', () => {
     expect(memResult.action).toBe('noop');
   });
 
-  it('graduates an over-cap user-tier USER.md into fragments/ (the 94.2 path, proactively)', () => {
+  it('151.4 (was 94.2): an over-cap user-tier USER.md CONDENSES, never graduates to fragments (Hole B)', () => {
+    // DECISION TRAIL: the original 94.2 (D-60/D-61) graduated an over-cap persona
+    // into userDir/fragments/. That mechanism IS Hole B — fragments/ is never
+    // injected, so a high-trust trait graduated there vanishes at cold-open. Task
+    // 151.4 (ADR-0016 §20.3) reverses the MECHANISM (condense + keep injected),
+    // not the intent (never lose). So the over-cap persona's high-trust bullets
+    // stay in the file; nothing graduates out; no fragments/ file is created.
     setUserCap('USER.md', 1200);
     const userMd = join(userDir, 'USER.md');
-    writeFileSync(
-      userMd,
-      buildScratchpad({
-        title: 'User Profile',
-        sections: ['About', 'Preferences', 'Working Style'],
-        fillSection: 'Preferences',
-        targetBytes: 1700,
-        idPrefix: 'U',
-        idTag: 'USR',
-      }),
-      'utf8',
-    );
+    const seeded = buildScratchpad({
+      title: 'User Profile',
+      sections: ['About', 'Preferences', 'Working Style'],
+      fillSection: 'Preferences',
+      targetBytes: 1700,
+      idPrefix: 'U',
+      idTag: 'USR',
+    });
+    writeFileSync(userMd, seeded, 'utf8');
+    // The seeded high-trust bullet ids — every one must survive (never lost).
+    const seededIds = [...seeded.matchAll(/\(U-USR\d+\)/g)].map((m) => m[0]);
+    expect(seededIds.length).toBeGreaterThan(0);
 
     const out = graduateAllScratchpads({ projectRoot, userDir });
 
     const usrResult = out.results.find((r) => r.scratchpad === 'USER.md');
-    expect(usrResult.action).toBe('relieved');
-    expect(usrResult.bulletsGraduated).toBeGreaterThan(0);
-    // User-tier facts land in fragments/, not memory/ (writeFact tier-U routing).
-    expect(factFiles(join(userDir, 'fragments')).length).toBe(usrResult.bulletsGraduated);
-    expect(Buffer.byteLength(readFileSync(userMd, 'utf8'), 'utf8')).toBeLessThanOrEqual(1200);
-    // Door 4: audit lands in the USER tier root.
+    // 151.4: NOTHING graduates out of the persona.
+    expect(usrResult.bulletsGraduated ?? 0).toBe(0);
+    // NO fragments/ eviction target was created (the Hole-B store).
+    expect(existsSync(join(userDir, 'fragments'))).toBe(false);
+    // Every seeded high-trust trait is STILL in the injected file (over-mutation
+    // guard: condense drops no bullet — the file may exceed cap, load-cap allows it).
+    const after = readFileSync(userMd, 'utf8');
+    for (const id of seededIds) expect(after).toContain(id);
+    // Door 4: no graduation audit entry on the user tier.
     const audit = readAuditLog(userDir);
-    expect(audit.filter((e) => e.action === 'graduated' && e.tier === 'U').length).toBe(
-      usrResult.bulletsGraduated,
-    );
+    expect(audit.filter((e) => e.action === 'graduated' && e.tier === 'U').length).toBe(0);
   });
 
   it('never targets the LOCAL tier (machine config is excluded)', () => {

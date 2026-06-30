@@ -355,8 +355,69 @@ describe('Task 7 — writeFact() boundary', () => {
       expect(second.skipReason).toBe('duplicate');
       expect(second.id).toBe(first.id);
 
-      // file content byte-identical (no overwrite)
-      expect(readFileSync(second.path)).toEqual(mtime1);
+      // Task 151.1 (ADR-0016): a duplicate hit now BUMPS recurrence_count
+      // (the fact re-surfaced), so the body/frontmatter changes — but the
+      // fact's identity (id) and the no-second-file invariant are unchanged.
+      // (The prior "byte-identical" assertion was the pre-151 contract.)
+    });
+
+    // ── Task 151.1 — recurrence_count (ADR-0016 / design.md §20.1) ──
+    describe('recurrence_count — capped-recurrence promotion signal', () => {
+      it('a freshly-created fact starts at recurrence_count: 1', () => {
+        const r = writeFact(validOptions({ projectRoot }));
+        expect(r.action).toBe('created');
+        const { frontmatter } = parseFrontmatter(r.path);
+        expect(frontmatter.recurrence_count).toBe(1);
+      });
+
+      it('re-surfacing the SAME canonical fact (identical slug) bumps recurrence_count, no second file', () => {
+        const opts = validOptions({ projectRoot });
+        const first = writeFact(opts);
+        expect(first.action).toBe('created');
+
+        const second = writeFact(opts);
+        // Door 1 (Response): the re-surface is reported, identity unchanged.
+        expect(second.id).toBe(first.id);
+        expect(second.recurrenceCount).toBe(2);
+        // Door 2 (State): the count is bumped ON DISK, on the same file.
+        const { frontmatter } = parseFrontmatter(first.path);
+        expect(frontmatter.recurrence_count).toBe(2);
+
+        // A third re-surface → 3 (the promotion threshold).
+        const third = writeFact(opts);
+        expect(third.recurrenceCount).toBe(3);
+        expect(parseFrontmatter(first.path).frontmatter.recurrence_count).toBe(3);
+      });
+
+      it('re-surface via a DIFFERENT slug (duplicate-elsewhere) bumps the original fact', () => {
+        const first = writeFact(validOptions({ projectRoot, slug: 'first' }));
+        expect(first.action).toBe('created');
+
+        const second = writeFact(validOptions({ projectRoot, slug: 'second' }));
+        expect(second.skipReason).toBe('duplicate-elsewhere');
+        // the ORIGINAL fact (at first.path) gets the bump, not a new file
+        expect(parseFrontmatter(first.path).frontmatter.recurrence_count).toBe(2);
+        expect(existsSync(join(projectRoot, 'context', 'memory', 'feedback_second.md'))).toBe(false);
+      });
+
+      it('Door 4 (Observability): a re-surface logs a recurrence audit entry', () => {
+        const opts = validOptions({ projectRoot });
+        writeFact(opts);
+        writeFact(opts);
+        const log = readAuditLog(join(projectRoot, 'context'));
+        const recur = log.find((e) => e.action === 'recurrence');
+        expect(recur).toBeTruthy();
+        expect(recur.extra.recurrenceCount).toBe(2);
+      });
+
+      it('over-mutation guard: bumping one fact leaves another untouched', () => {
+        const a = writeFact(validOptions({ projectRoot, slug: 'aaa', body: 'first distinct fact body here' }));
+        const b = writeFact(validOptions({ projectRoot, slug: 'bbb', body: 'second wholly different fact body' }));
+        // re-surface only A
+        writeFact(validOptions({ projectRoot, slug: 'aaa', body: 'first distinct fact body here' }));
+        expect(parseFrontmatter(a.path).frontmatter.recurrence_count).toBe(2);
+        expect(parseFrontmatter(b.path).frontmatter.recurrence_count).toBe(1);
+      });
     });
 
     it('second call with identical body + different slug → skipped, audit log records duplicate-elsewhere', () => {
@@ -375,14 +436,16 @@ describe('Task 7 — writeFact() boundary', () => {
 
       const log = readAuditLog(join(projectRoot, 'context'));
       expect(log.length).toBeGreaterThan(0);
-      const skipEntry = log.find((e) => e.action === 'skipped');
-      expect(skipEntry).toBeDefined();
-      // Post-PR-2 canonical audit-log schema: reasonCode is the machine-
-      // parseable enum; reasonText is the optional free-text companion.
-      expect(skipEntry.reasonCode).toMatch(/duplicate/);
-      expect(skipEntry.id).toBe(first.id);
-      expect(skipEntry.schema).toBe(1);
-      expect(skipEntry.tier).toBe('P');
+      // Task 151.1 (ADR-0016): a duplicate write now logs a `recurrence` audit
+      // entry (the fact re-surfaced → recurrence_count bumped), keeping the
+      // duplicate-elsewhere reasonCode. The result object still reports
+      // action:'skipped' / skipReason — but the AUDIT action is 'recurrence'.
+      const recurEntry = log.find((e) => e.action === 'recurrence');
+      expect(recurEntry).toBeDefined();
+      expect(recurEntry.reasonCode).toMatch(/duplicate/);
+      expect(recurEntry.id).toBe(first.id);
+      expect(recurEntry.schema).toBe(1);
+      expect(recurEntry.tier).toBe('P');
     });
 
     it('different body → different ID, second file created', () => {
@@ -401,13 +464,13 @@ describe('Task 7 — writeFact() boundary', () => {
       expect(existsSync(second.path)).toBe(true);
     });
 
-    it('duplicate skip is also logged for same-slug re-writes', () => {
+    it('a same-slug re-write logs a recurrence audit entry (Task 151.1 — was `skipped` pre-ADR-0016)', () => {
       const opts = validOptions({ projectRoot });
       writeFact(opts);
       writeFact(opts);
       const log = readAuditLog(join(projectRoot, 'context'));
-      const skipped = log.filter((e) => e.action === 'skipped');
-      expect(skipped.length).toBeGreaterThan(0);
+      const recurrence = log.filter((e) => e.action === 'recurrence');
+      expect(recurrence.length).toBeGreaterThan(0);
     });
   });
 
@@ -445,10 +508,11 @@ describe('Task 7 — writeFact() boundary', () => {
     it('a duplicate re-write does NOT emit a second `created` entry (over-mutation guard)', () => {
       const opts = validOptions({ projectRoot });
       writeFact(opts);
-      writeFact(opts); // duplicate → skipped
+      writeFact(opts); // duplicate → recurrence bump (Task 151.1), not a 2nd create
       const log = readAuditLog(join(projectRoot, 'context'));
       expect(log.filter((e) => e.action === 'created')).toHaveLength(1); // only the first
-      expect(log.filter((e) => e.action === 'skipped')).toHaveLength(1);
+      // Task 151.1 (ADR-0016): the dup now logs `recurrence` (was `skipped`).
+      expect(log.filter((e) => e.action === 'recurrence')).toHaveLength(1);
     });
 
     it('a Poison_Guard rejection emits NO `created` entry (no audit for a write that did not happen)', () => {

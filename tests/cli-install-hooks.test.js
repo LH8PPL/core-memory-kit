@@ -508,3 +508,42 @@ describe('Task 108b — cmk install registers the MCP server (.mcp.json) (R2 / D
     expect(existsSync(join(projectRoot, '.mcp.json'))).toBe(false);
   });
 });
+
+// ===========================================================================
+// Task 74 — memory re-injects after compaction (verify-and-lock-in, D-218).
+//
+// The mechanism ALREADY WORKS, unintentionally: the SessionStart hook is
+// registered with NO `source`/`matcher`, and Claude Code fires SessionStart with
+// source:"compact" after an auto-compaction — so the matcher-less hook re-runs
+// cmk-inject-context and re-injects the frozen snapshot post-compact. This was a
+// "works by luck, not verified contract" gap (the property was UNasserted). These
+// tests LOCK IT IN structurally so a future change can't silently add a `matcher`
+// that would stop firing on compact. (A live compaction confirmation is the
+// honest manual step — flagged for the cut-gate session; can't be auto-triggered.)
+// ===========================================================================
+
+describe('Task 74 — SessionStart re-injects post-compaction (matcher-less hook)', () => {
+  it('the SessionStart hook is registered with NO matcher → it fires on EVERY source, including source:"compact"', () => {
+    const ss = KIT_HOOKS_BLOCK.SessionStart;
+    expect(Array.isArray(ss)).toBe(true);
+    expect(ss).toHaveLength(1);
+    // A `matcher` on SessionStart would scope it to specific sources and could
+    // EXCLUDE source:"compact" — the bug this locks against. There must be none.
+    expect(ss[0].matcher).toBeUndefined();
+    expect(ss[0].hooks[0].command).toBe('cmk-inject-context');
+  });
+
+  it('the installed settings keep SessionStart matcher-less (the compact-survival contract on disk)', async () => {
+    await install({ projectRoot, userTier });
+    const settingsPath = join(projectRoot, '.claude', 'settings.json');
+    const settings = JSON.parse(stripBom(readFileSync(settingsPath, 'utf8')));
+    const ss = settings.hooks.SessionStart;
+    expect(ss).toHaveLength(1);
+    // Same invariant, enforced on the written file: no source matcher.
+    expect(ss[0].matcher).toBeUndefined();
+    expect(ss[0].hooks[0].command).toBe('cmk-inject-context');
+  });
+  // The source-agnostic injectContext half (it builds the snapshot regardless of
+  // the trigger, so a compact-fired run re-injects) is asserted in
+  // cli-inject-context.test.js where the injectContext fixtures live.
+});

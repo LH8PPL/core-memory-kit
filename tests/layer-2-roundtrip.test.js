@@ -183,13 +183,15 @@ describe('Layer 2 — round-trip integration (Checkpoint 11 G1)', () => {
         expect(typeof entry.reasonCode).toBe('string');
       }
 
-      // Each action class is present with the right reasonCode
-      const skipped = log.find((e) => e.action === 'skipped');
+      // Each action class is present with the right reasonCode.
+      // Task 151.1 (ADR-0016): a duplicate write now logs a `recurrence` audit
+      // entry (the fact re-surfaced → recurrence_count bumped) — was `skipped`.
+      const recurrence = log.find((e) => e.action === 'recurrence');
       const tombstoned = log.find((e) => e.action === 'tombstoned');
       const merged = log.find((e) => e.action === 'merged');
-      expect(skipped).toBeDefined();
-      expect(skipped.reasonCode).toBe('duplicate');
-      expect(skipped.id).toBe(w1.id);
+      expect(recurrence).toBeDefined();
+      expect(recurrence.reasonCode).toBe('recurrence');
+      expect(recurrence.id).toBe(w1.id);
 
       expect(tombstoned).toBeDefined();
       expect(tombstoned.reasonCode).toBe('user-requested');

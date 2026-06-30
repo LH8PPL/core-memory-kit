@@ -50,6 +50,7 @@ import { hashContent } from './content-hash.mjs';
 import { syncTranscriptChunks } from './transcript-index.mjs';
 import { readBullet, parseBulletProvenance } from './provenance.mjs';
 import { parse as parseFrontmatter } from './frontmatter.mjs';
+import { initTrustScore } from './trust-score.mjs';
 import {
   VALID_TIERS,
   resolveTierRoot,
@@ -266,6 +267,14 @@ export function parseObservationsFromFactFile({
     body: (body ?? '').trim() || (frontmatter.title ?? ''),
     write_source: frontmatter.write_source,
     trust: frontmatter.trust,
+    // 151.8: the committed recurrence_count (151.1) seeds the trust_score's
+    // DURABLE restatement term — survives every reindex (reconstructed from this).
+    // Floor to 1 for a missing OR malformed (≤0) value — consistent with the other
+    // four recurrence readers (write-fact / assembleProjectCorpus / trust-score)
+    // which all treat <1 as the 1× baseline (the field starts at 1, only increments).
+    recurrence_count: Number.isFinite(frontmatter.recurrence_count) && frontmatter.recurrence_count > 0
+      ? frontmatter.recurrence_count
+      : 1,
     created_at: isoToEpochMs(frontmatter.created_at),
     superseded_by: frontmatter.superseded_by ?? null,
     deleted_at: frontmatter.deleted_at ? isoToEpochMs(frontmatter.deleted_at) : null,
@@ -332,19 +341,19 @@ const DELETE_OBSERVATION_BY_ID_SQL = `DELETE FROM observations WHERE id = ?`;
 const INSERT_OBSERVATION_SQL = `
 INSERT INTO observations
   (id, tier, source_file, source_line, source_sha1, heading_path, body,
-   write_source, trust, created_at, superseded_by, deleted_at)
+   write_source, trust, trust_score, created_at, superseded_by, deleted_at)
 VALUES
   (@id, @tier, @source_file, @source_line, @source_sha1, @heading_path, @body,
-   @write_source, @trust, @created_at, @superseded_by, @deleted_at)
+   @write_source, @trust, @trust_score, @created_at, @superseded_by, @deleted_at)
 `;
 
 const INSERT_SCRATCHPAD_OBSERVATION_SQL = `
 INSERT INTO observations
   (id, tier, source_file, source_line, source_sha1, heading_path, body,
-   write_source, trust, created_at, superseded_by, deleted_at)
+   write_source, trust, trust_score, created_at, superseded_by, deleted_at)
 VALUES
   (@id, @tier, @source_file, @source_line, @source_sha1, @heading_path, @body,
-   @write_source, @trust, @created_at, @superseded_by, @deleted_at)
+   @write_source, @trust, @trust_score, @created_at, @superseded_by, @deleted_at)
 ON CONFLICT(id) DO NOTHING
 `;
 
@@ -396,17 +405,37 @@ function replaceObservationsForFile(db, { source, observations, mtime, sha1, pro
   // safe: ids are content-addressed WITH the tier as a prefix (`P-`/`L-`/`U-`),
   // so a P-tier and U-tier fact can never share an id — no cross-tier delete is
   // possible. (Defended by the P/U-same-content tier test below.)
+  // 151.6/151.8: seed trust_score from the fact's committed signals — enum +
+  // source + the DURABLE recurrence term (151.8: a re-stated fact seeds higher,
+  // reconstructed from the committed recurrence_count so it survives every
+  // reindex). Computed here at insert (one place). `recurrence_count` is consumed
+  // by the seed but is NOT an `observations` column, so it's stripped from the
+  // bound row (better-sqlite3 rejects unknown named params). The asymmetric
+  // DAMPEN deltas (151.8 contradiction/supersession) stay as runtime overlays on
+  // the trust_score column — they survive a boot reindex (unchanged files skipped)
+  // and reseed only on a full rebuild (the local-protection-signal posture, D-237).
+  const withTrustScore = (obs) => {
+    const { recurrence_count, ...row } = obs;
+    return {
+      ...row,
+      trust_score: initTrustScore({
+        trust: obs.trust,
+        writeSource: obs.write_source,
+        recurrenceCount: recurrence_count,
+      }),
+    };
+  };
   if (source.kind === 'fact') {
     const deleteById = db.prepare(DELETE_OBSERVATION_BY_ID_SQL);
     const insert = db.prepare(INSERT_OBSERVATION_SQL);
     for (const obs of observations) {
       deleteById.run(obs.id);
-      insert.run(obs);
+      insert.run(withTrustScore(obs));
     }
   } else {
     const insert = db.prepare(INSERT_SCRATCHPAD_OBSERVATION_SQL);
     for (const obs of observations) {
-      insert.run(obs);
+      insert.run(withTrustScore(obs));
     }
   }
   db.prepare(UPSERT_FILE_SQL).run({

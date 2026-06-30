@@ -14,7 +14,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { lessonsPromote } from '../packages/cli/src/lessons-promote.mjs';
+import { lessonsPromote, routeTopic, buildPromotionMention, MENTION_RECURRENCE } from '../packages/cli/src/lessons-promote.mjs';
 import { writeFact } from '../packages/cli/src/write-fact.mjs';
 import { forget } from '../packages/cli/src/forget.mjs';
 import { appendScratchpadBullet, ensureSectionExists } from '../packages/cli/src/scratchpad.mjs';
@@ -53,11 +53,15 @@ afterEach(() => {
 });
 
 describe('cmk lessons promote (Task 76)', () => {
-  it('promotes a project fact into the user-tier LESSONS.md (default target)', () => {
+  it('promotes a project fact into the user-tier LESSONS.md (explicit target)', () => {
     const w = writeFact(validFactOpts({ projectRoot }));
     expect(w.id).toBeTruthy();
 
-    const res = lessonsPromote({ id: w.id, projectRoot, userDir });
+    // 151.9 (decision-trail): the NO-ARG default is now TOPIC-routed (this fact's
+    // "Always … before …" body would route to HABITS). This test exercises the
+    // Task-76 promote MECHANICS, so it pins `to: 'LESSONS.md'` explicitly; the
+    // router's own behavior is covered by the dedicated 151.9 tests below.
+    const res = lessonsPromote({ id: w.id, projectRoot, userDir, to: 'LESSONS.md' });
 
     // Door 1 — Response
     expect(res.action).toBe('promoted');
@@ -101,7 +105,9 @@ describe('cmk lessons promote (Task 76)', () => {
 
   it('honors an explicit --section override', () => {
     const w = writeFact(validFactOpts({ projectRoot }));
-    const res = lessonsPromote({ id: w.id, projectRoot, userDir, section: 'Tooling Lessons' });
+    // 151.9: pin `to` too so the section override is asserted against a fixed file
+    // (an absent `to` would topic-route the target; --section only overrides section).
+    const res = lessonsPromote({ id: w.id, projectRoot, userDir, to: 'LESSONS.md', section: 'Tooling Lessons' });
     expect(res.action).toBe('promoted');
     expect(res.section).toBe('Tooling Lessons');
     expect(readFileSync(join(userDir, 'LESSONS.md'), 'utf8')).toContain('## Tooling Lessons');
@@ -129,7 +135,9 @@ describe('cmk lessons promote (Task 76)', () => {
     // A refined version of the same rule (Jaccard ≈0.78 ≥ 0.5 → conflict;
     // high ≥ medium → supersede, not queue).
     const w = writeFact(validFactOpts({ projectRoot, body: 'Always pin the venv path before installing deps' }));
-    const res = lessonsPromote({ id: w.id, projectRoot, userDir });
+    // 151.9: pin `to: 'LESSONS.md'` so this re-promote supersedes the seeded
+    // LESSONS bullet (the no-arg default would now topic-route this body to HABITS).
+    const res = lessonsPromote({ id: w.id, projectRoot, userDir, to: 'LESSONS.md' });
     expect(res.action).toBe('promoted');
     expect(res.superseded).toBeTruthy();
     // State: the old wording is gone, the new one is present (replaced, not duplicated).
@@ -211,5 +219,139 @@ describe('cmk lessons promote (Task 76)', () => {
     const res = lessonsPromote({ id: w.id, projectRoot, userDir: undefined });
     expect(res.action).toBe('error');
     expect(res.errorCategory).toBe('schema');
+  });
+});
+
+// ===========================================================================
+// Task 151.9 — offline TOPIC-router (fixes Hole C, ADR-0016 §20.4).
+//
+// The EXPLICIT lessons-promote was funnelling EVERY no-arg promote into one
+// default section (LESSONS § Cross-Project Lessons) → single-section overflow.
+// routeTopic spreads promotes across USER/HABITS/LESSONS by content, using the
+// auto-persona taxonomy — but OFFLINE + deterministic (no Haiku; the explicit
+// command stays instant/network-free, unlike the automatic path's classifier).
+// `--to`/`--section` still override the router.
+// ===========================================================================
+
+describe('Task 151.9 — routeTopic (offline topic-router)', () => {
+  it('identity / preference statements route to USER.md', () => {
+    expect(routeTopic("I'm a backend engineer who prefers Rust").target).toBe('USER.md');
+    expect(routeTopic('I prefer terse, direct communication').target).toBe('USER.md');
+  });
+
+  it('working-style / process statements route to HABITS.md', () => {
+    expect(routeTopic('I always run the linter before every commit').target).toBe('HABITS.md');
+    expect(routeTopic('From now on, branch before the first commit').target).toBe('HABITS.md');
+  });
+
+  it('cross-project lessons / tooling gotchas route to LESSONS.md', () => {
+    expect(routeTopic('Learned the hard way: chokidar v5 drops globs').target).toBe('LESSONS.md');
+    expect(routeTopic('Gotcha: better-sqlite3 needs a rebuild after a node bump').target).toBe('LESSONS.md');
+  });
+
+  it('an unclassifiable fact falls back to LESSONS.md (the safe cross-project catch-all)', () => {
+    expect(routeTopic('the deploy target is staging').target).toBe('LESSONS.md');
+    expect(routeTopic('').target).toBe('LESSONS.md');
+    expect(routeTopic(undefined).target).toBe('LESSONS.md');
+  });
+
+  it('every route returns a valid {target, section} the promote path accepts', () => {
+    for (const text of ['I am X', 'I always Y', 'learned Z', 'misc']) {
+      const r = routeTopic(text);
+      expect(['USER.md', 'HABITS.md', 'LESSONS.md']).toContain(r.target);
+      expect(typeof r.section).toBe('string');
+      expect(r.section.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('Task 151.9 — lessonsPromote spreads no-arg promotes across files (Hole C fix)', () => {
+  it('N different-topic promotes land in DIFFERENT files, not all in one section', () => {
+    // Scaffold USER.md too (router can land there now).
+    writeFileSync(join(userDir, 'USER.md'), '# User\n\n## Existing\n\n- x\n');
+    const mk = (body, slug) => writeFact(validFactOpts({ projectRoot, body, slug })).id;
+    const idIdentity = mk("I'm a systems engineer; I prefer Rust for hot paths", 'identity');
+    const idHabit = mk('I always write the test before the code', 'habit');
+    const idLesson = mk('Learned: pin the chokidar version, v5 drops globs', 'lesson');
+
+    const rIdentity = lessonsPromote({ id: idIdentity, projectRoot, userDir });
+    const rHabit = lessonsPromote({ id: idHabit, projectRoot, userDir });
+    const rLesson = lessonsPromote({ id: idLesson, projectRoot, userDir });
+
+    // Each landed (promoted), in a DIFFERENT file — not all funnelled to LESSONS.
+    expect(rIdentity.action).toBe('promoted');
+    expect(rHabit.action).toBe('promoted');
+    expect(rLesson.action).toBe('promoted');
+    expect(rIdentity.target).toBe('USER.md');
+    expect(rHabit.target).toBe('HABITS.md');
+    expect(rLesson.target).toBe('LESSONS.md');
+    // Door 2 — the bodies landed in their routed files.
+    expect(readFileSync(join(userDir, 'USER.md'), 'utf8')).toContain('systems engineer');
+    expect(readFileSync(join(userDir, 'HABITS.md'), 'utf8')).toContain('test before the code');
+    expect(readFileSync(join(userDir, 'LESSONS.md'), 'utf8')).toContain('chokidar');
+  });
+
+  it('an explicit --to / --section STILL overrides the router (back-compat)', () => {
+    const w = writeFact(validFactOpts({ projectRoot, body: 'I always lint first', slug: 'ov' }));
+    // Body would route to HABITS, but --to LESSONS + --section override wins.
+    const r = lessonsPromote({ id: w.id, projectRoot, userDir, to: 'LESSONS.md', section: 'Tooling Lessons' });
+    expect(r.target).toBe('LESSONS.md');
+    expect(r.section).toBe('Tooling Lessons');
+  });
+});
+
+// ===========================================================================
+// Task 151.11 — optional in-conversation MENTION (awrshift warmth, §20.4).
+//
+// On a HIGH-RECURRENCE promotion the result carries an optional `mention` string
+// ("noticed X recurred N× — promoted it; say so if wrong") that Claude MAY relay
+// in conversation. It is a HEADS-UP, NOT a gate: fire-and-forget, never a prompt,
+// never blocks (D-169 — the silent auto-drain stays the default; asking-first
+// would re-introduce the human-in-the-loop). Below the threshold there is NO
+// mention (a one-off promote stays silent).
+// ===========================================================================
+
+describe('Task 151.11 — buildPromotionMention (heads-up, not a gate)', () => {
+  it('a high-recurrence promotion yields a mention naming the recurrence', () => {
+    const m = buildPromotionMention({ text: 'always run black before committing', recurrenceCount: MENTION_RECURRENCE, target: 'HABITS.md' });
+    expect(typeof m).toBe('string');
+    expect(m).toMatch(new RegExp(String(MENTION_RECURRENCE)));
+    // It frames the revert path (never a gate — "say so if wrong"), not a question.
+    expect(m.toLowerCase()).toMatch(/wrong|forget|revert|undo/);
+    expect(m).not.toMatch(/\?\s*$/); // not a blocking question
+  });
+
+  it('a low-recurrence (one-off) promotion yields NO mention (stays silent)', () => {
+    expect(buildPromotionMention({ text: 'x', recurrenceCount: 1, target: 'LESSONS.md' })).toBeNull();
+    expect(buildPromotionMention({ text: 'x', recurrenceCount: MENTION_RECURRENCE - 1, target: 'LESSONS.md' })).toBeNull();
+  });
+
+  it('garbage / missing recurrence is a clean null (defensive)', () => {
+    expect(buildPromotionMention({ text: 'x', recurrenceCount: undefined, target: 'LESSONS.md' })).toBeNull();
+    expect(buildPromotionMention({})).toBeNull();
+  });
+});
+
+describe('Task 151.11 — lessonsPromote surfaces a mention on a high-recurrence fact', () => {
+  it('a fact seen N≥threshold times gets a `mention` on its promote result; the promote is NOT blocked', () => {
+    writeFileSync(join(userDir, 'USER.md'), '# User\n\n## Preferences\n');
+    // Re-write the same canonical fact MENTION_RECURRENCE times → recurrence_count climbs.
+    const opts = validFactOpts({ projectRoot, body: 'I always write the test first', slug: 'recurrent' });
+    let w;
+    for (let i = 0; i < MENTION_RECURRENCE; i++) w = writeFact(opts);
+
+    const r = lessonsPromote({ id: w.id, projectRoot, userDir });
+    // Door 1 — the promote SUCCEEDS (never blocked by the mention).
+    expect(r.action).toBe('promoted');
+    // …and carries the optional heads-up.
+    expect(typeof r.mention).toBe('string');
+    expect(r.mention.length).toBeGreaterThan(0);
+  });
+
+  it('a one-off promote has NO mention field (or null) — stays silent', () => {
+    const w = writeFact(validFactOpts({ projectRoot, body: 'a one-off lesson', slug: 'oneoff' }));
+    const r = lessonsPromote({ id: w.id, projectRoot, userDir, to: 'LESSONS.md' });
+    expect(r.action).toBe('promoted');
+    expect(r.mention == null).toBe(true);
   });
 });

@@ -7892,6 +7892,7 @@
 <!-- decision:P-5AFG567T -->
 
 ## RESUME: commit the in-loop setDeep guard to main to close CodeQL #29 (v0.4.2 shipped but #29 still open)
+_(retracted 2026-06-29)_
 
 **When:** 2026-06-28 · **Fact:** `P-5AFG567T`
 **Why:** Context ran out mid-decision. v0.4.2 published but CodeQL #29 (prototype-pollution) didn't actually close because the first guard was pre-loop; the corrected in-loop guard is done+tested but uncommitted. The alert closes on a main push (CodeQL re-scans main), independent of npm — so it needs only a commit to main, not a release.
@@ -7913,6 +7914,7 @@
 <!-- decision:P-MNA5QMCG -->
 
 ## RESUME: PR #244 (direct === guard) to close CodeQL #37 — if it re-flags again, DISMISS as false-positive
+_(retracted 2026-06-29)_
 
 **When:** 2026-06-28 · **Fact:** `P-MNA5QMCG`
 **Why:** The CodeQL prototype-pollution alert keeps re-flagging through 3 guard forms; PR #244 uses CodeQL's exact documented === pattern (highest confidence). Context ran out, so the next session must verify the merge closes it, with a clear stop-condition: dismiss as false-positive if a 4th re-flag occurs (the runtime guard is sound + tested; not exploitable).
@@ -7923,3 +7925,645 @@
 
 **When:** 2026-06-28 · **Fact:** `P-3WXW2EK4`
 **Why:** PR #244 uses the direct `===` form per CodeQL's documented sanitizer. Previous attempts (#29, #37) with Set-lookup caused repeated re-flagging; took 3 iterations to discover the constraint.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-FHAULU6M -->
+
+## Current session is test/gate data only ("not really me"); proceeding with v0.4.1
+
+**When:** 2026-06-28 · **Fact:** `P-FHAULU6M`
+
+<!-- decision:P-Na6U7TPJ -->
+
+## Injection (passive, session-start auto-load) and active recall (user-initiated s
+
+**When:** 2026-06-28 · **Fact:** `P-Na6U7TPJ`
+
+<!-- decision:P-LCYCaKMS -->
+
+## User pushed back on dropping "relevant" from product pitch—values precision over
+
+**When:** 2026-06-28 · **Fact:** `P-LCYCaKMS`
+
+<!-- decision:P-M7EGA36Z -->
+
+## Requesting documentation of current session state before auto-context-compaction
+
+**When:** 2026-06-28 · **Fact:** `P-M7EGA36Z`
+
+<!-- decision:P-G69aAGXa -->
+
+## Proposing to merge PR #243 now and bundle both #29 and #151 into single v0.4.3 r
+
+**When:** 2026-06-28 · **Fact:** `P-G69aAGXa`
+
+<!-- decision:P-YNFFNRSC -->
+
+## ADR-0012: Deferred Product Rename (Cross-Agent Trigger)
+
+**When:** 2026-06-28 · **Fact:** `P-YNFFNRSC`
+**Why:** Rename deliberately deferred while design matured. Trigger condition is now live; next major release is the natural rebranding moment.
+
+<!-- decision:P-JRAF6ZV7 -->
+
+## Borrowable Ideas from awrshift/claude-memory-kit
+
+**When:** 2026-06-28 · **Fact:** `P-JRAF6ZV7`
+**Why:** awrshift/claude-memory-kit is ahead on warmth (tour, proposal phrasing) and has one automation gap (git backfill) we lack. Comparison clarifies our strengths (rigor, automation, npm, breadth) and identifies real feature gaps.
+
+<!-- decision:P-WML7VSB6 -->
+
+## D-169: No Manual End-of-Day Rituals (Automation-First)
+
+**When:** 2026-06-28 · **Fact:** `P-WML7VSB6`
+**Why:** Manual rituals are fragile; design should self-correct instead of relying on users to remember to run commands.
+
+<!-- decision:P-PU6T9CCK -->
+
+## Already at v0.4.2; workflow uses tasks.md + decision log + version-lane
+
+**When:** 2026-06-28 · **Fact:** `P-PU6T9CCK`
+
+<!-- decision:P-KWQV23N7 -->
+
+## Before implementing, will verify fit against actual tasks, version plan, and cod
+
+**When:** 2026-06-28 · **Fact:** `P-KWQV23N7`
+
+<!-- decision:P-XS5QEL2G -->
+
+## Silent Auto-Drain + Optional Warmth Design Pattern
+
+**When:** 2026-06-28 · **Fact:** `P-XS5QEL2G`
+**Why:** Combines external warmth (proposing promotions) with internal automation philosophy (no manual trigger required). Tested decision: D-169 forbids manual rituals; optional mention adds transparency without gating.
+
+<!-- decision:P-LP3NBRXa -->
+
+## Three Borrowed Ideas Laned to Tasks + Versions
+
+**When:** 2026-06-28 · **Fact:** `P-LP3NBRXa`
+**Why:** Brainstorm comparison with awrshift/claude-memory-kit exposed three good ideas and one anti-pattern (manual `/close-day` ritual, rejected per D-169). Each idea now has a home in the roadmap.
+
+<!-- decision:P-JKPFY539 -->
+
+## Deep-Read Process for Evaluating Competing Projects
+
+**When:** 2026-06-28 · **Fact:** `P-JKPFY539`
+**Why:** README is marketing material. Biggest advantages are often buried in secondary docs or undocumented in code. A rigorous read surfaces true design vs pitch. Prior: the "awrshift" comparison suffered from surface-level claims.
+
+<!-- decision:P-D3aLJF4T -->
+
+## Read code and secondary docs (architecture, ADRs, design notes), not just README
+
+**When:** 2026-06-28 · **Fact:** `P-D3aLJF4T`
+
+<!-- decision:P-R3X4TBLZ -->
+
+## Research→ADR→Build Workflow for Feature Adoption
+
+**When:** 2026-06-28 · **Fact:** `P-R3X4TBLZ`
+**Why:** Prevents premature build commitment; makes design decisions explicit; keeps research findings organized in release planning
+
+<!-- decision:P-ZYQVKVHZ -->
+
+## user's established practice is to run a cut-gate (full live verification) before
+
+**When:** 2026-06-28 · **Fact:** `P-ZYQVKVHZ`
+
+<!-- decision:P-6HFUXBJN -->
+
+## Chose to finish the publish before updating About/topics, prioritizing critical
+
+**When:** 2026-06-28 · **Fact:** `P-6HFUXBJN`
+
+<!-- decision:P-BFVNEYaQ -->
+
+## User questioned the decision to mirror npm README to root's lean structure, impl
+
+**When:** 2026-06-28 · **Fact:** `P-BFVNEYaQ`
+
+<!-- decision:P-BR5RAVUF -->
+
+## CI gates merge decisions; red CI blocks merging.
+
+**When:** 2026-06-28 · **Fact:** `P-BR5RAVUF`
+
+<!-- decision:P-5KL5UKaE -->
+
+## Better-sqlite3 is a native binary; test changes before merge.
+
+**When:** 2026-06-28 · **Fact:** `P-5KL5UKaE`
+
+<!-- decision:P-XZ469SEJ -->
+
+## Project uses Dependabot for automated dependency bumps.
+
+**When:** 2026-06-28 · **Fact:** `P-XZ469SEJ`
+
+<!-- decision:P-9BPX64ZQ -->
+
+## 13 Stuck Tasks — Categorization and Supersession Map
+
+**When:** 2026-06-28 · **Fact:** `P-9BPX64ZQ`
+**Why:** Risk of re-laning work that is already dead (superseded) or not actually needed. Group C requires investigation before committing; Groups A/B can move forward in parallel.
+
+<!-- decision:P-7YE23aRT -->
+
+## Concurrent-Write Race (Task 146) Severity Tied to Agent Multiplicity
+
+**When:** 2026-06-28 · **Fact:** `P-7YE23aRT`
+**Why:** Timing of 146 matters for risk/urgency. It's not needed for v0.4.0, but becomes load-bearing as agent count grows.
+
+<!-- decision:P-MMY4ESK6 -->
+
+## Release Laning and Task Dependencies (v0.4.4 + v0.5)
+
+**When:** 2026-06-28 · **Fact:** `P-MMY4ESK6`
+**Why:** Task assignment clarity prevents blocked work and surprises at release boundaries. Task 150 validates the principle: "design first, version second" prevents silent failures.
+
+<!-- decision:P-XRWUWG5W -->
+
+## SessionStart Hook Re-Injection (Accidental Mechanic, Untested)
+
+**When:** 2026-06-28 · **Fact:** `P-XRWUWG5W`
+**Why:** Re-injection is de-facto working but fragile and undocumented. Future maintainers might unknowingly break it.
+
+<!-- decision:P-FT6QKCBS -->
+
+## Task Gating Criteria (Decision Blockers and Gates)
+
+**When:** 2026-06-28 · **Fact:** `P-FT6QKCBS`
+**Why:** These are legitimate parked states (not forgotten). Each has a clear gate that, when crossed, unblocks the task. Makes the backlog legible.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-Ba5UKVX6 -->
+
+## Preference for bundling related fixes into fewer releases rather than creating s
+
+**When:** 2026-06-28 · **Fact:** `P-Ba5UKVX6`
+
+<!-- decision:P-JHCKXJVE -->
+
+## Three borrowed ideas now laned: Task 174 (git backfill, v0.4.x), Task 175 (/tour
+
+**When:** 2026-06-28 · **Fact:** `P-JHCKXJVE`
+
+<!-- decision:P-B46Y2M6S -->
+
+## No naming collision with awrshift/claude-memory-kit; rename planned in ADR-0012
+
+**When:** 2026-06-28 · **Fact:** `P-B46Y2M6S`
+
+<!-- decision:P-SF3FLWM2 -->
+
+## Will not skim the front page; will check primary sources (code/docs) before clai
+
+**When:** 2026-06-28 · **Fact:** `P-SF3FLWM2`
+
+<!-- decision:P-4AL3BZXW -->
+
+## Tasks should be pinned to actual versions, not left vague or undocumented.
+
+**When:** 2026-06-28 · **Fact:** `P-4AL3BZXW`
+
+<!-- decision:P-P7TXKNa2 -->
+
+## Link and Reference Triage Workflow
+
+**When:** 2026-06-29 · **Fact:** `P-P7TXKNa2`
+**Why:** External input must be evaluated systematically and logged to prevent re-examining the same idea, preserve decision reasoning, and enable audits for dropped concepts.
+
+<!-- decision:P-WaB3AMYQ -->
+
+## Research Base for Design Validation
+
+**When:** 2026-06-29 · **Fact:** `P-WaB3AMYQ`
+**Why:** Real-world implementations reveal hidden constraints, validate untested ideas, and prevent overconfidence. Grounding decisions in research provides justification for adoption, rejection, or deferral.
+
+<!-- decision:P-75XLTRDa -->
+
+## Memory-loop vision — continuous autonomous memory improvement
+
+**When:** 2026-06-29 · **Fact:** `P-75XLTRDa`
+**Why:** This frames a core architectural ambition for the kit — memory should improve autonomously between sessions, not just accumulate stale data
+
+<!-- decision:P-PNPUTUSW -->
+
+## Four Flavors of Memory-Improvement Systems
+
+**When:** 2026-06-29 · **Fact:** `P-PNPUTUSW`
+**Why:** Provides a framework to prioritize and sequence memory-improvement work. Task 179 will decide if these are one unified loop or separate complementary features.
+
+<!-- decision:P-BS9S9KJ5 -->
+
+## Hermes Is Skill-Library Curation, Not Memory Self-Improvement
+
+**When:** 2026-06-29 · **Fact:** `P-BS9S9KJ5`
+**Why:** Clarifies Hermes's scope; prevents confusion when Task 179 positions both memory improvement AND skill curation as separate but related features.
+
+<!-- decision:P-VaVCPL2W -->
+
+## Task 179 — Umbrella Task for Memory-Improvement Sequencing
+
+**When:** 2026-06-29 · **Fact:** `P-VaVCPL2W`
+**Why:** Consolidates scattered effort; ensures each flavor (A/B/C/D) is positioned correctly—either as a unified pipeline or as complementary features.
+
+<!-- decision:P-AGSCLWSP -->
+
+## Memclaw's 6 Passive Outcome Signals (3 Already Produced)
+
+**When:** 2026-06-29 · **Fact:** `P-AGSCLWSP`
+**Why:** Breaks a design blocker long-standing blocker. Passive signals are reachable without changing the core constraint.
+
+<!-- decision:P-CBRTVKDQ -->
+
+## Multi-Project Survey: 6 External Links + 1 Revisit Yields 10 Revisit-Notes
+
+**When:** 2026-06-29 · **Fact:** `P-CBRTVKDQ`
+**Why:** Documents ROI of multi-project external surveys and validates the discipline of re-checking live sources.
+
+<!-- decision:P-J76QQ3KL -->
+
+## Distinguish Code Gems From Pitch Copy
+
+**When:** 2026-06-29 · **Fact:** `P-J76QQ3KL`
+**Why:** Ensures captured knowledge is routed to the right place the first time, making it findable and actionable for its intended use (execution vs positioning).
+
+<!-- decision:P-NKHH5BYD -->
+
+## Pitch-Line Copy Candidates (D-224)
+
+**When:** 2026-06-29 · **Fact:** `P-NKHH5BYD`
+**Why:** Both are clean, memorable metaphors that directly explain core positioning. Worth preserving for the next README/About polish cycle.
+
+<!-- decision:P-DUSJXHRY -->
+
+## Article Verdict Pattern for Task Ingestion
+
+**When:** 2026-06-29 · **Fact:** `P-DUSJXHRY`
+**Why:** Ensures each ingested article's relevance, scope, and relationship to prior work are clear; enables principled decisions about what to keep, revise, or discard
+
+<!-- decision:P-A3E5WU9F -->
+
+## "Memory-as-Tool" Pattern — External Validation
+
+**When:** 2026-06-29 · **Fact:** `P-A3E5WU9F`
+**Why:** Our Task 149 "when-to-recall" fork (judgment-pulled vs always-search) is validated by external literature as a deliberate design pattern, suggesting the approach is sound and positions us alongside best practices.
+
+<!-- decision:P-7NUMKYFH -->
+
+## Post-Retrieval Filtering & Query Expansion (HyDE)
+
+**When:** 2026-06-29 · **Fact:** `P-7NUMKYFH`
+**Why:** The ML Mastery articles on context-aware search and effective context engineering document real techniques that directly address the paraphrase-recall problem (Task 65/99 already measures this gap).
+
+<!-- decision:P-7EQa5V6Z -->
+
+## RAPTOR — Hierarchical Summarization for Multi-Hop Reasoning
+
+**When:** 2026-06-29 · **Fact:** `P-7EQa5V6Z`
+**Why:** The "beyond vector search" ML Mastery article names the 5 next-gen RAG strategies; RAPTOR is the one genuinely new to our research (others — GraphRAG, ColBERT, HyDE, Agentic RAG — already appear in our task list).
+
+<!-- decision:P-E3UELCGM -->
+
+## RRF Configuration & Fusion Strategy
+
+**When:** 2026-06-29 · **Fact:** `P-E3UELCGM`
+**Why:** The ML Mastery hybrid-search tutorial encodes real implementation details that avoid subtle correctness bugs.
+
+<!-- decision:P-AT4NHAQA -->
+
+## Claude-Memory-Kit: Core Patent Novelty Research Queries
+
+**When:** 2026-06-29 · **Fact:** `P-AT4NHAQA`
+**Why:** Early positioning signal: determine whether ideas are Open (novel), Crowded, or Saturated in prior art.
+
+<!-- decision:P-C2BJ2ZEZ -->
+
+## Rust Crate Installation Workflow with C++ Dependencies on Windows
+
+**When:** 2026-06-29 · **Fact:** `P-C2BJ2ZEZ`
+**Why:** Understanding the build process and download cache behavior saves iteration time across install/reinstall cycles.
+
+<!-- decision:P-GL75LQ73 -->
+
+## Windows Terminal PATH Refresh After Visual Studio Build Tools Install
+
+**When:** 2026-06-29 · **Fact:** `P-GL75LQ73`
+**Why:** Windows/PowerShell-specific behavior: PATH caching requires full shell restart to load new binaries into the process environment.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-NR2KFGZM -->
+
+## User confirms design-first approach for task 150 ("your instinct is right"); acc
+
+**When:** 2026-06-28 · **Fact:** `P-NR2KFGZM`
+
+<!-- decision:P-SBa6Y46Q -->
+
+## User audits work for completeness/dropped concepts ("what about all the other id
+
+**When:** 2026-06-29 · **Fact:** `P-SBa6Y46Q`
+
+<!-- decision:P-X3AWXG6Z -->
+
+## File tasks early (assign IDs, enter backlog) to track ideas and prevent loss (us
+
+**When:** 2026-06-29 · **Fact:** `P-X3AWXG6Z`
+
+<!-- decision:P-5SW9AKAL -->
+
+## Brief affirmation confirms revisit-notes approach and validates instinct to re-c
+
+**When:** 2026-06-29 · **Fact:** `P-5SW9AKAL`
+
+<!-- decision:P-Y3B322DW -->
+
+## Batch git commits across multiple projects/articles; wait until finishing at lea
+
+**When:** 2026-06-29 · **Fact:** `P-Y3B322DW`
+
+<!-- decision:P-FKL749WV -->
+
+## Markdown/Git-Native Memory Space Now Crowded, Not Empty
+
+**When:** 2026-06-29 · **Fact:** `P-FKL749WV`
+**Why:** Refines our positioning. Differentiator is execution depth (auto-capture rigor, trust mechanisms, breadth) not novelty.
+
+<!-- decision:P-H5HUXKX6 -->
+
+## Patent Tool Is Too Noisy for Prior-Art Sweeps
+
+**When:** 2026-06-29 · **Fact:** `P-H5HUXKX6`
+**Why:** Time spent deep-reading 38 results × multiple queries yields diminishing returns. Better to use tool for breadth only and cherry-pick top results.
+
+<!-- decision:P-7J94CRGR -->
+
+## Capture Source — Agent Task-State via PostToolUse Hook
+
+**When:** 2026-06-29 · **Fact:** `P-7J94CRGR`
+**Why:** Reveals an underexplored capture channel. Task state is metadata-rich and orthogonal to user messaging; complements conversation-turn extraction.
+
+<!-- decision:P-32Q5YHHV -->
+
+## Concurrency Pattern — Partition-by-Writer (Tasks 146/50/148)
+
+**When:** 2026-06-29 · **Fact:** `P-32Q5YHHV`
+**Why:** Directly applicable to multi-agent scenarios (Tasks 146/50/148). Avoids distributed-systems complexity by enforcing ownership-based write safety.
+
+<!-- decision:P-HJEBaWGL -->
+
+## Market Finding — Git-Native Markdown Memory Space is Now Crowded
+
+**When:** 2026-06-29 · **Fact:** `P-HJEBaWGL`
+**Why:** Informs roadmap prioritization and competitive positioning. Category-first positioning no longer holds; depth and capture quality become the moat.
+
+<!-- decision:P-47SKPKG7 -->
+
+## Task 176 Reference — Typed Graph with Auto-Edge Maintenance on File Change
+
+**When:** 2026-06-29 · **Fact:** `P-47SKPKG7`
+**Why:** Direct reference implementation for Task 176's core requirement (auto-derive edges from markdown changes without explicit schema).
+
+<!-- decision:P-YAQT3ER9 -->
+
+## D-177 Self-Defeating Loop in Persona Graduation
+
+**When:** 2026-06-29 · **Fact:** `P-YAQT3ER9`
+**Why:** Known degradation causing personas to vanish; core problem Task 151 redesign addresses
+
+<!-- decision:P-BMLU6Ga3 -->
+
+## Task 151 Implementation Cadence
+
+**When:** 2026-06-29 · **Fact:** `P-BMLU6Ga3`
+**Why:** User review before implementation reduces rework and ensures design intent is clear
+
+<!-- decision:P-WF2SKRFP -->
+
+## Four-Move Redesign for D-177 (Persona Graduation Loop)
+
+**When:** 2026-06-29 · **Fact:** `P-WF2SKRFP`
+**Why:** Task 151 is fixing D-177, a self-defeating loop where high-trust persona traits are evicted due to cap overflow. The redesign is research-backed (Hermes/captain-claw precedents) and complete — all four moves are decided and grounded.
+
+<!-- decision:P-3VGQYFZT -->
+
+## letta memory model (code-read 2026-06-29): TWO durable tiers + a message buffer.
+
+**When:** 2026-06-29 · **Fact:** `P-3VGQYFZT`
+**Why:** Background-loop reference (Task 179) + 'core memory exempt from eviction' precedent (Task 151 Move 2). The maintainer is deciding whether to protect high-value memory from a cap-relief sweep; letta's answer is: durable tiers are never swept, only the message buffer is.
+
+<!-- decision:P-BT9BNCQS -->
+
+## Link-Out Convention for Design.md Evidence
+
+**When:** 2026-06-29 · **Fact:** `P-BT9BNCQS`
+**Why:** Prevents recurring mistakes of inlining large evidence blocks into the Spine, which bloats the critical design.md file. Future sessions need explicit guidance.
+
+<!-- decision:P-M7PHRC7G -->
+
+## ADR-0016 Clarification — Recurrence Gate vs. LLM Role
+
+**When:** 2026-06-29 · **Fact:** `P-M7PHRC7G`
+**Why:** User returned for clarification; prior explanation risked misdirecting task-151 and option choice. Corrected framing is essential for sound implementation.
+
+<!-- decision:P-La4FVXJY -->
+
+## Comparative Memory System Analysis — TencentDB as Counter-Example
+
+**When:** 2026-06-29 · **Fact:** `P-La4FVXJY`
+**Why:** Concrete counter-examples prevent overconfidence; TencentDB proves fragility is structural to LLM gates, not judgment rubric
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-3HD39BL2 -->
+
+## v0.4.3 Build Checkpoint — Ready to Resume at 151.3
+
+**When:** 2026-06-29 · **Fact:** `P-3HD39BL2`
+**Why:** Clean checkpoint for next session; no re-derivation needed on resume. All context (decision, design, tests, task tracking) is locked in place.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-ULVXZUXA -->
+
+## User prefers durable written capture of research findings; signals this with "wr
+
+**When:** 2026-06-29 · **Fact:** `P-ULVXZUXA`
+
+<!-- decision:P-752LM39L -->
+
+## Bridge-Study Research Question — Synthesized Trait Recurrence Signal
+
+**When:** 2026-06-29 · **Fact:** `P-752LM39L`
+**Why:** The recurrence signal is critical to the promotion gate. Current code assumes a pattern that may not match how the 5 systems actually work; bridge study avoids guessing.
+
+<!-- decision:P-WDaaVEFF -->
+
+## Task 151 Structure and Status (In-Progress Multi-Part Implementation)
+
+**When:** 2026-06-29 · **Fact:** `P-WDaaVEFF`
+**Why:** Tracking multi-part staged implementation; need location + scope for resume
+
+<!-- decision:P-C72TUV9Z -->
+
+## Resume point Task 151.3 recurrence gate
+
+**When:** 2026-06-29 · **Fact:** `P-C72TUV9Z`
+
+<!-- decision:P-MB6NX5EP -->
+
+## Task 151.3 bridge answer cite-and-sum
+
+**When:** 2026-06-29 · **Fact:** `P-MB6NX5EP`
+
+<!-- decision:P-JBDL39TN -->
+
+## Trait Recurrence Gating Design (151.3)
+
+**When:** 2026-06-29 · **Fact:** `P-JBDL39TN`
+**Why:** This design was the open question blocking 151.3. The 15-system study empirically validated it. Saving this prevents re-deriving the same analysis.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-FQNMDSZN -->
+
+## Resume point Task 151.4 (Move 2 demote-not-evict)
+
+**When:** 2026-06-30 · **Fact:** `P-FQNMDSZN`
+
+<!-- decision:P-U3JGW7WP -->
+
+## Memory Commit Workflow — Hygiene & Privacy Validation
+
+**When:** 2026-06-30 · **Fact:** `P-U3JGW7WP`
+**Why:** Memory system integrity requires clean signal separation, privacy assurance, and gitignore discipline.
+
+<!-- decision:P-ZVBQV4NG -->
+
+## Persona Tier-U Cap Relief — Condense In Place (151.4)
+
+**When:** 2026-06-30 · **Fact:** `P-ZVBQV4NG`
+**Why:** Cap overflow + invisibility at cold-open was a real bug (confirmed pre-fix). In-place condense preserves tier-U visibility.
+
+<!-- decision:P-WG2UHVZX -->
+
+## Resume point Task 151.7 (trust update rule)
+
+**When:** 2026-06-30 · **Fact:** `P-WG2UHVZX`
+
+<!-- decision:P-ZTaNPL3T -->
+
+## Decision Logging in Task Entries
+
+**When:** 2026-06-30 · **Fact:** `P-ZTaNPL3T`
+**Why:** Preserves reasoning across sessions; prevents re-deriving the same design decision or losing dependency chains that feed into later work.
+
+<!-- decision:P-7D2GKaBC -->
+
+## Memory System Dogfooding — Internal Use as Test Case
+
+**When:** 2026-06-30 · **Fact:** `P-7D2GKaBC`
+**Why:** Ensures the memory system works for real workflows and scale, not just theory; dogfooding drives product design and reveals gaps.
+
+<!-- decision:P-S2SHMDGK -->
+
+## Research-Faithful Design in Sweep Order Implementation
+
+**When:** 2026-06-30 · **Fact:** `P-S2SHMDGK`
+**Why:** Grounding design decisions in research rather than intuition produces more robust, maintainable systems; research captures known best practices.
+
+<!-- decision:P-SZE7EEYa -->
+
+## Vitest Pool Corruption — Transient Load Failures
+
+**When:** 2026-06-30 · **Fact:** `P-SZE7EEYa`
+**Why:** Distinguishes transient vitest infrastructure issues from real code failures; prevents false-alarm debugging when all loads fail but no actual tests fail.
+
+<!-- decision:P-MY66RUPW -->
+
+## Documentation Architecture — Authoritative Files and Verification Checklist
+
+**When:** 2026-06-30 · **Fact:** `P-MY66RUPW`
+**Why:** Complete doc trail prevents shipping with missing context. CHANGELOG is particularly easy to miss when features are mostly internal mechanism, but recurrence promotion + persona persistence ARE user-visible.
+
+<!-- decision:P-aAPTRPN4 -->
+
+## Release Lane Independence Pattern
+
+**When:** 2026-06-30 · **Fact:** `P-aAPTRPN4`
+**Why:** Allows efficient release batching (multiple independent features per version) while maintaining clear traceability, decision ownership, and accountability per task.
+
+<!-- decision:P-PKQY4FNJ -->
+
+## Resume point Task 151.13 (last 151 sub-task)
+
+**When:** 2026-06-30 · **Fact:** `P-PKQY4FNJ`
+
+<!-- decision:P-YRNXAYa9 -->
+
+## Resume point v0.4.3 pre-merge (code-complete)
+
+**When:** 2026-06-30 · **Fact:** `P-YRNXAYa9`
+
+<!-- decision:P-L3X6TPYY -->
+
+## npm run stress — Transient Flake and Fresh-Run Workaround
+
+**When:** 2026-06-30 · **Fact:** `P-L3X6TPYY`
+**Why:** Tool quirk affecting pre-merge gate reliability; must rule out false negatives
+
+<!-- decision:P-ZZ3GYLUY -->
+
+## Two Minor Review Fixes (Commit 9d785d3)
+
+**When:** 2026-06-30 · **Fact:** `P-ZZ3GYLUY`
+**Why:** Resolved minor review findings; ensures consistent initialization and resource efficiency
+
+<!-- decision:P-NLDPRW9Z -->
+
+## Whole-Branch Architecture Verification Passed
+
+**When:** 2026-06-30 · **Fact:** `P-NLDPRW9Z`
+**Why:** Holistic coherence check required before merge to confirm integration is sound
+
+<!-- decision:P-JHCFGZ7U -->
+
+## Manual Verification Gates for Tasks 74 and 151
+
+**When:** 2026-06-30 · **Fact:** `P-JHCFGZ7U`
+**Why:** Features depend on runtime agent/session state that cannot be simulated. Honest caveats prevent over-claiming automation; live verification required before production.
+
+<!-- decision:P-LLZZSBP3 -->
+
+## Release Workflow and Commands for Production
+
+**When:** 2026-06-30 · **Fact:** `P-LLZZSBP3`
+**Why:** Multi-step release with specific tooling; npm script is canonical (prevents hand-edits). Tag push triggers automated CI. Stress test must pass 5/5 before merge.
