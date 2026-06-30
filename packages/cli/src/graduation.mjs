@@ -177,3 +177,42 @@ export function graduateForCapRelief({
   const out = lines.filter((_, i) => !removeIdx.has(i)).join('\n');
   return { text: out, graduated };
 }
+
+/**
+ * Mechanical cap relief for the USER-TIER PERSONA (Task 151.4, ADR-0016 §20.3).
+ *
+ * The persona (USER/HABITS/LESSONS.md) must NEVER graduate its high-trust bullets
+ * out to un-injected `fragments/` — that strands a promoted trait so it vanishes
+ * at cold-open (Hole B). Instead, reclaim bytes WITHOUT dropping any content:
+ *   - trim trailing whitespace per line,
+ *   - collapse any run of ≥2 blank lines down to a single blank line.
+ * No bullet is ever removed. This is a best-effort byte reclaim (the load-cap-not-
+ * write-cap invariant, D-61, already lets the file exceed the inject budget when
+ * relief isn't enough; the snapshot load-cap + sweep order (151.5) then keeps the
+ * high-trust traits injected). A genuine LLM tighter-rewrite is Task 95 (off the
+ * synchronous append hot path — an inline Haiku call here would be a composition +
+ * latency hazard). PURE: no I/O. Idempotent (re-condensing tight text is a no-op).
+ *
+ * @param {string} text  the scratchpad content
+ * @returns {string} the condensed content (same bullets, fewer bytes)
+ */
+export function condenseScratchpadForCapRelief(text) {
+  // CRLF-tolerant (Task 139): split on /\r?\n/ so a Windows-authored persona file
+  // condenses too — a plain split('\n') would leave a trailing '\r' on every line,
+  // making blank-run collapse + trailing-trim silent no-ops. Rejoin with '\n'
+  // (LF), matching how consolidate()/writeBullet() already normalize line endings.
+  const lines = String(text ?? '').split(/\r?\n/);
+  const out = [];
+  let blankRun = 0;
+  for (const line of lines) {
+    const trimmed = line.replace(/[ \t]+$/, ''); // trailing whitespace
+    if (trimmed === '') {
+      blankRun += 1;
+      if (blankRun > 1) continue; // collapse ≥2 blanks → 1
+    } else {
+      blankRun = 0;
+    }
+    out.push(trimmed);
+  }
+  return out.join('\n');
+}

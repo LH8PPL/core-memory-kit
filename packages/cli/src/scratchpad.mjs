@@ -36,7 +36,7 @@ import {
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { writeBullet, parseBulletProvenance, isProvenanceCommentLine } from './provenance.mjs';
-import { graduateForCapRelief } from './graduation.mjs';
+import { graduateForCapRelief, condenseScratchpadForCapRelief } from './graduation.mjs';
 
 const VALID_TRUST = new Set(['high', 'medium', 'low']);
 const VALID_WRITE_SOURCES = new Set([
@@ -365,21 +365,23 @@ export function appendScratchpadBullet(opts = {}) {
     evictedBullets = consolidated.evicted ?? [];
   }
 
-  // 2b. Graduation (Task 91, generalized to all tiers by Task 94 / §19.2). If
-  // still over the LOAD-cap after stale-drop — which is what happens when the
-  // bullets are high-trust (consolidate() never drops those) — graduate the
-  // oldest high-trust bullets OUT of the hot index into the tier's permanent
-  // fact store, keeping the injected slice small (the write already succeeded
-  // via the load-cap; graduation is about injection budget, not write success).
-  // ALL FACT-BEARING TIERS (D-61): project (MEMORY.md + SOUL.md) AND the user-
-  // tier persona (USER/HABITS/LESSONS) — graduating into the tier's existing
-  // fact store (project context/memory/, user <userDir>/fragments/; writeFact
-  // already routes tier-U facts there). Local tier (machine-paths/overrides) is
-  // excluded: it's machine-specific config, not durable facts.
+  // 2b. Cap relief after stale-drop. The path DIFFERS by tier (Task 151.4, §20.3):
+  //   - PROJECT (tier P): GRADUATE the oldest high-trust bullets OUT of the hot
+  //     index into the permanent fact store (context/memory/*.md). Those stay
+  //     recall-reachable (`cmk search`), so moving them out of MEMORY.md is fine —
+  //     it's an injection-budget trim, not data loss.
+  //   - USER PERSONA (tier U): NEVER graduate — the persona's value IS being
+  //     injected at cold-open, and the user-tier graduation target (fragments/) is
+  //     NOT read by inject-context, so graduating a promoted trait there strands it
+  //     (Hole B — the v0.3.1 cold-open bug). Instead CONDENSE in place (mechanical,
+  //     no LLM — drops no bullet); if still over cap the file grows past the inject
+  //     budget (load-cap, not write-cap — D-61) and the snapshot load-cap + sweep
+  //     order (151.5) keeps the high-trust traits injected. LLM rewrite is Task 95.
+  // Local tier (machine-paths/overrides) is excluded: machine config, not facts.
   let bulletsGraduated = 0;
   let graduatedIds = [];
   let finalBytes = Buffer.byteLength(finalContent, 'utf8');
-  if (finalBytes > cap && (tier === 'P' || tier === 'U')) {
+  if (finalBytes > cap && tier === 'P') {
     const grad = graduateForCapRelief({
       text: finalContent,
       capBytes: cap,
@@ -391,6 +393,10 @@ export function appendScratchpadBullet(opts = {}) {
     finalContent = grad.text;
     graduatedIds = grad.graduated;
     bulletsGraduated = graduatedIds.length;
+    finalBytes = Buffer.byteLength(finalContent, 'utf8');
+  } else if (finalBytes > cap && tier === 'U') {
+    // Demote-not-evict: reclaim bytes without losing a single persona trait.
+    finalContent = condenseScratchpadForCapRelief(finalContent);
     finalBytes = Buffer.byteLength(finalContent, 'utf8');
   }
 
@@ -529,17 +535,23 @@ export function sweepScratchpadForCapRelief({
 
   let graduatedIds = [];
   if (Buffer.byteLength(working, 'utf8') > cap) {
-    // tier is already guaranteed P||U by the gate above.
-    const grad = graduateForCapRelief({
-      text: working,
-      capBytes: cap,
-      tier,
-      projectRoot,
-      userDir,
-      now: ts,
-    });
-    working = grad.text;
-    graduatedIds = grad.graduated;
+    // Task 151.4 (§20.3): PROJECT graduates to the recall-reachable fact store;
+    // USER PERSONA condenses in place — never graduates to un-injected fragments/
+    // (Hole B). tier is guaranteed P||U by the gate above.
+    if (tier === 'P') {
+      const grad = graduateForCapRelief({
+        text: working,
+        capBytes: cap,
+        tier,
+        projectRoot,
+        userDir,
+        now: ts,
+      });
+      working = grad.text;
+      graduatedIds = grad.graduated;
+    } else {
+      working = condenseScratchpadForCapRelief(working);
+    }
   }
 
   if (working === original) {
