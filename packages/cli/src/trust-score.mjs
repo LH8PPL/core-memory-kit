@@ -64,3 +64,37 @@ export function initTrustScore({ trust, writeSource } = {}) {
   const adjust = SOURCE_ADJUST[writeSource] ?? DEFAULT_SOURCE_ADJUST;
   return clamp(base + adjust);
 }
+
+// The asymmetric event deltas (Task 151.7; memclaw `evolve_service._adjust_weights`):
+// a dampen moves MORE than a reinforce, so a contradicted/superseded fact sinks
+// faster than a restated one rises — the conservative, fail-loud posture (a single
+// failure outweighs a single success). Event-driven, NOT clock-driven.
+export const REINFORCE_DELTA = +0.1;
+export const DAMPEN_DELTA = -0.15;
+
+// The event → delta map. An unknown event contributes 0 (no-op) so a future
+// signal that isn't wired yet can't silently corrupt a score.
+const EVENT_DELTA = {
+  reinforce: REINFORCE_DELTA,
+  dampen: DAMPEN_DELTA,
+};
+
+/**
+ * Apply one passive-outcome event to a fact's trust_score (Task 151.7).
+ * Pure + deterministic — the SAME (current, event) always yields the same result
+ * (event-driven, NOT time-decayed; recency decay is a search-ranking concern
+ * computed at read, never stored). The result is clamped to [FLOOR, CEIL]; the
+ * floor is load-bearing — repeated dampens settle at 0.05, never zero, so a fact
+ * is never auto-deleted by trust decay (demote-not-evict, §20.3). 151.8 maps the
+ * three passive signals (contradiction / supersession / restatement) onto the
+ * 'dampen' / 'reinforce' events.
+ *
+ * @param {number} current  the fact's current trust_score
+ * @param {string} [event]  'reinforce' | 'dampen' (unknown → no-op)
+ * @returns {number} the updated trust_score in [FLOOR, CEIL]
+ */
+export function updateTrustScore(current, event) {
+  const base = Number.isFinite(current) ? current : DEFAULT_ENUM_BASE;
+  const delta = EVENT_DELTA[event] ?? 0;
+  return clamp(base + delta);
+}

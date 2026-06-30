@@ -15,6 +15,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   initTrustScore,
+  updateTrustScore,
+  REINFORCE_DELTA,
+  DAMPEN_DELTA,
   TRUST_SCORE_FLOOR,
   TRUST_SCORE_CEIL,
 } from '../packages/cli/src/trust-score.mjs';
@@ -57,5 +60,70 @@ describe('Task 151.6 — initTrustScore (source-based init)', () => {
     const a = initTrustScore({ trust: 'medium', writeSource: 'user-explicit' });
     const b = initTrustScore({ trust: 'medium', writeSource: 'user-explicit' });
     expect(a).toBe(b);
+  });
+});
+
+// ===========================================================================
+// Task 151.7 — the trust UPDATE rule (ADR-0016 §20.2; memclaw _adjust_weights).
+//
+// Asymmetric, clamped, floored, EVENT-driven (NOT clock-driven): a reinforce
+// raises trust by +0.1, a dampen lowers it by −0.15 (failures sink faster than
+// successes rise — the conservative fail-loud posture). Floor 0.05 is load-
+// bearing: trust never reaches zero → a fact is never auto-deleted by trust
+// decay (demote-not-evict, §20.3). NO time-decay of the STORED value (recency
+// decay is a search-ranking concern, computed at read — not here). Pure.
+// 151.8 maps the 3 passive signals onto reinforce/dampen.
+// ===========================================================================
+
+describe('Task 151.7 — updateTrustScore (asymmetric, clamped, floored)', () => {
+  it('reinforce RAISES trust by +0.1', () => {
+    expect(updateTrustScore(0.5, 'reinforce')).toBeCloseTo(0.6, 10);
+  });
+
+  it('dampen LOWERS trust by −0.15', () => {
+    expect(updateTrustScore(0.5, 'dampen')).toBeCloseTo(0.35, 10);
+  });
+
+  it('the rule is ASYMMETRIC — a dampen moves more than a reinforce (failures sink faster)', () => {
+    expect(Math.abs(DAMPEN_DELTA)).toBeGreaterThan(Math.abs(REINFORCE_DELTA));
+    // One reinforce then one dampen nets NEGATIVE (a fail outweighs a success).
+    const after = updateTrustScore(updateTrustScore(0.5, 'reinforce'), 'dampen');
+    expect(after).toBeLessThan(0.5);
+  });
+
+  it('FLOOR holds at 0.05 — repeated dampens never reach zero (never auto-deleted)', () => {
+    let s = 0.2;
+    for (let i = 0; i < 20; i++) s = updateTrustScore(s, 'dampen');
+    expect(s).toBe(TRUST_SCORE_FLOOR);
+    expect(s).toBeGreaterThan(0); // never zero
+  });
+
+  it('CEIL holds — repeated reinforces never exceed the ceiling', () => {
+    let s = 0.8;
+    for (let i = 0; i < 20; i++) s = updateTrustScore(s, 'reinforce');
+    expect(s).toBe(TRUST_SCORE_CEIL);
+  });
+
+  it('NO time-decay — the same event on the same score always yields the same result (event-driven, not clock-driven)', () => {
+    expect(updateTrustScore(0.42, 'reinforce')).toBe(updateTrustScore(0.42, 'reinforce'));
+  });
+
+  it('an unknown event is a no-op (defensive — returns the input clamped, no throw)', () => {
+    expect(updateTrustScore(0.5, 'nonsense')).toBe(0.5);
+    expect(updateTrustScore(0.5)).toBe(0.5);
+  });
+
+  it('a garbage current score clamps into range rather than throwing', () => {
+    const r = updateTrustScore(NaN, 'reinforce');
+    expect(r).toBeGreaterThanOrEqual(TRUST_SCORE_FLOOR);
+    expect(r).toBeLessThanOrEqual(TRUST_SCORE_CEIL);
+  });
+
+  it('composes with initTrustScore — a freshly-seeded fact can be reinforced/dampened', () => {
+    const seed = initTrustScore({ trust: 'medium', writeSource: 'auto-extract' });
+    const up = updateTrustScore(seed, 'reinforce');
+    const down = updateTrustScore(seed, 'dampen');
+    expect(up).toBeGreaterThan(seed);
+    expect(down).toBeLessThan(seed);
   });
 });
