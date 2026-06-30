@@ -629,6 +629,42 @@ describe('Task 18 — injectContext() boundary', () => {
       expect(droppedTrusts).not.toContain('high');
     });
 
+    // -- Task 151.13 CUT-GATE: Hole-B end-to-end (the literal Done-when) ---------
+    // The Hole-B Done-when is "promote N high-trust traits past cap → the snapshot
+    // STILL injects them next cold-open." The 151.4 tests assert the bullets stay in
+    // the FILE; this asserts the OTHER half — injectContext (the cold-open path)
+    // actually re-injects them. A high-trust persona that grew past its inject
+    // budget must survive into the snapshot (never stranded in an un-injected store).
+    it('151.13 CUT-GATE (Hole B): a high-trust persona over its inject budget STILL injects at cold-open', () => {
+      const at = '2026-05-20T00:00:00Z';
+      // Many high-trust HABITS bullets — a real promoted persona that outgrew budget.
+      const bullets = [];
+      for (let i = 0; i < 12; i++) {
+        const id = `U-HAB${String(i).replace(/[0-9]/g, (d) => 'ABCDEFGHJK'[Number(d)]).padStart(5, 'A')}`;
+        bullets.push(
+          `- (${id}) durable cross-project habit ${i} — must survive the cold-open snapshot\n` +
+          `  <!-- source: persona/${i}.md, source_line: 1, sha1: ${'a'.repeat(40)}, write: user-explicit, trust: high, at: ${at} -->`,
+        );
+      }
+      writeFile(
+        join(userDir, 'HABITS.md'),
+        '# Habits\n\n## Iteration Cadence\n\n' + bullets.join('\n') + '\n',
+      );
+
+      const r = injectContext({ cwd: projectRoot, userDir });
+
+      // The high-trust traits ARE in the cold-open snapshot (not stranded/dropped).
+      // At minimum the first trait survives; high-trust is never evicted before
+      // lower-value content, so the persona reaches the next session.
+      expect(r.snapshot).toContain('durable cross-project habit 0');
+      expect(r.snapshot).toContain('## Iteration Cadence');
+      // The whole persona was high-trust, so NO high-trust section was dropped.
+      const evt = r.truncationEvents.find((e) => e.event === 'tier_truncated_to_budget' && e.tier === 'U');
+      if (evt) {
+        expect((evt.dropped_sections ?? []).some((s) => s.max_trust === 'high')).toBe(false);
+      }
+    });
+
     it('default install (seeds only) injects NO placeholder seed bullets or scaffolding (#R)', async () => {
       // Decision-trail (CLAUDE.md "Decision-trail preservation"):
       //

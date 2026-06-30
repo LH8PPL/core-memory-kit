@@ -432,6 +432,42 @@ describe('Task 29 — index-rebuild', () => {
       expect(second).toBe(first);
     });
 
+    // -- Task 151.13 CUT-GATE: existing-install MIGRATION (no recurrence_count) ---
+    // A fact written by a PRE-151 install has NO `recurrence_count` frontmatter.
+    // It must index cleanly (no skip/error) and still get a trust_score seeded —
+    // the recurrence term defaults to the baseline (1×), so the seed equals a
+    // recurrence_count:1 fact. This is the existing-user upgrade path: the index
+    // self-heals on the next reindex; no manual migration command (D-169).
+    it('151.13 CUT-GATE: a pre-151 fact (no recurrence_count frontmatter) indexes cleanly + gets trust_score', () => {
+      // Hand-write a fact file in the PRE-151 shape (no recurrence_count line) so
+      // we exercise the genuine existing-install case, not the current writer.
+      const memDir = join(projectRoot, 'context', 'memory');
+      mkdirSync(memDir, { recursive: true });
+      const legacy = [
+        '---', 'id: P-LEGACYAA', 'type: feedback', 'title: legacy fact',
+        'created_at: 2026-05-27T10:00:00Z', 'write_source: user-explicit', 'trust: high',
+        'source_file: x.md', 'source_line: 1', `source_sha1: ${'a'.repeat(40)}`,
+        '---', '', 'a fact captured before 151 shipped', '',
+      ].join('\n');
+      writeFileSync(join(memDir, 'feedback_legacy.md'), legacy, 'utf8');
+      // And a CURRENT-shape fact with recurrence_count: 1 — same signals → same seed.
+      seedFactFile(projectRoot, {
+        id: 'P-CURRENTA', type: 'feedback', title: 'current', body: 'a fact captured after 151',
+        write_source: 'user-explicit', trust: 'high', at: '2026-05-27T10:00:00Z', slug: 'current',
+      });
+
+      const r = reindexFull({ projectRoot, userDir, db });
+
+      // Door 1/2: the legacy fact indexed (not skipped) — no recurrence_count is fine.
+      expect((r.skipped ?? []).some((s) => /legacy/.test(s.path ?? ''))).toBe(false);
+      const legacyRow = db.prepare('SELECT trust_score FROM observations WHERE id = ?').get('P-LEGACYAA');
+      expect(legacyRow).toBeDefined();
+      expect(typeof legacyRow.trust_score).toBe('number');
+      // A missing recurrence_count seeds the SAME as recurrence_count: 1 (baseline).
+      const currentRow = db.prepare('SELECT trust_score FROM observations WHERE id = ?').get('P-CURRENTA');
+      expect(legacyRow.trust_score).toBe(currentRow.trust_score);
+    });
+
     it('full clears stale rows that no longer exist in source files', () => {
       seedScratchpad(projectRoot, [
         bulletInput({ id: 'P-AAAAAAAA', text: 'one', line: 5 }),
