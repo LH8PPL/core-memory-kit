@@ -50,6 +50,7 @@ import { memoryWrite } from './memory-write.mjs';
 import { detectConflicts } from './conflict-queue.mjs';
 import { appendAuditEntry, REASON_CODES } from './audit-log.mjs';
 import { DEFAULT_COOLDOWN_MS, isCooldownActive, touchCooldownMarker } from './cooldown.mjs';
+import { PROMOTE_THRESHOLD } from './heat.mjs';
 
 // User-tier scratchpads auto-persona is allowed to promote into. A
 // classifier-named target outside this set is dropped defensively (the
@@ -80,8 +81,19 @@ export const PERSONA_CANDIDATE_RE =
 // Generous (facts are high-signal) but bounded; whole facts only (see below).
 export const PERSONA_CORPUS_BYTES = 60_000;
 
-function assembleProjectCorpus({ projectRoot, userDir }) {
+// Assemble the tier-P fact corpus AND the cite-and-sum recurrence index (151.3).
+// Returns { corpus, factIndex }:
+//   - corpus: the classifier input. Each fact is headed `### [P-XXXXXXXX] title`
+//     so the classifier has a stable HANDLE to cite in `source_fact_ids=[…]`.
+//   - factIndex: Map<id, recurrence_count> for the facts ACTUALLY in the corpus
+//     (an id dropped by the byte cap isn't citable — the LLM never saw it — so it
+//     isn't in the index either). resolveRecurrenceSum uses this to validate cited
+//     ids + sum their real recurrence_count (the gate — code counts, LLM doesn't).
+// Scratchpad bullets have no per-bullet id/recurrence_count, so they appear in the
+// corpus (still useful synthesis context) but contribute no citable index entries.
+export function assembleProjectCorpus({ projectRoot, userDir }) {
   const sources = listObservationSources({ projectRoot, userDir });
+  // {part, id, recurrenceCount}; id/recurrenceCount null for scratchpad parts.
   const parts = [];
   for (const s of sources) {
     if (s.tier !== 'P') continue;
@@ -93,10 +105,17 @@ function assembleProjectCorpus({ projectRoot, userDir }) {
     }
     if (s.kind === 'fact') {
       const { frontmatter, body } = parse(content);
-      const title = frontmatter?.title ?? frontmatter?.id ?? '';
-      parts.push(`### ${title}\n${(body ?? '').trim()}`);
+      const id = frontmatter?.id ?? null;
+      const title = frontmatter?.title ?? id ?? '';
+      // 151.1: recurrence_count is the gate signal; a fact predating the field
+      // (or with a bad value) counts as 1 — a single occurrence.
+      const rc = frontmatter?.recurrence_count;
+      const recurrenceCount = Number.isFinite(rc) && rc > 0 ? rc : 1;
+      // Lead the heading with the citable id so the classifier can echo it.
+      const head = id ? `### [${id}] ${title}` : `### ${title}`;
+      parts.push({ part: `${head}\n${(body ?? '').trim()}`, id, recurrenceCount });
     } else {
-      parts.push((content ?? '').trim());
+      parts.push({ part: (content ?? '').trim(), id: null, recurrenceCount: null });
     }
   }
   // Task 111 (F-2): BOUND the corpus. Previously this joined EVERY tier-P fact
@@ -110,9 +129,10 @@ function assembleProjectCorpus({ projectRoot, userDir }) {
   // timed-out zero. A value-ordered (trust/recency-first) accumulation is the
   // follow-up if a large corpus drops doctrine.
   const out = [];
+  const factIndex = new Map();
   let used = 0;
   let truncated = false;
-  for (const part of parts.filter(Boolean)) {
+  for (const { part, id, recurrenceCount } of parts.filter((p) => p.part)) {
     const cost = Buffer.byteLength(part, 'utf8') + 2; // +2 for the '\n\n' join
     if (used + cost > PERSONA_CORPUS_BYTES) {
       truncated = true;
@@ -120,9 +140,11 @@ function assembleProjectCorpus({ projectRoot, userDir }) {
     }
     out.push(part);
     used += cost;
+    // Index only facts that actually made it into the corpus (citable).
+    if (id) factIndex.set(id, recurrenceCount);
   }
   if (truncated) out.push('### …\n(corpus truncated — additional project facts omitted for this pass)');
-  return out.join('\n\n');
+  return { corpus: out.join('\n\n'), factIndex };
 }
 
 // Default size of the recent-transcript window handed to the SessionEnd persona
@@ -231,13 +253,32 @@ export function buildClassifierInstructions(source = 'facts') {
   const beginMarker = isTranscript
     ? '=== BEGIN RECENT CONVERSATION ==='
     : '=== BEGIN CAPTURED PROJECT FACTS ===';
+  // 151.3 (cite-and-sum, D-230): on the FACTS path each input fact is headed
+  // `### [P-XXXXXXXX] title`, so the classifier can CITE the facts it synthesized
+  // a trait from. It cites — it does NOT count. Code resolves the cited ids and
+  // sums their real recurrence_count (the gate). The transcript path has no
+  // citable ids, so it keeps the simpler line + the confidence fast-path only.
+  const outputFormat = isTranscript
+    ? 'PERSONA CANDIDATE | target=<FILE> | section=<SECTION> | confidence=<high|medium|low> | <one-line restatement>'
+    : 'PERSONA CANDIDATE | target=<FILE> | section=<SECTION> | confidence=<high|medium|low> | <one-line restatement> | source_fact_ids=[<the [P-...] ids of the facts you synthesized THIS trait from>]';
+  const citeBlock = isTranscript
+    ? []
+    : [
+        '',
+        'CITING SOURCE FACTS (required on every line):',
+        '  - Each input fact is headed `### [P-XXXXXXXX] <title>`. In source_fact_ids, list the [P-...] ids of the facts THIS trait was synthesized from — copy them EXACTLY as shown.',
+        '  - CITE the facts; do NOT count anything and do NOT invent a number. The kit sums the cited facts\' real recurrence on its own.',
+        '  - Cite ONLY ids that appear in the input. Never invent an id.',
+        '  - Example: `… | source_fact_ids=[P-AAAAAAAA, P-BBBBBBBB]`',
+      ];
   return [
     opener,
     '',
     jobLine,
     '',
     'For EACH cross-project fact, emit exactly one line, nothing else, in this EXACT format:',
-    'PERSONA CANDIDATE | target=<FILE> | section=<SECTION> | confidence=<high|medium|low> | <one-line restatement>',
+    outputFormat,
+    ...citeBlock,
     '',
     'Routing:',
     '  - target=HABITS.md  → working-style habits. sections: Iteration Cadence | Destructive Operations | Communication Style',
@@ -264,10 +305,75 @@ export function parsePersonaCandidates(outputText) {
       target: target.trim(),
       section: section.trim(),
       confidence: confidence.trim().toLowerCase(),
-      text: text.trim(),
+      ...splitSourceFactIds(text.trim()),
     });
   }
   return candidates;
+}
+
+// The cite-and-sum suffix the classifier appends to a candidate line (151.3,
+// ADR-0016 / D-230): `… | source_fact_ids=[P-AAAAAAAA, P-BBBBBBBB]`. It cites the
+// PROJECT facts the trait was synthesized from — NOT a recurrence COUNT (5/5
+// bridge-study systems reject the LLM counting; the LLM groups, code counts).
+// Optional + trailing so a line WITHOUT it still parses (back-compat: the
+// transcript path has no fact ids to cite, and an older classifier prompt omits
+// it) — such a candidate gets `sourceFactIds: []` and can only promote via the
+// explicit-imperative (confidence=high) fast-path.
+const SOURCE_FACT_IDS_RE = /\s*\|\s*source_fact_ids=\[([^\]]*)\]\s*$/;
+
+// Split a candidate's free-text tail into {text, sourceFactIds}. The ids are
+// peeled off the END (the classifier appends them last), leaving the human-
+// readable restatement as `text`. Ids are UPPER-CASED (canonical ids are always
+// uppercase `P-…`; a lowercase echo from Haiku — despite "copy EXACTLY" — would
+// otherwise miss the Map lookup) + de-noised; the real corpus-resolution
+// (rejecting hallucinations) happens in resolveRecurrenceSum.
+function splitSourceFactIds(tail) {
+  const m = SOURCE_FACT_IDS_RE.exec(tail);
+  if (!m) return { text: tail, sourceFactIds: [] };
+  const text = tail.slice(0, m.index).trim();
+  const sourceFactIds = m[1]
+    .split(',')
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean);
+  return { text, sourceFactIds };
+}
+
+/**
+ * THE cite-and-sum gate arithmetic (151.3, ADR-0016 / D-230). Given the ids the
+ * classifier CITED and the project corpus's real `{id → recurrence_count}` index,
+ * resolve the cited ids against the corpus (DROP any the LLM hallucinated) and SUM
+ * their real recurrence_count. That deterministic sum — never an LLM count — gates
+ * promotion. Repeated cited ids are de-duplicated (a fact cited twice counts once).
+ *
+ * PURE: no I/O. The factIndex is assembled by assembleProjectCorpus.
+ *
+ * @param {object} o
+ * @param {string[]} [o.sourceFactIds]      ids the classifier cited
+ * @param {Map<string,number>} [o.factIndex] real corpus `id → recurrence_count`
+ * @returns {{sum:number, resolved:string[], rejected:string[]}}
+ */
+export function resolveRecurrenceSum({ sourceFactIds = [], factIndex } = {}) {
+  const index = factIndex instanceof Map ? factIndex : new Map();
+  const resolved = [];
+  const rejected = [];
+  const seen = new Set();
+  let sum = 0;
+  for (const rawId of sourceFactIds ?? []) {
+    const id = String(rawId).trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    if (index.has(id)) {
+      resolved.push(id);
+      const n = index.get(id);
+      // Floor again here (assembleProjectCorpus already floors): this helper is
+      // exported + pure, so a direct caller could pass a junk Map — a real fact is
+      // always worth ≥1.
+      sum += Number.isFinite(n) && n > 0 ? n : 1;
+    } else {
+      rejected.push(id); // hallucinated / not in the synthesis corpus → contributes 0
+    }
+  }
+  return { sum, resolved, rejected };
 }
 
 /**
@@ -315,9 +421,17 @@ export async function autoPersona(opts = {}) {
   // Task 86c (D-44): the SessionEnd path classifies the RAW TRANSCRIPT (where a
   // user's standing rule survives verbatim); the default 'facts' path classifies
   // the distilled project corpus (whole-project sweep — weekly/manual).
-  const corpus = source === 'transcript'
-    ? assembleTranscriptWindow({ projectRoot })
-    : assembleProjectCorpus({ projectRoot, userDir });
+  // 151.3: the facts path ALSO returns a factIndex (id → recurrence_count) for the
+  // cite-and-sum gate. The transcript path has no citable fact ids — its candidates
+  // promote only via the explicit-imperative (confidence=high) fast-path, which is
+  // exactly the verbatim "from now on …" signal a transcript carries (D-44).
+  let corpus;
+  let factIndex = new Map();
+  if (source === 'transcript') {
+    corpus = assembleTranscriptWindow({ projectRoot });
+  } else {
+    ({ corpus, factIndex } = assembleProjectCorpus({ projectRoot, userDir }));
+  }
   if (!corpus) {
     const reason = source === 'transcript' ? 'no-transcript' : 'no-facts';
     return { action: 'skipped', reason, promoted: [], queued: [], duration_ms: Date.now() - t0 };
@@ -353,7 +467,17 @@ export async function autoPersona(opts = {}) {
     });
   }
 
-  const candidates = parsePersonaCandidates(result?.outputText);
+  // 151.3 (cite-and-sum, D-230): resolve each candidate's cited source_fact_ids
+  // against the corpus factIndex (rejecting hallucinated ids) and attach the
+  // arithmetic recurrence SUM. THAT sum — computed in code, never by the LLM —
+  // is the promotion gate inside promoteCandidatesToUserTier (a medium/inferred
+  // trait promotes iff its cited facts recur ≥ PROMOTE_THRESHOLD). The transcript
+  // path's factIndex is empty, so its candidates carry sum 0 and promote only via
+  // the confidence=high fast-path (the verbatim stated rule a transcript holds).
+  const candidates = parsePersonaCandidates(result?.outputText).map((c) => ({
+    ...c,
+    recurrenceSum: resolveRecurrenceSum({ sourceFactIds: c.sourceFactIds, factIndex }).sum,
+  }));
   const { promoted, queued, superseded, conflicts, reviewQueuePath } = promoteCandidatesToUserTier({
     candidates,
     userDir,
@@ -531,12 +655,29 @@ export function promoteCandidatesToUserTier({ candidates, userDir, now, settings
   const conflicts = [];
   for (const c of candidates) {
     if (!VALID_TARGETS.has(c.target)) continue; // defensive: drop bad routing
-    if (c.confidence !== 'high') {
-      // Confidence gate (not a manual gate): low/medium route to the review
-      // queue. They are returned in `queued` AND written to the durable
+    // 151.3 — THE RECURRENCE GATE (ADR-0016, D-230), replacing the pure form
+    // gate. A candidate promotes if EITHER:
+    //   (a) confidence=high — an EXPLICITLY-STATED standing rule (the fast-path:
+    //       a user-attested rule promotes immediately, recurrence irrelevant); OR
+    //   (b) its cited facts' recurrence SUM ≥ PROMOTE_THRESHOLD — a DEMONSTRATED-
+    //       but-not-declared trait that has recurred enough to be durable.
+    // (b) is the Hole-A fix: pre-151.3 a demonstrated philosophy stranded here
+    // because it lacked "always/never" phrasing (D-177). The sum is arithmetic on
+    // real recurrence_count (the LLM cites; code counts). recurrenceSum is attached
+    // by autoPersona; callers that don't attach it (inline/explicit/drain) leave it
+    // undefined → those paths rely on the confidence=high clause, unchanged.
+    const recurrenceSum = c.recurrenceSum ?? 0;
+    const promotesByRecurrence = recurrenceSum >= PROMOTE_THRESHOLD;
+    // Door 4: name WHY this trait promoted, so a debugger can tell a recurrence-
+    // gated promotion (the new 151.3 path) from the explicit-imperative fast-path.
+    const promotedVia = c.confidence === 'high' ? 'confidence-high' : `recurrence-${recurrenceSum}`;
+    if (c.confidence !== 'high' && !promotesByRecurrence) {
+      // Not promotable: low/medium confidence AND under the recurrence threshold.
+      // Route to the review queue — returned in `queued` AND written to the durable
       // queue FILE below (appendPersonaReviewQueue) so they survive past the
       // response — the daily/weekly auto-drain (or a manual review) acts on them.
-      queued.push({ target: c.target, section: c.section, text: c.text, confidence: c.confidence, reason: `confidence-${c.confidence}` });
+      const reason = recurrenceSum > 0 ? `recurrence-${recurrenceSum}-below-${PROMOTE_THRESHOLD}` : `confidence-${c.confidence}`;
+      queued.push({ target: c.target, section: c.section, text: c.text, confidence: c.confidence, reason });
       continue;
     }
 
@@ -652,8 +793,10 @@ export function promoteCandidatesToUserTier({ candidates, userDir, now, settings
       id: res.id,
       reasonCode: REASON_CODES.PERSONA_PROMOTED,
       // Carry `source` so the audit trail distinguishes an explicit
-      // `cmk lessons promote` (user-explicit) from an auto-synthesis promote.
-      reasonText: `${c.target} § ${c.section} (${source})`,
+      // `cmk lessons promote` (user-explicit) from an auto-synthesis promote, and
+      // `promotedVia` so a recurrence-gated promotion (151.3) is distinguishable
+      // from the explicit-imperative fast-path.
+      reasonText: `${c.target} § ${c.section} (${source}; via ${promotedVia})`,
       paths: { after: res.path },
     });
 
