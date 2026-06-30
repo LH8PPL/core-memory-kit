@@ -426,6 +426,10 @@ function makeMkLessonsPromote({ projectRoot, userDir }) {
           id: r.id,
           target: r.target,
           section: r.section,
+          // 151.11: surface the optional high-recurrence MENTION so Claude MAY
+          // relay it in conversation (a heads-up, NOT a gate — never blocks; only
+          // present when the fact recurred enough to be worth a word).
+          ...(r.mention ? { mention: r.mention } : {}),
           ...(r.action === 'queued'
             ? { status: 'queued', hint: 'Promotion routed to the user-tier review/conflict queue — it lands once resolved.' }
             : {}),

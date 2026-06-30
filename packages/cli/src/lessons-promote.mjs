@@ -64,6 +64,34 @@ export function routeTopic(text) {
   return { target: 'LESSONS.md', section: DEFAULT_SECTION['LESSONS.md'] };
 }
 
+// Task 151.11 — the recurrence at which a promotion is worth an optional MENTION.
+// A one-off promote stays silent; a fact that has RECURRED this many times earns a
+// fire-and-forget heads-up. Matches the promotion gate floor (heat.PROMOTE_THRESHOLD
+// = 3) — "seen ≥3× → durable enough to be worth a word."
+export const MENTION_RECURRENCE = 3;
+
+/**
+ * Build the optional in-conversation MENTION for a high-recurrence promotion
+ * (Task 151.11, awrshift warmth, §20.4). Returns a short heads-up STRING Claude
+ * MAY relay — or `null` below the recurrence threshold (stay silent). It is NOT a
+ * gate: it frames the post-hoc revert ("say so if wrong" / `cmk forget`), never
+ * asks a blocking question (D-169 — no human-in-the-loop). Pure.
+ *
+ * @param {object} o
+ * @param {string} [o.text]            the promoted fact text (trimmed into the note)
+ * @param {number} [o.recurrenceCount] how many times the fact has recurred
+ * @param {string} [o.target]          the user-tier file it landed in
+ * @returns {string|null}
+ */
+export function buildPromotionMention({ text, recurrenceCount, target } = {}) {
+  const n = Number.isFinite(recurrenceCount) ? recurrenceCount : 0;
+  if (n < MENTION_RECURRENCE) return null;
+  const snippet = String(text ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  const where = target ? ` (now in your ${target} persona)` : '';
+  // A statement + a revert offer — never a question (would re-introduce the gate).
+  return `Noticed "${snippet}" has recurred ${n}× across your work — promoted it to your cross-project persona${where}. Tell me to forget it if that's wrong.`;
+}
+
 /**
  * Promote a project-tier fact to the user tier through the safe path.
  *
@@ -156,15 +184,24 @@ export function lessonsPromote({ id, projectRoot, userDir, to, section, now } = 
     source: 'user-explicit',
   });
 
+  // Task 151.11 — optional heads-up on a HIGH-RECURRENCE promotion. Fire-and-
+  // forget: it rides on the SUCCESS result for Claude to optionally relay; it
+  // never gates or blocks (null below the threshold → silent, the D-169 default).
+  const mention = buildPromotionMention({
+    text,
+    recurrenceCount: found.frontmatter?.recurrence_count,
+    target: finalTarget,
+  });
+
   const promotedHit = res.promoted.find((p) => p.target === finalTarget);
   if (promotedHit) {
-    return { action: 'promoted', id, target: finalTarget, section: candidate.section, newId: promotedHit.id ?? null };
+    return { action: 'promoted', id, target: finalTarget, section: candidate.section, newId: promotedHit.id ?? null, ...(mention ? { mention } : {}) };
   }
   // A supersede is ALSO success: the promotion replaced an existing same-topic
   // lesson with this updated one (common when the user re-promotes a refined rule).
   const supersededHit = res.superseded.find((s) => s.target === finalTarget);
   if (supersededHit) {
-    return { action: 'promoted', id, target: finalTarget, section: candidate.section, newId: supersededHit.newId, superseded: supersededHit.oldId };
+    return { action: 'promoted', id, target: finalTarget, section: candidate.section, newId: supersededHit.newId, superseded: supersededHit.oldId, ...(mention ? { mention } : {}) };
   }
   // Routed to the conflict queue (e.g. it clashes with a hand-curated entry the
   // kit won't silently overwrite) or otherwise didn't land — surface honestly.

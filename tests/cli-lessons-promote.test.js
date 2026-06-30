@@ -14,7 +14,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { lessonsPromote, routeTopic } from '../packages/cli/src/lessons-promote.mjs';
+import { lessonsPromote, routeTopic, buildPromotionMention, MENTION_RECURRENCE } from '../packages/cli/src/lessons-promote.mjs';
 import { writeFact } from '../packages/cli/src/write-fact.mjs';
 import { forget } from '../packages/cli/src/forget.mjs';
 import { appendScratchpadBullet, ensureSectionExists } from '../packages/cli/src/scratchpad.mjs';
@@ -297,5 +297,61 @@ describe('Task 151.9 — lessonsPromote spreads no-arg promotes across files (Ho
     const r = lessonsPromote({ id: w.id, projectRoot, userDir, to: 'LESSONS.md', section: 'Tooling Lessons' });
     expect(r.target).toBe('LESSONS.md');
     expect(r.section).toBe('Tooling Lessons');
+  });
+});
+
+// ===========================================================================
+// Task 151.11 — optional in-conversation MENTION (awrshift warmth, §20.4).
+//
+// On a HIGH-RECURRENCE promotion the result carries an optional `mention` string
+// ("noticed X recurred N× — promoted it; say so if wrong") that Claude MAY relay
+// in conversation. It is a HEADS-UP, NOT a gate: fire-and-forget, never a prompt,
+// never blocks (D-169 — the silent auto-drain stays the default; asking-first
+// would re-introduce the human-in-the-loop). Below the threshold there is NO
+// mention (a one-off promote stays silent).
+// ===========================================================================
+
+describe('Task 151.11 — buildPromotionMention (heads-up, not a gate)', () => {
+  it('a high-recurrence promotion yields a mention naming the recurrence', () => {
+    const m = buildPromotionMention({ text: 'always run black before committing', recurrenceCount: MENTION_RECURRENCE, target: 'HABITS.md' });
+    expect(typeof m).toBe('string');
+    expect(m).toMatch(new RegExp(String(MENTION_RECURRENCE)));
+    // It frames the revert path (never a gate — "say so if wrong"), not a question.
+    expect(m.toLowerCase()).toMatch(/wrong|forget|revert|undo/);
+    expect(m).not.toMatch(/\?\s*$/); // not a blocking question
+  });
+
+  it('a low-recurrence (one-off) promotion yields NO mention (stays silent)', () => {
+    expect(buildPromotionMention({ text: 'x', recurrenceCount: 1, target: 'LESSONS.md' })).toBeNull();
+    expect(buildPromotionMention({ text: 'x', recurrenceCount: MENTION_RECURRENCE - 1, target: 'LESSONS.md' })).toBeNull();
+  });
+
+  it('garbage / missing recurrence is a clean null (defensive)', () => {
+    expect(buildPromotionMention({ text: 'x', recurrenceCount: undefined, target: 'LESSONS.md' })).toBeNull();
+    expect(buildPromotionMention({})).toBeNull();
+  });
+});
+
+describe('Task 151.11 — lessonsPromote surfaces a mention on a high-recurrence fact', () => {
+  it('a fact seen N≥threshold times gets a `mention` on its promote result; the promote is NOT blocked', () => {
+    writeFileSync(join(userDir, 'USER.md'), '# User\n\n## Preferences\n');
+    // Re-write the same canonical fact MENTION_RECURRENCE times → recurrence_count climbs.
+    const opts = validFactOpts({ projectRoot, body: 'I always write the test first', slug: 'recurrent' });
+    let w;
+    for (let i = 0; i < MENTION_RECURRENCE; i++) w = writeFact(opts);
+
+    const r = lessonsPromote({ id: w.id, projectRoot, userDir });
+    // Door 1 — the promote SUCCEEDS (never blocked by the mention).
+    expect(r.action).toBe('promoted');
+    // …and carries the optional heads-up.
+    expect(typeof r.mention).toBe('string');
+    expect(r.mention.length).toBeGreaterThan(0);
+  });
+
+  it('a one-off promote has NO mention field (or null) — stays silent', () => {
+    const w = writeFact(validFactOpts({ projectRoot, body: 'a one-off lesson', slug: 'oneoff' }));
+    const r = lessonsPromote({ id: w.id, projectRoot, userDir, to: 'LESSONS.md' });
+    expect(r.action).toBe('promoted');
+    expect(r.mention == null).toBe(true);
   });
 });
