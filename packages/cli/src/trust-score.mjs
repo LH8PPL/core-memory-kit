@@ -43,26 +43,46 @@ const SOURCE_ADJUST = {
 };
 const DEFAULT_SOURCE_ADJUST = 0; // unknown source → neutral
 
+// Recurrence contribution to the SEED (Task 151.8 — the research fix). A re-stated
+// fact seeds HIGHER, and durably: this is reconstructed from the committed
+// `recurrence_count` (151.1) on every reindex, so the "restatement reinforcement"
+// can never be wiped by a reseed (unlike a fragile overlay delta would be). This
+// is the MemoryOS/MemOS/honcho pattern — the recurrence COUNT is a TERM in the
+// score, NOT a separate event. The cap is LOAD-BEARING (MemOS `min(count·w, 2)`):
+// recurrence is a tie-breaker, never a runaway driver — a high-recurrence LOW-trust
+// fact must never outrank a once-stated HIGH-trust one (the value-blind-LFU bug).
+const RECUR_WEIGHT = 0.02; // per recurrence beyond the first
+const RECUR_CONTRIB_CAP = 0.1; // max total recurrence lift (5 recurrences = full)
+
+function recurrenceTerm(recurrenceCount) {
+  const n = Number.isFinite(recurrenceCount) && recurrenceCount > 1 ? recurrenceCount : 1;
+  return Math.min((n - 1) * RECUR_WEIGHT, RECUR_CONTRIB_CAP);
+}
+
 function clamp(n) {
   if (!Number.isFinite(n)) return DEFAULT_ENUM_BASE;
   return Math.min(TRUST_SCORE_CEIL, Math.max(TRUST_SCORE_FLOOR, n));
 }
 
 /**
- * Initial trust_score for a fact, from its committed signals (Task 151.6).
+ * Initial trust_score for a fact, from its committed signals (Task 151.6 + .8).
  * Pure + deterministic — same inputs, same score; reconstructed on every full
  * reindex. A user-attested source outranks a machine-derived one at the same
- * trust enum; the result is clamped to [FLOOR, CEIL].
+ * trust enum; a re-stated fact (higher `recurrenceCount`) seeds higher, CAPPED;
+ * the result is clamped to [FLOOR, CEIL].
  *
  * @param {object} o
- * @param {string} [o.trust]        the committed trust enum (high|medium|low)
- * @param {string} [o.writeSource]  the committed write source (user-explicit|…)
+ * @param {string} [o.trust]            the committed trust enum (high|medium|low)
+ * @param {string} [o.writeSource]      the committed write source (user-explicit|…)
+ * @param {number} [o.recurrenceCount]  the committed recurrence_count (151.1); a
+ *                                      re-stated fact seeds higher (capped) — the
+ *                                      DURABLE restatement-reinforcement (151.8)
  * @returns {number} the seed trust_score in [FLOOR, CEIL]
  */
-export function initTrustScore({ trust, writeSource } = {}) {
+export function initTrustScore({ trust, writeSource, recurrenceCount } = {}) {
   const base = TRUST_ENUM_BASE[trust] ?? DEFAULT_ENUM_BASE;
   const adjust = SOURCE_ADJUST[writeSource] ?? DEFAULT_SOURCE_ADJUST;
-  return clamp(base + adjust);
+  return clamp(base + adjust + recurrenceTerm(recurrenceCount));
 }
 
 // The asymmetric event deltas (Task 151.7; memclaw `evolve_service._adjust_weights`):

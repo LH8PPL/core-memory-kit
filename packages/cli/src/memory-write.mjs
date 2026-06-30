@@ -59,6 +59,7 @@ import { checkPoisonGuard, logPoisonGuardRejection } from './poison-guard.mjs';
 import { detectConflicts, writeConflictEntry } from './conflict-queue.mjs';
 import { sanitizeHomePaths } from './sanitize.mjs';
 import { sanitizePrivacyTags } from './privacy.mjs';
+import { applyTrustSignal } from './trust-signal.mjs';
 
 const VALID_ACTIONS = new Set(['add', 'replace', 'remove']);
 
@@ -354,6 +355,11 @@ function doAdd(opts) {
     // named-args — Task 25 originally called it as an object.)
     const proposedId = generateId(addOpts.tier, addOpts.text);
     const ts = opts.now ?? nowIso();
+    // Task 151.8: a new write CONTRADICTING an existing fact (routed to the
+    // conflict queue) is the contradiction passive signal → DAMPEN the existing
+    // fact's trust_score. Best-effort overlay on the rebuildable index; the queue
+    // routing is unaffected.
+    applyTrustSignal({ projectRoot: opts.projectRoot, id: conflict.existingId, event: 'dampen' });
     return writeConflictEntry({
       tier: opts.tier,
       projectRoot: opts.projectRoot,
@@ -498,6 +504,18 @@ function doReplace(opts) {
     paths: { before: path, after: path },
     extra: { oldId: match.id, newId: addResult.id, scratchpad: opts.scratchpad },
   });
+
+  // Task 151.8: a replace SUPERSEDES the old fact → DAMPEN its trust_score (the
+  // supersession passive signal). Covers the REPLACE path (direct + auto-persona's
+  // persona-supersede, which calls memoryWrite({action:'replace'}) → here).
+  // KNOWN GAP (honest scope): two OTHER supersession writers set `superseded_by`
+  // WITHOUT routing through doReplace and therefore do NOT dampen yet —
+  // conflict-queue.mjs::mergeScratchpadBullets (merge-both) and
+  // merge-facts.mjs::moveToSuperseded. Wiring those is deferred to Task 151.12
+  // (the supersede-hooks sub-task), where a single `superseded_by`-write chokepoint
+  // is the right place. Best-effort overlay on the rebuildable index — never breaks
+  // the replace.
+  applyTrustSignal({ projectRoot: opts.projectRoot, id: match.id, event: 'dampen' });
 
   return {
     action: 'replaced',

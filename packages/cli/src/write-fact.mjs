@@ -249,6 +249,13 @@ export function writeFact(opts = {}) {
         extra: { recurrenceCount },
         paths: { before: path },
       });
+      // Task 151.8 (research fix): the re-surface RESTATEMENT signal is NOT a
+      // fragile overlay delta — `bumpRecurrence` just wrote the new recurrence_count
+      // to the committed file, and `initTrustScore` folds a CAPPED recurrence term
+      // into the seed, so the next reindex reconstructs a HIGHER trust_score from
+      // the durable count (MemoryOS/MemOS/honcho: the count IS a score term). No
+      // overlay write here — it would only be reseeded away by the reindex that the
+      // file change triggers. Durable-by-construction.
       return { action: 'skipped', skipReason: 'duplicate', id, path, recurrenceCount };
     }
     return errorResult({
@@ -274,6 +281,10 @@ export function writeFact(opts = {}) {
       extra: { recurrenceCount },
       paths: { before: elsewhere, after: path },
     });
+    // Task 151.8 (research fix): restatement reinforcement is DURABLE via the seed
+    // (initTrustScore folds the committed recurrence_count), not a doomed overlay —
+    // the bump rewrote the file, so any overlay write would be reseeded away. See
+    // the same-id branch above.
     return {
       action: 'skipped',
       skipReason: 'duplicate-elsewhere',

@@ -267,6 +267,9 @@ export function parseObservationsFromFactFile({
     body: (body ?? '').trim() || (frontmatter.title ?? ''),
     write_source: frontmatter.write_source,
     trust: frontmatter.trust,
+    // 151.8: the committed recurrence_count (151.1) seeds the trust_score's
+    // DURABLE restatement term — survives every reindex (reconstructed from this).
+    recurrence_count: Number.isFinite(frontmatter.recurrence_count) ? frontmatter.recurrence_count : 1,
     created_at: isoToEpochMs(frontmatter.created_at),
     superseded_by: frontmatter.superseded_by ?? null,
     deleted_at: frontmatter.deleted_at ? isoToEpochMs(frontmatter.deleted_at) : null,
@@ -397,14 +400,26 @@ function replaceObservationsForFile(db, { source, observations, mtime, sha1, pro
   // safe: ids are content-addressed WITH the tier as a prefix (`P-`/`L-`/`U-`),
   // so a P-tier and U-tier fact can never share an id — no cross-tier delete is
   // possible. (Defended by the P/U-same-content tier test below.)
-  // 151.6: seed trust_score from the fact's committed signals (source + enum).
-  // Computed here at insert (one place) so both observation builders stay simple;
-  // a full reindex reconstructs the same seed (deterministic). 151.7/151.8 will
-  // EVOLVE this from passive outcomes — but reseed-on-rebuild stays the floor.
-  const withTrustScore = (obs) => ({
-    ...obs,
-    trust_score: initTrustScore({ trust: obs.trust, writeSource: obs.write_source }),
-  });
+  // 151.6/151.8: seed trust_score from the fact's committed signals — enum +
+  // source + the DURABLE recurrence term (151.8: a re-stated fact seeds higher,
+  // reconstructed from the committed recurrence_count so it survives every
+  // reindex). Computed here at insert (one place). `recurrence_count` is consumed
+  // by the seed but is NOT an `observations` column, so it's stripped from the
+  // bound row (better-sqlite3 rejects unknown named params). The asymmetric
+  // DAMPEN deltas (151.8 contradiction/supersession) stay as runtime overlays on
+  // the trust_score column — they survive a boot reindex (unchanged files skipped)
+  // and reseed only on a full rebuild (the local-protection-signal posture, D-237).
+  const withTrustScore = (obs) => {
+    const { recurrence_count, ...row } = obs;
+    return {
+      ...row,
+      trust_score: initTrustScore({
+        trust: obs.trust,
+        writeSource: obs.write_source,
+        recurrenceCount: recurrence_count,
+      }),
+    };
+  };
   if (source.kind === 'fact') {
     const deleteById = db.prepare(DELETE_OBSERVATION_BY_ID_SQL);
     const insert = db.prepare(INSERT_OBSERVATION_SQL);
