@@ -27,6 +27,7 @@ import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult, notFoundResult } from './result-shapes.mjs';
 import { writeFact } from './write-fact.mjs';
 import { reindex } from './reindex.mjs';
+import { applyTrustSignal } from './trust-signal.mjs';
 
 function listLiveFactFiles(factDir) {
   if (!existsSync(factDir)) return [];
@@ -204,6 +205,13 @@ export function mergeFacts(opts = {}) {
   } catch {
     // index rebuild is best-effort; the merge already succeeded
   }
+
+  // Task 151.12 — a merge SUPERSEDES the two originals → DAMPEN their trust_score
+  // (the supersession passive signal; 151.8 wired the replace path, this closes
+  // the merge-path gap). Best-effort overlay — never breaks the merge; a superseded
+  // fact's row may already be filtered, in which case applyTrustSignal no-ops.
+  applyTrustSignal({ projectRoot, id: idA, event: 'dampen' });
+  applyTrustSignal({ projectRoot, id: idB, event: 'dampen' });
 
   const ts = now ?? nowIso();
   appendAuditEntry(tierRoot, {

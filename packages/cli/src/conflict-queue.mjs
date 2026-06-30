@@ -54,6 +54,7 @@ import { hashContent } from './content-hash.mjs';
 import { nowIso, appendAuditEntry, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { generateId } from '@lh8ppl/cmk-canonicalize';
+import { applyTrustSignal } from './trust-signal.mjs';
 
 // Trust ordering. Higher number = higher trust.
 const TRUST_LEVELS = Object.freeze({
@@ -824,6 +825,12 @@ export function mergeScratchpadBullets({
       merged_trust: mergedTrust,
     },
   });
+
+  // Task 151.12 — merge-both SUPERSEDES both originals → DAMPEN their trust_score
+  // (the supersession passive signal; closes the merge-path gap 151.8 deferred).
+  // Best-effort overlay — never breaks the merge.
+  applyTrustSignal({ projectRoot, id: idA, event: 'dampen' });
+  applyTrustSignal({ projectRoot, id: idB, event: 'dampen' });
 
   return {
     action: 'merged',

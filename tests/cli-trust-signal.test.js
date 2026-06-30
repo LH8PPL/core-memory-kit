@@ -15,7 +15,7 @@
 // state, not portable data — the committed `trust` enum is the portable signal).
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openIndexDb } from '../packages/cli/src/index-db.mjs';
@@ -29,6 +29,7 @@ import { install } from '../packages/cli/src/install.mjs';
 import { writeFact } from '../packages/cli/src/write-fact.mjs';
 import { memoryWrite } from '../packages/cli/src/memory-write.mjs';
 import { reindexBoot } from '../packages/cli/src/index-rebuild.mjs';
+import { mergeFacts } from '../packages/cli/src/merge-facts.mjs';
 
 let sandbox;
 let projectRoot;
@@ -228,5 +229,34 @@ describe('Task 151.8 — passive signals fire through the real write paths', () 
     const db2 = openIndexDb({ projectRoot });
     expect(scoreOf(db2, add.id)).toBeCloseTo(seed + DAMPEN_DELTA, 10);
     db2.close();
+  });
+
+  it('151.12: a MERGE supersedes its originals → dampens them (best-effort), and never breaks the merge', () => {
+    // The merge-path supersession dampen 151.8 deferred. mergeFacts moves the
+    // originals to archive/superseded/ (mark-not-delete) + dampens their trust.
+    // The dampen is BEST-EFFORT (a superseded row may be pruned by the merge's own
+    // reindex — the fact is leaving the index anyway); the load-bearing assertion
+    // is that the wiring NEVER breaks the merge.
+    const fo = (slug, body) => writeFact(factOpts({ slug, body }));
+    const a = fo('mergea', 'we use pnpm for installs');
+    const b = fo('mergeb', 'pnpm is our package manager of choice');
+    const db = openIndexDb({ projectRoot });
+    reindexBoot({ projectRoot, userDir, db });
+    db.close();
+
+    const m = mergeFacts({
+      idA: a.id, idB: b.id,
+      mergedBody: 'pnpm is the package manager; use it for every install',
+      mergedTitle: 'pnpm everywhere',
+      mergedSlug: 'pnpm-everywhere',
+      writeSource: 'user-explicit',
+      projectRoot, userDir, tier: 'P',
+    });
+
+    // Door 1 — the merge SUCCEEDS with the dampen wired (best-effort never breaks it).
+    expect(m.action).toBe('merged');
+    // Door 2 — mark-not-delete: the originals are preserved in archive/superseded/.
+    expect(existsSync(join(projectRoot, 'context', 'memory', 'archive', 'superseded', `${a.id}.md`))).toBe(true);
+    expect(existsSync(join(projectRoot, 'context', 'memory', 'archive', 'superseded', `${b.id}.md`))).toBe(true);
   });
 });
