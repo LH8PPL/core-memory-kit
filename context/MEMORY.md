@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-7PPKYDGG) User conceptualizes memory linking as a graph structure ("isn't this like the start of graph for our memories?").
-  <!-- source: review-promote, source_line: 1, sha1: 473782b980995f1c7991f3ac0cd58bb29ce959c896db0da126072024df2b402d, write: user-explicit, trust: high, at: 2026-06-30T20:00:01Z -->
 - (P-Y3P5YUE6) Gathers research from multiple sources (articles, URLs) and shares collections with synthesis requests before committing task updates.
   <!-- source: review-promote, source_line: 1, sha1: a0da9400b4d4c67edf30efa83789f91a36f78cf58075ba97fbef78d3bcc64937, write: user-explicit, trust: high, at: 2026-06-30T20:00:02Z -->
 - (P-MJW2TBYQ) Proceeding with full `patent` installation over manual registry sweep option (inferred from "what now?" after two-choice offer)
@@ -20,6 +18,8 @@
   <!-- source: review-promote, source_line: 1, sha1: e83eb48553889662aed64f941c801dd97b7df957dbcf672d434dd1a529688aeb, write: user-explicit, trust: high, at: 2026-06-30T20:00:05Z -->
 - (P-a4NCHA2J) Commit 9d785d3 applied two minor fixes (recurrence-default consistency, per-call DB-open optimization); suite 2479/2479 green; stress 5/5 final gate in progress
   <!-- source: review-promote, source_line: 1, sha1: d2e88c12cc63b4604f167e068e7c407c3bcb24beb54f6c1412e07f526b15a40b, write: user-explicit, trust: high, at: 2026-06-30T20:00:05Z -->
+- (P-aDHF9ZDD) When there's a documented procedure (like cut-gate.md), be directed to that doc rather than receiving raw command lists.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 0f21889617695b2df5d0f84507296fde1df198e4a91cefe893c59f7c2efb89c7, write: auto-extract, trust: high, at: 2026-06-30T20:25:46Z -->
 
 ## Environment Notes
 
