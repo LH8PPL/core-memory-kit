@@ -269,7 +269,12 @@ export function parseObservationsFromFactFile({
     trust: frontmatter.trust,
     // 151.8: the committed recurrence_count (151.1) seeds the trust_score's
     // DURABLE restatement term — survives every reindex (reconstructed from this).
-    recurrence_count: Number.isFinite(frontmatter.recurrence_count) ? frontmatter.recurrence_count : 1,
+    // Floor to 1 for a missing OR malformed (≤0) value — consistent with the other
+    // four recurrence readers (write-fact / assembleProjectCorpus / trust-score)
+    // which all treat <1 as the 1× baseline (the field starts at 1, only increments).
+    recurrence_count: Number.isFinite(frontmatter.recurrence_count) && frontmatter.recurrence_count > 0
+      ? frontmatter.recurrence_count
+      : 1,
     created_at: isoToEpochMs(frontmatter.created_at),
     superseded_by: frontmatter.superseded_by ?? null,
     deleted_at: frontmatter.deleted_at ? isoToEpochMs(frontmatter.deleted_at) : null,

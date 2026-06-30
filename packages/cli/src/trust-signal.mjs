@@ -36,15 +36,22 @@ const UPDATE_TRUST_SCORE_SQL = 'UPDATE observations SET trust_score = ? WHERE id
  *
  * @param {object} o
  * @param {string} [o.projectRoot]  the project whose index-db holds the row
+ *                                  (ignored when `db` is supplied)
  * @param {string} [o.id]           the affected fact's canonical id
  * @param {string} [o.event]        'reinforce' | 'dampen' (unknown → no-op write)
+ * @param {object} [o.db]           an ALREADY-OPEN index-db handle to reuse — a
+ *                                  caller that fires several signals in one op
+ *                                  (e.g. a merge dampening idA+idB) passes one
+ *                                  handle to avoid open/close per call. When given,
+ *                                  this function does NOT close it (the caller owns
+ *                                  its lifecycle). Omit → open + close our own.
  * @returns {{action:'updated'|'not-found'|'skipped', id?:string, trust_score?:number}}
  */
-export function applyTrustSignal({ projectRoot, id, event } = {}) {
-  if (!projectRoot || !id) return { action: 'skipped' };
-  let db;
+export function applyTrustSignal({ projectRoot, id, event, db: sharedDb } = {}) {
+  if (!id || (!projectRoot && !sharedDb)) return { action: 'skipped' };
+  let db = sharedDb;
   try {
-    db = openIndexDb({ projectRoot });
+    if (!db) db = openIndexDb({ projectRoot });
     const row = db.prepare(SELECT_TRUST_SCORE_SQL).get(id);
     if (!row) return { action: 'not-found', id };
     const next = updateTrustScore(row.trust_score, event);
@@ -54,10 +61,13 @@ export function applyTrustSignal({ projectRoot, id, event } = {}) {
     // best-effort: a trust overlay update must never break the primary write.
     return { action: 'skipped', id };
   } finally {
-    try {
-      db?.close();
-    } catch {
-      // ignore close errors on a best-effort path
+    // Only close a handle WE opened — never the caller's shared handle.
+    if (!sharedDb && db) {
+      try {
+        db.close();
+      } catch {
+        // ignore close errors on a best-effort path
+      }
     }
   }
 }

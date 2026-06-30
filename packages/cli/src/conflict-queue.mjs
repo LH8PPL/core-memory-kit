@@ -55,6 +55,7 @@ import { nowIso, appendAuditEntry, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { generateId } from '@lh8ppl/cmk-canonicalize';
 import { applyTrustSignal } from './trust-signal.mjs';
+import { openIndexDb } from './index-db.mjs';
 
 // Trust ordering. Higher number = higher trust.
 const TRUST_LEVELS = Object.freeze({
@@ -828,9 +829,19 @@ export function mergeScratchpadBullets({
 
   // Task 151.12 — merge-both SUPERSEDES both originals → DAMPEN their trust_score
   // (the supersession passive signal; closes the merge-path gap 151.8 deferred).
-  // Best-effort overlay — never breaks the merge.
-  applyTrustSignal({ projectRoot, id: idA, event: 'dampen' });
-  applyTrustSignal({ projectRoot, id: idB, event: 'dampen' });
+  // Best-effort overlay — never breaks the merge. One shared index-db handle for
+  // both dampens (avoid open/close per id).
+  try {
+    const sigDb = openIndexDb({ projectRoot });
+    try {
+      applyTrustSignal({ id: idA, event: 'dampen', db: sigDb });
+      applyTrustSignal({ id: idB, event: 'dampen', db: sigDb });
+    } finally {
+      sigDb.close();
+    }
+  } catch {
+    // best-effort: the trust dampen must never break the merge.
+  }
 
   return {
     action: 'merged',

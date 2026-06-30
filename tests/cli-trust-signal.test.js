@@ -136,6 +136,23 @@ describe('Task 151.8 — applyTrustSignal (event -> trust_score overlay)', () =>
     expect(r.action).toBe('skipped');
   });
 
+  it('accepts a SHARED db handle (reuse across calls) and does NOT close it (caller owns its lifecycle)', () => {
+    const db = openIndexDb({ projectRoot });
+    seedObservation(db, { id: 'P-AAAAAAAA', trust_score: 0.5 });
+    seedObservation(db, { id: 'P-BBBBBBBB', trust_score: 0.5 });
+
+    // Two signals on the SAME open handle (the merge-path pattern).
+    const r1 = applyTrustSignal({ db, id: 'P-AAAAAAAA', event: 'dampen' });
+    const r2 = applyTrustSignal({ db, id: 'P-BBBBBBBB', event: 'reinforce' });
+    expect(r1.action).toBe('updated');
+    expect(r2.action).toBe('updated');
+
+    // The handle is STILL OPEN — the helper must not have closed the caller's db.
+    expect(scoreOf(db, 'P-AAAAAAAA')).toBeLessThan(0.5); // dampened, read via the same handle
+    expect(scoreOf(db, 'P-BBBBBBBB')).toBeGreaterThan(0.5); // reinforced
+    db.close(); // the caller closes it
+  });
+
   it('an unknown event leaves the score unchanged (no-op via updateTrustScore)', () => {
     const db = openIndexDb({ projectRoot });
     seedObservation(db, { id: 'P-AAAAAAAA', trust_score: 0.5 });

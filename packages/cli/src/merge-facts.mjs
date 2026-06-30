@@ -28,6 +28,7 @@ import { ERROR_CATEGORIES, errorResult, notFoundResult } from './result-shapes.m
 import { writeFact } from './write-fact.mjs';
 import { reindex } from './reindex.mjs';
 import { applyTrustSignal } from './trust-signal.mjs';
+import { openIndexDb } from './index-db.mjs';
 
 function listLiveFactFiles(factDir) {
   if (!existsSync(factDir)) return [];
@@ -210,8 +211,18 @@ export function mergeFacts(opts = {}) {
   // (the supersession passive signal; 151.8 wired the replace path, this closes
   // the merge-path gap). Best-effort overlay — never breaks the merge; a superseded
   // fact's row may already be filtered, in which case applyTrustSignal no-ops.
-  applyTrustSignal({ projectRoot, id: idA, event: 'dampen' });
-  applyTrustSignal({ projectRoot, id: idB, event: 'dampen' });
+  // Share ONE index-db handle across the two dampens (avoid open/close per id).
+  try {
+    const sigDb = openIndexDb({ projectRoot });
+    try {
+      applyTrustSignal({ id: idA, event: 'dampen', db: sigDb });
+      applyTrustSignal({ id: idB, event: 'dampen', db: sigDb });
+    } finally {
+      sigDb.close();
+    }
+  } catch {
+    // best-effort: the trust dampen must never break the merge.
+  }
 
   const ts = now ?? nowIso();
   appendAuditEntry(tierRoot, {
