@@ -233,8 +233,11 @@ const EVICTED_ID_RE = /^- \(([PUL]-[A-Za-z0-9]+)\)/;
 // Task-151 bug. The drop GATE stays a two-axis CONJUNCTION (not-high AND stale);
 // this only orders the eviction LIST (→ the archive + audit order), so a
 // debugger / a future partial-drop sees the cheapest bullets first.
-// 151.6: re-evaluate — keyed on the `trust` ENUM + capture-age today; when the
-// real trust_score FLOAT + a last-access signal land, key on those instead.
+// 151.6 re-eval RESOLVED (D-238): KEEP the `trust` ENUM here — the evolved
+// trust_score is a FLOOR/protection signal (memclaw/letta/graphiti), NOT a sweep-
+// ranking driver (rank-and-sweep-by-score = the MemoryOS-LFU/MemOS-top-N bug). The
+// floor (never-zero) + the enum's high-trust-exempt already deliver the protection;
+// no index-db I/O on this path. See design §20.3.
 const CONSOLIDATE_TRUST_ORDER = { low: 0, medium: 1, high: 2 };
 
 function consolidate(text, { nowDate }) {
