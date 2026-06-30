@@ -50,6 +50,7 @@ import { hashContent } from './content-hash.mjs';
 import { syncTranscriptChunks } from './transcript-index.mjs';
 import { readBullet, parseBulletProvenance } from './provenance.mjs';
 import { parse as parseFrontmatter } from './frontmatter.mjs';
+import { initTrustScore } from './trust-score.mjs';
 import {
   VALID_TIERS,
   resolveTierRoot,
@@ -332,19 +333,19 @@ const DELETE_OBSERVATION_BY_ID_SQL = `DELETE FROM observations WHERE id = ?`;
 const INSERT_OBSERVATION_SQL = `
 INSERT INTO observations
   (id, tier, source_file, source_line, source_sha1, heading_path, body,
-   write_source, trust, created_at, superseded_by, deleted_at)
+   write_source, trust, trust_score, created_at, superseded_by, deleted_at)
 VALUES
   (@id, @tier, @source_file, @source_line, @source_sha1, @heading_path, @body,
-   @write_source, @trust, @created_at, @superseded_by, @deleted_at)
+   @write_source, @trust, @trust_score, @created_at, @superseded_by, @deleted_at)
 `;
 
 const INSERT_SCRATCHPAD_OBSERVATION_SQL = `
 INSERT INTO observations
   (id, tier, source_file, source_line, source_sha1, heading_path, body,
-   write_source, trust, created_at, superseded_by, deleted_at)
+   write_source, trust, trust_score, created_at, superseded_by, deleted_at)
 VALUES
   (@id, @tier, @source_file, @source_line, @source_sha1, @heading_path, @body,
-   @write_source, @trust, @created_at, @superseded_by, @deleted_at)
+   @write_source, @trust, @trust_score, @created_at, @superseded_by, @deleted_at)
 ON CONFLICT(id) DO NOTHING
 `;
 
@@ -396,17 +397,25 @@ function replaceObservationsForFile(db, { source, observations, mtime, sha1, pro
   // safe: ids are content-addressed WITH the tier as a prefix (`P-`/`L-`/`U-`),
   // so a P-tier and U-tier fact can never share an id — no cross-tier delete is
   // possible. (Defended by the P/U-same-content tier test below.)
+  // 151.6: seed trust_score from the fact's committed signals (source + enum).
+  // Computed here at insert (one place) so both observation builders stay simple;
+  // a full reindex reconstructs the same seed (deterministic). 151.7/151.8 will
+  // EVOLVE this from passive outcomes — but reseed-on-rebuild stays the floor.
+  const withTrustScore = (obs) => ({
+    ...obs,
+    trust_score: initTrustScore({ trust: obs.trust, writeSource: obs.write_source }),
+  });
   if (source.kind === 'fact') {
     const deleteById = db.prepare(DELETE_OBSERVATION_BY_ID_SQL);
     const insert = db.prepare(INSERT_OBSERVATION_SQL);
     for (const obs of observations) {
       deleteById.run(obs.id);
-      insert.run(obs);
+      insert.run(withTrustScore(obs));
     }
   } else {
     const insert = db.prepare(INSERT_SCRATCHPAD_OBSERVATION_SQL);
     for (const obs of observations) {
-      insert.run(obs);
+      insert.run(withTrustScore(obs));
     }
   }
   db.prepare(UPSERT_FILE_SQL).run({

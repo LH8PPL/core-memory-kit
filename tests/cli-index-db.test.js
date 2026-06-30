@@ -22,6 +22,9 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import Database from 'better-sqlite3';
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import {
   openIndexDb,
   getIndexDbPath,
@@ -366,6 +369,69 @@ describe('Task 28 — index-db schema + open', () => {
         expect(row.body).toContain('reopen');
       } finally {
         dbB.close();
+      }
+    });
+  });
+
+  // -- Task 151.6 — trust_score column in the rebuildable index (ADR-0016 §20.2) --
+  describe('Task 151.6 — observations.trust_score', () => {
+    it('the schema declares a trust_score REAL column', () => {
+      expect(INDEX_DB_SCHEMA).toMatch(/trust_score\s+REAL/i);
+    });
+
+    it('a freshly opened DB has the trust_score column on observations', () => {
+      const db = openIndexDb({ projectRoot });
+      try {
+        const cols = db.prepare(`PRAGMA table_info(observations)`).all().map((c) => c.name);
+        expect(cols).toContain('trust_score');
+      } finally {
+        db.close();
+      }
+    });
+
+    it('MIGRATION: an existing DB created WITHOUT trust_score gains the column on open (non-destructive)', () => {
+      // Simulate a pre-151.6 DB: an observations table missing trust_score, with
+      // one row of real data that must SURVIVE the migration (no drop/rebuild).
+      const dbPath = getIndexDbPath(projectRoot);
+      mkdirSync(dirname(dbPath), { recursive: true });
+      const old = new Database(dbPath);
+      old.exec(`
+        CREATE TABLE observations (
+          id TEXT PRIMARY KEY, tier TEXT NOT NULL, source_file TEXT NOT NULL,
+          source_line INTEGER NOT NULL, source_sha1 TEXT NOT NULL, heading_path TEXT,
+          body TEXT NOT NULL, write_source TEXT NOT NULL, trust TEXT NOT NULL,
+          created_at INTEGER NOT NULL, superseded_by TEXT, deleted_at INTEGER
+        );
+      `);
+      old.prepare(
+        `INSERT INTO observations (id, tier, source_file, source_line, source_sha1, body, write_source, trust, created_at)
+         VALUES ('P-PRESERVE', 'P', 'context/memory/x.md', 1, 'abc', 'survivor body', 'user-explicit', 'high', 1000)`,
+      ).run();
+      old.close();
+
+      const db = openIndexDb({ projectRoot });
+      try {
+        const cols = db.prepare(`PRAGMA table_info(observations)`).all().map((c) => c.name);
+        expect(cols).toContain('trust_score'); // column added by migration
+        // The pre-existing row SURVIVED (non-destructive migration, not a rebuild).
+        const row = db.prepare(`SELECT id, body FROM observations WHERE id = 'P-PRESERVE'`).get();
+        expect(row).toBeDefined();
+        expect(row.body).toBe('survivor body');
+      } finally {
+        db.close();
+      }
+    });
+
+    it('opening twice is idempotent — the migration does not throw on an already-migrated DB', () => {
+      const a = openIndexDb({ projectRoot });
+      a.close();
+      // Second open must not error (duplicate-column ALTER would throw).
+      const b = openIndexDb({ projectRoot });
+      try {
+        const cols = b.prepare(`PRAGMA table_info(observations)`).all().map((c) => c.name);
+        expect(cols).toContain('trust_score');
+      } finally {
+        b.close();
       }
     });
   });

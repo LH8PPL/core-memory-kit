@@ -68,6 +68,12 @@ CREATE TABLE IF NOT EXISTS observations (
   body TEXT NOT NULL,
   write_source TEXT NOT NULL,
   trust TEXT NOT NULL,
+  -- Task 151.6 (ADR-0016 §20.2): the evolving PROTECTION field — a FLOAT seeded
+  -- from source (user-explicit > auto-extract) on (re)index, then moved by passive
+  -- outcomes (151.7/151.8). Lives ONLY here (the rebuildable index), never in
+  -- committed frontmatter (D-218). DEFAULT 0.5 so a migrated pre-151.6 row + any
+  -- insert that omits it gets a sane medium seed until the next full reindex.
+  trust_score REAL NOT NULL DEFAULT 0.5,
   created_at INTEGER NOT NULL,
   superseded_by TEXT REFERENCES observations(id),
   deleted_at INTEGER
@@ -189,5 +195,21 @@ export function openIndexDb({ projectRoot, dbPath } = {}) {
   db.pragma('synchronous = NORMAL');
   // Apply schema (idempotent CREATE IF NOT EXISTS).
   db.exec(INDEX_DB_SCHEMA);
+  // Task 151.6: non-destructive column migration. CREATE TABLE IF NOT EXISTS does
+  // NOT add a new column to a pre-existing table, so an index built before 151.6
+  // would lack `trust_score`. Add it in place (ALTER preserves all rows — the
+  // index is rebuildable, but we don't force a full rebuild just for a column).
+  // The next full reindex reseeds real values; until then existing rows carry the
+  // DEFAULT 0.5 (medium). Idempotent: skip if the column already exists.
+  migrateAddColumn(db, 'observations', 'trust_score', 'REAL NOT NULL DEFAULT 0.5');
   return db;
+}
+
+// Add `column` to `table` if it isn't already present (idempotent). SQLite has no
+// "ADD COLUMN IF NOT EXISTS", so we check PRAGMA table_info first — a duplicate
+// ALTER would throw.
+function migrateAddColumn(db, table, column, definition) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (cols.some((c) => c.name === column)) return;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
 }

@@ -389,6 +389,49 @@ describe('Task 29 — index-rebuild', () => {
       expect(afterCount).toBe(3);
     });
 
+    // -- Task 151.6 — trust_score is RECONSTRUCTED on (re)index (ADR-0016 §20.2) --
+    it('151.6: reindex populates trust_score from source — user-explicit > auto-extract; committed .md unchanged', () => {
+      // Two facts, SAME trust enum (high), DIFFERENT source. The user-attested one
+      // must seed a higher trust_score than the machine-derived one (memory-os
+      // source-based init). trust_score lives ONLY in the rebuildable index — the
+      // committed fact files carry no such field (D-218).
+      const explicitPath = seedFactFile(projectRoot, {
+        id: 'P-EXPLCTAA', type: 'feedback', title: 'e', body: 'user stated this',
+        write_source: 'user-explicit', trust: 'high', at: '2026-05-27T10:00:00Z', slug: 'explicit',
+      });
+      seedFactFile(projectRoot, {
+        id: 'P-AUTXTRAA', type: 'feedback', title: 'a', body: 'machine inferred this',
+        write_source: 'auto-extract', trust: 'high', at: '2026-05-27T10:00:00Z', slug: 'auto',
+      });
+
+      reindexFull({ projectRoot, userDir, db });
+
+      const explicit = db.prepare('SELECT trust_score FROM observations WHERE id = ?').get('P-EXPLCTAA');
+      const auto = db.prepare('SELECT trust_score FROM observations WHERE id = ?').get('P-AUTXTRAA');
+      expect(typeof explicit.trust_score).toBe('number');
+      expect(explicit.trust_score).toBeGreaterThan(auto.trust_score); // the design's invariant
+      // floor/ceil respected (never 0, never 1).
+      expect(explicit.trust_score).toBeGreaterThan(0);
+      expect(explicit.trust_score).toBeLessThan(1);
+
+      // The committed fact file is UNCHANGED by trust_score (it lives in the index).
+      const committed = readFileSync(explicitPath, 'utf8');
+      expect(committed).not.toMatch(/trust_score/);
+    });
+
+    it('151.6: rebuilding from scratch RECONSTRUCTS the same trust_score (rebuildable invariant)', () => {
+      seedFactFile(projectRoot, {
+        id: 'P-REBLDFAA', type: 'feedback', title: 'r', body: 'rebuildable fact',
+        write_source: 'user-explicit', trust: 'medium', at: '2026-05-27T10:00:00Z', slug: 'rebuild',
+      });
+      reindexFull({ projectRoot, userDir, db });
+      const first = db.prepare('SELECT trust_score FROM observations WHERE id = ?').get('P-REBLDFAA').trust_score;
+      // A second full rebuild (the DROP+recreate path) must land the SAME seed.
+      reindexFull({ projectRoot, userDir, db });
+      const second = db.prepare('SELECT trust_score FROM observations WHERE id = ?').get('P-REBLDFAA').trust_score;
+      expect(second).toBe(first);
+    });
+
     it('full clears stale rows that no longer exist in source files', () => {
       seedScratchpad(projectRoot, [
         bulletInput({ id: 'P-AAAAAAAA', text: 'one', line: 5 }),
