@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Changed
+
+- **Persona promotion now earns its way in by RECURRENCE, not just phrasing** (Task 151, in progress for v0.4.3). A cross-project trait you keep *demonstrating* — but never explicitly declare as an "always/never" rule — now graduates into your persona once it has recurred enough, instead of being stranded by a wording gate. The classifier cites the facts it synthesized a trait from and the kit sums their real recurrence to decide; the LLM groups, code counts. (Closes the cold-open regression where a demonstrated-but-undeclared philosophy never reached the user tier.)
+- **Your persona survives a full cold-open even when it's large.** When a user-tier scratchpad (`USER.md`/`HABITS.md`/`LESSONS.md`) outgrows its inject budget, the kit now **condenses it in place** rather than moving your highest-trust traits to an un-injected archive — so a freshly promoted trait can't silently vanish from the next session's snapshot. Under pressure, the lowest-trust, least-recently-touched bullets yield first; a high-trust trait is never the one dropped.
+
+### Added
+
+- **An evolving per-fact trust score** (internal; the foundation for the above). Each fact carries a `trust_score` in the rebuildable index (never in your committed files, so it adds no git noise), seeded higher for things you stated yourself than for things inferred automatically. Upcoming releases let it rise and fall from passive outcomes (a contradiction lowers it, a restatement raises it) with no command to run.
+
 ## [0.4.2] — 2026-06-28
 
 ### Security
