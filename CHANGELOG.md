@@ -15,7 +15,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
-- **An evolving per-fact trust score** (internal; the foundation for the above). Each fact carries a `trust_score` in the rebuildable index (never in your committed files, so it adds no git noise), seeded higher for things you stated yourself than for things inferred automatically. Upcoming releases let it rise and fall from passive outcomes (a contradiction lowers it, a restatement raises it) with no command to run.
+- **An evolving per-fact trust score.** Each fact carries a `trust_score` in the rebuildable index (never in your committed files, so it adds no git noise), seeded higher for things you stated yourself than for things inferred automatically — and it rises and falls from passive outcomes (a contradiction or supersession lowers it, a restatement raises it) with no command to run.
+- **Explicit `cmk lessons promote` now spreads a promotion across your persona by topic** instead of always landing in one section — an identity/preference goes to `USER.md`, a working-style rule to `HABITS.md`, a cross-project lesson to `LESSONS.md` (offline, no LLM call; `--to`/`--section` still override).
+
+### Security
+
+- **Poison_Guard now blocks invisible / zero-width / bidi Unicode in captured memory** (Task 70.4). A hidden-instruction vector matters more for this kit than for any database-backed one: memory is committed to git, so a poisoned fact travels with `git clone` to every teammate. The write-time screen now rejects zero-width characters (U+200B/C/D, U+2060, U+FEFF), bidi overrides and isolates (the "Trojan Source" class — U+202A–E, U+2066–9), and the soft hyphen / Arabic letter mark / Mongolian vowel separator — while leaving ordinary text (whitespace, accents, CJK, emoji) untouched.
 
 ## [0.4.2] — 2026-06-28
 

@@ -36,6 +36,25 @@ import {
 } from 'node:fs';
 import { join, dirname } from 'node:path';
 
+// Task 70.4 — the invisible / zero-width / bidi code points, listed EXPLICITLY
+// (no literal invisible chars in source — those are unreadable + editor-mangleable).
+// Built into a regex char-class via `String.fromCodePoint` at module load.
+const INVISIBLE_UNICODE_CODEPOINTS = [
+  0x00ad, // soft hyphen
+  0x061c, // Arabic letter mark
+  0x180e, // Mongolian vowel separator
+  0x200b, 0x200c, 0x200d, // zero-width space / non-joiner / joiner
+  0x2060, // word joiner
+  0x2066, 0x2067, 0x2068, 0x2069, // bidi isolates: LRI / RLI / FSI / PDI
+  0x202a, 0x202b, 0x202c, 0x202d, 0x202e, // bidi embeds/overrides: LRE/RLE/PDF/LRO/RLO
+  0xfeff, // BOM / zero-width no-break space
+];
+function buildInvisibleUnicodeRe() {
+  const cls = INVISIBLE_UNICODE_CODEPOINTS.map((cp) => `\\u${cp.toString(16).padStart(4, '0')}`).join('');
+  return new RegExp(`[${cls}]`);
+}
+const INVISIBLE_UNICODE_RE = buildInvisibleUnicodeRe();
+
 // --- Pattern catalog -------------------------------------------------
 // Each pattern is { id, re, category }. The id is the stable
 // machine-parseable name that shows up in poison-guard.log NDJSON +
@@ -203,6 +222,29 @@ const INJECTION_PATTERNS = [
     id: 'injection_disregard_above',
     category: 'injection',
     re: /disregard the above/i,
+  },
+  // Task 70.4 — invisible / zero-width / bidi Unicode. A hidden-instruction
+  // vector: characters invisible to a human reviewer can smuggle text past the
+  // eye AND past the other patterns, then ship with `git clone` in committed
+  // memory. The set (Hermes parity + the Trojan-Source bidi class — kiro-design
+  // §699 / kiro-requirements):
+  //   • zero-width: U+200B ZWSP, U+200C ZWNJ, U+200D ZWJ, U+2060 word-joiner,
+  //     U+FEFF BOM/ZWNBSP
+  //   • bidi controls (Trojan-Source): U+202A–U+202E (LRE/RLE/PDF/LRO/RLO),
+  //     U+2066–U+2069 (LRI/RLI/FSI/PDI)
+  //   • other invisibles: U+00AD soft hyphen, U+061C Arabic letter mark,
+  //     U+180E Mongolian vowel separator
+  // NOT included: ordinary whitespace (space/tab/newline) — those are visible
+  // structure, not a hidden vector, so legitimate prose never false-positives.
+  // Implemented as a Unicode-property + explicit-codepoint class via the
+  // `buildInvisibleUnicodeRe()` helper below (NOT literal invisible chars inline,
+  // which would be unreadable + editor-mangleable). Verified to match exactly the
+  // 17 code points listed above with zero false positives on whitespace / ASCII /
+  // accents / CJK / emoji.
+  {
+    id: 'injection_invisible_unicode',
+    category: 'injection',
+    re: INVISIBLE_UNICODE_RE,
   },
 ];
 
