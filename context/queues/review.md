@@ -7,3 +7,9 @@
 ## 2026-06-29T12:22:34Z — auto-extract (medium-trust, pending review)
 - (P-MJW2TBYQ) Proceeding with full `patent` installation over manual registry sweep option (inferred from "what now?" after two-choice offer)
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-29T12:22:34Z -->
+## 2026-06-30T06:14:12Z — auto-extract (medium-trust, pending review)
+- (P-RHJaAYYU) 151.4 shipped (8390c33); persona tier-U cap-relief bug fixed + CRLF regression-tested; 2419/2419 tests green.
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-30T06:14:12Z -->
+## 2026-06-30T06:14:12Z — auto-extract (medium-trust, pending review)
+- (P-QLCRTNWP) Next: 151.5 (sweep order — low-trust-AND-stale first, high-trust persona never swept), feeds into trust_score field.
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-06-30T06:14:12Z -->
