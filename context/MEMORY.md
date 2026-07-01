@@ -8,10 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-Y3P5YUE6) Gathers research from multiple sources (articles, URLs) and shares collections with synthesis requests before committing task updates.
-  <!-- source: review-promote, source_line: 1, sha1: a0da9400b4d4c67edf30efa83789f91a36f78cf58075ba97fbef78d3bcc64937, write: user-explicit, trust: high, at: 2026-06-30T20:00:02Z -->
-- (P-MJW2TBYQ) Proceeding with full `patent` installation over manual registry sweep option (inferred from "what now?" after two-choice offer)
-  <!-- source: review-promote, source_line: 1, sha1: 6e7e4926ec2a2ae51c2f6a037485aff9d17aa3b93b2cb0d2f2985dcbe811686d, write: user-explicit, trust: high, at: 2026-06-30T20:00:03Z -->
 - (P-RHJaAYYU) 151.4 shipped (8390c33); persona tier-U cap-relief bug fixed + CRLF regression-tested; 2419/2419 tests green.
   <!-- source: review-promote, source_line: 1, sha1: af9aa3f759ea89909da07095ce8bb40413dc3b95de781b099efeaae80f96d7f8, write: user-explicit, trust: high, at: 2026-06-30T20:00:04Z -->
 - (P-QLCRTNWP) Next: 151.5 (sweep order — low-trust-AND-stale first, high-trust persona never swept), feeds into trust_score field.
@@ -20,6 +16,10 @@
   <!-- source: review-promote, source_line: 1, sha1: d2e88c12cc63b4604f167e068e7c407c3bcb24beb54f6c1412e07f526b15a40b, write: user-explicit, trust: high, at: 2026-06-30T20:00:05Z -->
 - (P-aDHF9ZDD) When there's a documented procedure (like cut-gate.md), be directed to that doc rather than receiving raw command lists.
   <!-- source: auto-extract-session, source_line: 1, sha1: 0f21889617695b2df5d0f84507296fde1df198e4a91cefe893c59f7c2efb89c7, write: auto-extract, trust: high, at: 2026-06-30T20:25:46Z -->
+- (P-QC2T9YUB) User directive — "do everything until session 2" — confirms execution of entire cut-gate §0-4d.
+  <!-- source: auto-extract-session, source_line: 1, sha1: d4c204179c6d28fe0b41a9d1e3e5ec6caebbeb6343253e365b1d9d935b86a61e, write: auto-extract, trust: high, at: 2026-07-01T07:32:22Z -->
+- (P-TLKQMLUY) TDD-like working pattern—stated once at start, never repeated; boundary test first, watch fail, then implement
+  <!-- source: auto-extract-session, source_line: 1, sha1: 8f6c94395461e794c3720020bcf741d20f9d76d62e1c0ffa0604cb0c8611468d, write: auto-extract, trust: high, at: 2026-07-01T07:38:56Z -->
 
 ## Environment Notes
 

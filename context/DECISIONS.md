@@ -8567,3 +8567,128 @@ _(retracted 2026-06-29)_
 
 **When:** 2026-06-30 · **Fact:** `P-LLZZSBP3`
 **Why:** Multi-step release with specific tooling; npm script is canonical (prevents hand-edits). Tag push triggers automated CI. Stress test must pass 5/5 before merge.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-EM6G7Q53 -->
+
+## Prefers to limit research scope and skip deep-reading when signal-to-noise is lo
+
+**When:** 2026-06-29 · **Fact:** `P-EM6G7Q53`
+
+<!-- decision:P-A6RZGSWP -->
+
+## User confirms v0.4.3 (Task 151 persona-promotion redesign) as next release targe
+
+**When:** 2026-06-29 · **Fact:** `P-A6RZGSWP`
+
+<!-- decision:P-EENQ2YUU -->
+
+## Expects complete research backing, not partial examples — flagged incomplete 2-s
+
+**When:** 2026-06-29 · **Fact:** `P-EENQ2YUU`
+
+<!-- decision:P-WKC2NJCT -->
+
+## chose "two fields" for persona promotion (recurrence-heat for promotion, outcome
+
+**When:** 2026-06-29 · **Fact:** `P-WKC2NJCT`
+
+<!-- decision:P-X95HB2BQ -->
+
+## User doesn't recall ADR-0016 specifics; gap in persistent context around gate/LL
+
+**When:** 2026-06-29 · **Fact:** `P-X95HB2BQ`
+
+<!-- decision:P-EDXCNY3L -->
+
+## User's standing directive — document all major decisions/workflow in the Spine (
+
+**When:** 2026-06-29 · **Fact:** `P-EDXCNY3L`
+
+<!-- decision:P-KUF6CPPL -->
+
+## Release Workflow with cut-gate Testing
+
+**When:** 2026-06-30 · **Fact:** `P-KUF6CPPL`
+**Why:** The cut-gate design decouples artifact testing from publishing, allowing full validation of the real, version-correct artifact before the irreversible step (tag push).
+
+<!-- decision:P-7PPKYDGG -->
+
+## User conceptualizes memory linking as a graph structure ("isn't this like the st
+
+**When:** 2026-06-30 · **Fact:** `P-7PPKYDGG`
+
+<!-- decision:P-U5HYTaHY -->
+
+## Release Ownership Role Boundary
+
+**When:** 2026-06-30 · **Fact:** `P-U5HYTaHY`
+**Why:** Ensures transparency and user control over outward-facing actions (npm publish, GitHub Release, git tags); prevents accidental commits to wrong branch or publishing wrong version
+
+<!-- decision:P-J2TSSZQJ -->
+
+## Triage Workflow for New Findings
+
+**When:** 2026-06-30 · **Fact:** `P-J2TSSZQJ`
+**Why:** Keeps backlog organized and ties new discoveries to active planning; reduces "nice to do" ideas getting lost between releases
+
+<!-- decision:P-SLYA3XLY -->
+
+## Cut-gate v0.4.3 Verification Checks
+
+**When:** 2026-06-30 · **Fact:** `P-SLYA3XLY`
+**Why:** This is the baseline gate for v0.4.3; documents what was verified before release and establishes the pattern for future gate iterations.
+
+<!-- decision:P-LTPJG9K5 -->
+
+## Release Command Sequence for npm Packages
+
+**When:** 2026-06-30 · **Fact:** `P-LTPJG9K5`
+**Why:** This is the standard release workflow for claude-memory-kit; next releases (0.4.4, 0.5.0) will follow the same pattern.
+
+<!-- decision:P-NDEA4RL4 -->
+
+## Tool Quirks Discovered in v0.4.3 Testing
+
+**When:** 2026-06-30 · **Fact:** `P-NDEA4RL4`
+**Why:** These are non-obvious behaviors discovered under live testing; future workflows or gate checks need to account for them.
+
+<!-- decision:P-64M9a7VM -->
+
+## Release Testing Procedure (cut-gate.md)
+
+**When:** 2026-06-30 · **Fact:** `P-64M9a7VM`
+**Why:** Self-contained release procedure guards against publishing incomplete/untested builds; centralized source of truth for release workflow.
+
+<!-- decision:P-DVV326E3 -->
+
+## User-Tier Memory Backup Before Testing
+
+**When:** 2026-06-30 · **Fact:** `P-DVV326E3`
+**Why:** Test probes write to user memory; without backup, real memory state can be overwritten or corrupted during testing.
+
+<!-- decision:P-GAAY4WKJ -->
+
+## Release Workflow: Full Sequence for v0.4.3 and Future Cuts
+
+**When:** 2026-06-30 · **Fact:** `P-GAAY4WKJ`
+**Why:** This is the canonical release workflow. It ensures features are validated via cut-gate before any publication. The backup prevents test writes from corrupting real user memory.
+
+<!-- decision:P-5MAE2QYJ -->
+
+## Pre-Release CI Gate
+
+**When:** 2026-06-30 · **Fact:** `P-5MAE2QYJ`
+**Why:** Ensures code quality and documentation consistency before shipping
+
+<!-- decision:P-A7K5HNM7 -->
+
+## Release Workflow (npm script + git)
+
+**When:** 2026-07-01 · **Fact:** `P-A7K5HNM7`
+**Why:** Script automates CHANGELOG + version management (prevents manual errors); reverting (not force-push) is safer for pure version-bump commits on main.
