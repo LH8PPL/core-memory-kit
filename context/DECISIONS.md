@@ -8860,3 +8860,63 @@ _(retracted 2026-06-29)_
 ## RESUME — v0.3.1 cut-gate near-complete; PR
 
 **When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-a4NCHA2J -->
+
+## Commit 9d785d3 applied two minor fixes (recurrence-default consistency, per-call
+
+**When:** 2026-06-30 · **Fact:** `P-a4NCHA2J`
+
+<!-- decision:P-aDHF9ZDD -->
+
+## When there's a documented procedure (like cut-gate.md), be directed to that doc
+
+**When:** 2026-06-30 · **Fact:** `P-aDHF9ZDD`
+
+<!-- decision:P-HMXBFF4L -->
+
+## claude-memory-kit Fix Verification Protocol (v0.4.3)
+
+**When:** 2026-07-01 · **Fact:** `P-HMXBFF4L`
+**Why:** An earlier version of the fix passed tarball checks but would fail in real installs. This three-tier system catches boundary failures that dev-repo testing misses.
+
+<!-- decision:P-NXDN4FPC -->
+
+## claude-memory-kit v0.4.3 Release Workflow
+
+**When:** 2026-07-01 · **Fact:** `P-NXDN4FPC`
+**Why:** Ensures the fix is proven on the actual production commit (main) before publishing, not just in a dev branch.
+
+<!-- decision:P-ZKaQ69MX -->
+
+## Pre-Release Documentation Audit Checklist
+
+**When:** 2026-07-01 · **Fact:** `P-ZKaQ69MX`
+**Why:** Catches gaps before shipping. Ensures future contributors understand system design. v0.4.3 example: 182/183 indexer fix had to be documented in §9.2.3 (indexer walks scratchpads, skips seeds) to complete the record. User's checkpoint question ("all docs updated?") catches exactly this.
+
+<!-- decision:P-3LaBFBLL -->
+
+## v0.4.3 Release & Verification Process
+
+**When:** 2026-07-01 · **Fact:** `P-3LaBFBLL`
+**Why:** Exact commands & checks ensure npm + GitHub publish succeed cleanly before next task fires (Task 185 triage).
+
+<!-- decision:P-FK3U45RA -->
+
+## Project Discipline — Verify Claims by Reading Logs
+
+**When:** 2026-07-01 · **Fact:** `P-FK3U45RA`
+**Why:** Prevents false confidence and bugs masked by tool quirks. Enforces honest diagnostics instead of assuming exit codes are authoritative.
+
+<!-- decision:P-ATGKYNMX -->
+
+## SonarCloud TypeScript Analyzer Exit Code Quirk
+
+**When:** 2026-07-01 · **Fact:** `P-ATGKYNMX`
+**Why:** CI gates become unreliable. Green re-runs can mask real failures, creating false confidence. This issue blocked v0.4.3.
