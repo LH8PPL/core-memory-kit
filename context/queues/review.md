@@ -22,3 +22,18 @@
 ## 2026-07-01T12:07:00Z — auto-extract (medium-trust, pending review)
 - (P-RVCAYPHC) Catches when their own systems violate their stated design principles; treats dogfooding as a QA signal
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-01T12:07:00Z -->
+## 2026-07-01T13:40:37Z — auto-extract (medium-trust, pending review)
+- (P-HSFDD2XD) User-correction signal only fires on failure, systematically misses what works — incomplete capture signal
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-01T13:40:37Z -->
+## 2026-07-01T14:12:48Z — auto-extract (medium-trust, pending review)
+- (P-UDVQ2MaB) User probes whether RL/reward machinery can be adopted/reimagined for the kit itself, and whether agent contexts enable it.
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-01T14:12:48Z -->
+## 2026-07-01T14:45:41Z — auto-extract (medium-trust, pending review)
+- (P-G9DRAJS9) Questioned whether "nobody ships a usage signal" was actually verified; suggested there could be multiple types of signals, not just one
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-01T14:45:41Z -->
+## 2026-07-01T15:17:31Z — auto-extract (medium-trust, pending review)
+- (P-FMJCSY7Y) Indicates preference for concrete workflow examples (SRE pattern) over abstract research when determining kit requirements and interfaces.
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-01T15:17:31Z -->
+## 2026-07-01T15:30:18Z — auto-extract (medium-trust, pending review)
+- (P-G9HK4PCK) Wants to understand the actual architectural difference between agent-in-IDE vs agent-in-script; rejects hand-waving explanations.
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-01T15:30:18Z -->

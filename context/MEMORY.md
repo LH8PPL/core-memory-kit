@@ -8,18 +8,16 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-QC2T9YUB) User directive — "do everything until session 2" — confirms execution of entire cut-gate §0-4d.
-  <!-- source: auto-extract-session, source_line: 1, sha1: d4c204179c6d28fe0b41a9d1e3e5ec6caebbeb6343253e365b1d9d935b86a61e, write: auto-extract, trust: high, at: 2026-07-01T07:32:22Z -->
-- (P-TLKQMLUY) TDD-like working pattern—stated once at start, never repeated; boundary test first, watch fail, then implement
-  <!-- source: auto-extract-session, source_line: 1, sha1: 8f6c94395461e794c3720020bcf741d20f9d76d62e1c0ffa0604cb0c8611468d, write: auto-extract, trust: high, at: 2026-07-01T07:38:56Z -->
-- (P-SFNSSGF5) "Search must find the persona" is a kit-level promise, not v0.4.3-specific — reframes 182/183 fix decision as release-blocking.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 343320fada260d0083f1426dfa92236f3b6b2bc19e56a1142d504bc9e589a650, write: auto-extract, trust: high, at: 2026-07-01T08:30:15Z -->
-- (P-M5QH6Q2E) Decisions must be explicit and timely — "when ready" is not a decision gate
-  <!-- source: auto-extract-session, source_line: 1, sha1: ba9ace5fc969c837b2e1f2e5c46b53c1ec5d43728cbc7f695da4367c96a896e9, write: auto-extract, trust: high, at: 2026-07-01T09:07:59Z -->
-- (P-4BBPNLMV) Always verify installed files + behavioral tests, not just tarball contents — the boundary is what matters
-  <!-- source: auto-extract-session, source_line: 1, sha1: cac0bd0ff2b4b61efe530dd113b0a787d969f987f63aa574f89678b43590f853, write: auto-extract, trust: high, at: 2026-07-01T11:11:27Z -->
-- (P-XMMX2QA7) Redundant questioning (asking the same question twice) is not how they work; prefers systemic validation gates
-  <!-- source: auto-extract-session, source_line: 1, sha1: f713640caa16fd04a55684e15cebd3d9fcfddaef5c30cb192caabd32db1f1601, write: auto-extract, trust: high, at: 2026-07-01T12:07:00Z -->
+- (P-PZE9526G) "we can change it to be more to our use case" — prefers to reframe/adapt solutions for context, not copy-paste from other systems.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 6bf3680434e99f13e39fb8eae7b9c6a844ba07dde98f5adf64d3588387dd763e, write: auto-extract, trust: high, at: 2026-07-01T15:30:18Z -->
+- (P-XQJTLWCH) You successfully challenged my "nobody ships outcome/failure signals" claim — the research refuted my position; memclaw, ReasoningBank, and MemRL do ship it in code.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 9a344f2448cc18e6e57f5061fbe8670f5847a2ab9a66cb926e09bc963ece5d34, write: auto-extract, trust: high, at: 2026-07-01T15:33:53Z -->
+- (P-STJQXVG5) You are building ADR-0017 and will frame it as a corrected, fact-grounded decision record (not flattering version) — including asymmetry, "one notch below memclaw" verdict, and the inertness pattern.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 38965505f1b7edd010e75da437df8c3668f79486d00558b29e4250603e7e5ffb, write: auto-extract, trust: high, at: 2026-07-01T15:33:53Z -->
+- (P-LDCZHDQH) User challenges 11-system sample as insufficient without systematic enumeration of actual population
+  <!-- source: auto-extract-session, source_line: 1, sha1: 92078a31aec7af84119f254ac7772e6aa29b7d0f961c4969d840586de757f41d, write: auto-extract, trust: high, at: 2026-07-01T15:40:15Z -->
+- (P-565H3TG2) User prefers to send articles/projects in batches and explore how items connect to multiple downstream use cases, not one-at-a-time.
+  <!-- source: auto-extract-session, source_line: 1, sha1: b1285858741aad03b484ef91dd6082c73ac1485adb143fdf8934252b5b14f1c0, write: auto-extract, trust: high, at: 2026-07-01T15:42:45Z -->
 
 ## Environment Notes
 
