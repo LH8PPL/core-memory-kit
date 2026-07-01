@@ -8692,3 +8692,171 @@ _(retracted 2026-06-29)_
 
 **When:** 2026-07-01 · **Fact:** `P-A7K5HNM7`
 **Why:** Script automates CHANGELOG + version management (prevents manual errors); reverting (not force-push) is safer for pure version-bump commits on main.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-Y3P5YUE6 -->
+
+## Gathers research from multiple sources (articles, URLs) and shares collections w
+
+**When:** 2026-06-30 · **Fact:** `P-Y3P5YUE6`
+
+<!-- decision:P-MJW2TBYQ -->
+
+## Proceeding with full `patent` installation over manual registry sweep option (in
+
+**When:** 2026-06-30 · **Fact:** `P-MJW2TBYQ`
+
+<!-- decision:P-RHJaAYYU -->
+
+## 151.4 shipped (8390c33); persona tier-U cap-relief bug fixed + CRLF regression-t
+
+**When:** 2026-06-30 · **Fact:** `P-RHJaAYYU`
+
+<!-- decision:P-QLCRTNWP -->
+
+## Next: 151.5 (sweep order — low-trust-AND-stale first, high-trust persona never s
+
+**When:** 2026-06-30 · **Fact:** `P-QLCRTNWP`
+
+<!-- decision:P-W9ZULZMJ -->
+
+## Pre-Release Testing Setup
+
+**When:** 2026-07-01 · **Fact:** `P-W9ZULZMJ`
+**Why:** Protects user data during pre-release testing and enables rollback if issues arise.
+
+<!-- decision:P-EHXTGB2K -->
+
+## Fresh CMK Install: Expected `cmk doctor` Baseline
+
+**When:** 2026-07-01 · **Fact:** `P-EHXTGB2K`
+**Why:** Future sessions running cut-gates or debugging health issues reference this baseline. A fresh install is healthy if it matches this pattern. HC-9 is essential for confirming v0.4.3 deployment integrity.
+
+<!-- decision:P-FQNHPTPY -->
+
+## Security & Data Integrity Validation Checklist
+
+**When:** 2026-07-01 · **Fact:** `P-FQNHPTPY`
+**Why:** The memory system must safely handle real credentials, workspace paths, and user data without accidental leaks or crashes in production.
+
+<!-- decision:P-E4aYXK5P -->
+
+## v0.4.3 Cut-Gate Multi-Phase Validation Structure
+
+**When:** 2026-07-01 · **Fact:** `P-E4aYXK5P`
+**Why:** This structured workflow ensures v0.4.3 passes both deterministic safety checks and live-session recall quality before release.
+
+<!-- decision:P-NJHYLX3P -->
+
+## Why LLM-Driven Gates Are Live-Test Flags, Not Assertions
+
+**When:** 2026-07-01 · **Fact:** `P-NJHYLX3P`
+**Why:** Live LLM decisions are inherently non-deterministic. The project deliberately accepts this tradeoff for the benefit of real LLM-driven classification in the promotion gate.
+
+<!-- decision:P-7ZUCXDCQ -->
+
+## Recurrence Mechanism: Fact Re-capture, Not Behavioral Repetition
+
+**When:** 2026-07-01 · **Fact:** `P-7ZUCXDCQ`
+**Why:** The kit's pitch—"traits you demonstrate but never declare get promoted"—could mislead users into expecting behavioral-pattern inference that doesn't exist. Recurrence counts fact re-emergence ≥3× in captures, not inferred action patterns. This gap between user intuition and actual design is meaningful to document before release.
+
+<!-- decision:P-GL9NTCZ9 -->
+
+## Cut-Gate Process for v0.4.3
+
+**When:** 2026-07-01 · **Fact:** `P-GL9NTCZ9`
+**Why:** Ensures discoveries made during development are captured before shipping, preventing data loss and enabling v0.4.4 planning.
+
+<!-- decision:P-YP3XEYaP -->
+
+## Shipping Principle: Fix Core-Promise Gaps Before Release
+
+**When:** 2026-07-01 · **Fact:** `P-YP3XEYaP`
+**Why:** Project opposes the lazy-framing move of shipping a product known to be broken against its headline claims. Honesty about capabilities vs. promises is foundational.
+
+<!-- decision:P-XFKJ6QTV -->
+
+## Release Triage: Broken Promises vs Future Features
+
+**When:** 2026-07-01 · **Fact:** `P-XFKJ6QTV`
+**Why:** Prevents shipping false headlines (broken core promises) while protecting against scope creep from features that look important but aren't load-bearing. A small, verified fix to an existing promise is worth doing before tag; everything else belongs in the next cycle.
+
+<!-- decision:P-XFN5Q73F -->
+
+## TDD Workflow for v0.4.3 Fixes (Tasks 182, 183)
+
+**When:** 2026-07-01 · **Fact:** `P-XFN5Q73F`
+**Why:** Small, verified fixes for core-promise gaps before shipping. Task 182 is load-bearing (persona search broken); 183 is cosmetic. Both high-confidence, low-risk changes.
+
+<!-- decision:P-2KJXNF25 -->
+
+## D-157 Rule — Version Assignment at Shipment
+
+**When:** 2026-07-01 · **Fact:** `P-2KJXNF25`
+**Why:** Pre-numbering creates false structure that misrepresents development reality and can lead to incorrect release planning.
+
+<!-- decision:P-YT4aa3YD -->
+
+## Deferred Task Decision Gate (Backlog Sweep Rule)
+
+**When:** 2026-07-01 · **Fact:** `P-YT4aa3YD`
+**Why:** User identified a real problem — 18+ tasks since v0.1 still unshipped because "ready" is not testable. This rule adds a forcing function: named triggers + mandatory sweep → prevents indefinite deferral.
+
+<!-- decision:P-KaZ79ATN -->
+
+## Task Planning & Laning Workflow
+
+**When:** 2026-07-01 · **Fact:** `P-KaZ79ATN`
+**Why:** Current state has tasks "fuzzy and in the air" without clear version placement. Explicit planning ensures a transparent, deterministic roadmap instead of deferring decisions during work.
+
+<!-- decision:P-ULHVR7L2 -->
+
+## Canonical Registry for Persona Search
+
+**When:** 2026-07-01 · **Fact:** `P-ULHVR7L2`
+**Why:** Hardcoding paths risks divergence when the registry changes. Using the canonical registry prevents drift.
+
+<!-- decision:P-7W4CWPSD -->
+
+## Release Handoff: PR Creation vs. Merge
+
+**When:** 2026-07-01 · **Fact:** `P-7W4CWPSD`
+**Why:** User retains final control over what ships to production.
+
+<!-- decision:P-G4DGSZQC -->
+
+## Task 185 Backlog-Triage Trigger
+
+**When:** 2026-07-01 · **Fact:** `P-G4DGSZQC`
+**Why:** Automates backlog cleanup after each release, preventing accumulation of stuck tasks.
+
+<!-- decision:P-GJ9MU9DQ -->
+
+## Two-Pass Review Discipline
+
+**When:** 2026-07-01 · **Fact:** `P-GJ9MU9DQ`
+**Why:** Skill-review provides a second perspective that catches issues the author's self-review misses. The discipline consistently adds value.
+
+<!-- decision:P-5Y9QQ4GK -->
+
+## Release Workflow — Cold-Open Testing Discipline
+
+**When:** 2026-07-01 · **Fact:** `P-5Y9QQ4GK`
+**Why:** Catches bugs that pass CI in dev repo but fail in real installs (learned from a prior release incident)
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
