@@ -24,6 +24,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 - **Poison_Guard now blocks invisible / zero-width / bidi Unicode in captured memory** (Task 70.4). A hidden-instruction vector matters more for this kit than for any database-backed one: memory is committed to git, so a poisoned fact travels with `git clone` to every teammate. The write-time screen now rejects zero-width characters (U+200B/C/D, U+2060, U+FEFF), bidi overrides and isolates (the "Trojan Source" class — U+202A–E, U+2066–9), and the soft hyphen / Arabic letter mark / Mongolian vowel separator — while leaving ordinary text (whitespace, accents, CJK, emoji) untouched.
 
+### Fixed
+
+- **`cmk search` now finds your promoted persona** (Task 182). Your cross-project rules live in `HABITS.md` / `USER.md` / `LESSONS.md` (and a project's `SOUL.md`) — but the search index only ever walked `MEMORY.md`, so a rule you promoted with `cmk lessons promote` was **unsearchable**, even in the same session. The index now walks every canonical scratchpad, so a promoted trait is findable (via search) as well as injected. Surfaced live by the v0.4.3 cold-open.
+- **A fresh install's `cmk search` no longer returns the scaffold's `(example)` placeholders** (Task 183). The seed bullets that ship in a new install (all carrying a template sentinel) are now excluded from the index, so a real query in a brand-new project returns nothing misleading instead of "decide whether to deprecate /api/v1."
+
 ## [0.4.2] — 2026-06-28
 
 ### Security

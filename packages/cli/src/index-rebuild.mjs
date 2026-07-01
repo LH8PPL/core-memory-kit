@@ -48,11 +48,12 @@ import chokidar from 'chokidar';
 import { INDEX_DB_SCHEMA } from './index-db.mjs';
 import { hashContent } from './content-hash.mjs';
 import { syncTranscriptChunks } from './transcript-index.mjs';
-import { readBullet, parseBulletProvenance } from './provenance.mjs';
+import { readBullet, parseBulletProvenance, isSeedProvenance } from './provenance.mjs';
 import { parse as parseFrontmatter } from './frontmatter.mjs';
 import { initTrustScore } from './trust-score.mjs';
 import {
   VALID_TIERS,
+  SCRATCHPADS_BY_TIER,
   resolveTierRoot,
   resolveFactDir,
   ID_PATTERN,
@@ -71,10 +72,19 @@ export function listObservationSources({ projectRoot, userDir }) {
   for (const tier of ['P', 'L', 'U']) {
     const root = resolveTierRoot({ tier, projectRoot, userDir });
     if (!existsSync(root)) continue;
-    // Scratchpad: <tier>/MEMORY.md
-    const scratchpad = join(root, 'MEMORY.md');
-    if (existsSync(scratchpad)) {
-      sources.push({ path: scratchpad, tier, kind: 'scratchpad' });
+    // Scratchpads: EVERY canonical scratchpad for the tier, not just MEMORY.md
+    // (Task 182 / D-247). Pre-182 this hardcoded `<tier>/MEMORY.md`, so the
+    // project-tier SOUL.md AND the entire user-tier persona (USER/HABITS/
+    // LESSONS.md — where `cmk lessons promote` writes) were never indexed, and
+    // a promoted persona fact was unsearchable even in-session. Iterating
+    // SCRATCHPADS_BY_TIER (the same allow-list the writer/cap layer uses) fixes
+    // all of them at once with no filename drift. They all share the
+    // bullet + provenance-comment shape the scratchpad parser already handles.
+    for (const scratchpadName of SCRATCHPADS_BY_TIER[tier] ?? []) {
+      const scratchpad = join(root, scratchpadName);
+      if (existsSync(scratchpad)) {
+        sources.push({ path: scratchpad, tier, kind: 'scratchpad' });
+      }
     }
     // Granular fact files: <tier>/memory/*.md (excluding INDEX.md)
     const factDir = resolveFactDir(tier, root);
@@ -133,10 +143,12 @@ function relativeSource(absPath, { projectRoot, userDir }) {
 // --- Parsing ----------------------------------------------------------
 
 /**
- * Parse a scratchpad MEMORY.md into observations.
+ * Parse a scratchpad (MEMORY.md / SOUL.md / USER.md / HABITS.md / LESSONS.md /
+ * machine-paths.md / overrides.md — any of SCRATCHPADS_BY_TIER) into observations.
  *
  * Walks line-by-line tracking the most recent h2 heading. For each
  * bullet+comment pair, calls readBullet() to extract id/text/provenance.
+ * Scaffold `(example)` seed bullets (all-zero sha1) are skipped (Task 183).
  * Returns one row per bullet conforming to the observations schema.
  *
  * Tolerant: bullets without a following provenance comment are skipped
@@ -175,6 +187,11 @@ export function parseObservationsFromScratchpad({
     const bullet = readBullet({ bulletLine: line, commentLine: next });
     if (!bullet) continue;
     const { id, text, provenance } = bullet;
+    // Task 183 (D-247): skip scaffold `(example)` seed bullets (all-zero sha1)
+    // — they must never enter the search index, else a fresh install returns
+    // only misleading placeholders. Mirrors the inject path's existing seed
+    // filter (shared `isSeedProvenance`, so both surfaces stay in agreement).
+    if (isSeedProvenance(provenance)) continue;
     const heading_path = currentHeading
       ? `${baseName} > ${currentHeading}`
       : baseName;
@@ -716,8 +733,15 @@ export function startRuntimeWatcher({
     const root = resolveTierRoot({ tier, projectRoot, userDir });
     if (!existsSync(root)) continue;
     tierRoots.push({ tier, root });
-    const scratchpad = join(root, 'MEMORY.md');
-    if (existsSync(scratchpad)) watchPaths.push(scratchpad);
+    // Watch EVERY canonical scratchpad for the tier (Task 182 / D-247), not
+    // just MEMORY.md — must stay in lockstep with listObservationSources above,
+    // else a live edit to SOUL.md / a `cmk lessons promote` into HABITS.md
+    // wouldn't trigger a runtime re-index (indexed on full reindex but not
+    // watched — the composition gap the caller-map rule catches).
+    for (const scratchpadName of SCRATCHPADS_BY_TIER[tier] ?? []) {
+      const scratchpad = join(root, scratchpadName);
+      if (existsSync(scratchpad)) watchPaths.push(scratchpad);
+    }
     const factDir = resolveFactDir(tier, root);
     if (existsSync(factDir)) watchPaths.push(factDir);
   }
