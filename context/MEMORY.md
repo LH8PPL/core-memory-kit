@@ -8,16 +8,16 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-PZE9526G) "we can change it to be more to our use case" — prefers to reframe/adapt solutions for context, not copy-paste from other systems.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 6bf3680434e99f13e39fb8eae7b9c6a844ba07dde98f5adf64d3588387dd763e, write: auto-extract, trust: high, at: 2026-07-01T15:30:18Z -->
-- (P-XQJTLWCH) You successfully challenged my "nobody ships outcome/failure signals" claim — the research refuted my position; memclaw, ReasoningBank, and MemRL do ship it in code.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 9a344f2448cc18e6e57f5061fbe8670f5847a2ab9a66cb926e09bc963ece5d34, write: auto-extract, trust: high, at: 2026-07-01T15:33:53Z -->
-- (P-STJQXVG5) You are building ADR-0017 and will frame it as a corrected, fact-grounded decision record (not flattering version) — including asymmetry, "one notch below memclaw" verdict, and the inertness pattern.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 38965505f1b7edd010e75da437df8c3668f79486d00558b29e4250603e7e5ffb, write: auto-extract, trust: high, at: 2026-07-01T15:33:53Z -->
-- (P-LDCZHDQH) User challenges 11-system sample as insufficient without systematic enumeration of actual population
-  <!-- source: auto-extract-session, source_line: 1, sha1: 92078a31aec7af84119f254ac7772e6aa29b7d0f961c4969d840586de757f41d, write: auto-extract, trust: high, at: 2026-07-01T15:40:15Z -->
-- (P-565H3TG2) User prefers to send articles/projects in batches and explore how items connect to multiple downstream use cases, not one-at-a-time.
-  <!-- source: auto-extract-session, source_line: 1, sha1: b1285858741aad03b484ef91dd6082c73ac1485adb143fdf8934252b5b14f1c0, write: auto-extract, trust: high, at: 2026-07-01T15:42:45Z -->
+- (P-aN56GAHP) User is cost-conscious by default, notices budget burn ("we blow all my token budget"), apologizes for waste — but pragmatic when reassured budget is available and justified
+  <!-- source: auto-extract-session, source_line: 1, sha1: c3268d02c1a57436a8d3853fc25f3a8ac7e3caebb00e73fcbd9cd7673cd8bacf, write: auto-extract, trust: high, at: 2026-07-01T20:17:21Z -->
+- (P-TLLH95BT) Design goal is automatic background signals that don't depend on human feedback OR oracle grounding — human input is optional, not required
+  <!-- source: auto-extract-session, source_line: 1, sha1: 1800f22dc71358727561395b79f95581c1e091938ce021d8344c3927797aebfc, write: auto-extract, trust: high, at: 2026-07-01T20:20:41Z -->
+- (P-XEZZDBMD) Two separate axes were being conflated: (1) oracle vs no-oracle, (2) automatic vs human-required — target is bottom-right quadrant (automatic + oracle-free)
+  <!-- source: auto-extract-session, source_line: 1, sha1: 9a13bb0932cb403b01564206e7d75593defd1372566580918a7b67af1cbe516f, write: auto-extract, trust: high, at: 2026-07-01T20:20:41Z -->
+- (P-KKQa4aKV) Outcome learning for memory systems should not be failure-only; both success and failure signals should inform utility and updates
+  <!-- source: auto-extract-session, source_line: 1, sha1: 6e71307f714443fc1f2ef7e44f35dae834a605deae3fe62292112979c7839e8a, write: auto-extract, trust: high, at: 2026-07-01T20:22:31Z -->
+- (P-RXRZF6S9) Wants composite representations (diagrams, graphs, anatomical models) that hold both holistic system and component-level views; wants to switch between abstraction levels.
+  <!-- source: auto-extract-session, source_line: 1, sha1: d445595ae5f962f89f1c78ffe723feccfec77c78bed2a6c052f1bd6daa16856d, write: auto-extract, trust: high, at: 2026-07-01T20:54:14Z -->
 
 ## Environment Notes
 

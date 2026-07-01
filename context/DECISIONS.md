@@ -8920,3 +8920,470 @@ _(retracted 2026-06-29)_
 
 **When:** 2026-07-01 · **Fact:** `P-ATGKYNMX`
 **Why:** CI gates become unreliable. Green re-runs can mask real failures, creating false confidence. This issue blocked v0.4.3.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-QC2T9YUB -->
+
+## User directive — "do everything until session 2" — confirms execution of entire
+
+**When:** 2026-07-01 · **Fact:** `P-QC2T9YUB`
+
+<!-- decision:P-TLKQMLUY -->
+
+## TDD-like working pattern—stated once at start, never repeated; boundary test fir
+
+**When:** 2026-07-01 · **Fact:** `P-TLKQMLUY`
+
+<!-- decision:P-SFNSSGF5 -->
+
+## "Search must find the persona" is a kit-level promise, not v0.4.3-specific — ref
+
+**When:** 2026-07-01 · **Fact:** `P-SFNSSGF5`
+
+<!-- decision:P-M5QH6Q2E -->
+
+## Decisions must be explicit and timely — "when ready" is not a decision gate
+
+**When:** 2026-07-01 · **Fact:** `P-M5QH6Q2E`
+
+<!-- decision:P-4BBPNLMV -->
+
+## Always verify installed files + behavioral tests, not just tarball contents — th
+
+**When:** 2026-07-01 · **Fact:** `P-4BBPNLMV`
+
+<!-- decision:P-XMMX2QA7 -->
+
+## Redundant questioning (asking the same question twice) is not how they work; pre
+
+**When:** 2026-07-01 · **Fact:** `P-XMMX2QA7`
+
+<!-- decision:P-A9XK7N7X -->
+
+## External Source Ingestion and Task Triage Workflow
+
+**When:** 2026-07-01 · **Fact:** `P-A9XK7N7X`
+**Why:** This is the ingestion machinery for continuous backlog + decision integration. Future sessions benefit from knowing this structure exists and how to use it.
+
+<!-- decision:P-G9KBKA6B -->
+
+## Retrieval Ranking Strategy — Avoid Score-Based Hot-Path Ranking
+
+**When:** 2026-07-01 · **Fact:** `P-G9KBKA6B`
+**Why:** Kit authors foresaw the risk before external evidence appeared. U-Mem confirms the risk is real. Our approach (no-score-ranking) is validated as a defensible tradeoff, not a missed optimization.
+
+<!-- decision:P-WK73CWDH -->
+
+## Memory Measurement Is Part of Learn-Loop
+
+**When:** 2026-07-01 · **Fact:** `P-WK73CWDH`
+**Why:** Clarifies project understanding and prevents misclassification of measurement-related tasks as standalone.
+
+<!-- decision:P-HADBX5HC -->
+
+## Self-cleaning/marginal-contribution should fold into learn-loop cluster (179/180
+
+**When:** 2026-07-01 · **Fact:** `P-HADBX5HC`
+
+<!-- decision:P-aLAMAPMa -->
+
+## Triage Entries Must State Counter-Arguments
+
+**When:** 2026-07-01 · **Fact:** `P-aLAMAPMa`
+**Why:** Three recent task entries were filed by assuming flattering explanations instead of interrogating them. Entries filed this way rot until re-examined.
+
+<!-- decision:P-HaQ2aESM -->
+
+## Triage entries should state strongest COUNTER-ARGUMENT, not just the pitch — ide
+
+**When:** 2026-07-01 · **Fact:** `P-HaQ2aESM`
+
+<!-- decision:P-MTUDZHW4 -->
+
+## "user-correction moment as most valuable capture signal" is a weak point
+
+**When:** 2026-07-01 · **Fact:** `P-MTUDZHW4`
+
+<!-- decision:P-UWXMNBBT -->
+
+## Recurrence-ROI (Advantage-Update) Is Internal Learning Signal
+
+**When:** 2026-07-01 · **Fact:** `P-UWXMNBBT`
+**Why:** Earlier analysis confused this across three separate filings (vanity metric, self-cleaning, trust-update). User clarified it's for "kit processes" (internal learning), resolving confusion: ONE feedback signal, ONE purpose.
+
+<!-- decision:P-LAAK3QE2 -->
+
+## Recurrence-ROI is an internal signal for kit processes (to learn from), not a us
+
+**When:** 2026-07-01 · **Fact:** `P-LAAK3QE2`
+
+<!-- decision:P-UU4aaTZF -->
+
+## The U-Mem paper describes ONE holistic closed-loop system, not nine separate ide
+
+**When:** 2026-07-01 · **Fact:** `P-UU4aaTZF`
+
+<!-- decision:P-VHKZAB2Y -->
+
+## U-Mem Describes One Unified Loop, Not Nine Separate Features
+
+**When:** 2026-07-01 · **Fact:** `P-VHKZAB2Y`
+**Why:** Earlier analysis atomized the paper into 9 disconnected ideas, missing that it's a systems paper describing unified architecture. Recognizing it as one loop clarifies what the kit needs—a coherent feedback architecture, not 9 independent additions.
+
+<!-- decision:P-D2NC3KF2 -->
+
+## Memory Learn-Loop as Converged System
+
+**When:** 2026-07-01 · **Fact:** `P-D2NC3KF2`
+**Why:** The backlog converged here organically; U-Mem paper named it, validating what the kit was already discovering. Framing it as one system reframes Task 185 sweep: these five tasks are a cluster (build order? dependencies?) not independent line-items.
+
+<!-- decision:P-MF5UKYKB -->
+
+## Two-Host Kit Architecture (Proposed)
+
+**When:** 2026-07-01 · **Fact:** `P-MF5UKYKB`
+**Why:** This architecture reframes the kit from passive storage (IDE-only) to active learner (when hosted in an agent). The "missing feedback signal" problem has a natural solution in agent contexts, not in IDE contexts — which justifies two variants instead of retrofitting one.
+
+<!-- decision:P-FRYN5A37 -->
+
+## User wants to apply the kit in agents (Hermes/OpenClaw), expanding scope beyond
+
+**When:** 2026-07-01 · **Fact:** `P-FRYN5A37`
+
+<!-- decision:P-DH5MUCD6 -->
+
+## IDE agents and autonomous agents are on a spectrum (signal richness + autonomy a
+
+**When:** 2026-07-01 · **Fact:** `P-DH5MUCD6`
+
+<!-- decision:P-STaW5V7W -->
+
+## IDE-to-Autonomous Spectrum: Same Loop, Richer Signals
+
+**When:** 2026-07-01 · **Fact:** `P-STaW5V7W`
+**Why:** Claude was maintaining IDE-vs-agent as a binary to make the ADR cleaner. User correctly noted that Claude Code *is* an agent (multi-step tasks, `/goal` loops, tool calls) — the distinction was false. Collapsing it makes the ADR honest: a partial learn-loop ships today in the IDE; signal availability improves as the host becomes more agentic.
+
+<!-- decision:P-PMXS5a3D -->
+
+## Signal Portfolio for Learning Loop in Claude-Code IDE
+
+**When:** 2026-07-01 · **Fact:** `P-PMXS5a3D`
+**Why:** Claude claimed "nobody ships a usage signal" without verification. User pushed back ("did we actually look?") and suggested multiple signal types exist. Research shows the real design is a *portfolio* — different signals, different reliability, different availability per host.
+
+<!-- decision:P-C34QJaNC -->
+
+## Architectural Thesis: The Kit as Cross-Session Runtime
+
+**When:** 2026-07-01 · **Fact:** `P-C34QJaNC`
+**Why:** This is the foundational framing for the kit's architecture and the learn-loop inevitability. It explains why the loop is not optional but structurally forced. It's the thesis that will anchor the ADR and guide future work.
+
+<!-- decision:P-QMCBCK9a -->
+
+## Pausing work to refine the architectural thesis before proceeding; treating the
+
+**When:** 2026-07-01 · **Fact:** `P-QMCBCK9a`
+
+<!-- decision:P-9KJE54VZ -->
+
+## Sessions are bounded agent runs; the kit's role is to make disconnected runs beh
+
+**When:** 2026-07-01 · **Fact:** `P-9KJE54VZ`
+
+<!-- decision:P-ZRCYDEGK -->
+
+## The learning loop's feedback signal is inherently cross-session — a single sessi
+
+**When:** 2026-07-01 · **Fact:** `P-ZRCYDEGK`
+
+<!-- decision:P-MREYYEVK -->
+
+## Corrects framing—even "long-running" agents work in bounded episodes (alert → re
+
+**When:** 2026-07-01 · **Fact:** `P-MREYYEVK`
+
+<!-- decision:P-RWG93HDR -->
+
+## Episode-Based Architecture Principle (Refined)
+
+**When:** 2026-07-01 · **Fact:** `P-RWG93HDR`
+**Why:** Clarifies kit's abstraction level and applicability. Not special to Claude Code; works for any bounded-episode system (SRE, scheduled tasks, Hermes, OpenClaw, etc.).
+
+<!-- decision:P-QE4SQY2F -->
+
+## Research Scope: Outcome Signals in Memory Systems
+
+**When:** 2026-07-01 · **Fact:** `P-QE4SQY2F`
+**Why:** Outcome-signal feedback is the linchpin of the learning loop. Assistant's claim ("nobody does it") is unverified; worth checking against actual code before ADR.
+
+<!-- decision:P-JCRBVWSE -->
+
+## SRE Workflow as Reference Implementation
+
+**When:** 2026-07-01 · **Fact:** `P-JCRBVWSE`
+**Why:** Concrete spec for kit's interfaces (acquire, retrieve, feedback); grounds requirements in real work, not abstraction.
+
+<!-- decision:P-XGACMWP7 -->
+
+## Claude-Memory-Kit: Judge as the Per-Host Adapter
+
+**When:** 2026-07-01 · **Fact:** `P-XGACMWP7`
+**Why:** This corrected framing replaces "agent-specific" sloppiness. It guides ADR-0017 thesis and future host integrations (Hermes, OpenClaw); explains why the kit works host-agnostically.
+
+<!-- decision:P-2Z9DWT4T -->
+
+## "why are we back to 'it's agent-specific'?" — catches assistant backsliding into
+
+**When:** 2026-07-01 · **Fact:** `P-2Z9DWT4T`
+
+<!-- decision:P-7TYWM43U -->
+
+## Failure Signal Asymmetry in Oracle-Free Contexts
+
+**When:** 2026-07-01 · **Fact:** `P-7TYWM43U`
+**Why:** Architectural constraint that defines what success metric the kit can truthfully claim.
+
+<!-- decision:P-ANRGH3KV -->
+
+## Memclaw's Oracle-Free Failure Loop (Reference Architecture)
+
+**When:** 2026-07-01 · **Fact:** `P-ANRGH3KV`
+**Why:** Proves the loop is transferable to session-host without ground-truth oracle. Only code precedent that closes contradiction→weight→ranking pipeline.
+
+<!-- decision:P-WWZZWFQ5 -->
+
+## Memory Systems Failure-Learning Survey (9 Systems)
+
+**When:** 2026-07-01 · **Fact:** `P-WWZZWFQ5`
+**Why:** Establishes kit's position relative to precedent and identifies the real gap (inertness, not absence of fields).
+
+<!-- decision:P-DXX9SWFN -->
+
+## Outcome Signal Portfolio (8 Types, 2 Transferable)
+
+**When:** 2026-07-01 · **Fact:** `P-DXX9SWFN`
+**Why:** Identifies the implementable wins and the deceptive signals to avoid.
+
+<!-- decision:P-7X6U2YQM -->
+
+## Systematic Literature Review Protocol (4-Phase)
+
+**When:** 2026-07-01 · **Fact:** `P-7X6U2YQM`
+**Why:** Convenience sampling masked blind spots; systematic enumeration grounds representativeness claims in actual field coverage, not selection bias.
+
+<!-- decision:P-35SQ5FUA -->
+
+## ADR Provisional Decision Pattern
+
+**When:** 2026-07-01 · **Fact:** `P-35SQ5FUA`
+**Why:** Allows durable recording of the decision framework while acknowledging that conclusions are data-dependent. Also satisfies the kit's strict validator (which catches dangling references before they're created).
+
+<!-- decision:P-ZXJTUNVQ -->
+
+## DECISION-LOG Records Validation Outcomes
+
+**When:** 2026-07-01 · **Fact:** `P-ZXJTUNVQ`
+**Why:** Separating framework (ADR) from outcomes (DECISION-LOG) allows durable decision logic while capturing the real-world validation data.
+
+<!-- decision:P-X3CWAU33 -->
+
+## Kit's Strict Forward-Reference Validation
+
+**When:** 2026-07-01 · **Fact:** `P-X3CWAU33`
+**Why:** The strictness is intentional — it ensures documentation consistency by immediately surfacing gaps. When the kit references an ADR in conversation, the validator catches it if that ADR doesn't exist yet.
+
+<!-- decision:P-AHZ6X9QF -->
+
+## Memoria learns-from-failure: wrong-feedback down-ranks (code-verified, oracle-free)
+
+**When:** 2026-07-01 · **Fact:** `P-AHZ6X9QF`
+**Why:** Fixes the untrustworthy-denominator problem in the U-Mem-driven learns-from-failure survey: Memoria was the strongest NEW candidate but code-unverified (README/DEV-article confirmed the transferable signal but never documented whether `wrong` actually decrements/down-ranks/prunes). A code read settles it as a YES with a verbatim mechanism, and the discriminator (oracle-free, user-supplied signal) makes it directly relevant to claude-memory-kit's own deferred trust_score-in-ranking question — Memoria is a working precedent for exactly the loop cmk defers: contradiction/relevance feedback that dampens AND feeds ranking.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-PZE9526G -->
+
+## "we can change it to be more to our use case" — prefers to reframe/adapt solutio
+
+**When:** 2026-07-01 · **Fact:** `P-PZE9526G`
+
+<!-- decision:P-STJQXVG5 -->
+
+## You are building ADR-0017 and will frame it as a corrected, fact-grounded decisi
+
+**When:** 2026-07-01 · **Fact:** `P-STJQXVG5`
+
+<!-- decision:P-XQJTLWCH -->
+
+## You successfully challenged my "nobody ships outcome/failure signals" claim — th
+
+**When:** 2026-07-01 · **Fact:** `P-XQJTLWCH`
+
+<!-- decision:P-LDCZHDQH -->
+
+## User challenges 11-system sample as insufficient without systematic enumeration
+
+**When:** 2026-07-01 · **Fact:** `P-LDCZHDQH`
+
+<!-- decision:P-565H3TG2 -->
+
+## User prefers to send articles/projects in batches and explore how items connect
+
+**When:** 2026-07-01 · **Fact:** `P-565H3TG2`
+
+<!-- decision:P-3VNHa793 -->
+
+## `gh pr merge` without explicit PR number defaults to current branch; must specif
+
+**When:** 2026-07-01 · **Fact:** `P-3VNHa793`
+
+<!-- decision:P-PCMFXEPM -->
+
+## PR1-PR5 persona checks passed — recurrence bump, demote-not-evict, trust-score m
+
+**When:** 2026-07-01 · **Fact:** `P-PCMFXEPM`
+
+<!-- decision:P-PC545AJX -->
+
+## Session 1 captured 18 rich facts with correct explicit-vs-inferred classificatio
+
+**When:** 2026-07-01 · **Fact:** `P-PC545AJX`
+
+<!-- decision:P-TLNYHYAQ -->
+
+## Recurrence mechanism increments only when same canonical fact (content-hash matc
+
+**When:** 2026-07-01 · **Fact:** `P-TLNYHYAQ`
+
+<!-- decision:P-BX7RQAKX -->
+
+## Security validation B3-B7, C1-C6, FQ1 passed — Poison_Guard rejects keys, home-p
+
+**When:** 2026-07-01 · **Fact:** `P-BX7RQAKX`
+
+<!-- decision:P-RC9DUKaY -->
+
+## Fixes 182+183 are verified small (tier-U paths already correct, multi-section pa
+
+**When:** 2026-07-01 · **Fact:** `P-RC9DUKaY`
+
+<!-- decision:P-RVCAYPHC -->
+
+## Catches when their own systems violate their stated design principles; treats do
+
+**When:** 2026-07-01 · **Fact:** `P-RVCAYPHC`
+
+<!-- decision:P-7JZRB4KS -->
+
+## Prefers identifying and fixing systemic issues over applying local patches
+
+**When:** 2026-07-01 · **Fact:** `P-7JZRB4KS`
+
+<!-- decision:P-HSFDD2XD -->
+
+## User-correction signal only fires on failure, systematically misses what works —
+
+**When:** 2026-07-01 · **Fact:** `P-HSFDD2XD`
+
+<!-- decision:P-UDVQ2MaB -->
+
+## User probes whether RL/reward machinery can be adopted/reimagined for the kit it
+
+**When:** 2026-07-01 · **Fact:** `P-UDVQ2MaB`
+
+<!-- decision:P-G9DRAJS9 -->
+
+## Questioned whether "nobody ships a usage signal" was actually verified; suggeste
+
+**When:** 2026-07-01 · **Fact:** `P-G9DRAJS9`
+
+<!-- decision:P-FMJCSY7Y -->
+
+## Indicates preference for concrete workflow examples (SRE pattern) over abstract
+
+**When:** 2026-07-01 · **Fact:** `P-FMJCSY7Y`
+
+<!-- decision:P-G9HK4PCK -->
+
+## Wants to understand the actual architectural difference between agent-in-IDE vs
+
+**When:** 2026-07-01 · **Fact:** `P-G9HK4PCK`
+
+<!-- decision:P-WQ3XTVZ7 -->
+
+## Expect explicit flagging and justification when assistant changes plans; silent
+
+**When:** 2026-07-01 · **Fact:** `P-WQ3XTVZ7`
+
+<!-- decision:P-BRaLCQ7T -->
+
+## User's timezone/account region is Asia/Jerusalem (from error message "resets 11:
+
+**When:** 2026-07-01 · **Fact:** `P-BRaLCQ7T`
+
+<!-- decision:P-6NWQ6U9M -->
+
+## Verify-Then-Spend Methodology (this project)
+
+**When:** 2026-07-01 · **Fact:** `P-6NWQ6U9M`
+**Why:** Expensive runs can burn budget fast (e.g., 36 agents last instance). Filtering up-front prevents re-runs and improves signal.
+
+<!-- decision:P-7H4BLP3N -->
+
+## Automatic-Oracle-Free Quadrant Is the Real Design Target
+
+**When:** 2026-07-01 · **Fact:** `P-7H4BLP3N`
+**Why:** Kit has no oracle grounding (no benchmarks) and can't rely on continuous human judgment. This quadrant enables continuous failure-learning in background without either dependency. Failure signals (errors, contradictions, misses) are especially automatic to detect.
+
+<!-- decision:P-JCRD4Z7D -->
+
+## High-Impact Signals to Prioritize for Implementation
+
+**When:** 2026-07-01 · **Fact:** `P-JCRD4Z7D`
+**Why:** Immediate signals are oracle-free, automatic, low-cost. Heavier signals are powerful but blocked on recall-tracking. Negative-exemplar is the cheapest novel idea.
+
+<!-- decision:P-RCFJSFHD -->
+
+## Seven Novel Signal Types for Memory Learning (27-System Survey)
+
+**When:** 2026-07-01 · **Fact:** `P-RCFJSFHD`
+**Why:** The 27-system survey (18 wave-1 + 9 wave-2) discovered these by analyzing how systems implement learning. They expand the kit's signal portfolio beyond pairwise contradiction and tool-result feedback. Several (peer-disagreement, negative-exemplar) are oracle-free and automatic.
+
+<!-- decision:P-XGLKUMVN -->
+
+## Survey Scope and Classification Taxonomy
+
+**When:** 2026-07-01 · **Fact:** `P-XGLKUMVN`
+**Why:** This scope and taxonomy define what was actually measured and its limits. Benchmark-oracle systems are out-of-scope for session-host learning; "transferable" is assessed relative to CMK's constraints, not benchmarks.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
