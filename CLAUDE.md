@@ -9,10 +9,11 @@ A per-project, in-repo memory system for Claude Code. Fixes per-session amnesia 
 ## Read these in order (10 minutes total)
 
 1. [`docs/journey/build-log.md`](docs/journey/build-log.md) — full narrative. The single most important doc.
-2. [`specs/tasks.md`](specs/tasks.md) — the 44-task build plan. Find the next `[ ]` parent task.
-3. [`specs/glossary.md`](specs/glossary.md) — domain terms. When two docs disagree, glossary wins.
-4. [`specs/design.md`](specs/design.md) — HOW the kit works (skim, then read sections as needed).
-5. [`specs/requirements.md`](specs/requirements.md) — WHAT v0.1.0 must do (FR-*, NFR-*).
+2. [`docs/SYSTEM-MAP.md`](docs/SYSTEM-MAP.md) — the kit as ONE system: whole + parts + the relationship edges, the TARGET learn-loop design ("our Figure 2", §6), and the anti-decomposition guard (§7). **Read before any architecture-level thinking or decision** — it holds what the structural docs decompose away.
+3. [`specs/tasks.md`](specs/tasks.md) — the 44-task build plan. Find the next `[ ]` parent task.
+4. [`specs/glossary.md`](specs/glossary.md) — domain terms. When two docs disagree, glossary wins.
+5. [`specs/design.md`](specs/design.md) — HOW the kit works (skim, then read sections as needed).
+6. [`specs/requirements.md`](specs/requirements.md) — WHAT v0.1.0 must do (FR-*, NFR-*).
 
 ## Working style (locked in by the user)
 
@@ -91,6 +92,7 @@ The user is direct and tight on time. Match the energy.
   | **CLI verb reference (every `cmk` subcommand + flags)** | [`docs/CLI.md`](docs/CLI.md) _(validator-backed: validate-doc-completeness)_ |
   | **MCP tool reference (every `mk_*` tool + zod params)** | [`docs/MCP.md`](docs/MCP.md) _(validator-backed)_ |
   | **High-level architecture / layer overview (for a new contributor)** | [`ARCHITECTURE.md`](ARCHITECTURE.md) — the layer map; deep mechanism lives in `design.md` |
+  | **The SYSTEMIC view — the kit as ONE system (whole + parts + relationship/constraint edges), the TARGET learn-loop design ("our Figure 2") + its build phases, the honestly-blank unsolved region** | [`docs/SYSTEM-MAP.md`](docs/SYSTEM-MAP.md) — living doc; any change to the system's SHAPE (a new organ, a closed/opened edge, a new signal, a constraint change) updates it in the same batch, per the D-249 walk. Companion: ADR-0017. |
   | **The per-tier memory-flow / lifecycle map (write → cap → graduate/condense → recall)** | [`specs/memory-lifecycle-map.md`](specs/memory-lifecycle-map.md) |
   | **Install / first-run walkthrough** | [`QUICKSTART.md`](QUICKSTART.md) + [`docs/BOOTSTRAP.md`](docs/BOOTSTRAP.md) |
   | **Cross-agent (Kiro) surface docs** | [`docs/KIRO.md`](docs/KIRO.md) |
