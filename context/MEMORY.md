@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-RHJaAYYU) 151.4 shipped (8390c33); persona tier-U cap-relief bug fixed + CRLF regression-tested; 2419/2419 tests green.
-  <!-- source: review-promote, source_line: 1, sha1: af9aa3f759ea89909da07095ce8bb40413dc3b95de781b099efeaae80f96d7f8, write: user-explicit, trust: high, at: 2026-06-30T20:00:04Z -->
 - (P-QLCRTNWP) Next: 151.5 (sweep order — low-trust-AND-stale first, high-trust persona never swept), feeds into trust_score field.
   <!-- source: review-promote, source_line: 1, sha1: e83eb48553889662aed64f941c801dd97b7df957dbcf672d434dd1a529688aeb, write: user-explicit, trust: high, at: 2026-06-30T20:00:05Z -->
 - (P-a4NCHA2J) Commit 9d785d3 applied two minor fixes (recurrence-default consistency, per-call DB-open optimization); suite 2479/2479 green; stress 5/5 final gate in progress
@@ -20,6 +18,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: d4c204179c6d28fe0b41a9d1e3e5ec6caebbeb6343253e365b1d9d935b86a61e, write: auto-extract, trust: high, at: 2026-07-01T07:32:22Z -->
 - (P-TLKQMLUY) TDD-like working pattern—stated once at start, never repeated; boundary test first, watch fail, then implement
   <!-- source: auto-extract-session, source_line: 1, sha1: 8f6c94395461e794c3720020bcf741d20f9d76d62e1c0ffa0604cb0c8611468d, write: auto-extract, trust: high, at: 2026-07-01T07:38:56Z -->
+- (P-SFNSSGF5) "Search must find the persona" is a kit-level promise, not v0.4.3-specific — reframes 182/183 fix decision as release-blocking.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 343320fada260d0083f1426dfa92236f3b6b2bc19e56a1142d504bc9e589a650, write: auto-extract, trust: high, at: 2026-07-01T08:30:15Z -->
 
 ## Environment Notes
 

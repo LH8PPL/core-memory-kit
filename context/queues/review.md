@@ -13,3 +13,6 @@
 ## 2026-07-01T07:38:56Z — auto-extract (medium-trust, pending review)
 - (P-TLNYHYAQ) Recurrence mechanism increments only when same canonical fact (content-hash match) is re-written; behavioral repetition produces zero bumps
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-01T07:38:56Z -->
+## 2026-07-01T08:30:15Z — auto-extract (medium-trust, pending review)
+- (P-RC9DUKaY) Fixes 182+183 are verified small (tier-U paths already correct, multi-section parser already implemented, bullet format already compatible); fixing before tag is feasible.
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-01T08:30:15Z -->
