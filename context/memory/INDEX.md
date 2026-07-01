@@ -972,6 +972,7 @@
 - (P-XCTDZRCH) [project] [Post-Commit Validator Suite](project_post-commit-validator-suite.md) — Three validators run after commits to enforce consistency across files:
 - (P-XESLC4LQ) [project] [Kiro IDE Hook Testing — Multi-Step Gate Sequence](project_kiro-ide-hook-testing-multi-step-gate-sequence.md) — To test Kiro IDE 1.0 hook capture (e.g., readKiroIdeV1Turn):
 - (P-XFKJ6QTV) [project] [Release Triage: Broken Promises vs Future Features](project_release-triage-broken-promises-vs-future-features.md) — The project uses a three-tier triage for each release milestone:
+- (P-XFN5Q73F) [project] [TDD Workflow for v0.4.3 Fixes (Tasks 182, 183)](project_tdd-workflow-for-v0-4-3-fixes-tasks-182-183.md) — - Branch `fix-182-183-persona-search` off main
 - (P-XHYR6U54) [project] [npm Glob Expansion Fails in PowerShell; Use Explicit Filename](project_npm-glob-expansion-fails-in-powershell-use-explicit-filename.md) — On Windows PowerShell, `npm install -g .\pattern-*.tgz` fails with ENOENT becaus...
 - (P-XK4aDSCY) [project] [DJ4 Verification Prompts (DECISIONS.md Recall Gate)](project_dj4-verification-prompts-decisions-md-recall-gate.md) — Three ready-to-paste prompts for testing DJ4 in live Claude sessions:
 - (P-XM9YAKRW) [project] [httpx2 deprecation in FastAPI TestClient — need to replace httpx dependency with](project_httpx2-deprecation-in-fastapi-testclient-xm9yakrw.md) — httpx2 deprecation in FastAPI TestClient — need to replace httpx dependency with...
