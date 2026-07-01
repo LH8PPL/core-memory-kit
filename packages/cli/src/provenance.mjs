@@ -237,3 +237,30 @@ export function readBullet(opts = {}) {
   if (!provenance) return null;
   return { id, text, provenance };
 }
+
+// The template-seed sentinel (Task 183 / D-247): every scaffolded `(example)`
+// placeholder bullet (SOUL/USER/HABITS/LESSONS/machine-paths/overrides) ships
+// with an all-zero content sha1 (`0{40}`) + `at: 2020-01-01T…`. A REAL captured
+// fact always has a real content hash, so the all-zero sha1 is an unambiguous
+// "scaffolding the user never replaced" marker. Shared here (the module that
+// owns bullet provenance) so the indexer and inject-context agree — a seed the
+// inject path already skips must not sneak into the search index either.
+export const SEED_SENTINEL_SHA1 = '0'.repeat(40);
+
+/**
+ * True if a parsed provenance object is a scaffold seed (all-zero sha1).
+ *
+ * NOTE (Task 183 review M1): inject-context.mjs has a BROADER local check —
+ * all-zero-sha1 OR the literal `(P-XXX) (example)` text shape. The two agree on
+ * the load-bearing sha1 sentinel (a real seed always carries both markers), so
+ * they don't diverge in practice. A v0.4.x follow-up may unify them (have
+ * inject import this + layer its text check on top — one sentinel, two
+ * consumers); deliberately NOT done here to avoid churning a working inject
+ * security-path filter right before the v0.4.3 release.
+ *
+ * @param {object|null} provenance  a parseBulletProvenance() result
+ * @returns {boolean}
+ */
+export function isSeedProvenance(provenance) {
+  return !!provenance && provenance.sha1 === SEED_SENTINEL_SHA1;
+}

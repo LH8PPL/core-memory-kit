@@ -63,6 +63,24 @@ function seedScratchpad(projectRoot, bullets) {
   );
 }
 
+// Task 182: seed an arbitrary named scratchpad at a TIER ROOT — the project
+// tier root is `<projectRoot>/context`, the user tier root is `<userDir>`
+// (SCRATCHPADS_BY_TIER / resolveTierRoot). Used to seed SOUL.md (project) +
+// USER/HABITS/LESSONS.md (user persona), which the pre-182 indexer never
+// walked. `tierRoot` is the resolved root, `fileName` the canonical scratchpad
+// name, `title`/`section` the h1/h2 the persona files carry, `bullets` the
+// same shape seedScratchpad uses.
+function seedNamedScratchpad(tierRoot, fileName, title, section, bullets) {
+  const lines = [`# ${title}`, '', `## ${section}`, ''];
+  for (const b of bullets) {
+    const r = writeBullet(b);
+    lines.push(r.bullet);
+    lines.push(r.comment);
+  }
+  lines.push('');
+  writeFileSync(join(tierRoot, fileName), lines.join('\n'), 'utf8');
+}
+
 // Seed a per-fact file via the kit's actual writer. This used to hand-
 // roll YAML, which silently agreed with the parser but disagreed with
 // the writer's real on-disk shape (`created_at`/`source_file`/
@@ -134,6 +152,102 @@ describe('Task 29 — index-rebuild', () => {
       const kinds = sources.map((s) => s.kind).sort();
       expect(kinds).toContain('scratchpad');
       expect(kinds).toContain('fact');
+    });
+
+    // Task 182 (D-247): the indexer must walk EVERY canonical scratchpad per
+    // tier (SCRATCHPADS_BY_TIER), not just the hardcoded `MEMORY.md`. Before
+    // this fix the user-tier persona (USER/HABITS/LESSONS.md — where
+    // `cmk lessons promote` writes) and the project-tier SOUL.md were never
+    // indexed, so a promoted persona fact was unsearchable even in-session.
+    it('182 — indexes the USER-tier persona scratchpads (HABITS/USER/LESSONS.md)', () => {
+      seedNamedScratchpad(userDir, 'HABITS.md', '# Habits', 'Working Style', [
+        bulletInput({ id: 'U-JXAKDYXT', text: 'always use uv never pip', line: 1 }),
+      ]);
+      const sources = listObservationSources({ projectRoot, userDir });
+      const habits = sources.filter(
+        (s) => s.kind === 'scratchpad' && s.tier === 'U' && s.path.endsWith('HABITS.md'),
+      );
+      expect(habits).toHaveLength(1);
+    });
+
+    it('182 — indexes the project-tier SOUL.md (same bug class, project tier)', () => {
+      seedNamedScratchpad(join(projectRoot, 'context'), 'SOUL.md', 'Project Soul', 'Operating Defaults', [
+        bulletInput({ id: 'P-SULRVRFY', text: 'verify against primary sources', line: 1 }),
+      ]);
+      const sources = listObservationSources({ projectRoot, userDir });
+      const soul = sources.filter(
+        (s) => s.kind === 'scratchpad' && s.tier === 'P' && s.path.endsWith('SOUL.md'),
+      );
+      expect(soul).toHaveLength(1);
+    });
+
+    it('182 — a promoted persona bullet is SEARCHABLE end-to-end (reindex → query the row)', () => {
+      seedNamedScratchpad(userDir, 'HABITS.md', '# Habits', 'Working Style', [
+        bulletInput({ id: 'U-JXAKDYXT', text: 'always use uv never pip before committing', line: 1 }),
+      ]);
+      reindexFull({ projectRoot, userDir, db });
+      const row = db.prepare("SELECT id, tier, body FROM observations WHERE id = ?").get('U-JXAKDYXT');
+      expect(row).toBeTruthy();
+      expect(row.tier).toBe('U');
+      expect(row.body).toContain('uv');
+    });
+
+    // Task 183 (D-247): the scaffold seeds every scratchpad (SOUL/USER/HABITS/
+    // LESSONS/machine-paths/overrides) with `(example)` placeholder bullets
+    // carrying the seed sentinel (`sha1: 0{40}` + `at: 2020-01-01T…`). Now that
+    // 182 indexes those scratchpads, the seeds must NOT be indexed — else a
+    // fresh install returns ONLY misleading example bullets on a real query.
+    it('183 — scaffolded (example) seed bullets are NOT indexed', () => {
+      // makeFixture() already ran a real install() → every tier's scratchpads
+      // hold their `(example)` seeds. Index the untouched scaffold:
+      reindexFull({ projectRoot, userDir, db });
+      const rows = db.prepare('SELECT id, body FROM observations').all();
+      // NO seed example bullet should have been indexed.
+      const seededExample = rows.filter((r) => /\(example\)/.test(r.body));
+      expect(seededExample).toHaveLength(0);
+      // Sanity: the seed ids the scaffold ships must be absent from the index.
+      const seedIds = ['P-9Ba72DB2', 'L-aVFaHNDV', 'U-CEKUY3H4']; // exact scaffolded ids (case-sensitive)
+      for (const id of seedIds) {
+        expect(db.prepare('SELECT 1 FROM observations WHERE id = ?').get(id)).toBeUndefined();
+      }
+    });
+
+    it('183 — a REAL bullet alongside seeds still indexes (the filter is seed-only)', () => {
+      seedNamedScratchpad(userDir, 'HABITS.md', '# Habits', 'Working Style', [
+        bulletInput({ id: 'U-JXAKDYXT', text: 'always use uv never pip', line: 1 }),
+      ]);
+      reindexFull({ projectRoot, userDir, db });
+      // the real bullet indexes; the co-resident seeds do not.
+      expect(db.prepare('SELECT 1 FROM observations WHERE id = ?').get('U-JXAKDYXT')).toBeTruthy();
+      const seededExample = db.prepare("SELECT COUNT(*) n FROM observations WHERE body LIKE '%(example)%'").get();
+      expect(seededExample.n).toBe(0);
+    });
+
+    // Task 182 review I1 (D-247): making the tier scratchpads searchable ALSO
+    // makes the LOCAL tier's `machine-paths.md` / `overrides.md` searchable
+    // in-project. DECIDED to accept: the local tier is a co-equal fillable tier
+    // (design §2090); a REAL machine-path fact the user writes SHOULD be
+    // findable (it's their own data, never leaves the machine), while a FRESH
+    // local tier stays clean because its scaffold bullets are all seeds (183).
+    // This test PINS both halves of that decision.
+    it('182/183 — LOCAL-tier real bullet is searchable; fresh local scaffold seeds are not (I1)', () => {
+      // A fresh scaffold's local seeds contribute nothing:
+      reindexFull({ projectRoot, userDir, db });
+      const seedLocal = db
+        .prepare("SELECT COUNT(*) n FROM observations WHERE tier = 'L' AND body LIKE '%(example)%'")
+        .get();
+      expect(seedLocal.n).toBe(0);
+      // A REAL local fact the user writes IS indexed + searchable (tier L):
+      seedNamedScratchpad(
+        join(projectRoot, 'context.local'),
+        'machine-paths.md',
+        'Machine paths (local tier)',
+        'Tool Paths',
+        [bulletInput({ id: 'L-JXAKDYXT', text: 'clang toolchain lives at a real path', line: 1 })],
+      );
+      reindexFull({ projectRoot, userDir, db });
+      const row = db.prepare('SELECT tier FROM observations WHERE id = ?').get('L-JXAKDYXT');
+      expect(row?.tier).toBe('L');
     });
   });
 
