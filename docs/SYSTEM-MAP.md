@@ -193,7 +193,125 @@ from two ends.
 
 ---
 
-## 6. How to use this map (for a future session — or a part-blind me)
+## 6. The TARGET state — the loop CLOSED ("our Figure 2")
+
+_Designed 2026-07-02 from the full research corpus (the U-Mem superimposition the whole arc was for);
+status: **designed, pending formal adoption in ADR-0017**. §1 draws what IS; this draws what the kit
+becomes when the open edge closes — every wire below carries a research citation (the table after the
+drawing). The build phases fall out of the drawing; Task 185 lanes them._
+
+```
+              THE KIT — TARGET STATE: the learn-loop CLOSED ("our Figure 2")
+        one system, two time-scales: within-turn signals and cross-session signals
+
+══════════════ EPISODE N (a bounded run: an IDE session / an agent's alert / a task) ══════════╗
+                                                                                               ║
+  ┌───────────────────────────  STORE — the tiers (P / L / U)  ────────────────────────────┐   ║
+  │  facts (*.md, trust enum)  ·  judgment_*.md (provisional · n_episodes · confounds ·    │   ║
+  │  decay)  ·  ANTI-PATTERN / dead-end-veto facts  ·  open EXPECTATIONS (awaiting result) │   ║
+  │  rebuildable index: FTS5 + vec + trust_score float + feedback counters                 │   ║
+  └────────┬─────────────────────────────────────────────────────────────▲─────────────────┘   ║
+           │ RETRIEVE                                                    │ ACQUIRE             ║
+           ▼                                                             │                     ║
+  ┌────────────────────────────────┐                        ┌────────────┴──────────────────┐  ║
+  │ search: BM25 ⊕ λ·trust_score   │                        │ auto-extract + cmk remember   │  ║
+  │   CONFIDENCE-GATED · FACTS     │                        │ + PRE-REGISTER expectation    │  ║
+  │   only, never judgments        │                        │   ("this should make the      │  ║
+  │ inject: enum-ordered snapshot  │                        │    test pass") — the wedge    │  ║
+  │   (UNCHANGED — hot path stays  │                        │ + judgment-file birth         │  ║
+  │    out of the score, §20.3)    │                        │   (propose-provisional)       │  ║
+  └────────────┬───────────────────┘                        └────────────▲──────────────────┘  ║
+               │ recalled facts + RECALL-LOG (which IDs surfaced this turn)                    ║
+               ▼                                                         │                     ║
+  ┌────────────────────────────────┐     the turn's outcome   ┌──────────┴──────────────────┐  ║
+  │ ACT — the agent works          │────────────────────────► │   MEMORY EVOLUTION          │  ║
+  │ (uses / ignores the recalls)   │                          │   (the panel below)         │  ║
+  └────────────────────────────────┘                          └─────────────────────────────┘  ║
+                                                                                               ║
+════════ the CARRY: tiers + open expectations survive the gap ═════════► EPISODE N+1 ══════════╝
+          (cross-session signals land here: correction · re-ask · reversal · silence)
+
+
+  MEMORY EVOLUTION — the new machine (replaces U-Mem's cascade/pairwise panel)
+
+  1· THE JUDGE (per-host adapter — automatic-first, human OPTIONAL, both-polarity)
+  ┌───────────────────────────────────────────────────────────────────────────────┐
+  │ SYMMETRIC ±  : tool-result / exit-code · expectation HIT/MISS · /goal done    │
+  │ FAILURE-ONLY −: user-correction · re-ask (recall-miss) · contradiction/       │
+  │                 supersession · cmk forget · REVERSAL (A→B→A, strongest)       │
+  │ WEAK +       : silent-success (recalled, used, nothing fired) — nudge only    │
+  │ LATER        : peer-disagreement (set-level) · used-vs-ignored (LLM-judge)    │
+  │ ── the HOST DIAL: IDE = these hooks · agent host = same loop, richer judge ── │
+  └────────────────────────────────┬──────────────────────────────────────────────┘
+                                   ▼
+  2· FEEDBACK-SCREEN (new organ — Poison_Guard for the LOOP, not just the writes)
+  ┌───────────────────────────────────────────────────────────────────────────────┐
+  │ rate-limit Δ per fact · BURST-HOLD (>N% of a day's signals negative = a       │
+  │ systemic event, e.g. broken test suite → quarantine batch, don't apply) ·     │
+  │ every Δ audit-logged · floor 0.05 (never delete by decay)                     │
+  └────────────────────────────────┬──────────────────────────────────────────────┘
+                                   ▼
+  3· MEASURE — TWO OBJECTS, never conflated
+  ┌───────────────────────────────────┬───────────────────────────────────────────┐
+  │ FACT-UTILITY (trust_score)        │ METHOD-JUDGMENTS (judgment_*.md)          │
+  │ event-driven ±Δ, floor 0.05 —     │ evidence-log APPEND (HIT / MISS /         │
+  │ the shipped 151.7 rule, event set │ REVERSAL) · n_episodes++ · status:        │
+  │ EXTENDED to the full portfolio ·  │ provisional→corroborated / contested ·    │
+  │ counters in the rebuildable index │ NEVER ranks — surfaces with its           │
+  │ → feeds the SEARCH blend + CURATE │ confidence visible · expires (decay)      │
+  └──────────────┬────────────────────┴──────────────────┬────────────────────────┘
+                 ▼                                       ▼
+  4· CURATE                                    a cycle (A>B, B>C, C>A)?
+  ┌─────────────────────────────────────┐      → status: contested —
+  │ survival gate: floored + still      │        SURFACE TO USER, never
+  │  failing → prune-CANDIDATE (review  │        auto-pick a winner
+  │  queue — never a silent delete)     │
+  │ repeated-failure fact → CONVERT to  │
+  │  ANTI-PATTERN (kept + injected as   │
+  │  "avoid this", not erased)          │
+  │ decay windows · re-curation (T95)   │
+  └──────────────┬──────────────────────┘
+                 └──────────► back to STORE → RETRIEVE   ◄══ THE LOOP CLOSES HERE
+```
+
+**Constraint edges the design honors** (checked, not assumed): inject's hot path never touches the
+float (§20.3's real concern — *preserved*, the blend lives in SEARCH where the DB is already open);
+no ritual — expectation + recall-log ride existing hooks (D-169); every memory stays a markdown file
+(ADR-0002); prune is reliable, promote is slow (the asymmetry, baked in as weak-+); judgments carry
+`n_episodes` and stay provisional (the scale floor, made a feature).
+
+### Every wire has a citation (the decisions writing themselves)
+
+| Wire | Written by which research |
+| --- | --- |
+| Search blend, confidence-gated, facts-only | comparative-judgment study + Memoria/memclaw code precedent; the §20.3 revision |
+| Inject unchanged (enum, hot path) | §20.3's actual concern — respected, not overturned |
+| **Recall-log** (which IDs surfaced per turn) | memclaw's `related_ids` — the attribution prerequisite for every downstream signal |
+| Expectation pre-registration | the cognitive-science kernel — the one "ready" wedge (comparative-judgment study) |
+| Judgment file (provisional / n / confounds / decay) | the study's memory-shape section |
+| **Feedback-screen** | the loop-security gap (feedback is an unscreened input channel) + A-MemGuard as existence proof of set-level defense |
+| Two objects, never conflated | the facts-vs-methods readiness split (the study's core verdict) |
+| Anti-pattern conversion instead of delete | Memento + REMEMBERER (2 independent systems) + Negative-Knowledge's dead-end-veto |
+| Survival gate | ExpeL's prune-at-zero — the inert-socket fix |
+| Burst-hold | the non-stationarity lens (a judge can be systematically wrong for a while) |
+| Automatic-first, human-optional; both-polarity | the maintainer's two corrections (the two-axis + polarity reframes) |
+| The host dial | judge-as-per-host-adapter (§4) |
+
+### The build order (falls out of the drawing)
+
+- **Phase 0 — shipped:** trust_score + the 3 consistency signals + demote-not-evict (Task 151, v0.4.3).
+- **Phase 1 — the oracle-free wedge (all on existing hooks):** RECALL-LOG (the one genuinely new
+  primitive — small but load-bearing: without attribution no signal finds its memory) + expectation
+  pre-registration + judgment files + the Stop-hook judge (tool-result / correction / re-ask) +
+  feedback-screen v0 (rate-limit + burst-hold).
+- **Phase 2 — close the edge:** the confidence-gated search blend (the ADR-level §20.3 revision) +
+  survival gate + anti-pattern conversion.
+- **Phase 3 — host-dependent:** peer-disagreement, used-vs-ignored, the agent hosts (Task 50/127),
+  same-task replay (the deferred study's trigger).
+
+---
+
+## 7. How to use this map (for a future session — or a part-blind me)
 
 1. **When you catch yourself listing parts** (a tidy table of signals/organs/mechanisms) — STOP and read
    §3. Ask the edge question: *what does this do to the WHOLE — the relationships and emergent properties —
@@ -212,7 +330,7 @@ from two ends.
 
 ---
 
-## 7. Provenance + relation to other docs
+## 8. Provenance + relation to other docs
 
 - **Whole/parts/edges + the two research findings:** the 2026-07-01 research session (D-251 + the
   comparative-judgment study). Research notes:
