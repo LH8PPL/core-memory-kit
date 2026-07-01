@@ -16,3 +16,9 @@
 ## 2026-07-01T08:30:15Z — auto-extract (medium-trust, pending review)
 - (P-RC9DUKaY) Fixes 182+183 are verified small (tier-U paths already correct, multi-section parser already implemented, bullet format already compatible); fixing before tag is feasible.
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-01T08:30:15Z -->
+## 2026-07-01T12:07:00Z — auto-extract (medium-trust, pending review)
+- (P-7JZRB4KS) Prefers identifying and fixing systemic issues over applying local patches
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-01T12:07:00Z -->
+## 2026-07-01T12:07:00Z — auto-extract (medium-trust, pending review)
+- (P-RVCAYPHC) Catches when their own systems violate their stated design principles; treats dogfooding as a QA signal
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-01T12:07:00Z -->
