@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+## [0.5.0] — 2026-07-01
+
 ### Changed
 
 - **Persona promotion now earns its way in by RECURRENCE, not just phrasing** (Task 151, in progress for v0.4.3). A cross-project trait you keep *demonstrating* — but never explicitly declare as an "always/never" rule — now graduates into your persona once it has recurred enough, instead of being stranded by a wording gate. The classifier cites the facts it synthesized a trait from and the kit sums their real recurrence to decide; the LLM groups, code counts. (Closes the cold-open regression where a demonstrated-but-undeclared philosophy never reached the user tier.)
