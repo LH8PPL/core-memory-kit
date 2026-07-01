@@ -65,7 +65,7 @@ Legend: ✓ intent matches code · ✗ gap (design says X, code does Y) · ~ par
 | 12 | **today >7d → archive** (weekly-curate) | — | **archive 4096B, recent 4096B** | Haiku semantic + deterministic | **UNLINK the today file** | ~ session history >7d = lossy-Haiku into a 4KB cap + **source deleted** (G8) |
 | 13 | **queues** (review / conflicts / persona-review) | — | **none** | by-ID (persona) | — | ~ leave only via user action; **never auto-pruned**, unbounded (G10) |
 | 14 | **forget → tombstone** (forget.mjs) | — | — | — | **moveFactToTombstone** (deleted_at, recoverable) | ✓ correct — the contrast that makes edge #4 inconsistent |
-| 15 | **user tier** (USER/HABITS/LESSONS) | promotion-gated | per-file 1375/1800/1800 | by-ID | same consolidate() (high never dropped) | ✗ same graduation-absent write-lock as MEMORY.md (G1 applies to persona too) |
+| 15 | **user tier** (USER/HABITS/LESSONS) | recurrence-gated (Task 151: recurrence ≥3 OR confidence=high) | per-file 1375/1800/1800 | by-ID | same consolidate() (high never dropped) | ✓ **DEMOTE-NOT-EVICT (Task 151.4, v0.4.3)** — at cap the persona **condenses in place** (drops no bullet), never graduates a promoted trait out to un-injected `fragments/`; the file may grow past the inject budget (load-cap, not write-cap) and the importance-aware load-cap keeps the high-trust slice injected. _Fixes the old graduation-absent write-lock (Hole B) that stranded promoted traits at cold-open._ |
 
 ---
 

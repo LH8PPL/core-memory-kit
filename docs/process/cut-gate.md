@@ -1092,9 +1092,10 @@ A clean full sweep (F-1..F-15 + L1–L2) means nothing ships untested.
 
 The tag triggers an **immutable** npm publish; whatever docs are committed at that moment ship forever. Confirm:
 
-- [ ] **CHANGELOG consolidated** — `[Unreleased]` folded into `## [X.Y.Z] — <date>`; `[Unreleased]` reset; `print-release-notes.mjs <version>` parses the section.
+- [ ] **★ Doc-drift walk (the ONE rule — CLAUDE.md D-249).** This is the SAME per-change walk the self-review runs, re-confirmed for the whole release: walk the **source-of-truth table** and confirm every LIVING doc the release touched is current — especially the un-validated ones that drift silent (**`design.md`** architecture/schema, **`glossary.md`** new terms, **`memory-lifecycle-map.md`** tier behavior, **`ARCHITECTURE.md`** layer overview). _Precedent (v0.4.3): design.md + glossary + memory-lifecycle-map all shipped stale in the first pass — caught only by interrogation; this walk is what catches them without it._ The rows below are high-frequency members of that walk, called out because a stale one is immutable once tagged:
+- [ ] **CHANGELOG consolidated** — `[Unreleased]` folded into `## [X.Y.Z] — <date>`; `[Unreleased]` reset; `print-release-notes.mjs <version>` parses the section; **no "in progress" left in the shipped section** (a shipped feature isn't "in progress").
 - [ ] **★ READMEs reflect THIS version** — both the **root `README.md`** (status line + "What it does") **and** the **npm landing `packages/cli/README.md`** describe this version's headline capability + its new commands. _(Lesson from v0.2.0: the tag beat the README refresh, so the immutable npm 0.2.0 page shipped a stale landing page — fixed only by a 0.2.1 patch. The npm landing page is `packages/cli/README.md`, NOT the root one.)_
-- [ ] **`packages/cli/package.json` version** = the version you're about to tag (`0.3.2`).
+- [ ] **`packages/cli/package.json` version** = the version you're about to tag.
 
 **To publish (your outward action):**
 

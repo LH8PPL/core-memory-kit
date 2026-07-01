@@ -248,7 +248,25 @@ Cross-refs: [[Auto-extract subagent]], [[Memory-write skill]], [[Trust]], [[Revi
 
 A three-level confidence rating on each observation: `high` / `medium` / `low`. Default by [[Write source]]: user-explicit + manual-edit → high; auto-extract + imported → medium; compressor → low. Manual override via `cmk trust <id>`.
 
-Cross-refs: [[Write source]], [[Review queue]], [[Conflict queue]]. Spec: FR-29; design §4.
+Cross-refs: [[Write source]], [[Review queue]], [[Conflict queue]], [[Trust score]]. Spec: FR-29; design §4.
+
+### Trust score
+
+An **evolving** per-fact float (`0.05`–`0.95`) stored in the **rebuildable index** (`observations.trust_score`), never in committed frontmatter (a moving value = git-diff noise). Distinct from [[Trust]] (the coarse committed enum): the score seeds from source + recurrence, then moves from passive outcomes — a contradiction/supersession dampens it, a restatement raises it — with no command to run. A protection/floor signal (never reaches zero → demote-not-evict), NOT a sweep-ranking driver. Task 151 Move 3 (folds Task 97).
+
+Cross-refs: [[Trust]], [[Recurrence gate]], [[Demote-not-evict]]. Spec: design §20.2; ADR-0016.
+
+### Recurrence gate
+
+The v0.4.3 promotion mechanism (Task 151 Move 1): a cross-project trait earns [[Auto-persona]] promotion by **recurrence**, not phrasing. `recurrence_count` (frontmatter int) increments when the same canonical fact re-surfaces; the classifier **cites** the facts a trait was synthesized from and the kit **sums** their real recurrence (`cite-and-sum`) — the LLM groups, code counts. A trait promotes at recurrence ≥ 3 OR the explicit-imperative fast-path (`confidence: high`). Replaces the old form-based `PERSONA_CONFIDENCE_RULE`.
+
+Cross-refs: [[Auto-persona]], [[Trust score]], [[Demote-not-evict]]. Spec: design §20.1; ADR-0016.
+
+### Demote-not-evict
+
+The v0.4.3 cap-relief rule for the user-tier persona (Task 151 Move 2, fixes the cold-open "Hole B"): when `USER`/`HABITS`/`LESSONS.md` outgrow the inject budget, they **condense in place** (mechanical trim, drops no bullet) rather than graduating a promoted trait out to un-injected `fragments/` (which stranded it). The file may grow past the inject budget (load-cap, not write-cap); the importance-aware snapshot load-cap keeps the high-trust slice injected.
+
+Cross-refs: [[Recurrence gate]], [[Trust score]], [[Graduation]]. Spec: design §20.3; ADR-0016.
 
 ### Write source
 
