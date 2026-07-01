@@ -34,6 +34,7 @@ A session that has lost all memory must be able to read **only the three spine f
 | [`packages/cli/README.md`](../packages/cli/README.md) | npm package landing page. |
 | [`QUICKSTART.md`](../QUICKSTART.md) | 5-minute zero-to-working. |
 | [`ARCHITECTURE.md`](../ARCHITECTURE.md) | Six-layer design, for users. |
+| [`docs/SYSTEM-MAP.md`](SYSTEM-MAP.md) | The **systemic** view — the kit as ONE system: whole + parts + the relationships/edges between them (what ARCHITECTURE.md/design.md decompose away). Holds the learn-loop anatomy + the honestly-drawn unsolved region. Companion to ADR-0017. |
 | [`docs/CLI.md`](CLI.md) | Full `cmk` command reference. |
 | [`CHANGELOG.md`](../CHANGELOG.md) | Per-release "what shipped" (cut via `npm run release`). |
 | [`docs/RELEASE-PLAN.md`](RELEASE-PLAN.md) | Forward complement to CHANGELOG: which version each task ships in (release lanes + the one-differentiator-per-minor rule). |
