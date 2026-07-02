@@ -243,7 +243,7 @@ Last health check: 2026-05-22.
 - **HTML comment frontmatter at top** for size cap, last-distilled, last-health-check. These comments are stripped from Claude's context per Anthropic's docs (saves tokens; humans still see them when viewing).
 - **Three fixed sections** per file (Active Threads / Environment Notes / Pending Decisions for `MEMORY.md`; About / Preferences / Working Style for `USER.md`; etc.).
 - **One bullet per fact**, ≤ 200 chars per bullet (the bullet text itself, not counting metadata).
-- **Provenance frontmatter** in HTML comment immediately below the bullet. Required fields per Task 13: `source` (file path), `source_line` (positive integer), `sha1`, `write` (enum), `trust` (enum), `at` (ISO 8601 UTC). The 7th required field is `id` — recovered from the bullet line's `(P-XXX)` prefix, not duplicated in the comment. The canonical writer/reader pair is [`packages/cli/src/provenance.mjs`](../packages/cli/src/provenance.mjs) (`writeBullet` / `readBullet` / `parseBulletProvenance`); don't roll your own. (Per T8, FR-29.)
+- **Provenance frontmatter** in HTML comment immediately below the bullet. Required fields per Task 13: `source` (file path), `source_line` (positive integer), `sha1`, `write` (enum), `trust` (enum), `at` (ISO 8601 UTC). The 7th required field is `id` — recovered from the bullet line's `(P-XXX)` prefix, not duplicated in the comment. **Optional `shape`** (Task 66.1, §16.18): the 7-value temporal classification (`State`/`Event`/`Plan`/`Relationship`/`Preference`/`Absence`/`Timeless`, case-sensitive); when present it rides the TAIL of the comment (after `at`) so the canonical 6-field prefix stays byte-stable for pre-66 consumers; absence reads as `State`. The canonical writer/reader pair is [`packages/cli/src/provenance.mjs`](../packages/cli/src/provenance.mjs) (`writeBullet` / `readBullet` / `parseBulletProvenance`); don't roll your own. (Per T8, FR-29.)
 - **Citation ID in parentheses at start of bullet**: `(P-S79MJHFN)`. (Per FR-14.)
 - **Section sign delimiter `§`** is NOT used in our format (Hermes uses it; we use markdown bullets — simpler and git-diffable).
 
@@ -273,10 +273,12 @@ Hardcoded defaults in design.md are starting points; teams that distill more agg
 ---
 id: P-7K2X9Q4F
 type: feedback
+shape: Preference              # Task 66.1: temporal classification, default State (§16.18)
 title: Webcam ROI is wider than expected
 created_at: 2026-05-22T14:30:00Z
 write_source: user-explicit
 trust: high
+recurrence_count: 1            # Task 151.1: capped-recurrence promotion signal (§20.1)
 source_file: context/transcripts/2026-05-21.md
 source_line: 142
 source_sha1: abc123ef...
@@ -443,7 +445,7 @@ Every bullet in a scratchpad file and every fact in the granular archive carries
 | `trust` | enum | `high` / `medium` / `low` |
 | `created_at` | ISO 8601 UTC | timestamp at write time |
 
-Optional fields: `merged_from` (for consolidation), `superseded_by` (when replaced), `deleted_at` (for tombstoned facts — see §6.5), `expires_at`.
+Optional fields: `merged_from` (for consolidation), `superseded_by` (when replaced), `deleted_at` (for tombstoned facts — see §6.5), `expires_at`, `shape` (temporal classification, Task 66.1 — written explicitly with a `State` default on every new fact; absence on pre-66 facts also reads as `State`; see §16.18).
 
 **Trust default** by `write_source`: `user-explicit` and `manual-edit` → `high`; `auto-extract` and `imported` → `medium`; `compressor` → `low`. Manual override via `cmk trust <id> <high|medium|low>`.
 
@@ -2180,7 +2182,7 @@ v0.2 candidate. Inspired by Indranil Chandra's "Beyond the Log: Time-Aware Bluep
 
 **Proposed v0.2 absorbs (three layers, ordered by cost):**
 
-1. **`shape:` field on provenance** (smallest absorb; v0.2 entry point). Optional initially, defaulting to `State`. Seven values from Chandra's taxonomy: `State` (ongoing condition), `Event` (happened once), `Plan` (future-dated), `Relationship` (relation between entities), `Preference` (personalization), `Absence` (negative fact — "user does NOT do X"), `Timeless` (always true). Implementation: extend `provenance.mjs` (Task 13) field validation; extend YAML frontmatter on per-fact files; update auto-extract subagent (Task 23) to classify. Pays off the day it ships — even without retrieval changes, `Absence` becomes distinguishable from `Preference` (currently both expressed as bullet text with implicit negation that topic-similarity search can't see).
+1. **`shape:` field on provenance** (smallest absorb; v0.2 entry point). Optional initially, defaulting to `State`. Seven values from Chandra's taxonomy: `State` (ongoing condition), `Event` (happened once), `Plan` (future-dated), `Relationship` (relation between entities), `Preference` (personalization), `Absence` (negative fact — "user does NOT do X"), `Timeless` (always true). Implementation: extend `provenance.mjs` (Task 13) field validation; extend YAML frontmatter on per-fact files; update auto-extract subagent (Task 23) to classify. Pays off the day it ships — even without retrieval changes, `Absence` becomes distinguishable from `Preference` (currently both expressed as bullet text with implicit negation that topic-similarity search can't see). **✅ SHIPPED — Task 66.1 (v0.4.4 lane, 2026-07-02):** all three surfaces live — `write-fact.mjs` (strict enum validation; written explicitly with the `State` default so new files self-describe; absence on pre-66 facts reads as `State`), `provenance.mjs` bullets (optional, rides the comment TAIL after `at` so the canonical 6-field prefix stays byte-stable), auto-extract (BEGIN_FACT `shape:` + a shape guide in the prompt; the LLM boundary is TOLERANT — casing normalized, invalid → omitted so a Haiku typo can't kill a capture). `mergeFacts()` inherits shape from the primary parent (same fallback as `type`) — a merge never resets classification.
 
 2. **Validity windows on `State`-shape facts.** Add `started_at` and `ended_at` to provenance for `shape: State` facts. When `mergeFacts()` (Task 10) detects a `state_key` match with `ended_at: null`, atomically close the old (`ended_at = merge_ts`, add `status: "completed"`) and create the new (`status: "ongoing"`, `ended_at: null`). The existing `superseded_by` reference stays as a backward-compat link; the new fields make point-in-time queries (`cmk search "X as of 2026-03-15"`) fall out for free. Compose with our existing audit-log + tombstone discipline — nothing is deleted; the timeline of validity windows IS the audit trail.
 

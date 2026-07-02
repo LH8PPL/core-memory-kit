@@ -146,6 +146,42 @@ describe('Task 103 — parseRichFacts (BEGIN_FACT…END_FACT blocks)', () => {
     expect(facts[0].why).toBe('core architecture');
   });
 
+  describe('shape field — temporal classification at the LLM boundary (Task 66.1, design §16.18)', () => {
+    function blockWith(shapeLine) {
+      return [
+        'BEGIN_FACT',
+        'type: project',
+        'title: Demo scheduled',
+        'body: Demo to the team is scheduled for Friday.',
+        ...(shapeLine ? [shapeLine] : []),
+        'END_FACT',
+      ].join('\n');
+    }
+
+    it('valid shape parses through verbatim', () => {
+      const facts = parseRichFacts(blockWith('shape: Plan'));
+      expect(facts).toHaveLength(1);
+      expect(facts[0].shape).toBe('Plan');
+    });
+
+    it('lowercase/uppercase from Haiku normalize to the canonical spelling (LLM boundary is tolerant)', () => {
+      expect(parseRichFacts(blockWith('shape: plan'))[0].shape).toBe('Plan');
+      expect(parseRichFacts(blockWith('shape: EVENT'))[0].shape).toBe('Event');
+    });
+
+    it('invalid shape → omitted, fact still parses (a Haiku typo must not kill the capture)', () => {
+      const facts = parseRichFacts(blockWith('shape: banana'));
+      expect(facts).toHaveLength(1);
+      expect(facts[0].shape).toBeUndefined();
+    });
+
+    it('absent shape → omitted (writeFact applies the State default downstream)', () => {
+      const facts = parseRichFacts(blockWith(null));
+      expect(facts).toHaveLength(1);
+      expect(facts[0].shape).toBeUndefined();
+    });
+  });
+
   it('treats an INDENTED key-like line as body content, not a field (key must be at line start)', () => {
     const out = [
       'BEGIN_FACT',

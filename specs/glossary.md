@@ -116,7 +116,7 @@ Cross-refs: [[INDEX]]. Spec: design §2.3.
 
 ### Provenance frontmatter
 
-The metadata immediately attached to every observation: `id`, `source_file`, `source_line`, `source_sha1`, `write_source`, `trust`, `created_at`, plus optional `merged_from` / `superseded_by` / `deleted_at` / `private`. Stored as YAML in [[Fact file]]s and as inline HTML comment in [[Scratchpad]]s.
+The metadata immediately attached to every observation: `id`, `source_file`, `source_line`, `source_sha1`, `write_source`, `trust`, `created_at`, plus optional `merged_from` / `superseded_by` / `deleted_at` / `private` / `shape` (see [[Fact shape]]). Stored as YAML in [[Fact file]]s and as inline HTML comment in [[Scratchpad]]s.
 
 **Canonical reader/writer**: all reads and writes go through [`packages/cli/src/frontmatter.mjs`](../packages/cli/src/frontmatter.mjs) — the single js-yaml–backed `serialize`/`parse` pair. Don't roll your own parser; values containing `\n` / `:` / `"` round-trip correctly only via this module. See design §4 + CLAUDE.md "Shared modules" rule.
 
@@ -127,6 +127,12 @@ Cross-refs: [[Citation ID]], [[Trust]], [[Write source]], [[Audit log]]. Spec: F
 The four categories a [[Fact file]] can have: `user_*`, `feedback_*`, `project_*`, `reference_*`. Filename prefix mirrors the type.
 
 Spec: design §2.2.
+
+### Fact shape
+
+What KIND of truth a fact asserts — the temporal classification (Task 66.1, from Chandra's "Beyond the Log" taxonomy): `State` (ongoing condition), `Event` (happened once), `Plan` (future-dated), `Relationship`, `Preference`, `Absence` (a negative fact — "user does NOT do X"), `Timeless`. Optional `shape` field in [[Provenance frontmatter]]; written explicitly (default `State`) on new facts, absence on pre-66 facts also reads as `State`. Orthogonal to [[Type taxonomy]] (type = what the fact is FOR; shape = how it relates to TIME). The temporal machinery keys on it: validity windows (66.2) touch only `State`, the expiry sweep (66.3) any shape, contradiction-catch (66.4) `State`.
+
+Spec: design §16.18 + §4.
 
 ### Section sign
 

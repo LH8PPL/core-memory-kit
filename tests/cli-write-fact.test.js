@@ -585,6 +585,60 @@ describe('Task 7 — writeFact() boundary', () => {
     });
   });
 
+  describe('shape field — temporal fact classification (Task 66.1, design §16.18)', () => {
+    // The 7-value taxonomy from Chandra's "Beyond the Log" (§16.18): what KIND
+    // of truth the fact asserts, so temporal machinery (validity windows 66.2,
+    // expiry 66.3, contradiction-catch 66.4) knows which facts it may touch.
+    const SHAPES = [
+      'State',
+      'Event',
+      'Plan',
+      'Relationship',
+      'Preference',
+      'Absence',
+      'Timeless',
+    ];
+
+    it('shape provided → written to frontmatter verbatim', () => {
+      const result = writeFact(validOptions({ projectRoot, shape: 'Event' }));
+      expect(result.action).toBe('created');
+      const { frontmatter } = parseFrontmatter(result.path);
+      expect(frontmatter.shape).toBe('Event');
+    });
+
+    it('shape absent → defaults to State, written explicitly (self-describing file)', () => {
+      const result = writeFact(validOptions({ projectRoot }));
+      const { frontmatter } = parseFrontmatter(result.path);
+      expect(frontmatter.shape).toBe('State');
+    });
+
+    it.each(SHAPES)('accepts shape %s', (shape) => {
+      const result = writeFact(
+        validOptions({ projectRoot, shape, slug: `shape-${shape.toLowerCase()}` }),
+      );
+      expect(result.action).toBe('created');
+      const { frontmatter } = parseFrontmatter(result.path);
+      expect(frontmatter.shape).toBe(shape);
+    });
+
+    it('invalid shape → schema error, no file written (Doors 1+2)', () => {
+      const result = writeFact(validOptions({ projectRoot, shape: 'Mood' }));
+      expect(result.action).toBe('error');
+      expect(result.errorCategory).toBe('schema');
+      expect(result.errors.join(' ')).toMatch(/shape/);
+      const factDir = join(projectRoot, 'context', 'memory');
+      expect(
+        existsSync(factDir) ? readdirSync(factDir).filter((f) => f.endsWith('.md') && f !== 'INDEX.md') : [],
+      ).toHaveLength(0);
+    });
+
+    it('shape is case-sensitive — lowercase "state" rejected (one canonical spelling on disk)', () => {
+      const result = writeFact(validOptions({ projectRoot, shape: 'state' }));
+      expect(result.action).toBe('error');
+      expect(result.errorCategory).toBe('schema');
+    });
+  });
+
   describe('write-path hardening — privacy sanitize + Poison_Guard (#1)', () => {
     const WIN_PATH =
       'C:\\Users\\someuser\\AppData\\Local\\Programs\\Python\\Python313\\python.exe';

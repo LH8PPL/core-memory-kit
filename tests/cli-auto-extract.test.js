@@ -988,6 +988,25 @@ describe('Task 23 — runAutoExtract() boundary', () => {
       // catch a regression that drops them.
       expect(prompt.toLowerCase()).toMatch(/correction|preference|environment|convention|workflow|quirk/);
     });
+
+    it('prompt teaches the BEGIN_FACT shape field with the 7-value enum (Task 66.1, Door 3.5)', async () => {
+      const turnFile = writeTurnFile(projectRoot, 'turn');
+      const mock = mockBackend('SKIP');
+      await runAutoExtract({
+        turnFile,
+        projectRoot,
+        haikuBackend: mock,
+        now: '2026-05-25T10:00:00Z',
+      });
+      const call = mock.calls[0];
+      const prompt = (call.instructions ?? '') + '\n' + call.input;
+      // Same loose-pin convention as the trigger-directives test above:
+      // the field name + every enum value must be taught, wording is tunable.
+      expect(prompt).toMatch(/shape:/);
+      for (const v of ['State', 'Event', 'Plan', 'Relationship', 'Preference', 'Absence', 'Timeless']) {
+        expect(prompt).toContain(v);
+      }
+    });
   });
 
   describe('Task 24 integration — Poison_Guard rejection on high-trust route', () => {
@@ -1270,6 +1289,42 @@ describe('Task 103 — rich fact synthesis (auto-extract → fact store)', () =>
     expect(trace.rejected_category).toBe('poison_guard');
     expect(trace.title).toContain('Leaky config');
     expect(JSON.stringify(log)).not.toContain('ghp_1234567890');
+  });
+
+  it('a rich fact with shape: Plan lands in the fact file frontmatter (Task 66.1 end-to-end)', async () => {
+    const turnFile = writeTurnFile(projectRoot, 'a turn');
+    const r = await runAutoExtract({
+      turnFile,
+      projectRoot,
+      haikuBackend: mockBackend(
+        'BEGIN_FACT',
+        'type: project',
+        'shape: Plan',
+        'title: Team Demo Friday',
+        'body: The demo to the team is scheduled for Friday.',
+        'END_FACT',
+      ),
+      now: '2026-06-07T10:00:00Z',
+    });
+    expect(r.observation_count).toBe(1);
+    const files = readFactFiles();
+    expect(files).toHaveLength(1);
+    expect(files[0].text).toMatch(/^shape: Plan$/m);
+  });
+
+  it('a rich fact WITHOUT shape gets the explicit State default in frontmatter (Task 66.1)', async () => {
+    const turnFile = writeTurnFile(projectRoot, 'a turn');
+    await runAutoExtract({
+      turnFile,
+      projectRoot,
+      haikuBackend: mockBackend(
+        'BEGIN_FACT', 'title: Deploy Target', 'body: we deploy to Cloud Run', 'END_FACT',
+      ),
+      now: '2026-06-07T10:00:00Z',
+    });
+    const files = readFactFiles();
+    expect(files).toHaveLength(1);
+    expect(files[0].text).toMatch(/^shape: State$/m);
   });
 
   it('multiple rich facts in one turn → multiple fact files', async () => {

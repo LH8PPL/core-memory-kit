@@ -129,6 +129,21 @@ describe('Task 10 — mergeFacts() boundary', () => {
       );
     });
 
+    it("C inherits shape from parent A (same primary-parent fallback as type) — a merge never resets classification (Task 66.1)", () => {
+      const wA = writeFact(
+        validFactOpts({ projectRoot, slug: 'a', shape: 'Preference' }),
+      );
+      const wB = writeFact(
+        validFactOpts({ projectRoot, slug: 'b', body: 'B body', shape: 'Event' }),
+      );
+      const r = mergeFacts(
+        validMergeOpts(wA.id, wB.id, { projectRoot, mergedBody: 'combined body' }),
+      );
+      expect(r.action).toBe('merged');
+      const { frontmatter } = parseFrontmatter(r.path);
+      expect(frontmatter.shape).toBe('Preference');
+    });
+
     it("merged_from order reflects argument order even with swapped ids", () => {
       const wA = writeFact(validFactOpts({ projectRoot, slug: 'a' }));
       const wB = writeFact(validFactOpts({ projectRoot, slug: 'b', body: 'B body' }));

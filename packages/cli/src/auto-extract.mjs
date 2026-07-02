@@ -308,11 +308,13 @@ export function buildExtractionInstructions() {
     'Format (one block per durable fact):',
     '  BEGIN_FACT',
     '  type: project',
+    '  shape: <State|Event|Plan|Relationship|Preference|Absence|Timeless — optional; what KIND of truth this is>',
     '  title: <short Title-Case headline, ≤ 80 chars>',
     '  body: <what is true; if it has parts, give a short labelled markdown breakdown over multiple lines, NOT one vague sentence>',
     '  why: <why it is true / why it matters — the rationale a future session needs>',
     '  how: <how the next session should apply it>',
     '  END_FACT',
+    '  shape guide: State = an ongoing condition ("we deploy to Cloud Run"); Event = happened once ("we migrated to SQLite on May 3"); Plan = future-dated ("demo scheduled Friday"); Relationship = a relation between entities; Preference = a personalization; Absence = a NEGATIVE fact ("user does NOT want emoji"); Timeless = always true. Omit if unsure — State is the default.',
     'Rules for BEGIN_FACT blocks:',
     '  - body may span multiple lines (markdown bullets are encouraged when the knowledge has parts — make the saved fact genuinely useful to a future session, at least as detailed as a careful hand-written note). Write it as plain markdown on the lines after `body:` — do NOT use a YAML block scalar (`|` or `>`).',
     '  - title AND body are required; why/how are strongly preferred but optional. type defaults to project.',
@@ -388,7 +390,20 @@ export function parseCandidates(haikuOutput) {
 // native-parity bar). type defaults to 'project' when absent/invalid; a block
 // missing title OR body is skipped (writeFact requires both).
 const RICH_FACT_VALID_TYPES = new Set(['user', 'feedback', 'project', 'reference']);
-const RICH_FACT_KEYS = new Set(['type', 'title', 'body', 'why', 'how']);
+// Task 66.1 (design §16.18): the 7-value temporal-shape enum, mirrored from
+// write-fact.mjs the same way RICH_FACT_VALID_TYPES mirrors its VALID_TYPES.
+// The LLM boundary is TOLERANT (case normalized, invalid → omitted so a Haiku
+// typo can't kill a capture); writeFact stays strict for programmatic callers.
+const RICH_FACT_VALID_SHAPES = new Set([
+  'State',
+  'Event',
+  'Plan',
+  'Relationship',
+  'Preference',
+  'Absence',
+  'Timeless',
+]);
+const RICH_FACT_KEYS = new Set(['type', 'title', 'body', 'why', 'how', 'shape']);
 // Defensive per-field cap so a runaway block can't write an unbounded fact body.
 const RICH_FACT_FIELD_CAP = 4000;
 
@@ -446,8 +461,16 @@ function parseRichFactBlock(blockLines) {
   if (!RICH_FACT_VALID_TYPES.has(type)) type = 'project';
   const why = cleanFieldValue(fields.why);
   const how = cleanFieldValue(fields.how);
+  // Normalize Haiku's casing to the canonical spelling ('plan' → 'Plan');
+  // anything outside the enum is dropped, not fatal — writeFact defaults State.
+  const rawShape = cleanFieldValue(fields.shape);
+  const normShape = rawShape
+    ? rawShape.charAt(0).toUpperCase() + rawShape.slice(1).toLowerCase()
+    : '';
+  const shape = RICH_FACT_VALID_SHAPES.has(normShape) ? normShape : undefined;
   return {
     type,
+    ...(shape ? { shape } : {}),
     title: title.slice(0, RICH_FACT_FIELD_CAP),
     body: body.slice(0, RICH_FACT_FIELD_CAP),
     why: why ? why.slice(0, RICH_FACT_FIELD_CAP) : '',
@@ -666,6 +689,9 @@ function routeRichFact({ candidate, projectRoot, ts }) {
   return writeFact({
     tier: 'P',
     type: candidate.type,
+    // Task 66.1: the parser already normalized/validated shape (invalid →
+    // absent); absent → writeFact's State default.
+    shape: candidate.shape,
     slug: slugifyFact(title),
     title,
     body,

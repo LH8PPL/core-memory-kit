@@ -33,6 +33,20 @@ const VALID_WRITE_SOURCES = new Set([
   'imported',
 ]);
 const VALID_TRUST = new Set(['high', 'medium', 'low']);
+// Task 66.1 (design §16.18): what KIND of truth the fact asserts. Case-
+// sensitive — one canonical spelling on disk. Optional at the call boundary;
+// written explicitly (default State) so every new fact file self-describes.
+// The temporal machinery keys on it: validity windows (66.2) touch only
+// State, the expiry sweep (66.3) any shape, contradiction-catch (66.4) State.
+const VALID_SHAPES = new Set([
+  'State',
+  'Event',
+  'Plan',
+  'Relationship',
+  'Preference',
+  'Absence',
+  'Timeless',
+]);
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9_-]*$/i;
 
 // Layer-2 review: PR-1 rejected \n / \r / : in scalar frontmatter fields as
@@ -73,6 +87,11 @@ function validateOptions(opts) {
   if (!opts.trust || !VALID_TRUST.has(opts.trust)) {
     errors.push('trust: must be one of high/medium/low');
   }
+  if (opts.shape !== undefined && !VALID_SHAPES.has(opts.shape)) {
+    errors.push(
+      'shape: must be one of State/Event/Plan/Relationship/Preference/Absence/Timeless (case-sensitive)',
+    );
+  }
   if (
     !opts.sourceFile ||
     typeof opts.sourceFile !== 'string' ||
@@ -102,6 +121,10 @@ function buildFrontmatterObject(opts, computed) {
   const fm = {
     id: computed.id,
     type: opts.type,
+    // Task 66.1 (design §16.18): temporal shape, default State. Written
+    // explicitly so the file self-describes; readers treat ABSENCE (all
+    // pre-66 facts) as State too — same default, two eras.
+    shape: opts.shape ?? 'State',
     title: opts.title,
     created_at: computed.createdAt,
     write_source: opts.writeSource,

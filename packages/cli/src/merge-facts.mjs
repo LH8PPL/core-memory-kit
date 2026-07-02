@@ -159,6 +159,10 @@ export function mergeFacts(opts = {}) {
   const writeResult = writeFact({
     tier,
     type: typeC,
+    // Task 66.1: a merge never RESETS temporal classification — inherit from
+    // the primary parent (same fallback order as type). Both absent (pre-66
+    // facts) → undefined → writeFact's State default.
+    shape: matchA.frontmatter.shape ?? matchB.frontmatter.shape,
     slug: mergedSlug,
     title: mergedTitle,
     body: mergedBody,

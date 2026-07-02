@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Added
+
+- **Facts now carry a temporal `shape`** (Task 66.1, the first slice of the v0.4.4 temporal-validity engine). Every captured fact is classified by what KIND of truth it asserts — `State` / `Event` / `Plan` / `Relationship` / `Preference` / `Absence` / `Timeless` — so the kit can start telling "we deploy to Cloud Run" (an ongoing condition that can go stale) apart from "we migrated on May 3" (a one-time event that stays true) and "user does NOT want emoji" (a negative fact search can't otherwise see). Auto-extract classifies automatically; existing facts read as `State` untouched.
+
 ## [0.4.3] — 2026-07-01
 
 ### Changed
