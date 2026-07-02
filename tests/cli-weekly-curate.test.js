@@ -31,6 +31,7 @@ import { install } from '../packages/cli/src/install.mjs';
 import { touchCooldownMarker } from '../packages/cli/src/cooldown.mjs';
 import { writeFact } from '../packages/cli/src/write-fact.mjs';
 import { resolveFact } from '../packages/cli/src/forget.mjs';
+import { defaultUserDir } from '../packages/cli/src/tier-paths.mjs';
 
 let sandbox;
 let projectRoot;
@@ -205,6 +206,40 @@ describe('Task 34 — weeklyCurate', () => {
       expect(r.temporal.superseded).toBe(1);
       expect(resolveFact({ id: older.id, projectRoot }).state).toBe('superseded');
       expect(resolveFact({ id: newer.id, projectRoot }).state).toBe('live');
+    });
+
+    it('finding 3: a U-tier expired fact tombstones via the sweepUserDir seam (the lazy/CLI production call shape)', async () => {
+      // Three of the four weeklyCurate call sites pass no userDir; they now
+      // pass `sweepUserDir: defaultUserDir()` instead, so the README's
+      // "facts with a shelf life expire on their own" holds on a default
+      // no-cron install — for the USER tier too, WITHOUT enabling
+      // autoPersona/U-drain (userDir stays unset).
+      const now = '2026-07-02T12:00:00Z';
+      const w = writeFact({
+        tier: 'U', userDir,
+        type: 'user', slug: 'u-ephemeral',
+        title: 'U-tier ephemeral fact',
+        body: 'A cross-project fact with a shelf life.',
+        writeSource: 'user-explicit', trust: 'high',
+        sourceFile: 'user-explicit', sourceLine: 1,
+        sourceSha1: 'deadbeef0123456789abcdef0123456789abcdef',
+        expiresAt: '2026-06-27',
+      });
+      const r = await weeklyCurate({
+        projectRoot, // NO userDir — autoPersona stays off (cron-only shape)
+        sweepUserDir: userDir, // what the production call sites now pass
+        backend: mockBackend('archive', 'recent'),
+        now,
+      });
+      expect(r.expiry_sweep.count).toBe(1);
+      expect(existsSync(w.path)).toBe(false);
+      expect(r.persona).toBeUndefined(); // the fork stays closed
+    });
+
+    it('defaultUserDir(): env override wins, else the home default (the production entry-point resolver)', () => {
+      expect(defaultUserDir({ MEMORY_KIT_USER_DIR: '/x/custom' })).toBe('/x/custom');
+      const fallback = defaultUserDir({});
+      expect(fallback).toContain('.claude-memory-kit');
     });
 
     it('cooldown-skipped pass: the temporal sweep does NOT run (it needs the Haiku cycle)', async () => {

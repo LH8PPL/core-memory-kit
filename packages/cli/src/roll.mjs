@@ -96,12 +96,16 @@ export async function runRoll({
     });
   } else {
     const { weeklyCurate } = await import('./weekly-curate.mjs');
+    const { defaultUserDir } = await import('./tier-paths.mjs');
     delegatedTo = 'weekly-curate';
     result = await weeklyCurate({
       projectRoot,
       backend,
       now: ts,
       cooldownMs: 0,
+      // Production entry point → the Task-66 sweeps cover the U tier
+      // (finding 3); autoPersona keeps its cron-only shape.
+      sweepUserDir: defaultUserDir(),
     });
   }
 

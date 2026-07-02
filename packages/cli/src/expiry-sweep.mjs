@@ -70,8 +70,9 @@ export function sweepExpiredFacts({ projectRoot, userDir, now } = {}) {
       if (!frontmatter?.id || frontmatter.deleted_at) continue;
       if (frontmatter.expires_at === undefined || frontmatter.expires_at === null) continue;
 
-      // js-yaml may parse a bare `expires_at: 2026-08-01` as a Date under
-      // CORE_SCHEMA; normalize to a string before parsing ourselves.
+      // The kit's frontmatter.mjs uses CORE_SCHEMA, which keeps ISO strings
+      // as STRINGS (it deliberately does not resolve timestamps) — the Date
+      // branch guards files touched by a non-kit YAML parser, not our own.
       const raw =
         frontmatter.expires_at instanceof Date
           ? frontmatter.expires_at.toISOString()

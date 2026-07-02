@@ -297,10 +297,11 @@ export function parseObservationsFromFactFile({
     superseded_by: frontmatter.superseded_by ?? null,
     deleted_at: frontmatter.deleted_at ? isoToEpochMs(frontmatter.deleted_at) : null,
     // Task 66.3: the declared validity end → epoch ms, NULL = permanent.
-    // js-yaml can parse a bare `expires_at: 2026-08-01` as a Date object
-    // under CORE_SCHEMA — normalize before parsing (same as expiry-sweep.mjs).
-    // A malformed hand-edited value indexes as NULL (permanent) rather than
-    // crashing the reindex; the sweep separately reports it as skipped_malformed.
+    // frontmatter.mjs uses CORE_SCHEMA, which keeps ISO strings as STRINGS
+    // (no timestamp resolution) — the Date normalization guards files touched
+    // by a non-kit YAML parser (same as expiry-sweep.mjs). A malformed
+    // hand-edited value indexes as NULL (permanent) rather than crashing the
+    // reindex; the sweep separately reports it as skipped_malformed.
     expires_at: parseExpiresAtMs(frontmatter.expires_at),
   };
   return { observations: [observation], sha1 };

@@ -251,6 +251,10 @@ function writeCurateLogEntry({ projectRoot, date, entry }) {
 export async function weeklyCurate({
   projectRoot,
   userDir,
+  // finding 3 (Task 66 review): the sweeps' user-tier seam — production
+  // entry points pass defaultUserDir() here; defaults to `userDir` so a
+  // test omitting both never reaches the real home dir.
+  sweepUserDir,
   backend,
   now,
   cooldownMs = DEFAULT_COOLDOWN_MS,
@@ -292,11 +296,25 @@ export async function weeklyCurate({
   const drained = { P: await autoDrainQueues({ tier: 'P', projectRoot }) };
   if (userDir) drained.U = await autoDrainQueues({ tier: 'U', userDir });
 
+  // The Task-66 sweeps get their OWN userDir seam (skill-review finding 3):
+  // three of the four weeklyCurate call sites (lazy delegation, `cmk roll`,
+  // `cmk weekly-curate`) pass no userDir — only the cron binary does — and
+  // without it a U-tier `expires_at` fact would NEVER tombstone and U-tier
+  // contradictions would never be caught on a default no-cron install,
+  // silently falsifying the README's headline. Those PRODUCTION call sites
+  // now pass `sweepUserDir: defaultUserDir()` explicitly; the fallback here
+  // is `userDir` (NOT a homedir() reach — a library-internal default made
+  // every userDir-less TEST walk the REAL user tier, the D-69 class).
+  // Scoped to the sweeps ONLY: autoPersona + the U queue-drain keep the
+  // explicit-userDir contract (their cron-only shape predates this task —
+  // re-opened, if ever, as its own decision, not as a side-effect here).
+  const resolvedSweepUserDir = sweepUserDir ?? userDir;
+
   // Expiry sweep (Task 66.3 / D-258) — same deterministic-pass slot as the
   // auto-drain: non-Haiku file IO, runs on EVERY pass regardless of the
   // cooldown, so a declared expires_at never waits on the Haiku gate. Each
   // expired fact tombstones through forget() (audited, recoverable).
-  const expirySweep = sweepExpiredFacts({ projectRoot, userDir, now: ts });
+  const expirySweep = sweepExpiredFacts({ projectRoot, userDir: resolvedSweepUserDir, now: ts });
 
   if (isCooldownActive({ projectRoot, now: ts, cooldownMs })) {
     const duration_ms = Date.now() - t0;
@@ -369,7 +387,7 @@ export async function weeklyCurate({
   try {
     temporal = await temporalSweep({
       projectRoot,
-      userDir,
+      userDir: resolvedSweepUserDir, // finding 3 — see the sweepUserDir note above
       backend,
       now: ts,
       timeoutMs: CEILING_FREE_TIMEOUT_MS,

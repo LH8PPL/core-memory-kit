@@ -51,15 +51,18 @@ import { parse as parseFactFrontmatter } from './frontmatter.mjs';
 // titles; any read hiccup degrades to no mention, never a crash.
 const TEMPORAL_MENTION_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const TEMPORAL_MENTION_MAX_TITLES = 2;
-const TEMPORAL_MENTION_AUDIT_TAIL_LINES = 400;
 function buildTemporalMention({ projectRoot, ts }) {
   try {
     const auditPath = join(projectRoot, 'context', '.locks', 'audit.log');
     if (!existsSync(auditPath)) return '';
     const nowMs = Date.parse(ts);
-    const lines = readFileSync(auditPath, 'utf8').split('\n').filter(Boolean);
+    // Positioned 64KB tail read (the shared readAuditTail helper) — NOT a
+    // whole-file readFileSync: this runs on the 500ms-budget SessionStart
+    // path and audit.log grows with project age (skill-review finding 4;
+    // same rationale as the status line's read below).
     const hits = [];
-    for (const line of lines.slice(-TEMPORAL_MENTION_AUDIT_TAIL_LINES)) {
+    for (const line of readAuditTail(auditPath).split(/\r?\n/)) {
+      if (!line.trim()) continue;
       let e;
       try {
         e = JSON.parse(line);
@@ -73,7 +76,9 @@ function buildTemporalMention({ projectRoot, ts }) {
     }
     if (hits.length === 0) return '';
     const titles = [];
-    for (const e of hits.slice(0, TEMPORAL_MENTION_MAX_TITLES)) {
+    // Newest-first: the tail is chronological, so the LAST hits are the most
+    // recent closes — the informative ones to name (finding 9).
+    for (const e of hits.slice(-TEMPORAL_MENTION_MAX_TITLES).reverse()) {
       const p = e.paths?.archive;
       if (!p || !existsSync(p)) continue;
       try {
@@ -93,6 +98,24 @@ function buildTemporalMention({ projectRoot, ts }) {
   } catch {
     return '';
   }
+}
+
+// Positioned read of the LAST 64KB of an audit log — recency lives at the
+// end; a months-old multi-MB log read in full would pay for history we
+// discard, inside the 500ms SessionStart budget. Drops the (possibly torn)
+// first line when starting mid-file. Shared by the temporal mention above
+// and the status line (Task 145).
+function readAuditTail(auditPath) {
+  const size = statSync(auditPath).size;
+  const start = Math.max(0, size - STATUS_AUDIT_TAIL_BYTES);
+  const buf = Buffer.alloc(size - start);
+  const fd = openSync(auditPath, 'r');
+  try {
+    readSync(fd, buf, 0, buf.length, start);
+  } finally {
+    closeSync(fd);
+  }
+  return start > 0 ? buf.toString('utf8').replace(/^[^\n]*\n/, '') : buf.toString('utf8');
 }
 
 // Importance ranking for value-ordered inject eviction (Task 93 / design §19.3).
@@ -986,20 +1009,10 @@ export function buildStatusLine({
     try {
       const auditPath = join(projectRoot, 'context', '.locks', 'audit.log');
       if (existsSync(auditPath)) {
-        // Positioned read of the LAST 64KB only — recency lives at the end,
-        // and this runs inside the 500ms-budget SessionStart hook; reading a
-        // months-old multi-MB log in full would pay for history we discard.
-        const size = statSync(auditPath).size;
-        const start = Math.max(0, size - STATUS_AUDIT_TAIL_BYTES);
-        const buf = Buffer.alloc(size - start);
-        const fd = openSync(auditPath, 'r');
-        try {
-          readSync(fd, buf, 0, buf.length, start);
-        } finally {
-          closeSync(fd);
-        }
-        // Drop the (possibly torn) first line when we started mid-file.
-        const tail = start > 0 ? buf.toString('utf8').replace(/^[^\n]*\n/, '') : buf.toString('utf8');
+        // Positioned read of the LAST 64KB only (the shared readAuditTail
+        // helper) — recency lives at the end, and this runs inside the
+        // 500ms-budget SessionStart hook.
+        const tail = readAuditTail(auditPath);
         for (const line of tail.split(/\r?\n/)) {
           if (!line.trim()) continue;
           try {

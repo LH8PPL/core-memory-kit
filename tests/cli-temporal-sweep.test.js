@@ -24,7 +24,6 @@ import { temporalSweep, buildCandidateQuery } from '../packages/cli/src/temporal
 import { MockHaikuBackend } from '../packages/cli/src/compressor.mjs';
 import { parse as parseFm } from '../packages/cli/src/frontmatter.mjs';
 import { openIndexDb } from '../packages/cli/src/index-db.mjs';
-import { reindexFull } from '../packages/cli/src/index-rebuild.mjs';
 import { search } from '../packages/cli/src/search.mjs';
 
 const NOW = '2026-07-02T12:00:00Z';
@@ -62,10 +61,12 @@ function mockJudge(...lines) {
 describe('Task 66.4 — temporalSweep() boundary', () => {
   let sandbox;
   let projectRoot;
+  let userDir;
 
   beforeEach(() => {
     sandbox = mkdtempSync(join(tmpdir(), 'cmk-temporal-sweep-test-'));
     projectRoot = join(sandbox, 'proj');
+    userDir = join(sandbox, 'user');
   });
 
   afterEach(() => {
@@ -197,7 +198,7 @@ describe('Task 66.4 — temporalSweep() boundary', () => {
     expect(r2.superseded).toBe(1);
   });
 
-  it('malformed verdict lines → pair counted unjudged, nothing mutates, sweep still succeeds', async () => {
+  it('malformed verdict → unjudged + the MARKER HOLDS BACK, so the next pass re-judges the same pair (finding 1b)', async () => {
     const { older, newer } = seedChain();
     const backend = mockJudge('I think these are related somehow.');
     const r = await temporalSweep({ projectRoot, backend, now: NOW });
@@ -205,6 +206,51 @@ describe('Task 66.4 — temporalSweep() boundary', () => {
     expect(r.unjudged).toBeGreaterThanOrEqual(1);
     expect(existsSync(older.path)).toBe(true);
     expect(existsSync(newer.path)).toBe(true);
+    // The header contract, made real: a later pass re-derives + re-judges.
+    const retry = mockJudge('PAIR 1: SUPERSEDES');
+    const r2 = await temporalSweep({ projectRoot, backend: retry, now: '2026-07-02T13:00:00Z' });
+    expect(retry.calls).toHaveLength(1);
+    expect(r2.superseded).toBe(1);
+    expect(existsSync(older.path)).toBe(false);
+  });
+
+  it('overflow across two passes (finding 1a): a capped pass defers whole facts; the next pass judges them', async () => {
+    // Chain A (older subject) + chain B — with maxPairs:1, pass 1 can only
+    // judge chain A's pair; chain B's newer fact must NOT slip behind the
+    // marker.
+    const aOld = writeFact(factOpts({
+      projectRoot, slug: 'a-old', title: 'v9.9 release cut-gate in progress',
+      body: 'The v9.9 release cut-gate is currently in progress.',
+      createdAt: '2026-06-29T09:00:00Z',
+    }));
+    writeFact(factOpts({
+      projectRoot, slug: 'a-new', title: 'v9.9 release published to npm',
+      body: 'The v9.9 release is published to npm with provenance.',
+      createdAt: '2026-06-30T09:00:00Z',
+    }));
+    const bOld = writeFact(factOpts({
+      projectRoot, slug: 'b-old', title: 'w8.8 migration underway',
+      body: 'The w8.8 database migration is underway.',
+      createdAt: '2026-07-01T09:00:00Z',
+    }));
+    writeFact(factOpts({
+      projectRoot, slug: 'b-new', title: 'w8.8 migration finished',
+      body: 'The w8.8 database migration is finished and verified.',
+      createdAt: '2026-07-01T18:00:00Z',
+    }));
+    const first = mockJudge('PAIR 1: SUPERSEDES');
+    const r1 = await temporalSweep({ projectRoot, backend: first, now: NOW, maxPairs: 1 });
+    expect(r1.action).toBe('swept');
+    expect(r1.superseded).toBe(1);
+    expect(r1.facts_deferred).toBeGreaterThanOrEqual(1);
+    expect(existsSync(aOld.path)).toBe(false); // chain A closed
+    expect(existsSync(bOld.path)).toBe(true); // chain B deferred, intact
+    // Pass 2: the deferred chain re-derives and judges.
+    const second = mockJudge('PAIR 1: SUPERSEDES');
+    const r2 = await temporalSweep({ projectRoot, backend: second, now: '2026-07-02T13:00:00Z', maxPairs: 1 });
+    expect(second.calls).toHaveLength(1);
+    expect(r2.superseded).toBe(1);
+    expect(existsSync(bOld.path)).toBe(false); // chain B closed on pass 2
   });
 
   it('no same-subject candidates (unrelated facts only) → skipped no-candidates, no judge call', async () => {
@@ -224,16 +270,20 @@ describe('Task 66.4 — temporalSweep() boundary', () => {
     expect(backend.calls).toHaveLength(0);
   });
 
-  it('D-166 Bug-2 acceptance: capture "vN in progress" then "vN shipped" → recall returns ONLY the current state', async () => {
+  it('D-166 Bug-2 acceptance: capture "vN in progress" then "vN shipped" → recall returns ONLY the current state, with NO manual reindex (the automatic path)', async () => {
     // The named acceptance case from Task 66's parent entry: the SessionStart
-    // snapshot once showed "v0.3.2 deferred" after v0.3.2 shipped. After the
-    // judged sweep, the READ PATH (reindex + search — what `cmk search` runs)
-    // must surface the CURRENT state and not the stale one.
+    // snapshot once showed "v0.3.2 deferred" after v0.3.2 shipped. NO
+    // reindexFull here (a setup command would mask the automatic path — the
+    // D-169 red flag the skill review caught): the sweep's own post-supersede
+    // reindexBoot must leave the SQLite index already clean, which is what a
+    // long-lived MCP server session relies on (finding 2). userDir is passed
+    // because the boot orphan-prune only runs with the full tier set (the
+    // index-rebuild composition guard) — production passes it via the
+    // weeklyCurate sweepUserDir seam.
     const { older, newer } = seedChain();
-    await temporalSweep({ projectRoot, backend: mockJudge('PAIR 1: SUPERSEDES'), now: NOW });
+    await temporalSweep({ projectRoot, userDir, backend: mockJudge('PAIR 1: SUPERSEDES'), now: NOW });
     const db = openIndexDb({ projectRoot });
     try {
-      reindexFull({ projectRoot, db });
       const r = search({ db, query: 'release', now: NOW });
       const ids = r.results.map((x) => x.id);
       expect(ids).toContain(newer.id);

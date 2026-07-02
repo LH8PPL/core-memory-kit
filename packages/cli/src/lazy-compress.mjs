@@ -49,6 +49,7 @@ import {
   recordCronHeartbeat,
   cronHeartbeatPath,
 } from './compaction-state.mjs';
+import { defaultUserDir } from './tier-paths.mjs';
 
 const DEFAULT_DAILY_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const DEFAULT_WEEKLY_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -363,6 +364,10 @@ export async function runLazyCompress({
       backend,
       now: ts,
       cooldownMs: 0,
+      // Production entry point → the Task-66 sweeps cover the U tier even on
+      // this no-cron lazy path (finding 3). autoPersona keeps its cron-only
+      // shape (userDir stays unset here).
+      sweepUserDir: defaultUserDir(),
     });
   } else {
     delegatedTo = 'daily-distill';

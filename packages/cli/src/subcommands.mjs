@@ -1352,9 +1352,12 @@ async function runDailyDistill(/* options */) {
 async function runWeeklyCurate(/* options */) {
   const projectRoot = resolvePath(process.cwd());
   const { HaikuViaAnthropicApi } = await import('./compressor.mjs');
+  const { defaultUserDir } = await import('./tier-paths.mjs');
   try {
     const backend = new HaikuViaAnthropicApi();
-    const r = await weeklyCurate({ projectRoot, backend });
+    // Production entry point → the Task-66 sweeps cover the U tier
+    // (finding 3); autoPersona keeps its cron-only shape (no userDir).
+    const r = await weeklyCurate({ projectRoot, backend, sweepUserDir: defaultUserDir() });
     if (r.action === 'error') {
       console.error(
         `cmk weekly-curate: error (${r.errorCategory ?? 'unknown'})${(r.errors && r.errors.length) ? `: ${r.errors.join('; ')}` : ''}`,
