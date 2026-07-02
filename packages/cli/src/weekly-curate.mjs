@@ -51,6 +51,7 @@ import { trimTrailingNewlines } from './managed-block.mjs';
 import { initUserTier } from './install.mjs';
 import { autoDrainQueues } from './auto-drain.mjs';
 import { sweepExpiredFacts } from './expiry-sweep.mjs';
+import { temporalSweep } from './temporal-sweep.mjs';
 
 const DEFAULT_ARCHIVE_MAX_BYTES = 4096;
 const DEFAULT_RECENT_MAX_BYTES = 4096;
@@ -358,6 +359,25 @@ export async function weeklyCurate({
     });
   }
 
+  // Temporal contradiction-catch (Task 66.4 / D-259) — the weekly judged
+  // pass: search-retrieved same-subject pairs → ONE batched Haiku verdict →
+  // event-time window-close (66.2) / recurrence bump / drop. Runs in the
+  // SAME weekly Haiku cycle as auto-persona (no new hot-path spawn); its own
+  // marker makes it incremental, and a judge failure leaves the marker
+  // unadvanced so nothing is lost. Best-effort — never aborts the curate.
+  let temporal;
+  try {
+    temporal = await temporalSweep({
+      projectRoot,
+      userDir,
+      backend,
+      now: ts,
+      timeoutMs: CEILING_FREE_TIMEOUT_MS,
+    });
+  } catch (err) {
+    temporal = { action: 'error', reason: 'sweep-crashed', error: err?.message ?? String(err) };
+  }
+
   const files = listAllTodayFiles(projectRoot);
   const { old, current } = splitByAge(files, ts);
 
@@ -390,6 +410,7 @@ export async function weeklyCurate({
       persona,
       drained,
       expiry_sweep: expirySweep,
+      temporal,
       duration_ms,
     };
   }
@@ -531,6 +552,7 @@ export async function weeklyCurate({
     persona,
     drained,
     expiry_sweep: expirySweep,
+    temporal,
     duration_ms,
   };
 }

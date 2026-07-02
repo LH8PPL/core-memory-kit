@@ -173,6 +173,52 @@ describe('Task 34 — weeklyCurate', () => {
     });
   });
 
+  describe('temporal sweep (Task 66.4 / D-259) — the weekly judged contradiction-catch', () => {
+    it('a same-subject newer fact closes the older window through the weekly pass (integration)', async () => {
+      const now = '2026-07-02T12:00:00Z';
+      const older = writeFact({
+        tier: 'P', type: 'project', slug: 'gate-progress',
+        title: 'v9.9 release cut-gate in progress',
+        body: 'The v9.9 release cut-gate is currently in progress.',
+        writeSource: 'user-explicit', trust: 'high',
+        sourceFile: 'context/transcripts/2026-06-29.md', sourceLine: 1,
+        sourceSha1: 'deadbeef0123456789abcdef0123456789abcdef',
+        createdAt: '2026-06-29T09:00:00Z', projectRoot,
+      });
+      const newer = writeFact({
+        tier: 'P', type: 'project', slug: 'gate-published',
+        title: 'v9.9 release published to npm',
+        body: 'The v9.9 release is published to npm with provenance.',
+        writeSource: 'user-explicit', trust: 'high',
+        sourceFile: 'context/transcripts/2026-07-01.md', sourceLine: 1,
+        sourceSha1: 'feedface0123456789abcdef0123456789abcdef',
+        createdAt: '2026-07-01T18:00:00Z', projectRoot,
+      });
+      // No userDir → autoPersona skipped; the FIRST backend call is the judge.
+      const r = await weeklyCurate({
+        projectRoot,
+        backend: mockBackend('PAIR 1: SUPERSEDES', 'archive', 'recent'),
+        now,
+      });
+      expect(r.temporal).toBeDefined();
+      expect(r.temporal.action).toBe('swept');
+      expect(r.temporal.superseded).toBe(1);
+      expect(resolveFact({ id: older.id, projectRoot }).state).toBe('superseded');
+      expect(resolveFact({ id: newer.id, projectRoot }).state).toBe('live');
+    });
+
+    it('cooldown-skipped pass: the temporal sweep does NOT run (it needs the Haiku cycle)', async () => {
+      const now = '2026-07-02T12:00:00Z';
+      touchCooldownMarker({ projectRoot, now });
+      const backend = mockBackend('PAIR 1: SUPERSEDES');
+      const r = await weeklyCurate({ projectRoot, backend, now });
+      expect(r.action).toBe('skipped');
+      expect(r.reason).toBe('cooldown');
+      expect(r.temporal).toBeUndefined();
+      expect(backend.calls).toHaveLength(0);
+    });
+  });
+
   describe('faithfulness/grounding rule (Task 84 / D-36)', () => {
     it('the curate prompt carries the anti-hallucination grounding rule', async () => {
       // weekly-curate is the THIRD compressor layer (compress-session →

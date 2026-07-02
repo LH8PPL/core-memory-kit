@@ -352,6 +352,18 @@ The user-level action that produces a [[Tombstone]]. Triggered by `cmk forget <i
 
 Cross-refs: [[Tombstone]], [[Memory-write skill]]. Spec: design §6.5.
 
+### Validity window
+
+The time span a `State`-shaped fact's claim held true: `created_at` (open) → `ended_at` (close), with `status: completed` and a [[Superseded]] link once closed. The window closes at the SUPERSEDING fact's `created_at` — event-time decides the boundary, never the wall clock and never the LLM (which only classifies the pair; see [[Temporal sweep]]). Closed facts move to `archive/superseded/` — never deleted; point-in-time history stays readable. Task 66.2, D-259.
+
+Cross-refs: [[Fact shape]], [[Temporal sweep]], [[Superseded]]. Spec: design §16.18.
+
+### Temporal sweep
+
+The weekly judged contradiction-catch (Task 66.4, D-259 — the corpus-measured design): for each fact written since the last pass, same-subject candidates are retrieved with the kit's own search (quoted-token FTS5 OR-query), and ONE batched Haiku call classifies each pair — SUPERSEDES (close the older [[Validity window]]), DUPLICATE (bump `recurrence_count` — the restatement signal), COEXIST (drop). Runs in weekly-curate's Haiku cycle; marker-incremental; a judge failure re-derives the pairs next pass. The next SessionStart injects a one-line mention of what was resolved.
+
+Cross-refs: [[Validity window]], [[Recurrence gate]], [[Trust score]]. Spec: design §16.18; research: the 2026-07-02 bake-off note.
+
 ### Declared expiry
 
 A validity end the WRITER states at capture time — the `expires_at` field in [[Provenance frontmatter]] (`cmk remember --expires`, `mk_remember expires`, or auto-extract for a date the turn itself states). The first moment the fact no longer holds (exclusive end). Once past: hidden from search by default (`--include-expired` reveals — human-only, like [[Tombstone]] recovery) and tombstoned by the weekly-curate sweep (audited, recoverable — never hard-deleted). Distinct from staleness aging (the 14-day [[Consolidation]] drop): a declared end never renews on access. Task 66.3, D-258.

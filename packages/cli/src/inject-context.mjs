@@ -40,6 +40,60 @@ import { detectStaleness, isJournalStale } from './lazy-compress.mjs';
 import { isProvenanceCommentLine, parseBulletProvenance } from './provenance.mjs';
 import { listConflictQueue } from './conflict-queue.mjs';
 import { listReviewQueue } from './review-queue.mjs';
+import { parse as parseFactFrontmatter } from './frontmatter.mjs';
+
+// Task 66.4 (D-259): the contradiction-catch demo surface — ONE bounded line
+// after the preamble when the weekly temporal sweep closed validity windows
+// recently, so the next session KNOWS stale state was auto-resolved ("v0.3.2
+// deferred → shipped" never misleads again) without a mid-turn interruption
+// (the D-215 heads-up-not-gate posture). Reads the tail of the audit log
+// (bounded IO — this is the SessionStart hot path) + the archived facts'
+// titles; any read hiccup degrades to no mention, never a crash.
+const TEMPORAL_MENTION_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const TEMPORAL_MENTION_MAX_TITLES = 2;
+const TEMPORAL_MENTION_AUDIT_TAIL_LINES = 400;
+function buildTemporalMention({ projectRoot, ts }) {
+  try {
+    const auditPath = join(projectRoot, 'context', '.locks', 'audit.log');
+    if (!existsSync(auditPath)) return '';
+    const nowMs = Date.parse(ts);
+    const lines = readFileSync(auditPath, 'utf8').split('\n').filter(Boolean);
+    const hits = [];
+    for (const line of lines.slice(-TEMPORAL_MENTION_AUDIT_TAIL_LINES)) {
+      let e;
+      try {
+        e = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      if (e.action !== 'temporal_supersede') continue;
+      const ms = Date.parse(e.ts);
+      if (!Number.isFinite(ms) || nowMs - ms > TEMPORAL_MENTION_WINDOW_MS) continue;
+      hits.push(e);
+    }
+    if (hits.length === 0) return '';
+    const titles = [];
+    for (const e of hits.slice(0, TEMPORAL_MENTION_MAX_TITLES)) {
+      const p = e.paths?.archive;
+      if (!p || !existsSync(p)) continue;
+      try {
+        const { frontmatter } = parseFactFrontmatter(readFileSync(p, 'utf8'));
+        if (frontmatter?.title) titles.push(`"${String(frontmatter.title).slice(0, 70)}"`);
+      } catch {
+        // title unavailable — the count still informs
+      }
+    }
+    const named = titles.length > 0 ? ` — e.g. ${titles.join(', ')}` : '';
+    const more = hits.length > titles.length && titles.length > 0 ? ` (+${hits.length - titles.length} more)` : '';
+    const n = hits.length;
+    return (
+      `Note: ${n} stale state fact${n === 1 ? '' : 's'} auto-superseded by newer ones this week` +
+      `${named}${more}. The memory below is the CURRENT state; closed windows stay readable in memory/archive/superseded/.`
+    );
+  } catch {
+    return '';
+  }
+}
 
 // Importance ranking for value-ordered inject eviction (Task 93 / design §19.3).
 // When a tier exceeds its budget we drop the LOWEST-value sections first, not the
@@ -784,9 +838,16 @@ export function injectContext({
     rawBlocks.length > 0
       ? Buffer.byteLength(AUTHORITATIVE_MEMORY_PREAMBLE, 'utf8') + 2
       : 0;
+  // Task 66.4: the temporal-supersede mention rides between the preamble and
+  // the body. Reserved OUT of the cap like the preamble (§7.1 composition —
+  // caller capBytes stays exact for the tier blocks); one bounded line, empty
+  // string when the last week closed no windows (the common case — and then
+  // the snapshot is byte-identical to the pre-66.4 shape).
+  const temporalMention = rawBlocks.length > 0 ? buildTemporalMention({ projectRoot, ts }) : '';
+  const mentionReserve = temporalMention ? Buffer.byteLength(temporalMention, 'utf8') + 2 : 0;
   const { blocks: keptBlocks, truncationEvents } = enforceCap(
     rawBlocks,
-    Math.max(0, cap - preambleReserve),
+    Math.max(0, cap - preambleReserve - mentionReserve),
     ts,
     cap,
   );
@@ -796,7 +857,9 @@ export function injectContext({
   // behind it).
   const body = keptBlocks.map((b) => b.text).join('\n');
   const snapshot =
-    body === '' ? '' : `${AUTHORITATIVE_MEMORY_PREAMBLE}\n\n${body}`;
+    body === ''
+      ? ''
+      : `${AUTHORITATIVE_MEMORY_PREAMBLE}\n\n${temporalMention ? temporalMention + '\n\n' : ''}${body}`;
 
   // 5. Persist side-effect logs under <projectRoot>/context/.locks/. We
   // only write the project-tier .locks file (which is the well-known

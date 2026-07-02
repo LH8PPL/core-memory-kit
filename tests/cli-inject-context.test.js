@@ -918,6 +918,79 @@ describe('Task 18 — injectContext() boundary', () => {
   });
 });
 
+describe('Task 66.4 — temporal-supersede mention (the contradiction-catch demo surface, D-259)', () => {
+  let f;
+  beforeEach(() => {
+    f = makeFixture();
+    seedThreeTierFixture(f);
+  });
+  afterEach(() => rmSync(f.sandbox, { recursive: true, force: true }));
+
+  function seedSupersedeAudit({ ts, title = 'v9.9 cut-gate in progress' }) {
+    // The archived older fact (title source for the mention).
+    const archivePath = join(
+      f.projectRoot, 'context', 'memory', 'archive', 'superseded', 'P-TEMPA2B3.md',
+    );
+    writeFile(
+      archivePath,
+      `---\nid: P-TEMPA2B3\ntype: project\ntitle: ${title}\nended_at: 2026-07-01T18:00:00Z\nstatus: completed\nsuperseded_by: P-TEMPC4D5\n---\n\nOld state.\n`,
+    );
+    writeFile(
+      join(f.projectRoot, 'context', '.locks', 'audit.log'),
+      JSON.stringify({
+        ts,
+        action: 'temporal_supersede',
+        tier: 'P',
+        id: 'P-TEMPA2B3',
+        paths: { archive: archivePath },
+        extra: { supersededBy: 'P-TEMPC4D5', endedAt: '2026-07-01T18:00:00Z', judgedBy: 'temporal-sweep' },
+      }) + '\n',
+    );
+  }
+
+  it('a recent temporal_supersede → ONE mention line after the preamble, naming the closed fact', () => {
+    seedSupersedeAudit({ ts: '2026-07-01T18:00:00Z' });
+    const r = injectContext({ cwd: f.projectRoot, userDir: f.userDir, now: '2026-07-02T12:00:00Z' });
+    expect(r.snapshot).toMatch(/state fact.*superseded/i);
+    expect(r.snapshot).toContain('v9.9 cut-gate in progress');
+    // Placement: after the preamble, before the tier body.
+    const mentionIdx = r.snapshot.indexOf('superseded');
+    const bodyIdx = r.snapshot.indexOf('project-soul-marker');
+    expect(mentionIdx).toBeGreaterThan(-1);
+    expect(mentionIdx).toBeLessThan(bodyIdx);
+  });
+
+  it('an entry older than 7 days → no mention', () => {
+    seedSupersedeAudit({ ts: '2026-06-20T18:00:00Z' });
+    const r = injectContext({ cwd: f.projectRoot, userDir: f.userDir, now: '2026-07-02T12:00:00Z' });
+    expect(r.snapshot).not.toMatch(/auto-superseded/i);
+  });
+
+  it('no temporal entries → snapshot identical to the pre-66.4 shape (no mention machinery visible)', () => {
+    const r = injectContext({ cwd: f.projectRoot, userDir: f.userDir, now: '2026-07-02T12:00:00Z' });
+    expect(r.snapshot).not.toMatch(/auto-superseded/i);
+  });
+
+  it('cap composition: the mention is reserved OUT of the cap — tier blocks still fit and the total stays bounded', () => {
+    seedSupersedeAudit({ ts: '2026-07-01T18:00:00Z' });
+    // Big enough that the reserves (preamble ~611B + mention ~250B) leave room
+    // for at least one tier block — the composition case under test is
+    // "mention present AND body present", not the all-dropped empty snapshot.
+    const cap = 2000;
+    const r = injectContext({
+      cwd: f.projectRoot, userDir: f.userDir, now: '2026-07-02T12:00:00Z', capBytes: cap,
+    });
+    expect(r.snapshot).not.toBe('');
+    expect(r.snapshot).toContain('v9.9 cut-gate in progress');
+    expect(Buffer.byteLength(r.snapshot, 'utf8')).toBeLessThanOrEqual(
+      cap +
+        Buffer.byteLength(AUTHORITATIVE_MEMORY_PREAMBLE, 'utf8') + 2 +
+        // the mention's own reserve (bounded single line + joiner)
+        400,
+    );
+  });
+});
+
 describe('Task 18 — bin/cmk-inject-context (hook handler — node bin)', () => {
   let sandbox;
   let projectRoot;

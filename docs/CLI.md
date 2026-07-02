@@ -149,7 +149,7 @@ Register the daily-distill + weekly-curate jobs with the host scheduler (Linux c
 Manually trigger a compression pass. `now` = compress-session (default), `today` = daily-distill, `recent` = weekly-curate.
 
 ### `cmk daily-distill` · `cmk weekly-curate`
-Run one pipeline pass directly (these are what the scheduler invokes; humans normally use `cmk register-crons` or `cmk roll`). `daily-distill` consolidates the day's session buffers into `today-{date}.md`; `weekly-curate` archives `today-*.md` older than 7 days into `archive.md`, dedups bullets, and rebuilds `recent.md`.
+Run one pipeline pass directly (these are what the scheduler invokes; humans normally use `cmk register-crons` or `cmk roll`). `daily-distill` consolidates the day's session buffers into `today-{date}.md`; `weekly-curate` archives `today-*.md` older than 7 days into `archive.md`, dedups bullets, and rebuilds `recent.md`. The weekly pass also runs the kit's maintenance sweeps (Task 66, v0.4.4): the **expiry sweep** (facts past their declared `expires_at` are tombstoned — recoverable, never hard-deleted) and the **temporal sweep** (same-subject facts judged in one batched Haiku call; a newer "current state" fact closes the older one's validity window, so stale states stop surfacing — the next session start mentions what was resolved).
 
 ### `cmk compress --lazy`
 The lazy-on-read fallback for no-cron environments: checks staleness and delegates to daily-distill / weekly-curate as needed. Typically invoked detached from the SessionStart hook — not by hand. (Bare `cmk compress` without `--lazy` is a stub.)

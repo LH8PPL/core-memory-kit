@@ -213,6 +213,43 @@ function bumpRecurrence(path) {
   }
 }
 
+// Task 66.4 (D-259): a judged DUPLICATE verdict is the SAME restatement signal
+// as a duplicate write — expose the bump BY ID for the temporal-sweep path.
+// Same audit shape as writeFact's duplicate branch; same durable-by-seed
+// contract (151.8: the committed count is the signal, no overlay write).
+export function bumpFactRecurrence({ id, projectRoot, userDir, now, source } = {}) {
+  if (!id || typeof id !== 'string') {
+    return errorResult({ category: ERROR_CATEGORIES.SCHEMA, errors: ['id: required'] });
+  }
+  const tiers = [];
+  if (projectRoot) tiers.push('P', 'L');
+  if (userDir) tiers.push('U');
+  for (const tier of tiers) {
+    const tierRoot = resolveTierRoot({ tier, projectRoot, userDir });
+    const factDir = resolveFactDir(tier, tierRoot);
+    const path = findExistingFactById(factDir, id);
+    if (!path) continue;
+    const recurrenceCount = bumpRecurrence(path);
+    if (recurrenceCount == null) {
+      return errorResult({
+        category: ERROR_CATEGORIES.SCHEMA,
+        errors: [`could not bump recurrence for ${id} (unreadable frontmatter)`],
+      });
+    }
+    appendAuditEntry(tierRoot, {
+      ts: now ?? nowIso(),
+      action: 'recurrence',
+      tier,
+      id,
+      reasonCode: REASON_CODES.RECURRENCE,
+      extra: { recurrenceCount, ...(source ? { source } : {}) },
+      paths: { before: path },
+    });
+    return { action: 'bumped', id, recurrenceCount, path };
+  }
+  return { action: 'not-found', id };
+}
+
 export function writeFact(opts = {}) {
   const errors = validateOptions(opts);
   if (errors.length > 0) {
