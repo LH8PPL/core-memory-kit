@@ -162,7 +162,10 @@ describe('isCompactionNeeded — the cron-liveness gate (167.A, the PRIMARY bug)
 
 describe('isCompactionNeeded — the derived verdicts (KEPT from detectStaleness)', () => {
   it('empty now.md + fresh recent.md → fresh', () => {
-    const now = Date.now();
+    // Fixed clock like every sibling test — the original `Date.now()` mixed a REAL
+    // wall-clock with the hardcoded today-file date below, a time-bomb that detonated
+    // 2026-07-02 (7d after the fixture date → stale-weekly). The D-52 class.
+    const now = Date.parse('2026-06-25T12:00:00Z');
     writeNow('');
     writeRecent('## recent\n', 1 * 60 * 60 * 1000, now); // 1h old
     writeTodayFile('2026-06-25');
