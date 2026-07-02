@@ -2911,6 +2911,8 @@ The v0.4 differentiator is **breadth** — making the kit usable by agents beyon
 
 **Gates:** 2567/2567 · stress 5/5 first invocation (twice — re-run after review fixes) · live sandbox end-to-end on real Haiku (real SUPERSEDES verdict, window closed, expiry tombstoned, mention rendered). Cut-gate live items flagged for the user: 66.3 no-invented-dates on real turns; 66.4 `cmk weekly-curate` on this repo's real corpus — the bake-off's own stale chains should actually close.
 
+**The 150 rider (PR #250, same day):** ADR-0018 propose-and-approve — the kit detects uncommitted `context/` memory at SessionStart and has Claude OFFER a one-tap commit; git stays agent-run under the host permission model, the kit ships zero git-writing code (`--no-optional-locks` closes even the index-refresh side-write). Two records corrected en route: the "SETTLED D-126 (no auto-commit)" citation was a drifted number (the position is D-122-era — D-261, the PR-C class), and the "141a rider" dissolved (phase (a) shipped in v0.3.x, PR #169 — the D-253a sweep had read the parent checkbox, not the phases; D-260). The stress gate earned its keep once more: it caught the 400ms git leash correctly silencing the proposal under 5×-suite load, which had made presence-asserting tests timing-flaky — fixed with a test-only injection seam, production behavior untouched. And the session's recurring lesson got its third strike: PowerShell text round-trips mojibake'd a repo file TWICE (Get-Content/Set-Content double-encoding) — both caught immediately, restored from git, re-applied via the Edit tool; the rule is now absolute.
+
 ## 11. How to extend this file
 
 When the next layer ships, append a new section under `Phase 6 — Implementation`:
