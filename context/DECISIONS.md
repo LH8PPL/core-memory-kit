@@ -9411,3 +9411,144 @@ _(retracted 2026-06-29)_
 ## RESUME — v0.3.1 cut-gate near-complete; PR
 
 **When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-aN56GAHP -->
+
+## User is cost-conscious by default, notices budget burn ("we blow all my token bu
+
+**When:** 2026-07-01 · **Fact:** `P-aN56GAHP`
+
+<!-- decision:P-TLLH95BT -->
+
+## Design goal is automatic background signals that don't depend on human feedback
+
+**When:** 2026-07-01 · **Fact:** `P-TLLH95BT`
+
+<!-- decision:P-XEZZDBMD -->
+
+## Two separate axes were being conflated: (1) oracle vs no-oracle, (2) automatic v
+
+**When:** 2026-07-01 · **Fact:** `P-XEZZDBMD`
+
+<!-- decision:P-RJFFUUNN -->
+
+## Architectural Thesis: Session→Runtime→Learning→Judge
+
+**When:** 2026-07-01 · **Fact:** `P-RJFFUUNN`
+**Why:** Emerged from deliberate research and multiple verification passes. Reframes product identity and redirects priority. Validated by dogfooding—the session proved survival across boundaries (laptop close, token death, model switch) through committed files.
+
+<!-- decision:P-ZCMaPDQ4 -->
+
+## Token Cost Lesson: Reading vs. Thinking Efficiency
+
+**When:** 2026-07-01 · **Fact:** `P-ZCMaPDQ4`
+**Why:** Enumeration-for-completeness is seductive but low-ROI. The real work lived in conversational thinking and user-supplied corrections.
+
+<!-- decision:P-9BDaHHAE -->
+
+## ADR-0017 Finalization Agenda
+
+**When:** 2026-07-01 · **Fact:** `P-9BDaHHAE`
+**Why:** Survey landed twice; ADR still said "in progress." Confidence-gating is critical to coherence. Honesty-differentiator emerged only in corpus-level context. Feedback-security is an unexamined gap.
+
+<!-- decision:P-JDP4JQ5P -->
+
+## Corpus Re-Read Decision Audit
+
+**When:** 2026-07-01 · **Fact:** `P-JDP4JQ5P`
+**Why:** Multi-artifact projects hide insights at the intersections. The audit is replicable and produces actionable fix-lists and sequencing.
+
+<!-- decision:P-AHQDKFSR -->
+
+## Recurrence as System Fuel (Master Variable)
+
+**When:** 2026-07-01 · **Fact:** `P-AHQDKFSR`
+**Why:** System-level insight visible only when reading the corpus as one piece. Recognizing recurrence as fuel reframes multiple signal-selection and weighting decisions.
+
+<!-- decision:P-X5aKHFTY -->
+
+## 2026-07-01 Arc: Complete Output Inventory and At-Risk Layer
+
+**When:** 2026-07-01 · **Fact:** `P-X5aKHFTY`
+**Why:** The arc produced a thesis (recurrence as the fuel variable) and created multiple output layers. A future session asking "what exists from this arc" needs the complete picture, including what's at-risk. The design principle (evidence-linked claims, decision-trail preservation) makes raw-evidence preservation a design choice, not an afterthought.
+
+<!-- decision:P-ZKSCB7A6 -->
+
+## Kit Dogfooding: The Arc That Redefined Memory Capture Was Itself Captured
+
+**When:** 2026-07-01 · **Fact:** `P-ZKSCB7A6`
+**Why:** The kit is designed to improve its own memory practices. The fact that it captured the session that improved the kit — and that the capture is now useful to the user — proves the kit works on itself. This feedback loop is how the project self-validates.
+
+<!-- decision:P-UKFHGaWD -->
+
+## Raw Research Evidence: Preservation vs. Synthesis-Only Boundary
+
+**When:** 2026-07-01 · **Fact:** `P-UKFHGaWD`
+**Why:** Kit design requires decision-trail preservation and evidence-linked claims. Losing raw evidence breaks auditability — a future reader can't verify claims trace to real findings. Synthesis notes are valuable; raw evidence is the ground truth.
+
+<!-- decision:P-LT3J2JJU -->
+
+## Research Cycle Workflow: Enumerate → Triage → Deep-Read → Synthesize
+
+**When:** 2026-07-01 · **Fact:** `P-LT3J2JJU`
+**Why:** Research cycles are fundamental to this project's evolution (the kit improves by studying other systems). The harness is not a one-shot artifact; it's infrastructure for future cycles.
+
+<!-- decision:P-YLDXYKFH -->
+
+## Design Discipline — Keep Systems Whole
+
+**When:** 2026-07-01 · **Fact:** `P-YLDXYKFH`
+**Why:** The decomposition pattern — turning "design the closed loop" into "wedge tasks + ADR sketches + later decisions" — is a reflexive failure mode. It prevents the design from being reviewed, challenged, or finalized as one artifact.
+
+<!-- decision:P-WCKMLAGA -->
+
+## Kit Design Methodology & Current State
+
+**When:** 2026-07-01 · **Fact:** `P-WCKMLAGA`
+**Why:** Figure 2 is the integration point where the entire research effort culminates. Without it, work stays scattered (ADR sketches, backlog fragments, parts-in-a-bin). With it, design becomes one coherent machine and ADR-0017's Decision becomes finalizeable.
+
+<!-- decision:P-3W96QBNW -->
+
+## ADR-0017 Ready for Adoption Decision
+
+**When:** 2026-07-01 · **Fact:** `P-3W96QBNW`
+**Why:** Clears adoption gate; enables implementation phase
+
+<!-- decision:P-9AaQMUFS -->
+
+## D-249 Doc-Drift Walk: Structural Update Guard
+
+**When:** 2026-07-01 · **Fact:** `P-9AaQMUFS`
+**Why:** Makes doc drift visible per-commit; prevents silent rot
+
+<!-- decision:P-AG5FYCWH -->
+
+## Documentation Wiring: Three-Stage Prevention Pattern
+
+**When:** 2026-07-01 · **Fact:** `P-AG5FYCWH`
+**Why:** Prevents silent rot; makes doc debt visible structurally, not via memory
+
+<!-- decision:P-XTWUFD62 -->
+
+## Raw Research Data Preservation Decision Pending
+
+**When:** 2026-07-01 · **Fact:** `P-XTWUFD62`
+**Why:** At risk of temp-cleanup loss without explicit choice
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
