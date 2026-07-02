@@ -1019,7 +1019,12 @@ describe('Task 150 — the memory-commit proposal line (ADR-0018: propose-and-ap
   it('a git repo with UNCOMMITTED context/ files → ONE model-facing proposal line with the count', () => {
     gitInit();
     // seedThreeTierFixture already wrote context/ files; none are committed.
-    const r = injectContext({ cwd: f.projectRoot, userDir: f.userDir, now: '2026-07-02T12:00:00Z' });
+    // testGitTimeoutMs: under 5x-suite stress load a real git exceeds the
+    // 400ms production leash and the line CORRECTLY degrades to silence —
+    // presence-asserting tests inject a generous timeout (stress-run catch).
+    const r = injectContext({
+      cwd: f.projectRoot, userDir: f.userDir, now: '2026-07-02T12:00:00Z', testGitTimeoutMs: 30000,
+    });
     expect(r.snapshot).toMatch(/uncommitted/i);
     expect(r.snapshot).toMatch(/offer the user a one-tap commit/i);
     // The kit proposes; it never instructs an unconditional commit.
@@ -1060,6 +1065,7 @@ describe('Task 150 — the memory-commit proposal line (ADR-0018: propose-and-ap
     const cap = 2000;
     const r = injectContext({
       cwd: f.projectRoot, userDir: f.userDir, now: '2026-07-02T12:00:00Z', capBytes: cap,
+      testGitTimeoutMs: 30000,
     });
     expect(r.snapshot).toMatch(/one-tap commit/i);
     expect(Buffer.byteLength(r.snapshot, 'utf8')).toBeLessThanOrEqual(cap);
@@ -1090,6 +1096,7 @@ describe('Task 150 — the memory-commit proposal line (ADR-0018: propose-and-ap
     const cap = 2600; // room for all three reserves + at least one tier block
     const r = injectContext({
       cwd: f.projectRoot, userDir: f.userDir, now: '2026-07-02T12:00:00Z', capBytes: cap,
+      testGitTimeoutMs: 30000,
     });
     expect(r.snapshot).toContain('v9.9 cut-gate in progress'); // the mention
     expect(r.snapshot).toMatch(/one-tap commit/i); // the proposal

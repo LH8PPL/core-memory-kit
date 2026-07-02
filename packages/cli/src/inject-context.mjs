@@ -116,7 +116,7 @@ function buildTemporalMention({ projectRoot, ts }) {
 // that can't be computed fast degrades to silence (the ADR's posture), it
 // never gets to spend 3× the hook budget on a line §7.1.3 calls decoration.
 const COMMIT_PROPOSAL_GIT_TIMEOUT_MS = 400;
-function buildCommitProposal({ projectRoot }) {
+function buildCommitProposal({ projectRoot, gitTimeoutMs }) {
   try {
     if (!existsSync(join(projectRoot, '.git'))) return '';
     // -uall: without it, a fully-UNTRACKED context/ collapses to one
@@ -132,7 +132,12 @@ function buildCommitProposal({ projectRoot }) {
       {
         cwd: projectRoot,
         windowsHide: true,
-        timeout: COMMIT_PROPOSAL_GIT_TIMEOUT_MS,
+        // gitTimeoutMs is a TEST-ONLY injection seam (the testSpawnLazy
+        // idiom): under 5x-suite stress load a real git exceeds the 400ms
+        // production leash and the proposal CORRECTLY degrades to silence —
+        // which made presence-asserting tests timing-flaky (stress run
+        // caught it). Production callers never pass it.
+        timeout: gitTimeoutMs ?? COMMIT_PROPOSAL_GIT_TIMEOUT_MS,
         encoding: 'utf8',
       },
     );
@@ -859,6 +864,12 @@ export function injectContext({
   // uses spawnLazyCompress directly). Tests pass a fake to assert
   // "lazy-compress was/was-not triggered" without touching the host.
   testSpawnLazy,
+  // Test-only injection seam for the commit-proposal git call (Task 150):
+  // under 5x-suite stress load a real `git status` exceeds the 400ms
+  // production leash and the proposal correctly degrades to silence, which
+  // made presence-asserting tests timing-flaky. Production callers never
+  // pass this.
+  testGitTimeoutMs,
   // Resolved path to cmk-compress-lazy.mjs (passed by the bin wrapper, which
   // knows the install layout). Lets spawnLazyCompress run `node <path>`
   // directly instead of the shell:true `.cmd` shim — the Windows
@@ -920,7 +931,10 @@ export function injectContext({
   const mentionReserve = temporalMention ? Buffer.byteLength(temporalMention, 'utf8') + 2 : 0;
   // Task 150 (ADR-0018): the memory-commit proposal, same reserved-line
   // contract as the temporal mention.
-  const commitProposal = rawBlocks.length > 0 ? buildCommitProposal({ projectRoot }) : '';
+  const commitProposal =
+    rawBlocks.length > 0
+      ? buildCommitProposal({ projectRoot, gitTimeoutMs: testGitTimeoutMs })
+      : '';
   const proposalReserve = commitProposal ? Buffer.byteLength(commitProposal, 'utf8') + 2 : 0;
   const { blocks: keptBlocks, truncationEvents } = enforceCap(
     rawBlocks,
