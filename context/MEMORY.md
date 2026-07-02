@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-KKQa4aKV) Outcome learning for memory systems should not be failure-only; both success and failure signals should inform utility and updates
-  <!-- source: auto-extract-session, source_line: 1, sha1: 6e71307f714443fc1f2ef7e44f35dae834a605deae3fe62292112979c7839e8a, write: auto-extract, trust: high, at: 2026-07-01T20:22:31Z -->
 - (P-RXRZF6S9) Wants composite representations (diagrams, graphs, anatomical models) that hold both holistic system and component-level views; wants to switch between abstraction levels.
   <!-- source: auto-extract-session, source_line: 1, sha1: d445595ae5f962f89f1c78ffe723feccfec77c78bed2a6c052f1bd6daa16856d, write: auto-extract, trust: high, at: 2026-07-01T20:54:14Z -->
 - (P-NQTS2NRN) Prioritizes result outcome over token/time cost; willing to spend resources for quality.
@@ -20,6 +18,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: b913a97995b1d5d6ae671113d3eb1eb0490c2ae28c80848dcc5c08e1ec7a123f, write: auto-extract, trust: high, at: 2026-07-01T21:21:06Z -->
 - (P-U4XX9SEP) "i wanted the research so the decisions will write them self" — research-first methodology for decision-making
   <!-- source: auto-extract-session, source_line: 1, sha1: c8b9c35d74ec3492f098881fb4d7fe927e3a69edfdba545c1a2b67256b7baf69, write: auto-extract, trust: high, at: 2026-07-01T21:29:27Z -->
+- (P-LDGERRW2) Verifies that all documentation is complete after major fixes — asks "and everything is documented?" as a closing check
+  <!-- source: auto-extract-session, source_line: 1, sha1: 4905b91dac71bebe3c2579e8ed4ec5af9e90b511fcc820dc2dddfcf828e6d7b1, write: auto-extract, trust: high, at: 2026-07-02T06:59:05Z -->
 
 ## Environment Notes
 
