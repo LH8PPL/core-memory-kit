@@ -163,7 +163,10 @@ function latestDaySession(sessionsDir) {
     /^today-\d{4}-\d{2}-\d{2}\.md$/.test(n),
   );
   if (candidates.length === 0) return null;
-  candidates.sort();
+  // Explicit CODE-UNIT comparator (S2871) — deliberately NOT localeCompare:
+  // ISO-dated names make code-unit order chronological, and picking the
+  // latest day-file must be deterministic on every machine/locale.
+  candidates.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   return join(sessionsDir, candidates[candidates.length - 1]);
 }
 
