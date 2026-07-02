@@ -41,7 +41,14 @@ the learn-loop closed. Its load-bearing calls, each grounded in the research cor
    **automatic-first, human-optional** (the two-axis correction: oracle-vs-no-oracle ≠
    automatic-vs-human), **both-polarity** (prioritize symmetric signals — tool-result, expectation
    HIT/MISS — that reinforce as readily as they prune; the asymmetry is a difficulty to engineer
-   around, not a goal). Recurrence is never read as reinforcement (Task 181: friction, not success).
+   around, not a goal). Recurrence is never read as reinforcement **as an OUTCOME signal** (Task 181:
+   a restatement of an already-stored fact is friction — the memory existed and didn't prevent the
+   repeat — closer to a recall-miss than a win). Precision matters here: recurrence still legitimately
+   reinforces on the OTHER two ledgers — IMPORTANCE (the ADR-0016 promotion gate: restated ≥3× →
+   persona) and VALIDITY (the capped trust seed / protection-at-cap: a re-attested fact isn't evicted).
+   What it may never buy is "the memory helped." _(Open seam, resolved in 192/194's signal design: the
+   shipped 151.8 restatement→reinforce mapping is fine while trust gates protection only; when 194
+   wires trust into ranking, mixed evidence must not buy ranking boosts like a tool-success does.)_
 3. **The blend closes the loop in SEARCH, not inject.** `BM25 ⊕ λ·trust_score`, **confidence-gated**,
    facts only — where the index is already open. Inject's hot path stays enum-ordered (§20.3's actual
    concern, preserved). This is the single edit that turns `trust_score` from decorative into
