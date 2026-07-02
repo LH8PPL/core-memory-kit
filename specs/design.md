@@ -1027,6 +1027,17 @@ Design constraints:
 
 The instruction-first lever is deliberately ahead of the Layer-5b backend (Task 65): per D-64, the framing is the bigger recall lever than the search backend. The remaining Task-75 halves (75.1 recall skill, 75.2 prompt hint) land after Task 65 so they wrap the full hybrid ladder.
 
+#### 7.1.3 Reserved volatile lines — the temporal mention (66.4) + the memory-commit proposal (150)
+
+Two bounded, per-session-volatile one-liners may ride between the preamble and the tier body, each following the SAME cap contract as the preamble (its byte length + 2 joining newlines is RESERVED out of the cap handed to truncation, so caller `capBytes` stays exact for the tier blocks; absent = zero bytes, snapshot byte-identical to pre-feature):
+
+1. **The temporal-supersede mention** (Task 66.4, D-259) — built from `temporal_supersede` audit entries within 7 days (positioned 64KB tail read via the shared `readAuditTail`), naming the newest ≤2 closed facts: the "state updates were resolved" heads-up (D-215 posture).
+2. **The memory-commit proposal** (Task 150, ADR-0018) — when the project is a git repo AND `git --no-optional-locks status --porcelain -uall -- context/` (bounded spawnSync, **400ms** timeout, silent degrade) reports uncommitted committed-tier files, a model-facing line asks Claude to OFFER the user a one-tap commit; the kit never runs a git write itself (`--no-optional-locks` makes even the index-refresh side-write impossible — the no-auto-git reconciliation: the user's yes executes an ordinary agent-run git command under the host permission model). `context.local/` never counts (gitignored by design); non-git projects skip at the `.git` existence gate with zero spawn cost (`.git` as a FILE — worktrees/submodules — counts). **Timeout composition (NFR-1, the skill-review I1 class):** the whole hook budgets 500ms and a warm `git status` measured ~450ms on a modest repo — the 400ms leash means a slow git yields silence, never a blown hook budget; a project whose root is a SUBDIRECTORY of a repo (no own `.git`) also degrades to silence (accepted — status-quo behavior; walk-up is the upgrade if ever demanded).
+
+Both are MODEL-facing (they ride `additionalContext`) and both degrade to `''` on any read/spawn failure — the snapshot is the cargo, the lines are decoration.
+
+**Template-sizing edge (DECIDED trade-off, skill-review I4 — the numbers):** at MAXED legal per-file caps, Σ budgets 12,275 + preamble reserve 613 leaves only **112 bytes** of the 13,000 default cap — less than one volatile line (~250–350B each), so a user whose scratchpads sit at their legal caps gets a lowest-value tier-section drop (graceful, logged to truncation.log per Door 4) on sessions where a volatile line fires. Accepted because: the lines are occasional (a supersede within 7d / uncommitted memory), the drop is value-ordered + observable, and shaving tier budgets to pre-reserve worst-case volatile space would cost EVERY session capacity for a sometimes-line. **Re-open trigger (D-248): truncation.log events attributable to volatile reserves showing up in live use at legal caps** — then register a `MAX_VOLATILE_RESERVE` in validate-template's joint invariant and shave the tier budgets explicitly.
+
 ### 7.2 `cmk config --show-origin` debug command
 
 Mirrors `git config --show-origin`. Resolves the source of any setting or observation:
