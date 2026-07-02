@@ -8,18 +8,18 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-NQTS2NRN) Prioritizes result outcome over token/time cost; willing to spend resources for quality.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 753ef213565f8392c956986fa39f52f3494c1945f28ec3006cf85a7102653f37, write: auto-extract, trust: high, at: 2026-07-01T21:11:21Z -->
-- (P-KNWJBUZA) Validates deliberate deferral of decisions when supported by research; does not regret deferred choices if well-reasoned.
-  <!-- source: auto-extract-session, source_line: 1, sha1: df9435ab4dac2e048378116dde56361cfc286f7c5823cd106be3ad84702d0116, write: auto-extract, trust: high, at: 2026-07-01T21:11:21Z -->
-- (P-UGK5BTBF) Core task is superimposing U-Mem's feedback loop onto the kit, making it our own complete design (Figure 2), not just collecting 50-system research evidence.
-  <!-- source: auto-extract-session, source_line: 1, sha1: b913a97995b1d5d6ae671113d3eb1eb0490c2ae28c80848dcc5c08e1ec7a123f, write: auto-extract, trust: high, at: 2026-07-01T21:21:06Z -->
 - (P-U4XX9SEP) "i wanted the research so the decisions will write them self" — research-first methodology for decision-making
   <!-- source: auto-extract-session, source_line: 1, sha1: c8b9c35d74ec3492f098881fb4d7fe927e3a69edfdba545c1a2b67256b7baf69, write: auto-extract, trust: high, at: 2026-07-01T21:29:27Z -->
 - (P-LDGERRW2) Verifies that all documentation is complete after major fixes — asks "and everything is documented?" as a closing check
   <!-- source: auto-extract-session, source_line: 1, sha1: 4905b91dac71bebe3c2579e8ed4ec5af9e90b511fcc820dc2dddfcf828e6d7b1, write: auto-extract, trust: high, at: 2026-07-02T06:59:05Z -->
 - (P-TE9SVR6N) You're challenging a silent drift: v0.4.x was supposed to be the breadth lane (agents after Kiro), but Cursor hasn't shipped while v0.5 is pending. Calling for explicit re-decision, not assumed deferral.
   <!-- source: auto-extract-session, source_line: 1, sha1: 430b05db37b79d58fd58e61cb68ab1546c844256af704282cd7589c74fe5995e, write: auto-extract, trust: high, at: 2026-07-02T07:43:30Z -->
+- (P-ZDX4QFaF) Chose Option A — prioritize Cursor and Codex adapters (breadth-first) before reconsidering name change
+  <!-- source: auto-extract-session, source_line: 1, sha1: 9bde68f8b8fa11983930c0ffdcdc6039c8ec2536546c3340f6c69560e0623e61, write: auto-extract, trust: high, at: 2026-07-02T08:00:43Z -->
+- (P-R4CEEWGS) Will defer full rename until multi-harness support is proven real, not just planned
+  <!-- source: auto-extract-session, source_line: 1, sha1: 8fe76a02d9d06afaf4176550b7f8a57f754c9b6ec27940f400e8a60d6863e07f, write: auto-extract, trust: high, at: 2026-07-02T08:00:43Z -->
+- (P-QLRWTVVE) Deferral trigger: name re-evaluation when "really support more IDE/CLI harnesses" is achieved
+  <!-- source: auto-extract-session, source_line: 1, sha1: 279ea22f9f556b178c0d25b15ad113e864a5b8a72a8a85922ab0362c1755c99d, write: auto-extract, trust: high, at: 2026-07-02T08:00:43Z -->
 
 ## Environment Notes
 
