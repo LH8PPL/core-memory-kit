@@ -352,6 +352,12 @@ The user-level action that produces a [[Tombstone]]. Triggered by `cmk forget <i
 
 Cross-refs: [[Tombstone]], [[Memory-write skill]]. Spec: design §6.5.
 
+### Declared expiry
+
+A validity end the WRITER states at capture time — the `expires_at` field in [[Provenance frontmatter]] (`cmk remember --expires`, `mk_remember expires`, or auto-extract for a date the turn itself states). The first moment the fact no longer holds (exclusive end). Once past: hidden from search by default (`--include-expired` reveals — human-only, like [[Tombstone]] recovery) and tombstoned by the weekly-curate sweep (audited, recoverable — never hard-deleted). Distinct from staleness aging (the 14-day [[Consolidation]] drop): a declared end never renews on access. Task 66.3, D-258.
+
+Cross-refs: [[Tombstone]], [[Fact shape]], [[Provenance frontmatter]]. Spec: design §16.18 + §4.
+
 ### Superseded
 
 A [[Fact file]] replaced by a newer one (via [[Consolidation]] merge or `replace` action). Original is moved to `<tier>/memory/archive/superseded/` with `superseded_by: <new_id>` added. Both old + new IDs resolve forever.

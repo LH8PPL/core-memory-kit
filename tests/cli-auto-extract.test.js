@@ -1007,6 +1007,23 @@ describe('Task 23 — runAutoExtract() boundary', () => {
         expect(prompt).toContain(v);
       }
     });
+
+    it('prompt teaches expires: with the NEVER-guess rule (Task 66.3, Door 3.5)', async () => {
+      const turnFile = writeTurnFile(projectRoot, 'turn');
+      const mock = mockBackend('SKIP');
+      await runAutoExtract({
+        turnFile,
+        projectRoot,
+        haikuBackend: mock,
+        now: '2026-05-25T10:00:00Z',
+      });
+      const call = mock.calls[0];
+      const prompt = (call.instructions ?? '') + '\n' + call.input;
+      expect(prompt).toMatch(/expires:/);
+      // The load-bearing safety rule: the LLM must never invent a date the
+      // turn doesn't state (D-258 — the unprecedented increment, built flagged).
+      expect(prompt).toMatch(/NEVER guess/i);
+    });
   });
 
   describe('Task 24 integration — Poison_Guard rejection on high-trust route', () => {
@@ -1310,6 +1327,27 @@ describe('Task 103 — rich fact synthesis (auto-extract → fact store)', () =>
     const files = readFactFiles();
     expect(files).toHaveLength(1);
     expect(files[0].text).toMatch(/^shape: Plan$/m);
+  });
+
+  it('a rich fact with expires: lands as expires_at frontmatter (Task 66.3 end-to-end)', async () => {
+    const turnFile = writeTurnFile(projectRoot, 'a turn');
+    await runAutoExtract({
+      turnFile,
+      projectRoot,
+      haikuBackend: mockBackend(
+        'BEGIN_FACT',
+        'type: project',
+        'shape: Plan',
+        'expires: 2026-07-04',
+        'title: Team Demo July 4th',
+        'body: The demo to the team is on 2026-07-04.',
+        'END_FACT',
+      ),
+      now: '2026-06-07T10:00:00Z',
+    });
+    const files = readFactFiles();
+    expect(files).toHaveLength(1);
+    expect(files[0].text).toMatch(/^expires_at: ["']?2026-07-04["']?$/m);
   });
 
   it('a rich fact WITHOUT shape gets the explicit State default in frontmatter (Task 66.1)', async () => {

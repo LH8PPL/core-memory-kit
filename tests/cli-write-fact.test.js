@@ -639,6 +639,47 @@ describe('Task 7 — writeFact() boundary', () => {
     });
   });
 
+  describe('expires_at field — declared validity end (Task 66.3, design §16.18 / D-258)', () => {
+    it('expiresAt (date-only) → frontmatter expires_at verbatim', () => {
+      const result = writeFact(validOptions({ projectRoot, expiresAt: '2026-08-01' }));
+      expect(result.action).toBe('created');
+      const { frontmatter } = parseFrontmatter(result.path);
+      // js-yaml may parse a bare date as a string under CORE_SCHEMA; assert the
+      // on-disk text to pin the verbatim round-trip.
+      const text = readFileSync(result.path, 'utf8');
+      expect(text).toMatch(/^expires_at: ["']?2026-08-01["']?$/m);
+      expect(frontmatter.expires_at).toBeDefined();
+    });
+
+    it('expiresAt (full ISO timestamp) accepted', () => {
+      const result = writeFact(
+        validOptions({ projectRoot, expiresAt: '2026-08-01T12:00:00Z' }),
+      );
+      expect(result.action).toBe('created');
+      const text = readFileSync(result.path, 'utf8');
+      expect(text).toMatch(/expires_at: ["']?2026-08-01T12:00:00Z["']?/);
+    });
+
+    it('absent → no expires_at key in frontmatter (permanent facts stay clean)', () => {
+      const result = writeFact(validOptions({ projectRoot }));
+      const { frontmatter } = parseFrontmatter(result.path);
+      expect(frontmatter.expires_at).toBeUndefined();
+    });
+
+    it('unparseable expiresAt → schema error, no file', () => {
+      const result = writeFact(validOptions({ projectRoot, expiresAt: 'next tuesday' }));
+      expect(result.action).toBe('error');
+      expect(result.errorCategory).toBe('schema');
+      expect(result.errors.join(' ')).toMatch(/expiresAt/);
+    });
+
+    it('non-ISO-prefixed but Date-parseable garbage rejected too (strict shape, not just parseable)', () => {
+      const result = writeFact(validOptions({ projectRoot, expiresAt: '08/01/2026' }));
+      expect(result.action).toBe('error');
+      expect(result.errorCategory).toBe('schema');
+    });
+  });
+
   describe('write-path hardening — privacy sanitize + Poison_Guard (#1)', () => {
     const WIN_PATH =
       'C:\\Users\\someuser\\AppData\\Local\\Programs\\Python\\Python313\\python.exe';

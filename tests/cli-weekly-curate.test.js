@@ -29,6 +29,8 @@ import {
 import { MockHaikuBackend } from '../packages/cli/src/compressor.mjs';
 import { install } from '../packages/cli/src/install.mjs';
 import { touchCooldownMarker } from '../packages/cli/src/cooldown.mjs';
+import { writeFact } from '../packages/cli/src/write-fact.mjs';
+import { resolveFact } from '../packages/cli/src/forget.mjs';
 
 let sandbox;
 let projectRoot;
@@ -124,6 +126,50 @@ describe('Task 34 — weeklyCurate', () => {
       expect(r.reason).toBe('cooldown');
       // OLD file untouched — cooldown gate fires BEFORE archive work
       expect(existsSync(join(projectRoot, 'context', 'sessions', 'today-2026-05-10.md'))).toBe(true);
+    });
+  });
+
+  describe('expiry sweep (Task 66.3 / D-258) — deterministic pass, runs BEFORE the cooldown gate', () => {
+    it('an expired fact is tombstoned even on a cooldown-skipped pass (no Haiku involved)', async () => {
+      const now = '2026-07-02T12:00:00Z';
+      touchCooldownMarker({ projectRoot, now });
+      const w = writeFact({
+        tier: 'P',
+        type: 'project',
+        slug: 'demo-friday',
+        title: 'Demo Friday',
+        body: 'Demo to the team is scheduled for Friday.',
+        writeSource: 'user-explicit',
+        trust: 'high',
+        sourceFile: 'context/transcripts/2026-06-20.md',
+        sourceLine: 1,
+        sourceSha1: 'deadbeef0123456789abcdef0123456789abcdef',
+        expiresAt: '2026-06-27',
+        projectRoot,
+      });
+      const r = await weeklyCurate({
+        projectRoot,
+        userDir,
+        backend: mockBackend('archive', 'recent'),
+        now,
+      });
+      expect(r.action).toBe('skipped'); // cooldown gate — Haiku never ran
+      expect(r.expiry_sweep).toBeDefined();
+      expect(r.expiry_sweep.count).toBe(1);
+      expect(r.expiry_sweep.swept[0].id).toBe(w.id);
+      expect(resolveFact({ id: w.id, projectRoot }).state).toBe('tombstoned');
+    });
+
+    it('no expired facts → expiry_sweep reports count 0 (present on every pass)', async () => {
+      const now = '2026-07-02T12:00:00Z';
+      touchCooldownMarker({ projectRoot, now });
+      const r = await weeklyCurate({
+        projectRoot,
+        backend: mockBackend('archive', 'recent'),
+        now,
+      });
+      expect(r.expiry_sweep).toBeDefined();
+      expect(r.expiry_sweep.count).toBe(0);
     });
   });
 

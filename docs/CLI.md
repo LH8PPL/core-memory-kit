@@ -39,14 +39,28 @@ Scaffold the cross-project user tier at `~/.claude-memory-kit/` (honors `$MEMORY
 
 ## Capture
 
-### `cmk remember <text…> [--trust <level>] [--section <name>]`
-Explicitly capture a durable fact to the project `MEMORY.md` (the layer recalled at session start). Routes through the kit's safe write path — **Poison_Guard** (rejects secrets), **home-path abstraction** (`C:\Users\you\…` → `~\…` so a committed fact never leaks your username), **dedup**, and correct provenance. This is the safe alternative to hand-writing files under `context/memory/` (which bypasses all of the above).
+### `cmk remember <text…> [flags]`
+Explicitly capture a durable fact. Routes through the kit's safe write path — **Poison_Guard** (rejects secrets), **home-path abstraction** (`C:\Users\you\…` → `~\…` so a committed fact never leaks your username), **dedup**, and correct provenance. This is the safe alternative to hand-writing files under `context/memory/` (which bypasses all of the above).
+
+**Terse form** (no rich flags) → a one-line bullet in the project `MEMORY.md` (the layer recalled at session start):
 - `--trust high|medium|low` — default `high`.
 - `--section <name>` — MEMORY.md section, default `Active Threads`.
 - `--tier P` — writes the project tier (default). `U`/`L` are **captured to P with a note** (not a direct write target yet); promote a fact (`cmk lessons promote <id>`) to make it cross-project. For machine-only paths, edit `context.local/machine-paths.md` directly.
+
+**Rich form** (any of the flags below) → a granular **fact file** under `context/memory/` with full rationale:
+- `--why <text>` — the rationale (becomes the **Why:** block).
+- `--how <text>` — how to apply it (becomes the **How to apply:** block).
+- `--type feedback|project|reference|user` — fact type, default `feedback`.
+- `--title <text>` — a short title (also the fact-file slug).
+- `--links <a,b>` — related fact names for `[[cross-links]]`.
+- `--shape State|Event|Plan|Relationship|Preference|Absence|Timeless` — what KIND of truth the fact asserts, default `State` (Task 66.1).
+- `--expires <date>` — a declared validity end (ISO date/datetime, e.g. `2026-08-01`): after it the fact **hides from search** and the weekly sweep **tombstones** it (recoverable; never hard-deleted) (Task 66.3).
+- `--from-file <path>` / `--json` — read the whole fact as a JSON object from a file / stdin (shell-safe for backtick/quote-heavy rationale). JSON keys: `text` (required), `why`, `how`, `type`, `title`, `links`, `shape`, `expires`.
+
 ```bash
 cmk remember "We deploy with Kamal to Hetzner; never to Vercel."
 cmk remember "Prefers terse responses, no preamble." --trust high
+cmk remember "Demo to the team is on Friday" --shape Plan --expires 2026-07-04
 ```
 Most capture is automatic (the Stop hook extracts facts each turn) — use `cmk remember` when you want an explicit, immediate write.
 
@@ -59,6 +73,7 @@ Search accumulated memory.
 - `--mode keyword|semantic|hybrid` — the project default is `keyword`, or `hybrid` after `cmk install --with-semantic` (the `search.default_mode` setting). Semantic/hybrid need the optional local embedder; explicitly requesting them without it exits 2 with the install hint, while a configured default degrades gracefully to keyword.
 - `--scope facts|transcripts|decisions` — `facts` (default) searches curated memory; `transcripts` searches the raw session record (verbatim transcripts + compressed session summaries) — the last-resort recall tier; hits are `T:<file>:<line>` locations, and fact-only filters (tier/trust/since) don't apply. `decisions` searches the append-only decision journal (`context/DECISIONS.md`) — use it for decision **history / evolution / "what did we reject"** queries; it returns superseded + retracted decisions the live fact store no longer carries (keyword-only; fact-only filters don't apply).
 - `--min-trust low|medium|high` · `--tier U|P|L` · `--since <ISO date>` · `--limit <n>` (default 20) · `--include-tombstoned`.
+- `--include-expired` — include facts past their declared `expires_at` (hidden from results by default; hidden ≠ deleted — the human-only recovery opt-in, symmetric with tombstones) (Task 66.3).
 ```bash
 cmk search "postgres"
 cmk search "deploy steps" --min-trust high --tier P --limit 5

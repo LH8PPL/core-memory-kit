@@ -208,6 +208,7 @@ export function parseObservationsFromScratchpad({
       created_at: isoToEpochMs(provenance.at),
       superseded_by: provenance.superseded_by ?? null,
       deleted_at: null, // scratchpads don't tombstone in place
+      expires_at: null, // bullets never expire — they age via consolidation (66.3)
     });
     // Skip the comment line so we don't try to parse it as a bullet.
     i++;
@@ -295,8 +296,22 @@ export function parseObservationsFromFactFile({
     created_at: isoToEpochMs(frontmatter.created_at),
     superseded_by: frontmatter.superseded_by ?? null,
     deleted_at: frontmatter.deleted_at ? isoToEpochMs(frontmatter.deleted_at) : null,
+    // Task 66.3: the declared validity end → epoch ms, NULL = permanent.
+    // js-yaml can parse a bare `expires_at: 2026-08-01` as a Date object
+    // under CORE_SCHEMA — normalize before parsing (same as expiry-sweep.mjs).
+    // A malformed hand-edited value indexes as NULL (permanent) rather than
+    // crashing the reindex; the sweep separately reports it as skipped_malformed.
+    expires_at: parseExpiresAtMs(frontmatter.expires_at),
   };
   return { observations: [observation], sha1 };
+}
+
+// Task 66.3 helper: frontmatter expires_at (string | Date | absent) → epoch ms | null.
+function parseExpiresAtMs(raw) {
+  if (raw === undefined || raw === null) return null;
+  const s = raw instanceof Date ? raw.toISOString() : String(raw);
+  const ms = Date.parse(s);
+  return Number.isNaN(ms) ? null : ms;
 }
 
 function parseSource(source, { projectRoot, userDir }) {
@@ -358,19 +373,19 @@ const DELETE_OBSERVATION_BY_ID_SQL = `DELETE FROM observations WHERE id = ?`;
 const INSERT_OBSERVATION_SQL = `
 INSERT INTO observations
   (id, tier, source_file, source_line, source_sha1, heading_path, body,
-   write_source, trust, trust_score, created_at, superseded_by, deleted_at)
+   write_source, trust, trust_score, created_at, superseded_by, deleted_at, expires_at)
 VALUES
   (@id, @tier, @source_file, @source_line, @source_sha1, @heading_path, @body,
-   @write_source, @trust, @trust_score, @created_at, @superseded_by, @deleted_at)
+   @write_source, @trust, @trust_score, @created_at, @superseded_by, @deleted_at, @expires_at)
 `;
 
 const INSERT_SCRATCHPAD_OBSERVATION_SQL = `
 INSERT INTO observations
   (id, tier, source_file, source_line, source_sha1, heading_path, body,
-   write_source, trust, trust_score, created_at, superseded_by, deleted_at)
+   write_source, trust, trust_score, created_at, superseded_by, deleted_at, expires_at)
 VALUES
   (@id, @tier, @source_file, @source_line, @source_sha1, @heading_path, @body,
-   @write_source, @trust, @trust_score, @created_at, @superseded_by, @deleted_at)
+   @write_source, @trust, @trust_score, @created_at, @superseded_by, @deleted_at, @expires_at)
 ON CONFLICT(id) DO NOTHING
 `;
 

@@ -766,6 +766,9 @@ async function runSearch(queryParts, options) {
       since: options?.since,
       limit: options?.limit !== undefined ? Number(options.limit) : undefined,
       includeTombstoned: options?.includeTombstoned === true,
+      // Task 66.3: the expired-recovery opt-in, symmetric with tombstones
+      // (mem0 show_expired parity — expired facts hide, never delete).
+      includeExpired: options?.includeExpired === true,
       semanticBackend,
     });
     if (r.action === 'error') {
@@ -1001,7 +1004,7 @@ export function parseFactInput(options, { readFile, readStdin } = {}) {
   const channel = options.fromFile ? '--from-file' : '--json';
   // --from-file/--json are self-contained (the JSON is the whole fact); rich /
   // terse flags passed alongside are ignored — surfaced so they aren't dropped silently.
-  const ignored = ['why', 'how', 'type', 'title', 'links', 'tier', 'trust', 'section']
+  const ignored = ['why', 'how', 'type', 'title', 'links', 'tier', 'trust', 'section', 'shape', 'expires']
     .filter((k) => options[k] != null)
     .map((k) => '--' + k);
   const fail = (error) => ({ ok: false, channel, error, ignored });
@@ -1060,6 +1063,10 @@ export function parseFactInput(options, { readFile, readStdin } = {}) {
       links: parsed.links,
       tier: parsed.tier,
       trust: parsed.trust,
+      // 66.1/66.3: temporal fields, same pass-through as the flag path
+      // (writeFact validates strictly).
+      shape: parsed.shape,
+      expires: parsed.expires,
     },
   };
 }
@@ -1119,7 +1126,10 @@ export async function runRemember(textParts, options, deps = {}) {
   // --section are intentionally NOT triggers — --trust is shared by both forms
   // (rich reads it too), and --section is terse-only (a MEMORY.md heading, no
   // meaning for a granular fact file). So `--trust high` alone stays terse.
-  if (options?.why || options?.how || options?.type || options?.title || options?.links) {
+  // 66.1/66.3: --shape/--expires are rich triggers too — both are fact-FILE
+  // frontmatter fields; a terse MEMORY.md bullet has nowhere to carry them
+  // (bullets age via consolidation, not declared expiry).
+  if (options?.why || options?.how || options?.type || options?.title || options?.links || options?.shape || options?.expires) {
     runRememberRich(text, options, { projectRoot });
     return;
   }
@@ -2329,7 +2339,9 @@ export const subcommands = [
       { flags: '--type <type>', description: 'rich: feedback | project | reference | user (default: feedback)' },
       { flags: '--title <text>', description: 'rich: a short title (also the fact-file slug)' },
       { flags: '--links <a,b>', description: 'rich: related fact names for [[cross-links]]' },
-      { flags: '--from-file <path>', description: 'rich: read the fact as a JSON object from a file — shell-safe (content never touches argv; the safe way to capture backtick/quote-heavy Why/How). JSON keys: text (required), why, how, type, title, links. Self-contained — other flags are ignored.' },
+      { flags: '--shape <shape>', description: 'rich: what KIND of truth — State | Event | Plan | Relationship | Preference | Absence | Timeless (default: State)' },
+      { flags: '--expires <date>', description: 'rich: declared validity end, ISO date/datetime (e.g. 2026-08-01) — after it the fact hides from search and the weekly sweep tombstones it' },
+      { flags: '--from-file <path>', description: 'rich: read the fact as a JSON object from a file — shell-safe (content never touches argv; the safe way to capture backtick/quote-heavy Why/How). JSON keys: text (required), why, how, type, title, links, shape, expires. Self-contained — other flags are ignored.' },
       { flags: '--json', description: 'rich: read the fact as a JSON object from stdin (pipe-safe, shell-safe) — same JSON keys as --from-file' },
       { flags: '--project <dir>', description: 'project root to write to (default: cwd). Used by the kiro-cli agent — kiro-cli rejects a `cd … &&` prefix (Kiro #4579), so it passes the project root explicitly instead.' },
     ],
@@ -2348,6 +2360,7 @@ export const subcommands = [
       { flags: '--since <date>', description: 'ISO date — exclude observations older than this' },
       { flags: '--limit <n>', description: 'max results (default: 20)' },
       { flags: '--include-tombstoned', description: 'include deleted observations in results' },
+      { flags: '--include-expired', description: 'include facts past their declared expires_at (hidden by default, never deleted)' },
       { flags: '--project <dir>', description: 'project root to search (default: cwd). Used by the kiro-cli agent (no `cd` prefix — Kiro #4579).' },
     ],
     action: runSearch,

@@ -10,7 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
-- **Facts now carry a temporal `shape`** (Task 66.1, the first slice of the v0.4.4 temporal-validity engine). Every captured fact is classified by what KIND of truth it asserts — `State` / `Event` / `Plan` / `Relationship` / `Preference` / `Absence` / `Timeless` — so the kit can start telling "we deploy to Cloud Run" (an ongoing condition that can go stale) apart from "we migrated on May 3" (a one-time event that stays true) and "user does NOT want emoji" (a negative fact search can't otherwise see). Auto-extract classifies automatically; existing facts read as `State` untouched.
+- **Facts now carry a temporal `shape`** (Task 66.1, the first slice of the v0.4.4 temporal-validity engine). Every captured fact is classified by what KIND of truth it asserts — `State` / `Event` / `Plan` / `Relationship` / `Preference` / `Absence` / `Timeless` — so the kit can start telling "we deploy to Cloud Run" (an ongoing condition that can go stale) apart from "we migrated on May 3" (a one-time event that stays true) and "user does NOT want emoji" (a negative fact search can't otherwise see). Auto-extract classifies automatically; existing facts read as `State` untouched. Explicit capture: `cmk remember --shape` / `mk_remember shape`.
+- **Facts with a shelf life now expire on their own** (Task 66.3). Declare a validity end at capture — `cmk remember "demo Friday" --expires 2026-07-04` (or the `mk_remember expires` param) — and after that date the fact **hides from search automatically** and the weekly curation sweep **tombstones it** (audited and recoverable via `--include-expired` / `cmk get --include-tombstoned`; nothing is ever hard-deleted). Auto-extract can also suggest an expiry, but ONLY when your conversation states a concrete date — it is instructed to never guess one. Permanent facts are untouched: no `--expires`, no expiry.
 
 ## [0.4.3] — 2026-07-01
 

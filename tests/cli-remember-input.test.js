@@ -56,8 +56,10 @@ describe('parseFactInput — off-shell structured input parser (108a)', () => {
     expect(r.fields).not.toHaveProperty('write_source');
     expect(r.fields).not.toHaveProperty('sourceFile');
     expect(r.fields).not.toHaveProperty('evil');
+    // 66.1/66.3 extended the allowlist with the two temporal fields (shape,
+    // expires) — both validated strictly downstream by writeFact.
     expect(Object.keys(r.fields).sort()).toEqual([
-      'how', 'links', 'text', 'tier', 'title', 'trust', 'type', 'why',
+      'expires', 'how', 'links', 'shape', 'text', 'tier', 'title', 'trust', 'type', 'why',
     ]);
   });
 

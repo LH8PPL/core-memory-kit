@@ -445,7 +445,7 @@ Every bullet in a scratchpad file and every fact in the granular archive carries
 | `trust` | enum | `high` / `medium` / `low` |
 | `created_at` | ISO 8601 UTC | timestamp at write time |
 
-Optional fields: `merged_from` (for consolidation), `superseded_by` (when replaced), `deleted_at` (for tombstoned facts — see §6.5), `expires_at`, `shape` (temporal classification, Task 66.1 — written explicitly with a `State` default on every new fact; absence on pre-66 facts also reads as `State`; see §16.18).
+Optional fields: `merged_from` (for consolidation), `superseded_by` (when replaced), `deleted_at` (for tombstoned facts — see §6.5), `expires_at` (a DECLARED validity end, Task 66.3 — strict ISO date/datetime, the first moment the fact no longer holds; enforced by the read-time search filter + the weekly-curate sweep, see §16.18), `shape` (temporal classification, Task 66.1 — written explicitly with a `State` default on every new fact; absence on pre-66 facts also reads as `State`; see §16.18).
 
 **Trust default** by `write_source`: `user-explicit` and `manual-edit` → `high`; `auto-extract` and `imported` → `medium`; `compressor` → `low`. Manual override via `cmk trust <id> <high|medium|low>`.
 
@@ -1053,7 +1053,7 @@ Memory ages along **two independent tracks** — conflating them is the usual co
 - **Track A — the session diary (this §8).** Time-ordered "what happened when." Progressive compression: `now.md → today-{date}.md → recent.md (7d) → archive.md (forever)`. Nothing deleted; each stage denser than the last.
 - **Track B — the durable fact store (§2.2 + §3).** "What's true." `MEMORY.md` is the byte-capped HOT index; durable facts **graduate** out of it into granular `context/memory/*.md` fact files (the permanent brain, INDEX'd). MEMORY.md stays small via cap + stale-drop (>14d unreferenced) + graduation.
 
-**What neither track solves: currency.** Track A handles volume, Track B handles durability — but "is this fact still TRUE now?" (Postgres-then-SQLite) needs **temporal validity** → [§16.18](#1618-temporal-awareness--fact-shapes--validity-windows--mode-aware-retrieval). NB: `expires_at` is a defined provenance field with **no enforcement yet** (tasks.md Task 66.3).
+**What neither track solves: currency.** Track A handles volume, Track B handles durability — but "is this fact still TRUE now?" (Postgres-then-SQLite) needs **temporal validity** → [§16.18](#1618-temporal-awareness--fact-shapes--validity-windows--mode-aware-retrieval). NB: `expires_at` was a defined-but-unenforced provenance field until Task 66.3 (v0.4.4) shipped its enforcement — read-time search filter + the weekly-curate expiry sweep (§16.18 shipped-block).
 
 ### 8.1 The four-layer pipeline
 
@@ -2187,6 +2187,12 @@ v0.2 candidate. Inspired by Indranil Chandra's "Beyond the Log: Time-Aware Bluep
 2. **Validity windows on `State`-shape facts.** Add `started_at` and `ended_at` to provenance for `shape: State` facts. When `mergeFacts()` (Task 10) detects a `state_key` match with `ended_at: null`, atomically close the old (`ended_at = merge_ts`, add `status: "completed"`) and create the new (`status: "ongoing"`, `ended_at: null`). The existing `superseded_by` reference stays as a backward-compat link; the new fields make point-in-time queries (`cmk search "X as of 2026-03-15"`) fall out for free. Compose with our existing audit-log + tombstone discipline — nothing is deleted; the timeline of validity windows IS the audit trail.
 
 3. **State-key annotation as a new optional provenance field.** Facts that participate in atomic mutation declare a `state_key` (e.g. `state_key: "primary_treatment_for_X"`). Without it, the fact stays a flat history entry; with it, it becomes part of a validity timeline that `mergeFacts()` can update atomically. Mirrors Chandra's pattern for stateful facts.
+
+**✅ SHIPPED — Task 66.3, the `expires_at` enforcement (v0.4.4 lane, 2026-07-02; D-258).** The field was design-defined since §4 v1 but written by ZERO code paths and enforced by none (verified 2026-06-01, re-verified 2026-07-02). Now both halves exist, per the D-258 primary-source-verified reference set (mem0 `expiration_date` + LangGraph store TTL + the in-base graphiti/letta reads — [research note](../docs/research/2026-07-02-expiry-ttl-precedents-mem0-langgraph.md)):
+
+- **Semantics:** `expires_at` (strict ISO date/datetime, validated in `write-fact.mjs`) is the FIRST moment the fact no longer holds — `now >= expires_at` → expired (exclusive end, matching `ended_at`). Distinct from staleness-TTL (the 14-day scratchpad drop): a declared end never renews on access (LangGraph's `refresh_on_read` explicitly rejected for this field).
+- **Enforcement, both halves:** (1) **read-time** — `search.mjs` keyword WHERE + the semantic post-filter hide expired rows (`includeExpired`/`--include-expired` reveals; human-only on the CLI, same D-163 posture as tombstones; the index carries a nullable `expires_at` epoch-ms column, 151.6-style migration); (2) **sweep** — `expiry-sweep.mjs::sweepExpiredFacts` runs in weekly-curate's deterministic pre-cooldown slot (next to the queue auto-drain) and TOMBSTONES each expired fact through `forget()` (audited `deleted_by: expiry-sweep`, recoverable) — never a hard delete. Read-time is the immediate guarantee; the sweep is the durable cleanup (LangGraph's no-sweep-configured = nothing-expires trap is why both exist).
+- **Writers (the D-169 populated path):** explicit — `cmk remember --expires` / `--shape` (+ the `--from-file`/`--json` keys) and `mk_remember` `expires`/`shape` params; automatic — auto-extract's BEGIN_FACT `expires:` (strict-ISO-or-omit parser; the prompt scopes it to Plan/Event facts whose TURN states a concrete date, with an explicit NEVER-guess rule — the unprecedented increment among the surveyed systems, so its live behavior is a named cut-gate validation item).
 
 **Deferred to v0.3 (or later):**
 

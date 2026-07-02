@@ -76,7 +76,14 @@ CREATE TABLE IF NOT EXISTS observations (
   trust_score REAL NOT NULL DEFAULT 0.5,
   created_at INTEGER NOT NULL,
   superseded_by TEXT REFERENCES observations(id),
-  deleted_at INTEGER
+  deleted_at INTEGER,
+  -- Task 66.3 (design §16.18 / D-258): the declared validity end, epoch ms,
+  -- NULL = permanent. Mirrors the committed fact-file expires_at frontmatter
+  -- (facts only; scratchpad bullets are always NULL — they age via the 14-day
+  -- consolidation drop instead). Search hides expired rows at READ time (the
+  -- immediate half of enforcement); the weekly-curate sweep tombstones them
+  -- (the durable half).
+  expires_at INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_observations_tier ON observations(tier);
@@ -202,6 +209,10 @@ export function openIndexDb({ projectRoot, dbPath } = {}) {
   // The next full reindex reseeds real values; until then existing rows carry the
   // DEFAULT 0.5 (medium). Idempotent: skip if the column already exists.
   migrateAddColumn(db, 'observations', 'trust_score', 'REAL NOT NULL DEFAULT 0.5');
+  // Task 66.3: same non-destructive migration pattern for `expires_at`
+  // (nullable — NULL = permanent, which is exactly right for every pre-66 row;
+  // the next full reindex populates real values from fact frontmatter).
+  migrateAddColumn(db, 'observations', 'expires_at', 'INTEGER');
   return db;
 }
 

@@ -48,6 +48,15 @@ const VALID_SHAPES = new Set([
   'Timeless',
 ]);
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9_-]*$/i;
+// Task 66.3 (design §16.18 / D-258): a DECLARED validity end — the writer
+// knows at write time the fact has a shelf life ("demo scheduled Friday").
+// ISO 8601 date or datetime, strict shape (not merely Date-parseable — a
+// locale form like `08/01/2026` is ambiguous across machines and rejected).
+// Semantics: expires_at is the FIRST moment the fact no longer holds
+// (now >= expires_at → expired), matching the exclusive ended_at convention.
+// Enforcement (read-filter + sweep) lands with the same task; mem0/graphiti
+// precedent: expired facts HIDE from retrieval, they are never hard-deleted.
+const EXPIRES_AT_PATTERN = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?$/;
 
 // Layer-2 review: PR-1 rejected \n / \r / : in scalar frontmatter fields as
 // a minimum fix for the naive serializer (finding B2). PR-2's frontmatter.mjs
@@ -91,6 +100,17 @@ function validateOptions(opts) {
     errors.push(
       'shape: must be one of State/Event/Plan/Relationship/Preference/Absence/Timeless (case-sensitive)',
     );
+  }
+  if (opts.expiresAt !== undefined) {
+    if (
+      typeof opts.expiresAt !== 'string' ||
+      !EXPIRES_AT_PATTERN.test(opts.expiresAt) ||
+      Number.isNaN(Date.parse(opts.expiresAt))
+    ) {
+      errors.push(
+        'expiresAt: must be an ISO 8601 date (YYYY-MM-DD) or datetime (e.g. 2026-08-01T12:00:00Z)',
+      );
+    }
   }
   if (
     !opts.sourceFile ||
@@ -141,6 +161,8 @@ function buildFrontmatterObject(opts, computed) {
   };
   if (opts.mergedFrom) fm.merged_from = opts.mergedFrom;
   if (opts.supersededBy) fm.superseded_by = opts.supersededBy;
+  // Task 66.3: declared validity end, verbatim (validated in validateOptions).
+  if (opts.expiresAt) fm.expires_at = opts.expiresAt;
   if (opts.tags) fm.tags = opts.tags;
   if (opts.related) fm.related = opts.related;
   if (opts.isPrivate === true) fm.private = true;

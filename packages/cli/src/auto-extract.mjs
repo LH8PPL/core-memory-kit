@@ -315,6 +315,7 @@ export function buildExtractionInstructions() {
     '  how: <how the next session should apply it>',
     '  END_FACT',
     '  shape guide: State = an ongoing condition ("we deploy to Cloud Run"); Event = happened once ("we migrated to SQLite on May 3"); Plan = future-dated ("demo scheduled Friday"); Relationship = a relation between entities; Preference = a personalization; Absence = a NEGATIVE fact ("user does NOT want emoji"); Timeless = always true. Omit if unsure — State is the default.',
+    '  expires: <YYYY-MM-DD> — OPTIONAL, for Plan/Event facts ONLY, and ONLY when the turn states a concrete date after which the fact no longer holds ("demo on 2026-07-04" → expires: 2026-07-04). NEVER guess or infer a date the turn does not state; when in doubt, omit — a permanent fact is always safer than a wrongly-expiring one.',
     'Rules for BEGIN_FACT blocks:',
     '  - body may span multiple lines (markdown bullets are encouraged when the knowledge has parts — make the saved fact genuinely useful to a future session, at least as detailed as a careful hand-written note). Write it as plain markdown on the lines after `body:` — do NOT use a YAML block scalar (`|` or `>`).',
     '  - title AND body are required; why/how are strongly preferred but optional. type defaults to project.',
@@ -403,7 +404,11 @@ const RICH_FACT_VALID_SHAPES = new Set([
   'Absence',
   'Timeless',
 ]);
-const RICH_FACT_KEYS = new Set(['type', 'title', 'body', 'why', 'how', 'shape']);
+const RICH_FACT_KEYS = new Set(['type', 'title', 'body', 'why', 'how', 'shape', 'expires']);
+// Task 66.3: the same strict ISO shape write-fact.mjs enforces — the LLM
+// boundary stays tolerant by OMITTING anything else (a bad date must never
+// kill a capture), while writeFact would reject it loudly on the explicit path.
+const RICH_FACT_EXPIRES_PATTERN = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?$/;
 // Defensive per-field cap so a runaway block can't write an unbounded fact body.
 const RICH_FACT_FIELD_CAP = 4000;
 
@@ -468,9 +473,18 @@ function parseRichFactBlock(blockLines) {
     ? rawShape.charAt(0).toUpperCase() + rawShape.slice(1).toLowerCase()
     : '';
   const shape = RICH_FACT_VALID_SHAPES.has(normShape) ? normShape : undefined;
+  // 66.3: a suggested validity end — kept only when it's a strict ISO date
+  // Haiku derived from the turn (the prompt forbids guessing); anything else
+  // is dropped, not fatal.
+  const rawExpires = cleanFieldValue(fields.expires);
+  const expires =
+    rawExpires && RICH_FACT_EXPIRES_PATTERN.test(rawExpires) && !Number.isNaN(Date.parse(rawExpires))
+      ? rawExpires
+      : undefined;
   return {
     type,
     ...(shape ? { shape } : {}),
+    ...(expires ? { expires } : {}),
     title: title.slice(0, RICH_FACT_FIELD_CAP),
     body: body.slice(0, RICH_FACT_FIELD_CAP),
     why: why ? why.slice(0, RICH_FACT_FIELD_CAP) : '',
@@ -689,9 +703,10 @@ function routeRichFact({ candidate, projectRoot, ts }) {
   return writeFact({
     tier: 'P',
     type: candidate.type,
-    // Task 66.1: the parser already normalized/validated shape (invalid →
-    // absent); absent → writeFact's State default.
+    // Task 66.1/66.3: the parser already normalized/validated shape + expires
+    // (invalid → absent); absent → writeFact's State default / no expiry.
     shape: candidate.shape,
+    expiresAt: candidate.expires,
     slug: slugifyFact(title),
     title,
     body,

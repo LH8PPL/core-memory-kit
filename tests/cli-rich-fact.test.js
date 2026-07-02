@@ -182,6 +182,42 @@ describe('Task 103 — parseRichFacts (BEGIN_FACT…END_FACT blocks)', () => {
     });
   });
 
+  describe('expires field — LLM-suggested validity end (Task 66.3, D-258 flagged increment)', () => {
+    function blockWith(expiresLine) {
+      return [
+        'BEGIN_FACT',
+        'type: project',
+        'shape: Plan',
+        'title: Demo scheduled',
+        'body: Demo to the team is scheduled for 2026-07-04.',
+        ...(expiresLine ? [expiresLine] : []),
+        'END_FACT',
+      ].join('\n');
+    }
+
+    it('valid ISO date parses through', () => {
+      const facts = parseRichFacts(blockWith('expires: 2026-07-04'));
+      expect(facts).toHaveLength(1);
+      expect(facts[0].expires).toBe('2026-07-04');
+    });
+
+    it('invalid value → omitted, fact still parses (never let a bad date kill the capture)', () => {
+      const facts = parseRichFacts(blockWith('expires: whenever it happens'));
+      expect(facts).toHaveLength(1);
+      expect(facts[0].expires).toBeUndefined();
+    });
+
+    it('non-ISO locale date rejected (ambiguous across machines)', () => {
+      const facts = parseRichFacts(blockWith('expires: 07/04/2026'));
+      expect(facts[0].expires).toBeUndefined();
+    });
+
+    it('absent → omitted (permanent fact)', () => {
+      const facts = parseRichFacts(blockWith(null));
+      expect(facts[0].expires).toBeUndefined();
+    });
+  });
+
   it('treats an INDENTED key-like line as body content, not a field (key must be at line start)', () => {
     const out = [
       'BEGIN_FACT',

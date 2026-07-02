@@ -78,6 +78,11 @@ export function rememberRich(text, options = {}, deps = {}) {
   return write({
     tier: 'P',
     type: options.type ?? 'feedback',
+    // Task 66.1/66.3: temporal fields pass straight through — writeFact owns
+    // the strict validation (an explicit surface should error loudly on a bad
+    // value, unlike auto-extract's tolerant LLM boundary).
+    shape: options.shape,
+    expiresAt: options.expires,
     slug: slugifyFact(title),
     title,
     body,

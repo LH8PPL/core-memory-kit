@@ -50,6 +50,7 @@ import { autoPersona } from './auto-persona.mjs';
 import { trimTrailingNewlines } from './managed-block.mjs';
 import { initUserTier } from './install.mjs';
 import { autoDrainQueues } from './auto-drain.mjs';
+import { sweepExpiredFacts } from './expiry-sweep.mjs';
 
 const DEFAULT_ARCHIVE_MAX_BYTES = 4096;
 const DEFAULT_RECENT_MAX_BYTES = 4096;
@@ -290,6 +291,12 @@ export async function weeklyCurate({
   const drained = { P: await autoDrainQueues({ tier: 'P', projectRoot }) };
   if (userDir) drained.U = await autoDrainQueues({ tier: 'U', userDir });
 
+  // Expiry sweep (Task 66.3 / D-258) — same deterministic-pass slot as the
+  // auto-drain: non-Haiku file IO, runs on EVERY pass regardless of the
+  // cooldown, so a declared expires_at never waits on the Haiku gate. Each
+  // expired fact tombstones through forget() (audited, recoverable).
+  const expirySweep = sweepExpiredFacts({ projectRoot, userDir, now: ts });
+
   if (isCooldownActive({ projectRoot, now: ts, cooldownMs })) {
     const duration_ms = Date.now() - t0;
     writeCurateLogEntry({
@@ -308,9 +315,10 @@ export async function weeklyCurate({
         duration_ms,
         success: true,
         skipped_reason: 'cooldown',
+        expired_swept: expirySweep.count,
       },
     });
-    return { action: 'skipped', reason: 'cooldown', drained, duration_ms };
+    return { action: 'skipped', reason: 'cooldown', drained, expiry_sweep: expirySweep, duration_ms };
   }
 
   // Design-B auto-persona hook (Task 45). The weekly cycle is the natural
@@ -381,6 +389,7 @@ export async function weeklyCurate({
       currentDays: current.length,
       persona,
       drained,
+      expiry_sweep: expirySweep,
       duration_ms,
     };
   }
@@ -521,6 +530,7 @@ export async function weeklyCurate({
     bytesOut: output_bytes,
     persona,
     drained,
+    expiry_sweep: expirySweep,
     duration_ms,
   };
 }
