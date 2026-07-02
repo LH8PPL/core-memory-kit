@@ -9552,3 +9552,116 @@ _(retracted 2026-06-29)_
 ## RESUME — v0.3.1 cut-gate near-complete; PR
 
 **When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-KKQa4aKV -->
+
+## Outcome learning for memory systems should not be failure-only; both success and
+
+**When:** 2026-07-01 · **Fact:** `P-KKQa4aKV`
+
+<!-- decision:P-RXRZF6S9 -->
+
+## Wants composite representations (diagrams, graphs, anatomical models) that hold
+
+**When:** 2026-07-01 · **Fact:** `P-RXRZF6S9`
+
+<!-- decision:P-NQTS2NRN -->
+
+## Prioritizes result outcome over token/time cost; willing to spend resources for
+
+**When:** 2026-07-01 · **Fact:** `P-NQTS2NRN`
+
+<!-- decision:P-KNWJBUZA -->
+
+## Validates deliberate deferral of decisions when supported by research; does not
+
+**When:** 2026-07-01 · **Fact:** `P-KNWJBUZA`
+
+<!-- decision:P-UGK5BTBF -->
+
+## Core task is superimposing U-Mem's feedback loop onto the kit, making it our own
+
+**When:** 2026-07-01 · **Fact:** `P-UGK5BTBF`
+
+<!-- decision:P-VKTQFKBR -->
+
+## Deferred Task Trigger Convention
+
+**When:** 2026-07-02 · **Fact:** `P-VKTQFKBR`
+**Why:** Keeps speculative work out of the active board while ensuring deferral is visible, actionable, and not forgotten. Each condition is concrete enough to watch for.
+
+<!-- decision:P-4LM6ZATU -->
+
+## v0.4.4 and v0.5.0 Build Phases
+
+**When:** 2026-07-02 · **Fact:** `P-4LM6ZATU`
+**Why:** v0.5.0 is the major release carrying the adopted learn-loop design (ADR-0017). The phase sequence reflects inter-dependencies (190's recall-log data feeds 189; 191's judgment files unblock 180).
+
+<!-- decision:P-B6UMaKWN -->
+
+## Cross-Machine File Sorting Must Be Byte-Deterministic
+
+**When:** 2026-07-02 · **Fact:** `P-B6UMaKWN`
+**Why:** Build reproducibility and cross-machine determinism; files sorted differently per locale breaks CI/distribution
+
+<!-- decision:P-NDFFVRaT -->
+
+## Tests Excluded From SonarCloud Analysis
+
+**When:** 2026-07-02 · **Fact:** `P-NDFFVRaT`
+**Why:** Prevents false-positive Quality Gate failures from test fixtures designed to demonstrate defenses
+
+<!-- decision:P-KKXDa34P -->
+
+## Harness Support Roadmap (Task 196) and Versioning Policy
+
+**When:** 2026-07-02 · **Fact:** `P-KKXDa34P`
+**Why:** Multiple harnesses require clear roadmap and versioning to avoid ad-hoc decisions and release-pressure coupling.
+
+<!-- decision:P-ZTU5FXK6 -->
+
+## Kit Name Change (Task 195) — Timeline and Decision Point
+
+**When:** 2026-07-02 · **Fact:** `P-ZTU5FXK6`
+**Why:** Renaming costs grow with users; ADR defer condition is now live; decision needed at v0.4.4 cut.
+
+<!-- decision:P-QFa7MTRG -->
+
+## Breadth Lane Stall Root Cause (Four Consecutive Displacements)
+
+**When:** 2026-07-02 · **Fact:** `P-QFa7MTRG`
+**Why:** Understanding this as death-by-a-thousand-cuts (not a single bad decision) helps design a re-decision that sticks by accounting for how priorities actually shift, not assuming they won't.
+
+<!-- decision:P-JFLF6J7S -->
+
+## Three Options for v0.4.5+ (Breadth Lane Decides at v0.4.4 Cut)
+
+**When:** 2026-07-02 · **Fact:** `P-JFLF6J7S`
+**Why:** The stall had no clear signal about which adapters matter. Three options exist; the decision must be made explicitly with user input driving prioritization.
+
+<!-- decision:P-YSZPTZVJ -->
+
+## cmk is the established product brand in practice
+
+**When:** 2026-07-02 · **Fact:** `P-YSZPTZVJ`
+**Why:** The tool already has a practical brand identity; informs naming/branding strategy. Distinguishes "product brand" (cmk) from "package/distribution name" (claude-memory-kit).
+
+<!-- decision:P-2663WQEX -->
+
+## Committed Roadmap (v0.4.4–v0.5.0)
+
+**When:** 2026-07-02 · **Fact:** `P-2663WQEX`
+**Why:** User prioritized breadth (multi-harness support) over depth (learn-loop); deferred name decision until multi-harness is proven real. Validated by `validate-backlog-triggers` on each `npm test`.
+
+<!-- decision:P-XD9BCGVB -->
+
+## Task 195 bake-off: add Letta term-collision validation
+
+**When:** 2026-07-02 · **Fact:** `P-XD9BCGVB`
+**Why:** core-memory-kit is the leading name, but validation defers until Cursor+Codex ship. Letta's existing "core memory" term is a specific checkable constraint within that bake-off.
