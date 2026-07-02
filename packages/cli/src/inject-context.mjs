@@ -110,26 +110,40 @@ function buildTemporalMention({ projectRoot, ts }) {
 // `.git` gate (non-git projects skip with zero cost), then a bounded
 // `git status --porcelain -- context/` (context.local/ is gitignored by
 // design and never counts). Any failure degrades to silence.
-const COMMIT_PROPOSAL_GIT_TIMEOUT_MS = 1500;
+// Timeout composition with NFR-1 (skill-review I1): injectContext's whole
+// budget is 500ms, and a warm `git status` on a modest repo already measured
+// ~450ms — so the git call gets a SHORT leash, not a generous one: a proposal
+// that can't be computed fast degrades to silence (the ADR's posture), it
+// never gets to spend 3× the hook budget on a line §7.1.3 calls decoration.
+const COMMIT_PROPOSAL_GIT_TIMEOUT_MS = 400;
 function buildCommitProposal({ projectRoot }) {
   try {
     if (!existsSync(join(projectRoot, '.git'))) return '';
     // -uall: without it, a fully-UNTRACKED context/ collapses to one
     // `?? context/` line and the count reads "1" for a whole directory —
     // exactly wrong on the most common case (the first-ever commit).
-    const r = spawnSync('git', ['status', '--porcelain', '-uall', '--', 'context/'], {
-      cwd: projectRoot,
-      windowsHide: true,
-      timeout: COMMIT_PROPOSAL_GIT_TIMEOUT_MS,
-      encoding: 'utf8',
-    });
+    // --no-optional-locks: plain `git status` may opportunistically refresh
+    // .git/index — this flag makes the ADR's "the kit ships no git-writing
+    // code path" claim airtight AND avoids contending with a user's
+    // concurrent git operation (skill-review I1).
+    const r = spawnSync(
+      'git',
+      ['--no-optional-locks', 'status', '--porcelain', '-uall', '--', 'context/'],
+      {
+        cwd: projectRoot,
+        windowsHide: true,
+        timeout: COMMIT_PROPOSAL_GIT_TIMEOUT_MS,
+        encoding: 'utf8',
+      },
+    );
     if (r.status !== 0 || typeof r.stdout !== 'string') return '';
     const n = r.stdout.split('\n').filter((l) => l.trim()).length;
     if (n === 0) return '';
     return (
       `Note: ${n} memory file(s) under context/ are uncommitted — at a natural moment, ` +
       `offer the user a one-tap commit of their project memory (git add context/ + a short ` +
-      `commit); only act on their yes (ADR-0018: the kit proposes, the user owns git).`
+      `commit); do NOT run any git command before the user approves — only act on their yes ` +
+      `(ADR-0018: the kit proposes, the user owns git).`
     );
   } catch {
     return '';

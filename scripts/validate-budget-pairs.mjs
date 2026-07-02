@@ -65,6 +65,18 @@ export const BUDGET_REGISTRY = [
     suppressed:
       'enforced structurally on every npm test by validate-template assertion 3 (Σ caps + preamble reserve ≤ cap, gate-bite verified) — a runtime test pair would duplicate the validator',
   },
+  {
+    name: 'commit-proposal git timeout (400ms, silent degrade)',
+    sourceRef: 'design §7.1.3 / ADR-0018 (Task 150)',
+    suppressed:
+      'the over-cap behavior (a hung git killed at the timeout → empty proposal) needs a controllable slow git binary — impractical as a unit pair; the degrade path is covered by the git-failure branch tests (non-git / spawn-error → silence) and the timeout is the composition guard reviewed under NFR-1 (skill-review I1: 400ms inside the 500ms hook budget)',
+  },
+  {
+    name: 'volatile reserved lines (temporal mention 66.4 + commit proposal 150) vs the snapshot cap',
+    sourceRef: 'design §7.1.3',
+    suppressed:
+      'both lines are RESERVED out of the caller cap (snapshot ≤ capBytes pinned by the tightened cap-composition tests incl. the three-reserve joint test in cli-inject-context.test.js); the template-sizing edge (Σ legal caps + reserves > 13,000 → graceful section-drop with a truncation.log event) is the DOCUMENTED accepted trade-off in §7.1.3 with a named re-open trigger',
+  },
 ];
 
 /**

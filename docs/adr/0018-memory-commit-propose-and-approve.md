@@ -45,7 +45,9 @@ Ship the **detection + proposal surface**, keep git in human-approved hands:
 
 1. **Detection (automatic, no command):** at SessionStart, when the project is a git repo,
    `inject-context` counts uncommitted paths under `context/` (a bounded
-   `git status --porcelain -- context/` with a hard timeout; any failure degrades to
+   `git --no-optional-locks status --porcelain -uall -- context/` with a hard 400ms
+   timeout — inside the hook's 500ms budget, and `--no-optional-locks` means not even
+   git's opportunistic index refresh writes anything; any failure degrades to
    silence). `context.local/` never counts — it's gitignored by design.
 2. **The proposal line (model-facing):** a bounded one-liner rides the injected snapshot
    (reserved out of the cap, same pattern as the temporal mention): *"N memory file(s) under

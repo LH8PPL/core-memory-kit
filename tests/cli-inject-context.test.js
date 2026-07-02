@@ -1,5 +1,7 @@
-// @doors: 1, 2, 4
-// Door 3 N/A: inject-context is the in-process scratchpad reader + JSON emitter for SessionStart; the bash bin wrapper spawn is tested in cli-hooks-scaffold.
+// @doors: 1, 2, 3, 4
+// Door 3: post-Task-150 the module spawns `git status` (the commit-proposal
+//   detection) — the Task 150 tests exercise the REAL git binary in sandboxes;
+//   the bash bin wrapper spawn is tested in cli-hooks-scaffold.
 // Door 5 N/A: no message-queue interaction.
 
 // Tests for Task 18 — cmk-inject-context SessionStart hook (T-015).
@@ -971,7 +973,7 @@ describe('Task 66.4 — temporal-supersede mention (the contradiction-catch demo
     expect(r.snapshot).not.toMatch(/auto-superseded/i);
   });
 
-  it('cap composition: the mention is reserved OUT of the cap — tier blocks still fit and the total stays bounded', () => {
+  it('cap composition: the mention is reserved OUT of the cap — snapshot ≤ capBytes EXACTLY (the §7.1.2 contract)', () => {
     seedSupersedeAudit({ ts: '2026-07-01T18:00:00Z' });
     // Big enough that the reserves (preamble ~611B + mention ~250B) leave room
     // for at least one tier block — the composition case under test is
@@ -982,12 +984,10 @@ describe('Task 66.4 — temporal-supersede mention (the contradiction-catch demo
     });
     expect(r.snapshot).not.toBe('');
     expect(r.snapshot).toContain('v9.9 cut-gate in progress');
-    expect(Buffer.byteLength(r.snapshot, 'utf8')).toBeLessThanOrEqual(
-      cap +
-        Buffer.byteLength(AUTHORITATIVE_MEMORY_PREAMBLE, 'utf8') + 2 +
-        // the mention's own reserve (bounded single line + joiner)
-        400,
-    );
+    // Reserves are SUBTRACTED from the cap handed to truncation, so the final
+    // snapshot honors capBytes exactly — a loose `cap + slack` bound here
+    // would keep passing even if a reserve were deleted (skill-review I3).
+    expect(Buffer.byteLength(r.snapshot, 'utf8')).toBeLessThanOrEqual(cap);
   });
 });
 
@@ -999,9 +999,17 @@ describe('Task 150 — the memory-commit proposal line (ADR-0018: propose-and-ap
   });
   afterEach(() => rmSync(f.sandbox, { recursive: true, force: true }));
 
-  function gitInit(extraArgs = []) {
-    const run = (args) =>
-      spawnSync('git', args, { cwd: f.projectRoot, windowsHide: true, timeout: 15000 });
+  function gitInit() {
+    // Skill-review I5: generous timeout (a warm commit measured 12s of the
+    // old 15s budget on a loaded machine), HARD status assertion (a silently
+    // failed setup commit produces a baffling downstream mismatch), and
+    // --no-gpg-sign on commits (a runner with global commit.gpgsign=true
+    // would hang the sandbox commit).
+    const run = (args) => {
+      const r = spawnSync('git', args, { cwd: f.projectRoot, windowsHide: true, timeout: 60000 });
+      expect(r.status).toBe(0);
+      return r;
+    };
     run(['init', '-q']);
     run(['config', 'user.email', 'test@example.com']);
     run(['config', 'user.name', 'Test']);
@@ -1021,38 +1029,72 @@ describe('Task 150 — the memory-commit proposal line (ADR-0018: propose-and-ap
   it('a git repo with context/ fully committed → NO proposal line', () => {
     const run = gitInit();
     run(['add', '.']);
-    run(['commit', '-q', '-m', 'seed']);
+    run(['commit', '-q', '--no-gpg-sign', '-m', 'seed']);
     const r = injectContext({ cwd: f.projectRoot, userDir: f.userDir, now: '2026-07-02T12:00:00Z' });
     expect(r.snapshot).not.toMatch(/one-tap commit/i);
   });
 
-  it('a NON-git project → no proposal line, no git spawn attempted (silent degrade)', () => {
+  it('a NON-git project → no proposal line (the .git gate returns before any spawn — which also makes this immune to a parent repo above tmpdir)', () => {
     const r = injectContext({ cwd: f.projectRoot, userDir: f.userDir, now: '2026-07-02T12:00:00Z' });
     expect(r.snapshot).not.toMatch(/one-tap commit/i);
   });
 
   it('context.local/ changes alone do NOT trigger the proposal (gitignored tier is not commit material)', () => {
+    // NOTE (skill-review M3): the dirty context.local is BOTH gitignored AND
+    // outside the `context/` pathspec — this pins the realistic install
+    // shape; the pathspec exclusion alone is additionally guaranteed by the
+    // spawn args (`-- context/`).
     const run = gitInit();
     // Commit context/ but leave context.local dirty — and gitignore it, as
     // cmk install does.
     writeFile(join(f.projectRoot, '.gitignore'), 'context.local/\n');
     run(['add', '.']);
-    run(['commit', '-q', '-m', 'seed']);
+    run(['commit', '-q', '--no-gpg-sign', '-m', 'seed']);
     writeFile(join(f.projectRoot, 'context.local', 'machine-paths.md'), '# changed\n\nnew line\n');
     const r = injectContext({ cwd: f.projectRoot, userDir: f.userDir, now: '2026-07-02T12:00:00Z' });
     expect(r.snapshot).not.toMatch(/one-tap commit/i);
   });
 
-  it('cap composition: the proposal line is reserved OUT of the cap (same contract as the preamble/mention)', () => {
+  it('cap composition: the proposal line is reserved OUT of the cap — snapshot ≤ capBytes EXACTLY', () => {
     gitInit();
     const cap = 2000;
     const r = injectContext({
       cwd: f.projectRoot, userDir: f.userDir, now: '2026-07-02T12:00:00Z', capBytes: cap,
     });
     expect(r.snapshot).toMatch(/one-tap commit/i);
-    expect(Buffer.byteLength(r.snapshot, 'utf8')).toBeLessThanOrEqual(
-      cap + Buffer.byteLength(AUTHORITATIVE_MEMORY_PREAMBLE, 'utf8') + 2 + 400,
+    expect(Buffer.byteLength(r.snapshot, 'utf8')).toBeLessThanOrEqual(cap);
+  });
+
+  it('THREE-reserve joint composition: preamble + temporal mention + commit proposal together, snapshot ≤ capBytes (skill-review I3)', () => {
+    // The composition case no per-feature test sees: both volatile lines
+    // present at once. Seed a recent temporal_supersede AND a dirty git repo.
+    gitInit();
+    const archivePath = join(
+      f.projectRoot, 'context', 'memory', 'archive', 'superseded', 'P-TEMPA2B3.md',
     );
+    writeFile(
+      archivePath,
+      '---\nid: P-TEMPA2B3\ntype: project\ntitle: v9.9 cut-gate in progress\nended_at: 2026-07-01T18:00:00Z\nstatus: completed\nsuperseded_by: P-TEMPC4D5\n---\n\nOld state.\n',
+    );
+    writeFile(
+      join(f.projectRoot, 'context', '.locks', 'audit.log'),
+      JSON.stringify({
+        ts: '2026-07-01T18:00:00Z',
+        action: 'temporal_supersede',
+        tier: 'P',
+        id: 'P-TEMPA2B3',
+        paths: { archive: archivePath },
+        extra: { supersededBy: 'P-TEMPC4D5', endedAt: '2026-07-01T18:00:00Z', judgedBy: 'temporal-sweep' },
+      }) + '\n',
+    );
+    const cap = 2600; // room for all three reserves + at least one tier block
+    const r = injectContext({
+      cwd: f.projectRoot, userDir: f.userDir, now: '2026-07-02T12:00:00Z', capBytes: cap,
+    });
+    expect(r.snapshot).toContain('v9.9 cut-gate in progress'); // the mention
+    expect(r.snapshot).toMatch(/one-tap commit/i); // the proposal
+    expect(r.snapshot).not.toBe('');
+    expect(Buffer.byteLength(r.snapshot, 'utf8')).toBeLessThanOrEqual(cap);
   });
 });
 
