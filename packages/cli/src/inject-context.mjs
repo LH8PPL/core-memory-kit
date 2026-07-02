@@ -30,7 +30,7 @@ import {
   readSync,
   closeSync,
 } from 'node:fs';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
@@ -94,6 +94,42 @@ function buildTemporalMention({ projectRoot, ts }) {
     return (
       `Note: ${n} stale state fact${n === 1 ? '' : 's'} auto-superseded by newer ones this week` +
       `${named}${more}. The memory below is the CURRENT state; closed windows stay readable in memory/archive/superseded/.`
+    );
+  } catch {
+    return '';
+  }
+}
+
+// Task 150 (ADR-0018): the memory-commit PROPOSAL line — the kit detects
+// accrued uncommitted committed-tier memory and tells the MODEL, so Claude
+// offers a one-tap commit in conversation; the user's yes executes an
+// ordinary agent-run git command under the host permission model. The kit
+// itself NEVER runs a git write — this is the reconciliation of "memory
+// must actually get committed" (D-235: the user had to say 'commit the
+// memories' twice) with the settled no-auto-git position. Detection only:
+// `.git` gate (non-git projects skip with zero cost), then a bounded
+// `git status --porcelain -- context/` (context.local/ is gitignored by
+// design and never counts). Any failure degrades to silence.
+const COMMIT_PROPOSAL_GIT_TIMEOUT_MS = 1500;
+function buildCommitProposal({ projectRoot }) {
+  try {
+    if (!existsSync(join(projectRoot, '.git'))) return '';
+    // -uall: without it, a fully-UNTRACKED context/ collapses to one
+    // `?? context/` line and the count reads "1" for a whole directory —
+    // exactly wrong on the most common case (the first-ever commit).
+    const r = spawnSync('git', ['status', '--porcelain', '-uall', '--', 'context/'], {
+      cwd: projectRoot,
+      windowsHide: true,
+      timeout: COMMIT_PROPOSAL_GIT_TIMEOUT_MS,
+      encoding: 'utf8',
+    });
+    if (r.status !== 0 || typeof r.stdout !== 'string') return '';
+    const n = r.stdout.split('\n').filter((l) => l.trim()).length;
+    if (n === 0) return '';
+    return (
+      `Note: ${n} memory file(s) under context/ are uncommitted — at a natural moment, ` +
+      `offer the user a one-tap commit of their project memory (git add context/ + a short ` +
+      `commit); only act on their yes (ADR-0018: the kit proposes, the user owns git).`
     );
   } catch {
     return '';
@@ -868,9 +904,13 @@ export function injectContext({
   // the snapshot is byte-identical to the pre-66.4 shape).
   const temporalMention = rawBlocks.length > 0 ? buildTemporalMention({ projectRoot, ts }) : '';
   const mentionReserve = temporalMention ? Buffer.byteLength(temporalMention, 'utf8') + 2 : 0;
+  // Task 150 (ADR-0018): the memory-commit proposal, same reserved-line
+  // contract as the temporal mention.
+  const commitProposal = rawBlocks.length > 0 ? buildCommitProposal({ projectRoot }) : '';
+  const proposalReserve = commitProposal ? Buffer.byteLength(commitProposal, 'utf8') + 2 : 0;
   const { blocks: keptBlocks, truncationEvents } = enforceCap(
     rawBlocks,
-    Math.max(0, cap - preambleReserve - mentionReserve),
+    Math.max(0, cap - preambleReserve - mentionReserve - proposalReserve),
     ts,
     cap,
   );
@@ -882,7 +922,7 @@ export function injectContext({
   const snapshot =
     body === ''
       ? ''
-      : `${AUTHORITATIVE_MEMORY_PREAMBLE}\n\n${temporalMention ? temporalMention + '\n\n' : ''}${body}`;
+      : `${AUTHORITATIVE_MEMORY_PREAMBLE}\n\n${temporalMention ? temporalMention + '\n\n' : ''}${commitProposal ? commitProposal + '\n\n' : ''}${body}`;
 
   // 5. Persist side-effect logs under <projectRoot>/context/.locks/. We
   // only write the project-tier .locks file (which is the well-known

@@ -991,6 +991,71 @@ describe('Task 66.4 — temporal-supersede mention (the contradiction-catch demo
   });
 });
 
+describe('Task 150 — the memory-commit proposal line (ADR-0018: propose-and-approve, never kit-run git)', () => {
+  let f;
+  beforeEach(() => {
+    f = makeFixture();
+    seedThreeTierFixture(f);
+  });
+  afterEach(() => rmSync(f.sandbox, { recursive: true, force: true }));
+
+  function gitInit(extraArgs = []) {
+    const run = (args) =>
+      spawnSync('git', args, { cwd: f.projectRoot, windowsHide: true, timeout: 15000 });
+    run(['init', '-q']);
+    run(['config', 'user.email', 'test@example.com']);
+    run(['config', 'user.name', 'Test']);
+    return run;
+  }
+
+  it('a git repo with UNCOMMITTED context/ files → ONE model-facing proposal line with the count', () => {
+    gitInit();
+    // seedThreeTierFixture already wrote context/ files; none are committed.
+    const r = injectContext({ cwd: f.projectRoot, userDir: f.userDir, now: '2026-07-02T12:00:00Z' });
+    expect(r.snapshot).toMatch(/uncommitted/i);
+    expect(r.snapshot).toMatch(/offer the user a one-tap commit/i);
+    // The kit proposes; it never instructs an unconditional commit.
+    expect(r.snapshot).toMatch(/only act on their yes/i);
+  });
+
+  it('a git repo with context/ fully committed → NO proposal line', () => {
+    const run = gitInit();
+    run(['add', '.']);
+    run(['commit', '-q', '-m', 'seed']);
+    const r = injectContext({ cwd: f.projectRoot, userDir: f.userDir, now: '2026-07-02T12:00:00Z' });
+    expect(r.snapshot).not.toMatch(/one-tap commit/i);
+  });
+
+  it('a NON-git project → no proposal line, no git spawn attempted (silent degrade)', () => {
+    const r = injectContext({ cwd: f.projectRoot, userDir: f.userDir, now: '2026-07-02T12:00:00Z' });
+    expect(r.snapshot).not.toMatch(/one-tap commit/i);
+  });
+
+  it('context.local/ changes alone do NOT trigger the proposal (gitignored tier is not commit material)', () => {
+    const run = gitInit();
+    // Commit context/ but leave context.local dirty — and gitignore it, as
+    // cmk install does.
+    writeFile(join(f.projectRoot, '.gitignore'), 'context.local/\n');
+    run(['add', '.']);
+    run(['commit', '-q', '-m', 'seed']);
+    writeFile(join(f.projectRoot, 'context.local', 'machine-paths.md'), '# changed\n\nnew line\n');
+    const r = injectContext({ cwd: f.projectRoot, userDir: f.userDir, now: '2026-07-02T12:00:00Z' });
+    expect(r.snapshot).not.toMatch(/one-tap commit/i);
+  });
+
+  it('cap composition: the proposal line is reserved OUT of the cap (same contract as the preamble/mention)', () => {
+    gitInit();
+    const cap = 2000;
+    const r = injectContext({
+      cwd: f.projectRoot, userDir: f.userDir, now: '2026-07-02T12:00:00Z', capBytes: cap,
+    });
+    expect(r.snapshot).toMatch(/one-tap commit/i);
+    expect(Buffer.byteLength(r.snapshot, 'utf8')).toBeLessThanOrEqual(
+      cap + Buffer.byteLength(AUTHORITATIVE_MEMORY_PREAMBLE, 'utf8') + 2 + 400,
+    );
+  });
+});
+
 describe('Task 18 — bin/cmk-inject-context (hook handler — node bin)', () => {
   let sandbox;
   let projectRoot;

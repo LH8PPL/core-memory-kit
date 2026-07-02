@@ -1027,6 +1027,15 @@ Design constraints:
 
 The instruction-first lever is deliberately ahead of the Layer-5b backend (Task 65): per D-64, the framing is the bigger recall lever than the search backend. The remaining Task-75 halves (75.1 recall skill, 75.2 prompt hint) land after Task 65 so they wrap the full hybrid ladder.
 
+#### 7.1.3 Reserved volatile lines — the temporal mention (66.4) + the memory-commit proposal (150)
+
+Two bounded, per-session-volatile one-liners may ride between the preamble and the tier body, each following the SAME cap contract as the preamble (its byte length + 2 joining newlines is RESERVED out of the cap handed to truncation, so caller `capBytes` stays exact for the tier blocks; absent = zero bytes, snapshot byte-identical to pre-feature):
+
+1. **The temporal-supersede mention** (Task 66.4, D-259) — built from `temporal_supersede` audit entries within 7 days (positioned 64KB tail read via the shared `readAuditTail`), naming the newest ≤2 closed facts: the "state updates were resolved" heads-up (D-215 posture).
+2. **The memory-commit proposal** (Task 150, ADR-0018) — when the project is a git repo AND `git status --porcelain -uall -- context/` (bounded spawnSync, 1.5s timeout, silent degrade) reports uncommitted committed-tier files, a model-facing line asks Claude to OFFER the user a one-tap commit; the kit never runs a git write itself (the no-auto-git reconciliation — the user's yes executes an ordinary agent-run git command under the host permission model). `context.local/` never counts (gitignored by design); non-git projects skip at the `.git` existence gate with zero spawn cost.
+
+Both are MODEL-facing (they ride `additionalContext`) and both degrade to `''` on any read/spawn failure — the snapshot is the cargo, the lines are decoration.
+
 ### 7.2 `cmk config --show-origin` debug command
 
 Mirrors `git config --show-origin`. Resolves the source of any setting or observation:

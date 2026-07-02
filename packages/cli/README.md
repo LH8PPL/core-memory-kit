@@ -52,6 +52,7 @@ You work. It learns — automatically, no buttons. Next session, it remembers th
 - **Stays private + bounded** — secrets are screened before any write, machine paths are abstracted to `~`, and rolling compression keeps memory small as history grows.
 - **Guards against accidental deletion** — a hook **blocks** a destructive command (`rm`, `git reset --hard`, …) the moment it targets a memory path, before it runs.
 - **Works across your agents** — the same memory brain on **Claude Code** and **[Kiro](https://kiro.dev)** (IDE + `kiro-cli`). A project's `context/` is shared, so memory you build in one is there in the other.
+- **One-tap memory commits** — when uncommitted memory piles up, Claude offers to commit it; you approve, Claude runs the git command; the kit itself never touches git.
 - **Per-project, in your repo** — `context/` lives in your project and travels with `git clone`. Each project keeps its own memory.
 
 ## Quickstart
