@@ -55,6 +55,19 @@ function findLiveFactById(factDir, id) {
   return null;
 }
 
+// Task 66.3 (finding 7): the earliest parent expires_at, normalized to the
+// kit's strict ISO string form (js-yaml keeps ISO strings as strings under
+// CORE_SCHEMA; the Date branch guards non-kit parsers). Returns undefined
+// when neither parent expires — writeFact then writes no expiry.
+function earliestExpiresAt(fmA, fmB) {
+  const vals = [fmA?.expires_at, fmB?.expires_at]
+    .filter((v) => v !== undefined && v !== null)
+    .map((v) => (v instanceof Date ? v.toISOString() : String(v)))
+    .filter((v) => Number.isFinite(Date.parse(v)));
+  if (vals.length === 0) return undefined;
+  return vals.sort((a, b) => Date.parse(a) - Date.parse(b))[0];
+}
+
 function moveToSuperseded(match, supersededBy) {
   const supersededDir = join(match.factDir, 'archive', 'superseded');
   mkdirSync(supersededDir, { recursive: true });
@@ -159,6 +172,15 @@ export function mergeFacts(opts = {}) {
   const writeResult = writeFact({
     tier,
     type: typeC,
+    // Task 66.1: a merge never RESETS temporal classification — inherit from
+    // the primary parent (same fallback order as type). Both absent (pre-66
+    // facts) → undefined → writeFact's State default.
+    shape: matchA.frontmatter.shape ?? matchB.frontmatter.shape,
+    // Task 66.3 (skill-review finding 7): same principle for the declared
+    // validity end — merging an expiring fact must not silently mint a
+    // PERMANENT one. The EARLIEST parent expiry wins (the merged claim can't
+    // outlive the shortest-lived thing it asserts).
+    expiresAt: earliestExpiresAt(matchA.frontmatter, matchB.frontmatter),
     slug: mergedSlug,
     title: mergedTitle,
     body: mergedBody,

@@ -116,7 +116,7 @@ Cross-refs: [[INDEX]]. Spec: design §2.3.
 
 ### Provenance frontmatter
 
-The metadata immediately attached to every observation: `id`, `source_file`, `source_line`, `source_sha1`, `write_source`, `trust`, `created_at`, plus optional `merged_from` / `superseded_by` / `deleted_at` / `private`. Stored as YAML in [[Fact file]]s and as inline HTML comment in [[Scratchpad]]s.
+The metadata immediately attached to every observation: `id`, `source_file`, `source_line`, `source_sha1`, `write_source`, `trust`, `created_at`, plus optional `merged_from` / `superseded_by` / `deleted_at` / `private` / `shape` (see [[Fact shape]]). Stored as YAML in [[Fact file]]s and as inline HTML comment in [[Scratchpad]]s.
 
 **Canonical reader/writer**: all reads and writes go through [`packages/cli/src/frontmatter.mjs`](../packages/cli/src/frontmatter.mjs) — the single js-yaml–backed `serialize`/`parse` pair. Don't roll your own parser; values containing `\n` / `:` / `"` round-trip correctly only via this module. See design §4 + CLAUDE.md "Shared modules" rule.
 
@@ -127,6 +127,12 @@ Cross-refs: [[Citation ID]], [[Trust]], [[Write source]], [[Audit log]]. Spec: F
 The four categories a [[Fact file]] can have: `user_*`, `feedback_*`, `project_*`, `reference_*`. Filename prefix mirrors the type.
 
 Spec: design §2.2.
+
+### Fact shape
+
+What KIND of truth a fact asserts — the temporal classification (Task 66.1, from Chandra's "Beyond the Log" taxonomy): `State` (ongoing condition), `Event` (happened once), `Plan` (future-dated), `Relationship`, `Preference`, `Absence` (a negative fact — "user does NOT do X"), `Timeless`. Optional `shape` field in [[Provenance frontmatter]]; written explicitly (default `State`) on new facts, absence on pre-66 facts also reads as `State`. Orthogonal to [[Type taxonomy]] (type = what the fact is FOR; shape = how it relates to TIME). The temporal machinery keys on it: validity windows (66.2) touch only `State`, the expiry sweep (66.3) any shape, contradiction-catch (66.4) `State`.
+
+Spec: design §16.18 + §4.
 
 ### Section sign
 
@@ -345,6 +351,24 @@ Cross-refs: [[Forget]]. Spec: design §6.5.
 The user-level action that produces a [[Tombstone]]. Triggered by `cmk forget <id>` or by the [[Memory-write skill]]'s `remove` action. Always prompts for confirmation. Never silently deletes.
 
 Cross-refs: [[Tombstone]], [[Memory-write skill]]. Spec: design §6.5.
+
+### Validity window
+
+The time span a `State`-shaped fact's claim held true: `created_at` (open) → `ended_at` (close), with `status: completed` and a [[Superseded]] link once closed. The window closes at the SUPERSEDING fact's `created_at` — event-time decides the boundary, never the wall clock and never the LLM (which only classifies the pair; see [[Temporal sweep]]). Closed facts move to `archive/superseded/` — never deleted; point-in-time history stays readable. Task 66.2, D-259.
+
+Cross-refs: [[Fact shape]], [[Temporal sweep]], [[Superseded]]. Spec: design §16.18.
+
+### Temporal sweep
+
+The weekly judged contradiction-catch (Task 66.4, D-259 — the corpus-measured design): for each fact written since the last pass, same-subject candidates are retrieved with the kit's own search (quoted-token FTS5 OR-query), and ONE batched Haiku call classifies each pair — SUPERSEDES (close the older [[Validity window]]), DUPLICATE (bump `recurrence_count` — the restatement signal), COEXIST (drop). Runs in weekly-curate's Haiku cycle; marker-incremental; a judge failure re-derives the pairs next pass. The next SessionStart injects a one-line mention of what was resolved.
+
+Cross-refs: [[Validity window]], [[Recurrence gate]], [[Trust score]]. Spec: design §16.18; research: the 2026-07-02 bake-off note.
+
+### Declared expiry
+
+A validity end the WRITER states at capture time — the `expires_at` field in [[Provenance frontmatter]] (`cmk remember --expires`, `mk_remember expires`, or auto-extract for a date the turn itself states). The first moment the fact no longer holds (exclusive end). Once past: hidden from search by default (`--include-expired` reveals — human-only, like [[Tombstone]] recovery) and tombstoned by the weekly-curate sweep (audited, recoverable — never hard-deleted). Distinct from staleness aging (the 14-day [[Consolidation]] drop): a declared end never renews on access. Task 66.3, D-258.
+
+Cross-refs: [[Tombstone]], [[Fact shape]], [[Provenance frontmatter]]. Spec: design §16.18 + §4.
 
 ### Superseded
 

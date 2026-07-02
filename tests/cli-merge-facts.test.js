@@ -129,6 +129,46 @@ describe('Task 10 — mergeFacts() boundary', () => {
       );
     });
 
+    it("C inherits shape from parent A (same primary-parent fallback as type) — a merge never resets classification (Task 66.1)", () => {
+      const wA = writeFact(
+        validFactOpts({ projectRoot, slug: 'a', shape: 'Preference' }),
+      );
+      const wB = writeFact(
+        validFactOpts({ projectRoot, slug: 'b', body: 'B body', shape: 'Event' }),
+      );
+      const r = mergeFacts(
+        validMergeOpts(wA.id, wB.id, { projectRoot, mergedBody: 'combined body' }),
+      );
+      expect(r.action).toBe('merged');
+      const { frontmatter } = parseFrontmatter(r.path);
+      expect(frontmatter.shape).toBe('Preference');
+    });
+
+    it("C inherits the EARLIEST parent expires_at — a merge never mints a permanent fact from expiring ones (Task 66.3, review finding 7)", () => {
+      const wA = writeFact(
+        validFactOpts({ projectRoot, slug: 'a', expiresAt: '2026-08-01' }),
+      );
+      const wB = writeFact(
+        validFactOpts({ projectRoot, slug: 'b', body: 'B body', expiresAt: '2026-07-15' }),
+      );
+      const r = mergeFacts(
+        validMergeOpts(wA.id, wB.id, { projectRoot, mergedBody: 'combined expiring body' }),
+      );
+      expect(r.action).toBe('merged');
+      const text = readFileSync(r.path, 'utf8');
+      expect(text).toMatch(/^expires_at: ["']?2026-07-15["']?$/m);
+    });
+
+    it("C has NO expires_at when neither parent expires (permanent stays permanent)", () => {
+      const wA = writeFact(validFactOpts({ projectRoot, slug: 'a' }));
+      const wB = writeFact(validFactOpts({ projectRoot, slug: 'b', body: 'B body' }));
+      const r = mergeFacts(
+        validMergeOpts(wA.id, wB.id, { projectRoot, mergedBody: 'combined permanent body' }),
+      );
+      const { frontmatter } = parseFrontmatter(r.path);
+      expect(frontmatter.expires_at).toBeUndefined();
+    });
+
     it("merged_from order reflects argument order even with swapped ids", () => {
       const wA = writeFact(validFactOpts({ projectRoot, slug: 'a' }));
       const wB = writeFact(validFactOpts({ projectRoot, slug: 'b', body: 'B body' }));

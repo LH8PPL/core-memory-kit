@@ -33,7 +33,30 @@ const VALID_WRITE_SOURCES = new Set([
   'imported',
 ]);
 const VALID_TRUST = new Set(['high', 'medium', 'low']);
+// Task 66.1 (design §16.18): what KIND of truth the fact asserts. Case-
+// sensitive — one canonical spelling on disk. Optional at the call boundary;
+// written explicitly (default State) so every new fact file self-describes.
+// The temporal machinery keys on it: validity windows (66.2) touch only
+// State, the expiry sweep (66.3) any shape, contradiction-catch (66.4) State.
+const VALID_SHAPES = new Set([
+  'State',
+  'Event',
+  'Plan',
+  'Relationship',
+  'Preference',
+  'Absence',
+  'Timeless',
+]);
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9_-]*$/i;
+// Task 66.3 (design §16.18 / D-258): a DECLARED validity end — the writer
+// knows at write time the fact has a shelf life ("demo scheduled Friday").
+// ISO 8601 date or datetime, strict shape (not merely Date-parseable — a
+// locale form like `08/01/2026` is ambiguous across machines and rejected).
+// Semantics: expires_at is the FIRST moment the fact no longer holds
+// (now >= expires_at → expired), matching the exclusive ended_at convention.
+// Enforcement (read-filter + sweep) lands with the same task; mem0/graphiti
+// precedent: expired facts HIDE from retrieval, they are never hard-deleted.
+const EXPIRES_AT_PATTERN = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?$/;
 
 // Layer-2 review: PR-1 rejected \n / \r / : in scalar frontmatter fields as
 // a minimum fix for the naive serializer (finding B2). PR-2's frontmatter.mjs
@@ -73,6 +96,22 @@ function validateOptions(opts) {
   if (!opts.trust || !VALID_TRUST.has(opts.trust)) {
     errors.push('trust: must be one of high/medium/low');
   }
+  if (opts.shape !== undefined && !VALID_SHAPES.has(opts.shape)) {
+    errors.push(
+      'shape: must be one of State/Event/Plan/Relationship/Preference/Absence/Timeless (case-sensitive)',
+    );
+  }
+  if (opts.expiresAt !== undefined) {
+    if (
+      typeof opts.expiresAt !== 'string' ||
+      !EXPIRES_AT_PATTERN.test(opts.expiresAt) ||
+      Number.isNaN(Date.parse(opts.expiresAt))
+    ) {
+      errors.push(
+        'expiresAt: must be an ISO 8601 date (YYYY-MM-DD) or datetime (e.g. 2026-08-01T12:00:00Z)',
+      );
+    }
+  }
   if (
     !opts.sourceFile ||
     typeof opts.sourceFile !== 'string' ||
@@ -102,6 +141,10 @@ function buildFrontmatterObject(opts, computed) {
   const fm = {
     id: computed.id,
     type: opts.type,
+    // Task 66.1 (design §16.18): temporal shape, default State. Written
+    // explicitly so the file self-describes; readers treat ABSENCE (all
+    // pre-66 facts) as State too — same default, two eras.
+    shape: opts.shape ?? 'State',
     title: opts.title,
     created_at: computed.createdAt,
     write_source: opts.writeSource,
@@ -118,6 +161,8 @@ function buildFrontmatterObject(opts, computed) {
   };
   if (opts.mergedFrom) fm.merged_from = opts.mergedFrom;
   if (opts.supersededBy) fm.superseded_by = opts.supersededBy;
+  // Task 66.3: declared validity end, verbatim (validated in validateOptions).
+  if (opts.expiresAt) fm.expires_at = opts.expiresAt;
   if (opts.tags) fm.tags = opts.tags;
   if (opts.related) fm.related = opts.related;
   if (opts.isPrivate === true) fm.private = true;
@@ -166,6 +211,43 @@ function bumpRecurrence(path) {
   } catch {
     return null;
   }
+}
+
+// Task 66.4 (D-259): a judged DUPLICATE verdict is the SAME restatement signal
+// as a duplicate write — expose the bump BY ID for the temporal-sweep path.
+// Same audit shape as writeFact's duplicate branch; same durable-by-seed
+// contract (151.8: the committed count is the signal, no overlay write).
+export function bumpFactRecurrence({ id, projectRoot, userDir, now, source } = {}) {
+  if (!id || typeof id !== 'string') {
+    return errorResult({ category: ERROR_CATEGORIES.SCHEMA, errors: ['id: required'] });
+  }
+  const tiers = [];
+  if (projectRoot) tiers.push('P', 'L');
+  if (userDir) tiers.push('U');
+  for (const tier of tiers) {
+    const tierRoot = resolveTierRoot({ tier, projectRoot, userDir });
+    const factDir = resolveFactDir(tier, tierRoot);
+    const path = findExistingFactById(factDir, id);
+    if (!path) continue;
+    const recurrenceCount = bumpRecurrence(path);
+    if (recurrenceCount == null) {
+      return errorResult({
+        category: ERROR_CATEGORIES.SCHEMA,
+        errors: [`could not bump recurrence for ${id} (unreadable frontmatter)`],
+      });
+    }
+    appendAuditEntry(tierRoot, {
+      ts: now ?? nowIso(),
+      action: 'recurrence',
+      tier,
+      id,
+      reasonCode: REASON_CODES.RECURRENCE,
+      extra: { recurrenceCount, ...(source ? { source } : {}) },
+      paths: { before: path },
+    });
+    return { action: 'bumped', id, recurrenceCount, path };
+  }
+  return { action: 'not-found', id };
 }
 
 export function writeFact(opts = {}) {

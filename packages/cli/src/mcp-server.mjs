@@ -222,7 +222,7 @@ function makeMkCite() {
 }
 
 function makeMkRemember({ projectRoot, userDir }) {
-  return async ({ text, tier, cites, why, how, type, title, links }) => {
+  return async ({ text, tier, cites, why, how, type, title, links, shape, expires }) => {
     // cites: memoryWrite doesn't wire cites → provenance yet. Silently dropping
     // the array would tell the model "your citation was recorded" — false — so
     // reject it clearly (the fact's own text is still captured if resubmitted
@@ -249,8 +249,8 @@ function makeMkRemember({ projectRoot, userDir }) {
     // are present, route to the SAME shared core (remember-core.rememberRich)
     // the CLI `cmk remember --why/--how` uses → a granular Why/How fact file, not
     // a terse MEMORY.md bullet. Identical fact files from both surfaces (ADR-0014).
-    if (why || how || type || title || links) {
-      const rr = rememberRich(text, { why, how, type, title, links }, { projectRoot });
+    if (why || how || type || title || links || shape || expires) {
+      const rr = rememberRich(text, { why, how, type, title, links, shape, expires }, { projectRoot });
       if (rr.action === 'error') {
         return {
           content: [
@@ -649,6 +649,9 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
         type: z.enum(['feedback', 'project', 'reference', 'user']).optional().describe('rich: fact type (default feedback)'),
         title: z.string().max(200).optional().describe('rich: short title (also the fact-file slug)'),
         links: z.array(z.string()).optional().describe('rich: related fact names for [[cross-links]]'),
+        // Task 66.1/66.3 — temporal fields (rich triggers: both live in fact-file frontmatter).
+        shape: z.enum(['State', 'Event', 'Plan', 'Relationship', 'Preference', 'Absence', 'Timeless']).optional().describe('rich: what KIND of truth the fact asserts (default State). Use Plan for future-dated ("demo Friday"), Event for happened-once, Absence for negative facts ("user does NOT want X")'),
+        expires: z.string().max(40).optional().describe('rich: declared validity end, ISO date/datetime (e.g. 2026-08-01) — after it the fact hides from search and the weekly sweep tombstones it. Set it when the fact self-declares a shelf life; omit for permanent facts'),
       },
     },
     makeMkRemember({ projectRoot, userDir }),

@@ -362,4 +362,69 @@ describe('Task 13 — writeBullet() / readBullet() / parseBulletProvenance()', (
       });
     }
   });
+
+  describe('shape field — optional temporal classification on bullets (Task 66.1, design §16.18)', () => {
+    it('shape provided → appended at the END of the comment (canonical 6-field prefix unchanged)', () => {
+      const r = writeBullet(
+        validBulletInput({
+          provenance: { ...validBulletInput().provenance, shape: 'Event' },
+        }),
+      );
+      expect(r.action).toBe('formatted');
+      // The 6 required fields keep their canonical order; shape rides the tail
+      // so pre-66 consumers matching the prefix are untouched.
+      expect(r.comment).toMatch(
+        /source: transcripts\/2026-05-22\.md, source_line: 142, sha1: abc123ef0123456789abcdef0123456789abcdef, write: user-explicit, trust: high, at: 2026-05-22T14:30:00Z, shape: Event -->/,
+      );
+    });
+
+    it('shape absent → comment is byte-identical to the pre-66 shape (no shape key)', () => {
+      const r = writeBullet(validBulletInput());
+      expect(r.action).toBe('formatted');
+      expect(r.comment).not.toMatch(/\bshape:/);
+    });
+
+    it('invalid shape → schema error', () => {
+      const r = writeBullet(
+        validBulletInput({
+          provenance: { ...validBulletInput().provenance, shape: 'Vibe' },
+        }),
+      );
+      expect(r.action).toBe('error');
+      expect(r.errorCategory).toBe('schema');
+      expect(r.errors.join(' ')).toMatch(/shape/);
+    });
+
+    it('lowercase shape rejected — one canonical spelling on disk', () => {
+      const r = writeBullet(
+        validBulletInput({
+          provenance: { ...validBulletInput().provenance, shape: 'event' },
+        }),
+      );
+      expect(r.action).toBe('error');
+      expect(r.errorCategory).toBe('schema');
+    });
+
+    it('round-trip: write → parse → write preserves shape byte-identically', () => {
+      const first = writeBullet(
+        validBulletInput({
+          provenance: { ...validBulletInput().provenance, shape: 'Absence' },
+        }),
+      );
+      expect(first.action).toBe('formatted');
+      const parsed = readBullet({
+        bulletLine: first.bullet,
+        commentLine: first.comment,
+      });
+      expect(parsed).not.toBeNull();
+      expect(parsed.provenance.shape).toBe('Absence');
+      const second = writeBullet({
+        id: parsed.id,
+        text: parsed.text,
+        provenance: parsed.provenance,
+      });
+      expect(second.comment).toBe(first.comment);
+      expect(second.lines).toBe(first.lines);
+    });
+  });
 });

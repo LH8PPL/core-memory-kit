@@ -585,6 +585,101 @@ describe('Task 7 — writeFact() boundary', () => {
     });
   });
 
+  describe('shape field — temporal fact classification (Task 66.1, design §16.18)', () => {
+    // The 7-value taxonomy from Chandra's "Beyond the Log" (§16.18): what KIND
+    // of truth the fact asserts, so temporal machinery (validity windows 66.2,
+    // expiry 66.3, contradiction-catch 66.4) knows which facts it may touch.
+    const SHAPES = [
+      'State',
+      'Event',
+      'Plan',
+      'Relationship',
+      'Preference',
+      'Absence',
+      'Timeless',
+    ];
+
+    it('shape provided → written to frontmatter verbatim', () => {
+      const result = writeFact(validOptions({ projectRoot, shape: 'Event' }));
+      expect(result.action).toBe('created');
+      const { frontmatter } = parseFrontmatter(result.path);
+      expect(frontmatter.shape).toBe('Event');
+    });
+
+    it('shape absent → defaults to State, written explicitly (self-describing file)', () => {
+      const result = writeFact(validOptions({ projectRoot }));
+      const { frontmatter } = parseFrontmatter(result.path);
+      expect(frontmatter.shape).toBe('State');
+    });
+
+    it.each(SHAPES)('accepts shape %s', (shape) => {
+      const result = writeFact(
+        validOptions({ projectRoot, shape, slug: `shape-${shape.toLowerCase()}` }),
+      );
+      expect(result.action).toBe('created');
+      const { frontmatter } = parseFrontmatter(result.path);
+      expect(frontmatter.shape).toBe(shape);
+    });
+
+    it('invalid shape → schema error, no file written (Doors 1+2)', () => {
+      const result = writeFact(validOptions({ projectRoot, shape: 'Mood' }));
+      expect(result.action).toBe('error');
+      expect(result.errorCategory).toBe('schema');
+      expect(result.errors.join(' ')).toMatch(/shape/);
+      const factDir = join(projectRoot, 'context', 'memory');
+      expect(
+        existsSync(factDir) ? readdirSync(factDir).filter((f) => f.endsWith('.md') && f !== 'INDEX.md') : [],
+      ).toHaveLength(0);
+    });
+
+    it('shape is case-sensitive — lowercase "state" rejected (one canonical spelling on disk)', () => {
+      const result = writeFact(validOptions({ projectRoot, shape: 'state' }));
+      expect(result.action).toBe('error');
+      expect(result.errorCategory).toBe('schema');
+    });
+  });
+
+  describe('expires_at field — declared validity end (Task 66.3, design §16.18 / D-258)', () => {
+    it('expiresAt (date-only) → frontmatter expires_at verbatim', () => {
+      const result = writeFact(validOptions({ projectRoot, expiresAt: '2026-08-01' }));
+      expect(result.action).toBe('created');
+      const { frontmatter } = parseFrontmatter(result.path);
+      // js-yaml may parse a bare date as a string under CORE_SCHEMA; assert the
+      // on-disk text to pin the verbatim round-trip.
+      const text = readFileSync(result.path, 'utf8');
+      expect(text).toMatch(/^expires_at: ["']?2026-08-01["']?$/m);
+      expect(frontmatter.expires_at).toBeDefined();
+    });
+
+    it('expiresAt (full ISO timestamp) accepted', () => {
+      const result = writeFact(
+        validOptions({ projectRoot, expiresAt: '2026-08-01T12:00:00Z' }),
+      );
+      expect(result.action).toBe('created');
+      const text = readFileSync(result.path, 'utf8');
+      expect(text).toMatch(/expires_at: ["']?2026-08-01T12:00:00Z["']?/);
+    });
+
+    it('absent → no expires_at key in frontmatter (permanent facts stay clean)', () => {
+      const result = writeFact(validOptions({ projectRoot }));
+      const { frontmatter } = parseFrontmatter(result.path);
+      expect(frontmatter.expires_at).toBeUndefined();
+    });
+
+    it('unparseable expiresAt → schema error, no file', () => {
+      const result = writeFact(validOptions({ projectRoot, expiresAt: 'next tuesday' }));
+      expect(result.action).toBe('error');
+      expect(result.errorCategory).toBe('schema');
+      expect(result.errors.join(' ')).toMatch(/expiresAt/);
+    });
+
+    it('non-ISO-prefixed but Date-parseable garbage rejected too (strict shape, not just parseable)', () => {
+      const result = writeFact(validOptions({ projectRoot, expiresAt: '08/01/2026' }));
+      expect(result.action).toBe('error');
+      expect(result.errorCategory).toBe('schema');
+    });
+  });
+
   describe('write-path hardening — privacy sanitize + Poison_Guard (#1)', () => {
     const WIN_PATH =
       'C:\\Users\\someuser\\AppData\\Local\\Programs\\Python\\Python313\\python.exe';

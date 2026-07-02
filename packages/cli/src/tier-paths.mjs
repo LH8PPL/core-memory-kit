@@ -100,14 +100,22 @@ export function resolveMcpProjectRoot({ env = process.env, cwd = process.cwd() }
 // ambiguous chars (0, O, 1, l, I, 8). See design §3.1.
 export const ID_PATTERN = /^[PUL]-[2345679ABCDEFGHJKLMNPQRSTUVWXYZa]{8}$/;
 
+// The user tier's production default (env override → home) — the same
+// fallback resolveTierRoot applies. Call it at PRODUCTION ENTRY POINTS
+// (CLI actions, hook bins, cron binaries) to make the U tier explicit for
+// downstream walk decisions; never as a silent default inside a library
+// function — a library-level homedir() reach makes any test that omits
+// userDir touch the REAL user tier (the D-69 round-tripped-real-persona
+// class; the Task-66 skill review caught a weeklyCurate-internal default
+// doing exactly that).
+export function defaultUserDir(env = process.env) {
+  return env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+}
+
 export function resolveTierRoot({ tier, projectRoot, userDir }) {
   if (tier === 'P') return join(projectRoot ?? process.cwd(), 'context');
   if (tier === 'L') return join(projectRoot ?? process.cwd(), 'context.local');
-  return (
-    userDir ??
-    process.env.MEMORY_KIT_USER_DIR ??
-    join(homedir(), '.claude-memory-kit')
-  );
+  return userDir ?? defaultUserDir();
 }
 
 export function resolveFactDir(tier, tierRoot) {

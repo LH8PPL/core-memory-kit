@@ -29,6 +29,7 @@ import { openIndexDb } from '../packages/cli/src/index-db.mjs';
 import { install } from '../packages/cli/src/install.mjs';
 import { reindexFull } from '../packages/cli/src/index-rebuild.mjs';
 import { writeBullet } from '../packages/cli/src/provenance.mjs';
+import { writeFact } from '../packages/cli/src/write-fact.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = join(dirname(__filename), '..');
@@ -61,16 +62,17 @@ function seedObservation(db, {
   source_line = 1,
   created_at = Date.parse('2026-05-27T10:00:00Z'),
   deleted_at = null,
+  expires_at = null,
 }) {
   db.prepare(`
     INSERT INTO observations
       (id, tier, source_file, source_line, source_sha1, heading_path, body,
-       write_source, trust, created_at, superseded_by, deleted_at)
+       write_source, trust, created_at, superseded_by, deleted_at, expires_at)
     VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id, tier, source_file, source_line, 'a'.repeat(40), heading_path, body,
-    write_source, trust, created_at, null, deleted_at,
+    write_source, trust, created_at, null, deleted_at, expires_at,
   );
 }
 
@@ -188,6 +190,40 @@ describe('Task 30 — cmk search', () => {
       expect(rWithTombstones.results.map((x) => x.id).sort()).toEqual(
         ['P-AAAAAAAA', 'P-BBBBBBBB'],
       );
+    });
+
+    it('Task 66.3 — expired facts hidden by default; includeExpired reveals (mem0 show_expired parity)', () => {
+      const now = '2026-07-02T12:00:00Z';
+      seedObservation(db, { id: 'P-AAAAAAAA', body: 'live pnpm fact (no expiry)' });
+      seedObservation(db, {
+        id: 'P-BBBBBBBB',
+        body: 'expired pnpm fact',
+        expires_at: Date.parse('2026-07-01T00:00:00Z'),
+      });
+      seedObservation(db, {
+        id: 'P-CCCCCCCC',
+        body: 'future-expiry pnpm fact still valid',
+        expires_at: Date.parse('2026-12-31T00:00:00Z'),
+      });
+      const rDefault = search({ db, query: 'pnpm', now });
+      expect(rDefault.results.map((x) => x.id).sort()).toEqual(
+        ['P-AAAAAAAA', 'P-CCCCCCCC'],
+      );
+      const rAll = search({ db, query: 'pnpm', now, includeExpired: true });
+      expect(rAll.results.map((x) => x.id).sort()).toEqual(
+        ['P-AAAAAAAA', 'P-BBBBBBBB', 'P-CCCCCCCC'],
+      );
+    });
+
+    it('Task 66.3 — expiry boundary is exclusive-end: expires_at == now is already expired', () => {
+      const now = '2026-07-02T12:00:00Z';
+      seedObservation(db, {
+        id: 'P-DDDDDDDD',
+        body: 'boundary pnpm fact',
+        expires_at: Date.parse(now),
+      });
+      const r = search({ db, query: 'pnpm', now });
+      expect(r.results).toHaveLength(0);
     });
 
     it('returns no-results structure for a query with no matches', () => {
@@ -521,6 +557,45 @@ describe('Task 30 — cmk search', () => {
           // heading_path from MEMORY.md → 'MEMORY.md > Active Threads'
           // proves the reindex correctly populated the column search
           // queries against.
+        } finally {
+          indexDb.close();
+        }
+      } finally {
+        rmSync(sandbox, { recursive: true, force: true });
+      }
+    });
+
+    it('Task 66.3 end-to-end: a fact FILE with expires_at indexes to epoch ms and search hides it once past (writeFact → reindexFull → search)', async () => {
+      const sandbox = mkdtempSync(join(tmpdir(), 'cmk-search-expiry-e2e-'));
+      const projectRoot = join(sandbox, 'proj');
+      const userDir = join(sandbox, 'user');
+      try {
+        await install({ projectRoot, userTier: userDir });
+        const live = writeFact({
+          tier: 'P', type: 'project', slug: 'live-fact',
+          title: 'Live fact', body: 'the zebra deployment target is Cloud Run',
+          writeSource: 'user-explicit', trust: 'high',
+          sourceFile: 'context/transcripts/2026-07-01.md', sourceLine: 1,
+          sourceSha1: 'd'.repeat(40), projectRoot,
+        });
+        const expired = writeFact({
+          tier: 'P', type: 'project', slug: 'expired-fact',
+          title: 'Expired fact', body: 'the zebra demo is scheduled for last Friday',
+          writeSource: 'user-explicit', trust: 'high',
+          sourceFile: 'context/transcripts/2026-06-20.md', sourceLine: 1,
+          sourceSha1: 'e'.repeat(40), expiresAt: '2026-06-27', projectRoot,
+        });
+        expect(live.action).toBe('created');
+        expect(expired.action).toBe('created');
+        const indexDb = openIndexDb({ projectRoot });
+        try {
+          reindexFull({ projectRoot, userDir, db: indexDb });
+          const r = search({ db: indexDb, query: 'zebra', now: '2026-07-02T12:00:00Z' });
+          expect(r.results.map((x) => x.id)).toEqual([live.id]);
+          const rAll = search({
+            db: indexDb, query: 'zebra', now: '2026-07-02T12:00:00Z', includeExpired: true,
+          });
+          expect(rAll.results.map((x) => x.id).sort()).toEqual([live.id, expired.id].sort());
         } finally {
           indexDb.close();
         }

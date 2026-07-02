@@ -40,6 +40,83 @@ import { detectStaleness, isJournalStale } from './lazy-compress.mjs';
 import { isProvenanceCommentLine, parseBulletProvenance } from './provenance.mjs';
 import { listConflictQueue } from './conflict-queue.mjs';
 import { listReviewQueue } from './review-queue.mjs';
+import { parse as parseFactFrontmatter } from './frontmatter.mjs';
+
+// Task 66.4 (D-259): the contradiction-catch demo surface — ONE bounded line
+// after the preamble when the weekly temporal sweep closed validity windows
+// recently, so the next session KNOWS stale state was auto-resolved ("v0.3.2
+// deferred → shipped" never misleads again) without a mid-turn interruption
+// (the D-215 heads-up-not-gate posture). Reads the tail of the audit log
+// (bounded IO — this is the SessionStart hot path) + the archived facts'
+// titles; any read hiccup degrades to no mention, never a crash.
+const TEMPORAL_MENTION_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const TEMPORAL_MENTION_MAX_TITLES = 2;
+function buildTemporalMention({ projectRoot, ts }) {
+  try {
+    const auditPath = join(projectRoot, 'context', '.locks', 'audit.log');
+    if (!existsSync(auditPath)) return '';
+    const nowMs = Date.parse(ts);
+    // Positioned 64KB tail read (the shared readAuditTail helper) — NOT a
+    // whole-file readFileSync: this runs on the 500ms-budget SessionStart
+    // path and audit.log grows with project age (skill-review finding 4;
+    // same rationale as the status line's read below).
+    const hits = [];
+    for (const line of readAuditTail(auditPath).split(/\r?\n/)) {
+      if (!line.trim()) continue;
+      let e;
+      try {
+        e = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      if (e.action !== 'temporal_supersede') continue;
+      const ms = Date.parse(e.ts);
+      if (!Number.isFinite(ms) || nowMs - ms > TEMPORAL_MENTION_WINDOW_MS) continue;
+      hits.push(e);
+    }
+    if (hits.length === 0) return '';
+    const titles = [];
+    // Newest-first: the tail is chronological, so the LAST hits are the most
+    // recent closes — the informative ones to name (finding 9).
+    for (const e of hits.slice(-TEMPORAL_MENTION_MAX_TITLES).reverse()) {
+      const p = e.paths?.archive;
+      if (!p || !existsSync(p)) continue;
+      try {
+        const { frontmatter } = parseFactFrontmatter(readFileSync(p, 'utf8'));
+        if (frontmatter?.title) titles.push(`"${String(frontmatter.title).slice(0, 70)}"`);
+      } catch {
+        // title unavailable — the count still informs
+      }
+    }
+    const named = titles.length > 0 ? ` — e.g. ${titles.join(', ')}` : '';
+    const more = hits.length > titles.length && titles.length > 0 ? ` (+${hits.length - titles.length} more)` : '';
+    const n = hits.length;
+    return (
+      `Note: ${n} stale state fact${n === 1 ? '' : 's'} auto-superseded by newer ones this week` +
+      `${named}${more}. The memory below is the CURRENT state; closed windows stay readable in memory/archive/superseded/.`
+    );
+  } catch {
+    return '';
+  }
+}
+
+// Positioned read of the LAST 64KB of an audit log — recency lives at the
+// end; a months-old multi-MB log read in full would pay for history we
+// discard, inside the 500ms SessionStart budget. Drops the (possibly torn)
+// first line when starting mid-file. Shared by the temporal mention above
+// and the status line (Task 145).
+function readAuditTail(auditPath) {
+  const size = statSync(auditPath).size;
+  const start = Math.max(0, size - STATUS_AUDIT_TAIL_BYTES);
+  const buf = Buffer.alloc(size - start);
+  const fd = openSync(auditPath, 'r');
+  try {
+    readSync(fd, buf, 0, buf.length, start);
+  } finally {
+    closeSync(fd);
+  }
+  return start > 0 ? buf.toString('utf8').replace(/^[^\n]*\n/, '') : buf.toString('utf8');
+}
 
 // Importance ranking for value-ordered inject eviction (Task 93 / design §19.3).
 // When a tier exceeds its budget we drop the LOWEST-value sections first, not the
@@ -784,9 +861,16 @@ export function injectContext({
     rawBlocks.length > 0
       ? Buffer.byteLength(AUTHORITATIVE_MEMORY_PREAMBLE, 'utf8') + 2
       : 0;
+  // Task 66.4: the temporal-supersede mention rides between the preamble and
+  // the body. Reserved OUT of the cap like the preamble (§7.1 composition —
+  // caller capBytes stays exact for the tier blocks); one bounded line, empty
+  // string when the last week closed no windows (the common case — and then
+  // the snapshot is byte-identical to the pre-66.4 shape).
+  const temporalMention = rawBlocks.length > 0 ? buildTemporalMention({ projectRoot, ts }) : '';
+  const mentionReserve = temporalMention ? Buffer.byteLength(temporalMention, 'utf8') + 2 : 0;
   const { blocks: keptBlocks, truncationEvents } = enforceCap(
     rawBlocks,
-    Math.max(0, cap - preambleReserve),
+    Math.max(0, cap - preambleReserve - mentionReserve),
     ts,
     cap,
   );
@@ -796,7 +880,9 @@ export function injectContext({
   // behind it).
   const body = keptBlocks.map((b) => b.text).join('\n');
   const snapshot =
-    body === '' ? '' : `${AUTHORITATIVE_MEMORY_PREAMBLE}\n\n${body}`;
+    body === ''
+      ? ''
+      : `${AUTHORITATIVE_MEMORY_PREAMBLE}\n\n${temporalMention ? temporalMention + '\n\n' : ''}${body}`;
 
   // 5. Persist side-effect logs under <projectRoot>/context/.locks/. We
   // only write the project-tier .locks file (which is the well-known
@@ -923,20 +1009,10 @@ export function buildStatusLine({
     try {
       const auditPath = join(projectRoot, 'context', '.locks', 'audit.log');
       if (existsSync(auditPath)) {
-        // Positioned read of the LAST 64KB only — recency lives at the end,
-        // and this runs inside the 500ms-budget SessionStart hook; reading a
-        // months-old multi-MB log in full would pay for history we discard.
-        const size = statSync(auditPath).size;
-        const start = Math.max(0, size - STATUS_AUDIT_TAIL_BYTES);
-        const buf = Buffer.alloc(size - start);
-        const fd = openSync(auditPath, 'r');
-        try {
-          readSync(fd, buf, 0, buf.length, start);
-        } finally {
-          closeSync(fd);
-        }
-        // Drop the (possibly torn) first line when we started mid-file.
-        const tail = start > 0 ? buf.toString('utf8').replace(/^[^\n]*\n/, '') : buf.toString('utf8');
+        // Positioned read of the LAST 64KB only (the shared readAuditTail
+        // helper) — recency lives at the end, and this runs inside the
+        // 500ms-budget SessionStart hook.
+        const tail = readAuditTail(auditPath);
         for (const line of tail.split(/\r?\n/)) {
           if (!line.trim()) continue;
           try {

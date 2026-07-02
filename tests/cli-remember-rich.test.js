@@ -60,6 +60,30 @@ describe('Task 63 — cmk remember rich mode (restore rich capture through the s
     expect(content).toContain('business logic in services');
   });
 
+  it('Task 66.1/66.3 — --shape and --expires land in the fact frontmatter (the explicit temporal writer)', () => {
+    const r = runRememberRich(
+      'demo to the team is scheduled for Friday',
+      { title: 'team-demo-friday', shape: 'Plan', expires: '2026-07-04' },
+      { projectRoot, log: () => {}, logError: () => {} },
+    );
+    expect(r.action).toBe('created');
+    const content = readFileSync(join(projectRoot, 'context', 'memory', factFiles(projectRoot)[0]), 'utf8');
+    expect(content).toMatch(/^shape: Plan$/m);
+    expect(content).toMatch(/^expires_at: ["']?2026-07-04["']?$/m);
+  });
+
+  it('Task 66.3 — an invalid --expires errors loudly (strict explicit surface), no file written', () => {
+    const out = [];
+    const r = runRememberRich(
+      'demo soon',
+      { title: 'demo-soon', expires: 'next tuesday' },
+      { projectRoot, log: () => {}, logError: (m) => out.push(m) },
+    );
+    expect(r.action).toBe('error');
+    expect(factFiles(projectRoot)).toHaveLength(0);
+    expect(out.join('\n')).toMatch(/expiresAt/);
+  });
+
   it('keeps INDEX.md current on capture — no manual `cmk reindex` needed (Task 85)', () => {
     // Bug A (live-test-7 2026-06-03): cmk remember wrote the fact file but left
     // INDEX.md stale, so `cmk doctor` HC-5 failed until a manual `cmk reindex`.

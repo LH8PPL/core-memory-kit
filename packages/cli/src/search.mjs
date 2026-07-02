@@ -30,10 +30,15 @@
 //   limit:              positive integer            — default 20
 //   includeTombstoned:  boolean                     — default false
 //                       (default WHERE excludes rows with deleted_at IS NOT NULL)
+//   includeExpired:     boolean                     — default false (Task 66.3)
+//                       (default WHERE hides rows past their expires_at; the
+//                       mem0 show_expired parity — hidden, never deleted)
+//   now:                ISO 8601 string             — expiry clock injection
+//                       (tests / deterministic runs; defaults to wall clock)
 //
 // Public boundary:
 //   search({db, query, mode?, minTrust?, tier?, since?, limit?,
-//           includeTombstoned?, semanticBackend?})
+//           includeTombstoned?, includeExpired?, now?, semanticBackend?})
 //   → { action: 'found', mode, results: [{id, snippet, source_file,
 //                                          source_line, trust, score}] }
 //   → errorResult({category, errors}) on semantic-unavailable / schema-error
@@ -318,6 +323,14 @@ function buildKeywordSql(opts) {
   }
   if (!opts.includeTombstoned) {
     clauses.push('o.deleted_at IS NULL');
+  }
+  // Task 66.3 (D-258): expired facts are HIDDEN at read time, never deleted —
+  // the mem0 show_expired parity (`includeExpired: true` reveals). Exclusive
+  // end: expires_at == now is already expired. `now` is injectable for tests;
+  // NULL expires_at (permanent facts + all scratchpad bullets) always passes.
+  if (!opts.includeExpired) {
+    clauses.push('(o.expires_at IS NULL OR o.expires_at > @now_ms)');
+    params.now_ms = opts.now ? Date.parse(opts.now) : Date.now();
   }
   const where = clauses.length > 0 ? ' AND ' + clauses.join(' AND ') : '';
   const sql =

@@ -146,6 +146,78 @@ describe('Task 103 — parseRichFacts (BEGIN_FACT…END_FACT blocks)', () => {
     expect(facts[0].why).toBe('core architecture');
   });
 
+  describe('shape field — temporal classification at the LLM boundary (Task 66.1, design §16.18)', () => {
+    function blockWith(shapeLine) {
+      return [
+        'BEGIN_FACT',
+        'type: project',
+        'title: Demo scheduled',
+        'body: Demo to the team is scheduled for Friday.',
+        ...(shapeLine ? [shapeLine] : []),
+        'END_FACT',
+      ].join('\n');
+    }
+
+    it('valid shape parses through verbatim', () => {
+      const facts = parseRichFacts(blockWith('shape: Plan'));
+      expect(facts).toHaveLength(1);
+      expect(facts[0].shape).toBe('Plan');
+    });
+
+    it('lowercase/uppercase from Haiku normalize to the canonical spelling (LLM boundary is tolerant)', () => {
+      expect(parseRichFacts(blockWith('shape: plan'))[0].shape).toBe('Plan');
+      expect(parseRichFacts(blockWith('shape: EVENT'))[0].shape).toBe('Event');
+    });
+
+    it('invalid shape → omitted, fact still parses (a Haiku typo must not kill the capture)', () => {
+      const facts = parseRichFacts(blockWith('shape: banana'));
+      expect(facts).toHaveLength(1);
+      expect(facts[0].shape).toBeUndefined();
+    });
+
+    it('absent shape → omitted (writeFact applies the State default downstream)', () => {
+      const facts = parseRichFacts(blockWith(null));
+      expect(facts).toHaveLength(1);
+      expect(facts[0].shape).toBeUndefined();
+    });
+  });
+
+  describe('expires field — LLM-suggested validity end (Task 66.3, D-258 flagged increment)', () => {
+    function blockWith(expiresLine) {
+      return [
+        'BEGIN_FACT',
+        'type: project',
+        'shape: Plan',
+        'title: Demo scheduled',
+        'body: Demo to the team is scheduled for 2026-07-04.',
+        ...(expiresLine ? [expiresLine] : []),
+        'END_FACT',
+      ].join('\n');
+    }
+
+    it('valid ISO date parses through', () => {
+      const facts = parseRichFacts(blockWith('expires: 2026-07-04'));
+      expect(facts).toHaveLength(1);
+      expect(facts[0].expires).toBe('2026-07-04');
+    });
+
+    it('invalid value → omitted, fact still parses (never let a bad date kill the capture)', () => {
+      const facts = parseRichFacts(blockWith('expires: whenever it happens'));
+      expect(facts).toHaveLength(1);
+      expect(facts[0].expires).toBeUndefined();
+    });
+
+    it('non-ISO locale date rejected (ambiguous across machines)', () => {
+      const facts = parseRichFacts(blockWith('expires: 07/04/2026'));
+      expect(facts[0].expires).toBeUndefined();
+    });
+
+    it('absent → omitted (permanent fact)', () => {
+      const facts = parseRichFacts(blockWith(null));
+      expect(facts[0].expires).toBeUndefined();
+    });
+  });
+
   it('treats an INDENTED key-like line as body content, not a field (key must be at line start)', () => {
     const out = [
       'BEGIN_FACT',

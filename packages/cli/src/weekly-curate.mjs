@@ -50,6 +50,8 @@ import { autoPersona } from './auto-persona.mjs';
 import { trimTrailingNewlines } from './managed-block.mjs';
 import { initUserTier } from './install.mjs';
 import { autoDrainQueues } from './auto-drain.mjs';
+import { sweepExpiredFacts } from './expiry-sweep.mjs';
+import { temporalSweep } from './temporal-sweep.mjs';
 
 const DEFAULT_ARCHIVE_MAX_BYTES = 4096;
 const DEFAULT_RECENT_MAX_BYTES = 4096;
@@ -249,6 +251,10 @@ function writeCurateLogEntry({ projectRoot, date, entry }) {
 export async function weeklyCurate({
   projectRoot,
   userDir,
+  // finding 3 (Task 66 review): the sweeps' user-tier seam — production
+  // entry points pass defaultUserDir() here; defaults to `userDir` so a
+  // test omitting both never reaches the real home dir.
+  sweepUserDir,
   backend,
   now,
   cooldownMs = DEFAULT_COOLDOWN_MS,
@@ -290,6 +296,26 @@ export async function weeklyCurate({
   const drained = { P: await autoDrainQueues({ tier: 'P', projectRoot }) };
   if (userDir) drained.U = await autoDrainQueues({ tier: 'U', userDir });
 
+  // The Task-66 sweeps get their OWN userDir seam (skill-review finding 3):
+  // three of the four weeklyCurate call sites (lazy delegation, `cmk roll`,
+  // `cmk weekly-curate`) pass no userDir — only the cron binary does — and
+  // without it a U-tier `expires_at` fact would NEVER tombstone and U-tier
+  // contradictions would never be caught on a default no-cron install,
+  // silently falsifying the README's headline. Those PRODUCTION call sites
+  // now pass `sweepUserDir: defaultUserDir()` explicitly; the fallback here
+  // is `userDir` (NOT a homedir() reach — a library-internal default made
+  // every userDir-less TEST walk the REAL user tier, the D-69 class).
+  // Scoped to the sweeps ONLY: autoPersona + the U queue-drain keep the
+  // explicit-userDir contract (their cron-only shape predates this task —
+  // re-opened, if ever, as its own decision, not as a side-effect here).
+  const resolvedSweepUserDir = sweepUserDir ?? userDir;
+
+  // Expiry sweep (Task 66.3 / D-258) — same deterministic-pass slot as the
+  // auto-drain: non-Haiku file IO, runs on EVERY pass regardless of the
+  // cooldown, so a declared expires_at never waits on the Haiku gate. Each
+  // expired fact tombstones through forget() (audited, recoverable).
+  const expirySweep = sweepExpiredFacts({ projectRoot, userDir: resolvedSweepUserDir, now: ts });
+
   if (isCooldownActive({ projectRoot, now: ts, cooldownMs })) {
     const duration_ms = Date.now() - t0;
     writeCurateLogEntry({
@@ -308,9 +334,10 @@ export async function weeklyCurate({
         duration_ms,
         success: true,
         skipped_reason: 'cooldown',
+        expired_swept: expirySweep.count,
       },
     });
-    return { action: 'skipped', reason: 'cooldown', drained, duration_ms };
+    return { action: 'skipped', reason: 'cooldown', drained, expiry_sweep: expirySweep, duration_ms };
   }
 
   // Design-B auto-persona hook (Task 45). The weekly cycle is the natural
@@ -350,6 +377,25 @@ export async function weeklyCurate({
     });
   }
 
+  // Temporal contradiction-catch (Task 66.4 / D-259) — the weekly judged
+  // pass: search-retrieved same-subject pairs → ONE batched Haiku verdict →
+  // event-time window-close (66.2) / recurrence bump / drop. Runs in the
+  // SAME weekly Haiku cycle as auto-persona (no new hot-path spawn); its own
+  // marker makes it incremental, and a judge failure leaves the marker
+  // unadvanced so nothing is lost. Best-effort — never aborts the curate.
+  let temporal;
+  try {
+    temporal = await temporalSweep({
+      projectRoot,
+      userDir: resolvedSweepUserDir, // finding 3 — see the sweepUserDir note above
+      backend,
+      now: ts,
+      timeoutMs: CEILING_FREE_TIMEOUT_MS,
+    });
+  } catch (err) {
+    temporal = { action: 'error', reason: 'sweep-crashed', error: err?.message ?? String(err) };
+  }
+
   const files = listAllTodayFiles(projectRoot);
   const { old, current } = splitByAge(files, ts);
 
@@ -373,6 +419,13 @@ export async function weeklyCurate({
         success: true,
         skipped_reason: 'no-old-files',
         current_days: current.length,
+        // Door 4 (66.3/66.4): the deterministic sweeps ran even on this skip
+        // path — their outcomes must reach the NDJSON trail, not just the
+        // in-process return value.
+        expired_swept: expirySweep.count,
+        temporal_action: temporal?.action ?? null,
+        temporal_superseded: temporal?.superseded ?? 0,
+        temporal_pairs_judged: temporal?.pairs_judged ?? 0,
       },
     });
     return {
@@ -381,6 +434,8 @@ export async function weeklyCurate({
       currentDays: current.length,
       persona,
       drained,
+      expiry_sweep: expirySweep,
+      temporal,
       duration_ms,
     };
   }
@@ -506,6 +561,11 @@ export async function weeklyCurate({
       archived_days: old.length,
       current_days: current.length,
       recent_rebuild_action: recentResult?.action ?? 'skipped',
+      // Door 4 (66.3/66.4): the maintenance sweeps' outcomes in the NDJSON trail.
+      expired_swept: expirySweep.count,
+      temporal_action: temporal?.action ?? null,
+      temporal_superseded: temporal?.superseded ?? 0,
+      temporal_pairs_judged: temporal?.pairs_judged ?? 0,
       ...(retries > 0 ? { retries } : {}), // 161.12: succeeded after a transient retry
       ...(deletionErrors.length > 0 ? { deletion_errors: deletionErrors } : {}),
     },
@@ -521,6 +581,8 @@ export async function weeklyCurate({
     bytesOut: output_bytes,
     persona,
     drained,
+    expiry_sweep: expirySweep,
+    temporal,
     duration_ms,
   };
 }

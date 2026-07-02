@@ -37,6 +37,7 @@ export const REASON_CODES = Object.freeze({
   INDEX_REBUILD_FAILED: 'index-rebuild-failed', // writeFact: the fact landed on disk but the best-effort INDEX.md rebuild threw (e.g. a detached auto-extract child killed mid-rebuild). Surfaces what was previously a SILENTLY swallowed catch (D-152) so a lagging committed INDEX is diagnosable; the next reindex/cmk reindex self-heals.
   USER_REQUESTED: 'user-requested', // forget: user-initiated tombstone
   CURATED_MERGE: 'curated-merge', // mergeFacts: explicit merge of A + B → C
+  TEMPORAL_SUPERSEDE: 'temporal-supersede', // validity-window: a newer fact superseded an older CURRENT-STATE claim → window closed at the newer created_at (Task 66.2, D-259)
   SCRATCHPAD_APPEND: 'scratchpad-append', // scratchpad: appendScratchpadBullet (Task 12)
   SCRATCHPAD_GRADUATED: 'scratchpad-graduated', // graduation: high-trust bullet moved out to a fact file under cap pressure (Task 91.1)
   SCRATCHPAD_EVICTED: 'scratchpad-evicted', // consolidate: stale low/medium bullet dropped under cap pressure, archived to memory/archive/evicted-bullets.md (Task 91.2)

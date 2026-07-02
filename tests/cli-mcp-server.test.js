@@ -374,6 +374,39 @@ describe('Task 31 — MCP server', () => {
       expect(out.written_to).toContain('feedback_layered-backend-mcp.md');
     });
 
+    // Task 66.1/66.3 — the MCP temporal writer: shape + expires are rich
+    // triggers and land in the fact-file frontmatter (CLI --shape/--expires parity).
+    it('66.1/66.3 — shape + expires route rich and land in frontmatter', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const r = await invokeTool(server, 'mk_remember', {
+        text: 'demo to the team is scheduled for Friday',
+        title: 'team-demo-friday-mcp',
+        shape: 'Plan',
+        expires: '2026-07-04',
+      });
+      expect(r.isError).toBeFalsy();
+      const content = readFileSync(
+        join(projectRoot, 'context', 'memory', 'feedback_team-demo-friday-mcp.md'),
+        'utf8',
+      );
+      expect(content).toMatch(/^shape: Plan$/m);
+      expect(content).toMatch(/^expires_at: ["']?2026-07-04["']?$/m);
+    });
+
+    it('66.3 — an invalid expires surfaces as a clean tool error (no file)', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const r = await invokeTool(server, 'mk_remember', {
+        text: 'demo soon',
+        title: 'demo-soon-mcp',
+        expires: 'next tuesday',
+      });
+      expect(r.isError).toBe(true);
+      expect(r.content[0].text).toMatch(/expiresAt/);
+      expect(
+        existsSync(join(projectRoot, 'context', 'memory', 'feedback_demo-soon-mcp.md')),
+      ).toBe(false);
+    });
+
     // B1 fix (Task 31 code-review): mk_remember must distinguish
     // 'queued' (routed to queues/conflicts.md, awaiting human review)
     // from 'appended' (landed in MEMORY.md). Pre-fix the queue route

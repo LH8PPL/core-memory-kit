@@ -336,7 +336,7 @@ export async function prepareSemanticBackend({
             .prepare(
               `SELECT m.rowid AS rowid, m.distance AS distance,
                       o.id, o.body, o.source_file, o.source_line, o.tier, o.trust,
-                      o.created_at, o.deleted_at
+                      o.created_at, o.deleted_at, o.expires_at
                  FROM (SELECT rowid, distance FROM vec_observations
                         WHERE embedding MATCH ? ORDER BY distance LIMIT ?) m
                  JOIN observations o ON o.rowid = m.rowid
@@ -345,8 +345,13 @@ export async function prepareSemanticBackend({
             .all(qBlob, k);
 
           const minTrustRank = { low: 0, medium: 1, high: 2 };
+          // Task 66.3: expiry clock — injectable via opts.now, same contract
+          // as the keyword path's @now_ms (search.mjs).
+          const nowMs = opts.now ? Date.parse(opts.now) : Date.now();
           const filtered = rows.filter((r) => {
             if (!opts.includeTombstoned && r.deleted_at != null) return false;
+            // Exclusive end: expires_at == now is already expired (D-258).
+            if (!opts.includeExpired && r.expires_at != null && nowMs >= r.expires_at) return false;
             if (opts.tier && r.tier !== opts.tier) return false;
             if (opts.minTrust && minTrustRank[r.trust] < minTrustRank[opts.minTrust]) return false;
             if (opts.since) {

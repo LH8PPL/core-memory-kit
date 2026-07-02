@@ -57,6 +57,21 @@ const REQUIRED_PROVENANCE_FIELDS = [
   'trust',
   'at',
 ];
+// Task 66.1 (design §16.18): optional temporal classification, same 7-value
+// enum as write-fact.mjs's frontmatter surface. Case-sensitive (one canonical
+// spelling on disk). When present it rides the TAIL of the comment so the
+// canonical 6-field prefix — and every pre-66 consumer matching it — is
+// untouched; when absent the comment is byte-identical to the pre-66 shape
+// (readers treat absence as State).
+const VALID_SHAPES = new Set([
+  'State',
+  'Event',
+  'Plan',
+  'Relationship',
+  'Preference',
+  'Absence',
+  'Timeless',
+]);
 
 // PR-1 finding B2 was about newlines/colons in YAML-frontmatter scalar values.
 // Layer-3 review finding B3 is the same shape with `,` as the separator: the
@@ -162,6 +177,12 @@ function validateBulletInput({ id, text, provenance }) {
     );
   }
 
+  if (provenance.shape !== undefined && !VALID_SHAPES.has(provenance.shape)) {
+    errors.push(
+      `provenance.shape: must be one of State/Event/Plan/Relationship/Preference/Absence/Timeless, case-sensitive (got ${JSON.stringify(provenance.shape)})`,
+    );
+  }
+
   // B3 defense: scalar string fields that land in the comment must not contain
   // `,` / `\n` / `\r`. A `,` would silently spawn a fake field on read; a
   // newline would break the single-line comment shape.
@@ -191,10 +212,13 @@ export function writeBullet(opts = {}) {
   const bullet = `- (${id}) ${text}`;
   // Canonical field order (matches Task 13.2 enumeration):
   //   source, source_line, sha1, write, trust, at
+  // Optional shape rides the tail (after `at`) so the canonical 6-field
+  // prefix stays byte-stable for pre-66 consumers.
+  const shapeSuffix = p.shape ? `, shape: ${p.shape}` : '';
   const comment =
     `  <!-- source: ${p.source}, source_line: ${p.source_line},` +
     ` sha1: ${p.sha1}, write: ${p.write}, trust: ${p.trust},` +
-    ` at: ${p.at} -->`;
+    ` at: ${p.at}${shapeSuffix} -->`;
   return {
     action: 'formatted',
     id,

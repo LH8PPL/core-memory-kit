@@ -81,6 +81,7 @@ is a line; a system is a line that *bites its own tail*. The kit's whole thesis 
 | **ACQUIRE** — auto-extract + `cmk remember` | capture durable facts each turn | ✅ | a writer |
 | **RETRIEVE** — search + inject | surface facts (BM25 keyword + frozen snapshot) | ✅ | a reader |
 | **MEASURE** — `trust_score` + passive signals | dampen/reinforce on contradiction/supersession/restatement | ✅ (partial) | a number per fact |
+| **TEMPORAL** — validity windows + expiry + the weekly judged sweep (Task 66, v0.4.4; D-258/D-259) | facts stay TRUE as they age: `shape` classifies, `expires_at` self-hides+tombstones, the temporal sweep closes a superseded State fact's window (event-time) — and thereby AUTO-GENERATES the supersession + restatement signals MEASURE consumes (previously only manual merges fired them) | ✅ | a currency keeper |
 | **CURATE** — consolidate / graduate / re-curation | cap-relief, demote-not-evict, (dream re-curation = deferred) | 🟡 | a housekeeper |
 | **The judge** (§3) | what tells MEASURE "good or bad" | ⚠️ mostly absent | a verdict source |
 | **Earned-judgment** (§5) | "method A > method B", *learned* not told | ✗ unsolved-at-our-scale | a conclusion |

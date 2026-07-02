@@ -16,3 +16,6 @@
 ## 2026-07-02T06:59:05Z — auto-extract (medium-trust, pending review)
 - (P-KLUC5F6U) PR #247 merged with full workflow: branch → suite run (2485/2485) → two-pass review → squash commit; Quality Gate now shows all 6 conditions green (A-rated reliability and security)
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-02T06:59:05Z -->
+## 2026-07-02T08:40:03Z — auto-extract (medium-trust, pending review)
+- (P-H53642LA) Next work is bullet-provenance surface and auto-extract classification for Plan facts.
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-02T08:40:03Z -->
