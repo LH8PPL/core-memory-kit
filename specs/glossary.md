@@ -268,6 +268,48 @@ The v0.4.3 cap-relief rule for the user-tier persona (Task 151 Move 2, fixes the
 
 Cross-refs: [[Recurrence gate]], [[Trust score]], [[Graduation]]. Spec: design §20.3; ADR-0016.
 
+### Learn-loop
+
+The kit's target architecture (ADR-0017, Accepted 2026-07-02): the cycle ACQUIRE → RETRIEVE → act → JUDGE → MEASURE → CURATE → back to RETRIEVE, closed **across session boundaries** — a session is a bounded agent run, and the kit is the cross-session runtime the loop runs on (feedback on this session's recalls arrives in the *next* session). Today the kit ships the loop minus one edge: MEASURE computes a signal (trust_score) that never reaches retrieval ranking. Closing that edge = the v0.5 differentiator (Tasks 190–194). The full anatomy: [SYSTEM-MAP §6](../docs/SYSTEM-MAP.md).
+
+Cross-refs: [[Judge]], [[Recall-log]], [[Feedback-screen]], [[Judgment]], [[Trust score]]. Spec: SYSTEM-MAP §1/§6; ADR-0017.
+
+### Judge
+
+The learn-loop organ that turns a turn's OUTCOME into a verdict for MEASURE — and the **per-host adapter**: the loop is universal, only the judge changes with the host (Claude Code = hooks catching tool-results/corrections/re-asks; an agent host = a monitor ≈ an oracle). Signals form a PORTFOLIO — automatic-first, human-optional, both-polarity. Distinct from an *oracle* (a ground-truth answer key), which a session host lacks.
+
+Cross-refs: [[Learn-loop]], [[Oracle-free]]. Spec: SYSTEM-MAP §3/§4; ADR-0017 Decision #2.
+
+### Oracle-free
+
+A learning signal that needs NO ground-truth verdict (benchmark answer key, unit-test pass, monitor-cleared, gold label). The decisive transferability test from the 2026-07-01 field survey: ~12 of 14 failure-learning systems are oracle-GATED (their loop cannot fire without a benchmark) — only the oracle-free minority (memclaw, Memoria, A-MemGuard, SkillOpt's fallback tier) are real precedents for the kit. Orthogonal to automatic-vs-human: the target quadrant is **oracle-free AND automatic**.
+
+Cross-refs: [[Judge]], [[Learn-loop]]. Spec: the [failure-learning survey](../docs/research/2026-07-01-failure-learning-field-survey.md); ADR-0017 Evidence.
+
+### Recall-log
+
+The learn-loop's attribution primitive (Task 190, Phase 1a): a gitignored per-session NDJSON log of WHICH memory IDs were injected/searched each turn. Without it no outcome signal can find its target memory — every downstream organ depends on it. Precedent: memclaw's `related_ids`.
+
+Cross-refs: [[Learn-loop]], [[Judge]]. Spec: SYSTEM-MAP §6; ADR-0017 Decision #6; Task 190.
+
+### Judgment
+
+A fact **type** distinct from a plain fact: an EARNED comparative claim about method ("for task-shape T, A over B") that carries how much it actually knows — `status: provisional|corroborated|contested|retracted`, `n_episodes` (read as replication), `direction_consistent`, `confounds`, a decay date, and an append-only evidence log (HIT/MISS/REVERSAL). Born from expectation pre-registration (Task 191); **never enters ranking** (the comparative-judgment study: verified A>B is structurally unsolved at single-user scale — a judgment surfaces with its confidence visible instead). A cycle (A>B, B>C, C>A) flips it to `contested` and asks the user — detecting "there is no single better" is itself an earned judgment.
+
+Cross-refs: [[Learn-loop]], [[Trust score]] (the FACT-utility sibling — the two objects are never conflated). Spec: the [comparative-judgment study](../docs/research/2026-07-01-comparative-judgment-earned-method-preference.md); ADR-0017 Decision #1; Task 191.
+
+### Feedback-screen
+
+Poison_Guard for the LOOP (Task 193, a build prerequisite): feedback is a second input channel that mutates utilities, and nothing screened it — a systemically-wrong judge (a broken test suite reddening everything for a week) would dampen GOOD memories without touching a file. The screen: rate-limit per fact, burst-hold (a mostly-negative day = a systemic event → quarantine, don't apply), every Δ audit-logged, floor 0.05 (never delete by decay). No utility-mutating signal ships without it.
+
+Cross-refs: [[Learn-loop]], [[Judge]], [[Poison_Guard]]. Spec: SYSTEM-MAP §6; ADR-0017 Decision #4; Task 193.
+
+### Anti-pattern memory
+
+A fact whose JOB is negative: "avoid this / do not retry this route." A repeatedly-failing fact CONVERTS to this type instead of being deleted (demote-not-evict extended to the loop) and is injected as a warning — failures have positive value as cautionary examples (Memento/REMEMBERER retained-exemplar + Negative-Knowledge's dead-end veto, three independent precedents).
+
+Cross-refs: [[Learn-loop]], [[Demote-not-evict]], [[Judgment]]. Spec: SYSTEM-MAP §6; ADR-0017 Decision #5; Task 194.
+
 ### Write source
 
 The enum field on every observation recording how it was written: `user-explicit` / `auto-extract` / `compressor` / `manual-edit` / `imported`.
