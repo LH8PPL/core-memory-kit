@@ -193,7 +193,12 @@ export function assembleTranscriptWindow({ projectRoot, maxBytes = TRANSCRIPT_WI
   if (!existsSync(dir)) return '';
   let files;
   try {
-    files = readdirSync(dir).filter((f) => f.endsWith('.md')).sort();
+    // Explicit CODE-UNIT comparator (S2871) — deliberately NOT localeCompare:
+    // date-named transcript files must order identically on every machine,
+    // and locale-aware collation varies by user locale.
+    files = readdirSync(dir)
+      .filter((f) => f.endsWith('.md'))
+      .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   } catch {
     return '';
   }
