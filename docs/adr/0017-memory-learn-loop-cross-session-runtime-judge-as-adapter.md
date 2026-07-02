@@ -1,8 +1,8 @@
 # ADR-0017 — The kit as a cross-session learn-loop: judge-as-per-host-adapter
 
-- **Status**: Proposed (2026-07-01) — **WIP: the field-survey denominator is still resolving; the Decision section is provisional until it lands.**
-- **Resolves**: reframes the kit's architectural direction after the U-Mem triage (D-251) — recognizes the scattered backlog cluster (Tasks 55/66/95/179/180/181/188/189 + 50/127) as organs of ONE learn-loop, and names the one missing organ.
-- **Relates**: [U-Mem research note](../research/2026-07-01-umem-autonomous-memory.md) (D-251), [design.md §20.3](../../specs/design.md) (no-score-hot-path-ranking — VALIDATED, the deliberate reason cold-start never arises), ADR-0016 (the `trust_score` field this loop would rank on), ADR-0002 (markdown is truth), D-169 (no manual ritual), Tasks 55/66/95/179/180/181/188/189 (the organs), Task 50/127 (the agent-host direction), the field survey (in progress).
+- **Status**: **Accepted (2026-07-02)** — proposed 2026-07-01 as a WIP stub; finalized after the full research corpus landed (the 47-system failure survey + the 10-system/4-lens comparative-judgment study) and the target design was drawn ([SYSTEM-MAP §6](../SYSTEM-MAP.md), "our Figure 2"). The build is phased; Task 185 lanes the phases. D-252.
+- **Resolves**: reframes the kit's architectural direction after the U-Mem triage (D-251) — recognizes the scattered backlog cluster (Tasks 55/66/95/179/180/181/188/189 + 50/127) as organs of ONE learn-loop, names the one missing organ, and **adopts the target design** that closes it.
+- **Relates**: [SYSTEM-MAP §6](../SYSTEM-MAP.md) (**the adopted design — this ADR's normative referent**), [U-Mem research note](../research/2026-07-01-umem-autonomous-memory.md) (D-251), [failure-learning field survey](../research/2026-07-01-failure-learning-field-survey.md), [comparative-judgment study](../research/2026-07-01-comparative-judgment-earned-method-preference.md), [design.md §20.3](../../specs/design.md) (no-score-hot-path-ranking — revised narrowly, see Consequences), ADR-0016 (the `trust_score` field the loop ranks on), ADR-0002 (markdown is truth), D-169 (no manual ritual), Tasks 55/66/95/179/180/181/188/189 (the organs), Task 50/127 (the agent-host direction), D-251 + D-252.
 
 ## Context
 
@@ -20,17 +20,68 @@ The kit was designed as a per-project memory *store*: acquire (auto-extract) →
 
 3. **The prune-on-failure > reinforce-on-success ASYMMETRY (honest constraint).** Without an oracle, failure leaves traces (a correction, a re-ask, a red test, a forget) but a GOOD silent recall leaves *nothing* — the model used the fact, it worked, the user moved on, no signal. So an oracle-free kit can prune-on-failure far more reliably than it can reinforce-on-success. Design around the asymmetry; do not pretend to a symmetric reward.
 
-## Decision (PROVISIONAL — pending the field-survey denominator)
+## Decision
 
-_Recorded provisionally so the direction survives the session; finalized when the field survey lands._
+**The kit's differentiator is HONEST memory — it never lies about how much it knows.** Every choice
+below is decided by that criterion. (The field evidence behind it: of ~57 systems surveyed, everyone
+who learns cheats with a benchmark oracle, and everyone who doesn't ships an inert utility socket;
+*nobody* ships epistemic honesty — provisional status, confounds, confidence-visible judgments,
+honestly-blank regions — as a feature. The kit already leans this way; this ADR makes it the rule.)
 
-- **The kit is a partial learn-loop missing the learn-from-failure organ**, and the fix is oracle-free: (a) let the session model self-report an outcome on the fact it acted on (memclaw's pattern) → dampen `trust_score` on failure + LLM-synthesize a corrective "rule" fact; (b) **rank retrieval by a similarity+trust blend** so the learned signal finally changes what surfaces — the single edit that turns `trust_score` from decorative into load-bearing (and the thing §20.3 currently forbids, so a real architectural decision, not a tweak).
-- **Precedent, oracle-free, in CODE**: memclaw (caura-memclaw) is (as of the 9-system convenience survey) the one system that ships this loop without a benchmark oracle. The full-field survey is resolving whether it stays ~unique and what the honest X-of-N denominator is; several systems (letta, MemOS, A-Mem) ship the *socket* (a utility/feedback field) and leave it **inert**.
+**We adopt the target design in [SYSTEM-MAP §6](../SYSTEM-MAP.md) ("our Figure 2")** — the kit with
+the learn-loop closed. Its load-bearing calls, each grounded in the research corpus:
 
-## Consequences / open questions
+1. **Two rankable objects, never conflated.** FACT-utility (`trust_score`, the shipped 151.7 rule,
+   event set extended to the full signal portfolio) vs. METHOD-JUDGMENTS (`judgment_*.md` files —
+   provisional, `n_episodes`, confounds, decay, append-only evidence log). Facts may enter a ranking
+   blend; **judgments never auto-rank** — they surface with their confidence visible. (The
+   comparative-judgment study's core verdict: verified A>B is structurally unsolved at the kit's
+   scale — single-arm, scale floor, silent-success asymmetry, self-judge circularity.)
+2. **The judge is the per-host adapter; the loop is universal.** Signals are a PORTFOLIO —
+   **automatic-first, human-optional** (the two-axis correction: oracle-vs-no-oracle ≠
+   automatic-vs-human), **both-polarity** (prioritize symmetric signals — tool-result, expectation
+   HIT/MISS — that reinforce as readily as they prune; the asymmetry is a difficulty to engineer
+   around, not a goal). Recurrence is never read as reinforcement (Task 181: friction, not success).
+3. **The blend closes the loop in SEARCH, not inject.** `BM25 ⊕ λ·trust_score`, **confidence-gated**,
+   facts only — where the index is already open. Inject's hot path stays enum-ordered (§20.3's actual
+   concern, preserved). This is the single edit that turns `trust_score` from decorative into
+   load-bearing (the field-wide "inert socket" anti-pattern, fixed per ExpeL: the score also **gates
+   survival**, feeding prune-candidacy — never silent deletion).
+4. **The FEEDBACK-SCREEN is a prerequisite, not an option.** Feedback is a second unscreened input
+   channel (Poison_Guard covers writes; nothing covered utility mutations). No utility-mutating signal
+   ships without it: rate-limit per fact, burst-hold (a systemically-wrong judge — e.g. a broken test
+   suite — must quarantine, not dampen good memories), every Δ audit-logged, floor 0.05.
+5. **Failures are retained as anti-patterns, not erased** (Memento/REMEMBERER/Negative-Knowledge):
+   a repeatedly-failing fact converts to a typed "avoid this" memory — demote-not-evict extended to
+   the loop.
+6. **The RECALL-LOG is the attribution prerequisite** (memclaw `related_ids`): the one genuinely new
+   primitive — without "which memories surfaced this turn," no signal can find its target.
 
-- **Does not reverse §20.3** — it revisits it *with new evidence* (the learn-loop needs the score in ranking). The §20.3 "cautionary bug" (rank by a naive score → noisy fact ranks high) is real; the resolution is a *blended* rank (similarity ⊕ trust), not a pure-score rank, plus the prune-asymmetry.
-- **The agent-host direction (Task 50/127) is the same arc, not a separate one** — a more agentic host supplies a richer judge, so the loop learns faster there; the kit is the same glue for Claude Code, Hermes, OpenClaw, an SRE agent.
-- **Finalize when the field survey lands**: the honest denominator, whether the signal portfolio is saturated or an outlier signal exists, and the exact first build step (self-report edge + blended ranking, or a smaller wedge).
+**Build order = the phases in SYSTEM-MAP §6** (Phase 0 shipped; Phase 1 = the oracle-free wedge on
+existing hooks; Phase 2 = the blend + survival gate; Phase 3 = host-dependent). Task 185 lanes them.
+
+## Evidence (the honest denominator)
+
+47 systems surveyed (failure-learning) + 10 cohort + 4 outside lenses (comparative judgment). ~14 of 18
+deep-read systems learn from failure but **~12 need a benchmark oracle the kit lacks; only ~4 are
+oracle-free** (memclaw, Memoria — the two that close the loop into ranking — plus A-MemGuard set-level,
+SkillOpt's fallback tier). Verified A>B oracle-free from a single non-repeatable trajectory: **zero of
+ten**. Full evidence: the two research notes + the raw survey outputs archived under
+`docs/research/raw/`.
+
+## Consequences
+
+- **§20.3 is revised narrowly, with new evidence — not reversed.** The "cautionary bug" (rank the hot
+  path by a naive score) remains forbidden; what changes: SEARCH ranking may blend a
+  **confidence-gated** trust term (facts only), and the score gates survival in curation. Inject is
+  untouched. design.md §20.3 gets this amendment when Phase 2 builds.
+- **The agent-host direction (Task 50/127) is the same arc** — a richer host raises both cycle-rate
+  and judge quality (the two things the scale floor demands), so the loop's ambition unlocks there.
+  "Earn better-than" is a *reason* for the agent-host work, not an IDE feature to force.
+- **The unsolved region stays blank on purpose** (SYSTEM-MAP §5): no future session may fill it with
+  a small-sample "A>B ranking" and call it earned. If it gets solved, it's because the host changed.
+- **Recurrence is the system's fuel** — the one variable connecting 151 (promotion gate), 181
+  (friction), U-Mem's r=0.888 (ROI), the scale floor (judgment), and 189 (measuring it). Design
+  changes that raise usable recurrence (agent hosts, replay) raise everything downstream.
 
 _This ADR is the system-level reading of the U-Mem source: the paper describes a SYSTEM (a closed feedback loop), and the kit is a system — "the system is something beside, and not the same as, its elements." Provenance: the 2026-07-01 research session; the thesis was the maintainer's, sharpened across the exchange. D-251 + a forthcoming decision-log entry when finalized._

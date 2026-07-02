@@ -196,7 +196,7 @@ from two ends.
 ## 6. The TARGET state — the loop CLOSED ("our Figure 2")
 
 _Designed 2026-07-02 from the full research corpus (the U-Mem superimposition the whole arc was for);
-status: **designed, pending formal adoption in ADR-0017**. §1 draws what IS; this draws what the kit
+status: **ADOPTED — ADR-0017 (Accepted 2026-07-02, D-252)**. §1 draws what IS; this draws what the kit
 becomes when the open edge closes — every wire below carries a research citation (the table after the
 drawing). The build phases fall out of the drawing; Task 185 lanes them._
 
