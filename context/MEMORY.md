@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-RXRZF6S9) Wants composite representations (diagrams, graphs, anatomical models) that hold both holistic system and component-level views; wants to switch between abstraction levels.
-  <!-- source: auto-extract-session, source_line: 1, sha1: d445595ae5f962f89f1c78ffe723feccfec77c78bed2a6c052f1bd6daa16856d, write: auto-extract, trust: high, at: 2026-07-01T20:54:14Z -->
 - (P-NQTS2NRN) Prioritizes result outcome over token/time cost; willing to spend resources for quality.
   <!-- source: auto-extract-session, source_line: 1, sha1: 753ef213565f8392c956986fa39f52f3494c1945f28ec3006cf85a7102653f37, write: auto-extract, trust: high, at: 2026-07-01T21:11:21Z -->
 - (P-KNWJBUZA) Validates deliberate deferral of decisions when supported by research; does not regret deferred choices if well-reasoned.
@@ -20,6 +18,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: c8b9c35d74ec3492f098881fb4d7fe927e3a69edfdba545c1a2b67256b7baf69, write: auto-extract, trust: high, at: 2026-07-01T21:29:27Z -->
 - (P-LDGERRW2) Verifies that all documentation is complete after major fixes — asks "and everything is documented?" as a closing check
   <!-- source: auto-extract-session, source_line: 1, sha1: 4905b91dac71bebe3c2579e8ed4ec5af9e90b511fcc820dc2dddfcf828e6d7b1, write: auto-extract, trust: high, at: 2026-07-02T06:59:05Z -->
+- (P-TE9SVR6N) You're challenging a silent drift: v0.4.x was supposed to be the breadth lane (agents after Kiro), but Cursor hasn't shipped while v0.5 is pending. Calling for explicit re-decision, not assumed deferral.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 430b05db37b79d58fd58e61cb68ab1546c844256af704282cd7589c74fe5995e, write: auto-extract, trust: high, at: 2026-07-02T07:43:30Z -->
 
 ## Environment Notes
 
