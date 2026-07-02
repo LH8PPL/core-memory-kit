@@ -23,6 +23,9 @@ import { resolveFact } from '../packages/cli/src/forget.mjs';
 import { temporalSweep, buildCandidateQuery } from '../packages/cli/src/temporal-sweep.mjs';
 import { MockHaikuBackend } from '../packages/cli/src/compressor.mjs';
 import { parse as parseFm } from '../packages/cli/src/frontmatter.mjs';
+import { openIndexDb } from '../packages/cli/src/index-db.mjs';
+import { reindexFull } from '../packages/cli/src/index-rebuild.mjs';
+import { search } from '../packages/cli/src/search.mjs';
 
 const NOW = '2026-07-02T12:00:00Z';
 
@@ -219,6 +222,25 @@ describe('Task 66.4 — temporalSweep() boundary', () => {
     expect(r.action).toBe('skipped');
     expect(r.reason).toBe('no-candidates');
     expect(backend.calls).toHaveLength(0);
+  });
+
+  it('D-166 Bug-2 acceptance: capture "vN in progress" then "vN shipped" → recall returns ONLY the current state', async () => {
+    // The named acceptance case from Task 66's parent entry: the SessionStart
+    // snapshot once showed "v0.3.2 deferred" after v0.3.2 shipped. After the
+    // judged sweep, the READ PATH (reindex + search — what `cmk search` runs)
+    // must surface the CURRENT state and not the stale one.
+    const { older, newer } = seedChain();
+    await temporalSweep({ projectRoot, backend: mockJudge('PAIR 1: SUPERSEDES'), now: NOW });
+    const db = openIndexDb({ projectRoot });
+    try {
+      reindexFull({ projectRoot, db });
+      const r = search({ db, query: 'release', now: NOW });
+      const ids = r.results.map((x) => x.id);
+      expect(ids).toContain(newer.id);
+      expect(ids).not.toContain(older.id);
+    } finally {
+      db.close();
+    }
   });
 
   describe('buildCandidateQuery (pure helper)', () => {

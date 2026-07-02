@@ -401,6 +401,13 @@ export async function weeklyCurate({
         success: true,
         skipped_reason: 'no-old-files',
         current_days: current.length,
+        // Door 4 (66.3/66.4): the deterministic sweeps ran even on this skip
+        // path — their outcomes must reach the NDJSON trail, not just the
+        // in-process return value.
+        expired_swept: expirySweep.count,
+        temporal_action: temporal?.action ?? null,
+        temporal_superseded: temporal?.superseded ?? 0,
+        temporal_pairs_judged: temporal?.pairs_judged ?? 0,
       },
     });
     return {
@@ -536,6 +543,11 @@ export async function weeklyCurate({
       archived_days: old.length,
       current_days: current.length,
       recent_rebuild_action: recentResult?.action ?? 'skipped',
+      // Door 4 (66.3/66.4): the maintenance sweeps' outcomes in the NDJSON trail.
+      expired_swept: expirySweep.count,
+      temporal_action: temporal?.action ?? null,
+      temporal_superseded: temporal?.superseded ?? 0,
+      temporal_pairs_judged: temporal?.pairs_judged ?? 0,
       ...(retries > 0 ? { retries } : {}), // 161.12: succeeded after a transient retry
       ...(deletionErrors.length > 0 ? { deletion_errors: deletionErrors } : {}),
     },
