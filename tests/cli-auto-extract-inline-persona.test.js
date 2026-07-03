@@ -163,6 +163,45 @@ describe('Task 61 — inline cross-project promotion', () => {
     expect(withPersona).toBeTruthy();
   });
 
+  it('BOOTSTRAP: a cross-project rule promotes even when the user tier does NOT exist yet — initUserTier fires on first gated promote (wedge-from-empty, D-262)', async () => {
+    // The wedge's whole premise is "fills from EMPTY" (B3/B4). Every OTHER test
+    // in this file pre-scaffolds the user tier in beforeEach — which structurally
+    // masks the bug a brand-new user hits: on their FIRST cross-project rule the
+    // tier does not exist yet, and pre-fix the promote routed to
+    // `not-promoted-no-file` (queued, never landed) so the persona could never
+    // bootstrap. Here we DELETE the user tier the beforeEach created, to test the
+    // genuine from-zero path.
+    rmSync(userDir, { recursive: true, force: true });
+    expect(existsSync(userDir)).toBe(false);
+
+    const turnFile = writeTurnFile(
+      projectRoot,
+      'USER_TURN:\nfrom now on, in every project, always use uv for packages, never pip\n\nASSISTANT_TURN:\nunderstood',
+    );
+    const backend = mockBackend(
+      'SKIP',
+      'PERSONA CANDIDATE | target=HABITS.md | section=Iteration Cadence | confidence=high | Always use uv for packages, never pip, in every project',
+    );
+    const r = await runAutoExtract({
+      turnFile,
+      projectRoot,
+      userDir, // a real path, but the DIRECTORY does not exist yet
+      haikuBackend: backend,
+      now: '2026-05-31T13:00:00Z',
+    });
+
+    // Door 1 — the promotion is reported as landed, not queued.
+    expect(r.action).toBe('extracted');
+    expect(r.persona).toBeTruthy();
+    expect(r.persona.promoted.map((p) => p.text)).toContain(
+      'Always use uv for packages, never pip, in every project',
+    );
+
+    // Door 2 — the user tier was CREATED and carries the rule (the bootstrap).
+    expect(existsSync(userDir)).toBe(true);
+    expect(treeContains(userDir, 'uv for packages')).toBe(true);
+  });
+
   it('no userDir → no inline promotion attempted (back-compat: project extraction unaffected)', async () => {
     const turnFile = writeTurnFile(
       projectRoot,

@@ -9665,3 +9665,282 @@ _(retracted 2026-06-29)_
 
 **When:** 2026-07-02 · **Fact:** `P-XD9BCGVB`
 **Why:** core-memory-kit is the leading name, but validation defers until Cursor+Codex ship. Letta's existing "core memory" term is a specific checkable constraint within that bake-off.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-U4XX9SEP -->
+
+## "i wanted the research so the decisions will write them self" — research-first m
+
+**When:** 2026-07-01 · **Fact:** `P-U4XX9SEP`
+
+<!-- decision:P-NRBD56HF -->
+
+## CLAUDE.md Checkpoint #4: Pre-commit Screening Rule
+
+**When:** 2026-07-02 · **Fact:** `P-NRBD56HF`
+**Why:** Ensures no credentials or absolute home paths are published in fact files
+
+<!-- decision:P-4P5379aN -->
+
+## Task 71 Pre-commit Hook (Backlog)
+
+**When:** 2026-07-02 · **Fact:** `P-4P5379aN`
+**Why:** Poison_Guard screens facts at write time, but the commit-boundary screen is hand-rolled; automating this would reduce recurring manual work
+
+<!-- decision:P-3LVHaFAY -->
+
+## v0.4.4 Build Order
+
+**When:** 2026-07-02 · **Fact:** `P-3LVHaFAY`
+**Why:** Confirms task sequencing and identifies that expires_at needs to be added to source as part of 66.3, not assumed to exist
+
+<!-- decision:P-NUTKEA6V -->
+
+## Expires_at Field — Design and External Precedent
+
+**When:** 2026-07-02 · **Fact:** `P-NUTKEA6V`
+**Why:** Expiry/TTL is well-validated across tools; the risk isn't the idea but whether it gets populated. This context justifies 66.3's population-focused design.
+
+<!-- decision:P-HWQ9TaK9 -->
+
+## Task 66.1 Complete — writeFact Shape Field Validation
+
+**When:** 2026-07-02 · **Fact:** `P-HWQ9TaK9`
+**Why:** Shape field is the foundation for fact classification in the writeFact slice; enables downstream features like auto-extract for ephemeral facts.
+
+<!-- decision:P-a4CPUUQa -->
+
+## Task 66.3 Scoped — Population + Enforcement, Both Required
+
+**When:** 2026-07-02 · **Fact:** `P-a4CPUUQa`
+**Why:** Earlier user feedback identified that expires_at (designed but unimplemented) risks becoming useless enforcement. The actual work is ensuring *something* populates the field, not building enforcement for a bare field.
+
+<!-- decision:P-5UDDLD2V -->
+
+## Expiry Mechanism Precedents & Anti-Patterns
+
+**When:** 2026-07-02 · **Fact:** `P-5UDDLD2V`
+**Why:** Addresses 66.3's core risk: without a validated writer path, feature stays dead (D-169 class). Precedent confirms caller-set is only working pattern; confusion between staleness/absolute breaks user intent (fact marked "expires Friday" should not auto-extend); sweep-only enforcement fails silently.
+
+<!-- decision:P-JQ5UBKZ4 -->
+
+## Auto-Extract Expiry — Bounded Design (Never Guesses)
+
+**When:** 2026-07-02 · **Fact:** `P-JQ5UBKZ4`
+**Why:** D-258a captures the rationale. Auto-extract is unprecedented; guessing expiry would corrupt the memory corpus. Bounding to Plan/Event facts with stated expiries ensures only facts with obvious, explicit dates are tagged.
+
+<!-- decision:P-FCB2THCC -->
+
+## Expires_at Enforcement — Dual-Mode (Read-Time + Sweep)
+
+**When:** 2026-07-02 · **Fact:** `P-FCB2THCC`
+**Why:** Enforcing at read-time + sweep ensures expiry is immediate (user perception) and eventual (database hygiene). Tombstone instead of hard-delete maintains audit trail per D-163.
+
+<!-- decision:P-THHJ4TVU -->
+
+## Task 66 Subtask Dependencies and Next Gate
+
+**When:** 2026-07-02 · **Fact:** `P-THHJ4TVU`
+**Why:** Task 66.2/66.4 cannot proceed until these design forks are resolved; contradiction-DETECTION strategy is the critical path blocker.
+
+<!-- decision:P-UXNMS2M3 -->
+
+## Contradiction Detection Design (D-259)
+
+**When:** 2026-07-02 · **Fact:** `P-UXNMS2M3`
+**Why:** Experiments on dogfood corpus (1,246 real facts) showed lexical similarity fails (zero pairs >0.5 score), but subject grouping + Haiku achieves perfect classification; contradictions share subjects, not words
+
+<!-- decision:P-LGNBM7E5 -->
+
+## FTS5 Tokenization Quirk With Version Identifiers
+
+**When:** 2026-07-02 · **Fact:** `P-LGNBM7E5`
+**Why:** Discovered during D-259 design work when building same-subject candidate search by version tokens
+
+<!-- decision:P-ZQ6QSWTH -->
+
+## Concurrency Flake Root Cause: Real Timeout Under Load
+
+**When:** 2026-07-02 · **Fact:** `P-ZQ6QSWTH`
+**Why:** Helps distinguish production bugs from test brittleness. The fallback behavior is correct by design; tests need injection seams to assert it reliably across load conditions.
+
+<!-- decision:P-D6VRFY9Z -->
+
+## Injection-Seam Pattern for Timeout-Critical Tests
+
+**When:** 2026-07-02 · **Fact:** `P-D6VRFY9Z`
+**Why:** Under concurrent load (5× suite), production timeouts can actually fire, causing tests that assume quick completion to fail. Decouples test execution speed from production timeout behavior.
+
+<!-- decision:P-TAFZMXTD -->
+
+## Kit Design Principle: Zero Git-Writing Code
+
+**When:** 2026-07-02 · **Fact:** `P-TAFZMXTD`
+**Why:** Prevents accidental or unintended commits; ensures user retains full control over git history; aligns with the kit's design philosophy as a passive memory layer.
+
+<!-- decision:P-GSJ3QVL5 -->
+
+## Standing Outward-Step Rule
+
+**When:** 2026-07-02 · **Fact:** `P-GSJ3QVL5`
+**Why:** Separates routine automation from decisions requiring human judgment; preserves user control over final release and shipping.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-LDGERRW2 -->
+
+## Verifies that all documentation is complete after major fixes — asks "and everyt
+
+**When:** 2026-07-02 · **Fact:** `P-LDGERRW2`
+
+<!-- decision:P-TE9SVR6N -->
+
+## You're challenging a silent drift: v0.4.x was supposed to be the breadth lane (a
+
+**When:** 2026-07-02 · **Fact:** `P-TE9SVR6N`
+
+<!-- decision:P-ZDX4QFaF -->
+
+## Chose Option A — prioritize Cursor and Codex adapters (breadth-first) before rec
+
+**When:** 2026-07-02 · **Fact:** `P-ZDX4QFaF`
+
+<!-- decision:P-QLRWTVVE -->
+
+## Deferral trigger: name re-evaluation when "really support more IDE/CLI harnesses
+
+**When:** 2026-07-02 · **Fact:** `P-QLRWTVVE`
+
+<!-- decision:P-R4CEEWGS -->
+
+## Will defer full rename until multi-harness support is proven real, not just plan
+
+**When:** 2026-07-02 · **Fact:** `P-R4CEEWGS`
+
+<!-- decision:P-573LQS4P -->
+
+## Requested verification that comparative research across other systems was conduc
+
+**When:** 2026-07-02 · **Fact:** `P-573LQS4P`
+
+<!-- decision:P-C2GVaY4G -->
+
+## Release Gate Documentation Format in cut-gate.md
+
+**When:** 2026-07-02 · **Fact:** `P-C2GVaY4G`
+**Why:** The format is the living standard for release gates in this project. A future version gate will follow the same structure and conventions. The format ensures gates are repeatable, auditable, and clear about which checks are manual vs. deterministic.
+
+<!-- decision:P-5PMG774Q -->
+
+## v0.4.4 Release Gate Checks
+
+**When:** 2026-07-02 · **Fact:** `P-5PMG774Q`
+**Why:** v0.4.4 introduces temporal-validity and manual-config functionality. These gates verify the feature works and the release is safe. Some checks are deterministic and reproducible; others require live-Haiku judgment and manual verification. Recording which are manual prevents misunderstanding during the release.
+
+<!-- decision:P-aUNXXaRE -->
+
+## Release Cut Sequencing and Prerequisites (v0.4.4 Pattern)
+
+**When:** 2026-07-02 · **Fact:** `P-aUNXXaRE`
+**Why:** Prevents accidental double-release. Version info must be committed before pack. Doc must be pushed before sync. Guards (version check, cmk --version) verify correctness.
+
+<!-- decision:P-UBMTG4BL -->
+
+## Tool Quirk - cmk pack Uses Committed Tree Version
+
+**When:** 2026-07-02 · **Fact:** `P-UBMTG4BL`
+**Why:** Build tool reads committed state, not uncommitted changes. Non-obvious and can cause version mismatches if release commit has not yet reached main.
+
+<!-- decision:P-SAGHE2A2 -->
+
+## Release Cut: Tag Version Must Match package.json
+
+**When:** 2026-07-02 · **Fact:** `P-SAGHE2A2`
+**Why:** Accidental tag/version mismatches trigger unintended publishes to npm.
+
+<!-- decision:P-aH493FLQ -->
+
+## Windows npm uninstall EPERM on better_sqlite3 is Benign
+
+**When:** 2026-07-02 · **Fact:** `P-aH493FLQ`
+**Why:** Prevents false alarms during release cuts when this warning appears.
+
+<!-- decision:P-BLUaWBJM -->
+
+## Reset Procedure for Gate Testing (Clean-Slate Mode)
+
+**When:** 2026-07-02 · **Fact:** `P-BLUaWBJM`
+**Why:** Gate procedures (esp. B3/B4/B8) validate fresh-install behavior. Backup ensures zero data loss and easy rollback if needed.
+
+<!-- decision:P-ENFBJUXW -->
+
+## Claude Code 2.1.198 Permission Hook Regression
+
+**When:** 2026-07-02 · **Fact:** `P-ENFBJUXW`
+**Why:** A/B test isolated the cause (identical config, new environment). Real blocker for users on CC 2.1.198 using auto-approve hooks.
+
+<!-- decision:P-J9UAQKSJ -->
+
+## Regression Isolation: A/B Test Old Config in New Environment
+
+**When:** 2026-07-02 · **Fact:** `P-J9UAQKSJ`
+**Why:** Rules out variables systematically. Avoids guessing or chasing red herrings.
+
+<!-- decision:P-CTVJRZFF -->
+
+## System-Written Grants File as Specification
+
+**When:** 2026-07-02 · **Fact:** `P-CTVJRZFF`
+**Why:** The system documents its own requirements by what it generates. The actual file is more reliable than documentation or version notes.
+
+<!-- decision:P-MC6M67aL -->
+
+## User defers specification decisions to assistant expertise, asking "you think we
+
+**When:** 2026-07-02 · **Fact:** `P-MC6M67aL`
+
+<!-- decision:P-WK2Y9GRS -->
+
+## Post-research: ultracode OFF, workflows OFF; model tier high (extra-high optiona
+
+**When:** 2026-07-02 · **Fact:** `P-WK2Y9GRS`
+
+<!-- decision:P-N9W2GW5U -->
+
+## Verify inventory completeness before deciding on preservation; the question "did
+
+**When:** 2026-07-02 · **Fact:** `P-N9W2GW5U`
+
+<!-- decision:P-LLKXCXC7 -->
+
+## The kit's four-step method: (1) who, (2) how, (3) fit-filter, (4) draw-the-machi
+
+**When:** 2026-07-02 · **Fact:** `P-LLKXCXC7`
+
+<!-- decision:P-RPLGFUN5 -->
+
+## Quality Gate failed on 3 new-code issues: (1) bidirectional character in securit
+
+**When:** 2026-07-02 · **Fact:** `P-RPLGFUN5`
+
+<!-- decision:P-KLUC5F6U -->
+
+## PR #247 merged with full workflow: branch → suite run (2485/2485) → two-pass rev
+
+**When:** 2026-07-02 · **Fact:** `P-KLUC5F6U`
+
+<!-- decision:P-6Y2YQaFL -->
+
+## Decision-Log System for Known Limitations
+
+**When:** 2026-07-02 · **Fact:** `P-6Y2YQaFL`
+**Why:** Explicit decision logging ensures regressions are understood, non-obvious constraints are recorded for future maintainers, and stakeholders are informed about known limitations upfront.

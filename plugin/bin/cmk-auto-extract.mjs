@@ -14,7 +14,6 @@
 
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { existsSync } from 'node:fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -72,9 +71,13 @@ try {
 // Task 61 — inline cross-project promotion: pass the user-tier dir so
 // cross-project doctrine promotes immediately. Resolve the base via the
 // shared tier-paths resolver (never re-derive ~/.claude-memory-kit inline —
-// CLAUDE.md shared-modules rule), and only when the user tier exists.
-const userDirBase = resolveTierRoot({ tier: 'U' });
-const userDir = existsSync(userDirBase) ? userDirBase : undefined;
+// CLAUDE.md shared-modules rule).
+//
+// Wedge-from-empty (D-262): pass userDir UNCONDITIONALLY — the promote path
+// scaffolds the user tier on first GATED cross-project promote, so a brand-new
+// user's first "from now on…" rule bootstraps the persona from empty instead of
+// being silently dropped by an existsSync guard. Mirrors packages/cli/bin.
+const userDir = resolveTierRoot({ tier: 'U' });
 
 try {
   const haikuBackend = new HaikuViaAnthropicApi();

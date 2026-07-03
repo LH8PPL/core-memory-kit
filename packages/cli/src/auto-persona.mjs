@@ -51,6 +51,10 @@ import { detectConflicts } from './conflict-queue.mjs';
 import { appendAuditEntry, REASON_CODES } from './audit-log.mjs';
 import { DEFAULT_COOLDOWN_MS, isCooldownActive, touchCooldownMarker } from './cooldown.mjs';
 import { PROMOTE_THRESHOLD } from './heat.mjs';
+// Wedge-from-empty (D-262): scaffold the user tier on first gated promote when a
+// brand-new user has none yet. install.mjs is cycle-safe here — it imports only
+// audit-log/claude-md/native-binding/settings-hooks, none of which import this.
+import { initUserTier } from './install.mjs';
 
 // User-tier scratchpads auto-persona is allowed to promote into. A
 // classifier-named target outside this set is dropped defensively (the
@@ -708,6 +712,26 @@ export function promoteCandidatesToUserTier({ candidates, userDir, now, settings
     if (!SAFE_SECTION_NAME.test(c.section)) {
       queued.push({ target: c.target, section: c.section, text: c.text, confidence: c.confidence, reason: 'not-promoted-bad-section-name' });
       continue;
+    }
+    // Wedge-from-empty (D-262): a brand-new user has NO user tier on their first
+    // cross-project rule, so the target scratchpad (HABITS/LESSONS/USER.md) does
+    // not exist yet — pre-fix `ensureSectionExists` returned `{error:'no-file'}`
+    // and the rule routed to `not-promoted-no-file`, so the persona could never
+    // bootstrap from empty (the whole B3/B4 premise). SCAFFOLD the user tier here,
+    // on first gated promote — this fires ONLY after the confidence/recurrence
+    // gate above passed, so the tier materializes exactly when a GATED candidate
+    // is being written (a later divert — section error, conflict queue, dedup —
+    // can still not-land THIS candidate; the bootstrapped tier then serves the
+    // next promote), never speculatively (the D-74 "don't touch the user's
+    // system without cause" posture). initUserTier is idempotent (skip-existing),
+    // so this is a no-op once the tier exists.
+    if (!existsSync(scratchpadPath)) {
+      try {
+        initUserTier({ userTier: userTierRoot });
+      } catch {
+        // If scaffolding fails, fall through — ensureSectionExists will report
+        // no-file and the candidate queues (the pre-fix behavior), never a crash.
+      }
     }
     // Heading-creation is intentionally cap-exempt: it's ~30 bytes and the
     // memoryWrite below enforces the scratchpad byte cap on the bullet (§7.1).
