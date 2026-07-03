@@ -582,8 +582,8 @@ export async function runCursorHook(_options = {}, _command, deps = {}) {
       inject: deps.inject ?? ((args) => {
         // injectContext returns {snapshot, …} — see the D-269 note on the Kiro
         // wiring above (the same read-the-wrong-field bug, fixed together).
-        const r = injectContext({ cwd: args.cwd, ...(args.userDir ? { userDir: args.userDir } : {}) });
-        return { ok: true, text: typeof r === 'string' ? r : r?.snapshot ?? '' };
+        const res = injectContext({ cwd: args.cwd, ...(args.userDir ? { userDir: args.userDir } : {}) });
+        return { ok: true, text: typeof res === 'string' ? res : res?.snapshot ?? '' };
       }),
       // Forward a RESOLVED auto-extract path so captureTurn can spawn the
       // detached extraction child (the D-200 class — without it, capture
