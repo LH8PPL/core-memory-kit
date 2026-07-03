@@ -17,8 +17,11 @@
 // authoritative root, cwd is only the fallback) → dispatchCursorHook with the
 // real cores → print the Cursor JSON response on stdout → ALWAYS exit 0.
 
-import { describe, it, expect } from 'vitest';
-import { runCursorHook } from '../packages/cli/src/subcommands.mjs';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { runCursorHook, runHook } from '../packages/cli/src/subcommands.mjs';
 
 describe('Task 196 — cmk cursor-hook (the Cursor hook bin)', () => {
   it('parses the stdin payload, routes on hook_event_name, resolves the root from workspace_roots', async () => {
@@ -127,5 +130,53 @@ describe('Task 196 — cmk cursor-hook (the Cursor hook bin)', () => {
       log: () => {},
     });
     expect(process.exitCode ?? 0).toBe(0);
+  });
+});
+
+// The D-269 integration lock: every routing test above fakes `inject`, which is
+// exactly how the REAL wiring shipped reading the wrong field of
+// injectContext's return ({snapshot, hookOutput, …} — it has never had a
+// `.text`), so both the Kiro AND Cursor inject legs emitted EMPTY in
+// production while every unit test passed (found by the Task-196 sandbox
+// live-test). These tests run the DEFAULT inject dep against the real
+// injectContext over a real on-disk project — the cross-module path the
+// per-module tests structurally can't see (the CLAUDE.md integration-test
+// rule).
+describe('D-269 — the default inject dep carries the REAL memory snapshot', () => {
+  let sandbox;
+  let projectRoot;
+
+  beforeEach(() => {
+    sandbox = mkdtempSync(join(tmpdir(), 'cmk-inject-integration-'));
+    projectRoot = join(sandbox, 'proj');
+    mkdirSync(join(projectRoot, 'context'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, 'context', 'MEMORY.md'),
+      '# Working Memory\n\n## Active Threads\n\n- (P-D269FACT) the vitest sandbox uses SQLite\n',
+      'utf8',
+    );
+  });
+
+  afterEach(() => {
+    rmSync(sandbox, { recursive: true, force: true });
+  });
+
+  it('cursor sessionStart → additional_context contains the on-disk fact', async () => {
+    const out = [];
+    await runCursorHook({}, undefined, {
+      payload: { hook_event_name: 'sessionStart', workspace_roots: [projectRoot] },
+      log: (s) => out.push(s),
+    });
+    const resp = JSON.parse(out.join(''));
+    expect(resp.additional_context).toContain('the vitest sandbox uses SQLite');
+  });
+
+  it('kiro agentSpawn → stdout contains the on-disk fact (the same wiring bug, Kiro side)', () => {
+    const out = [];
+    runHook('agentSpawn', {}, undefined, {
+      cwd: projectRoot,
+      log: (s) => out.push(s),
+    });
+    expect(out.join('')).toContain('the vitest sandbox uses SQLite');
   });
 });

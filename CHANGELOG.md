@@ -12,6 +12,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 - **Cursor is now a first-class agent** (Task 196). `cmk install --ide cursor` wires the full automatic memory loop into [Cursor](https://cursor.com) in one step: recalled memory injects at session start (`sessionStart` → `additional_context`), every turn is captured (`beforeSubmitPrompt` + `afterAgentResponse`), file edits are observed (`afterFileEdit`), the session compresses at `sessionEnd`, and the memory delete-guardrail screens shell commands (`beforeShellExecution` → `permission: deny`). All hooks drive one dispatcher (`cmk cursor-hook`) wired into `.cursor/hooks.json` — your own hooks and MCP servers are never touched (touch-only-our-keys, refuse-to-clobber on a corrupt file) — plus the `claude-memory-kit` MCP server in `.cursor/mcp.json` and an always-applied rule at `.cursor/rules/claude-memory-kit.mdc`. `cmk uninstall --ide cursor` removes exactly that surface; `cmk doctor` is Cursor-aware. Timely: Cursor removed its native Memories feature in 2.1.x — the kit restores the automatic capture loop Cursor users lost, and a project's `context/` is shared with Claude Code and Kiro.
 
+### Fixed
+
+- **Kiro sessions now actually receive the memory snapshot** (D-269, found by the Task-196 live-test). Since v0.4.0, the `cmk hook agentSpawn`/`promptSubmit` inject leg read a non-existent field of the injector's result and printed an **empty string** — Kiro ran without the recalled-memory snapshot while capture kept working (memory accumulated but never came back at session start). Fixed for Kiro and the new Cursor adapter together, and locked with integration tests that run the real injector end-to-end. Claude Code was never affected (its SessionStart uses a different bin).
+
 ## [0.4.4] — 2026-07-03
 
 ### Added

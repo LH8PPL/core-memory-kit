@@ -15,7 +15,7 @@
 //   installAgent({ projectRoot, profile }) → { action, agent, changed, legs, errors? }
 //   uninstallAgent({ projectRoot, profile }) → { action, agent, changed }
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { mutateAgentConfig, atomicWrite } from './mutate-agent-config.mjs';
 import { cursorHookCommand } from './kiro-hook-command.mjs';
@@ -144,9 +144,13 @@ export function uninstallAgent({ projectRoot, profile }) {
     // prune an emptied `hooks` object we leave behind (no residue).
     pruneEmptyParent(p, ['hooks']);
   }
-  // instruction: strip our marker block, byte-preserve the rest.
+  // instruction: strip our marker block, byte-preserve the rest — then, if the
+  // remainder is ONLY the frontmatter the kit itself wrote (nothing of the
+  // user's), delete the file: a frontmatter-only `.mdc` is an always-applied
+  // EMPTY rule, kit-shaped residue (the Task-196 live-test find).
   const instrPath = join(projectRoot, profile.instructionFile);
   if (removeInstructionBlock(instrPath)) changed = true;
+  if (removeKitOnlyInstructionResidue(instrPath, profile)) changed = true;
 
   return { action: 'uninstalled', agent: profile.name, changed };
 }
@@ -230,6 +234,25 @@ function removeInstructionBlock(path) {
 // removeJsonKey / pruneEmptyParent / escapeRe / trim{Leading,Trailing}Newlines
 // are now shared from managed-block.mjs (deduped — the kit's shared-module
 // discipline; install-kiro.mjs uses the same source).
+
+// After the managed block is stripped, a file whose remaining content is only
+// the kit-authored frontmatter (or nothing at all) carries zero user content —
+// remove it so an uninstall leaves no kit-shaped file behind. Anything else
+// (a user's own lines outside our markers) keeps the file.
+function removeKitOnlyInstructionResidue(path, profile) {
+  if (!existsSync(path)) return false;
+  const left = readFileSync(path, 'utf8').trim();
+  const kitFrontmatter = profile.instructionFrontmatter
+    ? `---\n${profile.instructionFrontmatter}\n---`
+    : needsInclusionFrontmatter(profile)
+      ? '---\ninclusion: always\n---'
+      : '';
+  if (left === '' || left === kitFrontmatter) {
+    unlinkSync(path);
+    return true;
+  }
+  return false;
+}
 
 function needsInclusionFrontmatter(profile) {
   // Kiro steering files use `inclusion: always`. Driven by the profile's

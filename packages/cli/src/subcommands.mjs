@@ -490,13 +490,16 @@ export function runHook(event, _options = {}, _command, deps = {}) {
     payload,
     deps: {
       readKiroTurn: deps.readKiroTurn ?? readKiroTurn,
-      // injectContext returns the assembled context string; normalize to {text}.
-      // userDir is passed through so cross-project user-tier memory surfaces on
-      // Kiro inject too (injectContext resolves $MEMORY_KIT_USER_DIR when userDir
-      // is absent, but pass it explicitly when the caller provides one).
+      // injectContext returns {snapshot, hookOutput, …} — the memory text is
+      // `.snapshot`. The original wiring read a non-existent `.text` field, so
+      // the Kiro inject leg emitted EMPTY in production while every routing
+      // test (which fakes inject) passed — found by the Task-196 sandbox
+      // live-test, locked by the D-269 integration tests in
+      // cli-cursor-hook-bin.test.js. userDir is passed through so
+      // cross-project user-tier memory surfaces on Kiro inject too.
       inject: deps.inject ?? ((args) => {
-        const text = injectContext({ cwd: args.cwd, ...(args.userDir ? { userDir: args.userDir } : {}) });
-        return { ok: true, text: typeof text === 'string' ? text : text?.text ?? '' };
+        const r = injectContext({ cwd: args.cwd, ...(args.userDir ? { userDir: args.userDir } : {}) });
+        return { ok: true, text: typeof r === 'string' ? r : r?.snapshot ?? '' };
       }),
       // Pass a RESOLVED autoExtractPath so captureTurn can spawn the detached
       // auto-extract child (D-200 — else no extraction, no wedge promotion). The
@@ -577,8 +580,10 @@ export async function runCursorHook(_options = {}, _command, deps = {}) {
     cwd,
     deps: {
       inject: deps.inject ?? ((args) => {
-        const text = injectContext({ cwd: args.cwd, ...(args.userDir ? { userDir: args.userDir } : {}) });
-        return { ok: true, text: typeof text === 'string' ? text : text?.text ?? '' };
+        // injectContext returns {snapshot, …} — see the D-269 note on the Kiro
+        // wiring above (the same read-the-wrong-field bug, fixed together).
+        const r = injectContext({ cwd: args.cwd, ...(args.userDir ? { userDir: args.userDir } : {}) });
+        return { ok: true, text: typeof r === 'string' ? r : r?.snapshot ?? '' };
       }),
       // Forward a RESOLVED auto-extract path so captureTurn can spawn the
       // detached extraction child (the D-200 class — without it, capture

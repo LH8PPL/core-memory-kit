@@ -177,5 +177,24 @@ describe('Task 196 — installAgent (Cursor)', () => {
       // {version: 1} residue is accepted — a 1-key inert file beats deleting a
       // file we can't prove we created.
     });
+
+    it('a kit-only .mdc rule is DELETED on uninstall (an empty alwaysApply rule is kit-shaped residue)', () => {
+      installAgent({ projectRoot, profile: cursor() });
+      uninstallAgent({ projectRoot, profile: cursor() });
+      // frontmatter-only leftovers would be an always-applied EMPTY rule — the
+      // live-test residue find. Kit-authored file, kit block gone → file gone.
+      expect(existsSync(join(projectRoot, '.cursor', 'rules', 'claude-memory-kit.mdc'))).toBe(false);
+    });
+
+    it('a .mdc the user added their own content to SURVIVES uninstall (only our block is stripped)', () => {
+      installAgent({ projectRoot, profile: cursor() });
+      const mdcPath = join(projectRoot, '.cursor', 'rules', 'claude-memory-kit.mdc');
+      writeFileSync(mdcPath, `${readFileSync(mdcPath, 'utf8')}\nMy own always-on note.\n`, 'utf8');
+      uninstallAgent({ projectRoot, profile: cursor() });
+      expect(existsSync(mdcPath)).toBe(true);
+      const left = readFileSync(mdcPath, 'utf8');
+      expect(left).toContain('My own always-on note.');
+      expect(left).not.toContain('claude-memory-kit:start');
+    });
   });
 });
