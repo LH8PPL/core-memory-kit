@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Added
+
+- **Cursor is now a first-class agent** (Task 196). `cmk install --ide cursor` wires the full automatic memory loop into [Cursor](https://cursor.com) in one step: recalled memory injects at session start (`sessionStart` → `additional_context`), every turn is captured (`beforeSubmitPrompt` + `afterAgentResponse`), file edits are observed (`afterFileEdit`), the session compresses at `sessionEnd`, and the memory delete-guardrail screens shell commands (`beforeShellExecution` → `permission: deny`). All hooks drive one dispatcher (`cmk cursor-hook`) wired into `.cursor/hooks.json` — your own hooks and MCP servers are never touched (touch-only-our-keys, refuse-to-clobber on a corrupt file) — plus the `claude-memory-kit` MCP server in `.cursor/mcp.json` and an always-applied rule at `.cursor/rules/claude-memory-kit.mdc`. `cmk uninstall --ide cursor` removes exactly that surface; `cmk doctor` is Cursor-aware. Timely: Cursor removed its native Memories feature in 2.1.x — the kit restores the automatic capture loop Cursor users lost, and a project's `context/` is shared with Claude Code and Kiro.
+
 ## [0.4.4] — 2026-07-03
 
 ### Added
