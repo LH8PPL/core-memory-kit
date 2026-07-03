@@ -930,11 +930,16 @@ export function injectContext({
   const temporalMention = rawBlocks.length > 0 ? buildTemporalMention({ projectRoot, ts }) : '';
   const mentionReserve = temporalMention ? Buffer.byteLength(temporalMention, 'utf8') + 2 : 0;
   // Task 150 (ADR-0018): the memory-commit proposal, same reserved-line
-  // contract as the temporal mention.
-  const commitProposal =
-    rawBlocks.length > 0
-      ? buildCommitProposal({ projectRoot, gitTimeoutMs: testGitTimeoutMs })
-      : '';
+  // contract as the temporal mention — but computed UNCONDITIONALLY (no
+  // rawBlocks gate): the proposal reflects git dirtiness of context/, which is
+  // independent of whether memory is currently injectable. Gating it on a
+  // non-empty snapshot dropped it for the brand-new user whose memory index is
+  // still empty but whose FIRST uncommitted context/ files just piled up — the
+  // exact moment the proposal is most needed (D-264; skill-review B1: the
+  // upstream guard, not the concatenation, was the root cause).
+  // buildCommitProposal self-gates on .git existence + a zero dirty-count, so
+  // this adds no git spawn for non-git projects.
+  const commitProposal = buildCommitProposal({ projectRoot, gitTimeoutMs: testGitTimeoutMs });
   const proposalReserve = commitProposal ? Buffer.byteLength(commitProposal, 'utf8') + 2 : 0;
   const { blocks: keptBlocks, truncationEvents } = enforceCap(
     rawBlocks,
@@ -944,13 +949,31 @@ export function injectContext({
   );
 
   // 4. Concatenate. The preamble leads every non-empty snapshot; an empty
-  // snapshot stays empty (don't claim authoritative memory with nothing
-  // behind it).
+  // snapshot stays empty of AUTHORITATIVE-MEMORY content (don't claim memory
+  // with nothing behind it) — BUT the volatile action lines (temporal mention +
+  // commit proposal) must survive an empty body: a brand-new user whose memory
+  // index is still empty is exactly who has just accrued their first
+  // uncommitted context/ files, and the commit proposal is most needed then
+  // (D-264 — the empty-but-dirty first-session case; the same "works-with-state,
+  // no-ops-from-empty" class as the wedge bootstrap). These lines are their own
+  // action prompts, not a claim of authoritative memory, so they ride even with
+  // no body — without the preamble (which WOULD over-claim).
   const body = keptBlocks.map((b) => b.text).join('\n');
-  const snapshot =
-    body === ''
-      ? ''
-      : `${AUTHORITATIVE_MEMORY_PREAMBLE}\n\n${temporalMention ? temporalMention + '\n\n' : ''}${commitProposal ? commitProposal + '\n\n' : ''}${body}`;
+  const volatile = `${temporalMention ? temporalMention + '\n\n' : ''}${commitProposal ? commitProposal + '\n\n' : ''}`;
+  let snapshot;
+  if (body !== '') {
+    snapshot = `${AUTHORITATIVE_MEMORY_PREAMBLE}\n\n${volatile}${body}`;
+  } else if (volatile !== '') {
+    // Empty memory, but a temporal mention / commit proposal is pending — emit
+    // the action line(s) alone (trailing blank lines trimmed), no preamble.
+    // Cap guard (re-review minor): under a pathological tiny cap (< the ~300 B
+    // proposal; DEFAULT is 13,000) even the action line alone would break the
+    // §7.1.2 "snapshot ≤ capBytes exactly" contract — degrade to empty instead.
+    const v = volatile.trimEnd();
+    snapshot = Buffer.byteLength(v, 'utf8') <= cap ? v : '';
+  } else {
+    snapshot = '';
+  }
 
   // 5. Persist side-effect logs under <projectRoot>/context/.locks/. We
   // only write the project-tier .locks file (which is the well-known
