@@ -399,6 +399,54 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       });
     });
 
+    // ── HC-1 is agent-aware for Cursor too (Task 196 — the same D-185 class:
+    // a Cursor-only install has no .claude/settings.json, so the Claude-shaped
+    // check would false-FAIL every Cursor install with the wrong repair hint).
+    // The cmk-owned `.cursor/rules/claude-memory-kit.mdc` marks the project as a
+    // Cursor install; the hooks surface is `.cursor/hooks.json` carrying the
+    // `cmk cursor-hook` dispatcher on the inject + capture events.
+    describe('HC-1 — agent-aware (Cursor install, Task 196)', () => {
+      function seedCursorMarker() {
+        const dir = join(projectRoot, '.cursor', 'rules');
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(
+          join(dir, 'claude-memory-kit.mdc'),
+          '---\nalwaysApply: true\n---\n\n<!-- claude-memory-kit:start -->\nx\n<!-- claude-memory-kit:end -->\n',
+          'utf8',
+        );
+      }
+      function seedCursorHooks() {
+        writeFileSync(
+          join(projectRoot, '.cursor', 'hooks.json'),
+          JSON.stringify({
+            version: 1,
+            hooks: {
+              sessionStart: [{ command: 'cmd.exe /c cmk cursor-hook' }],
+              afterAgentResponse: [{ command: 'cmd.exe /c cmk cursor-hook' }],
+            },
+          }),
+          'utf8',
+        );
+      }
+
+      it('a wired Cursor install (marker + hooks.json with the dispatcher) → HC-1 PASS', async () => {
+        seedCursorMarker();
+        seedCursorHooks();
+        const r = await runDoctor({ projectRoot, userDir });
+        const c1 = r.checks.find((c) => c.id === 'HC-1');
+        expect(c1.status).toBe('pass');
+        expect(c1.message).toMatch(/cursor/i);
+      });
+
+      it('Cursor marker but no hooks.json → HC-1 FAIL with the --ide cursor repair (not the Claude hint)', async () => {
+        seedCursorMarker();
+        const r = await runDoctor({ projectRoot, userDir });
+        const c1 = r.checks.find((c) => c.id === 'HC-1');
+        expect(c1.status).toBe('fail');
+        expect(c1.recoveryCommand).toMatch(/--ide cursor/);
+      });
+    });
+
     // v0.2.0 severity fix: on a FRESH project (nothing distilled yet), a
     // never-built recent.md is "not yet", not a failure — SKIP (lazy-on-read
     // builds it once there's session content). A STALE recent.md is still FAIL.

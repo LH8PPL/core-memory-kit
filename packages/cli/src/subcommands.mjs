@@ -14,7 +14,7 @@
 // asserts exactly what's exported here, so coverage stays automatic.
 
 import { install as installAction, initUserTier as initUserTierAction } from './install.mjs';
-import { installAgent } from './install-agent.mjs';
+import { installAgent, uninstallAgent } from './install-agent.mjs';
 import { installKiro, uninstallKiro } from './install-kiro.mjs';
 import { getAgentProfile, listAgentProfiles } from './agent-profiles.mjs';
 import { runKiroHook } from './kiro-hook-bin.mjs';
@@ -660,8 +660,20 @@ export function runUninstall(options /*, command */) {
     return;
   }
   if (ide !== 'claude-code') {
-    logError(`cmk uninstall: unknown --ide '${ide}'. Supported: claude-code, kiro.`);
-    process.exitCode = 2;
+    // Task 196 — any other registered profile takes the generic per-profile
+    // route (mirror of the install routing): remove only that agent's keys +
+    // managed block; context/ stays sacred.
+    const profile = getAgentProfile(ide);
+    if (!profile) {
+      const known = listAgentProfiles().map((p) => p.name).join(', ');
+      logError(`cmk uninstall: unknown --ide '${ide}'. Supported: ${known}.`);
+      process.exitCode = 2;
+      return;
+    }
+    const r = uninstallAgent({ projectRoot, profile });
+    log(
+      `cmk uninstall (${profile.name}): ${r.changed ? `removed the ${profile.displayName} managed surface` : 'nothing to remove'} — context/ preserved.`,
+    );
     return;
   }
 
@@ -2397,7 +2409,7 @@ export const subcommands = [
     description: 'cross-OS one-shot install — scaffold 3-tier dirs + inject .gitignore + drop kit CLAUDE.md block + wire Claude Code hooks',
     milestone: 3,
     optionSpec: [
-      { flags: '--ide <agent>', description: 'target agent: claude-code (default) | kiro — wires that agent\'s hooks + MCP + instruction file' },
+      { flags: '--ide <agent>', description: 'target agent: claude-code (default) | kiro | cursor — wires that agent\'s hooks + MCP + instruction file' },
       { flags: '--force', description: 'allow downgrade of an existing newer-version CLAUDE.md block' },
       { flags: '--no-hooks', description: 'scaffold only; do NOT wire hooks into .claude/settings.json' },
       { flags: '--with-semantic', description: 'enable semantic recall: install the local embedder (~260 MB once), default search to hybrid, pre-warm the model' },
@@ -2424,7 +2436,7 @@ export const subcommands = [
     description: 'remove the kit-managed surface (preserves everything else byte-for-byte; never touches context/)',
     milestone: 4,
     optionSpec: [
-      { flags: '--ide <agent>', description: 'which agent to uninstall: claude-code (default) | kiro — removes only THAT agent\'s managed surface' },
+      { flags: '--ide <agent>', description: 'which agent to uninstall: claude-code (default) | kiro | cursor — removes only THAT agent\'s managed surface' },
     ],
     action: runUninstall,
   },

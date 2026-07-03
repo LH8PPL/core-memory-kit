@@ -192,3 +192,51 @@ describe('Task 50 — dual-agent coexistence (D-188)', () => {
     expect(logs.join('\n')).toMatch(/nothing to remove|Kiro/i);
   });
 });
+
+// Task 196 — Cursor rides the GENERIC per-profile route (no bespoke
+// orchestrator like Kiro's): scaffold + installAgent(cursor) in one call.
+describe('Task 196 — cmk install --ide cursor routing', () => {
+  it('--ide cursor wires all three legs end-to-end in one call', async () => {
+    await runInstall(opts({ ide: 'cursor' }));
+
+    // Door 2 — State: the three primary-verified Cursor surfaces
+    expect(existsSync(join(projectRoot, '.cursor', 'mcp.json'))).toBe(true);
+    const hooksCfg = JSON.parse(readFileSync(join(projectRoot, '.cursor', 'hooks.json'), 'utf8'));
+    expect(hooksCfg.version).toBe(1);
+    expect(hooksCfg.hooks.sessionStart[0].command).toMatch(/cmk cursor-hook$/);
+    expect(existsSync(join(projectRoot, '.cursor', 'rules', 'claude-memory-kit.mdc'))).toBe(true);
+    // the agent-neutral scaffold also ran
+    expect(existsSync(join(projectRoot, 'context', 'MEMORY.md'))).toBe(true);
+    // no Claude-Code-only or Kiro surfaces leak
+    expect(existsSync(join(projectRoot, '.claude', 'skills'))).toBe(false);
+    expect(existsSync(join(projectRoot, '.kiro'))).toBe(false);
+
+    // Door 1 — Response: success names the agent + the wired legs
+    expect(logs.join('\n')).toMatch(/ready for Cursor/i);
+    expect(process.exitCode).not.toBe(1);
+  });
+
+  it('cmk uninstall --ide cursor strips the kit surface, preserves the rest', async () => {
+    await runInstall(opts({ ide: 'cursor' }));
+    runUninstall(opts({ ide: 'cursor' }));
+    expect(process.exitCode).not.toBe(2);
+
+    const hooksCfg = JSON.parse(readFileSync(join(projectRoot, '.cursor', 'hooks.json'), 'utf8'));
+    expect(hooksCfg.hooks?.sessionStart).toBeUndefined();
+    const mcp = JSON.parse(readFileSync(join(projectRoot, '.cursor', 'mcp.json'), 'utf8'));
+    expect(mcp.mcpServers?.['claude-memory-kit']).toBeUndefined();
+    // context/ is sacred — never touched by uninstall
+    expect(existsSync(join(projectRoot, 'context', 'MEMORY.md'))).toBe(true);
+  });
+
+  it('Claude Code + Cursor coexist — the second install leaves the first surface intact (D-188)', async () => {
+    await runInstall(opts({ hooks: false })); // claude-code first
+    const claudeMdPath = join(projectRoot, 'CLAUDE.md');
+    const before = readFileSync(claudeMdPath, 'utf8');
+
+    await runInstall(opts({ ide: 'cursor' })); // add cursor
+    expect(readFileSync(claudeMdPath, 'utf8')).toBe(before);
+    expect(existsSync(join(projectRoot, '.cursor', 'hooks.json'))).toBe(true);
+    expect(existsSync(join(projectRoot, '.claude', 'skills', 'memory-write', 'SKILL.md'))).toBe(true);
+  });
+});

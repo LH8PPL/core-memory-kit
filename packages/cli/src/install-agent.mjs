@@ -18,6 +18,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { mutateAgentConfig, atomicWrite } from './mutate-agent-config.mjs';
+import { cursorHookCommand } from './kiro-hook-command.mjs';
 import {
   removeJsonKey,
   pruneEmptyParent,
@@ -85,8 +86,16 @@ export function installAgent({ projectRoot, profile }) {
   // should halt this agent's install — report, don't push past it).
   if (profile.hooks && errors.length === 0) {
     const hookEntry = buildHookEntry(profile);
+    const hooksPath = join(projectRoot, profile.hooks.path);
+    // hooks-json (Cursor): the file's documented shape carries a REQUIRED
+    // top-level `version` alongside `hooks`. mutateAgentConfig only owns the
+    // keyPath slot, so seed a fresh file with the full shape; an EXISTING file
+    // is the user's (their version field is theirs — touch only our keys).
+    if (profile.hooks.mechanism === 'hooks-json' && !existsSync(hooksPath)) {
+      atomicWrite(hooksPath, `${JSON.stringify({ version: 1, hooks: {} }, null, 2)}\n`);
+    }
     const r = mutateAgentConfig({
-      path: join(projectRoot, profile.hooks.path),
+      path: hooksPath,
       format: 'json',
       keyPath: ['hooks'],
       entry: hookEntry,
@@ -146,8 +155,19 @@ export function uninstallAgent({ projectRoot, profile }) {
 
 // Build the agent's hook object: { <concreteEvent>: [ {command} ] } for each
 // abstract event the profile maps + the kit has a command for.
+//
+// hooks-json (Cursor) is the exception: EVERY mapped event (including preShell,
+// which has no per-event bin) calls the ONE dispatcher command — the event
+// rides in the payload's hook_event_name, and the dispatcher routes.
 function buildHookEntry(profile) {
   const hooks = {};
+  if (profile.hooks.mechanism === 'hooks-json') {
+    const command = cursorHookCommand();
+    for (const concreteEvent of Object.values(profile.hooks.eventMap)) {
+      hooks[concreteEvent] = [{ command }];
+    }
+    return hooks;
+  }
   for (const [abstractEvent, concreteEvent] of Object.entries(profile.hooks.eventMap)) {
     const command = HOOK_COMMANDS[abstractEvent];
     if (command) hooks[concreteEvent] = [{ command }];
@@ -159,7 +179,14 @@ function buildHookEntry(profile) {
 // frontmatter (Kiro wants `inclusion: always`). Idempotent: re-writing identical
 // content reports changed:false.
 function writeInstructionFile(path, profile) {
-  const frontmatter = needsInclusionFrontmatter(profile) ? '---\ninclusion: always\n---\n\n' : '';
+  // Data-driven frontmatter (Task 196): a profile declares its instruction
+  // file's frontmatter lines (Cursor's .mdc needs `alwaysApply: true`). The
+  // Kiro steering heuristic below predates the field and stays for back-compat.
+  const frontmatter = profile.instructionFrontmatter
+    ? `---\n${profile.instructionFrontmatter}\n---\n\n`
+    : needsInclusionFrontmatter(profile)
+      ? '---\ninclusion: always\n---\n\n'
+      : '';
   const block = `${MARK_START}\n${INSTRUCTION_BODY}\n${MARK_END}`;
   const desired = `${frontmatter}${block}\n`;
 

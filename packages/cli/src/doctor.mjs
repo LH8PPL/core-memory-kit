@@ -84,6 +84,10 @@ const NATIVE_MEMORY_LOG_REL = ['context', '.locks', 'native-memory-status.log'];
 function detectInstallKind(projectRoot) {
   if (existsSync(join(projectRoot, '.claude', 'settings.json'))) return 'claude-code';
   if (existsSync(join(projectRoot, '.kiro', 'steering', 'cmk.md'))) return 'kiro';
+  // Task 196: the cmk-owned Cursor rule marks a `--ide cursor` install. Same
+  // keyed-on-OUR-marker discipline as Kiro (I2) — a stray .cursor/ dir alone
+  // does not flip the project to the Cursor path.
+  if (existsSync(join(projectRoot, '.cursor', 'rules', 'claude-memory-kit.mdc'))) return 'cursor';
   return 'claude-code';
 }
 
@@ -93,8 +97,12 @@ function hc1Hooks({ projectRoot, awsDir }) {
   // and/or ~/.kiro/agents/ (kiro-cli), so route to the Kiro check
   // rather than false-failing on a missing .claude/settings.json with a
   // Claude-Code repair hint.
-  if (detectInstallKind(projectRoot) === 'kiro') {
+  const installKind = detectInstallKind(projectRoot);
+  if (installKind === 'kiro') {
     return hc1KiroHooks({ projectRoot, awsDir });
+  }
+  if (installKind === 'cursor') {
+    return hc1CursorHooks({ projectRoot });
   }
   // Per design §5 — the Claude Code hooks live in .claude/settings.json
   // alongside its plugin manifest. Required for auto-extract +
@@ -220,6 +228,44 @@ function hc1KiroHooks({ projectRoot, awsDir }) {
       `(${ideMissing.join(', ')} in .kiro/hooks/) nor a cmk CLI agent in ` +
       `~/.kiro/agents/`,
     recoveryCommand: 'cmk install --ide kiro',
+  };
+}
+
+// Task 196 — the Cursor surface: `.cursor/hooks.json` carries the
+// `cmk cursor-hook` dispatcher on the inject (sessionStart) + capture
+// (afterAgentResponse) events. Both are required — inject-only or capture-only
+// is a broken memory loop, same standard the Claude check applies.
+function hc1CursorHooks({ projectRoot }) {
+  const hooksPath = join(projectRoot, '.cursor', 'hooks.json');
+  const required = ['sessionStart', 'afterAgentResponse'];
+  let missing = required;
+  if (existsSync(hooksPath)) {
+    try {
+      const cfg = JSON.parse(readFileSync(hooksPath, 'utf8'));
+      missing = required.filter(
+        (ev) => !(cfg?.hooks?.[ev] ?? []).some(
+          (h) => typeof h?.command === 'string' && h.command.includes('cmk cursor-hook'),
+        ),
+      );
+    } catch {
+      // unparseable hooks.json → treat as not wired (the repair re-runs install,
+      // whose refuse-to-clobber will surface the corrupt file to the user)
+    }
+  }
+  if (missing.length === 0) {
+    return {
+      id: 'HC-1',
+      name: 'Stop + SessionStart hooks registered',
+      status: 'pass',
+      message: 'Cursor capture/inject wired via .cursor/hooks.json (cmk cursor-hook)',
+    };
+  }
+  return {
+    id: 'HC-1',
+    name: 'Stop + SessionStart hooks registered',
+    status: 'fail',
+    message: `Cursor install: .cursor/hooks.json is missing the kit dispatcher on: ${missing.join(', ')}`,
+    recoveryCommand: 'cmk install --ide cursor',
   };
 }
 
