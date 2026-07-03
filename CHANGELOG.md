@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ### Fixed
 
 - **A brand-new user's first cross-project rule now bootstraps the persona — the wedge fills from empty** (D-263, found live by this release's cut-gate). Before: if `~/.claude-memory-kit/` didn't exist yet — every fresh machine — the Stop-hook auto-extract and `cmk lessons promote` silently dropped your first "from now on, in every project…" rule (the promote path required the user tier to already exist, so the cross-project persona could never create itself). Now the tier is scaffolded automatically on the first promotion that clears the confidence/recurrence gate — created exactly when a real durable rule is landing in it, never speculatively.
+- **The memory-commit proposal now appears on a fresh user's very first session** (D-264, found live by this release's cut-gate). The new "offer to commit your memory" heads-up was being dropped whenever the injected memory snapshot was still empty — which is exactly a brand-new user's first session, the moment their first uncommitted `context/` files pile up. The proposal (and the temporal-supersede heads-up) now ride even an empty snapshot, so the offer reaches the people who need it first.
 
 ## [0.4.3] — 2026-07-01
 

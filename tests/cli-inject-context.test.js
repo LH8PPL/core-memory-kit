@@ -1031,6 +1031,49 @@ describe('Task 150 — the memory-commit proposal line (ADR-0018: propose-and-ap
     expect(r.snapshot).toMatch(/only act on their yes/i);
   });
 
+  it('EMPTY memory snapshot + dirty context/ → the proposal STILL appears (a brand-new user piling up their first uncommitted files, D-264)', () => {
+    // The bug this pins: the proposal was concatenated ONLY into the non-empty
+    // snapshot branch, so a fresh user whose memory index is still empty but who
+    // just accrued their first uncommitted context/ files got NO proposal — the
+    // exact moment it's most needed. Every OTHER Task-150 test seeds a non-empty
+    // fixture (seedThreeTierFixture in beforeEach), structurally masking it.
+    // Blank out ALL EIGHT seeded tier files (comment-only → no injectable
+    // block → genuinely empty body) WITHOUT deleting the dirs (keeps git +
+    // Windows cleanup happy). Skill-review B2 caught the first version of this
+    // test missing context.local/overrides.md — the body stayed non-empty and
+    // the test green-passed against the unfixed code.
+    writeFile(join(f.projectRoot, 'context', 'MEMORY.md'), '<!-- empty -->\n');
+    writeFile(join(f.projectRoot, 'context', 'SOUL.md'), '<!-- empty -->\n');
+    writeFile(join(f.projectRoot, 'context', 'memory', 'INDEX.md'), '<!-- empty -->\n');
+    writeFile(join(f.projectRoot, 'context.local', 'machine-paths.md'), '<!-- empty -->\n');
+    writeFile(join(f.projectRoot, 'context.local', 'overrides.md'), '<!-- empty -->\n');
+    writeFile(join(f.userDir, 'USER.md'), '<!-- empty -->\n');
+    writeFile(join(f.userDir, 'HABITS.md'), '<!-- empty -->\n');
+    writeFile(join(f.userDir, 'LESSONS.md'), '<!-- empty -->\n');
+    // Commit the (blanked) tiers, THEN modify one context/ file → the dirty
+    // signal is a MODIFIED TRACKED file (mirrors the passing context.local test's
+    // commit-then-modify shape; avoids the untracked-under-fresh-.git Windows
+    // afterEach EPERM race). The dirtied file is memory/INDEX.md — under the
+    // context/ pathspec (so git sees it) but NEVER injected into the snapshot
+    // body (so the body stays genuinely empty; dirtying MEMORY.md would
+    // re-populate the body and dodge the empty branch — the B2 trap).
+    const run = gitInit();
+    run(['add', '.']);
+    run(['commit', '-q', '--no-gpg-sign', '-m', 'seed']);
+    writeFile(join(f.projectRoot, 'context', 'memory', 'INDEX.md'), '<!-- empty -->\n<!-- touched -->\n');
+    const r = injectContext({
+      cwd: f.projectRoot, userDir: f.userDir, now: '2026-07-02T12:00:00Z', testGitTimeoutMs: 30000,
+    });
+    // The snapshot BODY is genuinely empty: no tier markers AND no preamble
+    // (an action line alone must not claim authoritative memory).
+    expect(r.snapshot).not.toMatch(/marker/);
+    expect(r.snapshot).not.toMatch(/Ground-truth ranking/i);
+    // …yet the dirty-context proposal must still land.
+    expect(r.snapshot).toMatch(/uncommitted/i);
+    expect(r.snapshot).toMatch(/offer the user a one-tap commit/i);
+    expect(r.snapshot).toMatch(/only act on their yes/i);
+  });
+
   it('a git repo with context/ fully committed → NO proposal line', () => {
     const run = gitInit();
     run(['add', '.']);
