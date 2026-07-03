@@ -9944,3 +9944,191 @@ _(retracted 2026-06-29)_
 
 **When:** 2026-07-02 · **Fact:** `P-6Y2YQaFL`
 **Why:** Explicit decision logging ensures regressions are understood, non-obvious constraints are recorded for future maintainers, and stakeholders are informed about known limitations upfront.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-H53642LA -->
+
+## Next work is bullet-provenance surface and auto-extract classification for Plan
+
+**When:** 2026-07-02 · **Fact:** `P-H53642LA`
+
+<!-- decision:P-VYY96VMS -->
+
+## v0.4.4 release staged (CHANGELOG and package.json updated to 0.4.4; 2026-07-02);
+
+**When:** 2026-07-02 · **Fact:** `P-VYY96VMS`
+
+<!-- decision:P-a4QWW5EZ -->
+
+## Backup location for clean-slate testing: `C:\cut-gate-backups\user-tier_2026-07-
+
+**When:** 2026-07-02 · **Fact:** `P-a4QWW5EZ`
+
+<!-- decision:P-CEV2W6aA -->
+
+## Claude Code v2.1.195 changed matcher evaluation; v2.1.198 broke PermissionReques
+
+**When:** 2026-07-02 · **Fact:** `P-CEV2W6aA`
+
+<!-- decision:P-3VKBaPRG -->
+
+## Kit settings.json byte-identical between v0.4.3 and v0.4.4; not the root cause
+
+**When:** 2026-07-02 · **Fact:** `P-3VKBaPRG`
+
+<!-- decision:P-MXH5XFAY -->
+
+## This is a known issue that was fixed previously but has now regressed.
+
+**When:** 2026-07-02 · **Fact:** `P-MXH5XFAY`
+
+<!-- decision:P-K3aSP9Za -->
+
+## D-263: Promote Path Preexistence Bug (Fixed)
+
+**When:** 2026-07-03 · **Fact:** `P-K3aSP9Za`
+**Why:** First-time users (new install) would silently lose their first cross-project rule capture. Fix ensures bootstrap path is scaffolded at first write. Critical for zero-config adoption.
+
+<!-- decision:P-TDSSGWFK -->
+
+## Pre-commit Hook Sanitizes Fact Files for Security
+
+**When:** 2026-07-03 · **Fact:** `P-TDSSGWFK`
+**Why:** Prevents accidental credential or identity disclosure in the codebase
+
+<!-- decision:P-PGRTL7DZ -->
+
+## Tarball Installation Requires Re-packing After Main Merges
+
+**When:** 2026-07-03 · **Fact:** `P-PGRTL7DZ`
+**Why:** Without re-packing, the installed tool carries stale code and does not include newly-merged fixes
+
+<!-- decision:P-QMMLa7HT -->
+
+## B3/B4 Wedge Test Workflow — Cross-Project Doctrine Capture Validation
+
+**When:** 2026-07-03 · **Fact:** `P-QMMLa7HT`
+**Why:** Validates that explicitly-stated cross-project rules are correctly extracted, routed to harness memory, and tagged with high confidence
+
+<!-- decision:P-2MTSMLPQ -->
+
+## Context Snapshot Frozen at Session Start
+
+**When:** 2026-07-03 · **Fact:** `P-2MTSMLPQ`
+**Why:** Critical for validation workflows; stale context in an ongoing session skews context-sensitive tests like B3/B4 wedge. Required for honest testing of cross-project doctrine capture.
+
+<!-- decision:P-VVNJ2LF6 -->
+
+## Hook Binary Spawned Fresh Each Turn
+
+**When:** 2026-07-03 · **Fact:** `P-VVNJ2LF6`
+**Why:** Enables rapid iteration on hook fixes; fixes are live in the same session window
+
+<!-- decision:P-U5V3UFRF -->
+
+## D-264 Fix Verification Pipeline and Pre-Merge Gates
+
+**When:** 2026-07-03 · **Fact:** `P-U5V3UFRF`
+**Why:** Ensures comprehensive testing, code review, and stress validation before merge. Sequential stress-test approach prevents test runner collision (discovered earlier this session).
+
+<!-- decision:P-9JAFTQC4 -->
+
+## Release Workflow After Fix Merge
+
+**When:** 2026-07-03 · **Fact:** `P-9JAFTQC4`
+**Why:** Provides a staged release workflow with a final interactive review opportunity before the irreversible tag step.
+
+<!-- decision:P-MWVAEXPR -->
+
+## "Tarball Artifact Must Carry Both D-263 and D-264"
+
+**When:** 2026-07-03 · **Fact:** `P-MWVAEXPR`
+**Why:** Ensures downstream installations have both fixes and maintain proper version lineage.
+
+<!-- decision:P-M37PHCRQ -->
+
+## Security Suppression Process
+
+**When:** 2026-07-03 · **Fact:** `P-M37PHCRQ`
+**Why:** Prevents silent suppressions from hiding new issues; keeps decisions auditable and traceable.
+
+<!-- decision:P-BD25A9HL -->
+
+## validate-spawn-discipline Tool
+
+**When:** 2026-07-03 · **Fact:** `P-BD25A9HL`
+**Why:** Acts as a gate for spawn-related security findings. When a suppression is scoped to reviewed sites, `validate-spawn-discipline` ensures no new spawns bypass review.
+
+<!-- decision:P-AXLA5MXD -->
+
+## E1 Cold-Open Test — Persona Carries Unprompted
+
+**When:** 2026-07-03 · **Fact:** `P-AXLA5MXD`
+**Why:** E1 is the core validation that persona injection works across projects; without it, the cold-open moment (unprompted conventions) fails
+
+<!-- decision:P-FBEWVLQC -->
+
+## SessionStart Hook Requires Reopen After Install
+
+**When:** 2026-07-03 · **Fact:** `P-FBEWVLQC`
+**Why:** D-262 lesson; prerequisite for persona injection to work, critical for E1 (cold-open) testing where persona must carry unprompted to new projects
+
+<!-- decision:P-F9ZaGH2V -->
+
+## E1 Cold-Open Test — Persona Wedge Successful
+
+**When:** 2026-07-03 · **Fact:** `P-F9ZaGH2V`
+**Why:** E1 validates that cross-project persona (stored in `~/.claude-memory-kit/`) persists across brand-new projects without repetition. This is the core promise the kit was built for.
+
+<!-- decision:P-7WTLTNRS -->
+
+## SessionStart Hook Activation — Narrow Restart Caveat
+
+**When:** 2026-07-03 · **Fact:** `P-7WTLTNRS`
+**Why:** Overgeneralized "always restart after install" becomes a nonsensical instruction in the common case (open fresh). The rule should only apply to the corner case (install into already-open window).
+
+<!-- decision:P-SNY69CBR -->
+
+## The kit exists because you were repeating yourself across sessions/projects — no
+
+**When:** 2026-07-03 · **Fact:** `P-SNY69CBR`
+
+<!-- decision:P-6FH5NUF3 -->
+
+## Research Findings → Task Filing
+
+**When:** 2026-07-03 · **Fact:** `P-6FH5NUF3`
+**Why:** Connects discovery to execution; prevents research orphaning; maintains task-based visibility and prioritization.
+
+<!-- decision:P-K6P2LBE3 -->
+
+## Name-Privacy Validator Scans Only Tracked Files
+
+**When:** 2026-07-03 · **Fact:** `P-K6P2LBE3`
+**Why:** Avoids wasted CI cycles and confusing "passes locally, fails remotely" failures during context/docs commits.
+
+<!-- decision:P-G4T9NZYP -->
+
+## Machine-Checkable Trigger Tokens (Future Structural Enhancement)
+
+**When:** 2026-07-03 · **Fact:** `P-G4T9NZYP`
+**Why:** Manual walk is the current forcing function. Automation is a structural-graduation path if scale grows.
+
+<!-- decision:P-CZTMNSVW -->
+
+## Mandatory Trigger-Walk in D-248 Sweep and cut-gate Pre-Tag
+
+**When:** 2026-07-03 · **Fact:** `P-CZTMNSVW`
+**Why:** Enforces forcing function to actively monitor triggers. Prevents "lane everything" pattern (rejects fabricated commitments on conditional work; Cursor-slot precedent shows lanes slip). Enforces healthy lifecycle: trigger fires → then lane.
+
+<!-- decision:P-X65UGWF6 -->
+
+## resume-2026-07-03-post-v044-memora
+
+**When:** 2026-07-03 · **Fact:** `P-X65UGWF6`
+**Why:** context compact imminent; next session picks up v0.4.5 Cursor lane
