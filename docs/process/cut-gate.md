@@ -2,14 +2,15 @@
 
 **The single guide to run before tagging a release.** Version-agnostic — reused every cut.
 
-> **Cutting now: `v0.3.2`** — **the within-paradigm POLISH patch** (make the kit better without changing what it is — D-130):
-> **Task 153** (FTS5 query sanitization — `cmk search "v0.3"` / `user-explicit` no longer crash — the headline user-facing fix this cut) and **Task 152** (`validate-index-completeness` — dev-tooling, runs in `npm test`, no live probe).
-> **HELD for v0.3.3 (D-164):** `cmk digest` + the `context/DECISIONS.md` journal (Task 147) — the CODE is merged + tested, but it is NOT framed as a shipped feature until it is **recall-complete** (the AI must recall the decision timeline from the journal, not just write a file a human opens — the kit's "you don't manage memory, it just works" thesis). The recall wiring + a live recall gate land in v0.3.3. So **DJ1–DJ3 below test the journal CODE (still run them — the code ships in main) but are NOT v0.3.2 cut-blockers.**
-> **141b (the `node:sqlite` migration) was REJECTED on perf** (D-162): clean CI bench showed node:sqlite ~10% slower on FTS5 keyword search → better-sqlite3 stays, 141a's install-time ask remains the npm-12 answer. Nothing to test here — the kit's storage layer is unchanged.
-> This is a **PATCH** (`npm run release -- patch`) — 0.3.x is the polish lane; the differentiator (recall) shipped at 0.3.0, so additive polish is patch-level per RELEASE-PLAN.md + the one-differentiator-per-minor rule.
-> _The version-agnostic checks below stand every cut; the v0.3.2 cut-blocker gate is **FQ1** (FTS5 query sanitization). DJ1–DJ3 run but are journal-CODE checks held for the v0.3.3 feature framing._
-> _Replace `0.3.2` / `v0.3.2` in the commands below if you reuse this guide for a later cut._
+> **Cutting now: `v0.4.4`** — **the TEMPORAL-VALIDITY patch** (facts now carry WHEN they're true, not just what — Task 66 + rider 150):
+> **Task 66** (temporal validity — a `shape` field + a declared `expires_at` + a weekly expiry sweep + a temporal-supersede window-close; design §16.18, D-258/D-259 — the headline) and **Task 150** (the memory-commit proposal — SessionStart *proposes* a `context/` commit, never runs git itself; ADR-0018).
+> **The v0.4.4 cut-blocker gates are TV1–TV4 + MC1 (§4e).** TV1/TV2/TV3 + MC1 are CLI-deterministic; **TV4's full sweep verdict is a live-Haiku judge** — run `cmk weekly-curate` on THIS repo's real corpus and confirm sensible verdicts with **no false SUPERSEDES** (the deterministic close-mechanics leg is suite-covered). The **66.3 auto-extract expiry SUGGESTION** (must invent no unstated date) + the **MC1 spoken relay** are LLM-driven MANUAL flags — see §0.
+> **141a (the npm-12 install-time ask) already shipped in v0.3.x** (PR #169, D-260) — it is NOT a v0.4.4 item; nothing to test for it here.
+> This is a **PATCH** (`npm run release -- patch`) — the recall differentiator shipped at 0.3.0; temporal validity is additive polish within the same paradigm, so patch-level per RELEASE-PLAN.md + the one-differentiator-per-minor rule.
+> _The version-agnostic checks below stand every cut; the v0.4.4-specific gates are **TV1–TV4 + MC1**._
+> _Replace `0.4.4` / `v0.4.4` in the commands below if you reuse this guide for a later cut._
 >
+> **Prior banner (v0.3.2 cut, pre-2026-07-02 — kept per the decision-trail rule):** the within-paradigm POLISH patch — **Task 153** (FTS5 query sanitization — `cmk search "v0.3"` / `user-explicit` no longer crash) and **Task 152** (`validate-index-completeness` — dev-tooling). The v0.3.2 cut-blocker was **FQ1**; DJ1–DJ3 ran but were journal-CODE checks held for the v0.3.3 feature framing (D-164). 141b (`node:sqlite`) was REJECTED on perf (D-162).
 > **Prior banner (v0.3.1 cut, pre-2026-06-16 — kept per the decision-trail rule):** the within-paradigm sweep (config / import-claude-md / near-dup-at-write / status line / memory-health doctor / Poison_Guard catalog / npm-12 readiness / `.gitattributes`) + four clean-build cut-gate fixes (C5/C6 `<private>` leaks, F-11 repair --index, F-11b index-drift trace). The v0.3.1-specific gates were **C5, C6, F-11, F-11b** — still run them (standing now).
 > **Original banner (v0.3.0 cut, pre-2026-06-14 — kept per the decision-trail rule):** RECALL, the wow-#2 release — semantic + hybrid search (Task 65), one-flag enablement (Task 46), the recall trigger (Task 75), the L3 raw tier (Task 104). That was a MINOR (the reserved recall version).
 
@@ -138,6 +139,24 @@ The v0.4.3 headline is the **persona-promotion redesign** (Task 151, ADR-0016): 
 - **The MCP write path** (`mk_remember`) for the Unicode block — PR5 covers the CLI write path; the MCP tool is driven by Claude in a live session.
 
 **The honest note for PR3:** `trust_score` is an INTERNAL index column with **zero** user-facing readout — no `cmk` command, no MCP tool prints it (`mk_trust` mutates the committed `trust` ENUM, a different field; inject + sweep rank on the enum by design, D-238). PR3 asserts only the COLUMN MIGRATION (the one CLI-observable effect); the score arithmetic + the dampen/reinforce evolution are covered by `cli-trust-score.test.js` + `cli-trust-signal.test.js` (direct-sqlite assertions the suite owns). Do NOT look for a score readout — there isn't one.
+
+### Also new in v0.4.4 — the temporal-validity + memory-commit gates (Task 66 + 150)
+
+The v0.4.4 headline is **temporal validity** (Task 66, design §16.18, ADR-0018-adjacent): a fact now carries a `shape` (what KIND of truth — State / Event / Plan / … , explicit-`State` default) and an optional `expires_at` (a *declared* validity end — the fact hides from search after it and the weekly sweep tombstones it, hide-never-delete per D-163); a `weekly-curate` **temporal sweep** closes stale CURRENT-STATE claims when a newer one supersedes them (event-time decides direction, one batched Haiku judge — D-259). The rider **Task 150** (ADR-0018) makes the kit *propose* a memory commit at SessionStart — it never runs git itself. The new gates (all live-verified in a throwaway sandbox during the v0.4.4 cut):
+
+| Check | Move | What it verifies | Reachability |
+| --- | --- | --- | --- |
+| **★ TV1** | 66.1 — shape field | a rich `cmk remember --shape Plan` writes `shape: Plan` frontmatter; a plain rich remember defaults to `shape: State`; an invalid `--shape` is rejected | CLI, deterministic |
+| **★ TV2** | 66.3 — declared expiry | `cmk remember --expires 2026-08-01` writes `expires_at`; a past-dated fact is HIDDEN from `cmk search` yet resurfaces with `--include-expired` (hide-never-delete) | CLI, deterministic |
+| **★ TV3** | 66.3 — expiry sweep | `cmk weekly-curate` tombstones facts past `expires_at` (`deletedBy: expiry-sweep`) and reports `expired_swept: N` — runs even on a cooldown-skip | CLI, deterministic |
+| **★ TV4** | 66.2 — temporal supersede | a NEWER State fact that supersedes an OLDER one closes the older's window (`ended_at` / `status: completed` / `superseded_by`) + moves it to `archive/superseded/`; a `temporal-supersede` audit line lands | CLI (deterministic path) + **live-Haiku judge (MANUAL)** |
+| **★ MC1** | 150 — commit proposal | SessionStart injects a **model-facing** commit-proposal line when `context/` has uncommitted changes — the kit runs **no git**; it only proposes, and acts solely on the user's yes (ADR-0018) | inject, deterministic |
+
+**Two honest MANUAL flags (LLM-driven — NOT fully CLI-assertable, the D-84 live-test rule):**
+
+- **The temporal sweep's JUDGE** (TV4): the *deterministic* window-close path (`resolveTemporalSupersede`) is CLI-testable, but the sweep's actual SUPERSEDES/DUPLICATE/COEXIST verdict comes from a **live Haiku** batched judge over candidate pairs. TV4's deterministic leg proves the close mechanics; the full `cmk weekly-curate` sweep on THIS repo's real corpus (the v0.3.2/v0.4.x stale state-chains should close with sensible verdicts — **no false SUPERSEDES**) is a manual live-Haiku session, flagged for the cut-gate operator.
+- **The 66.3 auto-extract expiry SUGGESTION** — TV2 covers the explicit `--expires` write path; whether **auto-extract** proposes an `expires_at` on a real turn (and, load-bearing, that it invents **no** date the turn doesn't state) is LLM-driven → confirm in a live session, do not claim verified from the CLI.
+- **The MC1 spoken relay** — MC1 asserts the proposal LINE is injected; whether Claude actually *speaks* the proposal and waits for the user's yes before running git is LLM-driven → confirm in a live MCP session.
 
 ---
 
@@ -769,6 +788,91 @@ CLI suite structurally can't cover (Claude is in the loop).
 
 ---
 
+## 4e. Temporal validity + the memory-commit proposal (Task 66 + 150)  ⬅️ the v0.4.4 headline
+
+> Each probe below runs in a **throwaway sandbox** (`C:\temp\…` + a sandbox `MEMORY_KIT_USER_DIR`) against the **current-repo** binary (`node packages\cli\bin\cmk.mjs`), never the global `cmk` and never your real `context/` or `~\.claude-memory-kit`.
+> The `shape`/`expires_at` path lives ONLY in the **rich** write (`writeFact`), so every remember below carries a rich flag (`--why`/`--type`/`--title`) — a *bare* `cmk remember "text"` writes an id-less `MEMORY.md` bullet and never records `shape`/`expires_at`.
+
+- [ ] **★ TV1 — `--shape` writes the shape field; default is `State`; invalid is rejected (66.1).**
+      ```powershell
+      $repo='C:\Projects\claude-memory-kit'; $bin="$repo\packages\cli\bin\cmk.mjs"
+      $sand='C:\temp\cmk-tv1'; $proj="$sand\proj"; Remove-Item -Recurse -Force $sand -EA SilentlyContinue
+      New-Item -ItemType Directory -Force $proj,"$sand\user" | Out-Null
+      $env:MEMORY_KIT_USER_DIR="$sand\user"; Push-Location $proj; git init | Out-Null
+      node $bin remember 'ship the Cursor adapter next release' --shape Plan --why 'the v0.4.5 lane' --title 'cursor plan' --type project
+      node $bin remember 'the store is FTS5 keyword search' --why 'markdown is source of truth' --title 'store shape' --type project
+      node $bin remember 'this should not write' --shape Banana --why 'x' --title 'bad shape' --type project; "BAD_EXIT=$LASTEXITCODE"
+      Pop-Location
+      Select-String -Path "$proj\context\memory\project_cursor-plan.md" -Pattern 'shape: Plan'      # → shape: Plan
+      Select-String -Path "$proj\context\memory\project_store-shape.md"  -Pattern 'shape: State'     # → default State
+      ```
+      **PASS:** the `--shape Plan` fact frontmatter shows `shape: Plan`; the plain rich fact shows `shape: State` (the explicit default); the `--shape Banana` remember is **rejected** (non-zero exit, no `project_bad-shape.md` written). **FAIL:** shape absent, default missing, or the invalid shape wrote a file.
+
+- [ ] **★ TV2 — `--expires` writes `expires_at`; a past-dated fact HIDES from search yet resurfaces with `--include-expired` (66.3, hide-never-delete).**
+      ```powershell
+      $repo='C:\Projects\claude-memory-kit'; $bin="$repo\packages\cli\bin\cmk.mjs"
+      $sand='C:\temp\cmk-tv2'; $proj="$sand\proj"; Remove-Item -Recurse -Force $sand -EA SilentlyContinue
+      New-Item -ItemType Directory -Force $proj,"$sand\user" | Out-Null
+      $env:MEMORY_KIT_USER_DIR="$sand\user"; Push-Location $proj; git init | Out-Null
+      # A FUTURE expiry — writes the field, stays visible:
+      node $bin remember 'the beta flag stays on until launch' --shape Plan --expires 2099-01-01 --why 'temporary gate' --title 'beta flag' --type project
+      # A PAST expiry — writes the field, hides from default search:
+      node $bin remember 'the old migration window closed' --shape Plan --expires 2020-01-01 --why 'one-time' --title 'old window' --type project
+      Select-String -Path "$proj\context\memory\project_beta-flag.md" -Pattern 'expires_at:'          # field present
+      node $bin search 'migration window' --project $proj                       # → hidden (no hit for the past-expired fact)
+      node $bin search 'migration window' --project $proj --include-expired     # → the past-expired fact resurfaces
+      Pop-Location
+      ```
+      **PASS:** both facts carry `expires_at:`; the plain `cmk search` does **not** return the 2020-expired fact but **does** with `--include-expired` (the fact is hidden, never deleted — the file still exists on disk). **FAIL:** the field is missing, the past-expired fact shows in the plain search, or `--include-expired` doesn't resurface it.
+
+- [ ] **★ TV3 — `cmk weekly-curate` tombstones facts past `expires_at` and reports `expired_swept` (66.3 sweep).**
+      The expiry sweep runs at curate time (even on a cooldown-skip). Seed a past-expired fact, then run curate for real.
+      ```powershell
+      $repo='C:\Projects\claude-memory-kit'; $bin="$repo\packages\cli\bin\cmk.mjs"
+      $sand='C:\temp\cmk-tv3'; $proj="$sand\proj"; Remove-Item -Recurse -Force $sand -EA SilentlyContinue
+      New-Item -ItemType Directory -Force $proj,"$sand\user" | Out-Null
+      $env:MEMORY_KIT_USER_DIR="$sand\user"; $env:CMK_SKIP_LIVE_HAIKU='1'
+      Push-Location $proj; git init | Out-Null
+      node $bin remember 'this validity window already closed' --shape Plan --expires 2020-01-01 --why 'past' --title 'closed window' --type project
+      $before=(Get-ChildItem "$proj\context\memory\project_*.md" -EA SilentlyContinue).Count
+      node $bin weekly-curate --project $proj                                   # runs the expiry sweep pre-cooldown
+      Select-String -Path "$proj\context\.locks\audit.log" -Pattern '"deletedBy":"expiry-sweep"'   # the tombstone signal
+      Pop-Location
+      ```
+      **PASS:** `cmk weekly-curate` reports a non-zero `expired_swept` (in its output/NDJSON) and the audit log carries a `"deletedBy":"expiry-sweep"` line — the past-expired fact is tombstoned (audit trail preserved, not a silent delete). A fact with a FUTURE `expires_at` is **untouched** (over-mutation guard). **FAIL:** the expired fact survives the sweep, or nothing is reported.
+      _(The sweep runs BEFORE the cooldown check, so a `(skipped: cooldown)` curate STILL sweeps expiries — that's the design. `CMK_SKIP_LIVE_HAIKU=1` here keeps the run deterministic; the temporal-judge leg is TV4's live flag.)_
+
+- [ ] **★ TV4 — a newer State fact CLOSES an older one's window (66.2 temporal supersede — deterministic leg).**
+      The full sweep's SUPERSEDES/DUPLICATE/COEXIST verdict is a **live-Haiku** judge (see §0 MANUAL flag). This gate proves the deterministic **close mechanics** the judge routes into — via the sweep on the real corpus, or (deterministic) by asserting the window-close on a known older/newer pair. On THIS repo, run the real sweep and inspect:
+      ```powershell
+      # In the LIVE project terminal (real corpus, real Haiku — this is the manual live leg):
+      cmk weekly-curate                                        # the temporal sweep runs post-cooldown
+      Select-String -Path context\.locks\audit.log -Pattern '"reason":"temporal-supersede"' | Select-Object -Last 5
+      dir context\memory\archive\superseded 2>$null            # closed facts move here
+      ```
+      **PASS:** where a genuinely-superseded CURRENT-STATE claim exists (e.g. a stale v0.3.2 state-chain the newer v0.4.x fact replaced), the sweep closes it — the older fact gains `ended_at` + `status: completed` + `superseded_by`, moves under `archive/superseded/`, and an audit line with `"reason":"temporal-supersede"` lands. **Crucially — NO false SUPERSEDES**: coexisting facts on different points stay untouched (event-time decides direction; the judge frames "is the old state still current"). **FAIL:** a false close (two unrelated facts collapsed), or the direction reversed (a newer fact closed by an older one — the direction guard failed).
+      _(The deterministic close path — `resolveTemporalSupersede(olderId, newerId)` — is suite-covered in `cli-validity-window.test.js` + `cli-temporal-sweep.test.js` (13 cases incl. the Door-3.5 prompt pin, overflow two-pass, malformed-rejudge). This gate is the **live** confirmation that the judge's verdicts are sane on real data — the one leg the suite structurally can't reach.)_
+
+- [ ] **★ MC1 — SessionStart PROPOSES a memory commit when `context/` is dirty; the kit runs no git (Task 150, ADR-0018).**
+      The kit detects uncommitted `context/` changes and injects a **model-facing** proposal line into the SessionStart context — it never stages or commits anything itself. Probe the injection with a dirty `context/`:
+      ```powershell
+      $repo='C:\Projects\claude-memory-kit'; $bin="$repo\packages\cli\bin\cmk.mjs"
+      $sand='C:\temp\cmk-mc1'; $proj="$sand\proj"; Remove-Item -Recurse -Force $sand -EA SilentlyContinue
+      New-Item -ItemType Directory -Force $proj,"$sand\user" | Out-Null
+      $env:MEMORY_KIT_USER_DIR="$sand\user"; Push-Location $proj; git init | Out-Null
+      node $bin install | Out-Null
+      git add -A; git commit -q -m 'scaffold'                    # clean baseline
+      node $bin remember 'a durable decision worth committing' --why 'x' --title 'dirty fact' --type project | Out-Null
+      # context/ now has an uncommitted change — the proposal should appear in the injected context:
+      '{}' | node "$repo\packages\cli\bin\cmk-inject-context.mjs" | Select-String -Pattern 'commit|context/|approve'
+      $statusBefore = git status --porcelain -- context/
+      Pop-Location
+      ```
+      **PASS:** the injected context carries a proposal line naming the uncommitted `context/` change and instructing the model to act **only on the user's yes** (it references not running git before approval, per ADR-0018); the kit itself made **no git write** (`$statusBefore` still shows the change uncommitted — the kit proposed, it did not commit). On a **clean** `context/` (commit first, re-inject), **no** proposal line appears. **FAIL:** the kit staged/committed on its own, the line appears when `context/` is clean, or no line appears when it's dirty.
+      _(The git probe uses a **400ms leash** inside the 500ms NFR-1 inject budget — on a slow disk the proposal degrades SILENTLY (no line) rather than blowing the budget; that's the documented trade-off, not a failure. The **spoken relay** — Claude actually voicing the proposal and waiting for the yes — is LLM-driven → MANUAL live-MCP confirmation, per §0.)_
+
+---
+
 ## 5. Session 2 — recall + recall-QUALITY  ⬅️ start a NEW session
 
 Start Session 2 as a **new chat in the SAME window** (don't cleanly close Session 1) — that's the
@@ -1076,11 +1180,12 @@ Clone elsewhere (`git clone C:\Temp\cut-gate19 C:\Temp\cut-gate-clone`), open *t
 ## Verdict + the cut
 
 **Cut if** every **★** passes —
-`G1–G4, G2b, G5, G6, G7, R1, R2, M0, M1, M2, W1–W4, B2, B9, B3, B4, B5, B6, B7, C5, C6, FQ1, PR1–PR5, D1, D3, E1, F-3, F-11b, L3, H1`.
+`G1–G4, G2b, G5, G6, G7, R1, R2, M0, M1, M2, W1–W4, B2, B9, B3, B4, B5, B6, B7, C5, C6, FQ1, PR1–PR5, TV1–TV4, MC1, D1, D3, E1, F-3, F-11b, L3, H1`.
 _(v0.3.2 cut-blockers. **DJ1–DJ3 are NOT cut-blockers this cut** — the `cmk digest`/DECISIONS.md feature is HELD for v0.3.3 until recall-complete (D-164); run the DJ probes to confirm the merged code is sound, but they don't gate the v0.3.2 tag.)_
 _(v0.3.2 adds **FQ1** — FTS5 query sanitization (no crash on dots/hyphens/colons) — and **DJ1/DJ2/DJ3** — `cmk digest` + the append-only `DECISIONS.md` journal (renders, append-only/retract-in-place, decisions-only) — to the gate. 141b was rejected on perf (D-162); no storage-layer test.)_
 _(v0.3.1's **C5/C6/F-11b** are now standing gates. D3's old "decide if the recall variance is acceptable" clause is GONE — v0.3.0 shipped the Task-75 fix; D3 is a hard gate now.)_
 _(v0.4.3 adds **PR1–PR5** (§4d) — the persona-promotion redesign (recurrence-count bump / persona-condenses-not-strands / trust_score column migration / no-arg topic-routing / invisible-Unicode rejection). All five are CLI-deterministic. The LLM-driven layers — the promotion GATE itself (`cmk persona generate` + live Haiku), the spoken MENTION relay, and the `mk_remember` MCP write path — are flagged MANUAL in §0, not gated by PR1–PR5.)_
+_(v0.4.4 adds **TV1–TV4 + MC1** (§4e) — temporal validity (Task 66: `--shape` field / `--expires` declared expiry hide-never-delete / weekly-curate expiry sweep / temporal-supersede window-close) + the memory-commit proposal (Task 150, ADR-0018: SessionStart proposes a `context/` commit, runs no git itself). **TV1/TV2/TV3 + MC1 are CLI-deterministic cut-blockers.** **TV4 has a deterministic close-mechanics leg (suite-covered) but its full sweep verdict is a live-Haiku judge** — run `cmk weekly-curate` on THIS repo's real corpus and confirm sensible verdicts with **no false SUPERSEDES**; that live leg + the 66.3 auto-extract expiry SUGGESTION (invents no unstated date) + the MC1 spoken relay are flagged MANUAL in §0.)_
 **The W1–W4 recall ladder + D3 are the v0.3.0 headline** — the skill fires, paraphrase recall hits, the raw record is reachable, and memory-first answering is a gate. **M0–M2 stay the standing conversational gate** (the v0.2.3 headline); **B9 stays the standing rich-auto-capture gate** (the v0.2.2 headline) — if `context\memory\` has no `write_source: auto-extract` rich file, investigate before shipping.
 
 (B8, D5, D6 are observational — they confirm the new graduation/inject/self-heal behavior when it fires,

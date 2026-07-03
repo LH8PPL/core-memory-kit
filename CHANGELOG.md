@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - **Facts with a shelf life now expire on their own** (Task 66.3). Declare a validity end at capture — `cmk remember "demo Friday" --expires 2026-07-04` (or the `mk_remember expires` param) — and after that date the fact **hides from search automatically** and the weekly curation sweep **tombstones it** (audited and recoverable via `--include-expired` / `cmk get --include-tombstoned`; nothing is ever hard-deleted). Auto-extract can also suggest an expiry, but ONLY when your conversation states a concrete date — it is instructed to never guess one. Permanent facts are untouched: no `--expires`, no expiry.
 - **Claude now offers to commit your memory when it piles up** (Task 150, ADR-0018). Committed-tier memory (`context/`) is the kit's whole point — it travels with `git clone` — but nothing ever committed it for you. Now, when a session starts with uncommitted memory files accrued, Claude gets a heads-up and offers a one-tap commit at a natural moment; you say yes, Claude runs an ordinary `git add context/` + commit through the normal permission flow. The kit itself never touches git — you keep the gate, you lose the remembering burden. Non-git projects and clean trees see nothing.
 
+### Fixed
+
+- **A brand-new user's first cross-project rule now bootstraps the persona — the wedge fills from empty** (D-263, found live by this release's cut-gate). Before: if `~/.claude-memory-kit/` didn't exist yet — every fresh machine — the Stop-hook auto-extract and `cmk lessons promote` silently dropped your first "from now on, in every project…" rule (the promote path required the user tier to already exist, so the cross-project persona could never create itself). Now the tier is scaffolded automatically on the first promotion that clears the confidence/recurrence gate — created exactly when a real durable rule is landing in it, never speculatively.
+
 ## [0.4.3] — 2026-07-01
 
 ### Changed

@@ -15,7 +15,6 @@
 
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { existsSync } from 'node:fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -49,10 +48,18 @@ try {
 // Task 61 — inline cross-project promotion: pass the user-tier dir so
 // cross-project doctrine promotes immediately. Resolve the base via the
 // shared tier-paths resolver (never re-derive ~/.claude-memory-kit inline —
-// CLAUDE.md shared-modules rule), and only pass it when the user tier
-// actually exists (skip gracefully on a fresh machine, like autoPersona).
-const userDirBase = resolveTierRoot({ tier: 'U' });
-const userDir = existsSync(userDirBase) ? userDirBase : undefined;
+// CLAUDE.md shared-modules rule).
+//
+// Wedge-from-empty (D-262): pass userDir UNCONDITIONALLY — do NOT gate on
+// existsSync. A brand-new user has no ~/.claude-memory-kit/ yet, and the whole
+// point of the wedge (B3/B4) is to fill it from EMPTY on the first cross-project
+// rule. The old `existsSync ? base : undefined` guard dropped that first rule
+// silently, so the persona could never bootstrap. The promote path
+// (promoteCandidatesToUserTier) now scaffolds the tier on first GATED promote —
+// i.e. only when a real durable cross-project fact is actually landing, never
+// speculatively — so passing the path unconditionally here is safe: a turn with
+// no cross-project doctrine simply never touches the user tier.
+const userDir = resolveTierRoot({ tier: 'U' });
 
 try {
   const haikuBackend = new HaikuViaAnthropicApi();

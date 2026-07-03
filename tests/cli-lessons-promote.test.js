@@ -190,16 +190,19 @@ describe('cmk lessons promote (Task 76)', () => {
     expect(res.errorCategory).toBe('schema');
   });
 
-  it('queues (not promoted) when the target user-tier scratchpad does not exist', () => {
-    // beforeEach scaffolds LESSONS.md + HABITS.md but NOT USER.md → the promote
-    // path can't create a section in a missing file (ensureSectionExists no-file)
-    // → the candidate is queued for review rather than promoted or lost.
+  it('BOOTSTRAPS a missing target scratchpad on explicit promote, then lands (wedge-from-empty, D-262)', () => {
+    // beforeEach scaffolds LESSONS.md + HABITS.md but NOT USER.md. Pre-D-262 the
+    // promote to USER.md hit `ensureSectionExists` no-file → queued, nothing
+    // written — a brand-new user's first cross-project rule dropped. An explicit
+    // `cmk lessons promote` is confidence:high (user-attested), so it now
+    // scaffolds the missing tier file on first promote and lands.
+    expect(existsSync(join(userDir, 'USER.md'))).toBe(false); // target absent
     const w = writeFact(validFactOpts({ projectRoot }));
     const res = lessonsPromote({ id: w.id, projectRoot, userDir, to: 'USER.md' });
-    expect(res.action).toBe('queued');
-    expect(res.reason).toMatch(/no-file|not-promoted/);
-    // USER.md still absent — nothing written.
-    expect(existsSync(join(userDir, 'USER.md'))).toBe(false);
+    expect(res.action).toBe('promoted');
+    expect(res.target).toBe('USER.md');
+    // USER.md was created and carries the promoted rule.
+    expect(existsSync(join(userDir, 'USER.md'))).toBe(true);
   });
 
   it('rejects a non-project (U / L tier) source id (no write)', () => {

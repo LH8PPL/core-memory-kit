@@ -619,17 +619,23 @@ describe('Task 64 — section-promotion (F2): create the section if it does not 
     expect(audit).toMatch(/Architecture Preferences/);
   });
 
-  it('no-file (target scratchpad absent) → queued not-promoted-no-file, nothing created', () => {
-    // Deliberately do NOT seedUserTier → HABITS.md doesn't exist.
+  it('target scratchpad absent → BOOTSTRAPS the user tier on first gated promote, then lands (wedge-from-empty, D-262)', () => {
+    // Deliberately do NOT seedUserTier → HABITS.md doesn't exist. Pre-D-262 this
+    // returned `not-promoted-no-file` (queued, nothing created), which silently
+    // dropped a brand-new user's FIRST cross-project rule — the persona could
+    // never bootstrap from empty (the B3/B4 premise). Now a GATED candidate
+    // (confidence:high here) scaffolds the tier on first promote and lands.
+    expect(existsSync(join(userDir, 'HABITS.md'))).toBe(false); // tier absent
     const r = promoteCandidatesToUserTier({
       candidates: [{ target: 'HABITS.md', section: 'Iteration Cadence', confidence: 'high', text: 'x' }],
       userDir,
       now: NOW,
     });
-    expect(r.promoted).toHaveLength(0);
-    expect(r.queued).toHaveLength(1);
-    expect(r.queued[0].reason).toBe('not-promoted-no-file');
-    expect(existsSync(join(userDir, 'HABITS.md'))).toBe(false);
+    expect(r.promoted).toHaveLength(1);
+    expect(r.queued).toHaveLength(0);
+    // The tier was created and carries the rule.
+    expect(existsSync(join(userDir, 'HABITS.md'))).toBe(true);
+    expect(readFileSync(join(userDir, 'HABITS.md'), 'utf8')).toContain('x');
   });
 
   it('a guard-rejected candidate is persisted to the durable persona-review queue (Door 4)', () => {
