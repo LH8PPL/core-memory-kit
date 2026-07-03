@@ -160,9 +160,9 @@ D-259's judge/close semantics untouched.
 
 ## Pointers
 
-- Paper: `C:/Projects/liorwiki/raw/2602.03315v2.pdf` (arXiv 2602.03315v2; text-extracted read)
-- Blog capture: `C:/Projects/liorwiki/raw/Memora scales agent memory to boost long-horizon productivity.md`
-- Code: <https://github.com/microsoft/Memora> (clone: `C:/Projects/Memora`) — verified modules:
+- Paper: <https://arxiv.org/abs/2602.03315> (v2; read in full via pdftotext from the maintainer's local capture)
+- Blog: <https://www.microsoft.com/en-us/research/blog/memora-a-harmonic-memory-representation-balancing-abstraction-and-specificity/>
+- Code: <https://github.com/microsoft/Memora> (local clone: `C:/Projects/Memora`) — verified modules:
   `builder/memory_builder.py` (`_query_update_candidates`, `upsert_memory_entry`,
   `update_score_threshold`, the Fig-6 prompt inline), `core/cue_index_generator.py` (factual +
   relational cue taxonomy), `core/memory_expander.py` (frontier + relaxed-frontier 0.85/top-4),
