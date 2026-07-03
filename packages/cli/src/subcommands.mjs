@@ -18,6 +18,7 @@ import { installAgent } from './install-agent.mjs';
 import { installKiro, uninstallKiro } from './install-kiro.mjs';
 import { getAgentProfile, listAgentProfiles } from './agent-profiles.mjs';
 import { runKiroHook } from './kiro-hook-bin.mjs';
+import { dispatchCursorHook } from './cursor-hook-dispatch.mjs';
 import { readKiroTurn } from './kiro-transcript.mjs';
 import { injectContext } from './inject-context.mjs';
 import { captureTurn } from './capture-turn.mjs';
@@ -533,6 +534,106 @@ export function runHook(event, _options = {}, _command, deps = {}) {
   // block) instead of hardcoding 0 — a crashed guard still fails open (the
   // dispatcher's catch returns exitCode 0).
   process.exitCode = typeof r.exitCode === 'number' ? r.exitCode : 0;
+}
+
+/**
+ * Task 196 — `cmk cursor-hook` — the Cursor hook entrypoint.
+ *
+ * Cursor wires ONE command for every hook event; the payload arrives as JSON on
+ * stdin with `hook_event_name` (the router key) + `workspace_roots` (the
+ * authoritative project root — Cursor may spawn hooks outside the project dir,
+ * so cwd is only the fallback). Responses are Cursor-shaped JSON on stdout
+ * (cursor.com/docs/agent/hooks, primary-verified 2026-07-03). ALWAYS exits 0 —
+ * deny is expressed via the JSON `permission` field, never an exit code.
+ */
+export async function runCursorHook(_options = {}, _command, deps = {}) {
+  const log = deps.log ?? ((s) => process.stdout.write(s));
+  const logError = deps.logError ?? ((s) => process.stderr.write(`${s}\n`));
+
+  // The Cursor payload — JSON on a piped-and-closed stdin (the documented hook
+  // protocol). TTY-guarded so a manual `cmk cursor-hook` doesn't hang; malformed
+  // JSON degrades to {} (→ unknown event → no-op), never a crash.
+  let payload = deps.payload;
+  if (payload === undefined) {
+    try {
+      const readStdin = deps.readStdin ?? (() => readHookStdin({ isTTY: process.stdin.isTTY }));
+      const raw = readStdin();
+      payload = raw && raw.trim() !== '' ? JSON.parse(raw) : {};
+    } catch {
+      payload = {};
+    }
+  }
+  const event = typeof payload.hook_event_name === 'string' ? payload.hook_event_name : '';
+  const roots = payload.workspace_roots;
+  const cwd =
+    (Array.isArray(roots) && typeof roots[0] === 'string' && roots[0]) ||
+    deps.cwd ||
+    process.cwd();
+  const env = deps.env ?? process.env;
+
+  const r = dispatchCursorHook({
+    event,
+    payload,
+    cwd,
+    deps: {
+      inject: deps.inject ?? ((args) => {
+        const text = injectContext({ cwd: args.cwd, ...(args.userDir ? { userDir: args.userDir } : {}) });
+        return { ok: true, text: typeof text === 'string' ? text : text?.text ?? '' };
+      }),
+      // Forward a RESOLVED auto-extract path so captureTurn can spawn the
+      // detached extraction child (the D-200 class — without it, capture
+      // appends the transcript but never extracts facts). The resolver is
+      // agent-neutral (env override → sibling bin/) despite its Kiro name.
+      capture: deps.capture ?? ((args) => (deps.captureTurn ?? captureTurn)({
+        payload: args.payload,
+        projectRoot: args.projectRoot,
+        autoExtractPath: resolveKiroAutoExtractPath(env),
+      })),
+      capturePrompt: deps.capturePrompt ?? ((args) => capturePrompt({
+        payload: args.payload,
+        projectRoot: args.projectRoot,
+      })),
+      observe: deps.observe ?? ((args) => observeEdit({
+        payload: args.payload,
+        projectRoot: args.projectRoot,
+      })),
+      // beforeShellExecution → the memory delete-guardrail (D-192). Cursor's
+      // payload carries the command at the TOP level ({command, cwd}), not
+      // under tool_input.
+      guard: deps.guard ?? ((args) => decideGuard(
+        typeof args.payload?.command === 'string' ? args.payload.command : '',
+      )),
+      // sessionEnd → the same compress+persona tasks Claude Code's SessionEnd
+      // bin runs. Lazily imported so the heavy compressor stack never loads on
+      // the hot per-turn events.
+      sessionEnd: deps.sessionEnd ?? (async (args) => {
+        const [{ runSessionEndTasks }, { HaikuViaAnthropicApi }] = await Promise.all([
+          import('./session-end-tasks.mjs'),
+          import('./compressor.mjs'),
+        ]);
+        const userDir = env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+        await runSessionEndTasks({
+          projectRoot: args.projectRoot,
+          userDir,
+          makeBackend: () => new HaikuViaAnthropicApi(),
+        });
+      }),
+    },
+  });
+
+  if (r.stdout) log(r.stdout);
+  if (r.stderr) logError(r.stderr);
+  // sessionEnd hands back the running async tasks — await them so the process
+  // doesn't exit under the work. Fail-open: a rejection is logged, never thrown.
+  if (r.pending && typeof r.pending.then === 'function') {
+    try {
+      await r.pending;
+    } catch (err) {
+      logError(`cmk cursor-hook ${event}: ${err?.message ?? err}`);
+    }
+  }
+  process.exitCode = 0; // the always-exit-0 invariant (deny rides the JSON, not the exit code)
+  return r;
 }
 
 /**
@@ -2311,6 +2412,12 @@ export const subcommands = [
     milestone: 50,
     argSpec: [{ flags: '<event>', description: 'the Kiro lifecycle event: agentSpawn | promptSubmit | stop' }],
     action: runHook,
+  },
+  {
+    name: 'cursor-hook',
+    description: 'Cursor hook entrypoint — reads the Cursor JSON payload on stdin, routes on hook_event_name (inject/capture/observe/guard; called by .cursor/hooks.json, not by users)',
+    milestone: 196,
+    action: runCursorHook,
   },
   {
     name: 'uninstall',

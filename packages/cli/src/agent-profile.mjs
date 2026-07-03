@@ -53,7 +53,17 @@ export function defineAgentProfile(decl) {
   if (decl === null || typeof decl !== 'object') {
     fail('declaration must be an object');
   }
-  const { name, displayName, integrationType, detect, instructionFile, mcp, hooks, transcript } = decl;
+  const {
+    name,
+    displayName,
+    integrationType,
+    detect,
+    instructionFile,
+    instructionFrontmatter,
+    mcp,
+    hooks,
+    transcript,
+  } = decl;
 
   // ── universal required fields ────────────────────────────────────────────
   if (typeof name !== 'string' || name.length === 0) {
@@ -67,6 +77,13 @@ export function defineAgentProfile(decl) {
   }
   if (typeof instructionFile !== 'string' || instructionFile.length === 0) {
     fail(`profile ${name}: instructionFile is required (every integration type wires the instruction leg)`);
+  }
+  // Optional: agent-specific YAML frontmatter lines for the instruction file
+  // (e.g. Cursor's `.mdc` needs `alwaysApply: true`; Kiro steering uses
+  // `inclusion: always`). Data, not code — the writer wraps it in `---` fences.
+  if (instructionFrontmatter !== undefined
+      && (typeof instructionFrontmatter !== 'string' || instructionFrontmatter.length === 0)) {
+    fail(`profile ${name}: instructionFrontmatter must be a non-empty string when present`);
   }
 
   // ── per-type leg contract (the parity invariant 50.D will also enforce) ──
@@ -96,6 +113,7 @@ export function defineAgentProfile(decl) {
     integrationType,
     detect: Object.freeze({ ...detect }),
     instructionFile,
+    ...(instructionFrontmatter !== undefined ? { instructionFrontmatter } : {}),
     ...(mcp !== undefined ? { mcp: Object.freeze({ ...mcp }) } : {}),
     ...(hooks !== undefined
       ? { hooks: Object.freeze({ ...hooks, eventMap: Object.freeze({ ...hooks.eventMap }) }) }

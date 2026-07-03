@@ -90,6 +90,48 @@ const kiro = defineAgentProfile({
   },
 });
 
+// ── Cursor (Task 196) ────────────────────────────────────────────────────────
+// Primary-verified against cursor.com/docs (agent/hooks + context/mcp +
+// context/rules), 2026-07-03. VS Code fork with a first-class hooks system:
+//   • hooks: dedicated `.cursor/hooks.json` `{version: 1, hooks: {<event>: [{command}]}}`.
+//     Hooks speak JSON over stdio BOTH directions (payload on stdin, response on
+//     stdout) — unlike Claude Code's raw-stdout SessionStart — so every event
+//     routes through ONE adapter command, `cmk cursor-hook`, which reads
+//     `hook_event_name` from the payload (no per-event argv needed).
+//   • inject: `sessionStart` supports `{additional_context}` in the response —
+//     a real dynamic inject leg (full Claude-Code parity).
+//   • capture: `turnEnd` maps to `afterAgentResponse`, whose payload carries the
+//     assistant's final text directly (`{text}`) — no transcript parsing; Cursor's
+//     `stop` payload is status-only. Hence NO transcript leg on this profile.
+//   • guard: `beforeShellExecution` delivers `{command, cwd}` and accepts
+//     `{permission: 'allow'|'deny'}` — the memory delete-guardrail (D-192) leg.
+//     `preShell` is a cursor-only abstract event; agents without a shell-guard
+//     surface simply don't map it.
+//   • instruction: `.cursor/rules/*.mdc` with `alwaysApply: true` frontmatter
+//     (plain `.md` files in .cursor/rules are IGNORED by Cursor — the .mdc
+//     extension is load-bearing).
+const cursor = defineAgentProfile({
+  name: 'cursor',
+  displayName: 'Cursor',
+  integrationType: 'hooks-mcp',
+  detect: { homeDir: '.cursor' },
+  instructionFile: '.cursor/rules/claude-memory-kit.mdc',
+  instructionFrontmatter: 'description: claude-memory-kit — durable in-repo memory (recall + capture)\nalwaysApply: true',
+  mcp: { path: '.cursor/mcp.json', serversKey: 'mcpServers' },
+  hooks: {
+    mechanism: 'hooks-json', // dedicated .cursor/hooks.json (version + hooks keys)
+    path: '.cursor/hooks.json',
+    eventMap: {
+      sessionStart: 'sessionStart',
+      promptSubmit: 'beforeSubmitPrompt',
+      postEdit: 'afterFileEdit',
+      turnEnd: 'afterAgentResponse',
+      sessionEnd: 'sessionEnd',
+      preShell: 'beforeShellExecution',
+    },
+  },
+});
+
 // ── AGENTS.md (Task 50.G — the instruction-only breadth rung) ────────────────
 // The cheap multi-tool reach: emit a managed block in AGENTS.md (the cross-tool
 // instruction-file convention several non-Claude agents read — Cursor, Zed,
@@ -106,6 +148,7 @@ const agentsmd = defineAgentProfile({
 export const AGENT_PROFILES = Object.freeze({
   'claude-code': claudeCode,
   kiro,
+  cursor,
   'agents-md': agentsmd,
 });
 
