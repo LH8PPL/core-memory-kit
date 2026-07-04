@@ -70,7 +70,12 @@ export async function runSessionEndTasks({ projectRoot, userDir, makeBackend, no
     // another's writes. Best-effort (its own contract never throws for a judge
     // hiccup; allSettled isolates an unexpected crash). Its no-new-facts
     // short-circuit returns BEFORE any Haiku call, so an idle session is ~free.
-    temporalSweep({ projectRoot, userDir, backend: makeBackend(), now }),
+    // timeoutMs:50_000 is LOAD-BEARING — the sweep's own default is 120s (built
+    // for the ceiling-free weekly/lazy sites), but here it runs under the 60s
+    // SessionEnd hook ceiling. Left at 120s the sweep's judge call could be the
+    // longest pole and get SIGKILL'd by the ceiling mid-write (the D-92/F-2
+    // composition class — the same 50s-under-60s bound compress + persona use).
+    temporalSweep({ projectRoot, userDir, backend: makeBackend(), now, timeoutMs: 50_000 }),
   ]);
 
   // Task 94.3: proactive graduation sweep. SEQUENTIAL, AFTER the concurrent block —

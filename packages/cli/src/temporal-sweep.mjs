@@ -245,6 +245,14 @@ async function buildSemanticCandidateFinder({ db, projectRoot }) {
   // live State-eligible candidates above θ. prepareSemanticBackend is async
   // per query (it embeds the query text), so the finder is async — temporalSweep
   // awaits it. Over-fetch a few so the age/threshold filter has room.
+  //
+  // KNOWN COST (accepted for v0.4.5): prepareSemanticBackend re-runs
+  // syncSemanticIndex per call, which does a `dims probe` embed each time — so a
+  // semantic-mode sweep with N new facts pays N+1 probe embeds. Bounded (the
+  // sweep caps at MAX_PAIRS_PER_SWEEP facts) + maintenance-time (not hot path) +
+  // semantic-mode only, so it's tolerable now. A follow-up could embed the query
+  // directly against the already-synced vec table (skip the per-call sync) if a
+  // large semantic corpus makes this measurable.
   return async (fact, { nowMs }) => {
     const b = await prepareSemanticBackend({ db, query: fact.title, scope: 'facts' }).catch(() => null);
     if (!b || !b.ok) return [];

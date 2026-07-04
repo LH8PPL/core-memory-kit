@@ -209,6 +209,24 @@ describe('runSessionEndTasks — Task 198.1 per-session temporal sweep (D-266)',
     );
   });
 
+  it('caps the SessionEnd sweep at 50s (under the 60s hook ceiling — D-92/F-2)', async () => {
+    // The sweep's own default is 120s (ceiling-free weekly/lazy sites); at
+    // SessionEnd it MUST be bounded to 50s like compress + persona, or its judge
+    // call could be SIGKILL'd by the 60s ceiling mid-write.
+    compressMock.mockResolvedValue({ action: 'compressed' });
+    personaMock.mockResolvedValue({ action: 'promoted', promoted: [], queued: [] });
+
+    await runSessionEndTasks({
+      projectRoot: '/proj',
+      userDir: '/userdir',
+      makeBackend: () => ({ compress: vi.fn() }),
+    });
+
+    expect(temporalMock).toHaveBeenCalledWith(
+      expect.objectContaining({ timeoutMs: 50_000 }),
+    );
+  });
+
   it('a thrown sweep is isolated (allSettled) — never rejects the hook, the other outcomes survive', async () => {
     compressMock.mockResolvedValue({ action: 'compressed' });
     personaMock.mockResolvedValue({ action: 'promoted', promoted: [], queued: [] });
