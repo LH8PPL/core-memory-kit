@@ -58,6 +58,9 @@ export const CLI_ONLY = new Set([
   // `hook` is the Kiro hook entrypoint (called by Kiro's IDE/CLI hooks, never by
   // the model via MCP) — infra/lifecycle, like the other hook bins (Task 50).
   'hook',
+  // `cursor-hook` is the Cursor hook entrypoint (called by .cursor/hooks.json,
+  // never by the model via MCP) — same infra/lifecycle class (Task 196).
+  'cursor-hook',
 ]);
 
 /**

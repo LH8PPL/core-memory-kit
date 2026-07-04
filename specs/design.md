@@ -2809,6 +2809,35 @@ So the seam is two layers:
 
 **Scope discipline (unchanged):** still no agent-matrix registry (single-digit N). Adding a future agent = one `defineAgentProfile({...})` data declaration. Cross-ref: tasks.md Task 50, D-180/D-182/D-198/D-203, the [research note](../docs/research/2026-06-20-cross-agent-adapter-seam-task50.md), ADR-0012, design §16.6.
 
+#### 16.50.3 SHIPPED — Cursor (Task 196): the first agent to ride the generic seam end-to-end
+
+**Status: SHIPPED (Task 196, the v0.4.5 lane).** Cursor is the seam's proof-of-thesis: unlike Kiro (which needed its own five-surface orchestrator, `installKiro`), Cursor rides the **generic per-profile route untouched** — `runInstallForAgent` falls through to `installAgent(profile)`, and the profile is pure data. Paths primary-source-verified against cursor.com (agent/hooks + context/mcp + context/rules, 2026-07-04); the market/coexistence layer is in the [Cursor memory landscape note](../docs/research/2026-07-04-cursor-memory-landscape.md) (D-268).
+
+**The three legs** (profile: `cursor` in [`agent-profiles.mjs`](../packages/cli/src/agent-profiles.mjs), `integrationType: 'hooks-mcp'`):
+
+- **MCP** → `.cursor/mcp.json` (`mcpServers`, stdio `{type, command, args}`) — the generic leg, unchanged.
+- **hooks** → dedicated `.cursor/hooks.json`, mechanism `hooks-json`. Cursor's documented shape carries a REQUIRED top-level `version: 1` beside `hooks{}`, so the install **seeds** a missing file with `{version: 1, hooks: {}}` before the `mutateAgentConfig` merge (an existing file is the user's — touch only our keys; their `version` is theirs). Every wired event carries ONE platform-wrapped command — **`cmk cursor-hook`** — because Cursor hooks speak **JSON over stdio in both directions** and the payload's `hook_event_name` is the router key (no per-event argv, no per-event bins).
+- **instruction** → `.cursor/rules/claude-memory-kit.mdc` with `alwaysApply: true` frontmatter via the new data-driven `instructionFrontmatter` profile field (generalizes the Kiro `inclusion: always` heuristic). **The `.mdc` extension is load-bearing** — Cursor ignores plain `.md` in `.cursor/rules/`.
+
+**The event map** (all six legs — full Claude-Code parity plus the guard):
+
+| abstract | Cursor event | kit operation | Cursor response (exact field names — a drifted key is a silent no-op) |
+| --- | --- | --- | --- |
+| sessionStart | `sessionStart` | inject (frozen snapshot) | `{additional_context}` |
+| promptSubmit | `beforeSubmitPrompt` | capturePrompt (`payload.prompt`) | `{continue: true}` — ALWAYS true; capture never blocks a prompt |
+| turnEnd | `afterAgentResponse` | captureTurn (`payload.text` → `assistant_message`) | none |
+| postEdit | `afterFileEdit` | observeEdit (`file_path` + `edits[].new_string` joined → a Write-class payload's `tool_response.content`, so the line-count eligibility check sees the real edit size — else every edit no-ops, the D-269-class trap) | none |
+| sessionEnd | `sessionEnd` | the same compress+persona tasks as Claude's SessionEnd bin (lazy-imported) | none (fire-and-forget) |
+| preShell | `beforeShellExecution` | decideGuard (D-192 delete-guardrail, `payload.command`) | `{permission: 'allow'\|'deny', agent_message?}` — deny rides the JSON, not an exit code |
+
+`turnEnd → afterAgentResponse` (not `stop`) is deliberate: Cursor's `stop` payload is status-only, while `afterAgentResponse` carries the assistant's final text directly — **no transcript parsing**, hence NO `transcript` leg on this profile (the payload's `transcript_path` exists but its format is undocumented; deliberately not depended on). `preShell` is a cursor-only abstract event — agents without a shell-guard hook surface simply don't map it, and the generic `buildHookEntry` path skips unknown abstract events (no `HOOK_COMMANDS` entry).
+
+**The dispatcher** ([`cursor-hook-dispatch.mjs`](../packages/cli/src/cursor-hook-dispatch.mjs), a pure router; [`runCursorHook`](../packages/cli/src/subcommands.mjs) wires the real cores): the project root resolves from the payload's **`workspace_roots[0]`** (authoritative — Cursor may spawn hooks outside the project dir), cwd is only the fallback. Invariants: **always exit 0**; permission-type events **fail OPEN on a crash** (`beforeSubmitPrompt` → `{continue: true}`, `beforeShellExecution` → `{permission: 'allow'}`); `sessionEnd` returns its async work as `pending` and the bin awaits it (the process must outlive the tasks). Doctor: `detectInstallKind` keys on the cmk-owned `.cursor/rules/claude-memory-kit.mdc` marker (the I2 discipline — never a bare `.cursor/` dir), and `hc1CursorHooks` checks the dispatcher on both load-bearing events (kills the D-185 false-FAIL class for Cursor installs).
+
+**Coexistence note (D-268):** Cursor REMOVED its native Memories feature in 2.1.x — static rules are its only built-in persistence, so there is no native-memory collision surface (no ADR-0011 analog needed). Watch-item trigger: re-open if Cursor re-ships native memory.
+
+Cross-ref: Task 196, D-257 (the lane), D-268 (the landscape), the [2026-07-04 research note](../docs/research/2026-07-04-cursor-memory-landscape.md), §16.50.1 (the seam), tests `cli-cursor-hook-dispatch` / `cli-cursor-hook-bin` / `cli-install-agent-cursor` / `cli-install-ide-routing` (Task 196 blocks) / `cli-doctor` (Cursor HC-1).
+
 ### 16.51 First-class `/plugin` marketplace path (parallel to `cmk install`)
 
 **v0.1.x candidate (pairs with §16.49).**

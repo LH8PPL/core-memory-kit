@@ -15,9 +15,10 @@
 //   installAgent({ projectRoot, profile }) → { action, agent, changed, legs, errors? }
 //   uninstallAgent({ projectRoot, profile }) → { action, agent, changed }
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { mutateAgentConfig, atomicWrite } from './mutate-agent-config.mjs';
+import { cursorHookCommand } from './kiro-hook-command.mjs';
 import {
   removeJsonKey,
   pruneEmptyParent,
@@ -85,8 +86,16 @@ export function installAgent({ projectRoot, profile }) {
   // should halt this agent's install — report, don't push past it).
   if (profile.hooks && errors.length === 0) {
     const hookEntry = buildHookEntry(profile);
+    const hooksPath = join(projectRoot, profile.hooks.path);
+    // hooks-json (Cursor): the file's documented shape carries a REQUIRED
+    // top-level `version` alongside `hooks`. mutateAgentConfig only owns the
+    // keyPath slot, so seed a fresh file with the full shape; an EXISTING file
+    // is the user's (their version field is theirs — touch only our keys).
+    if (profile.hooks.mechanism === 'hooks-json' && !existsSync(hooksPath)) {
+      atomicWrite(hooksPath, `${JSON.stringify({ version: 1, hooks: {} }, null, 2)}\n`);
+    }
     const r = mutateAgentConfig({
-      path: join(projectRoot, profile.hooks.path),
+      path: hooksPath,
       format: 'json',
       keyPath: ['hooks'],
       entry: hookEntry,
@@ -135,9 +144,13 @@ export function uninstallAgent({ projectRoot, profile }) {
     // prune an emptied `hooks` object we leave behind (no residue).
     pruneEmptyParent(p, ['hooks']);
   }
-  // instruction: strip our marker block, byte-preserve the rest.
+  // instruction: strip our marker block, byte-preserve the rest — then, if the
+  // remainder is ONLY the frontmatter the kit itself wrote (nothing of the
+  // user's), delete the file: a frontmatter-only `.mdc` is an always-applied
+  // EMPTY rule, kit-shaped residue (the Task-196 live-test find).
   const instrPath = join(projectRoot, profile.instructionFile);
   if (removeInstructionBlock(instrPath)) changed = true;
+  if (removeKitOnlyInstructionResidue(instrPath, profile)) changed = true;
 
   return { action: 'uninstalled', agent: profile.name, changed };
 }
@@ -146,8 +159,19 @@ export function uninstallAgent({ projectRoot, profile }) {
 
 // Build the agent's hook object: { <concreteEvent>: [ {command} ] } for each
 // abstract event the profile maps + the kit has a command for.
+//
+// hooks-json (Cursor) is the exception: EVERY mapped event (including preShell,
+// which has no per-event bin) calls the ONE dispatcher command — the event
+// rides in the payload's hook_event_name, and the dispatcher routes.
 function buildHookEntry(profile) {
   const hooks = {};
+  if (profile.hooks.mechanism === 'hooks-json') {
+    const command = cursorHookCommand();
+    for (const concreteEvent of Object.values(profile.hooks.eventMap)) {
+      hooks[concreteEvent] = [{ command }];
+    }
+    return hooks;
+  }
   for (const [abstractEvent, concreteEvent] of Object.entries(profile.hooks.eventMap)) {
     const command = HOOK_COMMANDS[abstractEvent];
     if (command) hooks[concreteEvent] = [{ command }];
@@ -159,7 +183,14 @@ function buildHookEntry(profile) {
 // frontmatter (Kiro wants `inclusion: always`). Idempotent: re-writing identical
 // content reports changed:false.
 function writeInstructionFile(path, profile) {
-  const frontmatter = needsInclusionFrontmatter(profile) ? '---\ninclusion: always\n---\n\n' : '';
+  // Data-driven frontmatter (Task 196): a profile declares its instruction
+  // file's frontmatter lines (Cursor's .mdc needs `alwaysApply: true`). The
+  // Kiro steering heuristic below predates the field and stays for back-compat.
+  const frontmatter = profile.instructionFrontmatter
+    ? `---\n${profile.instructionFrontmatter}\n---\n\n`
+    : needsInclusionFrontmatter(profile)
+      ? '---\ninclusion: always\n---\n\n'
+      : '';
   const block = `${MARK_START}\n${INSTRUCTION_BODY}\n${MARK_END}`;
   const desired = `${frontmatter}${block}\n`;
 
@@ -203,6 +234,30 @@ function removeInstructionBlock(path) {
 // removeJsonKey / pruneEmptyParent / escapeRe / trim{Leading,Trailing}Newlines
 // are now shared from managed-block.mjs (deduped — the kit's shared-module
 // discipline; install-kiro.mjs uses the same source).
+
+// After the managed block is stripped, a file whose remaining content is only
+// the kit-authored frontmatter (or nothing at all) carries zero user content —
+// remove it so an uninstall leaves no kit-shaped file behind. Anything else
+// (a user's own lines outside our markers) keeps the file.
+function removeKitOnlyInstructionResidue(path, profile) {
+  if (!existsSync(path)) return false;
+  // Normalize CRLF → LF before the compare: a Windows editor / git autocrlf
+  // rewrites the kit's `\n`-authored frontmatter to `\r\n`, which would else
+  // never match and leave the empty always-applied .mdc behind (the exact
+  // residue this exists to remove — skill-review #2). Compares fail SAFE either
+  // way (a mismatch keeps the file), so normalizing only widens correct deletes.
+  const left = readFileSync(path, 'utf8').replace(/\r\n/g, '\n').trim();
+  const kitFrontmatter = profile.instructionFrontmatter
+    ? `---\n${profile.instructionFrontmatter}\n---`
+    : needsInclusionFrontmatter(profile)
+      ? '---\ninclusion: always\n---'
+      : '';
+  if (left === '' || left === kitFrontmatter) {
+    unlinkSync(path);
+    return true;
+  }
+  return false;
+}
 
 function needsInclusionFrontmatter(profile) {
   // Kiro steering files use `inclusion: always`. Driven by the profile's

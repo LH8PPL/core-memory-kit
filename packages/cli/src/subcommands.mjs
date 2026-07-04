@@ -14,10 +14,11 @@
 // asserts exactly what's exported here, so coverage stays automatic.
 
 import { install as installAction, initUserTier as initUserTierAction } from './install.mjs';
-import { installAgent } from './install-agent.mjs';
+import { installAgent, uninstallAgent } from './install-agent.mjs';
 import { installKiro, uninstallKiro } from './install-kiro.mjs';
 import { getAgentProfile, listAgentProfiles } from './agent-profiles.mjs';
 import { runKiroHook } from './kiro-hook-bin.mjs';
+import { dispatchCursorHook } from './cursor-hook-dispatch.mjs';
 import { readKiroTurn } from './kiro-transcript.mjs';
 import { injectContext } from './inject-context.mjs';
 import { captureTurn } from './capture-turn.mjs';
@@ -489,13 +490,16 @@ export function runHook(event, _options = {}, _command, deps = {}) {
     payload,
     deps: {
       readKiroTurn: deps.readKiroTurn ?? readKiroTurn,
-      // injectContext returns the assembled context string; normalize to {text}.
-      // userDir is passed through so cross-project user-tier memory surfaces on
-      // Kiro inject too (injectContext resolves $MEMORY_KIT_USER_DIR when userDir
-      // is absent, but pass it explicitly when the caller provides one).
+      // injectContext returns {snapshot, hookOutput, …} — the memory text is
+      // `.snapshot`. The original wiring read a non-existent `.text` field, so
+      // the Kiro inject leg emitted EMPTY in production while every routing
+      // test (which fakes inject) passed — found by the Task-196 sandbox
+      // live-test, locked by the D-269 integration tests in
+      // cli-cursor-hook-bin.test.js. userDir is passed through so
+      // cross-project user-tier memory surfaces on Kiro inject too.
       inject: deps.inject ?? ((args) => {
-        const text = injectContext({ cwd: args.cwd, ...(args.userDir ? { userDir: args.userDir } : {}) });
-        return { ok: true, text: typeof text === 'string' ? text : text?.text ?? '' };
+        const r = injectContext({ cwd: args.cwd, ...(args.userDir ? { userDir: args.userDir } : {}) });
+        return { ok: true, text: typeof r === 'string' ? r : r?.snapshot ?? '' };
       }),
       // Pass a RESOLVED autoExtractPath so captureTurn can spawn the detached
       // auto-extract child (D-200 — else no extraction, no wedge promotion). The
@@ -536,6 +540,108 @@ export function runHook(event, _options = {}, _command, deps = {}) {
 }
 
 /**
+ * Task 196 — `cmk cursor-hook` — the Cursor hook entrypoint.
+ *
+ * Cursor wires ONE command for every hook event; the payload arrives as JSON on
+ * stdin with `hook_event_name` (the router key) + `workspace_roots` (the
+ * authoritative project root — Cursor may spawn hooks outside the project dir,
+ * so cwd is only the fallback). Responses are Cursor-shaped JSON on stdout
+ * (cursor.com/docs/agent/hooks, primary-verified 2026-07-03). ALWAYS exits 0 —
+ * deny is expressed via the JSON `permission` field, never an exit code.
+ */
+export async function runCursorHook(_options = {}, _command, deps = {}) {
+  const log = deps.log ?? ((s) => process.stdout.write(s));
+  const logError = deps.logError ?? ((s) => process.stderr.write(`${s}\n`));
+
+  // The Cursor payload — JSON on a piped-and-closed stdin (the documented hook
+  // protocol). TTY-guarded so a manual `cmk cursor-hook` doesn't hang; malformed
+  // JSON degrades to {} (→ unknown event → no-op), never a crash.
+  let payload = deps.payload;
+  if (payload === undefined) {
+    try {
+      const readStdin = deps.readStdin ?? (() => readHookStdin({ isTTY: process.stdin.isTTY }));
+      const raw = readStdin();
+      payload = raw && raw.trim() !== '' ? JSON.parse(raw) : {};
+    } catch {
+      payload = {};
+    }
+  }
+  const event = typeof payload.hook_event_name === 'string' ? payload.hook_event_name : '';
+  const roots = payload.workspace_roots;
+  const cwd =
+    (Array.isArray(roots) && typeof roots[0] === 'string' && roots[0]) ||
+    deps.cwd ||
+    process.cwd();
+  const env = deps.env ?? process.env;
+
+  const r = dispatchCursorHook({
+    event,
+    payload,
+    cwd,
+    deps: {
+      inject: deps.inject ?? ((args) => {
+        // injectContext returns {snapshot, …} — see the D-269 note on the Kiro
+        // wiring above (the same read-the-wrong-field bug, fixed together).
+        const res = injectContext({ cwd: args.cwd, ...(args.userDir ? { userDir: args.userDir } : {}) });
+        return { ok: true, text: typeof res === 'string' ? res : res?.snapshot ?? '' };
+      }),
+      // Forward a RESOLVED auto-extract path so captureTurn can spawn the
+      // detached extraction child (the D-200 class — without it, capture
+      // appends the transcript but never extracts facts). The resolver is
+      // agent-neutral (env override → sibling bin/) despite its Kiro name.
+      capture: deps.capture ?? ((args) => (deps.captureTurn ?? captureTurn)({
+        payload: args.payload,
+        projectRoot: args.projectRoot,
+        autoExtractPath: resolveKiroAutoExtractPath(env),
+      })),
+      capturePrompt: deps.capturePrompt ?? ((args) => capturePrompt({
+        payload: args.payload,
+        projectRoot: args.projectRoot,
+      })),
+      observe: deps.observe ?? ((args) => observeEdit({
+        payload: args.payload,
+        projectRoot: args.projectRoot,
+      })),
+      // beforeShellExecution → the memory delete-guardrail (D-192). Cursor's
+      // payload carries the command at the TOP level ({command, cwd}), not
+      // under tool_input.
+      guard: deps.guard ?? ((args) => decideGuard(
+        typeof args.payload?.command === 'string' ? args.payload.command : '',
+      )),
+      // sessionEnd → the same compress+persona tasks Claude Code's SessionEnd
+      // bin runs. Lazily imported so the heavy compressor stack never loads on
+      // the hot per-turn events.
+      sessionEnd: deps.sessionEnd ?? (async (args) => {
+        const [{ runSessionEndTasks }, { HaikuViaAnthropicApi }] = await Promise.all([
+          import('./session-end-tasks.mjs'),
+          import('./compressor.mjs'),
+        ]);
+        const userDir = env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+        await runSessionEndTasks({
+          projectRoot: args.projectRoot,
+          userDir,
+          makeBackend: () => new HaikuViaAnthropicApi(),
+        });
+      }),
+    },
+  });
+
+  if (r.stdout) log(r.stdout);
+  if (r.stderr) logError(r.stderr);
+  // sessionEnd hands back the running async tasks — await them so the process
+  // doesn't exit under the work. Fail-open: a rejection is logged, never thrown.
+  if (r.pending && typeof r.pending.then === 'function') {
+    try {
+      await r.pending;
+    } catch (err) {
+      logError(`cmk cursor-hook ${event}: ${err?.message ?? err}`);
+    }
+  }
+  process.exitCode = 0; // the always-exit-0 invariant (deny rides the JSON, not the exit code)
+  return r;
+}
+
+/**
  * `cmk uninstall [--ide <agent>]` — remove ONE agent's kit-managed surface,
  * scoped by `--ide` exactly like `cmk install` (D-189). Default (no flag)
  * removes the Claude Code surface (the CLAUDE.md managed block); `--ide kiro`
@@ -559,8 +665,20 @@ export function runUninstall(options /*, command */) {
     return;
   }
   if (ide !== 'claude-code') {
-    logError(`cmk uninstall: unknown --ide '${ide}'. Supported: claude-code, kiro.`);
-    process.exitCode = 2;
+    // Task 196 — any other registered profile takes the generic per-profile
+    // route (mirror of the install routing): remove only that agent's keys +
+    // managed block; context/ stays sacred.
+    const profile = getAgentProfile(ide);
+    if (!profile) {
+      const known = listAgentProfiles().map((p) => p.name).join(', ');
+      logError(`cmk uninstall: unknown --ide '${ide}'. Supported: ${known}.`);
+      process.exitCode = 2;
+      return;
+    }
+    const r = uninstallAgent({ projectRoot, profile });
+    log(
+      `cmk uninstall (${profile.name}): ${r.changed ? `removed the ${profile.displayName} managed surface` : 'nothing to remove'} — context/ preserved.`,
+    );
     return;
   }
 
@@ -2296,7 +2414,7 @@ export const subcommands = [
     description: 'cross-OS one-shot install — scaffold 3-tier dirs + inject .gitignore + drop kit CLAUDE.md block + wire Claude Code hooks',
     milestone: 3,
     optionSpec: [
-      { flags: '--ide <agent>', description: 'target agent: claude-code (default) | kiro — wires that agent\'s hooks + MCP + instruction file' },
+      { flags: '--ide <agent>', description: 'target agent: claude-code (default) | kiro | cursor — wires that agent\'s hooks + MCP + instruction file' },
       { flags: '--force', description: 'allow downgrade of an existing newer-version CLAUDE.md block' },
       { flags: '--no-hooks', description: 'scaffold only; do NOT wire hooks into .claude/settings.json' },
       { flags: '--with-semantic', description: 'enable semantic recall: install the local embedder (~260 MB once), default search to hybrid, pre-warm the model' },
@@ -2313,11 +2431,17 @@ export const subcommands = [
     action: runHook,
   },
   {
+    name: 'cursor-hook',
+    description: 'Cursor hook entrypoint — reads the Cursor JSON payload on stdin, routes on hook_event_name (inject/capture/observe/guard; called by .cursor/hooks.json, not by users)',
+    milestone: 196,
+    action: runCursorHook,
+  },
+  {
     name: 'uninstall',
     description: 'remove the kit-managed surface (preserves everything else byte-for-byte; never touches context/)',
     milestone: 4,
     optionSpec: [
-      { flags: '--ide <agent>', description: 'which agent to uninstall: claude-code (default) | kiro — removes only THAT agent\'s managed surface' },
+      { flags: '--ide <agent>', description: 'which agent to uninstall: claude-code (default) | kiro | cursor — removes only THAT agent\'s managed surface' },
     ],
     action: runUninstall,
   },

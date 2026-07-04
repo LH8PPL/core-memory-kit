@@ -25,6 +25,20 @@ export function kiroHookCommand(event, cmkCmd = 'cmk') {
 }
 
 /**
+ * Build the `cmk cursor-hook` command, platform-wrapped (Task 196). Cursor's
+ * hooks all call ONE command — the event rides in the stdin payload's
+ * `hook_event_name`, so no per-event argv. Same Windows rationale as above:
+ * `cmk` is an npm .cmd shim, and a spawn that bypasses the shell can't resolve
+ * it — `cmd.exe /c` reaches the real node+cmk on any spawn model. (Cursor's
+ * docs don't specify the hook spawn model; the wrap is correct under both.
+ * Flagged for the Task-196 live test.)
+ */
+export function cursorHookCommand(cmkCmd = 'cmk') {
+  const inner = `${cmkCmd} cursor-hook`;
+  return IS_WINDOWS ? `cmd.exe /c ${inner}` : inner;
+}
+
+/**
  * Build the memory delete-guardrail command (D-192), platform-wrapped. Kiro's
  * `preToolUse` delivers `{ tool_name, tool_input: { command } }` on STDIN — the
  * SAME shape as Claude Code (verified from the real oh-my-kiro + vibekit

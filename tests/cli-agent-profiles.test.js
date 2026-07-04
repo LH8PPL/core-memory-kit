@@ -21,11 +21,12 @@ import {
 import { KIT_HOOKS_BLOCK } from '../packages/cli/src/settings-hooks.mjs';
 
 describe('Task 50.C/50.E — agent-profiles registry', () => {
-  it('registers claude-code + kiro + agents-md', () => {
+  it('registers claude-code + kiro + cursor + agents-md', () => {
     expect(getAgentProfile('claude-code')).toBeDefined();
     expect(getAgentProfile('kiro')).toBeDefined();
+    expect(getAgentProfile('cursor')).toBeDefined();
     expect(getAgentProfile('agents-md')).toBeDefined();
-    expect(listAgentProfiles().map((p) => p.name).sort()).toEqual(['agents-md', 'claude-code', 'kiro']);
+    expect(listAgentProfiles().map((p) => p.name).sort()).toEqual(['agents-md', 'claude-code', 'cursor', 'kiro']);
   });
 
   it('the registry is frozen (profiles are immutable data)', () => {
@@ -78,6 +79,34 @@ describe('Task 50.C/50.E — agent-profiles registry', () => {
     it('transcript params resolved (VS Code fork, per-session JSON history)', () => {
       expect(k.transcript.workspaceKey).toBe('base64url');
       expect(k.transcript.parse).toBe('json-history');
+    });
+  });
+
+  describe('cursor profile carries the Task-196 primary-verified facts (cursor.com docs)', () => {
+    const c = getAgentProfile('cursor');
+
+    it('declares hooks-mcp (dedicated hooks.json) with the .cursor surfaces', () => {
+      expect(c.integrationType).toBe('hooks-mcp');
+      expect(c.hooks.mechanism).toBe('hooks-json');
+      expect(c.hooks.path).toBe('.cursor/hooks.json');
+      expect(c.mcp.path).toBe('.cursor/mcp.json');
+      expect(c.mcp.serversKey).toBe('mcpServers');
+    });
+
+    it('instruction leg is a .cursor/rules .mdc with alwaysApply frontmatter (plain .md is ignored by Cursor)', () => {
+      expect(c.instructionFile).toBe('.cursor/rules/claude-memory-kit.mdc');
+      expect(c.instructionFrontmatter).toContain('alwaysApply: true');
+    });
+
+    it('maps all five lifecycle legs + the shell delete-guard to the verified Cursor event names', () => {
+      expect(c.hooks.eventMap.sessionStart).toBe('sessionStart');
+      expect(c.hooks.eventMap.promptSubmit).toBe('beforeSubmitPrompt');
+      expect(c.hooks.eventMap.postEdit).toBe('afterFileEdit');
+      // turnEnd → afterAgentResponse (carries the assistant text directly —
+      // no transcript parsing; Cursor's `stop` payload has no content).
+      expect(c.hooks.eventMap.turnEnd).toBe('afterAgentResponse');
+      expect(c.hooks.eventMap.sessionEnd).toBe('sessionEnd');
+      expect(c.hooks.eventMap.preShell).toBe('beforeShellExecution');
     });
   });
 });

@@ -25,6 +25,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Claude_Code-supported-6E56CF" alt="Claude Code supported">
   <img src="https://img.shields.io/badge/Kiro-supported-6E56CF" alt="Kiro supported">
+  <img src="https://img.shields.io/badge/Cursor-supported-6E56CF" alt="Cursor supported">
 </p>
 
 Claude forgets everything when a session ends — so every new chat you re-explain who you are, what you're building, and how you like things done. **claude-memory-kit** fixes that: it quietly captures your decisions, preferences, and project context, then hands them back at the start of every session. Everything is plain text inside your project, and it travels with the code — `git clone` brings the memory along.
@@ -51,7 +52,7 @@ You work. It learns — automatically, no buttons. Next session, it remembers th
 - **Stays TRUE as it ages, not just stored** — facts carry a temporal shape ("ongoing state" vs "happened once" vs "planned"), facts with a shelf life expire on their own (`--expires 2026-08-01` → hidden from recall, recoverably archived), and a weekly pass catches state changes: when a newer fact supersedes an older one ("cut-gate in progress" → "published to npm"), the old state's validity window closes so recall answers with the *current* state — history intact, and the next session opens with a one-line note of what was resolved.
 - **Stays private + bounded** — secrets are screened before any write, machine paths are abstracted to `~`, and rolling compression keeps memory small as history grows.
 - **Guards against accidental deletion** — a hook **blocks** a destructive command (`rm`, `git reset --hard`, …) the moment it targets a memory path, before it runs.
-- **Works across your agents** — the same memory brain on **Claude Code** and **[Kiro](https://kiro.dev)** (IDE + `kiro-cli`). A project's `context/` is shared, so memory you build in one is there in the other.
+- **Works across your agents** — the same memory brain on **Claude Code**, **[Kiro](https://kiro.dev)** (IDE + `kiro-cli`), and **[Cursor](https://cursor.com)**. A project's `context/` is shared, so memory you build in one is there in the others.
 - **Per-project, in your repo** — `context/` lives in your project and travels with `git clone`. Each project keeps its own memory. And when uncommitted memory piles up, Claude offers a **one-tap commit** — you approve, Claude runs the git command; the kit itself never touches git.
 
 ## Quickstart
@@ -82,6 +83,14 @@ cmk doctor                    # verify, then restart Claude Code
 cmk install --ide kiro                   # wire Kiro end-to-end
 cmk install --ide kiro --with-semantic   # …with local semantic recall
 cmk doctor                                # verify, then restart Kiro
+```
+
+**Cursor:**
+
+```bash
+cmk install --ide cursor                 # wire Cursor end-to-end
+cmk install --ide cursor --with-semantic # …with local semantic recall
+cmk doctor                                # verify, then restart Cursor
 ```
 
 `cmk install` is the whole entry point: it scaffolds `context/`, drops the memory skills, wires the lifecycle hooks, and registers the MCP server so the agent can drive memory as tools — no `/plugin` step needed. A project can carry **both** agents — run both installs; they share one `context/`.
@@ -125,8 +134,8 @@ You rarely type these yourself — Claude drives the same operations as tools mi
 
 | Command | Purpose |
 | --- | --- |
-| `cmk install [--with-semantic] [--ide claude-code\|kiro]` | Scaffold + wire hooks + register the MCP server (complete entry point) |
-| `cmk uninstall [--ide claude-code\|kiro]` | Remove one agent's wiring — conservative, never deletes `context/` |
+| `cmk install [--with-semantic] [--ide claude-code\|kiro\|cursor]` | Scaffold + wire hooks + register the MCP server (complete entry point) |
+| `cmk uninstall [--ide claude-code\|kiro\|cursor]` | Remove one agent's wiring — conservative, never deletes `context/` |
 | `cmk search "<query>" [--mode keyword\|semantic\|hybrid] [--scope facts\|transcripts\|decisions]` | Search memory by meaning; `--scope decisions` recalls how a decision evolved |
 | `cmk remember "<fact>"` | Capture a fact explicitly (deduped, secret-screened, path-abstracted) |
 | `cmk forget <id>` | Tombstone a fact (audit trail preserved) |
@@ -138,6 +147,10 @@ There's more — `cmk register-crons`, `cmk config`, `cmk persona generate/expor
 ## Working with Kiro
 
 [Kiro](https://kiro.dev) (the AWS agentic IDE + `kiro-cli`) is a first-class target — `cmk install --ide kiro` wires it end-to-end for both the IDE and the terminal, and a project's `context/` is shared with Claude Code. The full setup, surface table, and dual-agent notes are in **[docs/KIRO.md](docs/KIRO.md)**.
+
+## Working with Cursor
+
+[Cursor](https://cursor.com) removed its native Memories feature (2.1.x) — static rules are its only built-in persistence. `cmk install --ide cursor` restores the full automatic loop: recalled memory injects at session start (`sessionStart` → `additional_context`), each turn is captured at `afterAgentResponse`, edits are observed, the delete-guardrail screens shell commands (`beforeShellExecution`), and an always-applied rule (`.cursor/rules/claude-memory-kit.mdc`) points the agent at the recall surface. All hooks drive one dispatcher (`cmk cursor-hook`) and are wired into `.cursor/hooks.json` without touching your own hooks. Restart Cursor after install so the hooks load.
 
 ## Uninstalling
 
@@ -153,6 +166,12 @@ cmk uninstall              # remove the CLAUDE.md block + hooks
 
 ```bash
 cmk uninstall --ide kiro   # remove the .kiro/ blocks + skills + IDE hooks + AGENTS.md + ~/.kiro CLI agent
+```
+
+**Cursor:**
+
+```bash
+cmk uninstall --ide cursor # remove the kit's hooks.json events + mcp.json entry + .mdc rule
 ```
 
 On a dual-agent project, uninstall one and the other keeps working. To remove the memory data too, delete `context/` (and `context.local/`) yourself — the kit won't do it for you.
