@@ -36,6 +36,7 @@ import { compressSession } from './compress-session.mjs';
 import { autoPersona } from './auto-persona.mjs';
 import { graduateAllScratchpads } from './graduate-session.mjs';
 import { syncDecisionsJournal } from './decisions-journal.mjs';
+import { temporalSweep } from './temporal-sweep.mjs';
 
 /**
  * Run the two independent SessionEnd Haiku passes concurrently.
@@ -49,7 +50,7 @@ import { syncDecisionsJournal } from './decisions-journal.mjs';
  * @returns {Promise<{compressOutcome: PromiseSettledResult, personaOutcome: PromiseSettledResult, graduationOutcome: PromiseSettledResult, journalOutcome: PromiseSettledResult}>}
  */
 export async function runSessionEndTasks({ projectRoot, userDir, makeBackend, now }) {
-  const [compressOutcome, personaOutcome] = await Promise.allSettled([
+  const [compressOutcome, personaOutcome, temporalOutcome] = await Promise.allSettled([
     compressSession({ projectRoot, backend: makeBackend(), now }),
     // cooldownMs:0 — compressSession runs concurrently and would otherwise trip the
     // shared 120s Haiku cooldown gate; at SessionEnd we explicitly want persona to run.
@@ -57,6 +58,24 @@ export async function runSessionEndTasks({ projectRoot, userDir, makeBackend, no
     // where standing-rule statements survive verbatim, NOT the distilled fact corpus
     // (which strips the cross-project signal). This is what makes the cold-open work.
     autoPersona({ projectRoot, userDir, backend: makeBackend(), cooldownMs: 0, now, source: 'transcript' }),
+    // Task 198.1 (D-266): the temporal contradiction-catch runs at EVERY Haiku
+    // maintenance site, not weekly-only — so a stale-State pair created THIS
+    // session is closed by the NEXT session boundary instead of waiting up to a
+    // week. It joins the CONCURRENT block (not sequential) for the 60s-ceiling
+    // composition (D-92/F-2): a third ~50s-max Haiku call run after the ~50s
+    // concurrent block would blow the ceiling; overlapping keeps the wall-clock
+    // at max(...), not the sum. DISJOINT from the other two — compress touches
+    // sessions/, persona the user-tier scratchpads, the sweep reads the fact
+    // corpus + the SQLite index and writes validity windows/audit; none reads
+    // another's writes. Best-effort (its own contract never throws for a judge
+    // hiccup; allSettled isolates an unexpected crash). Its no-new-facts
+    // short-circuit returns BEFORE any Haiku call, so an idle session is ~free.
+    // timeoutMs:50_000 is LOAD-BEARING — the sweep's own default is 120s (built
+    // for the ceiling-free weekly/lazy sites), but here it runs under the 60s
+    // SessionEnd hook ceiling. Left at 120s the sweep's judge call could be the
+    // longest pole and get SIGKILL'd by the ceiling mid-write (the D-92/F-2
+    // composition class — the same 50s-under-60s bound compress + persona use).
+    temporalSweep({ projectRoot, userDir, backend: makeBackend(), now, timeoutMs: 50_000 }),
   ]);
 
   // Task 94.3: proactive graduation sweep. SEQUENTIAL, AFTER the concurrent block —
@@ -99,7 +118,7 @@ export async function runSessionEndTasks({ projectRoot, userDir, makeBackend, no
     journalOutcome = { status: 'rejected', reason: err };
   }
 
-  return { compressOutcome, personaOutcome, graduationOutcome, journalOutcome };
+  return { compressOutcome, personaOutcome, temporalOutcome, graduationOutcome, journalOutcome };
 }
 
 /**
@@ -110,7 +129,7 @@ export async function runSessionEndTasks({ projectRoot, userDir, makeBackend, no
  * @param {{compressOutcome: PromiseSettledResult, personaOutcome: PromiseSettledResult}} outcomes
  * @returns {string[]}
  */
-export function summarizeSessionEnd({ compressOutcome, personaOutcome, graduationOutcome, journalOutcome }) {
+export function summarizeSessionEnd({ compressOutcome, personaOutcome, temporalOutcome, graduationOutcome, journalOutcome }) {
   const lines = [];
 
   if (compressOutcome.status === 'fulfilled') {
@@ -131,6 +150,18 @@ export function summarizeSessionEnd({ compressOutcome, personaOutcome, graduatio
   } else {
     const e = personaOutcome.reason;
     lines.push(`cmk-compress-session: persona refresh failed: ${e?.message ?? e}\n`);
+  }
+
+  // temporalOutcome is optional (Task 198) — pre-198 callers render no line.
+  if (temporalOutcome) {
+    if (temporalOutcome.status === 'fulfilled') {
+      const t = temporalOutcome.value ?? {};
+      const detail = t.reason ? ` (${t.reason})` : ` (superseded: ${t.superseded ?? 0}, duplicates: ${t.duplicates ?? 0})`;
+      lines.push(`cmk-compress-session: temporal ${t.action}${detail} pairs: ${t.pairs_judged ?? 0}\n`);
+    } else {
+      const e = temporalOutcome.reason;
+      lines.push(`cmk-compress-session: temporal sweep failed: ${e?.message ?? e}\n`);
+    }
   }
 
   // graduationOutcome is optional so pre-94.3 callers (and the orchestrator tests

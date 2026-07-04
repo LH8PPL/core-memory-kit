@@ -9,7 +9,7 @@
 //   3. cmk compress --lazy runs daily-distill when only daily is stale; weekly-curate when weekly is stale
 //   4. With cron-registered sentinel: lazy detector exits skipped: cron-active
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   existsSync,
   mkdirSync,
@@ -273,6 +273,131 @@ describe('Task 35 — runLazyCompress (delegates to daily-distill or weekly-cura
       const r = await runLazyCompress({ projectRoot });
       expect(r.action).toBe('error');
       expect(r.errorCategory).toBe('missing_backend');
+    });
+  });
+
+  // Task 198.1b (D-266): the SessionStart-lazy site runs the temporal sweep on
+  // the Haiku paths that DON'T already route through weekly-curate (stale-now /
+  // stale-daily) — covering the new-chat-same-window case where SessionEnd never
+  // fired (the Task-105 gap). stale-weekly already sweeps inside weeklyCurate;
+  // cron-active/fresh/cooldown skip the whole Haiku cycle (a sweep needs Haiku),
+  // so no sweep there. Injected via deps.temporalSweep (the injection-seam idiom).
+  describe('Task 198.1b — temporal sweep on the lazy Haiku paths', () => {
+    it('fires the sweep on the stale-daily path (SessionEnd-never-fired coverage)', async () => {
+      seedTodayFile('2026-05-28'); // no recent.md → stale-daily
+      const sweepSpy = vi.fn().mockResolvedValue({ action: 'skipped', reason: 'no-new-facts' });
+      const r = await runLazyCompress({
+        projectRoot,
+        backend: mockBackend('## Decisions\n- x\n'),
+        now: '2026-05-28T10:00:00Z',
+        deps: { temporalSweep: sweepSpy },
+      });
+      expect(r.verdict).toBe('stale-daily');
+      expect(sweepSpy).toHaveBeenCalledTimes(1);
+      // Door 3: projectRoot + the same backend + now forwarded
+      expect(sweepSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ projectRoot, now: '2026-05-28T10:00:00Z' }),
+      );
+    });
+
+    it('fires the sweep on the stale-now path too', async () => {
+      // a non-empty now.md with prior-session content → stale-now
+      mkdirSync(join(projectRoot, 'context', 'sessions'), { recursive: true });
+      writeFileSync(
+        join(projectRoot, 'context', 'sessions', 'now.md'),
+        '## 2026-05-27T10:00:00Z — user\n\nprior turn\n',
+        'utf8',
+      );
+      const sweepSpy = vi.fn().mockResolvedValue({ action: 'skipped', reason: 'no-new-facts' });
+      const r = await runLazyCompress({
+        projectRoot,
+        backend: mockBackend('## today\n- rolled\n'),
+        now: '2026-05-28T10:00:00Z',
+        deps: { temporalSweep: sweepSpy },
+      });
+      expect(r.verdict).toBe('stale-now');
+      expect(sweepSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('does NOT double-sweep on the stale-weekly path (weeklyCurate already sweeps)', async () => {
+      seedTodayFile('2026-05-10'); // OLD → stale-weekly
+      seedTodayFile('2026-05-28');
+      const sweepSpy = vi.fn().mockResolvedValue({ action: 'skipped', reason: 'no-new-facts' });
+      await runLazyCompress({
+        projectRoot,
+        backend: mockBackend('## Decisions\n- x\n'),
+        now: '2026-05-28T10:00:00Z',
+        deps: { temporalSweep: sweepSpy },
+      });
+      // the lazy site must NOT call the sweep itself here — weeklyCurate owns it
+      expect(sweepSpy).not.toHaveBeenCalled();
+    });
+
+    it('does NOT sweep on the cooldown skip path (no Haiku cycle)', async () => {
+      seedTodayFile('2026-05-28');
+      const { touchCooldownMarker } = await import('../packages/cli/src/cooldown.mjs');
+      touchCooldownMarker({ projectRoot, now: '2026-05-28T10:00:00Z' });
+      const sweepSpy = vi.fn().mockResolvedValue({ action: 'skipped', reason: 'no-new-facts' });
+      const r = await runLazyCompress({
+        projectRoot,
+        backend: mockBackend('output'),
+        now: '2026-05-28T10:00:00Z',
+        deps: { temporalSweep: sweepSpy },
+      });
+      expect(r.reason).toBe('cooldown');
+      expect(sweepSpy).not.toHaveBeenCalled();
+    });
+
+    it('a thrown sweep never breaks the lazy compress result (best-effort)', async () => {
+      seedTodayFile('2026-05-28');
+      const sweepSpy = vi.fn().mockRejectedValue(new Error('sweep boom'));
+      const r = await runLazyCompress({
+        projectRoot,
+        backend: mockBackend('## Decisions\n- x\n'),
+        now: '2026-05-28T10:00:00Z',
+        deps: { temporalSweep: sweepSpy },
+      });
+      expect(r.action).toBe('distilled'); // the compress result stands
+    });
+
+    // 198.1c — the automatic-path + idle-is-free criteria, end-to-end through the
+    // REAL temporalSweep (NOT the spy): an idle project with no new State facts
+    // must run the sweep with NO manual command AND spawn NO judge call (the
+    // no-new-facts short-circuit returns before backend.compress). We assert the
+    // backend saw exactly ONE compress call — the daily-distill's — and the sweep
+    // added none. This is the D-169 automatic-path guard: a real user's idle
+    // session boundary triggers the sweep, and it costs zero Haiku.
+    it('logs the temporal outcome to lazy-compress.log (Door 4)', async () => {
+      seedTodayFile('2026-05-28'); // stale-daily → the sweep runs on this path
+      await runLazyCompress({
+        projectRoot,
+        backend: mockBackend('## Decisions\n- x\n'),
+        now: '2026-05-28T10:00:00Z',
+        deps: { temporalSweep: vi.fn().mockResolvedValue({ action: 'swept', superseded: 1, pairs_judged: 2 }) },
+      });
+      const logPath = join(projectRoot, 'context', '.locks', 'lazy-compress.log');
+      const entry = readLazyEntry(logPath);
+      expect(entry.temporal_action).toBe('swept');
+      expect(entry.temporal_superseded).toBe(1);
+      expect(entry.temporal_pairs_judged).toBe(2);
+    });
+
+    it('an idle session runs the REAL sweep with NO extra judge call (idle is free, no manual command)', async () => {
+      seedTodayFile('2026-05-28'); // stale-daily → one distill compress call
+      // TWO canned responses available: if the sweep spuriously called the judge
+      // it would consume the 2nd. We assert exactly ONE was consumed → the sweep
+      // short-circuited on no-new-facts BEFORE backend.compress. (A weaker
+      // single-response backend would let a real sweep call throw + get swallowed
+      // by the best-effort catch, hiding the spawn — so give it room to spend.)
+      const backend = mockBackend('## Decisions\n- x\n', 'PAIR 1: SUPERSEDES');
+      const before = backend.calls.length;
+      await runLazyCompress({
+        projectRoot,
+        backend,
+        now: '2026-05-28T10:00:00Z',
+        // NO deps.temporalSweep → the REAL sweep runs. No manual `cmk` command.
+      });
+      expect(backend.calls.length - before).toBe(1);
     });
   });
 

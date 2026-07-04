@@ -207,6 +207,81 @@ function parseVerdicts(outputText) {
  * @param {string} [opts.now]
  * @param {number} [opts.timeoutMs]
  */
+// Task 198.2 (D-266): semantic-embedding candidate retrieval. When the semantic
+// backend is enabled, retrieve same-subject predecessors by title-embedding
+// cosine (Memora's validated θ=0.80 reference) instead of the FTS OR-query —
+// better pairs matter more at the higher per-session cadence, and it sidesteps
+// the FTS5 version-token-shredding the OR-query has to quote around. FTS stays
+// the always-available fallback (embedder absent / disabled / no vec table).
+export const SEMANTIC_CANDIDATE_THRESHOLD = 0.8;
+
+/**
+ * Build a semantic candidate finder if the backend is available, else null (→
+ * the caller uses the FTS finder). Returns a SYNC `(db, fact, {nowMs}) => rows`
+ * with the same row shape findCandidates yields (id, body, created_at). The
+ * embed-per-fact model call is the only async work — done lazily inside the
+ * returned finder via a per-sweep query, so an idle sweep (no new facts) never
+ * loads the model.
+ */
+export async function buildSemanticCandidateFinder({ db, projectRoot, prepareSemanticBackendImpl, resolveDefaultSearchModeImpl }) {
+  if (process.env.CMK_DISABLE_SEMANTIC === '1') return null;
+  let prepareSemanticBackend = prepareSemanticBackendImpl;
+  let resolveDefaultSearchMode = resolveDefaultSearchModeImpl;
+  if (!prepareSemanticBackend || !resolveDefaultSearchMode) {
+    try {
+      const mod = await import('./semantic-backend.mjs');
+      prepareSemanticBackend = prepareSemanticBackend ?? mod.prepareSemanticBackend;
+      resolveDefaultSearchMode = resolveDefaultSearchMode ?? mod.resolveDefaultSearchMode;
+    } catch {
+      return null;
+    }
+  }
+  // Gate on the project's CONFIGURED search mode, not merely "an embedder is
+  // installed": a project that never opted into `--with-semantic` stays on FTS
+  // (the status-quo — no surprise semantic behavior, and keeps the FTS-tested
+  // path the default). Only semantic/hybrid projects get the embedding finder.
+  const mode = resolveDefaultSearchMode({ projectRoot });
+  if (mode !== 'semantic' && mode !== 'hybrid') return null;
+  // Probe once: is the vec table + embedder actually usable here? We prepare a
+  // trivial backend to force the load path; if it fails, fall back to FTS.
+  const probe = await prepareSemanticBackend({ db, query: 'probe', scope: 'facts' }).catch(() => ({ ok: false }));
+  if (!probe.ok) return null;
+  // The finder embeds each fact's TITLE as the query and keeps only older,
+  // live State-eligible candidates above θ. prepareSemanticBackend is async
+  // per query (it embeds the query text), so the finder is async — temporalSweep
+  // awaits it. Over-fetch a few so the age/threshold filter has room.
+  //
+  // KNOWN COST (accepted for v0.4.5): prepareSemanticBackend re-runs
+  // syncSemanticIndex per call, which does a `dims probe` embed each time — so a
+  // semantic-mode sweep with N new facts pays N+1 probe embeds. Bounded (the
+  // sweep caps at MAX_PAIRS_PER_SWEEP facts) + maintenance-time (not hot path) +
+  // semantic-mode only, so it's tolerable now. A follow-up could embed the query
+  // directly against the already-synced vec table (skip the per-call sync) if a
+  // large semantic corpus makes this measurable.
+  return async (fact) => {
+    const b = await prepareSemanticBackend({ db, query: fact.title, scope: 'facts' }).catch(() => null);
+    if (!b || !b.ok) return [];
+    const rows = b.backend({ limit: CANDIDATES_PER_FACT * 3 });
+    return rows
+      .filter((r) =>
+        r.id !== fact.id &&
+        // created_at is an epoch-ms INTEGER (observations.created_at column) —
+        // Number(), NOT Date.parse(): Date.parse(<int>) coerces to a bare numeric
+        // string and returns NaN, so `NaN < createdMs` is always false and the
+        // semantic path would find ZERO candidates (skill-review Blocking #1 —
+        // the exact bug an injected-fake-finder test masked, D-269's class). The
+        // FTS path (findCandidates) compares the int directly, which is why only
+        // this line was wrong. tombstoned/expired rows are already filtered inside
+        // prepareSemanticBackend, so no deleted_at/expires_at guard is needed here
+        // (and the mapped row doesn't carry those fields — skill-review #3).
+        Number(r.created_at) < fact.createdMs &&
+        (r.score ?? 0) >= SEMANTIC_CANDIDATE_THRESHOLD)
+      .slice(0, CANDIDATES_PER_FACT)
+      // The mapped row exposes `snippet` (the body text), not `body`.
+      .map((r) => ({ id: r.id, body: r.snippet ?? '', created_at: r.created_at }));
+  };
+}
+
 export async function temporalSweep({
   projectRoot,
   userDir,
@@ -214,6 +289,7 @@ export async function temporalSweep({
   now,
   timeoutMs = 120000,
   maxPairs = MAX_PAIRS_PER_SWEEP,
+  candidateFinder, // Task 198.2: injectable; default = semantic-if-available else FTS
 } = {}) {
   const ts = now ?? nowIso();
   const nowMs = Date.parse(ts);
@@ -242,6 +318,20 @@ export async function temporalSweep({
       // a swallowed boot failure + marker advance = silent permanent loss).
       bootOk = false;
     }
+
+    // Task 198.2: resolve the candidate finder. Injected (tests) wins; else
+    // semantic-if-available (θ=0.80 title-embedding KNN); else the FTS finder.
+    // Only built AFTER the no-new-facts short-circuit above, so an idle sweep
+    // never loads the embedder. All finders share the (db, fact, {nowMs}) → rows
+    // contract; findCandidates (FTS) is sync, the semantic one is async — the
+    // loop awaits both uniformly.
+    let finder = candidateFinder;
+    if (!finder) {
+      const semantic = bootOk ? await buildSemanticCandidateFinder({ db, projectRoot }) : null;
+      finder = semantic
+        ? (dbArg, fact, opts) => semantic(fact, opts)
+        : (dbArg, fact, opts) => findCandidates(dbArg, fact, opts);
+    }
     // Pair fact-by-fact (ascending). When the cap would be exceeded, STOP at
     // a fact boundary and remember it as the BARRIER: the marker advances
     // only past facts whose pairs were all conclusively judged, so deferred
@@ -255,7 +345,9 @@ export async function temporalSweep({
         factsDeferred++;
         continue;
       }
-      const candidates = findCandidates(db, fact, { nowMs }).filter((c) => {
+      // finder may be sync (FTS/injected) or async (semantic) — await handles both.
+      const found = await finder(db, fact, { nowMs });
+      const candidates = (found ?? []).filter((c) => {
         const key = `${c.id}→${fact.id}`;
         if (seen.has(key)) return false;
         seen.add(key);

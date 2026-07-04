@@ -23,17 +23,19 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { compressMock, personaMock, graduateMock, journalMock } = vi.hoisted(() => ({
+const { compressMock, personaMock, graduateMock, journalMock, temporalMock } = vi.hoisted(() => ({
   compressMock: vi.fn(),
   personaMock: vi.fn(),
   graduateMock: vi.fn(),
   journalMock: vi.fn(),
+  temporalMock: vi.fn(),
 }));
 
 vi.mock('../packages/cli/src/compress-session.mjs', () => ({ compressSession: compressMock }));
 vi.mock('../packages/cli/src/auto-persona.mjs', () => ({ autoPersona: personaMock }));
 vi.mock('../packages/cli/src/graduate-session.mjs', () => ({ graduateAllScratchpads: graduateMock }));
 vi.mock('../packages/cli/src/decisions-journal.mjs', () => ({ syncDecisionsJournal: journalMock }));
+vi.mock('../packages/cli/src/temporal-sweep.mjs', () => ({ temporalSweep: temporalMock }));
 
 const { runSessionEndTasks, summarizeSessionEnd } = await import(
   '../packages/cli/src/session-end-tasks.mjs'
@@ -50,6 +52,8 @@ beforeEach(() => {
   graduateMock.mockReturnValue({ results: [], totalGraduated: 0, totalConsolidated: 0 });
   // Default: journal sync is a synchronous no-op unless a test overrides it.
   journalMock.mockReturnValue({ written: false, appended: 0 });
+  // Default: temporal sweep is an idle no-op unless a test overrides it.
+  temporalMock.mockResolvedValue({ action: 'skipped', reason: 'no-new-facts', pairs_judged: 0 });
 });
 
 describe('runSessionEndTasks — concurrency (D-42 composition fix)', () => {
@@ -97,8 +101,9 @@ describe('runSessionEndTasks — concurrency (D-42 composition fix)', () => {
 
     await runSessionEndTasks({ projectRoot: '/proj', userDir: '/userdir', makeBackend });
 
-    // Door 3: each callee invoked once, each with a DISTINCT backend.
-    expect(backends).toHaveLength(2);
+    // Door 3: each concurrent Haiku pass invoked once, each with a DISTINCT
+    // backend. Three passes as of Task 198 (compress + persona + temporal sweep).
+    expect(backends).toHaveLength(3);
     const compressBackend = compressMock.mock.calls[0][0].backend;
     const personaBackend = personaMock.mock.calls[0][0].backend;
     expect(compressBackend).toBeTruthy();
@@ -133,6 +138,122 @@ describe('runSessionEndTasks — concurrency (D-42 composition fix)', () => {
         source: 'transcript',
       }),
     );
+  });
+});
+
+describe('runSessionEndTasks — Task 198.1 per-session temporal sweep (D-266)', () => {
+  it('runs temporalSweep CONCURRENTLY in the same allSettled block as compress+persona', async () => {
+    // The 60s-ceiling composition (D-92/F-2): the sweep is a THIRD Haiku call,
+    // so it must overlap — not run sequentially after the ~50s concurrent block,
+    // which would blow the ceiling. Assert its start precedes the first end.
+    const events = [];
+    compressMock.mockImplementation(async () => {
+      events.push('c-start');
+      await delay(40);
+      events.push('c-end');
+      return { action: 'compressed' };
+    });
+    personaMock.mockImplementation(async () => {
+      await delay(40);
+      return { action: 'promoted', promoted: [], queued: [] };
+    });
+    temporalMock.mockImplementation(async () => {
+      events.push('t-start');
+      await delay(40);
+      return { action: 'swept', pairs_judged: 2, superseded: 1 };
+    });
+
+    await runSessionEndTasks({
+      projectRoot: '/proj',
+      userDir: '/userdir',
+      makeBackend: () => ({ compress: vi.fn() }),
+    });
+
+    // t-start precedes c-end → the sweep overlaps the concurrent block.
+    expect(events.indexOf('t-start')).toBeLessThan(events.indexOf('c-end'));
+  });
+
+  it('gives the sweep its OWN backend (a THIRD instance, no shared state)', async () => {
+    const backends = [];
+    const makeBackend = () => {
+      const b = { tag: `backend-${backends.length}`, compress: vi.fn() };
+      backends.push(b);
+      return b;
+    };
+    compressMock.mockResolvedValue({ action: 'compressed' });
+    personaMock.mockResolvedValue({ action: 'promoted', promoted: [], queued: [] });
+
+    await runSessionEndTasks({ projectRoot: '/proj', userDir: '/userdir', makeBackend });
+
+    // three concurrent Haiku passes → three distinct backends
+    expect(backends).toHaveLength(3);
+    const sweepBackend = temporalMock.mock.calls[0][0].backend;
+    const compressBackend = compressMock.mock.calls[0][0].backend;
+    expect(sweepBackend).toBeTruthy();
+    expect(sweepBackend).not.toBe(compressBackend);
+  });
+
+  it('passes projectRoot + userDir + now to the sweep (Door 3 call shape)', async () => {
+    compressMock.mockResolvedValue({ action: 'compressed' });
+    personaMock.mockResolvedValue({ action: 'promoted', promoted: [], queued: [] });
+
+    await runSessionEndTasks({
+      projectRoot: '/proj',
+      userDir: '/userdir',
+      makeBackend: () => ({ compress: vi.fn() }),
+      now: '2026-07-04T00:00:00Z',
+    });
+
+    expect(temporalMock).toHaveBeenCalledWith(
+      expect.objectContaining({ projectRoot: '/proj', userDir: '/userdir', now: '2026-07-04T00:00:00Z' }),
+    );
+  });
+
+  it('caps the SessionEnd sweep at 50s (under the 60s hook ceiling — D-92/F-2)', async () => {
+    // The sweep's own default is 120s (ceiling-free weekly/lazy sites); at
+    // SessionEnd it MUST be bounded to 50s like compress + persona, or its judge
+    // call could be SIGKILL'd by the 60s ceiling mid-write.
+    compressMock.mockResolvedValue({ action: 'compressed' });
+    personaMock.mockResolvedValue({ action: 'promoted', promoted: [], queued: [] });
+
+    await runSessionEndTasks({
+      projectRoot: '/proj',
+      userDir: '/userdir',
+      makeBackend: () => ({ compress: vi.fn() }),
+    });
+
+    expect(temporalMock).toHaveBeenCalledWith(
+      expect.objectContaining({ timeoutMs: 50_000 }),
+    );
+  });
+
+  it('a thrown sweep is isolated (allSettled) — never rejects the hook, the other outcomes survive', async () => {
+    compressMock.mockResolvedValue({ action: 'compressed' });
+    personaMock.mockResolvedValue({ action: 'promoted', promoted: [], queued: [] });
+    temporalMock.mockRejectedValue(new Error('sweep boom'));
+
+    const outcomes = await runSessionEndTasks({
+      projectRoot: '/proj',
+      userDir: '/userdir',
+      makeBackend: () => ({ compress: vi.fn() }),
+    });
+
+    expect(outcomes.compressOutcome.status).toBe('fulfilled');
+    expect(outcomes.temporalOutcome.status).toBe('rejected');
+  });
+
+  it('summarizeSessionEnd renders the temporal outcome line (Door 1)', async () => {
+    compressMock.mockResolvedValue({ action: 'compressed' });
+    personaMock.mockResolvedValue({ action: 'promoted', promoted: [], queued: [] });
+    temporalMock.mockResolvedValue({ action: 'swept', pairs_judged: 3, superseded: 2, duplicates: 1 });
+
+    const outcomes = await runSessionEndTasks({
+      projectRoot: '/proj',
+      userDir: '/userdir',
+      makeBackend: () => ({ compress: vi.fn() }),
+    });
+    const lines = summarizeSessionEnd(outcomes).join('');
+    expect(lines).toMatch(/temporal.*superseded: 2/i);
   });
 });
 
