@@ -19,7 +19,7 @@ import { mkdtempSync, mkdirSync, rmSync, existsSync, readFileSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { writeFact } from '../packages/cli/src/write-fact.mjs';
-import { temporalSweep, buildCandidateQuery } from '../packages/cli/src/temporal-sweep.mjs';
+import { temporalSweep, buildCandidateQuery, buildSemanticCandidateFinder } from '../packages/cli/src/temporal-sweep.mjs';
 import { MockHaikuBackend } from '../packages/cli/src/compressor.mjs';
 import { parse as parseFm } from '../packages/cli/src/frontmatter.mjs';
 import { openIndexDb } from '../packages/cli/src/index-db.mjs';
@@ -312,6 +312,53 @@ describe('Task 66.4 — temporalSweep() boundary', () => {
       expect(r.action).toBe('swept');
       expect(r.pairs_judged).toBeGreaterThanOrEqual(1);
       expect(r.superseded).toBe(1); // the FTS-found pair closed the older window
+    });
+
+    // Skill-review Blocking #1+#2: the REAL buildSemanticCandidateFinder was
+    // never driven by a test (every case injected a fake finder), so a bug in
+    // its filter shipped green. observations.created_at is an epoch-ms INTEGER,
+    // and the finder must compare it as a Number (Date.parse(<int>) → NaN →
+    // filters out EVERY candidate → the semantic path finds nothing). This test
+    // drives the real finder against ms-int rows through a fake
+    // prepareSemanticBackend, asserting an older above-θ candidate SURVIVES.
+    it('the REAL semantic finder keeps an older ms-int candidate above θ (the Date.parse-vs-Number bug guard)', async () => {
+      const olderMs = Date.parse('2026-06-29T09:00:00Z');
+      const newerMs = Date.parse('2026-07-01T18:00:00Z');
+      const fakePrepare = async () => ({
+        ok: true,
+        backend: () => [
+          // rows as prepareSemanticBackend maps them: created_at is ms-INT,
+          // the body text is `snippet` (not `body`), score ∈ [0,1].
+          { id: 'P-OLDER111', snippet: 'v9.9 cut-gate in progress', created_at: olderMs, score: 0.91 },
+          // below θ → must be dropped
+          { id: 'P-FARAWAY2', snippet: 'unrelated', created_at: olderMs, score: 0.40 },
+          // newer than the fact → must be dropped (would flip supersede direction)
+          { id: 'P-NEWER333', snippet: 'future', created_at: Date.parse('2026-07-05T00:00:00Z'), score: 0.95 },
+        ],
+      });
+      const finder = await buildSemanticCandidateFinder({
+        db: {},
+        projectRoot,
+        prepareSemanticBackendImpl: fakePrepare,
+        resolveDefaultSearchModeImpl: () => 'semantic',
+      });
+      expect(finder).toBeTypeOf('function');
+      const fact = { id: 'P-NEWFACT4', title: 'v9.9 release published', createdMs: newerMs };
+      const candidates = await finder(fact, { nowMs: Date.now() });
+      // ONLY the older, above-θ candidate survives — NOT dropped by a NaN filter.
+      expect(candidates.map((c) => c.id)).toEqual(['P-OLDER111']);
+      expect(candidates[0].body).toBe('v9.9 cut-gate in progress'); // snippet → body mapping
+      expect(candidates[0].created_at).toBe(olderMs);
+    });
+
+    it('the real semantic finder returns null (→ FTS fallback) on a keyword-mode project', async () => {
+      const finder = await buildSemanticCandidateFinder({
+        db: {},
+        projectRoot,
+        prepareSemanticBackendImpl: async () => ({ ok: true, backend: () => [] }),
+        resolveDefaultSearchModeImpl: () => 'keyword',
+      });
+      expect(finder).toBeNull();
     });
 
     it('a hybrid-mode project with CMK_DISABLE_SEMANTIC=1 still uses FTS (kill-switch composes with the gate)', async () => {

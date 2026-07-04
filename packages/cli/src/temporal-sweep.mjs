@@ -223,13 +223,18 @@ export const SEMANTIC_CANDIDATE_THRESHOLD = 0.8;
  * returned finder via a per-sweep query, so an idle sweep (no new facts) never
  * loads the model.
  */
-async function buildSemanticCandidateFinder({ db, projectRoot }) {
+export async function buildSemanticCandidateFinder({ db, projectRoot, prepareSemanticBackendImpl, resolveDefaultSearchModeImpl }) {
   if (process.env.CMK_DISABLE_SEMANTIC === '1') return null;
-  let prepareSemanticBackend, resolveDefaultSearchMode;
-  try {
-    ({ prepareSemanticBackend, resolveDefaultSearchMode } = await import('./semantic-backend.mjs'));
-  } catch {
-    return null;
+  let prepareSemanticBackend = prepareSemanticBackendImpl;
+  let resolveDefaultSearchMode = resolveDefaultSearchModeImpl;
+  if (!prepareSemanticBackend || !resolveDefaultSearchMode) {
+    try {
+      const mod = await import('./semantic-backend.mjs');
+      prepareSemanticBackend = prepareSemanticBackend ?? mod.prepareSemanticBackend;
+      resolveDefaultSearchMode = resolveDefaultSearchMode ?? mod.resolveDefaultSearchMode;
+    } catch {
+      return null;
+    }
   }
   // Gate on the project's CONFIGURED search mode, not merely "an embedder is
   // installed": a project that never opted into `--with-semantic` stays on FTS
@@ -253,19 +258,27 @@ async function buildSemanticCandidateFinder({ db, projectRoot }) {
   // semantic-mode only, so it's tolerable now. A follow-up could embed the query
   // directly against the already-synced vec table (skip the per-call sync) if a
   // large semantic corpus makes this measurable.
-  return async (fact, { nowMs }) => {
+  return async (fact) => {
     const b = await prepareSemanticBackend({ db, query: fact.title, scope: 'facts' }).catch(() => null);
     if (!b || !b.ok) return [];
     const rows = b.backend({ limit: CANDIDATES_PER_FACT * 3 });
     return rows
       .filter((r) =>
         r.id !== fact.id &&
-        !r.deleted_at &&
-        (r.expires_at == null || r.expires_at > nowMs) &&
-        Date.parse(r.created_at) < fact.createdMs &&
+        // created_at is an epoch-ms INTEGER (observations.created_at column) —
+        // Number(), NOT Date.parse(): Date.parse(<int>) coerces to a bare numeric
+        // string and returns NaN, so `NaN < createdMs` is always false and the
+        // semantic path would find ZERO candidates (skill-review Blocking #1 —
+        // the exact bug an injected-fake-finder test masked, D-269's class). The
+        // FTS path (findCandidates) compares the int directly, which is why only
+        // this line was wrong. tombstoned/expired rows are already filtered inside
+        // prepareSemanticBackend, so no deleted_at/expires_at guard is needed here
+        // (and the mapped row doesn't carry those fields — skill-review #3).
+        Number(r.created_at) < fact.createdMs &&
         (r.score ?? 0) >= SEMANTIC_CANDIDATE_THRESHOLD)
       .slice(0, CANDIDATES_PER_FACT)
-      .map((r) => ({ id: r.id, body: r.body ?? '', created_at: r.created_at }));
+      // The mapped row exposes `snippet` (the body text), not `body`.
+      .map((r) => ({ id: r.id, body: r.snippet ?? '', created_at: r.created_at }));
   };
 }
 
