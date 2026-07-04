@@ -2826,7 +2826,7 @@ So the seam is two layers:
 | sessionStart | `sessionStart` | inject (frozen snapshot) | `{additional_context}` |
 | promptSubmit | `beforeSubmitPrompt` | capturePrompt (`payload.prompt`) | `{continue: true}` — ALWAYS true; capture never blocks a prompt |
 | turnEnd | `afterAgentResponse` | captureTurn (`payload.text` → `assistant_message`) | none |
-| postEdit | `afterFileEdit` | observeEdit (`file_path` → a Write-class payload) | none |
+| postEdit | `afterFileEdit` | observeEdit (`file_path` + `edits[].new_string` joined → a Write-class payload's `tool_response.content`, so the line-count eligibility check sees the real edit size — else every edit no-ops, the D-269-class trap) | none |
 | sessionEnd | `sessionEnd` | the same compress+persona tasks as Claude's SessionEnd bin (lazy-imported) | none (fire-and-forget) |
 | preShell | `beforeShellExecution` | decideGuard (D-192 delete-guardrail, `payload.command`) | `{permission: 'allow'\|'deny', agent_message?}` — deny rides the JSON, not an exit code |
 

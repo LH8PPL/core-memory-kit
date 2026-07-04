@@ -83,11 +83,25 @@ export function dispatchCursorHook({ event, payload = {}, cwd, userDir, deps = {
 
     if (event === 'afterFileEdit') {
       if (typeof observe !== 'function') return { action: 'noop', exitCode: 0 };
-      // Adapt Cursor's {file_path, edits} to the Write-class tool payload
+      // Adapt Cursor's {file_path, edits[]} to the Write-class tool payload
       // observeEdit's eligibility check recognizes (same move as Kiro's
-      // fs_write → Write map).
+      // fs_write → Write map). observeEdit sizes the edit by line-counting
+      // `tool_response.content` — Cursor has no such field, so we synthesize
+      // it from the edits' new_strings. WITHOUT this the content is '' → 0
+      // lines → the leg no-ops on EVERY Cursor edit (the "wired-but-dead"
+      // class, skill-review #1 — the same shape as D-269). Join with newlines
+      // so the eligibility line-count reflects the real edit size.
+      const editedContent = Array.isArray(payload.edits)
+        ? payload.edits
+            .map((e) => (e && typeof e.new_string === 'string' ? e.new_string : ''))
+            .join('\n')
+        : '';
       observe({
-        payload: { tool_name: 'Edit', tool_input: { file_path: payload.file_path } },
+        payload: {
+          tool_name: 'Edit',
+          tool_input: { file_path: payload.file_path },
+          tool_response: { content: editedContent },
+        },
         projectRoot: cwd,
         ...tierArgs,
       });

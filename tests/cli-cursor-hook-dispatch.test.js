@@ -89,11 +89,14 @@ describe('Task 196 — Cursor hook dispatcher', () => {
       expect(r.stdout).toBeUndefined();
     });
 
-    it('afterFileEdit → observe with a Write-class tool payload observeEdit recognizes', () => {
+    it('afterFileEdit → observe with a Write-class payload observeEdit recognizes, carrying the EDIT CONTENT', () => {
       const calls = [];
       const r = dispatchCursorHook({
         event: 'afterFileEdit',
-        payload: { file_path: '/proj/src/a.mjs', edits: [{ old_string: 'x', new_string: 'y' }] },
+        payload: {
+          file_path: '/proj/src/a.mjs',
+          edits: [{ old_string: 'x', new_string: 'line1\nline2\nline3' }],
+        },
         cwd: '/proj',
         deps: {
           observe: (a) => { calls.push(['observe', a]); },
@@ -104,6 +107,14 @@ describe('Task 196 — Cursor hook dispatcher', () => {
       const o = calls.find((x) => x[0] === 'observe');
       expect(o[1].payload.tool_name).toBe('Edit');
       expect(o[1].payload.tool_input.file_path).toBe('/proj/src/a.mjs');
+      // The edit CONTENT must reach observeEdit's extractContent (via
+      // tool_response), else the eligibility line-count is always 0 and the
+      // leg no-ops on every Cursor edit — the "wired-but-dead" class (the
+      // skill-review #1 catch, same shape as D-269). Assert the new_string
+      // lines are carried, not just that observe was called.
+      const content = o[1].payload.tool_response?.content ?? '';
+      expect(content).toContain('line1');
+      expect(content).toContain('line3');
     });
 
     it('sessionEnd → sessionEnd tasks (fire-and-forget, no response)', () => {

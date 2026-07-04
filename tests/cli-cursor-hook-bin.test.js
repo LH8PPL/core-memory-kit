@@ -18,7 +18,7 @@
 // real cores → print the Cursor JSON response on stdout → ALWAYS exit 0.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runCursorHook, runHook } from '../packages/cli/src/subcommands.mjs';
@@ -178,5 +178,27 @@ describe('D-269 — the default inject dep carries the REAL memory snapshot', ()
       log: (s) => out.push(s),
     });
     expect(out.join('')).toContain('the vitest sandbox uses SQLite');
+  });
+
+  // The #1 skill-review catch: afterFileEdit was wired but DEAD — the dispatcher
+  // dropped the edit content, so observeEdit's line-count was always 0 and every
+  // Cursor edit no-op'd (same "advertised-but-inert" class as D-269). This test
+  // runs the DEFAULT observe dep against the real observeEdit and asserts an
+  // above-threshold edit actually LANDS in now.md (Door 2 — the state change the
+  // routing test could not see).
+  it('cursor afterFileEdit → an above-threshold edit is recorded in now.md (Door 2)', async () => {
+    const bigEdit = Array.from({ length: 60 }, (_, i) => `new line ${i}`).join('\n');
+    await runCursorHook({}, undefined, {
+      payload: {
+        hook_event_name: 'afterFileEdit',
+        workspace_roots: [projectRoot],
+        file_path: join(projectRoot, 'src', 'big.mjs'),
+        edits: [{ old_string: '', new_string: bigEdit }],
+      },
+      log: () => {},
+    });
+    const nowMd = join(projectRoot, 'context', 'sessions', 'now.md');
+    const recorded = readFileSync(nowMd, 'utf8');
+    expect(recorded).toMatch(/Edit file=.*big\.mjs lines=\d+/);
   });
 });

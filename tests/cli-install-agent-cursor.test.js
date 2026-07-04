@@ -186,6 +186,15 @@ describe('Task 196 — installAgent (Cursor)', () => {
       expect(existsSync(join(projectRoot, '.cursor', 'rules', 'claude-memory-kit.mdc'))).toBe(false);
     });
 
+    it('a CRLF-normalized kit-only .mdc is STILL deleted on uninstall (Windows autocrlf; skill-review #2)', () => {
+      installAgent({ projectRoot, profile: cursor() });
+      const mdcPath = join(projectRoot, '.cursor', 'rules', 'claude-memory-kit.mdc');
+      // simulate a Windows editor / git autocrlf rewrite of the whole file
+      writeFileSync(mdcPath, readFileSync(mdcPath, 'utf8').replace(/\n/g, '\r\n'), 'utf8');
+      uninstallAgent({ projectRoot, profile: cursor() });
+      expect(existsSync(mdcPath)).toBe(false);
+    });
+
     it('a .mdc the user added their own content to SURVIVES uninstall (only our block is stripped)', () => {
       installAgent({ projectRoot, profile: cursor() });
       const mdcPath = join(projectRoot, '.cursor', 'rules', 'claude-memory-kit.mdc');

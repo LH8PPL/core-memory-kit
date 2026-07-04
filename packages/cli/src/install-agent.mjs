@@ -241,7 +241,12 @@ function removeInstructionBlock(path) {
 // (a user's own lines outside our markers) keeps the file.
 function removeKitOnlyInstructionResidue(path, profile) {
   if (!existsSync(path)) return false;
-  const left = readFileSync(path, 'utf8').trim();
+  // Normalize CRLF → LF before the compare: a Windows editor / git autocrlf
+  // rewrites the kit's `\n`-authored frontmatter to `\r\n`, which would else
+  // never match and leave the empty always-applied .mdc behind (the exact
+  // residue this exists to remove — skill-review #2). Compares fail SAFE either
+  // way (a mismatch keeps the file), so normalizing only widens correct deletes.
+  const left = readFileSync(path, 'utf8').replace(/\r\n/g, '\n').trim();
   const kitFrontmatter = profile.instructionFrontmatter
     ? `---\n${profile.instructionFrontmatter}\n---`
     : needsInclusionFrontmatter(profile)
