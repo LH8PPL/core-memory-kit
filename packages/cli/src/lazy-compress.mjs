@@ -42,6 +42,7 @@ import {
 import { dailyDistill } from './daily-distill.mjs';
 import { weeklyCurate } from './weekly-curate.mjs';
 import { compressSession } from './compress-session.mjs';
+import { temporalSweep as temporalSweepImpl } from './temporal-sweep.mjs';
 import { CEILING_FREE_TIMEOUT_MS, CEILING_FREE_BACKOFF_MS } from './compress-retry.mjs';
 import { syncDecisionsJournal } from './decisions-journal.mjs';
 import {
@@ -226,7 +227,12 @@ export async function runLazyCompress({
   cooldownMs = DEFAULT_COOLDOWN_MS,
   dailyTtlMs = DEFAULT_DAILY_TTL_MS,
   weeklyTtlMs = DEFAULT_WEEKLY_TTL_MS,
+  deps = {},
 } = {}) {
+  // Task 198.1b (D-266): the temporal sweep runs on the lazy Haiku paths that do
+  // NOT already route through weeklyCurate — injection-seam idiom (tests pass a
+  // spy; production uses the real import).
+  const temporalSweep = deps.temporalSweep ?? temporalSweepImpl;
   const ts = now ?? nowIso();
   const t0 = Date.now();
 
@@ -377,6 +383,33 @@ export async function runLazyCompress({
       now: ts,
       cooldownMs: 0,
     });
+  }
+
+  // Task 198.1b (D-266): run the temporal contradiction-catch on the Haiku paths
+  // that do NOT already route through weeklyCurate (which owns its own sweep) —
+  // i.e. stale-now + stale-daily. This is the SessionStart-lazy coverage for the
+  // new-chat-same-window case where SessionEnd never fired (the Task-105 gap): a
+  // stale-State pair created last session is closed by THIS session's start
+  // instead of waiting up to a week. We're already past the cooldown gate and in
+  // a live Haiku cycle, so the sweep rides it (cooldownMs is the sweep's own
+  // concern — it shares no cooldown marker, and its no-new-facts short-circuit
+  // makes a spurious run ~free). Best-effort: a sweep failure must never change
+  // the compress result the user is waiting on (the 66.4 posture). userDir via
+  // defaultUserDir() at this production entry point so the U tier is covered on
+  // the no-cron lazy path (the D-260/D-69 rule, matching the stale-weekly branch).
+  if (delegatedTo !== 'weekly-curate') {
+    try {
+      await temporalSweep({
+        projectRoot,
+        userDir: defaultUserDir(),
+        backend,
+        now: ts,
+        timeoutMs: CEILING_FREE_TIMEOUT_MS,
+      });
+    } catch {
+      // best-effort — the sweep's own contract is never-throw for a judge hiccup;
+      // this guards an unexpected crash so the compress result still returns.
+    }
   }
 
   const duration_ms = Date.now() - t0;
