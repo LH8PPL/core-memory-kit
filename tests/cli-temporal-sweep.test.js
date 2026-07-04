@@ -15,11 +15,10 @@
 // routing).
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { writeFact } from '../packages/cli/src/write-fact.mjs';
-import { resolveFact } from '../packages/cli/src/forget.mjs';
 import { temporalSweep, buildCandidateQuery } from '../packages/cli/src/temporal-sweep.mjs';
 import { MockHaikuBackend } from '../packages/cli/src/compressor.mjs';
 import { parse as parseFm } from '../packages/cli/src/frontmatter.mjs';
@@ -268,6 +267,103 @@ describe('Task 66.4 — temporalSweep() boundary', () => {
     expect(r.action).toBe('skipped');
     expect(r.reason).toBe('no-candidates');
     expect(backend.calls).toHaveLength(0);
+  });
+
+  // Task 198.2 (D-266): semantic-embedding candidate retrieval (θ=0.80,
+  // Memora's reference) when the semantic backend is enabled — better pairs
+  // matter more at the higher per-session cadence, and it sidesteps the FTS5
+  // version-token-shredding the OR-query works around. FTS stays the
+  // always-available fallback. The candidate SOURCE is injectable so these
+  // tests pin the routing without the real (slow, network) embedder.
+  describe('198.2 — semantic candidate retrieval with FTS fallback', () => {
+    it('uses the injected semantic finder when one is provided (routing)', async () => {
+      const { older, newer } = seedChain();
+      const semanticCalls = [];
+      // a fake semantic finder: returns the older fact as a candidate for the newer
+      const candidateFinder = (db, fact) => {
+        semanticCalls.push(fact.id);
+        if (fact.id === newer.id) {
+          return [{ id: older.id, body: 'v9.9 release cut-gate in progress', created_at: Date.parse('2026-06-29T09:00:00Z') }];
+        }
+        return [];
+      };
+      const r = await temporalSweep({
+        projectRoot,
+        userDir,
+        backend: mockJudge('PAIR 1: SUPERSEDES'),
+        now: NOW,
+        candidateFinder,
+      });
+      expect(semanticCalls).toContain(newer.id); // the finder was consulted
+      expect(r.action).toBe('swept');
+      expect(r.superseded).toBe(1); // the pair it returned was judged + closed
+    });
+
+    it('falls back to FTS candidates when no semantic finder is injected (default path unchanged)', async () => {
+      // no candidateFinder + a keyword-mode project (no settings.json) → the
+      // built-in FTS OR-query still pairs the chain and the pair is judged.
+      seedChain();
+      const r = await temporalSweep({
+        projectRoot,
+        userDir,
+        backend: mockJudge('PAIR 1: SUPERSEDES'),
+        now: NOW,
+      });
+      expect(r.action).toBe('swept');
+      expect(r.pairs_judged).toBeGreaterThanOrEqual(1);
+      expect(r.superseded).toBe(1); // the FTS-found pair closed the older window
+    });
+
+    it('a hybrid-mode project with CMK_DISABLE_SEMANTIC=1 still uses FTS (kill-switch composes with the gate)', async () => {
+      // opt the project into hybrid, then force-disable the embedder: the sweep
+      // must fall back to the FTS finder (which pairs the chain), NOT silently
+      // find nothing. Proves the gate honors both the mode AND the kill-switch.
+      mkdirSync(join(projectRoot, 'context'), { recursive: true });
+      writeFileSync(
+        join(projectRoot, 'context', 'settings.json'),
+        JSON.stringify({ search: { default_mode: 'hybrid' } }),
+        'utf8',
+      );
+      seedChain();
+      const prev = process.env.CMK_DISABLE_SEMANTIC;
+      process.env.CMK_DISABLE_SEMANTIC = '1';
+      try {
+        const r = await temporalSweep({
+          projectRoot,
+          userDir,
+          backend: mockJudge('PAIR 1: SUPERSEDES'),
+          now: NOW,
+        });
+        expect(r.action).toBe('swept'); // FTS still found + judged the pair
+        expect(r.superseded).toBe(1);
+      } finally {
+        if (prev === undefined) delete process.env.CMK_DISABLE_SEMANTIC;
+        else process.env.CMK_DISABLE_SEMANTIC = prev;
+      }
+    });
+
+    it('a semantic finder returning below-threshold (empty) candidates → no-candidates, no judge', async () => {
+      writeFact(
+        factOpts({
+          projectRoot,
+          slug: 'lonely',
+          title: 'A fact whose semantic neighbours are all below threshold',
+          body: 'Nothing close enough.',
+          createdAt: '2026-07-01T18:00:00Z',
+        }),
+      );
+      const backend = mockJudge('PAIR 1: COEXIST');
+      // finder models the θ=0.80 gate returning nothing above it
+      const r = await temporalSweep({
+        projectRoot,
+        backend,
+        now: NOW,
+        candidateFinder: () => [],
+      });
+      expect(r.action).toBe('skipped');
+      expect(r.reason).toBe('no-candidates');
+      expect(backend.calls).toHaveLength(0);
+    });
   });
 
   it('D-166 Bug-2 acceptance: capture "vN in progress" then "vN shipped" → recall returns ONLY the current state, with NO manual reindex (the automatic path)', async () => {
