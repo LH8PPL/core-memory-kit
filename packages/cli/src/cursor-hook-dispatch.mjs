@@ -40,9 +40,20 @@
 //   `cmk cursor-hook` subcommand wires the real ones). A missing dep is a clean
 //   no-op (older install), never a crash.
 
-export function dispatchCursorHook({ event, payload = {}, cwd, userDir, deps = {} } = {}) {
+export function dispatchCursorHook({ event, payload = {}, cwd, userDir, deps = {}, env = process.env } = {}) {
   const { inject, capture, capturePrompt, observe, guard, sessionEnd } = deps;
   const tierArgs = { ...(userDir ? { userDir } : {}) };
+
+  // Task 200 (D-270): the recursion guard. When the kit spawns the agent's OWN
+  // CLI as its LLM backend (the CursorAgentBackend runs `cursor-agent -p`), that
+  // inner CLI fires `.cursor/hooks.json` → `cmk cursor-hook` → HERE again. The
+  // backend sets CMK_BACKEND_SPAWN=1 in the child env; the child inherits it, so
+  // every fired hook must no-op instantly — else the kit's own compaction call
+  // triggers a hook storm (reproduced live on Kiro: kiro-cli fired agentSpawn →
+  // a 10s timeout). One check at the entry breaks every routing vector.
+  if (env && env.CMK_BACKEND_SPAWN) {
+    return { action: 'noop', exitCode: 0 };
+  }
 
   try {
     if (event === 'sessionStart') {

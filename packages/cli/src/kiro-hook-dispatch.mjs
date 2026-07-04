@@ -54,8 +54,18 @@ const GUARD_EVENTS = new Set(['preToolUse']);
 // (not Write/Edit); the runHook adapter maps the Kiro tool name + reads the path.
 const OBSERVE_EVENTS = new Set(['postToolUse']);
 
-export function dispatchKiroHook({ event, payload = {}, cwd, userDir, deps = {} } = {}) {
+export function dispatchKiroHook({ event, payload = {}, cwd, userDir, deps = {}, env = process.env } = {}) {
   const { inject, capture, capturePrompt, observe, guard } = deps;
+
+  // Task 200 (D-270): the recursion guard. When the kit spawns `kiro-cli chat`
+  // as its LLM backend (KiroCliBackend), that inner kiro-cli fires the kit's own
+  // hooks → `cmk hook <event>` → HERE again. Reproduced LIVE: kiro-cli fired
+  // agentSpawn → the inject hook timed out after 10s (a hook storm). The backend
+  // sets CMK_BACKEND_SPAWN=1 in the child env; the child inherits it, so every
+  // fired hook no-ops instantly. One check at the entry breaks every vector.
+  if (env && env.CMK_BACKEND_SPAWN) {
+    return { action: 'noop', exitCode: 0 };
+  }
 
   try {
     if (INJECT_EVENTS.has(event)) {

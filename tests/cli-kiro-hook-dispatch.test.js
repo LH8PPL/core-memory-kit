@@ -18,6 +18,35 @@ import { describe, it, expect } from 'vitest';
 import { dispatchKiroHook } from '../packages/cli/src/kiro-hook-dispatch.mjs';
 
 describe('Task 50.J — Kiro hook dispatcher', () => {
+  // Task 200 (D-270): the recursion guard. The KiroCliBackend spawns `kiro-cli
+  // chat` as the kit's LLM backend; that inner kiro-cli fires the kit's own
+  // agentSpawn/stop/… hooks → `cmk hook <event>` → HERE again. Reproduced LIVE:
+  // kiro-cli fired agentSpawn → `cmk hook agentSpawn` timed out after 10s. The
+  // backend sets CMK_BACKEND_SPAWN=1 in the child env; every fired hook no-ops.
+  describe('Task 200 — recursion guard (CMK_BACKEND_SPAWN)', () => {
+    it('no-ops EVERY event when CMK_BACKEND_SPAWN is set, without calling any core', () => {
+      for (const event of ['agentSpawn', 'promptSubmit', 'userPromptSubmit', 'stop', 'postToolUse', 'preToolUse']) {
+        const calls = [];
+        const r = dispatchKiroHook({
+          event,
+          payload: {},
+          cwd: '/proj',
+          env: { CMK_BACKEND_SPAWN: '1' },
+          deps: {
+            inject: () => { calls.push('inject'); return { text: 'X' }; },
+            capture: () => calls.push('capture'),
+            capturePrompt: () => calls.push('capturePrompt'),
+            observe: () => calls.push('observe'),
+            guard: () => { calls.push('guard'); return { block: true }; },
+          },
+        });
+        expect(r.action).toBe('noop');
+        expect(r.exitCode).toBe(0);
+        expect(calls, `event ${event} ran a core despite the guard`).toEqual([]);
+      }
+    });
+  });
+
   describe('routes events to the right kit operation', () => {
     it('agentSpawn → inject (returns the injection text on stdout)', () => {
       const calls = [];
