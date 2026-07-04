@@ -329,11 +329,11 @@ describe('Task 66.4 — temporalSweep() boundary', () => {
         backend: () => [
           // rows as prepareSemanticBackend maps them: created_at is ms-INT,
           // the body text is `snippet` (not `body`), score ∈ [0,1].
-          { id: 'P-OLDER111', snippet: 'v9.9 cut-gate in progress', created_at: olderMs, score: 0.91 },
+          { id: 'P-QLDER234', snippet: 'v9.9 cut-gate in progress', created_at: olderMs, score: 0.91 },
           // below θ → must be dropped
-          { id: 'P-FARAWAY2', snippet: 'unrelated', created_at: olderMs, score: 0.40 },
+          { id: 'P-FARAWY23', snippet: 'unrelated', created_at: olderMs, score: 0.40 },
           // newer than the fact → must be dropped (would flip supersede direction)
-          { id: 'P-NEWER333', snippet: 'future', created_at: Date.parse('2026-07-05T00:00:00Z'), score: 0.95 },
+          { id: 'P-NEWER234', snippet: 'future', created_at: Date.parse('2026-07-05T00:00:00Z'), score: 0.95 },
         ],
       });
       const finder = await buildSemanticCandidateFinder({
@@ -343,10 +343,10 @@ describe('Task 66.4 — temporalSweep() boundary', () => {
         resolveDefaultSearchModeImpl: () => 'semantic',
       });
       expect(finder).toBeTypeOf('function');
-      const fact = { id: 'P-NEWFACT4', title: 'v9.9 release published', createdMs: newerMs };
+      const fact = { id: 'P-NEWFCT34', title: 'v9.9 release published', createdMs: newerMs };
       const candidates = await finder(fact, { nowMs: Date.now() });
       // ONLY the older, above-θ candidate survives — NOT dropped by a NaN filter.
-      expect(candidates.map((c) => c.id)).toEqual(['P-OLDER111']);
+      expect(candidates.map((c) => c.id)).toEqual(['P-QLDER234']);
       expect(candidates[0].body).toBe('v9.9 cut-gate in progress'); // snippet → body mapping
       expect(candidates[0].created_at).toBe(olderMs);
     });
