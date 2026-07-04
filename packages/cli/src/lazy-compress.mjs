@@ -397,18 +397,20 @@ export async function runLazyCompress({
   // the compress result the user is waiting on (the 66.4 posture). userDir via
   // defaultUserDir() at this production entry point so the U tier is covered on
   // the no-cron lazy path (the D-260/D-69 rule, matching the stale-weekly branch).
+  let temporal = null;
   if (delegatedTo !== 'weekly-curate') {
     try {
-      await temporalSweep({
+      temporal = await temporalSweep({
         projectRoot,
         userDir: defaultUserDir(),
         backend,
         now: ts,
         timeoutMs: CEILING_FREE_TIMEOUT_MS,
       });
-    } catch {
+    } catch (err) {
       // best-effort — the sweep's own contract is never-throw for a judge hiccup;
       // this guards an unexpected crash so the compress result still returns.
+      temporal = { action: 'error', reason: 'sweep-crashed', error: err?.message ?? String(err) };
     }
   }
 
@@ -423,6 +425,11 @@ export async function runLazyCompress({
       delegated_to: delegatedTo,
       duration_ms,
       success: result?.action !== 'error',
+      // Door 4 (Task 198.1b): the temporal sweep ran on this lazy Haiku path —
+      // its outcome must reach the NDJSON trail, not just the in-process value.
+      temporal_action: temporal?.action ?? null,
+      temporal_superseded: temporal?.superseded ?? 0,
+      temporal_pairs_judged: temporal?.pairs_judged ?? 0,
       ...(result?.errorCategory ? { error_category: result.errorCategory } : {}),
       // compress-session reports its error via error_category (snake) — pass it
       // through too so the lazy log captures either shape.

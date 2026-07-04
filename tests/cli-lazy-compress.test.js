@@ -367,6 +367,21 @@ describe('Task 35 — runLazyCompress (delegates to daily-distill or weekly-cura
     // backend saw exactly ONE compress call — the daily-distill's — and the sweep
     // added none. This is the D-169 automatic-path guard: a real user's idle
     // session boundary triggers the sweep, and it costs zero Haiku.
+    it('logs the temporal outcome to lazy-compress.log (Door 4)', async () => {
+      seedTodayFile('2026-05-28'); // stale-daily → the sweep runs on this path
+      await runLazyCompress({
+        projectRoot,
+        backend: mockBackend('## Decisions\n- x\n'),
+        now: '2026-05-28T10:00:00Z',
+        deps: { temporalSweep: vi.fn().mockResolvedValue({ action: 'swept', superseded: 1, pairs_judged: 2 }) },
+      });
+      const logPath = join(projectRoot, 'context', '.locks', 'lazy-compress.log');
+      const entry = readLazyEntry(logPath);
+      expect(entry.temporal_action).toBe('swept');
+      expect(entry.temporal_superseded).toBe(1);
+      expect(entry.temporal_pairs_judged).toBe(2);
+    });
+
     it('an idle session runs the REAL sweep with NO extra judge call (idle is free, no manual command)', async () => {
       seedTodayFile('2026-05-28'); // stale-daily → one distill compress call
       // TWO canned responses available: if the sweep spuriously called the judge
