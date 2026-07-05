@@ -10132,3 +10132,271 @@ _(retracted 2026-06-29)_
 
 **When:** 2026-07-03 · **Fact:** `P-X65UGWF6`
 **Why:** context compact imminent; next session picks up v0.4.5 Cursor lane
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-X6MAZ45E -->
+
+## Over-generalized instructions will be flagged as nonsensical rather than followe
+
+**When:** 2026-07-03 · **Fact:** `P-X6MAZ45E`
+
+<!-- decision:P-DPULJZ33 -->
+
+## "Restart Claude Code after install" is NOT a blanket rule; only applies to a nar
+
+**When:** 2026-07-03 · **Fact:** `P-DPULJZ33`
+
+<!-- decision:P-JAQ5XHM6 -->
+
+## First fix for D-264 had dead branch and toothless test bugs; caught by skill-rev
+
+**When:** 2026-07-03 · **Fact:** `P-JAQ5XHM6`
+
+<!-- decision:P-CTJLKF4Z -->
+
+## v0.4.4 Published and Checkpoint Closed
+
+**When:** 2026-07-03 · **Fact:** `P-CTJLKF4Z`
+**Why:** Marks a clean, verified checkpoint for v0.4.5 work to begin from; CI is green, no regressions.
+
+<!-- decision:P-N2L6Y425 -->
+
+## v0.4.5 Roadmap (Task 196 Cursor Adapter + Task 198 Temporal Sweep)
+
+**When:** 2026-07-03 · **Fact:** `P-N2L6Y425`
+**Why:** Defines scope and branch strategy for the next release.
+
+<!-- decision:P-2YFKGCRH -->
+
+## Cursor Adapter Lifecycle Hooks for Deterministic Memory Integration
+
+**When:** 2026-07-03 · **Fact:** `P-2YFKGCRH`
+**Why:** Automatic, judgment-free memory capture/injection. Differentiates from MCP-only approaches and addresses Cursor user demand for lost native memory.
+
+<!-- decision:P-ESFSGXU2 -->
+
+## Cursor Memory Feature Removed in v2.1.x — Design Impact
+
+**When:** 2026-07-03 · **Fact:** `P-ESFSGXU2`
+**Why:** Architectural constraint for Task 196. Simplifies integration — no need to detect/avoid conflicts with Cursor's native memory layer. Explains user demand for the feature.
+
+<!-- decision:P-6CMJKCTH -->
+
+## Files-First Context Discovery — In-Repo, Versionable Memory
+
+**When:** 2026-07-03 · **Fact:** `P-6CMJKCTH`
+**Why:** Portability across agent versions/integrations. Auditability (memory in git history). Durability (survives agent crashes, switching). Differs from MCP-only or native-memory approaches.
+
+<!-- decision:P-WL7MCJVJ -->
+
+## Related Projects — Mimir, Memex (MCP-Only Memory Integrations)
+
+**When:** 2026-07-03 · **Fact:** `P-WL7MCJVJ`
+**Why:** Comparative reference. Mimir's linking and reinforcement patterns relevant to project's learn-loop work. Neither was in prior research base (Task 50). Illuminates what "MCP-only" costs.
+
+<!-- decision:P-6Y9UFXB2 -->
+
+## Section §5.1 Binding Rule — Convergence ≠ Verification
+
+**When:** 2026-07-03 · **Fact:** `P-6Y9UFXB2`
+**Why:** Prevents bugs from stale/incomplete secondary sources. Secondary research provides direction; primary sources catch recent changes and edge cases.
+
+<!-- decision:P-KM5aH7Z7 -->
+
+## Verified Codebase Consumers of Hook/Snapshot Fields
+
+**When:** 2026-07-04 · **Fact:** `P-KM5aH7Z7`
+**Why:** When modifying `.hookOutput` or `.snapshot` structure, all three consumers must be updated to avoid breakage. This is the complete dependency graph for these fields.
+
+<!-- decision:P-T5PRWZEP -->
+
+## CRLF Line-Ending Quirk in removeKitOnlyInstructionResidue
+
+**When:** 2026-07-04 · **Fact:** `P-T5PRWZEP`
+**Why:** String equality on line-ending-sensitive content; affects Windows users specifically.
+
+<!-- decision:P-GaSTYX4A -->
+
+## Wired-but-Dead Observe Legs – Recurring Bug Pattern
+
+**When:** 2026-07-04 · **Fact:** `P-GaSTYX4A`
+**Why:** This bug class has recurred in PR review; likely a systematic weakness in how observe legs wire into handler chains.
+
+<!-- decision:P-6CGBTE9S -->
+
+## Cursor Adapter Proves Generic Per-Profile Seam Works
+
+**When:** 2026-07-04 · **Fact:** `P-6CGBTE9S`
+**Why:** Generic seam is the kit's core extensibility strategy. Real-world proof validates the design.
+
+<!-- decision:P-EAQ6ZUNV -->
+
+## Cursor Competitive Landscape (D-268)
+
+**When:** 2026-07-04 · **Fact:** `P-EAQ6ZUNV`
+**Why:** Informs scope and positioning of Cursor adapter work.
+
+<!-- decision:P-DT9KQG9V -->
+
+## Hook/Inject/Capture Tests Faked Dependencies, Masking Bugs
+
+**When:** 2026-07-04 · **Fact:** `P-DT9KQG9V`
+**Why:** Mocks create false test confidence. Real bugs only surface when the full integration stack runs.
+
+<!-- decision:P-T3YGa7ED -->
+
+## Hook Ceiling Enforces Operation Time Caps
+
+**When:** 2026-07-04 · **Fact:** `P-T3YGa7ED`
+**Why:** Hook hard ceiling is a real operational constraint; operations that overflow it will be killed mid-flight, corrupting state. Defensive design caps at 50s to provide headroom.
+
+<!-- decision:P-FRTKRVQS -->
+
+## Adapter Architecture — Per-Profile Seam, Zero Bespoke Code
+
+**When:** 2026-07-04 · **Fact:** `P-FRTKRVQS`
+**Why:** Reduces maintenance burden and bug surface; each adapter is isolated. Cursor shipped zero-defect via this pattern (PR #254).
+
+<!-- decision:P-BUXPaHHR -->
+
+## Per-Session Temporal Sweep Timing (v0.4.5+)
+
+**When:** 2026-07-04 · **Fact:** `P-BUXPaHHR`
+**Why:** Vercel→Hetzner state-change case showed weekly-only timing was too slow; session-boundary timing catches it within one cycle.
+
+<!-- decision:P-SL5VE39X -->
+
+## Test Seam Blindness — Injected Fakes Mask Real-World Defaults
+
+**When:** 2026-07-04 · **Fact:** `P-SL5VE39X`
+**Why:** Test seams designed for isolation can become blindspots; test and production defaults drift unnoticed.
+
+<!-- decision:P-NZ794RQK -->
+
+## Minor Release Triggers Backlog Sweep
+
+**When:** 2026-07-04 · **Fact:** `P-NZ794RQK`
+**Why:** The release command has implicit side effects (backlog sweep automation); next session needs to know this is expected behavior, not a separate manual step.
+
+<!-- decision:P-79P92Y9F -->
+
+## IDE Binding Rules: Cursor Session Restart (D-262)
+
+**When:** 2026-07-04 · **Fact:** `P-79P92Y9F`
+**Why:** Cursor inherits VS Code's session lifecycle; older sessions won't load post-install hooks
+
+<!-- decision:P-DN3HDK6J -->
+
+## IDE Live-Check Verification Events (Cursor Pattern)
+
+**When:** 2026-07-04 · **Fact:** `P-DN3HDK6J`
+**Why:** Comprehensive coverage catches missing hooks (like D-269) and subtle integration bugs (like CH3 wired-but-dead)
+
+<!-- decision:P-XLMYNCC2 -->
+
+## Injection Verification: Validate Real Content, Not Just Hook Fire (D-269 Pattern)
+
+**When:** 2026-07-04 · **Fact:** `P-XLMYNCC2`
+**Why:** Hook execution != data integrity. Unit tests can validate hook firing but not output correctness
+
+<!-- decision:P-5SBBBN6R -->
+
+## Platform-Specific Cut-Gate Structure and Scope
+
+**When:** 2026-07-04 · **Fact:** `P-5SBBBN6R`
+**Why:** Kiro + Cursor precedents established this separation—surface verification can't block releases; core verification lives in base gate + test suite
+
+<!-- decision:P-R33XHPD9 -->
+
+## Cut-Gate Structure Convention
+
+**When:** 2026-07-04 · **Fact:** `P-R33XHPD9`
+**Why:** Ensures consistency, maintainability, and comprehensive coverage across all gate variants. Prevents scope creep or accidental omission of critical sections.
+
+<!-- decision:P-55XE6aJA -->
+
+## Cursor Supports Headless Agent CLI (`cursor-agent -p`)
+
+**When:** 2026-07-04 · **Fact:** `P-55XE6aJA`
+**Why:** This is a viable option for replacing the hard `claude` CLI dependency if the kit switches to per-agent backends (option c from the dependency-resolution decision).
+
+<!-- decision:P-FJ7VQAJE -->
+
+## Kit's Haiku Backend Has Undeclared `claude` CLI Dependency
+
+**When:** 2026-07-04 · **Fact:** `P-FJ7VQAJE`
+**Why:** This is a product-scope bug. The kit appears to support Cursor/Kiro as full agents, but has a hidden hard dependency that breaks both if Claude Code isn't installed.
+
+<!-- decision:P-AMGLK4QZ -->
+
+## Live-test Harness Cannot Detect Missing CLI Dependency
+
+**When:** 2026-07-04 · **Fact:** `P-AMGLK4QZ`
+**Why:** The harness was designed only for Claude Code. It can't test multi-agent scenarios where a target agent doesn't have its assumed dependencies.
+
+<!-- decision:P-N297FN7a -->
+
+## Kit Compatibility Requirement (Clarified)
+
+**When:** 2026-07-04 · **Fact:** `P-N297FN7a`
+**Why:** Previous misalignment — assistant treated "compatible" as "hooks wire" when user meant "user without Claude Code can actually use the kit." This is a real product requirement, not theoretical.
+
+<!-- decision:P-3C25GB4L -->
+
+## Cursor Agent Backend — Doc-Confirmed Feasible, Not Yet Live-Tested
+
+**When:** 2026-07-04 · **Fact:** `P-3C25GB4L`
+**Why:** Task 200 assessment of both Kiro and Cursor as backend options; can't confirm flag behavior from docs alone
+
+<!-- decision:P-PXCAJEH4 -->
+
+## Hook Recursion Guard — CMK_BACKEND_SPAWN Environment Variable
+
+**When:** 2026-07-04 · **Fact:** `P-PXCAJEH4`
+**Why:** Backends need to be callable from within hook execution; without guard, infinite loop occurs
+
+<!-- decision:P-Ta2AAA4Y -->
+
+## Kiro CLI Backend — Live Probe Confirmed Working
+
+**When:** 2026-07-04 · **Fact:** `P-Ta2AAA4Y`
+**Why:** Task 200 research confirmed Kiro viability as background LLM backend; recursion hazard was the critical unknown and is now solved
+
+<!-- decision:P-3TFR24VQ -->
+
+## Task 200 Build Phase — Implementation Roadmap
+
+**When:** 2026-07-04 · **Fact:** `P-3TFR24VQ`
+**Why:** Unblocks v0.4.5 release; silent no-op when backend unavailable is the core bug Task 200 fixes
+
+<!-- decision:P-UUJWSZLW -->
+
+## Multi-Agent LLM Invocation Research Initiative
+
+**When:** 2026-07-05 · **Fact:** `P-UUJWSZLW`
+**Why:** Findings directly inform the design of the Workflow backend selection factory and cross-OS compatibility strategy for multi-agent contexts.
+
+<!-- decision:P-BNPFDK7V -->
+
+## Resume Task 200 agent-relative backend
+
+**When:** 2026-07-05 · **Fact:** `P-BNPFDK7V`
+
+<!-- decision:P-46TWC2C2 -->
+
+## Paper Trail Convention: Tasks.md as Single Source of Truth
+
+**When:** 2026-07-05 · **Fact:** `P-46TWC2C2`
+**Why:** The project relies on tasks.md as the canonical reference for task status; stale entries break the single-source-of-truth principle and risk decisions being missed or contradicted.
+
+<!-- decision:P-KE5RQUKJ -->
+
+## Resume Fact Convention: Capturing Uncommitted Code Intent
+
+**When:** 2026-07-05 · **Fact:** `P-KE5RQUKJ`
+**Why:** This allows cleanup of uncommitted work without losing the design intent, making it easy for the next session to recall what was being attempted and why it was deferred.

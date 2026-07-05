@@ -8,16 +8,16 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-XDNK47AH) D-264 entry rewritten to record both the review catch and red-on-main step; illustrates commitment to honest two-layer documentation of fixes.
-  <!-- source: review-promote, source_line: 1, sha1: 01db3cf1e6ea51f50fa9c46a252702afb6dafb9996b8823bc7bec501e7a556ec, write: user-explicit, trust: high, at: 2026-07-03T20:00:02Z -->
-- (P-S99FUTTW) User approves trigger-walk forcing function process ("do it, sounds like a good process to have").
-  <!-- source: auto-extract-session, source_line: 1, sha1: 5603bfcc23e9681cc0c1c34b90e858d11d2490e0a2f14597dc52969b52c2160f, write: auto-extract, trust: high, at: 2026-07-03T20:21:19Z -->
-- (P-RJRPEAMC) when creating a cut-gate for domain-specific tools (Cursor, Kiro), build a full standalone gate (all §0–§9) matching the regular cut-gate structure, not a thin surface-only companion
-  <!-- source: auto-extract-session, source_line: 1, sha1: 8aded20950aa53cb66d09770ede3cfd7fad63a50ae546faa31a7264f26e12a76, write: auto-extract, trust: high, at: 2026-07-04T07:39:18Z -->
-- (P-CF74L2XA) Kit must work for users with ONLY Cursor or ONLY Kiro installed, without Claude Code. "Compatible" = actual usability in those IDEs/CLIs, not just hooks wiring.
-  <!-- source: auto-extract-session, source_line: 1, sha1: e88846bb736c057ab74f4d1b34bf6ccfad0b10b6b0472a6be9ead46019869f31, write: auto-extract, trust: high, at: 2026-07-04T07:49:52Z -->
-- (P-MV4B4WQP) Task 196 (Cursor adapter) shipped and merged to main (PR #254); validates D-180 generic per-profile seam with zero bespoke code
-  <!-- source: review-promote, source_line: 1, sha1: 7aeece1039dfc38462a326b3199ca7c69ae1fa89d76fccf450f769c066b4e8d9, write: user-explicit, trust: high, at: 2026-07-04T23:16:52Z -->
+- (P-Q9FSUC96) Don't ask permission to log decisions, flip checkboxes (task tracking), or maintain decision logs — treat routine documentation/maintenance as reflexive, not discretionary
+  <!-- source: auto-extract-session, source_line: 1, sha1: d870715f83ae170e920738ff358351b60cb57bf55b9c2512a64e78bc7bae3470, write: auto-extract, trust: high, at: 2026-07-05T14:06:32Z -->
+- (P-JUNL3FMF) cursor-agent runs natively on Windows via subscription login (no separate API key needed); browser login works; user successfully tested end-to-end in PowerShell
+  <!-- source: auto-extract-session, source_line: 1, sha1: 6d0de03e6e9e962ec74d15fc84c98e761c638f62675ddbef749af67a3a413ff0, write: auto-extract, trust: high, at: 2026-07-05T14:54:55Z -->
+- (P-FLXHT67K) Use open-ended, general questions in research to avoid leading answers and surface unknown mechanisms
+  <!-- source: auto-extract-session, source_line: 1, sha1: ae3c173290c212f5b7664e0a846c2daa04d0e4c027f8766ed1f7bb6e4e82ad62, write: auto-extract, trust: high, at: 2026-07-05T15:49:46Z -->
+- (P-G9TG4GGC) Cost/role agent separation principle — use premium agent (Claude) for primary coding, cheaper CLI agent (Kiro) for background memory extraction.
+  <!-- source: auto-extract-session, source_line: 1, sha1: a11259074ca25f4ad320d50b073687cbe9f5b3a6cb4626fab4e33b5a80ac3145, write: auto-extract, trust: high, at: 2026-07-05T17:13:19Z -->
+- (P-M3KA2WHH) Confirms D-277 decision "Warn at install + doctor, degrade to file-only" for missing CLI scenarios (no fallback to cloud key).
+  <!-- source: auto-extract-session, source_line: 1, sha1: aee1c1d7f317efd7c78c060c78ce67d363b5688c2b95c4ed8869721b2f64651d, write: auto-extract, trust: high, at: 2026-07-05T17:13:19Z -->
 
 ## Environment Notes
 
