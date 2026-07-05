@@ -8,16 +8,16 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-DPULJZ33) "Restart Claude Code after install" is NOT a blanket rule; only applies to a narrow corner case (install into an already-open window). A session opened after install completes already has the SessionStart hook on disk.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 9ca580170d8cb5b6a9a213e7ce1912a82865accff1d02135b103b06acef07dea, write: auto-extract, trust: high, at: 2026-07-03T18:43:53Z -->
-- (P-X6MAZ45E) Over-generalized instructions will be flagged as nonsensical rather than followed silently.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 638f28055b5894fcbbc7f92471819c442bdea6b92c98d3bc9495d4009f76f600, write: auto-extract, trust: high, at: 2026-07-03T18:43:53Z -->
-- (P-JAQ5XHM6) First fix for D-264 had dead branch and toothless test bugs; caught by skill-review's stash-test before moving forward. Demonstrates two-pass review discipline working as designed.
-  <!-- source: review-promote, source_line: 1, sha1: e104c3286de8406a6d6f8caf9018023ee4abb0d542b5bd0a6612cca54a8e1901, write: user-explicit, trust: high, at: 2026-07-03T20:00:01Z -->
 - (P-XDNK47AH) D-264 entry rewritten to record both the review catch and red-on-main step; illustrates commitment to honest two-layer documentation of fixes.
   <!-- source: review-promote, source_line: 1, sha1: 01db3cf1e6ea51f50fa9c46a252702afb6dafb9996b8823bc7bec501e7a556ec, write: user-explicit, trust: high, at: 2026-07-03T20:00:02Z -->
 - (P-S99FUTTW) User approves trigger-walk forcing function process ("do it, sounds like a good process to have").
   <!-- source: auto-extract-session, source_line: 1, sha1: 5603bfcc23e9681cc0c1c34b90e858d11d2490e0a2f14597dc52969b52c2160f, write: auto-extract, trust: high, at: 2026-07-03T20:21:19Z -->
+- (P-RJRPEAMC) when creating a cut-gate for domain-specific tools (Cursor, Kiro), build a full standalone gate (all §0–§9) matching the regular cut-gate structure, not a thin surface-only companion
+  <!-- source: auto-extract-session, source_line: 1, sha1: 8aded20950aa53cb66d09770ede3cfd7fad63a50ae546faa31a7264f26e12a76, write: auto-extract, trust: high, at: 2026-07-04T07:39:18Z -->
+- (P-CF74L2XA) Kit must work for users with ONLY Cursor or ONLY Kiro installed, without Claude Code. "Compatible" = actual usability in those IDEs/CLIs, not just hooks wiring.
+  <!-- source: auto-extract-session, source_line: 1, sha1: e88846bb736c057ab74f4d1b34bf6ccfad0b10b6b0472a6be9ead46019869f31, write: auto-extract, trust: high, at: 2026-07-04T07:49:52Z -->
+- (P-MV4B4WQP) Task 196 (Cursor adapter) shipped and merged to main (PR #254); validates D-180 generic per-profile seam with zero bespoke code
+  <!-- source: review-promote, source_line: 1, sha1: 7aeece1039dfc38462a326b3199ca7c69ae1fa89d76fccf450f769c066b4e8d9, write: user-explicit, trust: high, at: 2026-07-04T23:16:52Z -->
 
 ## Environment Notes
 
