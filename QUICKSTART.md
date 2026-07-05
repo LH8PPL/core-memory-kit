@@ -5,8 +5,18 @@ A 5-minute walkthrough from zero to a working kit on your first project.
 ## Prerequisites
 
 - Node 20 or later (`node --version`)
-- Claude Code installed (`claude --version`)
 - A git repo to install into (the kit's `context/` lives inside)
+- **Your agent's command-line tool on PATH** — separate from the IDE:
+  - **Claude Code** → `claude` (`claude --version`)
+  - **Kiro** → `kiro-cli` (required even if you use the Kiro IDE)
+  - **Cursor** → `cursor-agent` (Cursor's CLI, in addition to the app)
+
+> The agent CLI is what the kit's **automatic** features (compression, the
+> cross-project persona/wedge, auto-extract, the temporal sweep) use to run an
+> LLM in the background. Without it, capture / search / recall / the delete-guard
+> still work (pure files + SQLite) — but the automatic LLM steps are skipped.
+> `cmk doctor` tells you if your agent's CLI is missing. See the
+> [README Quickstart prerequisite note](README.md#quickstart) for the full table.
 
 (No Python or other runtime needed — keyword search is built in; the Layer-5b semantic backend is not yet shipped.)
 
