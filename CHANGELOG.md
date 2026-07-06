@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Added
+
+- **learn-loop: RECALL-LOG (Task 190, ADR-0017 Phase 1a)** — the kit now records which memory IDs surfaced each turn (`context/.locks/recall.log`, NDJSON, gitignored local diagnostic): the SessionStart inject logs the snapshot's surviving citation ids, and `cmk search`/`mk_search` log each query's returned ids. IDs + query only, never content; best-effort (can never break injection or search). This is the attribution primitive the v0.5 learn-loop's outcome signals resolve against.
+
 ## [0.4.5] — 2026-07-06
 
 ### Added

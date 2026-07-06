@@ -55,9 +55,17 @@ try {
 
 // Drain stdin so callers blocking on EPIPE don't hang — but NOT on an
 // interactive TTY (a manual run): a blocking stdin read would hang forever on a
-// console that never sends EOF (Task 101; DECISION-LOG 2026-06-06). The payload
-// is discarded; readHookStdin returns '' for a TTY so a manual run finishes.
-readHookStdin({ isTTY: process.stdin.isTTY });
+// console that never sends EOF (Task 101; DECISION-LOG 2026-06-06).
+// readHookStdin returns '' for a TTY so a manual run finishes. Task 190: the
+// drained payload is now PARSED (best-effort) for session_id — the recall-log's
+// session attribution. A malformed/absent payload degrades to null, never fails.
+const hookPayloadRaw = readHookStdin({ isTTY: process.stdin.isTTY });
+let sessionId = null;
+try {
+  sessionId = JSON.parse(hookPayloadRaw)?.session_id ?? null;
+} catch {
+  /* not JSON (TTY run / odd caller) — no session attribution */
+}
 
 // Task 167 NOTE (D-207, the live-test revision): an earlier design (Q4) tried a
 // SYNCHRONOUS now.md drain HERE, before injectContext, to make THIS session read
@@ -72,7 +80,7 @@ readHookStdin({ isTTY: process.stdin.isTTY });
 // now.md heals next session via the detached roll and never compounds.
 
 try {
-  const r = injectContext({ cwd: process.cwd(), compressLazyPath });
+  const r = injectContext({ cwd: process.cwd(), compressLazyPath, sessionId });
   process.stdout.write(JSON.stringify(r.hookOutput));
   process.exit(0);
 } catch (err) {
