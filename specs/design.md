@@ -561,7 +561,7 @@ claude --print \
 
 **Concurrency-safe**: lock file at `context/.locks/auto-extract.lock` via `set -o noclobber` (claude-remember verified pattern).
 
-**Structured logging — NDJSON across seven log files** (per Hightower CCA-F harness pattern, refined per ChatGPT/Kiro convergence):
+**Structured logging — NDJSON across eight log files** (per Hightower CCA-F harness pattern, refined per ChatGPT/Kiro convergence):
 
 | Log file | What gets written | One-line schema (NDJSON) |
 | --- | --- | --- |
@@ -572,6 +572,7 @@ claude --print \
 | `context/.locks/shadowed_by.log` | 3-tier merge shadowing events (§7.1) | `{ts, id, winner_tier, shadowed_tiers[], source_file}` |
 | `context/.locks/recall.log` | Which memory ids SURFACED each turn (Task 190, ADR-0017 Phase 1a — the learn-loop attribution primitive; written by inject + `search`, read by Tasks 191/192) | `{session, ts, source, ids[], query?}` — ids + query only, never fact bodies. Production `search` entries carry `session: null` (no hook payload at the CLI/MCP callers); 191/192 join inject↔search by timestamp window. Kit-projects only: the writer is gated on `context/` existing. Rotation posture: same as audit.log — §16.13's candidate covers both. |
 | `context/.locks/trust-signals.log` | Every trust-Δ decision through the FEEDBACK-SCREEN (Task 193, ADR-0017 Phase 1d) — applied deltas AND refusals (rate-limit / burst-hold quarantine); doubles as the screen's own rate/burst state | `{ts, id, event, applied, reason?, trust_score?}` — the screen reads today's entries to decide; a quarantined batch is visible here (the "surface in log" half). Rotation: §16.13's candidate covers it. |
+| `context/.locks/expectations.log` | Pre-registered expectations (Task 191, ADR-0017 Phase 1b) — `PREDICTION:` lines captured from each turn by the Stop hook, resolved HIT/MISS by Task 192's signals; event-sourced (a resolution APPENDS, the reader folds by id) | `{id, ts, session, text, status}` then `{id, ts, status:'resolved', verdict, observed}` — the study's no-pre-registration-no-claim rule made mechanical. Rotation: section 16.13's candidate. |
 
 One JSON object per line, append-only. Parseable for analytics (`jq`, DuckDB, `cmk view`). Files rotate daily; old logs roll into `context/sessions/archive/` on the weekly curate run.
 

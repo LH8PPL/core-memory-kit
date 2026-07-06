@@ -24,7 +24,11 @@ import { sanitizeHomePaths } from './sanitize.mjs';
 import { sanitizePrivacyTags } from './privacy.mjs';
 import { checkPoisonGuard, logPoisonGuardRejection } from './poison-guard.mjs';
 
-const VALID_TYPES = new Set(['user', 'feedback', 'project', 'reference']);
+// Task 191 (ADR-0017 Phase 1b): 'judgment' is a LOOP-BORN type — written by
+// judgment.mjs (earned method-preferences with an evidence log), never by the
+// remember/mk_remember dictation surfaces (their type enums deliberately
+// exclude it; a judgment must be EARNED, not asserted).
+const VALID_TYPES = new Set(['user', 'feedback', 'project', 'reference', 'judgment']);
 const VALID_WRITE_SOURCES = new Set([
   'user-explicit',
   'auto-extract',
@@ -101,6 +105,21 @@ function validateOptions(opts) {
       'shape: must be one of State/Event/Plan/Relationship/Preference/Absence/Timeless (case-sensitive)',
     );
   }
+  if (opts.judgment !== undefined) {
+    if (opts.type !== 'judgment') {
+      errors.push('judgment: only valid with type "judgment"');
+    } else {
+      const j = opts.judgment;
+      for (const f of ['claim', 'baseline', 'prefer', 'over']) {
+        if (!j[f] || typeof j[f] !== 'string') errors.push(`judgment.${f}: required, non-empty string`);
+      }
+      if (!['provisional', 'corroborated', 'contested', 'retracted'].includes(j.status ?? 'provisional')) {
+        errors.push('judgment.status: provisional|corroborated|contested|retracted');
+      }
+    }
+  } else if (opts.type === 'judgment') {
+    errors.push('type "judgment" requires the judgment block (claim/baseline/prefer/over)');
+  }
   if (opts.expiresAt !== undefined) {
     if (
       typeof opts.expiresAt !== 'string' ||
@@ -149,6 +168,25 @@ function buildFrontmatterObject(opts, computed) {
     created_at: computed.createdAt,
     write_source: opts.writeSource,
     trust: opts.trust,
+    // Task 191 (ADR-0017 Phase 1b): the judgment schema fields — present only
+    // on type:'judgment' facts (the earned method-preference shape: claim vs
+    // BASELINE, replication count, direction-consistency, decay). decays_after
+    // ALSO rides expiresAt (set by judgment.mjs) so the 66.1 expiry machinery
+    // hides a decayed judgment from search with zero new plumbing.
+    ...(opts.judgment !== undefined
+      ? {
+          claim: opts.judgment.claim,
+          baseline: opts.judgment.baseline,
+          prefer: opts.judgment.prefer,
+          over: opts.judgment.over,
+          status: opts.judgment.status ?? 'provisional',
+          n_episodes: opts.judgment.nEpisodes ?? 1,
+          direction_consistent: opts.judgment.directionConsistent ?? true,
+          confounds: opts.judgment.confounds ?? [],
+          outcome_horizon: opts.judgment.outcomeHorizon ?? 'short',
+          decays_after: opts.judgment.decaysAfter,
+        }
+      : {}),
     // Task 151.1 (ADR-0016 / design §20.1): the capped-recurrence promotion
     // signal. Starts at 1 on create; the duplicate-hit path bumps it when the
     // SAME canonical fact re-surfaces (same content-hash id). A promotion fact,
