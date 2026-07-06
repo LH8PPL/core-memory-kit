@@ -28,15 +28,15 @@ if (!turnFile) {
 }
 
 const autoExtractModulePath = join(__dirname, '..', 'src', 'auto-extract.mjs');
-const compressorModulePath = join(__dirname, '..', 'src', 'compressor.mjs');
+const makeBackendModulePath = join(__dirname, '..', 'src', 'make-backend.mjs');
 const tierPathsModulePath = join(__dirname, '..', 'src', 'tier-paths.mjs');
 
 let runAutoExtract;
-let HaikuViaAnthropicApi;
+let makeBackend;
 let resolveTierRoot;
 try {
   ({ runAutoExtract } = await import(pathToFileURL(autoExtractModulePath).href));
-  ({ HaikuViaAnthropicApi } = await import(pathToFileURL(compressorModulePath).href));
+  ({ makeBackend } = await import(pathToFileURL(makeBackendModulePath).href));
   ({ resolveTierRoot } = await import(pathToFileURL(tierPathsModulePath).href));
 } catch (err) {
   process.stderr.write(
@@ -62,7 +62,10 @@ try {
 const userDir = resolveTierRoot({ tier: 'U' });
 
 try {
-  const haikuBackend = new HaikuViaAnthropicApi();
+  // Task 200: agent-relative backend — the factory picks the CLI of the agent
+  // this project was installed for (or the backend.agent override), so a
+  // Cursor-only / Kiro-only user's auto-extract actually runs (D-270).
+  const haikuBackend = makeBackend({ projectRoot, userDir });
   const r = await runAutoExtract({
     turnFile,
     projectRoot,

@@ -24,16 +24,16 @@ const __dirname = dirname(__filename);
 
 const readHookStdinPath = join(__dirname, '..', 'src', 'read-hook-stdin.mjs');
 const sessionEndTasksModulePath = join(__dirname, '..', 'src', 'session-end-tasks.mjs');
-const compressorModulePath = join(__dirname, '..', 'src', 'compressor.mjs');
+const makeBackendModulePath = join(__dirname, '..', 'src', 'make-backend.mjs');
 
 let readHookStdin;
 let runSessionEndTasks;
 let summarizeSessionEnd;
-let HaikuViaAnthropicApi;
+let makeBackend;
 try {
   ({ readHookStdin } = await import(pathToFileURL(readHookStdinPath).href));
   ({ runSessionEndTasks, summarizeSessionEnd } = await import(pathToFileURL(sessionEndTasksModulePath).href));
-  ({ HaikuViaAnthropicApi } = await import(pathToFileURL(compressorModulePath).href));
+  ({ makeBackend } = await import(pathToFileURL(makeBackendModulePath).href));
 } catch (err) {
   process.stderr.write(
     `cmk-compress-session: failed to load modules: ${err?.message ?? err}\n`,
@@ -57,10 +57,18 @@ try {
   // the SessionEnd wall-clock at max(~50s) under the 60s hook ceiling instead of
   // the sequential sum (~100s). See session-end-tasks.mjs for the full rationale.
   const userDir = process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+  // Task 200: the backend is now agent-relative — the factory picks the CLI of
+  // the agent the project was installed for (or the backend.agent override), so a
+  // Cursor-only / Kiro-only user gets a working automatic engine (D-270). The
+  // SessionEnd tasks pass their own ceiling-fitting timeouts (~50s); on a SLOW
+  // backend (cursor-agent, 30-83s — D-278) a SessionEnd compress may time out and
+  // fail gracefully (allSettled, best-effort) — the ceiling-free daily-distill /
+  // lazy paths (120s) do the durable work. That degradation is acceptable and
+  // documented (design §16.50.x); it is NOT a hang (each task is bounded).
   const outcomes = await runSessionEndTasks({
     projectRoot,
     userDir,
-    makeBackend: () => new HaikuViaAnthropicApi(),
+    makeBackend: () => makeBackend({ projectRoot, userDir }),
   });
   for (const line of summarizeSessionEnd(outcomes)) {
     process.stderr.write(line);

@@ -612,15 +612,16 @@ export async function runCursorHook(_options = {}, _command, deps = {}) {
       // bin runs. Lazily imported so the heavy compressor stack never loads on
       // the hot per-turn events.
       sessionEnd: deps.sessionEnd ?? (async (args) => {
-        const [{ runSessionEndTasks }, { HaikuViaAnthropicApi }] = await Promise.all([
+        const [{ runSessionEndTasks }, { makeBackend }] = await Promise.all([
           import('./session-end-tasks.mjs'),
-          import('./compressor.mjs'),
+          import('./make-backend.mjs'),
         ]);
         const userDir = env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
         await runSessionEndTasks({
           projectRoot: args.projectRoot,
           userDir,
-          makeBackend: () => new HaikuViaAnthropicApi(),
+          // Task 200: agent-relative backend (picks the installed-for agent's CLI).
+          makeBackend: () => makeBackend({ projectRoot: args.projectRoot, userDir }),
         });
       }),
     },
@@ -1442,10 +1443,11 @@ function runForget(idOrQuery, options /* , command */) {
  */
 async function runDailyDistill(/* options */) {
   const projectRoot = resolvePath(process.cwd());
-  // Lazy-load HaikuViaAnthropicApi (avoids the dep when running unit tests).
-  const { HaikuViaAnthropicApi } = await import('./compressor.mjs');
+  // Task 200: agent-relative backend factory (lazy-loaded — avoids the dep in
+  // unit tests; picks the installed-for agent's CLI).
+  const { makeBackend } = await import('./make-backend.mjs');
   try {
-    const backend = new HaikuViaAnthropicApi();
+    const backend = makeBackend({ projectRoot });
     const r = await dailyDistill({ projectRoot, backend });
     if (r.action === 'error') {
       console.error(
@@ -1469,10 +1471,10 @@ async function runDailyDistill(/* options */) {
  */
 async function runWeeklyCurate(/* options */) {
   const projectRoot = resolvePath(process.cwd());
-  const { HaikuViaAnthropicApi } = await import('./compressor.mjs');
+  const { makeBackend } = await import('./make-backend.mjs'); // Task 200: agent-relative
   const { defaultUserDir } = await import('./tier-paths.mjs');
   try {
-    const backend = new HaikuViaAnthropicApi();
+    const backend = makeBackend({ projectRoot, userDir: defaultUserDir() });
     // Production entry point → the Task-66 sweeps cover the U tier
     // (finding 3); autoPersona keeps its cron-only shape (no userDir).
     const r = await weeklyCurate({ projectRoot, backend, sweepUserDir: defaultUserDir() });
@@ -1510,8 +1512,10 @@ export async function runPersonaGenerate(opts = {}) {
   const log = opts.log ?? console.log;
   const logError = opts.logError ?? console.error;
   try {
+    // Task 200: agent-relative backend (the injected opts.backend still wins for
+    // tests; production picks the installed-for agent's CLI).
     const backend =
-      opts.backend ?? new (await import('./compressor.mjs')).HaikuViaAnthropicApi();
+      opts.backend ?? (await import('./make-backend.mjs')).makeBackend({ projectRoot, userDir });
     // Task 111 (F-2): `cmk persona generate` is an explicit one-shot with NO outer
     // hook ceiling (unlike the 60s-bounded SessionEnd path), so it gives the Haiku
     // classifier generous headroom — the whole-project facts sweep is a heavier
@@ -1909,9 +1913,9 @@ async function runRollCli(options /* , command */) {
   // daily-distill, weekly-curate) all operate purely on projectRoot —
   // none take userDir. Same forward-compat-rot anti-pattern Task 37 M3
   // + Task 38 I1 already removed.
-  const { HaikuViaAnthropicApi } = await import('./compressor.mjs');
+  const { makeBackend } = await import('./make-backend.mjs'); // Task 200: agent-relative
   try {
-    const backend = new HaikuViaAnthropicApi();
+    const backend = makeBackend({ projectRoot });
     const r = await runRoll({ projectRoot, scope, backend });
     if (r.action === 'error') {
       console.error(`cmk roll: error — ${(r.errors ?? []).join('; ')}`);
@@ -2106,9 +2110,9 @@ async function runCompress(options /* , command */) {
     return;
   }
   const projectRoot = resolvePath(process.cwd());
-  const { HaikuViaAnthropicApi } = await import('./compressor.mjs');
+  const { makeBackend } = await import('./make-backend.mjs'); // Task 200: agent-relative
   try {
-    const backend = new HaikuViaAnthropicApi();
+    const backend = makeBackend({ projectRoot });
     const r = await runLazyCompress({ projectRoot, backend });
     if (r.action === 'error') {
       console.error(

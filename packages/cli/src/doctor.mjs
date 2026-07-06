@@ -51,6 +51,7 @@ import { checkVersionDrift } from './version-drift.mjs';
 import { getKitVersion } from './install.mjs';
 import { hasOurCliAgent } from './kiro-cli-agent.mjs';
 import { stripBom } from './read-json.mjs';
+import { detectInstallKind } from './install-kind.mjs';
 
 const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -81,15 +82,9 @@ const NATIVE_MEMORY_LOG_REL = ['context', '.locks', 'native-memory-status.log'];
 // cmk .kiro marker) resolves to Claude Code by precedence — HC-1 checks only the
 // Claude surface. Dual-install is rare; the single-surface check is intentional
 // for v0.4.0, not an oversight. Revisit if dual-install becomes common.
-function detectInstallKind(projectRoot) {
-  if (existsSync(join(projectRoot, '.claude', 'settings.json'))) return 'claude-code';
-  if (existsSync(join(projectRoot, '.kiro', 'steering', 'cmk.md'))) return 'kiro';
-  // Task 196: the cmk-owned Cursor rule marks a `--ide cursor` install. Same
-  // keyed-on-OUR-marker discipline as Kiro (I2) — a stray .cursor/ dir alone
-  // does not flip the project to the Cursor path.
-  if (existsSync(join(projectRoot, '.cursor', 'rules', 'claude-memory-kit.mdc'))) return 'cursor';
-  return 'claude-code';
-}
+// detectInstallKind moved to install-kind.mjs (Task 200) so makeBackend + install
+// can share it without doctor.mjs's heavy import chain. Imported at the top;
+// re-exported here for existing importers. Behavior unchanged.
 
 // --- HC-1: Stop + SessionStart hooks registered -----------------------
 function hc1Hooks({ projectRoot, awsDir }) {
