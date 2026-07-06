@@ -1048,15 +1048,25 @@ export function injectContext({
   // SURVIVED into the snapshot (post-shadowing, post-truncation — extracting
   // from the FINAL text is what makes the attribution truthful). The matcher
   // is the canonical ID_PATTERN's char class (shared-module discipline — no
-  // re-rolled alphabet), de-anchored for global scan. Best-effort:
+  // re-rolled alphabet), de-anchored for global scan + boundary-guarded so a
+  // longer token (e.g. `…UP-ABCDEFGH…`) can't shed a false id (skill-review
+  // M3). GATED on `context/` existing: the plugin's GLOBAL SessionStart hook
+  // fires in EVERY repo, and discoverProjectRoot falls back to cwd — without
+  // the gate this would scaffold an untracked context/.locks/ tree in non-kit
+  // projects at session start (skill-review I2). Best-effort:
   // appendRecallEntry never throws (a diagnostic must not break injection).
-  const idScan = new RegExp(ID_PATTERN.source.replace(/^\^|\$$/g, ''), 'g');
-  const injectedIds = [...new Set(snapshot.match(idScan) ?? [])];
-  appendRecallEntry(projectRoot, {
-    session: sessionId ?? null,
-    source: 'inject',
-    ids: injectedIds,
-  });
+  if (existsSync(join(projectRoot, 'context'))) {
+    const idScan = new RegExp(
+      `(?<![A-Za-z0-9])${ID_PATTERN.source.replace(/^\^|\$$/g, '')}(?![A-Za-z0-9])`,
+      'g',
+    );
+    const injectedIds = [...new Set(snapshot.match(idScan) ?? [])];
+    appendRecallEntry(projectRoot, {
+      session: sessionId ?? null,
+      source: 'inject',
+      ids: injectedIds,
+    });
+  }
 
   return {
     snapshot,

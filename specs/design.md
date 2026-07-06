@@ -561,7 +561,7 @@ claude --print \
 
 **Concurrency-safe**: lock file at `context/.locks/auto-extract.lock` via `set -o noclobber` (claude-remember verified pattern).
 
-**Structured logging — NDJSON across five log files** (per Hightower CCA-F harness pattern, refined per ChatGPT/Kiro convergence):
+**Structured logging — NDJSON across six log files** (per Hightower CCA-F harness pattern, refined per ChatGPT/Kiro convergence):
 
 | Log file | What gets written | One-line schema (NDJSON) |
 | --- | --- | --- |
@@ -570,6 +570,7 @@ claude --print \
 | `context/sessions/{date}.compress.log` | Compression runs (session-end + lazy + daily/weekly) | `{ts, scope, input_bytes, output_bytes, model_id, cost_usd, duration_ms}` |
 | `context/.locks/network-blocks.log` | Any sandbox/network denial during compressor or MCP runs | `{ts, host, port, reason, hook_or_tool}` |
 | `context/.locks/shadowed_by.log` | 3-tier merge shadowing events (§7.1) | `{ts, id, winner_tier, shadowed_tiers[], source_file}` |
+| `context/.locks/recall.log` | Which memory ids SURFACED each turn (Task 190, ADR-0017 Phase 1a — the learn-loop attribution primitive; written by inject + `search`, read by Tasks 191/192) | `{session, ts, source, ids[], query?}` — ids + query only, never fact bodies. Production `search` entries carry `session: null` (no hook payload at the CLI/MCP callers); 191/192 join inject↔search by timestamp window. Kit-projects only: the writer is gated on `context/` existing. Rotation posture: same as audit.log — §16.13's candidate covers both. |
 
 One JSON object per line, append-only. Parseable for analytics (`jq`, DuckDB, `cmk view`). Files rotate daily; old logs roll into `context/sessions/archive/` on the weekly curate run.
 
@@ -2070,6 +2071,8 @@ Right home: Task 33 (daily-distill cron). Concrete shape:
 - Schema-version awareness: keep the `schema: 1` field intact so future readers can mix old + new entries
 
 No code change needed in v0.1 itself — the existing writers append; rotation is a separate concern that runs out-of-band. Surface this as a v0.1.x patch once we've actually accumulated enough log entries to make it relevant.
+
+_Scope extension (2026-07-06, Task 190):_ `context/.locks/recall.log` (the learn-loop attribution log, §"Structured logging" table) shares this exact posture — append-only, no runtime rotation, grows slower than audit.log (~1 line per session-start + 1 per search). When this candidate ships, it covers both files with the same threshold/archive shape.
 
 ### 16.14 Mermaid-style symbolic short-term memory
 

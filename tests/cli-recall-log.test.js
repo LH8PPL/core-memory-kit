@@ -134,6 +134,18 @@ describe('Task 190 — recall-log module boundary', () => {
     mkdirSync(projectRoot, { recursive: true });
     expect(readRecallLog(projectRoot)).toEqual([]);
   });
+
+  it('transcript-scope ids (T:file:line shape) round-trip intact (skill-review M6.iii)', () => {
+    // The transcripts/decisions scopes return ids like `T:context/...:21` —
+    // downstream 191/192 readers must receive them verbatim (and tolerate
+    // that they never resolve to a fact file).
+    const projectRoot = join(sandbox, 'proj');
+    mkdirSync(projectRoot, { recursive: true });
+    const tid = 'T:context/transcripts/2026-07-06.md:21';
+    appendRecallEntry(projectRoot, { session: 's', source: 'search', query: 'old error', ids: [tid] });
+    const [entry] = readRecallLog(projectRoot);
+    expect(entry.ids).toEqual([tid]);
+  });
 });
 
 describe('Task 190 — inject wire-site (the automatic path: hook-driven, no manual command)', () => {
@@ -211,5 +223,30 @@ describe('Task 190 — search wire-site', () => {
     expect(['found', 'error']).toContain(r.action);
     db.close();
     expect(existsSync(recallLogPath(projectRoot))).toBe(false);
+  });
+
+  it('an ERROR response does not log (skill-review M6.i — only found results are recall events)', () => {
+    const projectRoot = join(sandbox, 'proj');
+    mkdirSync(projectRoot, { recursive: true });
+    const db = openIndexDb({ projectRoot, dbPath: join(sandbox, 'memory.db') });
+    // Schema-invalid input errors out before the append site.
+    const r = search({ db, query: '', projectRoot });
+    expect(r.action).toBe('error');
+    db.close();
+    expect(existsSync(recallLogPath(projectRoot))).toBe(false);
+  });
+});
+
+describe('Task 190 — non-kit-project gate (skill-review I2)', () => {
+  it('inject in a cwd with NO context/ writes NOTHING — no scaffold in non-kit repos', () => {
+    // The plugin's GLOBAL SessionStart hook fires in every repo; without the
+    // gate, the recall append would create an untracked context/.locks/ tree.
+    const bareRoot = join(sandbox, 'not-a-kit-project');
+    mkdirSync(bareRoot, { recursive: true });
+    const userDir = join(sandbox, 'user');
+
+    injectContext({ cwd: bareRoot, userDir, sessionId: 'sess-nonkit' });
+
+    expect(existsSync(join(bareRoot, 'context'))).toBe(false);
   });
 });

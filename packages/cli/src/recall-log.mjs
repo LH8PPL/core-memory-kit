@@ -10,16 +10,23 @@
 //
 //   { session, ts, source: 'inject'|'search', ids: [...], query? }
 //
-// IDs + query only — never fact bodies (the log is attribution plumbing, not
-// a memory tier; nothing here needs Poison_Guard because nothing here is
-// content). Append is BEST-EFFORT: it runs inside the SessionStart hook and
-// the search hot path, so it must never throw (a broken diagnostic must not
-// break injection — the same posture as audit-log.mjs).
+// IDs + query only — never fact bodies. The `query` field IS user-typed text,
+// so this is not content-free — the posture holding it is the file's class:
+// a gitignored `.locks` local diagnostic (same as extract.log's turn
+// snippets), never a committed tier, so Poison_Guard doesn't gate it. Append
+// is BEST-EFFORT: it runs inside the SessionStart hook and the search hot
+// path, so it must never throw (a broken diagnostic must not break injection
+// — the same posture as audit-log.mjs).
 //
 // Writers: injectContext (source:'inject', the snapshot's surviving citation
-// ids) and search() (source:'search', the returned ids — gated on the caller
-// passing projectRoot, so bare/legacy calls stay pure).
+// ids, with the hook payload's session_id) and search() (source:'search',
+// the returned ids — gated on the caller passing projectRoot, so bare/legacy
+// calls stay pure). NOTE for Task 191/192 consumers: production `search`
+// entries carry `session: null` — the CLI/MCP callers have no hook payload;
+// join inject↔search by timestamp window, never assume the field is set.
 // Reader: readRecallLog — Task 191/192 resolve expectations against it.
+// Rotation: none at runtime (the audit.log posture — design §16.13 covers
+// both when it ships); growth is ~1 line/session-start + 1/search.
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
