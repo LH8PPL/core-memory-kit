@@ -58,7 +58,17 @@ You work. It learns — automatically, no buttons. Next session, it remembers th
 ## Quickstart
 
 > [!IMPORTANT]
-> Pick **one** route — both wire the same hooks and are complete on their own.
+> **Prerequisite — the agent's CLI must be installed (not just its IDE).** The kit's automatic features (compression, the cross-project persona/wedge, auto-extract, the temporal sweep) run an LLM through your agent's **command-line tool**, which is a **separate install from the IDE**:
+>
+> | Agent | The kit needs this CLI on your PATH |
+> | --- | --- |
+> | **Claude Code** | the `claude` CLI — required even if you use Claude inside VS Code |
+> | **Kiro** | `kiro-cli` — required even if you use the Kiro IDE |
+> | **Cursor** | `cursor-agent` (Cursor's CLI) — required in addition to the Cursor app _(official installer: macOS/Linux; Windows support is evolving — see [docs/KIRO.md](docs/KIRO.md)/the per-agent notes)_ |
+>
+> Without the agent's CLI, capture / search / recall / the delete-guard still work (they're pure files + SQLite), but the automatic LLM steps are skipped. `cmk doctor` tells you if your agent's CLI is missing.
+>
+> **Pick one install route below** — both wire the same hooks and are complete on their own.
 
 ### Route A — npm (recommended)
 
@@ -235,7 +245,7 @@ Project memory (`context/`) follows the **repo** — `git clone` brings it, and 
 
 ## Health checks
 
-`cmk doctor` runs ten checks (HC-1..HC-10), each PASS / FAIL / SKIP with a repair command — including **HC-9** (flags a project whose scaffold is behind your installed `cmk`) and **HC-10** (an informational heads-up if optional scheduled compaction stops firing; memory self-heals each session regardless). Details + recovery paths: **[HEALTH-CHECKS.md](HEALTH-CHECKS.md)**.
+`cmk doctor` runs eleven checks (HC-1..HC-11), each PASS / FAIL / SKIP with a repair command — including **HC-9** (flags a project whose scaffold is behind your installed `cmk`), **HC-10** (an informational heads-up if optional scheduled compaction stops firing; memory self-heals each session regardless), and **HC-11** (whether your agent's own CLI — `claude` / `kiro-cli` / `cursor-agent`, the one that runs the automatic memory engine — is on your PATH; if it's missing, the file-only features keep working and only the automatic LLM steps wait). Details + recovery paths: **[HEALTH-CHECKS.md](HEALTH-CHECKS.md)**.
 
 ## Acknowledgments
 

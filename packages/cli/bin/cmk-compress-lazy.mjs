@@ -20,13 +20,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const lazyCompressModulePath = join(__dirname, '..', 'src', 'lazy-compress.mjs');
-const compressorModulePath = join(__dirname, '..', 'src', 'compressor.mjs');
+const makeBackendModulePath = join(__dirname, '..', 'src', 'make-backend.mjs');
 
 let runLazyCompress;
-let HaikuViaAnthropicApi;
+let makeBackend;
 try {
   ({ runLazyCompress } = await import(pathToFileURL(lazyCompressModulePath).href));
-  ({ HaikuViaAnthropicApi } = await import(pathToFileURL(compressorModulePath).href));
+  ({ makeBackend } = await import(pathToFileURL(makeBackendModulePath).href));
 } catch (err) {
   process.stderr.write(
     `cmk-compress-lazy: failed to load modules: ${err?.message ?? err}\n`,
@@ -45,7 +45,9 @@ const envRoot = process.env.CMK_PROJECT_DIR && process.env.CMK_PROJECT_DIR.lengt
 const projectRoot = argvRoot ?? envRoot ?? process.cwd();
 
 try {
-  const backend = new HaikuViaAnthropicApi();
+  // Task 200: agent-relative backend (ceiling-free path — a slow cursor-agent is
+  // fine here, this runs detached at 120s, D-278).
+  const backend = makeBackend({ projectRoot });
   const r = await runLazyCompress({ projectRoot, backend });
   process.stderr.write(
     `cmk-compress-lazy: ${r.action}${r.reason ? ` (${r.reason})` : ''}${r.delegatedTo ? ` → ${r.delegatedTo}` : ''} ms: ${r.duration_ms ?? 0}\n`,

@@ -8,16 +8,16 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-DPULJZ33) "Restart Claude Code after install" is NOT a blanket rule; only applies to a narrow corner case (install into an already-open window). A session opened after install completes already has the SessionStart hook on disk.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 9ca580170d8cb5b6a9a213e7ce1912a82865accff1d02135b103b06acef07dea, write: auto-extract, trust: high, at: 2026-07-03T18:43:53Z -->
-- (P-X6MAZ45E) Over-generalized instructions will be flagged as nonsensical rather than followed silently.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 638f28055b5894fcbbc7f92471819c442bdea6b92c98d3bc9495d4009f76f600, write: auto-extract, trust: high, at: 2026-07-03T18:43:53Z -->
-- (P-JAQ5XHM6) First fix for D-264 had dead branch and toothless test bugs; caught by skill-review's stash-test before moving forward. Demonstrates two-pass review discipline working as designed.
-  <!-- source: review-promote, source_line: 1, sha1: e104c3286de8406a6d6f8caf9018023ee4abb0d542b5bd0a6612cca54a8e1901, write: user-explicit, trust: high, at: 2026-07-03T20:00:01Z -->
-- (P-XDNK47AH) D-264 entry rewritten to record both the review catch and red-on-main step; illustrates commitment to honest two-layer documentation of fixes.
-  <!-- source: review-promote, source_line: 1, sha1: 01db3cf1e6ea51f50fa9c46a252702afb6dafb9996b8823bc7bec501e7a556ec, write: user-explicit, trust: high, at: 2026-07-03T20:00:02Z -->
-- (P-S99FUTTW) User approves trigger-walk forcing function process ("do it, sounds like a good process to have").
-  <!-- source: auto-extract-session, source_line: 1, sha1: 5603bfcc23e9681cc0c1c34b90e858d11d2490e0a2f14597dc52969b52c2160f, write: auto-extract, trust: high, at: 2026-07-03T20:21:19Z -->
+- (P-FLXHT67K) Use open-ended, general questions in research to avoid leading answers and surface unknown mechanisms
+  <!-- source: auto-extract-session, source_line: 1, sha1: ae3c173290c212f5b7664e0a846c2daa04d0e4c027f8766ed1f7bb6e4e82ad62, write: auto-extract, trust: high, at: 2026-07-05T15:49:46Z -->
+- (P-G9TG4GGC) Cost/role agent separation principle — use premium agent (Claude) for primary coding, cheaper CLI agent (Kiro) for background memory extraction.
+  <!-- source: auto-extract-session, source_line: 1, sha1: a11259074ca25f4ad320d50b073687cbe9f5b3a6cb4626fab4e33b5a80ac3145, write: auto-extract, trust: high, at: 2026-07-05T17:13:19Z -->
+- (P-M3KA2WHH) Confirms D-277 decision "Warn at install + doctor, degrade to file-only" for missing CLI scenarios (no fallback to cloud key).
+  <!-- source: auto-extract-session, source_line: 1, sha1: aee1c1d7f317efd7c78c060c78ce67d363b5688c2b95c4ed8869721b2f64651d, write: auto-extract, trust: high, at: 2026-07-05T17:13:19Z -->
+- (P-TH4ARBRA) Field-wide headless-LLM pattern confirmed across 15 projects: 4 per-agent-CLI, 2 agent-own-headless (via SDK), 1+3 cloud-API-key (pure+hybrid), 4 no-LLM (deterministic recall). Validates the kit's planned layering.
+  <!-- source: review-promote, source_line: 1, sha1: 80b101b90e04f8d2bf058afc86a930f62d9efd85ec379fae56ae5bdb0243350a, write: user-explicit, trust: high, at: 2026-07-05T20:00:02Z -->
+- (P-KXGGaQGW) Kit's native-PowerShell discipline (not bash-first) is confirmed as canonical by field study; all bash-first projects (claude-remember, memsearch, gstack, mem0) required Git-Bash/WSL + long tail of bugs to achieve Windows support.
+  <!-- source: review-promote, source_line: 1, sha1: 97dd46f1b0574da609eddfb1aeb9a3ad52ad1404fb2306168b63ac622833859e, write: user-explicit, trust: high, at: 2026-07-05T20:00:03Z -->
 
 ## Environment Notes
 

@@ -24,6 +24,49 @@ import { describe, it, expect } from 'vitest';
 import { dispatchCursorHook } from '../packages/cli/src/cursor-hook-dispatch.mjs';
 
 describe('Task 196 — Cursor hook dispatcher', () => {
+  // Task 200 (D-270): the recursion guard. When the kit spawns the agent's OWN
+  // CLI as its LLM backend (cursor-agent -p), that inner CLI fires .cursor/
+  // hooks.json AGAIN → `cmk cursor-hook` → this dispatcher → recursion. The
+  // backend sets CMK_BACKEND_SPAWN=1 in the child env; the child inherits it, so
+  // its fired hooks must no-op instantly at the dispatcher ENTRY. Reproduced live
+  // on Kiro (kiro-cli fired agentSpawn → 10s timeout storm).
+  describe('Task 200 — recursion guard (CMK_BACKEND_SPAWN)', () => {
+    it('no-ops EVERY event when CMK_BACKEND_SPAWN is set, without calling any core', () => {
+      for (const event of ['sessionStart', 'beforeSubmitPrompt', 'afterAgentResponse', 'afterFileEdit', 'sessionEnd', 'beforeShellExecution']) {
+        const calls = [];
+        const r = dispatchCursorHook({
+          event,
+          payload: { command: 'ls' },
+          cwd: '/proj',
+          env: { CMK_BACKEND_SPAWN: '1' }, // injectable env (production reads process.env)
+          deps: {
+            inject: () => { calls.push('inject'); return { text: 'X' }; },
+            capture: () => calls.push('capture'),
+            capturePrompt: () => calls.push('capturePrompt'),
+            observe: () => calls.push('observe'),
+            guard: () => { calls.push('guard'); return { block: true, reason: 'should not run' }; },
+            sessionEnd: () => calls.push('sessionEnd'),
+          },
+        });
+        expect(r.action).toBe('noop');
+        expect(r.exitCode).toBe(0);
+        expect(calls, `event ${event} ran a core despite the guard`).toEqual([]);
+      }
+    });
+
+    it('does NOT guard when CMK_BACKEND_SPAWN is absent (normal routing)', () => {
+      const calls = [];
+      dispatchCursorHook({
+        event: 'sessionStart',
+        payload: {},
+        cwd: '/proj',
+        env: {}, // no guard var
+        deps: { inject: () => { calls.push('inject'); return { text: '' }; } },
+      });
+      expect(calls).toEqual(['inject']);
+    });
+  });
+
   describe('routing + Cursor-shaped responses', () => {
     it('sessionStart → inject, responds {additional_context} JSON', () => {
       const calls = [];

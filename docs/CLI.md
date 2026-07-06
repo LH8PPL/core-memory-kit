@@ -117,7 +117,7 @@ cmk digest
 ```
 
 ### `cmk doctor`
-Run the 8 health checks (HC-1..HC-8); reports PASS/FAIL/SKIP with a repair command per failure. HC-8 (npm 12 readiness) verifies the native bindings load and emits the exact `--allow-scripts` remediation when npm blocked an install script. The report ends with an informational **memory-health section** (content quality: fact count + trust distribution, old-and-untouched facts, possible duplicate pairs, pending queue items) — read-only, never affects the exit code.
+Run the health checks (HC-1..HC-11); reports PASS/FAIL/SKIP with a repair command per failure. HC-8 (npm 12 readiness) verifies the native bindings load and emits the exact `--allow-scripts` remediation when npm blocked an install script. HC-9 flags project-scaffold version drift after a global update; HC-10 is an informational scheduled-compaction-liveness heads-up; **HC-11 (backend LLM CLI present)** checks that the CLI of the agent this project runs its automatic engine on (`claude` / `kiro-cli` / `cursor-agent`) is on your PATH — when it's missing, it FAILS with an honest "automatic features degraded, file-only still works" message (never a silent no-op). The report ends with an informational **memory-health section** (content quality: fact count + trust distribution, old-and-untouched facts, possible duplicate pairs, pending queue items) — read-only, never affects the exit code.
 ```bash
 cmk doctor
 ```

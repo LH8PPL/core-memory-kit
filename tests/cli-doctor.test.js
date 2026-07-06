@@ -114,15 +114,16 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
 
   describe('37.6 #1 — all 9 HCs run in order; pass/fail/skip per check', () => {
     // Contract update Task 141a: HC-8 (native bindings / npm 12 readiness).
-    // Contract update Task 162: HC-9 (version-drift / update-path, D-176) joined
-    // — count + order extended, intent preserved.
-    it('emits exactly 10 checks with id HC-1..HC-10 in order', async () => {
+    // Contract update Task 162: HC-9 (version-drift / update-path, D-176) joined.
+    // Contract update Task 200: HC-11 (backend CLI present, D-272/D-277) joined —
+    // count + order extended, intent preserved.
+    it('emits exactly 11 checks with id HC-1..HC-11 in order', async () => {
       const r = await runDoctor({ projectRoot, userDir });
       expect(r.action).toBe('completed');
-      expect(r.checks.length).toBe(10);
+      expect(r.checks.length).toBe(11);
       const ids = r.checks.map((c) => c.id);
       expect(ids).toEqual([
-        'HC-1', 'HC-2', 'HC-3', 'HC-4', 'HC-5', 'HC-6', 'HC-7', 'HC-8', 'HC-9', 'HC-10',
+        'HC-1', 'HC-2', 'HC-3', 'HC-4', 'HC-5', 'HC-6', 'HC-7', 'HC-8', 'HC-9', 'HC-10', 'HC-11',
       ]);
       // Every check has the canonical shape
       for (const c of r.checks) {
@@ -166,6 +167,38 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       const r = await runDoctor({ projectRoot, userDir });
       const hc10 = r.checks.find((c) => c.id === 'HC-10');
       expect(hc10.status).toBe('pass');
+    });
+  });
+
+  describe('HC-11 — backend CLI present (Task 200 / D-272/D-277)', () => {
+    // The beforeEach install() writes .claude/settings.json → detectInstallKind
+    // returns claude-code → HC-11 probes for the `claude` CLI. Inject the probe so
+    // the test never spawns a real binary.
+    it('PASSES when the backend agent CLI is present (probe reports present)', async () => {
+      const backendCliProbe = () => ({ agent: 'claude', bin: 'claude', present: true });
+      const r = await runDoctor({ projectRoot, userDir, backendCliProbe });
+      const hc11 = r.checks.find((c) => c.id === 'HC-11');
+      expect(hc11).toBeDefined();
+      expect(hc11.status).toBe('pass');
+      expect(hc11.message).toMatch(/claude/i);
+    });
+
+    it('FAILS with a helpful message when the backend CLI is missing (the D-270 degrade)', async () => {
+      const backendCliProbe = () => ({
+        agent: 'kiro',
+        bin: 'kiro-cli',
+        present: false,
+        reason: 'kiro-cli not found on PATH',
+      });
+      const r = await runDoctor({ projectRoot, userDir, backendCliProbe });
+      const hc11 = r.checks.find((c) => c.id === 'HC-11');
+      expect(hc11.status).toBe('fail');
+      // Names the missing CLI + says the automatic features are degraded, NOT broken.
+      expect(hc11.message).toMatch(/kiro-cli/);
+      expect(hc11.message.toLowerCase()).toMatch(/automatic|compress|extract|memor/);
+      // Honest degrade: capture/search/recall still work (file-only), so the
+      // message must not imply total failure.
+      expect(hc11.message.toLowerCase()).not.toMatch(/broken|crashed|fatal/);
     });
   });
 

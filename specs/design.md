@@ -2843,6 +2843,30 @@ So the seam is two layers:
 
 Cross-ref: Task 196, D-257 (the lane), D-268 (the landscape), the [2026-07-04 research note](../docs/research/2026-07-04-cursor-memory-landscape.md), §16.50.1 (the seam), tests `cli-cursor-hook-dispatch` / `cli-cursor-hook-bin` / `cli-install-agent-cursor` / `cli-install-ide-routing` (Task 196 blocks) / `cli-doctor` (Cursor HC-1).
 
+#### 16.50.4 SHIPPED — the agent-relative LLM backend (Task 200): the automatic engine runs on WHATEVER agent the user has, not just Claude
+
+**Status: Task 200 (v0.4.5). The seam §16.50 wired hooks/MCP/install per agent; this closes the PROMISE** — the kit's ENTIRE automatic-intelligence layer (auto-extract / compression / persona-wedge / temporal-sweep / daily-distill / weekly-curate) used to shell out to the local **`claude` binary** at ~11 construction sites, so a Cursor-only / Kiro-only user's engine SILENTLY no-op'd (spawn ENOENT → best-effort catch) — the kit degraded to a manual note store (**the D-270 bug**). The fix routes the "Haiku call" through the AGENT'S OWN CLI, so the engine works Claude-free. Grounded in the [D-271 cross-agent survey](../docs/research/2026-07-05-cross-agent-llm-backend-survey.md) (41 projects; the two-tier CLI-first + API-key-fallback shape is what the field converges on, validated by the one prior-art peer, codemem).
+
+**The backends** — one `CompressorBackend` per agent (extends ADR-0008's pluggable seam, now un-deferred; the base class + `HaikuTimeoutError`/`HaikuFailedError`/`terminateSubprocess` are shared from [`compressor.mjs`](../packages/cli/src/compressor.mjs)):
+
+| Agent | Backend | Invocation (LIVE-verified) | Model | Notes |
+| --- | --- | --- | --- | --- |
+| claude-code | `HaikuViaAnthropicApi` (unchanged) | `claude --print` (prompt on stdin) | `claude-haiku-4-5` | the original path; no regression |
+| kiro | [`KiroCliBackend`](../packages/cli/src/kiro-backend.mjs) | `kiro-cli chat --no-interactive --model <m> --trust-tools=` (prompt positional) | `claude-haiku-4.5` | Google login, ~1s; strip ANSI + leading `> ` (stdout); D-279 single-directive prompt |
+| cursor | [`CursorAgentBackend`](../packages/cli/src/cursor-backend.mjs) | `agent -p --trust --model <m> --output-format text` (prompt on stdin) | `composer-2.5-fast` | Cursor subscription (NO API key); clean stdout; **SLOW (30–83s)** |
+
+**Selection** — [`makeBackend({projectRoot})`](../packages/cli/src/make-backend.mjs) via `resolveBackendAgent`: (1) the `backend.agent` config OVERRIDE (the Task 201 split-brain — code in agent X, run the janitor LLM through agent Y; an INVALID override is ignored, never a broken backend), else (2) [`detectInstallKind`](../packages/cli/src/install-kind.mjs) (the agent the project was `cmk install`-ed for). `detectInstallKind` was EXTRACTED from `doctor.mjs` into its own module so `makeBackend` imports it without doctor's heavy dependency chain (a circular-dep hazard).
+
+**Presence + degrade (D-272/D-277)** — [`agentCliOnPath(kind)`](../packages/cli/src/agent-cli.mjs) is the ONE shared detector both `cmk install` (first-touch `warnMissingBackendCli`) and `cmk doctor` (HC-11) use. Per D-274, presence-on-PATH is NOT enough (the Windows Cursor IDE shipped a bug where a binary resolved but was the wrong shim and errored) → it does an **exit-code `--version` probe**, Windows `.cmd`-aware (`claude.cmd`/`agent.cmd`; `kiro-cli` is bare). When the CLI is missing, both surfaces WARN with an honest **"automatic features degraded, file-only still works"** message — never a silent no-op.
+
+**Composition — the D-278 latency invariant (LOAD-BEARING):** `cursor-agent -p` runs the full agent loop even in print mode — a real compression task took **30–83s** live (vs kiro-cli's ~1s). So `CursorAgentBackend` carries a large default timeout (`CURSOR_DEFAULT_TIMEOUT_MS = 150s`), and a Cursor backend call **cannot run synchronously inside the 60s SessionEnd hook ceiling** — a SessionEnd compress on Cursor times out and fails GRACEFULLY (`allSettled`, best-effort — bounded, NOT a hang), while the **ceiling-free daily-distill / lazy paths (120s)** do the durable work. This is the §8.5/§8.7 timeout family applied per-backend: the same code that's fine on kiro-cli blows the SessionEnd ceiling on cursor-agent, so latency is a backend PROPERTY the caller composes with.
+
+**Prompt-shape discipline (D-278/D-279):** both non-Claude backends refuse the task if the prompt reads as a "workspace question" (the research's reject-gate class — the child model second-guesses instead of summarizing). Cursor: pipe the prompt on STDIN (a multi-line positional failed). Kiro: join `instructions + input` as a SINGLE directive line (`"<instructions>: <input>"`), NOT two newline blocks. The **recursion guard** (`CMK_BACKEND_SPAWN=1` in the child env → the kit's own hooks no-op at the dispatcher entry) is agent-agnostic and carried by both.
+
+**Verification** — [`scripts/live-test-backend.mjs`](../scripts/live-test-backend.mjs) (`npm run live-test:backend`) is agent-PARAMETRIC: it exercises the REAL `makeBackend` selection against real input on whichever agent resolves (or `--agent <a>`), so a Claude-free machine can prove its own engine runs — closing the D-84 gap the old claude-hardcoded `live-test.mjs` left (it would PASS while hiding D-270). It carries a reject-gate so a non-empty refusal FAILS. On its first run it caught the D-279 Kiro prompt-shape bug.
+
+Cross-ref: Task 200/201, D-270 (the gap), D-271 (the survey), D-272 (both-surfaces check), D-274 (Cursor live), D-277 (degrade + split-brain), D-278 (Cursor latency + prompt), D-279 (Kiro prompt + the parametric harness), ADR-0008 (the pluggable seam), the 11 migrated sites, tests `cli-cursor-backend` / `cli-kiro-backend` / `cli-agent-cli` / `cli-make-backend` / `cli-install-kind` / `cli-doctor` (HC-11) / `cli-install-backend-warn`.
+
 ### 16.51 First-class `/plugin` marketplace path (parallel to `cmk install`)
 
 **v0.1.x candidate (pairs with §16.49).**

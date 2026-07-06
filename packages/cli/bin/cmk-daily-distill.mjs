@@ -25,15 +25,15 @@ const __dirname = dirname(__filename);
 // paths that don't exist in `npm install -g` installs). Paths resolved
 // relative to bin/ → ../src/ for both modules.
 const dailyDistillModulePath = join(__dirname, '..', 'src', 'daily-distill.mjs');
-const compressorModulePath = join(__dirname, '..', 'src', 'compressor.mjs');
+const makeBackendModulePath = join(__dirname, '..', 'src', 'make-backend.mjs');
 const compactionStateModulePath = join(__dirname, '..', 'src', 'compaction-state.mjs');
 
 let dailyDistill;
-let HaikuViaAnthropicApi;
+let makeBackend;
 let recordCronHeartbeat;
 try {
   ({ dailyDistill } = await import(pathToFileURL(dailyDistillModulePath).href));
-  ({ HaikuViaAnthropicApi } = await import(pathToFileURL(compressorModulePath).href));
+  ({ makeBackend } = await import(pathToFileURL(makeBackendModulePath).href));
   ({ recordCronHeartbeat } = await import(pathToFileURL(compactionStateModulePath).href));
 } catch (err) {
   process.stderr.write(
@@ -67,7 +67,8 @@ try {
 }
 
 try {
-  const backend = new HaikuViaAnthropicApi();
+  // Task 200: agent-relative backend (ceiling-free cron path — 120s, D-278).
+  const backend = makeBackend({ projectRoot });
   const r = await dailyDistill({ projectRoot, backend });
   process.stderr.write(
     `cmk-daily-distill: ${r.action}${r.reason ? ` (${r.reason})` : ''}${r.bytesIn ? ` (in: ${r.bytesIn}b, out: ${r.bytesOut}b, days: ${r.sourceDays})` : ''} ms: ${r.duration_ms ?? 0}\n`,

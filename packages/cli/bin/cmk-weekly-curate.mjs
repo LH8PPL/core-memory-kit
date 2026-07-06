@@ -19,15 +19,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const weeklyCurateModulePath = join(__dirname, '..', 'src', 'weekly-curate.mjs');
-const compressorModulePath = join(__dirname, '..', 'src', 'compressor.mjs');
+const makeBackendModulePath = join(__dirname, '..', 'src', 'make-backend.mjs');
 const compactionStateModulePath = join(__dirname, '..', 'src', 'compaction-state.mjs');
 
 let weeklyCurate;
-let HaikuViaAnthropicApi;
+let makeBackend;
 let recordCronHeartbeat;
 try {
   ({ weeklyCurate } = await import(pathToFileURL(weeklyCurateModulePath).href));
-  ({ HaikuViaAnthropicApi } = await import(pathToFileURL(compressorModulePath).href));
+  ({ makeBackend } = await import(pathToFileURL(makeBackendModulePath).href));
   ({ recordCronHeartbeat } = await import(pathToFileURL(compactionStateModulePath).href));
 } catch (err) {
   process.stderr.write(
@@ -62,7 +62,8 @@ try {
 }
 
 try {
-  const backend = new HaikuViaAnthropicApi();
+  // Task 200: agent-relative backend (ceiling-free cron path — 120s, D-278).
+  const backend = makeBackend({ projectRoot, userDir });
   const r = await weeklyCurate({ projectRoot, userDir, backend });
   const p = r.persona;
   const personaNote = p

@@ -17,6 +17,7 @@ import { install as installAction, initUserTier as initUserTierAction } from './
 import { installAgent, uninstallAgent } from './install-agent.mjs';
 import { installKiro, uninstallKiro } from './install-kiro.mjs';
 import { getAgentProfile, listAgentProfiles } from './agent-profiles.mjs';
+import { agentCliOnPath, KNOWN_BACKEND_AGENTS } from './agent-cli.mjs';
 import { runKiroHook } from './kiro-hook-bin.mjs';
 import { dispatchCursorHook } from './cursor-hook-dispatch.mjs';
 import { readKiroTurn } from './kiro-transcript.mjs';
@@ -192,6 +193,28 @@ async function offerBindingFix(nativeBinding, options, { log, logError }) {
   }
 }
 
+// Task 200 (D-272/D-277): the first-touch backend-CLI check. `cmk install`
+// wires the kit for an agent whose OWN CLI runs the automatic LLM call — so if
+// that CLI isn't on PATH, the automatic features silently no-op (the D-270 bug).
+// This warns AT INSTALL (the moment the gap is actionable), before the user ever
+// wonders why nothing summarizes. Honest degrade: the file-only surfaces still
+// work; only the automatic LLM steps wait on the CLI. Shared by the claude +
+// per-agent install paths. `backendCliProbe` injectable so tests don't spawn.
+export function warnMissingBackendCli(agent, { log, backendCliProbe } = {}) {
+  const emit = log ?? console.log;
+  const probe = backendCliProbe ?? ((a) => agentCliOnPath(a));
+  const r = probe(agent);
+  if (r.present) return; // silent on success — the happy path prints nothing extra
+  emit(
+    `  Heads-up: the ${agent} CLI (${r.bin}) isn't on your PATH yet` +
+      `${r.reason ? ` — ${r.reason}` : ''}.`,
+  );
+  emit(
+    `  Capture, search, recall and the delete-guard work now, but automatic` +
+      ` compression / extraction / persona wait until you install it.`,
+  );
+}
+
 // Exported for tests (Task 141a) — dep-injectable (cwd / userTier / log /
 // logError / bindingProbe / askImpl / fixRunner / reProbe / interactive) on
 // the runImportClaudeMd pattern. Defaults unchanged for production.
@@ -290,6 +313,10 @@ export async function runInstall(options /* , command */) {
     process.exitCode = 1;
   }
 
+  // Task 200 (D-272): first-touch backend-CLI heads-up (claude path → the
+  // `claude` CLI runs the automatic engine). Injectable probe for tests.
+  warnMissingBackendCli('claude', { log, backendCliProbe: options?.backendCliProbe });
+
   // Task 141a: the binding ask comes LAST — it's the one thing the user may
   // still need to act on, and the tail of install output is what gets read.
   await offerBindingFix(result.nativeBinding, options, { log, logError });
@@ -365,6 +392,9 @@ async function runInstallForAgent({ ide, options, log, logError }) {
       for (const e of scaffold.errors) logError(`  error: ${e.path}: ${e.error}`);
       process.exitCode = 1;
     }
+    // Task 200 (D-272): first-touch backend-CLI heads-up (Kiro → kiro-cli runs
+    // the automatic engine).
+    warnMissingBackendCli('kiro', { log, backendCliProbe: options?.backendCliProbe });
     return;
   }
 
@@ -409,6 +439,13 @@ async function runInstallForAgent({ ide, options, log, logError }) {
   if (scaffold.errors.length > 0) {
     for (const e of scaffold.errors) logError(`  error: ${e.path}: ${e.error}`);
     process.exitCode = 1;
+  }
+  // Task 200 (D-272): first-touch backend-CLI heads-up for agents that have a
+  // per-agent backend (cursor → cursor-agent). Agents with no dedicated backend
+  // (instruction-only rungs like agents-md) fall back to the default at runtime,
+  // so there's no per-agent CLI to warn about here.
+  if (KNOWN_BACKEND_AGENTS.includes(ide)) {
+    warnMissingBackendCli(ide, { log, backendCliProbe: options?.backendCliProbe });
   }
 }
 
@@ -612,15 +649,16 @@ export async function runCursorHook(_options = {}, _command, deps = {}) {
       // bin runs. Lazily imported so the heavy compressor stack never loads on
       // the hot per-turn events.
       sessionEnd: deps.sessionEnd ?? (async (args) => {
-        const [{ runSessionEndTasks }, { HaikuViaAnthropicApi }] = await Promise.all([
+        const [{ runSessionEndTasks }, { makeBackend }] = await Promise.all([
           import('./session-end-tasks.mjs'),
-          import('./compressor.mjs'),
+          import('./make-backend.mjs'),
         ]);
         const userDir = env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
         await runSessionEndTasks({
           projectRoot: args.projectRoot,
           userDir,
-          makeBackend: () => new HaikuViaAnthropicApi(),
+          // Task 200: agent-relative backend (picks the installed-for agent's CLI).
+          makeBackend: () => makeBackend({ projectRoot: args.projectRoot, userDir }),
         });
       }),
     },
@@ -1442,10 +1480,11 @@ function runForget(idOrQuery, options /* , command */) {
  */
 async function runDailyDistill(/* options */) {
   const projectRoot = resolvePath(process.cwd());
-  // Lazy-load HaikuViaAnthropicApi (avoids the dep when running unit tests).
-  const { HaikuViaAnthropicApi } = await import('./compressor.mjs');
+  // Task 200: agent-relative backend factory (lazy-loaded — avoids the dep in
+  // unit tests; picks the installed-for agent's CLI).
+  const { makeBackend } = await import('./make-backend.mjs');
   try {
-    const backend = new HaikuViaAnthropicApi();
+    const backend = makeBackend({ projectRoot });
     const r = await dailyDistill({ projectRoot, backend });
     if (r.action === 'error') {
       console.error(
@@ -1469,10 +1508,10 @@ async function runDailyDistill(/* options */) {
  */
 async function runWeeklyCurate(/* options */) {
   const projectRoot = resolvePath(process.cwd());
-  const { HaikuViaAnthropicApi } = await import('./compressor.mjs');
+  const { makeBackend } = await import('./make-backend.mjs'); // Task 200: agent-relative
   const { defaultUserDir } = await import('./tier-paths.mjs');
   try {
-    const backend = new HaikuViaAnthropicApi();
+    const backend = makeBackend({ projectRoot, userDir: defaultUserDir() });
     // Production entry point → the Task-66 sweeps cover the U tier
     // (finding 3); autoPersona keeps its cron-only shape (no userDir).
     const r = await weeklyCurate({ projectRoot, backend, sweepUserDir: defaultUserDir() });
@@ -1510,8 +1549,10 @@ export async function runPersonaGenerate(opts = {}) {
   const log = opts.log ?? console.log;
   const logError = opts.logError ?? console.error;
   try {
+    // Task 200: agent-relative backend (the injected opts.backend still wins for
+    // tests; production picks the installed-for agent's CLI).
     const backend =
-      opts.backend ?? new (await import('./compressor.mjs')).HaikuViaAnthropicApi();
+      opts.backend ?? (await import('./make-backend.mjs')).makeBackend({ projectRoot, userDir });
     // Task 111 (F-2): `cmk persona generate` is an explicit one-shot with NO outer
     // hook ceiling (unlike the 60s-bounded SessionEnd path), so it gives the Haiku
     // classifier generous headroom — the whole-project facts sweep is a heavier
@@ -1909,9 +1950,9 @@ async function runRollCli(options /* , command */) {
   // daily-distill, weekly-curate) all operate purely on projectRoot —
   // none take userDir. Same forward-compat-rot anti-pattern Task 37 M3
   // + Task 38 I1 already removed.
-  const { HaikuViaAnthropicApi } = await import('./compressor.mjs');
+  const { makeBackend } = await import('./make-backend.mjs'); // Task 200: agent-relative
   try {
-    const backend = new HaikuViaAnthropicApi();
+    const backend = makeBackend({ projectRoot });
     const r = await runRoll({ projectRoot, scope, backend });
     if (r.action === 'error') {
       console.error(`cmk roll: error — ${(r.errors ?? []).join('; ')}`);
@@ -2106,9 +2147,9 @@ async function runCompress(options /* , command */) {
     return;
   }
   const projectRoot = resolvePath(process.cwd());
-  const { HaikuViaAnthropicApi } = await import('./compressor.mjs');
+  const { makeBackend } = await import('./make-backend.mjs'); // Task 200: agent-relative
   try {
-    const backend = new HaikuViaAnthropicApi();
+    const backend = makeBackend({ projectRoot });
     const r = await runLazyCompress({ projectRoot, backend });
     if (r.action === 'error') {
       console.error(
