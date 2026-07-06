@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+## [0.5.0] — 2026-07-07
+
 ### Added
 
 - **learn-loop: THE STOP-HOOK JUDGE (Task 192, ADR-0017 Phase 1c)** - the loop CLOSES: four deterministic outcome detectors now ride the existing hooks (no LLM, no ritual): a failing tool call dampens the facts the model just searched (attributed via the recall-log); a user correction dampens the prior turn's ids and resolves pending expectations MISS (REVERSAL on revert-phrasing - the strongest oracle-free signal); a search that only re-fetched already-injected ids registers a recall-miss dampen (re-surfacing is never reinforcement); an expectation that survives the turn window with nothing fired resolves WEAK-POSITIVE. Every delta routes through the feedback-screen (rate-limited, burst-held, audited).
