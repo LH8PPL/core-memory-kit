@@ -61,7 +61,11 @@ export function readSignalLog(projectRoot) {
     const t = line.trim();
     if (!t) continue;
     try {
-      entries.push(JSON.parse(t));
+      const parsed = JSON.parse(t);
+      // Only plain objects survive: a stray `null`/scalar line would otherwise
+      // throw inside screenSignal's date filter and fail the screen OPEN on
+      // every future call (skill-review M4).
+      if (parsed && typeof parsed === 'object') entries.push(parsed);
     } catch {
       /* skip corrupt line */
     }
@@ -108,6 +112,9 @@ export function screenSignal(projectRoot, { id, event }) {
 /** Append one screen-log entry (best-effort — never throws). */
 export function logSignal(projectRoot, { id, event, applied, reason, trust_score }) {
   try {
+    // Never scaffold context/ in a non-kit project (the same gate as the
+    // recall-log's inject side — skill-review M8): no context/, no log.
+    if (!existsSync(join(projectRoot, 'context'))) return { ok: false };
     const entry = { ts: new Date().toISOString(), id, event, applied };
     if (reason) entry.reason = reason;
     if (trust_score !== undefined) entry.trust_score = trust_score;

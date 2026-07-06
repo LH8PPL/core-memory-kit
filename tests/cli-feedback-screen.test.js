@@ -15,7 +15,7 @@
 // Door 5 N/A: no message queue.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, readFileSync, existsSync, appendFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -169,5 +169,57 @@ describe('Task 193 — screened applyTrustSignal', () => {
     const r = applyTrustSignal({ projectRoot: bareRoot, id: 'P-9LXBA3ZK', event: 'dampen', db: bdb });
     expect(r.action).toBe('updated');
     bdb.close();
+    // And the logger must NOT scaffold context/ into a non-kit project
+    // (skill-review M8 — the same gate as the recall-log's inject side).
+    expect(existsSync(join(bareRoot, 'context'))).toBe(false);
+  });
+
+  it('burst-hold UNDER threshold: 9 applied dampens do not trip the hold (budget under-cap edge)', () => {
+    const ids = Array.from({ length: BURST_MIN_SIGNALS - 1 }, (_, i) =>
+      `P-${'ABCDEFGHJK'[i]}${'ABCDEFGHJK'[i]}AAAA22`,
+    );
+    for (const id of ids) seedFact(db, id, 0.5);
+    for (const id of ids) applyTrustSignal({ projectRoot, id, event: 'dampen', db });
+
+    seedFact(db, 'U-CVGYFKW2', 0.9);
+    const r = applyTrustSignal({ projectRoot, id: 'U-CVGYFKW2', event: 'dampen', db });
+    expect(r.action).toBe('updated'); // 9 applied < BURST_MIN_SIGNALS — no hold
+  });
+
+  it('burst-hold fraction boundary: EXACTLY 80% negative does not trip (strict >, budget at-cap edge)', () => {
+    // 8 dampens + 2 reinforces = 10 applied, fraction exactly 0.8 — the hold
+    // requires STRICTLY MORE than BURST_NEGATIVE_FRACTION.
+    const dampenIds = Array.from({ length: 8 }, (_, i) =>
+      `P-${'ABCDEFGHJK'[i]}${'ABCDEFGHJK'[i]}AAAA22`,
+    );
+    const reinforceIds = ['P-RRAAAA22', 'P-QQAAAA22'];
+    for (const id of [...dampenIds, ...reinforceIds]) seedFact(db, id, 0.5);
+    for (const id of dampenIds) applyTrustSignal({ projectRoot, id, event: 'dampen', db });
+    for (const id of reinforceIds) applyTrustSignal({ projectRoot, id, event: 'reinforce', db });
+
+    seedFact(db, 'U-CVGYFKW2', 0.9);
+    const r = applyTrustSignal({ projectRoot, id: 'U-CVGYFKW2', event: 'dampen', db });
+    expect(r.action).toBe('updated'); // 0.8 is NOT > 0.8
+  });
+
+  it('unknown events are inert: no rate budget consumed, no logs, no audit (skill-review M7)', () => {
+    seedFact(db, 'P-9LXBA3ZK', 0.5);
+    const r = applyTrustSignal({ projectRoot, id: 'P-9LXBA3ZK', event: 'bogus-event', db });
+    expect(r.action).toBe('skipped');
+    expect(readSignalLog(projectRoot)).toHaveLength(0);
+    expect(existsSync(join(projectRoot, 'context', '.locks', 'audit.log'))).toBe(false);
+  });
+
+  it('a stray null NDJSON line does not disable the screen (skill-review M4)', () => {
+    seedFact(db, 'P-9LXBA3ZK', 0.9);
+    // Poison the state file with a parseable-but-not-object line.
+    mkdirSync(join(projectRoot, 'context', '.locks'), { recursive: true });
+    appendFileSync(signalLogPath(projectRoot), 'null\n', 'utf8');
+    for (let i = 0; i < RATE_LIMIT_PER_FACT_PER_DAY; i++) {
+      applyTrustSignal({ projectRoot, id: 'P-9LXBA3ZK', event: 'dampen', db });
+    }
+    // The screen still works: the rate limit trips despite the junk line.
+    const over = applyTrustSignal({ projectRoot, id: 'P-9LXBA3ZK', event: 'dampen', db });
+    expect(over.action).toBe('rate-limited');
   });
 });
