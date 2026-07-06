@@ -687,22 +687,27 @@ The regular user **never types `cmk`** — they talk, and Claude runs the MCP to
 Run these **in chat** (a real Claude Code session), not the terminal. This is the surface the
 CLI suite structurally can't cover (Claude is in the loop).
 
-> ⚠️ **PREREQUISITE — restart Claude Code after `cmk install`, before this section.** Claude Code
-> reads `.mcp.json` **at process startup**, not mid-session. If you started the session **in the same
-> window** that `cmk install` scaffolded `.mcp.json` into, the `cmk` server is registered but its tools
-> show as **"available (deferred)" and won't resolve** — Claude will fall back to the `cmk` **CLI**
-> (documented graceful degrade — capture still works), and M0 will read empty. **Fix: quit and reopen
-> Claude Code in this folder** (or open a fresh window on it) so `.mcp.json` loads at launch. This is
-> not a kit bug — the server + registration are correct (`cmk mcp serve` speaks MCP; `settings.json`
-> has `enabledMcpjsonServers:["cmk"]` + the `mcp__cmk__*` allowlist); it's Claude Code's MCP-load
-> lifecycle. Verified 2026-07-06 (v0.4.5 gate): a session started ~9s after install showed the tools
-> deferred-but-unresolved; a restart resolved all 11. _(Same reason M2's recall step and the §5
-> cold-open say "restart Claude Code first.")_
+> ℹ️ **If `mk_*` tools don't resolve on the FIRST turn — it's a Claude Code ToolSearch race, not a kit bug.**
+> Claude Code v2.1.x **defers** MCP tool schemas behind ToolSearch (only tool *names* load at session
+> start; the model must hydrate a schema before calling the tool — `ENABLE_TOOL_SEARCH`). There is a
+> known Claude Code bug ([anthropics/claude-code #42148](https://github.com/anthropics/claude-code/issues/42148),
+> [#60052](https://github.com/anthropics/claude-code/issues/60052)): the deferred-tool list is **frozen at
+> turn-start**, so if the model tries to resolve a tool before hydration settles it reports *"available
+> (deferred) … isn't resolving via ToolSearch"* and falls back to the `cmk` **CLI** (the `memory-write`
+> skill's documented graceful degrade — **capture still works, no data lost**). **This is Claude-Code-side,
+> not ours** — verified from Claude Code's OWN MCP logs (2026-07-06, v0.4.5 gate, session `6c9763e4`):
+> the `cmk` server **connected cleanly in 925 ms at session start with `hasTools:true`** — the connection
+> was never the problem; the failure was purely in Claude Code's tool-search/hydration layer AFTER a
+> healthy connect. **What to do:** just try again on the **next turn** (a fresh turn re-reads the now-hydrated
+> tool list), or accept the CLI-fallback capture. The kit can't force its tools non-deferred — `defer_loading`
+> is a Claude-Code/API-side toolset knob, not something a stdio MCP server advertises. _(NOT a
+> restart-after-install issue: the logs prove `.mcp.json` loaded and the server connected in that first
+> session — a restart is not the fix.)_
 
 - [ ] **★ M0 — the 11 tools are live (Task 108).**
       Say: *"list your cmk MCP tools."*
       → `mk_remember, mk_search, mk_get, mk_timeline, mk_cite, mk_recent_activity, mk_trust, mk_lessons_promote, mk_forget, mk_queue_list, mk_queue_resolve` (**11**).
-      _(Empty = the server didn't launch OR you didn't restart Claude Code after install — see the ⚠️ prerequisite above; then re-check G6.)_
+      _(If they don't resolve on the first turn, see the ℹ️ note above — it's the Claude Code #42148 ToolSearch race, not a launch failure. Confirm G6 registered the server, then retry on a fresh turn.)_
 
 - [ ] **★ M1 — capture in chat, prompt-free (Task 108).**
       Say: *"remember our staging environment runs on Fly.io — because it's cheap to spin ephemeral envs up and down."*
