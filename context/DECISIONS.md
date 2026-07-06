@@ -10400,3 +10400,220 @@ _(retracted 2026-06-29)_
 
 **When:** 2026-07-05 · **Fact:** `P-KE5RQUKJ`
 **Why:** This allows cleanup of uncommitted work without losing the design intent, making it easy for the next session to recall what was being attempted and why it was deferred.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-XDNK47AH -->
+
+## D-264 entry rewritten to record both the review catch and red-on-main step; illu
+
+**When:** 2026-07-03 · **Fact:** `P-XDNK47AH`
+
+<!-- decision:P-S99FUTTW -->
+
+## User approves trigger-walk forcing function process ("do it, sounds like a good
+
+**When:** 2026-07-03 · **Fact:** `P-S99FUTTW`
+
+<!-- decision:P-RJRPEAMC -->
+
+## when creating a cut-gate for domain-specific tools (Cursor, Kiro), build a full
+
+**When:** 2026-07-04 · **Fact:** `P-RJRPEAMC`
+
+<!-- decision:P-CF74L2XA -->
+
+## Kit must work for users with ONLY Cursor or ONLY Kiro installed, without Claude
+
+**When:** 2026-07-04 · **Fact:** `P-CF74L2XA`
+
+<!-- decision:P-MV4B4WQP -->
+
+## Task 196 (Cursor adapter) shipped and merged to main (PR #254); validates D-180
+
+**When:** 2026-07-04 · **Fact:** `P-MV4B4WQP`
+
+<!-- decision:P-9D6T5Z2U -->
+
+## D-271 Deep Research — Headless LLM Invocation Patterns
+
+**When:** 2026-07-05 · **Fact:** `P-9D6T5Z2U`
+**Why:** The target question is the evaluation rubric for all 70 projects. Persisting it ensures consistent, repeatable research across resumptions and prevents re-deriving scope.
+
+<!-- decision:P-YSF64NYA -->
+
+## D-271 Multi-Wave Research Execution on Sonnet 5
+
+**When:** 2026-07-05 · **Fact:** `P-YSF64NYA`
+**Why:** User has subscription cost constraints; batching with transparency allows controlled, budget-aware progression
+
+<!-- decision:P-2252SPZH -->
+
+## Wants Sonnet 5 agents instead of Opus 4.8 to reduce subscription burn
+
+**When:** 2026-07-05 · **Fact:** `P-2252SPZH`
+
+<!-- decision:P-WCLJEVK6 -->
+
+## Wants to work in batches with cost reporting before each wave to manage budget
+
+**When:** 2026-07-05 · **Fact:** `P-WCLJEVK6`
+
+<!-- decision:P-LQ7WZKHN -->
+
+## Gate CLI-detection checks on research findings to prevent false positives
+
+**When:** 2026-07-05 · **Fact:** `P-LQ7WZKHN`
+**Why:** Unvalidated platform assumptions risk producing false positives on correct installations, blocking users with valid setups; pre-research implementation prevents encoding environment-specific assumptions as universal truth
+
+<!-- decision:P-C42D5UT5 -->
+
+## The CLI-missing check should be added to `cmk install` command for first-touch w
+
+**When:** 2026-07-05 · **Fact:** `P-C42D5UT5`
+
+<!-- decision:P-Q9FSUC96 -->
+
+## Don't ask permission to log decisions, flip checkboxes (task tracking), or maint
+
+**When:** 2026-07-05 · **Fact:** `P-Q9FSUC96`
+
+<!-- decision:P-QaK2EJYP -->
+
+## Wave-Based Agent Research for Cursor-Windows Invocation
+
+**When:** 2026-07-05 · **Fact:** `P-QaK2EJYP`
+**Why:** This is a structured research program to understand how competitor AI tools invoke headless agents on Windows, directly informing a Cursor product decision.
+
+<!-- decision:P-MWSWK34R -->
+
+## Args serialization guard for batch agent launches
+
+**When:** 2026-07-05 · **Fact:** `P-MWSWK34R`
+**Why:** Previous launch failed silently at script-eval due to inconsistent input format. Guard prevents eval errors and ensures agents spawn correctly.
+
+<!-- decision:P-WFKR4FaT -->
+
+## Agent CLI Validation Requires Exit Code Check, Not Just PATH Presence
+
+**When:** 2026-07-05 · **Fact:** `P-WFKR4FaT`
+**Why:** Silent failures (CLI present but non-functional) are worse than detection failures; exit-code validation catches misconfiguration that PATH checks miss
+
+<!-- decision:P-6C9TDAMU -->
+
+## Cursor Agent Automation Requires Separate CURSOR_API_KEY (No Desktop Login Reuse)
+
+**When:** 2026-07-05 · **Fact:** `P-6C9TDAMU`
+**Why:** Onboarding trap: users may assume desktop login carries over to CLI, leading to silent failures in automation
+
+<!-- decision:P-WNQaPLZP -->
+
+## Cursor Native Windows PowerShell Support Confirmed
+
+**When:** 2026-07-05 · **Fact:** `P-WNQaPLZP`
+**Why:** Resolves Windows-platform blocker for agent support; confirms native Windows CLI path exists and is canonical
+
+<!-- decision:P-E6MKGTDS -->
+
+## Two-Tier Backend Architecture for Headless LLM Invocation
+
+**When:** 2026-07-05 · **Fact:** `P-E6MKGTDS`
+**Why:** Validates kit's two-tier architecture decision; confirms this is the canonical pattern others follow, not an edge case
+
+<!-- decision:P-JUNL3FMF -->
+
+## cursor-agent runs natively on Windows via subscription login (no separate API ke
+
+**When:** 2026-07-05 · **Fact:** `P-JUNL3FMF`
+
+<!-- decision:P-SDYPaDJ9 -->
+
+## Cursor Agent Windows Native Support — Live Validation
+
+**When:** 2026-07-05 · **Fact:** `P-SDYPaDJ9`
+**Why:** Resolves Task 200's load-bearing Cursor-Windows question. Wave 1 research (~2.26M tokens) identified native Windows exists; user's live validation now proves no second vendor/API key required. Unblocks CursorAgentBackend implementation.
+
+<!-- decision:P-CX4MXQ4P -->
+
+## Field Survey: Zero Multi-CLI Routing (32 projects)
+
+**When:** 2026-07-05 · **Fact:** `P-CX4MXQ4P`
+**Why:** Validates that automatic + portable (work with any agent CLI) is a genuine market gap the field hasn't solved. The field chose one property; this project insists on both.
+
+<!-- decision:P-NKWEPT72 -->
+
+## Auto-Detect Priority Chain (Proven from codemem)
+
+**When:** 2026-07-05 · **Fact:** `P-NKWEPT72`
+**Why:** codemem uses this ordering to handle real-world edge cases (user may have multiple CLIs, auth-state issues, no CLI at all). Proven in the field; saves re-deriving the ordering.
+
+<!-- decision:P-K79LJQaA -->
+
+## Cloud-API-Key Is Industry Standard; Multi-CLI Is Deliberate Differentiation
+
+**When:** 2026-07-05 · **Fact:** `P-K79LJQaA`
+**Why:** Provides strategic context for design decisions. The kit's choice to route through the user's authenticated CLI is higher-risk but higher-value (no API key management, uses existing auth). This is not a mistake; it's the deliberate differentiation that makes the kit novel.
+
+<!-- decision:P-Q6Q5VX7Q -->
+
+## codemem Validates Multi-CLI Auto-Detect Approach in Production
+
+**When:** 2026-07-05 · **Fact:** `P-Q6Q5VX7Q`
+**Why:** Codemem is the sole prior-art reference using subscription-reuse multi-CLI routing (vs. the industry standard of cloud-API-key). Validates the design direction and provides a concrete blueprint for selector logic and fallback ordering.
+
+<!-- decision:P-TAE2F6J6 -->
+
+## Field Research Phase Complete — 42 Projects, 5 Waves, ~7M Subagent Tokens
+
+**When:** 2026-07-05 · **Fact:** `P-TAE2F6J6`
+**Why:** Marks end of exploratory phase. Synthesis and recommendation are next, backed by comprehensive field evidence.
+
+<!-- decision:P-MBNMDFSU -->
+
+## shouldAutoSelectXSidecar() Selector Function Pattern
+
+**When:** 2026-07-05 · **Fact:** `P-MBNMDFSU`
+**Why:** Improves testability, maintainability, and code clarity. codemem uses this pattern implicitly; explicit extraction is recommended for the kit's architecture.
+
+<!-- decision:P-6KHEFURB -->
+
+## Task 201 — Cross-Agent CLI Selection for Memory Operations
+
+**When:** 2026-07-05 · **Fact:** `P-6KHEFURB`
+**Why:** Enables cost/role separation — premium agent for interactive work, cheaper agent for scheduled background janitor tasks. Zero-friction implementation via existing factory pattern.
+
+<!-- decision:P-QGKURRR2 -->
+
+## Pre-commit PII validator on context/ commits
+
+**When:** 2026-07-05 · **Fact:** `P-QGKURRR2`
+**Why:** The project repository is public. Accidental commits of personal/sensitive info are a real risk. The validator is the automated gate that stops these commits before they reach the repo. (Tested live this session: the validator caught an accidentally-written email and forced removal.)
+
+<!-- decision:P-LXa6HBUZ -->
+
+## cursor-agent CLI Quirks and Latency Profile
+
+**When:** 2026-07-05 · **Fact:** `P-LXa6HBUZ`
+**Why:** Live-tested against real cursor-agent; these quirks are load-bearing for Task 200's `makeBackend` design and D-278 routing decision (slow backends must use detached/ceiling-free paths, not synchronous hooks).
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
