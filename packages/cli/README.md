@@ -166,7 +166,7 @@ Full reference with examples: **[docs/CLI.md](https://github.com/LH8PPL/claude-m
 
 ## Working with Cursor
 
-[Cursor](https://cursor.com) removed its native Memories feature (2.1.x) — static rules are its only built-in persistence. `cmk install --ide cursor` restores the full automatic loop: recalled memory injects at session start, each turn is captured, edits are observed, and the delete-guardrail screens shell commands. All hooks drive one dispatcher (`cmk cursor-hook`) wired into `.cursor/hooks.json` without touching your own hooks, plus an always-applied rule (`.cursor/rules/claude-memory-kit.mdc`). Restart Cursor after install so the hooks load.
+[Cursor](https://cursor.com) removed its native Memories feature (2.1.x) — static rules are its only built-in persistence. `cmk install --ide cursor` restores the full automatic loop: recalled memory injects at session start, each turn is captured, edits are observed, and the delete-guardrail screens shell commands. All hooks drive one dispatcher (`cmk cursor-hook`) wired into `.cursor/hooks.json` without touching your own hooks, plus an always-applied rule (`.cursor/rules/claude-memory-kit.mdc`). Restart Cursor after install so the hooks load. The full setup, surface table, backend, and dual-agent notes are in **[the Cursor guide](https://github.com/LH8PPL/claude-memory-kit/blob/main/docs/CURSOR.md)**.
 
 ## Uninstalling
 

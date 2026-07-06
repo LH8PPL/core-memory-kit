@@ -95,7 +95,7 @@ The user is direct and tight on time. Match the energy.
   | **The SYSTEMIC view — the kit as ONE system (whole + parts + relationship/constraint edges), the TARGET learn-loop design ("our Figure 2") + its build phases, the honestly-blank unsolved region** | [`docs/SYSTEM-MAP.md`](docs/SYSTEM-MAP.md) — living doc; any change to the system's SHAPE (a new organ, a closed/opened edge, a new signal, a constraint change) updates it in the same batch, per the D-249 walk. Companion: ADR-0017. |
   | **The per-tier memory-flow / lifecycle map (write → cap → graduate/condense → recall)** | [`specs/memory-lifecycle-map.md`](specs/memory-lifecycle-map.md) |
   | **Install / first-run walkthrough** | [`QUICKSTART.md`](QUICKSTART.md) + [`docs/BOOTSTRAP.md`](docs/BOOTSTRAP.md) |
-  | **Cross-agent (Kiro) surface docs** | [`docs/KIRO.md`](docs/KIRO.md) |
+  | **Per-agent surface docs (setup / surface table / backend / dual-agent)** | [`docs/CLAUDE-CODE.md`](docs/CLAUDE-CODE.md) · [`docs/KIRO.md`](docs/KIRO.md) · [`docs/CURSOR.md`](docs/CURSOR.md) — one per agent, kept parallel |
   | **Security policy / threat model** | [`SECURITY.md`](SECURITY.md) |
   | **Contributor guide** | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
   | **Plugin / Python-package landing pages + scaffolded skills** | [`plugin/README.md`](plugin/README.md), [`python/README.md`](python/README.md), the `plugin/skills/*/SKILL.md` |
