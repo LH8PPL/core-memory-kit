@@ -10,6 +10,15 @@
 
 ---
 
+## 2026-07-06 — D-287: Task 193 FEEDBACK-SCREEN shipped (ADR-0017 Phase 1d) — the loop's Poison_Guard; trust mutations are now rate-limited, burst-held, and audit-logged
+
+- **✅ BUILD (TDD, same-evening as 190):** the screen lives INSIDE `applyTrustSignal` (`trust-signal.mjs`) — the verified single trust_score mutation gate (4 callers, zero bypass writers) — so every present AND future signal (Task 192's judge) inherits it. New module `feedback-screen.mjs`: `screenSignal` (pure verdict over today's `context/.locks/trust-signals.log` entries) + `logSignal` + `readSignalLog`; exported constants `RATE_LIMIT_PER_FACT_PER_DAY=5`, `BURST_MIN_SIGNALS=10`, `BURST_NEGATIVE_FRACTION=0.8`.
+- **The three rules:** (1) rate-limit — max 5 APPLIED deltas per fact per UTC day (refusals don't consume budget, so a storm can't freeze a fact forever); (2) burst-hold — ≥10 same-day applied signals with >80% dampens → further DAMPENS quarantined (`applied:false, reason:'burst-hold'`), reinforces pass (positives aren't the attack surface; A-MemGuard set-level-defense precedent); (3) every applied Δ ALSO lands in the canonical audit.log (`action:'trust-signal'`, tier/id/reasonCode per schema) in an ISOLATED try/catch — a post-apply bookkeeping failure must not make the outer catch falsely report `skipped` after the UPDATE ran (a real hazard caught during the build: `appendAuditEntry` THROWS on missing fields).
+- **Caller-map executed:** the 3 shared-db call sites (conflict-queue ×2, merge-facts ×2, validity-window ×1) passed `db` WITHOUT `projectRoot` — they all HAD it in scope (they open `sigDb` with it); now they pass both, so the screen sees state on every production path. FAIL-OPEN posture: no `context/`/unreadable state → the signal applies unscreened (the pre-193 contract, preserved — a broken diagnostic never breaks the primary write).
+- **Tests:** 8 (five doors; the burst-storm over-mutation scenario — 10 distinct-fact dampens, then a dampen against a GOOD memory is quarantined with its score untouched; per-fact isolation; floor-through-screen; projectRoot-only composition; fail-open). One test-fixture bug fixed during RED→GREEN (the composition test seeded a custom dbPath the internal open can't see — test setup fixed, not the code). Touched suites 129/129; full suite exit 0. Docs walked proactively (the 190 skill-review lesson): design §"seven log files" table row + §16.13 rotation scope + §20.2 "screened" bullet, SYSTEM-MAP Phase-1d marked shipped, CHANGELOG, tasks.md. _Relates ADR-0017 (Decision #4 — "a prerequisite, not an option"), D-286 (Phase 1a the same evening), Task 192 (the judge this pre-screens), NFR-9. D-287._
+
+---
+
 ## 2026-07-06 — D-286: v0.4.5 TAGGED + PUBLISHED ✅; v0.5 Phase-1 OPENED early (a deliberate D-257 re-order) — Task 190 RECALL-LOG shipped
 
 - **✅ RELEASE: v0.4.5 is LIVE** — the user pushed the `v0.4.5` tag (verified pointing at main's tip `73c73bd` — tagging from a just-created side branch was safe, zero commits diverged); publish.yml **success** (npm `@lh8ppl/claude-memory-kit@0.4.5` + GitHub Release). The agent-relative-backend release is out.

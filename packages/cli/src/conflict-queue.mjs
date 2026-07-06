@@ -834,8 +834,8 @@ export function mergeScratchpadBullets({
   try {
     const sigDb = openIndexDb({ projectRoot });
     try {
-      applyTrustSignal({ id: idA, event: 'dampen', db: sigDb });
-      applyTrustSignal({ id: idB, event: 'dampen', db: sigDb });
+      applyTrustSignal({ projectRoot, id: idA, event: 'dampen', db: sigDb });
+      applyTrustSignal({ projectRoot, id: idB, event: 'dampen', db: sigDb });
     } finally {
       sigDb.close();
     }

@@ -305,7 +305,7 @@ no ritual — expectation + recall-log ride existing hooks (D-169); every memory
   primitive — small but load-bearing: without attribution no signal finds its memory; **1a SHIPPED
   2026-07-06, Task 190/PR #259** — `context/.locks/recall.log`, inject + search wired) + expectation
   pre-registration + judgment files + the Stop-hook judge (tool-result / correction / re-ask) +
-  feedback-screen v0 (rate-limit + burst-hold).
+  feedback-screen v0 (rate-limit + burst-hold; **1d SHIPPED 2026-07-06, Task 193** - screened inside `applyTrustSignal`, state at `context/.locks/trust-signals.log`).
 - **Phase 2 — close the edge:** the confidence-gated search blend (the ADR-level §20.3 revision) +
   survival gate + anti-pattern conversion.
 - **Phase 3 — host-dependent:** peer-disagreement, used-vs-ignored, the agent hosts (Task 50/127),
