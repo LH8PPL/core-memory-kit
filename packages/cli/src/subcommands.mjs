@@ -211,8 +211,7 @@ export function warnMissingBackendCli(agent, { log, backendCliProbe } = {}) {
   );
   emit(
     `  Capture, search, recall and the delete-guard work now, but automatic` +
-      ` compression / extraction / persona wait until you install it (or run` +
-      ` \`cmk install --backend <agent>\` to use a different agent you already have).`,
+      ` compression / extraction / persona wait until you install it.`,
   );
 }
 

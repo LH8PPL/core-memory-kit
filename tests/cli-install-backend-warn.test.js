@@ -37,9 +37,11 @@ describe('Task 200 — warnMissingBackendCli (install first-touch)', () => {
     expect(text).toMatch(/kiro-cli/); // names the missing bin
     expect(text.toLowerCase()).toMatch(/capture.*search.*recall|still work|file/); // degrade, not failure
     expect(text.toLowerCase()).toMatch(/compression|extraction|persona/); // what's affected
-    expect(text).toMatch(/--backend/); // offers the split-brain escape hatch
+    expect(text.toLowerCase()).toMatch(/install/); // tells the user how to fix it
     // never frames it as broken/fatal
     expect(text.toLowerCase()).not.toMatch(/broken|crashed|fatal|error/);
+    // Task 200 doesn't ship --backend (that's Task 201) — must not reference it yet
+    expect(text).not.toMatch(/--backend/);
   });
 
   it('includes the probe reason when one is given', () => {

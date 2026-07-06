@@ -715,7 +715,7 @@ function hc11BackendCli({ projectRoot, userDir, backendCliProbe }) {
     message:
       `the ${agent} CLI (${r.bin})${via} is not available${r.reason ? ` — ${r.reason}` : ''}. ` +
       `Capture, search, recall and the delete-guard still work, but automatic compression / extraction / persona are skipped until you install it. ` +
-      `Install the ${agent} CLI, or run \`cmk install --backend <agent>\` to route memory through a different agent you already have.`,
+      `Install the ${agent} CLI to enable the automatic memory features.`,
   };
 }
 
