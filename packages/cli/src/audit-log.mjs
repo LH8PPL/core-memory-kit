@@ -42,6 +42,8 @@ export const REASON_CODES = Object.freeze({
   SCRATCHPAD_GRADUATED: 'scratchpad-graduated', // graduation: high-trust bullet moved out to a fact file under cap pressure (Task 91.1)
   SCRATCHPAD_EVICTED: 'scratchpad-evicted', // consolidate: stale low/medium bullet dropped under cap pressure, archived to memory/archive/evicted-bullets.md (Task 91.2)
   TRUST_CHANGE: 'trust-change', // trust: overrideTrust (Task 15)
+  TRUST_SIGNAL_REINFORCE: 'reinforce', // trust-signal: a screened passive reinforce applied a trust_score delta (Task 193)
+  TRUST_SIGNAL_DAMPEN: 'dampen', // trust-signal: a screened passive dampen applied a trust_score delta (Task 193)
   CONFLICT_QUEUED: 'conflict-queued', // conflict-queue: new write contradicts existing higher-trust fact, routed to queues/conflicts.md (Task 25, design §6.8)
   CONFLICT_RESOLVED: 'conflict-resolved', // conflict-queue: user resolved a pending conflict via cmk queue conflicts (keep-old / keep-new / merge-both)
   REVIEW_PROMOTED: 'review-promoted', // review-queue: user promoted a medium-trust auto-extract to MEMORY.md (Task 26, design §6.2)

@@ -24,8 +24,12 @@
 // (no projectRoot, no DB, missing row, bad input) returns a benign result and
 // NEVER throws — the caller (a write path) is unaffected.
 
+import { join } from 'node:path';
+import { existsSync } from 'node:fs';
 import { openIndexDb } from './index-db.mjs';
 import { updateTrustScore } from './trust-score.mjs';
+import { appendAuditEntry, nowIso } from './audit-log.mjs';
+import { screenSignal, logSignal } from './feedback-screen.mjs';
 
 const SELECT_TRUST_SCORE_SQL = 'SELECT trust_score FROM observations WHERE id = ?';
 const UPDATE_TRUST_SCORE_SQL = 'UPDATE observations SET trust_score = ? WHERE id = ?';
@@ -35,8 +39,10 @@ const UPDATE_TRUST_SCORE_SQL = 'UPDATE observations SET trust_score = ? WHERE id
  * BEST-EFFORT — swallows every error, never throws.
  *
  * @param {object} o
- * @param {string} [o.projectRoot]  the project whose index-db holds the row
- *                                  (ignored when `db` is supplied)
+ * @param {string} [o.projectRoot]  the project whose index-db holds the row.
+ *                                  NOT ignored when `db` is supplied (Task 193):
+ *                                  it activates the feedback-screen + the signal
+ *                                  and audit logs — production callers pass BOTH.
  * @param {string} [o.id]           the affected fact's canonical id
  * @param {string} [o.event]        'reinforce' | 'dampen' (unknown → no-op write)
  * @param {object} [o.db]           an ALREADY-OPEN index-db handle to reuse — a
@@ -45,17 +51,59 @@ const UPDATE_TRUST_SCORE_SQL = 'UPDATE observations SET trust_score = ? WHERE id
  *                                  handle to avoid open/close per call. When given,
  *                                  this function does NOT close it (the caller owns
  *                                  its lifecycle). Omit → open + close our own.
- * @returns {{action:'updated'|'not-found'|'skipped', id?:string, trust_score?:number}}
+ * @returns {{action:'updated'|'not-found'|'skipped'|'rate-limited'|'quarantined', id?:string, trust_score?:number}}
  */
 export function applyTrustSignal({ projectRoot, id, event, db: sharedDb } = {}) {
   if (!id || (!projectRoot && !sharedDb)) return { action: 'skipped' };
+  // Unknown events are inert BEFORE the screen (skill-review M7): a junk event
+  // must not consume rate budget, write logs, or audit a zero-delta mutation.
+  if (event !== 'reinforce' && event !== 'dampen') return { action: 'skipped', id };
   let db = sharedDb;
   try {
+    // ── FEEDBACK-SCREEN (Task 193, ADR-0017 Phase 1d) ──────────────────────
+    // Poison_Guard screens writes; this screens UTILITY MUTATIONS — the
+    // second unscreened input channel. Per-fact rate-limit + burst-hold
+    // quarantine, decided over the .locks/trust-signals.log state. FAIL-OPEN
+    // inside screenSignal (state unreadable → allow). Needs projectRoot for
+    // the state file; all four production callers pass it (a shared-db call
+    // without projectRoot is a test-only shape and skips the screen —
+    // documented, not silent: the composition test pins the screened path).
+    if (projectRoot) {
+      const verdict = screenSignal(projectRoot, { id, event });
+      if (!verdict.allow) {
+        logSignal(projectRoot, { id, event, applied: false, reason: verdict.reason });
+        return { action: verdict.reason === 'rate-limit' ? 'rate-limited' : 'quarantined', id };
+      }
+    }
     if (!db) db = openIndexDb({ projectRoot });
     const row = db.prepare(SELECT_TRUST_SCORE_SQL).get(id);
     if (!row) return { action: 'not-found', id };
     const next = updateTrustScore(row.trust_score, event);
     db.prepare(UPDATE_TRUST_SCORE_SQL).run(next, id);
+    // Post-apply bookkeeping (best-effort): the signal log is the screen's
+    // state + observability; the audit log is the canonical provenance-per-
+    // mutation trail (Task 193 done-when). Each writer is isolated — a
+    // bookkeeping failure must NOT corrupt the return (the UPDATE already
+    // happened; falling into the outer catch would falsely report 'skipped').
+    if (projectRoot && existsSync(join(projectRoot, 'context'))) {
+      logSignal(projectRoot, { id, event, applied: true, trust_score: next });
+      try {
+        // Tier-root is deliberately the PROJECT context/ even for U-/L- ids
+        // (deviates from forget/validity-window's per-tier routing): the
+        // trust_score overlay lives in the PROJECT-LOCAL index, so the project
+        // audit log is where this mutation actually happened (skill-review M6).
+        appendAuditEntry(join(projectRoot, 'context'), {
+          ts: nowIso(),
+          action: 'trust-signal',
+          tier: id[0],
+          id,
+          reasonCode: event,
+          extra: { trust_score: next },
+        });
+      } catch {
+        // best-effort audit — never disturb the applied result.
+      }
+    }
     return { action: 'updated', id, trust_score: next };
   } catch {
     // best-effort: a trust overlay update must never break the primary write.

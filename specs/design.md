@@ -561,7 +561,7 @@ claude --print \
 
 **Concurrency-safe**: lock file at `context/.locks/auto-extract.lock` via `set -o noclobber` (claude-remember verified pattern).
 
-**Structured logging — NDJSON across six log files** (per Hightower CCA-F harness pattern, refined per ChatGPT/Kiro convergence):
+**Structured logging — NDJSON across seven log files** (per Hightower CCA-F harness pattern, refined per ChatGPT/Kiro convergence):
 
 | Log file | What gets written | One-line schema (NDJSON) |
 | --- | --- | --- |
@@ -571,6 +571,7 @@ claude --print \
 | `context/.locks/network-blocks.log` | Any sandbox/network denial during compressor or MCP runs | `{ts, host, port, reason, hook_or_tool}` |
 | `context/.locks/shadowed_by.log` | 3-tier merge shadowing events (§7.1) | `{ts, id, winner_tier, shadowed_tiers[], source_file}` |
 | `context/.locks/recall.log` | Which memory ids SURFACED each turn (Task 190, ADR-0017 Phase 1a — the learn-loop attribution primitive; written by inject + `search`, read by Tasks 191/192) | `{session, ts, source, ids[], query?}` — ids + query only, never fact bodies. Production `search` entries carry `session: null` (no hook payload at the CLI/MCP callers); 191/192 join inject↔search by timestamp window. Kit-projects only: the writer is gated on `context/` existing. Rotation posture: same as audit.log — §16.13's candidate covers both. |
+| `context/.locks/trust-signals.log` | Every trust-Δ decision through the FEEDBACK-SCREEN (Task 193, ADR-0017 Phase 1d) — applied deltas AND refusals (rate-limit / burst-hold quarantine); doubles as the screen's own rate/burst state | `{ts, id, event, applied, reason?, trust_score?}` — the screen reads today's entries to decide; a quarantined batch is visible here (the "surface in log" half). Rotation: §16.13's candidate covers it. |
 
 One JSON object per line, append-only. Parseable for analytics (`jq`, DuckDB, `cmk view`). Files rotate daily; old logs roll into `context/sessions/archive/` on the weekly curate run.
 
@@ -3317,6 +3318,7 @@ Two signals, two fields (a unified score lets a noisy fact rank high — MemOS):
 - **`trust_score`** (float, in the **rebuildable index, NOT committed frontmatter** — D-218: a moving value = git-diff noise). Init from source (`user-explicit` > `auto-extract`).
 - **update** event-driven: `+0.1` reinforce / `−0.15` dampen / **floor `0.05`** (memclaw `_adjust_weights`; never zero, never auto-deleted). NO time-decay of the stored value.
 - **signals** PASSIVE only (D-169, zero ritual): contradiction-queue hit, `superseded_by` set, session-end restatement. We already produce all three.
+- **screened** (Task 193, ADR-0017 Phase 1d - shipped 2026-07-06): every signal routes through the FEEDBACK-SCREEN inside `applyTrustSignal` (the single mutation gate; 4 callers, no bypass): per-fact-per-day rate limit (5) + burst-hold quarantine (>=10 same-day applied signals with >80% dampens -> further dampens held, reinforces pass) + every delta audit-logged (`action: trust-signal`). State + observability: `context/.locks/trust-signals.log` (the seven-log table, section 6). FAIL-OPEN on unreadable state - a broken diagnostic never breaks the primary write. Task 192's judge signals inherit the screen for free. **Accepted posture until Task 192 (recorded per skill-review I1/M5, 2026-07-06):** all 7 production emitters today send `dampen` (zero production `reinforce` exists), so the fraction test is trivially satisfied and burst-hold currently degenerates to a DAILY DAMPEN THROTTLE (>=10 applied/day quarantines the rest until UTC midnight) - deliberately fail-PROTECTIVE: a legit bulk day (big import, queue-resolution session) loses late-day dampen SIGNAL but no memory is wrongly dampened; and the hold is prospective, not batch-retroactive - the first ~10 storm dampens DO apply (bounded by the per-fact rate limit at <=0.75 total per fact) before the gate closes, the accepted first-N leak. The fraction becomes a real anomaly detector when 192's judge adds reinforces; revisit both constants there.
 
 ### 20.3 Eviction → DEMOTE-NOT-EVICT (fixes the cold-open / Hole B)
 

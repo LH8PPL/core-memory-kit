@@ -153,7 +153,7 @@ export function resolveTemporalSupersede({
   try {
     const sigDb = openIndexDb({ projectRoot });
     try {
-      applyTrustSignal({ id: olderId, event: 'dampen', db: sigDb });
+      applyTrustSignal({ projectRoot, id: olderId, event: 'dampen', db: sigDb });
     } finally {
       sigDb.close();
     }

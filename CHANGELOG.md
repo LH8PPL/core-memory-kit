@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
+- **learn-loop: FEEDBACK-SCREEN (Task 193, ADR-0017 Phase 1d)** - every trust-score mutation now routes through a screen inside `applyTrustSignal`: per-fact daily rate limit, burst-hold quarantine (a same-day storm of negative signals holds further dampens instead of applying them - a systemically-wrong judge can no longer mass-dampen good memories), and every delta is audit-logged. Decisions + refusals are visible at `context/.locks/trust-signals.log`. Fail-open: a broken screen never blocks the primary write.
 - **learn-loop: RECALL-LOG (Task 190, ADR-0017 Phase 1a)** — the kit now records which memory IDs surfaced each turn (`context/.locks/recall.log`, NDJSON, gitignored local diagnostic): the SessionStart inject logs the snapshot's surviving citation ids, and `cmk search`/`mk_search` log each query's returned ids. IDs + query only, never content; best-effort (can never break injection or search). This is the attribution primitive the v0.5 learn-loop's outcome signals resolve against.
 
 ## [0.4.5] — 2026-07-06
