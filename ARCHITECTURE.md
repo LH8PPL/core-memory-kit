@@ -47,7 +47,7 @@ The **frozen snapshot pattern**: these files load once per session, form static 
 | **Stop** | `cmk-capture-turn` | After every turn: appends the transcript **and** detached-spawns auto-extract. |
 | **SessionEnd** | `cmk-compress-session` | Rolls the session buffer when the window closes (so memory stays bounded even if you never cleanly close). |
 
-**Auto-extract** (`cmk-auto-extract`, a detached `claude --print` subagent spawned by the Stop hook) reads the turn and writes durable memory with no manual flag:
+**Auto-extract** (`cmk-auto-extract`, a detached background subagent spawned by the Stop hook — it runs the LLM through the installed agent's own CLI via `makeBackend`: `claude --print` on Claude Code, `kiro-cli chat` on Kiro, `cursor-agent -p` on Cursor — Task 200) reads the turn and writes durable memory with no manual flag:
 
 - Durable project **knowledge** (setup/config, conventions, workflows, tool quirks) → a **rich Why/How fact file** (`writeFact` → `context/memory/<type>_<slug>.md`), structured + searchable.
 - Lighter signals (corrections, preferences) → terse `MEMORY.md` bullets.
@@ -112,7 +112,8 @@ Registered via `cmk register-crons`. Translates to crontab entries (Linux), Laun
 │       └─ Step 2: spawn cmk-auto-extract (detached)                  │
 │                       │                                             │
 │                       ▼                                             │
-│                  claude --print with fact-extraction prompt         │
+│         the installed agent's CLI (claude/kiro-cli/cursor-agent)    │
+│              with the fact-extraction prompt (makeBackend)          │
 │                       │                                             │
 │                       ▼                                             │
 │                  writeFact / MEMORY.md bullet / user-tier promote   │

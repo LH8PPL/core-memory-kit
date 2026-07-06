@@ -16,7 +16,11 @@
 
 ---
 
-> **Cutting now: `v0.4.4`** — **the TEMPORAL-VALIDITY patch** (facts now carry WHEN they're true, not just what — Task 66 + rider 150):
+> **Cutting now: `v0.4.5`** — **the AGENT-RELATIVE BACKEND patch** (Task 200 + 201): the automatic engine now runs the LLM call through the user's own agent CLI. **On a Cursor install that CLI is `cursor-agent`** (`cursor-agent -p --trust --model composer-2.5-fast --output-format text`, prompt on stdin — off the user's Cursor SUBSCRIPTION login, NO API key). This closes the **D-270** silent-no-op bug: before Task 200, a Cursor-only user's automatic memory did nothing (the engine shelled out to a hardcoded `claude`). New surfaces: `cmk install --backend <agent>` (the split-brain override), `cmk config show`, `cmk doctor` **HC-11**. Doctor now has **11 checks**.
+> **The v0.4.5 cut-blocker gates are BK1–BK4 (§4f).** BK1 (HC-11), BK2 (`cmk install --backend` + fail-fast + effective-backend warn), BK3 (`cmk config show`) are CLI-deterministic. **BK4 — the automatic engine actually compressing through `cursor-agent` — is the live flag** (this gate's operator HAS Cursor, so BK4 is directly runnable here, unlike the Claude gate; live-verified on the dev machine, D-280). This is a **PATCH** (`npm run release -- 0.4.5`).
+> _Replace `0.4.5` / `v0.4.5` below if you reuse this guide for a later cut._
+>
+> **Prior banner (v0.4.4 cut, pre-2026-07-06 — kept per the decision-trail rule):** the TEMPORAL-VALIDITY patch —
 > **Task 66** (temporal validity — a `shape` field + a declared `expires_at` + a weekly expiry sweep + a temporal-supersede window-close; design §16.18, D-258/D-259 — the headline) and **Task 150** (the memory-commit proposal — SessionStart *proposes* a `context/` commit, never runs git itself; ADR-0018).
 > **The v0.4.4 cut-blocker gates are TV1–TV4 + MC1 (§4e).** TV1/TV2/TV3 + MC1 are CLI-deterministic; **TV4's full sweep verdict is a live-Haiku judge** — run `cmk weekly-curate` on THIS repo's real corpus and confirm sensible verdicts with **no false SUPERSEDES** (the deterministic close-mechanics leg is suite-covered). The **66.3 auto-extract expiry SUGGESTION** (must invent no unstated date) + the **MC1 spoken relay** are LLM-driven MANUAL flags — see §0.
 > **141a (the npm-12 install-time ask) already shipped in v0.3.x** (PR #169, D-260) — it is NOT a v0.4.4 item; nothing to test for it here.
@@ -45,7 +49,7 @@ privacy, and portability — then the tag-push.
 - Each check is one line you can tick, followed by the **action** (a code block) and a **PASS:** line.
 - Throwaway probes use their own temp dirs and never touch your main run.
 - **Time:** ~75–90 min.
-- **Prereq:** **Cursor installed** (a recent build with the hooks system — `.cursor/hooks.json` support) + Python 3.12+ on PATH.
+- **Prereq:** **Cursor installed** (a recent build with the hooks system — `.cursor/hooks.json` support) + Python 3.12+ on PATH. **Also (v0.4.5+): the `cursor-agent` CLI installed + logged in** — it is a SEPARATE install from the Cursor app (`curl https://cursor.com/install -fsS | bash`, or on Windows `irm 'https://cursor.com/install?win32=true' | iex`), and it is what runs this project's AUTOMATIC memory engine (compression / auto-extract / persona). Without it on PATH, capture / search / recall still work but the automatic LLM steps are skipped (HC-11 flags it). BK4 (§4f) needs it present.
 
 > **★★ The real-input rule (binding — D-84).** A check **PASSES only when it ran on REAL input that exercises the feature** — never "the command didn't crash on trivial input." These are **NOT passes** — mark them `unverified` and re-run for real:
 > - "skipped (cooldown)" → clear the cooldown (`cooldownMs:0` / delete the marker) and re-run.
@@ -240,7 +244,7 @@ cmk doctor
 - [ ] **★ CU1 — install prints the Cursor success summary.**
       `cmk install --ide cursor` → the summary says **`ready for Cursor`** and names the wired legs (`instruction file + MCP + hooks`), plus the "Restart the agent to activate" line. **FAIL:** an error, or a missing leg.
 
-- [ ] **★ CU1b — `cmk doctor` clean (agent-aware HC-1 for Cursor).** `cmk doctor` → **0 fail** on a fresh Cursor install — **10 checks** (HC-1..HC-10; HC-8 native-bindings, HC-9 version-drift, HC-10 compaction-liveness). HC-1 must report **`Cursor capture/inject wired via .cursor/hooks.json (cmk cursor-hook)`** — the Cursor-aware check, NOT a Claude-Code-shaped fail. **HC-9** = PASS on a just-installed project; **HC-10** = SKIP on a fresh install with no cron. **FAIL:** HC-1 fails with `cmk repair --hooks` (the Claude hint) → `detectInstallKind` didn't recognize the `.cursor/rules/claude-memory-kit.mdc` marker, or the dispatcher isn't on the load-bearing events (the D-185 false-FAIL class).
+- [ ] **★ CU1b — `cmk doctor` clean (agent-aware HC-1 for Cursor).** `cmk doctor` → **0 fail** on a fresh Cursor install — **11 checks** (HC-1..HC-11; HC-8 native-bindings, HC-9 version-drift, HC-10 compaction-liveness, HC-11 backend-CLI-present). HC-1 must report **`Cursor capture/inject wired via .cursor/hooks.json (cmk cursor-hook)`** — the Cursor-aware check, NOT a Claude-Code-shaped fail. **HC-9** = PASS on a just-installed project; **HC-10** = SKIP on a fresh install with no cron; **HC-11** = PASS when `cursor-agent` is on PATH (the effective backend for a Cursor install), FAIL with the honest degrade message if it's absent (see ★ BK1, §4f). **FAIL:** HC-1 fails with `cmk repair --hooks` (the Claude hint) → `detectInstallKind` didn't recognize the `.cursor/rules/claude-memory-kit.mdc` marker, or the dispatcher isn't on the load-bearing events (the D-185 false-FAIL class).
 
 - [ ] **★ CU2 — hooks surface: the versioned `.cursor/hooks.json` with the dispatcher on all 6 events.**
       ```powershell
@@ -903,6 +907,29 @@ changed `.cursor/mcp.json` since opening (Cursor launches the MCP server at sess
 
 ---
 
+## 4f. The agent-relative backend + split-brain, Cursor edition (Task 200 + 201)  ⬅️ the v0.4.5 headline
+
+On a Cursor install, the automatic engine runs through **`cursor-agent`** (off the Cursor subscription, no API key). Unlike the Claude cut-gate operator (who may lack a 2nd agent's CLI), **this operator HAS Cursor — so BK4 is directly runnable here.** BK1–BK3 are CLI-deterministic.
+
+- **★ BK1 — `cmk doctor` HC-11 (cursor-agent present).** On a fresh `--ide cursor` install, `cmk doctor` reports **11** checks and HC-11 = PASS naming `cursor-agent` (the effective backend for a Cursor install). To prove the FAIL path, script `runDoctor({ projectRoot, userDir, backendCliProbe: () => ({ agent: 'cursor', bin: 'agent.cmd', present: false, reason: 'cursor-agent not found on PATH' }) })` → HC-11 = FAIL with the honest "automatic features degraded, file-only still works" message.
+  **PASS:** 11 checks; HC-11 PASS with cursor-agent present, FAIL (naming it) when absent. **FAIL:** 10 checks, or a silent SKIP when absent (the D-270 bug).
+
+- **★ BK2 — `cmk install --backend <agent>` (split-brain + fail-fast).** In a throwaway dir:
+  ```bash
+  cmk install --ide cursor --backend claude   # code in Cursor, run automatic memory on the cheaper/other CLI
+  cat context/settings.json                    # → { "backend": { "agent": "claude" } }
+  cmk install --ide cursor --backend banana    # → exit 2 + supported list, NO context/ scaffolded (fail-fast)
+  ```
+  **PASS:** the override writes `backend.agent` + the install line warns about the EFFECTIVE backend CLI (here `claude`), not cursor-agent; a bad value exits 2 fail-fast with no half-install. **FAIL:** the flag is ignored, the wrong CLI is warned about, or a typo leaves a scaffolded-but-exit-2 project.
+
+- **★ BK3 — `cmk config show`.** In the `--backend claude` project from BK2: `cmk config show` names the **installed-for** agent (`cursor`), the **active backend** agent (`claude`) marked as an override, the backend-CLI presence, and the semantic mode, exiting **0**.
+  **PASS:** the readout reflects the override and exits 0. **FAIL:** it doesn't reflect the override or exits non-zero.
+
+- **★ BK4 — live cursor-agent spawn (runnable HERE).** `cmk config set backend.agent cursor` (or leave it default on a `--ide cursor` install), seed a session buffer, trigger a real compression (`cmk roll --scope now`), and confirm a real Markdown summary lands in `sessions/` — produced by `cursor-agent -p` (not a refusal, not empty). **Live-verified on the dev machine (D-280): `agent -p --trust --model composer-2.5-fast --output-format text` returned a correct summary off the subscription, ~30s.**
+  **PASS:** a real summary lands via cursor-agent. **FAIL:** a refusal ("I don't see a buffer…"), an empty result, or a timeout.
+
+---
+
 ## 5. Session 2 (Cursor) — recall + recall-QUALITY  ⬅️ start a NEW Cursor session
 
 Fully quit + reopen Cursor on `C:\Temp\cursor-gate` (a genuinely new session, so `sessionStart` inject fires fresh over the freshly-rolled `now.md`).
@@ -1088,7 +1115,7 @@ Open the NEW folder in Cursor (fully restart if Cursor was already running). Ask
 **Health & repair**
 
 - [ ] **F-11**
-      - `cmk doctor` → HC-1..HC-10 accurate (HC-8 = native bindings / npm-12 readiness, v0.3.1; HC-9 = version-drift, v0.3.4; HC-10 = compaction-liveness, v0.4.1 — SKIP when no cron registered) + the trailing **Memory health (informational)** line renders
+      - `cmk doctor` → HC-1..HC-11 accurate (HC-8 = native bindings / npm-12 readiness, v0.3.1; HC-9 = version-drift, v0.3.4; HC-10 = compaction-liveness, v0.4.1 — SKIP when no cron registered; HC-11 = backend LLM CLI present, v0.4.5 — PASS when `cursor-agent` is on PATH, degrades honestly when absent) + the trailing **Memory health (informational)** line renders
       - `cmk repair --hooks` re-wires if settings drift
       - **`cmk repair --index` → "(index): fixed → reindex completed"** (NOT an error). _v0.3.1: this ran the REAL reindexFull which needs a db; the bug where repair passed no db (since Task 49, masked by every test mocking the reindexer) was found by THIS cut-gate probe — keep it on the real path, no injected reindexer._
       - `cmk repair --all` → all three (hooks/locks/index) report cleanly
@@ -1211,7 +1238,7 @@ Clone elsewhere (`git clone C:\Temp\cursor-gate C:\Temp\cursor-gate-clone`), ope
 ## Verdict + the cut
 
 **Cut if** every **★** passes —
-the **Cursor surface + live gates**: `CU1, CU1b, CU2, CU3, CU4, CU6, CU7, G4, R-restart, R-cap, R-prompt, R-inject, R-observe, R-crash, G5, M0, M1, M2, W1–W4, D1, E1, CU-uninstall, CU-dual, H1`
+the **Cursor surface + live gates**: `CU1, CU1b, CU2, CU3, CU4, CU6, CU7, G4, R-restart, R-cap, R-prompt, R-inject, R-observe, R-crash, G5, M0, M1, M2, W1–W4, D1, E1, BK1–BK4, CU-uninstall, CU-dual, H1` _(BK1–BK4 = §4f, the v0.4.5 agent-relative backend + split-brain; BK4 — the automatic engine actually compressing through `cursor-agent` — is directly runnable on this Cursor gate)_
 **and** the **agent-neutral standing gates** (identical to [`cut-gate.md`](cut-gate.md), run against the files a Cursor session produced): `B2, B9, B3, B4, B5, B6, B7, C5, C6, FQ1, PR1–PR5, TV1–TV4, MC1, D3, F-3, F-11b, L3`.
 _(VD1 / HC-9 is **N/A on a Cursor-only install** — see §7; L1 plugin route is **N/A for Cursor** — see §8.)_
 

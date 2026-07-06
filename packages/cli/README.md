@@ -33,6 +33,17 @@ Claude forgets everything when a session ends — so every new chat you re-expla
 > [!NOTE]
 > **Not a developer?** If you can open a project in Claude Code, you're set — let Claude run the setup for you (see [Quickstart](#quickstart)).
 
+> [!IMPORTANT]
+> **Prerequisite — the agent's CLI must be installed (not just its IDE).** The kit's automatic features (compression, the cross-project persona/wedge, auto-extract, the temporal sweep) run an LLM through your agent's **command-line tool**, which is a **separate install from the IDE**:
+>
+> | Agent | The kit needs this CLI on your PATH |
+> | --- | --- |
+> | **Claude Code** | the `claude` CLI — required even if you use Claude inside VS Code |
+> | **Kiro** | `kiro-cli` — required even if you use the Kiro IDE |
+> | **Cursor** | `cursor-agent` (Cursor's CLI) — required in addition to the Cursor app; runs natively on Windows, macOS, and Linux, using your Cursor subscription login (no API key) |
+>
+> Without the agent's CLI, capture / search / recall / the delete-guard still work (they're pure files + SQLite), but the automatic LLM steps are skipped. `cmk doctor` (HC-11) and `cmk install` both tell you if your agent's CLI is missing. You can also route the automatic engine through a *different* agent's CLI than you code in — `cmk install --backend kiro` — see `cmk config show`.
+
 ## How it feels
 
 You open Claude Code on a project you haven't touched in weeks. Before you say anything, Claude already knows your stack, your conventions, and what you decided last time:
@@ -52,7 +63,7 @@ You work. It learns — automatically, no buttons. Next session, it remembers th
 - **Stays TRUE as it ages, not just stored** — facts carry a temporal shape ("ongoing state" vs "happened once" vs "planned"), facts with a shelf life expire on their own (`--expires 2026-08-01` → hidden from recall, recoverably archived), and a weekly pass catches state changes: when a newer fact supersedes an older one ("cut-gate in progress" → "published to npm"), the old state's validity window closes so recall answers with the *current* state — history intact, and the next session opens with a one-line note of what was resolved.
 - **Stays private + bounded** — secrets are screened before any write, machine paths are abstracted to `~`, and rolling compression keeps memory small as history grows.
 - **Guards against accidental deletion** — a hook **blocks** a destructive command (`rm`, `git reset --hard`, …) the moment it targets a memory path, before it runs.
-- **Works across your agents** — the same memory brain on **Claude Code**, **[Kiro](https://kiro.dev)** (IDE + `kiro-cli`), and **[Cursor](https://cursor.com)**. A project's `context/` is shared, so memory you build in one is there in the others.
+- **Works across your agents** — the same memory brain on **Claude Code**, **[Kiro](https://kiro.dev)** (IDE + `kiro-cli`), and **[Cursor](https://cursor.com)**. A project's `context/` is shared, so memory you build in one is there in the others. The automatic engine (compression / auto-extract / persona / temporal sweep) runs through *your* agent's own CLI, using the login you already have — no extra API key. You can even **split the brain**: code in one agent, run the frequent background memory work through a cheaper one (`cmk install --backend kiro` → keep your premium subscription for coding, run the janitor LLM on `kiro-cli`). `cmk config show` tells you which agent is doing what.
 - **One-tap memory commits** — when uncommitted memory piles up, Claude offers to commit it; you approve, Claude runs the git command; the kit itself never touches git.
 - **Per-project, in your repo** — `context/` lives in your project and travels with `git clone`. Each project keeps its own memory.
 
@@ -131,9 +142,10 @@ You rarely type these yourself — Claude drives the same operations as tools mi
 
 | Command | Purpose |
 | --- | --- |
-| `cmk install [--with-semantic] [--ide claude-code\|kiro\|cursor]` | Scaffold + wire hooks + register the MCP server (complete entry point) |
+| `cmk install [--with-semantic] [--ide claude-code\|kiro\|cursor] [--backend claude\|kiro\|cursor]` | Scaffold + wire hooks + register the MCP server (complete entry point). `--backend` runs the automatic memory through a *different* agent's CLI than you code in (split-brain) |
 | `cmk uninstall [--ide claude-code\|kiro\|cursor]` | Remove one agent's wiring — conservative, never deletes `context/` |
-| `cmk doctor` | Run HC-1..HC-10 health checks; surface a repair command per failure |
+| `cmk doctor` | Run HC-1..HC-11 health checks; surface a repair command per failure (HC-11 = your agent's backend LLM CLI is on PATH — honest degrade if not) |
+| `cmk config get <key>` / `cmk config set <key> <value>` / `cmk config show` | Read/write project settings without hand-editing JSON. `config show` = a one-glance readout of your setup (installed-for agent, active backend agent, backend-CLI presence, semantic mode) |
 | `cmk repair --hooks` / `--locks` / `--index` / `--all` | Idempotent self-repair |
 | `cmk search "<query>" [--mode keyword\|semantic\|hybrid] [--scope facts\|transcripts\|decisions]` | Search memory by meaning (hybrid default after `--with-semantic`); `--scope transcripts` = raw session record; `--scope decisions` = the decision journal (history / "what did we reject") |
 | `cmk remember "<fact>"` | Capture a fact explicitly (deduped, secret-screened, path-abstracted). `--from-file fact.json` for backtick/quote-heavy rich facts |
@@ -154,7 +166,7 @@ Full reference with examples: **[docs/CLI.md](https://github.com/LH8PPL/claude-m
 
 ## Working with Cursor
 
-[Cursor](https://cursor.com) removed its native Memories feature (2.1.x) — static rules are its only built-in persistence. `cmk install --ide cursor` restores the full automatic loop: recalled memory injects at session start, each turn is captured, edits are observed, and the delete-guardrail screens shell commands. All hooks drive one dispatcher (`cmk cursor-hook`) wired into `.cursor/hooks.json` without touching your own hooks, plus an always-applied rule (`.cursor/rules/claude-memory-kit.mdc`). Restart Cursor after install so the hooks load.
+[Cursor](https://cursor.com) removed its native Memories feature (2.1.x) — static rules are its only built-in persistence. `cmk install --ide cursor` restores the full automatic loop: recalled memory injects at session start, each turn is captured, edits are observed, and the delete-guardrail screens shell commands. All hooks drive one dispatcher (`cmk cursor-hook`) wired into `.cursor/hooks.json` without touching your own hooks, plus an always-applied rule (`.cursor/rules/claude-memory-kit.mdc`). Restart Cursor after install so the hooks load. The full setup, surface table, backend, and dual-agent notes are in **[the Cursor guide](https://github.com/LH8PPL/claude-memory-kit/blob/main/docs/CURSOR.md)**.
 
 ## Uninstalling
 

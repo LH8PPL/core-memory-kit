@@ -64,7 +64,7 @@ You work. It learns — automatically, no buttons. Next session, it remembers th
 > | --- | --- |
 > | **Claude Code** | the `claude` CLI — required even if you use Claude inside VS Code |
 > | **Kiro** | `kiro-cli` — required even if you use the Kiro IDE |
-> | **Cursor** | `cursor-agent` (Cursor's CLI) — required in addition to the Cursor app _(official installer: macOS/Linux; Windows support is evolving — see [docs/KIRO.md](docs/KIRO.md)/the per-agent notes)_ |
+> | **Cursor** | `cursor-agent` (Cursor's CLI) — required in addition to the Cursor app; runs natively on **Windows, macOS, and Linux** (install: `curl https://cursor.com/install -fsS \| bash`, or on Windows `irm 'https://cursor.com/install?win32=true' \| iex`), using your Cursor subscription login (no API key) |
 >
 > Without the agent's CLI, capture / search / recall / the delete-guard still work (they're pure files + SQLite), but the automatic LLM steps are skipped. `cmk doctor` tells you if your agent's CLI is missing.
 >
@@ -160,7 +160,7 @@ There's more — `cmk register-crons`, `cmk config`, `cmk persona generate/expor
 
 ## Working with Cursor
 
-[Cursor](https://cursor.com) removed its native Memories feature (2.1.x) — static rules are its only built-in persistence. `cmk install --ide cursor` restores the full automatic loop: recalled memory injects at session start (`sessionStart` → `additional_context`), each turn is captured at `afterAgentResponse`, edits are observed, the delete-guardrail screens shell commands (`beforeShellExecution`), and an always-applied rule (`.cursor/rules/claude-memory-kit.mdc`) points the agent at the recall surface. All hooks drive one dispatcher (`cmk cursor-hook`) and are wired into `.cursor/hooks.json` without touching your own hooks. Restart Cursor after install so the hooks load.
+[Cursor](https://cursor.com) removed its native Memories feature (2.1.x) — static rules are its only built-in persistence. `cmk install --ide cursor` restores the full automatic loop: recalled memory injects at session start (`sessionStart` → `additional_context`), each turn is captured at `afterAgentResponse`, edits are observed, the delete-guardrail screens shell commands (`beforeShellExecution`), and an always-applied rule (`.cursor/rules/claude-memory-kit.mdc`) points the agent at the recall surface. All hooks drive one dispatcher (`cmk cursor-hook`) and are wired into `.cursor/hooks.json` without touching your own hooks. Restart Cursor after install so the hooks load. The full setup, surface table, backend, and dual-agent notes are in **[docs/CURSOR.md](docs/CURSOR.md)**.
 
 ## Uninstalling
 

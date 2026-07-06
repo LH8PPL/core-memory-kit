@@ -34,6 +34,16 @@ The full memory loop — inject, capture, edit-observation, explicit save, and c
 - A Kiro install does **not** write Claude-Code-only files (`CLAUDE.md`, `.claude/skills/`) — Kiro reads `AGENTS.md` + steering instead.
 - The hook command is platform-correct (`cmd.exe /c cmk hook …` on Windows, where Kiro routes hooks through WSL).
 
+## kiro-cli as the automatic-memory backend (v0.4.5+)
+
+Beyond wiring the hooks, `kiro-cli` is also the **LLM backend** for a Kiro project's automatic memory. The kit's automatic features — compression, auto-extract, the cross-project persona/wedge, the temporal sweep, daily/weekly distillation — need to run an LLM in the background, and on a Kiro install they run it through **`kiro-cli chat`**, using your existing Kiro/Google login (**no API key, no Claude Code required**). This is what makes the kit work for a Kiro-only user.
+
+- **Prerequisite:** `kiro-cli` must be on your PATH (it's a separate install from the Kiro IDE). Without it, capture / search / recall / the delete-guard still work (they're pure files + SQLite), but the automatic LLM steps are skipped. **`cmk doctor` (HC-11)** and **`cmk install`** both tell you if it's missing.
+- **Split-brain (run the memory on a *different* agent than you code in):** if you code in Kiro but want the frequent background memory work to run through a different CLI you have — or vice versa — set it at install (`cmk install --ide kiro --backend cursor`) or after (`cmk config set backend.agent cursor`). Both write the same `backend.agent` key.
+- **See what's active:** `cmk config show` prints your installed-for agent, the active backend agent (and whether it's an override), the backend-CLI presence, and the semantic mode.
+
+Cross-agent siblings: **[Cursor](CURSOR.md)** · **[Claude Code](CLAUDE-CODE.md)**.
+
 ## Using both Claude Code and Kiro on the same repo
 
 The installs are additive — run both (`cmk install` and `cmk install --ide kiro`), in any order. Each writes only its own wiring and never clobbers the other's; they share one `context/` memory brain. `--with-semantic` set by either is preserved by the other.

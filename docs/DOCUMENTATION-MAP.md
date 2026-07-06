@@ -108,7 +108,7 @@ When you add a doc, add its path to the Registry in the same commit, or the buil
 `specs/requirements.md` · `specs/design.md` · `specs/tasks.md` · `specs/glossary.md`
 
 **`docs/` top level:**
-`docs/DOCUMENTATION-MAP.md` · `docs/README.md` · `docs/SOURCES.md` · `docs/BOOTSTRAP.md` · `docs/CLI.md` · `docs/MCP.md` · `docs/KIRO.md`
+`docs/DOCUMENTATION-MAP.md` · `docs/README.md` · `docs/SOURCES.md` · `docs/BOOTSTRAP.md` · `docs/CLI.md` · `docs/MCP.md` · `docs/KIRO.md` · `docs/CURSOR.md` · `docs/CLAUDE-CODE.md`
 
 **`docs/journey/`:**
 `docs/journey/DECISION-LOG.md` · `docs/journey/build-log.md` · `docs/journey/RESUME-HERE-2026-05-28.md` · `docs/journey/v0.1.0-live-test.md` · `docs/journey/v0.1.0-requirements-coverage.md` · `docs/journey/v0.1.1-self-test-findings.md` · `docs/journey/v0.2.0-live-test-findings.md` · `docs/journey/v0.3.3-live-test-findings.md` · `docs/journey/2026-05-26-live-test-findings.md` · `docs/journey/2026-05-26-live-test-findings-scenarios-3-7.md` · `docs/journey/2026-05-26-snapshot-cap-coordination.md` · `docs/journey/2026-05-26-user-tier-cap-fix.md` (`PHASE-3-PLAN.md` is archived → `archive/docs/journey/`)
