@@ -15,9 +15,9 @@
 // / readExpectations / resolveExpectation) + the captureTurn wire (the
 // automatic path — no cmk command).
 //
-// @doors: 1,2,4
+// @doors: 1, 2, 5
 // Door 3 N/A: the captureTurn test stubs the auto-extract spawn (Task 23's surface).
-// Door 5 N/A: no message queue.
+// Door 4 N/A: no message queue.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, mkdirSync, readFileSync, existsSync, writeFileSync } from 'node:fs';

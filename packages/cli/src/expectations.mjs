@@ -130,7 +130,12 @@ export function resolveExpectation(projectRoot, { id, verdict, observed, judgmen
   // otherwise repeated resolutions inflate a judgment's n_episodes and can
   // fake 'corroborated' from ONE real episode, gutting the >=3-replication
   // honesty guard this module exists to enforce.
-  if (pending.status !== 'pending') return { action: 'already-resolved', id };
+  // I2 refinement (Task 192 review): a WEAK-POSITIVE is a NUDGE by its own
+  // definition - a real MISS/REVERSAL arriving later (the user's correction
+  // at minute 20 after a premature silent-success at minute 16) OVERRIDES it.
+  // Hard verdicts never flip; weak ones yield to evidence.
+  const overridesWeak = (verdict === 'MISS' || verdict === 'REVERSAL') && pending.verdict === 'WEAK-POSITIVE';
+  if (pending.status !== 'pending' && !overridesWeak) return { action: 'already-resolved', id };
   try {
     appendFileSync(
       expectationsLogPath(projectRoot),

@@ -27,6 +27,7 @@
 import { existsSync, mkdirSync, appendFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { sanitizePrivacyTags } from './privacy.mjs';
+import { judgeUserPrompt } from './judge-signals.mjs';
 
 function dateFromIso(iso) {
   // Slice 'YYYY-MM-DD' from 'YYYY-MM-DDTHH:MM:SSZ'. Validating
@@ -89,6 +90,16 @@ export function capturePrompt({ payload, projectRoot, now } = {}) {
     mkdirSync(transcriptsDir, { recursive: true });
   }
   appendFileSync(transcriptPath, entry, 'utf8');
+
+  // Task 192 (ADR-0017 Phase 1c): the USER-CORRECTION detector rides the
+  // prompt hook — a correction in the user's opening words dampens the prior
+  // window's surfaced ids (through the 193 screen) and resolves pending
+  // expectations MISS/REVERSAL. Best-effort by module contract.
+  try {
+    judgeUserPrompt({ projectRoot, session: payload?.session_id, prompt: sanitized });
+  } catch {
+    /* the judge must never break the prompt hook */
+  }
 
   return { action: 'appended', transcriptPath };
 }

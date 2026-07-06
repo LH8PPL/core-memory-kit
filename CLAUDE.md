@@ -137,8 +137,9 @@ The user is direct and tight on time. Match the energy.
 1. **Response** — what does the public function return? (action / errorCategory / id / path / …)
 2. **State** — what changed on disk / in the audit log / in the scratchpad / in the tombstone archive?
 3. **External calls** — what subprocesses got spawned with what argv + env? (use the spawn-smoke pattern from design §17 for the real-binary side)
-4. **Observability** — what NDJSON entry landed in the right log with the right shape? (audit.log, extract.log, compress.log, poison-guard.log)
-5. (Message queues — N/A for the kit; no MQ surface.)
+4. (Message queues — N/A for the kit; no MQ surface.)
+5. **Observability** — what NDJSON entry landed in the right log with the right shape? (audit.log, extract.log, compress.log, poison-guard.log)
+_(Numbering corrected 2026-07-07 to match the validator + design §17.1 — door 4 = MQ, door 5 = Observability; the prose had them swapped.)_
 
 Most kit tests assert (1) and (2). The ones that miss (3) or (4) are the ones where a future bug ships silently. Pin all four whenever they apply.
 

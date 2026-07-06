@@ -9,9 +9,9 @@
 // source:'search'). The log is an NDJSON local diagnostic at
 // context/.locks/recall.log — the .locks tier is already gitignored.
 //
-// @doors: 1,2,4
+// @doors: 1, 2, 5
 // Door 3 N/A: no subprocess — pure file append + read.
-// Door 5 N/A: no message queue.
+// Door 4 N/A: no message queue.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync, readFileSync, existsSync, appendFileSync } from 'node:fs';
