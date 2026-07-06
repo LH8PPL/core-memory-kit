@@ -8,15 +8,17 @@ Most commands operate on the **project tier** (`<repo>/context/`) by default, us
 
 ## Setup & lifecycle
 
-### `cmk install [--force] [--no-hooks] [--with-semantic | --no-semantic] [--ide <agent>]`
+### `cmk install [--force] [--no-hooks] [--with-semantic | --no-semantic] [--ide <agent>] [--backend <agent>]`
 Scaffold the kit into the current project: creates the 3-tier `context/` layout, injects `.gitignore` entries, drops the managed CLAUDE.md block, and **wires the lifecycle hooks** into `.claude/settings.json` (the memory hooks + a `PreToolUse` **delete-guardrail** + a `PermissionRequest` **auto-approver** that keeps the kit's own tools/skills prompt-free, below). Idempotent (re-running skips existing files). Restart Claude Code afterward so hooks load.
 - `--force` — allow downgrading an existing newer-version CLAUDE.md block.
 - `--no-hooks` — scaffold only; don't touch `.claude/settings.json`.
 - `--with-semantic` — install the optional local embedder (`npm install -g @huggingface/transformers`, ~260 MB once), pre-warm the model, and set `search.default_mode: hybrid` for this project — bare `cmk search` then recalls by meaning, no flags. `--no-semantic` pins keyword-only.
 - `--ide <agent>` — target an agent other than Claude Code (default `claude-code`). `--ide kiro` wires Kiro for **both** the IDE (GUI) and the `kiro-cli` terminal: MCP (`.kiro/settings/mcp.json`, with `autoApprove`), steering (`.kiro/steering/cmk.md`), the memory skills (`.kiro/skills/`), **automatic IDE hooks** (`.kiro/hooks/cmk-{capture,inject,guard,observe}.json` — the Kiro IDE 1.0 v1 format: `Stop` capture + `UserPromptSubmit` recall + `PreToolUse` delete-guard + `PostToolUse` edit-observation — plus legacy `cmk-{capture,inject}.kiro.hook` for older Kiro), a **CLI agent-config** (`~/.kiro/agents/cmk.json` + a `chat.defaultAgent` pointer in `~/.kiro/settings/cli.json`) carrying `agentSpawn`/`userPromptSubmit`/`postToolUse`/`stop`/`preToolUse` hooks, registered as the default agent (guarded — never clobbers an existing default; installs a named `cmk` agent + a notice instead), **trusted-commands** (`kiroAgent.trustedCommands` in `.vscode/settings.json` on the IDE side, the agent-config's `toolsSettings.shell.allowedCommands` on the CLI side, both scoped to the kit's commands only), and on **Kiro IDE 1.0+** a per-workspace **`permissions.yaml`** (`~/.kiro/workspace-roots/<hash>/`) that pre-trusts the kit's hooks, MCP tools, and skills so even the first skill-load runs with no Allow prompt. Both hook surfaces drive the same `cmk hook` dispatcher. Restart Kiro to activate the hooks. `--ide cursor` wires **Cursor**: MCP (`.cursor/mcp.json`), hooks (`.cursor/hooks.json` — `sessionStart` recall + `beforeSubmitPrompt` prompt-capture + `afterAgentResponse` turn-capture + `afterFileEdit` edit-observation + `sessionEnd` compress + `beforeShellExecution` delete-guard, all driving the `cmk cursor-hook` dispatcher), and an always-applied rule (`.cursor/rules/claude-memory-kit.mdc`). Restart Cursor to activate. `--ide agents-md` emits a managed `AGENTS.md` block for tools that read it.
+- `--backend <agent>` — **split-brain backend**: route the AUTOMATIC memory (compression / extraction / persona) through a DIFFERENT agent's CLI than the one you code in — `claude` | `kiro` | `cursor`. E.g. `cmk install --backend kiro` while coding in Claude runs the frequent background "janitor" LLM on cheaper `kiro-cli`, keeping your premium subscription for actual coding. Sets the `backend.agent` config key (identical to `cmk config set backend.agent <agent>`); omit it to follow `--ide`. Verify with `cmk config show`.
 ```bash
 cd ~/my-project && cmk install
 cmk install --with-semantic # + local semantic recall, hybrid by default
+cmk install --backend kiro  # code here, run automatic memory on kiro-cli
 cmk install --no-hooks      # scaffold-only
 cmk install --ide kiro      # wire Kiro (IDE + kiro-cli) instead of Claude Code
 cmk install --ide cursor    # wire Cursor instead of Claude Code
@@ -127,8 +129,10 @@ Rebuild the SQLite/FTS5 search cache (regenerable; never source of truth).
 - `--boot` — incremental (changed files only, **and prunes removed files**) · `--full` — drop + rebuild.
 - **Rarely needed by hand.** Every read path (`cmk search` / `get` / `timeline` / `cite` / `recent-activity`) reindexes incrementally before reading, and `cmk forget` reindexes in-band — so captures, edits, and deletions all show up in search automatically (Task 110). Reach for this only to force a `--full` rebuild after manual surgery on the markdown.
 
-### `cmk config get <key>` · `cmk config set <key> <value> [--local]` · `cmk config --show-origin <key>`
+### `cmk config get <key>` · `cmk config set <key> <value> [--local]` · `cmk config show` · `cmk config --show-origin <key>`
 Read/write kit settings (`context/settings.json`) without hand-editing JSON. Keys are dotted paths (e.g. `search.default_mode`). `get` resolves across tiers (local > project > user) and prints the winning value; `set` writes the project tier by default, or the gitignored local tier with `--local`, preserving every sibling key; `--show-origin` lists every tier that defines the key, marking the winner and the shadowed (the "where did this come from?" surface — the direnv lesson). `true`/`false`/numbers are coerced; everything else stays a string. A key set in no tier exits 2.
+
+**`cmk config show`** — a one-glance INFORMATIONAL readout of this project's memory setup (distinct from `cmk doctor`, which is a health/pass-fail check): the agent you installed for, the **active backend agent** that runs your automatic memory (and whether it's a `--backend`/`backend.agent` override that differs from the installed-for agent), whether that backend CLI is on your PATH, and the semantic-search mode. This is what makes the split-brain backend override legible — without it, "which agent runs my automatic memory" is invisible. Read-only; never a non-zero exit.
 
 ---
 

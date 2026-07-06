@@ -91,6 +91,7 @@ const NON_STUB_CHILDREN = new Set([
   'lessons/promote',    // Task 76 — wired; logic tested by cli-lessons-promote.test.js
   'config/get',         // Task 129 — wired; logic tested by cli-config.test.js (real now; exits 2 on a key set in no tier, not a stub)
   'config/set',         // Task 129 — wired; logic tested by cli-config.test.js
+  'config/show',        // Task 201 — wired (the split-brain readout); logic tested by cli-config-show.test.js
 ]);
 
 describe('Task 2 — cmk CLI scaffold', () => {

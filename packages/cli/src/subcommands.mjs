@@ -18,6 +18,8 @@ import { installAgent, uninstallAgent } from './install-agent.mjs';
 import { installKiro, uninstallKiro } from './install-kiro.mjs';
 import { getAgentProfile, listAgentProfiles } from './agent-profiles.mjs';
 import { agentCliOnPath, KNOWN_BACKEND_AGENTS } from './agent-cli.mjs';
+import { resolveBackendAgent } from './make-backend.mjs';
+import { detectInstallKind } from './install-kind.mjs';
 import { runKiroHook } from './kiro-hook-bin.mjs';
 import { dispatchCursorHook } from './cursor-hook-dispatch.mjs';
 import { readKiroTurn } from './kiro-transcript.mjs';
@@ -215,6 +217,47 @@ export function warnMissingBackendCli(agent, { log, backendCliProbe } = {}) {
   );
 }
 
+// Task 201 (D-277): apply a `--backend <agent>` split-brain override at install
+// time — sugar over `cmk config set backend.agent <agent>` (both write the SAME
+// key; the flag is the front-door). Validated against KNOWN_BACKEND_AGENTS.
+// Returns {ok} / {ok:false} / {skipped} so the install path can report + degrade.
+// Pure validation of a `--backend <agent>` value — NO side effects (no write, no
+// exit code). Returns {skipped} (no flag → follow --ide), {ok, agent} (valid, the
+// normalized agent), or {ok:false, error} (unknown). Used to FAIL-FAST at the top
+// of an install (before the scaffold runs), mirroring how `--ide` is validated
+// before scaffolding — a typo'd flag rejects immediately, never after doing the work.
+export function validateBackendFlag(rawAgent) {
+  if (rawAgent == null || String(rawAgent).trim() === '') return { skipped: true };
+  const agent = String(rawAgent) === 'claude-code' ? 'claude' : String(rawAgent);
+  if (!KNOWN_BACKEND_AGENTS.includes(agent)) {
+    return { ok: false, error: `unknown --backend '${rawAgent}'. Supported: ${KNOWN_BACKEND_AGENTS.join(', ')}.` };
+  }
+  return { ok: true, agent };
+}
+
+// Persist the (already-validated) `--backend` override to the project tier, after
+// the scaffold has created context/. Sugar over `cmk config set backend.agent`.
+// Re-validates defensively (callers that skip the early gate still get correctness).
+export function applyBackendOverride(rawAgent, { projectRoot, log, logError } = {}) {
+  const emit = log ?? console.log;
+  const emitErr = logError ?? console.error;
+  const v = validateBackendFlag(rawAgent);
+  if (v.skipped) return { skipped: true }; // no --backend → the backend follows --ide (Task 200 default)
+  if (!v.ok) {
+    emitErr(`cmk install: ${v.error}`);
+    process.exitCode = 2;
+    return { ok: false };
+  }
+  const r = configSet('backend.agent', v.agent, { projectRoot, tier: 'project' });
+  if (!r.ok) {
+    emitErr(`cmk install --backend: ${r.error}`);
+    process.exitCode = 2;
+    return { ok: false };
+  }
+  emit(`  Automatic memory will run through the ${v.agent} CLI (backend.agent=${v.agent}).`);
+  return { ok: true, agent: v.agent };
+}
+
 // Exported for tests (Task 141a) — dep-injectable (cwd / userTier / log /
 // logError / bindingProbe / askImpl / fixRunner / reProbe / interactive) on
 // the runImportClaudeMd pattern. Defaults unchanged for production.
@@ -224,6 +267,18 @@ export async function runInstall(options /* , command */) {
   // commander maps `--no-hooks` to options.hooks === false.
   const noHooks = !!(options && options.hooks === false);
   const verbose = !!(options && options.verbose);
+
+  // Task 201: FAIL-FAST on a bad --backend value BEFORE any scaffold runs (mirrors
+  // how --ide is validated up front). A typo'd --backend must reject immediately,
+  // not leave a fully-scaffolded project + exit 2. Applies to BOTH the claude path
+  // and the --ide route below (validated once here). The actual write happens
+  // after the scaffold (applyBackendOverride).
+  const backendCheck = validateBackendFlag(options?.backend);
+  if (backendCheck.ok === false) {
+    logError(`cmk install: ${backendCheck.error}`);
+    process.exitCode = 2;
+    return;
+  }
 
   // Task 50.F — cross-agent routing. Default is claude-code (the existing path,
   // untouched). For another agent, scaffold the agent-neutral project tier via
@@ -313,9 +368,16 @@ export async function runInstall(options /* , command */) {
     process.exitCode = 1;
   }
 
-  // Task 200 (D-272): first-touch backend-CLI heads-up (claude path → the
-  // `claude` CLI runs the automatic engine). Injectable probe for tests.
-  warnMissingBackendCli('claude', { log, backendCliProbe: options?.backendCliProbe });
+  // Task 201 (D-277): a `--backend <agent>` split-brain override — set the config
+  // key so the automatic engine routes through that agent instead of the
+  // installed-for one. Then warn about the EFFECTIVE backend agent's CLI.
+  const overrideResult = applyBackendOverride(options?.backend, {
+    projectRoot: result.projectRoot, log, logError,
+  });
+  const effectiveBackend =
+    overrideResult.ok && overrideResult.agent ? overrideResult.agent : 'claude';
+  // Task 200 (D-272): first-touch backend-CLI heads-up for the effective backend.
+  warnMissingBackendCli(effectiveBackend, { log, backendCliProbe: options?.backendCliProbe });
 
   // Task 141a: the binding ask comes LAST — it's the one thing the user may
   // still need to act on, and the tail of install output is what gets read.
@@ -392,9 +454,11 @@ async function runInstallForAgent({ ide, options, log, logError }) {
       for (const e of scaffold.errors) logError(`  error: ${e.path}: ${e.error}`);
       process.exitCode = 1;
     }
-    // Task 200 (D-272): first-touch backend-CLI heads-up (Kiro → kiro-cli runs
-    // the automatic engine).
-    warnMissingBackendCli('kiro', { log, backendCliProbe: options?.backendCliProbe });
+    // Task 201: a --backend override routes automatic memory through a different
+    // agent than the installed-for Kiro; warn about the EFFECTIVE backend.
+    const kiroOverride = applyBackendOverride(options?.backend, { projectRoot: scaffold.projectRoot, log, logError });
+    const kiroBackend = kiroOverride.ok && kiroOverride.agent ? kiroOverride.agent : 'kiro';
+    warnMissingBackendCli(kiroBackend, { log, backendCliProbe: options?.backendCliProbe });
     return;
   }
 
@@ -440,12 +504,16 @@ async function runInstallForAgent({ ide, options, log, logError }) {
     for (const e of scaffold.errors) logError(`  error: ${e.path}: ${e.error}`);
     process.exitCode = 1;
   }
-  // Task 200 (D-272): first-touch backend-CLI heads-up for agents that have a
-  // per-agent backend (cursor → cursor-agent). Agents with no dedicated backend
-  // (instruction-only rungs like agents-md) fall back to the default at runtime,
-  // so there's no per-agent CLI to warn about here.
-  if (KNOWN_BACKEND_AGENTS.includes(ide)) {
-    warnMissingBackendCli(ide, { log, backendCliProbe: options?.backendCliProbe });
+  // Task 201: apply a --backend override (routes automatic memory through a
+  // different agent than the installed-for one).
+  const genOverride = applyBackendOverride(options?.backend, { projectRoot: scaffold.projectRoot, log, logError });
+  // Task 200 (D-272): warn about the EFFECTIVE backend CLI. If overridden to a
+  // known backend agent, warn about that; else if this agent has its own backend
+  // (cursor → cursor-agent), warn about it. Instruction-only agents (agents-md)
+  // with no override + no dedicated backend fall back to the runtime default.
+  const effective = genOverride.ok && genOverride.agent ? genOverride.agent : ide;
+  if (KNOWN_BACKEND_AGENTS.includes(effective)) {
+    warnMissingBackendCli(effective, { log, backendCliProbe: options?.backendCliProbe });
   }
 }
 
@@ -1876,6 +1944,44 @@ export function runConfigShowOrigin(key, options = {}) {
   return r;
 }
 
+// Task 201 (D-277): `cmk config show` — a one-glance INFORMATIONAL readout of the
+// project's memory setup. Distinct from `cmk doctor` (health / pass-fail): this
+// answers "what IS my config?", never a verdict. It's what makes the split-brain
+// backend override LEGIBLE — without it, "which agent runs my automatic memory"
+// is invisible. Read-only; never sets a non-zero exit code. `backendCliProbe`
+// injectable so tests don't spawn a real binary.
+export function runConfigShow(options = {}) {
+  const projectRoot = options?.cwd ?? resolvePath(process.cwd());
+  const userDir = options?.userDir ?? join(homedir(), '.claude-memory-kit');
+  const log = options?.log ?? console.log;
+  const probe = options?.backendCliProbe ?? ((a) => agentCliOnPath(a));
+
+  const installedFor = detectInstallKind(projectRoot); // 'claude-code' | 'kiro' | 'cursor'
+  const { agent: backendAgent, source } = resolveBackendAgent({ projectRoot, userDir });
+  const cli = probe(backendAgent);
+  const searchMode = resolveDefaultSearchMode({ projectRoot });
+
+  const cliState = cli.present
+    ? `${cli.bin} (present)`
+    : `${cli.bin} — NOT on PATH${cli.reason ? ` (${cli.reason})` : ''}`;
+  const backendLine =
+    source === 'override'
+      ? `${backendAgent}  ← override (backend.agent), differs from installed-for`
+      : `${backendAgent}  (follows the installed-for agent)`;
+
+  log('claude-memory-kit — config');
+  log(`  installed for:    ${installedFor}`);
+  log(`  automatic memory: runs through the ${backendLine}`);
+  log(`  backend CLI:      ${cliState}`);
+  log(`  semantic search:  ${searchMode}`);
+  if (!cli.present) {
+    log('  note: the automatic LLM steps (compression / extraction / persona) are');
+    log('        skipped until the backend CLI is installed; capture / search /');
+    log('        recall / the delete-guard keep working.');
+  }
+  return { installedFor, backendAgent, source, cliPresent: cli.present, searchMode };
+}
+
 // The parent `cmk config` action: handle the --show-origin flag here; the
 // get/set children carry their own actions (wired in the registry below).
 // Exported for the branch test (the no-subcommand path).
@@ -2456,6 +2562,7 @@ export const subcommands = [
     milestone: 3,
     optionSpec: [
       { flags: '--ide <agent>', description: 'target agent: claude-code (default) | kiro | cursor — wires that agent\'s hooks + MCP + instruction file' },
+      { flags: '--backend <agent>', description: 'route the AUTOMATIC memory (compression/extraction) through a DIFFERENT agent\'s CLI than you code in: claude | kiro | cursor. E.g. code in Claude, run the janitor LLM on cheaper kiro-cli. Sets backend.agent; omit to follow --ide.' },
       { flags: '--force', description: 'allow downgrade of an existing newer-version CLAUDE.md block' },
       { flags: '--no-hooks', description: 'scaffold only; do NOT wire hooks into .claude/settings.json' },
       { flags: '--with-semantic', description: 'enable semantic recall: install the local embedder (~260 MB once), default search to hybrid, pre-warm the model' },
@@ -2621,6 +2728,11 @@ export const subcommands = [
           { flags: '--local', description: 'write to the local tier (context.local/, gitignored) instead of project' },
         ],
         action: (key, value, options) => runConfigSet(key, value, { tier: options?.local ? 'local' : 'project' }),
+      },
+      {
+        name: 'show',
+        description: 'print a one-glance readout of this project\'s memory setup (installed-for agent, active backend agent, backend CLI, semantic mode) — informational, not a health check',
+        action: (options) => runConfigShow(options),
       },
     ],
     action: runConfigCli,
