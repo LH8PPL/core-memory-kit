@@ -156,6 +156,133 @@ export function terminateSubprocess(child, { killGraceMs = 2000 } = {}) {
   });
 }
 
+const BACKEND_BYTES_PER_TOKEN = 4;
+
+/**
+ * Shared spawn→settle→timeout→cleanup orchestration for a per-agent
+ * CompressorBackend (Task 200). The KiroCliBackend + CursorAgentBackend
+ * (and any future agent CLI backend) differ only in a few agent-specific bits —
+ * the binary, argv, the prompt CHANNEL (stdin vs a positional), how to parse
+ * stdout, and the error-label; everything else (the throwaway sandbox cwd, the
+ * CMK_BACKEND_SPAWN recursion guard, the Promise settle helpers, the bounded
+ * timeout + kill-chain, the token/cost bookkeeping) is identical. Extracting it
+ * here removes the ~50-line duplication both backends carried (Sonar flagged it)
+ * and gives every future agent backend the same battle-tested spawn spine.
+ *
+ * @param {object} p
+ * @param {string} p.bin                     the CLI binary (agent.cmd / kiro-cli / …)
+ * @param {string[]} p.args                  argv (WITHOUT the prompt if it rides on stdin)
+ * @param {string} p.promptBody              the full prompt (instructions + input)
+ * @param {string} p.sandboxPrefix           mkdtemp prefix, e.g. 'cmk-cursor-'
+ * @param {string} p.label                   error-message prefix, e.g. 'CursorAgentBackend: cursor-agent'
+ * @param {(stdout: string) => string} p.parseStdout   agent-specific stdout → answer
+ * @param {number} p.timeoutMs               effective bound (caller resolves any default)
+ * @param {number} [p.killGraceMs]
+ * @param {number} [p.maxOutputBytes]
+ * @param {number} p.costUSD                 pre-computed cost estimate for this call
+ * @param {Function} p.spawnImpl             injectable spawn (tests)
+ * @returns {Promise<{outputText, inputTokens, outputTokens, costUSD, preservedIds}>}
+ */
+export function spawnBackendCall({
+  bin,
+  args,
+  promptBody,
+  sandboxPrefix,
+  label,
+  parseStdout,
+  timeoutMs,
+  killGraceMs,
+  maxOutputBytes,
+  costUSD,
+  spawnImpl = defaultSpawn,
+}) {
+  // THE RECURSION GUARD: CMK_BACKEND_SPAWN=1 so the inner agent CLI's fired hooks
+  // no-op at the kit's dispatcher entry (else the compaction call storms its own
+  // hooks — reproduced live on kiro-cli). Agent-agnostic.
+  const env = { ...process.env, CMK_BACKEND_SPAWN: '1' };
+  // A throwaway cwd with no agent config dir so no PROJECT hooks are discovered
+  // either (belt-and-suspenders alongside the env guard).
+  const sandbox = mkdtempSync(join(tmpdir(), sandboxPrefix));
+
+  const child = spawnBin(
+    bin,
+    args,
+    { cwd: sandbox, env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true },
+    { spawnImpl },
+  );
+
+  const cleanup = () => {
+    try { rmSync(sandbox, { recursive: true, force: true }); } catch { /* best-effort */ }
+  };
+
+  return new Promise((resolve, reject) => {
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+    let timeoutTimer = null;
+
+    const settleReject = (err) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutTimer) clearTimeout(timeoutTimer);
+      cleanup();
+      reject(err);
+    };
+    const settleResolve = (value) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutTimer) clearTimeout(timeoutTimer);
+      cleanup();
+      resolve(value);
+    };
+
+    child.stdout.on('data', (chunk) => { stdout += chunk.toString('utf8'); });
+    child.stderr.on('data', (chunk) => { stderr += chunk.toString('utf8'); });
+    child.on('error', (err) => settleReject(err));
+    child.on('close', (code) => {
+      if (settled) return;
+      if (code !== 0) {
+        settleReject(
+          new HaikuFailedError(
+            `${label} exit ${code}: ${stderr.trim() || '(no stderr)'}`,
+            { exitCode: code, stderr: stderr.trim() },
+          ),
+        );
+        return;
+      }
+      const outputText = parseStdout(stdout);
+      const trimmed =
+        typeof maxOutputBytes === 'number' && Buffer.byteLength(outputText, 'utf8') > maxOutputBytes
+          ? outputText.slice(0, maxOutputBytes)
+          : outputText;
+      settleResolve({
+        outputText: trimmed,
+        inputTokens: Math.ceil(Buffer.byteLength(promptBody, 'utf8') / BACKEND_BYTES_PER_TOKEN),
+        outputTokens: Math.ceil(Buffer.byteLength(trimmed, 'utf8') / BACKEND_BYTES_PER_TOKEN),
+        costUSD,
+        preservedIds: [],
+      });
+    });
+
+    timeoutTimer = setTimeout(() => {
+      if (settled) return;
+      terminateSubprocess(child, { killGraceMs: killGraceMs ?? 2000 }).catch(() => {});
+      settleReject(
+        new HaikuTimeoutError(
+          `${label} did not return within ${timeoutMs}ms`,
+          { timeoutMs },
+        ),
+      );
+    }, timeoutMs);
+
+    // The prompt rides on STDIN (D-278/D-280 — the positional form made kiro-cli
+    // and cursor-agent treat it as a chat question and refuse the task). Write
+    // then close, so any `$`/backtick/`<`/`>` survives verbatim (no shell).
+    child.stdin.write(promptBody);
+    child.stdin.end();
+  });
+}
+
 export class HaikuViaAnthropicApi extends CompressorBackend {
   constructor({ claudeBin, model, spawnFn } = {}) {
     super();

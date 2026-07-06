@@ -32,17 +32,8 @@
 //        `.cmd` (the Claude `claude.cmd` class), so the default bin is `agent.cmd`
 //        on win32. spawnBin builds the pre-quoted Windows command.
 
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { spawn as defaultSpawn } from 'node:child_process';
-import { spawnBin } from './spawn-bin.mjs';
-import {
-  CompressorBackend,
-  HaikuTimeoutError,
-  HaikuFailedError,
-  terminateSubprocess,
-} from './compressor.mjs';
+import { CompressorBackend, spawnBackendCall } from './compressor.mjs';
 
 // The default cursor-agent binary. On Windows it's an `agent.cmd` shim under
 // %LOCALAPPDATA%\cursor-agent\ (on the USER PATH); spawn('agent') won't resolve
@@ -107,95 +98,23 @@ export class CursorAgentBackend extends CompressorBackend {
       'text', // clean answer on stdout (no ANSI/`> ` marker)
     ];
 
-    // THE RECURSION GUARD: CMK_BACKEND_SPAWN=1 so the inner cursor-agent's fired
-    // hooks no-op at the dispatcher entry (agent-agnostic — the same guard the
-    // KiroCliBackend uses). cursor-agent reads its own subscription login from
-    // its stored tokens (no API key), so strip nothing else.
-    const env = { ...process.env, CMK_BACKEND_SPAWN: '1' };
-
-    // A throwaway cwd with no .cursor/ so no PROJECT hooks/rules are discovered
-    // (belt-and-suspenders alongside the env guard). Mirrors the other backends
-    // running in a fresh tmpdir.
-    const sandbox = mkdtempSync(join(tmpdir(), 'cmk-cursor-'));
-
-    const child = spawnBin(
-      this._bin,
+    // The spawn→settle→timeout→cleanup dance + the recursion guard + the throwaway
+    // sandbox are shared with the other agent backends (spawnBackendCall). Cursor
+    // differs only in: the clean stdout parse (no ANSI/`> ` strip needed) and the
+    // error-label. Prompt rides on stdin (D-278). D-280 unified all three backends
+    // on stdin.
+    return spawnBackendCall({
+      bin: this._bin,
       args,
-      { cwd: sandbox, env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true },
-      { spawnImpl: this._spawn },
-    );
-
-    const cleanup = () => {
-      try { rmSync(sandbox, { recursive: true, force: true }); } catch { /* best-effort */ }
-    };
-
-    return await new Promise((resolve, reject) => {
-      let stdout = '';
-      let stderr = '';
-      let settled = false;
-      let timeoutTimer = null;
-
-      const settleReject = (err) => {
-        if (settled) return;
-        settled = true;
-        if (timeoutTimer) clearTimeout(timeoutTimer);
-        cleanup();
-        reject(err);
-      };
-      const settleResolve = (value) => {
-        if (settled) return;
-        settled = true;
-        if (timeoutTimer) clearTimeout(timeoutTimer);
-        cleanup();
-        resolve(value);
-      };
-
-      // STDOUT carries the answer (clean with --output-format text); STDERR is
-      // any diagnostic noise (kept only for the failure message).
-      child.stdout.on('data', (chunk) => { stdout += chunk.toString('utf8'); });
-      child.stderr.on('data', (chunk) => { stderr += chunk.toString('utf8'); });
-      child.on('error', (err) => settleReject(err));
-      child.on('close', (code) => {
-        if (settled) return;
-        if (code !== 0) {
-          settleReject(
-            new HaikuFailedError(
-              `CursorAgentBackend: cursor-agent exit ${code}: ${stderr.trim() || '(no stderr)'}`,
-              { exitCode: code, stderr: stderr.trim() },
-            ),
-          );
-          return;
-        }
-        // Clean text output — just trim surrounding whitespace/newlines.
-        const outputText = stdout.replace(/\r/g, '').trim();
-        const trimmed =
-          typeof maxOutputBytes === 'number' && Buffer.byteLength(outputText, 'utf8') > maxOutputBytes
-            ? outputText.slice(0, maxOutputBytes)
-            : outputText;
-        settleResolve({
-          outputText: trimmed,
-          inputTokens: Math.ceil(Buffer.byteLength(promptBody, 'utf8') / BYTES_PER_TOKEN_ESTIMATE),
-          outputTokens: Math.ceil(Buffer.byteLength(trimmed, 'utf8') / BYTES_PER_TOKEN_ESTIMATE),
-          costUSD: this.estimatedCostPerCall(Buffer.byteLength(promptBody, 'utf8')),
-          preservedIds: [],
-        });
-      });
-
-      timeoutTimer = setTimeout(() => {
-        if (settled) return;
-        terminateSubprocess(child, { killGraceMs: killGraceMs ?? 2000 }).catch(() => {});
-        settleReject(
-          new HaikuTimeoutError(
-            `CursorAgentBackend: cursor-agent did not return within ${effectiveTimeoutMs}ms`,
-            { timeoutMs: effectiveTimeoutMs },
-          ),
-        );
-      }, effectiveTimeoutMs);
-
-      // cursor-agent -p reads the prompt on STDIN (D-278): write the body then
-      // close, so any `$`/backtick/`<`/`>` survives verbatim (no shell reaches it).
-      child.stdin.write(promptBody);
-      child.stdin.end();
+      promptBody,
+      sandboxPrefix: 'cmk-cursor-',
+      label: 'CursorAgentBackend: cursor-agent',
+      parseStdout: (stdout) => stdout.replace(/\r/g, '').trim(),
+      timeoutMs: effectiveTimeoutMs,
+      killGraceMs,
+      maxOutputBytes,
+      costUSD: this.estimatedCostPerCall(Buffer.byteLength(promptBody, 'utf8')),
+      spawnImpl: this._spawn,
     });
   }
 }

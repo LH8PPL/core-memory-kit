@@ -19,17 +19,8 @@
 //      dispatchers (kiro-hook-dispatch / cursor-hook-dispatch) no-op on it.
 //   2. STDOUT-ONLY PARSE — the answer is on stdout; stderr is TUI noise we drop.
 
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { spawn as defaultSpawn } from 'node:child_process';
-import { spawnBin } from './spawn-bin.mjs';
-import {
-  CompressorBackend,
-  HaikuTimeoutError,
-  HaikuFailedError,
-  terminateSubprocess,
-} from './compressor.mjs';
+import { CompressorBackend, spawnBackendCall } from './compressor.mjs';
 
 // The default kiro-cli binary. On Windows it's an .exe under LocalAppData; the
 // resolution mirrors the claude-cli backend's DEFAULT_CLAUDE_BIN pattern — a
@@ -38,6 +29,9 @@ import {
 const DEFAULT_KIRO_BIN = 'kiro-cli';
 // The cheap/fast model for the background role (live: 0.40x credits). Overridable.
 const DEFAULT_KIRO_MODEL = 'claude-haiku-4.5';
+// kiro-cli is fast (~1s live), so a caller that omits timeoutMs gets a large
+// bound (the ceiling-free default); the SessionEnd caller passes its own 50s.
+const KIRO_DEFAULT_TIMEOUT_MS = 120_000;
 
 const BYTES_PER_TOKEN_ESTIMATE = 4;
 
@@ -98,96 +92,26 @@ export class KiroCliBackend extends CompressorBackend {
       // the prompt rides on STDIN (below), NOT as a positional arg (D-280).
     ];
 
-    // THE RECURSION GUARD: CMK_BACKEND_SPAWN=1 so the inner kiro-cli's fired
-    // hooks no-op at the dispatcher entry (else agentSpawn/stop recurse — live-
-    // reproduced). Strip nothing else; kiro-cli reads its own login from env.
-    const env = { ...process.env, CMK_BACKEND_SPAWN: '1' };
-
-    // A throwaway cwd with no .kiro/ so no PROJECT hooks are discovered either
-    // (belt-and-suspenders alongside the env guard). Mirrors the claude-cli
-    // backend running in tmpdir().
-    const sandbox = mkdtempSync(join(tmpdir(), 'cmk-kiro-'));
-
-    const child = spawnBin(
-      this._bin,
+    // The spawn→settle→timeout→cleanup dance + the recursion guard + the throwaway
+    // sandbox are shared with the other agent backends (spawnBackendCall). Kiro
+    // differs only in: the stdout parse (strip ANSI + the leading `> ` marker) and
+    // the error-label. Prompt rides on stdin (D-280). kiro-cli is fast (~1s), so a
+    // caller that omits timeoutMs gets a sane large default (matches the ceiling-
+    // free callers; SessionEnd passes its own 50s bound which wins).
+    const effectiveTimeoutMs =
+      typeof timeoutMs === 'number' && timeoutMs > 0 ? timeoutMs : KIRO_DEFAULT_TIMEOUT_MS;
+    return spawnBackendCall({
+      bin: this._bin,
       args,
-      { cwd: sandbox, env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true },
-      { spawnImpl: this._spawn },
-    );
-
-    const cleanup = () => {
-      try { rmSync(sandbox, { recursive: true, force: true }); } catch { /* best-effort */ }
-    };
-
-    return await new Promise((resolve, reject) => {
-      let stdout = '';
-      let stderr = '';
-      let settled = false;
-      let timeoutTimer = null;
-
-      const settleReject = (err) => {
-        if (settled) return;
-        settled = true;
-        if (timeoutTimer) clearTimeout(timeoutTimer);
-        cleanup();
-        reject(err);
-      };
-      const settleResolve = (value) => {
-        if (settled) return;
-        settled = true;
-        if (timeoutTimer) clearTimeout(timeoutTimer);
-        cleanup();
-        resolve(value);
-      };
-
-      // STDOUT carries the answer; STDERR is TUI noise (we keep it only for the
-      // failure message).
-      child.stdout.on('data', (chunk) => { stdout += chunk.toString('utf8'); });
-      child.stderr.on('data', (chunk) => { stderr += chunk.toString('utf8'); });
-      child.on('error', (err) => settleReject(err));
-      child.on('close', (code) => {
-        if (settled) return;
-        if (code !== 0) {
-          settleReject(
-            new HaikuFailedError(
-              `KiroCliBackend: kiro-cli chat exit ${code}: ${stderr.trim() || '(no stderr)'}`,
-              { exitCode: code, stderr: stderr.trim() },
-            ),
-          );
-          return;
-        }
-        const outputText = parseKiroStdout(stdout);
-        const trimmed =
-          typeof maxOutputBytes === 'number' && Buffer.byteLength(outputText, 'utf8') > maxOutputBytes
-            ? outputText.slice(0, maxOutputBytes)
-            : outputText;
-        settleResolve({
-          outputText: trimmed,
-          inputTokens: Math.ceil(Buffer.byteLength(promptBody, 'utf8') / BYTES_PER_TOKEN_ESTIMATE),
-          outputTokens: Math.ceil(Buffer.byteLength(trimmed, 'utf8') / BYTES_PER_TOKEN_ESTIMATE),
-          costUSD: this.estimatedCostPerCall(Buffer.byteLength(promptBody, 'utf8')),
-          preservedIds: [],
-        });
-      });
-
-      if (typeof timeoutMs === 'number' && timeoutMs > 0) {
-        timeoutTimer = setTimeout(() => {
-          if (settled) return;
-          terminateSubprocess(child, { killGraceMs: killGraceMs ?? 2000 }).catch(() => {});
-          settleReject(
-            new HaikuTimeoutError(
-              `KiroCliBackend: kiro-cli chat did not return within ${timeoutMs}ms`,
-              { timeoutMs },
-            ),
-          );
-        }, timeoutMs);
-      }
-
-      // D-280: kiro-cli reads the prompt on STDIN (no positional arg) — write the
-      // body then close, so any `$`/backtick/`<`/`>` survives verbatim (no shell
-      // reaches it) and the model does the task instead of treating it as chat.
-      child.stdin.write(promptBody);
-      child.stdin.end();
+      promptBody,
+      sandboxPrefix: 'cmk-kiro-',
+      label: 'KiroCliBackend: kiro-cli chat',
+      parseStdout: parseKiroStdout,
+      timeoutMs: effectiveTimeoutMs,
+      killGraceMs,
+      maxOutputBytes,
+      costUSD: this.estimatedCostPerCall(Buffer.byteLength(promptBody, 'utf8')),
+      spawnImpl: this._spawn,
     });
   }
 }
