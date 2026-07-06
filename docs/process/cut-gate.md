@@ -2,7 +2,12 @@
 
 **The single guide to run before tagging a release.** Version-agnostic — reused every cut.
 
-> **Cutting now: `v0.4.4`** — **the TEMPORAL-VALIDITY patch** (facts now carry WHEN they're true, not just what — Task 66 + rider 150):
+> **Cutting now: `v0.4.5`** — **the AGENT-RELATIVE BACKEND patch** (Task 200 + 201): the automatic engine (compression / auto-extract / persona / temporal-sweep / daily-distill / weekly-curate) now runs the LLM call through the **user's own agent CLI** (`claude --print` / `kiro-cli chat` / `cursor-agent -p`) instead of a hardcoded `claude` binary — closing the **D-270** silent-no-op bug for Cursor-only / Kiro-only users (design §16.50.4).
+> **New user surfaces:** `cmk install --backend <agent>` + `cmk config set backend.agent <agent>` (the **split-brain** override — run automatic memory through a DIFFERENT agent than you code in, Task 201/D-277), `cmk config show` (the setup readout), and **`cmk doctor` HC-11** (backend LLM CLI present — exit-code probe, honest degrade when absent). Doctor now has **11 checks (HC-1..HC-11)**.
+> **The v0.4.5 cut-blocker gates are BK1–BK4 (§4f).** BK1 (HC-11 present/absent), BK2 (`cmk install --backend` + fail-fast-on-bad-value + effective-backend warn), BK3 (`cmk config show` reflects the override) are **CLI-deterministic**. **BK4 — the automatic engine actually running the compress/auto-extract through a NON-claude agent CLI (kiro-cli / cursor-agent) — is a live cross-agent MANUAL flag** (a Claude-Code-only operator can't always live-test a 2nd agent's CLI; run it where the CLI is present, else flag honestly — see §0). This is a **PATCH** (`npm run release -- 0.4.5`) — within-paradigm plumbing (the backend seam existed since ADR-0008), no new differentiator.
+> _Replace `0.4.5` / `v0.4.5` in the commands below if you reuse this guide for a later cut._
+>
+> **Prior banner (v0.4.4 cut, pre-2026-07-06 — kept per the decision-trail rule):** the TEMPORAL-VALIDITY patch —
 > **Task 66** (temporal validity — a `shape` field + a declared `expires_at` + a weekly expiry sweep + a temporal-supersede window-close; design §16.18, D-258/D-259 — the headline) and **Task 150** (the memory-commit proposal — SessionStart *proposes* a `context/` commit, never runs git itself; ADR-0018).
 > **The v0.4.4 cut-blocker gates are TV1–TV4 + MC1 (§4e).** TV1/TV2/TV3 + MC1 are CLI-deterministic; **TV4's full sweep verdict is a live-Haiku judge** — run `cmk weekly-curate` on THIS repo's real corpus and confirm sensible verdicts with **no false SUPERSEDES** (the deterministic close-mechanics leg is suite-covered). The **66.3 auto-extract expiry SUGGESTION** (must invent no unstated date) + the **MC1 spoken relay** are LLM-driven MANUAL flags — see §0.
 > **141a (the npm-12 install-time ask) already shipped in v0.3.x** (PR #169, D-260) — it is NOT a v0.4.4 item; nothing to test for it here.
@@ -158,6 +163,21 @@ The v0.4.4 headline is **temporal validity** (Task 66, design §16.18, ADR-0018-
 - **The 66.3 auto-extract expiry SUGGESTION** — TV2 covers the explicit `--expires` write path; whether **auto-extract** proposes an `expires_at` on a real turn (and, load-bearing, that it invents **no** date the turn doesn't state) is LLM-driven → confirm in a live session, do not claim verified from the CLI.
 - **The MC1 spoken relay** — MC1 asserts the proposal LINE is injected; whether Claude actually *speaks* the proposal and waits for the user's yes before running git is LLM-driven → confirm in a live MCP session.
 
+### Also new in v0.4.5 — the agent-relative backend gates (Task 200 + 201)
+
+The v0.4.5 headline is the **agent-relative LLM backend** (Task 200, design §16.50.4, D-270): the automatic engine used to shell out to a hardcoded `claude` binary at 11 sites, so a Cursor-only / Kiro-only user's automatic features *silently no-op'd*. Now `makeBackend` picks the CLI of the agent the project was installed for (`claude --print` / `kiro-cli chat` / `cursor-agent -p`), off the user's existing login (no API key). Task 201 adds the **split-brain override** — run the automatic memory through a DIFFERENT agent than you code in (`cmk install --backend <agent>` / `cmk config set backend.agent <agent>`), made legible by `cmk config show`. New gates:
+
+| Check | Move | What it verifies | Reachability |
+| --- | --- | --- | --- |
+| **★ BK1** | Task 200 — HC-11 | `cmk doctor` emits **11** checks (HC-1..HC-11); HC-11 PASSes when the effective backend agent's CLI is on PATH, and FAILs with an honest "automatic features degraded, file-only still works" message (never a silent no-op) when it's absent | CLI, deterministic (via the injectable `backendCliProbe` seam or a hidden-binary sandbox) |
+| **★ BK2** | Task 201 — `--backend` | `cmk install --backend kiro` (installed-for claude) writes `backend.agent: kiro` to `context/settings.json`, and the install output warns about the **EFFECTIVE** backend CLI (kiro-cli), not the installed-for agent; an invalid `--backend banana` is rejected **fail-fast BEFORE any scaffold** (no half-install) | CLI, deterministic |
+| **★ BK3** | Task 201 — `config show` | `cmk config show` prints the installed-for agent, the ACTIVE backend agent (+ whether it's an override), the backend-CLI presence, and the semantic mode — informational, never a non-zero exit | CLI, deterministic |
+| **★ BK4** | Task 200 — live cross-agent | the automatic engine (a `cmk compress` / auto-extract cycle) actually **runs the LLM call through a non-`claude` agent CLI** (kiro-cli or cursor-agent) and produces a sane summary | **live cross-agent MANUAL flag** |
+
+**One honest MANUAL flag (the D-84 live-test rule, cross-agent variant):**
+
+- **BK4 — the live cross-agent spawn.** BK1–BK3 are CLI-deterministic on any machine. But whether the automatic engine *actually* compresses through `kiro-cli`/`cursor-agent` (not just resolves to it) can only be live-verified on a machine that HAS that agent's CLI — a Claude-Code-only cut-gate operator can't test it. Run `cmk config set backend.agent kiro` (or `cursor`) on a machine with that CLI, then trigger a real compression (`cmk roll --scope now` on a repo with a session buffer) and confirm a real summary lands — **on the dev machine this was live-verified for both kiro-cli and cursor-agent (D-278/D-280)**; the cut-gate operator flags it honestly if their machine lacks the 2nd CLI, rather than claiming verified.
+
 ---
 
 ## 0. Cut the release locally, then build the REAL artifact
@@ -223,7 +243,7 @@ code .
 
 - [ ] **★ G1 — install + doctor clean.**
       `cmk install` → "ready, hooks wired";
-      `cmk doctor` → **0 fail** on a fresh install — **10 checks now** (HC-1..HC-10; the 2 memsearch checks were removed in Task 120, HC-8 native-bindings added in v0.3.1, HC-9 version-drift added in v0.3.4, **HC-10 compaction-liveness added in v0.4.1 (Task 167)**). HC-9 = PASS on a just-installed project (the scaffold marker matches the binary). **HC-10 = SKIP** on a fresh install with no cron registered (it's informational — memory self-heals each session via the lazy roll; only flags a *registered but dead* cron).
+      `cmk doctor` → **0 fail** on a fresh install — **11 checks now** (HC-1..HC-11; the 2 memsearch checks were removed in Task 120, HC-8 native-bindings added in v0.3.1, HC-9 version-drift added in v0.3.4, **HC-10 compaction-liveness added in v0.4.1 (Task 167)**, **HC-11 backend-LLM-CLI-present added in v0.4.5 (Task 200/D-272/D-277)**). HC-9 = PASS on a just-installed project (the scaffold marker matches the binary). **HC-10 = SKIP** on a fresh install with no cron registered (it's informational — memory self-heals each session via the lazy roll; only flags a *registered but dead* cron). **HC-11 = PASS** when the effective backend agent's CLI (`claude` on a Claude-Code install) is on PATH; **FAIL** with an honest degrade message if it's absent (see ★ BK1).
       Type:
         `/hooks` → the 5 `cmk-*` hooks are loaded.
 
@@ -873,6 +893,31 @@ CLI suite structurally can't cover (Claude is in the loop).
 
 ---
 
+## 4f. The agent-relative backend + split-brain (Task 200 + 201)  ⬅️ the v0.4.5 headline
+
+The automatic engine now runs through the agent's OWN CLI, and the user can override which agent runs it. BK1–BK3 are CLI-deterministic (run them in the build terminal on any machine); **BK4 is the live cross-agent flag** (needs a 2nd agent's CLI present — see §0).
+
+- **★ BK1 — `cmk doctor` HC-11 (backend LLM CLI present).** On a fresh Claude-Code install, `cmk doctor` reports **11** checks and HC-11 = PASS (the `claude` CLI is on PATH). To prove the FAIL path deterministically, use the injectable probe in a script (`runDoctor({ projectRoot, userDir, backendCliProbe: () => ({ agent: 'kiro', bin: 'kiro-cli', present: false, reason: 'kiro-cli not found on PATH' }) })`) — HC-11 = FAIL with an honest "automatic features degraded, file-only still works" message and **no `recoveryCommand` that implies data loss**.
+  **PASS:** 11 checks, HC-11 PASS on a healthy install; the injected-absent probe yields a FAIL that names the missing CLI + says capture/search/recall still work. **FAIL:** doctor still reports 10 checks, or HC-11 silently SKIPs when the CLI is absent (the D-270 bug), or the message frames it as broken/fatal.
+
+- **★ BK2 — `cmk install --backend <agent>` (the split-brain override + fail-fast).** In a throwaway dir:
+  ```bash
+  cmk install --backend kiro          # installed-for claude-code, backend overridden to kiro
+  cat context/settings.json           # → { "backend": { "agent": "kiro" } }
+  cmk install --backend banana        # → exit 2, "unknown --backend 'banana'. Supported: claude, kiro, cursor.", and NO context/ scaffolded in a FRESH dir (fail-fast BEFORE scaffold)
+  ```
+  **PASS:** a valid `--backend` writes `backend.agent` + the install line warns about the EFFECTIVE backend CLI (kiro-cli), not the installed-for agent; a bad value exits 2 with the supported list AND leaves no half-install (a fresh dir has no `context/`). **FAIL:** the flag is ignored, the wrong agent is warned about, or a typo leaves a scaffolded-but-exit-2 project.
+
+- **★ BK3 — `cmk config show` (the setup readout).** In the `--backend kiro` project from BK2:
+  ```bash
+  cmk config show
+  ```
+  **PASS:** the readout names the **installed-for** agent (`claude-code`), the **active backend** agent (`kiro`) marked as an **override** that differs from installed-for, the backend-CLI presence, and the semantic mode — and exits **0** (informational, never a failure exit). **FAIL:** it doesn't reflect the override, crashes on an odd project state, or exits non-zero.
+
+- **★ BK4 — live cross-agent spawn (MANUAL, per §0).** On a machine that HAS a non-`claude` agent CLI: `cmk config set backend.agent kiro` (or `cursor`), seed a session buffer, then trigger a real compression (`cmk roll --scope now`) and confirm a real Markdown summary lands in `sessions/` (not a refusal, not empty). **This was live-verified on the dev machine for both `kiro-cli` (D-278) and `cursor-agent` (D-280).** The cut-gate operator flags it honestly if their machine lacks the 2nd CLI — never claim verified for a backend you couldn't spawn.
+
+---
+
 ## 5. Session 2 — recall + recall-QUALITY  ⬅️ start a NEW session
 
 Start Session 2 as a **new chat in the SAME window** (don't cleanly close Session 1) — that's the
@@ -1060,7 +1105,7 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 **Health & repair**
 
 - [ ] **F-11**
-      - `cmk doctor` → HC-1..HC-10 accurate (HC-8 = native bindings / npm-12 readiness, v0.3.1; HC-9 = version-drift, v0.3.4; HC-10 = compaction-liveness, v0.4.1 — SKIP when no cron registered) + the trailing **Memory health (informational)** line renders
+      - `cmk doctor` → HC-1..HC-11 accurate (HC-8 = native bindings / npm-12 readiness, v0.3.1; HC-9 = version-drift, v0.3.4; HC-10 = compaction-liveness, v0.4.1 — SKIP when no cron registered; HC-11 = backend LLM CLI present, v0.4.5 — PASS/FAIL on the effective backend agent's CLI, never silently skipped) + the trailing **Memory health (informational)** line renders
       - `cmk repair --hooks` re-wires if settings drift
       - **`cmk repair --index` → "(index): fixed → reindex completed"** (NOT an error). _v0.3.1: this ran the REAL reindexFull which needs a db; the bug where repair passed no db (since Task 49, masked by every test mocking the reindexer) was found by THIS cut-gate probe — keep it on the real path, no injected reindexer._
       - `cmk repair --all` → all three (hooks/locks/index) report cleanly
@@ -1180,12 +1225,13 @@ Clone elsewhere (`git clone C:\Temp\cut-gate19 C:\Temp\cut-gate-clone`), open *t
 ## Verdict + the cut
 
 **Cut if** every **★** passes —
-`G1–G4, G2b, G5, G6, G7, R1, R2, M0, M1, M2, W1–W4, B2, B9, B3, B4, B5, B6, B7, C5, C6, FQ1, PR1–PR5, TV1–TV4, MC1, D1, D3, E1, F-3, F-11b, L3, H1`.
+`G1–G4, G2b, G5, G6, G7, R1, R2, M0, M1, M2, W1–W4, B2, B9, B3, B4, B5, B6, B7, C5, C6, FQ1, PR1–PR5, TV1–TV4, MC1, BK1–BK4, D1, D3, E1, F-3, F-11b, L3, H1`.
 _(v0.3.2 cut-blockers. **DJ1–DJ3 are NOT cut-blockers this cut** — the `cmk digest`/DECISIONS.md feature is HELD for v0.3.3 until recall-complete (D-164); run the DJ probes to confirm the merged code is sound, but they don't gate the v0.3.2 tag.)_
 _(v0.3.2 adds **FQ1** — FTS5 query sanitization (no crash on dots/hyphens/colons) — and **DJ1/DJ2/DJ3** — `cmk digest` + the append-only `DECISIONS.md` journal (renders, append-only/retract-in-place, decisions-only) — to the gate. 141b was rejected on perf (D-162); no storage-layer test.)_
 _(v0.3.1's **C5/C6/F-11b** are now standing gates. D3's old "decide if the recall variance is acceptable" clause is GONE — v0.3.0 shipped the Task-75 fix; D3 is a hard gate now.)_
 _(v0.4.3 adds **PR1–PR5** (§4d) — the persona-promotion redesign (recurrence-count bump / persona-condenses-not-strands / trust_score column migration / no-arg topic-routing / invisible-Unicode rejection). All five are CLI-deterministic. The LLM-driven layers — the promotion GATE itself (`cmk persona generate` + live Haiku), the spoken MENTION relay, and the `mk_remember` MCP write path — are flagged MANUAL in §0, not gated by PR1–PR5.)_
 _(v0.4.4 adds **TV1–TV4 + MC1** (§4e) — temporal validity (Task 66: `--shape` field / `--expires` declared expiry hide-never-delete / weekly-curate expiry sweep / temporal-supersede window-close) + the memory-commit proposal (Task 150, ADR-0018: SessionStart proposes a `context/` commit, runs no git itself). **TV1/TV2/TV3 + MC1 are CLI-deterministic cut-blockers.** **TV4 has a deterministic close-mechanics leg (suite-covered) but its full sweep verdict is a live-Haiku judge** — run `cmk weekly-curate` on THIS repo's real corpus and confirm sensible verdicts with **no false SUPERSEDES**; that live leg + the 66.3 auto-extract expiry SUGGESTION (invents no unstated date) + the MC1 spoken relay are flagged MANUAL in §0.)_
+_(v0.4.5 adds **BK1–BK4** (§4f) — the agent-relative backend (Task 200: the automatic engine runs through the agent's own CLI, closing the D-270 silent-no-op) + the split-brain override (Task 201). **BK1 (`cmk doctor` HC-11 present/absent), BK2 (`cmk install --backend` writes the key + fail-fast on a bad value + warns about the effective backend), BK3 (`cmk config show` reflects the override) are CLI-deterministic cut-blockers.** **BK4 — the automatic engine actually compressing through `kiro-cli`/`cursor-agent` — is a live cross-agent MANUAL flag** (needs the 2nd agent's CLI present; live-verified on the dev machine for both, D-278/D-280 — flag honestly if your machine lacks it).)_
 
 **The W1–W4 recall ladder + D3 are the v0.3.0 headline** — the skill fires, paraphrase recall hits, the raw record is reachable, and memory-first answering is a gate. **M0–M2 stay the standing conversational gate** (the v0.2.3 headline); **B9 stays the standing rich-auto-capture gate** (the v0.2.2 headline) — if `context\memory\` has no `write_source: auto-extract` rich file, investigate before shipping.
 
