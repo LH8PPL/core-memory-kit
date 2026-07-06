@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+## [0.4.5] — 2026-07-06
+
 ### Added
 
 - **Run your automatic memory through a DIFFERENT agent than you code in** (Task 201, the "split-brain" backend). Building on Task 200, you can now decouple *which agent you code in* from *which agent runs the background memory chore* (compression / extraction / persona). The background "janitor" LLM is cheap, frequent, and unattended — so route it to whatever CLI is cheapest while keeping your premium subscription for actual coding. E.g. code in Claude, but `cmk install --backend kiro` runs the automatic memory on `kiro-cli`'s Haiku (your Google login). Set it at install (`--backend <claude|kiro|cursor>`) or after (`cmk config set backend.agent <agent>`) — both write the same key. New **`cmk config show`** gives a one-glance readout of your setup (installed-for agent, active backend agent + whether it's an override, backend CLI presence, semantic mode) — informational, distinct from `cmk doctor`'s health checks. This is what makes the override legible. (No other memory tool lets you *choose* a non-primary agent for the background call.)
