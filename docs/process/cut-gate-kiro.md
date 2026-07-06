@@ -25,7 +25,7 @@ It exercises every Kiro surface end-to-end on the **real installed artifact**: i
 - Each check is one line you can tick, followed by the **action** (a code block) and a **PASS:** line.
 - Throwaway probes use their own temp dirs and never touch your main run.
 - **Time:** ~60–75 min.
-- **Prereqs:** **Kiro IDE installed** + **kiro-cli on PATH** (both — the gate exercises each). Python 3.12+ on PATH (for `--with-semantic`).
+- **Prereqs:** **Kiro IDE installed** + **kiro-cli on PATH** (both — the gate exercises each). Python 3.12+ on PATH (for `--with-semantic`). **Note (v0.4.5+): `kiro-cli` now serves TWO roles here** — it is both the terminal client the gate drives AND the **LLM backend** for this project's AUTOMATIC memory engine (compression / auto-extract / persona now run through `kiro-cli chat`, off the user's Kiro/Google login, no API key). Without `kiro-cli` on PATH, capture / search / recall still work but the automatic LLM steps are skipped (HC-11 flags it). The v0.4.5 backend gates are **KG-BK1..KG-BK4 (§7b)**.
 
 > **★★ The real-input rule (binding — D-84).** A check **PASSES only when it ran on REAL input that exercises the feature** — never "the command didn't crash." A hook that is *registered* but never *fires-and-captures-a-real-turn* is **unverified**, not a pass (the whole point of 50.M: "docs-correct ≠ fires"). The IDE/CLI hook checks below FAIL if you only confirm the file exists.
 
@@ -119,7 +119,7 @@ cmk doctor
       then `Restart Kiro to activate the hooks (steering + skills + MCP are immediate).`
       **PASS:** the summary names **all seven** surfaces (`mcp + steering + agents-md + skills + ide-hooks + trusted-commands + cli-agent`) — `agents-md` is the managed `AGENTS.md` block (D-188; KG10), `trusted-commands` is the `.vscode/settings.json` `kiroAgent.trustedCommands` that auto-approves the kit's hooks (D-194; KG11). _(If your real `~/.kiro` has NO Kiro default agent, the CLI agent takes the default silently — no "Note: you already have a Kiro CLI default agent" line. If you DO already have a Kiro default, you'll see that note here instead — and that's the guarded path KG7 forces deterministically.)_
 
-- [ ] **★ KG1b — `cmk doctor` clean (agent-aware HC-1).** `cmk doctor` → **0 fail** on a fresh Kiro install (HC-1..HC-9).
+- [ ] **★ KG1b — `cmk doctor` clean (agent-aware HC-1).** `cmk doctor` → **0 fail** on a fresh Kiro install — **11 checks now** (HC-1..HC-11; HC-9 version-drift v0.3.4, HC-10 compaction-liveness v0.4.1, **HC-11 backend-CLI-present v0.4.5** — PASS when `kiro-cli` is on PATH, the effective backend for a Kiro install; see ★ KG-BK1, §7b).
       **HC-1 must read as a KIRO check, not a Claude one:** `[PASS] HC-1: ... Kiro capture/inject wired via IDE hooks (.kiro/hooks/) + CLI agent (~/.kiro/agents/)`. **FAIL the gate** if HC-1 says `.claude/settings.json missing → cmk repair --hooks` — that's the pre-D-185 bug (doctor not agent-aware); you're on a stale binary, rebuild (§0b). _(D-185/D-186, found + fixed by this gate: HC-1 is a capability check — PASSes if the IDE hooks OR the CLI agent is present, so both a Kiro-IDE and a kiro-cli-only user read clean. The other memory-core checks are agent-agnostic.)_
 
 - [ ] **★ KG2 — MCP surface (shared IDE+CLI) + autoApprove (D-196).**
@@ -454,10 +454,21 @@ Same as the Claude-Code gate — `context/` is committed and travels with `git c
 
 ---
 
+## 7b. The agent-relative backend + split-brain, Kiro edition (Task 200 + 201)  ⬅️ the v0.4.5 gates
+
+On a Kiro install, the automatic engine runs through **`kiro-cli chat`** (off the Kiro/Google login, no API key — live-verified D-278). Since this operator HAS kiro-cli, **KG-BK4 is directly runnable here.** KG-BK1..3 are CLI-deterministic.
+
+- [ ] **★ KG-BK1 — `cmk doctor` HC-11 (kiro-cli present).** On a fresh `--ide kiro` install, `cmk doctor` reports **11** checks and HC-11 = PASS naming `kiro-cli`. To prove the FAIL path, script `runDoctor({ projectRoot, userDir, backendCliProbe: () => ({ agent: 'kiro', bin: 'kiro-cli', present: false, reason: 'kiro-cli not found on PATH' }) })` → HC-11 = FAIL with the honest "automatic features degraded, file-only still works" message. **PASS:** 11 checks; HC-11 PASS with kiro-cli present, FAIL (naming it) when absent. **FAIL:** 10 checks, or a silent SKIP when absent (the D-270 bug).
+- [ ] **★ KG-BK2 — `cmk install --backend <agent>` (split-brain + fail-fast).** In a throwaway dir: `cmk install --ide kiro --backend claude` → `context/settings.json` carries `backend.agent: claude`, and the install line warns about the EFFECTIVE backend CLI (`claude`), not kiro-cli. `cmk install --ide kiro --backend banana` → exit 2 + supported list, **no `context/` scaffolded** (fail-fast BEFORE scaffold). **PASS:** valid override writes the key + warns about the effective CLI; a bad value fails fast with no half-install. **FAIL:** the flag is ignored, wrong CLI warned, or a typo leaves a scaffolded-but-exit-2 project.
+- [ ] **★ KG-BK3 — `cmk config show`.** In the `--backend claude` project from KG-BK2: `cmk config show` names the **installed-for** agent (`kiro`), the **active backend** agent (`claude`) marked as an override, the backend-CLI presence, and the semantic mode, exiting **0**. **PASS:** the readout reflects the override, exits 0. **FAIL:** doesn't reflect the override or exits non-zero.
+- [ ] **★ KG-BK4 — live kiro-cli spawn (runnable HERE).** On a default `--ide kiro` install (backend = kiro-cli), seed a session buffer, trigger a real compression (`cmk roll --scope now`), and confirm a real Markdown summary lands in `sessions/` — produced by `kiro-cli chat` (not a refusal, not empty). **Live-verified on the dev machine (D-278/D-280): `kiro-cli chat --no-interactive --model claude-haiku-4.5 --trust-tools=` with the prompt on stdin returned a correct summary, ~1–7s, 0.01 credits.** **PASS:** a real summary lands via kiro-cli. **FAIL:** a refusal, empty, or timeout.
+
+---
+
 ## Verdict + the cut
 
 **Cut v0.4.0 if** every **★** passes —
-`KG1, KG1b, KG2, KG3, KG4, KG5, KG6, KG7, KG8, KG9, KG10, KG11, KH-trust, KH1, KH2, KH3, M0, M1, M2, KC1, KC2, KC3, KC4, KG-guard, E1, KU1, KU2, H1` (the Kiro surface + live gates) **and** the agent-agnostic standing gates from [`cut-gate.md`](cut-gate.md) (`B2, B9, B3, B4, C5, FQ1, F-3, F-11b` + the recall ladder where it overlaps).
+`KG1, KG1b, KG2, KG3, KG4, KG5, KG6, KG7, KG8, KG9, KG10, KG11, KH-trust, KH1, KH2, KH3, M0, M1, M2, KC1, KC2, KC3, KC4, KG-guard, E1, KU1, KU2, H1` (the Kiro surface + live gates) **and** the agent-agnostic standing gates from [`cut-gate.md`](cut-gate.md) (`B2, B9, B3, B4, C5, FQ1, F-3, F-11b` + the recall ladder where it overlaps). **For a v0.4.5+ cut also run `KG-BK1..KG-BK4` (§7b — the agent-relative backend + split-brain; KG-BK4 is runnable on this Kiro gate).**
 
 **The 50.M live-test is KH1/KH2 (IDE hooks FIRE) + KC1/KC2/KC3 (kiro-cli default-agent + hooks FIRE).** These are the checks unit tests structurally can't reach — "the hook is written correctly" (the suite proves that) ≠ "the hook fires and captures a real turn in a real Kiro session" (only this gate proves that). The D-182 8-point checklist maps to: default resolves w/o `--agent` (KC1), inject+capture FIRE not just register (KH1/KH2/KC2/KC3), non-clobber guard (KG7), MCP reachable (KG2/KC4/M0), timeout composition (KG5/KG6 carry the `timeout`/`timeout_ms` ceilings; KH3 proves a slow/failed hook exits 0).
 
