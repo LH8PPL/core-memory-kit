@@ -10617,3 +10617,164 @@ _(retracted 2026-06-29)_
 ## RESUME — v0.3.1 cut-gate near-complete; PR
 
 **When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-AT2QCUET -->
+
+## Design Assets in assets/ Directory
+
+**When:** 2026-06-16 · **Fact:** `P-AT2QCUET`
+**Why:** Centralized asset location; font-independence ensures consistent rendering across platforms and social media without typeface dependencies.
+
+<!-- decision:P-aMFDHMHA -->
+
+## Design System Color Palette
+
+**When:** 2026-06-16 · **Fact:** `P-aMFDHMHA`
+**Why:** Colors are foundational to design consistency; required when regenerating or adjusting designs to maintain brand integrity.
+
+<!-- decision:P-aBGaV2EM -->
+
+## GitHub Social Preview Upload (Manual Web UI Only)
+
+**When:** 2026-06-16 · **Fact:** `P-aBGaV2EM`
+**Why:** Explains why this step cannot be automated in release workflows and must remain a manual gate step.
+
+<!-- decision:P-FLXHT67K -->
+
+## Use open-ended, general questions in research to avoid leading answers and surfa
+
+**When:** 2026-07-05 · **Fact:** `P-FLXHT67K`
+
+<!-- decision:P-M3KA2WHH -->
+
+## Confirms D-277 decision "Warn at install + doctor, degrade to file-only" for mis
+
+**When:** 2026-07-05 · **Fact:** `P-M3KA2WHH`
+
+<!-- decision:P-G9TG4GGC -->
+
+## Cost/role agent separation principle — use premium agent (Claude) for primary co
+
+**When:** 2026-07-05 · **Fact:** `P-G9TG4GGC`
+
+<!-- decision:P-TH4ARBRA -->
+
+## Field-wide headless-LLM pattern confirmed across 15 projects: 4 per-agent-CLI, 2
+
+**When:** 2026-07-05 · **Fact:** `P-TH4ARBRA`
+
+<!-- decision:P-KXGGaQGW -->
+
+## Kit's native-PowerShell discipline (not bash-first) is confirmed as canonical by
+
+**When:** 2026-07-05 · **Fact:** `P-KXGGaQGW`
+
+<!-- decision:P-5aEY9UDN -->
+
+## Don't get stuck in autopilot/non-interactive mode that ignores user input. User
+
+**When:** 2026-07-06 · **Fact:** `P-5aEY9UDN`
+
+<!-- decision:P-DMSLASHK -->
+
+## v0.4.5 Release Workflow
+
+**When:** 2026-07-06 · **Fact:** `P-DMSLASHK`
+**Why:** Separation of concerns: assistant automates release mechanics; user retains explicit control over publish trigger. Prevents accidental publishes.
+
+<!-- decision:P-7N5XaF22 -->
+
+## Claude-memory-kit supports 3 IDE/tool agents
+
+**When:** 2026-07-06 · **Fact:** `P-7N5XaF22`
+**Why:** The kit must provide agent-specific installation, usage, and release validation steps for each of its three agents.
+
+<!-- decision:P-DWMSXSTF -->
+
+## Cut-gate release validation guides (per-agent)
+
+**When:** 2026-07-06 · **Fact:** `P-DWMSXSTF`
+**Why:** Pre-release validation must verify each agent installs and runs correctly. Structural parity allows reviewers to spot gaps systematically.
+
+<!-- decision:P-9WS2CJH7 -->
+
+## Documentation structure and prerequisite locations
+
+**When:** 2026-07-06 · **Fact:** `P-9WS2CJH7`
+**Why:** The kit is distributed via GitHub and npm with separate audiences; each agent has different installation/setup prerequisites that must be clear at each entry point.
+
+<!-- decision:P-FL2MY6EN -->
+
+## Cut-Gate Backend Pattern Template (§4f)
+
+**When:** 2026-07-06 · **Fact:** `P-FL2MY6EN`
+**Why:** Structural consistency ensures maintainability and guarantees equivalent coverage across all agent guides.
+
+<!-- decision:P-T7YJENCG -->
+
+## Patch Release Live-Session Gate Optional
+
+**When:** 2026-07-06 · **Fact:** `P-T7YJENCG`
+**Why:** CLI and suite validation sufficient for narrowly-scoped patches
+
+<!-- decision:P-6BNBXVHK -->
+
+## Release Cut Workflow — Local Isolation, User Tag Push
+
+**When:** 2026-07-06 · **Fact:** `P-6BNBXVHK`
+**Why:** Real tarball testing catches issues dev repo would miss; isolation prevents accidents; user controls final tag
+
+<!-- decision:P-KSEF6JBY -->
+
+## v0.4.5 Release Gate Test Suite
+
+**When:** 2026-07-06 · **Fact:** `P-KSEF6JBY`
+**Why:** Each gate validates a critical path; testing on real tarball catches issues dev repo would miss
+
+<!-- decision:P-2TUJKMP4 -->
+
+## validate-references Requires Properly Filed Task References
+
+**When:** 2026-07-06 · **Fact:** `P-2TUJKMP4`
+**Why:** Ensures all task references are traceable; caught a dangling reference during release
+
+<!-- decision:P-YD6SLA3Q -->
+
+## Windows npm `EPERM` Warning on better_sqlite3.node Is Benign
+
+**When:** 2026-07-06 · **Fact:** `P-YD6SLA3Q`
+**Why:** Prevents user panic or false failure detection in future test runs; the warning can be safely ignored.
+
+<!-- decision:P-29U75JGA -->
+
+## Claude-Memory-Kit Gate Test Phase Structure
+
+**When:** 2026-07-06 · **Fact:** `P-29U75JGA`
+**Why:** Understanding the phase structure helps future sessions know what's been tested and at which stage; §0–§1 is pre-Session 1 (systematic verification), §2+ are live-agent (interactive).
+
+<!-- decision:P-Q2BJCa6D -->
+
+## CMK Install Activation and Native Memory Options
+
+**When:** 2026-07-06 · **Fact:** `P-Q2BJCa6D`
+**Why:** Users may be confused by restart requirement or uncertain whether to disable native memory; documenting these options prevents false starts and supports informed memory-architecture choices.
+
+<!-- decision:P-65KH53NH -->
+
+## Fresh CMK Install Health Baseline (cmk 0.4.5, --with-semantic)
+
+**When:** 2026-07-06 · **Fact:** `P-65KH53NH`
+**Why:** This is the expected healthy state for a fresh installation; useful as a reference for regression testing or comparison against later health checks.
+
+<!-- decision:P-WPYWZW2U -->
+
+## Gate Verification System (cut-gate20)
+
+**When:** 2026-07-06 · **Fact:** `P-WPYWZW2U`
+**Why:** Project requires reliable verification that the live Claude Code session environment is safe, captures are correct, and no sensitive data leaked.
