@@ -234,7 +234,7 @@ if (Test-Path $env:USERPROFILE\context) {
 Validates scaffold integrity + the Task-69 skill surface.
 
 ```powershell
-mkdir C:\Temp\cut-gate19; cd C:\Temp\cut-gate19
+mkdir C:\Temp\cut-gate21; cd C:\Temp\cut-gate21
 git init
 cmk install --with-semantic          # v0.3.0: the one-flag semantic enablement (G7) — ~260 MB once + the model pre-warm; takes a minute
 cmk doctor
@@ -468,9 +468,9 @@ which carries raw, un-screened text, so it must never be committed.
 
 ```powershell
 # The security half (deterministic): the diagnostic log is gitignored.
-git -C C:\Temp\cut-gate19 check-ignore context\sessions\probe.extract.log
+git -C C:\Temp\cut-gate21 check-ignore context\sessions\probe.extract.log
 # The trace half (observational): if any build turn was graded LOW, you'll see it.
-findstr /S /C:"low_trust_discarded" C:\Temp\cut-gate19\context\sessions\*.extract.log
+findstr /S /C:"low_trust_discarded" C:\Temp\cut-gate21\context\sessions\*.extract.log
 ```
 
 - [ ] **★ B6 — PASS (must):**
@@ -596,7 +596,7 @@ findstr /S /C:"\"tier\":\"U\"" %USERPROFILE%\.claude-memory-kit\.locks\audit.log
 
 `cmk digest` prints a readable page of everything in memory AND maintains `context/DECISIONS.md` —
 a committed, **append-only** chronological log of every decision (`type:project` fact) + its *why*.
-Run these in the build terminal (`C:\Temp\cut-gate19`), after Session 1 has captured some facts.
+Run these in the build terminal (`C:\Temp\cut-gate21`), after Session 1 has captured some facts.
 
 - [ ] **★ DJ1 — `cmk digest` renders + creates `DECISIONS.md` (Task 147).**
       ```powershell
@@ -687,10 +687,22 @@ The regular user **never types `cmk`** — they talk, and Claude runs the MCP to
 Run these **in chat** (a real Claude Code session), not the terminal. This is the surface the
 CLI suite structurally can't cover (Claude is in the loop).
 
+> ⚠️ **PREREQUISITE — restart Claude Code after `cmk install`, before this section.** Claude Code
+> reads `.mcp.json` **at process startup**, not mid-session. If you started the session **in the same
+> window** that `cmk install` scaffolded `.mcp.json` into, the `cmk` server is registered but its tools
+> show as **"available (deferred)" and won't resolve** — Claude will fall back to the `cmk` **CLI**
+> (documented graceful degrade — capture still works), and M0 will read empty. **Fix: quit and reopen
+> Claude Code in this folder** (or open a fresh window on it) so `.mcp.json` loads at launch. This is
+> not a kit bug — the server + registration are correct (`cmk mcp serve` speaks MCP; `settings.json`
+> has `enabledMcpjsonServers:["cmk"]` + the `mcp__cmk__*` allowlist); it's Claude Code's MCP-load
+> lifecycle. Verified 2026-07-06 (v0.4.5 gate): a session started ~9s after install showed the tools
+> deferred-but-unresolved; a restart resolved all 11. _(Same reason M2's recall step and the §5
+> cold-open say "restart Claude Code first.")_
+
 - [ ] **★ M0 — the 11 tools are live (Task 108).**
       Say: *"list your cmk MCP tools."*
       → `mk_remember, mk_search, mk_get, mk_timeline, mk_cite, mk_recent_activity, mk_trust, mk_lessons_promote, mk_forget, mk_queue_list, mk_queue_resolve` (**11**).
-      _(Empty = the server didn't launch; re-check G6 + that you restarted Claude Code.)_
+      _(Empty = the server didn't launch OR you didn't restart Claude Code after install — see the ⚠️ prerequisite above; then re-check G6.)_
 
 - [ ] **★ M1 — capture in chat, prompt-free (Task 108).**
       Say: *"remember our staging environment runs on Fly.io — because it's cheap to spin ephemeral envs up and down."*
@@ -1020,7 +1032,7 @@ The headline gate. Each rung exercises a different layer of the new recall stack
 ## 6. Session 3 — the cold-open (the wedge, wow #1)  ⬅️ a BRAND-NEW project
 
 ```powershell
-mkdir C:\Temp\cut-gate-coldopen19; cd C:\Temp\cut-gate-coldopen19
+mkdir C:\Temp\cut-gate-coldopen20; cd C:\Temp\cut-gate-coldopen20
 git init; cmk install --with-semantic; code .
 ```
 Ask: *"Start a new Python backend for me - set up the structure."*
@@ -1033,7 +1045,7 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 
 ---
 
-## 7. Full feature sweep — every `cmk` subcommand  (~20 min, in `C:\Temp\cut-gate19`)
+## 7. Full feature sweep — every `cmk` subcommand  (~20 min, in `C:\Temp\cut-gate21`)
 
 **Recall & index**
 
@@ -1125,7 +1137,7 @@ Ask: *"Start a new Python backend for me - set up the structure."*
       **PASS:** HC-4 fails on the broken INDEX and recovers after `cmk reindex`; the fact FILES were never at risk (INDEX is derived). _(Pre-v0.3.1 a hook-killed rebuild could leave a stale committed INDEX with ZERO trace — the cut-gate finding.)_
 
 - [ ] **★ VD1 — HC-9 detects a project scaffold behind the installed `cmk` (Task 162 / D-176 — new in v0.3.4).**
-      After an update, a project's version-stamped scaffold (the CLAUDE.md `:start vX` block) lags until `cmk install` re-runs there. HC-9 is the kit telling the user. In `C:\Temp\cut-gate19`:
+      After an update, a project's version-stamped scaffold (the CLAUDE.md `:start vX` block) lags until `cmk install` re-runs there. HC-9 is the kit telling the user. In `C:\Temp\cut-gate21`:
       ```powershell
       cmk doctor | Select-String "HC-9"            # PASS first (fresh install — marker matches the binary)
       # Simulate drift: downgrade the CLAUDE.md marker to an older version
@@ -1180,7 +1192,7 @@ Ask: *"Start a new Python backend for me - set up the structure."*
       **PASS:** non-empty, items recognizable from this session.
 
 - [ ] **F-19 — `uninstall` is clean + `init-user-tier` re-seeds (lifecycle, in the throwaway dir ONLY).**
-      In `C:\Temp\cut-gate19` (NEVER a real project):
+      In `C:\Temp\cut-gate21` (NEVER a real project):
       ```powershell
       cmk uninstall                # removes hooks + the CLAUDE.md managed block; context/ stays (your data)
       git status                   # nothing unexpected staged; CLAUDE.md outside the markers byte-preserved
@@ -1214,8 +1226,8 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 
 ## 9. Portability ("another computer")
 
-In `C:\Temp\cut-gate19`: `git add -A; git commit -m "wip"`.
-Clone elsewhere (`git clone C:\Temp\cut-gate19 C:\Temp\cut-gate-clone`), open *that* in Claude Code.
+In `C:\Temp\cut-gate21`: `git add -A; git commit -m "wip"`.
+Clone elsewhere (`git clone C:\Temp\cut-gate21 C:\Temp\cut-gate-clone`), open *that* in Claude Code.
 
 - [ ] **★ H1**
       the clone already has the project memory (`context/` is committed — tenet T2).
