@@ -191,6 +191,47 @@ describe('Task 191 — appendJudgmentEvidence (the earned part)', () => {
   });
 });
 
+describe('Task 191 — skill-review regression pins (B1/B2)', () => {
+  it('B1: a CORRUPT judgment file (merge-conflict markers) is skipped — writes + evidence still work', () => {
+    // parse() returns {frontmatter:null} on YAML failure; the reader must skip.
+    writeFileSync(
+      judgmentPath('corrupted'),
+      ['---', '<<<<<<< HEAD', 'type: judgment', '=======', '>>>>>>> theirs', '---', 'body', ''].join('\n'),
+      'utf8',
+    );
+    const r = writeJudgment({ projectRoot, ...BASE });
+    expect(r.action).toBe('created'); // no TypeError from the null frontmatter
+    const ev = appendJudgmentEvidence({ projectRoot, id: r.id, verdict: 'HIT', predicted: 'p specific enough', observed: 'o' });
+    expect(ev.action).toBe('appended');
+    expect(readJudgments({ projectRoot }).every((j) => j.frontmatter)).toBe(true);
+  });
+
+  it('B2: resolving the SAME expectation twice is a no-op — replication cannot be faked', () => {
+    const a = writeJudgment({ projectRoot, ...BASE });
+    capturePredictions(projectRoot, { text: 'PREDICTION: the install completes in under five seconds' });
+    const [exp] = readExpectations(projectRoot, { pendingOnly: true });
+
+    const r1 = resolveExpectation(projectRoot, { id: exp.id, verdict: 'HIT', judgmentId: a.id });
+    expect(r1.action).toBe('resolved');
+    const r2 = resolveExpectation(projectRoot, { id: exp.id, verdict: 'HIT', judgmentId: a.id });
+    expect(r2.action).toBe('already-resolved');
+
+    const fm = readFm(a.slug).frontmatter;
+    expect(fm.n_episodes).toBe(2); // ONE real episode counted once, not inflated
+    expect(fm.status).toBe('provisional'); // corroborated NOT faked
+  });
+
+  it('M4: prefer === over is rejected upfront', () => {
+    const r = writeJudgment({ projectRoot, prefer: 'X', over: 'X', taskShape: 't', decaysAfter: '2027-01-01' });
+    expect(r.action).toBe('error');
+  });
+
+  it('M2: a PREDICTION inside a fenced code block does NOT register', () => {
+    const fenced = ['Here is the test:', '```js', '// PREDICTION: this fenced line must not count at all', '```', 'done'].join('\n');
+    expect(scanForPredictions(fenced)).toHaveLength(0);
+  });
+});
+
 describe('Task 191 — expectation pre-registration (the PREDICTION: pattern)', () => {
   it('scanForPredictions extracts specific predictions and REJECTS vague ones (the honesty gate)', () => {
     const text = [
@@ -228,6 +269,7 @@ describe('Task 191 — expectation pre-registration (the PREDICTION: pattern)', 
     captureTurn({
       payload: {
         stop_hook_active: false,
+        session_id: 'sess-hook-42',
         assistant_message:
           'Refactor done. PREDICTION: the nightly pipeline finishes without the OOM error tomorrow',
       },
@@ -239,7 +281,9 @@ describe('Task 191 — expectation pre-registration (the PREDICTION: pattern)', 
     const pending = readExpectations(projectRoot, { pendingOnly: true });
     expect(pending).toHaveLength(1);
     expect(pending[0].text).toContain('OOM');
-    expect(pending[0].session ?? null).toBeDefined();
+    // M3 (skill-review): assert the REAL session attribution, not a vacuous
+    // null-passes check — the Stop payload's session_id must ride through.
+    expect(pending[0].session).toBe('sess-hook-42');
   });
 
   it('capture never scaffolds a non-kit project (the M8 class) and never throws on a broken root', () => {

@@ -34,6 +34,10 @@ export function expectationsLogPath(projectRoot) {
 /** Extract the SPECIFIC predictions from a turn's text. @returns {string[]} */
 export function scanForPredictions(text) {
   if (typeof text !== 'string' || text.length === 0) return [];
+  // M2 (skill-review): strip fenced code blocks first - a turn PASTING code
+  // or tests that mention PREDICTION: (this repo dogfoods itself) must not
+  // register junk expectations.
+  text = text.replace(/```[\s\S]*?```/g, '');
   const found = [];
   for (const m of text.matchAll(PREDICTION_RE)) {
     const candidate = m[1].trim();
@@ -122,6 +126,11 @@ export function readExpectations(projectRoot, { pendingOnly } = {}) {
 export function resolveExpectation(projectRoot, { id, verdict, observed, judgmentId } = {}) {
   const pending = readExpectations(projectRoot).find((e) => e.id === id);
   if (!pending) return { action: 'not-found' };
+  // B2 (skill-review): a second resolve of the same id must be a NO-OP -
+  // otherwise repeated resolutions inflate a judgment's n_episodes and can
+  // fake 'corroborated' from ONE real episode, gutting the >=3-replication
+  // honesty guard this module exists to enforce.
+  if (pending.status !== 'pending') return { action: 'already-resolved', id };
   try {
     appendFileSync(
       expectationsLogPath(projectRoot),

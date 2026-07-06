@@ -29,6 +29,7 @@ import { writeFact } from './write-fact.mjs';
 import { hashContent } from './content-hash.mjs';
 import { parse, format } from './frontmatter.mjs';
 import { appendAuditEntry, nowIso } from './audit-log.mjs';
+import { reindex } from './reindex.mjs';
 
 const VERDICTS = new Set(['HIT', 'MISS', 'REVERSAL', 'WEAK-POSITIVE']);
 
@@ -53,6 +54,10 @@ export function readJudgments({ projectRoot } = {}) {
     if (!name.startsWith('judgment_') || !name.endsWith('.md')) continue;
     try {
       const { frontmatter, body } = parse(readFileSync(join(dir, name), 'utf8'));
+      // B1 (skill-review): parse() returns {frontmatter:null} on YAML failure
+      // (merge-conflict markers in a committed judgment file are a realistic
+      // trigger) - it never throws, so the catch below can't save us. Skip.
+      if (!frontmatter || typeof frontmatter !== 'object') continue;
       out.push({ path: join(dir, name), slug: name.slice('judgment_'.length, -3), frontmatter, body });
     } catch {
       // unreadable judgment file — skip, never throw into a caller's loop
@@ -61,44 +66,73 @@ export function readJudgments({ projectRoot } = {}) {
   return out;
 }
 
-// Directed-cycle check: does adding the edge prefer→over close a loop?
-// Edges mean "prefer beats over"; a path over→…→prefer means the new edge
-// completes a cycle. Only ACTIVE judgments (not retracted) participate.
-function findCyclePath(judgments, { prefer, over }) {
-  const edges = new Map(); // node → Set(beaten nodes)
+// Directed-cycle check: does adding the edge prefer->over close a loop?
+// Edges mean "prefer beats over"; ANY path over->...->prefer means the new
+// edge completes a cycle. Only ACTIVE judgments (not retracted) participate.
+// Returns the FULL cycle-node set - every node on ANY over->...->prefer path
+// (forward-reachable-from-over INTERSECT reaches-prefer), not just the first
+// DFS path (skill-review I1: one close can complete MULTIPLE cycles at once;
+// under-marking leaves a real on-disk cycle uncontested - the unsafe
+// direction. Mild over-marking of shared nodes errs safe by design).
+function findCycleNodes(judgments, { prefer, over }) {
+  const fwd = new Map(); // node -> Set(beaten)
+  const rev = new Map(); // node -> Set(beaters)
   for (const j of judgments) {
     const fm = j.frontmatter;
     if (fm.status === 'retracted') continue;
-    if (!edges.has(fm.prefer)) edges.set(fm.prefer, new Set());
-    edges.get(fm.prefer).add(fm.over);
+    if (!fwd.has(fm.prefer)) fwd.set(fm.prefer, new Set());
+    fwd.get(fm.prefer).add(fm.over);
+    if (!rev.has(fm.over)) rev.set(fm.over, new Set());
+    rev.get(fm.over).add(fm.prefer);
   }
-  // DFS from `over` looking for `prefer`.
-  const stack = [[over]];
-  const seen = new Set([over]);
-  while (stack.length > 0) {
-    const path = stack.pop();
-    const node = path[path.length - 1];
-    if (node === prefer) return path; // over → … → prefer
-    for (const next of edges.get(node) ?? []) {
-      if (!seen.has(next)) {
-        seen.add(next);
-        stack.push([...path, next]);
+  const bfs = (startNode, graph) => {
+    const seen = new Set([startNode]);
+    const queue = [startNode];
+    while (queue.length > 0) {
+      const n = queue.shift();
+      for (const next of graph.get(n) ?? []) {
+        if (!seen.has(next)) {
+          seen.add(next);
+          queue.push(next);
+        }
       }
     }
-  }
-  return null;
+    return seen;
+  };
+  const fromOver = bfs(over, fwd); // nodes over beats, transitively
+  if (!fromOver.has(prefer)) return null; // no path back - no cycle
+  const reachPrefer = bfs(prefer, rev); // nodes that transitively beat prefer
+  const nodes = new Set([prefer, over]);
+  for (const n of fromOver) if (reachPrefer.has(n)) nodes.add(n);
+  return nodes;
 }
 
-function markContested(judgment, note) {
+function markContested(projectRoot, judgment, note) {
   const fm = { ...judgment.frontmatter, status: 'contested' };
   let body = judgment.body;
   if (body.includes('## Cycle / contradiction flag')) {
-    body = body.replace(
-      /## Cycle \/ contradiction flag\n\nnone/,
-      `## Cycle / contradiction flag\n\n${note}`,
-    );
+    // Append-friendly (skill-review I2): a SECOND cycle on an already-
+    // contested judgment records its own note instead of matching only the
+    // literal 'none'.
+    body = /## Cycle \/ contradiction flag\n\nnone/.test(body)
+      ? body.replace(/## Cycle \/ contradiction flag\n\nnone/, `## Cycle / contradiction flag\n\n${note}`)
+      : body.replace(/## Cycle \/ contradiction flag\n\n/, `## Cycle / contradiction flag\n\n${note}\n`);
   }
   writeFileSync(judgment.path, format({ frontmatter: fm, body }), 'utf8');
+  // The cycle flip is the same mutation class as an evidence transition -
+  // audit it too (skill-review I2). Best-effort.
+  try {
+    appendAuditEntry(join(projectRoot, 'context'), {
+      ts: nowIso(),
+      action: 'judgment-contested',
+      tier: 'P',
+      id: judgment.frontmatter.id,
+      reasonCode: 'judgment-cycle',
+      reasonText: note,
+    });
+  } catch {
+    // best-effort audit
+  }
 }
 
 /**
@@ -123,6 +157,9 @@ export function writeJudgment({
   outcomeHorizon,
   decaysAfter,
 } = {}) {
+  if (prefer === over) {
+    return { action: 'error', errors: ['prefer/over: a judgment cannot prefer a method over itself'] };
+  }
   const claim = `for ${taskShape}, ${prefer} preferred over ${over}`;
   const slug = slugify(`${prefer}-over-${over}-${taskShape}`);
   const body = [
@@ -170,19 +207,25 @@ export function writeJudgment({
   // every judgment on it (including this one) flips contested — never
   // silently, never auto-picked (the study's hard rule).
   const all = readJudgments({ projectRoot });
-  const cyclePath = findCyclePath(
+  const cycleNodes = findCycleNodes(
     all.filter((j) => j.frontmatter.id !== r.id),
     { prefer, over },
   );
   let cycle = false;
-  if (cyclePath) {
+  if (cycleNodes) {
     cycle = true;
-    const cycleNodes = new Set([...cyclePath, prefer, over]);
     const note = `cycle detected ${[...cycleNodes].join(' / ')} — surfaced, not auto-picked`;
     for (const j of all) {
       if (cycleNodes.has(j.frontmatter.prefer) && cycleNodes.has(j.frontmatter.over)) {
-        markContested(j, note);
+        markContested(projectRoot, j, note);
       }
+    }
+    // M1: precedent (validity-window/merge-facts) reindexes after mutating
+    // fact files so search reflects the flip immediately. Best-effort.
+    try {
+      reindex({ tier: 'P', projectRoot, warn: () => {} });
+    } catch {
+      /* self-heals on the next search's reindexBoot */
     }
   }
   return { ...r, slug, cycle };
@@ -232,6 +275,13 @@ export function appendJudgmentEvidence({ projectRoot, id, verdict, predicted, ob
   // WEAK-POSITIVE: evidence only — no replication bump, no status move.
 
   writeFileSync(judgment.path, format({ frontmatter: fm, body }), 'utf8');
+  // M1: keep the index current after the mutation (the validity-window/
+  // merge-facts precedent). Best-effort - reindexBoot self-heals otherwise.
+  try {
+    reindex({ tier: 'P', projectRoot, warn: () => {} });
+  } catch {
+    /* self-heals */
+  }
   try {
     appendAuditEntry(join(projectRoot, 'context'), {
       ts,
