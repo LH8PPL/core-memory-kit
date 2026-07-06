@@ -14,6 +14,7 @@ The yes/no checks `cmk doctor` runs against the kit installation. Most have a se
 | HC-8 | Native bindings present (npm 12 readiness) | `require('better-sqlite3')` loads its `.node` binding; when `search.default_mode` is `hybrid`/`semantic`, the embedder import is probed too (distinguishing not-installed from installed-but-binding-broken). Fails with the exact `--allow-scripts` remediation when npm 12 blocked the install script (Task 141a, D-129) |
 | HC-9 | Project scaffold version matches the installed `cmk` | Compares the project's CLAUDE.md managed-block `:start vX` marker against the installed binary version (`getKitVersion()`). FAILs with `cmk install` when the binary is newer (you updated the global package but didn't re-stamp this project — Task 162, D-176); PASSes on match or a benign downgrade; SKIPs when the project has no managed block |
 | HC-10 | Scheduled compaction is alive (informational) | Reads `isCompactionNeeded()` (`compaction-state.mjs`, Task 167): flags a **registered cron that looks dead** (the `cron-heartbeat` stamp older than ~2× the cron interval), a **stale `today-*.md`** (older than the latest session), or a **non-draining `now.md`**. **Informational, NOT a chore** — memory still self-heals automatically every session (the lazy roll is the floor); a dead cron is a degraded optimization, not data loss. Never prescribes a manual command. SKIPs when no cron is registered (the default — the lazy roll covers it) |
+| HC-11 | Backend LLM CLI is available | Probes the CLI of the agent this project runs its automatic engine on (`agentCliOnPath` in `agent-cli.mjs`, Task 200) — `claude` / `kiro-cli` / `cursor-agent`, resolved by `resolveBackendAgent` (install kind or the `backend.agent` override). An **exit-code `--version` probe** (not mere presence — a broken Windows shim resolves but errors, D-274). **FAILS with an honest degrade** when the CLI is absent: capture / search / recall / the delete-guard keep working (files + SQLite), only the automatic LLM steps (compression / auto-extract / persona) wait until you install it — never a silent no-op (the D-270 bug this closes) |
 
 **Severity on a fresh project:** HC-2, HC-3, and HC-5 report **SKIP**, not FAIL, when there's simply nothing to check yet — no distill built (HC-2), no Claude Code session captured here yet (HC-3), or cron not registered (HC-5, which is *optional*: the kit falls back to lazy-on-read compression). A clean install therefore reads `pass · 0 fail · skip` and `cmk doctor` exits `0`. These flip to **FAIL** only on a genuine problem: a *stale* distill (recent.md exists but > 2 days old), or transcripts that exist but stopped firing (> 3 days).
 
@@ -130,6 +131,16 @@ If you want the nightly schedule working (a latency optimization, not required):
 2. Or just ignore it — the lazy roll covers compaction on every session start regardless.
 
 HC-10 never asks you to run a manual compaction; that path is automatic.
+
+### HC-11 — Backend LLM CLI not on PATH (automatic features degraded, file-only still works)
+
+The kit's automatic features (compression, auto-extract, the cross-project persona/wedge, the temporal sweep, daily/weekly distillation) run an LLM in the background — through **your agent's own command-line tool**, which is a separate install from the IDE. HC-11 checks that CLI is on your PATH:
+
+- **Claude Code** → `claude`
+- **Kiro** → `kiro-cli` (required even if you use the Kiro IDE)
+- **Cursor** → `cursor-agent` (Cursor's CLI, in addition to the app)
+
+If it's missing, HC-11 FAILS — but this is an **honest degrade, not a breakage**: capture, search, recall, and the delete-guardrail keep working (they're pure files + SQLite); only the automatic LLM steps wait until the CLI is present. Repair: install your agent's CLI (see the [README Prerequisite note](README.md#quickstart) for the per-agent install line), then re-run `cmk doctor`. `cmk install` also gives this heads-up at install time.
 
 ## Adding new health checks
 
