@@ -34,7 +34,7 @@ import {
   TURN_WINDOW_MS,
 } from '../packages/cli/src/judge-signals.mjs';
 import { appendRecallEntry, readRecallLog } from '../packages/cli/src/recall-log.mjs';
-import { capturePredictions, readExpectations } from '../packages/cli/src/expectations.mjs';
+import { capturePredictions, readExpectations, resolveExpectation } from '../packages/cli/src/expectations.mjs';
 import { readSignalLog } from '../packages/cli/src/feedback-screen.mjs';
 import { openIndexDb } from '../packages/cli/src/index-db.mjs';
 import { captureTurn } from '../packages/cli/src/capture-turn.mjs';
@@ -83,17 +83,30 @@ describe('Task 192 — pure detectors (Door-3.5-pinned patterns)', () => {
     expect(r.successes).toBe(1);
   });
 
-  it('detectCorrection: start-anchored correction phrases hit; mid-sentence "no" does not', () => {
+  it('detectCorrection: start-anchored corrective phrases hit; ambiguity leans PRECISE (I1 contract)', () => {
     expect(detectCorrection('No, that is not the right file')).toBe('correction');
-    expect(detectCorrection("actually it's the v2 endpoint")).toBe('correction');
+    expect(detectCorrection("actually, that's wrong - it is the v2 endpoint")).toBe('correction');
     expect(detectCorrection("that's wrong — the port is 8080")).toBe('correction');
     expect(detectCorrection('I know there is no rush here')).toBe(null);
     expect(detectCorrection('please continue with the plan')).toBe(null);
+    // I1 accepted false-NEGATIVE: a bare "actually it's X" is indistinguishable
+    // from neutral phrasing without semantics — precision over recall (a missed
+    // correction costs one un-dampened fact; a false one dampens good memory).
+    expect(detectCorrection("actually it's the v2 endpoint")).toBe(null);
   });
 
-  it('detectCorrection: revert phrasing classifies as REVERSAL (the strongest signal)', () => {
+  it('I1 FP sweep: approving/neutral openers never read as corrections', () => {
+    expect(detectCorrection('No worries, take your time')).toBe(null);
+    expect(detectCorrection('No problem at all')).toBe(null);
+    expect(detectCorrection('Actually, great idea — do that')).toBe(null);
+    expect(detectCorrection('before we go back to the main task, one question')).toBe(null);
+    expect(detectCorrection('switching back to the frontend work now')).toBe(null);
+  });
+
+  it('detectCorrection: START-anchored revert imperatives classify as REVERSAL', () => {
     expect(detectCorrection('go back to pip, uv is breaking the build')).toBe('reversal');
     expect(detectCorrection('revert to the old approach please')).toBe('reversal');
+    expect(detectCorrection('please switch back to jest')).toBe('reversal');
   });
 
   it('detectReask: a search whose ids were ALL already injected = re-ask; fresh ids are not', () => {
@@ -175,6 +188,56 @@ describe('Task 192 — judgeTurn (the Stop-hook wire)', () => {
     const bare = join(sandbox, 'bare');
     mkdirSync(bare, { recursive: true });
     expect(() => judgeTurn({ projectRoot: bare, session: 's', toolCalls: [] })).not.toThrow();
+    expect(existsSync(join(bare, 'context'))).toBe(false);
+  });
+});
+
+describe('Task 192 — B1/I2/I3 regression pins (skill-review)', () => {
+  it('B1 WATERMARK: two consecutive judgeTurn calls over the same window apply exactly ONE delta', () => {
+    const db = openIndexDb({ projectRoot });
+    seedFact(db, 'P-9LXBA3ZK', 0.5);
+    db.close();
+    appendRecallEntry(projectRoot, { session: 's1', source: 'search', query: 'q', ids: ['P-9LXBA3ZK'] });
+
+    judgeTurn({ projectRoot, session: 's1', toolCalls: [{ name: 'Bash', result: 'ok', isError: false }] });
+    judgeTurn({ projectRoot, session: 's1', toolCalls: [{ name: 'Bash', result: 'ok', isError: false }] });
+
+    const applied = readSignalLog(projectRoot).filter((e) => e.id === 'P-9LXBA3ZK' && e.applied === true);
+    expect(applied).toHaveLength(1); // the second pass judged nothing new
+  });
+
+  it('I3 RATIO: one red test among many green calls does NOT dampen (TDD is not a failure outcome)', () => {
+    const db = openIndexDb({ projectRoot });
+    seedFact(db, 'P-9LXBA3ZK', 0.5);
+    db.close();
+    appendRecallEntry(projectRoot, { session: 's1', source: 'search', query: 'q', ids: ['P-9LXBA3ZK'] });
+
+    const calls = [
+      { name: 'Bash', result: 'RED: expected fail', isError: true },
+      ...Array.from({ length: 9 }, () => ({ name: 'Bash', result: 'ok', isError: false })),
+    ];
+    judgeTurn({ projectRoot, session: 's1', toolCalls: calls });
+    const dampens = readSignalLog(projectRoot).filter((e) => e.event === 'dampen');
+    expect(dampens).toHaveLength(0); // below FAILURE_RATIO_THRESHOLD — silent
+  });
+
+  it('I2 OVERRIDE: a real MISS overrides a premature WEAK-POSITIVE (weak verdicts yield to evidence)', () => {
+    capturePredictions(projectRoot, { text: 'PREDICTION: the login timeout is fixed by the config change' });
+    const [exp] = readExpectations(projectRoot, { pendingOnly: true });
+    resolveExpectation(projectRoot, { id: exp.id, verdict: 'WEAK-POSITIVE', observed: 'window closed' });
+    const r = resolveExpectation(projectRoot, { id: exp.id, verdict: 'MISS', observed: 'user: still broken' });
+    expect(r.action).toBe('resolved');
+    const [after] = readExpectations(projectRoot);
+    expect(after.verdict).toBe('MISS');
+    // and a hard verdict never flips back:
+    const r2 = resolveExpectation(projectRoot, { id: exp.id, verdict: 'WEAK-POSITIVE' });
+    expect(r2.action).toBe('already-resolved');
+  });
+
+  it('M2: judgeUserPrompt on a bare (non-kit) root never throws and never scaffolds', () => {
+    const bare = join(sandbox, 'bare2');
+    mkdirSync(bare, { recursive: true });
+    expect(() => judgeUserPrompt({ projectRoot: bare, prompt: 'No, that is wrong entirely' })).not.toThrow();
     expect(existsSync(join(bare, 'context'))).toBe(false);
   });
 });

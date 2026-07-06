@@ -63,7 +63,7 @@ import {
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { sanitizePrivacyTags } from './privacy.mjs';
-import { extractTurnToolActivity, extractTurnToolCalls, readTranscriptTail } from './turn-tools.mjs';
+import { extractTurnToolCalls, formatToolCalls, readTranscriptTail } from './turn-tools.mjs';
 import { readLastEntryFromNowMd } from './auto-extract.mjs';
 import { capturePredictions } from './expectations.mjs';
 import { judgeTurn } from './judge-signals.mjs';
@@ -338,7 +338,10 @@ export function captureTurn({
   try {
     if (typeof payload?.transcript_path === 'string' && payload.transcript_path !== '') {
       const tail = readTranscriptTail(payload.transcript_path);
-      const activity = tail ? extractTurnToolActivity(tail) : null;
+      // M1 (192 review): ONE parse, two consumers — the raw calls feed the
+      // judge, the formatter feeds the transcript block.
+      const turnCalls = tail ? extractTurnToolCalls(tail) : null;
+      const activity = turnCalls ? formatToolCalls(turnCalls) : null;
       // Task 192 (ADR-0017 Phase 1c): the Stop-hook JUDGE — deterministic
       // outcome signals (tool-result ±, re-ask −, silent-success weak-+)
       // fire HERE, on the same tail read. Best-effort by module contract
@@ -347,7 +350,7 @@ export function captureTurn({
         judgeTurn({
           projectRoot,
           session: payload?.session_id,
-          toolCalls: (tail ? extractTurnToolCalls(tail) : null) ?? [],
+          toolCalls: turnCalls ?? [],
         });
       } catch {
         /* the judge must never break capture */

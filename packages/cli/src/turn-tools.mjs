@@ -145,10 +145,10 @@ export function extractTurnToolCalls(jsonlText) {
   return calls;
 }
 
-/** The transcript-facing formatted block (the original 104.1 surface). */
-export function extractTurnToolActivity(jsonlText) {
-  const calls = extractTurnToolCalls(jsonlText);
-  if (!calls) return null;
+/** Format parsed calls into the transcript block (M1: callers that already
+ * hold the calls array skip the re-parse). */
+export function formatToolCalls(calls) {
+  if (!calls || calls.length === 0) return null;
 
   const lines = [];
   let used = 0;
@@ -164,6 +164,11 @@ export function extractTurnToolActivity(jsonlText) {
     lines.push(`- …${calls.length - shown} more tool call(s) truncated`);
   }
   return lines.join('\n');
+}
+
+/** The transcript-facing formatted block (the original 104.1 surface). */
+export function extractTurnToolActivity(jsonlText) {
+  return formatToolCalls(extractTurnToolCalls(jsonlText));
 }
 
 // Bounded tail read — a turn comfortably fits in the window; a multi-MB
