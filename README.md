@@ -64,7 +64,7 @@ You work. It learns — automatically, no buttons. Next session, it remembers th
 > | --- | --- |
 > | **Claude Code** | the `claude` CLI — required even if you use Claude inside VS Code |
 > | **Kiro** | `kiro-cli` — required even if you use the Kiro IDE |
-> | **Cursor** | `cursor-agent` (Cursor's CLI) — required in addition to the Cursor app _(official installer: macOS/Linux; Windows support is evolving — see [docs/KIRO.md](docs/KIRO.md)/the per-agent notes)_ |
+> | **Cursor** | `cursor-agent` (Cursor's CLI) — required in addition to the Cursor app; runs natively on **Windows, macOS, and Linux** (install: `curl https://cursor.com/install -fsS \| bash`, or on Windows `irm 'https://cursor.com/install?win32=true' \| iex`), using your Cursor subscription login (no API key) |
 >
 > Without the agent's CLI, capture / search / recall / the delete-guard still work (they're pure files + SQLite), but the automatic LLM steps are skipped. `cmk doctor` tells you if your agent's CLI is missing.
 >
