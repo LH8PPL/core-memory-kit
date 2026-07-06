@@ -65,6 +65,7 @@ import { spawn } from 'node:child_process';
 import { sanitizePrivacyTags } from './privacy.mjs';
 import { extractTurnToolActivity, readTranscriptTail } from './turn-tools.mjs';
 import { readLastEntryFromNowMd } from './auto-extract.mjs';
+import { capturePredictions } from './expectations.mjs';
 
 function dateFromIso(iso) {
   return String(iso).slice(0, 10);
@@ -312,6 +313,14 @@ export function captureTurn({
     mkdirSync(transcriptsDir, { recursive: true });
   }
   const sanitized = sanitizePrivacyTags(turnText);
+
+  // Task 191 (ADR-0017 Phase 1b) — expectation pre-registration rides THIS
+  // hook (the D-169 automatic path: no new spawn, no cmk command). A turn
+  // containing `PREDICTION: <specific checkable outcome>` lands as a PENDING
+  // expectation that Task 192's next-turn signals resolve HIT/MISS. Runs on
+  // the SANITIZED text (privacy first) and is best-effort by module contract
+  // (capturePredictions never throws, never scaffolds a non-kit project).
+  capturePredictions(projectRoot, { text: sanitized, session: payload?.session_id });
 
   // Task 104.1 (D-117) — enrich the assistant entry with the turn's TOOL
   // ACTIVITY, read from Anthropic's live session JSONL (the Stop payload's

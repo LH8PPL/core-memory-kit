@@ -552,3 +552,7 @@ Cross-refs: [[TDD]]. Spec: tasks.md.
 - **HOW the system works**: [`design.md`](design.md).
 
 This file is a **definitional reference only**. When you need the *why*, follow the spec-source link on each term.
+
+## Judgment
+
+An EARNED method-preference record (`context/memory/judgment_<slug>.md`, `type: judgment`) — distinct from a fact: a fact asserts, a judgment COMPARES ("for task-shape T, prefer A over B") and carries its baseline, replication count (`n_episodes`), direction-consistency, confounds, decay date, and an append-only evidence log of HIT/MISS/REVERSAL outcomes resolved from pre-registered expectations (`PREDICTION:` lines). Honesty rules: misses LOCK (a MISS/REVERSAL flips it `contested` and later HITs cannot re-promote), hits only NUDGE (`corroborated` needs >= 3 consistent episodes), preference cycles mark every judgment on the cycle `contested`, and judgments NEVER enter search ranking. Born from the learn-loop (Tasks 191/192), never from dictation — `cmk remember`/`mk_remember` cannot write this type. Task 191, ADR-0017 Phase 1b.
