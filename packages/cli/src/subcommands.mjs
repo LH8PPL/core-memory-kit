@@ -221,28 +221,41 @@ export function warnMissingBackendCli(agent, { log, backendCliProbe } = {}) {
 // time — sugar over `cmk config set backend.agent <agent>` (both write the SAME
 // key; the flag is the front-door). Validated against KNOWN_BACKEND_AGENTS.
 // Returns {ok} / {ok:false} / {skipped} so the install path can report + degrade.
+// Pure validation of a `--backend <agent>` value — NO side effects (no write, no
+// exit code). Returns {skipped} (no flag → follow --ide), {ok, agent} (valid, the
+// normalized agent), or {ok:false, error} (unknown). Used to FAIL-FAST at the top
+// of an install (before the scaffold runs), mirroring how `--ide` is validated
+// before scaffolding — a typo'd flag rejects immediately, never after doing the work.
+export function validateBackendFlag(rawAgent) {
+  if (rawAgent == null || String(rawAgent).trim() === '') return { skipped: true };
+  const agent = String(rawAgent) === 'claude-code' ? 'claude' : String(rawAgent);
+  if (!KNOWN_BACKEND_AGENTS.includes(agent)) {
+    return { ok: false, error: `unknown --backend '${rawAgent}'. Supported: ${KNOWN_BACKEND_AGENTS.join(', ')}.` };
+  }
+  return { ok: true, agent };
+}
+
+// Persist the (already-validated) `--backend` override to the project tier, after
+// the scaffold has created context/. Sugar over `cmk config set backend.agent`.
+// Re-validates defensively (callers that skip the early gate still get correctness).
 export function applyBackendOverride(rawAgent, { projectRoot, log, logError } = {}) {
   const emit = log ?? console.log;
   const emitErr = logError ?? console.error;
-  if (rawAgent == null || String(rawAgent).trim() === '') {
-    return { skipped: true }; // no --backend → the backend follows --ide (Task 200 default)
-  }
-  const agent = String(rawAgent) === 'claude-code' ? 'claude' : String(rawAgent);
-  if (!KNOWN_BACKEND_AGENTS.includes(agent)) {
-    emitErr(
-      `cmk install: unknown --backend '${rawAgent}'. Supported: ${KNOWN_BACKEND_AGENTS.join(', ')}.`,
-    );
+  const v = validateBackendFlag(rawAgent);
+  if (v.skipped) return { skipped: true }; // no --backend → the backend follows --ide (Task 200 default)
+  if (!v.ok) {
+    emitErr(`cmk install: ${v.error}`);
     process.exitCode = 2;
     return { ok: false };
   }
-  const r = configSet('backend.agent', agent, { projectRoot, tier: 'project' });
+  const r = configSet('backend.agent', v.agent, { projectRoot, tier: 'project' });
   if (!r.ok) {
     emitErr(`cmk install --backend: ${r.error}`);
     process.exitCode = 2;
     return { ok: false };
   }
-  emit(`  Automatic memory will run through the ${agent} CLI (backend.agent=${agent}).`);
-  return { ok: true, agent };
+  emit(`  Automatic memory will run through the ${v.agent} CLI (backend.agent=${v.agent}).`);
+  return { ok: true, agent: v.agent };
 }
 
 // Exported for tests (Task 141a) — dep-injectable (cwd / userTier / log /
@@ -254,6 +267,18 @@ export async function runInstall(options /* , command */) {
   // commander maps `--no-hooks` to options.hooks === false.
   const noHooks = !!(options && options.hooks === false);
   const verbose = !!(options && options.verbose);
+
+  // Task 201: FAIL-FAST on a bad --backend value BEFORE any scaffold runs (mirrors
+  // how --ide is validated up front). A typo'd --backend must reject immediately,
+  // not leave a fully-scaffolded project + exit 2. Applies to BOTH the claude path
+  // and the --ide route below (validated once here). The actual write happens
+  // after the scaffold (applyBackendOverride).
+  const backendCheck = validateBackendFlag(options?.backend);
+  if (backendCheck.ok === false) {
+    logError(`cmk install: ${backendCheck.error}`);
+    process.exitCode = 2;
+    return;
+  }
 
   // Task 50.F — cross-agent routing. Default is claude-code (the existing path,
   // untouched). For another agent, scaffold the agent-neutral project tier via

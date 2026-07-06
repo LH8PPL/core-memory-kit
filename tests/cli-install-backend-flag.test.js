@@ -11,7 +11,7 @@ import { describe, it, expect } from 'vitest';
 import { mkdtempSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { applyBackendOverride } from '../packages/cli/src/subcommands.mjs';
+import { applyBackendOverride, validateBackendFlag, runInstall } from '../packages/cli/src/subcommands.mjs';
 import { configGet } from '../packages/cli/src/config-core.mjs';
 
 function tmp() {
@@ -63,5 +63,24 @@ describe('Task 201 — cmk install --backend', () => {
     configSet('backend.agent', 'cursor', { projectRoot: rootB, tier: 'project' });
     expect(configGet('backend.agent', { projectRoot: rootA }).value)
       .toBe(configGet('backend.agent', { projectRoot: rootB }).value);
+  });
+
+  it('validateBackendFlag is a pure gate (no write, no exit) — skipped/ok/error', () => {
+    expect(validateBackendFlag(undefined)).toEqual({ skipped: true });
+    expect(validateBackendFlag('kiro')).toEqual({ ok: true, agent: 'kiro' });
+    expect(validateBackendFlag('claude-code')).toEqual({ ok: true, agent: 'claude' });
+    expect(validateBackendFlag('nope').ok).toBe(false);
+  });
+
+  it('FAIL-FAST: a bad --backend rejects install BEFORE scaffolding (no context/ created)', async () => {
+    const root = tmp();
+    const c = cap();
+    const prevExit = process.exitCode;
+    await runInstall({ cwd: root, backend: 'not-an-agent', log: c.log, logError: c.log, userTier: tmp() });
+    // exit 2, error names the bad flag, and CRUCIALLY nothing was scaffolded
+    expect(process.exitCode).toBe(2);
+    expect(c.text().toLowerCase()).toMatch(/unknown --backend/);
+    expect(existsSync(join(root, 'context'))).toBe(false); // fail-fast: no half-install
+    process.exitCode = prevExit; // reset for the next test
   });
 });
