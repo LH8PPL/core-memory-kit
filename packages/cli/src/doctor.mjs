@@ -52,6 +52,8 @@ import { getKitVersion } from './install.mjs';
 import { hasOurCliAgent } from './kiro-cli-agent.mjs';
 import { stripBom } from './read-json.mjs';
 import { detectInstallKind } from './install-kind.mjs';
+import { resolveBackendAgent } from './make-backend.mjs';
+import { agentCliOnPath } from './agent-cli.mjs';
 
 const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -682,6 +684,41 @@ function hc9VersionDrift({ projectRoot, kitVersion }) {
   return checkVersionDrift({ claudeMdText, kitVersion });
 }
 
+// --- HC-11: backend CLI present (Task 200 / D-272/D-277) --------------
+// The kit's automatic engine (compression / auto-extract / persona / temporal-
+// sweep) routes its LLM call through the CLI of the agent this project was
+// installed for (or the backend.agent override). If that CLI isn't on PATH, the
+// automatic features SILENTLY no-op (the D-270 bug). HC-11 surfaces that: it
+// probes the ACTIVE backend agent's CLI (exit-code probe, not mere presence —
+// D-274) and FAILS with an honest "automatic features degraded, file-only still
+// works" message when it's missing — never a silent no-op. `backendCliProbe`
+// injectable so tests don't spawn a real binary.
+function hc11BackendCli({ projectRoot, userDir, backendCliProbe }) {
+  const { agent, source } = resolveBackendAgent({ projectRoot, userDir });
+  const probe = backendCliProbe ?? ((a) => agentCliOnPath(a));
+  const r = probe(agent);
+  const via = source === 'override' ? ' (set via backend.agent)' : '';
+  if (r.present) {
+    return {
+      id: 'HC-11',
+      name: 'Backend LLM CLI is available',
+      status: 'pass',
+      message: `automatic memory runs through the ${agent} CLI (${r.bin})${via} — present and runnable.`,
+    };
+  }
+  return {
+    id: 'HC-11',
+    name: 'Backend LLM CLI is available',
+    status: 'fail',
+    // Honest degrade (D-277): capture/search/recall/guard still work (files +
+    // SQLite); only the automatic LLM steps are skipped until the CLI is present.
+    message:
+      `the ${agent} CLI (${r.bin})${via} is not available${r.reason ? ` — ${r.reason}` : ''}. ` +
+      `Capture, search, recall and the delete-guard still work, but automatic compression / extraction / persona are skipped until you install it. ` +
+      `Install the ${agent} CLI, or run \`cmk install --backend <agent>\` to route memory through a different agent you already have.`,
+  };
+}
+
 // --- HC-10: Scheduled compaction liveness (Task 167 / D-207) ----------
 // INFORMATIONAL — memory self-heals automatically every session (the lazy roll
 // is the floor, 167.A/D), so a dead cron is a degraded OPTIMIZATION, not data
@@ -728,6 +765,7 @@ export async function runDoctor({
   kitVersion,
   kitBindingProbe,
   embedderBindingProbe,
+  backendCliProbe, // injectable: HC-11 backend-CLI probe (tests avoid a real spawn)
   awsDir, // injectable: sandboxes the HC-1 Kiro CLI-agent (~/.aws) probe in tests
 } = {}) {
   const t0 = Date.now();
@@ -754,10 +792,11 @@ export async function runDoctor({
   // HC-9: kitVersion injectable for tests; defaults to the installed binary's version.
   const c9 = hc9VersionDrift({ projectRoot, kitVersion: kitVersion ?? getKitVersion() });
   const c10 = hc10CompactionLiveness({ projectRoot, now: ts });
+  const c11 = hc11BackendCli({ projectRoot, userDir: resolvedUserDir, backendCliProbe });
 
   return {
     action: 'completed',
-    checks: [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10],
+    checks: [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11],
     duration_ms: Date.now() - t0,
   };
 }

@@ -17,6 +17,7 @@ import { install as installAction, initUserTier as initUserTierAction } from './
 import { installAgent, uninstallAgent } from './install-agent.mjs';
 import { installKiro, uninstallKiro } from './install-kiro.mjs';
 import { getAgentProfile, listAgentProfiles } from './agent-profiles.mjs';
+import { agentCliOnPath, KNOWN_BACKEND_AGENTS } from './agent-cli.mjs';
 import { runKiroHook } from './kiro-hook-bin.mjs';
 import { dispatchCursorHook } from './cursor-hook-dispatch.mjs';
 import { readKiroTurn } from './kiro-transcript.mjs';
@@ -192,6 +193,29 @@ async function offerBindingFix(nativeBinding, options, { log, logError }) {
   }
 }
 
+// Task 200 (D-272/D-277): the first-touch backend-CLI check. `cmk install`
+// wires the kit for an agent whose OWN CLI runs the automatic LLM call — so if
+// that CLI isn't on PATH, the automatic features silently no-op (the D-270 bug).
+// This warns AT INSTALL (the moment the gap is actionable), before the user ever
+// wonders why nothing summarizes. Honest degrade: the file-only surfaces still
+// work; only the automatic LLM steps wait on the CLI. Shared by the claude +
+// per-agent install paths. `backendCliProbe` injectable so tests don't spawn.
+export function warnMissingBackendCli(agent, { log, backendCliProbe } = {}) {
+  const emit = log ?? console.log;
+  const probe = backendCliProbe ?? ((a) => agentCliOnPath(a));
+  const r = probe(agent);
+  if (r.present) return; // silent on success — the happy path prints nothing extra
+  emit(
+    `  Heads-up: the ${agent} CLI (${r.bin}) isn't on your PATH yet` +
+      `${r.reason ? ` — ${r.reason}` : ''}.`,
+  );
+  emit(
+    `  Capture, search, recall and the delete-guard work now, but automatic` +
+      ` compression / extraction / persona wait until you install it (or run` +
+      ` \`cmk install --backend <agent>\` to use a different agent you already have).`,
+  );
+}
+
 // Exported for tests (Task 141a) — dep-injectable (cwd / userTier / log /
 // logError / bindingProbe / askImpl / fixRunner / reProbe / interactive) on
 // the runImportClaudeMd pattern. Defaults unchanged for production.
@@ -290,6 +314,10 @@ export async function runInstall(options /* , command */) {
     process.exitCode = 1;
   }
 
+  // Task 200 (D-272): first-touch backend-CLI heads-up (claude path → the
+  // `claude` CLI runs the automatic engine). Injectable probe for tests.
+  warnMissingBackendCli('claude', { log, backendCliProbe: options?.backendCliProbe });
+
   // Task 141a: the binding ask comes LAST — it's the one thing the user may
   // still need to act on, and the tail of install output is what gets read.
   await offerBindingFix(result.nativeBinding, options, { log, logError });
@@ -365,6 +393,9 @@ async function runInstallForAgent({ ide, options, log, logError }) {
       for (const e of scaffold.errors) logError(`  error: ${e.path}: ${e.error}`);
       process.exitCode = 1;
     }
+    // Task 200 (D-272): first-touch backend-CLI heads-up (Kiro → kiro-cli runs
+    // the automatic engine).
+    warnMissingBackendCli('kiro', { log, backendCliProbe: options?.backendCliProbe });
     return;
   }
 
@@ -409,6 +440,13 @@ async function runInstallForAgent({ ide, options, log, logError }) {
   if (scaffold.errors.length > 0) {
     for (const e of scaffold.errors) logError(`  error: ${e.path}: ${e.error}`);
     process.exitCode = 1;
+  }
+  // Task 200 (D-272): first-touch backend-CLI heads-up for agents that have a
+  // per-agent backend (cursor → cursor-agent). Agents with no dedicated backend
+  // (instruction-only rungs like agents-md) fall back to the default at runtime,
+  // so there's no per-agent CLI to warn about here.
+  if (KNOWN_BACKEND_AGENTS.includes(ide)) {
+    warnMissingBackendCli(ide, { log, backendCliProbe: options?.backendCliProbe });
   }
 }
 
