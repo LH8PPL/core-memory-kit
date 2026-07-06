@@ -27,10 +27,16 @@
 // a GLOBAL `chat.defaultAgent: cmk`. We write the agent globally too so that global
 // default resolves everywhere (a local-only file would leave the default dangling
 // in projects without a copy). This is the ACTIVATION constraint, not Amazon-Q
-// legacy. (OPEN FOLLOW-UP per D-283: the agent FILE could move project-local — it'd
-// win precedence — while keeping the global default; deferred, not refuted.) The
+// legacy. EMPIRICALLY PROVEN (D-284, kiro-cli 2.10.0, full matrix): a project-local
+// agent does NOT auto-activate — with no `chat.defaultAgent`, kiro-cli resolves to
+// the built-in `kiro_default` and the local agent's hooks never fire (holds both
+// headless AND interactive). Local precedence is real but DOWNSTREAM of a
+// global/flag activation. Moving the file project-local was considered + REJECTED:
+// it can't remove the global default (still required), and a global default naming
+// `cmk` would warn/fall-through in projects without a local copy — so you'd need
+// BOTH files, i.e. MORE footprint, not less. Global-only agent stays. The
 // default-agent write is GUARDED — a user's foreign existing default is never
-// clobbered (D-198/D-283).
+// clobbered (D-198/D-283/D-284).
 //
 // ── D-198 (the cut-gate-kiro root cause) ──────────────────────────────────────
 // The original impl wrote `~/.aws/amazonq/cli-agents/q_cli_default.json`. That is
