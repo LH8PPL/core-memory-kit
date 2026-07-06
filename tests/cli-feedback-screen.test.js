@@ -10,9 +10,9 @@
 // screened: per-fact-per-day rate limit, burst-hold quarantine, audit-logged
 // deltas, floor preserved.
 //
-// @doors: 1,2,4
+// @doors: 1, 2, 5
 // Door 3 N/A: no subprocess — SQLite + file appends only.
-// Door 5 N/A: no message queue.
+// Door 4 N/A: no message queue.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, mkdirSync, readFileSync, existsSync, appendFileSync } from 'node:fs';

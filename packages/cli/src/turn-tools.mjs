@@ -93,7 +93,10 @@ function isRealUserPrompt(entry) {
   return blocks.some((b) => b.type === 'text' && typeof b.text === 'string' && b.text.trim() !== '');
 }
 
-export function extractTurnToolActivity(jsonlText) {
+// Task 192: the RAW parsed calls (with isError) for the Stop-hook judge.
+// Shares the parse with extractTurnToolActivity below — one JSONL walk,
+// two consumers (the transcript formatter + the judge).
+export function extractTurnToolCalls(jsonlText) {
   if (typeof jsonlText !== 'string' || jsonlText.trim() === '') return null;
 
   const entries = [];
@@ -124,7 +127,7 @@ export function extractTurnToolActivity(jsonlText) {
   for (const e of turn) {
     for (const b of contentBlocks(e.message)) {
       if (b.type === 'tool_use' && typeof b.name === 'string') {
-        const call = { id: b.id, name: b.name, summary: summarizeInput(b.input), result: '' };
+        const call = { id: b.id, name: b.name, summary: summarizeInput(b.input), result: '', isError: false };
         calls.push(call);
         if (typeof b.id === 'string') byId.set(b.id, call);
       } else if (b.type === 'tool_result') {
@@ -132,10 +135,20 @@ export function extractTurnToolActivity(jsonlText) {
         if (call && !call.result) {
           call.result = oneLine(flattenResultContent(b.content), RESULT_SNIPPET_CHARS);
         }
+        // Task 192: the judge's tool-result signal keys on the JSONL's
+        // is_error flag (Anthropic's tool_result schema).
+        if (call && b.is_error === true) call.isError = true;
       }
     }
   }
   if (calls.length === 0) return null;
+  return calls;
+}
+
+/** The transcript-facing formatted block (the original 104.1 surface). */
+export function extractTurnToolActivity(jsonlText) {
+  const calls = extractTurnToolCalls(jsonlText);
+  if (!calls) return null;
 
   const lines = [];
   let used = 0;

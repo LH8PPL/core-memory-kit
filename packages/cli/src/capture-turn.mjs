@@ -63,9 +63,10 @@ import {
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { sanitizePrivacyTags } from './privacy.mjs';
-import { extractTurnToolActivity, readTranscriptTail } from './turn-tools.mjs';
+import { extractTurnToolActivity, extractTurnToolCalls, readTranscriptTail } from './turn-tools.mjs';
 import { readLastEntryFromNowMd } from './auto-extract.mjs';
 import { capturePredictions } from './expectations.mjs';
+import { judgeTurn } from './judge-signals.mjs';
 
 function dateFromIso(iso) {
   return String(iso).slice(0, 10);
@@ -338,6 +339,19 @@ export function captureTurn({
     if (typeof payload?.transcript_path === 'string' && payload.transcript_path !== '') {
       const tail = readTranscriptTail(payload.transcript_path);
       const activity = tail ? extractTurnToolActivity(tail) : null;
+      // Task 192 (ADR-0017 Phase 1c): the Stop-hook JUDGE — deterministic
+      // outcome signals (tool-result ±, re-ask −, silent-success weak-+)
+      // fire HERE, on the same tail read. Best-effort by module contract
+      // (judgeTurn never throws); every delta routes through the 193 screen.
+      try {
+        judgeTurn({
+          projectRoot,
+          session: payload?.session_id,
+          toolCalls: (tail ? extractTurnToolCalls(tail) : null) ?? [],
+        });
+      } catch {
+        /* the judge must never break capture */
+      }
       if (activity) {
         toolsSection = `\n**Tools:**\n\n${sanitizePrivacyTags(activity)}\n`;
       }
