@@ -13,24 +13,24 @@
 //
 // ── WHY GLOBAL (~/.kiro/), NOT project-local (<project>/.kiro/) — the forced choice
 //    (verified 2026-07-06 against kiro.dev/docs/cli/chat/configuration) ───────────
-// kiro-cli DOES read a project-local `.kiro/agents/cmk.json` (kiro.dev/docs/cli/
-// custom-agents/creating: `--directory workspace` saves there; default is global
-// `~/.kiro/agents/`) — so at first glance a project-local agent looks cleaner
-// (repo-scoped, no global footprint, matches every OTHER Kiro surface + Claude
-// Code). It is NOT possible here, because of a hard Kiro platform constraint the
-// other agents don't have: the `chat.defaultAgent` SETTING is **global-only**.
-// kiro.dev/docs/cli/chat/configuration's scope table (read directly 2026-07-06)
-// lists `Settings | User: Yes | Project: N/A | Agent: N/A` — no project or agent
-// scope for settings. And a project-local agent does NOT auto-activate merely by
-// existing: a new chat "uses the default agent (kiro_default)"; you switch via
-// `/agent swap` or `kiro-cli --agent cmk`. So the ONLY way to get automatic memory
-// (hooks every session, no per-session opt-in) is a GLOBAL `chat.defaultAgent:
-// cmk`; and a global default naming `cmk` only resolves coherently across all
-// projects if `cmk` also exists GLOBALLY (a project-local-only agent would leave
-// the global default dangling in every repo without a local copy). Hence: agent
-// file global + default-agent global — a forced pairing, not the Amazon-Q legacy
-// it resembles. The default-agent write is still GUARDED — a user's foreign
-// existing default is never clobbered (D-198/D-283).
+// kiro-cli reads agents from BOTH `.kiro/agents/` (project-local) and
+// `~/.kiro/agents/` (global), and a local agent WINS precedence over a same-named
+// global one (kiro.dev/docs/cli/custom-agents/configuration-reference, "Agent
+// precedence", read directly 2026-07-06). So the agent FILE could be project-local.
+// What CANNOT be project-local is ACTIVATION: a local agent is only "available when
+// running from that directory" — discoverable/selectable, NOT auto-active (same
+// page has no auto-default statement). Activation needs either the global
+// `chat.defaultAgent` (a SETTING, and settings are global-only per the
+// chat/configuration scope table: Settings | User:Yes | Project:N/A | Agent:N/A)
+// OR an explicit `--agent cmk` per invocation. Automatic memory = the hooks{} below
+// firing every INTERACTIVE session with no flag = cmk must be the ACTIVE agent =
+// a GLOBAL `chat.defaultAgent: cmk`. We write the agent globally too so that global
+// default resolves everywhere (a local-only file would leave the default dangling
+// in projects without a copy). This is the ACTIVATION constraint, not Amazon-Q
+// legacy. (OPEN FOLLOW-UP per D-283: the agent FILE could move project-local — it'd
+// win precedence — while keeping the global default; deferred, not refuted.) The
+// default-agent write is GUARDED — a user's foreign existing default is never
+// clobbered (D-198/D-283).
 //
 // ── D-198 (the cut-gate-kiro root cause) ──────────────────────────────────────
 // The original impl wrote `~/.aws/amazonq/cli-agents/q_cli_default.json`. That is
