@@ -302,7 +302,8 @@ no ritual — expectation + recall-log ride existing hooks (D-169); every memory
 
 - **Phase 0 — shipped:** trust_score + the 3 consistency signals + demote-not-evict (Task 151, v0.4.3).
 - **Phase 1 — the oracle-free wedge (all on existing hooks):** RECALL-LOG (the one genuinely new
-  primitive — small but load-bearing: without attribution no signal finds its memory) + expectation
+  primitive — small but load-bearing: without attribution no signal finds its memory; **1a SHIPPED
+  2026-07-06, Task 190/PR #259** — `context/.locks/recall.log`, inject + search wired) + expectation
   pre-registration + judgment files + the Stop-hook judge (tool-result / correction / re-ask) +
   feedback-screen v0 (rate-limit + burst-hold).
 - **Phase 2 — close the edge:** the confidence-gated search blend (the ADR-level §20.3 revision) +
