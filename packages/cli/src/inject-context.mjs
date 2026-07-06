@@ -36,6 +36,7 @@ import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { SCRATCHPADS_BY_TIER, resolveTierRoot, ID_PATTERN, discoverRootUpward } from './tier-paths.mjs';
 import { nowIso } from './audit-log.mjs';
+import { appendRecallEntry } from './recall-log.mjs';
 import { detectStaleness, isJournalStale } from './lazy-compress.mjs';
 import { isProvenanceCommentLine, parseBulletProvenance } from './provenance.mjs';
 import { listConflictQueue } from './conflict-queue.mjs';
@@ -860,6 +861,10 @@ export function injectContext({
   userDir,
   now,
   capBytes,
+  // Task 190: the hook payload's session_id, when the caller (the bin) parsed
+  // it — attributes the recall-log entry to a session. Optional; null when
+  // unknown (a manual run, an older bin).
+  sessionId,
   // Test-only injection point per spawn-discipline (the production path
   // uses spawnLazyCompress directly). Tests pass a fake to assert
   // "lazy-compress was/was-not triggered" without touching the host.
@@ -1038,6 +1043,20 @@ export function injectContext({
       additionalContext: snapshot,
     },
   };
+
+  // 8. RECALL-LOG (Task 190, ADR-0017 Phase 1a): record which ids actually
+  // SURVIVED into the snapshot (post-shadowing, post-truncation — extracting
+  // from the FINAL text is what makes the attribution truthful). The matcher
+  // is the canonical ID_PATTERN's char class (shared-module discipline — no
+  // re-rolled alphabet), de-anchored for global scan. Best-effort:
+  // appendRecallEntry never throws (a diagnostic must not break injection).
+  const idScan = new RegExp(ID_PATTERN.source.replace(/^\^|\$$/g, ''), 'g');
+  const injectedIds = [...new Set(snapshot.match(idScan) ?? [])];
+  appendRecallEntry(projectRoot, {
+    session: sessionId ?? null,
+    source: 'inject',
+    ids: injectedIds,
+  });
 
   return {
     snapshot,

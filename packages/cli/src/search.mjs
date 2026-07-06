@@ -50,6 +50,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
+import { appendRecallEntry } from './recall-log.mjs';
 import { VALID_TIERS } from './tier-paths.mjs';
 
 export const SEARCH_MODES = Object.freeze({
@@ -631,6 +632,21 @@ export function search(opts = {}) {
       });
     }
     throw err;
+  }
+
+  // Task 190 (RECALL-LOG, ADR-0017 Phase 1a): record which ids this query
+  // surfaced — the attribution primitive for the learn-loop's re-ask/recall-miss
+  // signals (zero-result queries are logged too; a MISS is itself a signal).
+  // Gated on the caller passing projectRoot: the agent-facing callers (the CLI
+  // runSearch + the MCP mk_search) pass it; bare/legacy calls stay pure.
+  // appendRecallEntry is best-effort — it never throws into the search path.
+  if (opts.projectRoot) {
+    appendRecallEntry(opts.projectRoot, {
+      session: opts.sessionId ?? null,
+      source: 'search',
+      query: opts.query,
+      ids: results.map((r) => r.id),
+    });
   }
 
   return { action: 'found', mode, scope, results };
