@@ -77,13 +77,17 @@ export class KiroCliBackend extends CompressorBackend {
     // The prompt rides as the [INPUT] positional (kiro-cli chat's first arg).
     // D-279: join instructions + input as a SINGLE directive line, NOT two
     // newline-separated blocks. Live-verified: the two-line `instructions\n\ninput`
-    // form made kiro-cli treat the first line as a conversational question and
-    // REFUSE the task ("I don't have access… could you clarify?"); the single
-    // directive form ("<instructions>: <input>") makes it DO the task. Same
-    // prompt-shape discipline D-278 applied to Cursor (the research's reject-gate
-    // class). Kiro takes the prompt as a positional (not stdin), so the SHAPE is
-    // the fix here.
-    const promptBody = instructions ? `${instructions}: ${input}` : input;
+    // D-280: pipe the prompt on STDIN, NOT as a positional arg. The positional
+    // form makes kiro-cli treat the prompt CONVERSATIONALLY — against the real
+    // multi-paragraph compression prompt (a big instruction block + a delimited
+    // buffer) it REFUSES the task ("I don't see a session buffer… could you
+    // provide it?"), even with the D-279 single-directive colon-join (which only
+    // ever worked for a TOY one-line prompt — the skill-review caught this against
+    // the REAL buildCompressionInstructions). Piping on stdin (the SAME channel
+    // the claude + cursor backends use) makes kiro-cli DO the task and read the
+    // delimited buffer correctly. So instructions + input join the plain two-line
+    // way (the claude-backend shape), delivered via stdin.
+    const promptBody = instructions ? `${instructions}\n\n${input}` : input;
 
     const args = [
       'chat',
@@ -91,7 +95,7 @@ export class KiroCliBackend extends CompressorBackend {
       '--model',
       this._model,
       '--trust-tools=', // trust NO tools → the model can only emit text (sandbox)
-      promptBody, // the [INPUT] positional
+      // the prompt rides on STDIN (below), NOT as a positional arg (D-280).
     ];
 
     // THE RECURSION GUARD: CMK_BACKEND_SPAWN=1 so the inner kiro-cli's fired
@@ -179,8 +183,10 @@ export class KiroCliBackend extends CompressorBackend {
         }, timeoutMs);
       }
 
-      // kiro-cli takes the prompt as the [INPUT] positional (in args), not stdin;
-      // close stdin immediately so it doesn't wait for input.
+      // D-280: kiro-cli reads the prompt on STDIN (no positional arg) — write the
+      // body then close, so any `$`/backtick/`<`/`>` survives verbatim (no shell
+      // reaches it) and the model does the task instead of treating it as chat.
+      child.stdin.write(promptBody);
       child.stdin.end();
     });
   }

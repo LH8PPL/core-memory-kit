@@ -7,7 +7,8 @@
 // module paths differ from the plugin copy (../src/ vs ../../packages/cli/src/).
 //
 // Protocol: drain stdin, resolve project root from CMK_PROJECT_DIR env
-// or cwd, run compressSession() with a real HaikuViaAnthropicApi, emit
+// or cwd, run the SessionEnd tasks with the agent-relative backend (Task 200 —
+// makeBackend picks the installed-for agent's CLI), emit
 // {"continue": true}. Always exit 0 — a crashed SessionEnd hook would
 // block the user from closing their terminal.
 

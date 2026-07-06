@@ -22,10 +22,11 @@ import { EventEmitter } from 'node:events';
 function makeFakeSpawn(stdoutData, { exitCode = 0 } = {}) {
   const calls = [];
   const spawnFn = (cmd, args, opts) => {
-    calls.push({ cmd, args, opts });
+    const rec = { cmd, args, opts, stdin: '' };
+    calls.push(rec);
     const child = new EventEmitter();
     child.stdin = {
-      write: () => true,
+      write: (chunk) => { rec.stdin += chunk.toString(); return true; },
       end: () => setImmediate(() => {
         child.stdout.emit('data', Buffer.from(stdoutData, 'utf8'));
         child.emit('close', exitCode);
@@ -61,17 +62,21 @@ describe('Task 200 — KiroCliBackend', () => {
     expect(env.CMK_BACKEND_SPAWN).toBe('1');
   });
 
-  it('D-279: joins instructions + input as a SINGLE directive line, not two newline blocks', async () => {
+  it('D-280: pipes the prompt on STDIN, NOT as a positional arg (real-prompt refusal fix)', async () => {
     const { spawnFn, calls } = makeFakeSpawn('\x1b[0m> ok');
     const b = new KiroCliBackend({ spawnFn });
     await b.compress({ input: 'THE_INPUT', instructions: 'BE_TERSE' });
-    const { cmd, args } = calls[0];
-    // the prompt is the positional; find it (last arg on posix, in the cmd string on win32)
-    const promptSeen = process.platform === 'win32' ? cmd : args[args.length - 1];
-    // single directive: "<instructions>: <input>" — NOT "<instructions>\n\n<input>"
-    // (the two-line form made kiro-cli refuse the task, D-279).
-    expect(promptSeen).toContain('BE_TERSE: THE_INPUT');
-    expect(promptSeen).not.toContain('BE_TERSE\n\nTHE_INPUT');
+    const { cmd, args, stdin } = calls[0];
+    // The prompt goes on STDIN (the claude/cursor channel) — D-280. The positional
+    // form made kiro-cli treat the REAL multi-paragraph compression prompt as a
+    // chat question and REFUSE it (the D-279 colon-join only worked for a toy
+    // prompt; the skill-review caught it against buildCompressionInstructions).
+    expect(stdin).toContain('BE_TERSE');
+    expect(stdin).toContain('THE_INPUT');
+    // two-line form on stdin (the claude-backend shape), NOT a positional arg
+    expect(stdin).toContain('BE_TERSE\n\nTHE_INPUT');
+    const flat = process.platform === 'win32' ? cmd : [cmd, ...args].join(' ');
+    expect(flat).not.toContain('THE_INPUT'); // not in argv
   });
 
   it('parses the answer off STDOUT — strips ANSI + the leading `> ` prompt marker', async () => {
