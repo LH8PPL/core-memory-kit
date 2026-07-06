@@ -1037,7 +1037,7 @@ The headline gate. Each rung exercises a different layer of the new recall stack
 ## 6. Session 3 — the cold-open (the wedge, wow #1)  ⬅️ a BRAND-NEW project
 
 ```powershell
-mkdir C:\Temp\cut-gate-coldopen20; cd C:\Temp\cut-gate-coldopen20
+mkdir C:\Temp\cut-gate-coldopen21; cd C:\Temp\cut-gate-coldopen21
 git init; cmk install --with-semantic; code .
 ```
 Ask: *"Start a new Python backend for me - set up the structure."*
