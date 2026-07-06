@@ -61,6 +61,19 @@ describe('Task 200 — KiroCliBackend', () => {
     expect(env.CMK_BACKEND_SPAWN).toBe('1');
   });
 
+  it('D-279: joins instructions + input as a SINGLE directive line, not two newline blocks', async () => {
+    const { spawnFn, calls } = makeFakeSpawn('\x1b[0m> ok');
+    const b = new KiroCliBackend({ spawnFn });
+    await b.compress({ input: 'THE_INPUT', instructions: 'BE_TERSE' });
+    const { cmd, args } = calls[0];
+    // the prompt is the positional; find it (last arg on posix, in the cmd string on win32)
+    const promptSeen = process.platform === 'win32' ? cmd : args[args.length - 1];
+    // single directive: "<instructions>: <input>" — NOT "<instructions>\n\n<input>"
+    // (the two-line form made kiro-cli refuse the task, D-279).
+    expect(promptSeen).toContain('BE_TERSE: THE_INPUT');
+    expect(promptSeen).not.toContain('BE_TERSE\n\nTHE_INPUT');
+  });
+
   it('parses the answer off STDOUT — strips ANSI + the leading `> ` prompt marker', async () => {
     // exactly the shape the live probe returned
     const { spawnFn } = makeFakeSpawn('\x1b[38;5;141m> \x1b[0mHELLO_WORLD_42');

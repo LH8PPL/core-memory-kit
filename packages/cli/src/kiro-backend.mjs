@@ -75,8 +75,15 @@ export class KiroCliBackend extends CompressorBackend {
       throw new Error('KiroCliBackend.compress: input must be a string');
     }
     // The prompt rides as the [INPUT] positional (kiro-cli chat's first arg).
-    // instructions + input joined the same way the claude-cli backend does.
-    const promptBody = instructions ? `${instructions}\n\n${input}` : input;
+    // D-279: join instructions + input as a SINGLE directive line, NOT two
+    // newline-separated blocks. Live-verified: the two-line `instructions\n\ninput`
+    // form made kiro-cli treat the first line as a conversational question and
+    // REFUSE the task ("I don't have access… could you clarify?"); the single
+    // directive form ("<instructions>: <input>") makes it DO the task. Same
+    // prompt-shape discipline D-278 applied to Cursor (the research's reject-gate
+    // class). Kiro takes the prompt as a positional (not stdin), so the SHAPE is
+    // the fix here.
+    const promptBody = instructions ? `${instructions}: ${input}` : input;
 
     const args = [
       'chat',
