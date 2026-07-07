@@ -351,6 +351,44 @@ describe('Task 66.4 — temporalSweep() boundary', () => {
       expect(candidates[0].created_at).toBe(olderMs);
     });
 
+    // Leak-fix guard (P-5VJJUEES — the 2026-07-07 8.8GB machine freeze):
+    // buildSemanticCandidateFinder must sync the semantic index ONCE (the
+    // expensive full-corpus embed), then per-fact embed only the QUERY against
+    // the already-synced vec table. The old code re-ran the full sync per fact
+    // (prepareSemanticBackend syncs on every call), so N facts = N full-corpus
+    // embeds → unbounded off-heap ONNX memory. This asserts the sync-once
+    // contract: over M finder invocations, the index-syncing call fires exactly
+    // ONCE, and every per-fact call is a query-only call (syncIndex: false).
+    it('syncs the semantic index ONCE, then per-fact query-only (the P-5VJJUEES leak guard)', async () => {
+      const calls = [];
+      const fakePrepare = async (opts) => {
+        calls.push({ query: opts.query, syncIndex: opts.syncIndex });
+        return { ok: true, backend: () => [] };
+      };
+      const finder = await buildSemanticCandidateFinder({
+        db: {},
+        projectRoot,
+        prepareSemanticBackendImpl: fakePrepare,
+        resolveDefaultSearchModeImpl: () => 'semantic',
+      });
+      expect(finder).toBeTypeOf('function');
+      // Drive the finder over 5 facts (the per-fact hot loop).
+      for (let i = 0; i < 5; i++) {
+        await finder({ id: `P-FACT000${i}`, title: `fact ${i}`, createdMs: Date.now() });
+      }
+      // Exactly ONE index-syncing call (the up-front probe/sync) — NOT one per
+      // fact. syncIndex !== false means "run the full corpus sync".
+      const syncingCalls = calls.filter((c) => c.syncIndex !== false);
+      expect(syncingCalls).toHaveLength(1);
+      // Every per-fact call is query-only (syncIndex: false) — no re-sync.
+      const perFactCalls = calls.filter((c) => c.syncIndex === false);
+      expect(perFactCalls).toHaveLength(5);
+      // And the per-fact calls carry the fact TITLE as the query.
+      expect(perFactCalls.map((c) => c.query)).toEqual([
+        'fact 0', 'fact 1', 'fact 2', 'fact 3', 'fact 4',
+      ]);
+    });
+
     it('the real semantic finder returns null (→ FTS fallback) on a keyword-mode project', async () => {
       const finder = await buildSemanticCandidateFinder({
         db: {},

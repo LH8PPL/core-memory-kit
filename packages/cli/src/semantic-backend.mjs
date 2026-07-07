@@ -22,10 +22,14 @@
 // sync closure over the query vector for the seam. `search()`'s public
 // contract is untouched.
 //
-// Observation granularity = embedding granularity: kit observations are
-// already small (bullets ≤200 chars, fact bodies ≤1500) — each indexed row
-// is one embedding; no further chunking needed at kit scale (the memsearch
-// ≤1500-char chunking rule is satisfied by construction).
+// Observation granularity = embedding granularity: each indexed row is one
+// embedding; no sub-row chunking. Most observations are small (bullets ≤200
+// chars) but fact bodies have NO upstream length cap — the dogfood repo has a
+// 5157-char fact (P-5VJJUEES), so the old "≤1500 by construction" assumption is
+// FALSE. planEmbedBatches (below) bounds the embed forward pass by item-count
+// AND total chars, and hard-truncates any single body to EMBED_BATCH_CHARS, so
+// an oversized body can neither blow up the batch nor ride solo as a huge
+// tensor. Recall is unaffected (mean-pooling is dominated by the leading text).
 
 import { createHash } from 'node:crypto';
 import { parseJsonFile } from './read-json.mjs';
@@ -39,6 +43,46 @@ import { join } from 'node:path';
 // cached by transformers.js. Dims are model-derived at sync time.
 export const DEFAULT_MODEL_ID = 'Xenova/bge-base-en-v1.5';
 export const DEFAULT_DIMS = 768;
+
+// Batch bounds for the embed forward pass (P-5VJJUEES — the 2026-07-07 8.8GB
+// machine freeze). transformers.js allocates the attention tensor for the WHOLE
+// batch at once, off-heap, and PADS every sequence to the batch's LONGEST one —
+// so cost scales with (batchSize × maxSeqLen²). An unbounded 471-body batch
+// containing a 5000-char fact allocated ~9GB of native ONNX memory in one call.
+// We bound BOTH axes: at most EMBED_BATCH_SIZE items per call AND at most
+// EMBED_BATCH_CHARS total characters per call (a long fact forms a smaller/solo
+// batch). Both overridable for tuning/tests.
+export const EMBED_BATCH_SIZE = Number(process.env.CMK_EMBED_BATCH_SIZE) || 16;
+export const EMBED_BATCH_CHARS = Number(process.env.CMK_EMBED_BATCH_CHARS) || 8000;
+
+// Split an array of texts into batches bounded by BOTH item-count and total
+// chars, so one very long body can't create a giant padded attention tensor.
+// A single item is ALSO hard-truncated to maxChars (skill-review M1): fact
+// bodies have no upstream length cap (the "≤1500 by construction" invariant is
+// already false — the dogfood repo has a 5157-char fact), so without this a
+// hypothetical 20k-char body would still allocate a huge single-item tensor.
+// Mean-pooled embeddings are dominated by the leading text, so truncating the
+// tail costs almost no recall while capping the worst case. Returns batches of
+// the (possibly truncated) texts — callers embed these directly.
+export function planEmbedBatches(texts, { maxItems = EMBED_BATCH_SIZE, maxChars = EMBED_BATCH_CHARS } = {}) {
+  const batches = [];
+  let cur = [];
+  let curChars = 0;
+  for (const raw of texts) {
+    const t = raw.length > maxChars ? raw.slice(0, maxChars) : raw;
+    const len = t.length;
+    // A single body at/over the char budget rides in its own batch.
+    if (cur.length > 0 && (cur.length >= maxItems || curChars + len > maxChars)) {
+      batches.push(cur);
+      cur = [];
+      curChars = 0;
+    }
+    cur.push(t);
+    curChars += len;
+  }
+  if (cur.length > 0) batches.push(cur);
+  return batches;
+}
 
 // Module-level extractor cache: the ONNX session costs ~seconds to build;
 // one per (process, model).
@@ -139,7 +183,16 @@ export function loadSqliteVec(db) {
  * rows whose content hash misses the cache (content-addressed); removes
  * vec rows for deleted/tombstoned observations. Returns counts.
  */
-export async function syncSemanticIndex({ db, modelId = DEFAULT_MODEL_ID, dims = null, scope = 'facts' }) {
+export async function syncSemanticIndex({
+  db,
+  modelId = DEFAULT_MODEL_ID,
+  dims = null,
+  scope = 'facts',
+  // DI seam (P-5VJJUEES chunking test): inject a fake extractor to assert
+  // batch sizes deterministically without the ~110MB model. Defaults to the
+  // real cached ONNX pipeline.
+  extractorImpl = null,
+}) {
   const scopeDef = SEMANTIC_SCOPES[scope];
   if (!scopeDef) return { ok: false, reason: `unknown-scope:${scope}` };
   // Public boundary in its own right — load the vec extension if this
@@ -149,7 +202,7 @@ export async function syncSemanticIndex({ db, modelId = DEFAULT_MODEL_ID, dims =
   if (!vecLoaded) {
     return { ok: false, reason: 'sqlite-vec-unavailable' };
   }
-  const extractor = await loadExtractor(modelId);
+  const extractor = extractorImpl ?? (await loadExtractor(modelId));
   if (!extractor) {
     return { ok: false, reason: 'embedder-not-installed' };
   }
@@ -201,8 +254,13 @@ export async function syncSemanticIndex({ db, modelId = DEFAULT_MODEL_ID, dims =
   const vecPut = db.prepare(`INSERT INTO ${scopeDef.vecTable}(rowid, embedding) VALUES (?, ?)`);
 
   const toEmbed = [];
-  const plans = []; // {rowid, sha, cached?}
+  const plans = []; // {rowid, sha, cached?, body}
   for (const row of live) {
+    // Skip empty/whitespace-only bodies (skill-review M2): mean-pooling an
+    // empty sequence yields a NaN/degenerate vector, and an empty fact can
+    // never be a useful semantic match. Excluded from BOTH the embed input and
+    // the plans walk below, so the vecList↔plans order-mapping stays exact.
+    if (!row.body || !String(row.body).trim()) continue;
     const sha = sha256(`${modelId}\n${row.body}`);
     const cached = cacheGet.get(sha);
     plans.push({ rowid: BigInt(row.rowid), sha, cached: cached?.vector ?? null, body: row.body });
@@ -212,14 +270,36 @@ export async function syncSemanticIndex({ db, modelId = DEFAULT_MODEL_ID, dims =
   let embedded = 0;
   let vectorsBySha = new Map();
   if (toEmbed.length > 0) {
-    // ONE batched extractor call (transformers.js batches in a single
-    // forward pass — the dominant cost is per-call, not per-text).
-    const out = await extractor(toEmbed, { pooling: 'mean', normalize: true });
-    const list = out.tolist();
+    // Embed in bounded BATCHES, not one giant forward pass (P-5VJJUEES — the
+    // 2026-07-07 8.8GB machine freeze). transformers.js pads a batch to its
+    // longest sequence and allocates the full attention tensor for the WHOLE
+    // batch at once, off-heap — so cost scales with (batchSize × maxSeqLen²).
+    // planEmbedBatches bounds BOTH axes (item count AND total chars), so ~471
+    // bodies — including a 5000-char fact — never form the single giant padded
+    // tensor that ran the machine out of memory. planEmbedBatches preserves
+    // input order, so vecList maps back to the uncached plans 1:1.
+    const uncachedBodies = plans.filter((p) => !p.cached).map((p) => p.body);
+    const vecList = [];
+    for (const batch of planEmbedBatches(uncachedBodies)) {
+      const out = await extractor(batch, { pooling: 'mean', normalize: true });
+      for (const v of out.tolist()) vecList.push(v);
+    }
+    // Fail CLOSED on a count mismatch (skill-review I1). The vecList[i++] map
+    // below is correct only if every batch returned exactly its input count; if
+    // an extractor call ever returns fewer/more rows, the vectors desync and we
+    // would silently cache WRONG (content-addressed → durable) embeddings. A
+    // mismatch → bail so the caller falls back to FTS rather than poisoning the
+    // cache. Cheap invariant, catastrophic to skip.
+    if (vecList.length !== uncachedBodies.length) {
+      return {
+        ok: false,
+        reason: `embed-count-mismatch:${vecList.length}/${uncachedBodies.length}`,
+      };
+    }
     let i = 0;
     for (const plan of plans) {
       if (plan.cached) continue;
-      const vec = list[i++];
+      const vec = vecList[i++];
       const blob = toBlob(vec);
       cachePut.run(plan.sha, modelId, blob);
       vectorsBySha.set(plan.sha, blob);
@@ -259,6 +339,12 @@ export async function prepareSemanticBackend({
   dims = null,
   overFetch = 3,
   scope = 'facts',
+  // Leak guard (P-5VJJUEES): syncSemanticIndex re-scans + re-embeds the WHOLE
+  // corpus, allocating large off-heap ONNX buffers. A hot loop that calls this
+  // per item (temporalSweep's per-fact finder) must sync ONCE, then pass
+  // syncIndex:false so each subsequent call only embeds its query and searches
+  // the already-synced vec table. Default true preserves every existing caller.
+  syncIndex = true,
 }) {
   if (!SEMANTIC_SCOPES[scope]) {
     return { ok: false, reason: `unknown-scope:${scope}` };
@@ -287,7 +373,11 @@ export async function prepareSemanticBackend({
         '(~260 MB incl. ONNX runtime; the model itself downloads once on first use). Keyword search works without it.',
     };
   }
-  const sync = await syncSemanticIndex({ db, modelId, dims, scope });
+  // syncIndex:false skips the full-corpus re-embed (the caller synced already
+  // and only wants a query embed against the live vec table) — P-5VJJUEES.
+  const sync = syncIndex
+    ? await syncSemanticIndex({ db, modelId, dims, scope })
+    : { ok: true, skipped: true };
   if (!sync.ok) return { ok: false, reason: sync.reason };
 
   const qOut = await extractor(query, { pooling: 'mean', normalize: true });

@@ -242,8 +242,10 @@ export async function buildSemanticCandidateFinder({ db, projectRoot, prepareSem
   // path the default). Only semantic/hybrid projects get the embedding finder.
   const mode = resolveDefaultSearchMode({ projectRoot });
   if (mode !== 'semantic' && mode !== 'hybrid') return null;
-  // Probe once: is the vec table + embedder actually usable here? We prepare a
-  // trivial backend to force the load path; if it fails, fall back to FTS.
+  // Sync the semantic index ONCE, up front: this call runs syncSemanticIndex
+  // (the full-corpus re-embed — the expensive, off-heap-heavy step). It also
+  // doubles as the usability probe: if the vec table + embedder aren't ready
+  // here, bail to FTS.
   const probe = await prepareSemanticBackend({ db, query: 'probe', scope: 'facts' }).catch(() => ({ ok: false }));
   if (!probe.ok) return null;
   // The finder embeds each fact's TITLE as the query and keeps only older,
@@ -251,15 +253,15 @@ export async function buildSemanticCandidateFinder({ db, projectRoot, prepareSem
   // per query (it embeds the query text), so the finder is async — temporalSweep
   // awaits it. Over-fetch a few so the age/threshold filter has room.
   //
-  // KNOWN COST (accepted for v0.4.5): prepareSemanticBackend re-runs
-  // syncSemanticIndex per call, which does a `dims probe` embed each time — so a
-  // semantic-mode sweep with N new facts pays N+1 probe embeds. Bounded (the
-  // sweep caps at MAX_PAIRS_PER_SWEEP facts) + maintenance-time (not hot path) +
-  // semantic-mode only, so it's tolerable now. A follow-up could embed the query
-  // directly against the already-synced vec table (skip the per-call sync) if a
-  // large semantic corpus makes this measurable.
+  // LEAK FIX (P-5VJJUEES — the 2026-07-07 8.8GB machine freeze): the per-fact
+  // call passes syncIndex:false so it ONLY embeds the query against the vec
+  // table synced by the probe above — it does NOT re-run syncSemanticIndex.
+  // Before this, every fact re-embedded the whole corpus (~471 uncached bodies
+  // on this repo) in a fresh ONNX batch, and the native buffers accumulated
+  // faster than GC reclaimed them → unbounded RSS. Sync-once makes the sweep
+  // O(corpus) once + O(query) per fact, not O(corpus) per fact.
   return async (fact) => {
-    const b = await prepareSemanticBackend({ db, query: fact.title, scope: 'facts' }).catch(() => null);
+    const b = await prepareSemanticBackend({ db, query: fact.title, scope: 'facts', syncIndex: false }).catch(() => null);
     if (!b || !b.ok) return [];
     const rows = b.backend({ limit: CANDIDATES_PER_FACT * 3 });
     return rows

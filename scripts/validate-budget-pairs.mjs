@@ -74,6 +74,15 @@ export const BUDGET_REGISTRY = [
     overCapPattern: 'caps each result snippet',
   },
   {
+    name: 'semantic embed batch caps (EMBED_BATCH_SIZE=16 items / EMBED_BATCH_CHARS=8000 chars per ONNX forward pass — P-5VJJUEES 8.8GB freeze guard)',
+    sourceRef: 'semantic-backend.mjs planEmbedBatches / P-5VJJUEES (the 2026-07-07 memory-leak fix)',
+    testFile: 'tests/cli-semantic-backend.test.js',
+    // at-cap: batches never exceed the item-count budget; over-cap: a body
+    // larger than the char budget forms its own solo batch (the padding-blowup case).
+    atCapPattern: 'EMBED_BATCH_SIZE',
+    overCapPattern: 'EMBED_BATCH_CHARS',
+  },
+  {
     name: 'snapshot Σ-caps + authority-preamble reserve (≤13,000 B)',
     sourceRef: 'design §7.1.2',
     suppressed:
