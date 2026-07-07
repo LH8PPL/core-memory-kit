@@ -10778,3 +10778,421 @@ _(retracted 2026-06-29)_
 
 **When:** 2026-07-06 · **Fact:** `P-WPYWZW2U`
 **Why:** Project requires reliable verification that the live Claude Code session environment is safe, captures are correct, and no sensitive data leaked.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-K9JEXEW6 -->
+
+## RESUME v0.4.5: main is GREEN with the v0.4.5 release commit (82a0baf, package.js
+
+**When:** 2026-07-06 · **Fact:** `P-K9JEXEW6`
+
+<!-- decision:P-ZA7HKDWL -->
+
+## Prefers to run interactive commands themselves; wants assistant to run all file
+
+**When:** 2026-07-06 · **Fact:** `P-ZA7HKDWL`
+
+<!-- decision:P-4CAKQAQ7 -->
+
+## This gate test uses `cmk install --with-semantic`, enabling hybrid semantic sear
+
+**When:** 2026-07-06 · **Fact:** `P-4CAKQAQ7`
+
+<!-- decision:P-SYP79LTP -->
+
+## CLI Fallback for MCP Tool Resolution Failures
+
+**When:** 2026-07-06 · **Fact:** `P-SYP79LTP`
+**Why:** Provides an alternative path for testers and developers when tool resolution fails. Enables forward momentum even during activation troubleshooting.
+
+<!-- decision:P-D4BXGYX7 -->
+
+## MCP Activation Restart Behavior
+
+**When:** 2026-07-06 · **Fact:** `P-D4BXGYX7`
+**Why:** Users and testers need to understand that one restart after install is expected and normal, and that subsequent sessions have no friction—this prevents confusion about whether the kit is broken or requires ongoing restarts.
+
+<!-- decision:P-S4HKLYZS -->
+
+## Claude Code MCP Deferred-Tool Race (Issue #42148)
+
+**When:** 2026-07-06 · **Fact:** `P-S4HKLYZS`
+**Why:** Explains Session-1 first-turn `mk_remember` miss; confirms fallback mitigation is working as intended, not a gate blocker
+
+<!-- decision:P-DMEQPJEB -->
+
+## Claude Code Deferred-Tools First-Turn Race Condition
+
+**When:** 2026-07-06 · **Fact:** `P-DMEQPJEB`
+**Why:** Not fixable server-side (no protocol mechanism to opt out of deferral). Known issue: Claude Code #42148 / #60052. Understanding the race explains why first-turn failures don't indicate broken code.
+
+<!-- decision:P-9CRAJDZN -->
+
+## MCP Connection Logs Location in Claude Code
+
+**When:** 2026-07-06 · **Fact:** `P-9CRAJDZN`
+**Why:** Needed to distinguish MCP server health from API-layer ToolSearch failures; logs are authoritative ground truth
+
+<!-- decision:P-SGNV3M72 -->
+
+## User asked to verify assistant's claims with primary evidence ("did you actually
+
+**When:** 2026-07-06 · **Fact:** `P-SGNV3M72`
+
+<!-- decision:P-3KQHYaa2 -->
+
+## Asked for primary-source verification before accepting confident-but-unsourced c
+
+**When:** 2026-07-06 · **Fact:** `P-3KQHYaa2`
+
+<!-- decision:P-aYB2XXRD -->
+
+## Kiro-cli Agent Resolution Requires Global Default
+
+**When:** 2026-07-06 · **Fact:** `P-aYB2XXRD`
+**Why:** Architectural constraint from kiro-cli's Amazon-Q lineage. Explains why kiro-cli cannot match Claude Code's project-local agent pattern.
+
+<!-- decision:P-RSGPA3BJ -->
+
+## Kiro Global Agent Config Documented (Decision D-283)
+
+**When:** 2026-07-06 · **Fact:** `P-RSGPA3BJ`
+**Why:** Undocumented architectural constraints can be misread as bugs and trigger unnecessary code changes. Documenting the rationale prevents future re-opening.
+
+<!-- decision:P-E53ZN5BD -->
+
+## Hook Architecture Differs Across Claude AI Products
+
+**When:** 2026-07-06 · **Fact:** `P-E53ZN5BD`
+**Why:** Explains why identical memory-kit design patterns do not work uniformly across products and forces different architectural choices per product
+
+<!-- decision:P-SRJWSPEY -->
+
+## Kiro CLI Requires Global chat.defaultAgent Because Hooks Are Agent-Scoped
+
+**When:** 2026-07-06 · **Fact:** `P-SRJWSPEY`
+**Why:** Explains why claude-memory-kit's Kiro implementation requires a global agent; this is a structural constraint, not a design choice
+
+<!-- decision:P-9RFHM2Q2 -->
+
+## Claude Code vs. Kiro Hook Architecture Difference
+
+**When:** 2026-07-06 · **Fact:** `P-9RFHM2Q2`
+**Why:** This architectural difference explains why the kit recommends different setup paths for each environment and why it cannot provide "project-local" automatic memory activation in Kiro. It is not a workaround choice but a hard constraint of Kiro's design.
+
+<!-- decision:P-Q69MWaHS -->
+
+## User asking "so i still dont understand what you built..." despite observing "✓
+
+**When:** 2026-07-06 · **Fact:** `P-Q69MWaHS`
+
+<!-- decision:P-DAHSH4G9 -->
+
+## User tested kiro-cli headless mode with --trust-all-tools and confirmed hooks ex
+
+**When:** 2026-07-06 · **Fact:** `P-DAHSH4G9`
+
+<!-- decision:P-X5DANHNN -->
+
+## Kiro Agent Configuration — Local and Global Support
+
+**When:** 2026-07-06 · **Fact:** `P-X5DANHNN`
+**Why:** Clarifies Kiro supports project-local agent configuration (previously thought global-only). Relevant to claude-memory-kit's Kiro integration and potential in-repo agent config.
+
+<!-- decision:P-SA7QUVJZ -->
+
+## Project-Local Agent Auto-Activation — Design Bottleneck for Kiro/CMK
+
+**When:** 2026-07-06 · **Fact:** `P-SA7QUVJZ`
+**Why:** Docs do not clarify auto-activation behavior for project-local agents. This gap blocks understanding whether Kiro can achieve full repo portability and parity with Claude Code. User is committing to empirical testing to resolve this design question.
+
+<!-- decision:P-MXPAE3S5 -->
+
+## User wants empirical test to determine if project-local Kiro agents auto-activat
+
+**When:** 2026-07-06 · **Fact:** `P-MXPAE3S5`
+
+<!-- decision:P-67AA3MCQ -->
+
+## Kiro Agent Must Be Global (Empirically Validated)
+
+**When:** 2026-07-06 · **Fact:** `P-67AA3MCQ`
+**Why:** Permanently settles whether Kiro can match Claude Code's project-local model. Empirical evidence prevents future re-litigation of this design choice.
+
+<!-- decision:P-59BaaLDa -->
+
+## Kiro IDE and kiro-cli Have Different Hook Architectures
+
+**When:** 2026-07-06 · **Fact:** `P-59BaaLDa`
+**Why:** The two Kiro clients have opposite designs. Previous context (D-283/D-284) covered kiro-cli only; IDE works like other IDEs (project-level files).
+
+<!-- decision:P-C6JYB72G -->
+
+## v0.4.5 kiro-cli dispatch guard implementation
+
+**When:** 2026-07-06 · **Fact:** `P-C6JYB72G`
+**Why:** Dispatch path changed, so June live-test proof doesn't fully cover v0.4.5 kiro-cli. Exemplifies "unit-green ≠ works-on-real-input" principle the project warns against.
+
+<!-- decision:P-G54J6XJT -->
+
+## v0.4.5: Agent-Relative LLM Backend Feature
+
+**When:** 2026-07-06 · **Fact:** `P-G54J6XJT`
+**Why:** The kit's automatic features only work if an LLM backend exists. Before v0.4.5, only Claude users had one. This release unblocked Kiro and Cursor users and explains why a recursion guard exists in the hook dispatch path.
+
+<!-- decision:P-6JQMSaTX -->
+
+## Kiro-CLI vs. Kit: Activation Pattern Design
+
+**When:** 2026-07-06 · **Fact:** `P-6JQMSaTX`
+**Why:** Real-world evidence from kiro-cli on the exact D-284 activation-pattern question. Validates that both branches (manual vs. auto-activation) are legitimate.
+
+<!-- decision:P-J595J32R -->
+
+## Kiro-CLI vs. Kit: Knowledge Extraction Architecture
+
+**When:** 2026-07-06 · **Fact:** `P-J595J32R`
+**Why:** Another real-world solution to agent learning. Justifies the kit's architectural choice to separate the backend as a deliberate trade-off for async/portability.
+
+<!-- decision:P-M4LCGCGW -->
+
+## This project is for kiro-cli only, not IDE
+
+**When:** 2026-07-06 · **Fact:** `P-M4LCGCGW`
+
+<!-- decision:P-PU3PXTLS -->
+
+## cmk Agent Config — Missing allowedTools Field
+
+**When:** 2026-07-06 · **Fact:** `P-PU3PXTLS`
+**Why:** cmk is intended to be the auto-approve agent, but missing `allowedTools` in its config would prevent MCP auto-approval. This is a configuration regression.
+
+<!-- decision:P-GCACVQaF -->
+
+## MCP Approval Scope is Per-Agent, Not Project-Wide
+
+**When:** 2026-07-06 · **Fact:** `P-GCACVQaF`
+**Why:** User tested and found approval prompt despite prior auto-approval setup; analysis revealed MCP trust is read per-agent config, not globally. Prompt appeared because kiro_default (the active agent at test time) didn't have `allowedTools` configured.
+
+<!-- decision:P-CUV5VCZS -->
+
+## Previously built MCP auto-approval expected to "always run without asking"; surp
+
+**When:** 2026-07-06 · **Fact:** `P-CUV5VCZS`
+
+<!-- decision:P-aQLDJM5J -->
+
+## MCP Prompt Root Cause — Agent Config & kiro-cli Mismatch
+
+**When:** 2026-07-06 · **Fact:** `P-aQLDJM5J`
+**Why:** Clarifies why the prompt appears on kiro_default but not with global default (cmk active). Confirms it's a config gap, not a system failure.
+
+<!-- decision:P-WXP6RC9S -->
+
+## Project Decision-Trail Lane Preservation Habit
+
+**When:** 2026-07-06 · **Fact:** `P-WXP6RC9S`
+**Why:** Maintains full traceability of how decisions and tasks evolved; supports root-cause analysis and pattern spotting in future refactors.
+
+<!-- decision:P-P34SFC3D -->
+
+## Task 165(a) Root Cause Found — Advanced to Fix Lane
+
+**When:** 2026-07-06 · **Fact:** `P-P34SFC3D`
+**Why:** Upgrade from "diagnose unclear issue" to "fix known problem with multiple remediation paths". Ready to close via one of the three options.
+
+<!-- decision:P-NWUYVLZN -->
+
+## Multi-Gate Release Verification
+
+**When:** 2026-07-06 · **Fact:** `P-NWUYVLZN`
+**Why:** Catches integration failures that unit tests miss. Multi-agent + MCP-backend setup requires live verification to ensure safety.
+
+<!-- decision:P-MGHR6JCA -->
+
+## User Owns Release Tag Push
+
+**When:** 2026-07-06 · **Fact:** `P-MGHR6JCA`
+**Why:** Clear boundary between development decisions (assistant) and public commitments (user). Prevents unintended early releases.
+
+<!-- decision:P-FDGB97F4 -->
+
+## v0.4.6 Release Roadmap
+
+**When:** 2026-07-06 · **Fact:** `P-FDGB97F4`
+**Why:** v0.4.5 is backend-focused. kiro-cli UX fix and new agent are orthogonal changes, correctly laned for v0.4.6. Prevents scope creep and clarifies next-session priorities.
+
+<!-- decision:P-CLSAGTMK -->
+
+## MCP prompt gate only appears in non-default agent scenario
+
+**When:** 2026-07-06 · **Fact:** `P-CLSAGTMK`
+**Why:** Distinguishes real bugs from configuration artifacts. Clarifies why you hit the gate (engineered non-default state) but an end user won't (on cmk-default).
+
+<!-- decision:P-a99JZQZV -->
+
+## Task 165a is design decision linked to D-285, not mechanical fix
+
+**When:** 2026-07-06 · **Fact:** `P-a99JZQZV`
+**Why:** Clarifies that rushing implementation risks building the wrong thing. Work is properly scoped for v0.4.6 after design fork is decided, not v0.4.5.
+
+<!-- decision:P-DQYYXF7X -->
+
+## v0.5.0 Sprint Locked to Fable Model Availability Window
+
+**When:** 2026-07-06 · **Fact:** `P-DQYYXF7X`
+**Why:** Hard external constraint (Fable availability) drives sprint scope and prioritization. Deferring lower-priority design work keeps team on critical path to capture the feature window before model access expires.
+
+<!-- decision:P-RYB7VEDM -->
+
+## CMK gate test is structured in phases (§0–§1 pre-Session 1, §2 Session 1, §5 Ses
+
+**When:** 2026-07-06 · **Fact:** `P-RYB7VEDM`
+
+<!-- decision:P-DXYN2SZG -->
+
+## All 7 MCP sessions in gate testing connected successfully (925-2099ms range), wi
+
+**When:** 2026-07-06 · **Fact:** `P-DXYN2SZG`
+
+<!-- decision:P-VKKKK7B6 -->
+
+## MCP logs show cmk connected successfully (925ms, hasTools:true) at session start
+
+**When:** 2026-07-06 · **Fact:** `P-VKKKK7B6`
+
+<!-- decision:P-92XAEZGF -->
+
+## Behavior was correct — global agent config required because `chat.defaultAgent`
+
+**When:** 2026-07-06 · **Fact:** `P-92XAEZGF`
+
+<!-- decision:P-9JJa3BUH -->
+
+## Kit's specific hooks: cmk hook agentSpawn (session start), cmk hook userPromptSu
+
+**When:** 2026-07-06 · **Fact:** `P-9JJa3BUH`
+
+<!-- decision:P-YLJUGTVV -->
+
+## In headless non-interactive mode, file operations rejected without --trust-all-t
+
+**When:** 2026-07-06 · **Fact:** `P-YLJUGTVV`
+
+<!-- decision:P-WL292XaB -->
+
+## User fact-checks vague claims and expects precise, detailed accounting of what c
+
+**When:** 2026-07-06 · **Fact:** `P-WL292XaB`
+
+<!-- decision:P-56YEAKaU -->
+
+## Binding Two-Pass Code Review Discipline
+
+**When:** 2026-07-06 · **Fact:** `P-56YEAKaU`
+**Why:** Two-pass discipline prevents silent bugs from reaching production. The rhythm slows initial merge velocity but catches critical issues that are far costlier to fix post-release.
+
+<!-- decision:P-7D37FCUX -->
+
+## Regression Test Pinning on Bug Fixes
+
+**When:** 2026-07-06 · **Fact:** `P-7D37FCUX`
+**Why:** Regression tests ensure the same bug does not silently return as code evolves. Critical invariant bugs are particularly important to pin because they are easy to reintroduce and hard to detect in production use.
+
+<!-- decision:P-VNDJW7KK -->
+
+## Release Gate Criterion: Dogfooding Signal Validation
+
+**When:** 2026-07-07 · **Fact:** `P-VNDJW7KK`
+**Why:** Empirical validation is more trustworthy than review consensus. A misfiring judge detector needs a baseline period to surface. Real-world behavior is the primary evidence.
+
+<!-- decision:P-EQLWWGUF -->
+
+## Staged Release: Observe-Only Then Steering Wiring
+
+**When:** 2026-07-07 · **Fact:** `P-EQLWWGUF`
+**Why:** Prevents silent steering failures on day 1. Sensors run unobserved first, creating a baseline. If judge detection misfires, the issue is visible in logs before ranking is affected. Also: task 194 is the highest-stakes surface and should not ship at fatigue peaks.
+
+<!-- decision:P-EA7VXDTJ -->
+
+## RESUME v0.5.0: release commit + D-291 gate PASS are on main (CI green); ONLY the
+
+**When:** 2026-07-07 · **Fact:** `P-EA7VXDTJ`
+
+<!-- decision:P-FHTR7MLS -->
+
+## Release Gate: Cut-Gate Guide Must Pass Before Tagging
+
+**When:** 2026-07-07 · **Fact:** `P-FHTR7MLS`
+**Why:** User caught the skip and it matters: this discipline found six blockers this session. Releasing without verification risks broken code reaching users.
+
+<!-- decision:P-EMNaBNWT -->
+
+## Windows SQLite DLL Lock from Running MCP Server
+
+**When:** 2026-07-07 · **Fact:** `P-EMNaBNWT`
+**Why:** Blocks upgrade workflows silently. Surfaced when trying to verify v0.5.0; would have affected real users if code had shipped without catching this.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-3VT9YT6L -->
+
+## EBUSY During cmk Upgrade — Stale Process Diagnosis
+
+**When:** 2026-07-07 · **Fact:** `P-3VT9YT6L`
+**Why:** These processes prevent file replacement during upgrade. Eliminating them resolves the issue.
+
+<!-- decision:P-7H2PPU7U -->
+
+## Hand-Written Research Note Frontmatter Requirements
+
+**When:** 2026-07-07 · **Fact:** `P-7H2PPU7U`
+**Why:** Frontmatter is required for the fact archive to properly index and retrieve notes; without it, notes remain orphaned and unsearchable.
+
+<!-- decision:P-SLVXFQEC -->
+
+## Proper Verb for Clearing Stale Locks
+
+**When:** 2026-07-07 · **Fact:** `P-SLVXFQEC`
+**Why:** The guardrail prevents accidental data loss and ensures consistency with kit-provided tooling.
+
+<!-- decision:P-XEEC5ZND -->
+
+## Standard cmk Installation Command
+
+**When:** 2026-07-07 · **Fact:** `P-XEEC5ZND`
+**Why:** This enables semantic search and is the expected form for routine repairs/installations.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-VAMNaEL5 -->
+
+## 9gb-node-hog-haiku-print-hang-machine-freeze
+
+**When:** 2026-07-07 · **Fact:** `P-VAMNaEL5`
+**Why:** The user's machine froze (9.3 GB / 100% disk) during the 0.5.0 gate-prep session; the offending process is dead so root cause can't be re-confirmed, but the reproduced `claude --print --model haiku` non-exit + three timed-out distills is the strongest-supported explanation. Capturing prevents re-deriving it and flags a real user-facing hazard.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`

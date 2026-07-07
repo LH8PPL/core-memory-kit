@@ -8,6 +8,9 @@ trust: medium
 source_file: auto-extract
 source_line: 1
 source_sha1: 11c27fb1d6d8c260eb16f9aab26d9fdfda65ebeab5a08e31033ed5f92beb9073
+ended_at: 2026-06-29T17:36:46Z
+status: completed
+superseded_by: P-3HD39BL2
 ---
 
 PR #243 is the single remaining blocker:

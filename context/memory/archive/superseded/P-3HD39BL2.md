@@ -8,6 +8,10 @@ trust: medium
 source_file: auto-extract
 source_line: 1
 source_sha1: fc28953526f8123972c72edb36b3a6f6642fe1dec77ff89e0b2294e36460b67e
+recurrence_count: 2
+ended_at: 2026-06-29T21:19:44Z
+status: completed
+superseded_by: P-C72TUV9Z
 ---
 
 - **Branch**: task-151-recurrence-promotion (pushed)

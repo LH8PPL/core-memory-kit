@@ -12,6 +12,10 @@
   <!-- source: user-explicit, source_line: 1, sha1: 680809a58cb723ef3eef3b0aad348e2966a04117189abdb9b0d05d90ab8688a8, write: user-explicit, trust: high, at: 2026-07-07T12:35:49Z -->
 - (P-WRF66BAY) Cut-gate guide should have been run for v0.4.5 and v0.5.0 on kiro and cursor before release tagging — user corrects that step was skipped
   <!-- source: auto-extract-session, source_line: 1, sha1: 957dabd09083b5909560684f1f73aaba8375962515539a316e26f1c7b5f0f541, write: auto-extract, trust: high, at: 2026-07-07T12:36:06Z -->
+- (P-SaM22R7B) Global cmk is broken; Windows sqlite DLL lock held by active MCP server prevents clean package reinstall
+  <!-- source: review-promote, source_line: 1, sha1: 354f724cf8d5b796bd398f0365a9de7d369d80e08906f3943859e1215463ccde, write: user-explicit, trust: high, at: 2026-07-07T12:58:02Z -->
+- (P-SMMGGXQW) v0.5.0 release tag is ON HOLD until cut-gate guide passes; corrects earlier statement that tag was ready
+  <!-- source: review-promote, source_line: 1, sha1: ec453b246aa762fe6cc207dbd12aef1a8143fe4130c01a339bce80f656bc75b3, write: user-explicit, trust: high, at: 2026-07-07T12:58:02Z -->
 
 ## Environment Notes
 
