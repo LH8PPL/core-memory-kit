@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - **learn-loop: FEEDBACK-SCREEN (Task 193, ADR-0017 Phase 1d)** - every trust-score mutation now routes through a screen inside `applyTrustSignal`: per-fact daily rate limit, burst-hold quarantine (a same-day storm of negative signals holds further dampens instead of applying them - a systemically-wrong judge can no longer mass-dampen good memories), and every delta is audit-logged. Decisions + refusals are visible at `context/.locks/trust-signals.log`. Fail-open: a broken screen never blocks the primary write.
 - **learn-loop: RECALL-LOG (Task 190, ADR-0017 Phase 1a)** — the kit now records which memory IDs surfaced each turn (`context/.locks/recall.log`, NDJSON, gitignored local diagnostic): the SessionStart inject logs the snapshot's surviving citation ids, and `cmk search`/`mk_search` log each query's returned ids. IDs + query only, never content; best-effort (can never break injection or search). This is the attribution primitive the v0.5 learn-loop's outcome signals resolve against.
 
+### Fixed
+
+- **semantic-mode memory leak that could exhaust RAM (P-5VJJUEES)** — on a semantic/hybrid project (`cmk install --with-semantic`), the per-session temporal sweep re-synced the WHOLE semantic index once per new fact, and each sync batch-embedded every uncached fact body in a single ONNX forward pass. On a large corpus with a long fact this allocated gigabytes of off-heap native memory (observed: a runaway process reaching ~9 GB during a session). Fixed two ways: the sweep now syncs the index ONCE and only embeds the per-fact query against it (a `syncIndex` seam), and the embed pass is split into batches bounded by both item-count (`EMBED_BATCH_SIZE=16`) and character budget (`EMBED_BATCH_CHARS=8000`, with a hard per-body truncation) so no single forward pass can blow up. A count-mismatch now fails closed (falls back to keyword search) rather than caching desynced vectors, and empty bodies are skipped. Keyword-only projects were never affected. Live-verified: worst-case embedding peaks at ~440 MB, flat.
+
 ## [0.4.5] — 2026-07-06
 
 ### Added

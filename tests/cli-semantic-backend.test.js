@@ -22,6 +22,10 @@ import {
   parseTemporalHint,
   syncSemanticIndex,
   prepareSemanticBackend,
+  loadSqliteVec,
+  EMBED_BATCH_SIZE,
+  EMBED_BATCH_CHARS,
+  planEmbedBatches,
 } from '../packages/cli/src/semantic-backend.mjs';
 import { INDEX_DB_SCHEMA } from '../packages/cli/src/index-db.mjs';
 
@@ -75,6 +79,167 @@ const ROWS = [
     created_at: Math.floor(Date.parse('2026-05-28T00:00:00Z') / 1000),
   },
 ];
+
+describe('P-5VJJUEES — syncSemanticIndex embeds in bounded chunks (the 8.8GB leak guard)', () => {
+  // A fake extractor recording the size of every forward pass. Returns a
+  // trivial 3-dim vector per input text (shape matches transformers.js output:
+  // { tolist(): number[][] }). This lets us assert batch sizes WITHOUT the
+  // ~110MB model — the leak was a single 471-wide batch, so the contract worth
+  // pinning is "never one giant call; always ≤ EMBED_BATCH_SIZE per call".
+  function makeSpyExtractor() {
+    const batchSizes = [];
+    const fn = async (input) => {
+      const texts = Array.isArray(input) ? input : [input];
+      batchSizes.push(texts.length);
+      return { tolist: () => texts.map(() => [0.1, 0.2, 0.3]) };
+    };
+    fn.batchSizes = batchSizes;
+    return fn;
+  }
+
+  function seedDb(n) {
+    const db = new Database(':memory:');
+    db.exec(INDEX_DB_SCHEMA);
+    const ins = db.prepare(
+      `INSERT INTO observations (id, tier, source_file, source_line, source_sha1,
+         heading_path, body, write_source, trust, created_at, deleted_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    // base32 alphabet without 0/O/1/l/I/8 — unique 8-char id body per row.
+    const A = 'ABCDEFGHJKMNPQRSTUVWXYZ234567';
+    const enc = (num) => {
+      let s = '';
+      let x = num;
+      for (let k = 0; k < 5; k++) { s = A[x % A.length] + s; x = Math.floor(x / A.length); }
+      return s;
+    };
+    for (let i = 0; i < n; i++) {
+      ins.run(
+        `P-CHK${enc(i)}`,
+        'P',
+        'context/MEMORY.md',
+        i + 1,
+        'a'.repeat(40),
+        null,
+        `fact number ${i} with distinct body text for embedding`,
+        'user-explicit',
+        'high',
+        Math.floor(Date.parse('2026-05-15T00:00:00Z') / 1000),
+        null,
+      );
+    }
+    return db;
+  }
+
+  it('planEmbedBatches bounds BOTH item-count and total chars (the long-sequence guard)', () => {
+    // item-count bound: 40 short texts → ceil(40/EMBED_BATCH_SIZE) batches.
+    const shorts = Array.from({ length: 40 }, () => 'short');
+    const byCount = planEmbedBatches(shorts);
+    expect(Math.max(...byCount.map((b) => b.length))).toBeLessThanOrEqual(EMBED_BATCH_SIZE);
+    expect(byCount.flat()).toHaveLength(40); // order + count preserved
+
+    // char-budget bound: one body longer than the char budget must NOT share a
+    // batch — it forms its own (this is the 5000-char-fact-freezes-machine case),
+    // AND is hard-truncated to the char budget (M1).
+    const big = 'x'.repeat(EMBED_BATCH_CHARS + 1000);
+    const mixed = ['a', 'b', big, 'c', 'd'];
+    const byChars = planEmbedBatches(mixed);
+    // every batch respects the char budget (the oversized item is truncated to it).
+    for (const batch of byChars) {
+      const chars = batch.reduce((s, t) => s + t.length, 0);
+      expect(chars).toBeLessThanOrEqual(EMBED_BATCH_CHARS);
+    }
+    // the (now-truncated) giant body is alone in its batch
+    const truncated = big.slice(0, EMBED_BATCH_CHARS);
+    const bigBatch = byChars.find((b) => b.includes(truncated));
+    expect(bigBatch).toHaveLength(1);
+    // order preserved end-to-end (the big item appears truncated in place).
+    expect(byChars.flat()).toEqual(['a', 'b', truncated, 'c', 'd']);
+  });
+
+  it('embeds 40 uncached bodies in bounded batches, never one giant call', async () => {
+    const db = seedDb(40);
+    if (!loadSqliteVec(db)) return; // sqlite-vec is a regular dep; if absent, skip
+    const spy = makeSpyExtractor();
+    // dims=3 to match the spy's vector width (skip the model-derived probe).
+    const r = await syncSemanticIndex({ db, modelId: 'test-spy', dims: 3, extractorImpl: spy });
+    expect(r.ok).toBe(true);
+    expect(r.embedded).toBe(40);
+    // The core guard: NO single call embedded all 40 at once.
+    expect(Math.max(...spy.batchSizes)).toBeLessThanOrEqual(EMBED_BATCH_SIZE);
+    // every text embedded exactly once, order preserved.
+    expect(spy.batchSizes.reduce((a, b) => a + b, 0)).toBe(40);
+    db.close();
+  });
+
+  it('content-addressed cache still holds: a 2nd sync re-embeds nothing (0 extractor calls)', async () => {
+    const db = seedDb(40);
+    if (!loadSqliteVec(db)) return;
+    const spy1 = makeSpyExtractor();
+    await syncSemanticIndex({ db, modelId: 'test-spy', dims: 3, extractorImpl: spy1 });
+    const spy2 = makeSpyExtractor();
+    const r2 = await syncSemanticIndex({ db, modelId: 'test-spy', dims: 3, extractorImpl: spy2 });
+    expect(r2.ok).toBe(true);
+    expect(r2.embedded).toBe(0); // all cached from sync #1
+    expect(spy2.batchSizes.length).toBe(0); // NO forward pass at all
+    db.close();
+  });
+
+  // Skill-review I1: an extractor that returns FEWER vectors than its input
+  // must fail CLOSED (return ok:false), never silently cache desynced vectors.
+  it('fails closed on an extractor count mismatch (I1 — durable-cache-corruption guard)', async () => {
+    const db = seedDb(10);
+    if (!loadSqliteVec(db)) return;
+    // a broken extractor that drops one vector per batch
+    const broken = async (input) => {
+      const texts = Array.isArray(input) ? input : [input];
+      return { tolist: () => texts.slice(1).map(() => [0.1, 0.2, 0.3]) }; // one short
+    };
+    const r = await syncSemanticIndex({ db, modelId: 'test-spy', dims: 3, extractorImpl: broken });
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/^embed-count-mismatch:/);
+    // State door: NOTHING was written to the vec table (fail before the upsert).
+    const vecCount = db.prepare('SELECT COUNT(*) c FROM vec_observations').get().c;
+    expect(vecCount).toBe(0);
+    db.close();
+  });
+
+  // Skill-review M2: empty/whitespace bodies never reach the embedder (NaN
+  // vectors) and are excluded from the plans walk (so the mapping stays exact).
+  it('skips empty/whitespace bodies — they get no embedding, count stays exact (M2)', async () => {
+    const db = new Database(':memory:');
+    db.exec(INDEX_DB_SCHEMA);
+    const ins = db.prepare(
+      `INSERT INTO observations (id, tier, source_file, source_line, source_sha1,
+         heading_path, body, write_source, trust, created_at, deleted_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    const ts = Math.floor(Date.parse('2026-05-15T00:00:00Z') / 1000);
+    // 2 real bodies + 1 empty + 1 whitespace-only
+    ins.run('P-REALAAA2', 'P', 'context/MEMORY.md', 1, 'a'.repeat(40), null, 'a real fact body', 'user-explicit', 'high', ts, null);
+    ins.run('P-EMPTYAA3', 'P', 'context/MEMORY.md', 2, 'a'.repeat(40), null, '', 'user-explicit', 'high', ts, null);
+    ins.run('P-WSPACEA4', 'P', 'context/MEMORY.md', 3, 'a'.repeat(40), null, '   \n  ', 'user-explicit', 'high', ts, null);
+    ins.run('P-REALBBB5', 'P', 'context/MEMORY.md', 4, 'a'.repeat(40), null, 'another real fact', 'user-explicit', 'high', ts, null);
+    if (!loadSqliteVec(db)) { db.close(); return; }
+    const spy = makeSpyExtractor();
+    const r = await syncSemanticIndex({ db, modelId: 'test-spy', dims: 3, extractorImpl: spy });
+    expect(r.ok).toBe(true);
+    expect(r.embedded).toBe(2); // only the 2 real bodies
+    expect(spy.batchSizes.reduce((a, b) => a + b, 0)).toBe(2); // never embedded the empties
+    db.close();
+  });
+
+  // Skill-review M1: a single body longer than the char budget is HARD-TRUNCATED
+  // to EMBED_BATCH_CHARS before embedding — one item can't allocate a huge tensor.
+  it('hard-truncates a single over-budget body to EMBED_BATCH_CHARS (M1)', () => {
+    const huge = 'y'.repeat(EMBED_BATCH_CHARS * 3);
+    const batches = planEmbedBatches([huge]);
+    expect(batches).toHaveLength(1);
+    expect(batches[0]).toHaveLength(1);
+    // the embedded text is truncated to the char budget, not the full 3× body.
+    expect(batches[0][0].length).toBe(EMBED_BATCH_CHARS);
+  });
+});
 
 describe('Task 65 — rerank stage (pure, Door 1)', () => {
   it('keyword-overlap boost lifts the result sharing query tokens', () => {
