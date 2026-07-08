@@ -927,7 +927,18 @@ describe('Task 66.4 — temporal-supersede mention (the contradiction-catch demo
     f = makeFixture();
     seedThreeTierFixture(f);
   });
-  afterEach(() => rmSync(f.sandbox, { recursive: true, force: true }));
+  afterEach(() => {
+    // Windows EPERM drain (same guard as the sibling suites): a spawned git
+    // child (or a scanner) can briefly hold the tempdir handle at teardown
+    // under full-suite load — retry, then swallow. Cleanup-only; the test's
+    // assertions have already run. Surfaced by stress runs 2+3 (2026-07-08):
+    // a bare rmSync EPERM here failed the Task-150 test 2/10 runs.
+    try {
+      rmSync(f.sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    } catch {
+      /* orphaned tempdir — the OS temp cleaner owns it; never fail the test */
+    }
+  });
 
   function seedSupersedeAudit({ ts, title = 'v9.9 cut-gate in progress' }) {
     // The archived older fact (title source for the mention).
@@ -998,7 +1009,18 @@ describe('Task 150 — the memory-commit proposal line (ADR-0018: propose-and-ap
     f = makeFixture();
     seedThreeTierFixture(f);
   });
-  afterEach(() => rmSync(f.sandbox, { recursive: true, force: true }));
+  afterEach(() => {
+    // Windows EPERM drain (same guard as the sibling suites): a spawned git
+    // child (or a scanner) can briefly hold the tempdir handle at teardown
+    // under full-suite load — retry, then swallow. Cleanup-only; the test's
+    // assertions have already run. Surfaced by stress runs 2+3 (2026-07-08):
+    // a bare rmSync EPERM here failed the Task-150 test 2/10 runs.
+    try {
+      rmSync(f.sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    } catch {
+      /* orphaned tempdir — the OS temp cleaner owns it; never fail the test */
+    }
+  });
 
   function gitInit() {
     // Skill-review I5: generous timeout (a warm commit measured 12s of the
