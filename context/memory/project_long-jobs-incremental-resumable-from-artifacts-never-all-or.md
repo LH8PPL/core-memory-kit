@@ -1,0 +1,20 @@
+---
+id: P-JR5H266L
+type: project
+shape: Timeless
+title: 'Long jobs: incremental + resumable from artifacts, never all-or-nothing'
+created_at: 2026-07-08T12:47:34Z
+write_source: user-explicit
+trust: high
+recurrence_count: 1
+source_file: user-explicit
+source_line: 1
+source_sha1: 655cb816776816cda38833e4255df2b4ced3e136dd4c9a51df2ff4965fbb040b
+related: [daily-distill-starvation-cron-killed-at-23-00-both-safety-ne, adr-0002-derive-state-from-artifacts-avoid-markers, task-161-decision-d-173-bound-compaction-input, durable-tiers-enable-safe-buffer-trimming]
+---
+
+Design principle (the user's insight, 2026-07-08): long-running jobs should make DURABLE INCREMENTAL PROGRESS and RESUME from their own artifacts — process the smallest durable unit, persist it, exit clean, continue next run — never all-or-nothing where a killed/timed-out run loses everything. This is a THIRD strategy alongside the kit's existing "bound the input" (D-173) and complements "derive state from artifacts" (ADR-0002).
+
+**Why:** Surfaced diagnosing the daily-distill starvation (P-LUUUZYLT): daily-distill reads 6-7 days of today-*.md WHOLE into one backend.compress() call (3.4 min on this repo), and when the 23:00 cron gets killed mid-run it persists ZERO progress and re-does the whole (now-larger) corpus tomorrow — a starvation spiral. The user's reframe: "maybe it tries to do everything in one go... it should run as much as it can, still do SOME work, and continue from that point next time — true of ANY job/process in this kit." The kit's PRIOR answer to long-job-timeout was ONLY "bound the input" (D-173, 17/19 systems) — make each run smaller. This adds "make each run RESUMABLE" — make a killed run still move forward. The two the kit already does right prove the pattern: the Task-148 transcript-promote (byte-offset watermark + PROMOTE_MAX_FILES_PER_RUN=2, killed run resumes next turn) and lazy re-embedding (mark stale, re-embed on next retrieval). The compression jobs (daily-distill, weekly-curate, compress-session) + temporal-sweep are the all-or-nothing holdouts. Enabling insight (P-6M26BR9S): now.md/today-*.md are DERIVED buffers over the durable transcript tier, so a partial/re-run distill can NEVER corrupt — the source of truth survives. CRITICAL constraint (ADR-0002, P-aRHH7Va5): do NOT implement this with a new persistent watermark/sentinel FILE (two-writer hazard the ADR disfavors) — derive the resume point from ARTIFACT state (which days already have a summary in recent.md; mtime; content-addressed sha), the same way isJournalStale uses INDEX.md mtime. The Task-148 byte-offset .state file is the ONE sanctioned exception shape (single-writer, crash-safe marker-after) and only where an artifact-derived point isn't available.
+
+**How to apply:** When writing or reviewing ANY long-running job (a compress/distill/curate/sweep/reindex/embed pass, a cron bin, a detached child), ask: "if this is killed at 80%, does it persist the 80% and resume there, or lose all of it?" If all-or-nothing, restructure to: (1) iterate the smallest durable unit (one day-file, one fact, one N-item batch); (2) persist each unit's result as you go (append to recent.md per day, not at the end); (3) make the resume point DERIVABLE from the persisted artifacts (which days are already summarized), NOT a new sentinel file (ADR-0002); (4) bound units-per-run so it fits a realistic window (the Task-148 MAX_FILES_PER_RUN shape); (5) the durable source tier (transcripts) must remain the truth so a re-run is idempotent/safe. Concrete first target: daily-distill should distill one today-*.md at a time, appending each day's summary, resuming at the first day not yet in recent.md. Generalizes to weekly-curate, compress-session, temporal-sweep. This is a candidate ADR (it's a cross-cutting architectural stance, not a one-job fix). Relates D-173 (bound input — the sibling strategy), ADR-0002 (derive-from-artifacts — the constraint), P-LUUUZYLT (the bug that surfaced it), the Task-148 promote watermark (the reference implementation).
