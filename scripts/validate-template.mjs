@@ -195,6 +195,38 @@ async function checkCapCoordination() {
   }
 }
 
+// Task 148.7 (ADR-0019, design §6.10) — privacy-critical gitignore lines.
+// The fragment lands in every user's .gitignore; if one of these lines is
+// dropped in a future edit, an UNSCREENED surface travels with `git clone`:
+//   *.live.md          — the L1-masked-but-not-judge-screened live buffer
+//   .extract-*.tmp     — the raw turn buffer for the detached child
+//   *.extract.log      — discarded-candidate traces (not secret-screened)
+//   context.local/     — the whole local tier (incl. private.md, 148.5)
+const REQUIRED_GITIGNORE_LINES = [
+  'context.local/',
+  'context/sessions/*.extract.log',
+  'context/transcripts/.extract-*.tmp',
+  'context/transcripts/*.live.md',
+];
+
+function checkGitignorePrivacyLines() {
+  const fragPath = join(REPO_ROOT, 'template', '.gitignore.fragment');
+  if (!existsSync(fragPath)) return; // MISSING FILE already reported by the manifest walk
+  const lines = new Set(
+    readFileSync(fragPath, 'utf8')
+      .split(/\r?\n/)
+      .map((l) => l.trim()),
+  );
+  for (const required of REQUIRED_GITIGNORE_LINES) {
+    if (!lines.has(required)) {
+      violations.push(
+        `GITIGNORE-PRIVACY: template/.gitignore.fragment is missing the line ${JSON.stringify(required)} ` +
+          `— an unscreened surface would travel with git clone. Per design §6.10 (Task 148.7).`,
+      );
+    }
+  }
+}
+
 for (const d of requiredDirs) {
   const abs = join(REPO_ROOT, d.path);
   if (!existsSync(abs)) {
@@ -222,6 +254,7 @@ for (const f of requiredFiles) {
 
 await checkCapCoordination();
 checkTemplateLintClean();
+checkGitignorePrivacyLines();
 
 const summary = manifestSummary();
 
