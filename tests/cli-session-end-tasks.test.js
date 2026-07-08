@@ -37,7 +37,12 @@ vi.mock('../packages/cli/src/auto-persona.mjs', () => ({ autoPersona: personaMoc
 vi.mock('../packages/cli/src/graduate-session.mjs', () => ({ graduateAllScratchpads: graduateMock }));
 vi.mock('../packages/cli/src/decisions-journal.mjs', () => ({ syncDecisionsJournal: journalMock }));
 vi.mock('../packages/cli/src/temporal-sweep.mjs', () => ({ temporalSweep: temporalMock }));
-vi.mock('../packages/cli/src/transcript-screen.mjs', () => ({ promotePendingTranscripts: promoteMock }));
+vi.mock('../packages/cli/src/transcript-screen.mjs', () => ({
+  promotePendingTranscripts: promoteMock,
+  // session-end-tasks now imports this constant to pass the ceiling-safe
+  // timeout at the SessionEnd site (P-AAHW235S) — the mock must expose it.
+  PII_JUDGE_SESSIONEND_TIMEOUT_MS: 50_000,
+}));
 
 const { runSessionEndTasks, summarizeSessionEnd } = await import(
   '../packages/cli/src/session-end-tasks.mjs'
@@ -595,6 +600,22 @@ describe('summarizeSessionEnd — stderr line rendering', () => {
     });
     expect(lines[2]).toContain('transcript-promote failed: boom-t');
   });
+
+  it('surfaces the DEFER REASON on a deferred promote (observability — P-AAHW235S: a timeout vs reject-gate defer was invisible)', () => {
+    // The defer reason was in the return object but never printed, so
+    // diagnosing "why is the committed transcript empty?" needed live
+    // instrumentation. Surface it: a deferred promote line carries the reason.
+    const lines = summarizeSessionEnd({
+      compressOutcome: { status: 'fulfilled', value: { action: 'compressed', duration_ms: 5 } },
+      personaOutcome: { status: 'fulfilled', value: { action: 'promoted', promoted: [], queued: [] } },
+      promoteOutcome: {
+        status: 'fulfilled',
+        value: { action: 'deferred', promoted: 0, deferred: 1, reason: 'judge timeout after 50000ms' },
+      },
+    });
+    expect(lines[2]).toContain('transcript-promote deferred');
+    expect(lines[2]).toContain('judge timeout after 50000ms');
+  });
 });
 
 describe('runSessionEndTasks — transcript promote pass (Task 148.3)', () => {
@@ -626,6 +647,29 @@ describe('runSessionEndTasks — transcript promote pass (Task 148.3)', () => {
     // Door 1 — the outcome rides the return object.
     expect(r.promoteOutcome.status).toBe('fulfilled');
     expect(r.promoteOutcome.value).toEqual({ action: 'promoted', promoted: 3, deferred: 0 });
+  });
+
+  it('passes a CEILING-SAFE timeout to the SessionEnd promote (≤50s under the 60s hook ceiling — P-AAHW235S)', async () => {
+    // The detached-child promote default is ceiling-free (120s, D-179 class).
+    // But the SessionEnd top-up runs CONCURRENTLY with compress/persona/sweep
+    // under the 60s hook ceiling — each sibling capped at 50s (D-92/F-2). So
+    // this site MUST pass an explicit tight timeout, NOT inherit the 120s
+    // default (which would make it the longest pole → SIGKILL mid-write, the
+    // exact composition bug PROMOTE_MAX_FILES_PER_RUN + the sweep's 50s cap
+    // exist to prevent).
+    compressMock.mockResolvedValue({ action: 'compressed' });
+    personaMock.mockResolvedValue({ action: 'promoted', promoted: [], queued: [] });
+    promoteMock.mockResolvedValue({ action: 'noop' });
+
+    await runSessionEndTasks({
+      projectRoot: '/proj',
+      userDir: '/userdir',
+      makeBackend: () => ({ compress: vi.fn() }),
+    });
+
+    const args = promoteMock.mock.calls[0][0];
+    expect(typeof args.timeoutMs).toBe('number');
+    expect(args.timeoutMs).toBeLessThanOrEqual(50_000);
   });
 
   it('a promote failure never discards the other outcomes (allSettled isolation)', async () => {

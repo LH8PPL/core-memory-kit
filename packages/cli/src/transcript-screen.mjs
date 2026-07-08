@@ -55,9 +55,24 @@ export const PII_JUDGE_INSTRUCTIONS = [
 const REFUSAL_RE = /^(i can(?:not|'t)|i'?m sorry|i am sorry|i won'?t|could you|please provide)/i;
 const MIN_OUTPUT_RATIO = 0.4;
 
-// The judge call must complete inside the detached child's existing internal
-// budget (25s per call, design §8.5) — registered as a composition pair.
-export const PII_JUDGE_TIMEOUT_MS = 20_000;
+// The DEFAULT judge timeout — for the ceiling-free detached-child call sites
+// (the per-turn auto-extract child, fire-and-forget with no outer hook ceiling).
+// 120s, not the old hook-tight 20s: the real `claude --print` judge takes
+// 18-78s in a slow-Haiku window (the D-174/D-179 environmental-slowness class),
+// so a 20s budget DEFERRED the promote every run and the committed transcript
+// never landed (P-AAHW235S — found live on the v0.5.0 cold-open). Mirrors
+// CEILING_FREE_TIMEOUT_MS (compress-retry.mjs) that daily-distill/lazy/weekly
+// already use for their no-ceiling sites. The SessionEnd top-up is NOT
+// ceiling-free (60s hook ceiling) — it passes an explicit tight timeout instead
+// of this default (session-end-tasks.mjs), the same way temporalSweep does.
+export const PII_JUDGE_TIMEOUT_MS = 120_000;
+
+// The ceiling-safe timeout for the SessionEnd promote top-up — it runs
+// CONCURRENTLY with compress/persona/sweep under the 60s hook ceiling, each
+// sibling capped at 50s (the D-92/F-2 composition rule; the sweep uses the same
+// value). Passed explicitly at that call site so the 120s default can't make
+// the promote the longest pole and get SIGKILL'd mid-write.
+export const PII_JUDGE_SESSIONEND_TIMEOUT_MS = 50_000;
 
 // §8.5 composition bound for the SessionEnd site: promote runs inside the 60s
 // SessionEnd hook ceiling (concurrent with compress/persona/sweep, each bounded

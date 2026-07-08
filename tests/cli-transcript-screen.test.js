@@ -34,6 +34,7 @@ import {
   committedTranscriptPath,
   promotePendingTranscripts,
   PII_JUDGE_INSTRUCTIONS,
+  PII_JUDGE_TIMEOUT_MS,
   PROMOTE_MAX_FILES_PER_RUN,
 } from '../packages/cli/src/transcript-screen.mjs';
 import { MockHaikuBackend } from '../packages/cli/src/compressor.mjs';
@@ -138,8 +139,12 @@ describe('Task 148.3/148.4 — transcript screen (Doors 1+2+5 + 3.5)', () => {
     expect(PII_JUDGE_INSTRUCTIONS).toContain('«NAME»');
     expect(PII_JUDGE_INSTRUCTIONS).toMatch(/spaces|newlines/i); // obfuscation defense
     expect(PII_JUDGE_INSTRUCTIONS).toMatch(/exactly|unchanged|word-for-word/i); // no paraphrase
-    // bounded call (composition: inside the child budget)
-    expect(call.timeoutMs).toBeLessThanOrEqual(25_000);
+    // bounded call — the detached-child DEFAULT is ceiling-free (120s, D-179
+    // class): the real `claude --print` judge takes 18-78s in a slow window, so
+    // a hook-tight 20s starved the promote (P-AAHW235S). Still bounded, just not
+    // hook-sized. The SessionEnd site passes an explicit tight value (own test).
+    expect(call.timeoutMs).toBe(PII_JUDGE_TIMEOUT_MS);
+    expect(PII_JUDGE_TIMEOUT_MS).toBe(120_000);
   });
 
   it('FAIL-CLOSED: a throwing backend defers — committed untouched, watermark unmoved, retry succeeds (148.4)', async () => {

@@ -81,6 +81,11 @@ context/sessions/*.extract.log
 # auto-extract child, which consumes + deletes it. Gitignored so a crash-orphaned
 # partial (raw, un-screened turn content) never travels with `git clone`.
 context/transcripts/.extract-*.tmp
+
+# Transcript live buffer (privacy screen). Hooks append each turn here first;
+# entries move to the committed transcript only AFTER the async privacy judge
+# screens them. Un-judged content must never travel with `git clone`.
+context/transcripts/*.live.md
 # claude-memory-kit:gitignore:end
 
 # Public-repo dogfood deviation (Task 52, D-108): this repo is PUBLIC, so the
