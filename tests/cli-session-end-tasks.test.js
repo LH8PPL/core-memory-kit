@@ -23,12 +23,13 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { compressMock, personaMock, graduateMock, journalMock, temporalMock } = vi.hoisted(() => ({
+const { compressMock, personaMock, graduateMock, journalMock, temporalMock, promoteMock } = vi.hoisted(() => ({
   compressMock: vi.fn(),
   personaMock: vi.fn(),
   graduateMock: vi.fn(),
   journalMock: vi.fn(),
   temporalMock: vi.fn(),
+  promoteMock: vi.fn(),
 }));
 
 vi.mock('../packages/cli/src/compress-session.mjs', () => ({ compressSession: compressMock }));
@@ -36,6 +37,7 @@ vi.mock('../packages/cli/src/auto-persona.mjs', () => ({ autoPersona: personaMoc
 vi.mock('../packages/cli/src/graduate-session.mjs', () => ({ graduateAllScratchpads: graduateMock }));
 vi.mock('../packages/cli/src/decisions-journal.mjs', () => ({ syncDecisionsJournal: journalMock }));
 vi.mock('../packages/cli/src/temporal-sweep.mjs', () => ({ temporalSweep: temporalMock }));
+vi.mock('../packages/cli/src/transcript-screen.mjs', () => ({ promotePendingTranscripts: promoteMock }));
 
 const { runSessionEndTasks, summarizeSessionEnd } = await import(
   '../packages/cli/src/session-end-tasks.mjs'
@@ -54,6 +56,9 @@ beforeEach(() => {
   journalMock.mockReturnValue({ written: false, appended: 0 });
   // Default: temporal sweep is an idle no-op unless a test overrides it.
   temporalMock.mockResolvedValue({ action: 'skipped', reason: 'no-new-facts', pairs_judged: 0 });
+  // Default: transcript promote is an idle no-op unless a test overrides it.
+  promoteMock.mockReset();
+  promoteMock.mockResolvedValue({ action: 'noop', promoted: 0, deferred: 0 });
 });
 
 describe('runSessionEndTasks — concurrency (D-42 composition fix)', () => {
@@ -102,8 +107,9 @@ describe('runSessionEndTasks — concurrency (D-42 composition fix)', () => {
     await runSessionEndTasks({ projectRoot: '/proj', userDir: '/userdir', makeBackend });
 
     // Door 3: each concurrent Haiku pass invoked once, each with a DISTINCT
-    // backend. Three passes as of Task 198 (compress + persona + temporal sweep).
-    expect(backends).toHaveLength(3);
+    // backend. Four passes as of Task 148.3 (compress + persona + temporal sweep
+    // + transcript promote).
+    expect(backends).toHaveLength(4);
     const compressBackend = compressMock.mock.calls[0][0].backend;
     const personaBackend = personaMock.mock.calls[0][0].backend;
     expect(compressBackend).toBeTruthy();
@@ -185,8 +191,8 @@ describe('runSessionEndTasks — Task 198.1 per-session temporal sweep (D-266)',
 
     await runSessionEndTasks({ projectRoot: '/proj', userDir: '/userdir', makeBackend });
 
-    // three concurrent Haiku passes → three distinct backends
-    expect(backends).toHaveLength(3);
+    // four concurrent Haiku passes → four distinct backends (Task 148.3 added promote)
+    expect(backends).toHaveLength(4);
     const sweepBackend = temporalMock.mock.calls[0][0].backend;
     const compressBackend = compressMock.mock.calls[0][0].backend;
     expect(sweepBackend).toBeTruthy();
@@ -559,5 +565,82 @@ describe('summarizeSessionEnd — stderr line rendering', () => {
       graduationOutcome: { status: 'fulfilled', value: { totalGraduated: 0, totalConsolidated: 0 } },
     });
     expect(lines).toHaveLength(3);
+  });
+
+  it('renders a non-noop transcript-promote outcome as its own line (Task 148.3)', () => {
+    const lines = summarizeSessionEnd({
+      compressOutcome: { status: 'fulfilled', value: { action: 'compressed', duration_ms: 5 } },
+      personaOutcome: { status: 'fulfilled', value: { action: 'promoted', promoted: [], queued: [] } },
+      promoteOutcome: { status: 'fulfilled', value: { action: 'promoted', promoted: 2, deferred: 1 } },
+    });
+    expect(lines).toHaveLength(3);
+    expect(lines[2]).toContain('transcript-promote promoted (promoted: 2, deferred: 1)');
+    expect(lines[2].endsWith('\n')).toBe(true);
+  });
+
+  it('stays silent on a noop transcript-promote (the common no-live-buffer session)', () => {
+    const lines = summarizeSessionEnd({
+      compressOutcome: { status: 'fulfilled', value: { action: 'compressed', duration_ms: 5 } },
+      personaOutcome: { status: 'fulfilled', value: { action: 'promoted', promoted: [], queued: [] } },
+      promoteOutcome: { status: 'fulfilled', value: { action: 'noop', promoted: 0, deferred: 0 } },
+    });
+    expect(lines).toHaveLength(2);
+  });
+
+  it('renders a rejected transcript-promote outcome as a failure line', () => {
+    const lines = summarizeSessionEnd({
+      compressOutcome: { status: 'fulfilled', value: { action: 'compressed', duration_ms: 5 } },
+      personaOutcome: { status: 'fulfilled', value: { action: 'promoted', promoted: [], queued: [] } },
+      promoteOutcome: { status: 'rejected', reason: new Error('boom-t') },
+    });
+    expect(lines[2]).toContain('transcript-promote failed: boom-t');
+  });
+});
+
+describe('runSessionEndTasks — transcript promote pass (Task 148.3)', () => {
+  it('calls promotePendingTranscripts with projectRoot + its OWN backend, and returns the outcome', async () => {
+    const backends = [];
+    const makeBackend = () => {
+      const b = { tag: `backend-${backends.length}`, compress: vi.fn() };
+      backends.push(b);
+      return b;
+    };
+    compressMock.mockResolvedValue({ action: 'compressed' });
+    personaMock.mockResolvedValue({ action: 'promoted', promoted: [], queued: [] });
+    promoteMock.mockResolvedValue({ action: 'promoted', promoted: 3, deferred: 0 });
+
+    const r = await runSessionEndTasks({ projectRoot: '/proj', userDir: '/userdir', makeBackend });
+
+    // Door 3 — call shape: projectRoot + a backend distinct from every other pass's.
+    expect(promoteMock).toHaveBeenCalledTimes(1);
+    const args = promoteMock.mock.calls[0][0];
+    expect(args.projectRoot).toBe('/proj');
+    const otherBackends = [
+      compressMock.mock.lastCall[0].backend,
+      personaMock.mock.lastCall[0].backend,
+      temporalMock.mock.lastCall[0].backend,
+    ];
+    expect(args.backend).toBeTruthy();
+    for (const other of otherBackends) expect(args.backend).not.toBe(other);
+
+    // Door 1 — the outcome rides the return object.
+    expect(r.promoteOutcome.status).toBe('fulfilled');
+    expect(r.promoteOutcome.value).toEqual({ action: 'promoted', promoted: 3, deferred: 0 });
+  });
+
+  it('a promote failure never discards the other outcomes (allSettled isolation)', async () => {
+    compressMock.mockResolvedValue({ action: 'compressed' });
+    personaMock.mockResolvedValue({ action: 'promoted', promoted: [], queued: [] });
+    promoteMock.mockRejectedValue(new Error('judge down'));
+
+    const r = await runSessionEndTasks({
+      projectRoot: '/proj',
+      userDir: '/userdir',
+      makeBackend: () => ({ compress: vi.fn() }),
+    });
+
+    expect(r.promoteOutcome.status).toBe('rejected');
+    expect(r.compressOutcome.status).toBe('fulfilled');
+    expect(r.personaOutcome.status).toBe('fulfilled');
   });
 });

@@ -131,7 +131,7 @@ export async function runSessionEndTasks({ projectRoot, userDir, makeBackend, no
     journalOutcome = { status: 'rejected', reason: err };
   }
 
-  return { compressOutcome, personaOutcome, temporalOutcome, graduationOutcome, journalOutcome };
+  return { compressOutcome, personaOutcome, temporalOutcome, promoteOutcome, graduationOutcome, journalOutcome };
 }
 
 /**
@@ -142,7 +142,7 @@ export async function runSessionEndTasks({ projectRoot, userDir, makeBackend, no
  * @param {{compressOutcome: PromiseSettledResult, personaOutcome: PromiseSettledResult}} outcomes
  * @returns {string[]}
  */
-export function summarizeSessionEnd({ compressOutcome, personaOutcome, temporalOutcome, graduationOutcome, journalOutcome }) {
+export function summarizeSessionEnd({ compressOutcome, personaOutcome, temporalOutcome, promoteOutcome, graduationOutcome, journalOutcome }) {
   const lines = [];
 
   if (compressOutcome.status === 'fulfilled') {
@@ -174,6 +174,23 @@ export function summarizeSessionEnd({ compressOutcome, personaOutcome, temporalO
     } else {
       const e = temporalOutcome.reason;
       lines.push(`cmk-compress-session: temporal sweep failed: ${e?.message ?? e}\n`);
+    }
+  }
+
+  // promoteOutcome is optional (Task 148.3) — pre-148 callers render no line, and
+  // a noop promote (no live buffer / nothing pending) stays silent so the common
+  // no-op session doesn't grow a log line.
+  if (promoteOutcome) {
+    if (promoteOutcome.status === 'fulfilled') {
+      const p = promoteOutcome.value ?? {};
+      if (p.action !== 'noop') {
+        lines.push(
+          `cmk-compress-session: transcript-promote ${p.action} (promoted: ${p.promoted ?? 0}, deferred: ${p.deferred ?? 0})\n`,
+        );
+      }
+    } else {
+      const e = promoteOutcome.reason;
+      lines.push(`cmk-compress-session: transcript-promote failed: ${e?.message ?? e}\n`);
     }
   }
 
