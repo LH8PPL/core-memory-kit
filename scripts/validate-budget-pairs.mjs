@@ -83,13 +83,13 @@ export const BUDGET_REGISTRY = [
     overCapPattern: 'EMBED_BATCH_CHARS',
   },
   {
-    name: 'transcript-promote judge budget (PII_JUDGE_TIMEOUT_MS=20s per file × PROMOTE_MAX_FILES_PER_RUN=2 files — 40s worst case inside the 50s-under-60s SessionEnd ceiling)',
-    sourceRef: 'design §6.10 / §8.5 (Task 148.8, ADR-0019)',
+    name: 'transcript-promote judge budget (site-aware: PII_JUDGE_TIMEOUT_MS=120s ceiling-free default for the detached child; PII_JUDGE_SESSIONEND_TIMEOUT_MS=50s at the SessionEnd site × PROMOTE_MAX_FILES_PER_RUN=2 — inside the 50s-under-60s ceiling — P-AAHW235S/D-179)',
+    sourceRef: 'design §6.10 / §8.5 (Task 148.8 + P-AAHW235S, ADR-0019)',
     testFile: 'tests/cli-transcript-screen.test.js',
     // at-cap: the per-run file bound holds (2 judged, 3rd waits); over-cap:
-    // the timeout handed to the backend stays inside the child budget (≤25s).
+    // the detached-child default is the ceiling-free 120s (the 20s bug fix).
     atCapPattern: 'PROMOTE_MAX_FILES_PER_RUN',
-    overCapPattern: 'timeoutMs).toBeLessThanOrEqual(25_000',
+    overCapPattern: 'PII_JUDGE_TIMEOUT_MS).toBe(120_000',
   },
   {
     name: 'snapshot Σ-caps + authority-preamble reserve (≤14,500 B since 148.5; was 13,000)',

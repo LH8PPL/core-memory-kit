@@ -37,7 +37,7 @@ import { autoPersona } from './auto-persona.mjs';
 import { graduateAllScratchpads } from './graduate-session.mjs';
 import { syncDecisionsJournal } from './decisions-journal.mjs';
 import { temporalSweep } from './temporal-sweep.mjs';
-import { promotePendingTranscripts } from './transcript-screen.mjs';
+import { promotePendingTranscripts, PII_JUDGE_SESSIONEND_TIMEOUT_MS } from './transcript-screen.mjs';
 
 /**
  * Run the two independent SessionEnd Haiku passes concurrently.
@@ -84,11 +84,21 @@ export async function runSessionEndTasks({ projectRoot, userDir, makeBackend, no
     // CONCURRENT block (a Haiku call — overlap keeps wall-clock at max, per
     // the D-92/F-2 ceiling composition). DISJOINT: it reads transcripts/
     // *.live.md + writes transcripts/{date}.md; compress touches sessions/,
-    // persona the user tier, the sweep the fact corpus. Its own 20s per-file
-    // judge timeout sits well inside the 60s hook ceiling. Fail-closed by
-    // module contract: a deferred promote leaves entries in the gitignored
-    // live buffer for the next session — never an unscreened commit.
-    promotePendingTranscripts({ projectRoot, backend: makeBackend() }),
+    // persona the user tier, the sweep the fact corpus. Fail-closed by module
+    // contract: a deferred promote leaves entries in the gitignored live buffer
+    // for the next session — never an unscreened commit.
+    //
+    // EXPLICIT tight timeout (P-AAHW235S): the module DEFAULT is 120s (ceiling-
+    // free, for the detached per-turn child). Here we are under the 60s hook
+    // ceiling running concurrently with 50s-capped siblings, so we pass the
+    // 50s SessionEnd budget — same value + reason as temporalSweep above. The
+    // per-file cap (PROMOTE_MAX_FILES_PER_RUN=2) bounds worst-case to 2×50s but
+    // the concurrent block's wall-clock stays max(...) not sum, ≈50s < 60s.
+    promotePendingTranscripts({
+      projectRoot,
+      backend: makeBackend(),
+      timeoutMs: PII_JUDGE_SESSIONEND_TIMEOUT_MS,
+    }),
   ]);
 
   // Task 94.3: proactive graduation sweep. SEQUENTIAL, AFTER the concurrent block —
@@ -184,8 +194,12 @@ export function summarizeSessionEnd({ compressOutcome, personaOutcome, temporalO
     if (promoteOutcome.status === 'fulfilled') {
       const p = promoteOutcome.value ?? {};
       if (p.action !== 'noop') {
+        // Surface the defer REASON (P-AAHW235S): a deferred promote (judge
+        // timeout vs reject-gate) was previously invisible in the summary, so
+        // "why is the committed transcript empty?" needed live instrumentation.
+        const reason = p.action === 'deferred' && p.reason ? ` — ${p.reason}` : '';
         lines.push(
-          `cmk-compress-session: transcript-promote ${p.action} (promoted: ${p.promoted ?? 0}, deferred: ${p.deferred ?? 0})\n`,
+          `cmk-compress-session: transcript-promote ${p.action} (promoted: ${p.promoted ?? 0}, deferred: ${p.deferred ?? 0})${reason}\n`,
         );
       }
     } else {
