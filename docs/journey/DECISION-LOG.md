@@ -10,6 +10,15 @@
 
 ---
 
+## 2026-07-08 — D-300: FIX (fix-before-v0.5.0-tag) — the "embedder unavailable, reinstall" false note on keyword-only scopes; a CLI↔MCP twin-drift (P-355DF75F)
+
+- **FOUND on the v0.5.0 cold-open re-test** (cut-gate-coldopen-148): the agent's `mk_search --scope decisions` printed *"the embedder is unavailable (unknown-scope:decisions) — run `cmk install --with-semantic` to restore semantic recall"* — but semantic was working perfectly (`cmk search --mode semantic` returned meaning-ranked results). The note is a **false alarm on the kit's showcase path** telling a brand-new user their search is broken when it isn't.
+- **ROOT — a CLI↔MCP twin-drift.** The `decisions` scope is keyword-only BY DESIGN (Task 156). The **CLI** path (`subcommands.mjs:951-960`) already handled it correctly — coerces `decisions`→keyword *before* the semantic block, silently, with a comment literally saying *"a user must not see a scary unknown-scope:decisions warning."* But the **MCP** path (`mcp-server.mjs`) never got the same treatment: its `!prep.ok` degraded-note branch fired for EVERY reason, so a by-design keyword scope got the "embedder broken, reinstall" note. Only one twin was fixed when Task 156 shipped.
+- **FIX (branch `fix-unknown-scope-embedder-note`, TDD, ~8 lines).** In `mcp-server.mjs`, skip the degraded note when `prep.reason.startsWith('unknown-scope:')` — degrade to keyword SILENTLY. The reinstall note fires ONLY for a REAL embedder failure (`embedder-not-installed` / `sqlite-vec-unavailable` / `disabled`). Chose the reason-string guard over the CLI's decisions-specific coerce because it generalizes to ANY future keyword-only scope. Red-first test (decisions scope + hybrid default + real embedder → exactly ONE content block, no note); 47/47 mcp-server suite.
+- **fix-before-tag (the user's call), not lane-to-v0.5.1** — same class as the D-247 "search must find the persona" pre-tag fixes: a false "your search is broken" impression on the cold-open (the path the product is judged by) is worth fixing before shipping; the fix is tiny. _Relates P-355DF75F (the finding), P-KRGYHRUX (the original cosmetic-bug note), Task 156 (introduced the drift), D-247 (the pre-tag-fix precedent), the caller-map-both-ways discipline (CLI + MCP are twins)._
+
+---
+
 ## 2026-07-08 — D-299: DESIGN PRINCIPLE (ADR candidate) — long jobs must be INCREMENTAL + RESUMABLE-from-artifacts, never all-or-nothing (Task 204)
 
 - **THE PRINCIPLE (the user's insight).** *"Maybe it tries to do everything in one go — it should run as much as it can, still do SOME work, and continue from that point next time; this is true of any job/process in the kit."* A long-running job killed/timed-out at 80% should persist the 80% and RESUME there, not lose all of it and re-do the whole (now-larger) corpus next run.
