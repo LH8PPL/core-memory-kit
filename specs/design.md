@@ -929,6 +929,113 @@ The two PRs compose to bound the leak window:
 
 **Implements**: Task 23.10. Cross-references: §6.1 (`.locks/` directory layout); §14 (HC-9 in the health-check table); [`HEALTH-CHECKS.md`](../HEALTH-CHECKS.md) (user-facing HC-9 self-repair).
 
+### 6.10 Auto-judged privacy screen — L1 patterns + L3 Haiku judge, tier-routing as the quarantine (Task 148, ADR-0019)
+
+The committed tiers travel with `git clone` — which makes a PII leak (a real name, an email,
+a health detail appearing in tool output or conversation) strictly worse here than in any
+DB-backed system. §6.6's `<private>` tag is user-prospective (useless for content the user
+never wrapped) and §6.7's Poison_Guard is secrets/injection-shaped (PII is not pattern-shaped).
+The v0.5.0 cold-open cut-gate proved the class live: `uv init` echoed the maintainer's
+git-config name + email into tool output, which the transcript captured verbatim into a
+would-be-committed file. Full prior art:
+[research note](../docs/research/2026-07-07-auto-judged-privacy-prior-art.md);
+decision: [ADR-0019](../docs/adr/0019-auto-judged-privacy-screen.md). The mechanism is
+**two layers at two write-boundaries, isolate-don't-delete**:
+
+**L1 — deterministic PII pattern layer** ([`pii-patterns.mjs`](../packages/cli/src/pii-patterns.mjs)) —
+sync, on every commit-eligible write (transcript entries, `now.md` appends, fact bodies,
+scratchpad bullets, `cmk remember`):
+
+- Categories: `EMAIL`, `PHONE`, `HOME_PATH` (the §6.6 home-path→`~` abstraction, generalized
+  to every write site), `USERNAME` (the home-dir username appearing bare, e.g. in `ls -la`
+  output). Secrets stay §6.7's (REJECT posture); the PII class **MASKS** — incidental, not
+  adversarial.
+- **Masks in place BEFORE content-hash/dedup/disk** (memclaw's ordering — hash and dedup see
+  redacted text, so mask-then-store is race-free). Stable placeholders: `«EMAIL»`, `«PHONE»`,
+  `~`-substitution for paths/usernames.
+- Findings carry **category + offsets, never the matched text**; each mask appends an entry
+  to `context/.locks/redactions.log` (NDJSON, gitignored — the recovery surface, below).
+- Engineering bounds (hermes/gitleaks discipline): keyword pre-filter before expensive
+  regexes; bounded scan size (`MAX_SCAN_CHARS`); invisible-Unicode/bidi set-intersection on
+  the RAW string before any normalization; bounded regex filler (no catastrophic backtracking).
+
+**L3 — async Haiku sensitivity judge** — rides the existing detached auto-extract child
+(§6.4); zero new hot-path cost. Catches what patterns cannot: names, health details,
+addresses in prose. Instructions adapted from Anthropic's official PII-purifier prompt —
+returns the FULL redacted text (LLMs are unreliable at character offsets, reliable at
+rewrite), keeps the obfuscation defense (spaced/newline-split PII), and follows the
+conservative posture ("when in doubt, redact"). An NER middle layer was considered and
+rejected (ADR-0019 — domain-brittle, heavy dep).
+
+**Boundary 1 — the transcript tier: live-buffer → judge → promote.**
+
+```text
+UserPromptSubmit ─┐                                   (gitignored)
+                  ├─ L1 mask ──> transcripts/{date}.live.md
+Stop (capture-turn)┘                     │
+                                         v  detached child, per turn
+                              pending entries > promote watermark
+                                         │  L3 judge (one batched Haiku call)
+                                         v
+                              transcripts/{date}.md  (committed — SCREENED text only)
+                              .locks/transcript-promote.state  (watermark)
+```
+
+- Both capture hooks append to the **gitignored** `{date}.live.md`; every intra-session read
+  that used to read the committed transcript (`readLastUserTurnFromTranscript`, the tool-block
+  assembly) reads the live buffer — same content, same format, zero behavior change.
+- The child promotes all entries past the watermark in ONE batched judge call, appends the
+  screened text to the committed `{date}.md`, then advances the watermark (marker-after —
+  crash-safe; a crash re-promotes, and the committed append is idempotent per entry timestamp).
+- **Fail-closed:** judge timeout/absence → entries stay in the live buffer; the next turn's
+  child (or SessionEnd's compress-session top-up) retries the backlog. Haiku permanently
+  unavailable degrades transcripts to machine-local — exactly native Claude Code behavior,
+  an honest degrade, never an unscreened commit.
+- `--scope transcripts` search sees promoted entries (the raw tier is the last-resort rung;
+  a seconds-order lag is acceptable). The live buffer is never indexed.
+
+**Boundary 2 — the fact path: the sensitivity axis.** The auto-extract classifier (§6.4)
+emits per candidate `SENSITIVITY: commit | local-only | drop` (Option A, settled at D-150
+slotting): `commit` (default) → the normal route; `local-only` (useful but sensitive) →
+`context.local/private.md` (gitignored scratchpad, L-tier ids); `drop` → not written,
+logged as `skipped_reason: sensitivity_drop` in extract.log (Door 5). The explicit path
+(`cmk remember` / `mk_remember`) gets **L1 only** — deliberate user-authored text; `<private>`
+(§6.6) remains the surgical override.
+
+**Boundary 3 — the sessions middle tier (`now.md` → `today-{date}.md`).** The committed
+`today-{date}.md` is a Haiku *summary* of `now.md`, so the L3 transcript judge never sees it.
+Three guards keep it screened: (1) `now.md` receives the already-L1-masked turn text (its
+content is conversational prose only — tool output, the incident's vector, goes to the L3-screened
+transcript, never `now.md`); (2) the `compress-session` prompt carries a **privacy instruction**
+— keep personal names / addresses / health details / other personal identifiers out of the
+summary, replacing a name with `«NAME»` (the name defense L1 patterns cannot provide, using the
+Haiku call that already runs — no extra call, no ceiling cost); (3) the compressed OUTPUT is
+**L1-masked** before it lands in the committed `today-{date}.md`, catching any structured PII
+(email/phone/username) the summary echoed. The `privacy.screen: off` kill-switch reverts all three.
+
+**Recovery — `context/.locks/redactions.log`** (NDJSON, gitignored, machine-local): every
+L1/L3 redaction records `{ts, source_file, category|judge, placeholder, original}` — the ONE
+place the original text survives, never committed, so a false positive is locally recoverable
+(hermes' "snapshot-blocked but live-file-preserved" pattern applied at the tier boundary; the
+field has no release path at all — ADR-0019). `cmk doctor`'s memory-health section surfaces
+the count.
+
+**Config:** `context/settings.json` → `privacy.screen: "on" | "off"` (default on) — the
+kill-switch convention. `off` disables L1 masking + reverts the transcript to the direct
+committed append (pre-148 behavior, for users who explicitly prefer verbatim committed
+transcripts over screening).
+
+**Composition invariants** (registered with the §17.7 validators): the judge call's timeout
+composes inside the child's existing internal budget (never the hook ceiling — the child is
+detached, §8.5); the promote watermark follows the §16.13/D-266 marker-after discipline;
+the live-buffer gitignore lines ship in the scaffold's `.gitignore.fragment` (validate-template
+asserts them).
+
+**Deliberate residual (named, not silent):** `now.md` gets L1 only — its content is text-only
+(tool output, the incident's actual vector, never reaches it) and the compress prompt carries
+a no-verbatim-PII instruction; full L3 treatment of the sessions middle tier re-opens on the
+first observed name-class leak in a `today-*.md` (a D-248-style named trigger).
+
 ---
 
 ## 7. 3-tier scope merging

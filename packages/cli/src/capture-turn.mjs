@@ -63,6 +63,9 @@ import {
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { sanitizePrivacyTags } from './privacy.mjs';
+import { maskPii, localUsernames, resolvePrivacyScreen } from './pii-patterns.mjs';
+import { appendRedactions } from './redactions-log.mjs';
+import { liveTranscriptPath } from './transcript-screen.mjs';
 import { extractTurnToolCalls, formatToolCalls, readTranscriptTail } from './turn-tools.mjs';
 import { readLastEntryFromNowMd } from './auto-extract.mjs';
 import { capturePredictions } from './expectations.mjs';
@@ -313,7 +316,27 @@ export function captureTurn({
   if (!existsSync(transcriptsDir)) {
     mkdirSync(transcriptsDir, { recursive: true });
   }
-  const sanitized = sanitizePrivacyTags(turnText);
+  let sanitized = sanitizePrivacyTags(turnText);
+
+  // Task 148.2b/148.3 (ADR-0019, design §6.10): the L1 PII mask + the
+  // live-buffer split. Screen ON: the turn is masked (emails/phones/
+  // usernames/home-paths) and appended to the GITIGNORED live buffer —
+  // the committed transcript only ever receives the L3 judge's screened
+  // output at promote time (fail-closed). Screen OFF: pre-148 behavior
+  // (direct committed append, verbatim).
+  const screenOn = resolvePrivacyScreen({ projectRoot }) === 'on';
+  if (screenOn) {
+    const m = maskPii(sanitized, { usernames: localUsernames() });
+    sanitized = m.text;
+    appendRedactions(projectRoot, {
+      source: 'capture-turn',
+      layer: 'L1',
+      redactions: m.redactions,
+    });
+  }
+  const effectiveTranscriptPath = screenOn
+    ? liveTranscriptPath(projectRoot, date)
+    : transcriptPath;
 
   // Task 191 (ADR-0017 Phase 1b) — expectation pre-registration rides THIS
   // hook (the D-169 automatic path: no new spawn, no cmk command). A turn
@@ -356,7 +379,19 @@ export function captureTurn({
         /* the judge must never break capture */
       }
       if (activity) {
-        toolsSection = `\n**Tools:**\n\n${sanitizePrivacyTags(activity)}\n`;
+        let toolText = sanitizePrivacyTags(activity);
+        // 148.2b: tool output is the incident's actual vector (git-config
+        // echo, ls listings) — L1-mask it like the turn text.
+        if (screenOn) {
+          const mt = maskPii(toolText, { usernames: localUsernames() });
+          toolText = mt.text;
+          appendRedactions(projectRoot, {
+            source: 'capture-turn:tools',
+            layer: 'L1',
+            redactions: mt.redactions,
+          });
+        }
+        toolsSection = `\n**Tools:**\n\n${toolText}\n`;
       }
     }
   } catch {
@@ -364,7 +399,7 @@ export function captureTurn({
   }
 
   appendFileSync(
-    transcriptPath,
+    effectiveTranscriptPath,
     `## ${ts} — assistant\n\n${sanitized}\n${toolsSection}\n`,
     'utf8',
   );
@@ -377,7 +412,7 @@ export function captureTurn({
   //    The user portion comes from today's transcript (capture-prompt
   //    wrote it before this Stop fired); the assistant portion is the
   //    `sanitized` text we just appended above.
-  const userTurn = readLastUserTurnFromTranscript(transcriptPath);
+  const userTurn = readLastUserTurnFromTranscript(effectiveTranscriptPath);
 
   // Task 132 (D-122): snapshot the dedup context BEFORE the now.md append
   // below — after the append, "the last now.md entry" IS the current turn,
@@ -418,7 +453,7 @@ export function captureTurn({
     // Continue without spawning — partial success is better than abort.
     return {
       action: 'captured',
-      transcriptPath,
+      transcriptPath: effectiveTranscriptPath,
       spawned: false,
       reason: 'turn-file-write-failed',
       error: err?.message ?? String(err),
@@ -451,7 +486,7 @@ export function captureTurn({
 
   return {
     action: 'captured',
-    transcriptPath,
+    transcriptPath: effectiveTranscriptPath,
     turnFile,
     ...spawnResult,
   };

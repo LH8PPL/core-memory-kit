@@ -58,6 +58,7 @@ export const requiredFiles = [
   // Local tier
   { path: 'template/local/machine-paths.md.template', description: 'absolute paths for this machine (≤1,000 chars)' },
   { path: 'template/local/overrides.md.template', description: 'machine-specific overrides (≤1,000 chars)' },
+  { path: 'template/local/private.md.template', description: 'sensitive-but-useful facts routed local-only by the sensitivity screen (Task 148.5, ≤1,500 chars)' },
 
   // User tier
   { path: 'template/user/USER.md.template', description: 'identity seed (≤1,375 chars)' },

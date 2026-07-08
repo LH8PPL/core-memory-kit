@@ -22,6 +22,8 @@ import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { sanitizeHomePaths } from './sanitize.mjs';
 import { sanitizePrivacyTags } from './privacy.mjs';
+import { maskPii, localUsernames, resolvePrivacyScreen } from './pii-patterns.mjs';
+import { appendRedactions } from './redactions-log.mjs';
 import { checkPoisonGuard, logPoisonGuardRejection } from './poison-guard.mjs';
 
 // Task 191 (ADR-0017 Phase 1b): 'judgment' is a LOOP-BORN type — written by
@@ -314,8 +316,26 @@ export function writeFact(opts = {}) {
   body = sanitizePrivacyTags(body);
   title = sanitizePrivacyTags(title);
   if (opts.tier === 'P' || opts.tier === 'U') {
-    body = sanitizeHomePaths(body);
-    title = sanitizeHomePaths(title);
+    // L1 PII layer (Task 148.2, design §6.10): maskPii covers emails/phones/
+    // usernames AND home-paths (delegates to sanitizeHomePaths), BEFORE
+    // id-generation/dedup/disk. Originals go only to the gitignored
+    // redactions.log; the privacy.screen kill-switch reverts to the
+    // pre-148 home-path-only gate.
+    if (resolvePrivacyScreen({ projectRoot: opts.projectRoot }) === 'on') {
+      const usernames = localUsernames();
+      const maskedBody = maskPii(body, { usernames });
+      const maskedTitle = maskPii(title, { usernames });
+      body = maskedBody.text;
+      title = maskedTitle.text;
+      appendRedactions(opts.projectRoot, {
+        source: `write-fact:${opts.tier}`,
+        layer: 'L1',
+        redactions: [...maskedBody.redactions, ...maskedTitle.redactions],
+      });
+    } else {
+      body = sanitizeHomePaths(body);
+      title = sanitizeHomePaths(title);
+    }
   }
 
   // Poison_Guard (write-path fix #1): fact files previously bypassed the

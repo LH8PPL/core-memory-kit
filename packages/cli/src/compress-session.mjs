@@ -37,6 +37,8 @@ import { join, dirname } from 'node:path';
 import { nowIso } from './audit-log.mjs';
 import { ERROR_CATEGORIES } from './result-shapes.mjs';
 import { HaikuTimeoutError } from './compressor.mjs';
+import { maskPii, localUsernames, resolvePrivacyScreen } from './pii-patterns.mjs';
+import { appendRedactions } from './redactions-log.mjs';
 import { compressWithRetry } from './compress-retry.mjs';
 import {
   DEFAULT_COOLDOWN_MS,
@@ -105,6 +107,14 @@ function buildCompressionInstructions(maxOutputBytes) {
     '  4. If a section has no entries, omit the heading entirely (do not emit an empty heading).',
     '  5. No prose around the headings — only the bulleted list per section.',
     '  6. Your output goes directly into the next session\'s memory. Do not address the user, do not refer to yourself, do not narrate.',
+    // Task 148 (ADR-0019, design §6.10, review I1): this summary lands in the
+    // COMMITTED sessions tier (today-{date}.md travels with git). The verbatim
+    // transcript is L3-judge-screened, but this compressed middle tier is not —
+    // so the compressor itself is the name/PII defense here. This is the
+    // "compress-prompt privacy line" ADR-0019's consequences promised. L1
+    // patterns mask the structured PII (email/phone/username) on the OUTPUT
+    // after this call; this rule covers what patterns can't (names in prose).
+    '  7. PRIVACY: this summary is committed to a shared git repository. Do NOT carry any personal name of a private individual, home/physical address, health or medical detail, or other personal identifier into the summary. Replace a personal name with «NAME» and any other personal identifier with «PII». Software identifiers, package/library/tool names, project names, company/product names, and file paths are NOT personal — keep them. When a fact only matters because of who it names, summarize the fact without the name.',
     '',
     `The session buffer to compress appears below between the ${SESSION_BUFFER_DELIMITER} and ${SESSION_BUFFER_END_DELIMITER} markers.`,
   ].join('\n');
@@ -412,7 +422,24 @@ export async function compressSession({
     };
   }
 
-  const output = result?.outputText ?? '';
+  let output = result?.outputText ?? '';
+
+  // Task 148 (ADR-0019, design §6.10, review I1): today-{date}.md is a COMMITTED
+  // tier. The compress prompt above tells Haiku to keep names/PII out of the
+  // summary (the name defense — patterns can't catch a name); here the L1 layer
+  // masks any STRUCTURED PII (email/phone/username/home-path) the summary
+  // echoed, BEFORE the committed write — the same gate every other
+  // commit-eligible surface uses. Originals go only to the gitignored
+  // redactions.log. The privacy.screen kill-switch reverts to no masking.
+  if (resolvePrivacyScreen({ projectRoot }) === 'on') {
+    const masked = maskPii(output, { usernames: localUsernames() });
+    output = masked.text;
+    appendRedactions(projectRoot, {
+      source: 'compress-session',
+      layer: 'L1',
+      redactions: masked.redactions,
+    });
+  }
   const output_bytes = Buffer.byteLength(output, 'utf8');
 
   // 4. Write compressed output to today-{date}.md (append for same-day).

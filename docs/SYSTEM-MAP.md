@@ -114,6 +114,7 @@ THE-WHOLE  ──emerges-from──►  {the two closing edges}   (continuity + 
 MEASURE ──constrained-by──► §20.3        (must NOT rank hot-path by a naive score → the cautionary bug)
 ANY-SIGNAL ──constrained-by──► D-169     (must NOT require a manual ritual → "memory just works")
 ANY-WRITE ──constrained-by──► markdown-is-truth (ADR-0002)  (no neural-ranker weights; a fact is a file)
+ANY-COMMITTED-WRITE ──constrained-by──► the privacy screen (ADR-0019, §6.10)  (nothing PERSONAL reaches a git-committed tier — L1 masks + L3 judges before commit; sensitive facts route local-only/drop; fail-closed)
 promotion ──constrained-by──► the silent-success asymmetry  (can prune reliably, can barely promote)
 "A>B"-claim ──constrained-by──► the scale floor (§5)        (few episodes → provisional, never verified)
 ```

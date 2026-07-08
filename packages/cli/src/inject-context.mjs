@@ -191,13 +191,14 @@ function trustLabel(rank) {
   return 'low';
 }
 
-// 13,000 bytes = sum of all per-file caps (12,275 from Task 12/14) + 725
-// bytes of headroom for inter-tier markers + future modest growth.
+// 14,500 bytes = sum of all per-file caps (13,775: the 12,275 from Task 12/14
+// + private.md's 1,500 from Task 148.5) + 725 bytes of headroom for
+// inter-tier markers + future modest growth.
 // Coordinated with TIER_BUDGETS below per design §7.1 "Snapshot cap
 // coordination rule" (2026-05-26 amendment). Raising this requires
 // raising one or more TIER_BUDGETS to consume the new headroom; see
 // scripts/validate-template.mjs for the build-time invariant check.
-const DEFAULT_CAP_BYTES = 13_000;
+const DEFAULT_CAP_BYTES = 14_500;
 const HOOK_EVENT_NAME = 'SessionStart';
 
 // Task 75.0 (D-64 / memory-os Layer-07 "Ground Truth", D-73 near-verbatim):
@@ -210,8 +211,8 @@ const HOOK_EVENT_NAME = 'SessionStart';
 // Task-73 stale-template class).
 //
 // §7.1 composition: the preamble + its 2 joining newlines must fit the
-// 725-byte slack between Σ TIER_BUDGETS (12,275) and DEFAULT_CAP_BYTES
-// (13,000) — worst case 12,275 + len + 2 ≤ 13,000, i.e. len ≤ 723. The
+// 725-byte slack between Σ TIER_BUDGETS (13,775) and DEFAULT_CAP_BYTES
+// (14,500) — worst case 13,775 + len + 2 ≤ 14,500, i.e. len ≤ 723. The
 // boundary test pins len ≤ 700. injectContext also subtracts the reserve
 // from the cap handed to enforceCap, so custom capBytes stay honored.
 export const AUTHORITATIVE_MEMORY_PREAMBLE = [
@@ -249,10 +250,10 @@ const TIER_LABELS = {
 // snapshot's total-cap drop step runs. Each budget = EXACT SUM of
 // per-file caps in that tier (Task 12/14):
 //
-//   L = 3000  (machine-paths.md 1500 + overrides.md 1500)
+//   L = 4500  (machine-paths.md 1500 + overrides.md 1500 + private.md 1500, Task 148.5)
 //   P = 4300  (SOUL.md 1800 + MEMORY.md 2500)
 //   U = 4975  (USER.md 1375 + HABITS.md 1800 + LESSONS.md 1800)
-//   Σ = 12,275 (fits the 13,000 DEFAULT_CAP_BYTES with 725-byte slack)
+//   Σ = 13,775 (fits the 14,500 DEFAULT_CAP_BYTES with 725-byte slack)
 //
 // This is THE STRUCTURAL FIX from PR-25's user-tier truncation finding.
 // Per-file caps were specified independently from snapshot cap and
@@ -262,7 +263,7 @@ const TIER_LABELS = {
 // scripts/validate-template.mjs asserts this composition rule on every
 // `npm test` run so future per-file-cap changes can't silently break it.
 const TIER_BUDGETS = Object.freeze({
-  L: 3000,
+  L: 4500,
   P: 4300,
   U: 4975,
 });

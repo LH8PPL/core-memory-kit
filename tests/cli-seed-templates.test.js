@@ -44,6 +44,7 @@ const TEMPLATE_PATHS = {
   'LESSONS.md': join(TEMPLATE_DIR, 'user', 'LESSONS.md.template'),
   'machine-paths.md': join(TEMPLATE_DIR, 'local', 'machine-paths.md.template'),
   'overrides.md': join(TEMPLATE_DIR, 'local', 'overrides.md.template'),
+  'private.md': join(TEMPLATE_DIR, 'local', 'private.md.template'),
 };
 
 // First N chars window for the canonical-header check. The compact
@@ -117,7 +118,7 @@ describe('Task 14 — Seed scratchpad templates', () => {
         const expectedTier =
           scratchpad === 'SOUL.md' || scratchpad === 'MEMORY.md'
             ? 'P'
-            : scratchpad === 'machine-paths.md' || scratchpad === 'overrides.md'
+            : scratchpad === 'machine-paths.md' || scratchpad === 'overrides.md' || scratchpad === 'private.md'
               ? 'L'
               : 'U';
         const text = readFileSync(TEMPLATE_PATHS[scratchpad], 'utf8');

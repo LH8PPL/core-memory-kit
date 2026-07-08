@@ -732,10 +732,11 @@ describe('Task 18 — injectContext() boundary', () => {
     });
 
     it('local tier > L-budget → local-tier sections drop; user + project untouched', () => {
-      // Each section ~1500 bytes × 3 = 4500 > 3000 L-budget (PR-B).
+      // Each section ~2000 bytes × 3 = 6000 > 4500 L-budget (PR-B; 148.5 raised
+      // the budget when private.md joined the tier).
       writeFile(
         join(projectRoot, 'context.local', 'machine-paths.md'),
-        buildOversizedScratchpad(['Tool Paths', 'Project Paths', 'Misc Paths'], 1500),
+        buildOversizedScratchpad(['Tool Paths', 'Project Paths', 'Misc Paths'], 2000),
       );
       writeFile(
         join(userDir, 'USER.md'),
@@ -750,8 +751,8 @@ describe('Task 18 — injectContext() boundary', () => {
         (e) => e.event === 'tier_truncated_to_budget' && e.tier === 'L',
       );
       expect(tierEvt).toBeDefined();
-      expect(tierEvt.budget).toBe(3000); // PR-B: Σ machine-paths.md 1500 + overrides.md 1500
-      expect(tierEvt.post_bytes).toBeLessThanOrEqual(3000);
+      expect(tierEvt.budget).toBe(4500); // Σ machine-paths.md 1500 + overrides.md 1500 + private.md 1500 (148.5)
+      expect(tierEvt.post_bytes).toBeLessThanOrEqual(4500);
     });
 
     it('tier_truncated_to_budget events land in truncation.log as NDJSON', () => {
@@ -926,7 +927,18 @@ describe('Task 66.4 — temporal-supersede mention (the contradiction-catch demo
     f = makeFixture();
     seedThreeTierFixture(f);
   });
-  afterEach(() => rmSync(f.sandbox, { recursive: true, force: true }));
+  afterEach(() => {
+    // Windows EPERM drain (same guard as the sibling suites): a spawned git
+    // child (or a scanner) can briefly hold the tempdir handle at teardown
+    // under full-suite load — retry, then swallow. Cleanup-only; the test's
+    // assertions have already run. Surfaced by stress runs 2+3 (2026-07-08):
+    // a bare rmSync EPERM here failed the Task-150 test 2/10 runs.
+    try {
+      rmSync(f.sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    } catch {
+      /* orphaned tempdir — the OS temp cleaner owns it; never fail the test */
+    }
+  });
 
   function seedSupersedeAudit({ ts, title = 'v9.9 cut-gate in progress' }) {
     // The archived older fact (title source for the mention).
@@ -997,7 +1009,18 @@ describe('Task 150 — the memory-commit proposal line (ADR-0018: propose-and-ap
     f = makeFixture();
     seedThreeTierFixture(f);
   });
-  afterEach(() => rmSync(f.sandbox, { recursive: true, force: true }));
+  afterEach(() => {
+    // Windows EPERM drain (same guard as the sibling suites): a spawned git
+    // child (or a scanner) can briefly hold the tempdir handle at teardown
+    // under full-suite load — retry, then swallow. Cleanup-only; the test's
+    // assertions have already run. Surfaced by stress runs 2+3 (2026-07-08):
+    // a bare rmSync EPERM here failed the Task-150 test 2/10 runs.
+    try {
+      rmSync(f.sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    } catch {
+      /* orphaned tempdir — the OS temp cleaner owns it; never fail the test */
+    }
+  });
 
   function gitInit() {
     // Skill-review I5: generous timeout (a warm commit measured 12s of the

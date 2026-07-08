@@ -131,7 +131,7 @@ export function resolveScratchpadPath({ tier, scratchpad, projectRoot, userDir }
 // Allow-list of scratchpads per tier, per design §1.1.
 export const SCRATCHPADS_BY_TIER = Object.freeze({
   P: new Set(['SOUL.md', 'MEMORY.md']),
-  L: new Set(['machine-paths.md', 'overrides.md']),
+  L: new Set(['machine-paths.md', 'overrides.md', 'private.md']),
   U: new Set(['USER.md', 'HABITS.md', 'LESSONS.md']),
 });
 
@@ -145,6 +145,7 @@ export const DEFAULT_SCRATCHPAD_CAPS = Object.freeze({
   'LESSONS.md': 1800,
   'machine-paths.md': 1500,
   'overrides.md': 1500,
+  'private.md': 1500,
 });
 
 // Canonical 3 fixed sections per scratchpad (Task 14 / design §2.1). Each seed
@@ -160,4 +161,7 @@ export const SCRATCHPAD_DOCUMENTED_SECTIONS = Object.freeze({
   'LESSONS.md': ['Tooling Lessons', 'Process Lessons', 'Anti-patterns'],
   'machine-paths.md': ['Tool Paths', 'Project Paths', 'Misc Paths'],
   'overrides.md': ['Tool Overrides', 'Behavior Overrides', 'Path Overrides'],
+  // Task 148.5 (design §6.10): sensitive-but-useful facts the auto-extract
+  // sensitivity screen routes local-only. Gitignored; never committed.
+  'private.md': ['Private Notes', 'Sensitive Context', 'Personal Details'],
 });

@@ -37,6 +37,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { compressSession } from '../packages/cli/src/compress-session.mjs';
 import { MockHaikuBackend } from '../packages/cli/src/compressor.mjs';
+import { PII_PLACEHOLDERS } from '../packages/cli/src/pii-patterns.mjs';
+import { redactionsLogPath } from '../packages/cli/src/redactions-log.mjs';
 
 function makeFixture() {
   const sandbox = mkdtempSync(join(tmpdir(), 'cmk-compress-session-test-'));
@@ -154,6 +156,36 @@ describe('Task 22 — compressSession() boundary', () => {
       expect(today.indexOf('earlier-session-decision')).toBeLessThan(
         today.indexOf('second-session-decision'),
       );
+    });
+
+    it('L1-masks the compressed output before it lands in the COMMITTED today-{date}.md (Task 148 review I1, Doors 2+5)', async () => {
+      // A name is L3-territory (patterns can't catch it) — the compress PROMPT
+      // is the name defense (asserted separately). But a structured PII item
+      // (email/phone/username) the summary echoes MUST be L1-masked before the
+      // committed write, exactly like every other commit-eligible surface.
+      writeNowMd(projectRoot, 'session about the deploy\n');
+      // Haiku echoes an email into the summary (it happens — grounded content).
+      const backend = mockBackend('## Active Threads\n- follow up with someuser@gmail.com about staging\n');
+      await compressSession({ projectRoot, backend, now: '2026-07-08T10:00:00Z' });
+      const today = readTodayMd(projectRoot, '2026-07-08');
+      expect(today).toContain(PII_PLACEHOLDERS.EMAIL);
+      expect(today).not.toContain('someuser@gmail.com');
+      // the original survives ONLY in the gitignored recovery log
+      expect(readFileSync(redactionsLogPath(projectRoot), 'utf8')).toContain('someuser@gmail.com');
+    });
+
+    it('privacy.screen: off reverts compress output to the pre-148 home-path-only behavior', async () => {
+      mkdirSync(join(projectRoot, 'context'), { recursive: true });
+      writeFileSync(
+        join(projectRoot, 'context', 'settings.json'),
+        JSON.stringify({ privacy: { screen: 'off' } }),
+        'utf8',
+      );
+      writeNowMd(projectRoot, 'session\n');
+      const backend = mockBackend('## Active Threads\n- ping someuser@gmail.com\n');
+      await compressSession({ projectRoot, backend, now: '2026-07-08T10:00:00Z' });
+      const today = readTodayMd(projectRoot, '2026-07-08');
+      expect(today).toContain('someuser@gmail.com'); // kill-switch honored
     });
 
     it('return struct includes bytesIn / bytesOut / duration_ms', async () => {
@@ -623,6 +655,18 @@ describe('Task 22 — compressSession() boundary', () => {
       expect(prompt).toMatch(/keep ONLY the latest version/i);
       // preserveCitationIds flag passed through
       expect(call.preserveCitationIds).toBe(true);
+    });
+
+    it('the compress prompt carries the privacy instruction (names/PII kept out of the committed summary) — Task 148 review I1', async () => {
+      writeNowMd(projectRoot, 'session content\n');
+      const backend = mockBackend('compressed\n');
+      await compressSession({ projectRoot, backend, now: '2026-05-26T10:00:00Z' });
+      const call = backend.calls[0];
+      const prompt = (call.instructions ?? '') + '\n' + (call.input ?? '');
+      // The ADR-0019 consequence line promised "the compress-prompt privacy line
+      // bounds the residual" — this pins that the line actually exists.
+      expect(prompt).toMatch(/personal name|PII|personal identif/i);
+      expect(prompt).toMatch(/«NAME»|placeholder|do not (?:include|carry|write)/i);
     });
 
     it('input is wrapped in BEGIN/END SESSION BUFFER delimiters so Haiku has an unambiguous boundary', async () => {

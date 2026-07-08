@@ -11187,6 +11187,7 @@ _(retracted 2026-06-29)_
 <!-- decision:P-VAMNaEL5 -->
 
 ## 9gb-node-hog-haiku-print-hang-machine-freeze
+_(retracted 2026-07-08)_
 
 **When:** 2026-07-07 · **Fact:** `P-VAMNaEL5`
 **Why:** The user's machine froze (9.3 GB / 100% disk) during the 0.5.0 gate-prep session; the offending process is dead so root cause can't be re-confirmed, but the reproduced `claude --print --model haiku` non-exit + three timed-out distills is the strongest-supported explanation. Capturing prevents re-deriving it and flags a real user-facing hazard.
@@ -11196,3 +11197,288 @@ _(retracted 2026-06-29)_
 ## RESUME — v0.3.1 cut-gate near-complete; PR
 
 **When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-3EVDAURQ -->
+
+## URGENT RESUME: the GLOBAL cmk is HALF-INSTALLED/BROKEN (ERR_MODULE_NOT_FOUND) -
+
+**When:** 2026-07-07 · **Fact:** `P-3EVDAURQ`
+
+<!-- decision:P-5VJJUEES -->
+
+## v050-blocker-temporal-sweep-semantic-memory-leak
+
+**When:** 2026-07-07 · **Fact:** `P-5VJJUEES`
+**Why:** This froze the maintainer's machine twice during 0.5.0 gate-prep and is a hard blocker on the v0.5.0 tag. The root cause is a per-fact re-sync of the full semantic index in temporalSweep, only reachable in semantic/hybrid mode — which is exactly what the cut-gate + any --with-semantic user hits. Must be fixed before the gate runs (the gate itself fires SessionEnd).
+
+<!-- decision:P-254aD3SC -->
+
+## Test repo (1455 facts) activated semantic mode today
+
+**When:** 2026-07-07 · **Fact:** `P-254aD3SC`
+**Why:** Context for why the memory leak manifests here (scales cleanly on empty repo, unbounded on 1455 facts).
+
+<!-- decision:P-5A4MDLD9 -->
+
+## v0.5.0 SessionEnd temporal-sweep memory leak (semantic mode)
+
+**When:** 2026-07-07 · **Fact:** `P-5A4MDLD9`
+**Why:** Latent v0.5.0 code, gated by semantic mode. Per-fact cost was accepted in v0.4.5 assuming small fact counts.
+
+<!-- decision:P-NQE5ULVa -->
+
+## Critical: Order Preservation in Embedding Mapping
+
+**When:** 2026-07-07 · **Fact:** `P-NQE5ULVa`
+**Why:** Cache is sha-indexed, so bad embeddings persist across sessions and corrupt all future queries. Silent failure — no error raised, just wrong results downstream.
+
+<!-- decision:P-JBK3XXLK -->
+
+## Semantic Embedding Batch Configuration
+
+**When:** 2026-07-07 · **Fact:** `P-JBK3XXLK`
+**Why:** Batch limit prevents O(corpus) tensor memory blowup during fact sync. No per-item cap enforced, so pathological oversized facts can still create large tensors.
+
+<!-- decision:P-SWHMFa4R -->
+
+## Test Pattern: Dependency Injection to Avoid Model Load
+
+**When:** 2026-07-07 · **Fact:** `P-SWHMFa4R`
+**Why:** Model loading is slow; DI seam makes tests fast and deterministic. Call-count assertions pin leak-prevention invariant precisely (e.g., exactly 1 sync, not N).
+
+<!-- decision:P-LNY7BYDV -->
+
+## Transformers.js Embeddings: Empty Input Edge Case
+
+**When:** 2026-07-07 · **Fact:** `P-LNY7BYDV`
+**Why:** No upstream validation. Silent failure risk.
+
+<!-- decision:P-G4A3M9XE -->
+
+## Embedding Cache is Derived Index, Not Primary Memory Storage
+
+**When:** 2026-07-07 · **Fact:** `P-G4A3M9XE`
+**Why:** Clarifying this separation prevents mistaking cache loss for memory loss and explains expected performance degradation during cache rebuilds.
+
+<!-- decision:P-4RR6HLS7 -->
+
+## Memory Archive and Tombstone Locations and Procedures
+
+**When:** 2026-07-07 · **Fact:** `P-4RR6HLS7`
+**Why:** Archival and tombstoning structure is essential for verifying memory system integrity; knowing both locations allows auditing fact lifecycle and confirming no data loss.
+
+<!-- decision:P-HNLZNY3L -->
+
+## Cleanup Discipline: No Debugging Artifacts in Repo
+
+**When:** 2026-07-07 · **Fact:** `P-HNLZNY3L`
+**Why:** Keeps the repository clean and focused; prevents temporary exploration code from becoming committed artifacts.
+
+<!-- decision:P-LMRJ7T54 -->
+
+## Dogfood Facts Generated After Commits
+
+**When:** 2026-07-07 · **Fact:** `P-LMRJ7T54`
+**Why:** Tool design: the kit observes and reflects on its own behavior during the session. Facts are generated from responses, so they emerge *after* the initial commit.
+
+<!-- decision:P-VMC25Z3S -->
+
+## HC-2 Distill Freshness FAIL Self-Clears
+
+**When:** 2026-07-07 · **Fact:** `P-VMC25Z3S`
+**Why:** The check measures API response time; network fluctuations cause false negatives without indicating a real problem.
+
+<!-- decision:P-C6QLGQA3 -->
+
+## Repack and Reinstall Before Gating Release
+
+**When:** 2026-07-07 · **Fact:** `P-C6QLGQA3`
+**Why:** The kit's global instance is what the gate uses. Running against a pre-fix tarball causes the gate to pass broken code.
+
+<!-- decision:P-WLS65XPS -->
+
+## Windows DLL Lock Blocks npm Reinstall
+
+**When:** 2026-07-07 · **Fact:** `P-WLS65XPS`
+**Why:** Windows locks in-use files; npm cannot replace them while processes hold them.
+
+<!-- decision:P-RHDTAZZL -->
+
+## cut-gate-v050-scaffold-gitignore-transcript-leak
+
+**When:** 2026-07-07 · **Fact:** `P-RHDTAZZL`
+**Why:** A public-repo cmk user commits raw un-screened conversation (names/emails/secrets from tool output) because the scaffold gitignore protects only the .tmp/.log, not the raw transcript/session .md tiers. The dev repo fixed this for itself (D-108) but the fix never propagated to the shipped template.
+
+<!-- decision:P-WCaNKPHM -->
+
+## cut-gate-v050-transcript-privacy-is-task-148-trigger-fired
+
+**When:** 2026-07-07 · **Fact:** `P-WCaNKPHM`
+**Why:** My first read framed this as a scaffold-gitignore oversight and proposed gitignoring transcripts by default — WRONG per the docs: committed transcripts are an intentional differentiator, and the privacy hazard is the already-designed Task 148 whose trigger explicitly says 'privacy incident / user request → re-verdict at the v0.5.0 cut.' The cut-gate produced exactly that incident at exactly that cut. The action is a backlog re-verdict, not a gitignore change.
+
+<!-- decision:P-KZaR4PMV -->
+
+## task-148-v050-scope-transcript-path-not-just-fact-classifier
+
+**When:** 2026-07-07 · **Fact:** `P-KZaR4PMV`
+**Why:** The user decided to pull Task 148 into v0.5.0 to close the cold-open transcript-PII leak. But 148 as written only screens the fact-extraction path, while the leak is in the raw transcript tier written earlier by capture-turn — so building 148-as-spec would NOT fix the incident that motivated pulling it in. This must be designed (ADR) before code, and the scope is bigger than the task entry.
+
+<!-- decision:P-FHCPRQ4Y -->
+
+## Grill-style design decision process
+
+**When:** 2026-07-07 · **Fact:** `P-FHCPRQ4Y`
+**Why:** This accelerates decision-making and ensures all options are explored before committing.
+
+<!-- decision:P-4QALXCYG -->
+
+## Prior research outputs: D-218 and D-227
+
+**When:** 2026-07-07 · **Fact:** `P-4QALXCYG`
+**Why:** These form the knowledge base for Task 148 design; assistant confirmed no new deep research is needed.
+
+<!-- decision:P-52R6DV4B -->
+
+## Stop-hook path budget constraint
+
+**When:** 2026-07-07 · **Fact:** `P-52R6DV4B`
+**Why:** Understanding this budget is critical to choosing between fast local methods (PII regexes) vs async approaches.
+
+<!-- decision:P-YBCB3PBC -->
+
+## Nestwork Desensitization Approach — Benchmark Findings
+
+**When:** 2026-07-07 · **Fact:** `P-YBCB3PBC`
+**Why:** Informs cmk's PII filtering architecture. Confirms names/emails need LLM judgment (not patterns). Provides reference implementation patterns suitable for cmk's design.
+
+<!-- decision:P-3G5KE7NV -->
+
+## PII Detection Landscape: Regex vs LLM Trade-offs
+
+**When:** 2026-07-07 · **Fact:** `P-3G5KE7NV`
+**Why:** Informs the three-layer PII detection architecture for the pipeline.
+
+<!-- decision:P-aGZP7NMC -->
+
+## PII Detection Pipeline — L1/L2/L3 Layered Architecture
+
+**When:** 2026-07-07 · **Fact:** `P-aGZP7NMC`
+**Why:** Balances performance, precision (patterns first), and recall (LLM fallback).
+
+<!-- decision:P-HCMLERAB -->
+
+## No Prior Art — LLM-Judged Sensitivity Routing Between Tiers
+
+**When:** 2026-07-07 · **Fact:** `P-HCMLERAB`
+**Why:** Confirms Task 148 design is genuinely novel and a real differentiator
+
+<!-- decision:P-2FUKaR2M -->
+
+## Task 148 — Auto-Judged Privacy Layered Screen Architecture
+
+**When:** 2026-07-07 · **Fact:** `P-2FUKaR2M`
+**Why:** Novel feature (confirmed no prior art); fail-safe by construction; solves real incident
+
+<!-- decision:P-3655aMAC -->
+
+## 148 Privacy-Screen Corpus Triage Workflow
+
+**When:** 2026-07-07 · **Fact:** `P-3655aMAC`
+**Why:** Ensures 148 design is grounded in complete research, not sample bias. User rejected random picking in favor of systematic coverage.
+
+<!-- decision:P-LJVBKJJK -->
+
+## Deep-Reader Analysis Phase of Kit Design
+
+**When:** 2026-07-07 · **Fact:** `P-LJVBKJJK`
+**Why:** These are primary reference implementations; their design choices will shape the kit's architecture
+
+<!-- decision:P-CB3DaC93 -->
+
+## Sub-Agent Confabulation Detection in Verification
+
+**When:** 2026-07-07 · **Fact:** `P-CB3DaC93`
+**Why:** Shows real multi-agent failure mode (confabulation); independent verification catches it; directly informs the kit's own judge/verification design
+
+<!-- decision:P-GG37266G -->
+
+## Defense-in-Depth Scanning: Write + Read Boundaries
+
+**When:** 2026-07-07 · **Fact:** `P-GG37266G`
+**Why:** Protects against file-level tampering; relevant for memory system where files persist between sessions
+
+<!-- decision:P-TX4R6BVW -->
+
+## Non-Destructive Flagging with `[BLOCKED]` Placeholders
+
+**When:** 2026-07-07 · **Fact:** `P-TX4R6BVW`
+**Why:** Prevents silent data loss; maintains auditability; directly aligns with redaction-log recovery fork in design space
+
+<!-- decision:P-QX2GMNQA -->
+
+## Scoped Threat-Pattern Library Design
+
+**When:** 2026-07-07 · **Fact:** `P-QX2GMNQA`
+**Why:** Reference pattern for organizing threat detection across multiple boundaries; shows how to reuse patterns with scope-specific tuning
+
+<!-- decision:P-ZD27R9NE -->
+
+## Cold-Open-Replay Test for PII Screening
+
+**When:** 2026-07-07 · **Fact:** `P-ZD27R9NE`
+**Why:** Prevents regression; ensures fix works on real data. Catches edge cases (bidi, invisible-Unicode) unit tests miss.
+
+<!-- decision:P-YXFREZ9E -->
+
+## False-Positive PII Redaction Recovery Log
+
+**When:** 2026-07-07 · **Fact:** `P-YXFREZ9E`
+**Why:** Over-aggressive masks hide legitimate data. Local recovery prevents permanent loss on false positives.
+
+<!-- decision:P-GFRV2Z9Q -->
+
+## Metadata Column: Free-Form JSONB with PII Flags
+
+**When:** 2026-07-07 · **Fact:** `P-GFRV2Z9Q`
+**Why:** Confirmed by source inspection; flexibility supports dynamic PII tagging.
+
+<!-- decision:P-Q7CHYKL3 -->
+
+## Two-Layer PII Screening: L1 Sync + L3 Async Judge
+
+**When:** 2026-07-07 · **Fact:** `P-Q7CHYKL3`
+**Why:** Prevents PII in memory, audit, disk. Tier-routing quarantine (novel vs. memclaw) structurally stronger than query-time filtering. Recoverable on error.
+
+<!-- decision:P-L7C2aAaa -->
+
+## resume-task-148-build-paused-at-sessionend-wiring
+
+**When:** 2026-07-08 · **Fact:** `P-L7C2aAaa`
+**Why:** The user paused the session mid-build. Three commits are on the branch; the next session must pick up at the promoteOutcome reporting + full-suite run without re-deriving the plan.
+
+<!-- decision:P-ENDELV5A -->
+
+## Memory Auto-Injection on Session Start
+
+**When:** 2026-07-08 · **Fact:** `P-ENDELV5A`
+**Why:** Understanding this mechanism helps explain why the resume plan doesn't need to be manually re-read; the system handles handoff automatically. This is a core feature of the kit being built.
+
+<!-- decision:P-R3CR23SR -->
+
+## Multi-Pass Feature Workflow for Complex Work
+
+**When:** 2026-07-08 · **Fact:** `P-R3CR23SR`
+**Why:** This structured approach appears across feature development (e.g., Task 148 spans all three phases); knowing it helps organize future multi-commit work and plan the sequence of steps.
+
+<!-- decision:P-ET5BMLP6 -->
+
+## Uncommitted Change in docs/process/cut-gate.md
+
+**When:** 2026-07-08 · **Fact:** `P-ET5BMLP6`
+**Why:** Next session needs to know a file has pending changes and decide whether to commit or discard before continuing with the main Task 148 sequence.

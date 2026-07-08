@@ -39,7 +39,7 @@ Legend: ✓ intent matches code · ✗ gap (design says X, code does Y) · ~ par
   scratchpads ──seed-strip, per-tier cap, tail-drop──> inject (10KB) ──> session
 
   SESSIONS (parallel diary):
-  turn ─verbatim─> transcripts/{date}.md (durable, never pruned)
+  turn ─L1 mask─> transcripts/{date}.live.md (gitignored) ─L3 judge─> transcripts/{date}.md (screened, durable, never pruned)
   turn ─buffer──> now.md ─compress(Haiku)─> today-{date}.md ─(truncate now.md)
   today (≤7d) ─distill─> recent.md (4096B)
   today (>7d) ─curate─> archive.md (4096B) ─then UNLINK the today file
@@ -60,8 +60,10 @@ Legend: ✓ intent matches code · ✗ gap (design says X, code does Y) · ~ par
 | 7 | **fact file store** (write-fact) | — | **none** | by-ID, refuse-overwrite on id-mismatch; reindex after | n/a | ~ correct dedup, but **unbounded** (disk-only, search-only) (G10) |
 | 8 | **fact/scratchpad → index** (FTS5) | — | — | — | — | ✓ index can be transiently stale (consolidate() doesn't reindex), but `cmk search`/`mk_search` run **`reindexBoot` (mtime+sha1 diff) BEFORE querying** → no user-visible stale hit (G9 verified NOT a gap, 2026-06-04) |
 | 9 | **inject snapshot** (inject-context) | seed-strip (zero-sha1) | **10KB total + per-tier** | by bullet-ID | **importance-ordered `## ` section-drop** (lowest-value first; logs NDJSON) | ✅ G7 fixed (Task 93, D-66): drops lowest aggregate-trust/oldest section first, not tail. _Total-cap fallback still tier-tail (v-next)._ |
-| 10 | **turn → transcript** (capture-turn) | — | **none** | — | — | ✓ verbatim, durable, **never pruned** (the recovery backstop) |
-| 11 | **now.md → today** (compress-session) | — | — | — | **truncate now.md to 0** after Haiku summary | ~ raw turns dropped from now.md (survive in transcript); summary lossy (Task 84 hallucination class) |
+| 10 | **turn → transcript** (capture-turn → live buffer → L3 judge → committed) | — | **none** | — | — | ✓ durable, **never pruned** (the recovery backstop). **Task 148 (ADR-0019): no longer verbatim** — each turn is L1-masked (email/phone/username) into the gitignored `{date}.live.md`, then the async L3 privacy judge screens it into the committed `{date}.md` (fail-closed: judge down → stays in the buffer, never an unscreened commit). |
+| 10b | **capture/fact write → L1 privacy mask** (pii-patterns) | — | — | — | — | ✅ Task 148.1/148.2 (ADR-0019): every commit-eligible write (transcript turn, `cmk remember`/`mk_remember`, fact body/title) is masked BEFORE hash/dedup/disk; each redaction → gitignored `redactions.log` (recoverable). Kill-switch `privacy.screen: off`. |
+| 10c | **fact candidate → sensitivity route** (auto-extract) | — | — | — | **`drop` → `sensitivity_drop` (no text); `local-only` → gitignored `context.local/private.md`** | ✅ Task 148.5 (ADR-0019): the classifier's privacy axis diverts sensitive facts off the committed tier (and off the review queue) — `commit` is the default; an unrecognized value routes `local-only`, never a silent commit. |
+| 11 | **now.md → today** (compress-session) | — | — | — | **truncate now.md to 0** after Haiku summary | ~ raw turns dropped from now.md (survive in transcript); summary lossy (Task 84 hallucination class). **Task 148 (review I1): the committed `today-{date}.md` is privacy-screened** — the compress prompt keeps names/PII out of the summary + the OUTPUT is L1-masked before the committed write (now.md itself carries L1-masked prose; tool output never enters now.md). |
 | 12 | **today >7d → archive** (weekly-curate) | — | **archive 4096B, recent 4096B** | Haiku semantic + deterministic | **UNLINK the today file** | ~ session history >7d = lossy-Haiku into a 4KB cap + **source deleted** (G8) |
 | 13 | **queues** (review / conflicts / persona-review) | — | **none** | by-ID (persona) | — | ~ leave only via user action; **never auto-pruned**, unbounded (G10) |
 | 14 | **forget → tombstone** (forget.mjs) | — | — | — | **moveFactToTombstone** (deleted_at, recoverable) | ✓ correct — the contrast that makes edge #4 inconsistent |
@@ -94,7 +96,7 @@ Legend: ✓ intent matches code · ✗ gap (design says X, code does Y) · ~ par
 - **Transcripts are a verbatim, never-pruned backstop** — nothing is truly unrecoverable as long as the transcript survives; the gaps are about *active* memory, not the raw archive.
 - **Fact-file dedup by content-ID + reindex-on-write** (Task 85) — the fact store stays index-consistent on the write path.
 - **Sessions caps compose** (archive/recent 4096B, per-tier inject budgets sum to the snapshot cap — the PR-25 structural fix).
-- **Poison_Guard + home-path sanitization** gate every write path (not a lifecycle-loss concern, but worth noting the write edges are screened).
+- **Poison_Guard + home-path sanitization + the auto-judged privacy screen** gate every write path (not a lifecycle-loss concern, but worth noting the write edges are screened). Poison_Guard catches *secrets*; the Task-148 privacy screen (L1 patterns + L3 judge, edges 10/10b/10c) catches *personal/sensitive content* so nothing private reaches a committed tier — the transcript is screened before commit, and sensitive facts route local-only or drop.
 
 ---
 

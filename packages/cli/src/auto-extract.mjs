@@ -46,7 +46,9 @@ import {
   readFileSync,
   unlinkSync,
   appendFileSync,
+  writeFileSync,
 } from 'node:fs';
+import { resolveScratchpadPath } from './tier-paths.mjs';
 import { join, dirname } from 'node:path';
 import { generateId } from '@lh8ppl/cmk-canonicalize';
 import { hashContent } from './content-hash.mjs';
@@ -90,6 +92,28 @@ const RETAIN_RE = /<retain>([\s\S]*?)<\/retain>/g;
 // Shape: `TRUST_<HIGH|MEDIUM|LOW> <user|assistant>: <text>`
 const CANDIDATE_LINE_RE = /^TRUST_(HIGH|MEDIUM|LOW)\s+(user|assistant):\s*(.+)$/i;
 const SKIP_LINE_RE = /^\s*SKIP\s*$/i;
+
+// Task 148.5 (ADR-0019, design §6.10) — the sensitivity axis. An optional
+// ` | SENSITIVITY: <value>` TAIL on a terse line (and a `sensitivity:` field
+// in a BEGIN_FACT block) routes the candidate:
+//   commit (default) → the normal route (MEMORY.md / review queue / fact store)
+//   local-only       → gitignored context.local/private.md (never a committed surface)
+//   drop             → not written anywhere; logged as sensitivity_drop (Door 5)
+// An UNRECOGNIZED value maps to local-only, NOT commit — if the model flagged
+// the content at all, silently committing it is the one wrong answer (the
+// §6.10 "when in doubt, redact" posture applied to routing).
+// The `-` is placed last in the class (a literal hyphen, not a range) and the
+// trailing `[ \t]*$` uses an explicit horizontal-space class — no `\s*…\s*$`
+// ambiguity. Sensitivity values are a small fixed vocabulary (commit / drop /
+// local-only), so the letter+hyphen class is exact.
+const SENSITIVITY_TAIL_RE = /[ \t]*\|[ \t]*SENSITIVITY:[ \t]*([A-Za-z-]+)[ \t]*$/i;
+
+function normalizeSensitivity(raw) {
+  const v = (raw ?? '').trim().toLowerCase();
+  if (v === '' || v === 'commit') return 'commit';
+  if (v === 'drop') return 'drop';
+  return 'local-only';
+}
 
 // Demotion map for assistant-origin candidates (design §6.4 amendment).
 // HIGH → MEDIUM → LOW → discarded. Discarded candidates never reach the
@@ -304,6 +328,12 @@ export function buildExtractionInstructions() {
     '',
     'Note: assistant-origin candidates are auto-demoted one trust level before routing (HIGH → MEDIUM → LOW → discarded). This is intentional — assistant inferences need user review. Emit your honest trust assessment; the routing layer handles demotion.',
     '',
+    'SENSITIVITY routing (privacy) — applies to BOTH the terse TRUST_ lines AND the BEGIN_FACT blocks below. The project memory is COMMITTED TO GIT and may be public. Judge each candidate for personal/sensitive content: health details, real names of private individuals, home addresses, family matters, relationship or private grievances, financial specifics.',
+    '  - Not sensitive (the default — omit any marker): committed normally.',
+    '  - Useful for future work BUT sensitive → append ` | SENSITIVITY: local-only` to the terse line (or add a `sensitivity: local-only` field inside the BEGIN_FACT block). Saved machine-local only, never committed.',
+    '  - Sensitive AND not needed for future work → ` | SENSITIVITY: drop` (or `sensitivity: drop`). Not saved at all.',
+    '  When in doubt between commit and local-only, choose local-only. Software identifiers (usernames of public accounts, repo names, library authors) are NOT sensitive.',
+    '',
     'ALSO — rich fact files (durable project KNOWLEDGE). This is a SEPARATE output from the terse TRUST_ lines. When a turn reveals a durable, substantive piece of project knowledge worth a FULL record — a setup/configuration fact (trigger 3), a project convention (trigger 4), a completed multi-step workflow worth recording (trigger 5), or a tool quirk/workaround (trigger 6) — emit a BEGIN_FACT block (below) INSTEAD OF a terse TRUST_ line for it. Keep terse TRUST_ lines for the LIGHTER signals: user corrections and discovered preferences (triggers 1–2) and active threads. Emit each fact EITHER as a rich BEGIN_FACT block OR as a terse TRUST_ line — NEVER both.',
     'Format (one block per durable fact):',
     '  BEGIN_FACT',
@@ -363,9 +393,17 @@ export function parseCandidates(haikuOutput) {
     if (!m) continue;
     const trust = m[1].toLowerCase();
     const origin = m[2].toLowerCase();
-    const text = m[3].trim();
+    let text = m[3].trim();
+    // 148.5: peel the optional sensitivity tail off the text BEFORE the text
+    // becomes the fact (a literal `| SENSITIVITY:` never belongs in a bullet).
+    let sensitivity = 'commit';
+    const sm = text.match(SENSITIVITY_TAIL_RE);
+    if (sm) {
+      sensitivity = normalizeSensitivity(sm[1]);
+      text = text.slice(0, sm.index).trim();
+    }
     if (text === '') continue;
-    candidates.push({ trust, origin, text });
+    candidates.push({ trust, origin, text, sensitivity });
   }
   return candidates;
 }
@@ -404,7 +442,7 @@ const RICH_FACT_VALID_SHAPES = new Set([
   'Absence',
   'Timeless',
 ]);
-const RICH_FACT_KEYS = new Set(['type', 'title', 'body', 'why', 'how', 'shape', 'expires']);
+const RICH_FACT_KEYS = new Set(['type', 'title', 'body', 'why', 'how', 'shape', 'expires', 'sensitivity']);
 // Task 66.3: the same strict ISO shape write-fact.mjs enforces — the LLM
 // boundary stays tolerant by OMITTING anything else (a bad date must never
 // kill a capture), while writeFact would reject it loudly on the explicit path.
@@ -481,8 +519,12 @@ function parseRichFactBlock(blockLines) {
     rawExpires && RICH_FACT_EXPIRES_PATTERN.test(rawExpires) && !Number.isNaN(Date.parse(rawExpires))
       ? rawExpires
       : undefined;
+  // 148.5: the sensitivity routing field — same tolerant normalization as the
+  // terse tail (absent → commit; unrecognized → local-only, never a silent commit).
+  const sensitivity = normalizeSensitivity(cleanFieldValue(fields.sensitivity));
   return {
     type,
+    sensitivity,
     ...(shape ? { shape } : {}),
     ...(expires ? { expires } : {}),
     title: title.slice(0, RICH_FACT_FIELD_CAP),
@@ -655,6 +697,71 @@ function routeHigh({ candidate, projectRoot, ts, sessionId }) {
     projectRoot,
     now: ts,
   });
+}
+
+// --- Sensitivity routing (Task 148.5, design §6.10) ------------------
+
+// Seed content for context.local/private.md when the local-only route fires on
+// an install scaffolded before 148.5 (or a hand-built context/). Mirrors the
+// template/local shape: cap comment + purpose note + the 3 documented sections
+// (SCRATCHPAD_DOCUMENTED_SECTIONS['private.md']).
+function ensurePrivateScratchpad({ projectRoot, ts }) {
+  const path = resolveScratchpadPath({ tier: 'L', scratchpad: 'private.md', projectRoot });
+  if (existsSync(path)) return path;
+  mkdirSync(dirname(path), { recursive: true });
+  const seed = [
+    `<!-- Cap: 1500 chars · Last distilled: ${ts.slice(0, 10)} · Last health check: ${ts.slice(0, 10)} -->`,
+    '',
+    '<!-- private.md = sensitive-but-useful facts the auto-extract sensitivity screen routes local-only (local tier — gitignored, never committed). -->',
+    '',
+    '# Private notes (local tier)',
+    '',
+    '## Private Notes',
+    '',
+    '## Sensitive Context',
+    '',
+    '## Personal Details',
+    '',
+  ].join('\n');
+  writeFileSync(path, seed, 'utf8');
+  return path;
+}
+
+// Route a local-only candidate (terse OR condensed rich) to the gitignored
+// private.md via the SAME memoryWrite boundary the high-trust path uses —
+// Poison_Guard still screens (a secret stays a secret even machine-local),
+// caps/dedup/audit apply, ids are L-tier. Trust carries the candidate's own
+// level: a medium-trust local-only candidate deliberately BYPASSES the
+// committed review queue (queues/review.md would leak the content), trading
+// the review step for containment — the gitignored file IS the containment.
+function routeLocalOnly({ text, trust, projectRoot, ts, sessionId }) {
+  ensurePrivateScratchpad({ projectRoot, ts });
+  return memoryWrite({
+    action: 'add',
+    text,
+    tier: 'L',
+    scratchpad: 'private.md',
+    section: 'Private Notes',
+    source: 'auto-extract',
+    sessionId: sessionId ?? 'session',
+    trust,
+    projectRoot,
+    now: ts,
+  });
+}
+
+// Condense a rich fact to a single private.md bullet (the local scratchpad is
+// bullets, not fact files — design §6.10 routes local-only to private.md).
+// Newlines collapse; generous slice keeps the bullet useful under the 1500-char
+// file cap without letting one fact eat the whole pad.
+const LOCAL_RICH_BULLET_MAX = 300;
+function condenseRichFactForLocal(fact) {
+  const title = sanitizeForTitle(fact.title);
+  // Collapse any whitespace run to one space (newlines included). A single
+  // \s+ class — NOT \s*\n+\s* (whose overlapping quantifiers around \n are a
+  // super-linear backtracking surface on untrusted fact bodies).
+  const flatBody = fact.body.replace(/\s+/g, ' ').trim();
+  return `${title} — ${flatBody}`.slice(0, LOCAL_RICH_BULLET_MAX);
 }
 
 function routeMedium({ candidate, projectRoot, ts }) {
@@ -1062,6 +1169,42 @@ export async function runAutoExtract({
     //    "validation failed".
     const writes = [];
     for (const candidate of candidates) {
+      // 148.5: sensitivity routing runs BEFORE trust routing — a drop is a drop
+      // at any trust, and local-only diverts high AND medium away from every
+      // committed surface (MEMORY.md and the review queue alike).
+      if (candidate.sensitivity === 'drop') {
+        writes.push({ ...candidate, written: 'dropped-sensitivity' });
+        // Door 5: observable, but NEVER with the text — the content is
+        // sensitive and extract.log may be committed. Category-only entry
+        // (deliberately unlike the low_trust_discarded excerpt trace).
+        writeExtractLogEntry({
+          projectRoot,
+          ts,
+          entry: {
+            event: 'sensitivity_drop',
+            skipped_reason: 'sensitivity_drop',
+            trust: candidate.trust,
+            origin: candidate.origin ?? null,
+          },
+        });
+        continue;
+      }
+      if (candidate.sensitivity === 'local-only' && candidate.trust !== 'low' && candidate.trust !== 'discarded') {
+        const r = routeLocalOnly({
+          text: candidate.text,
+          trust: candidate.trust,
+          projectRoot,
+          ts,
+          sessionId,
+        });
+        const written = r?.action === 'appended' ? 'local' : 'rejected';
+        const writeRecord = { ...candidate, written, result: r };
+        if (written === 'rejected') {
+          writeRecord.rejected_category = r?.errorCategory ?? 'unknown';
+        }
+        writes.push(writeRecord);
+        continue;
+      }
       if (candidate.trust === 'high') {
         const r = routeHigh({ candidate, projectRoot, ts, sessionId });
         const written = classifyHighTrustWrite(r);
@@ -1083,6 +1226,10 @@ export async function runAutoExtract({
         // edge; MEDIUM already gets a review queue, LOW got nothing). Log-only
         // by decision (92.1): NOT routed to the review queue — that would flood
         // it with low-signal noise. One discrete NDJSON entry per drop (Door 4).
+        // 148.5: a sensitivity-flagged candidate that lands here (LOW/demoted)
+        // must NOT leave its text in the excerpt trace — extract.log can be
+        // committed. The entry stays (auditable) with the excerpt suppressed.
+        const sensitiveDiscard = candidate.sensitivity && candidate.sensitivity !== 'commit';
         writeExtractLogEntry({
           projectRoot,
           ts,
@@ -1092,8 +1239,12 @@ export async function runAutoExtract({
             trust: candidate.trust,
             demoted_from: candidate.demotedFrom ?? null,
             origin: candidate.origin ?? null,
-            excerpt: candidate.text.slice(0, LOW_DISCARD_EXCERPT_MAX),
-            excerpt_truncated: candidate.text.length > LOW_DISCARD_EXCERPT_MAX,
+            ...(sensitiveDiscard
+              ? { excerpt_suppressed: 'sensitivity' }
+              : {
+                  excerpt: candidate.text.slice(0, LOW_DISCARD_EXCERPT_MAX),
+                  excerpt_truncated: candidate.text.length > LOW_DISCARD_EXCERPT_MAX,
+                }),
           },
         });
       }
@@ -1109,6 +1260,37 @@ export async function runAutoExtract({
     const richWrites = [];
     for (const fact of richFacts) {
       try {
+        // 148.5: sensitivity routing before the fact store — same contract as
+        // the terse loop. A drop never touches disk (category-only log line);
+        // local-only condenses to a private.md bullet instead of a COMMITTED
+        // context/memory/ fact file.
+        if (fact.sensitivity === 'drop') {
+          richWrites.push({ ...fact, written: 'dropped-sensitivity' });
+          writeExtractLogEntry({
+            projectRoot,
+            ts,
+            entry: {
+              event: 'sensitivity_drop',
+              skipped_reason: 'sensitivity_drop',
+              surface: 'rich_fact',
+            },
+          });
+          continue;
+        }
+        if (fact.sensitivity === 'local-only') {
+          const r = routeLocalOnly({
+            text: condenseRichFactForLocal(fact),
+            trust: 'medium', // same proposal-grade trust routeRichFact assigns
+            projectRoot,
+            ts,
+            sessionId,
+          });
+          const written = r?.action === 'appended' ? 'local' : 'rejected';
+          const rec = { ...fact, written, result: r };
+          if (written === 'rejected') rec.rejected_category = r?.errorCategory ?? 'unknown';
+          richWrites.push(rec);
+          continue;
+        }
         const r = routeRichFact({ candidate: fact, projectRoot, ts });
         let written;
         if (r?.action === 'created') written = 'fact';
@@ -1144,11 +1326,18 @@ export async function runAutoExtract({
         });
       }
     }
-    const richFactsWritten = richWrites.filter((w) => w.written === 'fact').length;
+    const richFactsWritten = richWrites.filter(
+      (w) => w.written === 'fact' || w.written === 'local',
+    ).length;
 
     const observation_count =
       writes.filter(
-        (w) => w.written === 'memory' || w.written === 'review' || w.written === 'conflict',
+        (w) =>
+          w.written === 'memory' ||
+          w.written === 'review' ||
+          w.written === 'conflict' ||
+          // 148.5: a local-only landing IS a durable observation — just gitignored.
+          w.written === 'local',
       ).length + richFactsWritten;
 
     // Persona-only turn: no project candidate landed, but cross-project

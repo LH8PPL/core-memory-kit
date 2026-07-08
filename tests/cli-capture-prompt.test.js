@@ -86,7 +86,7 @@ describe('Task 19 — capturePrompt() boundary', () => {
       });
       expect(r.action).toBe('appended');
       expect(r.transcriptPath).toBe(
-        join(projectRoot, 'context', 'transcripts', '2026-05-25.md'),
+        join(projectRoot, 'context', 'transcripts', '2026-05-25.live.md'),
       );
       expect(existsSync(r.transcriptPath)).toBe(true);
     });
@@ -117,10 +117,10 @@ describe('Task 19 — capturePrompt() boundary', () => {
         now: '2026-05-26T00:00:01Z',
       });
       expect(
-        existsSync(join(projectRoot, 'context', 'transcripts', '2026-05-25.md')),
+        existsSync(join(projectRoot, 'context', 'transcripts', '2026-05-25.live.md')),
       ).toBe(true);
       expect(
-        existsSync(join(projectRoot, 'context', 'transcripts', '2026-05-26.md')),
+        existsSync(join(projectRoot, 'context', 'transcripts', '2026-05-26.live.md')),
       ).toBe(true);
     });
 

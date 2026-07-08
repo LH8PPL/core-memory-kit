@@ -59,6 +59,8 @@ import { checkPoisonGuard, logPoisonGuardRejection } from './poison-guard.mjs';
 import { detectConflicts, writeConflictEntry } from './conflict-queue.mjs';
 import { sanitizeHomePaths } from './sanitize.mjs';
 import { sanitizePrivacyTags } from './privacy.mjs';
+import { maskPii, localUsernames, resolvePrivacyScreen } from './pii-patterns.mjs';
+import { appendRedactions } from './redactions-log.mjs';
 import { applyTrustSignal } from './trust-signal.mjs';
 
 const VALID_ACTIONS = new Set(['add', 'replace', 'remove']);
@@ -284,13 +286,28 @@ function doAdd(opts) {
   // committed AND local tiers (private content must not reach context.local
   // either). The same single-safe-path philosophy as Poison_Guard.
   const privacyStripped = sanitizePrivacyTags(opts.text);
-  // Then abstract home-dir paths to `~` for committed/shared tiers (P/U) so a
-  // captured fact never ships the local username + stays portable; local
-  // tier (L) keeps machine paths verbatim (its purpose).
-  const sanitizedText =
-    opts.tier === 'P' || opts.tier === 'U'
-      ? sanitizeHomePaths(privacyStripped)
-      : privacyStripped;
+  // Then the L1 PII layer (Task 148.2, design §6.10) for committed/shared
+  // tiers (P/U): maskPii covers emails/phones/usernames AND the home-path→`~`
+  // abstraction (it delegates to sanitizeHomePaths), masking BEFORE dedup/
+  // conflict-check/disk so everything downstream sees the redacted text.
+  // Originals land ONLY in the gitignored redactions.log (the recovery
+  // surface). Local tier (L) keeps text verbatim (its purpose); the
+  // privacy.screen kill-switch reverts to the pre-148 home-path-only gate.
+  let sanitizedText = privacyStripped;
+  if (opts.tier === 'P' || opts.tier === 'U') {
+    if (resolvePrivacyScreen({ projectRoot: opts.projectRoot }) === 'on') {
+      const masked = maskPii(privacyStripped, { usernames: localUsernames() });
+      sanitizedText = masked.text;
+      // Best-effort recovery record — must never block the write.
+      appendRedactions(opts.projectRoot, {
+        source: `memory-write:${opts.tier}`,
+        layer: 'L1',
+        redactions: masked.redactions,
+      });
+    } else {
+      sanitizedText = sanitizeHomePaths(privacyStripped);
+    }
+  }
   const addOpts =
     sanitizedText === opts.text ? opts : { ...opts, text: sanitizedText };
 
