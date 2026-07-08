@@ -208,6 +208,37 @@ describe('Task 31 — MCP server', () => {
         else process.env.CMK_DISABLE_SEMANTIC = prev;
       }
     });
+
+    it('a keyword-only-BY-DESIGN scope (decisions) degrades SILENTLY — no false "embedder unavailable / reinstall" note (P-355DF75F)', async () => {
+      // The decisions scope is keyword-only by design (Task 156); prepare-
+      // SemanticBackend rejects it with reason `unknown-scope:decisions`. That
+      // is NOT an embedder failure — so the model must NOT be told "the embedder
+      // is unavailable, run cmk install". The bug (found on the v0.5.0 cold-open):
+      // ALL !prep.ok reasons hit the degraded-note branch, so a by-design
+      // keyword scope printed a "your search is broken, reinstall" note on the
+      // showcase path. Semantic being genuinely AVAILABLE here (real embedder in
+      // dev/CI, no CMK_DISABLE_SEMANTIC) is the point: the note must not fire
+      // because of the SCOPE, independent of embedder health.
+      writeFileSync(
+        join(projectRoot, 'context', 'settings.json'),
+        JSON.stringify({ search: { default_mode: 'hybrid' } }),
+        'utf8',
+      );
+      writeFileSync(
+        join(projectRoot, 'context', 'DECISIONS.md'),
+        '# Decisions\n\n- 2026-01-01 — chose pnpm over npm for the monorepo\n',
+        'utf8',
+      );
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const r = await invokeTool(server, 'mk_search', { query: 'pnpm', scope: 'decisions' });
+      expect(r.isError).toBeFalsy();
+      // Exactly ONE content block — the results. NO degraded note.
+      expect(r.content).toHaveLength(1);
+      const joined = r.content.map((c) => c.text).join('\n');
+      expect(joined).not.toMatch(/embedder is unavailable/i);
+      expect(joined).not.toMatch(/cmk install --with-semantic/);
+      expect(joined).not.toMatch(/unknown-scope/i);
+    });
   });
 
   describe('mk_get', () => {

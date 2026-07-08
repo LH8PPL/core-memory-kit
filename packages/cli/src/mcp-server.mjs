@@ -139,14 +139,24 @@ function makeMkSearch({ db, semanticBackend, projectRoot }) {
         };
       }
       if (!prep.ok) {
-        // Configured default can't run — degrade gracefully to keyword,
-        // but NOT silently (Task 125.1, the user's call reversing the
-        // Task-46 review skip): the note below tells the model what it
-        // got, so it can relay the fix to the user.
+        // Configured default can't run — degrade gracefully to keyword.
         wantMode = SEARCH_MODES.KEYWORD;
-        degradedNote =
-          `note: this project's configured default search is semantic (hybrid), but the embedder is unavailable (${prep.reason}) — these are keyword-only results. ` +
-          'Suggest the user run `cmk install --with-semantic` to restore semantic recall.';
+        // A scope that is keyword-only BY DESIGN (e.g. `decisions`, Task 156)
+        // rejects the semantic default with reason `unknown-scope:<scope>` —
+        // that is NOT an embedder failure, so it degrades SILENTLY (P-355DF75F,
+        // the v0.5.0 cold-open false alarm): emitting "the embedder is
+        // unavailable, run cmk install" for a by-design keyword scope tells a
+        // brand-new user their search is broken on the showcase path when it is
+        // working perfectly. The reinstall note fires ONLY for a REAL embedder
+        // failure (embedder-not-installed / sqlite-vec-unavailable / disabled).
+        if (!String(prep.reason).startsWith('unknown-scope:')) {
+          // NOT silently (Task 125.1, the user's call reversing the Task-46
+          // review skip): the note tells the model what it got so it can relay
+          // the fix to the user.
+          degradedNote =
+            `note: this project's configured default search is semantic (hybrid), but the embedder is unavailable (${prep.reason}) — these are keyword-only results. ` +
+            'Suggest the user run `cmk install --with-semantic` to restore semantic recall.';
+        }
       } else {
         backend = prep.backend;
       }
