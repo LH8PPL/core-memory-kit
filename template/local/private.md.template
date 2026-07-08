@@ -1,0 +1,26 @@
+<!-- Cap: 1500 chars · Last distilled: {{TODAY}} · Last health check: {{TODAY}} -->
+
+<!-- private.md = sensitive-but-useful facts the auto-extract sensitivity screen routes local-only (local tier — gitignored, never committed). See design §6.10. Replace the examples; empty sections are fine. -->
+
+# Private notes (local tier)
+
+## Private Notes
+
+<!-- Sensitive facts that help future sessions (schedules, personal constraints). -->
+
+- (L-PRVANQTE) (example) unavailable Tuesday mornings (recurring appointment)
+  <!-- source: private.md, source_line: 10, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
+
+## Sensitive Context
+
+<!-- Sensitive project/work context that must stay off git. -->
+
+- (L-SNSCTXBD) (example) client name under NDA is Acme Corp
+  <!-- source: private.md, source_line: 17, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->
+
+## Personal Details
+
+<!-- Personal details worth remembering on THIS machine only. -->
+
+- (L-PRSNDTLQ) (example) prefers no meetings scheduled after 16:00
+  <!-- source: private.md, source_line: 24, sha1: 0000000000000000000000000000000000000000, write: manual-edit, trust: medium, at: 2020-01-01T00:00:00Z -->

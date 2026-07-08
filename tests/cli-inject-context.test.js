@@ -732,10 +732,11 @@ describe('Task 18 — injectContext() boundary', () => {
     });
 
     it('local tier > L-budget → local-tier sections drop; user + project untouched', () => {
-      // Each section ~1500 bytes × 3 = 4500 > 3000 L-budget (PR-B).
+      // Each section ~2000 bytes × 3 = 6000 > 4500 L-budget (PR-B; 148.5 raised
+      // the budget when private.md joined the tier).
       writeFile(
         join(projectRoot, 'context.local', 'machine-paths.md'),
-        buildOversizedScratchpad(['Tool Paths', 'Project Paths', 'Misc Paths'], 1500),
+        buildOversizedScratchpad(['Tool Paths', 'Project Paths', 'Misc Paths'], 2000),
       );
       writeFile(
         join(userDir, 'USER.md'),
@@ -750,8 +751,8 @@ describe('Task 18 — injectContext() boundary', () => {
         (e) => e.event === 'tier_truncated_to_budget' && e.tier === 'L',
       );
       expect(tierEvt).toBeDefined();
-      expect(tierEvt.budget).toBe(3000); // PR-B: Σ machine-paths.md 1500 + overrides.md 1500
-      expect(tierEvt.post_bytes).toBeLessThanOrEqual(3000);
+      expect(tierEvt.budget).toBe(4500); // Σ machine-paths.md 1500 + overrides.md 1500 + private.md 1500 (148.5)
+      expect(tierEvt.post_bytes).toBeLessThanOrEqual(4500);
     });
 
     it('tier_truncated_to_budget events land in truncation.log as NDJSON', () => {
