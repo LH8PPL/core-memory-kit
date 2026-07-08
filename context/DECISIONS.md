@@ -11482,3 +11482,179 @@ _(retracted 2026-07-08)_
 
 **When:** 2026-07-08 · **Fact:** `P-ET5BMLP6`
 **Why:** Next session needs to know a file has pending changes and decide whether to commit or discard before continuing with the main Task 148 sequence.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-WRF66BAY -->
+
+## Cut-gate guide should have been run for v0.4.5 and v0.5.0 on kiro and cursor bef
+
+**When:** 2026-07-07 · **Fact:** `P-WRF66BAY`
+
+<!-- decision:P-SaM22R7B -->
+
+## Global cmk is broken; Windows sqlite DLL lock held by active MCP server prevents
+
+**When:** 2026-07-07 · **Fact:** `P-SaM22R7B`
+
+<!-- decision:P-SMMGGXQW -->
+
+## v0.5.0 release tag is ON HOLD until cut-gate guide passes; corrects earlier stat
+
+**When:** 2026-07-07 · **Fact:** `P-SMMGGXQW`
+
+<!-- decision:P-YUVNCZL3 -->
+
+## Stress Gate Required Before PR for Spawn/Hook Boundary Changes
+
+**When:** 2026-07-08 · **Fact:** `P-YUVNCZL3`
+**Why:** Spawn/hook boundary changes require empirical gate verification before PR submission
+
+<!-- decision:P-B9NaRSCM -->
+
+## Dogfood proof: fact-path needs the privacy screen too
+
+**When:** 2026-07-08 · **Fact:** `P-B9NaRSCM`
+**Why:** The facts DESCRIBED the v0.5.0 cold-open incident (which was about that exact name+email leaking from a uv-init git-config echo), so auto-extract captured the name+email verbatim into context/memory/*.md — committed tier. This is the precise leak class Task 148 exists to catch, occurring on the FACT/scratchpad write path, not just the transcript path. The email should have been L1-masked at the cmk-remember/auto-extract boundary; the name is L3 territory. It proves the fact path (memory-write/write-fact) genuinely needs the screen, validating 148.2's explicit-path L1 wiring — and shows the residual: L1 alone can't catch a bare name, only L3 can.
+
+<!-- decision:P-WDSE2X3M -->
+
+## Memory-Kit Loop System (Tasks 190–193)
+
+**When:** 2026-07-08 · **Fact:** `P-WDSE2X3M`
+**Why:** Task 192 closes the recall→outcome→feedback cycle, making memory self-improving rather than write-only. This 4-task architecture is the core self-learning system.
+
+<!-- decision:P-YMXER72W -->
+
+## Verify the autonomous loop, not just the human-correction path
+
+**When:** 2026-07-08 · **Fact:** `P-YMXER72W`
+**Why:** The v0.5.0 cut-gate's loop check (and the assistant's first explanation) leaned on a HUMAN-produced outcome — user correction / reversal / re-ask — to close recall→judge→feedback. But the recorded design thesis (P-TLLH95BT high) is that the loop is oracle-free AND human-optional by design: the autonomous case is the TARGET, not an edge. When the user hands the agent a task and it runs autonomously, most human-keyed signals never fire, yet the loop is supposed to still work via: tool-result/exit-code, CI, contradiction/supersession, and PREDICTION/expectation self-resolution. Three recorded hard corners make the autonomous case genuinely harder to VERIFY: (1) silent-success asymmetry — autonomous failure detection is reliable, success detection nearly impossible (P-7TYWM43U); (2) the prediction-self-resolution wedge is directionally set but mechanically undesigned (P-9BDaHHAE item 4); (3) feedback is structurally cross-session — a session can't judge its own writes; the signal arrives NEXT session (P-ZRCYDEGK high). So a cut-gate that only tests "human corrects → judge fires" leaves the design's actual target UNVERIFIED.
+
+<!-- decision:P-5FMaTPHJ -->
+
+## Autonomous Loop Catches Failures, Not Successes
+
+**When:** 2026-07-08 · **Fact:** `P-5FMaTPHJ`
+**Why:** Asymmetry is architectural, not a limitation: predictions and tool-resolutions fire now, but confirmation only arrives when memory is *used* later.
+
+<!-- decision:P-4QXKKTB2 -->
+
+## Memory Verification Spans Session Boundaries
+
+**When:** 2026-07-08 · **Fact:** `P-4QXKKTB2`
+**Why:** Cross-session model is the design intent (ADR-0017), not a fallback—it matches how knowledge validates in practice.
+
+<!-- decision:P-M5G53Ua5 -->
+
+## Windows EPERM in Test-150 Cleanup (Diagnosed & Fixed)
+
+**When:** 2026-07-08 · **Fact:** `P-M5G53Ua5`
+**Why:** Reproducible flaky failure with clear root cause; drain guard is an established codebase pattern for this exact scenario
+
+<!-- decision:P-LUUUZYLT -->
+
+## Daily-distill starvation: cron killed at 23:00 + both safety nets fail to catch it
+
+**When:** 2026-07-08 · **Fact:** `P-LUUUZYLT`
+**Why:** Diagnosed live on the dev repo 2026-07-08 (the user: "'daily distill is 5 days stale' means there's a problem, it's supposed to be automatic"). recent.md was 5 days stale despite HC-10 PASS. Evidence: (1) Get-ScheduledTaskInfo shows cmk-daily-distill LastRun updates daily but Result=3221225786 (0xC000013A = STATUS_CONTROL_C_EXIT = terminated) EVERY night, while the sibling ytslide-daily task at the same 23:00 exits 0; (2) running the EXACT cron command manually SUCCEEDS but takes 202815ms (3.4 min) — the distill logic is fine, it's just slow on 1494 facts + 6 days of today-*.md (the P-6WEYN2TM unbound-compress class); (3) task settings: WakeToRun=False, StopIfGoingOnBatteries=True → at 23:00 the machine is asleep/logging-off/on-battery and Task Scheduler kills the started-but-unfinished task. TWO real kit defects compound the environmental cause: (A) HC-10 is FALSE-GREEN — the heartbeat records at/near task START so 'compaction alive, heartbeat fresh' reports PASS while the distill DIES before completing (the D-169 false-green class — a health check green while the work fails 5 nights running); (B) the lazy SessionStart fallback (the always-on floor meant to catch a dead/failing cron, D-75) is SHADOWED by the stale-now verdict on this busy repo (cascade-starvation D-105) so it only ever does the session roll, never the daily distill. So neither the health check nor the fallback caught a 5-day automatic-distill outage. NOT the Task-167.A dead-cron-sentinel bug (that fix works — the cron fires); this is a cron-completes-the-heartbeat-but-not-the-work variant.
+
+<!-- decision:P-X2MBMQ4R -->
+
+## Distill Completes ~3.4 Min On 1500 Facts
+
+**When:** 2026-07-08 · **Fact:** `P-X2MBMQ4R`
+**Why:** Essential baseline for cron timeout planning and diagnosing unexpected slowness
+
+<!-- decision:P-KW2B5Y3J -->
+
+## HC-10 Reports Success While Cron Fails
+
+**When:** 2026-07-08 · **Fact:** `P-KW2B5Y3J`
+**Why:** Critical monitoring blind spot — health check meant to catch failures doesn't
+
+<!-- decision:P-T9PQFN5E -->
+
+## Nightly Cron Fails Due To WakeToRun=False
+
+**When:** 2026-07-08 · **Fact:** `P-T9PQFN5E`
+**Why:** Cascading failures — each night's cron dies, HC-10 doesn't catch it, outage accumulates
+
+<!-- decision:P-KCFJ4GYT -->
+
+## SessionStart Lazy Fallback Shadowed By Cascade-Starvation
+
+**When:** 2026-07-08 · **Fact:** `P-KCFJ4GYT`
+**Why:** Second safety net is broken — system has no backup when nightly cron dies
+
+<!-- decision:P-JR5H266L -->
+
+## Long jobs: incremental + resumable from artifacts, never all-or-nothing
+
+**When:** 2026-07-08 · **Fact:** `P-JR5H266L`
+**Why:** Surfaced diagnosing the daily-distill starvation (P-LUUUZYLT): daily-distill reads 6-7 days of today-*.md WHOLE into one backend.compress() call (3.4 min on this repo), and when the 23:00 cron gets killed mid-run it persists ZERO progress and re-does the whole (now-larger) corpus tomorrow — a starvation spiral. The user's reframe: "maybe it tries to do everything in one go... it should run as much as it can, still do SOME work, and continue from that point next time — true of ANY job/process in this kit." The kit's PRIOR answer to long-job-timeout was ONLY "bound the input" (D-173, 17/19 systems) — make each run smaller. This adds "make each run RESUMABLE" — make a killed run still move forward. The two the kit already does right prove the pattern: the Task-148 transcript-promote (byte-offset watermark + PROMOTE_MAX_FILES_PER_RUN=2, killed run resumes next turn) and lazy re-embedding (mark stale, re-embed on next retrieval). The compression jobs (daily-distill, weekly-curate, compress-session) + temporal-sweep are the all-or-nothing holdouts. Enabling insight (P-6M26BR9S): now.md/today-*.md are DERIVED buffers over the durable transcript tier, so a partial/re-run distill can NEVER corrupt — the source of truth survives. CRITICAL constraint (ADR-0002, P-aRHH7Va5): do NOT implement this with a new persistent watermark/sentinel FILE (two-writer hazard the ADR disfavors) — derive the resume point from ARTIFACT state (which days already have a summary in recent.md; mtime; content-addressed sha), the same way isJournalStale uses INDEX.md mtime. The Task-148 byte-offset .state file is the ONE sanctioned exception shape (single-writer, crash-safe marker-after) and only where an artifact-derived point isn't available.
+
+<!-- decision:P-JGGA2CKY -->
+
+## Distinction Between Deferred and Committed Work
+
+**When:** 2026-07-08 · **Fact:** `P-JGGA2CKY`
+**Why:** Conflating the two led to premature deferral; silent promise-breaking should not be gated.
+
+<!-- decision:P-2SMZGDNF -->
+
+## v0.5.1 Tasks Filed for Distill and Principle
+
+**When:** 2026-07-08 · **Fact:** `P-2SMZGDNF`
+**Why:** User's insight that "memory just works automatically" was broken by silent distill failure; the principle ensures future long jobs won't repeat it.
+
+<!-- decision:P-355DF75F -->
+
+## Misleading "embedder unavailable" note fires on keyword-only scopes (decisions) — cold-open false alarm
+
+**When:** 2026-07-08 · **Fact:** `P-355DF75F`
+**Why:** Surfaced live in the v0.5.0 cold-open re-test (cut-gate-coldopen-148, 2026-07-08): the agent's mk_search --scope decisions printed "this project's configured default search is semantic (hybrid), but the embedder is unavailable (unknown-scope:decisions) — keyword-only results. Suggest the user run cmk install --with-semantic to restore semantic recall." But semantic WAS working (cmk search --mode semantic returned real meaning-ranked results; settings.json has default_mode:hybrid). Root cause (mcp-server.mjs:141-149): the !prep.ok degraded-note branch treats ALL failure reasons the same, but prepareSemanticBackend (semantic-backend.mjs:197/350) returns reason='unknown-scope:<scope>' for scopes that are keyword-only BY DESIGN (decisions — Task 156) — distinct from the REAL failures 'embedder-not-installed'/'sqlite-vec-unavailable'/'embedder-disabled'. So a by-design keyword-only scope emits a "your embedder is broken, reinstall" note. This is the P-KRGYHRUX cosmetic bug (Task 156 filed the recall feature but never fixed the warning) — and it's WORSE than cosmetic because (a) it fires on the COLD-OPEN, the kit's showcase moment, giving a brand-new user a false "broken, reinstall" impression on the exact path the product is judged by, and (b) unknown-scope is indistinguishable from a genuine stale-MCP error, a diagnostic hazard. NOT a Task-148 or learn-loop issue; pre-existing since v0.3.3.
+
+<!-- decision:P-TC9TUMaM -->
+
+## False "Embedder Unavailable" Alert on --scope decisions
+
+**When:** 2026-07-08 · **Fact:** `P-TC9TUMaM`
+**Why:** This false alarm fires on the cold-open (showcase moment), giving new users the false impression that their setup is broken when everything actually works.
+
+<!-- decision:P-MZ4PZMS7 -->
+
+## v0.5.0 Release — Feature Complete, L3 Promotion Gate Pending
+
+**When:** 2026-07-08 · **Fact:** `P-MZ4PZMS7`
+**Why:** Release is one gate away from tagging. Next session needs exact status to know what remains and what's next.
+
+<!-- decision:P-AAHW235S -->
+
+## L3 promote 20s judge timeout starves the committed transcript on slow-Haiku (same class as D-179)
+
+**When:** 2026-07-08 · **Fact:** `P-AAHW235S`
+**Why:** Found in the v0.5.0 cold-open E2 re-test (cut-gate-coldopen-148b, 2026-07-08). The privacy screen's containment PASSED perfectly — but the committed transcript never appeared because promotePendingTranscripts kept deferring. Instrumented the real return: reason = "HaikuViaAnthropicApi: claude --print did not return within 20000ms". Same slow-Haiku window that made the extraction child take 63s and compress-session take 26s this session (the D-174/D-179 environmental-slowness class). Proven it's PURELY the budget, not a broken judge: same promote with timeoutMs:90000 succeeded — promoted all 4 turns, committed transcript landed SCREENED («USER» present, raw username count 0). So: (a) fail-closed works (deferred → everything stayed in the gitignored live buffer → nothing unscreened committed — the D-294 invariant held under a real judge timeout); BUT (b) the happy path is starved — on a slow-Haiku day the promote defers indefinitely, the committed transcript lags, and a user sees an empty committed transcript + assumes capture is broken (a bad-observability + eventual-data-completeness issue, though never a leak). This is the D-179 class exactly: PII_JUDGE_TIMEOUT_MS=20s was sized for the per-turn detached child's 25s internal budget + the 60s SessionEnd ceiling — but like the compress callers before D-179, a CEILING-FREE-ish site (the detached child, and the SessionEnd top-up which has 50s of headroom) shouldn't use a hook-tight timeout when the real claude --print takes 18-78s in a slow window.
+
+<!-- decision:P-GMG9W7AZ -->
+
+## Resume: fix-l3-promote-timeout WIP at 4e33935, then v0.5.0 tag
+
+**When:** 2026-07-08 · **Fact:** `P-GMG9W7AZ`
+**Why:** This is the LAST fix before the v0.5.0 tag. The v0.5.0 cut-gate cold-open (cut-gate-coldopen-148b) fully PASSED — E1 wedge exemplary, D-300 scope-note fix confirmed live, E2 privacy screen proven both halves (L1 mask + L3 promote end-to-end, committed transcript «USER»-masked with raw username count 0). The ONE finding was P-AAHW235S: the L3 judge's 20s timeout was too tight for the slow-Haiku window so the promote deferred every run (fail-closed = safe, never leaks, but the committed transcript never landed). The user chose fix-before-tag (same class + size as the D-300 showcase fix). The fix is the D-179 site-aware-timeout pattern.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`

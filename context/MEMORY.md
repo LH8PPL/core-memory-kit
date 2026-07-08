@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-SMMGGXQW) v0.5.0 release tag is ON HOLD until cut-gate guide passes; corrects earlier statement that tag was ready
-  <!-- source: review-promote, source_line: 1, sha1: ec453b246aa762fe6cc207dbd12aef1a8143fe4130c01a339bce80f656bc75b3, write: user-explicit, trust: high, at: 2026-07-07T12:58:02Z -->
 - (P-BBDSKGZY) Trusts assistant to make design decisions; will accept recommendation on pipeline architecture approach.
   <!-- source: auto-extract-session, source_line: 1, sha1: ee2a582f513519b7966d40934d82ee5f5ce32a62174bbb85476193581304d4c2, write: auto-extract, trust: high, at: 2026-07-07T19:46:25Z -->
 - (P-V9VD962L) User checks project memory/conventions before starting new work (ran memory-search before scaffolding backend)
@@ -22,6 +20,8 @@
   <!-- source: review-promote, source_line: 1, sha1: b97ea108b8e6544a6a7da6b4ff152752fa2e6bbd7a877b536f99eefab5e4827f, write: user-explicit, trust: high, at: 2026-07-08T12:33:54Z -->
 - (P-C7VAZT7K) Task 148 shipped; privacy screen feature now in codebase
   <!-- source: review-promote, source_line: 1, sha1: aefdb66128b6d51fea1808b231f2381d63b2eaa419e5b1efd31afe3cdd0bf7f7, write: user-explicit, trust: high, at: 2026-07-08T12:33:54Z -->
+- (P-NNM9F73K) User prefers to file tasks/issues IMMEDIATELY when identified, because deferral leads to forgetting — don't use defer gates without filing first.
+  <!-- source: auto-extract-session, source_line: 1, sha1: c8fe8025a51f305d68b29be4e8883c7a92c24ce4f6f2e0bcbd87b3450fa1e3b2, write: auto-extract, trust: high, at: 2026-07-08T13:20:08Z -->
 
 ## Environment Notes
 
