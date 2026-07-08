@@ -1037,16 +1037,39 @@ The headline gate. Each rung exercises a different layer of the new recall stack
 ## 6. Session 3 — the cold-open (the wedge, wow #1)  ⬅️ a BRAND-NEW project
 
 ```powershell
-mkdir C:\Temp\cut-gate-coldopen22; cd C:\Temp\cut-gate-coldopen22
-git init; cmk install --with-semantic; code .
+# A genuinely FRESH folder each run (never reuse one that already ran cmk install).
+mkdir C:\Temp\cut-gate-coldopen-148; cd C:\Temp\cut-gate-coldopen-148
+git init
+# Set a REALISTIC-BUT-FICTIONAL git identity so a `uv init` echo tests the
+# privacy SCREEN, not a real leak (and NOT example.com — that's allowlisted):
+git config user.name "Alex Personname"; git config user.email "alex.personname@gmail.com"
+cmk install --with-semantic; code .
 ```
 Ask: *"Start a new Python backend for me - set up the structure."*
 
-- [ ] **★ E1 — cold-open.**
+- [ ] **★ E1 — cold-open (the wedge).**
       It scaffolds the **layered** shape + `uv`/`ruff` tooling **without being told** —
       because the Session-1 persona injected.
       *"How does it know that?"* = the wedge.
       **This is the gate that matters most.**
+
+- [ ] **★ E2 — the privacy screen (Task 148, the leak this incident CREATED).**
+      During the session, do something that echoes the git-config identity into
+      tool output — e.g. `uv init` (it reads `Alex Personname / alex.personname@gmail.com`).
+      Let one more turn pass (the L3 judge runs in the detached child — the
+      committed transcript lags by seconds), then check:
+      ```powershell
+      # PASS = the committed transcript shows «EMAIL»/«NAME», NOT the real identity:
+      Select-String -Path C:\Temp\cut-gate-coldopen-148\context\transcripts\*.md `
+        -Pattern "alex.personname|Alex Personname|«EMAIL»|«NAME»"
+      # …and the originals survive ONLY in the gitignored recovery log:
+      Get-Content C:\Temp\cut-gate-coldopen-148\context\.locks\redactions.log
+      ```
+      **PASS:** the committed `{date}.md` carries `«EMAIL»` (L1 masked it at capture)
+      and `«NAME»` (L3 judge caught the bare name at promote); the real
+      `alex.personname@gmail.com` / `Alex Personname` appear **only** in the
+      gitignored `redactions.log`. The `*.live.md` buffer (unscreened) is gitignored.
+      _This is the exact leak that blocked the v0.5.0 tag (D-294); E2 confirms it's closed._
 
 ---
 
