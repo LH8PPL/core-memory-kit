@@ -22,7 +22,10 @@
 // details patterns cannot see) lives in transcript-screen.mjs; the two layers
 // compose per design §6.10.
 
+import { homedir, userInfo } from 'node:os';
+import { basename, join } from 'node:path';
 import { sanitizeHomePaths } from './sanitize.mjs';
+import { parseJsonFile } from './read-json.mjs';
 
 // Stable placeholders — «»-delimited so they read as redactions, survive
 // markdown, and never collide with real content (memclaw's token style).
@@ -146,6 +149,43 @@ function run(text, { usernames = [], mutate }) {
   }
 
   return { text: mutate ? work + tail : text, findings, redactions };
+}
+
+/**
+ * The local usernames the USERNAME category masks — derived from the OS, not
+ * guessed: the login name + the home-dir basename (they differ on some
+ * setups). Best-effort: an exotic environment without either just yields [].
+ * Call sites pass the result into maskPii; tests inject their own list.
+ */
+export function localUsernames() {
+  const names = new Set();
+  try {
+    const u = userInfo().username;
+    if (u) names.add(u);
+  } catch {
+    /* no user info — fine */
+  }
+  try {
+    const b = basename(homedir());
+    if (b) names.add(b);
+  } catch {
+    /* no homedir — fine */
+  }
+  return [...names];
+}
+
+/**
+ * The privacy-screen kill-switch (design §6.10): context/settings.json →
+ * privacy.screen, default 'on'. BOM-tolerant via parseJsonFile (the D-187
+ * class). 'off' reverts every 148 surface to pre-148 behavior.
+ */
+export function resolvePrivacyScreen({ projectRoot }) {
+  // No projectRoot (e.g. a pure user-tier write) → screen ON (safe default:
+  // the U tier is shared/portable, exactly where masking matters).
+  if (typeof projectRoot !== 'string' || projectRoot === '') return 'on';
+  const p = join(projectRoot, 'context', 'settings.json');
+  const v = parseJsonFile(p, { fallback: null })?.privacy?.screen;
+  return v === 'off' ? 'off' : 'on';
 }
 
 /** Read-only scan: findings without mutation (category + offsets only). */
