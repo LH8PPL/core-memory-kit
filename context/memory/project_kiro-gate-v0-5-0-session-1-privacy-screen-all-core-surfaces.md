@@ -1,0 +1,20 @@
+---
+id: P-EA59K24G
+type: project
+shape: Event
+title: 'Kiro gate v0.5.0 Session 1: privacy screen + all core surfaces PASS; 3 paths need a targeted follow-up turn'
+created_at: 2026-07-08T19:45:04Z
+write_source: user-explicit
+trust: high
+recurrence_count: 1
+source_file: user-explicit
+source_line: 1
+source_sha1: f90c1e21aad5014ca3b376d03db066e0ad0b3e32db584135e1f1b03aae1d72ec
+related: [d-292-resolved-all-three-agent-gates-block-the-v0-5-0-tag-co, learn-loop-artifact-paths-for-cut-gate-checks-recall-expecta]
+---
+
+KIRO gate v0.5.0 — live Session 1 results: capture/inject/observe-edit hooks fire, steering injects, MCP tools run prompt-free (autoApprove), memory-write skill saves 4 rich facts, the ADR-0018 commit-proposal fires, AND the privacy screen WORKS end-to-end on Kiro (redaction layers L1:1 + L3:10 → committed transcript screened, 11 turns promoted, raw username count 0). UNVERIFIED this session (session shape didn't exercise them): E3 search-recall (no mk_search fired), E3 judge trust-signals (no failure/correction — the honest within-session asymmetry), E2 name-mask (no uv init echoed the git identity).
+
+**Why:** The v0.5.0 all-three-agent gate (D-292). Kiro Session 1 (FastAPI chat build, 4 turns) proved the CRITICAL things: (1) the CLI-deterministic half all passed (KG1 install 8 surfaces, KG1b doctor Kiro-aware 0-fail HC-1 reads "Kiro capture/inject wired via IDE hooks + CLI agent", HC-11 "runs through kiro-cli", KG2 MCP+autoApprove, KG3 steering, KG8 hybrid, KG10 AGENTS.md, KG11 trust, + the v0.5.0 privacy scaffold *.live.md/private.md/.locks gitignored); (2) LIVE: every turn fired Run Command Hook recall/capture/observe-edit (the ★★ real-input rule — hooks registered AND firing on Kiro's plumbing); steering "Included: AGENTS.md, cmk.md"; mk_remember ran inline with NO Reject/Trust/Run prompt (autoApprove works); memory-write skill loaded + wrote 4 rich facts (P-6BFKA5QW/P-EGS5VGRS/P-LC2FHMaE + philosophy); the ADR-0018 "N uncommitted files — commit?" proposal fired; (3) THE PRIVACY SCREEN WORKS ON KIRO — redactions.log shows L1:1 (email masked at capture) + L3:10 (the judge screened 10 entries and promoted them to the committed 2026-07-08.md, 11 turn headings, raw username 0) — the exact new-and-risky v0.5.0 capture-path feature fires correctly through Kiro's capture hook. What this session did NOT exercise (session shape, not bugs): E3 search-recall (recall.log has 9 source:inject but 0 source:search — the session used mk_remember + web_search, never mk_search); E3 judge trust-signals.log (ABSENT — no failing tool call, no user correction; the honest within-session failure-only asymmetry means a clean forward-progress session has nothing for the judge to dampen); E2 name-mask specifically (the fictional Alex Personname git identity IS set but uv init was never run, so the name never echoed into tool output — the email path WAS exercised).
+
+**How to apply:** Kiro is essentially PASSING — the privacy screen (the v0.5.0 blocker-class feature) works, and every core surface fires live. To CLOSE the 3 unexercised paths, one targeted follow-up turn in the SAME Kiro session: (a) ask a question that makes Kiro run mk_search/cmk search (e.g. "what did we decide about the architecture?" or "search your memory for the venv rule") → check recall.log gets a source:search line; (b) run `uv init` (or any command that echoes the git config Alex Personname/«EMAIL») then one more turn → check the committed transcript shows «NAME»/«EMAIL» (the L3 name path); (c) make a tool call fail OR correct a recalled fact → check trust-signals.log gets a sane-delta line (the judge). If (c) can't be naturally triggered, record E3-judge as "cross-session by design, verified by the Claude gate + unit tests" rather than blocking — the judge is agent-neutral (same Stop-hook core), so Kiro firing capture (proven) means the judge WOULD fire on a real outcome. Do NOT block the tag on E3-judge if only its trigger is missing — the mechanism is core-shared and Claude-gate-verified. Relates D-292 (the 3-gate resolution), the Kiro guide E1/E2/E3, P-43KTPTa2 (the artifact paths), the honest-asymmetry note.
