@@ -59,6 +59,15 @@ const MIN_OUTPUT_RATIO = 0.4;
 // budget (25s per call, design §8.5) — registered as a composition pair.
 export const PII_JUDGE_TIMEOUT_MS = 20_000;
 
+// §8.5 composition bound for the SessionEnd site: promote runs inside the 60s
+// SessionEnd hook ceiling (concurrent with compress/persona/sweep, each bounded
+// ≤50s). One judge call per live FILE means N stale files × 20s composes past
+// the ceiling at N ≥ 3 — so one run judges at most this many files (worst case
+// 2 × 20s = 40s, inside the 50s-under-60s convention). Files drain oldest-first;
+// the backlog clears across the per-turn detached children (no ceiling there,
+// but one bound keeps the two call sites' behavior identical and testable).
+export const PROMOTE_MAX_FILES_PER_RUN = 2;
+
 export function liveTranscriptPath(projectRoot, date) {
   return join(projectRoot, 'context', 'transcripts', `${date}.live.md`);
 }
@@ -113,7 +122,11 @@ export async function promotePendingTranscripts({
 
   let liveFiles;
   try {
-    liveFiles = readdirSync(dir).filter((f) => f.endsWith('.live.md'));
+    // Oldest first ({date}.live.md names sort chronologically) so a backlog
+    // drains in order under the per-run cap below.
+    liveFiles = readdirSync(dir)
+      .filter((f) => f.endsWith('.live.md'))
+      .sort();
   } catch {
     return { action: 'noop' };
   }
@@ -123,8 +136,12 @@ export async function promotePendingTranscripts({
   let promoted = 0;
   let deferred = 0;
   let lastDeferReason;
+  let judgeCalls = 0;
 
   for (const file of liveFiles) {
+    // §8.5 SessionEnd-ceiling composition: cap the judge calls per run; the
+    // remainder waits for the next promote (next turn / next SessionEnd).
+    if (judgeCalls >= PROMOTE_MAX_FILES_PER_RUN) break;
     const date = file.slice(0, -'.live.md'.length);
     const livePath = join(dir, file);
     let content;
@@ -143,6 +160,7 @@ export async function promotePendingTranscripts({
 
     // ONE batched judge call for everything pending in this file.
     let outputText;
+    judgeCalls += 1;
     try {
       const res = await backend.compress({
         input: pending,

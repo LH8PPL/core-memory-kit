@@ -34,6 +34,7 @@ import {
   committedTranscriptPath,
   promotePendingTranscripts,
   PII_JUDGE_INSTRUCTIONS,
+  PROMOTE_MAX_FILES_PER_RUN,
 } from '../packages/cli/src/transcript-screen.mjs';
 import { MockHaikuBackend } from '../packages/cli/src/compressor.mjs';
 import { redactionsLogPath } from '../packages/cli/src/redactions-log.mjs';
@@ -85,6 +86,40 @@ describe('Task 148.3/148.4 — transcript screen (Doors 1+2+5 + 3.5)', () => {
     expect(res2.action).toBe('noop');
     // and the committed file was not double-appended
     expect(committed.match(/10:00:00Z/g)).toHaveLength(1);
+  });
+
+  it('bounds one run to PROMOTE_MAX_FILES_PER_RUN judge calls, oldest first; the backlog drains next run (§8.5 SessionEnd-ceiling composition)', async () => {
+    // 3 stale live files × 20s judge timeout each would compose past the 60s
+    // SessionEnd hook ceiling. One run judges at most PROMOTE_MAX_FILES_PER_RUN
+    // files (worst case 2×20s=40s, inside the 50s-under-60s convention).
+    const dates = ['2026-07-05', '2026-07-06', '2026-07-07'];
+    mkdirSync(join(projectRoot, 'context', 'transcripts'), { recursive: true });
+    for (const d of dates) {
+      writeFileSync(
+        liveTranscriptPath(projectRoot, d),
+        `## ${d}T09:00:00Z — user\n\nhello from ${d}\n\n`,
+        'utf8',
+      );
+    }
+    let calls = 0;
+    const backend = {
+      compress: async ({ input }) => {
+        calls += 1;
+        return { outputText: input, inputTokens: 1, outputTokens: 1 };
+      },
+    };
+
+    const res = await promotePendingTranscripts({ projectRoot, backend });
+    expect(calls).toBe(PROMOTE_MAX_FILES_PER_RUN);
+    expect(res.promoted).toBe(PROMOTE_MAX_FILES_PER_RUN);
+    // Oldest files drain first; the newest waits its turn.
+    expect(existsSync(committedTranscriptPath(projectRoot, '2026-07-05'))).toBe(true);
+    expect(existsSync(committedTranscriptPath(projectRoot, '2026-07-06'))).toBe(true);
+    expect(existsSync(committedTranscriptPath(projectRoot, '2026-07-07'))).toBe(false);
+
+    // The next invocation (next turn / next SessionEnd) picks up the remainder.
+    await promotePendingTranscripts({ projectRoot, backend });
+    expect(existsSync(committedTranscriptPath(projectRoot, '2026-07-07'))).toBe(true);
   });
 
   it('@door-3.5 prompt-assertion: the judge receives the PII-purifier instructions AND the pending entries verbatim', async () => {

@@ -83,7 +83,16 @@ export const BUDGET_REGISTRY = [
     overCapPattern: 'EMBED_BATCH_CHARS',
   },
   {
-    name: 'snapshot Σ-caps + authority-preamble reserve (≤13,000 B)',
+    name: 'transcript-promote judge budget (PII_JUDGE_TIMEOUT_MS=20s per file × PROMOTE_MAX_FILES_PER_RUN=2 files — 40s worst case inside the 50s-under-60s SessionEnd ceiling)',
+    sourceRef: 'design §6.10 / §8.5 (Task 148.8, ADR-0019)',
+    testFile: 'tests/cli-transcript-screen.test.js',
+    // at-cap: the per-run file bound holds (2 judged, 3rd waits); over-cap:
+    // the timeout handed to the backend stays inside the child budget (≤25s).
+    atCapPattern: 'PROMOTE_MAX_FILES_PER_RUN',
+    overCapPattern: 'timeoutMs).toBeLessThanOrEqual(25_000',
+  },
+  {
+    name: 'snapshot Σ-caps + authority-preamble reserve (≤14,500 B since 148.5; was 13,000)',
     sourceRef: 'design §7.1.2',
     suppressed:
       'enforced structurally on every npm test by validate-template assertion 3 (Σ caps + preamble reserve ≤ cap, gate-bite verified) — a runtime test pair would duplicate the validator',
@@ -98,7 +107,7 @@ export const BUDGET_REGISTRY = [
     name: 'volatile reserved lines (temporal mention 66.4 + commit proposal 150) vs the snapshot cap',
     sourceRef: 'design §7.1.3',
     suppressed:
-      'both lines are RESERVED out of the caller cap (snapshot ≤ capBytes pinned by the tightened cap-composition tests incl. the three-reserve joint test in cli-inject-context.test.js); the template-sizing edge (Σ legal caps + reserves > 13,000 → graceful section-drop with a truncation.log event) is the DOCUMENTED accepted trade-off in §7.1.3 with a named re-open trigger',
+      'both lines are RESERVED out of the caller cap (snapshot ≤ capBytes pinned by the tightened cap-composition tests incl. the three-reserve joint test in cli-inject-context.test.js); the template-sizing edge (Σ legal caps + reserves > the snapshot cap → graceful section-drop with a truncation.log event) is the DOCUMENTED accepted trade-off in §7.1.3 with a named re-open trigger',
   },
 ];
 

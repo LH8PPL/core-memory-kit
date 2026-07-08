@@ -326,7 +326,31 @@ Cross-refs: [[Trust]]. Spec: design §4.
 
 The pre-write regex filter inside the [[Memory-write skill]] that rejects writes containing secrets (API keys, tokens, PEM headers) or prompt-injection phrases ("ignore previous instructions"). Rejected writes are logged with a redacted excerpt to `.locks/poison-guard.log`.
 
-Cross-refs: [[Memory-write skill]]. Spec: design §6.7.
+Cross-refs: [[Memory-write skill]], [[Privacy screen]]. Spec: design §6.7.
+
+### Privacy screen
+
+The two-layer PII/sensitivity screen that keeps personal content out of committed memory (distinct from [[Poison_Guard]], which catches *secrets*). **L1** is a deterministic pattern pass ([`pii-patterns.mjs`](../packages/cli/src/pii-patterns.mjs)) that masks emails / phone numbers / the OS username with stable placeholders (`«EMAIL»`, `«PHONE»`, `«USER»`) at every commit-eligible write, before hash/dedup/disk. **L3** is an async Haiku judge (adapted from Anthropic's PII-purifier prompt) that catches names, addresses, and health details in prose. Toggle with `privacy.screen: on|off` in settings; every redaction is recorded to the gitignored [[redactions.log]] for recovery.
+
+Cross-refs: [[Poison_Guard]], [[Transcript live buffer]], [[Sensitivity axis]], [[redactions.log]], [[`<private>` tag]]. Spec: ADR-0019, design §6.10.
+
+### Transcript live buffer
+
+A gitignored `context/transcripts/{date}.live.md` file that hooks append each (L1-masked) turn to. Entries are promoted to the committed `context/transcripts/{date}.md` only *after* the L3 [[Privacy screen]] judge screens them — with a crash-safe byte-offset watermark (`marker-after`), a reject-gate (refusal/empty/shrunk output defers), and fail-closed behavior (judge unavailable → turns stay in the buffer, retried next turn / at SessionEnd). Never indexed for search.
+
+Cross-refs: [[Privacy screen]], [[Stop hook]], [[Auto-extract subagent]]. Spec: ADR-0019, design §6.10.
+
+### Sensitivity axis
+
+The per-candidate privacy routing the [[Auto-extract subagent]] classifier emits: `commit` (default → the normal tier), `local-only` (useful but sensitive → gitignored `context.local/private.md`, never a committed surface — including the [[Review queue]]), or `drop` (not saved; logged as `sensitivity_drop` without the text). An unrecognized value routes `local-only`, never `commit`.
+
+Cross-refs: [[Privacy screen]], [[Tier]], [[Auto-extract subagent]], [[`<private>` tag]]. Spec: ADR-0019, design §6.10.
+
+### redactions.log
+
+A gitignored, machine-local NDJSON log at `context/.locks/redactions.log` recording every L1/L3 redaction (`original → placeholder`) — the ONE place the original text survives, so a [[Privacy screen]] false positive is locally recoverable. Surfaced in `cmk doctor` memory-health.
+
+Cross-refs: [[Privacy screen]]. Spec: design §6.10.
 
 ### Review queue
 
