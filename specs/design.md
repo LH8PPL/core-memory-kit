@@ -1002,6 +1002,17 @@ logged as `skipped_reason: sensitivity_drop` in extract.log (Door 5). The explic
 (`cmk remember` / `mk_remember`) gets **L1 only** — deliberate user-authored text; `<private>`
 (§6.6) remains the surgical override.
 
+**Boundary 3 — the sessions middle tier (`now.md` → `today-{date}.md`).** The committed
+`today-{date}.md` is a Haiku *summary* of `now.md`, so the L3 transcript judge never sees it.
+Three guards keep it screened: (1) `now.md` receives the already-L1-masked turn text (its
+content is conversational prose only — tool output, the incident's vector, goes to the L3-screened
+transcript, never `now.md`); (2) the `compress-session` prompt carries a **privacy instruction**
+— keep personal names / addresses / health details / other personal identifiers out of the
+summary, replacing a name with `«NAME»` (the name defense L1 patterns cannot provide, using the
+Haiku call that already runs — no extra call, no ceiling cost); (3) the compressed OUTPUT is
+**L1-masked** before it lands in the committed `today-{date}.md`, catching any structured PII
+(email/phone/username) the summary echoed. The `privacy.screen: off` kill-switch reverts all three.
+
 **Recovery — `context/.locks/redactions.log`** (NDJSON, gitignored, machine-local): every
 L1/L3 redaction records `{ts, source_file, category|judge, placeholder, original}` — the ONE
 place the original text survives, never committed, so a false positive is locally recoverable

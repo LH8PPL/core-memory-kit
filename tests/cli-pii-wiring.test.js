@@ -131,6 +131,22 @@ describe('Task 148.2 — L1 on the explicit write path (Doors 1+2+5)', () => {
     expect(readFileSync(redactionsLogPath(projectRoot), 'utf8')).toContain('someuser@gmail.com');
   });
 
+  it('captureTurn (screen on): the now.md session buffer is L1-MASKED too (Task 148 review M1 — the §6.10 commit-eligible now.md write site)', () => {
+    // now.md → today-{date}.md is a COMMITTED path for normal users; design
+    // §6.10 line 946 names now.md appends as a commit-eligible write. This pins
+    // that the buffered conversation carries placeholders, not the PII — a
+    // future refactor that re-derives the now.md text from the raw turn would
+    // fail here instead of silently re-leaking.
+    captureTurn({
+      payload: { assistant_message: 'ping someuser@gmail.com when done' },
+      projectRoot,
+      now: '2026-07-07T20:03:00Z',
+    });
+    const nowMd = readFileSync(join(projectRoot, 'context', 'sessions', 'now.md'), 'utf8');
+    expect(nowMd).toContain(PII_PLACEHOLDERS.EMAIL);
+    expect(nowMd).not.toContain('someuser@gmail.com');
+  });
+
   it('capturePrompt (screen on): the user prompt lands L1-MASKED in the live buffer', () => {
     const r = capturePrompt({
       payload: { prompt: 'my number is (555) 123-4567, call me' },

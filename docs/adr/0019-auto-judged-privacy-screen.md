@@ -92,9 +92,16 @@ replacing) §6.6/§6.7:
   last-resort recall rung, and the live buffer keeps the CURRENT session fully local anyway.
 - A second Haiku call per turn rides the detached child (cheap; bounded by the child's
   existing internal timeout; composition pair registered in the validators).
-- `now.md` gets L1 masking; its text-only content (no tool output — the incident's vector)
-  plus the compress-prompt privacy line bounds the residual; the full L3 treatment of the
-  sessions middle tier is a named follow-up trigger, not silent scope creep.
+- The committed **sessions middle tier** (`now.md` → `today-{date}.md`) is covered as of the
+  Task-148 build (review I1): `now.md` gets L1 masking; its text is conversational prose only
+  (tool output — the incident's vector — goes to the transcript, which is L3-screened, not to
+  `now.md`); and the compress-session prompt carries a **privacy instruction** (keep personal
+  names/PII out of the summary — the name defense patterns can't provide), with the compressed
+  OUTPUT L1-masked before it lands in the committed `today-{date}.md`. _(Correction: an earlier
+  draft of this line asserted the compress-prompt privacy line "bounds the residual" as if it
+  already existed — it did not; the code-review-excellence pass caught the gap and it was closed
+  in the same PR. The residual name-in-a-Haiku-summary risk is now bounded by the compressor
+  instruction rather than a second L3 judge call — no extra Haiku call, no ceiling impact.)_
 - The scaffold gains gitignore lines for the live buffer + `context.local/private.md` is
   born gitignored by the existing `context.local/` rule.
 - Users can disable via `settings.json` `privacy.screen: off` (the kill-switch convention,

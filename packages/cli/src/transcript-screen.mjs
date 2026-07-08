@@ -97,6 +97,14 @@ function outputPassesRejectGate(input, output) {
   const out = (output ?? '').trim();
   if (out === '') return false;
   if (REFUSAL_RE.test(out)) return false;
+  // Length floor: a big shrink means the model summarized or bailed. Trade-off
+  // (M3): a SHORT entry that is mostly one redacted item (e.g. a bare home
+  // address) can legitimately fall below the floor → it defers every run and
+  // never promotes. This is FAIL-SAFE — the content stays in the gitignored
+  // live buffer, never leaks — but that turn is absent from the committed
+  // transcript. Accepted for now: real conversation turns carry framing text
+  // around any PII, so the ratio holds; a bare-PII one-liner is rare and the
+  // safe direction to fail. Revisit with a length-aware floor if it recurs.
   if (out.length < input.trim().length * MIN_OUTPUT_RATIO) return false;
   return true;
 }
@@ -201,8 +209,11 @@ export async function promotePendingTranscripts({
       if (!alreadyAppended) {
         appendFileSync(committedPath, screened + '\n', 'utf8');
       }
-      // The recovery record — only when the judge actually changed something.
-      if (screened.trim() !== pending.trim()) {
+      // The recovery record — only when the judge actually changed something AND
+      // this is a fresh append (M2: a crash-replay re-promote already logged the
+      // original on its first pass; skip when alreadyAppended so a crash can't
+      // duplicate the recovery entry).
+      if (!alreadyAppended && screened.trim() !== pending.trim()) {
         appendRedactions(projectRoot, {
           source: `transcript-promote:${date}`,
           layer: 'L3',

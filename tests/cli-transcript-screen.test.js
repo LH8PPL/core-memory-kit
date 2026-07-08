@@ -219,6 +219,30 @@ describe('Task 148.3/148.4 — transcript screen (Doors 1+2+5 + 3.5)', () => {
     expect(readFileSync(redactionsLogPath(projectRoot), 'utf8')).toContain('Alex Personname');
   });
 
+  it('crash-replay (committed already carries the batch) advances the watermark WITHOUT a duplicate redactions.log entry (review M2)', async () => {
+    const entry = `## ${DATE}T15:00:00Z — assistant\n\nA Person shipped it.\n\n`;
+    seedLive(entry);
+    const screened = `## ${DATE}T15:00:00Z — assistant\n\n«NAME» shipped it.\n`;
+
+    // First promote: appends + logs the original once.
+    await promotePendingTranscripts({ projectRoot, backend: mockScreen(screened) });
+    const afterFirst = readFileSync(redactionsLogPath(projectRoot), 'utf8');
+    expect(afterFirst.match(/A Person/g)).toHaveLength(1);
+
+    // Simulate a crash BETWEEN append and watermark: rewind the watermark so the
+    // same entry re-promotes, but the committed file already carries it.
+    const statePath = join(projectRoot, 'context', '.locks', 'transcript-promote.state');
+    writeFileSync(statePath, JSON.stringify({ [DATE]: 0 }), 'utf8');
+
+    const res = await promotePendingTranscripts({ projectRoot, backend: mockScreen(screened) });
+    expect(res.action).toBe('promoted'); // watermark advances (idempotent append)
+    // committed file NOT double-appended…
+    const committed = readFileSync(committedTranscriptPath(projectRoot, DATE), 'utf8');
+    expect(committed.match(/15:00:00Z/g)).toHaveLength(1);
+    // …and the recovery log NOT duplicated (M2).
+    expect(readFileSync(redactionsLogPath(projectRoot), 'utf8').match(/A Person/g)).toHaveLength(1);
+  });
+
   it('a missing/empty live buffer is a clean noop (fresh session)', async () => {
     const res = await promotePendingTranscripts({ projectRoot, backend: mockScreen('unused') });
     expect(res.action).toBe('noop');
