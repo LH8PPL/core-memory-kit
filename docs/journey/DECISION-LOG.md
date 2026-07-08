@@ -10,6 +10,17 @@
 
 ---
 
+## 2026-07-08 — D-297: SonarCloud caught 2 BUGs + 3 ReDoS regexes in Task 148's OWN PII-defense code (PR #264 quality gate)
+
+- **FINDING (PR #264 SonarCloud quality gate: Security C + Reliability D on new code — a THIRD reviewer after self + code-review-excellence).** Two real BUGs and three super-linear regexes, several ON THE PRIVACY-SCAN PATH itself (the code that defends against obfuscated PII had its own regex hazards):
+  - **BUG — `INVISIBLE_RE` in pii-patterns.mjs was a literal-invisible character class** (`/[​‌‍…]/`) built from literal zero-width/bidi glyphs typed into the source. Sonar flagged a "Unicode joined character sequence inside a character class" (a real correctness gap — a joined grapheme can't match as a unit in a char class) + 3 bidirectional-character warnings (a bidi char hiding IN the anti-bidi defense — ironic and unreviewable). **Fix:** rebuilt `INVISIBLE_CHARS` + `INVISIBLE_RE` from ONE list of hex codepoints (`0x200b…`, `String.fromCodePoint`), so the source has zero literal invisibles, the two structures can't drift, and it's an alternation of individually-listed codepoints (no ranges that could silently widen). The zero-width-split-email obfuscation test still passes.
+  - **BUG — `liveFiles.sort()`** (transcript-screen) used the default comparator → `localeCompare`.
+  - **ReDoS ×3 — super-linear backtracking on untrusted text:** `outputText.replace(/\s+$/, '')` on judge output → `.trimEnd()`; `fact.body.replace(/\s*\n+\s*/g, …)` (overlapping quantifiers around `\n`) → `/\s+/g`; the `SENSITIVITY_TAIL_RE`'s `\s*…\s*$` → explicit `[ \t]*…[ \t]*$`. Catastrophic backtracking on a hook-adjacent scan path is a real DoS surface (design §6.10 names the "no catastrophic backtracking" discipline — these slipped it).
+- **WHY IT MATTERS / the reviewer-diversity lesson.** Self-review + the skill pass both anchored on BEHAVIOR (containment, routing, composition) and neither flagged the regex/unicode hazards — a STATIC ANALYZER anchors on the code shape and caught a class the semantic reviews structurally miss. Same "different anchor catches different bugs" pattern as self-vs-skill, one level further out. The Security-C driver was literally the invisible chars in the anti-invisible-char defense.
+- **NON-GATING smells LEFT (deliberate, not lazy-framed):** cognitive-complexity on `promotePendingTranscripts` + `summarizeSessionEnd` and a few `String.raw`/`RegExp.exec` MINORs affect the MAINTAINABILITY rating, which does NOT gate the PR (the gate requires Security-A + Reliability-A on new code — both restored by the BUG/vuln fixes). Refactoring working, tested code for a non-gating rating is churn; skipped with this reason stated (per "fix everything now" applies to REAL findings, not style the gate doesn't require). _Relates D-294/D-295/D-296 (Task 148), the design §6.10 backtracking discipline, PR #264._
+
+---
+
 ## 2026-07-08 — D-296: Task 148 review catch — the sessions middle tier was L1-only, and the ADR asserted a mitigation that was never built (the lazy-framing class, in a consequences line)
 
 - **FINDING (code-review-excellence pass, review I1).** The committed **sessions tier** (`now.md` → `today-{date}.md`) got L1 masking (email/phone/username) but NO name/PII screening — a real name in conversational prose flowed into the committed `today-{date}.md` Haiku summary unscreened. This is the SAME leak class the feature exists to kill (D-294's cold-open incident), on a sibling path the L3 transcript judge never touches.

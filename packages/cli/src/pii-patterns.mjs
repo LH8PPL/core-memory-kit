@@ -41,17 +41,26 @@ export const PII_PLACEHOLDERS = Object.freeze({
 export const MAX_SCAN_CHARS = 65_536;
 
 // Invisible / bidi-control codepoints (hermes' set): zero-widths, word joiner,
-// invisible math operators, BOM, and the full bidi-control range. Checked via
-// set intersection on the RAW string; stripped before any pattern runs.
-const INVISIBLE_CHARS = new Set([
-  '​', '‌', '‍', // zero-width space / non-joiner / joiner
-  '⁠', // word joiner
-  '⁢', '⁣', '⁤', // invisible times / separator / plus
-  '﻿', // BOM
-  '‪', '‫', '‬', '‭', '‮', // LRE RLE PDF LRO RLO
-  '⁦', '⁧', '⁨', '⁩', // LRI RLI FSI PDI
-]);
-const INVISIBLE_RE = /[​‌‍⁠⁢-⁤﻿‪-‮⁦-⁩]/g;
+// invisible math operators, BOM, and the full bidi-control range. Written as
+// \u-escapes (NOT literal invisible glyphs) so the source is reviewable — a
+// bidi/joined-sequence char can't hide IN the very defense against them (the
+// SonarCloud bidi/joined-class finding), and a reviewer can read exactly which
+// codepoints we strip. The Set and the RE are DERIVED from ONE list so they
+// can never drift.
+const INVISIBLE_CODEPOINT_HEX = [
+  0x200b, 0x200c, 0x200d, // zero-width space / non-joiner / joiner
+  0x2060, // word joiner
+  0x2062, 0x2063, 0x2064, // invisible times / separator / plus
+  0xfeff, // BOM / zero-width no-break space
+  0x202a, 0x202b, 0x202c, 0x202d, 0x202e, // LRE RLE PDF LRO RLO
+  0x2066, 0x2067, 0x2068, 0x2069, // LRI RLI FSI PDI
+];
+const INVISIBLE_CHARS = new Set(INVISIBLE_CODEPOINT_HEX.map((cp) => String.fromCodePoint(cp)));
+// One alternation of individually-listed codepoints — no character-class
+// ranges (a range could silently include an unintended codepoint) and no
+// literal invisibles in the source. Checked via set intersection on the RAW
+// string; stripped before any pattern runs.
+const INVISIBLE_RE = new RegExp([...INVISIBLE_CHARS].join('|'), 'g');
 
 // EMAIL — the standard conservative form. The allowlist skips bot/example
 // addresses that are content, not PII: masking `noreply@anthropic.com` in a
@@ -116,8 +125,10 @@ function run(text, { usernames = [], mutate }) {
 
   const applyPattern = (re, category, placeholder, allow) => {
     work = work.replace(re, (match, ...rest) => {
-      const offset = rest[rest.length - 2];
-      if (allow && allow(match)) return match;
+      // String.replace passes (…groups, offset, string); with no capture
+      // groups here, offset is the second-from-last arg.
+      const offset = rest.at(-2);
+      if (allow?.(match)) return match;
       findings.push({ category, start: offset, end: offset + placeholder.length });
       redactions.push({ category, placeholder, original: match });
       return mutate ? placeholder : match;

@@ -131,10 +131,13 @@ export async function promotePendingTranscripts({
   let liveFiles;
   try {
     // Oldest first ({date}.live.md names sort chronologically) so a backlog
-    // drains in order under the per-run cap below.
+    // drains in order under the per-run cap below. Explicit localeCompare (not
+    // bare .sort()) — the default coerces via toString with no stable locale
+    // contract; ISO date names compare the same either way, but the explicit
+    // comparator is the reliable form.
     liveFiles = readdirSync(dir)
       .filter((f) => f.endsWith('.live.md'))
-      .sort();
+      .sort((a, b) => a.localeCompare(b));
   } catch {
     return { action: 'noop' };
   }
@@ -189,7 +192,9 @@ export async function promotePendingTranscripts({
       continue;
     }
 
-    let screened = outputText.replace(/\s+$/, '') + '\n';
+    // trimEnd() (not /\s+$/): linear, no regex-backtracking surface on judge
+    // output (untrusted LLM text) — same "drop trailing whitespace" result.
+    let screened = outputText.trimEnd() + '\n';
 
     // Idempotency guard (crash between append and marker): if the committed
     // file already carries this batch's first heading, the prior promote's

@@ -102,7 +102,11 @@ const SKIP_LINE_RE = /^\s*SKIP\s*$/i;
 // An UNRECOGNIZED value maps to local-only, NOT commit — if the model flagged
 // the content at all, silently committing it is the one wrong answer (the
 // §6.10 "when in doubt, redact" posture applied to routing).
-const SENSITIVITY_TAIL_RE = /\s*\|\s*SENSITIVITY:\s*([A-Za-z-]+)\s*$/i;
+// The `-` is placed last in the class (a literal hyphen, not a range) and the
+// trailing `[ \t]*$` uses an explicit horizontal-space class — no `\s*…\s*$`
+// ambiguity. Sensitivity values are a small fixed vocabulary (commit / drop /
+// local-only), so the letter+hyphen class is exact.
+const SENSITIVITY_TAIL_RE = /[ \t]*\|[ \t]*SENSITIVITY:[ \t]*([A-Za-z-]+)[ \t]*$/i;
 
 function normalizeSensitivity(raw) {
   const v = (raw ?? '').trim().toLowerCase();
@@ -753,7 +757,10 @@ function routeLocalOnly({ text, trust, projectRoot, ts, sessionId }) {
 const LOCAL_RICH_BULLET_MAX = 300;
 function condenseRichFactForLocal(fact) {
   const title = sanitizeForTitle(fact.title);
-  const flatBody = fact.body.replace(/\s*\n+\s*/g, ' ').trim();
+  // Collapse any whitespace run to one space (newlines included). A single
+  // \s+ class — NOT \s*\n+\s* (whose overlapping quantifiers around \n are a
+  // super-linear backtracking surface on untrusted fact bodies).
+  const flatBody = fact.body.replace(/\s+/g, ' ').trim();
   return `${title} — ${flatBody}`.slice(0, LOCAL_RICH_BULLET_MAX);
 }
 
