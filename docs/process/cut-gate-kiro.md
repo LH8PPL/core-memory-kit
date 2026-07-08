@@ -400,12 +400,73 @@ Without re-explaining anything, ask: *"What are my standing cross-project rules,
 ## 6. Session 3 — the cold-open (the wedge)  ⬅️ a BRAND-NEW Kiro project
 
 ```powershell
+# A genuinely FRESH folder each run (never reuse one that already ran cmk install).
 mkdir C:\Temp\kiro-ide-coldopen; cd C:\Temp\kiro-ide-coldopen
-git init; cmk install --with-semantic --ide kiro
+git init
+# Set a REALISTIC-BUT-FICTIONAL git identity so a `uv init` echo tests the
+# privacy SCREEN, not a real leak (and NOT example.com — that's allowlisted):
+git config user.name "Alex Personname"; git config user.email "alex.personname@gmail.com"
+cmk install --with-semantic --ide kiro
 ```
 Open in Kiro (or `kiro-cli chat`). Ask: *"Start a new Python backend for me — set up the structure."*
 
 - [ ] **★ E1 — cold-open (the wedge).** It scaffolds the **layered** shape + `uv`/`ruff` tooling **without being told** — because the Session-1 persona (sandboxed user tier) injected. *"How does it know that?"* = the wedge. **The gate that matters most** — and it proves the persona injects through Kiro's hook, not just Claude Code's.
+
+- [ ] **★ E2 — the privacy screen (Task 148, the leak this incident CREATED).**
+      During the Kiro session, do something that echoes the git-config identity into
+      tool output — e.g. `uv init` (it reads `Alex Personname / alex.personname@gmail.com`).
+      Let one more turn pass (the L3 judge runs in the detached child — the
+      committed transcript lags by seconds), then check:
+      ```powershell
+      # PASS = the committed transcript shows «EMAIL»/«NAME», NOT the real identity:
+      Select-String -Path C:\Temp\kiro-ide-coldopen\context\transcripts\*.md `
+        -Pattern "alex.personname|Alex Personname|«EMAIL»|«NAME»"
+      # …and the originals survive ONLY in the gitignored recovery log:
+      Get-Content C:\Temp\kiro-ide-coldopen\context\.locks\redactions.log
+      ```
+      **PASS:** the committed `{date}.md` carries `«EMAIL»` (L1 masked it at capture)
+      and `«NAME»` (L3 judge caught the bare name at promote); the real
+      `alex.personname@gmail.com` / `Alex Personname` appear **only** in the
+      gitignored `redactions.log`. The `*.live.md` buffer (unscreened) is gitignored.
+      _The capture that feeds the screen is **Kiro's** capture hook — the IDE `agentStop`/`Stop`
+      hook (`cmk-capture.json`) or the kiro-cli `stop` hook — NOT Claude Code's Stop hook;
+      both dispatch the SAME `cmk hook stop` → `captureTurn()` core, so the screen behaves
+      identically, only the trigger differs. This is the exact leak that blocked the v0.5.0
+      tag (D-294); E2 confirms it's closed on the Kiro wiring._
+
+- [ ] **★ E3 — the learn-loop fires automatically (v0.5.0 headline; Tasks 190–193, ADR-0017).**
+      The loop is OBSERVE-ONLY in v0.5.0 — it LOGS outcome signals (doesn't yet rank).
+      **★★ Automatic-path rule (D-169): assert the artifacts WITHOUT running any `cmk`
+      command by hand — Kiro's SessionStart-equivalent inject hook + a natural turn are the
+      only triggers.**
+      After the cold-open session above (which injected memory + ran in-chat searches),
+      and after one turn that produced an **outcome** (a tool call that failed, or you
+      corrected a recalled fact — the oracle-free failure signal), check:
+      ```powershell
+      $L = "C:\Temp\kiro-ide-coldopen\context\.locks"
+      # (1) RECALL-LOG — Kiro's inject hook (IDE `UserPromptSubmit`/`promptSubmit`, kiro-cli
+      #     `agentSpawn`) logged the snapshot's ids; an in-chat search logged its returned
+      #     ids + query (NO `cmk search` run by hand):
+      Get-Content "$L\recall.log" | Select-String '"source":"inject"' | Select-Object -First 1
+      Get-Content "$L\recall.log" | Select-String '"source":"search"' | Select-Object -First 1
+      # (2) TRUST-SIGNALS — the judge (on Kiro's capture/stop hook) wrote a delta for the turn's outcome:
+      Get-Content "$L\trust-signals.log" -ErrorAction SilentlyContinue | Select-Object -Last 3
+      # (3) EXPECTATIONS — if any assistant turn carried a `PREDICTION: …` line, it landed PENDING:
+      Get-Content "$L\expectations.log" -ErrorAction SilentlyContinue | Select-Object -Last 2
+      ```
+      **PASS:** `recall.log` has BOTH a `source:"inject"` line (ids match the injected
+      snapshot, written by Kiro's inject hook) AND a `source:"search"` line (the in-chat
+      query) — proving recall is attributed with **no manual command**; AND
+      `trust-signals.log` carries a sane-delta entry from the turn's outcome (the judge
+      fired on Kiro's capture/stop hook alone). A `judgment_<slug>.md` under `context\memory\`
+      is a bonus if a `PREDICTION:` resolved.
+      _Honest asymmetry (record it): within one session the loop reliably fires on FAILURE
+      signals (failed command / correction / PREDICTION:MISS); it cannot self-confirm a
+      SUCCESS within-session (success is silent — value surfaces next session on recall).
+      So E3 proves the failure-signal path; the success path is a cross-session property.
+      The loop rides the SAME cores as Claude Code — only Kiro's inject/capture hooks are the
+      triggers — so this log IS the Task-194 release-gate artifact: v0.5.1 ranking is approved
+      only on real, sensible `trust-signals.log` deltas (no false-positives, no storms)._
 
 ---
 
@@ -468,7 +529,7 @@ On a Kiro install, the automatic engine runs through **`kiro-cli chat`** (off th
 ## Verdict + the cut
 
 **Cut v0.4.0 if** every **★** passes —
-`KG1, KG1b, KG2, KG3, KG4, KG5, KG6, KG7, KG8, KG9, KG10, KG11, KH-trust, KH1, KH2, KH3, M0, M1, M2, KC1, KC2, KC3, KC4, KG-guard, E1, KU1, KU2, H1` (the Kiro surface + live gates) **and** the agent-agnostic standing gates from [`cut-gate.md`](cut-gate.md) (`B2, B9, B3, B4, C5, FQ1, F-3, F-11b` + the recall ladder where it overlaps). **For a v0.4.5+ cut also run `KG-BK1..KG-BK4` (§7b — the agent-relative backend + split-brain; KG-BK4 is runnable on this Kiro gate).**
+`KG1, KG1b, KG2, KG3, KG4, KG5, KG6, KG7, KG8, KG9, KG10, KG11, KH-trust, KH1, KH2, KH3, M0, M1, M2, KC1, KC2, KC3, KC4, KG-guard, E1, E2, E3, KU1, KU2, H1` (the Kiro surface + live gates) **and** the agent-agnostic standing gates from [`cut-gate.md`](cut-gate.md) (`B2, B9, B3, B4, C5, FQ1, F-3, F-11b` + the recall ladder where it overlaps). **For a v0.4.5+ cut also run `KG-BK1..KG-BK4` (§7b — the agent-relative backend + split-brain; KG-BK4 is runnable on this Kiro gate).**
 
 **The 50.M live-test is KH1/KH2 (IDE hooks FIRE) + KC1/KC2/KC3 (kiro-cli default-agent + hooks FIRE).** These are the checks unit tests structurally can't reach — "the hook is written correctly" (the suite proves that) ≠ "the hook fires and captures a real turn in a real Kiro session" (only this gate proves that). The D-182 8-point checklist maps to: default resolves w/o `--agent` (KC1), inject+capture FIRE not just register (KH1/KH2/KC2/KC3), non-clobber guard (KG7), MCP reachable (KG2/KC4/M0), timeout composition (KG5/KG6 carry the `timeout`/`timeout_ms` ceilings; KH3 proves a slow/failed hook exits 0).
 

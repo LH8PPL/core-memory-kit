@@ -1071,6 +1071,36 @@ Ask: *"Start a new Python backend for me - set up the structure."*
       gitignored `redactions.log`. The `*.live.md` buffer (unscreened) is gitignored.
       _This is the exact leak that blocked the v0.5.0 tag (D-294); E2 confirms it's closed._
 
+- [ ] **★ E3 — the learn-loop fires automatically (v0.5.0 headline; Tasks 190–193, ADR-0017).**
+      The loop is OBSERVE-ONLY in v0.5.0 — it LOGS outcome signals (doesn't yet rank).
+      **★★ Automatic-path rule (D-169): assert the artifacts WITHOUT running any `cmk`
+      command by hand — the SessionStart hook + a natural turn are the only triggers.**
+      After the cold-open session above (which injected memory + ran in-chat searches),
+      and after one turn that produced an **outcome** (a tool call that failed, or you
+      corrected a recalled fact — the oracle-free failure signal), check:
+      ```powershell
+      $L = "C:\Temp\cut-gate-coldopen-148\context\.locks"
+      # (1) RECALL-LOG — the SessionStart inject logged the snapshot's ids; an in-chat
+      #     search logged its returned ids + query (NO `cmk search` run by hand):
+      Get-Content "$L\recall.log" | Select-String '"source":"inject"' | Select-Object -First 1
+      Get-Content "$L\recall.log" | Select-String '"source":"search"' | Select-Object -First 1
+      # (2) TRUST-SIGNALS — the Stop-hook judge wrote a delta for the turn's outcome:
+      Get-Content "$L\trust-signals.log" -ErrorAction SilentlyContinue | Select-Object -Last 3
+      # (3) EXPECTATIONS — if any assistant turn carried a `PREDICTION: …` line, it landed PENDING:
+      Get-Content "$L\expectations.log" -ErrorAction SilentlyContinue | Select-Object -Last 2
+      ```
+      **PASS:** `recall.log` has BOTH a `source:"inject"` line (ids match the injected
+      snapshot) AND a `source:"search"` line (the in-chat query) — proving recall is
+      attributed with **no manual command**; AND `trust-signals.log` carries a sane-delta
+      entry from the turn's outcome (the judge fired on the Stop hook alone). A
+      `judgment_<slug>.md` under `context\memory\` is a bonus if a `PREDICTION:` resolved.
+      _Honest asymmetry (record it): within one session the loop reliably fires on FAILURE
+      signals (failed command / correction / PREDICTION:MISS); it cannot self-confirm a
+      SUCCESS within-session (success is silent — value surfaces next session on recall).
+      So E3 proves the failure-signal path; the success path is a cross-session property.
+      This log IS the Task-194 release-gate artifact — v0.5.1 ranking is approved only on
+      real, sensible `trust-signals.log` deltas (no false-positives, no storms)._
+
 ---
 
 ## 7. Full feature sweep — every `cmk` subcommand  (~20 min, in `C:\Temp\cut-gate22`)
