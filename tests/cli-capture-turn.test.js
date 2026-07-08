@@ -343,7 +343,7 @@ describe('Task 21 — captureTurn() boundary', () => {
       // Pre-populate today's transcript with a user entry (as
       // capture-prompt would have done on the UserPromptSubmit that
       // triggered this assistant turn).
-      const transcriptPath = join(projectRoot, 'context', 'transcripts', '2026-05-25.md');
+      const transcriptPath = join(projectRoot, 'context', 'transcripts', '2026-05-25.live.md');
       require('node:fs').mkdirSync(require('node:path').dirname(transcriptPath), { recursive: true });
       writeFileSync(
         transcriptPath,
@@ -395,7 +395,7 @@ describe('Task 21 — captureTurn() boundary', () => {
     });
 
     it('most recent user entry is selected when transcript has multiple user entries', () => {
-      const transcriptPath = join(projectRoot, 'context', 'transcripts', '2026-05-25.md');
+      const transcriptPath = join(projectRoot, 'context', 'transcripts', '2026-05-25.live.md');
       require('node:fs').mkdirSync(require('node:path').dirname(transcriptPath), { recursive: true });
       // Two user entries; the second is the immediate predecessor.
       writeFileSync(
@@ -711,7 +711,7 @@ describe('Task 87 — conversation buffered to now.md', () => {
   function seedUserTurn(root, { ts, body }) {
     const dir = join(root, 'context', 'transcripts');
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, `${ts.slice(0, 10)}.md`), `## ${ts} — user\n\n${body}\n\n`, 'utf8');
+    writeFileSync(join(dir, `${ts.slice(0, 10)}.live.md`), `## ${ts} — user\n\n${body}\n\n`, 'utf8');
   }
 
   it('appends BOTH the user and assistant turn text to now.md (Door 2)', () => {

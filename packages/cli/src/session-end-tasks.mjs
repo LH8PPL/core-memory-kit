@@ -37,6 +37,7 @@ import { autoPersona } from './auto-persona.mjs';
 import { graduateAllScratchpads } from './graduate-session.mjs';
 import { syncDecisionsJournal } from './decisions-journal.mjs';
 import { temporalSweep } from './temporal-sweep.mjs';
+import { promotePendingTranscripts } from './transcript-screen.mjs';
 
 /**
  * Run the two independent SessionEnd Haiku passes concurrently.
@@ -50,7 +51,7 @@ import { temporalSweep } from './temporal-sweep.mjs';
  * @returns {Promise<{compressOutcome: PromiseSettledResult, personaOutcome: PromiseSettledResult, graduationOutcome: PromiseSettledResult, journalOutcome: PromiseSettledResult}>}
  */
 export async function runSessionEndTasks({ projectRoot, userDir, makeBackend, now }) {
-  const [compressOutcome, personaOutcome, temporalOutcome] = await Promise.allSettled([
+  const [compressOutcome, personaOutcome, temporalOutcome, promoteOutcome] = await Promise.allSettled([
     compressSession({ projectRoot, backend: makeBackend(), now }),
     // cooldownMs:0 — compressSession runs concurrently and would otherwise trip the
     // shared 120s Haiku cooldown gate; at SessionEnd we explicitly want persona to run.
@@ -76,6 +77,18 @@ export async function runSessionEndTasks({ projectRoot, userDir, makeBackend, no
     // longest pole and get SIGKILL'd by the ceiling mid-write (the D-92/F-2
     // composition class — the same 50s-under-60s bound compress + persona use).
     temporalSweep({ projectRoot, userDir, backend: makeBackend(), now, timeoutMs: 50_000 }),
+    // Task 148.3 (ADR-0019, design §6.10): the SessionEnd transcript-promote
+    // top-up — any live-buffer entries the per-turn child left behind (its
+    // judge deferred, or the session ended mid-turn) promote here so the
+    // committed transcript is complete at the session boundary. Joins the
+    // CONCURRENT block (a Haiku call — overlap keeps wall-clock at max, per
+    // the D-92/F-2 ceiling composition). DISJOINT: it reads transcripts/
+    // *.live.md + writes transcripts/{date}.md; compress touches sessions/,
+    // persona the user tier, the sweep the fact corpus. Its own 20s per-file
+    // judge timeout sits well inside the 60s hook ceiling. Fail-closed by
+    // module contract: a deferred promote leaves entries in the gitignored
+    // live buffer for the next session — never an unscreened commit.
+    promotePendingTranscripts({ projectRoot, backend: makeBackend() }),
   ]);
 
   // Task 94.3: proactive graduation sweep. SEQUENTIAL, AFTER the concurrent block —

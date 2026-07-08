@@ -84,7 +84,13 @@ export function syncTranscriptChunks({ db, projectRoot, now = Date.now() } = {})
     let names;
     try {
       names = readdirSync(dir).filter(
-        (n) => n.endsWith('.md') && !(sub === 'sessions' && SESSIONS_EXCLUDE.has(n)),
+        (n) =>
+          n.endsWith('.md') &&
+          // Task 148.3 (design §6.10): the gitignored live buffer holds
+          // UNSCREENED turns — it must never become searchable. Only the
+          // promoted (screened) transcript indexes.
+          !n.endsWith('.live.md') &&
+          !(sub === 'sessions' && SESSIONS_EXCLUDE.has(n)),
       );
     } catch {
       continue;

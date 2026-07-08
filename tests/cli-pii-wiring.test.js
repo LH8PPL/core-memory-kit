@@ -19,6 +19,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { memoryWrite } from '../packages/cli/src/memory-write.mjs';
 import { writeFact } from '../packages/cli/src/write-fact.mjs';
+import { captureTurn } from '../packages/cli/src/capture-turn.mjs';
+import { capturePrompt } from '../packages/cli/src/capture-prompt.mjs';
+import { liveTranscriptPath, committedTranscriptPath } from '../packages/cli/src/transcript-screen.mjs';
 import { redactionsLogPath } from '../packages/cli/src/redactions-log.mjs';
 import { PII_PLACEHOLDERS } from '../packages/cli/src/pii-patterns.mjs';
 
@@ -109,6 +112,53 @@ describe('Task 148.2 — L1 on the explicit write path (Doors 1+2+5)', () => {
     expect(fact).not.toContain('someuser@gmail.com');
     const log = readFileSync(redactionsLogPath(projectRoot), 'utf8');
     expect(log).toContain('someuser@gmail.com');
+  });
+
+  it('captureTurn (screen on): the turn lands L1-MASKED in the gitignored LIVE buffer; the committed transcript is untouched (148.2b/148.3)', () => {
+    const now = '2026-07-07T20:00:00Z';
+    const r = captureTurn({
+      payload: { assistant_message: 'ping someuser@gmail.com when done' },
+      projectRoot,
+      now,
+    });
+    expect(r.action).toBe('captured');
+    const live = readFileSync(liveTranscriptPath(projectRoot, '2026-07-07'), 'utf8');
+    expect(live).toContain(PII_PLACEHOLDERS.EMAIL);
+    expect(live).not.toContain('someuser@gmail.com');
+    // fail-closed: nothing reaches the committed file until the judge promotes
+    expect(existsSync(committedTranscriptPath(projectRoot, '2026-07-07'))).toBe(false);
+    // the original is recoverable
+    expect(readFileSync(redactionsLogPath(projectRoot), 'utf8')).toContain('someuser@gmail.com');
+  });
+
+  it('capturePrompt (screen on): the user prompt lands L1-MASKED in the live buffer', () => {
+    const r = capturePrompt({
+      payload: { prompt: 'my number is (555) 123-4567, call me' },
+      projectRoot,
+      now: '2026-07-07T20:01:00Z',
+    });
+    expect(r.action).toBe('appended');
+    const live = readFileSync(liveTranscriptPath(projectRoot, '2026-07-07'), 'utf8');
+    expect(live).toContain(PII_PLACEHOLDERS.PHONE);
+    expect(live).not.toContain('(555) 123-4567');
+    expect(existsSync(committedTranscriptPath(projectRoot, '2026-07-07'))).toBe(false);
+  });
+
+  it('captureTurn (screen OFF): pre-148 behavior — direct committed append, verbatim', () => {
+    writeFileSync(
+      join(projectRoot, 'context', 'settings.json'),
+      JSON.stringify({ privacy: { screen: 'off' } }),
+      'utf8',
+    );
+    const r = captureTurn({
+      payload: { assistant_message: 'ping someuser@gmail.com when done' },
+      projectRoot,
+      now: '2026-07-07T20:02:00Z',
+    });
+    expect(r.action).toBe('captured');
+    const committed = readFileSync(committedTranscriptPath(projectRoot, '2026-07-07'), 'utf8');
+    expect(committed).toContain('someuser@gmail.com');
+    expect(existsSync(liveTranscriptPath(projectRoot, '2026-07-07'))).toBe(false);
   });
 
   it('privacy.screen: off → pre-148 behavior (email verbatim; home-path abstraction still applies)', () => {

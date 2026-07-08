@@ -92,6 +92,26 @@ try {
   process.stderr.write(
     `cmk-auto-extract: ${r.action} (observations: ${r.observation_count ?? 0}, ms: ${r.duration_ms ?? 0})\n`,
   );
+
+  // Task 148.3 (ADR-0019, design §6.10): promote pending live-buffer
+  // transcript entries through the L3 privacy judge into the committed
+  // transcript. Best-effort — a failed promote defers (fail-closed).
+  // Mirrors packages/cli/bin (twin lockstep).
+  try {
+    const { promotePendingTranscripts } = await import(
+      pathToFileURL(
+        join(__dirname, '..', '..', 'packages', 'cli', 'src', 'transcript-screen.mjs'),
+      ).href
+    );
+    const p = await promotePendingTranscripts({ projectRoot, backend: haikuBackend });
+    if (p.action !== 'noop') {
+      process.stderr.write(
+        `cmk-auto-extract: transcript-promote ${p.action} (promoted: ${p.promoted ?? 0}, deferred: ${p.deferred ?? 0})\n`,
+      );
+    }
+  } catch {
+    /* promote must never break the child; the backlog retries next turn */
+  }
 } catch (err) {
   // Defensive: runAutoExtract is expected to swallow Haiku errors into
   // the return struct, but any unanticipated throw lands here so it

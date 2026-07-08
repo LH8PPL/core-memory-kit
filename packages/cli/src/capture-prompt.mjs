@@ -27,6 +27,9 @@
 import { existsSync, mkdirSync, appendFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { sanitizePrivacyTags } from './privacy.mjs';
+import { maskPii, localUsernames, resolvePrivacyScreen } from './pii-patterns.mjs';
+import { appendRedactions } from './redactions-log.mjs';
+import { liveTranscriptPath } from './transcript-screen.mjs';
 import { judgeUserPrompt } from './judge-signals.mjs';
 
 function dateFromIso(iso) {
@@ -83,13 +86,31 @@ export function capturePrompt({ payload, projectRoot, now } = {}) {
   const transcriptsDir = join(projectRoot, 'context', 'transcripts');
   const transcriptPath = join(transcriptsDir, `${date}.md`);
 
-  const sanitized = sanitizePrivacyTags(prompt);
+  let sanitized = sanitizePrivacyTags(prompt);
+
+  // Task 148.2b/148.3 (ADR-0019, design §6.10): L1 mask + live-buffer split —
+  // the user prompt gets the same treatment as the assistant turn. Screen ON:
+  // masked, appended to the gitignored live buffer (promoted screened later);
+  // OFF: pre-148 direct committed append.
+  const screenOn = resolvePrivacyScreen({ projectRoot }) === 'on';
+  if (screenOn) {
+    const m = maskPii(sanitized, { usernames: localUsernames() });
+    sanitized = m.text;
+    appendRedactions(projectRoot, {
+      source: 'capture-prompt',
+      layer: 'L1',
+      redactions: m.redactions,
+    });
+  }
+  const effectiveTranscriptPath = screenOn
+    ? liveTranscriptPath(projectRoot, date)
+    : transcriptPath;
   const entry = `## ${ts} — user\n\n${sanitized}\n\n`;
 
   if (!existsSync(transcriptsDir)) {
     mkdirSync(transcriptsDir, { recursive: true });
   }
-  appendFileSync(transcriptPath, entry, 'utf8');
+  appendFileSync(effectiveTranscriptPath, entry, 'utf8');
 
   // Task 192 (ADR-0017 Phase 1c): the USER-CORRECTION detector rides the
   // prompt hook — a correction in the user's opening words dampens the prior
@@ -101,5 +122,5 @@ export function capturePrompt({ payload, projectRoot, now } = {}) {
     /* the judge must never break the prompt hook */
   }
 
-  return { action: 'appended', transcriptPath };
+  return { action: 'appended', transcriptPath: effectiveTranscriptPath };
 }
