@@ -1,6 +1,8 @@
-// @doors: 1
-// Door 2 N/A: disk state is the cores' concern (injected fakes here); the real
-//   cores' state changes are pinned in their own test files.
+// @doors: 1, 2
+// Door 2: the routing tests fake the cores (disk state is the cores' own
+//   concern there), BUT the integration-lock block at the bottom runs the REAL
+//   cores and asserts the on-disk now.md — both the afterFileEdit landing and
+//   the D-305 `/c:/…`-root landing (the state change the routing tests can't see).
 // Door 3 N/A: no subprocess spawn — the detached auto-extract spawn is pinned by
 //   capture-turn's spawn-smoke tests; here we assert the autoExtractPath is
 //   FORWARDED (the D-200 class), which is the wiring this layer owns.
@@ -39,6 +41,43 @@ describe('Task 196 — cmk cursor-hook (the Cursor hook bin)', () => {
     expect(injectCalls[0].cwd).toBe('/ws/proj');
     expect(JSON.parse(out.join(''))).toEqual({ additional_context: 'SNAPSHOT' });
     expect(process.exitCode ?? 0).toBe(0);
+  });
+
+  it('normalizes Cursor-on-Windows `/c:/…` workspace_roots to a valid drive path (D-305)', async () => {
+    // GROUND TRUTH (Cursor 3.5.17 on Windows, captured live in the v0.5.0 gate):
+    // Cursor sends workspace_roots as "/c:/Temp/proj" — a leading slash BEFORE
+    // the drive letter + forward slashes. Passed verbatim to path.join it yields
+    // "\c:\Temp\proj\…" (a bogus root off the process cwd), so every hook wrote
+    // now.md to a garbage location and capture silently no-op'd on Windows. The
+    // resolver must strip the leading slash before the drive letter.
+    const injectCalls = [];
+    await runCursorHook({}, undefined, {
+      readStdin: () => JSON.stringify({
+        hook_event_name: 'sessionStart',
+        workspace_roots: ['/c:/Temp/proj'],
+        session_id: 's1',
+      }),
+      inject: (a) => { injectCalls.push(a); return { text: '' }; },
+      log: () => {},
+    });
+    // The leading slash before the drive letter is gone; the rest is preserved.
+    expect(injectCalls[0].cwd).toBe('c:/Temp/proj');
+  });
+
+  it('leaves an already-valid workspace_root untouched (POSIX + Windows passthrough)', async () => {
+    for (const root of ['/ws/proj', 'C:/Temp/proj', 'C:\\Temp\\proj']) {
+      const injectCalls = [];
+      await runCursorHook({}, undefined, {
+        readStdin: () => JSON.stringify({
+          hook_event_name: 'sessionStart',
+          workspace_roots: [root],
+          session_id: 's1',
+        }),
+        inject: (a) => { injectCalls.push(a); return { text: '' }; },
+        log: () => {},
+      });
+      expect(injectCalls[0].cwd).toBe(root);
+    }
   });
 
   it('falls back to deps.cwd when the payload has no workspace_roots', async () => {
@@ -200,5 +239,32 @@ describe('D-269 — the default inject dep carries the REAL memory snapshot', ()
     const nowMd = join(projectRoot, 'context', 'sessions', 'now.md');
     const recorded = readFileSync(nowMd, 'utf8');
     expect(recorded).toMatch(/Edit file=.*big\.mjs lines=\d+/);
+  });
+
+  // D-305 (code-review follow-up): the malformed Cursor-on-Windows root
+  // `/c:/…` must route through the REAL cores to the REAL project's now.md —
+  // the routing tests only assert the fake inject's cwd arg; this asserts the
+  // disk state (Door 2) the earlier tests structurally can't see. We build the
+  // exact malformed shape Cursor sends from the sandbox root: a `<drive>:\…`
+  // path → `/<drive>:/…` (leading slash, forward slashes). On a POSIX runner
+  // the sandbox root has no drive letter, so the transform is a no-op and this
+  // degrades to the plain integration path (still a valid assertion).
+  it('cursor afterFileEdit with a `/c:/…` root still lands in the REAL now.md (D-305, Door 2)', () => {
+    const malformedRoot = /^[A-Za-z]:/.test(projectRoot)
+      ? '/' + projectRoot.replace(/\\/g, '/') // C:\a\b → /C:/a/b (Cursor's Windows form)
+      : projectRoot;
+    const bigEdit = Array.from({ length: 60 }, (_, i) => `d305 line ${i}`).join('\n');
+    runCursorHook({}, undefined, {
+      payload: {
+        hook_event_name: 'afterFileEdit',
+        workspace_roots: [malformedRoot],
+        file_path: join(projectRoot, 'src', 'd305.mjs'),
+        edits: [{ old_string: '', new_string: bigEdit }],
+      },
+      log: () => {},
+    });
+    // The edit landed in the REAL project's now.md, NOT a bogus `\c:\…` path.
+    const nowMd = join(projectRoot, 'context', 'sessions', 'now.md');
+    expect(readFileSync(nowMd, 'utf8')).toMatch(/Edit file=.*d305\.mjs lines=\d+/);
   });
 });

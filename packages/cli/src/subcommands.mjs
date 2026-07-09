@@ -645,6 +645,26 @@ export function runHook(event, _options = {}, _command, deps = {}) {
 }
 
 /**
+ * D-305 — normalize a Cursor `workspace_roots[0]`.
+ *
+ * Cursor on Windows (3.5.17, ground-truth-captured live in the v0.5.0 cut-gate)
+ * sends the project root as `/c:/Temp/proj` — a leading slash BEFORE the drive
+ * letter, forward-slashed. Fed to `path.join`, that resolves to `\c:\Temp\proj`
+ * (a bogus path off the process cwd), so every hook wrote `now.md` to a garbage
+ * location and capture silently no-op'd on Windows. Strip a leading slash /
+ * backslash run that directly precedes a `<letter>:` drive. Already-valid roots
+ * are untouched: `/home/u/proj` (no drive letter → no match), `C:\Temp\proj`
+ * and `C:/Temp/proj` (no leading slash → no match).
+ *
+ * @param {string} root
+ * @returns {string}
+ */
+export function normalizeCursorRoot(root) {
+  if (typeof root !== 'string') return root;
+  return root.replace(/^[/\\]+([A-Za-z]:)/, '$1');
+}
+
+/**
  * Task 196 — `cmk cursor-hook` — the Cursor hook entrypoint.
  *
  * Cursor wires ONE command for every hook event; the payload arrives as JSON on
@@ -673,10 +693,18 @@ export async function runCursorHook(_options = {}, _command, deps = {}) {
   }
   const event = typeof payload.hook_event_name === 'string' ? payload.hook_event_name : '';
   const roots = payload.workspace_roots;
-  const cwd =
+  const rawRoot =
     (Array.isArray(roots) && typeof roots[0] === 'string' && roots[0]) ||
     deps.cwd ||
     process.cwd();
+  // D-305: Cursor on Windows (3.5.17, ground-truth-captured in the v0.5.0 gate)
+  // sends workspace_roots as `/c:/Temp/proj` — a leading slash BEFORE the drive
+  // letter. `path.join` on that yields `\c:\Temp\proj\…` (a bogus root off the
+  // process cwd), so every hook wrote now.md to a garbage location and capture
+  // silently no-op'd on Windows. Strip the leading slash(es) that precede a
+  // drive letter; already-valid POSIX (`/home/…`) and Windows (`C:\…`, `C:/…`)
+  // roots are untouched (the pattern only matches slash-then-drive-letter).
+  const cwd = normalizeCursorRoot(rawRoot);
   const env = deps.env ?? process.env;
 
   const r = dispatchCursorHook({
