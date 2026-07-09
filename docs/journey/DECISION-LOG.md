@@ -10,6 +10,20 @@
 
 ---
 
+## 2026-07-09 — D-304: ISSUE (filed Task 206, v0.5.1) — the per-turn "commit context/ now?" prompt can commit an UNMASKED name from the pre-roll `now.md` (found live in the v0.5.0 Kiro cut-gate)
+
+**Class:** separately-correct-jointly-broken, on the privacy surface. Two shipped features, each correct alone, compose into a leak path.
+
+**What the Kiro §6/E2 gate found.** The privacy screen masks names on both COMMITTED sinks — the transcript (L1 `«EMAIL»` + L3 judge `«NAME»`) and the daily summary `today-{date}.md` (compress-prompt rule #7, the Task-148 review-I1 name-defense). But `context/sessions/now.md` is a git-TRACKED tier that holds the raw turn between capture and the roll: it gets L1 masking (email/phone/username) but NOT name screening — names need the L3 judge / compressor, and neither touches `now.md` until it ROLLS. So a bare personal name sits unmasked in `now.md` during the pre-roll window.
+
+**Proven live.** Cold-open session; the assistant echoed the git identity (`Alex Personname` / `alex.personname@gmail.com`) into a turn. Result: committed transcript AND `today-*.md` both correctly showed `«NAME»`/`«EMAIL»` — but `now.md` held the raw `Alex Personname`. Forcing `cmk roll --scope now` drained it and the resulting `today-*.md` was clean. **So the screen WORKS; the gap is only the pre-roll window.**
+
+**Why it's a real exposure.** ADR-0018's per-turn commit prompt — the kit's OWN Kiro assistant offered *"commit context/ now?"* on every turn of the gate. A user who accepts before the roll → `git add context/` commits the unmasked name. The roll masks; the prompt offers convenience; together they open a leak on the exact feature (privacy) that headlines v0.5.0.
+
+**Decision (the user, 2026-07-09): file as v0.5.1, NOT a v0.5.0 blocker.** Rationale: the actual committed artifacts (transcript, `today-*.md`) are correctly screened; the roll masks `now.md` when it fires; this is a narrow behavioral window (raw name in a tracked-but-transient buffer + a user accepting the per-turn commit before the roll fires), medium severity — not a broken screen, and NOT a regression from the D-303 fix (the D-303 fix's own now.md write is already L1-masked; this is the pre-existing name-vs-L3 asymmetry on the sessions sink, now visible through the commit-prompt composition). Filed as **Task 206** (fix directions: force-a-roll-before-commit / exclude-now.md-from-the-offered-add / L3-screen-now.md-at-write / gitignore-until-roll).
+
+**Meta — the live gate earned its keep.** Neither the unit suite nor the two-pass code review on the D-303 fix surfaced this; it took a real cold-open Kiro session with an identity echo + the kit's own commit prompt firing to expose the composition. The "live-test every task / the gate finds what unit-green can't" rule, applied to the privacy surface. _Relates Task 148 / ADR-0019 (the screen), ADR-0018 (the commit prompt), the Task-148 review I1 (the now.md→today name-defense this extends), D-303 (the fix whose gate found it), Task 206._
+
 ## 2026-07-09 — D-303: BUG + FIX (v0.5.0, tag-blocking) — Kiro IDE auto-extract captured NOTHING the user said; the `USER_PROMPT` hook var arrives empty on Kiro IDE 1.0, so the user turn never reached the transcript and bi-turn extraction starved (P-TQSG9PCA)
 
 **Class:** the "captures automatically" headline was FALSE on Kiro — the exact lazy-framing failure this project forbids, and D-292 (3-agent gate blocks the v0.5.0 tag) exists to catch. The README claims Kiro compatibility; shipping this unfixed would be the lie D-292 guards against.
