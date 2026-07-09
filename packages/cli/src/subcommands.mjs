@@ -44,6 +44,7 @@ import { setNativeAutoMemory, nativeMemoryInstallNote } from './native-memory.mj
 import { rememberRich, richFactTitle, nonProjectTierNote, prepareNearDupGuard } from './remember-core.mjs';
 import { getObservations, citeLink, buildTimeline, recentActivity } from './read-core.mjs';
 import { readHookStdin } from './read-hook-stdin.mjs';
+import { stripBom } from './read-json.mjs';
 import { runLazyCompress } from './lazy-compress.mjs';
 import { runDoctor } from './doctor.mjs';
 import { importAnthropicMemory } from './import-anthropic-memory.mjs';
@@ -577,13 +578,10 @@ export function runHook(event, _options = {}, _command, deps = {}) {
   let payload = deps.payload;
   if (payload === undefined) {
     if (event === 'postToolUse') {
-      try {
-        const readStdin = deps.readStdin ?? (() => readHookStdin({ isTTY: process.stdin.isTTY }));
-        const raw = readStdin();
-        payload = raw && raw.trim() !== '' ? JSON.parse(raw) : {};
-      } catch {
-        payload = {};
-      }
+      // D-306: BOM-tolerant parse (shared with the Cursor path) — defensive
+      // against any agent that prepends a UTF-8 BOM to the piped payload.
+      const readStdin = deps.readStdin ?? (() => readHookStdin({ isTTY: process.stdin.isTTY }));
+      payload = parseHookStdin(readStdin());
     } else {
       payload = {};
     }
@@ -665,6 +663,31 @@ export function normalizeCursorRoot(root) {
 }
 
 /**
+ * D-306 — parse a hook stdin payload, tolerant of a leading UTF-8 BOM.
+ *
+ * Cursor on Windows (3.5.17, ground-truth-captured live) prepends a UTF-8 BOM
+ * (U+FEFF) to the JSON it pipes to a hook command. `JSON.parse` THROWS on the
+ * BOM, which silently degraded every Cursor hook to `{}` → unknown event →
+ * no-op (exit 0, empty stdout, no capture). Strip a leading BOM (codePoint
+ * check, not an invisible literal an editor could drop) before parsing.
+ * Returns `{}` for empty/whitespace/unparseable input — the callers treat that
+ * as an unknown event (a clean no-op, never a crash).
+ *
+ * @param {string} raw
+ * @returns {object}
+ */
+export function parseHookStdin(raw) {
+  if (typeof raw !== 'string') return {};
+  const s = stripBom(raw); // the canonical BOM strip (read-json.mjs) — no drift
+  if (s.trim() === '') return {};
+  try {
+    return JSON.parse(s);
+  } catch {
+    return {};
+  }
+}
+
+/**
  * Task 196 — `cmk cursor-hook` — the Cursor hook entrypoint.
  *
  * Cursor wires ONE command for every hook event; the payload arrives as JSON on
@@ -683,13 +706,10 @@ export async function runCursorHook(_options = {}, _command, deps = {}) {
   // JSON degrades to {} (→ unknown event → no-op), never a crash.
   let payload = deps.payload;
   if (payload === undefined) {
-    try {
-      const readStdin = deps.readStdin ?? (() => readHookStdin({ isTTY: process.stdin.isTTY }));
-      const raw = readStdin();
-      payload = raw && raw.trim() !== '' ? JSON.parse(raw) : {};
-    } catch {
-      payload = {};
-    }
+    // D-306: parse via the BOM-tolerant reader — Cursor on Windows prepends a
+    // UTF-8 BOM that a raw JSON.parse chokes on, silently no-op'ing every hook.
+    const readStdin = deps.readStdin ?? (() => readHookStdin({ isTTY: process.stdin.isTTY }));
+    payload = parseHookStdin(readStdin());
   }
   const event = typeof payload.hook_event_name === 'string' ? payload.hook_event_name : '';
   const roots = payload.workspace_roots;

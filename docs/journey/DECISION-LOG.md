@@ -10,6 +10,22 @@
 
 ---
 
+## 2026-07-09 — D-306: BUG + FIX (v0.5.0, tag-blocking) — the TRUE Cursor-Windows capture killer: Cursor prepends a UTF-8 BOM to the hook stdin, so `JSON.parse` threw and EVERY hook silently no-op'd
+
+**Class:** the same "real agent payload ≠ our adapter's assumption" family as D-303/D-305, but this is the ROOT — D-305 (the `/c:/` path fix) was necessary but only mattered for the rare payloads that parsed at all; **most never parsed.**
+
+**Symptom (Cursor gate, live).** After D-305 merged + the global repacked, a real Cursor session STILL captured nothing: `now.md` and both transcripts had **0 user headings** (all assistant), and every auto-extract logged `nothing_durable` / `rich_facts_written:0` (the `/version` fact was `low_trust_discarded`, demoted-from-medium, origin:assistant — the D-303 shape: no user turn → everything low-trust → dropped). The hooks FIRED (Cursor's panel showed `afterAgentResponse 1423ms`, exit 0) but produced nothing.
+
+**Root cause (ground-truth, via an instrumented probe — after research + a killed hypothesis).** I first hypothesized `CMK_BACKEND_SPAWN` leaking (the recursion guard) — a plausible "exit 0, no write" cause from OUR code, but I hadn't verified it. A sonnet research pass (Cursor forum, staff-confirmed) found the real class: Cursor-Windows hooks get malformed `/c:/…` roots AND — the decisive part — a probe that dumped the raw stdin showed **every payload begins with a UTF-8 BOM (`﻿`, U+FEFF)**. `runCursorHook` did `JSON.parse(raw)` with no BOM strip → THROWS → the `catch` set `payload = {}` → `hook_event_name` is `''` → unknown event → no-op, exit 0, empty stdout. Proven with a two-line differential: **WITH BOM → `stdout=""` (no-op); NO BOM → `stdout="{"continue":true}"` (works).** The env dump ALSO killed the `CMK_BACKEND_SPAWN` theory (not present) and confirmed `CURSOR_PROJECT_DIR` arrives clean.
+
+**Why this is the ROOT, not D-305.** `beforeSubmitPrompt` (the USER turn) died on the BOM every time → the user prompt never reached the transcript → `afterAgentResponse`'s bi-turn extraction saw an assistant-only turn → `nothing_durable`. The `/c:/` path (D-305) only bit the *subset* of payloads that got past `JSON.parse` — which, with the BOM, was **none** from real Cursor. Both fixes are needed; this one unblocks the whole path.
+
+**FIX.** A shared `parseHookStdin(raw)` helper: strip a leading BOM via a **codePoint check** (`charCodeAt(0) === 0xFEFF`, not an invisible literal an editor could drop), then `JSON.parse`, returning `{}` for empty/unparseable (the clean-no-op contract). Applied at BOTH stdin-parse sites — `runCursorHook` (Cursor) and the Kiro `postToolUse` path (defensive; Kiro reads event from argv so it wasn't the live victim, but the parse site is identical). Kiro's main path is unaffected (argv/env/transcript, no stdin JSON).
+
+**TDD + live proof.** New failing test (`a UTF-8 BOM prefix … still parses + routes`) red → green: a BOM-prefixed `beforeSubmitPrompt` now runs capturePrompt AND returns `{continue:true}`. End-to-end: BOM-prefixed `beforeSubmitPrompt`+`afterAgentResponse` (exactly as Cursor sends) → `now.md` with **user=1, assistant=1** + the httpx preference captured. Full suite re-running.
+
+**Meta — the discipline that got here.** The user's push — *"why are you hypothesizing? is anything according to research? docs? web?"* — is what turned a guessed `CMK_BACKEND_SPAWN` theory into a researched + probe-confirmed root cause. The instrument-don't-hypothesize rule (diagnosing-bugs Phase 1) + primary-source research + a differential test. _Relates D-305 (the path fix this completes), D-303 (the sibling Kiro capture bug + the low-trust-demote shape), Task 196 (the Cursor hook)._
+
 ## 2026-07-09 — D-305: BUG + FIX (v0.5.0, tag-blocking) — Cursor auto-capture silently wrote to a dead path on Windows: `workspace_roots` arrives as `/c:/…` (leading slash before the drive letter)
 
 **Class:** an agent's real payload shape our adapter didn't handle — the same FAMILY as D-303 (Kiro), a different mechanism (path format, not a missing field). Found the same way: driving the REAL agent in the cut-gate, not unit tests.
