@@ -170,6 +170,32 @@ describe('Task 196 — cmk cursor-hook (the Cursor hook bin)', () => {
     });
     expect(process.exitCode ?? 0).toBe(0);
   });
+
+  it('a UTF-8 BOM prefix on the stdin payload still parses + routes (D-306, the real Cursor-Windows killer)', async () => {
+    // GROUND TRUTH (Cursor 3.5.17 on Windows, captured live): Cursor prepends a
+    // UTF-8 BOM (﻿) to the hook stdin JSON. A raw JSON.parse THROWS on the
+    // BOM → payload degrades to {} → hook_event_name is '' → EVERY hook silently
+    // no-op'd (exit 0, empty stdout, no capture). This is why user turns never
+    // landed on Cursor. The reader must strip a leading BOM before parsing.
+    const cpCalls = [];
+    const out = [];
+    await runCursorHook({}, undefined, {
+      readStdin: () =>
+        '﻿' +
+        JSON.stringify({
+          hook_event_name: 'beforeSubmitPrompt',
+          prompt: 'I always use httpx',
+          workspace_roots: ['/ws/proj'],
+        }),
+      capturePrompt: (a) => cpCalls.push(a),
+      log: (s) => out.push(s),
+    });
+    // The event routed (capturePrompt ran with the prompt) AND the Cursor
+    // response is on stdout — NOT the empty-string no-op a BOM used to cause.
+    expect(cpCalls).toHaveLength(1);
+    expect(cpCalls[0].payload.prompt).toBe('I always use httpx');
+    expect(JSON.parse(out.join(''))).toEqual({ continue: true });
+  });
 });
 
 // The D-269 integration lock: every routing test above fakes `inject`, which is
