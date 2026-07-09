@@ -28,6 +28,7 @@ A Cursor install wires the MCP server, the lifecycle hooks (all driving one disp
 
 - **Restart Cursor** to activate the hooks (the rule + MCP are immediate).
 - Every hook drives the **one** `cmk cursor-hook` dispatcher — it always exits 0 so a hook failure never blocks a prompt or shell command; permission-type events fail **open** on a crash (a broken memory hook must never wedge your session).
+- **Windows note (why the dispatcher normalizes the project root).** Cursor on Windows passes the project root to its hooks as `/c:/Your/Project` (a leading slash before the drive letter); the kit normalizes that to a valid Windows path so capture/recall/observe land in your real project rather than a dead path (a silent no-op before v0.5.0). You don't need to do anything — this is just why the root is normalized.
 - The install is **touch-only-our-keys**: your own hooks in `.cursor/hooks.json` and sibling MCP servers in `.cursor/mcp.json` are preserved; the kit refuses to clobber a corrupt file.
 - A Cursor install does **not** write Claude-Code-only files (`CLAUDE.md`, `.claude/skills/`).
 

@@ -10,6 +10,23 @@
 
 ---
 
+## 2026-07-09 — D-305: BUG + FIX (v0.5.0, tag-blocking) — Cursor auto-capture silently wrote to a dead path on Windows: `workspace_roots` arrives as `/c:/…` (leading slash before the drive letter)
+
+**Class:** an agent's real payload shape our adapter didn't handle — the same FAMILY as D-303 (Kiro), a different mechanism (path format, not a missing field). Found the same way: driving the REAL agent in the cut-gate, not unit tests.
+
+**Symptom (Cursor §1/§2 gate, live).** The Cursor hooks were wired and FIRING (Cursor's own Hooks panel showed `afterAgentResponse 1423ms cmd.exe /c cmk cursor-hook` in its execution log), yet `context/sessions/now.md` stayed empty after multiple turns and 0 auto-extract facts landed. Explicit `mk_remember` worked (the `.venv` bullet landed) — because MCP loads live and doesn't depend on the project-root path; only the HOOK capture/inject/observe legs were dead.
+
+**Root cause (ground-truth captured, not guessed).** I initially mis-blamed a stale session (WRONG — the user's screenshot proved the hooks were loaded and firing). A stdin-logging probe wired into the gate folder captured the EXACT payload Cursor 3.5.17 sends on Windows:
+`"workspace_roots":["/c:/Temp/cursor-gate-v050c"]` — a **leading slash before the drive letter**, forward-slashed. `runCursorHook` took `workspace_roots[0]` as the project root verbatim; `path.join("/c:/Temp/proj", "context", "sessions")` on Windows yields `\c:\Temp\proj\context\sessions` — a bogus path resolved off the process cwd. So `captureTurn`/`injectContext`/`observeEdit` all wrote to a garbage location, and `now.md` in the real project was never touched. macOS/Linux send a normal `/Users/…` root → unaffected.
+
+**The false trails I walked (and how they were killed).** Four times my repros "showed a mangled path" — every one was MY OWN bash/`node -e` backslash-escaping error, NOT the kit. I only got ground truth by (a) capturing the real Cursor stdin via a probe, and (b) authoring the repro in a pure `.mjs` file so no shell ate the backslashes. Feeding both the real `/c:/…` form AND valid `C:\…`/`C:/…` forms proved the core is fine — ONLY the leading-slash-drive form breaks.
+
+**FIX.** `normalizeCursorRoot(root)` strips a leading slash/backslash run that directly precedes a `<letter>:` drive (`/^[/\\]+([A-Za-z]:)/` → `$1`), applied at the single `workspace_roots` read site in `runCursorHook`. Passthrough-safe: `/home/u/proj` (no drive → no match), `C:\Temp\proj` and `C:/Temp/proj` (no leading slash → no match) are untouched. Kiro is unaffected (it uses `process.cwd()`, not a payload root). Claude Code unaffected (uses `cwd`/`transcript_path`).
+
+**TDD + live proof.** New failing test (`normalizes Cursor-on-Windows /c:/… workspace_roots`) red → green, plus a POSIX+Windows passthrough guard. End-to-end: fed the EXACT captured Cursor payload into `cmk cursor-hook` → `now.md` now lands at the correct project root with the assistant turn. Full suite re-running.
+
+**Meta.** Third live-gate find of the "real agent payload ≠ our adapter's assumption" class (Kiro USER_PROMPT-empty D-303; Kiro transcript B1; now Cursor `/c:/` D-305). Each was invisible to green unit tests and surfaced only by driving the actual agent — the "live-test every task / docs-correct ≠ fires" rule. _Relates D-303 (the sibling Kiro capture fix), Task 196 (the Cursor hook), the cross-agent adapter seam (D-180)._
+
 ## 2026-07-09 — D-304: ISSUE (filed Task 206, v0.5.1) — the per-turn "commit context/ now?" prompt can commit an UNMASKED name from the pre-roll `now.md` (found live in the v0.5.0 Kiro cut-gate)
 
 **Class:** separately-correct-jointly-broken, on the privacy surface. Two shipped features, each correct alone, compose into a leak path.
