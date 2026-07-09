@@ -12,6 +12,8 @@ A Kiro install wires MCP, steering, an `AGENTS.md` instruction file, the memory 
 
 The full memory loop — inject, capture, edit-observation, explicit save, and cross-project promotion — is live-proven on **Kiro IDE 1.0** and **kiro-cli V3**.
 
+> **Kiro IDE 1.0 note (why capture reads the transcript, not the prompt hook).** On Kiro IDE 1.0 the `USER_PROMPT` hook variable arrives empty (a Kiro-side regression — their open issues [#9619](https://github.com/kirodotdev/Kiro/issues/9619) / [#6188](https://github.com/kirodotdev/Kiro/issues/6188)), so the kit does **not** rely on it to capture your turn. The turn-end (`Stop`) hook recovers your prompt directly from Kiro's own session transcript, which is reliable — so automatic fact-extraction sees what you *say*, not only what the assistant does. You don't need to do anything; this is just why the capture path looks the way it does.
+
 ## What `--ide kiro` writes
 
 | Surface | Location | For |

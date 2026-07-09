@@ -41,6 +41,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { captureTurn, sweepStaleTurnFiles } from '../packages/cli/src/capture-turn.mjs';
+import { redactionsLogPath } from '../packages/cli/src/redactions-log.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = join(dirname(__filename), '..');
@@ -392,6 +393,105 @@ describe('Task 21 — captureTurn() boundary', () => {
       const asstTurnStart = body.indexOf('ASSISTANT_TURN:');
       const userBody = body.slice(userTurnStart, asstTurnStart).trim();
       expect(userBody).toBe('');
+    });
+
+    it('payload.user_message populates USER_TURN even when the transcript has NO prior user entry (the Kiro-IDE fix — P-TQSG9PCA)', () => {
+      // On Kiro IDE 1.0, capture-prompt's USER_PROMPT env var arrives EMPTY (a
+      // Kiro platform bug: GitHub #9619/#6188), so no `## — user` entry is ever
+      // written to the transcript → readLastUserTurnFromTranscript returns '' →
+      // auto-extract's bi-turn extraction can't see the user's stated preference
+      // and returns nothing_durable. The Kiro Stop hook DOES recover the user
+      // turn from Kiro's own transcript (readKiroTurn → user_message in the
+      // payload); captureTurn must USE that payload.user_message as the user
+      // turn, falling back to the transcript scan only when it's absent.
+      const r = captureTurn({
+        payload: {
+          assistant_message: 'Understood, I will use httpx.',
+          user_message: 'I always use httpx for HTTP calls, never requests.',
+        },
+        projectRoot,
+        now: '2026-05-25T10:00:00Z',
+      });
+      expect(r.action).toBe('captured');
+      const body = readFileSync(r.turnFile, 'utf8');
+      // The USER_TURN section carries the payload's user_message (not empty).
+      expect(body).toContain('I always use httpx for HTTP calls, never requests.');
+      const userTurnStart = body.indexOf('USER_TURN:') + 'USER_TURN:'.length;
+      const asstTurnStart = body.indexOf('ASSISTANT_TURN:');
+      const userBody = body.slice(userTurnStart, asstTurnStart).trim();
+      expect(userBody).toContain('httpx');
+      // And now.md gets a `— user` heading with the preference, so the
+      // SessionEnd compressor + auto-extract see the bi-turn.
+      const nowMd = readFileSync(join(projectRoot, 'context', 'sessions', 'now.md'), 'utf8');
+      expect(nowMd).toContain('— user');
+      expect(nowMd).toContain('httpx');
+      // B1 (code-review, D-303): the transcript-of-record ALSO gets the user
+      // entry — on Kiro, capture-prompt never wrote it (empty USER_PROMPT), so
+      // captureTurn must, in `## user → ## assistant` order, or the L3-promoted
+      // committed transcript loses every Kiro user turn.
+      const transcript = readFileSync(r.transcriptPath, 'utf8');
+      expect(transcript).toContain('— user');
+      expect(transcript).toContain('httpx');
+      expect(transcript.indexOf('— user')).toBeLessThan(transcript.indexOf('— assistant'));
+    });
+
+    it('payload.user_message is L1-masked before it reaches now.md / the turn-file (Door 2 — the Kiro raw-turn privacy gap)', () => {
+      // readKiroTurn returns the user turn RAW (no privacy pass), unlike the
+      // transcript fallback which capture-prompt already masked. So the payload
+      // branch MUST run the same L1 mask the assistant turn does — otherwise a
+      // Kiro user turn with an email/phone/home-path lands unmasked in the
+      // committed now.md buffer + the auto-extract turn-file. Screen defaults ON.
+      // NB: a real (non-allowlisted) domain — example.com is allowlisted by
+      // maskPii and would pass through unmasked, defeating the test.
+      const r = captureTurn({
+        payload: {
+          assistant_message: 'Noted.',
+          user_message: 'ping me at jane.doe@acme-corp.io about the deploy',
+        },
+        projectRoot,
+        now: '2026-05-25T10:02:00Z',
+      });
+      expect(r.action).toBe('captured');
+      const body = readFileSync(r.turnFile, 'utf8');
+      const nowMd = readFileSync(join(projectRoot, 'context', 'sessions', 'now.md'), 'utf8');
+      const transcript = readFileSync(r.transcriptPath, 'utf8');
+      // The raw email must NOT appear in ANY sink; the masked placeholder does.
+      // Three sinks: the turn-file, now.md, and the transcript-of-record (B1).
+      expect(body).not.toContain('jane.doe@acme-corp.io');
+      expect(nowMd).not.toContain('jane.doe@acme-corp.io');
+      expect(transcript).not.toContain('jane.doe@acme-corp.io');
+      expect(body).toContain('«EMAIL»'); // maskPii stable placeholder token
+      expect(transcript).toContain('«EMAIL»');
+      // Door 5 (M2, code-review): the recovery original lands in redactions.log
+      // under the NEW `capture-turn:user` source tag — so a false-positive mask
+      // is recoverable and the new source is observable.
+      const rlog = readFileSync(redactionsLogPath(projectRoot), 'utf8');
+      expect(rlog).toContain('capture-turn:user');
+      expect(rlog).toContain('jane.doe@acme-corp.io');
+    });
+
+    it('transcript user entry still wins when present (payload.user_message absent — Claude-Code path unchanged)', () => {
+      // Regression guard: the Claude-Code path (capture-prompt wrote the user
+      // entry, no payload.user_message) must be untouched by the Kiro fix.
+      const transcriptPath = join(projectRoot, 'context', 'transcripts', '2026-05-25.live.md');
+      require('node:fs').mkdirSync(require('node:path').dirname(transcriptPath), { recursive: true });
+      writeFileSync(
+        transcriptPath,
+        '## 2026-05-25T10:00:00Z — user\n\ntranscript-sourced user turn\n\n',
+        'utf8',
+      );
+      const r = captureTurn({
+        payload: { assistant_message: 'ok' }, // NO user_message
+        projectRoot,
+        now: '2026-05-25T10:00:01Z',
+      });
+      const body = readFileSync(r.turnFile, 'utf8');
+      expect(body).toContain('transcript-sourced user turn');
+      // Over-mutation guard (B1): on the Claude path capture-prompt already
+      // wrote the `## — user` entry — captureTurn must NOT double-write it.
+      // Exactly one user heading remains in the transcript-of-record.
+      const transcript = readFileSync(r.transcriptPath, 'utf8');
+      expect(transcript.match(/— user/g)?.length).toBe(1);
     });
 
     it('most recent user entry is selected when transcript has multiple user entries', () => {

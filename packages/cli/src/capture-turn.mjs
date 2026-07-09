@@ -237,10 +237,12 @@ function appendConversationToNowMd({ projectRoot, ts, userTurn, assistantTurn })
 }
 
 // Assemble the both-turns temp-file body. Both turns are sanitized
-// upstream — the user body comes from the transcript (which
-// capture-prompt sanitized when writing it) and the assistant body
-// is the now-sanitized argument. Markers are literal-prefix lines so
-// auto-extract's parser can split cleanly.
+// upstream — the user body is either the transcript entry (which
+// capture-prompt sanitized when writing it, Claude path) or the
+// payload.user_message that captureTurn sanitized + L1-masked itself
+// (Kiro path, D-303); the assistant body is the now-sanitized argument.
+// Markers are literal-prefix lines so auto-extract's parser can split
+// cleanly.
 function assembleBothTurnsBody({ userTurn, assistantTurn, dedupContext = '' }) {
   return [
     'DEDUP_CONTEXT:',
@@ -398,6 +400,61 @@ export function captureTurn({
     // enrichment is best-effort; the text entry below is the durable record
   }
 
+  // Resolve the user turn BEFORE the assistant append, so a Kiro-sourced user
+  // turn can be written to the transcript-of-record in the correct order
+  // (## user → ## assistant), matching the Claude path where capture-prompt
+  // wrote the user entry on UserPromptSubmit before this Stop fired.
+  //
+  // The user turn's source, in priority order:
+  //   1. payload.user_message — the Kiro Stop hook (kiro-hook-bin.mjs) reads it
+  //      from Kiro's OWN transcript (readKiroTurn) and passes it here. This is
+  //      the Kiro-IDE fix (P-TQSG9PCA): on Kiro IDE 1.0, capture-prompt's
+  //      USER_PROMPT env var arrives EMPTY (a Kiro platform bug — GitHub
+  //      #9619/#6188), so capture-prompt no-ops, NO `## — user` entry is ever
+  //      written to our transcript, and the transcript scan (2) returns '' →
+  //      auto-extract's bi-turn extraction starves AND the committed transcript
+  //      loses every user turn. Sourcing from the payload makes the Stop hook
+  //      self-sufficient regardless of whether capture-prompt succeeded.
+  //      NB: this text is RAW (readKiroTurn does no privacy pass), so it must
+  //      go through the SAME sanitize + L1-mask the assistant turn does below
+  //      (line ~319-336) before it reaches ANY sink (the transcript, now.md,
+  //      the turn-file) — otherwise a Kiro user turn with an email/phone/
+  //      home-path lands unmasked. The transcript fallback (2) is ALREADY masked
+  //      (capture-prompt masked it at write time), so it must NOT be re-masked.
+  //   2. readLastUserTurnFromTranscript — the Claude-Code path: capture-prompt
+  //      wrote the `## — user` entry on UserPromptSubmit before this Stop fired.
+  const rawPayloadUserTurn =
+    payload && typeof payload.user_message === 'string' && payload.user_message.trim() !== ''
+      ? payload.user_message
+      : '';
+  let userTurn;
+  let userFromPayload = false;
+  if (rawPayloadUserTurn !== '') {
+    userFromPayload = true;
+    userTurn = sanitizePrivacyTags(rawPayloadUserTurn);
+    if (screenOn) {
+      const mu = maskPii(userTurn, { usernames: localUsernames() });
+      userTurn = mu.text;
+      appendRedactions(projectRoot, {
+        source: 'capture-turn:user',
+        layer: 'L1',
+        redactions: mu.redactions,
+      });
+    }
+  } else {
+    userTurn = readLastUserTurnFromTranscript(effectiveTranscriptPath);
+  }
+
+  // When the user turn came from the payload (Kiro path), capture-prompt did
+  // NOT write it to the transcript-of-record — write it here, BEFORE the
+  // assistant entry, so the L3-promoted committed transcript reads user →
+  // assistant like the Claude path. On the transcript-fallback path the entry
+  // already exists (capture-prompt wrote it) — do NOT double-write it. (B1,
+  // caught by the code-review pass on D-303.)
+  if (userFromPayload && userTurn.trim() !== '') {
+    appendFileSync(effectiveTranscriptPath, `## ${ts} — user\n\n${userTurn}\n\n`, 'utf8');
+  }
+
   appendFileSync(
     effectiveTranscriptPath,
     `## ${ts} — assistant\n\n${sanitized}\n${toolsSection}\n`,
@@ -409,10 +466,6 @@ export function captureTurn({
   //    by the parent bash wrapper). Per design §6.4, auto-extract
   //    reads the user prompt + assistant response together so it can
   //    distinguish user-stated facts from assistant-inferred ones.
-  //    The user portion comes from today's transcript (capture-prompt
-  //    wrote it before this Stop fired); the assistant portion is the
-  //    `sanitized` text we just appended above.
-  const userTurn = readLastUserTurnFromTranscript(effectiveTranscriptPath);
 
   // Task 132 (D-122): snapshot the dedup context BEFORE the now.md append
   // below — after the append, "the last now.md entry" IS the current turn,
