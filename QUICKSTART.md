@@ -28,7 +28,7 @@ Each route is complete on its own. **Don't run both** — they wire the same hoo
 
 ```bash
 npm install -g @lh8ppl/claude-memory-kit
-cmk --version          # should print 0.2.x
+cmk --version          # should print the current version (e.g. 0.5.x)
 ```
 
 This installs the `cmk` CLI **and** the 5 lifecycle hook bins. The `cmk install` step (§2) then scaffolds `context/` **and** wires those hooks into the project's `.claude/settings.json` — making it a complete entry point. Nothing else to install.

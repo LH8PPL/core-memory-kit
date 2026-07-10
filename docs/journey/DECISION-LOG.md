@@ -10,6 +10,26 @@
 
 ---
 
+## 2026-07-10 — D-311: NOTE + FIX — the full-repo audit (the user's ask): every shipped task verified against live code (131/131 clean, 0 suspect), the open-task fired-trigger walk run, the docs drift-checked — and the found drift fixed in one batch
+
+**The ask (the user):** verify shipped tasks REALLY shipped (code exists + works), verify every open task is laned-or-triggered, audit the docs. Run: 5 parallel verification agents (shipped ranges 1–79 / 80–149 / 150–208; the open-task disposition walk; the docs health pass), then a fix batch.
+
+**Shipped-task verification — CLEAN.** 131 `[x]` top-level tasks audited against the live repo (named files/functions/tests/verbs greped, not trusted from memory; the suite green at 2833 that day): **0 SUSPECT**. ~13 VERIFIED-EVOLVED (documented renames/relocations/supersessions — e.g. `merged_into`→`superseded_by`, INSTALL-*.md retired per ADR-0005, Task 167's fix shipped as `compaction-state.mjs`); 9 DOCS-ONLY (checkpoints). The learn-loop cluster (190–193) specifically verified as WIRED (imports + call sites in the hook path), not dead files. "We said we shipped it but didn't" — not found anywhere.
+
+**Open-task walk — 45 open tasks, all pass the validator; the judgment layer found and this batch fixed:**
+- **tasks.md's own "Current state" header was FIVE releases stale** (v0.3.5-latest / Task-164-in-flight) — the exact section BOOTSTRAP.md tells a fresh session to trust. REFRESHED (live state + the D-309 queue at top; old bullets kept as history). The proposed structural guard (assert the header's newest version-string against CHANGELOG's) is noted under Task 186's scope for the validator-consolidation decision.
+- **Fired-trigger re-verdicts recorded** (the D-267 walk): **141** — phase (a) was already shipped v0.3.x (D-260) and its entry now says so; phase (b)'s "or the v0.5.0 cut" clause FIRED → verdict: stays REJECTED-deferred (D-162 perf stands), trigger refreshed to npm-12-GA + a first real failure report. **186** — its "v0.4.4 cut" trigger passed; refreshed to the now-CONCRETE "decide in the Task 214 (v0.5.1) validator-suite touch." **174** — flagged that its trigger ("next daily-distill touch") FIRES at v0.5.1's 203/204; decide there. **184/189** — already re-verdicted at the v0.5.0-cut sweep (KEEP); their entries now carry that verdict instead of pointing at passed sweeps.
+- **Stale v0.4.x operative labels re-labeled** (v0.4 is closed): 174, 175 (seam dependency met), 177/180 (research lanes made version-agnostic), 127 (trigger: real team-demand or the v0.6 boundary), 51 (given its own explicit disposition — was free-riding on the shipped v0.3.0 bucket).
+- **False alarms (recorded so they aren't re-flagged):** Task 179 is `[~]`-resolved already (agent misread); 189/184 were sweep-verdicted; README DOES carry the Updating note (line ~125) so Task 162's doc claim holds.
+
+**Docs audit — drift found + fixed:** ARCHITECTURE.md described semantic search as "not shipped" (false since v0.3.0 — corrected, decision-trail note kept) and had NO learn-loop or privacy screen (added: a Layer 4.5 learn-loop section + the ADR-0019 line — summaries with pointers, D-228 honored). memory-lifecycle-map.md gained edges 18–21 (recall-log / judgment / judge / feedback-screen). QUICKSTART's `0.2.x` version example made version-agnostic. Verified CLEAN (no fix needed): glossary, README features, CLI.md/MCP.md (validator-backed), the three per-agent docs (parallel), HEALTH-CHECKS.
+
+**Filed:** **Task 215** — the nightly `cmk-daily-distill` schtask pops a visible node.exe console window on Windows (the user saw it live at 23:01; run itself healthy, LastTaskResult 0). v0.5.1 rider; NOT the Task-81 spawn-flag class — a schtask registration-shape fix, live-verify against a real trigger.
+
+**Deliberately NOT done (proposals surfaced to the user instead):** splitting/archiving tasks.md's shipped v0.1.0 body (~850 lines) into a frozen archive file — real navigational win but reference-breakage churn, the user decides; a design.md table-of-contents (additive, low risk, no D-228 issue); DECISION-LOG/build-log splits REJECTED (append-only logs, size is intrinsic, splitting fragments D-N references).
+
+_Relates D-47 (the audit discipline this reruns at full scale), D-267 (the fired-trigger walk executed), D-309/D-310 (the same-day context), Task 186 (the header-staleness guard candidate), Task 215 (filed), the 5 agent reports (session artifacts)._
+
 ## 2026-07-10 — D-310: BUG + FIX — the D-308 sweep note leaked the maintainer's first name (a `<name>wiki` path label); TWO process holes let it ship: the name-guard skips UNTRACKED files, and the CI watch latched onto the wrong workflow while CI itself failed
 
 **The leak.** The research-sweep note's Pointers section cited the 6G article's local capture by its real path — a personal-wiki dir whose name embeds the maintainer's first name (`<name>wiki/raw/`). Exactly the prefix form the D-103 hardening anticipated (`<name>wiki` is D-103's own example); the PATTERN was right, the leak shipped anyway because of hole #1.

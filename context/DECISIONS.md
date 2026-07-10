@@ -12013,3 +12013,77 @@ _(retracted 2026-07-08)_
 ## RESUME — v0.3.1 cut-gate near-complete; PR
 
 **When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-NNM9F73K -->
+
+## User prefers to file tasks/issues IMMEDIATELY when identified, because deferral
+
+**When:** 2026-07-08 · **Fact:** `P-NNM9F73K`
+
+<!-- decision:P-QN2BEXTP -->
+
+## Research-Synthesis Workflow for Product Improvement
+
+**When:** 2026-07-10 · **Fact:** `P-QN2BEXTP`
+**Why:** Grounds research-informed work in product reality; ensures findings translate to concrete improvements rather than abstract exploration; maintains traceability to existing design/task structure
+
+<!-- decision:P-MaSV2K22 -->
+
+## Core System Concepts
+
+**When:** 2026-07-10 · **Fact:** `P-MaSV2K22`
+**Why:** These concepts define the memory system's core architecture and governance trade-offs.
+
+<!-- decision:P-H4aHWNDE -->
+
+## Documentation Artifacts and Structure
+
+**When:** 2026-07-10 · **Fact:** `P-H4aHWNDE`
+**Why:** Comprehensive documentation supports governance, traceability, and evidence-before-belief validation.
+
+<!-- decision:P-7PGDAXCJ -->
+
+## Task Filing Convention With Metadata
+
+**When:** 2026-07-10 · **Fact:** `P-7PGDAXCJ`
+**Why:** Task metadata enables dependency tracking, prioritization, and batch sequencing across releases.
+
+<!-- decision:P-7WG4WJ4W -->
+
+## CI Watch Rule: Specify ci.yml by Name
+
+**When:** 2026-07-10 · **Fact:** `P-7WG4WJ4W`
+**Why:** Incident D-310: watching latched onto a green CodeQL run while ci.yml was red, so main appeared green while actually broken.
+
+<!-- decision:P-6SQ499S6 -->
+
+## Name Guard Validator Skips Untracked Files
+
+**When:** 2026-07-10 · **Fact:** `P-6SQ499S6`
+**Why:** Incident D-310: content in an untracked wiki/raw/ path leaked through CI without being caught by the name guard.
+
+<!-- decision:P-NVM3E45a -->
+
+## Release Version Queue (D-309)
+
+**When:** 2026-07-10 · **Fact:** `P-NVM3E45a`
+**Why:** Pushed and decided (D-309). This is the live release plan for ticket triage and phase sequencing.
+
+<!-- decision:P-R34LNWQ7 -->
+
+## cmk-daily-distill Scheduled Task Window Popup at 23:00
+
+**When:** 2026-07-10 · **Fact:** `P-R34LNWQ7`
+**Why:** Next session will need to recognize this 23:00 popup as expected behavior, not a bug
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`

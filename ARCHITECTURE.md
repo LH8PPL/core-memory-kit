@@ -55,6 +55,21 @@ The **frozen snapshot pattern**: these files load once per session, form static 
 
 Because it rides the Stop hook (which reads the conversation directly), the rich tier is captured even when the model uses Claude Code's built-in memory instead of the kit's tools.
 
+**The privacy screen (ADR-0019, v0.5.0)** sits directly on this capture path: a deterministic L1 pattern mask (emails/phones/usernames → `«EMAIL»` etc.) at write time, plus an async L3 LLM judge that screens names/sensitive content before anything lands in a *committed* tier — `<private>…</private>` remains the explicit never-persist override. Mechanism: design.md §6.10.
+
+### Layer 4.5 — the learn-loop (v0.5.0, ADR-0017)
+
+Phase 1 of "the kit learns from outcomes" — four organs riding the existing hooks, no new rituals:
+
+| Organ | What it does |
+| --- | --- |
+| **Recall-log** (`recall-log.mjs`) | Records WHICH memory IDs surfaced each turn (snapshot inject + every search) — the attribution primitive every outcome signal needs to find its target memory. Gitignored diagnostic, IDs only. |
+| **Expectations + judgment files** (`expectations.mjs`, `judgment.mjs`) | Pre-registered predictions ("this should make the test pass") resolve into append-only `judgment_*.md` evidence logs — method-preferences are EARNED (provisional → corroborated/contested), never auto-ranked. |
+| **The Stop-hook judge** (`judge-signals.mjs`) | Four deterministic outcome detectors per turn (tool-result ±, user-correction −, re-ask −, silent-success weak-+) that emit trust deltas — no LLM self-grading. |
+| **The feedback-screen** (`feedback-screen.mjs`) | The loop's own Poison_Guard: rate-limits deltas per fact, burst-holds systemic events (a broken test suite can't tank every fact at once), audits every delta, floors trust at 0.05 (decay never deletes). |
+
+Phase 2 (Task 194, upcoming) closes the loop's edge: search ranking blends in the earned trust scores (confidence-gated, facts only — the injected snapshot stays untouched by scores). Full design: SYSTEM-MAP §6 + ADR-0017.
+
 **The `memory-write` skill** is the explicit override — it triggers on "remember this" / "from now on" / "forget X" and routes through the same safe write path (dedup, Poison_Guard, cap enforcement, audit), preferring the MCP tools when the server is connected (see below).
 
 **MCP server** (`cmk mcp serve`, registered by `cmk install`): the kit exposes its whole memory surface as `mcp__cmk__*` tools, so Claude drives capture / recall / trust / forget / queue ops **in conversation** without you typing `cmk` — destructive ops (`mk_forget`) are two-step (preview → confirm token). A build-time guard keeps the tools at parity with the CLI verbs.
@@ -70,7 +85,7 @@ Why all of it? Each fixes a different reliability gap:
 
 **5a — keyword (shipped).** SQLite + FTS5 over `context/`. `cmk search "<term>"` (and the `mk_search` MCP tool) use this by default; no setup.
 
-**5b — semantic (deferred to a later release).** Hybrid vector + keyword over the same `context/` content via an embedded local vector backend — the specific backend is **not yet chosen** (the leading candidate is `sqlite-vec`, staying in the existing SQLite DB; see [`specs/design.md`](specs/design.md) §9.3.1). The `semanticBackend` DI seam + reciprocal-rank fusion are already wired as the drop-in point. **Not shipped yet** — `cmk search --mode semantic` reports it's unavailable (the kit ships keyword-only).
+**5b — semantic (SHIPPED v0.3.0 via `cmk install --with-semantic`; opt-in).** Hybrid vector + keyword over the same `context/` content: **sqlite-vec** in the existing SQLite DB + a local **bge-base** embedder (ADR-0015 — chosen on measured numbers: R@5 0.941 / paraphrase 1.000 on the Task-99 benchmark, vs 0.176 keyword-only). When enabled, hybrid (keyword ⊕ vector, reciprocal-rank fusion) becomes the default search mode; without the flag the kit stays keyword-only with zero native-model dependencies. _(This paragraph originally recorded the pre-v0.3 "deferred, backend not chosen" state — corrected 2026-07-10 (D-311) when the audit caught it describing a shipped feature as unavailable.)_
 
 Used for **Tier 2 retrieval** — when Tier 0 (snapshot) and Tier 1 (grep INDEX.md) miss, escalate to search.
 
