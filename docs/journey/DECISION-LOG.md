@@ -10,6 +10,16 @@
 
 ---
 
+## 2026-07-10 — D-307: DECISION — tag v0.5.0 NOW; defer the Cursor INTERACTIVE cut-gate to a token-refresh trigger (the user's call)
+
+**Context.** The v0.5.0 tag was held under D-292 (all three agent gates must pass, so the README's Kiro/Cursor claims aren't a lie). This session closed the Kiro gate (§2/§5/§6 all live-PASS) and found + fixed THREE Cursor-Windows capture bugs — D-305 (`/c:/` workspace_roots path), D-306 (the UTF-8 BOM breaking `JSON.parse`, the real killer), and the shared `parseHookStdin`. All merged; the repacked global `cmk` was **live-verified on the EXACT bytes Cursor 3.5.17 sends** (BOM-prefixed `/c:/` payloads → full bi-turn `now.md`, user=1 assistant=1, preference captured). Then the maintainer's free-tier Cursor tokens ran out mid-gate (~14-day refresh).
+
+**Decision (the user, 2026-07-10): tag v0.5.0 now; defer the full interactive Cursor gate.** Rationale — the D-292 lie-guard is SATISFIED without the interactive run: "Cursor capture works" is now a TRUE, verified claim (the bugs are fixed and the core capture is proven at the payload boundary through the real global bin), not an unverified assertion. What's deferred is the EXHAUSTIVE in-IDE gate (R-inject / E1 wedge / E2 privacy / E3 learn-loop), which is *additional confidence*, not *correctness* — the correctness question ("does capture work") is answered yes. Holding the tag 14 days would delay a done release (Kiro capture + the Task-148 privacy screen + the Tasks 190-193 learn-loop, all live-gated) and risk context loss.
+
+**Honest-not-silent (the decision-trail + lazy-framing rules).** The deferral is RECORDED, not hidden: **Task 208** carries the owed interactive gate with a NAMED trigger (D-307: fires on Cursor token refresh, ~2026-07-24), and the release note states Cursor capture is verified at the payload level with the full interactive gate scheduled next session. This is the difference between a stated deferral and a disclaimer that ships a latent gap — the former is the process working.
+
+**What ships in v0.5.0** (all live-verified this session or prior): D-303 Kiro capture fix + the B1 transcript-parity; the Task-148 privacy screen (Kiro §6/E2 PASS); the Tasks 190-193 learn-loop (Kiro §6/E3 PASS); D-305 + D-306 Cursor capture fixes (payload-boundary verified). Deferred to v0.5.1: Task 206 (pre-roll now.md name window), Task 207 (Claude-bin BOM hardening), Task 208 (Cursor interactive gate). _Relates D-292 (the 3-agent gate this satisfies), D-305/D-306 (the Cursor fixes), Task 208 (the deferred gate), the Kiro §2/§5/§6 completion (the parallel bar Cursor's payload-verify meets at the core level)._
+
 ## 2026-07-09 — D-306: BUG + FIX (v0.5.0, tag-blocking) — the TRUE Cursor-Windows capture killer: Cursor prepends a UTF-8 BOM to the hook stdin, so `JSON.parse` threw and EVERY hook silently no-op'd
 
 **Class:** the same "real agent payload ≠ our adapter's assumption" family as D-303/D-305, but this is the ROOT — D-305 (the `/c:/` path fix) was necessary but only mattered for the rare payloads that parsed at all; **most never parsed.**
