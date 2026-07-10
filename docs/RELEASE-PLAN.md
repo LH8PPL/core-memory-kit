@@ -165,7 +165,7 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
   primitive, build FIRST) → **Task 193** (FEEDBACK-SCREEN — the prerequisite; no utility mutation
   without it) → **Task 191** (expectation pre-registration + `judgment_*.md` files; absorbs 188 +
   181(c)) → **Task 192** (the Stop-hook judge — the full automatic signal portfolio).
-- **Phase 2 — close the edge (v0.5.x, after Phase 1 proves live):** **Task 194** (confidence-gated
+- **Phase 2 — close the edge (expected **v0.5.3** per the D-309 queue below; after Phase 1 proves live):** **Task 194** (confidence-gated
   SEARCH blend + survival gate + anti-pattern conversion; the narrow §20.3 amendment lands here).
   **+ Phase-2 batch riders (2026-07-10 research sweep, D-308 — same search surface, PR-sized neighbors):**
   **Task 209** (state-labeled recall — `[current]`/`[superseded]` on serialized facts; A-TMA's
@@ -174,14 +174,31 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
   surfaces; the un-deferred 4-view cut of §16.18's 7-mode classifier) · **Task 212** (memory-health
   behavioral dashboard — writes-per-search/empty-search/redundant-write from the shipped recall-log +
   audit log; trigger-gated: fires when 194's tuning starts, it IS 194's before/after instrumentation).
+- **The v0.5 release QUEUE (D-309, 2026-07-10 — the user's "real versions, not v0.5.x" call).** The
+  ORDER + CONTENT below are the commitment; the DIGIT still stamps on cut (D-157 STANDS — a ready
+  security-patch-class fix may jump the queue and re-stamp what follows, exactly the v0.4.2
+  precedent; that hazard is WHY the digits are "expected," not locked):
+  1. **v0.5.1** — 203+204 (headline) + riders 205 / 206 / 207 / 213. _(Committed above.)_
+  2. **v0.5.2 — the Codex adapter** (Task 196 tail; + Task 165's kiro-surface fix rides the same
+     surface). **RE-LABELED from "v0.4.6" (D-309):** v0.5.0 shipped ahead of Codex (the D-286
+     re-order), and tagging a 0.4.6 AFTER 0.5.0 would misorder npm `latest` — the old label is
+     preserved in the historical notes as the pre-D-286 expectation. Breadth-before-more-depth also
+     buys Phase 1 live mileage before Phase 2 tunes on its signals.
+  3. **v0.5.3 — Phase 2, the learn-loop payoff** — Task 194 + the batch riders 209 / 211 / 212
+     (the bullet above).
+  4. **v0.5.4 — the governance batch** — Task 96 + Task 210 (+ Task 95 if its needs-design gate
+     has cleared by then; otherwise 95 slides to the next slot — its gate, not the queue, decides).
+  _Task 208 (the Cursor interactive gate) is a gate RUN, not a release — it fires on token refresh
+  (~2026-07-24) and rides whatever slot is current when it runs._
 - **v0.5.1 — COMMITTED (not trigger-gated): Tasks 203 + 204 — the automatic-distill-starvation fix + the incremental-resumable principle (D-298/D-299, the user's 2026-07-08 call).** Diagnosed live during the v0.5.0 repack: `daily-distill` silently stops on a busy repo (the 23:00 cron is killed before the 3.4-min distill finishes) AND both safety nets miss it — HC-10 is false-green (heartbeat records at task start), and the lazy fallback is shadowed by `stale-now` (cascade-starvation). **This BREAKS the kit's core "memory just works, automatically" promise, so it is committed to the next minor after v0.5.0, NOT deferred behind a trigger** (the user: *"what named trigger? this task has to be done in the next version or now, it breaks the kit"*). **203** = the fix (HC-10 checks `recent.md` freshness not just the heartbeat; the lazy roll stops letting `stale-now` shadow `stale-daily`; `register-crons` sets `WakeToRun=True`). **204** = the general principle it exposes (long jobs must be incremental + resumable-from-artifacts, never all-or-nothing) → a NEW ADR + `daily-distill` refactored as the reference beneficiary + the checklist into CLAUDE.md. They ship together. Not a v0.5.0 tag blocker (pre-existing; distill works on demand; `recent.md` fresh now).
   - **+ Task 213 (D-308, 2026-07-10 research sweep): provenance pointers through the distill chain** — every condensed section in `today-*.md`/`recent.md`/`archive.md` keeps a source-session date tag, so summaries stay traceable to the raw transcript floor (the Always-On survey's provenance-preservation invariant; softens lifecycle-map G8). RIDES 203/204 because they refactor the exact distill code this touches — the resumable rewrite is the natural place to add the invariant.
   - **+ Task 205 (D-302): `cmk install` breaks itself on its own running MCP server's DLL lock (Windows).** Found when the v0.5.0 repack needed a manual kill of the `cmk mcp serve` procs (they hold `vec0.dll`) — the user: *"that is a bug, no?"* Yes: a reinstall/upgrade while an MCP server is running can leave a half-broken global; documented-never-fixed (only "kill the server manually"). Fix = graceful handling (detect+stop own server / retry-on-EBUSY / actionable half-install message). NOT a tag blocker (usually cosmetic, workaround known, hits reinstall not first-install). NOT the rejected node:sqlite cure (Task 141b, perf).
 - **Riding non-headline (per the laned-versions-carry-riders pattern):** **96** (compliance scrub —
-  keeps its v0.5.x governance slot) · **95** (dream re-curation — CONSUMES the loop's utility data;
-  sequenced after 66 (v0.4.4) + Phase 1; its needs-design gate stands) · **210** (deletion-propagation
+  the governance slot, expected **v0.5.4** per the D-309 queue) · **95** (dream re-curation — CONSUMES
+  the loop's utility data; sequenced after 66 (v0.4.4) + Phase 1; its needs-design gate stands —
+  expected v0.5.4 IF the gate clears, else it slides) · **210** (deletion-propagation
   guarantee — a tombstoned/redacted fact verifiably gone from index/summaries/snapshot; rides 96's
-  governance slot; the 2026-07-10 sweep's cheapest differentiator — rollback/deletion is the field's
+  governance slot, expected **v0.5.4**; the 2026-07-10 sweep's cheapest differentiator — rollback/deletion is the field's
   27-of-435 gap and the kit already owns the hard parts; D-308).
 - **Phase 3 is NOT v0.5** — host-dependent ambitions (peer-disagreement, used-vs-ignored, richer
   judges, same-task replay) ride the agent-host arc (Task 50 tail / 127) and are triggered by it.

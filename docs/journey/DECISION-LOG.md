@@ -10,6 +10,35 @@
 
 ---
 
+## 2026-07-10 — D-310: BUG + FIX — the D-308 sweep note leaked the maintainer's first name (a `<name>wiki` path label); TWO process holes let it ship: the name-guard skips UNTRACKED files, and the CI watch latched onto the wrong workflow while CI itself failed
+
+**The leak.** The research-sweep note's Pointers section cited the 6G article's local capture by its real path — a personal-wiki dir whose name embeds the maintainer's first name (`<name>wiki/raw/`). Exactly the prefix form the D-103 hardening anticipated (`<name>wiki` is D-103's own example); the PATTERN was right, the leak shipped anyway because of hole #1.
+
+**Hole #1 — the screen ran on an untracked file.** The pre-commit screen ran `validate-maintainer-name-confined` by the book → OK — but the validator's `git grep` scans TRACKED files only, and the note was untracked at screen time. The commit (1020e98) made it tracked; the next local `npm test` failed. **Filed Task 214** (add `--untracked` to the validator's grep + a red-first test; v0.5.1 rider, do early — a guard that passes on the class it exists to catch is a lying guard).
+
+**Hole #2 — the CI watch picked the wrong run.** After the push, `gh run watch $(gh run list --limit 1 ...)` latched onto one of the SIX workflows the push triggered (Security/CodeQL/canonicalize-parity registered first, all green) — while the actual **CI workflow FAILED on the validator** and `main` sat red until this session's next local run surfaced it. The watch-CI rule's EXECUTION was wrong, not the rule: watch the CI workflow BY NAME. CLAUDE.md's watch-CI rule gains sub-rule (c) in this batch.
+
+**FIX (this batch):** the note's path label → "the maintainer's local wiki capture (personal-wiki `raw/` dir)"; validator green locally; pushed with `main` watched by workflow name to green. **The history residue, honestly:** commit 1020e98's blob retains the string in git history. Assessed + accepted (no history rewrite): the maintainer's first name is ALREADY public on every commit via the git author identity, which the Name-privacy rule explicitly scopes OUT ("the user controls their own git config") — the residue adds zero new exposure, and a `filter-repo` force-push would break clones for nothing (the Task 96 calculus). The name-guard's job is the TRACKED TREE, and that is restored.
+
+**Meta.** Same family as D-304 (a window between capture and screen) and D-84 (false-green: the check that doesn't check). The screen was run in good faith at the wrong moment against a tool with a blind spot — the fix is structural (Task 214), not more prose. _Relates D-102/D-103 (the guard), Task 214 (the structural fix), Task 122 (the guard's origin), D-308 (the note), the CLAUDE.md watch-CI rule (sub-rule c added this batch), `P-XVB7HWGJ` (the prior watch-CI precedent this extends: that one didn't watch at all; this one watched the wrong run)._
+
+## 2026-07-10 — D-309: DECISION — the v0.5 release QUEUE: expected digits for every laned task (the user's "real versions, not v0.5.x" call), + the Codex v0.4.6 → v0.5.2 re-label; D-157 STANDS
+
+**Context.** After D-308 laned the sweep's tasks as "v0.5.x," the user: *"can we decide on real versions? saying 'v0.5.x' is too vague."* The tension: **D-157 is SETTLED** — the patch digit tracks shipments, not pre-numbering, because pre-numbered slots demonstrably slip (Cursor lost its locked v0.4.1; the Task-173 security patch jumped into v0.4.2 and slid 151 to v0.4.3). Surfaced to the user rather than silently violated.
+
+**Decision: commit the ORDERED QUEUE with EXPECTED digits; D-157 stands.** The order + content are the commitment; the digit is "expected" and re-stamps only if something jumps the queue (the v0.4.2 precedent is the named hazard, not a hypothetical). This kills the "v0.5.x" vagueness without re-opening D-157. The queue (recorded in RELEASE-PLAN, the authoritative lane file):
+
+1. **v0.5.1** — Tasks 203+204 (headline) + riders 205 / 206 / 207 / 213. (Already committed, unchanged.)
+2. **v0.5.2 — the Codex adapter** (Task 196 tail) + Task 165 (rides the same kiro/agent surface).
+3. **v0.5.3 — Phase 2, the learn-loop payoff** — Task 194 + batch riders 209 / 211 / 212.
+4. **v0.5.4 — the governance batch** — Task 96 + Task 210 (+ Task 95 IF its needs-design gate has cleared; its gate, not the queue, decides).
+
+**The Codex re-label (the stale-digit fix):** Codex was still labeled "v0.4.6" from the D-257 sequencing — but v0.5.0 shipped AHEAD of it (the D-286 re-order), and tagging a 0.4.6 AFTER 0.5.0 would misorder npm `latest`. Codex's expected slot is now **v0.5.2**; the old labels are preserved in Task 196/165 + RELEASE-PLAN per the decision-trail rule. Codex-before-Phase-2 (not after) because: the breadth commitment is demand-backed (D-257, the maintainer's friends), and it buys Phase 1 live mileage before Phase 2 tunes on Phase 1's signals ("after Phase 1 proves live" is 194's own gate).
+
+**Not releases:** Task 208 (the Cursor interactive gate) is a gate RUN riding whatever slot is current when tokens refresh (~2026-07-24); trigger-gated tasks (212 if it fires early, 47/48, etc.) ride the slot open when their trigger fires.
+
+_Relates D-157 (stands — surfaced, not violated), D-308 (the filings this numbers), D-257/D-286 (the sequencing history behind the Codex re-label), D-248 (lane-or-trigger), RELEASE-PLAN (the authoritative queue)._
+
 ## 2026-07-10 — D-308: DECISION — the five-source memory-research sweep: file Tasks 209–213 + three fold-ins, lane them (Phase-2 batch / v0.5.1 riders / governance slot), reject the training-class ideas
 
 **Context.** The user brought five research sources (4 arXiv PDFs + 1 article + the Fergana-Labs `stash` repo) with the ask: study them ALL against the kit and steal what makes it better. Each source was deep-read in full (PDFs incl. appendices; the repo's sources) by a dedicated subagent, mapped against the live backlog (SYSTEM-MAP §6, the open tasks, the D-248 dispositions). Full findings: [`docs/research/2026-07-10-memory-research-sweep.md`](../research/2026-07-10-memory-research-sweep.md); SOURCES.md carries the five new entries.

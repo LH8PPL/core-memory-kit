@@ -196,4 +196,4 @@ rules. Recorded so a future session doesn't re-read it hoping for mechanism.
 - AutoMem: <https://arxiv.org/abs/2607.01224> (full 16pp incl. appendices, via local PDF; project page autolearnmem.github.io)
 - MEMORA: <https://arxiv.org/abs/2602.03315> — see the [2026-07-03 review](2026-07-03-memora-harmonic-memory-review.md)
 - stash: <https://github.com/Fergana-Labs/stash> (README + backend/plugin/curator sources + API tree)
-- 6G article: local capture (`liorwiki/raw/`); the underlying paper <https://arxiv.org/abs/2605.00593>
+- 6G article: the maintainer's local wiki capture (personal-wiki `raw/` dir); the underlying paper <https://arxiv.org/abs/2605.00593>
