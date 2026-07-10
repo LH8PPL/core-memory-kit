@@ -1,0 +1,20 @@
+---
+id: P-MRXZDQa4
+type: project
+shape: State
+title: Kiro IDE transcript parser works (both turns extracted from real data) — NOT the auto-extract cause
+created_at: 2026-07-09T06:22:48Z
+write_source: user-explicit
+trust: high
+recurrence_count: 1
+source_file: user-explicit
+source_line: 1
+source_sha1: 4851e17a8c472291474a421879417213d4d29ae2157d8bef14beff0248907a48
+related: [unverified-auto-extract-has-never-automatically-written-a-fa, auto-extract-works-on-kiro-confirmed-by-direct-probe-the-not]
+---
+
+Kiro transcript readers are NOT the bug — ruled out with real data. parseKiroIdeV1Messages reads msg.payload.type/.content correctly and, tested against a REAL ~/.kiro IDE messages.jsonl, returned BOTH userText ('i have version 3.13...') and assistantText — so bi-turn extraction gets both turns on the Kiro IDE path. The kiro-cli path IS user-turn-less by design (kiro-cli stores only user_prompt_length, not the verbatim prompt — kiro-transcript.mjs:63-65) but that's the CLI reader, not the IDE.
+
+**Why:** Diagnosing why Kiro auto-extract produced 0 write_source:auto-extract facts (P-TXWT72PM). Ruled OUT the parser: (1) parseKiroIdeV1Messages reads msg?.payload?.type and msg?.payload?.content — the CORRECT nesting for the real Kiro IDE-1.0 schema (each messages.jsonl line = {id,timestamp,payload:{type:'user'|'assistant',content}}); my earlier 'roles:undefined' scare was my throwaway script reading m.type at the TOP level, not the parser. (2) Ran the ACTUAL parser against a real ~/.kiro IDE messages.jsonl → returned userText='i have version 3.13...' (51 chars) AND assistantText (736 chars) → bi-turn extraction gets both turns. So the IDE reader is fine. The kiro-cli reader (parseKiroCliSession) IS assistant-only by design (kiro-cli stores user_prompt_length not the verbatim prompt) — that's a real limitation for kiro-CLI users but NOT what hit the IDE gate sessions. NET: the reason for 0 auto-extract facts is STILL UNPROVEN. Candidates remaining: (a) in S1 the model ALSO explicitly mk_remember'd the same preferences → auto-extract dedup/skipped them as already-saved (would mean it WORKS, just nothing new); (b) my folder contamination fed it meta-turns; (c) something in the hook→child spawn→turn-file-write chain on Kiro drops the user turn AFTER the reader (e.g. the turn-file the detached child reads gets only the assistant side). Have NOT proven which. IMPORTANT PROCESS NOTE: I thrashed — declared 'found the bug' 3x (parse-format, then payload-nesting, then CLI-user-turn-less) and was wrong each time because I tested throwaway scripts instead of the real parser against real data. The discipline: test the REAL function against REAL data before claiming a bug.
+
+**How to apply:** The ONE clean test that settles 'does Kiro auto-extract automatically write a fact' — a controlled live Kiro IDE session, contamination-free: (1) fresh folder, install --ide kiro, assistant does NOT touch it after install; (2) user opens ONLY in Kiro, states a NEW durable preference the model will NOT explicitly mk_remember (phrase it as working-context, not 'remember this' — e.g. 'i always deploy to fly.io, keep that in mind' while doing unrelated work); (3) after the turn, WITHOUT the user saying commit, check context/memory/*.md for a file with write_source:auto-extract (the automatic signature) that appeared with no mk_remember. If it appears → Kiro automatic path PROVEN. If not → inspect the turn-file the detached child actually read: is CMK_PROJECT_DIR right? does the .extract-*.tmp turn-file contain a populated USER_TURN or empty? (add a one-off: after a Kiro turn, before the child deletes it, cat the newest context/transcripts/.extract-*.tmp — that's the exact input auto-extract sees; if USER_TURN is empty there but the parser returns userText, the drop is in the hook→turn-file assembly, the real fix target). Do this as the definitive Kiro-auto-extract verification. Relates P-TXWT72PM (the unproven claim), P-FSaL7MCB (engine works via direct probe), the bi-turn extraction design.
