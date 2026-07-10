@@ -748,5 +748,24 @@ describe('Task 7 — writeFact() boundary', () => {
         : [];
       expect(files).toHaveLength(0);
     });
+
+    it('Poison_Guard: a secret in the TITLE → rejected, NO file written (D-312 side-door fix)', () => {
+      const result = writeFact(
+        validOptions({
+          projectRoot,
+          slug: 'title-leak',
+          title: 'token is ghp_1234567890abcdefghij1234567890abcdef12',
+          body: 'a perfectly clean body with nothing sensitive in it',
+        }),
+      );
+      expect(result.action).toBe('error');
+      expect(result.errorCategory).toBe('poison_guard');
+      expect(result.pattern_id).toMatch(/^secret_/);
+      const factDir = join(projectRoot, 'context', 'memory');
+      const files = existsSync(factDir)
+        ? readdirSync(factDir).filter((f) => f !== 'INDEX.md')
+        : [];
+      expect(files).toHaveLength(0);
+    });
   });
 });

@@ -525,13 +525,11 @@ function doReplace(opts) {
   // Task 151.8: a replace SUPERSEDES the old fact → DAMPEN its trust_score (the
   // supersession passive signal). Covers the REPLACE path (direct + auto-persona's
   // persona-supersede, which calls memoryWrite({action:'replace'}) → here).
-  // KNOWN GAP (honest scope): two OTHER supersession writers set `superseded_by`
-  // WITHOUT routing through doReplace and therefore do NOT dampen yet —
-  // conflict-queue.mjs::mergeScratchpadBullets (merge-both) and
-  // merge-facts.mjs::moveToSuperseded. Wiring those is deferred to Task 151.12
-  // (the supersede-hooks sub-task), where a single `superseded_by`-write chokepoint
-  // is the right place. Best-effort overlay on the rebuildable index — never breaks
-  // the replace.
+  // (CLOSED 2026-07-10 — the former KNOWN GAP: the two other supersession
+  // writers, conflict-queue.mjs::mergeScratchpadBullets and
+  // merge-facts.mjs::moveToSuperseded, now BOTH call applyTrustSignal dampen
+  // directly — Task 151.12 shipped. All three supersede paths dampen.)
+  // Best-effort overlay on the rebuildable index — never breaks the replace.
   applyTrustSignal({ projectRoot: opts.projectRoot, id: match.id, event: 'dampen' });
 
   return {

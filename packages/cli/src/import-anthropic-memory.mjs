@@ -41,6 +41,8 @@ import {
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { writeBullet } from './provenance.mjs';
 import { hashContent } from './content-hash.mjs';
+import { checkPoisonGuard, logPoisonGuardRejection } from './poison-guard.mjs';
+import { sanitizeHomePaths } from './sanitize.mjs';
 
 const MEMORY_REL = ['context', 'MEMORY.md'];
 
@@ -223,6 +225,52 @@ export async function importAnthropicMemory({
     };
   }
 
+  // Poison_Guard + home-path screen (D-312 — the security-review side-door
+  // finding): this importer launders content from Anthropic's native
+  // auto-memory (a DIFFERENT tool context) straight into the committed,
+  // git-pushed context/MEMORY.md. The sibling import-claude-md screens; this
+  // one never did. Screen each proposal's text: home-path-sanitize (so an
+  // imported absolute path doesn't ship the username) then Poison_Guard —
+  // a secret/injection hit DROPS that bullet (logged, redacted), the clean
+  // ones proceed. A dropped bullet counts as skipped, not an error.
+  let skippedPoison = 0;
+  const screened = [];
+  for (const p of proposals) {
+    const sanitizedText = sanitizeHomePaths(p.text);
+    const guard = checkPoisonGuard(sanitizedText);
+    if (guard.rejected) {
+      skippedPoison += 1;
+      if (guard.pattern_id !== 'schema') {
+        logPoisonGuardRejection({
+          projectRoot,
+          ts,
+          pattern_id: guard.pattern_id,
+          source_file: 'import-anthropic-memory',
+          source_line: 1,
+          redacted_excerpt: guard.redacted_excerpt,
+        });
+      }
+      continue;
+    }
+    screened.push({ ...p, text: sanitizedText });
+  }
+  if (screened.length === 0) {
+    return {
+      action: 'completed',
+      mode: 'apply',
+      proposals: [],
+      accepted: 0,
+      skipped: skippedDup + skippedPoison,
+      errors: 0,
+      sourcePath,
+      targetPath,
+      duration_ms: Date.now() - t0,
+    };
+  }
+  // From here `screened` is the accept set (const `proposals` is the pre-screen
+  // list; use `screened` for the write + audit loop so the drop is honored).
+  const accepted_proposals = screened;
+
   // Append section to MEMORY.md.
   // M3 (skill-review 2026-05-28): same-day re-runs create a NEW section
   // header. Append-only is correct for audit fidelity; cosmetic
@@ -234,7 +282,7 @@ export async function importAnthropicMemory({
   // invisible to the reindex parser (it maps the `write:` key to the
   // NOT-NULL observations.write_source column), so the first reindex after
   // an import failed and search degraded to the stale index (cut-gate9 F-13).
-  const bulletLines = proposals
+  const bulletLines = accepted_proposals
     .map((p) => {
       const sha1 = hashContent(p.text);
       const formatted = writeBullet({
@@ -270,7 +318,7 @@ export async function importAnthropicMemory({
   appendFileSync(targetPath, prefix + sectionHeader + '\n' + bulletLines + '\n', 'utf8');
 
   let accepted = 0;
-  for (const p of proposals) {
+  for (const p of accepted_proposals) {
     accepted += 1;
     try {
       appendAuditEntry(tierRoot, {
@@ -293,9 +341,9 @@ export async function importAnthropicMemory({
   return {
     action: 'completed',
     mode: 'apply',
-    proposals,
+    proposals: accepted_proposals,
     accepted,
-    skipped: skippedDup,
+    skipped: skippedDup + skippedPoison,
     errors: 0,
     sourcePath,
     targetPath,

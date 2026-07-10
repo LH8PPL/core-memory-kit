@@ -979,12 +979,16 @@ export async function runAutoExtract({
 
     // 4. Call Haiku.
     //
-    // Subprocess timeout: 25_000 ms. Sits comfortably under the 30s
-    // Stop hook ceiling (design §5.1) so on timeout the catch +
-    // finally + extract.log write all complete BEFORE Claude Code
-    // kills the parent. Without this, a hung claude --print call
-    // would leak the auto-extract.lock file and skip the NDJSON
-    // log entry — see design §8.5 for the composition rationale.
+    // Subprocess timeout: 90_000 ms (set at the compress() call below — see the
+    // detailed note there). This runs in the DETACHED auto-extract child, which
+    // has NO Stop-hook ceiling (the parent already returned), so the 90s value
+    // is safe and correct — the timeout still guarantees the catch + finally +
+    // extract.log write complete before the child exits, so a hung claude
+    // --print never leaks the auto-extract.lock or skips the NDJSON log entry.
+    // (Corrected 2026-07-10 (D-312): this comment previously stated a stale
+    // "25,000 ms under the 30s ceiling" — wrong on both the value AND the
+    // ceiling-applies premise; the accurate rationale is at the timeoutMs line.)
+    // See design §8.5 for the composition rationale.
     let haikuResult;
     try {
       haikuResult = await haikuBackend.compress({

@@ -246,10 +246,13 @@ export async function dailyDistill({
   const output = result?.outputText ?? '';
   const output_bytes = Buffer.byteLength(output, 'utf8');
 
-  // Overwrite recent.md atomically: write to a temp file then rename.
-  // For v0.1.0 a direct overwrite is fine (single-writer assumption);
-  // atomic-rename would be a v0.1.x hardening if cron + manual roll
-  // ever overlap.
+  // Overwrite recent.md with a direct writeFileSync (NOT an atomic temp+rename
+  // — the comment previously claimed atomicity the code doesn't implement;
+  // corrected 2026-07-10, D-312). Safe under the single-writer assumption: the
+  // cooldown marker is advisory (mtime, not a lock), so a cron + lazy-SessionStart
+  // race within ~120s can interleave, but recent.md is a REGENERABLE derived file
+  // and a single writeFileSync never tears — last-writer-wins cleanly. An atomic
+  // temp+rename is the v0.1.x hardening if that race ever proves to matter.
   const path = recentMdPath(projectRoot);
   mkdirSync(join(projectRoot, ...SESSIONS_REL), { recursive: true });
   writeFileSync(path, output, 'utf8');

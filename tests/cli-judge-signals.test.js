@@ -276,6 +276,42 @@ describe('Task 192 — judgeUserPrompt (the UserPromptSubmit wire)', () => {
     expect(r.signals).toHaveLength(0);
     expect(readSignalLog(projectRoot)).toHaveLength(0);
   });
+
+  it('a CORRECTION resolves ONLY the in-window expectation, not a stale one (D-312 over-mutation fix)', () => {
+    // A pending expectation captured now; the correction fires ~2 hours later.
+    // Only expectations within TURN_WINDOW_MS of the correction may resolve —
+    // a stale prediction must NOT get locked to MISS/REVERSAL by an unrelated
+    // later correction (MISS/REVERSAL are the sticky verdicts). This is the
+    // over-mutation class: seed 1 stale record, fire an unrelated correction,
+    // assert the stale record is UNTOUCHED.
+    capturePredictions(projectRoot, { text: 'PREDICTION: the config change fixes the login timeout' });
+    const captureMs = Date.parse(readExpectations(projectRoot, { pendingOnly: true })[0].ts);
+
+    // A correction two hours after capture — well past TURN_WINDOW_MS (15 min).
+    const laterMs = captureMs + 2 * 60 * 60 * 1000;
+    judgeUserPrompt({
+      projectRoot,
+      session: 's1',
+      prompt: 'No, that broke it — the timeout is worse now',
+      now: laterMs,
+    });
+    const stillPending = readExpectations(projectRoot, { pendingOnly: true });
+    expect(stillPending).toHaveLength(1); // untouched — outside the window
+    expect(readExpectations(projectRoot).some((e) => e.verdict === 'MISS')).toBe(false);
+  });
+
+  it('a CORRECTION still resolves an IN-window expectation MISS (the D-312 fix does not over-restrict)', () => {
+    // Companion to the over-mutation test: within the window, resolution WORKS.
+    capturePredictions(projectRoot, { text: 'PREDICTION: the config change fixes the login timeout' });
+    const captureMs = Date.parse(readExpectations(projectRoot, { pendingOnly: true })[0].ts);
+    judgeUserPrompt({
+      projectRoot,
+      session: 's1',
+      prompt: 'No, that broke it — the timeout is worse now',
+      now: captureMs + 60_000, // one minute later — inside TURN_WINDOW_MS
+    });
+    expect(readExpectations(projectRoot).some((e) => e.verdict === 'MISS')).toBe(true);
+  });
 });
 
 describe('Task 192 — AUTOMATIC PATH (the hooks fire the judge, no cmk command)', () => {

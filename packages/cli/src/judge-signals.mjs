@@ -250,7 +250,16 @@ export function judgeUserPrompt({ projectRoot, session, prompt, now } = {}) {
     dampenAll(projectRoot, ids, signals, 'correction');
 
     const verdict = verdictKind === 'reversal' ? 'REVERSAL' : 'MISS';
+    // D-312 (over-mutation fix): resolve ONLY expectations pre-registered within
+    // this turn window — a correction about the login fix must not lock every
+    // pending expectation in the project (incl. a two-day-old deploy prediction)
+    // to MISS/REVERSAL, the sticky verdicts. Scope like the dampenAll above +
+    // the silent-success loop, which both already gate on TURN_WINDOW_MS. An
+    // undated/unparseable expectation ts is NOT resolved (fail-closed — a MISS
+    // is the hard-to-undo direction, so require positive in-window evidence).
     for (const exp of readExpectations(projectRoot, { pendingOnly: true })) {
+      const expTs = Date.parse(exp.ts ?? exp.created_at ?? '');
+      if (Number.isNaN(expTs) || nowMs - expTs > TURN_WINDOW_MS) continue;
       resolveExpectation(projectRoot, {
         id: exp.id,
         verdict,

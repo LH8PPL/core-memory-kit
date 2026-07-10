@@ -342,7 +342,12 @@ export function writeFact(opts = {}) {
   // secret/poison screen that scratchpad writes get via memoryWrite. Screen
   // the (sanitized) body before any disk write; a rejection logs the redacted
   // excerpt to .locks/poison-guard.log and returns a poison_guard error.
-  const guard = checkPoisonGuard(body);
+  // Screen BOTH title and body (D-312 — the title was a Poison_Guard side door:
+  // `--title "ghp_…"` / mk_remember title param landed a secret verbatim in the
+  // committed frontmatter + INDEX.md, since title only got privacy/PII masking,
+  // never the secret/injection screen). Concatenate so one screen covers both;
+  // a rejection in either field blocks the write.
+  const guard = checkPoisonGuard(`${title ?? ''}\n${body}`);
   if (guard.rejected) {
     // Best-effort log; guard on projectRoot so a U-tier write with no
     // project context can't turn a clean rejection into a crash.

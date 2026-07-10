@@ -7,9 +7,10 @@
 // set-level defense (screen the batch, not just the item).
 //
 // The screen sits INSIDE applyTrustSignal (trust-signal.mjs) — the single
-// trust_score mutation gate (verified: 4 callers, zero bypass writers) — so
-// every signal, present and future (Task 192's judge), routes through it.
-// One path, no bypass.
+// trust_score mutation gate (verified 2026-07-10: 5 caller modules —
+// conflict-queue, judge-signals, memory-write, merge-facts, validity-window —
+// zero bypass writers) — so every signal, incl. Task 192's judge (now landed),
+// routes through it. One path, no bypass.
 //
 // Three rules (constants exported for tests + future config):
 //   1. RATE-LIMIT — max N applied deltas per fact per UTC day. A feedback
