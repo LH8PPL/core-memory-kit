@@ -200,6 +200,64 @@ describe('Task 50.E/50.F — installAgent (Kiro)', () => {
     });
   });
 
+  // Task 220 (D-322): a duplicated instruction block (copy-paste / merge kept
+  // both sides) used to be half-blind: the non-global replace refreshed only
+  // the FIRST block and uninstall left the second behind. Install now folds
+  // duplicates into one block; uninstall removes them all.
+  describe('Task 220 — duplicate instruction blocks (fold on install, remove-all on uninstall)', () => {
+    const steeringPath = () =>
+      join(projectRoot, '.kiro', 'steering', 'claude-memory-kit.md');
+
+    function seedTwoBlocks() {
+      // Real shape: install once, then simulate a merge that duplicated the block.
+      installAgent({ projectRoot, profile: kiro() });
+      const once = readFileSync(steeringPath(), 'utf8');
+      const start = once.indexOf('<!-- claude-memory-kit:start -->');
+      const end = once.indexOf('<!-- claude-memory-kit:end -->') + '<!-- claude-memory-kit:end -->'.length;
+      const block = once.slice(start, end);
+      writeFileSync(
+        steeringPath(),
+        `${once.trimEnd()}\n\nuser note BETWEEN blocks\n\n${block}\n`,
+        'utf8',
+      );
+    }
+
+    it('re-install folds both blocks into ONE, preserving user content (Doors 1+2)', () => {
+      seedTwoBlocks();
+      const r = installAgent({ projectRoot, profile: kiro() });
+      expect(r.action).toBe('installed');
+
+      const text = readFileSync(steeringPath(), 'utf8');
+      expect((text.match(/claude-memory-kit:start/g) || []).length).toBe(1);
+      expect((text.match(/claude-memory-kit:end/g) || []).length).toBe(1);
+      expect(text).toContain('user note BETWEEN blocks');
+    });
+
+    it('single-block refresh stays byte-idempotent even with a user 3+ blank-line run (self-review: fold-only collapse)', () => {
+      installAgent({ projectRoot, profile: kiro() });
+      // A user edit with an INTENTIONAL 3-newline run outside our markers.
+      const withRun = readFileSync(steeringPath(), 'utf8') + '\nuser section\n\n\n\nmore user text\n';
+      writeFileSync(steeringPath(), withRun, 'utf8');
+
+      installAgent({ projectRoot, profile: kiro() });
+      // The refresh must not touch bytes outside the managed block — the
+      // blank-run collapse applies ONLY when a duplicate block was folded.
+      expect(readFileSync(steeringPath(), 'utf8')).toBe(withRun);
+    });
+
+    it('uninstall removes ALL instruction blocks (Doors 1+2)', () => {
+      seedTwoBlocks();
+      uninstallAgent({ projectRoot, profile: kiro() });
+
+      // The steering file keeps the user's note (not kit-only residue) but
+      // carries ZERO managed markers.
+      const text = readFileSync(steeringPath(), 'utf8');
+      expect(text).not.toContain('claude-memory-kit:start');
+      expect(text).not.toContain('claude-memory-kit:end');
+      expect(text).toContain('user note BETWEEN blocks');
+    });
+  });
+
   describe('partial install reports landed legs (review I1)', () => {
     it('when hooks config is corrupt, MCP still lands and the result names it', () => {
       // pre-seed a corrupt hooks file so the hooks leg errors AFTER MCP succeeds.

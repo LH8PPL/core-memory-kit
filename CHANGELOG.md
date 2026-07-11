@@ -25,6 +25,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **A duplicated CLAUDE.md / instruction-file block is now folded on install and fully removed on
+  uninstall** — if your CLAUDE.md (or a Kiro steering / Cursor rules file) ever ended up with two
+  kit-managed blocks (a copy-paste, or a merge conflict resolved by keeping both sides), re-running
+  `cmk install` refreshed only the first block and left the stale duplicate behind forever, and
+  `cmk uninstall` also removed only the first — contradicting the clean-removal promise. Install now
+  folds all managed blocks into one (your own content around and between them is preserved),
+  uninstall removes every block, and `cmk doctor` (HC-9) flags a duplicate with the fix. (Task 220.)
+
 - **The nightly memory-distill no longer pops a black console window on Windows** — the 23:00
   scheduled task launched `node.exe` directly, so Windows opened a visible console window over
   your screen for the run's duration. `cmk register-crons` now registers the task to run through

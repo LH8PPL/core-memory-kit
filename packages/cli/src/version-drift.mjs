@@ -39,6 +39,20 @@ export function checkVersionDrift({ claudeMdText, kitVersion } = {}) {
     return { id, name, status: 'skip', message: 'no claude-memory-kit managed block in CLAUDE.md' };
   }
 
+  // Task 220 (D-322): a duplicated managed block (copy-paste / kept-both-sides
+  // merge) is a real integrity fault regardless of versions — the stale copy
+  // shadows the refreshed one for any reader scanning past the first. `cmk
+  // install` now FOLDS duplicates into one block, so it is the recovery here.
+  if (block.duplicateCount > 0) {
+    return {
+      id,
+      name,
+      status: 'fail',
+      message: `CLAUDE.md contains ${block.duplicateCount + 1} claude-memory-kit managed blocks (a duplicate from a copy-paste or merge) — re-run \`cmk install\` to fold them into one`,
+      recoveryCommand: 'cmk install',
+    };
+  }
+
   // `block.version` is the `:start vX` marker value (findManagedBlock recovers it
   // even from a corrupted/orphan-start block — a stale corrupted block still earns
   // the `cmk install` advice, which fixes both). compareVersions strips any
