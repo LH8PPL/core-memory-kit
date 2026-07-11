@@ -8,6 +8,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Security
+
+- **Every path into your committed memory is now screened for secrets — not just the direct write
+  commands** — Poison_Guard previously screened `cmk remember`/auto-extract writes, but LLM-summarized
+  content and promotions skipped it: a secret pasted in conversation could survive the nightly
+  summary **verbatim** into git-committed `recent.md`/`archive.md`, a pasted API key rode transcript
+  promotion (the PII judge only knows names/emails), the persona-review queue took classifier output
+  unscreened, and `cmk trust <id> high` would bless old content past patterns added since it was
+  written. All of these now screen through one shared gate: summaries are checked before AND after
+  the model call (a poisoned source day costs a regex pass, not a nightly model bill), a poisoned
+  transcript batch is withheld with a content-free marker (the raw text stays in your local buffer),
+  and a trust increase re-screens the content against the current pattern catalog first. Every
+  rejection is logged redacted — the secret itself never lands in any log. (Task 216, D-320;
+  design §6.7.1.)
+
 ### Fixed
 
 - **The nightly memory-distill no longer pops a black console window on Windows** — the 23:00

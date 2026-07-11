@@ -35,6 +35,7 @@ import {
   mkdirSync,
 } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { nowIso } from './audit-log.mjs';
 
 // Task 70.4 — the invisible / zero-width / bidi code points, listed EXPLICITLY
 // (no literal invisible chars in source — those are unreadable + editor-mangleable).
@@ -278,15 +279,8 @@ function redactExcerpt(text, matchStart, matchLength) {
   return `${prefix}${before}${REDACTION_MASK}${after}${suffix}`;
 }
 
-export function checkPoisonGuard(text) {
-  if (typeof text !== 'string') {
-    return {
-      rejected: true,
-      pattern_id: 'schema',
-      redacted_excerpt: '',
-    };
-  }
-  for (const { id, re } of ALL_PATTERNS) {
+function matchPatterns(text, patterns) {
+  for (const { id, re } of patterns) {
     const m = text.match(re);
     if (m) {
       return {
@@ -301,6 +295,17 @@ export function checkPoisonGuard(text) {
     pattern_id: null,
     redacted_excerpt: '',
   };
+}
+
+export function checkPoisonGuard(text) {
+  if (typeof text !== 'string') {
+    return {
+      rejected: true,
+      pattern_id: 'schema',
+      redacted_excerpt: '',
+    };
+  }
+  return matchPatterns(text, ALL_PATTERNS);
 }
 
 // --- NDJSON logger (Task 24.6, design §6.7) -------------------------
@@ -339,4 +344,54 @@ export function logPoisonGuardRejection({
   };
   appendFileSync(logPath, JSON.stringify(entry) + '\n', 'utf8');
   return logPath;
+}
+
+// --- screenBeforeCommittedWrite (Task 216, D-320) -------------------------
+//
+// The Poison_Guard side-door fix. checkPoisonGuard is one well-built chokepoint
+// on the DIRECT write path (write-fact / memory-write), but LLM-GENERATED
+// (weekly-curate / daily-distill summaries) and EXTERNALLY-SOURCED (imports,
+// transcript promotion, persona-review queue) content reaches committed tiers
+// through side doors that skipped it — a secret pasted in conversation survives
+// summarization/promotion verbatim into a git-committed file. This helper is
+// the ONE call those sites share: screen `text`; if a secret/injection pattern
+// hits, log the redacted rejection (best-effort — a log failure never blocks
+// the decision) and return {rejected:true}; otherwise {rejected:false}. The
+// CALLER decides what "rejected" means for its shape (drop the bullet, skip the
+// promotion, hold the day) — this helper only screens + logs, matching the
+// write-fact reference pattern.
+//
+// @param {string} text - the content about to reach a committed tier.
+// @param {object} opts
+// @param {string} opts.projectRoot - for the rejection log path.
+// @param {string} opts.source - a source_file label for the log (e.g.
+//   'weekly-curate', 'transcript-promote') so a rejection is traceable.
+// @param {string} [opts.ts] - timestamp for the log entry.
+// @param {string} [opts.scope] - 'all' (default) or 'secrets'. The transcript
+//   tier uses 'secrets': a committed transcript is a verbatim RECORD, never
+//   injected into context (search-last-resort only; the read-side defense is
+//   the inject-time re-scan, Task 70), and full-catalog injection patterns
+//   would routinely withhold transcripts of any repo that DISCUSSES prompt
+//   injection (this dogfood repo quotes those phrases daily). Skill-review
+//   finding 3, decision recorded in D-320.
+// @returns {{rejected: boolean, pattern_id: string|null, redacted_excerpt: string}}
+export function screenBeforeCommittedWrite(text, { projectRoot, source, ts, scope = 'all' } = {}) {
+  const guard = scope === 'secrets'
+    ? matchPatterns(String(text ?? ''), SECRET_PATTERNS)
+    : checkPoisonGuard(String(text ?? ''));
+  if (guard.rejected && guard.pattern_id !== 'schema' && projectRoot) {
+    try {
+      logPoisonGuardRejection({
+        projectRoot,
+        ts: ts ?? nowIso(),
+        pattern_id: guard.pattern_id,
+        source_file: source ?? 'committed-write',
+        source_line: 1,
+        redacted_excerpt: guard.redacted_excerpt,
+      });
+    } catch {
+      // best-effort log — never let a logging failure change the screen verdict.
+    }
+  }
+  return guard;
 }

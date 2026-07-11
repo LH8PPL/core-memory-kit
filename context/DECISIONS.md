@@ -12087,3 +12087,127 @@ _(retracted 2026-07-08)_
 ## RESUME — v0.3.1 cut-gate near-complete; PR
 
 **When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-EKWH25S2 -->
+
+## Main CI green after D-306 merge (exit code 0); all code work verified and staged
+
+**When:** 2026-07-09 · **Fact:** `P-EKWH25S2`
+
+<!-- decision:P-FYaVAJQX -->
+
+## install-agent.mjs Non-Global Regex Allows Duplicated Managed Blocks
+
+**When:** 2026-07-10 · **Fact:** `P-FYaVAJQX`
+**Why:** Future work on install/agents, managed block refresh, or block deduplication needs this context
+
+<!-- decision:P-GLW2DFTE -->
+
+## Linux Crontab Line Builder Has Newline-Injection Gap
+
+**When:** 2026-07-10 · **Fact:** `P-GLW2DFTE`
+**Why:** Crontab integration security and reliability depend on input sanitization
+
+<!-- decision:P-7QA5WVBP -->
+
+## SessionEnd Timeout Composition
+
+**When:** 2026-07-10 · **Fact:** `P-7QA5WVBP`
+**Why:** Core design parameter for concurrency/timeout safety; review-validated architecture
+
+<!-- decision:P-39aTUWZA -->
+
+## Expectation Resolution Gating
+
+**When:** 2026-07-10 · **Fact:** `P-39aTUWZA`
+**Why:** Real incident: login-fix correction resolved an unrelated 2-day-old deploy expectation, incorrectly locking its prediction to MISS.
+
+<!-- decision:P-43QCZHHH -->
+
+## Screened Writes Pattern
+
+**When:** 2026-07-10 · **Fact:** `P-43QCZHHH`
+**Why:** Real incidents: `cmk remember --title "ghp_<token>"` wrote secrets to committed frontmatter (write-fact gap); import-anthropic-memory laundered data with zero screening.
+
+<!-- decision:P-QAV9WT2M -->
+
+## Verified Clean Security Areas
+
+**When:** 2026-07-10 · **Fact:** `P-QAV9WT2M`
+**Why:** 6 Sonnet agents ran holistic passes (5 functional clusters + security); load-bearing findings manually re-verified.
+
+<!-- decision:P-DHaH4YAE -->
+
+## Full-Repo Audit Complete: 131 Tasks, 0 Fabricated Ships
+
+**When:** 2026-07-10 · **Fact:** `P-DHaH4YAE`
+**Why:** Confirms implementation fidelity and doc accuracy before major releases; surfaces process gaps and stale markers
+
+<!-- decision:P-USDKTEB2 -->
+
+## Release Roadmap v0.5.1–v0.5.4
+
+**When:** 2026-07-10 · **Fact:** `P-USDKTEB2`
+**Why:** Committed sequence guides release planning and task prioritization through next four releases
+
+<!-- decision:P-K9C9UPVQ -->
+
+## Three Security Bugs Fixed with Tests
+
+**When:** 2026-07-10 · **Fact:** `P-K9C9UPVQ`
+**Why:** Real vulnerabilities in public repo; audit found both bugs and process gaps; root cause (security-through-line) mirrors Task 216 priority
+
+<!-- decision:P-DVF5GQLT -->
+
+## Task Tracking: Versions + Trigger-Gated System
+
+**When:** 2026-07-10 · **Fact:** `P-DVF5GQLT`
+**Why:** Defines how work is organized and released; future sessions must understand the hybrid approach and why conditional work is trigger-gated rather than forced into versions.
+
+<!-- decision:P-2A7SCPHW -->
+
+## Task 205 Complete: MCP Server Install DLL Lock Fix
+
+**When:** 2026-07-11 · **Fact:** `P-2A7SCPHW`
+**Why:** Live probes caught payload issue unit tests missed; skill review caught consent-flow gap; demonstrates effectiveness of multi-layer validation before merge
+
+<!-- decision:P-aMG64J6K -->
+
+## Pre-roll now.md excluded from commit offers to prevent unscreened-name shipping
+
+**When:** 2026-07-11 · **Fact:** `P-aMG64J6K`
+**Why:** Guarantees personal names are privacy-screened before any commit ships; prevents accidental unscreened context leakage
+
+<!-- decision:P-WLFMPNRB -->
+
+## v0.5.1 autopilot resume point after Task 206 checkpoint
+
+**When:** 2026-07-11 · **Fact:** `P-WLFMPNRB`
+**Why:** Context compaction hit mid-lane; the next session must continue the v0.5.1 autopilot without re-deriving the task order, per-task discipline, or in-flight state.
+
+<!-- decision:P-QY2AJSXD -->
+
+## Commit-message guard rejects literal "rm -rf context/memory" strings
+
+**When:** 2026-07-11 · **Fact:** `P-QY2AJSXD`
+**Why:** Fail-safe design prioritizes preventing catastrophic harm (a destructive command succeeding) over convenience. False positives are acceptable.
+
+<!-- decision:P-7A6KVXV4 -->
+
+## cmk-daily-distill Scheduled Task Console Popup Issue
+
+**When:** 2026-07-11 · **Fact:** `P-7A6KVXV4`
+**Why:** Console popup disrupts nightly automation; next session needs to know the issue scope and fix approach for Task 215 execution.
+
+<!-- decision:P-QZT9Z5DG -->
+
+## Fable 5 classifier flags defensive security work
+
+**When:** 2026-07-11 · **Fact:** `P-QZT9Z5DG`
+**Why:** Predicting and handling model swaps in future security-heavy tasks. The swaps are not errors—they're intentional safeguards, but knowing the trigger helps avoid confusion.

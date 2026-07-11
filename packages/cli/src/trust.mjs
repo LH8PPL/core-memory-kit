@@ -32,6 +32,7 @@ import {
 import { parse, format } from './frontmatter.mjs';
 import { readBullet, writeBullet } from './provenance.mjs';
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
+import { screenBeforeCommittedWrite } from './poison-guard.mjs';
 import {
   ERROR_CATEGORIES,
   errorResult,
@@ -132,6 +133,23 @@ function updateScratchpadBulletTrust(path, id, newLevel) {
   return null;
 }
 
+// Read-only sibling of updateScratchpadBulletTrust — locate the bullet with
+// the matching leading id and return its text + current trust WITHOUT writing.
+// The Task-216 trust-increase gate needs the content before any mutation.
+function peekScratchpadBullet(path, id) {
+  const text = readFileSync(path, 'utf8');
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length - 1; i++) {
+    const parsed = readBullet({
+      bulletLine: lines[i],
+      commentLine: lines[i + 1],
+    });
+    if (!parsed || parsed.id !== id) continue;
+    return { text: parsed.text, trust: parsed.provenance.trust ?? null };
+  }
+  return null;
+}
+
 function listScratchpadsForTier(tier, tierRoot) {
   const allowed = SCRATCHPADS_BY_TIER[tier];
   const out = [];
@@ -163,8 +181,47 @@ export function overrideTrust(opts = {}) {
   const factDir = resolveFactDir(tier, tierRoot);
   const updatedLocations = [];
 
-  // 1. Try fact file (granular archive)
   const factMatch = findFactFileById(factDir, id);
+
+  // Task 216 (D-320): a trust INCREASE makes existing content more durable
+  // (high survives aging + supersede protection, and is what promotion paths
+  // trust). Content was screened at WRITE time with the catalog of that day —
+  // re-screen it with the CURRENT catalog before blessing it upward. Only an
+  // increase gates (lowering trust on poisoned content must stay possible);
+  // pre-scan BEFORE any mutation so a rejection leaves every location untouched.
+  const TRUST_RANK = { low: 0, medium: 1, high: 2 };
+  const toScreen = [];
+  if (factMatch) {
+    const { frontmatter, body } = parse(readFileSync(factMatch.path, 'utf8'));
+    toScreen.push({ text: body ?? '', prior: frontmatter?.trust ?? null });
+  }
+  for (const { path: scratchpadPath } of listScratchpadsForTier(tier, tierRoot)) {
+    if (!existsSync(scratchpadPath)) continue;
+    const peeked = peekScratchpadBullet(scratchpadPath, id);
+    if (peeked) toScreen.push({ text: peeked.text, prior: peeked.trust ?? null });
+  }
+  for (const { text, prior } of toScreen) {
+    // Unknown/missing prior ranks lowest — assigning it any level is an increase.
+    const priorRank = TRUST_RANK[prior] ?? 0;
+    if (TRUST_RANK[level] <= priorRank) continue;
+    const guard = screenBeforeCommittedWrite(text, {
+      projectRoot,
+      source: `trust-increase:${id}`,
+      ts: now ?? nowIso(),
+    });
+    if (guard.rejected) {
+      return errorResult({
+        category: ERROR_CATEGORIES.POISON_GUARD,
+        errors: [
+          `trust increase to '${level}' rejected: the content matches current Poison_Guard pattern '${guard.pattern_id}' — fix or forget the fact before raising its trust`,
+        ],
+        id,
+        pattern_id: guard.pattern_id,
+      });
+    }
+  }
+
+  // 1. Try fact file (granular archive)
   if (factMatch) {
     const r = updateFactFileTrust(factMatch.path, level);
     if (r) {

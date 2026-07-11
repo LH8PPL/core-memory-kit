@@ -8,16 +8,18 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-EBY9ZHYV) Release gate status: Claude ✓, Kiro ✓; Cursor is the final/pending gate before v0.5.0 tag
-  <!-- source: review-promote, source_line: 1, sha1: b2f4ae94fbd1494565b9169e4fe7e36f6c0e057247b0bbf7d7d6c2ee46a45c5b, write: user-explicit, trust: high, at: 2026-07-09T20:00:32Z -->
-- (P-PYRa4U7U) v0.5.0 SHIPPED 2026-07-10 (npm @lh8ppl/claude-memory-kit@0.5.0 live + GitHub Release v0.5.0). The 3-agent cut-gate is DONE: Claude + Kiro PASSED live; Cursor capture verified at the payload boundary (D-305 /c:/ path + D-306 UTF-8 BOM fixes merged + live-verified through the global bin). RESUME POINT for the next session = Task 208 (the full interactive Cursor cut-gate §2/§5/§6) — trigger: Cursor free-tier tokens refresh ~2026-07-24. Also open in v0.5.1: Task 206 (pre-roll now.md name window, D-304) + Task 207 (Claude-bin BOM hardening). The fresh Cursor gate folder C:/Temp/cursor-gate-v050e is already scaffolded with the fixed 0.5.0 binary.
-  <!-- source: user-explicit, source_line: 1, sha1: 1803da5b41ca7cb4dc94ccdfca6a5a9877c178bbd8d60173d549e03b16b3bf5c, write: user-explicit, trust: high, at: 2026-07-10T15:09:31Z -->
-- (P-MPH9NRWJ) Project versioning should use concrete numbers, not vague placeholders like "v0.5.x".
-  <!-- source: auto-extract-session, source_line: 1, sha1: 5dbfe739cfa5e26563f9cfd9ffd085e9883d28f985d7533e46c9ee09c53bdafb, write: auto-extract, trust: high, at: 2026-07-10T19:52:42Z -->
-- (P-2PHUTYN3) Full suite on code-review fix batch completed successfully (exit code 0)
-  <!-- source: auto-extract-session, source_line: 1, sha1: 991335a55d355469dd4ac7582e47217442ba419e3bb02cc8d3f82c7f2bffd7e2, write: auto-extract, trust: high, at: 2026-07-10T20:54:14Z -->
 - (P-ZMUTVS4A) OK with compact context summaries during mid-session resumptions on long task runs.
   <!-- source: auto-extract-session, source_line: 1, sha1: 9478089a9422993c78e62430c614dc3e706ccfd6560371f789ba6be194b4f65d, write: auto-extract, trust: high, at: 2026-07-11T08:45:16Z -->
+- (P-CSPF4GAD) CLAUDE.md CI watch rule updated to specify ci.yml by name, not relying on CodeQL results
+  <!-- source: review-promote, source_line: 1, sha1: b5d223605aacb16c276083b7383be4f5a0f8fc3b5b3b1c7df1e414d24236e108, write: user-explicit, trust: high, at: 2026-07-11T20:00:05Z -->
+- (P-ZCCT552Q) `write-fact` title screening gap; `import-anthropic-memory` zero screening; `judgeUserPrompt` resolved stale expectations — all 3 fixed with tests.
+  <!-- source: review-promote, source_line: 1, sha1: 427e160a7b29e9155d85e4d9d7d6b477b30f3155c15715d4896e5e480edc2b96, write: user-explicit, trust: high, at: 2026-07-11T20:00:20Z -->
+- (P-aCBYAKXU) 5 security/reliability tasks filed (216–220): unscreened-writes helper, delete guardrail, SQLite busy_timeout, install/uninstall refresh, MCP freshness.
+  <!-- source: review-promote, source_line: 1, sha1: 2f482ee920de06ef74c9e47ba2b6db5417ae152602d58958c3ad152eb1b6e451, write: user-explicit, trust: high, at: 2026-07-11T20:00:31Z -->
+- (P-ABX3UPRC) Task 215's stress gate passed (exit code 0); ship pipeline is now running
+  <!-- source: review-promote, source_line: 1, sha1: 5efcda5e332b3f6314ad76dfe79a8222d6a760d40cc1bee3ce6bc49ffd75e7e6, write: user-explicit, trust: high, at: 2026-07-11T20:00:32Z -->
+- (P-WaSJZ6A2) Task 216 is next — shared `screenBeforeCommittedWrite` helper for committed-write security screening
+  <!-- source: review-promote, source_line: 1, sha1: ffc7f79a6bc8b8ce9fecce3fcc2317f69b68973a9e67393517403bf1eac0b5ed, write: user-explicit, trust: high, at: 2026-07-11T20:01:15Z -->
 
 ## Environment Notes
 

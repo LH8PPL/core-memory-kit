@@ -49,6 +49,7 @@ import { parse } from './frontmatter.mjs';
 import { memoryWrite } from './memory-write.mjs';
 import { detectConflicts } from './conflict-queue.mjs';
 import { appendAuditEntry, REASON_CODES } from './audit-log.mjs';
+import { screenBeforeCommittedWrite } from './poison-guard.mjs';
 import { DEFAULT_COOLDOWN_MS, isCooldownActive, touchCooldownMarker } from './cooldown.mjs';
 import { PROMOTE_THRESHOLD } from './heat.mjs';
 // Wedge-from-empty (D-262): scaffold the user tier on first gated promote when a
@@ -548,6 +549,34 @@ export function appendPersonaReviewQueue({ userDir, entries, now }) {
 
   const blocks = [];
   for (const e of entries) {
+    // Task 216 (D-320): the entry text is LLM-classifier output persisted to a
+    // durable queue file WITHOUT the memoryWrite chokepoint (the queue is the
+    // one persona path that bypasses it). Screen each entry; a poisoned one is
+    // dropped (never queued — it would otherwise sit in the file until an
+    // approval promoted it), clean entries proceed (over-mutation shape). No
+    // projectRoot here (user-tier write) → the drop is surfaced via a REDACTED
+    // user-tier audit entry instead of the project-scoped rejection log.
+    // A RECURRING poisoned candidate re-audits once per weekly synthesis pass
+    // (it never enters the queue file, so the id-dedup can't see it) — accepted:
+    // bounded to one NDJSON line per candidate per week, and a durable seen-set
+    // would be a new sidecar state file (the ADR-0002 two-writer hazard) for
+    // negligible noise. Skill-review finding 7, documented-accept in D-320.
+    const entryGuard = screenBeforeCommittedWrite(e.text, { source: 'persona-review-queue' });
+    if (entryGuard.rejected) {
+      try {
+        appendAuditEntry(userTierRoot, {
+          ts,
+          action: 'poison-guard-rejected',
+          tier: 'U',
+          id: generateId('U', e.text),
+          reasonCode: REASON_CODES.POISON_GUARD_REJECTED,
+          reasonText: `persona-review-queue entry dropped: pattern ${entryGuard.pattern_id}; excerpt ${entryGuard.redacted_excerpt}`,
+        });
+      } catch {
+        // best-effort audit — a log failure never re-admits the entry.
+      }
+      continue;
+    }
     const id = generateId('U', e.text);
     if (existing.includes(`(${id})`)) continue; // already queued in a prior pass
     blocks.push(

@@ -817,6 +817,23 @@ Patterns rejected (write fails with category='poison_guard'):
 
 **Why discoverability-only, not perfect prevention**: per user-locked decision on the discoverability defense model — the threat model is "accidental commit", not "active adversary in your repo". Regex catches the high-frequency mistakes; secret-scanners (gitleaks, trufflehog) are the second line of defense, not us.
 
+#### 6.7.1 The side doors — `screenBeforeCommittedWrite` (Task 216, D-320)
+
+The §6.7 chokepoint covered the DIRECT write path (`writeFact` / `memoryWrite` — auto-extract, `cmk remember`, MCP tools). But LLM-GENERATED and EXTERNALLY-SOURCED content reaches committed/durable tiers through **side doors** that skipped it: a secret pasted in conversation could survive Haiku summarization or transcript promotion **verbatim** into a git-committed file. `screenBeforeCommittedWrite(text, {projectRoot, source, ts})` ([`poison-guard.mjs`](../packages/cli/src/poison-guard.mjs)) is the one shared helper those sites call: it runs `checkPoisonGuard`, best-effort logs the redacted rejection (when `projectRoot` is given), and returns the verdict — **the caller decides what "rejected" means for its shape**:
+
+| Site | On a hit | Why that shape |
+| --- | --- | --- |
+| weekly-curate INPUT (aged day files, pre-Haiku) | skip before the compress call; sources kept | a secret in a source reproduces in the summary on EVERY weekly retry — catching it pre-call turns the retry loop from a Haiku bill into a regex pass (`:input` log tag) |
+| weekly-curate → `archive.md` append (Haiku output) | skip the write AND keep the source day files | self-healing: next week re-archives once the source is fixed; nothing lost |
+| daily-distill per-day INPUT (pre-Haiku) | skip the day before its compress call (clean days proceed) | same nightly-re-bill argument; the day stays visible in the poison-guard log until the source is fixed |
+| daily-distill → per-day `.distilled.md` banking (Haiku output) | don't bank the day (clean days proceed) | the day re-distills next run; the poisoned text never reaches `recent.md` |
+| daily-distill → assembled `recent.md` (backstop) | keep the OLD `recent.md`, skip the write; an EMPTY assembly (poisoned-only / all-empty run) also never truncates a good `recent.md` | covers LEGACY artifacts banked before the screen existed; an empty clobber would stamp a fresh mtime that MASKS HC-10 |
+| transcript promote → committed `{date}.md` (**secrets-only** scope) | **withhold** (marker + watermark advance; §6.10) | a secret is permanent — a defer would starve the promote slots + re-bill the judge. Scope is `secrets` because a transcript is a verbatim RECORD never injected into context (read-side defense = the inject-time re-scan); full-catalog injection patterns would routinely withhold transcripts of any repo that DISCUSSES prompt injection |
+| persona-review queue (`queues/persona-review.md`) | drop the entry; REDACTED user-tier audit entry (`poison-guard-rejected`) | the queue bypasses `memoryWrite`; no project-scoped log at a user-tier site. A recurring poisoned candidate re-audits once per weekly pass (accepted — a durable seen-set would be an ADR-0002 sidecar for negligible noise) |
+| `overrideTrust` on a trust INCREASE | reject with `category: poison_guard`, nothing mutated | content screened at write-time under an OLDER catalog must re-pass the CURRENT one before being blessed upward; decreases stay allowed |
+
+`lessonsPromote` needs no gate: its user-tier write routes through `promoteCandidatesToUserTier` → `memoryWrite`, which re-screens with the current catalog on the new write. All sites except the transcript tier screen the FULL catalog (secrets + injection) — `recent.md`/`archive.md`/queue content can reach injected context, transcripts cannot.
+
 ### 6.8 Conflict queue (companion to the review queue)
 
 The review queue (§6.2) handles medium-trust *new* writes awaiting blessing. A separate concern: what happens when an auto-extract or user statement **contradicts an existing high-trust fact**?
@@ -991,6 +1008,15 @@ Stop (capture-turn)┘                     │
   child (or SessionEnd's compress-session top-up) retries the backlog. Haiku permanently
   unavailable degrades transcripts to machine-local — exactly native Claude Code behavior,
   an honest degrade, never an unscreened commit.
+- **Secret hit → WITHHOLD, not defer (Task 216, D-320).** The PII judge screens names/emails,
+  not secrets; a Poison_Guard hit on the judged batch (§6.7.1) is a PERMANENT condition — a
+  defer would re-judge (and re-bill) the same batch every run and starve the
+  `PROMOTE_MAX_FILES_PER_RUN` slots (oldest-first; the D-298 starvation class). Instead the
+  batch is **withheld**: a content-free marker (`<!-- batch withheld: poison-guard
+  <pattern_id> (live-buffer bytes A..B) -->`) is appended to the committed file, the
+  watermark advances past the batch, and the raw text stays in the gitignored live buffer as
+  the local audit trail. The offset-stamped marker makes the withhold idempotent across a
+  crash between marker-append and watermark-write. Result action: `withheld`.
 - `--scope transcripts` search sees promoted entries (the raw tier is the last-resort rung;
   a seconds-order lag is acceptable). The live buffer is never indexed.
 
