@@ -58,6 +58,7 @@ export const REASON_CODES = Object.freeze({
   PERSONA_SUPERSEDED: 'persona-superseded', // auto-persona: a promoted persona fact auto-superseded a contradicting existing one (Task 45.6, reuses Task 25 conflict detection)
   PERSONA_SECTION_CREATED: 'persona-section-created', // auto-persona: a new `## ` section was created on a user-tier scratchpad to land a candidate (Task 64 / F2)
   PERSONA_IMPORTED: 'persona-imported', // persona-portability: a user-tier persona bundle was imported onto this machine (Task 72)
+  POISON_GUARD_REJECTED: 'poison-guard-rejected', // Task 216 (D-320): a durable write was dropped by screenBeforeCommittedWrite at a site with no project-scoped poison-guard.log (e.g. the user-tier persona-review queue) — the redacted audit entry is the observability trail so the drop is never silent
 });
 
 export function nowIso() {

@@ -29,6 +29,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { appendRedactions } from './redactions-log.mjs';
+import { screenBeforeCommittedWrite } from './poison-guard.mjs';
 
 // The judge instructions — adapted from Anthropic's official PII-purifier
 // prompt (the primary-source foundation; research note 2026-07-07). Deltas
@@ -161,6 +162,7 @@ export async function promotePendingTranscripts({
   const state = readState(projectRoot);
   let promoted = 0;
   let deferred = 0;
+  let withheld = 0;
   let lastDeferReason;
   let judgeCalls = 0;
 
@@ -211,6 +213,48 @@ export async function promotePendingTranscripts({
     // output (untrusted LLM text) — same "drop trailing whitespace" result.
     let screened = outputText.trimEnd() + '\n';
 
+    // Task 216 (D-320): the PII judge screens names/emails, NOT secrets — a
+    // pasted API key survives judging verbatim into the COMMITTED transcript.
+    // Run the Poison_Guard secret screen before the committed append. A hit is
+    // a PERMANENT condition (unlike a judge failure): deferring would re-judge
+    // the same batch every run forever AND starve the PROMOTE_MAX_FILES_PER_RUN
+    // slots (oldest-first — two poisoned old dates block promotion entirely;
+    // the D-298 starvation class). So WITHHOLD instead of defer: the committed
+    // file gets a content-free marker, the watermark advances past the batch,
+    // and the raw text STAYS in the gitignored live buffer (never deleted) as
+    // the local audit trail. The redacted rejection is logged by the helper.
+    // scope 'secrets' (skill-review finding 3, D-320): a committed transcript
+    // is a verbatim RECORD — never injected into context — and full-catalog
+    // injection patterns would routinely withhold transcripts of any repo that
+    // DISCUSSES prompt injection (this dogfood repo quotes those phrases daily).
+    const secretGuard = screenBeforeCommittedWrite(screened, {
+      projectRoot, source: `transcript-promote:${date}`, scope: 'secrets',
+    });
+    if (secretGuard.rejected) {
+      const committedAt = committedTranscriptPath(projectRoot, date);
+      // The batch-START offset makes the marker unique per batch → idempotent
+      // across a crash between marker-append and watermark-write. Idempotency
+      // matches on the offset PREFIX only (skill-review finding 4): if the live
+      // buffer GREW between crash and replay, the end offset / first-matching
+      // pattern may differ, but the batch start cannot — same start = same batch.
+      const markerKey = `(live-buffer bytes ${offset}..`;
+      const marker = `<!-- batch withheld: poison-guard ${secretGuard.pattern_id} ${markerKey}${content.length}) -->\n\n`;
+      try {
+        let alreadyMarked = false;
+        if (existsSync(committedAt)) {
+          alreadyMarked = readFileSync(committedAt, 'utf8').includes(markerKey);
+        }
+        if (!alreadyMarked) appendFileSync(committedAt, marker, 'utf8');
+        state[date] = content.length;
+        writeState(projectRoot, state);
+        withheld += 1;
+      } catch (err) {
+        deferred += 1;
+        lastDeferReason = err?.message ?? String(err);
+      }
+      continue;
+    }
+
     // Idempotency guard (crash between append and marker): if the committed
     // file already carries this batch's first heading, the prior promote's
     // append landed — just advance the watermark.
@@ -251,7 +295,12 @@ export async function promotePendingTranscripts({
   }
 
   if (promoted > 0) {
-    return { action: 'promoted', promoted, deferred };
+    return { action: 'promoted', promoted, deferred, ...(withheld > 0 ? { withheld } : {}) };
+  }
+  if (withheld > 0) {
+    // Progress was made (watermark advanced past the poisoned batch) even
+    // though nothing landed — distinct from 'deferred' (which retries).
+    return { action: 'withheld', withheld, deferred };
   }
   if (deferred > 0) {
     return { action: 'deferred', deferred, reason: lastDeferReason };

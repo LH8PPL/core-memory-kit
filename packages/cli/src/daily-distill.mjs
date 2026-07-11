@@ -36,6 +36,7 @@ import {
   touchCooldownMarker,
 } from './cooldown.mjs';
 import { autoDrainQueues } from './auto-drain.mjs';
+import { screenBeforeCommittedWrite } from './poison-guard.mjs';
 
 const DEFAULT_MAX_OUTPUT_BYTES = 4096;
 const SESSIONS_REL = ['context', 'sessions'];
@@ -290,6 +291,7 @@ export async function dailyDistill({
   let retries = 0; // Task 161.12: count retries so the log shows the retry RATE.
   let distilledThisRun = 0;
   let skippedResumed = 0;
+  let guardRejectedDays = 0; // Task 216: days held back by the Poison_Guard screen
   for (const f of files) {
     if (!dayNeedsDistill(projectRoot, f)) {
       skippedResumed += 1; // already done in a prior (possibly killed) run
@@ -297,13 +299,26 @@ export async function dailyDistill({
     }
     let result;
     try {
+      const daySource = readFileSync(f.path, 'utf8');
+      // Task 216 (skill-review finding 2): pre-screen the day's SOURCE before
+      // paying for the Haiku call — a secret in the source reproduces in the
+      // summary on EVERY run, so catching it here turns the nightly retry from
+      // a Haiku bill into a regex pass. The day stays un-distilled (visible in
+      // the poison-guard log) until the source file is fixed.
+      const inputGuard = screenBeforeCommittedWrite(daySource, {
+        projectRoot, source: `daily-distill:${f.date}:input`, ts,
+      });
+      if (inputGuard.rejected) {
+        guardRejectedDays += 1;
+        continue;
+      }
       // Task 161 / D-175: ceiling-free path (cron/detached child, NO 60s hook
       // ceiling) → bounded transient-only retry, one day at a time. A killed run
       // between days keeps the days already written — the D-298 starvation fix.
       result = await compressWithRetry(
         backend,
         {
-          input: `## ${f.date}\n\n${readFileSync(f.path, 'utf8')}`,
+          input: `## ${f.date}\n\n${daySource}`,
           instructions: dayInstructions,
           preserveCitationIds: true,
           maxOutputBytes: perDayMaxBytes,
@@ -361,7 +376,22 @@ export async function dailyDistill({
     // forever, silently dropping it from recent.md. An empty result leaves no
     // artifact → the day re-distills next run (treated like a transient miss).
     const dayOut = (result?.outputText ?? '').trim();
+    // Task 216 (D-320): screen the Haiku-summarized day BEFORE banking it — a
+    // secret pasted in that day's session can survive summarization verbatim
+    // into the committed recent.md (assembled from these artifacts). On a hit:
+    // log the redacted rejection and DON'T bank the artifact — the day is left
+    // un-done (like an empty result), so it re-distills next run once the source
+    // is fixed, and the poisoned text never reaches recent.md. Clean days
+    // proceed (the over-mutation shape: one poisoned day skipped, the rest bank).
+    let dayGuardRejected = false;
     if (dayOut) {
+      const guard = screenBeforeCommittedWrite(dayOut, {
+        projectRoot, source: `daily-distill:${f.date}`, ts,
+      });
+      dayGuardRejected = guard.rejected;
+      if (dayGuardRejected) guardRejectedDays += 1;
+    }
+    if (dayOut && !dayGuardRejected) {
       writeFileSync(distilledDayPath(projectRoot, f.date), dayOut + '\n', 'utf8');
       distilledThisRun += 1;
     }
@@ -375,6 +405,56 @@ export async function dailyDistill({
   const output = assembleRecent(projectRoot, files, maxOutputBytes);
   const output_bytes = Buffer.byteLength(output, 'utf8');
   const path = recentMdPath(projectRoot);
+
+  // Task 216 (skill-review finding 1): an EMPTY assembly must never truncate a
+  // good recent.md — a poisoned-only run (every in-window day guard-rejected)
+  // or an all-empty-output run would otherwise clobber it with '' AND stamp a
+  // fresh mtime that masks the HC-10 staleness check. Mirror the error path's
+  // `if (partial.trim())` guard: keep the old recent.md, report distinctly.
+  if (!output.trim()) {
+    const duration_ms = Date.now() - t0;
+    const reason = guardRejectedDays > 0 ? 'poison-guard' : 'empty-output';
+    writeDistillLogEntry({
+      projectRoot, date,
+      entry: {
+        ts, scope: 'daily-distill', input_bytes, output_bytes: 0,
+        model_id: typeof backend.modelId === 'function' ? backend.modelId() : null,
+        cost_usd: 0, duration_ms, success: false,
+        skipped_reason: reason,
+        ...(guardRejectedDays > 0 ? { guard_rejected_days: guardRejectedDays } : {}),
+      },
+    });
+    return {
+      action: 'skipped', reason, guardRejectedDays,
+      distilledThisRun, skippedResumed, drained, duration_ms,
+    };
+  }
+
+  // Task 216 (D-320) backstop: per-day screening (above) covers artifacts banked
+  // from now on, but a LEGACY artifact banked before the screen existed feeds
+  // assembleRecent unscreened. On a hit: keep the OLD recent.md (stale-but-clean;
+  // HC-10 surfaces the staleness), log the redacted rejection, report skipped.
+  const recentGuard = screenBeforeCommittedWrite(output, {
+    projectRoot, source: 'daily-distill:recent', ts,
+  });
+  if (recentGuard.rejected) {
+    const duration_ms = Date.now() - t0;
+    writeDistillLogEntry({
+      projectRoot, date,
+      entry: {
+        ts, scope: 'daily-distill', input_bytes, output_bytes,
+        model_id:
+          typeof backend.modelId === 'function' ? backend.modelId() : null,
+        cost_usd: 0, duration_ms, success: false,
+        skipped_reason: 'poison-guard', pattern_id: recentGuard.pattern_id,
+      },
+    });
+    return {
+      action: 'skipped', reason: 'poison-guard',
+      pattern_id: recentGuard.pattern_id, guardRejectedDays, drained, duration_ms,
+    };
+  }
+
   writeFileSync(path, output, 'utf8');
 
   const duration_ms = Date.now() - t0;
@@ -390,6 +470,8 @@ export async function dailyDistill({
       // makes the resumability observable in the NDJSON trail.
       distilled_this_run: distilledThisRun,
       skipped_resumed: skippedResumed,
+      // Task 216: partial-success visibility — days held back by the screen.
+      ...(guardRejectedDays > 0 ? { guard_rejected_days: guardRejectedDays } : {}),
       ...(retries > 0 ? { retries } : {}), // 161.12: succeeded after a transient retry
     },
   });
@@ -401,6 +483,7 @@ export async function dailyDistill({
     sourceDays: files.length,
     distilledThisRun,
     skippedResumed,
+    ...(guardRejectedDays > 0 ? { guardRejectedDays } : {}),
     drained,
     duration_ms,
   };

@@ -52,6 +52,7 @@ import { initUserTier } from './install.mjs';
 import { autoDrainQueues } from './auto-drain.mjs';
 import { sweepExpiredFacts } from './expiry-sweep.mjs';
 import { temporalSweep } from './temporal-sweep.mjs';
+import { screenBeforeCommittedWrite } from './poison-guard.mjs';
 
 const DEFAULT_ARCHIVE_MAX_BYTES = 4096;
 const DEFAULT_RECENT_MAX_BYTES = 4096;
@@ -481,6 +482,38 @@ export async function weeklyCurate({
   const instructions = buildCurateInstructions(archiveMaxBytes);
   const sourceDates = old.map((f) => f.date);
 
+  // Task 216 (skill-review finding 2): pre-screen the aged SOURCE before paying
+  // for the Haiku call — a secret in a source day reproduces in the summary on
+  // EVERY weekly retry, so catching it here turns the retry loop from a Haiku
+  // bill into a regex pass. Same skip shape as the output screen below: sources
+  // kept, redacted rejection logged (`:input` tag names the stage), the user
+  // fixes the offending day file and next week's curate proceeds.
+  const inputGuard = screenBeforeCommittedWrite(buffer, {
+    projectRoot, source: 'weekly-curate:input', ts,
+  });
+  if (inputGuard.rejected) {
+    const duration_ms = Date.now() - t0;
+    writeCurateLogEntry({
+      projectRoot, date,
+      entry: {
+        ts, scope: 'weekly-curate', input_bytes, output_bytes: 0,
+        model_id: typeof backend.modelId === 'function' ? backend.modelId() : null,
+        cost_usd: 0, duration_ms, success: false,
+        skipped_reason: 'poison-guard',
+        pattern_id: inputGuard.pattern_id,
+        expired_swept: expirySweep.count,
+        temporal_action: temporal?.action ?? null,
+        temporal_superseded: temporal?.superseded ?? 0,
+        temporal_pairs_judged: temporal?.pairs_judged ?? 0,
+      },
+    });
+    return {
+      action: 'skipped', reason: 'poison-guard',
+      pattern_id: inputGuard.pattern_id,
+      persona, drained, expiry_sweep: expirySweep, temporal, duration_ms,
+    };
+  }
+
   let result;
   let retries = 0; // Task 161.12: count retries so the log shows the retry RATE.
   try {
@@ -544,6 +577,44 @@ export async function weeklyCurate({
   // so the invariant holds even if the LLM omits it.
   const provenancedOutput = stampArchiveProvenance(dedupedOutput, sourceDates);
   const output_bytes = Buffer.byteLength(provenancedOutput, 'utf8');
+
+  // Task 216 (D-320): screen the Haiku-summarized archive output BEFORE the
+  // committed write — a secret pasted in conversation can survive summarization
+  // verbatim into the git-committed archive.md. On a hit: log the redacted
+  // rejection and SKIP both the archive write AND the source-file deletion (so
+  // nothing is lost — next week's curate re-archives the same days once the
+  // source is fixed; self-healing, like the deletion-error path). This is the
+  // LLM-output side door the direct write-fact screen never covered.
+  const archiveGuard = screenBeforeCommittedWrite(provenancedOutput, {
+    projectRoot,
+    source: 'weekly-curate:archive',
+    ts,
+  });
+  if (archiveGuard.rejected) {
+    const duration_ms = Date.now() - t0;
+    writeCurateLogEntry({
+      projectRoot, date,
+      entry: {
+        ts, scope: 'weekly-curate', input_bytes, output_bytes,
+        model_id: typeof backend.modelId === 'function' ? backend.modelId() : null,
+        cost_usd: 0, duration_ms, success: false,
+        skipped_reason: 'poison-guard',
+        pattern_id: archiveGuard.pattern_id,
+        // Skill-review finding 5: the deterministic sweeps DID run before this
+        // skip — their outcomes must reach the NDJSON trail (same as the
+        // no-old-files skip path above).
+        expired_swept: expirySweep.count,
+        temporal_action: temporal?.action ?? null,
+        temporal_superseded: temporal?.superseded ?? 0,
+        temporal_pairs_judged: temporal?.pairs_judged ?? 0,
+      },
+    });
+    return {
+      action: 'skipped', reason: 'poison-guard',
+      pattern_id: archiveGuard.pattern_id,
+      persona, drained, expiry_sweep: expirySweep, temporal, duration_ms,
+    };
+  }
 
   // Append to archive.md (NOT overwrite — archive is append-only history).
   const archivePath = archiveMdPath(projectRoot);

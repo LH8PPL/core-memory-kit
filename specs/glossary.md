@@ -326,7 +326,9 @@ Cross-refs: [[Trust]]. Spec: design §4.
 
 The pre-write regex filter inside the [[Memory-write skill]] that rejects writes containing secrets (API keys, tokens, PEM headers) or prompt-injection phrases ("ignore previous instructions"). Rejected writes are logged with a redacted excerpt to `.locks/poison-guard.log`.
 
-Cross-refs: [[Memory-write skill]], [[Privacy screen]]. Spec: design §6.7.
+Since Task 216 (D-320) the same catalog also screens the **side doors** around that chokepoint via the shared `screenBeforeCommittedWrite()` helper: LLM-summarized output (weekly-curate/daily-distill, input pre-screened before the Haiku call too), transcript promotion (secrets-only scope — a verbatim record is never injected into context), the persona-review queue, and trust INCREASES (`overrideTrust` re-screens content against the current catalog before blessing it upward).
+
+Cross-refs: [[Memory-write skill]], [[Privacy screen]]. Spec: design §6.7 + §6.7.1.
 
 ### Privacy screen
 
@@ -336,7 +338,7 @@ Cross-refs: [[Poison_Guard]], [[Transcript live buffer]], [[Sensitivity axis]], 
 
 ### Transcript live buffer
 
-A gitignored `context/transcripts/{date}.live.md` file that hooks append each (L1-masked) turn to. Entries are promoted to the committed `context/transcripts/{date}.md` only *after* the L3 [[Privacy screen]] judge screens them — with a crash-safe byte-offset watermark (`marker-after`), a reject-gate (refusal/empty/shrunk output defers), and fail-closed behavior (judge unavailable → turns stay in the buffer, retried next turn / at SessionEnd). Never indexed for search.
+A gitignored `context/transcripts/{date}.live.md` file that hooks append each (L1-masked) turn to. Entries are promoted to the committed `context/transcripts/{date}.md` only *after* the L3 [[Privacy screen]] judge screens them — with a crash-safe byte-offset watermark (`marker-after`), a reject-gate (refusal/empty/shrunk output defers), and fail-closed behavior (judge unavailable → turns stay in the buffer, retried next turn / at SessionEnd). A [[Poison_Guard]] SECRET hit on the judged batch is permanent, so it **withholds** rather than defers: a content-free marker lands in the committed file, the watermark advances, and the raw text stays in the live buffer (Task 216, D-320). Never indexed for search.
 
 Cross-refs: [[Privacy screen]], [[Stop hook]], [[Auto-extract subagent]]. Spec: ADR-0019, design §6.10.
 
