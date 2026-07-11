@@ -10,6 +10,14 @@
 
 ---
 
+## 2026-07-11 — D-317: FIX — Task 213: provenance pointers through the distill chain (the Task-204 refactor made half of it free)
+
+**The gap (D-308, from the Always-On survey):** the rolling-window pipeline was prose-only at each hop — once the 7-day distill unlinked a source day, a `recent.md`/`archive.md` claim had no path back to the session that produced it (lifecycle-map G8; "lossy consolidation is where provenance dies"), and it made Task 210's future deletion-survival search content-fuzzy instead of ID-precise.
+
+**The Task-204 refactor pre-solved the today→recent hop:** `recent.md` is now assembled from per-day `## <date>` sections (the resumable per-day distill), so the source date IS the section header — no work needed beyond an assertion. The remaining gap was recent→archive, where weekly-curate collapses days into `## Week of` sections.
+
+**The fix:** `stampArchiveProvenance(archiveText, sourceDates)` (weekly-curate, pure + exported) deterministically stamps each `## Week of` section with a `<!-- source_days: [YYYY-MM-DD, …] -->` comment from the ACTUAL day-file dates the archivist consumed — added even if the LLM omitted it (the invariant never trusts the model, per the task's own "deterministic post-check" requirement), idempotent on re-run, no-op on empty dates (never fabricates provenance). Forward-only (existing summaries are history, not retro-edited). The pointers resolve to the raw transcript tier (ADR-0010). Pinned by 4 pure-function tests + an integration assertion (a real weekly-curate run stamps the archived week) + the today→recent section-header assertion. G8 softened lossy→lossy-but-TRACEABLE. _Relates the Always-On survey (provenance-preservation), Task 204 (the per-day sections that made today→recent free), Task 210 (the consumer of precise pointers), ADR-0010 (the raw floor), lifecycle-map G8, D-308, D-317._
+
 ## 2026-07-11 — D-316: FIX — Task 207: the BOM-unsafe hook-stdin parse generalized to all 11 bins; the REAL-spawn test upgraded it from "no-op" to "guard bypass"
 
 **The class (D-306 generalized):** D-306 fixed the BOM-swallowing `JSON.parse` on the Cursor/Kiro dispatch paths; the standalone Claude-Code hook bins still did the identical `raw.trim()==='' ? {} : JSON.parse(raw)` inline. Latent (Claude Code doesn't BOM its hook stdin), but the same trap: a leading U+FEFF makes the parse throw, the catch swallows it, the bin exits 0 having done nothing.

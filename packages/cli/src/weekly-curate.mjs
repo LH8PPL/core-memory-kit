@@ -228,6 +228,42 @@ export function dedupBullets(archiveText, sourceDates) {
   return out.join('\n');
 }
 
+/**
+ * Task 213 (D-308): ensure every `## Week of …` section carries a deterministic
+ * `<!-- source_days: [YYYY-MM-DD, …] -->` provenance comment, so an archived
+ * claim is traceable back to the raw session dates it consolidated (the raw
+ * transcript tier, ADR-0010, is where these resolve). The dates come from the
+ * ACTUAL files the archivist consumed — the invariant never trusts the LLM.
+ *
+ * Idempotent: a section that already has a `source_days` comment (a re-run, or
+ * an LLM that emitted one) is left untouched. Pure — no I/O.
+ *
+ * @param {string} archiveText - the dedup'd archive markdown.
+ * @param {string[]} sourceDates - the day-file dates this archive pass consumed.
+ * @returns {string} the archive markdown with a provenance comment under each
+ *   `## Week of` heading.
+ */
+export function stampArchiveProvenance(archiveText, sourceDates) {
+  const dates = [...new Set((sourceDates ?? []).filter(Boolean))].sort();
+  if (dates.length === 0) return archiveText;
+  const tag = `<!-- source_days: [${dates.join(', ')}] -->`;
+  const lines = String(archiveText ?? '').split('\n');
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    out.push(line);
+    if (/^## Week of /.test(line)) {
+      // Look ahead: skip a blank line, then check whether a source_days comment
+      // already follows this heading (idempotency). If not, insert one.
+      let j = i + 1;
+      while (j < lines.length && lines[j].trim() === '') j++;
+      const already = j < lines.length && /^<!-- source_days:/.test(lines[j]);
+      if (!already) out.push(tag);
+    }
+  }
+  return out.join('\n');
+}
+
 function archiveMdPath(projectRoot) {
   return join(projectRoot, ...ARCHIVE_MD_REL);
 }
@@ -500,7 +536,14 @@ export async function weeklyCurate({
 
   const rawOutput = result?.outputText ?? '';
   const dedupedOutput = dedupBullets(rawOutput, sourceDates);
-  const output_bytes = Buffer.byteLength(dedupedOutput, 'utf8');
+  // Task 213 (D-308): stamp each `## Week of` section with a deterministic
+  // source-days provenance comment so an archived claim stays traceable back to
+  // the raw session dates it came from (the Always-On survey's provenance-
+  // preservation invariant; softens lifecycle-map G8). Deterministic, NOT a
+  // prompt hope: added from the ACTUAL `old` file dates the archivist consumed,
+  // so the invariant holds even if the LLM omits it.
+  const provenancedOutput = stampArchiveProvenance(dedupedOutput, sourceDates);
+  const output_bytes = Buffer.byteLength(provenancedOutput, 'utf8');
 
   // Append to archive.md (NOT overwrite — archive is append-only history).
   const archivePath = archiveMdPath(projectRoot);
@@ -509,7 +552,7 @@ export async function weeklyCurate({
   // + '\n'` could yield THREE consecutive newlines when Haiku output already ended
   // in a blank line. Trim trailing newlines (ReDoS-safe helper), then append
   // exactly one blank-line separator (`\n\n`).
-  appendFileSync(archivePath, `${trimTrailingNewlines(dedupedOutput)}\n\n`, 'utf8');
+  appendFileSync(archivePath, `${trimTrailingNewlines(provenancedOutput)}\n\n`, 'utf8');
 
   // Delete OLD today-*.md files (audit retention via git history;
   // committed tier per .gitignore.fragment).

@@ -94,6 +94,10 @@ describe('Task 33 — dailyDistill', () => {
       expect(existsSync(recentPath)).toBe(true);
       const content = readFileSync(recentPath, 'utf8');
       expect(content).toContain('consolidated 7-day summary');
+      // Task 213 (D-308): today→recent provenance is structural — the per-day
+      // `## <date>` section headers ARE the source pointer (the resumable
+      // per-day assembly, Task 204). Every source day resolves to a section.
+      for (const d of days) expect(content).toContain(`## ${d}`);
     });
 
     // Task 161 / D-175: daily-distill is a CEILING-FREE path (cron/detached child,
