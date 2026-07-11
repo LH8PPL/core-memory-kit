@@ -274,6 +274,10 @@ describe('Task 33 — register-crons', () => {
       const psCall = calls.find((c) => /powershell/i.test(c.exe) || c.args.some((a) => /StartWhenAvailable/i.test(a)));
       expect(psCall).toBeDefined();
       expect(psCall.args.some((a) => /StartWhenAvailable/i.test(a))).toBe(true);
+      // Task 203 (D-298): WakeToRun is now ALSO set so the machine WAKES to run
+      // the 23:00 distill instead of the cron being killed mid-run on a sleeping
+      // laptop (the starvation bug). Same best-effort Set-ScheduledTask call.
+      expect(psCall.args.some((a) => /WakeToRun/i.test(a))).toBe(true);
       expect(psCall.args.some((a) => a.includes(CRON_ENTRY_NAME))).toBe(true);
     });
 

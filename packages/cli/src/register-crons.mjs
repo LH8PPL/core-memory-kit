@@ -304,14 +304,26 @@ export function registerCron(opts = {}) {
     const spawn = opts.spawn ?? spawnSync;
     const r = spawn(schtasksExe, argv, { encoding: 'utf8', windowsHide: true, timeout: 10_000 });
 
-    // Task 167.E (D-207): set StartWhenAvailable so a missed nightly run (laptop
-    // asleep at 23:00) runs on wake instead of being silently dropped. schtasks
-    // /Create has NO CLI flag for this (verified — not in the help); it's settable
-    // only via XML or PowerShell. We use a follow-up PowerShell Set-ScheduledTask,
-    // BEST-EFFORT: a failure here never fails registration — the lazy roll
-    // (167.A/D) is the guarantee; this is a catch-up OPTIMIZATION. NB: this only
-    // covers a missed run while the machine is OFF/asleep; all OS catch-up
-    // mechanisms COALESCE multiple missed periods into one run (research note).
+    // Task 167.E (D-207) + Task 203 (D-298): set StartWhenAvailable AND WakeToRun
+    // so a missed nightly run isn't silently dropped — and so the distill actually
+    // COMPLETES instead of being killed mid-run.
+    //   - StartWhenAvailable (167.E): a run missed while the machine was OFF runs
+    //     on next wake (catch-up).
+    //   - WakeToRun (203/D-298): the machine WAKES from sleep at 23:00 to run the
+    //     job, so a laptop asleep at 23:00 doesn't kill the distill at minute 3
+    //     (the exact starvation bug — the cron fired + heartbeated, then died
+    //     before finishing, five nights running). Together with the resumable
+    //     distill (Task 204, which banks partial progress) this closes the
+    //     starvation from both ends: wake to run it, and if still cut short,
+    //     resume next time.
+    // schtasks /Create has NO CLI flag for either (verified — not in the help);
+    // they're settable only via XML or PowerShell. We use a follow-up PowerShell
+    // Set-ScheduledTask, BEST-EFFORT: a failure here never fails registration —
+    // the lazy roll (167.A/D) + resumable distill (204) are the guarantees; this
+    // is an OPTIMIZATION. NB: WakeToRun waking a sleeping laptop nightly is a mild
+    // power tradeoff; it's the standard Task Scheduler mechanism for "this job
+    // must run on schedule even if asleep," appropriate for a once-a-day 23:00
+    // maintenance task.
     if (r.status === 0) {
       const psExe = join(
         process.env.SystemRoot || process.env.windir || 'C:\\Windows',
@@ -319,7 +331,7 @@ export function registerCron(opts = {}) {
       );
       const psScript =
         `try { Set-ScheduledTask -TaskName '${entryName}' ` +
-        `-Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable) ` +
+        `-Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable -WakeToRun) ` +
         `-ErrorAction Stop | Out-Null } catch { exit 1 }`;
       try {
         spawn(psExe, ['-NoProfile', '-NonInteractive', '-Command', psScript], {

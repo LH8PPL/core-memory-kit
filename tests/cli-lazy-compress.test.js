@@ -16,6 +16,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
   utimesSync,
   writeFileSync,
 } from 'node:fs';
@@ -544,6 +545,99 @@ describe('Task 35 — runLazyCompress (delegates to daily-distill or weekly-cura
         'utf8',
       );
       expect(recent).toContain('fresh daily output');
+    });
+  });
+
+  describe('Task 203 (D-298) — cascade-starvation: stale-now no longer shadows stale-daily', () => {
+    // Note: these tests anchor `now` to real wall-clock so the recent.md mtime
+    // (seeded via Date.now()) and the staleness comparison share the same time
+    // base — mixing a FIXED past `now` with a wall-clock mtime is the fixture
+    // trap the seedRecentMd baseMs note warns about.
+    it('a stale-now pass ALSO runs the daily distill when recent.md is stale (the fix)', async () => {
+      // The starvation shape: now.md has content (stale-now wins the verdict)
+      // AND recent.md is old (stale-daily is ALSO due). Pre-fix, stale-now won
+      // and returned — the daily distill NEVER ran, so recent.md starved for
+      // days. Post-fix: after the now-roll drains now.md, the daily distill
+      // cascades in the same pass.
+      const nowMs = Date.now();
+      const nowIso = new Date(nowMs).toISOString();
+      const todayDate = nowIso.slice(0, 10);
+      seedNowMd(); // → stale-now
+      // A today file for "today" + a 5-day-old recent.md (mtime relative to nowMs)
+      // → stale-daily after the roll.
+      seedTodayFile(todayDate);
+      seedRecentMd('## Decisions\n- stale\n', 5 * 24 * 60 * 60 * 1000, nowMs);
+      // Backend supplies: 1 now-roll output + several per-day distill outputs
+      // (Task 204 makes daily-distill call compress once per day).
+      const backend = mockBackend(
+        '## today\n- rolled\n', // the compressSession now-roll
+        ...Array.from({ length: 8 }, (_, i) => `## Decisions\n- day ${i}\n`),
+      );
+      const r = await runLazyCompress({
+        projectRoot,
+        backend,
+        now: nowIso,
+        deps: { temporalSweep: vi.fn().mockResolvedValue({ action: 'skipped' }) },
+      });
+      expect(r.verdict).toBe('stale-now'); // the primary verdict is unchanged
+      // THE FIX: the daily distill ALSO ran in this pass (was permanently shadowed).
+      expect(r.alsoRan).toBeDefined();
+      expect(r.alsoRan.some((s) => s.stage === 'daily-distill')).toBe(true);
+      // recent.md is now FRESH (rewritten by the cascaded distill), not the 5-day-old stale one.
+      const recentAgeMs = Date.now() - statSync(join(projectRoot, 'context', 'sessions', 'recent.md')).mtimeMs;
+      expect(recentAgeMs).toBeLessThan(60 * 1000); // just written
+    });
+
+    it('a stale-now pass that cascades to weekly sweeps EXACTLY ONCE (no double-sweep; D-313)', async () => {
+      // The composition trap the skill-review caught: primary verdict stale-now
+      // (delegatedTo=compress-session) → cascade re-derives stale-weekly → calls
+      // weeklyCurate (which sweeps INTERNALLY) → then the post-delegation sweep
+      // must NOT fire again. Pre-fix it did (the `!== 'weekly-curate'` guard only
+      // knew the primary verdict). Seed: now.md content (stale-now) + an OLD
+      // today-*.md (>7d) so the post-roll verdict is stale-weekly.
+      const nowMs = Date.now();
+      const nowIso = new Date(nowMs).toISOString();
+      const old = new Date(nowMs - 10 * 864e5).toISOString().slice(0, 10); // >7d old
+      seedNowMd();
+      seedTodayFile(old, '## Decisions\n- ancient\n');
+      seedTodayFile(nowIso.slice(0, 10), '## Decisions\n- today\n');
+      const sweepSpy = vi.fn().mockResolvedValue({ action: 'skipped', reason: 'no-new-facts' });
+      const backend = mockBackend(
+        '## today\n- rolled\n', // now-roll
+        '## Week of\n- archived\n', // weekly archive
+        ...Array.from({ length: 8 }, (_, i) => `- day ${i}`), // per-day distills in the recent rebuild
+      );
+      const r = await runLazyCompress({
+        projectRoot,
+        backend,
+        now: nowIso,
+        deps: { temporalSweep: sweepSpy },
+      });
+      expect(r.verdict).toBe('stale-now');
+      expect(r.alsoRan.some((s) => s.stage === 'weekly-curate')).toBe(true);
+      // THE FIX: the injected sweep spy is called by weeklyCurate's internal
+      // sweep... but that uses the REAL temporalSweep import, not our spy (the
+      // spy is only wired into runLazyCompress's OWN sweep). So the spy proves
+      // runLazyCompress's post-delegation sweep did NOT fire on the cascade path.
+      expect(sweepSpy).not.toHaveBeenCalled();
+    });
+
+    it('a stale-now pass with a FRESH recent.md does NOT cascade a redundant distill', async () => {
+      const nowMs = Date.now();
+      const nowIso = new Date(nowMs).toISOString();
+      seedNowMd(); // → stale-now
+      seedTodayFile(nowIso.slice(0, 10));
+      seedRecentMd('## Decisions\n- fresh\n', 60 * 1000, nowMs); // 1 min old → daily NOT due
+      const backend = mockBackend('## today\n- rolled\n');
+      const r = await runLazyCompress({
+        projectRoot,
+        backend,
+        now: nowIso,
+        deps: { temporalSweep: vi.fn().mockResolvedValue({ action: 'skipped' }) },
+      });
+      expect(r.verdict).toBe('stale-now');
+      // No cascade — recent.md was fresh, so daily wasn't due.
+      expect(r.alsoRan?.some((s) => s.stage === 'daily-distill')).toBeFalsy();
     });
   });
 

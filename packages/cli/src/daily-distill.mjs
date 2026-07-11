@@ -22,6 +22,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
@@ -97,6 +98,82 @@ function readBuffer(files) {
   return files
     .map((f) => `## ${f.date}\n\n${readFileSync(f.path, 'utf8')}`)
     .join('\n\n');
+}
+
+// --- Resumability (Task 204 / ADR-0020) ---------------------------------
+//
+// The pre-204 distill read ALL 7 days into one compress() and wrote recent.md
+// at the end — all-or-nothing: a run killed at day 4 of 7 lost everything and
+// re-did the whole (larger) corpus next run (D-298: recent.md 5 days stale, the
+// cron killed mid-compress five nights running with zero forward progress).
+//
+// The resumable design: distill each today-<date>.md into a per-day artifact
+// today-<date>.distilled.md AS WE GO (persisted immediately — a killed run
+// keeps every day it finished), then assemble recent.md from those artifacts.
+// The resume point is DERIVED FROM THE ARTIFACTS (ADR-0002: no new sentinel):
+// a day whose .distilled.md exists AND is at least as new as its today-*.md is
+// already done and skipped. A run killed after 3 of 7 keeps those 3; the next
+// run does the remaining 4. Safe because today-*.md is a derived buffer over
+// the durable transcript tier (P-6M26BR9S) — re-runs never corrupt truth.
+
+// today-YYYY-MM-DD.distilled.md — the per-day resumable artifact.
+function distilledDayPath(projectRoot, date) {
+  return join(projectRoot, ...SESSIONS_REL, `today-${date}.distilled.md`);
+}
+
+// A day is already-distilled iff its .distilled.md exists AND is at least as new
+// as the source today-*.md (an edited source day re-distills). mtime is the
+// artifact-derived resume signal — no separate watermark file.
+function dayNeedsDistill(projectRoot, file) {
+  const outPath = distilledDayPath(projectRoot, file.date);
+  if (!existsSync(outPath)) return true;
+  try {
+    return statSync(outPath).mtimeMs < statSync(file.path).mtimeMs;
+  } catch {
+    return true; // stat failure → safest is to re-distill
+  }
+}
+
+function readDistilledDay(projectRoot, date) {
+  const p = distilledDayPath(projectRoot, date);
+  try {
+    return existsSync(p) ? readFileSync(p, 'utf8') : '';
+  } catch {
+    return '';
+  }
+}
+
+// Assemble recent.md from the per-day distilled artifacts (chronological),
+// each under its `## <date>` heading. This is the resumable output — it reflects
+// exactly the days completed so far, so a partial run still produces a valid
+// (shorter) recent.md rather than nothing.
+//
+// Capped to maxOutputBytes (skill-review D-313): the per-day budget alone does
+// NOT bound the assembled whole (n days × perDay + headers can exceed the cap,
+// and the 512-byte per-day floor defeats it outright for many-section weeks).
+// recent.md's whole role is a BOUNDED rolling summary, so re-cap here by
+// dropping the OLDEST `## <date>` sections first (newest days are the most
+// relevant to the next session) until the whole fits. A single section that
+// itself exceeds the cap is kept (truncating mid-section would corrupt it — the
+// per-day budget already bounds an individual day).
+function assembleRecent(projectRoot, files, maxOutputBytes = DEFAULT_MAX_OUTPUT_BYTES) {
+  const sections = files
+    .map((f) => {
+      const body = readDistilledDay(projectRoot, f.date).trim();
+      return body ? `## ${f.date}\n\n${body}` : '';
+    })
+    .filter(Boolean);
+  if (sections.length === 0) return '';
+  // Drop oldest-first (sections are chronological, oldest at index 0) until the
+  // joined output fits. Never drop the last (newest) section.
+  let kept = sections;
+  while (
+    kept.length > 1 &&
+    Buffer.byteLength(kept.join('\n\n') + '\n', 'utf8') > maxOutputBytes
+  ) {
+    kept = kept.slice(1);
+  }
+  return kept.join('\n\n') + '\n';
 }
 
 function distillLogPath(projectRoot, date) {
@@ -191,70 +268,113 @@ export async function dailyDistill({
     return { action: 'skipped', reason: 'no-input', drained, duration_ms };
   }
 
-  const buffer = readBuffer(files);
-  const input_bytes = Buffer.byteLength(buffer, 'utf8');
-  const instructions = buildDistillInstructions(maxOutputBytes);
+  const input_bytes = files.reduce(
+    (n, f) => n + Buffer.byteLength(readFileSync(f.path, 'utf8'), 'utf8'),
+    0,
+  );
+  // Per-day output budget: split the total across the days (a floor of 512 keeps
+  // a single day usable). This bounds each DAY; the assembled recent.md is
+  // separately re-capped to maxOutputBytes by assembleRecent (drop-oldest-first)
+  // — the floor means n×512 can exceed the cap, so the assembly-time cap is the
+  // real bound, not this per-day split (skill-review D-313: the earlier comment
+  // claimed a "final consolidation pass" that didn't exist; assembleRecent now IS it).
+  const perDayMaxBytes = Math.max(512, Math.floor(maxOutputBytes / files.length));
+  const dayInstructions = buildDistillInstructions(perDayMaxBytes);
 
-  let result;
+  mkdirSync(join(projectRoot, ...SESSIONS_REL), { recursive: true });
+
+  // --- Resumable per-day distill (Task 204 / ADR-0020) -------------------
+  // Distill each day that isn't already done, persisting today-<date>.distilled.md
+  // AS WE GO so a kill/timeout mid-loop keeps every completed day. Resume = skip
+  // days whose artifact is already fresh (dayNeedsDistill, artifact-mtime-derived).
   let retries = 0; // Task 161.12: count retries so the log shows the retry RATE.
-  try {
-    // Task 161 / D-175: ceiling-free path (cron/detached child, NO 60s hook ceiling)
-    // → bounded transient-only retry. A re-call recovers the D-174 environmental
-    // timeout / transient non-zero exit; a deterministic failure (ENOENT/auth) fails
-    // fast (isRetryableCompressError). maxAttempts:2 = one retry.
-    result = await compressWithRetry(
-      backend,
-      {
-        input: buffer,
-        instructions,
-        preserveCitationIds: true,
-        maxOutputBytes,
-        // Ceiling-free (cron / detached lazy child, NO 60s hook ceiling) → the
-        // generous ceiling-free timeout, NOT the hook-sized 50s (D-92/F-2 + D-179).
-        timeoutMs: CEILING_FREE_TIMEOUT_MS,
-      },
-      // 5s backoff between the 2 attempts (NOT the 600ms default) so a retry lands
-      // AFTER the transient slow-Haiku window, not inside it (D-179).
-      { maxAttempts: 2, baseBackoffMs: CEILING_FREE_BACKOFF_MS, onRetry: () => { retries += 1; } },
-    );
-    touchCooldownMarker({ projectRoot, now: ts });
-  } catch (err) {
-    touchCooldownMarker({ projectRoot, now: ts });
-    const errorCategory =
-      err instanceof HaikuTimeoutError
-        ? ERROR_CATEGORIES.HAIKU_TIMEOUT
-        : ERROR_CATEGORIES.COMPRESS_FAILED;
-    const duration_ms = Date.now() - t0;
-    writeDistillLogEntry({
-      projectRoot, date,
-      entry: {
-        ts, scope: 'daily-distill', input_bytes, output_bytes: 0,
-        model_id: typeof backend.modelId === 'function' ? backend.modelId() : null,
-        cost_usd: 0, duration_ms, success: false, error_category: errorCategory,
-        // Task 161 (D-173 observability): structured failure reason — see compress-session.mjs.
-        ...(err?.exitCode != null ? { exit_code: err.exitCode } : {}),
-        ...(err?.stderr ? { error_detail: String(err.stderr).slice(0, 500) } : {}),
-        ...(retries > 0 ? { retries } : {}), // 161.12: failed AFTER retrying
-      },
-    });
-    return {
-      action: 'error', error_category: errorCategory, duration_ms,
-      errorMessage: err?.message ?? String(err),
-    };
+  let distilledThisRun = 0;
+  let skippedResumed = 0;
+  for (const f of files) {
+    if (!dayNeedsDistill(projectRoot, f)) {
+      skippedResumed += 1; // already done in a prior (possibly killed) run
+      continue;
+    }
+    let result;
+    try {
+      // Task 161 / D-175: ceiling-free path (cron/detached child, NO 60s hook
+      // ceiling) → bounded transient-only retry, one day at a time. A killed run
+      // between days keeps the days already written — the D-298 starvation fix.
+      result = await compressWithRetry(
+        backend,
+        {
+          input: `## ${f.date}\n\n${readFileSync(f.path, 'utf8')}`,
+          instructions: dayInstructions,
+          preserveCitationIds: true,
+          maxOutputBytes: perDayMaxBytes,
+          // Ceiling-free (cron / detached lazy child, NO 60s hook ceiling) → the
+          // generous ceiling-free timeout, NOT the hook-sized 50s (D-92/F-2 + D-179).
+          timeoutMs: CEILING_FREE_TIMEOUT_MS,
+        },
+        // 5s backoff between the 2 attempts (NOT the 600ms default) so a retry lands
+        // AFTER the transient slow-Haiku window, not inside it (D-179).
+        { maxAttempts: 2, baseBackoffMs: CEILING_FREE_BACKOFF_MS, onRetry: () => { retries += 1; } },
+      );
+      touchCooldownMarker({ projectRoot, now: ts });
+    } catch (err) {
+      touchCooldownMarker({ projectRoot, now: ts });
+      const errorCategory =
+        err instanceof HaikuTimeoutError
+          ? ERROR_CATEGORIES.HAIKU_TIMEOUT
+          : ERROR_CATEGORIES.COMPRESS_FAILED;
+      const duration_ms = Date.now() - t0;
+      writeDistillLogEntry({
+        projectRoot, date,
+        entry: {
+          ts, scope: 'daily-distill', input_bytes, output_bytes: 0,
+          model_id: typeof backend.modelId === 'function' ? backend.modelId() : null,
+          cost_usd: 0, duration_ms, success: false, error_category: errorCategory,
+          // Task 204: the day that failed + the days already banked this run — a
+          // failure now leaves FORWARD PROGRESS (the resumable property, observable).
+          failed_day: f.date,
+          distilled_this_run: distilledThisRun,
+          skipped_resumed: skippedResumed,
+          // Task 161 (D-173 observability): structured failure reason.
+          ...(err?.exitCode != null ? { exit_code: err.exitCode } : {}),
+          ...(err?.stderr ? { error_detail: String(err.stderr).slice(0, 500) } : {}),
+          ...(retries > 0 ? { retries } : {}),
+        },
+      });
+      // Assemble recent.md from whatever days ARE done (incl. this run's banked
+      // days + prior-run artifacts) BEFORE returning the error — so a partial
+      // run still advances recent.md's freshness instead of leaving it stale.
+      const partial = assembleRecent(projectRoot, files, maxOutputBytes);
+      const recentPath = recentMdPath(projectRoot);
+      if (partial.trim()) writeFileSync(recentPath, partial, 'utf8');
+      return {
+        action: 'error', error_category: errorCategory, duration_ms,
+        errorMessage: err?.message ?? String(err),
+        distilledThisRun, skippedResumed,
+        // partial forward progress: recent.md reflects the completed days.
+        outputPath: partial.trim() ? recentPath : undefined,
+      };
+    }
+    // Persist THIS day's distilled artifact immediately (the 80%-survives write).
+    // Skill-review (D-313): only bank a NON-EMPTY result. A backend that returns
+    // empty/whitespace (a soft hiccup, not an error) must NOT write a blank
+    // artifact — dayNeedsDistill would then see it as "done" and skip the day
+    // forever, silently dropping it from recent.md. An empty result leaves no
+    // artifact → the day re-distills next run (treated like a transient miss).
+    const dayOut = (result?.outputText ?? '').trim();
+    if (dayOut) {
+      writeFileSync(distilledDayPath(projectRoot, f.date), dayOut + '\n', 'utf8');
+      distilledThisRun += 1;
+    }
   }
 
-  const output = result?.outputText ?? '';
+  // --- Assemble recent.md from the per-day artifacts ---------------------
+  // recent.md is the chronological concatenation of the per-day distilled
+  // summaries (each under `## <date>`), re-capped to maxOutputBytes. A run that
+  // only completed some days still produces a valid, fresher recent.md — never
+  // nothing (the D-298 fix).
+  const output = assembleRecent(projectRoot, files, maxOutputBytes);
   const output_bytes = Buffer.byteLength(output, 'utf8');
-
-  // Overwrite recent.md with a direct writeFileSync (NOT an atomic temp+rename
-  // — the comment previously claimed atomicity the code doesn't implement;
-  // corrected 2026-07-10, D-312). Safe under the single-writer assumption: the
-  // cooldown marker is advisory (mtime, not a lock), so a cron + lazy-SessionStart
-  // race within ~120s can interleave, but recent.md is a REGENERABLE derived file
-  // and a single writeFileSync never tears — last-writer-wins cleanly. An atomic
-  // temp+rename is the v0.1.x hardening if that race ever proves to matter.
   const path = recentMdPath(projectRoot);
-  mkdirSync(join(projectRoot, ...SESSIONS_REL), { recursive: true });
   writeFileSync(path, output, 'utf8');
 
   const duration_ms = Date.now() - t0;
@@ -263,10 +383,13 @@ export async function dailyDistill({
     entry: {
       ts, scope: 'daily-distill', input_bytes, output_bytes,
       model_id:
-        result?.modelId ??
-        (typeof backend.modelId === 'function' ? backend.modelId() : null),
-      cost_usd: result?.costUSD ?? 0,
+        typeof backend.modelId === 'function' ? backend.modelId() : null,
+      cost_usd: 0,
       duration_ms, success: true, source_days: files.length,
+      // Task 204: how many days this run actually distilled vs resumed-skipped —
+      // makes the resumability observable in the NDJSON trail.
+      distilled_this_run: distilledThisRun,
+      skipped_resumed: skippedResumed,
       ...(retries > 0 ? { retries } : {}), // 161.12: succeeded after a transient retry
     },
   });
@@ -276,6 +399,8 @@ export async function dailyDistill({
     bytesIn: input_bytes,
     bytesOut: output_bytes,
     sourceDays: files.length,
+    distilledThisRun,
+    skippedResumed,
     drained,
     duration_ms,
   };

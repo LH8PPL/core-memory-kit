@@ -329,6 +329,25 @@ describe('Task 34 — weeklyCurate', () => {
       expect(readFileSync(recentPath, 'utf8')).toContain('Current week summary');
     });
 
+    it('cleans up OLD days’ per-day distilled artifacts too (no orphans; D-313)', async () => {
+      const now = '2026-05-28T09:00:00Z';
+      // One OLD day (>7d) with BOTH its today-*.md and a distilled artifact.
+      seedTodayFile('2026-05-13', '## Decisions\n- old\n');
+      writeFileSync(
+        join(projectRoot, 'context', 'sessions', 'today-2026-05-13.distilled.md'),
+        '- distilled old\n',
+        'utf8',
+      );
+      seedTodayFile('2026-05-28', '## Decisions\n- current\n');
+      const backend = mockBackend('## Week of 2026-05-11\n\n- archived\n', '- current distilled');
+      const r = await weeklyCurate({ projectRoot, backend, now });
+      expect(r.archivedDays).toBe(1);
+      // The old day's SOURCE and its DISTILLED artifact are both gone.
+      const sess = join(projectRoot, 'context', 'sessions');
+      expect(existsSync(join(sess, 'today-2026-05-13.md'))).toBe(false);
+      expect(existsSync(join(sess, 'today-2026-05-13.distilled.md'))).toBe(false);
+    });
+
     it('over-mutation guard: archives only OLD files; CURRENT files are untouched', async () => {
       // Seed 7 OLD + 7 CURRENT; assert exactly 7 deletions
       const now = '2026-05-28T09:00:00Z';
@@ -417,9 +436,16 @@ describe('Task 34 — weeklyCurate', () => {
       seedTodayFile('2026-05-27', '## Decisions\n- recent B\n');
       seedTodayFile('2026-05-28', '## Decisions\n- recent C\n');
 
+      // Task 204: dailyDistill now distills ONE current-day per compress() call
+      // (resumable per-day), so the inline rebuild fires archive(1) + one call
+      // per current day (3) = 4 total, not 2. Supply enough canned responses.
       const archiveOutput = '## Week of 2026-05-04\n\n- consolidated old\n';
-      const recentOutput = '## Decisions\n\n- recent A, B, C consolidated\n';
-      const backend = mockBackend(archiveOutput, recentOutput);
+      const backend = mockBackend(
+        archiveOutput,
+        '- distilled A',
+        '- distilled B',
+        '- distilled C',
+      );
 
       const r = await weeklyCurate({ projectRoot, backend, now });
       expect(r.action).toBe('curated');
@@ -427,11 +453,14 @@ describe('Task 34 — weeklyCurate', () => {
       expect(r.currentDays).toBe(3);
       expect(r.recentPath).toMatch(/recent\.md$/);
 
-      // Two backend.compress calls fired (archive + recent)
-      expect(backend.calls.length).toBe(2);
+      // 1 archive call + 3 per-day distill calls (Task 204 per-day contract).
+      expect(backend.calls.length).toBe(4);
 
+      // recent.md is assembled from the per-day distilled artifacts, each under
+      // its `## <date>` section — so all three current days appear.
       const recent = readFileSync(join(projectRoot, 'context', 'sessions', 'recent.md'), 'utf8');
-      expect(recent).toContain('recent A, B, C consolidated');
+      expect(recent).toContain('distilled A');
+      expect(recent).toContain('distilled C');
     });
 
     it('honors skipRecentRebuild: only 1 backend call, recent.md untouched', async () => {

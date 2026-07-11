@@ -345,6 +345,20 @@ export async function runLazyCompress({
   // weekly levels cascade on the next SessionStart once now.md is drained.
   let result;
   let delegatedTo;
+  // Task 203 (D-298) — cascade-starvation fix. `also_ran` records extra pipeline
+  // stages triggered in THE SAME pass so a `stale-now` verdict no longer
+  // PERMANENTLY shadows `stale-daily`/`stale-weekly`. On a busy repo now.md
+  // ALWAYS has content, so `stale-now` won every pass and the daily distill
+  // never ran — recent.md starved for days. Fix: after the now-roll drains
+  // now.md → today-*.md, re-derive staleness and cascade the daily/weekly work
+  // that is now due, instead of returning after the roll alone.
+  const alsoRan = [];
+  // Skill-review (D-313): when the cascade below routes to weeklyCurate, that
+  // runs its OWN temporal sweep — so the post-delegation sweep must NOT fire a
+  // second time (the "does NOT double-sweep on stale-weekly" invariant, which
+  // the `delegatedTo !== 'weekly-curate'` guard enforces for the PRIMARY verdict
+  // but not for a cascaded one). This flag extends that guard to the cascade.
+  let cascadedToWeekly = false;
   if (verdict.action === 'stale-now') {
     delegatedTo = 'compress-session';
     result = await compressSession({
@@ -363,6 +377,27 @@ export async function runLazyCompress({
       timeoutMs: CEILING_FREE_TIMEOUT_MS,
       baseBackoffMs: CEILING_FREE_BACKOFF_MS,
     });
+
+    // The now-roll just drained now.md → today-*.md. Re-derive staleness (now.md
+    // is no longer stale) and, if daily/weekly compaction is NOW due, run it in
+    // this same pass. Best-effort + cooldownMs:0 (already past the gate); a
+    // failure here never changes the now-roll result the session is waiting on.
+    // Task 204 makes the cascaded daily-distill resumable, so even a killed
+    // cascade banks forward progress.
+    try {
+      const after = detectStaleness({ projectRoot, now: ts, dailyTtlMs, weeklyTtlMs });
+      if (after.action === 'stale-weekly') {
+        const wc = await weeklyCurate({ projectRoot, backend, now: ts, cooldownMs: 0, sweepUserDir: defaultUserDir() });
+        cascadedToWeekly = true; // weeklyCurate already swept — suppress the second sweep below
+        alsoRan.push({ stage: 'weekly-curate', action: wc?.action ?? 'unknown' });
+      } else if (after.action === 'stale-daily') {
+        const dd = await dailyDistill({ projectRoot, backend, now: ts, cooldownMs: 0 });
+        alsoRan.push({ stage: 'daily-distill', action: dd?.action ?? 'unknown' });
+      }
+    } catch (err) {
+      // Best-effort — the cascade must never break the primary now-roll return.
+      alsoRan.push({ stage: 'cascade', action: 'error', error: err?.message ?? String(err) });
+    }
   } else if (verdict.action === 'stale-weekly') {
     delegatedTo = 'weekly-curate';
     result = await weeklyCurate({
@@ -398,7 +433,9 @@ export async function runLazyCompress({
   // defaultUserDir() at this production entry point so the U tier is covered on
   // the no-cron lazy path (the D-260/D-69 rule, matching the stale-weekly branch).
   let temporal = null;
-  if (delegatedTo !== 'weekly-curate') {
+  // Skip when weeklyCurate owned the sweep — either as the PRIMARY delegate OR
+  // as a cascaded stage (D-313: the cascade double-sweep fix).
+  if (delegatedTo !== 'weekly-curate' && !cascadedToWeekly) {
     try {
       temporal = await temporalSweep({
         projectRoot,
@@ -434,12 +471,16 @@ export async function runLazyCompress({
       // compress-session reports its error via error_category (snake) — pass it
       // through too so the lazy log captures either shape.
       ...(result?.error_category ? { error_category: result.error_category } : {}),
+      // Task 203 (D-298): the cascaded stages a stale-now pass ALSO ran this
+      // turn — the observable proof the cascade-starvation shadow is broken.
+      ...(alsoRan.length ? { also_ran: alsoRan } : {}),
     },
   });
   return {
     ...result,
     verdict: verdict.action,
     delegatedTo,
+    ...(alsoRan.length ? { alsoRan } : {}),
     duration_ms,
   };
 }

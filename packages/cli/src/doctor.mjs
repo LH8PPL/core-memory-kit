@@ -750,11 +750,44 @@ function hc10CompactionLiveness({ projectRoot, now }) {
       message: `your scheduled compaction looks dead (last ran ~${days}d ago) — memory still self-heals automatically each session, so no action is needed; run \`cmk register-crons\` only if you want the nightly schedule back.`,
     };
   }
+  // Task 203 (D-298): the OUTCOME check. A fresh heartbeat means the cron
+  // FIRED — but the heartbeat is recorded at/near task START, so it says nothing
+  // about whether the distill WORK completed. The starvation bug: the 23:00 cron
+  // fires + heartbeats, then is killed (machine asleep) before the ~3.4-min
+  // distill finishes — five nights running, heartbeat fresh every night while
+  // recent.md went 5 days stale, and HC-10 reported PASS the whole time (the
+  // D-169 false-green class — a health check green while the job fails). Fix:
+  // cross-check the ARTIFACT (recent.md freshness). Fresh heartbeat + stale
+  // recent.md = the cron fires but its work dies — the tell HC-10 must surface,
+  // not paper over. (Task 204 makes each killed run bank partial progress, so
+  // this should now be self-limiting — but the health check must still catch a
+  // cron whose EVERY run dies before banking even one day.)
+  const recentPath = join(projectRoot, ...RECENT_MD_REL);
+  if (existsSync(recentPath)) {
+    let recentAgeMs = null;
+    try {
+      recentAgeMs = new Date(now ?? nowIso()).getTime() - statSync(recentPath).mtimeMs;
+    } catch {
+      recentAgeMs = null;
+    }
+    if (recentAgeMs != null && recentAgeMs > TWO_DAYS_MS) {
+      const days = Math.round(recentAgeMs / (24 * 60 * 60 * 1000));
+      return {
+        id: 'HC-10',
+        name: 'Scheduled compaction is alive',
+        status: 'fail',
+        // The load-bearing message: the heartbeat LIES if read alone. Name the
+        // starvation explicitly so the user isn't reassured by a fresh heartbeat.
+        message: `your scheduled compaction heartbeat is fresh but its output is NOT — recent.md is ~${days}d old (cutoff: 2d). The nightly cron is firing but being KILLED before the distill finishes (a laptop asleep at 23:00 is the common cause). Memory still self-heals each session via the lazy roll, so no data is lost; run \`cmk daily-distill\` to refresh now, and consider re-running \`cmk register-crons\` (it registers WakeToRun so the machine wakes for the job).`,
+        recoveryCommand: 'cmk daily-distill',
+      };
+    }
+  }
   return {
     id: 'HC-10',
     name: 'Scheduled compaction is alive',
     status: 'pass',
-    message: 'scheduled compaction heartbeat is fresh',
+    message: 'scheduled compaction heartbeat is fresh and recent.md is current',
   };
 }
 

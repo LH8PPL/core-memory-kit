@@ -524,6 +524,18 @@ export async function weeklyCurate({
     } catch (err) {
       deletionErrors.push({ path: f.path, error: err?.message ?? String(err) });
     }
+    // Skill-review (D-313): also remove the per-day distilled artifact
+    // (today-<date>.distilled.md, Task 204) so it doesn't orphan when its source
+    // day is archived. Best-effort — a missing artifact is fine (the day may
+    // never have been distilled), and an orphan is harmless (assembleRecent only
+    // reads artifacts for still-existing today-*.md), so we don't track its
+    // deletion as an error, just clean it up.
+    try {
+      const distilled = join(projectRoot, ...SESSIONS_REL, `today-${f.date}.distilled.md`);
+      if (existsSync(distilled)) unlinkSync(distilled);
+    } catch {
+      // best-effort cleanup — never fail the curate over a leftover artifact
+    }
   }
 
   // Rebuild recent.md from current week via dailyDistill (cooldownMs=0

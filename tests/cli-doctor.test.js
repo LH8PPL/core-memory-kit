@@ -168,6 +168,34 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
       const hc10 = r.checks.find((c) => c.id === 'HC-10');
       expect(hc10.status).toBe('pass');
     });
+
+    // Task 203 (D-298) — "watch the watchmen": the false-green fix. A FRESH
+    // heartbeat + a STALE recent.md is the starvation tell (the cron fires +
+    // heartbeats, then is killed before the distill completes). HC-10 must
+    // report this as FAIL, not paper over it with the heartbeat alone. This
+    // test seeds the exact broken state HC-10 reported PASS on for 5 days.
+    it('FAILS on a fresh heartbeat but a STALE recent.md — the starvation false-green (D-298)', async () => {
+      const { recordCronHeartbeat } = await import('../packages/cli/src/compaction-state.mjs');
+      const { utimesSync, writeFileSync, mkdirSync } = await import('node:fs');
+      const { join } = await import('node:path');
+      recordCronHeartbeat({ projectRoot }); // heartbeat FRESH (cron fired)
+      // recent.md exists but is 5 days old (the distill work never completed).
+      const sessions = join(projectRoot, 'context', 'sessions');
+      mkdirSync(sessions, { recursive: true });
+      const recentPath = join(sessions, 'recent.md');
+      writeFileSync(recentPath, '## Decisions\n- stale\n', 'utf8');
+      const old = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
+      utimesSync(recentPath, old, old);
+
+      const r = await runDoctor({ projectRoot, userDir });
+      const hc10 = r.checks.find((c) => c.id === 'HC-10');
+      expect(hc10.status).toBe('fail'); // NOT the old false-green PASS
+      // The message must name the fresh-heartbeat-stale-output tell so the user
+      // isn't reassured by the heartbeat.
+      expect(hc10.message.toLowerCase()).toContain('fresh');
+      expect(hc10.message).toContain('recent.md');
+      expect(hc10.recoveryCommand).toBe('cmk daily-distill');
+    });
   });
 
   describe('HC-11 — backend CLI present (Task 200 / D-272/D-277)', () => {
