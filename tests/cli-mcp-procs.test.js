@@ -253,6 +253,42 @@ describe('Task 205 — warnRunningMcpServers (the cmk install preflight)', () =>
     expect(cap.text()).toContain('stopped 2/2');
   });
 
+  it('a foreign askImpl WITHOUT this feature\'s find seam → silent, no scan, no throw (the stress-gate D-315 regression)', async () => {
+    // The exact shape that broke under stress: the binding-fix tests pass a
+    // THROWING askImpl sentinel ("must not ask when healthy") with no intent to
+    // authorize this feature. Pre-fix, the shared askImpl implied interactive →
+    // the REAL system scan ran → found the dev machine's genuinely-running
+    // server → asked the throwing sentinel → detonated out of runInstall.
+    // Post-fix: no findMcpServers seam + no real TTY → never scans, never asks.
+    const { warnRunningMcpServers } = await import('../packages/cli/src/subcommands.mjs');
+    const cap = (() => { const lines = []; return { log: (m) => lines.push(String(m)), lines }; })();
+    await expect(
+      warnRunningMcpServers(
+        {
+          mcpProcsPlatform: 'win32',
+          askImpl: async () => { throw new Error('must not ask'); },
+          // deliberately NO findMcpServers — the foreign-caller shape
+        },
+        { log: cap.log },
+      ),
+    ).resolves.toBeUndefined();
+    expect(cap.lines).toHaveLength(0);
+  });
+
+  it('even an EXPLODING injected find never breaks the caller (never-throw contract)', async () => {
+    const { warnRunningMcpServers } = await import('../packages/cli/src/subcommands.mjs');
+    await expect(
+      warnRunningMcpServers(
+        {
+          mcpProcsPlatform: 'win32',
+          askImpl: async () => 'y',
+          findMcpServers: () => { throw new Error('scan exploded'); },
+        },
+        { log: () => {} },
+      ),
+    ).resolves.toBeUndefined();
+  });
+
   it('interactive default (empty answer) = NO — stopping is opt-in', async () => {
     const { warnRunningMcpServers } = await import('../packages/cli/src/subcommands.mjs');
     const cap = captureLog();
