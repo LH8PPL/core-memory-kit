@@ -17,13 +17,18 @@
 //             | 'unchanged',           // existing block content + version match the inputs exactly
 //     path:        string,             // absolute path to the CLAUDE.md
 //     oldVersion?: string,             // version of the block we replaced (when applicable)
+//     duplicatesFolded?: number,       // Task 220: extra managed blocks folded into the one
+//                                      // refreshed block (present only when > 0; also set on
+//                                      // 'downgrade-blocked' — duplicates heal even when the
+//                                      // version change is refused)
 //   }
 //
 //   removeClaudeMdBlock({ projectRoot }) → {
-//     action:   'removed'              // managed block found + stripped
+//     action:   'removed'              // managed block(s) found + stripped (ALL of them — Task 220)
 //             | 'not-found'            // file exists but no managed markers
 //             | 'no-file',             // CLAUDE.md does not exist
 //     path:        string,
+//     removedCount?: number,           // Task 220: present only when > 1 blocks were removed
 //   }
 //
 // Design notes:
@@ -64,33 +69,56 @@ function buildBlock(content, version) {
  *     gracefully from a corrupted block (e.g. the user accidentally
  *     deleted the end marker by hand).
  */
+// Task 220 (D-322): scan for EVERY managed block, not just the first. A
+// duplicate block (manual copy-paste, kept-both-sides merge resolution) was
+// previously invisible: inject refreshed only the first and remove left the
+// rest behind. Pairing is greedy in document order: each start marker closes
+// at the first end marker after it; a start with no end extends to EOF
+// (corrupted — the same orphan recovery the single-block finder always had,
+// and necessarily the LAST block since it consumes the rest of the text).
+function findAllManagedBlocks(text) {
+  const startRe = new RegExp(MARKER_START_RE.source, 'g');
+  const endRe = new RegExp(MARKER_END_RE.source, 'g');
+  const blocks = [];
+  let from = 0;
+  for (;;) {
+    startRe.lastIndex = from;
+    const s = startRe.exec(text);
+    if (!s) break;
+    endRe.lastIndex = s.index;
+    const e = endRe.exec(text);
+    if (e) {
+      const endIdx = e.index + e[0].length;
+      blocks.push({
+        startIdx: s.index,
+        endIdx,
+        version: s[1],
+        fullText: text.slice(s.index, endIdx),
+        corrupted: false,
+      });
+      from = endIdx;
+    } else {
+      blocks.push({
+        startIdx: s.index,
+        endIdx: text.length,
+        version: s[1],
+        fullText: text.slice(s.index),
+        corrupted: true,
+      });
+      break;
+    }
+  }
+  return blocks;
+}
+
 // Exported (Task 162) for version-drift.mjs (HC-9) — reads the managed-block
 // version marker without re-implementing the parser. Public contract: returns
-// `{version, corrupted, ...}` or null.
+// `{version, corrupted, duplicateCount, ...}` or null. `duplicateCount` (Task
+// 220) is the number of ADDITIONAL blocks past the first — HC-9 flags > 0.
 export function findManagedBlock(text) {
-  const startMatch = text.match(MARKER_START_RE);
-  if (!startMatch) return null;
-
-  const endMatch = text.match(MARKER_END_RE);
-  if (endMatch && startMatch.index < endMatch.index) {
-    return {
-      startIdx: startMatch.index,
-      endIdx: endMatch.index + endMatch[0].length,
-      version: startMatch[1],
-      fullText: text.slice(startMatch.index, endMatch.index + endMatch[0].length),
-      corrupted: false,
-    };
-  }
-
-  // Orphan start marker → treat the block as extending to EOF so we
-  // can replace it cleanly on the next install.
-  return {
-    startIdx: startMatch.index,
-    endIdx: text.length,
-    version: startMatch[1],
-    fullText: text.slice(startMatch.index),
-    corrupted: true,
-  };
+  const blocks = findAllManagedBlocks(text);
+  if (blocks.length === 0) return null;
+  return { ...blocks[0], duplicateCount: blocks.length - 1 };
 }
 
 /**
@@ -139,10 +167,10 @@ export function injectClaudeMdBlock(opts = {}) {
   }
 
   const existing = readFileSync(claudeMdPath, 'utf8');
-  const found = findManagedBlock(existing);
+  const blocks = findAllManagedBlocks(existing);
 
   // Case 2 — file exists but no (or corrupted) managed block → append
-  if (!found) {
+  if (blocks.length === 0) {
     // If the file ends without a newline, add one before the block for
     // readability. Trim trailing whitespace so we don't accumulate blank
     // lines on repeated installs.
@@ -151,14 +179,22 @@ export function injectClaudeMdBlock(opts = {}) {
     return { action: 'appended', path: claudeMdPath };
   }
 
-  // Case 3 — managed block present. Compare versions to choose action.
-  const cmp = compareVersions(version, found.version);
-  const before = existing.slice(0, found.startIdx);
-  const after = existing.slice(found.endIdx);
+  // Case 3 — managed block(s) present. Compare versions to choose action.
+  // Task 220: with duplicates, compare against the NEWEST version across all
+  // blocks — conservative downgrade-blocking (a stale duplicate must not let
+  // an older kit clobber a newer scaffold).
+  const found = blocks[0];
+  const newestVersion = blocks.reduce(
+    (m, b) => (compareVersions(b.version, m) > 0 ? b.version : m),
+    found.version,
+  );
+  const cmp = compareVersions(version, newestVersion);
 
   let action;
   if (cmp === 0) {
-    if (found.fullText === newBlock) {
+    // 'unchanged' only when there is exactly ONE block and it is byte-identical;
+    // duplicates always fold (Task 220), even at the same version.
+    if (blocks.length === 1 && found.fullText === newBlock) {
       return { action: 'unchanged', path: claudeMdPath, oldVersion: found.version };
     }
     action = 'replaced';
@@ -167,17 +203,50 @@ export function injectClaudeMdBlock(opts = {}) {
   } else {
     // cmp < 0 → incoming version is older than installed
     if (!force) {
+      // Skill-review finding 1 (Task 220): still FOLD duplicates here — to the
+      // NEWEST existing block's content, never ours — otherwise HC-9's "re-run
+      // cmk install" advice loops forever in the exact scenario this task
+      // heals (a merge importing a newer-versioned duplicate while the local
+      // kit is older). The version downgrade itself stays blocked.
+      if (blocks.length > 1) {
+        const newest = blocks.find((b) => b.version === newestVersion) ?? found;
+        let healed = existing.slice(0, found.startIdx) + newest.fullText;
+        for (let i = 0; i < blocks.length; i++) {
+          const segEnd = i + 1 < blocks.length ? blocks[i + 1].startIdx : existing.length;
+          healed += existing.slice(blocks[i].endIdx, segEnd);
+        }
+        writeFileSync(claudeMdPath, healed, 'utf8');
+        return {
+          action: 'downgrade-blocked',
+          path: claudeMdPath,
+          oldVersion: newestVersion,
+          duplicatesFolded: blocks.length - 1,
+        };
+      }
       return {
         action: 'downgrade-blocked',
         path: claudeMdPath,
-        oldVersion: found.version,
+        oldVersion: newestVersion,
       };
     }
     action = 'forced-downgrade';
   }
 
-  writeFileSync(claudeMdPath, before + newBlock + after, 'utf8');
-  return { action, path: claudeMdPath, oldVersion: found.version };
+  // Fold: ONE fresh block at the first block's position; every other block is
+  // dropped; user bytes outside the blocks — including BETWEEN duplicates —
+  // are preserved in order (the byte-preserve-outside-markers contract).
+  let rebuilt = existing.slice(0, found.startIdx) + newBlock;
+  for (let i = 0; i < blocks.length; i++) {
+    const segEnd = i + 1 < blocks.length ? blocks[i + 1].startIdx : existing.length;
+    rebuilt += existing.slice(blocks[i].endIdx, segEnd);
+  }
+  writeFileSync(claudeMdPath, rebuilt, 'utf8');
+  return {
+    action,
+    path: claudeMdPath,
+    oldVersion: newestVersion,
+    ...(blocks.length > 1 ? { duplicatesFolded: blocks.length - 1 } : {}),
+  };
 }
 
 export function removeClaudeMdBlock(opts = {}) {
@@ -191,26 +260,39 @@ export function removeClaudeMdBlock(opts = {}) {
   }
 
   const existing = readFileSync(claudeMdPath, 'utf8');
-  const found = findManagedBlock(existing);
+  const blocks = findAllManagedBlocks(existing);
 
-  if (!found) {
+  if (blocks.length === 0) {
     return { action: 'not-found', path: claudeMdPath };
   }
 
-  // Strip the block. If the block was followed by exactly one trailing
-  // newline (the one we wrote at injection time), strip it too so the
-  // surrounding content stays clean. We do NOT touch newlines that exist
-  // in the user's surrounding content.
-  let after = existing.slice(found.endIdx);
-  if (after.startsWith('\n') && (after.length === 1 || after[1] !== '\n')) {
-    after = after.slice(1);
+  // Strip ALL managed blocks (Task 220 — the uninstall contract is "no kit
+  // markers remain", duplicates included), back-to-front so indices stay
+  // valid. Per block: if it was followed by exactly one trailing newline
+  // (the one we wrote at injection time), strip it too; the preceding
+  // whitespace run collapses to a single newline. We do NOT touch newlines
+  // that exist in the user's surrounding content.
+  let text = existing;
+  let lastAfterEndsWithNewline = false;
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const b = blocks[i];
+    let after = text.slice(b.endIdx);
+    if (after.startsWith('\n') && (after.length === 1 || after[1] !== '\n')) {
+      after = after.slice(1);
+    }
+    if (i === blocks.length - 1) lastAfterEndsWithNewline = after.endsWith('\n');
+    const before = text.slice(0, b.startIdx).replace(/\s+$/, '\n');
+    text = before + after;
   }
-  const before = existing.slice(0, found.startIdx).replace(/\s+$/, '\n');
 
-  const next = (before + after).trimEnd() + (after.endsWith('\n') ? '\n' : '');
+  const next = text.trimEnd() + (lastAfterEndsWithNewline ? '\n' : '');
 
   writeFileSync(claudeMdPath, next, 'utf8');
-  return { action: 'removed', path: claudeMdPath };
+  return {
+    action: 'removed',
+    path: claudeMdPath,
+    ...(blocks.length > 1 ? { removedCount: blocks.length } : {}),
+  };
 }
 
 // Internal helpers are intentionally NOT exported — they're implementation

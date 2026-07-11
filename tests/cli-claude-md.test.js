@@ -33,6 +33,7 @@ import { join } from 'node:path';
 import {
   injectClaudeMdBlock,
   removeClaudeMdBlock,
+  findManagedBlock,
 } from '../packages/cli/src/claude-md.mjs';
 
 const MARKER_START_RE = /<!--\s*claude-memory-kit:start\s+v[\d.]+(?:-[\w.]+)?\s*-->/;
@@ -320,6 +321,109 @@ describe('Task 4 — CLAUDE.md loader block', () => {
       const ends = (text.match(/claude-memory-kit:end/g) || []).length;
       expect(starts).toBe(1);
       expect(ends).toBe(1);
+    });
+  });
+
+  // Task 220 (D-322): a SECOND managed block — from a manual copy-paste, a
+  // kept-both-sides merge resolution, or a prior double-append — used to be
+  // invisible: inject refreshed only the FIRST block (orphaning the stale
+  // duplicate forever) and remove left the second behind (violating the
+  // clean-removal contract). Inject now FOLDS all blocks into the single
+  // refreshed one; remove strips ALL of them; user bytes outside the blocks
+  // (including BETWEEN them) are preserved.
+  describe('Task 220 — duplicate managed blocks (fold on inject, remove-all on uninstall)', () => {
+    const claudeMdPath = () => join(projectRoot, 'CLAUDE.md');
+    function seedTwoBlocks() {
+      const text = [
+        '# My project notes',
+        '',
+        '<!-- claude-memory-kit:start v0.1.0 -->',
+        'old block ONE',
+        '<!-- claude-memory-kit:end -->',
+        '',
+        'user content BETWEEN the blocks',
+        '',
+        '<!-- claude-memory-kit:start v0.1.0 -->',
+        'old block TWO',
+        '<!-- claude-memory-kit:end -->',
+        '',
+        'trailing user content',
+        '',
+      ].join('\n');
+      writeFileSync(claudeMdPath(), text, 'utf8');
+    }
+
+    it('findManagedBlock reports duplicateCount for the HC-9 surface (Door 1)', () => {
+      seedTwoBlocks();
+      const found = findManagedBlock(readFileSync(claudeMdPath(), 'utf8'));
+      expect(found.duplicateCount).toBe(1);
+      // single-block text reports zero
+      expect(
+        findManagedBlock('<!-- claude-memory-kit:start v0.1.0 -->\nx\n<!-- claude-memory-kit:end -->').duplicateCount,
+      ).toBe(0);
+    });
+
+    it('inject FOLDS both blocks into one refreshed block, preserving user bytes before/between/after (Doors 1+2)', () => {
+      seedTwoBlocks();
+      const r = injectClaudeMdBlock({ projectRoot, content: 'fresh managed content', version: '0.2.0' });
+      expect(r.action).toBe('upgraded');
+      expect(r.duplicatesFolded).toBe(1);
+
+      const text = readFileSync(claudeMdPath(), 'utf8');
+      expect((text.match(/claude-memory-kit:start/g) || []).length).toBe(1);
+      expect((text.match(/claude-memory-kit:end/g) || []).length).toBe(1);
+      expect(text).toContain('fresh managed content');
+      expect(text).not.toContain('old block ONE');
+      expect(text).not.toContain('old block TWO');
+      // user bytes preserved — including the content BETWEEN the two blocks
+      expect(text).toContain('# My project notes');
+      expect(text).toContain('user content BETWEEN the blocks');
+      expect(text).toContain('trailing user content');
+    });
+
+    it('downgrade-blocked still FOLDS duplicates (to the newest existing block) so HC-9 recovery converges (skill-review F1)', () => {
+      // A merge imported a duplicate scaffolded by a NEWER kit than ours:
+      // the version downgrade must stay blocked, but the duplication must
+      // heal — otherwise `cmk doctor` says "re-run cmk install" forever.
+      const text = [
+        '<!-- claude-memory-kit:start v0.1.0 -->',
+        'older block',
+        '<!-- claude-memory-kit:end -->',
+        'between',
+        '<!-- claude-memory-kit:start v0.9.0 -->',
+        'newer imported block',
+        '<!-- claude-memory-kit:end -->',
+        '',
+      ].join('\n');
+      writeFileSync(claudeMdPath(), text, 'utf8');
+
+      const r = injectClaudeMdBlock({ projectRoot, content: 'our older content', version: '0.5.0' });
+      expect(r.action).toBe('downgrade-blocked');
+      expect(r.oldVersion).toBe('0.9.0');
+      expect(r.duplicatesFolded).toBe(1);
+
+      const after = readFileSync(claudeMdPath(), 'utf8');
+      // ONE block remains — the newest existing one, NOT our blocked content.
+      expect((after.match(/claude-memory-kit:start/g) || []).length).toBe(1);
+      expect(after).toContain('newer imported block');
+      expect(after).not.toContain('older block');
+      expect(after).not.toContain('our older content');
+      expect(after).toContain('between');
+    });
+
+    it('remove strips ALL managed blocks, preserving user content (Doors 1+2)', () => {
+      seedTwoBlocks();
+      const r = removeClaudeMdBlock({ projectRoot });
+      expect(r.action).toBe('removed');
+
+      const text = readFileSync(claudeMdPath(), 'utf8');
+      expect(text).not.toContain('claude-memory-kit:start');
+      expect(text).not.toContain('claude-memory-kit:end');
+      expect(text).not.toContain('old block ONE');
+      expect(text).not.toContain('old block TWO');
+      expect(text).toContain('# My project notes');
+      expect(text).toContain('user content BETWEEN the blocks');
+      expect(text).toContain('trailing user content');
     });
   });
 });

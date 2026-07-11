@@ -201,11 +201,28 @@ function writeInstructionFile(path, profile) {
   if (existing === '') {
     next = desired;
   } else if (existing.includes(MARK_START) && existing.includes(MARK_END)) {
-    // refresh in place — replace only the managed block, byte-preserve the rest.
+    // refresh in place — byte-preserve everything outside the managed block.
+    // Task 220 (D-322): GLOBAL match — a duplicated block (copy-paste / merge
+    // kept both sides) folds into the single refreshed one instead of leaving
+    // a permanently-stale orphan the old first-match-only replace never saw.
+    let first = true;
+    let foldedDuplicate = false;
     next = existing.replace(
-      new RegExp(`${escapeRe(MARK_START)}[\\s\\S]*?${escapeRe(MARK_END)}`),
-      block,
+      new RegExp(`${escapeRe(MARK_START)}[\\s\\S]*?${escapeRe(MARK_END)}`, 'g'),
+      () => {
+        if (first) {
+          first = false;
+          return block;
+        }
+        foldedDuplicate = true;
+        return '';
+      },
     );
+    // Collapse the blank gap ONLY when a duplicate was actually removed — on
+    // the normal single-block refresh the file outside our markers must stay
+    // byte-identical (collapsing a user's own 3+ blank-line run would both
+    // mutate their content and break the `next === existing` idempotency).
+    if (foldedDuplicate) next = collapseBlankRun(next);
   } else {
     // append our block to the user's existing file.
     next = `${trimTrailingNewlines(existing)}\n\n${block}\n`;
@@ -224,7 +241,9 @@ function removeInstructionBlock(path) {
   // bounded by two fixed literal delimiters (no nested quantifier) → linear, not
   // ReDoS-prone. The newline trims are done WITHOUT regex (no `\n*$`/`^\n+`
   // super-linear shapes) — see trimLeadingNewlines/trimTrailingNewlines.
-  const blockRe = new RegExp(`${escapeRe(MARK_START)}[\\s\\S]*?${escapeRe(MARK_END)}`);
+  // Task 220 (D-322): GLOBAL — uninstall removes EVERY managed block, not just
+  // the first (a duplicate must not survive the clean-removal contract).
+  const blockRe = new RegExp(`${escapeRe(MARK_START)}[\\s\\S]*?${escapeRe(MARK_END)}`, 'g');
   const withoutBlock = existing.replace(blockRe, '');
   const stripped = trimLeadingNewlines(collapseBlankRun(withoutBlock));
   atomicWrite(path, stripped);

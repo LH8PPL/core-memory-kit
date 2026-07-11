@@ -66,4 +66,20 @@ describe('checkVersionDrift (HC-9)', () => {
     const r = checkVersionDrift({ claudeMdText: claudeMdWith('0.3.4-beta'), kitVersion: '0.3.4' });
     expect(r.status).toBe('pass');
   });
+
+  it('flags DUPLICATE managed blocks even when versions match (Task 220, D-322)', () => {
+    const dup = [
+      '<!-- claude-memory-kit:start v0.3.4 -->',
+      'block one',
+      '<!-- claude-memory-kit:end -->',
+      '<!-- claude-memory-kit:start v0.3.4 -->',
+      'block two',
+      '<!-- claude-memory-kit:end -->',
+      '',
+    ].join('\n');
+    const r = checkVersionDrift({ claudeMdText: dup, kitVersion: '0.3.4' });
+    expect(r.status).toBe('fail');
+    expect(r.message).toMatch(/duplicate/i);
+    expect(r.recoveryCommand).toBe('cmk install');
+  });
 });
