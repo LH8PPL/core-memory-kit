@@ -10,6 +10,14 @@
 
 ---
 
+## 2026-07-11 — D-316: FIX — Task 207: the BOM-unsafe hook-stdin parse generalized to all 11 bins; the REAL-spawn test upgraded it from "no-op" to "guard bypass"
+
+**The class (D-306 generalized):** D-306 fixed the BOM-swallowing `JSON.parse` on the Cursor/Kiro dispatch paths; the standalone Claude-Code hook bins still did the identical `raw.trim()==='' ? {} : JSON.parse(raw)` inline. Latent (Claude Code doesn't BOM its hook stdin), but the same trap: a leading U+FEFF makes the parse throw, the catch swallows it, the bin exits 0 having done nothing.
+
+**The fix:** one `parseHookPayload(raw)` on the canonical `read-hook-stdin.mjs` (stripBom → empty/BOM-only→{} → JSON.parse; malformed STILL throws so the bins' catch blocks own the error path unchanged). The sweep found the class in **11** bins across both trees (packages/cli/bin + plugin/bin — they resolve to the ONE module), not the 4 the task title named; all routed through the helper. A structural test scans every bin for the removed raw-parse shapes (the validate-* posture — a regressed bin fails npm test).
+
+**The severity upgrade (the REAL-spawn test earned its keep):** for `cmk-guard-memory` the BOM class was not a cosmetic no-op — it was a FAIL-OPEN **guard bypass**. Pre-fix, a BOM-prefixed `rm -rf context/memory` payload threw in the parse → the catch fail-opened (exit 0) → the destructive command sailed through. The real-spawn test proves post-fix it BLOCKS (exit 2), byte-identical to the un-BOM'd payload — and a harmless BOM'd payload still allows (no over-block). Without spawning the actual bin on the actual BOM bytes (the Task-221 fixture-corpus discipline), this would have read as "latent hardening" when it was a live-reachable security gap the moment any agent BOMs the guard's payload. _Relates D-306 (the Cursor BOM bug this generalizes), `read-json.mjs stripBom` (the canonical strip), Task 196, the Task-221 live-test discipline, D-316._
+
 ## 2026-07-11 — D-315: FIX — Task 206: the commit-proposal excludes the pre-roll `now.md` (the D-304 unmasked-name window closed at the offer, not the buffer)
 
 **The composition bug (D-304, proven live in the Kiro §6/E2 gate):** the privacy screen masks names on the COMMITTED sinks (transcript L1+L3; `today-*.md` via the compress rule), but `now.md` holds the raw turn until its roll — and the ADR-0018 per-turn proposal offered `git add context/`, sweeping the unmasked buffer in if the user accepted first. Two features each correct alone, composing into a leak on the privacy headline.

@@ -10,6 +10,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **Hook payloads are now parsed BOM-tolerantly across every hook bin** — a leading UTF-8 byte-order
+  mark on a hook's stdin (some agents/platforms prepend one) made the bin's JSON parse throw and
+  silently no-op. For the delete-guard bin this was a fail-open: a BOM-prefixed destructive command
+  slipped past unblocked. All 11 hook bins now share one BOM-tolerant parser (a regression is caught
+  at test time, not in a live session). Latent on Claude Code (it doesn't emit a BOM); this closes the
+  class before any agent triggers it. (Task 207.)
+
 - **The session-start commit offer can no longer sweep in the un-screened turn buffer** —
   the kit's "N memory files are uncommitted — commit them?" proposal offered all of
   `context/`, including `sessions/now.md`, the one file the privacy screen hasn't fully

@@ -36,9 +36,10 @@ const autoExtractPath =
     : null);
 
 let readHookStdin;
+let parseHookPayload;
 let captureTurn;
 try {
-  ({ readHookStdin } = await import(pathToFileURL(readHookStdinPath).href));
+  ({ readHookStdin, parseHookPayload } = await import(pathToFileURL(readHookStdinPath).href));
   ({ captureTurn } = await import(pathToFileURL(modulePath).href));
 } catch (err) {
   process.stderr.write(
@@ -56,7 +57,7 @@ const raw = readHookStdin({ isTTY: process.stdin.isTTY });
 
 let payload;
 try {
-  payload = raw.trim() === '' ? {} : JSON.parse(raw);
+  payload = parseHookPayload(raw); // Task 207: BOM-tolerant (D-306 generalized)
 } catch (err) {
   process.stderr.write(
     `cmk-capture-turn: failed to parse stdin JSON: ${err?.message ?? err}\n`,

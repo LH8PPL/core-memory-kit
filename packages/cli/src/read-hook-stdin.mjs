@@ -23,6 +23,7 @@
 // without a real terminal.
 
 import { readFileSync } from 'node:fs';
+import { stripBom } from './read-json.mjs';
 
 /**
  * Drain the hook payload from stdin without blocking an interactive console.
@@ -44,4 +45,27 @@ export function readHookStdin({ isTTY, fd = 0 } = {}) {
     // stdin not connected (e.g. fd closed) — fine; the hook still proceeds.
     return '';
   }
+}
+
+/**
+ * Task 207 (D-306 generalized): parse a hook's raw stdin payload BOM-tolerantly.
+ * Every Claude-Code hook bin previously did `raw.trim() === '' ? {} : JSON.parse(raw)`
+ * inline — the exact BOM-unsafe shape that silently no-op'd EVERY Cursor-Windows
+ * hook (D-306: a leading U+FEFF makes JSON.parse throw, the catch swallows it,
+ * the hook exits 0 having done nothing). Claude Code does not BOM its payloads
+ * today, so this is latent hardening — but the class took a live probe to find
+ * once; the shared helper makes it structurally impossible per-bin.
+ *
+ * Contract: '' / whitespace-only / BOM-only → {} (the clean no-op the bins
+ * expect); a BOM-prefixed JSON payload parses normally; malformed JSON still
+ * THROWS (the bins' existing catch blocks own the error path — this helper
+ * only removes the BOM trap, it does not change error semantics).
+ *
+ * @param {string} raw - the drained stdin payload (readHookStdin output).
+ * @returns {object} the parsed payload, or {} when there is nothing to parse.
+ */
+export function parseHookPayload(raw) {
+  const text = stripBom(String(raw ?? ''));
+  if (text.trim() === '') return {};
+  return JSON.parse(text);
 }
