@@ -71,17 +71,26 @@ export function buildNamePattern(name) {
   return `\\b${escaped}`;
 }
 
-/** IO: tracked files matching the name pattern, case-insensitive (git grep, no shell). */
+/** IO: tracked + untracked-not-ignored files matching the name pattern (git grep, no shell). */
 function filesContaining(name) {
   // execFileSync (no shell) so the pattern is an argv element, never interpolated
   // into a command line — no quoting/injection surface. -i case-insensitive,
   // -P PCRE (for the `\b` word boundary). git grep exit status 1 = "no matches"
   // (clean), not an error.
+  //
+  // Task 214 (D-310): --untracked also scans files git doesn't track YET (still
+  // respecting .gitignore, so gitignored tiers like context/sessions/ stay
+  // excluded — they legitimately carry raw content). Without it, the pre-commit
+  // screen ran on an UNTRACKED file and passed on a leak that only failed once
+  // committed (the D-310 incident: a research note carried the maintainer's name
+  // in a path label, git-added AFTER the screen). A guard that only sees tracked
+  // files is blind at the exact moment the manual screen relies on it.
   try {
-    const out = execFileSync('git', ['grep', '-l', '-i', '-P', '--', buildNamePattern(name)], {
-      cwd: REPO,
-      encoding: 'utf8',
-    });
+    const out = execFileSync(
+      'git',
+      ['grep', '-l', '-i', '-P', '--untracked', '--', buildNamePattern(name)],
+      { cwd: REPO, encoding: 'utf8' },
+    );
     return out.split('\n').map((s) => s.trim()).filter(Boolean);
   } catch (e) {
     if (e.status === 1) return [];

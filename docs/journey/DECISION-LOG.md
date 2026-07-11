@@ -10,6 +10,12 @@
 
 ---
 
+## 2026-07-11 — D-318: FIX — Task 214: the name-guard now scans UNTRACKED files, closing the exact D-310 hole (a screen that lied to the human relying on it)
+
+**The incident (D-310, THIS session):** a research note carried the maintainer's first name in a path label; the pre-commit screen ran `validate-maintainer-name-confined` by the book and passed — because the note was still UNTRACKED and `git grep` only scans tracked files. The commit made it tracked; the next `npm test` failed; `main` sat red. A screening tool that passes on the exact class it exists to catch, at the exact moment (pre-commit) the manual habit relies on it, is a lying guard (the D-84/D-169 false-green family).
+
+**The fix:** one flag — `git grep --untracked` — now scans untracked-but-not-ignored files too, while still respecting `.gitignore` (so gitignored tiers stay excluded; they legitimately carry raw content). Two REAL-`git grep` behavior tests against a temp repo pin both halves: an untracked name-carrying file FAILS (status 0), a gitignored one stays excluded (status 1). The `\b<name>` prefix matching (D-103) was never the hole — WHICH FILES got scanned was. Dev-tooling only (ships nothing to users). Note: the validator now catches the name in ANY uncommitted work, not just tracked files — a stronger guarantee than before. _Relates D-310 (the incident this closes), D-102/D-103 (the guard + its matching), Task 122 (the original guard), Task 206 (the sibling capture-vs-screen window), D-318._
+
 ## 2026-07-11 — D-317: FIX — Task 213: provenance pointers through the distill chain (the Task-204 refactor made half of it free)
 
 **The gap (D-308, from the Always-On survey):** the rolling-window pipeline was prose-only at each hop — once the 7-day distill unlinked a source day, a `recent.md`/`archive.md` claim had no path back to the session that produced it (lifecycle-map G8; "lossy consolidation is where provenance dies"), and it made Task 210's future deletion-survival search content-fuzzy instead of ID-precise.
