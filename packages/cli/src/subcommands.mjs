@@ -81,6 +81,7 @@ import { spawnSync } from 'node:child_process';
 import { checkKitBinding } from './native-binding.mjs';
 import { resolve as resolvePath, join, basename } from 'node:path';
 import { resolveMcpProjectRoot, normalizeProjectPath } from './tier-paths.mjs';
+import { findRunningKitMcpServers, stopMcpServers } from './mcp-procs.mjs';
 
 /**
  * Resolve the cmk-auto-extract.mjs bin path so the KIRO stop hook's captureTurn
@@ -203,6 +204,73 @@ async function offerBindingFix(nativeBinding, options, { log, logError }) {
 // wonders why nothing summarizes. Honest degrade: the file-only surfaces still
 // work; only the automatic LLM steps wait on the CLI. Shared by the claude +
 // per-agent install paths. `backendCliProbe` injectable so tests don't spawn.
+// Task 205 (D-302): a best-effort heads-up when the kit's own MCP servers are
+// running. Windows-only surface: a running `cmk mcp serve` holds a lock on the
+// kit's native DLLs (vec0.dll / better_sqlite3.node), so a FUTURE
+// `npm install -g` upgrade during the lock can HALF-BREAK the global (the
+// half-install.mjs class). This `cmk install` itself is safe — the note exists
+// so the user learns the hazard + gets a one-tap stop when interactive (the
+// servers reconnect automatically on the host's next MCP tool call — the
+// documented manual kill, automated). Best-effort by construction: a failed
+// process scan is silent (the preflight is an optimization, never a gate).
+export async function warnRunningMcpServers(options, { log } = {}) {
+  const emit = log ?? console.log;
+  const platform = options?.mcpProcsPlatform ?? process.platform;
+  if (platform !== 'win32') return; // the DLL-lock hazard is Windows-only
+  // INTERACTIVE-ONLY, gated BEFORE the process scan (self-review finding): the
+  // preflight's whole purpose is teaching a human the hazard + the one-tap stop
+  // — in CI / tests / scripted installs nobody reads it, and the real CIM scan
+  // would add ~1s + nondeterministic output to every hermetic runInstall call
+  // (this dev machine genuinely runs a kit server — the scan would FIND it).
+  // Same consent-channel rule as offerBindingFix: an explicit askImpl implies a
+  // channel; only the readline default needs a real TTY.
+  const interactive =
+    options?.interactive ?? (options?.askImpl ? true : process.stdin.isTTY === true);
+  if (!interactive) return;
+  const find = options?.findMcpServers ?? findRunningKitMcpServers;
+  const { servers } = find();
+  if (!servers || servers.length === 0) return;
+  const pids = servers.map((s) => s.pid);
+  emit(
+    `  note: ${servers.length} kit MCP server${servers.length > 1 ? 's are' : ' is'} running:`,
+  );
+  // Show WHAT each pid is (skill-review D-314: the matcher intentionally
+  // over-matches rare lookalikes, so the user must be able to SEE what a
+  // confirmed stop would kill — pids alone aren't informed consent).
+  for (const s of servers) {
+    const cmd = String(s.commandLine ?? '').trim();
+    emit(`    pid ${s.pid} — ${cmd.length > 100 ? cmd.slice(0, 100) + '…' : cmd || '(command line unavailable)'}`);
+  }
+  emit(
+    '  Fine for normal use — but stop them before upgrading the global package',
+  );
+  emit(
+    '  (npm install -g @lh8ppl/claude-memory-kit), or the upgrade can half-break on locked files.',
+  );
+  const askFn =
+    options?.askImpl ??
+    ((question) =>
+      new Promise((resolveAnswer) => {
+        const rl = createInterface({ input: process.stdin, output: process.stdout });
+        rl.question(question, (answer) => {
+          rl.close();
+          resolveAnswer(answer);
+        });
+      }));
+  // Default NO — stopping other processes is the opt-in direction (contrast the
+  // binding fix's default-yes: that repairs THIS install; this touches the host).
+  const answer = String(
+    await askFn('  Stop them now? They reconnect automatically next tool call. [y/N] '),
+  )
+    .trim()
+    .toLowerCase();
+  if (answer !== 'y' && answer !== 'yes') return;
+  const stop = options?.stopMcpServers ?? stopMcpServers;
+  const results = stop(pids);
+  const ok = results.filter((r) => r.stopped).length;
+  emit(`  stopped ${ok}/${pids.length} server${pids.length > 1 ? 's' : ''}.`);
+}
+
 export function warnMissingBackendCli(agent, { log, backendCliProbe } = {}) {
   const emit = log ?? console.log;
   const probe = backendCliProbe ?? ((a) => agentCliOnPath(a));
@@ -280,6 +348,12 @@ export async function runInstall(options /* , command */) {
     process.exitCode = 2;
     return;
   }
+
+  // Task 205 (D-302): PREFLIGHT — the running-MCP-server heads-up (the Windows
+  // DLL-lock hazard for future `npm install -g` upgrades). At the TOP so BOTH
+  // the claude path and every --ide agent path get it (the hazard is identical
+  // — any agent's host spawns `cmk mcp serve`). Best-effort + win32-only inside.
+  await warnRunningMcpServers(options, { log });
 
   // Task 50.F — cross-agent routing. Default is claude-code (the existing path,
   // untouched). For another agent, scaffold the agent-neutral project tier via

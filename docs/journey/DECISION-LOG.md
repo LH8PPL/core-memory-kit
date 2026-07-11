@@ -10,6 +10,19 @@
 
 ---
 
+## 2026-07-11 — D-314: FIX — Task 205: the half-broken-upgrade class made self-diagnosing (bin boundary + install preflight); the live probe caught a real-payload bug on its FIRST use
+
+**The bug (D-302):** on Windows, `npm install -g` while a `cmk mcp serve` process held the DLL locks could half-break the global — after which EVERY `cmk` command died in the STATIC import chain with a raw `ERR_MODULE_NOT_FOUND` stack, before any handler attached (the recorded symptom: `Cannot find module '@modelcontextprotocol/sdk'`).
+
+**Shipped (per the task's fix directions):**
+- **(c) The bin boundary:** `bin/cmk.mjs` now imports dynamically inside a try/catch; a module-resolution failure routes through the NEW dependency-free `half-install.mjs` (loads even when the rest of the package doesn't) and prints the 2-step recovery (stop the servers → reinstall) + the data-safety note. REAL-spawn tested: a sandbox bin with an unresolvable import prints the recovery and exits 1; an ordinary error still gets the generic handler (no false half-install claim).
+- **(a) The install preflight:** `mcp-procs.mjs` — `findRunningKitMcpServers()` (win32: absolute-System32 PowerShell CIM query, the register-crons S4036 precedent; posix: `ps`), never-throw (a scan failure is silent — an optimization, not a gate), positive identification only (`cmk` + `mcp serve` tokens). `cmk install` names running servers + PIDs + the upgrade caveat and offers an interactive default-NO stop (`taskkill`/`kill` per-pid; the servers reconnect on the next tool call — the documented manual kill, automated).
+- **(b) retry-on-EBUSY: N/A-honest** — npm owns the file copy; the kit cannot hook it. **(d) doctor HC: resolved by reasoning** — a half-install that breaks the static import chain prevents `cmk doctor` from RUNNING at all, so the bin boundary IS the detection layer; an HC would be dead code on the exact state it targets.
+
+**The live-test directive earned its keep on FIRST use (the Task-221 discipline, applied same-session):** the unit tests were 17/17 green, and the live probe against THIS machine's actually-running server found **0** — a false negative. Ground-truthing via a raw CIM query showed the real Windows command line quotes EVERY argument (`"node" "…cmk.mjs" "mcp" "serve"`), which the `\bmcp\s+serve\b` matcher can't see — the D-305/D-306 real-payload class, a THIRD instance. Fixed (`mcp["']?\s+["']?serve`), and the REAL captured command line committed as the test fixture (the fixture-corpus playbook technique). Without the live probe this shipped green-and-broken on the only platform that matters for the bug.
+
+_Relates D-302 (the filing), `P-aLLW62HD`/`P-YFBTYUPQ` (the incident memories), Task 221 + the CLAUDE.md cut-gate-parity rule (the discipline that caught the matcher bug), D-305/D-306 (the sibling real-payload class), QUICKSTART §9 (the docs half), D-314._
+
 ## 2026-07-11 — D-313: DECISION + FIX — v0.5.1 opens: Tasks 203 (daily-distill starvation) + 204 (incremental-resumable jobs, ADR-0020) shipped together; + the live-test-toward-cut-gate-parity directive
 
 **Context.** The user opened v0.5.1 ("we can start on version v0.5.1, right?") on autopilot, with two standing directives: (a) *"do live tests as much as you can … so we don't have to wait for me to do the cut gate to find problems"* + *"maybe some deep research on it"*; (b) autopilot with stop-only-for-problems.
