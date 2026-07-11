@@ -1,16 +1,20 @@
-// @doors: 1
+// @doors: 1,3
 // Door 2 N/A: pure functions — no state mutation.
-// Door 3 N/A: the pure helpers spawn nothing (the git-grep IO lives in the
-//   unexported run() path, exercised by the real validator on every npm test).
+// Door 3: the git-grep behavior test (Task 214) REAL-spawns `git grep
+//   --untracked` against a temp repo to prove the flag scans untracked files —
+//   the D-310 blind spot this task closes.
 // Door 4 N/A: no logging in the pure helpers.
 // Door 5 N/A: no message queue.
 //
 // Boundary tests for the name-confinement guard (Task 122 / D-102). We test the
-// PURE helpers (name extraction + allowlist filtering); the git-grep IO + the
-// process.exit are the validator's own job (it runs in the npm-test chain, so
-// the real confinement is checked on every run).
+// PURE helpers (name extraction + allowlist filtering) + the Task-214 untracked
+// scan behavior via the real git command.
 
 import { describe, it, expect } from 'vitest';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import {
   parseMaintainerFirstName,
   offendersOutsideAllowlist,
@@ -107,5 +111,57 @@ describe('buildNamePattern (hardened case-insensitive word-START match — Task 
     expect(() => new RegExp(buildNamePattern('A.B'), 'i')).not.toThrow();
     expect(re('A.B').test('A.B')).toBe(true);
     expect(re('A.B').test('AxB')).toBe(false); // the dot is literal, not "any char"
+  });
+});
+
+describe('Task 214 (D-310) — the untracked scan: `git grep --untracked` catches a not-yet-committed leak', () => {
+  // The D-310 incident: a research note carried the maintainer's name in a path
+  // label, the pre-commit screen ran the validator BY THE BOOK and passed —
+  // because the file was still UNTRACKED and plain `git grep` only sees tracked
+  // files. This proves the --untracked flag (Task 214) now catches that exact
+  // shape, while STILL respecting .gitignore (so gitignored tiers stay excluded).
+  let repo;
+  const git = (args) => spawnSync('git', args, { cwd: repo, encoding: 'utf8', timeout: 30000 });
+
+  function makeRepo() {
+    repo = mkdtempSync(join(tmpdir(), 'cmk-nameguard-'));
+    git(['init', '-q']);
+    git(['config', 'user.email', 'test@example.com']);
+    git(['config', 'user.name', 'Test']);
+    writeFileSync(join(repo, '.gitignore'), 'secret-tier/\n');
+    return repo;
+  }
+
+  // The pattern the validator uses (word-START boundary), applied to a stand-in name.
+  const NAME = 'Alexname';
+  const grepUntracked = () =>
+    git(['grep', '-l', '-i', '-P', '--untracked', '--', buildNamePattern(NAME)]);
+
+  it('flags an UNTRACKED (not-yet-added) file carrying the name', () => {
+    makeRepo();
+    try {
+      // An untracked research-note-shaped file with the name in a path-label.
+      mkdirSync(join(repo, 'docs'), { recursive: true });
+      writeFileSync(join(repo, 'docs', 'note.md'), `- capture: ${NAME}wiki/raw/x.md\n`);
+      const r = grepUntracked();
+      expect(r.status).toBe(0); // 0 = matches found
+      expect(r.stdout).toContain('docs/note.md');
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it('STILL excludes a gitignored file (untracked-not-ignored only — the tier deviation is preserved)', () => {
+    makeRepo();
+    try {
+      mkdirSync(join(repo, 'secret-tier'), { recursive: true });
+      writeFileSync(join(repo, 'secret-tier', 'raw.md'), `${NAME} appears here freely\n`);
+      const r = grepUntracked();
+      // No non-ignored match → git grep exits 1 (no matches).
+      expect(r.status).toBe(1);
+      expect(r.stdout.trim()).toBe('');
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
   });
 });
