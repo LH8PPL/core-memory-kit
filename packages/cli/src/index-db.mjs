@@ -200,6 +200,15 @@ export function openIndexDb({ projectRoot, dbPath } = {}) {
   // for a regenerable read-cache.
   db.pragma('journal_mode = WAL');
   db.pragma('synchronous = NORMAL');
+  // Task 219 (design §16.34, D-321): bounded wait under writer contention —
+  // concurrent writers (Stop-hook auto-extract + lazy-compress child + reindex
+  // + MCP server) wait up to 5s for the lock instead of throwing SQLITE_BUSY.
+  // PREMISE CORRECTION: better-sqlite3 ALREADY defaults its `timeout` option
+  // to 5000ms (§16.34 assumed SQLite's raw 0ms default), so this pragma pins
+  // an existing behavior as an explicit contract — guarded by the §16.35
+  // cross-process test — rather than leaving it to a driver default a future
+  // major (or a `timeout: 0` option) could silently change.
+  db.pragma('busy_timeout = 5000');
   // Apply schema (idempotent CREATE IF NOT EXISTS).
   db.exec(INDEX_DB_SCHEMA);
   // Task 151.6: non-destructive column migration. CREATE TABLE IF NOT EXISTS does
