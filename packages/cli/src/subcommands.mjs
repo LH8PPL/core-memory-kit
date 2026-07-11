@@ -214,61 +214,75 @@ async function offerBindingFix(nativeBinding, options, { log, logError }) {
 // documented manual kill, automated). Best-effort by construction: a failed
 // process scan is silent (the preflight is an optimization, never a gate).
 export async function warnRunningMcpServers(options, { log } = {}) {
-  const emit = log ?? console.log;
-  const platform = options?.mcpProcsPlatform ?? process.platform;
-  if (platform !== 'win32') return; // the DLL-lock hazard is Windows-only
-  // INTERACTIVE-ONLY, gated BEFORE the process scan (self-review finding): the
-  // preflight's whole purpose is teaching a human the hazard + the one-tap stop
-  // — in CI / tests / scripted installs nobody reads it, and the real CIM scan
-  // would add ~1s + nondeterministic output to every hermetic runInstall call
-  // (this dev machine genuinely runs a kit server — the scan would FIND it).
-  // Same consent-channel rule as offerBindingFix: an explicit askImpl implies a
-  // channel; only the readline default needs a real TTY.
-  const interactive =
-    options?.interactive ?? (options?.askImpl ? true : process.stdin.isTTY === true);
-  if (!interactive) return;
-  const find = options?.findMcpServers ?? findRunningKitMcpServers;
-  const { servers } = find();
-  if (!servers || servers.length === 0) return;
-  const pids = servers.map((s) => s.pid);
-  emit(
-    `  note: ${servers.length} kit MCP server${servers.length > 1 ? 's are' : ' is'} running:`,
-  );
-  // Show WHAT each pid is (skill-review D-314: the matcher intentionally
-  // over-matches rare lookalikes, so the user must be able to SEE what a
-  // confirmed stop would kill — pids alone aren't informed consent).
-  for (const s of servers) {
-    const cmd = String(s.commandLine ?? '').trim();
-    emit(`    pid ${s.pid} — ${cmd.length > 100 ? cmd.slice(0, 100) + '…' : cmd || '(command line unavailable)'}`);
+  // NEVER-THROW (stress-gate catch, D-315): the preflight is an optimization —
+  // an exploding scan, ask, or stop must never break `cmk install` (the
+  // binding-fix tests pass a THROWING askImpl sentinel; pre-guard, that
+  // sentinel detonated out of runInstall on the dev machine).
+  try {
+    const emit = log ?? console.log;
+    const platform = options?.mcpProcsPlatform ?? process.platform;
+    if (platform !== 'win32') return; // the DLL-lock hazard is Windows-only
+    // INTERACTIVE-ONLY, gated BEFORE the process scan (self-review finding): the
+    // preflight's whole purpose is teaching a human the hazard + the one-tap stop
+    // — in CI / tests / scripted installs nobody reads it, and the real CIM scan
+    // would add ~1s + nondeterministic output to every hermetic runInstall call
+    // (this dev machine genuinely runs a kit server — the scan would FIND it).
+    const interactive =
+      options?.interactive ?? (options?.askImpl ? true : process.stdin.isTTY === true);
+    if (!interactive) return;
+    // HERMETICITY GUARD (stress-gate catch, D-315): `askImpl` is a SHARED seam —
+    // the binding-fix tests pass one (sometimes a throwing sentinel) with no
+    // intent to authorize THIS feature's real-system process scan; on this dev
+    // machine the scan then found the genuinely-running server and asked the
+    // throwing sentinel (a nondeterministic, environment-dependent failure the
+    // stress gate caught on run 3+). Never touch the REAL system unless a real
+    // TTY is present OR the caller injected this feature's OWN find seam.
+    const find = options?.findMcpServers;
+    if (!find && process.stdin.isTTY !== true) return;
+    const { servers } = (find ?? findRunningKitMcpServers)();
+    if (!servers || servers.length === 0) return;
+    const pids = servers.map((s) => s.pid);
+    emit(
+      `  note: ${servers.length} kit MCP server${servers.length > 1 ? 's are' : ' is'} running:`,
+    );
+    // Show WHAT each pid is (skill-review D-314: the matcher intentionally
+    // over-matches rare lookalikes, so the user must be able to SEE what a
+    // confirmed stop would kill — pids alone aren't informed consent).
+    for (const s of servers) {
+      const cmd = String(s.commandLine ?? '').trim();
+      emit(`    pid ${s.pid} — ${cmd.length > 100 ? cmd.slice(0, 100) + '…' : cmd || '(command line unavailable)'}`);
+    }
+    emit(
+      '  Fine for normal use — but stop them before upgrading the global package',
+    );
+    emit(
+      '  (npm install -g @lh8ppl/claude-memory-kit), or the upgrade can half-break on locked files.',
+    );
+    const askFn =
+      options?.askImpl ??
+      ((question) =>
+        new Promise((resolveAnswer) => {
+          const rl = createInterface({ input: process.stdin, output: process.stdout });
+          rl.question(question, (answer) => {
+            rl.close();
+            resolveAnswer(answer);
+          });
+        }));
+    // Default NO — stopping other processes is the opt-in direction (contrast the
+    // binding fix's default-yes: that repairs THIS install; this touches the host).
+    const answer = String(
+      await askFn('  Stop them now? They reconnect automatically next tool call. [y/N] '),
+    )
+      .trim()
+      .toLowerCase();
+    if (answer !== 'y' && answer !== 'yes') return;
+    const stop = options?.stopMcpServers ?? stopMcpServers;
+    const results = stop(pids);
+    const ok = results.filter((r) => r.stopped).length;
+    emit(`  stopped ${ok}/${pids.length} server${pids.length > 1 ? 's' : ''}.`);
+  } catch {
+    // best-effort by contract — a preflight failure never breaks install.
   }
-  emit(
-    '  Fine for normal use — but stop them before upgrading the global package',
-  );
-  emit(
-    '  (npm install -g @lh8ppl/claude-memory-kit), or the upgrade can half-break on locked files.',
-  );
-  const askFn =
-    options?.askImpl ??
-    ((question) =>
-      new Promise((resolveAnswer) => {
-        const rl = createInterface({ input: process.stdin, output: process.stdout });
-        rl.question(question, (answer) => {
-          rl.close();
-          resolveAnswer(answer);
-        });
-      }));
-  // Default NO — stopping other processes is the opt-in direction (contrast the
-  // binding fix's default-yes: that repairs THIS install; this touches the host).
-  const answer = String(
-    await askFn('  Stop them now? They reconnect automatically next tool call. [y/N] '),
-  )
-    .trim()
-    .toLowerCase();
-  if (answer !== 'y' && answer !== 'yes') return;
-  const stop = options?.stopMcpServers ?? stopMcpServers;
-  const results = stop(pids);
-  const ok = results.filter((r) => r.stopped).length;
-  emit(`  stopped ${ok}/${pids.length} server${pids.length > 1 ? 's' : ''}.`);
 }
 
 export function warnMissingBackendCli(agent, { log, backendCliProbe } = {}) {

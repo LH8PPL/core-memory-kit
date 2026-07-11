@@ -10,6 +10,16 @@
 
 ---
 
+## 2026-07-11 — D-315: FIX — Task 206: the commit-proposal excludes the pre-roll `now.md` (the D-304 unmasked-name window closed at the offer, not the buffer)
+
+**The composition bug (D-304, proven live in the Kiro §6/E2 gate):** the privacy screen masks names on the COMMITTED sinks (transcript L1+L3; `today-*.md` via the compress rule), but `now.md` holds the raw turn until its roll — and the ADR-0018 per-turn proposal offered `git add context/`, sweeping the unmasked buffer in if the user accepted first. Two features each correct alone, composing into a leak on the privacy headline.
+
+**The fix — direction (b) of the task's four options:** `buildCommitProposal` (inject-context) excludes `context/sessions/now.md` from BOTH the dirty count (a now.md-only tree proposes NOTHING — the leak shape alone can't even trigger the offer) and the offer text (declaratively instructs staging context/ excluding the pre-roll buffer; git stays agent-run per ADR-0018). **Why (b) over (a)/(c)/(d):** (a) force-roll-before-offer is infeasible at the 500ms inject boundary (a roll is a multi-second Haiku call); (c) L3-screening now.md at write puts an async judge on the per-turn hot path; (d) gitignoring a legitimately-committed tier breaks cross-session continuity. (b) is deterministic, zero-cost, and loses nothing — the roll drains now.md into the screened `today-*.md`, which the NEXT proposal offers.
+
+**Pinned by:** two contract tests (now.md-alone → no proposal; now.md+screened-fact → count excludes it + the exclusion instruction present + no blanket `git add context/`). ADR-0018 carries the dated refinement note (the Decision unchanged — narrows WHAT is proposed, not WHO runs git).
+
+**ADDENDUM — the stress gate caught a Task-205 hermeticity regression riding this PR's gate:** the day-old install preflight (D-314) treated the SHARED `askImpl` seam as consent to scan the REAL system; the binding-fix tests pass a THROWING askImpl sentinel, the scan found this dev machine's genuinely-running server, asked the sentinel, and detonated out of `runInstall` — a nondeterministic environment-dependent failure that two full-suite runs missed and stress run 3 caught. Fix (in this PR): the preflight never touches the real system unless a real TTY is present OR its OWN `findMcpServers` seam is injected, and the whole body is try/caught (best-effort by contract). Two regression tests pin the foreign-askImpl shape + the exploding-find shape. The meta-lesson: a shared consent seam authorizes only the feature it was passed FOR — presence of `askImpl` is not blanket interactivity. _Relates D-304 (the finding), ADR-0018 (refined), ADR-0019/Task 148 (the screen this composes with), Task 205/D-314 (the preflight this hardens), the stress-gate rule (the catch), Task 206, D-315._
+
 ## 2026-07-11 — D-314: FIX — Task 205: the half-broken-upgrade class made self-diagnosing (bin boundary + install preflight); the live probe caught a real-payload bug on its FIRST use
 
 **The bug (D-302):** on Windows, `npm install -g` while a `cmk mcp serve` process held the DLL locks could half-break the global — after which EVERY `cmk` command died in the STATIC import chain with a raw `ERR_MODULE_NOT_FOUND` stack, before any handler attached (the recorded symptom: `Cannot find module '@modelcontextprotocol/sdk'`).
