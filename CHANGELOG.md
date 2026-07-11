@@ -10,6 +10,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **The nightly memory-distill no longer pops a black console window on Windows** — the 23:00
+  scheduled task launched `node.exe` directly, so Windows opened a visible console window over
+  your screen for the run's duration. `cmk register-crons` now registers the task to run through
+  a tiny windowless launcher, so the nightly distill (and weekly curate) run invisibly. (Task 215;
+  re-run `cmk register-crons` to apply.)
+
 - **Hook payloads are now parsed BOM-tolerantly across every hook bin** — a leading UTF-8 byte-order
   mark on a hook's stdin (some agents/platforms prepend one) made the bin's JSON parse throw and
   silently no-op. For the delete-guard bin this was a fail-open: a BOM-prefixed destructive command
