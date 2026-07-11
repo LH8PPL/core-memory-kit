@@ -10,6 +10,17 @@
 
 ---
 
+## 2026-07-11 — D-319: FIX — Task 215: the nightly distill runs WINDOWLESS (a VBS `wscript` shim); the real-machine probe chose the mechanism
+
+**The bug (D-311, the user's live observation):** the 23:00 `cmk-daily-distill` schtask launches `node.exe` directly in the interactive session, so Windows opens a visible console window over the user's screen for the run's duration — a black box popping up nightly, contradicting "invisible memory that just works." NOT the Task-81 spawn-flag class (`windowsHide` on children the KIT spawns) — this is the window Task Scheduler itself opens for the scheduled console binary, a registration-shape problem.
+
+**The mechanism, chosen by REAL-machine probes (not docs — the task's own requirement):**
+- Inspected the actual registered task: `LogonType=Interactive, Hidden=False` — the visible-window cause confirmed.
+- REJECTED (a) S4U / run-whether-logged-on (session-0, no window): `Set-ScheduledTask … -LogonType S4U` returned **"Access is denied"** without elevation — it needs SeBatchLogonRight/admin, i.e. a UAC prompt we won't force on a non-admin install.
+- CHOSE (b) the windowless launcher: `register-crons` writes a VBS shim into gitignored `context/.locks/<entry>-run.vbs` and registers `/TR` as `wscript.exe //B //Nologo "<shim>"`. The shim runs the real command via `WshShell.Run(cmd, 0, True)` — windowStyle 0 (hidden), True (wait for exit, so the schtask's LastResult still reflects the real run). PROVEN on the real machine: the generated shim, invoked exactly as `/TR` would, executed a real command with **zero window** and completed.
+
+**Robustness:** best-effort — a shim-write failure (no projectRoot, read-only dir) falls back to the direct visible command rather than failing registration. 5 unit tests (shim content / argv-with-shim / shim-write via the writeFile seam / fallback-on-failure / the buildWindowlessShim escaping). **Honestly owed:** the ONE step autopilot can't take — registering + firing a REAL scheduled trigger on the user's machine — is flagged in the task as the user's manual live-verify (the mechanism is probe-proven; the end-to-end schtask run is theirs). _Relates D-311 (the observation), Task 203 (WakeToRun, same registration surface — batched), Task 81 (the spawned-children sibling), the CLAUDE.md live-test discipline (the probe that chose the mechanism), D-319._
+
 ## 2026-07-11 — D-318: FIX — Task 214: the name-guard now scans UNTRACKED files, closing the exact D-310 hole (a screen that lied to the human relying on it)
 
 **The incident (D-310, THIS session):** a research note carried the maintainer's first name in a path label; the pre-commit screen ran `validate-maintainer-name-confined` by the book and passed — because the note was still UNTRACKED and `git grep` only scans tracked files. The commit made it tracked; the next `npm test` failed; `main` sat red. A screening tool that passes on the exact class it exists to catch, at the exact moment (pre-commit) the manual habit relies on it, is a lying guard (the D-84/D-169 false-green family).

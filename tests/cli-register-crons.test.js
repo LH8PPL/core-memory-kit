@@ -16,6 +16,7 @@ import {
   unregisterCron,
   detectPlatform,
   buildWindowsSchtasks,
+  buildWindowlessShim,
   CRON_ENTRY_NAME,
   DEFAULT_SCHEDULE,
   WEEKLY_ENTRY_NAME,
@@ -212,6 +213,26 @@ describe('Task 33 — register-crons', () => {
       expect(argv).toContain('LIMITED');
     });
 
+    it('Task 215: with a shimPath, /TR runs `wscript //B //Nologo "<shim>"` (no direct console binary → no window)', () => {
+      const shimPath = 'C:\\proj\\context\\.locks\\cmk-daily-distill-run.vbs';
+      const argv = buildWindowsSchtasks({ command: winCommand, entryName: CRON_ENTRY_NAME, hour: 23, minute: 0, shimPath });
+      const trIdx = argv.indexOf('/TR');
+      // The /TR is the wscript-shim launch, NOT the raw node command.
+      expect(argv[trIdx + 1]).toBe(`wscript.exe //B //Nologo "${shimPath}"`);
+      expect(argv[trIdx + 1]).not.toContain('node.exe'); // the console binary is inside the shim, hidden
+    });
+
+    it('Task 215: buildWindowlessShim wraps the command in a hidden WshShell.Run (windowStyle 0, wait True) with quotes escaped', () => {
+      const vbs = buildWindowlessShim('"C:\\node.exe" "C:\\x.mjs" "C:\\proj"');
+      expect(vbs).toContain('CreateObject("WScript.Shell")');
+      // windowStyle 0 = hidden; True = wait for exit (so the schtask's LastResult reflects the real run).
+      expect(vbs).toMatch(/\.Run ".*", 0, True/);
+      // VBS string-literal escaping: each embedded `"` becomes `""`.
+      expect(vbs).toContain('""C:\\node.exe""');
+      // The comment names itself so it's not a mystery file.
+      expect(vbs).toContain('claude-memory-kit');
+    });
+
     it('weekly cadence emits /SC WEEKLY /D <DAY>', () => {
       const argv = buildWindowsSchtasks({ command: winCommand, entryName: WEEKLY_ENTRY_NAME, hour: 9, minute: 0, dayOfWeek: 0 });
       expect(argv).toContain('WEEKLY');
@@ -248,6 +269,44 @@ describe('Task 33 — register-crons', () => {
       expect(captured.args[trIdx + 1]).toBe(winCommand);
       expect(captured.opts.windowsHide).toBe(true);
       expect(captured.opts.timeout).toBe(10_000);
+    });
+
+    it('Task 215: with a projectRoot, registerCron WRITES the windowless shim and points /TR at it (Door 2 + Door 3)', () => {
+      const writes = [];
+      const fakeSpawn = () => ({ status: 0, stdout: 'SUCCESS', stderr: '' });
+      const r = registerCron({
+        command: winCommand,
+        entryName: CRON_ENTRY_NAME,
+        platform: 'win32',
+        projectRoot: 'C:\\proj',
+        spawn: fakeSpawn,
+        writeFile: (path, content) => writes.push({ path, content }),
+      });
+      expect(r.action).toBe('registered');
+      // Door 2: the shim file was written under the gitignored .locks dir.
+      const shimWrite = writes.find((w) => w.path.endsWith(`${CRON_ENTRY_NAME}-run.vbs`));
+      expect(shimWrite).toBeDefined();
+      expect(shimWrite.path).toContain('.locks');
+      expect(shimWrite.content).toContain('WScript.Shell');
+      expect(shimWrite.content).toMatch(/\.Run ".*", 0, True/);
+    });
+
+    it('Task 215: a shim-write FAILURE falls back to the direct command (never fails registration)', () => {
+      const fakeSpawn = () => ({ status: 0, stdout: 'SUCCESS', stderr: '' });
+      const calls = [];
+      const r = registerCron({
+        command: winCommand,
+        entryName: CRON_ENTRY_NAME,
+        platform: 'win32',
+        projectRoot: 'C:\\proj',
+        spawn: (exe, args) => { calls.push({ exe, args }); return fakeSpawn(); },
+        writeFile: () => { throw new Error('read-only disk'); },
+      });
+      expect(r.action).toBe('registered'); // NOT error — the fallback path
+      // The /TR reverted to the direct command (visible window, but functional).
+      const captured = calls.find((c) => /schtasks\.exe$/i.test(c.exe));
+      const trIdx = captured.args.indexOf('/TR');
+      expect(captured.args[trIdx + 1]).toBe(winCommand); // direct, not the wscript shim
     });
 
     it('registerCron(platform:win32) reports action:error when schtasks exits non-zero', () => {

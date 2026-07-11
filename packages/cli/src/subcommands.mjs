@@ -1921,6 +1921,7 @@ function runRegisterCrons(options /* , command */) {
           command: job.command,
           entryName: job.entryName,
           schedule: job.schedule,
+          projectRoot, // Task 215: enables the windowless VBS shim (win32)
           dryRun,
         });
     if (r.action === 'error') {
