@@ -1105,6 +1105,46 @@ describe('Task 150 — the memory-commit proposal line (ADR-0018: propose-and-ap
     expect(r.snapshot).not.toMatch(/one-tap commit/i);
   });
 
+  // Task 206 (D-304): the pre-roll now.md is the ONE context/ file the privacy
+  // screen has NOT fully processed yet (names await the roll's L3/compressor
+  // pass). The proposal must therefore never offer it: a user accepting the
+  // one-tap commit before the roll must not ship a raw personal name.
+  it('D-304: a dirty now.md ALONE (raw un-screened name) → NO proposal at all', () => {
+    const run = gitInit();
+    run(['add', '.']);
+    run(['commit', '-q', '--no-gpg-sign', '-m', 'seed']);
+    // The exact leak shape from the Kiro §6/E2 gate: a raw personal name in
+    // the pre-roll buffer, everything else committed.
+    writeFile(
+      join(f.projectRoot, 'context', 'sessions', 'now.md'),
+      '## 2026-07-02T11:59:00Z — assistant\n\nYour git identity is Alex Personname <alex@example.com>.\n',
+    );
+    const r = injectContext({
+      cwd: f.projectRoot, userDir: f.userDir, now: '2026-07-02T12:00:00Z', testGitTimeoutMs: 30000,
+    });
+    expect(r.snapshot).not.toMatch(/one-tap commit/i); // nothing COMMITTABLE is pending
+  });
+
+  it('D-304: now.md dirty ALONGSIDE a screened fact → the proposal counts ONLY the fact and EXCLUDES now.md from the offer', () => {
+    const run = gitInit();
+    run(['add', '.']);
+    run(['commit', '-q', '--no-gpg-sign', '-m', 'seed']);
+    writeFile(
+      join(f.projectRoot, 'context', 'sessions', 'now.md'),
+      '## turn\n\nraw Alex Personname content awaiting the roll\n',
+    );
+    writeFile(join(f.projectRoot, 'context', 'memory', 'INDEX.md'), '<!-- a screened change -->\n');
+    const r = injectContext({
+      cwd: f.projectRoot, userDir: f.userDir, now: '2026-07-02T12:00:00Z', testGitTimeoutMs: 30000,
+    });
+    expect(r.snapshot).toMatch(/1 memory file/); // now.md NOT counted
+    expect(r.snapshot).toMatch(/one-tap commit/i);
+    // The offer must instruct excluding the pre-roll buffer, and must NOT
+    // instruct a blanket `git add context/` that would sweep now.md in.
+    expect(r.snapshot).toMatch(/excluding context\/sessions\/now\.md/i);
+    expect(r.snapshot).not.toMatch(/git add context\/ \+/);
+  });
+
   it('a NON-git project → no proposal line (the .git gate returns before any spawn — which also makes this immune to a parent repo above tmpdir)', () => {
     const r = injectContext({ cwd: f.projectRoot, userDir: f.userDir, now: '2026-07-02T12:00:00Z' });
     expect(r.snapshot).not.toMatch(/one-tap commit/i);

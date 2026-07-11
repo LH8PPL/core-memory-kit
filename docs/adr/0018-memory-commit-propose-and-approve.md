@@ -71,3 +71,16 @@ Ship the **detection + proposal surface**, keep git in human-approved hands:
   If the proposal proves noisy (e.g. users who intentionally batch memory commits weekly),
   the revisit trigger is a user report of proposal fatigue; the fix candidates are a
   settings.json threshold (propose only at ≥N files) or a cooldown.
+
+## Refinement 2026-07-11 — the pre-roll `now.md` is excluded from the offer (Task 206 / D-304 / D-315)
+
+The v0.5.0 Kiro cut-gate proved a separately-correct-jointly-broken composition: the privacy
+screen masks names on the COMMITTED sinks (transcript, `today-*.md`), but `now.md` holds the
+raw turn between capture and its roll — names await the roll's compressor/L3 pass — and THIS
+ADR's per-turn proposal offered `git add context/`, sweeping the unmasked buffer in if the
+user accepted before the roll. Fix (direction (b) of the Task 206 entry): `buildCommitProposal`
+now excludes `context/sessions/now.md` from both the dirty COUNT (a dirty-now.md-only tree
+proposes nothing) and the OFFER (the proposal instructs staging context/ excluding the
+pre-roll buffer — declaratively, since git stays agent-run per this ADR). Nothing is lost:
+the roll drains now.md into the screened `today-*.md`, which a later proposal offers. The
+Decision above is unchanged — this narrows WHAT is proposed, not WHO runs git.

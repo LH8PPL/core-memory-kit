@@ -143,13 +143,29 @@ function buildCommitProposal({ projectRoot, gitTimeoutMs }) {
       },
     );
     if (r.status !== 0 || typeof r.stdout !== 'string') return '';
-    const n = r.stdout.split('\n').filter((l) => l.trim()).length;
+    // Task 206 (D-304): EXCLUDE the pre-roll now.md from both the count and
+    // the offer. It is the ONE context/ file the privacy screen has not fully
+    // processed yet — L1 masks emails/phones at write, but NAMES await the
+    // roll's compressor/L3 pass — so a user accepting the one-tap commit
+    // before the roll could ship a raw personal name (proven live in the
+    // v0.5.0 Kiro §6/E2 gate: the committed transcript + today-*.md were
+    // correctly «NAME»-masked while now.md held the raw name). Its content
+    // is never lost: the roll drains it into today-*.md (screened), which a
+    // LATER proposal offers. Porcelain paths are forward-slashed on every OS
+    // and END the line (incl. a rename's `R old -> new` target), so endsWith
+    // is the tight match — a hypothetical now.md.bak stays counted (self-review:
+    // includes() would over-exclude it).
+    const n = r.stdout
+      .split('\n')
+      .filter((l) => l.trim())
+      .filter((l) => !l.trimEnd().endsWith('context/sessions/now.md')).length;
     if (n === 0) return '';
     return (
       `Note: ${n} memory file(s) under context/ are uncommitted — at a natural moment, ` +
-      `offer the user a one-tap commit of their project memory (git add context/ + a short ` +
-      `commit); do NOT run any git command before the user approves — only act on their yes ` +
-      `(ADR-0018: the kit proposes, the user owns git).`
+      `offer the user a one-tap commit of their project memory (stage context/ EXCLUDING ` +
+      `context/sessions/now.md — it is a pre-screen buffer that must never be committed ` +
+      `before its roll — + a short commit); do NOT run any git command before the user ` +
+      `approves — only act on their yes (ADR-0018: the kit proposes, the user owns git).`
     );
   } catch {
     return '';

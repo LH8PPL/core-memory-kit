@@ -10,6 +10,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **The session-start commit offer can no longer sweep in the un-screened turn buffer** —
+  the kit's "N memory files are uncommitted — commit them?" proposal offered all of
+  `context/`, including `sessions/now.md`, the one file the privacy screen hasn't fully
+  processed yet (names are masked at its roll, not at write). Accepting the offer before
+  the roll could commit a raw personal name. The proposal now excludes the pre-roll buffer
+  from both the count and the offer; its content lands (screened) in the daily summary the
+  next offer covers. (Task 206.)
+
 - **A half-broken upgrade is now self-diagnosing instead of a cryptic crash** — on Windows,
   upgrading the global package (`npm install -g`) while a kit MCP server was running could
   half-break the install (locked DLLs), after which every `cmk` command died with a raw
