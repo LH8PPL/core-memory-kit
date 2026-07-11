@@ -25,6 +25,7 @@ import { join } from 'node:path';
 import {
   weeklyCurate,
   dedupBullets,
+  stampArchiveProvenance,
 } from '../packages/cli/src/weekly-curate.mjs';
 import { MockHaikuBackend } from '../packages/cli/src/compressor.mjs';
 import { install } from '../packages/cli/src/install.mjs';
@@ -318,6 +319,9 @@ describe('Task 34 — weeklyCurate', () => {
       expect(existsSync(archivePath)).toBe(true);
       const archive = readFileSync(archivePath, 'utf8');
       expect(archive).toContain('## Week of 2026-05-11');
+      // Task 213 (D-308): the archived week carries a resolvable source-days
+      // provenance pointer back to the raw session dates it consolidated.
+      expect(archive).toMatch(/## Week of 2026-05-11\n<!-- source_days: \[[^\]]*2026-05-13[^\]]*\] -->/);
 
       // State: OLD files deleted, CURRENT files preserved
       const remaining = listSessions();
@@ -641,6 +645,41 @@ describe('Task 34 — register-crons unregister idempotency (skill-review I3)', 
     });
     expect(r.action).toBe('error');
     expect(r.errorCategory).toBe('schema');
+  });
+});
+
+describe('Task 213 (D-308) — stampArchiveProvenance (deterministic source-days pointer)', () => {
+  it('adds a source_days comment under each `## Week of` heading, from the ACTUAL dates', () => {
+    const input = '## Week of 2026-05-11\n\n- did a thing\n\n## Week of 2026-05-18\n\n- did another\n';
+    const out = stampArchiveProvenance(input, ['2026-05-18', '2026-05-11', '2026-05-13']);
+    // Deduped + sorted, one tag per week section.
+    const tags = out.match(/<!-- source_days: \[[^\]]*\] -->/g) ?? [];
+    expect(tags).toHaveLength(2);
+    expect(tags[0]).toBe('<!-- source_days: [2026-05-11, 2026-05-13, 2026-05-18] -->');
+    // The tag sits directly under the heading (before the bullets).
+    expect(out).toMatch(/## Week of 2026-05-11\n<!-- source_days:/);
+  });
+
+  it('idempotent — a section that already has a source_days comment is not double-stamped', () => {
+    const input =
+      '## Week of 2026-05-11\n<!-- source_days: [2026-05-11] -->\n\n- x\n';
+    const out = stampArchiveProvenance(input, ['2026-05-11']);
+    const tags = out.match(/<!-- source_days:/g) ?? [];
+    expect(tags).toHaveLength(1);
+  });
+
+  it('no dates → passthrough (never fabricate provenance)', () => {
+    const input = '## Week of 2026-05-11\n\n- x\n';
+    expect(stampArchiveProvenance(input, [])).toBe(input);
+    expect(stampArchiveProvenance(input, null)).toBe(input);
+  });
+
+  it('an LLM that DROPPED the tag still gets one (the invariant never trusts the model)', () => {
+    // Haiku emitted the section with no comment at all — the deterministic pass
+    // adds it from the real source dates.
+    const input = '## Week of 2026-05-11\n\n- ungrounded but present\n';
+    const out = stampArchiveProvenance(input, ['2026-05-11', '2026-05-12']);
+    expect(out).toContain('<!-- source_days: [2026-05-11, 2026-05-12] -->');
   });
 });
 
