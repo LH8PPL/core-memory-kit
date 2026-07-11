@@ -8,6 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Fixed
+
+- **Daily distill no longer silently starves on a busy repo** — the nightly rolling-summary
+  (`recent.md`) could go days stale on a large/busy project without any warning: the scheduled
+  job was killed mid-run (a sleeping laptop at 23:00), the health check falsely reported it
+  healthy, and the session-start fallback was shadowed by the more-frequent session roll. Now:
+  the distill is **resumable** (it processes one day at a time and banks each, so a killed run
+  keeps its progress and the next run continues); `cmk doctor`'s scheduled-compaction check
+  now **verifies the actual output freshness** instead of just that the job fired (no more
+  false "healthy"); the session-start fallback **also runs the daily distill** when it's due;
+  and `cmk register-crons` now registers the nightly job with **WakeToRun** so the machine
+  wakes to finish it. (Tasks 203/204, ADR-0020.)
+
 ## [0.5.0] — 2026-07-10
 
 ### Added

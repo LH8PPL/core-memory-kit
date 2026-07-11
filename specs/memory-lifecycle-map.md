@@ -41,7 +41,7 @@ Legend: ✓ intent matches code · ✗ gap (design says X, code does Y) · ~ par
   SESSIONS (parallel diary):
   turn ─L1 mask─> transcripts/{date}.live.md (gitignored) ─L3 judge─> transcripts/{date}.md (screened, durable, never pruned)
   turn ─buffer──> now.md ─compress(Haiku)─> today-{date}.md ─(truncate now.md)
-  today (≤7d) ─distill─> recent.md (4096B)
+  today (≤7d) ─distill(per-day)─> today-{date}.distilled.md (gitignored) ─assemble─> recent.md (4096B cap, drop-oldest-first)
   today (>7d) ─curate─> archive.md (4096B) ─then UNLINK the today file
 ```
 

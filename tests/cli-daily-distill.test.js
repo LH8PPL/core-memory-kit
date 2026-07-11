@@ -15,6 +15,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -46,17 +47,19 @@ function seedTodayFile(projectRoot, date, body) {
   return path;
 }
 
-function mockBackend(outputText) {
+// Task 204: dailyDistill now distills ONE today-*.md per compress() call
+// (resumable per-day, not one whole-corpus call), so a backend needs enough
+// canned responses for the number of days seeded. `count` supplies that many
+// identical responses (default 8 = the 7-day window + slack).
+function mockBackend(outputText, count = 8) {
   return new MockHaikuBackend({
-    responses: [
-      {
-        outputText,
-        inputTokens: 100,
-        outputTokens: 50,
-        costUSD: 0.0001,
-        preservedIds: [],
-      },
-    ],
+    responses: Array.from({ length: count }, () => ({
+      outputText,
+      inputTokens: 100,
+      outputTokens: 50,
+      costUSD: 0.0001,
+      preservedIds: [],
+    })),
   });
 }
 
@@ -207,6 +210,111 @@ describe('Task 33 — dailyDistill', () => {
       });
       const content = readFileSync(recentPath, 'utf8');
       expect(content).toContain('preserved from earlier');
+    });
+  });
+
+  describe('Task 204 / ADR-0020 — resumable per-day distill', () => {
+    const days7 = [
+      '2026-05-22', '2026-05-23', '2026-05-24', '2026-05-25',
+      '2026-05-26', '2026-05-27', '2026-05-28',
+    ];
+    const now = '2026-05-28T23:00:00Z';
+
+    function seed7() {
+      for (const d of days7) {
+        seedTodayFile(projectRoot, d, `- Decision: ship on ${d} #P-9LXBA3ZK\n`);
+      }
+    }
+
+    it('killed at day 4 of 7 → the completed days survive as artifacts; the next run resumes (D-298 fix)', async () => {
+      seed7();
+      const sessions = join(projectRoot, 'context', 'sessions');
+
+      // Run 1: a backend that succeeds 4 times then THROWS (simulates the cron
+      // killed mid-run, e.g. the machine sleeping at 23:00 — D-298).
+      let call = 0;
+      const dyingBackend = {
+        calls: [],
+        modelId: () => 'mock',
+        estimatedCostPerCall: () => 0,
+        async compress(opts) {
+          this.calls.push(opts);
+          call += 1;
+          if (call > 4) throw new Error('killed mid-run (machine asleep)');
+          return { outputText: `day-summary-${call}`, inputTokens: 10, outputTokens: 5, costUSD: 0, preservedIds: [] };
+        },
+      };
+      const r1 = await dailyDistill({ projectRoot, backend: dyingBackend, now });
+      expect(r1.action).toBe('error');
+      // FORWARD PROGRESS: the 4 completed days persisted their artifacts.
+      const distilled = readdirSync(sessions).filter((f) => f.endsWith('.distilled.md'));
+      expect(distilled).toHaveLength(4);
+      // recent.md is FRESHER (reflects the 4 done days), not left empty/stale.
+      const recentPath = join(sessions, 'recent.md');
+      expect(existsSync(recentPath)).toBe(true);
+      expect(readFileSync(recentPath, 'utf8')).toContain('day-summary-1');
+      expect(r1.distilledThisRun).toBe(4);
+
+      // Run 2 (the "next night"): a healthy backend. It must RESUME — only the
+      // 3 remaining days get compressed, not all 7 again.
+      const healthy = mockBackend('resumed-day', 8);
+      const r2 = await dailyDistill({ projectRoot, backend: healthy, now, cooldownMs: 0 });
+      expect(r2.action).toBe('distilled');
+      expect(r2.distilledThisRun).toBe(3); // ONLY the 3 not-yet-done days
+      expect(r2.skippedResumed).toBe(4); // the 4 from run 1 were reused
+      // All 7 days now have artifacts; recent.md spans all 7.
+      expect(readdirSync(sessions).filter((f) => f.endsWith('.distilled.md'))).toHaveLength(7);
+    });
+
+    it('a fully-fresh re-run distills ZERO days (all artifacts current) but still rewrites recent.md', async () => {
+      seed7();
+      await dailyDistill({ projectRoot, backend: mockBackend('s', 8), now });
+      // Immediate second run: every artifact is newer than its source → all skipped.
+      const r = await dailyDistill({ projectRoot, backend: mockBackend('s', 8), now, cooldownMs: 0 });
+      expect(r.action).toBe('distilled');
+      expect(r.distilledThisRun).toBe(0);
+      expect(r.skippedResumed).toBe(7);
+    });
+
+    it('the assembled recent.md is re-capped to maxOutputBytes (drop oldest-first; D-313)', async () => {
+      seed7();
+      // Each per-day distill returns ~200 bytes; 7 days would be ~1.4KB + headers.
+      // Cap at 600 bytes → only the newest day or two survive the re-cap.
+      const chunk = '- ' + 'x'.repeat(180);
+      const backend = mockBackend(chunk, 8);
+      const r = await dailyDistill({ projectRoot, backend, now, maxOutputBytes: 600 });
+      expect(r.action).toBe('distilled');
+      const recent = readFileSync(join(projectRoot, 'context', 'sessions', 'recent.md'), 'utf8');
+      expect(Buffer.byteLength(recent, 'utf8')).toBeLessThanOrEqual(600);
+      // The NEWEST day is always kept (drop-oldest-first); the oldest is dropped.
+      expect(recent).toContain('## 2026-05-28'); // newest
+      expect(recent).not.toContain('## 2026-05-22'); // oldest, dropped under the cap
+    });
+
+    it('an EMPTY backend result does NOT bank a blank artifact (the day re-distills; D-313)', async () => {
+      seedTodayFile(projectRoot, '2026-05-28', '- something #P-9LXBA3ZK\n');
+      // Backend returns whitespace-only (a soft hiccup, not an error).
+      const empties = new MockHaikuBackend({
+        responses: [{ outputText: '   \n', inputTokens: 1, outputTokens: 1, costUSD: 0, preservedIds: [] }],
+      });
+      const r1 = await dailyDistill({ projectRoot, backend: empties, now });
+      // No artifact banked → distilledThisRun 0, and the day is NOT marked done.
+      expect(r1.distilledThisRun).toBe(0);
+      expect(existsSync(join(projectRoot, 'context', 'sessions', 'today-2026-05-28.distilled.md'))).toBe(false);
+      // Next run with real output distills the day (it wasn't falsely skipped).
+      const r2 = await dailyDistill({ projectRoot, backend: mockBackend('real', 8), now, cooldownMs: 0 });
+      expect(r2.distilledThisRun).toBe(1);
+    });
+
+    it('an EDITED source day re-distills (artifact older than its today-*.md)', async () => {
+      seedTodayFile(projectRoot, '2026-05-28', '- original #P-9LXBA3ZK\n');
+      await dailyDistill({ projectRoot, backend: mockBackend('v1', 8), now });
+      // Edit the source day so its mtime is newer than the .distilled.md.
+      await new Promise((res) => setTimeout(res, 10));
+      seedTodayFile(projectRoot, '2026-05-28', '- EDITED #P-9LXBA3ZK\n');
+      const r = await dailyDistill({ projectRoot, backend: mockBackend('v2', 8), now, cooldownMs: 0 });
+      expect(r.distilledThisRun).toBe(1); // the edited day re-ran
+      expect(readFileSync(join(projectRoot, 'context', 'sessions', 'recent.md'), 'utf8')).toContain('v2');
     });
   });
 

@@ -17,6 +17,13 @@ context/.locks/
 # fact files, not these logs.
 context/sessions/*.extract.log
 
+# Per-day distilled artifacts: daily-distill writes today-<date>.distilled.md
+# per day so a killed run resumes from the days it finished. They are TRANSIENT
+# working state — the durable rolling summary is recent.md (assembled from them).
+# Gitignored so intermediate summary output doesn't travel with `git clone`;
+# losing them only forces a re-distill.
+context/sessions/today-*.distilled.md
+
 # Transcript-extraction temp buffer. capture-turn writes
 # context/transcripts/.extract-<ts>.tmp as the turn buffer for the detached
 # auto-extract child, which consumes + deletes it. Gitignored so a crash-orphaned
