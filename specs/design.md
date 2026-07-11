@@ -2660,7 +2660,9 @@ Provenance: Task 28 code-review Minor #2 (2026-05-27).
 
 ### 16.34 SQLite `busy_timeout` pragma for MCP-server + reindex composition
 
-**v0.1.x candidate.**
+**✅ SHIPPED 2026-07-11 (Task 219, D-321) — with a premise correction.** `openIndexDb` now sets `db.pragma('busy_timeout = 5000')` explicitly, and the §16.35 cross-process concurrent-writer test pins the behavior (a real second process holds `BEGIN IMMEDIATE`; the parent's write WAITS and lands instead of throwing). **The premise below was wrong for our driver:** better-sqlite3's `Database` constructor defaults its `timeout` option to **5000ms** (verified in `lib/database.js` — the primary source; the behavior test passed BEFORE any code change), so the immediate-SQLITE_BUSY failure this section predicted could not actually occur through `openIndexDb`. The pragma converts that accidental protection into an explicit, test-guarded contract (a future driver major or a `timeout: 0` option can no longer silently remove it). Original proposal preserved below per the decision-trail rule.
+
+**Original analysis (2026-05-27, superseded on the default-value premise):**
 
 Surfaced by the Task 28 code-review-excellence pass (2026-05-27) as a composition note for Task 31. The kit's index DB is opened with WAL + `synchronous=NORMAL` (design §9.1), which lets readers + one writer coexist. But the kit does NOT set `busy_timeout` — so a caller hitting database lock contention (e.g., MCP server holding a long read transaction while `cmk reindex` writes) gets an immediate `SQLITE_BUSY` instead of waiting for the lock to clear.
 
@@ -2678,7 +2680,9 @@ Provenance: Task 28 code-review composition note for Task 31 (2026-05-27).
 
 ### 16.35 Real concurrent-writer test for runtime watcher + reindex
 
-**v0.1.x candidate.**
+**✅ SHIPPED 2026-07-11 (Task 219, D-321).** `tests/cli-index-db-busy-timeout.test.js` is the real cross-process test this section called for: a second Node process (`tests/fixtures/hold-index-write-lock.mjs`) acquires `BEGIN IMMEDIATE` on the same index DB, signals via sentinel, holds ~600ms; the parent's write waits out the hold and succeeds, with timing assertions proving it actually contended. Original deferral analysis preserved below.
+
+**Original analysis (2026-05-27):**
 
 Surfaced by the Task 29 code-review-excellence pass (2026-05-27) as Important finding I3. The kit's runtime watcher and `reindexBoot` both write to the index DB. In v0.1.0 with better-sqlite3's sync API + JavaScript's single-threaded runtime, "concurrent" actually means "sequential at the JS level" — the watcher event handler doesn't fire DURING a `reindexBoot` transaction, only between transactions. Existing test 29.4 #5 pins this sequential composition (boot writes → watcher writes-on-top → DELETE-INSERT replace → no duplicates).
 

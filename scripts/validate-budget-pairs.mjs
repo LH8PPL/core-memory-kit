@@ -109,6 +109,12 @@ export const BUDGET_REGISTRY = [
     suppressed:
       'both lines are RESERVED out of the caller cap (snapshot ≤ capBytes pinned by the tightened cap-composition tests incl. the three-reserve joint test in cli-inject-context.test.js); the template-sizing edge (Σ legal caps + reserves > the snapshot cap → graceful section-drop with a truncation.log event) is the DOCUMENTED accepted trade-off in §7.1.3 with a named re-open trigger',
   },
+  {
+    name: 'index-db busy_timeout (5000ms bounded wait before SQLITE_BUSY; Task 219)',
+    sourceRef: 'design §16.34 / §16.35 (D-321)',
+    suppressed:
+      'the at-cap/under-cap side IS tested (tests/cli-index-db-busy-timeout.test.js: a real second process holds the write lock; the parent waits + lands, with the pragma value pinned); the over-cap side (a lock held >5s so SQLITE_BUSY finally surfaces) would need a >5s-holding child in the suite — too slow as a unit pair; the contract is the pragma pin + the driver-verified 5000ms default (D-321)',
+  },
 ];
 
 /**
