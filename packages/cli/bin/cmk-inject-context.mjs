@@ -34,9 +34,10 @@ const compressLazyPath =
     : null);
 
 let readHookStdin;
+let parseHookPayload;
 let injectContext;
 try {
-  ({ readHookStdin } = await import(pathToFileURL(readHookStdinPath).href));
+  ({ readHookStdin, parseHookPayload } = await import(pathToFileURL(readHookStdinPath).href));
   ({ injectContext } = await import(pathToFileURL(modulePath).href));
 } catch (err) {
   process.stderr.write(
@@ -62,7 +63,7 @@ try {
 const hookPayloadRaw = readHookStdin({ isTTY: process.stdin.isTTY });
 let sessionId = null;
 try {
-  sessionId = JSON.parse(hookPayloadRaw)?.session_id ?? null;
+  sessionId = parseHookPayload(hookPayloadRaw)?.session_id ?? null; // Task 207: BOM-tolerant
 } catch {
   /* not JSON (TTY run / odd caller) — no session attribution */
 }

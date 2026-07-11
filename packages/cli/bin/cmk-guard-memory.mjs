@@ -22,9 +22,10 @@ const readHookStdinPath = join(__dirname, '..', 'src', 'read-hook-stdin.mjs');
 const modulePath = join(__dirname, '..', 'src', 'guard-memory.mjs');
 
 let readHookStdin;
+let parseHookPayload;
 let evaluatePayload;
 try {
-  ({ readHookStdin } = await import(pathToFileURL(readHookStdinPath).href));
+  ({ readHookStdin, parseHookPayload } = await import(pathToFileURL(readHookStdinPath).href));
   ({ evaluatePayload } = await import(pathToFileURL(modulePath).href));
 } catch (err) {
   process.stderr.write(`cmk-guard-memory: failed to load modules: ${err?.message ?? err}\n`);
@@ -37,7 +38,7 @@ const raw = readHookStdin({ isTTY: process.stdin.isTTY });
 
 let payload;
 try {
-  payload = raw.trim() === '' ? {} : JSON.parse(raw);
+  payload = parseHookPayload(raw); // Task 207: BOM-tolerant (D-306 generalized)
 } catch {
   process.exit(0); // fail-open on unparseable input
 }

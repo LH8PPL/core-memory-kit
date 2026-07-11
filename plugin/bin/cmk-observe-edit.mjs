@@ -44,8 +44,9 @@ const modulePath = join(
 // envelope. observe-edit.mjs (the heavier append module) loads AFTER the
 // envelope so the fast-response ordering below is preserved.
 let readHookStdin;
+let parseHookPayload;
 try {
-  ({ readHookStdin } = await import(pathToFileURL(readHookStdinPath).href));
+  ({ readHookStdin, parseHookPayload } = await import(pathToFileURL(readHookStdinPath).href));
 } catch (err) {
   process.stderr.write(
     `cmk-observe-edit: failed to load read-hook-stdin: ${err?.message ?? err}\n`,
@@ -63,7 +64,7 @@ const raw = readHookStdin({ isTTY: process.stdin.isTTY });
 
 let payload;
 try {
-  payload = raw.trim() === '' ? {} : JSON.parse(raw);
+  payload = parseHookPayload(raw); // Task 207: BOM-tolerant (D-306 generalized)
 } catch (err) {
   process.stderr.write(
     `cmk-observe-edit: failed to parse stdin JSON: ${err?.message ?? err}\n`,

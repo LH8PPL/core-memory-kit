@@ -30,9 +30,10 @@ const readHookStdinPath = join(__dirname, '..', 'src', 'read-hook-stdin.mjs');
 const modulePath = join(__dirname, '..', 'src', 'approve-permission.mjs');
 
 let readHookStdin;
+let parseHookPayload;
 let evaluatePermissionRequest;
 try {
-  ({ readHookStdin } = await import(pathToFileURL(readHookStdinPath).href));
+  ({ readHookStdin, parseHookPayload } = await import(pathToFileURL(readHookStdinPath).href));
   ({ evaluatePermissionRequest } = await import(pathToFileURL(modulePath).href));
 } catch {
   process.exit(0); // fail-silent: no opinion
@@ -44,7 +45,7 @@ const raw = readHookStdin({ isTTY: process.stdin.isTTY });
 
 let payload;
 try {
-  payload = raw.trim() === '' ? {} : JSON.parse(raw);
+  payload = parseHookPayload(raw); // Task 207: BOM-tolerant (D-306 generalized)
 } catch {
   process.exit(0); // fail-silent on unparseable input
 }

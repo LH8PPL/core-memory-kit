@@ -20,9 +20,10 @@ const readHookStdinPath = join(__dirname, '..', 'src', 'read-hook-stdin.mjs');
 const modulePath = join(__dirname, '..', 'src', 'observe-edit.mjs');
 
 let readHookStdin;
+let parseHookPayload;
 let observeEdit;
 try {
-  ({ readHookStdin } = await import(pathToFileURL(readHookStdinPath).href));
+  ({ readHookStdin, parseHookPayload } = await import(pathToFileURL(readHookStdinPath).href));
   ({ observeEdit } = await import(pathToFileURL(modulePath).href));
 } catch (err) {
   process.stderr.write(
@@ -39,7 +40,7 @@ const raw = readHookStdin({ isTTY: process.stdin.isTTY });
 
 let payload;
 try {
-  payload = raw.trim() === '' ? {} : JSON.parse(raw);
+  payload = parseHookPayload(raw); // Task 207: BOM-tolerant (D-306 generalized)
 } catch (err) {
   process.stderr.write(
     `cmk-observe-edit: failed to parse stdin JSON: ${err?.message ?? err}\n`,
