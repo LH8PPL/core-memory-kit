@@ -27,12 +27,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
-- **`cmk install` no longer interrupts you with a stop-the-servers prompt** — when kit MCP servers
-  were running, a plain project install would ask `[y/N]` whether to stop them. But a project install
-  never touches the locked global files (only an `npm install -g` upgrade can), so the answer was
-  always "no" — friction, not guidance. Now the install just prints a one-line heads-up (with a note
-  that the project install itself is safe) and continues without prompting; the stop-offer is reserved
-  for a real upgrade context. (Task 222.)
+- **`cmk install` no longer nags about running MCP servers** — when kit MCP servers were running, a
+  plain project install used to print a multi-line warning (a PID list + a DLL-lock caveat) and ask
+  `[y/N]` whether to stop them. But a project install never touches the locked global files — only an
+  `npm install -g` upgrade can — so the whole thing was noise on the common path, and the answer was
+  always "no". The install is now silent about running servers and just reports what it did; if a
+  global *upgrade* ever half-breaks on a locked file, the recovery message already tells you exactly
+  how to fix it. (Task 222.)
 
 - **A duplicated CLAUDE.md / instruction-file block is now folded on install and fully removed on
   uninstall** — if your CLAUDE.md (or a Kiro steering / Cursor rules file) ever ended up with two

@@ -242,6 +242,15 @@ export async function warnRunningMcpServers(options, { log } = {}) {
     const { servers } = (find ?? findRunningKitMcpServers)();
     if (!servers || servers.length === 0) return;
     const pids = servers.map((s) => s.pid);
+    // Task 222 (D-302 follow-up, v0.5.1 cut-gate — the user's "why do I need all
+    // this?"): a plain `cmk install` is SILENT here. The DLL-lock hazard this
+    // warns about is `npm install -g`-only (a command the kit can't hook), so a
+    // project install can never cause it, the interactive stop's answer is
+    // always N, AND the verbose per-PID + lecture output is pure noise on the
+    // common path. The full warning + stop-offer print ONLY when a caller opts
+    // in via `offerStop` (a real upgrade context — a future `cmk update` / a
+    // doctor path); `cmk doctor` is the right home for the passive heads-up.
+    if (!options?.offerStop) return;
     emit(
       `  note: ${servers.length} kit MCP server${servers.length > 1 ? 's are' : ' is'} running:`,
     );
@@ -258,19 +267,6 @@ export async function warnRunningMcpServers(options, { log } = {}) {
     emit(
       '  (npm install -g @lh8ppl/claude-memory-kit), or the upgrade can half-break on locked files.',
     );
-    // Task 222 (D-302 follow-up): a plain `cmk install` INFORMS but does not
-    // PROMPT — the DLL-lock hazard is `npm install -g`-only (a command the kit
-    // can't hook), so a project install can never cause it and the interactive
-    // stop's answer is always N (friction, not guidance — the user's v0.5.1
-    // cut-gate catch). The actionable stop-offer is now opt-in via `offerStop`,
-    // reserved for a caller that IS an upgrade context (a future `cmk update` /
-    // a doctor path). Without it, the note above stands on its own and returns.
-    if (!options?.offerStop) {
-      emit(
-        '  (Running `cmk install` here is safe — this note is only about a later global upgrade.)',
-      );
-      return;
-    }
     const askFn =
       options?.askImpl ??
       ((question) =>
