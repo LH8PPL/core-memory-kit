@@ -12211,3 +12211,78 @@ _(retracted 2026-07-08)_
 
 **When:** 2026-07-11 · **Fact:** `P-QZT9Z5DG`
 **Why:** Predicting and handling model swaps in future security-heavy tasks. The swaps are not errors—they're intentional safeguards, but knowing the trigger helps avoid confusion.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-EBY9ZHYV -->
+
+## Release gate status: Claude ✓, Kiro ✓; Cursor is the final/pending gate before v
+
+**When:** 2026-07-09 · **Fact:** `P-EBY9ZHYV`
+
+<!-- decision:P-PYRa4U7U -->
+
+## v0.5.0 SHIPPED 2026-07-10 (npm @lh8ppl/claude-memory-kit@0.5.0 live + GitHub Rel
+
+**When:** 2026-07-10 · **Fact:** `P-PYRa4U7U`
+
+<!-- decision:P-MPH9NRWJ -->
+
+## Project versioning should use concrete numbers, not vague placeholders like "v0.
+
+**When:** 2026-07-10 · **Fact:** `P-MPH9NRWJ`
+
+<!-- decision:P-2PHUTYN3 -->
+
+## Full suite on code-review fix batch completed successfully (exit code 0)
+
+**When:** 2026-07-10 · **Fact:** `P-2PHUTYN3`
+
+<!-- decision:P-E3JKT3HN -->
+
+## Stress-Gate Release Workflow
+
+**When:** 2026-07-11 · **Fact:** `P-E3JKT3HN`
+**Why:** Validates concurrency safety and robustness before changes are merged; part of the project's release quality standard
+
+<!-- decision:P-WMPQSE4a -->
+
+## Post-Merge Workflow Sequence
+
+**When:** 2026-07-11 · **Fact:** `P-WMPQSE4a`
+**Why:** Standard post-test deployment workflow; watching by name indicates a specific CI check to monitor before proceeding.
+
+<!-- decision:P-GaXCFSTA -->
+
+## Task 220 Duplicate Block Handling Design
+
+**When:** 2026-07-11 · **Fact:** `P-GaXCFSTA`
+**Why:** D-169 self-healing posture; HC-9 needs duplicate visibility; strict sequencing prevents race conditions
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
