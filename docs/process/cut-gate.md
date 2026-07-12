@@ -2,7 +2,20 @@
 
 **The single guide to run before tagging a release.** Version-agnostic — reused every cut.
 
-> **Cutting now: `v0.4.5`** — **the AGENT-RELATIVE BACKEND patch** (Task 200 + 201): the automatic engine (compression / auto-extract / persona / temporal-sweep / daily-distill / weekly-curate) now runs the LLM call through the **user's own agent CLI** (`claude --print` / `kiro-cli chat` / `cursor-agent -p`) instead of a hardcoded `claude` binary — closing the **D-270** silent-no-op bug for Cursor-only / Kiro-only users (design §16.50.4).
+> **Cutting now: `v0.5.1`** — **the HARDENING patch** (Tasks 203–207, 213–216, 219, 220):
+> the rolling-window pipeline is now **incremental + resumable** (ADR-0020 — a killed 23:00 distill keeps every finished day; the D-298 starvation fixed, with per-day provenance headers in `recent.md`),
+> **every LLM-summary / promotion side door screens through Poison_Guard** (Task 216 / D-320 — curate/distill input+output, transcript promote, persona queue, trust increases),
+> the nightly distill runs **windowless** on Windows (Task 215 — the black-box popup),
+> hook payloads parse **BOM-tolerantly** across all 11 bins (Task 207 — the delete-guard fail-open),
+> duplicate managed blocks **FOLD** on install / remove-all on uninstall + HC-9 flags them (Task 220 / D-322),
+> and HC-10 now checks the **OUTCOME** (a fresh heartbeat can no longer mask a stale `recent.md` — Task 203).
+> **The v0.5.1 cut-blocker gates are HG1–HG6 (§4g)** — all CLI-deterministic. Two honest MANUAL flags: the transcript **withhold** marker (LLM-session-driven) and the 23:00 **no-window** firing (overnight observation) — see §4g.
+> This is a **PATCH** (`npm run release -- patch`) — reliability + security hardening within the existing paradigm, no new differentiator. No new CLI verbs / MCP tools; doctor stays at **11 checks** (HC-9 + HC-10 behavior extended).
+> _Replace `0.5.1` / `v0.5.1` in the commands below if you reuse this guide for a later cut._
+>
+> **(v0.5.0 note, decision-trail):** the v0.5.0 cut (cross-agent capture — the D-305 `/c:/` path + D-306 BOM fixes) was gated through the PER-AGENT guides — [`cut-gate-kiro.md`](cut-gate-kiro.md) / [`cut-gate-cursor.md`](cut-gate-cursor.md) — not a banner here; the Cursor interactive leg (Task 208) is pending its token-refresh trigger (~2026-07-24).
+>
+> **Prior banner (v0.4.5 cut, pre-2026-07-11 — kept per the decision-trail rule):** **the AGENT-RELATIVE BACKEND patch** (Task 200 + 201): the automatic engine (compression / auto-extract / persona / temporal-sweep / daily-distill / weekly-curate) now runs the LLM call through the **user's own agent CLI** (`claude --print` / `kiro-cli chat` / `cursor-agent -p`) instead of a hardcoded `claude` binary — closing the **D-270** silent-no-op bug for Cursor-only / Kiro-only users (design §16.50.4).
 > **New user surfaces:** `cmk install --backend <agent>` + `cmk config set backend.agent <agent>` (the **split-brain** override — run automatic memory through a DIFFERENT agent than you code in, Task 201/D-277), `cmk config show` (the setup readout), and **`cmk doctor` HC-11** (backend LLM CLI present — exit-code probe, honest degrade when absent). Doctor now has **11 checks (HC-1..HC-11)**.
 > **The v0.4.5 cut-blocker gates are BK1–BK4 (§4f).** BK1 (HC-11 present/absent), BK2 (`cmk install --backend` + fail-fast-on-bad-value + effective-backend warn), BK3 (`cmk config show` reflects the override) are **CLI-deterministic**. **BK4 — the automatic engine actually running the compress/auto-extract through a NON-claude agent CLI (kiro-cli / cursor-agent) — is a live cross-agent MANUAL flag** (a Claude-Code-only operator can't always live-test a 2nd agent's CLI; run it where the CLI is present, else flag honestly — see §0). This is a **PATCH** (`npm run release -- 0.4.5`) — within-paradigm plumbing (the backend seam existed since ADR-0008), no new differentiator.
 > _Replace `0.4.5` / `v0.4.5` in the commands below if you reuse this guide for a later cut._
@@ -177,6 +190,27 @@ The v0.4.5 headline is the **agent-relative LLM backend** (Task 200, design §16
 **One honest MANUAL flag (the D-84 live-test rule, cross-agent variant):**
 
 - **BK4 — the live cross-agent spawn.** BK1–BK3 are CLI-deterministic on any machine. But whether the automatic engine *actually* compresses through `kiro-cli`/`cursor-agent` (not just resolves to it) can only be live-verified on a machine that HAS that agent's CLI — a Claude-Code-only cut-gate operator can't test it. Run `cmk config set backend.agent kiro` (or `cursor`) on a machine with that CLI, then trigger a real compression (`cmk roll --scope now` on a repo with a session buffer) and confirm a real summary lands — **on the dev machine this was live-verified for both kiro-cli and cursor-agent (D-278/D-280)**; the cut-gate operator flags it honestly if their machine lacks the 2nd CLI, rather than claiming verified.
+
+### Also new in v0.5.1 — the hardening gates (Tasks 203–207, 213–216, 219, 220)
+
+The v0.5.1 headline is **hardening**: the resumable rolling-window pipeline (ADR-0020) and the Poison_Guard side-door closure (D-320).
+All six ★ gates are CLI-deterministic and run in **§4g**; the two LLM/overnight surfaces are honest MANUAL flags.
+
+| Check | Feature | What it verifies | Reachability |
+| --- | --- | --- | --- |
+| **★ HG1** | Task 203/204/213 — resumable distill | `cmk daily-distill` on a multi-day corpus writes a fresh `recent.md` with a **`## <date>` section per source day** (the provenance pointer) + banks per-day `today-<date>.distilled.md` artifacts; a SECOND run reports the days as **resumed-skipped**, not re-billed | CLI + live Haiku |
+| **★ HG2** | Task 203 — HC-10 outcome check | a FRESH cron heartbeat + a STALE `recent.md` → HC-10 **FAILs** (pre-v0.5.1 the heartbeat alone read as green — the exact false-green that let `recent.md` go 5 days stale, D-298) | CLI, deterministic |
+| **★ HG3** | Task 216 — trust-increase re-screen | `cmk trust <id> high` on a fact whose body carries a secret-shaped token → **rejected (exit 2, `poison_guard`)**, file untouched; `cmk trust <id> low` on the same fact still succeeds (the gate is increase-only) | CLI, deterministic |
+| **★ HG4** | Task 216 — distill input pre-screen | a `today-*.md` seeded with a secret-shaped token → `cmk daily-distill` **skips** (`reason: poison-guard`) BEFORE any model call, keeps the old `recent.md`, and logs the redacted rejection with the `:input` stage tag | CLI, deterministic (pre-Haiku) |
+| **★ HG5** | Task 207 — BOM fail-closed | a **BOM-prefixed** destructive-command payload piped into `cmk-guard-memory` is still **BLOCKED** (pre-v0.5.1 the BOM broke the JSON parse and the guard failed OPEN) | CLI, deterministic |
+| **★ HG6** | Task 220 — duplicate-block fold | a hand-duplicated CLAUDE.md managed block → `cmk doctor` **HC-9 FAILs** naming the duplicate → `cmk install` **folds to ONE block** (user content between preserved) → doctor passes | CLI, deterministic |
+
+**Two honest MANUAL flags (the D-84 live-test rule):**
+
+- **The transcript WITHHOLD marker (Task 216).** A secret pasted in a LIVE session must land in the committed `context/transcripts/<date>.md` as a content-free `<!-- batch withheld: poison-guard … -->` marker — never the secret itself; the raw text stays in the gitignored `.live.md` buffer. The promote path is LLM/session-driven (the PII judge runs first) → confirm in a live session; the CLI suite covers the mechanics.
+- **The 23:00 NO-WINDOW firing (Task 215).** HG-adjacent but overnight: after `cmk register-crons`, the scheduled task must fire at 23:00 with **no black console window**. §4g checks the registration SHAPE deterministically (wscript shim + `//B //Nologo`); the actual silent firing is your overnight observation — the dev machine live-verified the shim mechanism (D-319), the scheduled-trigger end-to-end is the operator's.
+
+_Suite-covered, no live probe needed: Task 219 (`busy_timeout` contract pin — the audit premise was corrected, D-321: better-sqlite3 already defaulted to 5000ms; the cross-process concurrent-writer test now guards it), Task 214 (name-guard scans untracked files — dev-tooling, runs in `npm test`), Task 205 (half-install recovery message + MCP-process preflight — live-probed during dev, D-314), Task 206 (the commit proposal excludes `context/sessions/now.md` — inject-path suite tests)._
 
 ---
 
@@ -932,6 +966,116 @@ The automatic engine now runs through the agent's OWN CLI, and the user can over
   **PASS:** the readout names the **installed-for** agent (`claude-code`), the **active backend** agent (`kiro`) marked as an **override** that differs from installed-for, the backend-CLI presence, and the semantic mode — and exits **0** (informational, never a failure exit). **FAIL:** it doesn't reflect the override, crashes on an odd project state, or exits non-zero.
 
 - **★ BK4 — live cross-agent spawn (MANUAL, per §0).** On a machine that HAS a non-`claude` agent CLI: `cmk config set backend.agent kiro` (or `cursor`), seed a session buffer, then trigger a real compression (`cmk roll --scope now`) and confirm a real Markdown summary lands in `sessions/` (not a refusal, not empty). **This was live-verified on the dev machine for both `kiro-cli` (D-278) and `cursor-agent` (D-280).** The cut-gate operator flags it honestly if their machine lacks the 2nd CLI — never claim verified for a backend you couldn't spawn.
+
+---
+
+## 4g. The hardening gates (Tasks 203–216, 219, 220)  ⬅️ the v0.5.1 headline
+
+All six run in a **throwaway** project.
+HG1 needs a live Haiku (real distill); the rest are deterministic.
+
+```powershell
+$h = "C:\Temp\hardening-check"; Remove-Item -Recurse -Force $h -EA SilentlyContinue
+mkdir $h > $null; Set-Location $h; git init | Out-Null; cmk install | Out-Null
+```
+
+- **★ HG1 — resumable distill + per-day provenance (Tasks 203/204/213).**
+  Seed two aged day files, distill, then distill AGAIN:
+  ```powershell
+  '## Decisions' + "`n" + '- picked Postgres over SQLite for the API' | Set-Content context\sessions\today-2026-07-08.md -Encoding utf8
+  '## Decisions' + "`n" + '- moved auth to middleware' | Set-Content context\sessions\today-2026-07-09.md -Encoding utf8
+  cmk daily-distill                    # live Haiku — a real summary per day
+  type context\sessions\recent.md      # a `## 2026-07-08` AND a `## 2026-07-09` section (the provenance pointers)
+  dir context\sessions\*.distilled.md  # the per-day banked artifacts (2 files)
+  # Clear the shared Haiku cooldown first — else run 2 reports `skipped (cooldown)`,
+  # which is NOT a pass (the §0 real-input rule):
+  Remove-Item context\.locks\last-haiku-call.ts -EA SilentlyContinue
+  cmk daily-distill                    # SECOND run — must SKIP both days (resumed), no re-bill
+  ```
+  **PASS:** `recent.md` carries one `## <date>` section per source day; two `.distilled.md` artifacts exist; the second run reports the days skipped-resumed (see `skipped_resumed` in `context\.locks\distill.log` — the resumability, observable).
+  **FAIL:** one whole-corpus blob with no date sections, or the second run re-distills (re-bills) the same days.
+
+- **★ HG2 — HC-10 checks the OUTCOME, not the heartbeat (Task 203).**
+  Fake a fresh heartbeat over a stale `recent.md`:
+  ```powershell
+  New-Item -ItemType File -Force context\.locks\cron-heartbeat | Out-Null   # "the cron ran"
+  (Get-Item context\sessions\recent.md).LastWriteTime = (Get-Date).AddDays(-6)   # ...but the OUTPUT is 6 days old
+  cmk doctor
+  ```
+  **PASS:** HC-10 **FAILs** (fresh heartbeat + stale `recent.md` = the cron runs but produces nothing — the D-298 shape).
+  **FAIL:** HC-10 passes/skips — the heartbeat alone bought a green.
+
+- **★ HG3 — a trust INCREASE re-screens the content (Task 216).**
+  Hand-seed a "legacy" fact that predates the screen (bypassing the write path on purpose):
+  ```powershell
+  $fact = @(
+    '---',
+    'id: P-A2B2C3D4',
+    'type: feedback',
+    'trust: medium',
+    '---',
+    '',
+    'CI deploys use AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE - rotate quarterly.'
+  )
+  ($fact -join "`n") | Set-Content context\memory\feedback_legacy-key.md -Encoding utf8
+  cmk trust P-A2B2C3D4 high            # must REJECT (exit 2, poison_guard)
+  findstr "trust: medium" context\memory\feedback_legacy-key.md    # unchanged
+  cmk trust P-A2B2C3D4 low             # a DECREASE still succeeds
+  ```
+  **PASS:** the increase exits 2 naming the pattern; the file keeps `trust: medium` until the decrease lands `low`.
+  **FAIL:** the increase succeeds — old content gets blessed past the current catalog.
+
+- **★ HG4 — the distill INPUT pre-screen (Task 216).**
+  A secret in a source day must cost a regex pass, not a model call:
+  ```powershell
+  'deploy uses AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE today' | Set-Content context\sessions\today-2026-07-10.md -Encoding utf8
+  'old but clean' | Set-Content context\sessions\recent.md -Encoding utf8
+  Remove-Item context\.locks\last-haiku-call.ts -EA SilentlyContinue   # clear the cooldown (§0)
+  cmk daily-distill                    # returns FAST — skipped BEFORE any Haiku call
+  type context\sessions\recent.md      # still "old but clean" — never truncated
+  findstr "daily-distill" context\.locks\poison-guard.log   # the :input stage tag, redacted
+  ```
+  **PASS:** `skipped` / `poison-guard`, the old `recent.md` untouched, and the poison-guard log line is REDACTED (`***`, never the token) with the `:input` tag.
+  **FAIL:** a model call fires, `recent.md` is clobbered, or the cleartext token appears in any log.
+  _Clean up the poisoned day before moving on: `Remove-Item context\sessions\today-2026-07-10.md`._
+
+- **★ HG5 — a BOM'd destructive payload is still BLOCKED (Task 207).**
+  Pre-v0.5.1 a UTF-8 BOM broke the guard's JSON parse and it failed OPEN:
+  ```powershell
+  $payload = '{"tool_name":"Bash","tool_input":{"command":"rm -rf context/memory"}}'
+  $env:CMK_PROJECT_DIR = $h
+  ([char]0xFEFF + $payload) | cmk-guard-memory
+  echo "exit=$LASTEXITCODE"
+  Remove-Item Env:\CMK_PROJECT_DIR
+  ```
+  **PASS:** `exit=2` (the guard's BLOCK exit) on the BOM'd payload — same as the un-BOM'd variant (run it without the `[char]0xFEFF` to compare).
+  **FAIL:** `exit=0` on the BOM'd variant — the pre-v0.5.1 fail-open (unparseable input was allowed through).
+
+- **★ HG6 — duplicate managed blocks: HC-9 flags, install FOLDS (Task 220).**
+  Duplicate the CLAUDE.md block by hand (the kept-both-sides merge shape):
+  ```powershell
+  $md = Get-Content CLAUDE.md -Raw
+  $start = $md.IndexOf('<!-- claude-memory-kit:start')
+  $end = $md.IndexOf('<!-- claude-memory-kit:end -->') + '<!-- claude-memory-kit:end -->'.Length
+  $block = $md.Substring($start, $end - $start)
+  $md.TrimEnd() + "`n`nuser note BETWEEN blocks`n`n" + $block + "`n" | Set-Content CLAUDE.md -Encoding utf8
+  cmk doctor                            # HC-9 must FAIL naming the duplicate
+  cmk install                           # folds to ONE block
+  (Select-String CLAUDE.md -Pattern "claude-memory-kit:start").Count   # = 1
+  findstr "BETWEEN" CLAUDE.md           # the user note survived
+  cmk doctor                            # HC-9 back to PASS
+  ```
+  **PASS:** doctor fails on the duplicate → install folds to exactly one block, the user note between the blocks is preserved → doctor passes.
+  **FAIL:** doctor stays green on two blocks, or install leaves/orphans the second block, or the user note is lost.
+
+```powershell
+Set-Location C:\Temp; Remove-Item -Recurse -Force $h -EA SilentlyContinue
+```
+
+**The two MANUAL flags (from the v0.5.1 banner — do NOT claim these verified from the CLI):**
+
+- **Transcript WITHHOLD (Task 216):** in a LIVE session on a real project, paste a secret-shaped token in conversation; after the promote runs, the committed `context\transcripts\<date>.md` must carry `<!-- batch withheld: poison-guard … -->` — never the token; the raw stays in the gitignored `.live.md`.
+- **23:00 no-window (Task 215):** after `cmk register-crons`, confirm the task's action is `wscript.exe //B //Nologo "<...>-run.vbs"` (`Get-ScheduledTask cmk-daily-distill | Select -Expand Actions`) — then the overnight observation: no black window at 23:00. The shim mechanism is probe-proven (D-319); the scheduled end-to-end is yours.
 
 ---
 
