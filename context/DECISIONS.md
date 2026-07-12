@@ -12286,3 +12286,9 @@ _(retracted 2026-07-08)_
 ## RESUME — v0.3.1 cut-gate near-complete; PR
 
 **When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
