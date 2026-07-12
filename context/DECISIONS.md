@@ -12292,3 +12292,285 @@ _(retracted 2026-07-08)_
 ## RESUME — v0.3.1 cut-gate near-complete; PR
 
 **When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-ZMUTVS4A -->
+
+## OK with compact context summaries during mid-session resumptions on long task ru
+
+**When:** 2026-07-11 · **Fact:** `P-ZMUTVS4A`
+
+<!-- decision:P-CSPF4GAD -->
+
+## CLAUDE.md CI watch rule updated to specify ci.yml by name, not relying on CodeQL
+
+**When:** 2026-07-11 · **Fact:** `P-CSPF4GAD`
+
+<!-- decision:P-ZCCT552Q -->
+
+## `write-fact` title screening gap; `import-anthropic-memory` zero screening; `jud
+
+**When:** 2026-07-11 · **Fact:** `P-ZCCT552Q`
+
+<!-- decision:P-TZ35RJDJ -->
+
+## Multi-Layer Security Screening on Writes
+
+**When:** 2026-07-12 · **Fact:** `P-TZ35RJDJ`
+**Why:** High-stakes data mutations need layered defense against poison-pill attacks and secret leakage.
+
+<!-- decision:P-CHPEXFAL -->
+
+## Testing and Review Discipline
+
+**When:** 2026-07-12 · **Fact:** `P-CHPEXFAL`
+**Why:** Ensures both quality and institutional knowledge. Honest recording of failed assumptions prevents repeating mistakes and builds trust in decision records.
+
+<!-- decision:P-KBBQKUP2 -->
+
+## Cut-Gate Workflow Order: Cut Locally → Test → Tag
+
+**When:** 2026-07-12 · **Fact:** `P-KBBQKUP2`
+**Why:** Ensures tested artifact has correct version; prevents testing stale code or artifacts reporting wrong versions.
+
+<!-- decision:P-PTVLaUUB -->
+
+## Hardening Patch Release May Skip Full Cut-Gate
+
+**When:** 2026-07-12 · **Fact:** `P-PTVLaUUB`
+**Why:** Streamlines release process for low-risk patches while retaining the option to run gates for higher-risk releases.
+
+<!-- decision:P-2WPV3AHS -->
+
+## v0.5.1 Cut-Gate Includes Six New Probes (§4g)
+
+**When:** 2026-07-12 · **Fact:** `P-2WPV3AHS`
+**Why:** Documents v0.5.1 had targeted quality gates; useful context for understanding this release's testing approach.
+
+<!-- decision:P-L4DK6DQW -->
+
+## User-Tier Backup Completed for Cut-Gate §1 Prep
+
+**When:** 2026-07-12 · **Fact:** `P-L4DK6DQW`
+**Why:** Gate workflow phase §0b (artifact validation) is now complete. Backup is required because §1 (Session 1) intentionally starts from zero to test capture-from-zero behavior honestly — persona tier must not interfere with that test.
+
+<!-- decision:P-M4XEX543 -->
+
+## MCP Preflight — Project Install vs Global Upgrade
+
+**When:** 2026-07-12 · **Fact:** `P-M4XEX543`
+**Why:** The prompt is generic and warns about global upgrades, but during routine project scaffolding, the hazard does not exist. Answering N avoids false alarms and keeps Claude Code sessions running.
+
+<!-- decision:P-A2UDWRDF -->
+
+## Primary-Source Verification Protocol
+
+**When:** 2026-07-12 · **Fact:** `P-A2UDWRDF`
+**Why:** Intuition without source verification is unreliable; primary sources are ground truth. Prevents confident-but-wrong assessments.
+
+<!-- decision:P-57TJa5ZM -->
+
+## Task 205 Preflight UX Design Wart
+
+**When:** 2026-07-12 · **Fact:** `P-57TJa5ZM`
+**Why:** Explains the preflight's existence, why it seems noisy in practice, and clarifies the narrow real use case. Prevents future confusion if users complain the prompt is unnecessary—it's intentional but overly broad.
+
+<!-- decision:P-AC54GXEH -->
+
+## Claude-Memory-Kit Dogfooding Setup and Conflict Surface
+
+**When:** 2026-07-12 · **Fact:** `P-AC54GXEH`
+
+<!-- decision:P-NFMBCMTA -->
+
+## Task 205 Preflight Fires on Wrong Trigger (Design Flaw)
+
+**When:** 2026-07-12 · **Fact:** `P-NFMBCMTA`
+**Why:** Found live during cut-gate: user tried to install to a temp folder while the kit was dogfooding itself. Preflight correctly warned that servers + global state = hazard, but wrongly implied *this install* caused it (it doesn't—only global upgrades do).
+
+<!-- decision:P-3CDHRHBM -->
+
+## Documentation Taxonomy and Update Responsibility
+
+**When:** 2026-07-12 · **Fact:** `P-3CDHRHBM`
+**Why:** Guides scope for doc updates; prevents stale/orphaned docs and keeps releases coherent
+
+<!-- decision:P-FA4TG5JS -->
+
+## v0.5.1 Release: PR #282 Must Merge Before Tag
+
+**When:** 2026-07-12 · **Fact:** `P-FA4TG5JS`
+**Why:** Ensures v0.5.1 release artifact includes the Task 222 fix (without merge, tag would ship older build)
+
+<!-- decision:P-UPA7AJUK -->
+
+## Memory System Deduplication Design
+
+**When:** 2026-07-12 · **Fact:** `P-UPA7AJUK`
+**Why:** Allows rapid, flexible capture without over-thinking what's worth saving; the system tolerates duplication as a natural side effect and resolves it later automatically.
+
+<!-- decision:P-F6Z4YEWR -->
+
+## Never-Hand-Edit-Memory Rule
+
+**When:** 2026-07-12 · **Fact:** `P-F6Z4YEWR`
+**Why:** Preserves the audit trail of what was auto-captured and ensures memory integrity is maintained systematically. Hand-editing would introduce inconsistency and bypass the dedup/consolidation logic.
+
+<!-- decision:P-QH3aMMaD -->
+
+## Dogfood Repopulates User Tier During Active Sessions
+
+**When:** 2026-07-12 · **Fact:** `P-QH3aMMaD`
+**Why:** The gate assumes persona capture from zero. Active dogfood in the working directory breaks that assumption, potentially masking persona-pipeline failures.
+
+<!-- decision:P-4FNXP9FS -->
+
+## Gate Preparation: Tier Backups and Dogfood Isolation
+
+**When:** 2026-07-12 · **Fact:** `P-4FNXP9FS`
+**Why:** Gate tests persona auto-fill from zero (B3/B4/B8 checks). Separate project + clean tier ensures honest test. Dogfood auto-extract is expected this session but requires isolation knowledge to avoid interference.
+
+<!-- decision:P-2FLXAQSN -->
+
+## cmk install output is minimal, shows only essential information
+
+**When:** 2026-07-12 · **Fact:** `P-2FLXAQSN`
+**Why:** Users need to know installation succeeded and how to activate it. Pre-emptive advisory noise doesn't help; real recovery messages surface at error time when needed.
+
+<!-- decision:P-FTHBGA6H -->
+
+## Release Workflow: Validation, CHANGELOG Consistency, Tag, and Publish
+
+**When:** 2026-07-12 · **Fact:** `P-FTHBGA6H`
+**Why:** Ensures release artifacts reflect the actual code and behavior; prevents tagging stale commits; avoids inconsistent documentation
+
+<!-- decision:P-6XJBP7RE -->
+
+## E3 Failure-Turn Testing Sequence
+
+**When:** 2026-07-12 · **Fact:** `P-6XJBP7RE`
+**Why:** E3 validates persona injection and failure-signal detection; the two-turn sequence captures both the failure outcome and the detached judge's log
+
+<!-- decision:P-RJH3aAP7 -->
+
+## Tight Attribution in Learn-Loop Dampening
+
+**When:** 2026-07-12 · **Fact:** `P-RJH3aAP7`
+**Why:** A pytest error unrelated to memory recall shouldn't dampen a persona fact.
+
+<!-- decision:P-DKP76NFC -->
+
+## Release Gate Verification Structure — 6 Sections
+
+**When:** 2026-07-12 · **Fact:** `P-DKP76NFC`
+**Why:** Systematic verification framework; v0.5.1 scope justified as hardening patch (narrow risk surface)
+
+<!-- decision:P-M9P6R5BU -->
+
+## v0.5.1 Release — Ready to Tag and Publish
+
+**When:** 2026-07-12 · **Fact:** `P-M9P6R5BU`
+**Why:** Pull synchronizes with upstream; omitting it would tag a stale commit missing Task 222 and CHANGELOG fixes
+
+<!-- decision:P-UVEYS5ZL -->
+
+## CHANGELOG [Unreleased] Auto-Reset During Release
+
+**When:** 2026-07-12 · **Fact:** `P-UVEYS5ZL`
+**Why:** Eliminates manual post-release housekeeping; ensures CHANGELOG is always ready for the next cycle.
+
+<!-- decision:P-NG5KC7R5 -->
+
+## Post-Release Documentation Reconciliation Workflow
+
+**When:** 2026-07-12 · **Fact:** `P-NG5KC7R5`
+**Why:** Drift between published release and documentation claims confuses users and corrupts versioning narrative. Post-release reconciliation ensures docs remain authoritative.
+
+<!-- decision:P-FFYT6GaV -->
+
+## Task-Boundary Memory Flush Rule
+
+**When:** 2026-07-12 · **Fact:** `P-FFYT6GaV`
+**Why:** Without periodic flushing, memory drifts from git, breaking continuity for future sessions. This project self-dogfoods its own memory system.
+
+<!-- decision:P-FUW47LTE -->
+
+## cmk forget as Safe Fact Removal Method
+
+**When:** 2026-07-12 · **Fact:** `P-FUW47LTE`
+**Why:** Safety and reversibility prevent loss of facts removed in error; critical for dogfood extraction cleanup
+
+<!-- decision:P-JAKHD5X6 -->
+
+## Dogfood Memory Contamination in v0.5.1 Release
+
+**When:** 2026-07-12 · **Fact:** `P-JAKHD5X6`
+**Why:** Recurring dogfood contamination risk; cleanup process and cmk forget safety should be documented for future sessions
+
+<!-- decision:P-HMUEHPRH -->
+
+## SonarCloud Misconfiguration — Scans Memory Fact Prose as Code
+
+**When:** 2026-07-12 · **Fact:** `P-HMUEHPRH`
+**Why:** Recurring false-positives in advisory checks dilute signal over time; fixing them maintains integrity.
+
+<!-- decision:P-4VZZY6W2 -->
+
+## SonarCloud Advisory Role in CI Gating
+
+**When:** 2026-07-12 · **Fact:** `P-4VZZY6W2`
+**Why:** v0.5.1 published successfully despite SonarCloud crash. Prevents over-investment in fixing advisory-only tooling and clarifies severity hierarchy.
+
+<!-- decision:P-2YXUGHZJ -->
+
+## SonarCloud Scanner Crash — Root Cause and Resolution Path
+
+**When:** 2026-07-12 · **Fact:** `P-2YXUGHZJ`
+**Why:** Prevents fruitless repo-level troubleshooting. Key insight: SonarCloud crashes rooted in server settings are not fixable from the repo.
+
+<!-- decision:P-PAL9VTVG -->
+
+## Diagnostic Technique: Determine SonarCloud Issue Origin (Repo vs Server)
+
+**When:** 2026-07-12 · **Fact:** `P-PAL9VTVG`
+**Why:** This proves the boundary of what can be fixed repo-side, preventing wasted iteration on repo changes that cannot work. Absence of the artifact locally is definitive proof of server-side origin.
+
+<!-- decision:P-CJFV76WH -->
+
+## SonarCloud Automatic Analysis Must Be OFF
+
+**When:** 2026-07-12 · **Fact:** `P-CJFV76WH`
+**Why:** The project's CI workflow applies its own sonar configuration and expects Automatic Analysis to be OFF. If enabled, SonarCloud ignores the CI-provided properties and uses server-stored defaults.
+
+<!-- decision:P-EX7TLaAG -->
+
+## SonarCloud Server-Side Analysis Scope Cannot Be Overridden Repo-Side
+
+**When:** 2026-07-12 · **Fact:** `P-EX7TLaAG`
+**Why:** The analyzer loads both repo-config and server-config with server-config winning. Once a path is stored in Analysis Scope, it persists until manually cleared from the web UI.
+
+<!-- decision:P-VV7LEV7M -->
+
+## v0.5.2 Release Scope and Workflow
+
+**When:** 2026-07-12 · **Fact:** `P-VV7LEV7M`
+**Why:** One-theme batching honors differentiator rule; scope committed to source-of-truth docs; workflow prevents context-switch churn
+
+<!-- decision:P-LQ9ZQHPZ -->
+
+## SonarCloud Stale Source Path Requires Manual Web-UI Clear
+
+**When:** 2026-07-12 · **Fact:** `P-LQ9ZQHPZ`
+**Why:** The path is no longer valid (codebase refactored) and causes red flags in the build dashboard; clearing it via web UI will resolve the flag.
+
+<!-- decision:P-VLR6M5RU -->
+
+## v0.5.1 Released to npm and GitHub
+
+**When:** 2026-07-12 · **Fact:** `P-VLR6M5RU`
+**Why:** v0.5.1 is in production; next session should know this milestone is shipped before starting v0.5.2.

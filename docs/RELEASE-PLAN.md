@@ -128,7 +128,7 @@ The differentiator is the wedge; the rest are the quality fixes that make it *fe
   - **⛔ v0.4.5 BLOCKED 2026-07-04 (D-270, the user's call) — the Cursor WIRING is merged (PR #254, unreleased) but the TAG is HELD.** The cross-agent adapters shipped hooks/MCP/install but NOT the promise: a Cursor-only / Kiro-only user (no Claude Code) has NO working automatic engine — the kit's LLM layer shells out to the `claude` binary they don't have, so auto-extract / compression / persona-wedge / temporal-sweep all silently no-op. **v0.4.5 does not tag until Task 200 makes the backend route through the AGENT'S OWN CLI** (`cursor-agent -p` for Cursor, Amazon Q for Kiro) so a Claude-free machine runs the full engine. Shipping "Cursor support" that silently needs Claude Code is a false promise. Task 196's Cursor checkboxes stay done (the wiring IS done); Task 200 is the new gate on the cut.
 - **Then, an ORDERED tail — each assigned its patch number WHEN IT SHIPS** (not pre-numbered; the patch digit tracks shipments, and the order may shift on real signal — a Codex API change, a Cursor breaking release, the user's usage): **Cursor → Codex → Google Antigravity → gemini-cli → opencode → cline/roo/windsurf/… as demand warrants** (interleaved with 151 + the recall/curation tasks per real priority). (Prior-art profiles for several of these already exist in Taskmaster — design input, not a port.)
 - **50** — the umbrella task (cross-agent install via `cmk install --ide <agent>`). The kit's core (store / compression / search / CLI) stays identical across agents; only the adapter differs (Task 50.2). ADR-0012 (cross-agent future).
-- **v0.4 recall lane:**
+- **v0.4 recall lane:** _(→ LANED 2026-07-12: the trio below rides **v0.6.0** — its D-253a "next recall-surface minor" trigger fires there; see the D-309 queue item 5. D-326.)_
   - **149** — recall-trigger architecture ADR: clone the real repos (not the note summaries) and decide keep judgment-pulled (+ D-153 fixes) vs always-search vs hybrid. Research done → [persona/recall research notes](../docs/research/2026-06-14-recall-triggering-models-cross-system.md); ADR pending (D-153 follow-up). _Research + ADR, no code until decided._
   - **176** — graph-recall research + ADR: should the kit add a relational/graph query mode beside keyword + semantic? (D-216, surfaced surveying `iwe`.) Asks WHAT recall modes (complements 149's WHEN-to-recall). **UPDATED D-219: we already WRITE edges (`links`/`[[cross-links]]` + `superseded_by` FK) but never TRAVERSE them — so the task is ACTIVATE-the-edges, not derive-from-scratch (much cheaper start).** _Research + ADR only; an ADOPT verdict spawns a separate build task. Pairs with 149 in the recall lane._
   - **178** — hybrid-search tuning research + ADR: evaluate Reciprocal Rank Fusion (+ other fusion/rerank methods) against the kit's hybrid recall, ON the Task 99 benchmark (D-217/D-219, surfaced surveying `pro-workflow`; the user: "make it a task so it won't get lost"). _Research + measure; numbers decide. An ADOPT verdict is a small swap (could ride a recall-tuning patch). Pairs with 149/176 in the recall lane._
@@ -151,7 +151,7 @@ The differentiator is the wedge; the rest are the quality fixes that make it *fe
   - **175** — `cmk tour`: narrate the user's OWN `context/` tiers (onboarding/explainer; reads real facts, degrades on empty). The `cmk tour` core is S; the per-agent `/tour` slash surface composes with the cross-agent seam (Task 50). _M; **depends on Task 50** (the seam, for the per-agent slash command). Patch-lane — a v0.4.x slot after the seam._
 - **55** — behavioral pattern detection + promotion ("learn how I work," not just facts). _Design dossier (3 sources, 2026-06-12 notes): ruflo trajectory memory (capture HOW a task was done well) · PAI's RELATIONSHIP category (memory of the COLLABORATION itself — what frustrated the user, what landed) + explicit LEARN-phase task retrospectives · memclaw outcome-based scoring. Design 55 as pattern detection + collaboration memory + task retrospectives, not pattern detection alone._
 - **viewer (design-first)** — a memory viewer for the non-developer audience (the parked `cmk view` idea — a product question, not a port number; D-121). _Demand evidence: PAI's Pulse dashboard (localhost surface over file-based AI state, 15.8k stars — the 2026-06-12 research note)._
-- _**Team-layer companion (Task 127): POSTPONED past v0.4** (the user, 2026-06-12) — Kiro support comes first; the companion-project design (D-119) stands, just later (v0.5+)._
+- _**Team-layer companion (Task 127): POSTPONED past v0.4** (the user, 2026-06-12) — Kiro support comes first; the companion-project design (D-119) stands, just later (v0.5+)._ **→ LANED 2026-07-12: the v0.7.0 HEADLINE (D-326)** — the deferral trigger fired (v0.6 planning boundary + the origin creator's TeamOS-beta demand signal); see the D-309 queue item 6.
 
 ---
 
@@ -197,8 +197,29 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
      (the bullet above).
   4. **v0.5.4 — the governance batch** — Task 96 + Task 210 (+ Task 95 if its needs-design gate
      has cleared by then; otherwise 95 slides to the next slot — its gate, not the queue, decides).
+  5. **v0.6.0 — DAY-ONE MEMORY (the next minor differentiator; D-326, 2026-07-12 — the user's
+     "actual versions, not just future versions" call after the market sweep).** Headline:
+     **Task 225** (`cmk import-sessions` — bootstrap the memory from existing agent session
+     history; install offers it; every imported write screened through 216 + the L3 judge;
+     resumable per ADR-0020). Riders on the same recall/corpus surface: **Task 226**
+     (context-expansion + the explicit recall ladder) · **Task 227** (recall citation
+     completeness — date+heading on every result, §16.39 cites closed) · **Task 229**
+     (memory-taxonomy vocabulary in the docs) · **the recall-research trio 149 + 176 + 178** —
+     their D-253a trigger ("run WITH 149+176 at the next recall-surface minor") FIRES here;
+     an ADOPT verdict from 178 lands as a small swap in this lane or the next patch.
+     _Provenance: the [2026-07-12 market sweep](research/2026-07-12-day-one-memory-market-sweep.md)
+     — the origin creator's v3 proved the demand ("day one your memory already knows
+     everything") and Hermes's 211k-star run proved memory is THE switching reason (~30% of
+     1,300 analyzed comments)._
+  6. **v0.7.0 — THE TEAM LAYER (D-326).** Headline: **Task 127** (team-scoped memory — its own
+     trigger fired: the v0.6 planning boundary arrived AND the market demand signal landed, the
+     origin creator's TeamOS beta; design-first per D-119 — seam shape / ACL / companion-vs-in-kit
+     decided before code). Rider: **Task 228** (proactive-memory connectors GO/NO-GO ADR — the
+     OpenWiki Brains class; the in-theme cut = other-agents' session stores as 225 import
+     sources; external SaaS connectors decided deliberately, likely NO).
   _Task 208 (the Cursor interactive gate) is a gate RUN, not a release — it fires on token refresh
-  (~2026-07-24) and rides whatever slot is current when it runs._
+  (~2026-07-24) and rides whatever slot is current when it runs. Per D-157 the minor DIGITS above
+  are "expected" — the order + content are the commitment; a ready security-patch may re-stamp._
 - **v0.5.1 — COMMITTED (not trigger-gated): Tasks 203 + 204 — the automatic-distill-starvation fix + the incremental-resumable principle (D-298/D-299, the user's 2026-07-08 call).** Diagnosed live during the v0.5.0 repack: `daily-distill` silently stops on a busy repo (the 23:00 cron is killed before the 3.4-min distill finishes) AND both safety nets miss it — HC-10 is false-green (heartbeat records at task start), and the lazy fallback is shadowed by `stale-now` (cascade-starvation). **This BREAKS the kit's core "memory just works, automatically" promise, so it is committed to the next minor after v0.5.0, NOT deferred behind a trigger** (the user: *"what named trigger? this task has to be done in the next version or now, it breaks the kit"*). **203** = the fix (HC-10 checks `recent.md` freshness not just the heartbeat; the lazy roll stops letting `stale-now` shadow `stale-daily`; `register-crons` sets `WakeToRun=True`). **204** = the general principle it exposes (long jobs must be incremental + resumable-from-artifacts, never all-or-nothing) → a NEW ADR + `daily-distill` refactored as the reference beneficiary + the checklist into CLAUDE.md. They ship together. Not a v0.5.0 tag blocker (pre-existing; distill works on demand; `recent.md` fresh now).
   - **+ Task 213 (D-308, 2026-07-10 research sweep): provenance pointers through the distill chain** — every condensed section in `today-*.md`/`recent.md`/`archive.md` keeps a source-session date tag, so summaries stay traceable to the raw transcript floor (the Always-On survey's provenance-preservation invariant; softens lifecycle-map G8). RIDES 203/204 because they refactor the exact distill code this touches — the resumable rewrite is the natural place to add the invariant.
   - **+ Task 205 (D-302): `cmk install` breaks itself on its own running MCP server's DLL lock (Windows).** Found when the v0.5.0 repack needed a manual kill of the `cmk mcp serve` procs (they hold `vec0.dll`) — the user: *"that is a bug, no?"* Yes: a reinstall/upgrade while an MCP server is running can leave a half-broken global; documented-never-fixed (only "kill the server manually"). Fix = graceful handling (detect+stop own server / retry-on-EBUSY / actionable half-install message). NOT a tag blocker (usually cosmetic, workaround known, hits reinstall not first-install). NOT the rejected node:sqlite cure (Task 141b, perf).
