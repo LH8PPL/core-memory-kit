@@ -7,12 +7,12 @@
 // cmk-OWNED markers (the I2 discipline — a stray `.cursor/` dir alone does not
 // flip the project; only OUR rule/steering file does).
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
- * @returns {'claude-code'|'kiro'|'cursor'} the agent the project was installed
- *   for (default 'claude-code').
+ * @returns {'claude-code'|'kiro'|'cursor'|'codex'} the agent the project was
+ *   installed for (default 'claude-code').
  */
 export function detectInstallKind(projectRoot) {
   if (existsSync(join(projectRoot, '.claude', 'settings.json'))) return 'claude-code';
@@ -21,5 +21,21 @@ export function detectInstallKind(projectRoot) {
   // keyed-on-OUR-marker discipline as Kiro (I2) — a stray .cursor/ dir alone
   // does not flip the project to the Cursor path.
   if (existsSync(join(projectRoot, '.cursor', 'rules', 'claude-memory-kit.mdc'))) return 'cursor';
+  // Task 196 tail: a `--ide codex` install writes `.codex/hooks.json` (the kit
+  // seeds it; AGENTS.md alone is NOT the marker — the agents-md rung writes it
+  // too). Same cmk-owned-marker discipline: a stray .codex/ dir doesn't flip
+  // the project; only a hooks file naming our dispatcher does.
+  if (codexHooksCarryDispatcher(projectRoot)) return 'codex';
   return 'claude-code';
+}
+
+// Cheap evidence probe: does .codex/hooks.json reference `cmk codex-hook`?
+function codexHooksCarryDispatcher(projectRoot) {
+  const p = join(projectRoot, '.codex', 'hooks.json');
+  if (!existsSync(p)) return false;
+  try {
+    return readFileSync(p, 'utf8').includes('cmk codex-hook');
+  } catch {
+    return false;
+  }
 }

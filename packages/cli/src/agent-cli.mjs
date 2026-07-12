@@ -15,9 +15,9 @@
 import { spawnBinSync } from './spawn-bin.mjs';
 
 // The agents the kit can run its background LLM call through. Values are the
-// canonical keys; `detectInstallKind` returns `claude-code`/`kiro`/`cursor`, so
-// `claude-code` is normalized to `claude` here.
-export const KNOWN_BACKEND_AGENTS = ['claude', 'kiro', 'cursor'];
+// canonical keys; `detectInstallKind` returns `claude-code`/`kiro`/`cursor`/
+// `codex`, so `claude-code` is normalized to `claude` here.
+export const KNOWN_BACKEND_AGENTS = ['claude', 'kiro', 'cursor', 'codex'];
 
 // A short probe timeout — a `--version` call returns in well under a second on a
 // healthy CLI; anything longer means something is wrong and we should report
@@ -45,6 +45,12 @@ export function backendBinName(kind, platform = process.platform) {
       return win ? 'agent.cmd' : 'agent';
     case 'kiro':
       return 'kiro-cli';
+    case 'codex':
+      // npm ships a .cmd shim on Windows (same class as claude/cursor). NOTE:
+      // the Codex DESKTOP app bundles codex.exe OFF-PATH (%LOCALAPPDATA%\OpenAI\
+      // Codex\bin\<hash>\) — desktop-only users probe not-present here; the
+      // doctor message points them at installing the CLI (npm i -g @openai/codex).
+      return win ? 'codex.cmd' : 'codex';
     default:
       return null;
   }

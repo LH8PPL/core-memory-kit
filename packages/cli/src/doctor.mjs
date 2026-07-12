@@ -101,6 +101,9 @@ function hc1Hooks({ projectRoot, awsDir }) {
   if (installKind === 'cursor') {
     return hc1CursorHooks({ projectRoot });
   }
+  if (installKind === 'codex') {
+    return hc1CodexHooks({ projectRoot });
+  }
   // Per design §5 — the Claude Code hooks live in .claude/settings.json
   // alongside its plugin manifest. Required for auto-extract +
   // session-end compression to fire.
@@ -263,6 +266,46 @@ function hc1CursorHooks({ projectRoot }) {
     status: 'fail',
     message: `Cursor install: .cursor/hooks.json is missing the kit dispatcher on: ${missing.join(', ')}`,
     recoveryCommand: 'cmk install --ide cursor',
+  };
+}
+
+// Task 196 (Codex) — the Codex surface: `.codex/hooks.json` carries the
+// `cmk codex-hook` dispatcher on the inject (SessionStart) + capture (Stop)
+// events, in Codex's matcher-group nesting ({matcher?, hooks:[{command}]}).
+// Both required — inject-only or capture-only is a broken memory loop.
+function hc1CodexHooks({ projectRoot }) {
+  const hooksPath = join(projectRoot, '.codex', 'hooks.json');
+  const required = ['SessionStart', 'Stop'];
+  let missing = required;
+  if (existsSync(hooksPath)) {
+    try {
+      const cfg = JSON.parse(readFileSync(hooksPath, 'utf8'));
+      missing = required.filter(
+        (ev) => !(cfg?.hooks?.[ev] ?? []).some(
+          (group) => (group?.hooks ?? []).some(
+            (h) => typeof h?.command === 'string' && h.command.includes('cmk codex-hook'),
+          ),
+        ),
+      );
+    } catch {
+      // unparseable hooks.json → treat as not wired (the repair re-runs install,
+      // whose refuse-to-clobber will surface the corrupt file to the user)
+    }
+  }
+  if (missing.length === 0) {
+    return {
+      id: 'HC-1',
+      name: 'Stop + SessionStart hooks registered',
+      status: 'pass',
+      message: 'Codex capture/inject wired via .codex/hooks.json (cmk codex-hook) — remember the one-time /hooks trust in Codex',
+    };
+  }
+  return {
+    id: 'HC-1',
+    name: 'Stop + SessionStart hooks registered',
+    status: 'fail',
+    message: `Codex install: .codex/hooks.json is missing the kit dispatcher on: ${missing.join(', ')}`,
+    recoveryCommand: 'cmk install --ide codex',
   };
 }
 
