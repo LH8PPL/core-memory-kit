@@ -67,10 +67,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - **A half-broken upgrade is now self-diagnosing instead of a cryptic crash** — on Windows,
   upgrading the global package (`npm install -g`) while a kit MCP server was running could
   half-break the install (locked DLLs), after which every `cmk` command died with a raw
-  module-not-found stack. Now: `cmk` detects the half-install and prints the exact 2-step
-  recovery (stop the servers → reinstall); `cmk install` warns when kit MCP servers are
-  running — naming the PIDs and the upgrade caveat — and offers to stop them interactively
-  (they reconnect automatically on the next tool call). (Task 205.)
+  module-not-found stack. Now `cmk` detects the half-install and prints the exact 2-step
+  recovery (stop the servers → reinstall). (Task 205; the running-server heads-up that
+  originally shipped with this was refined by Task 222 — see above — so a plain `cmk install`
+  stays quiet.)
 
 - **Daily distill no longer silently starves on a busy repo** — the nightly rolling-summary
   (`recent.md`) could go days stale on a large/busy project without any warning: the scheduled
