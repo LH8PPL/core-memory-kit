@@ -41,6 +41,7 @@ Claude forgets everything when a session ends — so every new chat you re-expla
 > | **Claude Code** | the `claude` CLI — required even if you use Claude inside VS Code |
 > | **Kiro** | `kiro-cli` — required even if you use the Kiro IDE |
 > | **Cursor** | `cursor-agent` (Cursor's CLI) — required in addition to the Cursor app; runs natively on Windows, macOS, and Linux, using your Cursor subscription login (no API key) |
+> | **Codex** | the `codex` CLI (`npm i -g @openai/codex`) — required even if you use the Codex desktop app (it bundles the binary off-PATH), using your ChatGPT/Codex login (no API key) |
 >
 > Without the agent's CLI, capture / search / recall / the delete-guard still work (they're pure files + SQLite), but the automatic LLM steps are skipped. `cmk doctor` (HC-11) and `cmk install` both tell you if your agent's CLI is missing. You can also route the automatic engine through a *different* agent's CLI than you code in — `cmk install --backend kiro` — see `cmk config show`.
 
@@ -63,7 +64,7 @@ You work. It learns — automatically, no buttons. Next session, it remembers th
 - **Stays TRUE as it ages, not just stored** — facts carry a temporal shape ("ongoing state" vs "happened once" vs "planned"), facts with a shelf life expire on their own (`--expires 2026-08-01` → hidden from recall, recoverably archived), and a weekly pass catches state changes: when a newer fact supersedes an older one ("cut-gate in progress" → "published to npm"), the old state's validity window closes so recall answers with the *current* state — history intact, and the next session opens with a one-line note of what was resolved.
 - **Stays private + bounded** — secrets are screened before **every** committed-tier write — not just the ones you type, but the LLM-written summaries, transcript promotions, and trust upgrades too — machine paths are abstracted to `~`, and rolling compression keeps memory small as history grows (and the nightly compression is resumable: interrupted at 80%, it keeps the 80% and picks up where it left off). Because `context/` is committed to git, the kit also **screens personal/sensitive content automatically**: a deterministic pass masks emails / phone numbers / your username before anything touches disk, and an async judge catches names, addresses, and health details in prose — so a transcript lands screened, a sensitive fact routes to a gitignored local-only note, and nothing personal reaches a committed file (kill-switch: `privacy.screen: off`).
 - **Guards against accidental deletion** — a hook **blocks** a destructive command (`rm`, `git reset --hard`, …) the moment it targets a memory path, before it runs.
-- **Works across your agents** — the same memory brain on **Claude Code**, **[Kiro](https://kiro.dev)** (IDE + `kiro-cli`), and **[Cursor](https://cursor.com)**. A project's `context/` is shared, so memory you build in one is there in the others. The automatic engine (compression / auto-extract / persona / temporal sweep) runs through *your* agent's own CLI, using the login you already have — no extra API key. You can even **split the brain**: code in one agent, run the frequent background memory work through a cheaper one (`cmk install --backend kiro` → keep your premium subscription for coding, run the janitor LLM on `kiro-cli`). `cmk config show` tells you which agent is doing what.
+- **Works across your agents** — the same memory brain on **Claude Code**, **[Kiro](https://kiro.dev)** (IDE + `kiro-cli`), **[Cursor](https://cursor.com)**, and **[Codex](https://developers.openai.com/codex)**. A project's `context/` is shared, so memory you build in one is there in the others. The automatic engine (compression / auto-extract / persona / temporal sweep) runs through *your* agent's own CLI, using the login you already have — no extra API key. You can even **split the brain**: code in one agent, run the frequent background memory work through a cheaper one (`cmk install --backend kiro` → keep your premium subscription for coding, run the janitor LLM on `kiro-cli`). `cmk config show` tells you which agent is doing what.
 - **One-tap memory commits** — when uncommitted memory piles up, Claude offers to commit it; you approve, Claude runs the git command; the kit itself never touches git.
 - **Per-project, in your repo** — `context/` lives in your project and travels with `git clone`. Each project keeps its own memory.
 
@@ -105,6 +106,14 @@ cmk install --ide cursor --with-semantic # …with local semantic recall
 cmk doctor                                # verify, then restart Cursor
 ```
 
+**Codex:**
+
+```bash
+cmk install --ide codex                  # wire Codex end-to-end
+cmk install --ide codex --with-semantic  # …with local semantic recall
+cmk doctor                                # verify, then run /hooks once inside Codex to trust the kit's hooks
+```
+
 `cmk install` is the whole entry point: it scaffolds `context/`, drops the memory skills, wires the lifecycle hooks, and registers the MCP server so the agent can drive memory as tools — no `/plugin` step needed. A project can carry **both** agents — run both installs; they share one `context/`.
 
 > [!TIP]
@@ -142,8 +151,8 @@ You rarely type these yourself — Claude drives the same operations as tools mi
 
 | Command | Purpose |
 | --- | --- |
-| `cmk install [--with-semantic] [--ide claude-code\|kiro\|cursor] [--backend claude\|kiro\|cursor]` | Scaffold + wire hooks + register the MCP server (complete entry point). `--backend` runs the automatic memory through a *different* agent's CLI than you code in (split-brain) |
-| `cmk uninstall [--ide claude-code\|kiro\|cursor]` | Remove one agent's wiring — conservative, never deletes `context/` |
+| `cmk install [--with-semantic] [--ide claude-code\|kiro\|cursor\|codex] [--backend claude\|kiro\|cursor\|codex]` | Scaffold + wire hooks + register the MCP server (complete entry point). `--backend` runs the automatic memory through a *different* agent's CLI than you code in (split-brain) |
+| `cmk uninstall [--ide claude-code\|kiro\|cursor\|codex]` | Remove one agent's wiring — conservative, never deletes `context/` |
 | `cmk doctor` | Run HC-1..HC-11 health checks; surface a repair command per failure (HC-11 = your agent's backend LLM CLI is on PATH — honest degrade if not) |
 | `cmk config get <key>` / `cmk config set <key> <value>` / `cmk config show` | Read/write project settings without hand-editing JSON. `config show` = a one-glance readout of your setup (installed-for agent, active backend agent, backend-CLI presence, semantic mode) |
 | `cmk repair --hooks` / `--locks` / `--index` / `--all` | Idempotent self-repair |

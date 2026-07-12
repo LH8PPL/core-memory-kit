@@ -61,6 +61,9 @@ export const CLI_ONLY = new Set([
   // `cursor-hook` is the Cursor hook entrypoint (called by .cursor/hooks.json,
   // never by the model via MCP) — same infra/lifecycle class (Task 196).
   'cursor-hook',
+  // `codex-hook` is the Codex hook entrypoint (called by .codex/hooks.json,
+  // never by the model via MCP) — same infra/lifecycle class (Task 196 tail).
+  'codex-hook',
 ]);
 
 /**
