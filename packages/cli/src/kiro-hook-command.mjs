@@ -39,6 +39,20 @@ export function cursorHookCommand(cmkCmd = 'cmk') {
 }
 
 /**
+ * Build the `cmk codex-hook` command, platform-wrapped (Task 196, Codex leg).
+ * Codex's hooks all call ONE command — the event rides in the stdin payload's
+ * `hook_event_name`, exactly like Cursor. Same Windows rationale: `cmk` is an
+ * npm .cmd shim, and `cmd.exe /c` reaches the real node+cmk under any spawn
+ * model. (Codex additionally supports a per-hook `commandWindows` override;
+ * the install writer emits ONE platform-correct command keyed on the install
+ * host instead — same posture as the other agents.)
+ */
+export function codexHookCommand(cmkCmd = 'cmk') {
+  const inner = `${cmkCmd} codex-hook`;
+  return IS_WINDOWS ? `cmd.exe /c ${inner}` : inner;
+}
+
+/**
  * Build the memory delete-guardrail command (D-192), platform-wrapped. Kiro's
  * `preToolUse` delivers `{ tool_name, tool_input: { command } }` on STDIN — the
  * SAME shape as Claude Code (verified from the real oh-my-kiro + vibekit

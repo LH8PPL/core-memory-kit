@@ -132,6 +132,69 @@ const cursor = defineAgentProfile({
   },
 });
 
+// ── Codex (Task 196 tail) ────────────────────────────────────────────────────
+// Primary-verified against learn.chatgpt.com/docs/hooks + config (2026-07-12,
+// docs/research/2026-07-12-codex-adapter-surfaces.md) + live probes on the real
+// codex-cli 0.142.5. The June-20 "plugin-marketplace" classification is
+// OBSOLETE — Codex now ships a first-class hooks system:
+//   • hooks: dedicated `.codex/hooks.json` in MATCHER-GROUP nesting
+//     `{hooks: {<Event>: [{matcher?, hooks: [{type:'command', command}]}]}}`
+//     (Claude-Code-shaped groups in a Cursor-style dedicated file; NO top-level
+//     version key). Payload/response are Claude-compatible: hook_event_name +
+//     transcript_path on stdin; hookSpecificOutput envelopes on stdout.
+//     ⚠️ hash-based trust: non-managed hooks are SKIPPED until the user runs
+//     `/hooks` once and trusts them (documented in docs/CODEX.md — the same
+//     one-time-trust class as Kiro's MCP click).
+//   • inject: SessionStart → hookSpecificOutput.additionalContext (real leg).
+//   • capture: `Stop` payload is status-only BUT carries transcript_path —
+//     readCodexTurn extracts the turn from the rollout jsonl, so the transcript
+//     leg below is discovery metadata; capture uses the payload's exact path.
+//   • guard: PreToolUse (matcher Bash) → permissionDecision deny (D-192 leg).
+//   • NO SessionEnd event — the compression leg rides lazy/cron, like Kiro.
+//   • MCP: config is TOML (`~/.codex/config.toml` [mcp_servers]) and the
+//     project-level file is trusted-only with open Desktop issues — so the MCP
+//     leg registers via the agent's OWN CLI (`codex mcp add`, live-verified),
+//     never TOML surgery. mechanism: 'agent-cli' routes it in install-agent.
+//   • instruction: AGENTS.md — Codex's native instruction file (the same
+//     surface as the agents-md rung; the managed block folds safely).
+const codex = defineAgentProfile({
+  name: 'codex',
+  displayName: 'Codex',
+  integrationType: 'hooks-mcp',
+  detect: { homeDir: '.codex' },
+  instructionFile: 'AGENTS.md',
+  mcp: {
+    mechanism: 'agent-cli', // register via `codex mcp add` — no TOML surgery
+    path: '~/.codex/config.toml', // where the agent's CLI lands it (documentation)
+    serversKey: 'mcp_servers',
+    cli: {
+      bin: 'codex',
+      addArgs: ['mcp', 'add', 'claude-memory-kit', '--', 'cmk', 'mcp', 'serve'],
+      removeArgs: ['mcp', 'remove', 'claude-memory-kit'],
+    },
+  },
+  hooks: {
+    mechanism: 'codex-hooks-json', // matcher-group nesting, no version key
+    path: '.codex/hooks.json',
+    eventMap: {
+      sessionStart: 'SessionStart',
+      promptSubmit: 'UserPromptSubmit',
+      postEdit: 'PostToolUse',
+      turnEnd: 'Stop',
+      preShell: 'PreToolUse',
+    },
+    // Per-abstract-event matchers so the kit's hooks fire only where they act:
+    // edits (canonical tool_name apply_patch; Edit/Write accepted) + shell (Bash).
+    matchers: {
+      postEdit: 'apply_patch|Edit|Write',
+      preShell: 'Bash',
+    },
+  },
+  // Rollout files (discovery metadata — capture uses the payload's
+  // transcript_path directly): ~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl.
+  transcript: { dir: '~/.codex/sessions', workspaceKey: 'cwd', parse: 'jsonl' },
+});
+
 // ── AGENTS.md (Task 50.G — the instruction-only breadth rung) ────────────────
 // The cheap multi-tool reach: emit a managed block in AGENTS.md (the cross-tool
 // instruction-file convention several non-Claude agents read — Cursor, Zed,
@@ -149,6 +212,7 @@ export const AGENT_PROFILES = Object.freeze({
   'claude-code': claudeCode,
   kiro,
   cursor,
+  codex,
   'agents-md': agentsmd,
 });
 
