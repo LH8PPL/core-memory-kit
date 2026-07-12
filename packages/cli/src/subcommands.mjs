@@ -258,6 +258,19 @@ export async function warnRunningMcpServers(options, { log } = {}) {
     emit(
       '  (npm install -g @lh8ppl/claude-memory-kit), or the upgrade can half-break on locked files.',
     );
+    // Task 222 (D-302 follow-up): a plain `cmk install` INFORMS but does not
+    // PROMPT — the DLL-lock hazard is `npm install -g`-only (a command the kit
+    // can't hook), so a project install can never cause it and the interactive
+    // stop's answer is always N (friction, not guidance — the user's v0.5.1
+    // cut-gate catch). The actionable stop-offer is now opt-in via `offerStop`,
+    // reserved for a caller that IS an upgrade context (a future `cmk update` /
+    // a doctor path). Without it, the note above stands on its own and returns.
+    if (!options?.offerStop) {
+      emit(
+        '  (Running `cmk install` here is safe — this note is only about a later global upgrade.)',
+      );
+      return;
+    }
     const askFn =
       options?.askImpl ??
       ((question) =>
@@ -367,6 +380,10 @@ export async function runInstall(options /* , command */) {
   // DLL-lock hazard for future `npm install -g` upgrades). At the TOP so BOTH
   // the claude path and every --ide agent path get it (the hazard is identical
   // — any agent's host spawns `cmk mcp serve`). Best-effort + win32-only inside.
+  // Task 222 (D-302 follow-up): NO `offerStop` here — a plain `cmk install`
+  // INFORMS but never prompts (the hazard is upgrade-only; a project install
+  // can't cause it, so the stop's answer would always be N). The actionable
+  // stop-offer is reserved for a future upgrade context that opts in.
   await warnRunningMcpServers(options, { log });
 
   // Task 50.F — cross-agent routing. Default is claude-code (the existing path,

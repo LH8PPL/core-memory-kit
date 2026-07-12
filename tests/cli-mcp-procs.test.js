@@ -213,13 +213,14 @@ describe('Task 205 — warnRunningMcpServers (the cmk install preflight)', () =>
     expect(cap.lines).toHaveLength(0);
   });
 
-  it('interactive: names the servers + the upgrade caveat; declining (n) stops nothing', async () => {
+  it('interactive (offerStop): names the servers + the upgrade caveat; declining (n) stops nothing', async () => {
     const { warnRunningMcpServers } = await import('../packages/cli/src/subcommands.mjs');
     const cap = captureLog();
     let stopCalled = false;
     await warnRunningMcpServers(
       {
         mcpProcsPlatform: 'win32',
+        offerStop: true, // Task 222: the interactive stop-offer is opt-in
         askImpl: async () => 'n',
         findMcpServers: () => ({ servers: [{ pid: 11, commandLine: 'node cmk mcp serve' }] }),
         stopMcpServers: () => { stopCalled = true; return []; },
@@ -236,13 +237,14 @@ describe('Task 205 — warnRunningMcpServers (the cmk install preflight)', () =>
     expect(stopCalled).toBe(false);
   });
 
-  it('interactive YES: stops via the injected stopper and reports the count', async () => {
+  it('interactive YES (offerStop): stops via the injected stopper and reports the count', async () => {
     const { warnRunningMcpServers } = await import('../packages/cli/src/subcommands.mjs');
     const cap = captureLog();
     const stopped = [];
     await warnRunningMcpServers(
       {
         mcpProcsPlatform: 'win32',
+        offerStop: true, // Task 222: the interactive stop-offer is opt-in
         askImpl: async () => 'y',
         findMcpServers: () => ({ servers: [{ pid: 11 }, { pid: 22 }] }),
         stopMcpServers: (pids) => { stopped.push(...pids); return pids.map((pid) => ({ pid, stopped: true })); },
@@ -296,6 +298,7 @@ describe('Task 205 — warnRunningMcpServers (the cmk install preflight)', () =>
     await warnRunningMcpServers(
       {
         mcpProcsPlatform: 'win32',
+        offerStop: true, // Task 222: the interactive stop is now opt-in per caller
         askImpl: async () => '',
         findMcpServers: () => ({ servers: [{ pid: 11 }] }),
         stopMcpServers: () => { stopCalled = true; return []; },
@@ -303,6 +306,61 @@ describe('Task 205 — warnRunningMcpServers (the cmk install preflight)', () =>
       { log: cap.log },
     );
     expect(stopCalled).toBe(false);
+  });
+
+  // Task 222 (D-302 follow-up): a plain `cmk install` INFORMS but must NOT
+  // prompt — the DLL-lock hazard is `npm install -g`-only, so the interactive
+  // stop-offer's answer on a project install is always N (friction, not
+  // guidance — the user's v0.5.1 cut-gate catch). The stop-offer is now
+  // opt-in via `offerStop`; without it, the note prints and NO ask fires.
+  it('default (no offerStop): prints the informational note but NEVER asks (Task 222)', async () => {
+    const { warnRunningMcpServers } = await import('../packages/cli/src/subcommands.mjs');
+    const cap = captureLog();
+    let asked = false;
+    let stopCalled = false;
+    await warnRunningMcpServers(
+      {
+        mcpProcsPlatform: 'win32',
+        // interactive scan authorized via the feature's OWN find seam (a real
+        // install on a TTY takes this path); NO offerStop.
+        findMcpServers: () => ({ servers: [{ pid: 11, commandLine: 'node cmk mcp serve' }] }),
+        askImpl: async () => { asked = true; return 'y'; },
+        stopMcpServers: () => { stopCalled = true; return []; },
+      },
+      { log: cap.log },
+    );
+    const text = cap.text();
+    // It STILL informs (the hazard is real, just not actionable here):
+    expect(text).toContain('pid 11');
+    expect(text).toContain('npm install -g @lh8ppl/claude-memory-kit');
+    expect(text.toLowerCase()).toContain('fine for normal use');
+    // ...but it must NOT prompt, and must NOT stop anything.
+    expect(asked).toBe(false);
+    expect(stopCalled).toBe(false);
+    expect(text.toLowerCase()).not.toContain('stop them now');
+  });
+
+  it('offerStop:true restores the interactive stop-offer (a future upgrade path opts in)', async () => {
+    const { warnRunningMcpServers } = await import('../packages/cli/src/subcommands.mjs');
+    const cap = captureLog();
+    const stopped = [];
+    let askedPrompt = null;
+    await warnRunningMcpServers(
+      {
+        mcpProcsPlatform: 'win32',
+        offerStop: true,
+        askImpl: async (q) => { askedPrompt = String(q); return 'y'; },
+        findMcpServers: () => ({ servers: [{ pid: 11 }, { pid: 22 }] }),
+        stopMcpServers: (pids) => { stopped.push(...pids); return pids.map((pid) => ({ pid, stopped: true })); },
+      },
+      { log: cap.log },
+    );
+    // The stop-offer prompt fired (it rides askImpl, not the log emitter) and
+    // the confirmed stop ran — the actionable path the opt-in restores.
+    expect(askedPrompt).not.toBeNull();
+    expect(askedPrompt.toLowerCase()).toContain('stop them now');
+    expect(stopped).toEqual([11, 22]);
+    expect(cap.text()).toContain('stopped 2/2');
   });
 });
 
