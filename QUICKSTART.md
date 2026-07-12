@@ -163,7 +163,7 @@ cmk doctor                                          # 3. verify (HC-9 = pass), t
 
 Updating the npm package **alone** does not update a project: the committed `context/`, the CLAUDE.md managed block, the hooks, and the skills all carry a `:start vX` version marker that only `cmk install` refreshes. Run it in each project you use the kit in — `cmk doctor` (HC-9) flags any that lag.
 
-If you forget the close-first step and the upgrade half-breaks (the symptom: any `cmk` command crashing with a module-not-found error), `cmk` now detects it and prints the exact 2-step recovery instead of a raw stack — and `cmk install` warns you whenever kit MCP servers are running, with a one-tap offer to stop them (they reconnect automatically).
+If you forget the close-first step and the upgrade half-breaks (the symptom: any `cmk` command crashing with a module-not-found error), `cmk` now detects it and prints the exact 2-step recovery instead of a raw stack. And whenever kit MCP servers are running, `cmk install` prints a heads-up naming them (they hold the DLL lock the *global upgrade* can trip) — a plain project install is always safe, so it's an FYI, not a prompt; stop the servers only before an `npm install -g` upgrade (they reconnect automatically on the next tool call).
 
 **Route B — Claude Code plugin** (inside Claude Code):
 

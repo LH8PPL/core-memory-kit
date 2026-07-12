@@ -178,7 +178,7 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
   ORDER + CONTENT below are the commitment; the DIGIT still stamps on cut (D-157 STANDS — a ready
   security-patch-class fix may jump the queue and re-stamp what follows, exactly the v0.4.2
   precedent; that hazard is WHY the digits are "expected," not locked):
-  1. **v0.5.1** — 203+204 (headline) + riders 205 / 206 / 207 / 213. _(Committed above.)_
+  1. **v0.5.1 — SHIPPED 2026-07-12** — 203+204 (headline: resumable-distill starvation fix + ADR-0020) + riders 205 / 206 / 207 / 213 / 214 / 215 / 216 / 219 / 220, plus the cut-gate fast-follow **222** (the MCP-preflight now informs-not-prompts on a plain `cmk install`, D-323 — surfaced live in the gate). The hardening lane: security (216 side-door screening), reliability (203/204/219), Windows polish (215 windowless / 207 BOM), install-integrity (220 duplicate-fold), dev-tooling (214). _(Was "203+204 + riders 205/206/207/213" when planned; the lane grew via the D-248 backlog sweep + the security review's 216 + live-gate 222.)_
   2. **v0.5.2 — the Codex adapter** (Task 196 tail; + Task 165's kiro-surface fix rides the same
      surface). **RE-LABELED from "v0.4.6" (D-309):** v0.5.0 shipped ahead of Codex (the D-286
      re-order), and tagging a 0.4.6 AFTER 0.5.0 would misorder npm `latest` — the old label is

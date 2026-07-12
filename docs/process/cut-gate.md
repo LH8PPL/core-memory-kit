@@ -210,7 +210,7 @@ All six ★ gates are CLI-deterministic and run in **§4g**; the two LLM/overnig
 - **The transcript WITHHOLD marker (Task 216).** A secret pasted in a LIVE session must land in the committed `context/transcripts/<date>.md` as a content-free `<!-- batch withheld: poison-guard … -->` marker — never the secret itself; the raw text stays in the gitignored `.live.md` buffer. The promote path is LLM/session-driven (the PII judge runs first) → confirm in a live session; the CLI suite covers the mechanics.
 - **The 23:00 NO-WINDOW firing (Task 215).** HG-adjacent but overnight: after `cmk register-crons`, the scheduled task must fire at 23:00 with **no black console window**. §4g checks the registration SHAPE deterministically (wscript shim + `//B //Nologo`); the actual silent firing is your overnight observation — the dev machine live-verified the shim mechanism (D-319), the scheduled-trigger end-to-end is the operator's.
 
-_Suite-covered, no live probe needed: Task 219 (`busy_timeout` contract pin — the audit premise was corrected, D-321: better-sqlite3 already defaulted to 5000ms; the cross-process concurrent-writer test now guards it), Task 214 (name-guard scans untracked files — dev-tooling, runs in `npm test`), Task 205 (half-install recovery message + MCP-process preflight — live-probed during dev, D-314), Task 206 (the commit proposal excludes `context/sessions/now.md` — inject-path suite tests)._
+_Suite-covered, no live probe needed: Task 219 (`busy_timeout` contract pin — the audit premise was corrected, D-321: better-sqlite3 already defaulted to 5000ms; the cross-process concurrent-writer test now guards it), Task 214 (name-guard scans untracked files — dev-tooling, runs in `npm test`), Task 205 (half-install recovery message + MCP-process preflight — live-probed during dev, D-314; **refined by Task 222 / D-323 — the preflight now INFORMS but no longer PROMPTS on a plain `cmk install`, since the DLL-lock hazard is `npm install -g`-only; a project install with kit MCP servers running should print the note with NO `[y/N]`**), Task 206 (the commit proposal excludes `context/sessions/now.md` — inject-path suite tests)._
 
 ---
 
@@ -1182,7 +1182,7 @@ The headline gate. Each rung exercises a different layer of the new recall stack
 
 ```powershell
 # A genuinely FRESH folder each run (never reuse one that already ran cmk install).
-mkdir C:\Temp\cut-gate-coldopen-148; cd C:\Temp\cut-gate-coldopen-148
+mkdir C:\Temp\cut-gate-coldopen-23; cd C:\Temp\cut-gate-coldopen-23
 git init
 # Set a REALISTIC-BUT-FICTIONAL git identity so a `uv init` echo tests the
 # privacy SCREEN, not a real leak (and NOT example.com — that's allowlisted):
@@ -1204,10 +1204,10 @@ Ask: *"Start a new Python backend for me - set up the structure."*
       committed transcript lags by seconds), then check:
       ```powershell
       # PASS = the committed transcript shows «EMAIL»/«NAME», NOT the real identity:
-      Select-String -Path C:\Temp\cut-gate-coldopen-148\context\transcripts\*.md `
+      Select-String -Path C:\Temp\cut-gate-coldopen-23\context\transcripts\*.md `
         -Pattern "alex.personname|Alex Personname|«EMAIL»|«NAME»"
       # …and the originals survive ONLY in the gitignored recovery log:
-      Get-Content C:\Temp\cut-gate-coldopen-148\context\.locks\redactions.log
+      Get-Content C:\Temp\cut-gate-coldopen-23\context\.locks\redactions.log
       ```
       **PASS:** the committed `{date}.md` carries `«EMAIL»` (L1 masked it at capture)
       and `«NAME»` (L3 judge caught the bare name at promote); the real
@@ -1223,7 +1223,7 @@ Ask: *"Start a new Python backend for me - set up the structure."*
       and after one turn that produced an **outcome** (a tool call that failed, or you
       corrected a recalled fact — the oracle-free failure signal), check:
       ```powershell
-      $L = "C:\Temp\cut-gate-coldopen-148\context\.locks"
+      $L = "C:\Temp\cut-gate-coldopen-23\context\.locks"
       # (1) RECALL-LOG — the SessionStart inject logged the snapshot's ids; an in-chat
       #     search logged its returned ids + query (NO `cmk search` run by hand):
       Get-Content "$L\recall.log" | Select-String '"source":"inject"' | Select-Object -First 1
