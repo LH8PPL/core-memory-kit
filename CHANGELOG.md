@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+## [0.5.1] — 2026-07-12
+
 ### Security
 
 - **Every path into your committed memory is now screened for secrets — not just the direct write
