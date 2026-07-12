@@ -308,12 +308,14 @@ describe('Task 205 — warnRunningMcpServers (the cmk install preflight)', () =>
     expect(stopCalled).toBe(false);
   });
 
-  // Task 222 (D-302 follow-up): a plain `cmk install` INFORMS but must NOT
-  // prompt — the DLL-lock hazard is `npm install -g`-only, so the interactive
-  // stop-offer's answer on a project install is always N (friction, not
-  // guidance — the user's v0.5.1 cut-gate catch). The stop-offer is now
-  // opt-in via `offerStop`; without it, the note prints and NO ask fires.
-  it('default (no offerStop): prints the informational note but NEVER asks (Task 222)', async () => {
+  // Task 222 (D-302 follow-up, v0.5.1 cut-gate — the user's "why do I need all
+  // this bullshit?"): a plain `cmk install` is fully SILENT about running MCP
+  // servers. The DLL-lock hazard is `npm install -g`-only (not caused by a
+  // project install), the stop's answer is always N, AND the per-PID + lecture
+  // output is pure noise on the common path. Nothing prints, nothing asks,
+  // nothing stops — the hazard's real safety net is the bin-boundary recovery
+  // message if an upgrade ever DOES half-break (Task 205's other half).
+  it('default (no offerStop): fully SILENT — no note, no ask, no stop (Task 222)', async () => {
     const { warnRunningMcpServers } = await import('../packages/cli/src/subcommands.mjs');
     const cap = captureLog();
     let asked = false;
@@ -329,15 +331,10 @@ describe('Task 205 — warnRunningMcpServers (the cmk install preflight)', () =>
       },
       { log: cap.log },
     );
-    const text = cap.text();
-    // It STILL informs (the hazard is real, just not actionable here):
-    expect(text).toContain('pid 11');
-    expect(text).toContain('npm install -g @lh8ppl/claude-memory-kit');
-    expect(text.toLowerCase()).toContain('fine for normal use');
-    // ...but it must NOT prompt, and must NOT stop anything.
+    // Nothing emitted at all on the plain-install path.
+    expect(cap.lines).toHaveLength(0);
     expect(asked).toBe(false);
     expect(stopCalled).toBe(false);
-    expect(text.toLowerCase()).not.toContain('stop them now');
   });
 
   it('offerStop:true restores the interactive stop-offer (a future upgrade path opts in)', async () => {
