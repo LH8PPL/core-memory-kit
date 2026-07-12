@@ -68,6 +68,10 @@ export function installAgent({ projectRoot, profile, spawnSyncImpl = defaultSpaw
   const legs = {};
   const errors = [];
   let changed = false;
+  // The manual-MCP fallback one-liner (agent-cli mechanism only). Rides OUTSIDE
+  // the legs map — legs holds leg→action strings only; a command string in it
+  // would leak into the error-path "already wired" listing (self-review find).
+  let mcpManualCommand;
 
   // ── MCP leg ───────────────────────────────────────────────────────────────
   if (profile.mcp && profile.mcp.mechanism === 'agent-cli') {
@@ -79,7 +83,7 @@ export function installAgent({ projectRoot, profile, spawnSyncImpl = defaultSpaw
     // one-liner) and keep installing the other legs.
     const r = runAgentCliMcp(profile, 'addArgs', spawnSyncImpl);
     legs.mcp = r.ok ? 'configured' : 'manual';
-    if (!r.ok) legs.mcpManualCommand = agentCliManualCommand(profile, 'addArgs');
+    if (!r.ok) mcpManualCommand = agentCliManualCommand(profile, 'addArgs');
     else changed = true;
   } else if (profile.mcp) {
     const r = mutateAgentConfig({
@@ -133,7 +137,13 @@ export function installAgent({ projectRoot, profile, spawnSyncImpl = defaultSpaw
   if (errors.length > 0) {
     return { action: 'error', agent: profile.name, changed, legs, errors };
   }
-  return { action: 'installed', agent: profile.name, changed, legs };
+  return {
+    action: 'installed',
+    agent: profile.name,
+    changed,
+    legs,
+    ...(mcpManualCommand ? { mcpManualCommand } : {}),
+  };
 }
 
 export function uninstallAgent({ projectRoot, profile, spawnSyncImpl = defaultSpawnSync }) {

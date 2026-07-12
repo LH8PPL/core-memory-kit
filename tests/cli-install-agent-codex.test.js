@@ -130,6 +130,9 @@ describe('Task 196 (Codex) — installAgent legs', () => {
     const r = installAgent({ projectRoot, profile: codex(), spawnSyncImpl: fn });
     expect(r.action).toBe('installed'); // hooks + instruction still land
     expect(r.legs.mcp).toBe('manual');
+    // the copy-pasteable fallback rides OUTSIDE legs (a command string inside
+    // the leg→action map would leak into the error-path listing)
+    expect(r.mcpManualCommand).toContain('codex mcp add claude-memory-kit');
     // hooks still wired despite the MCP degrade
     expect(existsSync(join(projectRoot, '.codex', 'hooks.json'))).toBe(true);
   });

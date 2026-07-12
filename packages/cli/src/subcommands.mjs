@@ -608,9 +608,9 @@ async function runInstallForAgent({ ide, options, log, logError }) {
   // off-PATH), the MCP leg degraded to a printed one-liner.
   if (profile.name === 'codex') {
     log('  One-time step: run /hooks inside Codex once to review + trust the kit\'s hooks (Codex skips untrusted hooks).');
-    if (wired.legs.mcp === 'manual' && wired.legs.mcpManualCommand) {
+    if (wired.legs.mcp === 'manual' && wired.mcpManualCommand) {
       log(`  MCP: the codex CLI was not reachable — register the kit\'s MCP server yourself:`);
-      log(`    ${wired.legs.mcpManualCommand}`);
+      log(`    ${wired.mcpManualCommand}`);
     }
   }
 

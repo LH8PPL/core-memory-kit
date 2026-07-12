@@ -65,3 +65,9 @@ cmk uninstall --ide codex # remove the kit's hooks.json events + the AGENTS.md b
 
 Conservative: your own hooks/config outside the kit's entries are byte-preserved, and
 `context/` is never touched.
+
+> **Shared-registration caveat:** Codex's MCP registration is **user-level**
+> (`~/.codex/config.toml`), shared by every project. Uninstalling the kit from one
+> project deregisters it for all of them — if another project still uses the kit on
+> Codex, re-run `cmk install --ide codex` there (idempotent) or re-add with
+> `codex mcp add claude-memory-kit -- cmk mcp serve`.
