@@ -106,8 +106,33 @@ export function validatePath(p, { projectRoot, userDir }) {
 
 // --- Tool handlers ----------------------------------------------------
 
-function makeMkSearch({ db, semanticBackend, projectRoot }) {
-  return async ({ query, mode, scope, tier, since, limit, min_trust }) => {
+// Task 218 (D-329): the per-query index refresh EVERY reader must run. The CLI
+// wraps every read in `withReadDb` (subcommands.mjs), which runs an incremental
+// `reindexBoot` (mtime/sha1 diff — only re-parses CHANGED files; the `files`
+// checkpoint table short-circuits the no-change case to ~0ms) before the read,
+// so a `cmk search`/`get`/`timeline` always sees the latest on-disk facts. The
+// MCP server is the ONE reader that used to skip this (on a false "the runtime
+// watcher handles it" premise — the watcher was never wired, and chokidar drops
+// events under load anyway). Making every MCP read tool call this brings it to
+// PARITY with the CLI: deterministic, load-immune (a synchronous inline refresh,
+// no async FS event to lose). Best-effort: a refresh failure degrades to the
+// existing index rather than crashing the tool call (mirrors withReadDb).
+function refreshIndexForRead({ db, projectRoot, userDir }) {
+  if (!projectRoot) return; // no project context (in-process tests) → nothing to refresh
+  try {
+    reindexBoot({ projectRoot, userDir, db });
+  } catch (err) {
+    process.stderr.write(
+      `cmk-mcp-server: per-read index refresh failed: ${err?.message ?? err}\n`,
+    );
+  }
+}
+
+function makeMkSearch({ db, semanticBackend, projectRoot, userDir }) {
+  return async ({ query, mode, scope, tier, since, limit, min_trust, include_expired }) => {
+    // Task 218: refresh from disk before reading (CLI parity — every `cmk search`
+    // does this). Sees facts written since boot by any writer.
+    refreshIndexForRead({ db, projectRoot, userDir });
     // Task 46: explicit mode wins; otherwise the project's configured
     // default (search.default_mode — set by `cmk install --with-semantic`).
     const { prepareSemanticBackend, resolveDefaultSearchMode } = await import(
@@ -170,6 +195,11 @@ function makeMkSearch({ db, semanticBackend, projectRoot }) {
       since,
       limit,
       minTrust: min_trust,
+      // Task 218 (D-329 parity): the agent CAN opt into expired facts too (the
+      // user's call) — CLI parity with `cmk search --include-expired`. Expired =
+      // past a DECLARED expires_at date (hidden by default, never deleted);
+      // distinct from tombstones, which stay agent-blind (D-163).
+      includeExpired: include_expired === true,
       semanticBackend: backend,
     });
     if (r.action === 'error') {
@@ -189,7 +219,7 @@ function makeMkSearch({ db, semanticBackend, projectRoot }) {
   };
 }
 
-function makeMkGet({ db }) {
+function makeMkGet({ db, projectRoot, userDir }) {
   // Thin adapter over the shared read core (read-core.getObservations) — the
   // SAME logic the CLI `cmk get` calls (ADR-0014 parity).
   //
@@ -199,14 +229,18 @@ function makeMkGet({ db }) {
   // --include-tombstoned`); the agent must NEVER recover a fact the user
   // forgot (resurfacing a deleted fact is the worst memory-product failure).
   // Do NOT add an includeTombstoned param to this tool.
-  return async ({ ids }) => ({
-    content: [{ type: 'text', text: JSON.stringify(getObservations(db, ids), null, 2) }],
-  });
+  return async ({ ids }) => {
+    refreshIndexForRead({ db, projectRoot, userDir }); // Task 218: CLI parity (withReadDb)
+    return {
+      content: [{ type: 'text', text: JSON.stringify(getObservations(db, ids), null, 2) }],
+    };
+  };
 }
 
-function makeMkTimeline({ db }) {
+function makeMkTimeline({ db, projectRoot, userDir }) {
   // Thin adapter over read-core.buildTimeline (shared with CLI `cmk timeline`).
   return async ({ anchor, depth_before, depth_after }) => {
+    refreshIndexForRead({ db, projectRoot, userDir }); // Task 218: CLI parity (withReadDb)
     const r = buildTimeline(db, {
       anchor,
       depthBefore: depth_before ?? 5,
@@ -367,10 +401,11 @@ function makeMkRemember({ projectRoot, userDir }) {
   };
 }
 
-function makeMkRecentActivity({ db }) {
+function makeMkRecentActivity({ db, projectRoot, userDir }) {
   // Thin adapter over read-core.recentActivity (shared with CLI
   // `cmk recent-activity`).
   return async ({ window, limit }) => {
+    refreshIndexForRead({ db, projectRoot, userDir }); // Task 218: CLI parity (withReadDb)
     const r = recentActivity(db, { window: window ?? '24h', limit: limit ?? 20 });
     if (!r.ok) {
       return { content: [{ type: 'text', text: `error: ${r.error}` }], isError: true };
@@ -420,13 +455,15 @@ function makeMkTrust({ projectRoot, userDir }) {
 }
 
 function makeMkLessonsPromote({ projectRoot, userDir }) {
-  return async ({ id, to }) => {
+  return async ({ id, to, section }) => {
     // 151.9: pass `to` THROUGH (undefined when the caller omits it) so the offline
     // TOPIC-router spreads the promote across USER/HABITS/LESSONS by content. The
     // old `to ?? 'LESSONS.md'` forced every MCP-driven promote into LESSONS,
     // bypassing the router (Hole C) — and the MCP path is the PRIMARY one (Claude
     // drives the kit via the tool, not the CLI). An explicit `to` still wins.
-    const r = lessonsPromote({ id, projectRoot, userDir, to });
+    // Task 218 (D-329 parity): `section` overrides the router's section choice —
+    // CLI parity with `cmk lessons promote --section` (undefined → router picks).
+    const r = lessonsPromote({ id, projectRoot, userDir, to, section });
     if (r.action !== 'promoted' && r.action !== 'queued') return mcpToolError(r);
     return {
       content: [{ type: 'text', text: JSON.stringify(
@@ -450,7 +487,7 @@ function makeMkLessonsPromote({ projectRoot, userDir }) {
 }
 
 function makeMkForget({ projectRoot, userDir }) {
-  return async ({ id, reason, confirm }) => {
+  return async ({ id, reason, deleted_by, confirm }) => {
     // Dry pass: resolve + capture the preview via a confirm callback that
     // refuses (returns false → action:'cancelled'), so nothing is deleted yet.
     // A not-found / ambiguous / schema error short-circuits BEFORE the callback.
@@ -460,6 +497,7 @@ function makeMkForget({ projectRoot, userDir }) {
       projectRoot,
       userDir,
       reason,
+      deletedBy: deleted_by, // Task 218 (D-329 parity): CLI `--deleted-by` (default: user-explicit)
       confirm: (p) => { preview = p; return false; },
     });
     if (dry.action !== 'cancelled' || !preview) {
@@ -488,7 +526,7 @@ function makeMkForget({ projectRoot, userDir }) {
     }
 
     // Step 2 — token matches → execute.
-    const r = forget({ idOrQuery: id, projectRoot, userDir, reason, yes: true });
+    const r = forget({ idOrQuery: id, projectRoot, userDir, reason, deletedBy: deleted_by, yes: true });
     if (r.action !== 'tombstoned') return mcpToolError(r);
     return {
       content: [{ type: 'text', text: JSON.stringify(
@@ -595,9 +633,10 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
         since: z.string().optional().describe('ISO 8601 timestamp'),
         limit: z.number().int().positive().max(1000).optional(),
         min_trust: z.enum(['low', 'medium', 'high']).optional(),
+        include_expired: z.boolean().optional().describe('include facts past their declared expires_at date (hidden by default, never deleted) — CLI parity with `cmk search --include-expired`'),
       },
     },
-    makeMkSearch({ db, semanticBackend, projectRoot }),
+    makeMkSearch({ db, semanticBackend, projectRoot, userDir }),
   );
 
   // mk_get
@@ -611,7 +650,7 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
         ids: z.array(z.string()).min(1).max(100).describe('kit observation IDs (max 100)'),
       },
     },
-    makeMkGet({ db }),
+    makeMkGet({ db, projectRoot, userDir }),
   );
 
   // mk_timeline
@@ -625,7 +664,7 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
         depth_after: z.number().int().nonnegative().max(50).optional(),
       },
     },
-    makeMkTimeline({ db }),
+    makeMkTimeline({ db, projectRoot, userDir }),
   );
 
   // mk_cite
@@ -677,7 +716,7 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
         limit: z.number().int().positive().max(1000).optional(),
       },
     },
-    makeMkRecentActivity({ db }),
+    makeMkRecentActivity({ db, projectRoot, userDir }),
   );
 
   // mk_trust (Task 108b — mutate parity). Reversible; audited.
@@ -701,6 +740,7 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
       inputSchema: {
         id: z.string().describe('kit observation ID (a project-tier P- fact)'),
         to: z.enum(['USER.md', 'HABITS.md', 'LESSONS.md']).optional().describe('target user-tier file (default LESSONS.md)'),
+        section: z.string().optional().describe('override the landing section within the target file (default: the topic-router picks one) — CLI parity with `cmk lessons promote --section`'),
       },
     },
     makeMkLessonsPromote({ projectRoot, userDir }),
@@ -716,6 +756,7 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
       inputSchema: {
         id: z.string().describe('kit observation ID to tombstone'),
         reason: z.string().max(500).optional().describe('why it is being forgotten (audited)'),
+        deleted_by: z.string().max(200).optional().describe('who is forgetting it — audit provenance (default: user-explicit) — CLI parity with `cmk forget --deleted-by`'),
         confirm: z.string().optional().describe('the confirm_token from the preview call — required to actually delete'),
       },
     },
@@ -770,9 +811,18 @@ export async function runMcpServer({ projectRoot, userDir, db: dbOverride, seman
   // disk — same fresh-install gap as `cmk search` (self-test finding #0):
   // nothing reindexes for a just-installed project, so without this the
   // model's first mk_search returns empty for facts sitting in the
-  // scratchpads. Incremental (mtime/sha1 diff) + best-effort; in-session
-  // freshness for facts written AFTER startup is the runtime watcher's job
-  // (future). The in-process buildMcpServer tests bypass this path.
+  // scratchpads. Incremental (mtime/sha1 diff) + best-effort.
+  //
+  // Task 218 (D-329): in-session freshness for facts written AFTER startup (a
+  // Stop-hook auto-extract child, a `cmk remember` CLI, a 2nd window) is handled
+  // by a PER-QUERY incremental reindex inside each read tool — the SAME thing
+  // every CLI read already does (subcommands.mjs `cmk search` runs reindexBoot
+  // per call). The MCP reader used to skip it on a false "the long-lived watcher
+  // handles it" premise (the watcher was never even wired, and chokidar drops
+  // events under load anyway — the D-329 research). Making the MCP reader
+  // consistent with the CLI is deterministic + load-immune (a synchronous inline
+  // refresh, no async FS event to lose). This boot reindex stays as the
+  // first-query fast-path; refreshIndexForRead does the per-call work.
   if (projectRoot) {
     try {
       reindexBoot({ projectRoot, userDir, db });
