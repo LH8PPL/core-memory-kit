@@ -229,6 +229,14 @@ export async function resolvePruneQueue({ projectRoot, userDir, prompter, now } 
   const empty = { converted: 0, forgotten: 0, kept: 0, skipped: 0, errors: [] };
   if (!existsSync(queuePath)) return empty;
 
+  // Read-resolve-rewrite window (skill-review note, accepted posture): a NEW
+  // candidate appended by ANOTHER process between this read and the final
+  // write is lost from the file (re-routed on that fact's next floored dampen
+  // — routePruneCandidate re-checks the file each time, so nothing is lost
+  // durably). Same single-resolver posture as resolveReviewQueue /
+  // resolveConflictQueue; the mid-resolve dampen a CONVERT itself triggers
+  // (memoryWrite replace dampens the old id) is a no-op here — the id is
+  // already in the snapshot this resolver read.
   const lines = readFileSync(queuePath, 'utf8').split(/\r?\n/);
   const { entries } = parsePruneQueue(lines.join('\n'));
   const pending = entries.filter((e) => e.resolution === 'pending');
