@@ -143,6 +143,16 @@ The kit's automatic features (compression, auto-extract, the cross-project perso
 
 If it's missing, HC-11 FAILS — but this is an **honest degrade, not a breakage**: capture, search, recall, and the delete-guardrail keep working (they're pure files + SQLite); only the automatic LLM steps wait until the CLI is present. Repair: install your agent's CLI (see the [README Prerequisite note](README.md#quickstart) for the per-agent install line), then re-run `cmk doctor`. `cmk install` also gives this heads-up at install time.
 
+## When recall goes wrong — the three-level diagnostic (not an HC; a checklist)
+
+_A-TMA's bank/retrieval/QA failure decoupling (arXiv 2607.01935), folded in per Task 209 — when "the AI answered from stale/wrong memory," find WHICH level failed before reaching for a fix:_
+
+1. **Bank** — *was the truth ever written/marked?* Check the fact exists (`cmk search`, `cmk get <id>`) and that a replaced fact is actually MARKED (`superseded_by` / a closed validity window / a tombstone). A missing mark is a write-side gap (the temporal sweep / `cmk forget` territory) — no retrieval fix can help.
+2. **Retrieval** — *did search surface the state the question asked for?* The recall-log (`context/.locks/recall.log`) shows exactly which ids each query surfaced. A current-state question drowning in old facts, or a history question that can't reach superseded ones (they need `--include-expired` or the archive), is a retrieval-side gap.
+3. **QA** — *did the model read the surfaced evidence correctly?* Since Task 209, non-current facts arrive LABELED (`[superseded — kept for history]` / `[expired]` / `[retracted]`) with a one-line instruction, so identical evidence no longer flips answers on ambiguity (A-TMA Case Study 1). If a labeled result was still misread, the failure is prompt-side, not memory-side.
+
+The levels fail independently — fixing the wrong one (e.g. re-tuning retrieval when the bank never marked the supersession) burns effort with zero effect.
+
 ## Adding new health checks
 
 When the system grows, add a new HC by:

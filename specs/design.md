@@ -1809,6 +1809,8 @@ Returns: `[{id, snippet, source_file, source_line, tier, trust, score}]`. Trust 
 
 **Ranking learns (Task 194, v0.5.3):** the facts-scope keyword rank is a **confidence-gated trust blend** — `bm25 × (1 + λ·(trust_score − 0.5))`, applied only when the fact carries ≥ 3 applied outcome signals; judgments never blend; hybrid inherits via RRF; inject is untouched. Full mechanics + rationale: §20.7 (+ the §20.3 amendment).
 
+**Results carry their temporal STATE (Task 209, v0.5.3 — A-TMA's QA-level mechanism, arXiv 2607.01935):** a non-current row gains a `state` field (`superseded` / `expired` / `retracted`) projected DETERMINISTICALLY from already-known metadata (`superseded_by` / `expires_at` / `deleted_at` — `state-label.mjs::projectStateLabel`, pure, no LLM), and a fixed label prefixes the CLI snippet; a one-line reading instruction ("unlabeled = current…") rides the envelope ONLY when a labeled row is present. Same projection on `cmk get`/`mk_get` (shared read-core) and on the SNAPSHOT (a scratchpad bullet whose provenance carries `superseded_by:` injects with the `[superseded — kept for history]` prefix — pure string scan before the provenance strip, no DB on the hot path). LABELS, never RE-RANKS (§20.3 intact); the common case (current) stays unlabeled — zero noise, byte-identical snapshots when nothing is stateful. A-TMA's Case Study 1 is the evidence: identical retrieved evidence flips from wrong to correct answer on labels + the instruction alone. The bank/retrieval/QA failure taxonomy lives in HEALTH-CHECKS.md ("When recall goes wrong").
+
 **Implements**: FR-16, FR-17, FR-18, FR-30, NFR-9.
 
 #### 9.3.1 Layer 5b backend — RESOLVED 2026-06-10 (ADR-0015): sqlite-vec + optional local ONNX embedder

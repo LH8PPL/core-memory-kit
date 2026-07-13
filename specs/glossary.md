@@ -316,6 +316,12 @@ A fact whose JOB is negative: "avoid this / do not retry this route." A repeated
 
 Cross-refs: [[Learn-loop]], [[Demote-not-evict]], [[Judgment]], [[Survival gate]]. Spec: SYSTEM-MAP §6; design §20.7; ADR-0017 Decision #5; Task 194.
 
+### State label
+
+The deterministic temporal-state marker recall serialization attaches to a NON-current fact (Task 209, v0.5.3 — A-TMA's QA-level mechanism): `[superseded — kept for history]` / `[expired]` / `[retracted]`, projected from already-known metadata (`superseded_by` / `expires_at` / `deleted_at`) by a pure function — no LLM, no DB on the inject path. Applied wherever facts reach Claude (search results + `get` + the snapshot), with a one-line envelope instruction ("unlabeled = current") emitted only when a labeled row is present. LABELS, never re-ranks (§20.3 intact); current facts stay unlabeled — zero noise. Evidence: A-TMA Case Study 1 — identical retrieved evidence flips from wrong to correct answer on labels alone.
+
+Cross-refs: [[Trust score]], [[Search blend]], [[Tombstone]]. Spec: design §9.3; `state-label.mjs`; the HEALTH-CHECKS "When recall goes wrong" taxonomy; D-308.
+
 ### Search blend
 
 The confidence-gated ranking term that turned [[Trust score]] from decorative into load-bearing (Task 194, v0.5.3 — ADR-0017 Phase 2, the loop's last edge): the facts-scope keyword rank becomes `bm25 × (1 + λ·(trust_score − 0.5))`, applied ONLY when the fact carries ≥ 3 APPLIED outcome signals (`observations.signal_count`, the feedback counter — restatement/recurrence deliberately never counts, so re-saying a thing can't buy rank). Judgments never blend (`judgment_*.md` excluded); hybrid inherits via RRF; a dampened row is re-ranked, never dropped; **inject is untouched** (enum-ordered — the §20.3 hot-path rule, structurally pinned). Shape: Memoria's retrieval multiplier on FTS5's negative-better rank.

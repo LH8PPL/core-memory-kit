@@ -10,6 +10,19 @@
 
 ---
 
+## 2026-07-13 — D-331: DECISION — Task 209 ships state-labeled recall (A-TMA's QA-level mechanism; the v0.5.3 rider batch opens)
+
+**The gap:** the kit COMPUTED and STORED temporal state (Task 66 windows, `superseded_by`, `expires_at`, tombstones) but never TOLD Claude at recall time — search results and the snapshot rendered facts as undifferentiated bullets, so a legitimately-surfaced old state forced Claude to infer currency from prose. A-TMA (arXiv 2607.01935, Case Study 1): identical retrieved evidence flips from wrong to correct answer with deterministic state labels + a one-line instruction alone — pure labeling, zero retrieval change.
+
+**The build (labels, never re-ranks — §20.3 intact):**
+- `state-label.mjs` (new, PURE — no LLM, no DB, injectable clock): `projectStateLabel({deletedAt, supersededBy, expiresAt, now})` → null (current — UNLABELED, the zero-noise contract) | `retracted` | `superseded` | `expired`; precedence retracted > superseded > expired; `expires_at == now` is already expired (the 66.3 exclusive-end convention). Fixed vocabulary: `[superseded — kept for history]` / `[expired]` / `[retracted]`.
+- **Search**: the facts-scope SELECT gains `superseded_by`/`expires_at`; each non-current row carries `state`; the CLI prefixes the label ahead of the snippet; mk_search rides the one-line instruction as an EXTRA content block only when a labeled row is present (results stay content[0], shape-compatible — the degradedNote pattern).
+- **get (shared read-core, ADR-0014)**: same projection on live rows; a recovered tombstone is labeled `retracted` explicitly.
+- **Snapshot**: `labelSupersededBullets` — a pure string scan of bullet+provenance pairs BEFORE `cleanScratchpadBody` strips the comments (the only place the bullet-state signal exists); the instruction line is cap-RESERVED from raw blocks but EMITTED only if a labeled bullet survives truncation (over-reserve keeps `snapshot ≤ capBytes` strictly true, §7.1.2). A label-free snapshot is byte-identical to pre-209. Superseded is the ONLY bullet state (tombstoned bullets are stripped from the file; bullets carry no expires_at).
+- **HEALTH-CHECKS.md** gains the A-TMA bank/retrieval/QA "When recall goes wrong" diagnostic (never-marked vs not-surfaced vs surfaced-but-misread — the levels fail independently; fixing the wrong one has zero effect).
+
+**Self-caught while wiring:** the Task-194 lifecycle-map edit had introduced a duplicate edge number (two #19 rows — the pre-existing expectation→judgment row was missed); renumbered 19–22 in file order. _Relates A-TMA (the mechanism + evidence), Task 66/198 (the shipped state engine this surfaces), §20.3 (honored), Task 194 (the ranking sibling), Task 211 (the retrieval-side sibling, next), D-308/D-309, D-331._
+
 ## 2026-07-13 — D-330: DECISION — Task 194 ships the confidence-gated search blend + survival gate + anti-pattern conversion (ADR-0017 Phase 2 — the MEASURE→RETRIEVE edge CLOSED; opens v0.5.3)
 
 **The learn-loop is now end-to-end:** `trust_score` stopped being decorative (the field-wide "inert socket" anti-pattern) and became load-bearing in the ONE place the ADR authorized — SEARCH, where the DB is already open. The design calls, each grounded:

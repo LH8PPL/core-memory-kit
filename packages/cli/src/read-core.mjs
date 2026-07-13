@@ -10,10 +10,11 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ID_PATTERN } from './tier-paths.mjs';
 import { parse as parseFrontmatter } from './frontmatter.mjs';
+import { stateFieldFor } from './state-label.mjs';
 
 const GET_COLUMNS =
   'id, body, heading_path, source_file, source_line, tier, trust, ' +
-  'write_source, created_at, superseded_by, deleted_at';
+  'write_source, created_at, superseded_by, deleted_at, expires_at';
 
 /**
  * Fetch full observation rows by id. An invalid-format or missing id becomes
@@ -32,17 +33,22 @@ const GET_COLUMNS =
  * @param {object} [opts]
  * @param {boolean} [opts.includeTombstoned=false] human-only recovery opt-in
  * @param {string}  [opts.projectRoot] required when includeTombstoned (to find the archive)
+ * @param {number|string} [opts.now] state-label clock injection (Task 209; default wall clock)
  */
-export function getObservations(db, ids, { includeTombstoned = false, projectRoot } = {}) {
+export function getObservations(db, ids, { includeTombstoned = false, projectRoot, now } = {}) {
   const stmt = db.prepare(`SELECT ${GET_COLUMNS} FROM observations WHERE id = ?`);
   return ids.map((id) => {
     if (!ID_PATTERN.test(id)) return { id, error: 'invalid id format' };
     const row = stmt.get(id);
-    if (row) return row; // a LIVE hit always wins — recovery is a miss-only fallback
+    // Task 209: rows carry their temporal STATE where ≠ current-active (the
+    // A-TMA label projection); current rows carry no state key (zero noise).
+    if (row) return { ...row, ...stateFieldFor(row, now) }; // a LIVE hit always wins
     // Live miss. Recovery is opt-in AND needs projectRoot to locate the archive.
     if (includeTombstoned && projectRoot) {
       const recovered = readTombstone(projectRoot, id);
-      if (recovered) return recovered;
+      // A recovered tombstone is by definition retracted — label it so the
+      // human-driven recovery output states its currency explicitly.
+      if (recovered) return { ...recovered, state: 'retracted' };
     }
     return { id, error: 'not found' };
   });

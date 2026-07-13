@@ -86,6 +86,7 @@ Search accumulated memory.
 - `--scope facts|transcripts|decisions` — `facts` (default) searches curated memory; `transcripts` searches the raw session record (verbatim transcripts + compressed session summaries) — the last-resort recall tier; hits are `T:<file>:<line>` locations, and fact-only filters (tier/trust/since) don't apply. `decisions` searches the append-only decision journal (`context/DECISIONS.md`) — use it for decision **history / evolution / "what did we reject"** queries; it returns superseded + retracted decisions the live fact store no longer carries (keyword-only; fact-only filters don't apply).
 - `--min-trust low|medium|high` · `--tier U|P|L` · `--since <ISO date>` · `--limit <n>` (default 20) · `--include-tombstoned`.
 - `--include-expired` — include facts past their declared `expires_at` (hidden from results by default; hidden ≠ deleted — the human-only recovery opt-in, symmetric with tombstones) (Task 66.3).
+- **State labels (Task 209, automatic — no flag):** a non-current fact prints its temporal state ahead of the snippet — `[superseded — kept for history]` / `[expired]` / `[retracted]` — and a one-line reading instruction follows the results whenever a labeled row is present. Unlabeled = current. Zero noise when everything is current.
 ```bash
 cmk search "postgres"
 cmk search "deploy steps" --min-trust high --tier P --limit 5
