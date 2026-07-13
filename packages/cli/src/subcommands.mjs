@@ -550,8 +550,17 @@ async function runInstallForAgent({ ide, options, log, logError }) {
     // The CLI agent-config (kiro-cli) is automatic only when cmk is the default
     // agent. If the user already has a default, surface the one manual step.
     if (r.cliDefaultAgent === 'skipped-existing') {
-      log('  Note: you already have a Kiro CLI default agent — the kit installed a `cmk` agent instead.');
-      log('        Run `kiro-cli --agent cmk`, or set `chat.defaultAgent` to `cmk`, for automatic CLI memory.');
+      // D-328: the kit won't clobber your own kiro-cli default agent, so it
+      // installs a named `cmk` agent instead. On your OTHER default agent the
+      // kit's memory still CAPTURES automatically (project `.kiro/hooks/` fire
+      // regardless of agent — D-285), but an explicit MCP save may prompt once
+      // per session — kiro-cli ignores mcp.json's autoApprove by design (issue
+      // #4672, intended), and you can't pre-trust tools for a default agent you
+      // didn't author (#4384). The clean fixes, in order of least→most change:
+      log('  Note: you already have a Kiro CLI default agent — the kit installed a `cmk` agent instead (yours is untouched).');
+      log('        Memory still captures automatically on your agent. For fully prompt-free EXPLICIT saves, either:');
+      log('          • make cmk your default:   kiro-cli agent set-default cmk');
+      log('          • or trust per session:    /tools trust @cmk   (inside kiro-cli chat)');
     }
     if (scaffold.errors.length > 0) {
       for (const e of scaffold.errors) logError(`  error: ${e.path}: ${e.error}`);
