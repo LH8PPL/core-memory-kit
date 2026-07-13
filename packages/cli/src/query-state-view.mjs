@@ -181,6 +181,14 @@ export function classifyQueryStateView(query) {
   // Strip consumed hint tokens. Falls back to the original query if stripping
   // would empty it (a pure-hint query like "before" still needs SOMETHING to
   // search on).
+  //
+  // HONESTY NOTE (skill-review, accepted): contentQuery is rebuilt from the
+  // lowercased token stream, so a user's explicit `"quoted phrase"` loses its
+  // adjacency semantics and a `v0.3`-style token becomes two AND terms — but
+  // ONLY on the stateful views (current/neutral never swap the query), and
+  // every such change is MONOTONIC-BROADER: removing/loosening an AND term
+  // can add matches, never lose one. A rare quoted-phrase+temporal-hint query
+  // gets broader (labeled, envelope-explained) results, not wrong ones.
   const remaining = tokens.filter((_, i) => !consumed.has(i));
   const contentQuery = remaining.length > 0 ? remaining.join(' ') : query;
 
