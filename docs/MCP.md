@@ -27,14 +27,14 @@ Verified against the server's schemas (`packages/cli/src/mcp-server.mjs`); names
 | Tool | Parameters |
 | --- | --- |
 | `mk_remember` | `text` (required, ≤5000) · `tier` U/P/L (U/L are captured to P with a promotion note — `mk_lessons_promote` is the cross-project path) · rich capture: `why` + `how` (≤5000 each), `title` (≤200), `type` feedback/project/reference/user, `links` (related fact names), `shape` State/Event/Plan/Relationship/Preference/Absence/Timeless (what KIND of truth the fact asserts — default State; Task 66.1), `expires` ISO date/datetime (declared validity end — after it the fact hides from search and the weekly sweep tombstones it; Task 66.3) · `cites` is not recorded yet — omit |
-| `mk_search` | `query` (required) · `mode` keyword/semantic/hybrid (omit = the project default) · `scope` facts/transcripts/decisions (transcripts = the session record, last resort; decisions = the decision journal, for history/"what did we reject") · `tier` U/P/L · `since` ISO date · `limit` ≤1000 · `min_trust` low/medium/high (the fact-only filters + semantic/hybrid don't apply under `scope: "transcripts"` or `"decisions"`) |
+| `mk_search` | `query` (required) · `mode` keyword/semantic/hybrid (omit = the project default) · `scope` facts/transcripts/decisions (transcripts = the session record, last resort; decisions = the decision journal, for history/"what did we reject") · `tier` U/P/L · `since` ISO date · `limit` ≤1000 · `min_trust` low/medium/high · `include_expired` (include facts past their declared `expires_at`; hidden by default, never deleted) (the fact-only filters + semantic/hybrid don't apply under `scope: "transcripts"` or `"decisions"`) |
 | `mk_get` | `ids` (required, 1–100 per call — batch, don't loop) |
 | `mk_timeline` | `anchor` (required id) · `depth_before` / `depth_after` (≤50, default 5 each) |
 | `mk_cite` | `id` (required) |
 | `mk_recent_activity` | `window` 1h/24h/7d (default 24h) · `limit` ≤1000 (default 20) |
 | `mk_trust` | `id` (required) · `level` low/medium/high (required) |
-| `mk_lessons_promote` | `id` (required, a P- fact) · `to` USER.md/HABITS.md/LESSONS.md (default LESSONS.md) |
-| `mk_forget` | `id` (required) · `reason` (≤500, audited) · `confirm` — the token from the preview call; required to actually delete |
+| `mk_lessons_promote` | `id` (required, a P- fact) · `to` USER.md/HABITS.md/LESSONS.md (default LESSONS.md) · `section` (override the landing section; default: the topic-router picks one) |
+| `mk_forget` | `id` (required) · `reason` (≤500, audited) · `deleted_by` (≤200, audit provenance; default user-explicit) · `confirm` — the token from the preview call; required to actually delete |
 | `mk_queue_list` | `queue` review/conflicts (default review) |
 | `mk_queue_resolve` | `queue` (required) · `id` (required) · `action` — review: promote/discard; conflicts: keep-old/keep-new (`merge-both` routes to the interactive `cmk queue conflicts`) |
 

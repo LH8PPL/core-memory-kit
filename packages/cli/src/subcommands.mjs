@@ -1063,7 +1063,12 @@ function runInitUserTier(/* options, command */) {
  */
 function runTrust(id, level /* , options, command */) {
   const projectRoot = resolvePath(process.cwd());
-  const result = overrideTrustAction({ id, level, projectRoot });
+  // Task 218 (D-329 parity): thread the resolved userDir — same as runForget /
+  // runLessonsPromote — so a U-tier `cmk trust` reaches the right tier
+  // EXPLICITLY, instead of relying on the library-level defaultUserDir()
+  // homedir()-reach the tier-paths comment warns against. Matches mk_trust,
+  // which already passes userDir.
+  const result = overrideTrustAction({ id, level, projectRoot, userDir: resolveUserDir() });
   if (result.action === 'trust-updated') {
     console.log(
       `cmk trust: ${result.id} (${result.tier}) → ${result.level} — updated ${result.updatedLocations.length} location(s)`,

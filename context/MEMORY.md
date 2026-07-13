@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-RLE5aWN9) Demands primary-source verification (code, specs, actual behavior) before accepting answers; will push back on unsourced assistant assertions
-  <!-- source: auto-extract-session, source_line: 1, sha1: 2274182a93ab676bb142df28810a26179a3abfa567963afc2e55bdb866fc89cd, write: auto-extract, trust: high, at: 2026-07-12T12:00:16Z -->
 - (P-ESXEGLaX) Kit is live (`C:\Projects\claude-memory-kit`) with active MCP servers and auto-extract processes; user installing to temp folder elsewhere exposed the shared-global-DLL conflict directly.
   <!-- source: auto-extract-session, source_line: 1, sha1: f454f3a6c88d9acb1d024e117f09fb4131c10b2b93530169b78c3ced317db24d, write: auto-extract, trust: high, at: 2026-07-12T12:01:50Z -->
 - (P-ALAUZFKJ) Confirmed layered FastAPI + in-memory repositories as the backend architecture
@@ -20,6 +18,8 @@
   <!-- source: review-promote, source_line: 1, sha1: d0cc45c50d7c93345ec246529487a183053a919eabda0f02026862d02340923c, write: user-explicit, trust: high, at: 2026-07-12T20:00:01Z -->
 - (P-JX6VEMJM) Project enforces "never-hand-edit-memory" principle to preserve auto-capture integrity
   <!-- source: review-promote, source_line: 1, sha1: e415df902cc23e3e7f7bde302464def1844d2e0c0acfcdc5fe9a54fea631fe25, write: user-explicit, trust: high, at: 2026-07-12T20:00:03Z -->
+- (P-YYFNQFSP) Task 218 is the last code task in v0.5.2; after stress + skill-review pass, goes to PR and v0.5.2 is code-complete
+  <!-- source: auto-extract-session, source_line: 1, sha1: cb7a9be987c22c5dde5c7e8b027d535d07a2d7103b3daacdb76c07c9f2a2c1d9, write: auto-extract, trust: high, at: 2026-07-13T09:44:33Z -->
 
 ## Environment Notes
 

@@ -838,12 +838,26 @@ export function startRuntimeWatcher({
 
   function handleUnlink(absPath) {
     if (!isObservationSource(absPath)) return;
-    const source_file = relativeSource(absPath, { projectRoot, userDir });
-    const txn = db.transaction(() => {
-      db.prepare(DELETE_OBSERVATIONS_FOR_PATH_SQL).run(source_file);
-      db.prepare('DELETE FROM files WHERE path = ?').run(source_file);
-    });
-    txn();
+    // Best-effort, mirroring handleChange (Task 218 skill-review #1): chokidar
+    // invokes listeners inside its async _emit, so an uncaught throw here becomes
+    // an unhandledRejection → process crash in any long-lived watcher consumer —
+    // a >5s lock past busy_timeout, a non-BUSY sqlite error, or relativeSource
+    // throwing on a malformed path must log + continue, never sink the process.
+    // (The MCP server no longer uses this watcher — Task 218 shipped per-query
+    // refresh instead, D-329 — but the guard hardens startRuntimeWatcher for any
+    // future consumer + matches its handleChange sibling.)
+    try {
+      const source_file = relativeSource(absPath, { projectRoot, userDir });
+      const txn = db.transaction(() => {
+        db.prepare(DELETE_OBSERVATIONS_FOR_PATH_SQL).run(source_file);
+        db.prepare('DELETE FROM files WHERE path = ?').run(source_file);
+      });
+      txn();
+    } catch (err) {
+      process.stderr.write(
+        `cmk runtime-watcher: unlink skipped ${absPath}: ${err?.message ?? err}\n`,
+      );
+    }
   }
 
   watcher.on('add', handleChange);

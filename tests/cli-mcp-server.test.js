@@ -51,16 +51,16 @@ async function makeFixture() {
   db = openIndexDb({ projectRoot });
 }
 
-function seedObservation(db, { id, body, tier = 'P', trust = 'high', created_at = Date.parse('2026-05-27T10:00:00Z') }) {
+function seedObservation(db, { id, body, tier = 'P', trust = 'high', created_at = Date.parse('2026-05-27T10:00:00Z'), expires_at = null }) {
   db.prepare(`
     INSERT INTO observations
       (id, tier, source_file, source_line, source_sha1, heading_path, body,
-       write_source, trust, created_at, superseded_by, deleted_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       write_source, trust, created_at, superseded_by, deleted_at, expires_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id, tier, 'MEMORY.md', 1, 'a'.repeat(40),
     'MEMORY.md > Active Threads', body, 'user-explicit', trust,
-    created_at, null, null,
+    created_at, null, null, expires_at,
   );
 }
 
@@ -162,6 +162,24 @@ describe('Task 31 — MCP server', () => {
       const parsed = JSON.parse(r.content[0].text);
       expect(parsed).toHaveLength(1);
       expect(parsed[0].id).toBe('P-AAAAAAAA');
+    });
+
+    // Task 218 (D-329 parity): mk_search exposes include_expired (CLI parity;
+    // the user's call — the agent CAN opt into expired facts). Expired = past a
+    // DECLARED expires_at (hidden by default, never deleted).
+    it('hides expired facts by default, and include_expired:true reveals them (CLI parity)', async () => {
+      const past = Date.parse('2020-01-01T00:00:00Z'); // long expired
+      seedObservation(db, { id: 'P-CCCCCCCC', body: 'sprint freeze quokka window', expires_at: past });
+      const server = buildMcpServer({ projectRoot, userDir, db });
+
+      // default: expired fact is HIDDEN
+      const hidden = JSON.parse((await invokeTool(server, 'mk_search', { query: 'quokka' })).content[0].text);
+      expect(hidden).toHaveLength(0);
+
+      // include_expired:true → REVEALED (the agent can opt in)
+      const shown = JSON.parse((await invokeTool(server, 'mk_search', { query: 'quokka', include_expired: true })).content[0].text);
+      expect(shown).toHaveLength(1);
+      expect(shown[0].id).toBe('P-CCCCCCCC');
     });
 
     it('mk_search with mode:semantic and an unavailable backend returns isError', async () => {
@@ -569,6 +587,21 @@ describe('Task 31 — MCP server', () => {
       expect(['promoted', 'queued']).toContain(out.action);
     });
 
+    // Task 218 (D-329 parity): mk_lessons_promote accepts `section` (CLI
+    // parity with `cmk lessons promote --section`) — an explicit section
+    // overrides the topic-router's choice.
+    it('mk_lessons_promote honors an explicit section (CLI parity)', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const id = await seedFact(server, 'promote-with-section');
+      const r = await invokeTool(server, 'mk_lessons_promote', { id, to: 'LESSONS.md', section: 'Anti-patterns' });
+      expect(r.isError).toBeFalsy();
+      const out = JSON.parse(r.content[0].text);
+      expect(out.accepted).toBe(true);
+      if (out.action === 'promoted') {
+        expect(out.section).toBe('Anti-patterns'); // the explicit section won, not the router default
+      }
+    });
+
     it('mk_forget is two-step: first call previews + issues confirm_token, does NOT delete', async () => {
       const server = buildMcpServer({ projectRoot, userDir, db });
       const id = await seedFact(server, 'forget-target');
@@ -590,6 +623,25 @@ describe('Task 31 — MCP server', () => {
       expect(out.action).toBe('tombstoned');
       // Door 2 — the live fact file is gone (moved to the tombstone archive).
       expect(existsSync(factPath)).toBe(false);
+    });
+
+    // Task 218 (D-329 parity): mk_forget accepts `deleted_by` (CLI parity with
+    // `cmk forget --deleted-by`) — the audit/tombstone records the custom deleter.
+    it('mk_forget honors deleted_by in the tombstone provenance (CLI parity)', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const id = await seedFact(server, 'forget-with-deleter');
+      const preview = JSON.parse((await invokeTool(server, 'mk_forget', { id, deleted_by: 'ci-bot' })).content[0].text);
+      const r2 = await invokeTool(server, 'mk_forget', { id, deleted_by: 'ci-bot', confirm: preview.confirm_token });
+      expect(r2.isError).toBeFalsy();
+      expect(JSON.parse(r2.content[0].text).action).toBe('tombstoned');
+      // the tombstone archive file records the custom deleter, NOT the default —
+      // discriminating (skill-review #1): if deleted_by were ignored, the frontmatter
+      // would carry the `user-explicit` default instead of `ci-bot`.
+      const tombstone = join(projectRoot, 'context', 'memory', 'archive', 'tombstones', `${id}.md`);
+      expect(existsSync(tombstone)).toBe(true);
+      const body = readFileSync(tombstone, 'utf8');
+      expect(body).toMatch(/deleted_by:\s*ci-bot/);
+      expect(body).not.toMatch(/deleted_by:\s*user-explicit/);
     });
 
     it('mk_forget with a WRONG token does not delete (re-previews)', async () => {
