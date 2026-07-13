@@ -179,11 +179,12 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
   security-patch-class fix may jump the queue and re-stamp what follows, exactly the v0.4.2
   precedent; that hazard is WHY the digits are "expected," not locked):
   1. **v0.5.1 — SHIPPED 2026-07-12** — 203+204 (headline: resumable-distill starvation fix + ADR-0020) + riders 205 / 206 / 207 / 213 / 214 / 215 / 216 / 219 / 220, plus the cut-gate fast-follow **222** (the MCP-preflight now informs-not-prompts on a plain `cmk install`, D-323 — surfaced live in the gate). The hardening lane: security (216 side-door screening), reliability (203/204/219), Windows polish (215 windowless / 207 BOM), install-integrity (220 duplicate-fold), dev-tooling (214). _(Was "203+204 + riders 205/206/207/213" when planned; the lane grew via the D-248 backlog sweep + the security review's 216 + live-gate 222.)_
-  2. **v0.5.2 — the cross-agent breadth patch (SCOPE SET 2026-07-12, the user's call; D-325):**
-     the **Cursor adapter** (Task 196) **+ the Codex adapter** (Task 196 tail) **+ Task 165**
-     (parked Kiro-surface fixes) **+ Task 218** (MCP index freshness). One theme (breadth on the
+  2. **v0.5.2 — ✅ SHIPPED 2026-07-13** (npm `@lh8ppl/claude-memory-kit@0.5.2` provenance-signed + GitHub Release `v0.5.2`). **The cross-agent breadth patch (SCOPE SET 2026-07-12, the user's call; D-325):**
+     the **Cursor adapter** (Task 196, shipped v0.4.5) **+ the Codex adapter** (Task 196 tail, PR #284/D-327) **+ Task 165**
+     (parked Kiro-surface fixes → document-not-build, PR #285/D-328) **+ Task 218** (MCP index freshness → became a
+     CLI↔MCP PARITY fix, PR #286/D-329). One theme (breadth on the
      Task-50 `defineAgentProfile` seam) → batching in a patch honors the one-differentiator rule
-     (same differentiator, not competing). **Task 208 (Cursor INTERACTIVE cut-gate) is FLAGGED
+     (same differentiator, not competing). _Task 218 grew via the user's "make them the same": a per-query index refresh on the MCP reads (CLI parity) + 4 audited param drifts closed. Pre-tag doc walk (the user's "are all docs updated?") caught + fixed Codex drift across QUICKSTART / the 4 per-agent sibling footers / glossary._ **Task 208 (Cursor INTERACTIVE cut-gate) is FLAGGED
      PENDING-TOKENS** — the maintainer's Cursor tokens are exhausted (as of 2026-07-12), so the
      Cursor *adapter* ships this lane but the live interactive gate waits for token refresh
      (~2026-07-24) and rides whatever slot is current then. Deliberately EXCLUDED as off-theme:
