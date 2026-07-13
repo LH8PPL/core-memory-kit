@@ -1239,6 +1239,8 @@ async function runSearch(queryParts, options) {
       // Task 66.3: the expired-recovery opt-in, symmetric with tombstones
       // (mem0 show_expired parity — expired facts hide, never delete).
       includeExpired: options?.includeExpired === true,
+      // Task 211: the state-view OVERRIDE only — classification is automatic.
+      stateView: options?.stateView,
       semanticBackend,
     });
     if (r.action === 'error') {
@@ -1278,6 +1280,13 @@ async function runSearch(queryParts, options) {
     // row is present (zero noise on all-current results).
     if (r.results.some((x) => x.state)) {
       console.log(STATE_INSTRUCTION);
+    }
+    // Task 211: say WHY old rows appeared when the state-view gate biased
+    // retrieval (historical/transition only — neutral/current print nothing).
+    if (r.state_view) {
+      console.log(
+        `state view: ${r.state_view} — expired/superseded history included${r.state_view === 'historical' ? ' and listed first' : ''}`,
+      );
     }
   } finally {
     db.close();
@@ -2968,6 +2977,7 @@ export const subcommands = [
       { flags: '--limit <n>', description: 'max results (default: 20)' },
       { flags: '--include-tombstoned', description: 'include deleted observations in results' },
       { flags: '--include-expired', description: 'include facts past their declared expires_at (hidden by default, never deleted)' },
+      { flags: '--state-view <view>', description: 'OVERRIDE the automatic query state-view classification: current | historical | transition | neutral (Task 211 — normally detected from the query, no flag needed)' },
       { flags: '--project <dir>', description: 'project root to search (default: cwd). Used by the kiro-cli agent (no `cd` prefix — Kiro #4579).' },
     ],
     action: runSearch,

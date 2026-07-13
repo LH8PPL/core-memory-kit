@@ -10,6 +10,14 @@
 
 ---
 
+## 2026-07-13 — D-332: DECISION — Task 211 ships the query state-view gate (A-TMA's retrieval-level mechanism; the §16.18 4-view cut, un-deferred on its evidence)
+
+**The gap:** every query was state-neutral — a history question ("what did we use before X?") had no path to PREFER the superseded/expired record (expired hidden by default; superseded competing on BM25 alone). §16.18 deferred the 7-mode classifier + reranker as infrastructure-heavy — correctly; A-TMA's new evidence (its retrieval wins come from an explicitly RULE-BASED 4-view profiler — hint words + negation guards, no classifier infra) killed the cost premise for the 4-view cut (the D-248 revisit rule, executed).
+
+**The build:** `query-state-view.mjs` (pure, total, zero-LLM): hint catalogs (historical/transition/current phrases, word-boundary token matching) + a 5-token negation guard — a negated past-hint COUNTS AS a current hit ("not what we used before" asks for the present). Verdict precedence: transition > (past+present together = a comparison → transition) > historical > current > neutral. In search() (facts scope only): historical/transition auto-set includeExpired AND swap the FTS query for `contentQuery` — **the composition find of the task**: hint words are view METADATA the classifier consumed, and FTS5's implicit-AND would otherwise demand the asker's temporal adverb appear in fact bodies ("deploy target before" matched NOTHING until the strip; found by the integration tests going empty). Historical additionally buckets stateful (209-labeled) rows FIRST — a stable partition, never a score change (§20.3 + the 194 blend untouched; within buckets the BM25/blend order is preserved exactly). Current/neutral: byte-identical pipeline, envelope-identical too (`state_view` + the one-line note ride ONLY when the gate changed retrieval). `--state-view` (CLI) / `state_view` (mk_search, parity) are overrides only. The 7-mode + reranker version stays deferred on the original grounds — §16.18 carries the shipped-marker annotation.
+
+_Relates A-TMA (mechanism + numbers), §16.18 (the deferral this narrows — annotated in-place), Task 209 (labels — the QA sibling; historical results arrive labeled), Task 194 (the blend it composes with but never touches), D-248 (the revisit rule), D-308/D-309, D-332._
+
 ## 2026-07-13 — D-331: DECISION — Task 209 ships state-labeled recall (A-TMA's QA-level mechanism; the v0.5.3 rider batch opens)
 
 **The gap:** the kit COMPUTED and STORED temporal state (Task 66 windows, `superseded_by`, `expires_at`, tombstones) but never TOLD Claude at recall time — search results and the snapshot rendered facts as undifferentiated bullets, so a legitimately-surfaced old state forced Claude to infer currency from prose. A-TMA (arXiv 2607.01935, Case Study 1): identical retrieved evidence flips from wrong to correct answer with deterministic state labels + a one-line instruction alone — pure labeling, zero retrieval change.

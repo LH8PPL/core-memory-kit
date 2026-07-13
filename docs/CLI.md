@@ -87,6 +87,7 @@ Search accumulated memory.
 - `--min-trust low|medium|high` · `--tier U|P|L` · `--since <ISO date>` · `--limit <n>` (default 20) · `--include-tombstoned`.
 - `--include-expired` — include facts past their declared `expires_at` (hidden from results by default; hidden ≠ deleted — the human-only recovery opt-in, symmetric with tombstones) (Task 66.3).
 - **State labels (Task 209, automatic — no flag):** a non-current fact prints its temporal state ahead of the snippet — `[superseded — kept for history]` / `[expired]` / `[retracted]` — and a one-line reading instruction follows the results whenever a labeled row is present. Unlabeled = current. Zero noise when everything is current.
+- **Query state-view gate (Task 211, automatic — no flag):** a history/transition question ("what did we use *before* X", "how did Y *change*") is detected by a rule-based classifier and automatically reaches the history — expired facts included, superseded ones listed first (historical view), all labeled. A plain or "current" question behaves exactly as before. `--state-view current|historical|transition|neutral` exists only as an override; when the gate fired, a `state view: …` note follows the results.
 ```bash
 cmk search "postgres"
 cmk search "deploy steps" --min-trust high --tier P --limit 5

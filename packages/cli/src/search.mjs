@@ -53,6 +53,7 @@ import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { appendRecallEntry } from './recall-log.mjs';
 import { VALID_TIERS } from './tier-paths.mjs';
 import { stateFieldFor } from './state-label.mjs';
+import { classifyQueryStateView, VALID_STATE_VIEWS, STATE_VIEWS } from './query-state-view.mjs';
 
 export const SEARCH_MODES = Object.freeze({
   KEYWORD: 'keyword',
@@ -204,6 +205,20 @@ function validateInput(opts) {
     scope !== SEARCH_SCOPES.DECISIONS
   ) {
     errors.push(`scope: must be one of facts/transcripts/decisions (got ${JSON.stringify(scope)})`);
+  }
+  // Task 211: the state-view OVERRIDE (the automatic path needs no flag —
+  // this exists for explicit control only). Closed enum; fact-scope only —
+  // an explicit override on the transcripts/decisions scopes is rejected like
+  // the other fact-only filters (the explicit-vs-configured honesty rule;
+  // AUTOMATIC classification simply doesn't run outside the facts scope).
+  if (opts.stateView !== undefined) {
+    if (!VALID_STATE_VIEWS.has(opts.stateView)) {
+      errors.push(
+        `stateView: must be one of current/historical/transition/neutral (got ${JSON.stringify(opts.stateView)})`,
+      );
+    } else if (scope !== SEARCH_SCOPES.FACTS) {
+      errors.push(`stateView: not supported under the ${scope} scope (state views apply to facts)`);
+    }
   }
   if (scope === SEARCH_SCOPES.TRANSCRIPTS) {
     // Chunks carry no tier/trust/created_at — rejecting these is more honest
@@ -688,25 +703,47 @@ export function search(opts = {}) {
     }
   }
 
+  // ── Task 211: the query STATE-VIEW gate (facts scope only) ─────────────
+  // Classify what temporal view the query asks for (rule-based, zero-LLM —
+  // query-state-view.mjs); an explicit opts.stateView override wins. On a
+  // historical/transition view, expired rows are auto-included (the whole
+  // point: a history question must reach the history — no manual flag), and
+  // Task 209's projection labels them. current/neutral leave EVERYTHING
+  // byte-identical to the pre-211 pipeline, including a caller's explicit
+  // includeExpired opt-in.
+  let stateView = null;
+  let effectiveOpts = opts;
+  if (scope === SEARCH_SCOPES.FACTS) {
+    const classified = classifyQueryStateView(opts.query);
+    stateView = opts.stateView ?? classified.view;
+    if (stateView === STATE_VIEWS.HISTORICAL || stateView === STATE_VIEWS.TRANSITION) {
+      // The hint words are view METADATA the classifier consumed — strip them
+      // from the FTS query (implicit-AND would otherwise demand the literal
+      // hint appear in fact bodies). Only on the stateful views: current/
+      // neutral keep the exact input (the byte-identical contract).
+      effectiveOpts = { ...opts, includeExpired: true, query: classified.contentQuery };
+    }
+  }
+
   let results;
   try {
     if (mode === SEARCH_MODES.KEYWORD) {
-      results = keywordBackend(opts.db, opts);
+      results = keywordBackend(effectiveOpts.db, effectiveOpts);
     } else if (mode === SEARCH_MODES.SEMANTIC) {
       // The semantic backend is an injected callable returning the same
       // shape as the scope's keyword backend (facts: {id, snippet,
       // source_file, source_line, tier, trust, score}; transcripts: the
       // synthetic-T:-id shape without tier/trust).
-      results = opts.semanticBackend(opts);
+      results = effectiveOpts.semanticBackend(effectiveOpts);
     } else {
       // hybrid: run both backends + fuse.
-      const keywordResults = keywordBackend(opts.db, opts);
-      const semanticResults = opts.semanticBackend(opts);
+      const keywordResults = keywordBackend(effectiveOpts.db, effectiveOpts);
+      const semanticResults = effectiveOpts.semanticBackend(effectiveOpts);
       const fused = reciprocalRankFusion({
         keywordResults,
         semanticResults,
       });
-      results = fused.slice(0, opts.limit ?? DEFAULT_LIMIT);
+      results = fused.slice(0, effectiveOpts.limit ?? DEFAULT_LIMIT);
     }
   } catch (err) {
     if (err instanceof FTS5ParseError) {
@@ -720,6 +757,16 @@ export function search(opts = {}) {
       });
     }
     throw err;
+  }
+
+  // Task 211: on the HISTORICAL view, bucket stateful (labeled) rows FIRST —
+  // a deterministic, STABLE pre-rank partition (never a score blend; §20.3
+  // untouched; within each bucket the BM25/blend order is preserved exactly).
+  // The history question's answer IS the old state, so it leads. Transition
+  // keeps the natural order — that answer needs both states side by side,
+  // and the Task-209 labels distinguish them.
+  if (stateView === STATE_VIEWS.HISTORICAL) {
+    results = [...results.filter((r) => r.state), ...results.filter((r) => !r.state)];
   }
 
   // Task 190 (RECALL-LOG, ADR-0017 Phase 1a): record which ids this query
@@ -737,5 +784,11 @@ export function search(opts = {}) {
     });
   }
 
+  // Task 211: surface the detected view ONLY when it changed retrieval
+  // (historical/transition) — the envelope tells Claude WHY old rows appear;
+  // current/neutral stay envelope-identical to pre-211 (zero noise).
+  if (stateView === STATE_VIEWS.HISTORICAL || stateView === STATE_VIEWS.TRANSITION) {
+    return { action: 'found', mode, scope, state_view: stateView, results };
+  }
   return { action: 'found', mode, scope, results };
 }
