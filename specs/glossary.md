@@ -322,6 +322,12 @@ The deterministic temporal-state marker recall serialization attaches to a NON-c
 
 Cross-refs: [[Trust score]], [[Search blend]], [[Tombstone]]. Spec: design §9.3; `state-label.mjs`; the HEALTH-CHECKS "When recall goes wrong" taxonomy; D-308.
 
+### Query state view
+
+The retrieval-side sibling of the [[State label]] (Task 211, v0.5.3 — A-TMA's rule-based 4-view profiler; the cheap cut of §16.18's deferred 7-mode classifier): a zero-LLM classifier (hint catalogs + a negation guard — "not what we used before" reads as current) tags each facts-scope query **current / historical / transition / neutral**. Historical/transition auto-include expired rows (a history question must reach the history — no flag) and strip the consumed hint words from the FTS query; historical additionally buckets labeled rows FIRST (a stable deterministic partition — never a score change; §20.3 and the [[Search blend]] untouched). Current/neutral are byte-identical to the default pipeline. `--state-view`/`state_view` are overrides only; the detected view rides the envelope when it changed retrieval.
+
+Cross-refs: [[State label]], [[Search blend]]. Spec: design §9.3 + §16.18 (the narrowed deferral); `query-state-view.mjs`; D-308/D-332.
+
 ### Search blend
 
 The confidence-gated ranking term that turned [[Trust score]] from decorative into load-bearing (Task 194, v0.5.3 — ADR-0017 Phase 2, the loop's last edge): the facts-scope keyword rank becomes `bm25 × (1 + λ·(trust_score − 0.5))`, applied ONLY when the fact carries ≥ 3 APPLIED outcome signals (`observations.signal_count`, the feedback counter — restatement/recurrence deliberately never counts, so re-saying a thing can't buy rank). Judgments never blend (`judgment_*.md` excluded); hybrid inherits via RRF; a dampened row is re-ranked, never dropped; **inject is untouched** (enum-ordered — the §20.3 hot-path rule, structurally pinned). Shape: Memoria's retrieval multiplier on FTS5's negative-better rank.

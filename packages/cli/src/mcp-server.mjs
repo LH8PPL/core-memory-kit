@@ -131,7 +131,7 @@ function refreshIndexForRead({ db, projectRoot, userDir }) {
 }
 
 function makeMkSearch({ db, semanticBackend, projectRoot, userDir }) {
-  return async ({ query, mode, scope, tier, since, limit, min_trust, include_expired }) => {
+  return async ({ query, mode, scope, tier, since, limit, min_trust, include_expired, state_view }) => {
     // Task 218: refresh from disk before reading (CLI parity — every `cmk search`
     // does this). Sees facts written since boot by any writer.
     refreshIndexForRead({ db, projectRoot, userDir });
@@ -202,6 +202,9 @@ function makeMkSearch({ db, semanticBackend, projectRoot, userDir }) {
       // past a DECLARED expires_at date (hidden by default, never deleted);
       // distinct from tombstones, which stay agent-blind (D-163).
       includeExpired: include_expired === true,
+      // Task 211: the state-view OVERRIDE only — the 4-view classification is
+      // automatic inside search() (CLI parity with `--state-view`).
+      stateView: state_view,
       semanticBackend: backend,
     });
     if (r.action === 'error') {
@@ -221,6 +224,14 @@ function makeMkSearch({ db, semanticBackend, projectRoot, userDir }) {
         // results. CLI parity: `cmk search` prints the same line.
         ...(Array.isArray(r.results) && r.results.some((x) => x.state)
           ? [{ type: 'text', text: STATE_INSTRUCTION }]
+          : []),
+        // Task 211: say WHY old rows appeared when the state-view gate biased
+        // retrieval (historical/transition only; CLI parity).
+        ...(r.state_view
+          ? [{
+              type: 'text',
+              text: `state view: ${r.state_view} — expired/superseded history included${r.state_view === 'historical' ? ' and listed first' : ''}`,
+            }]
           : []),
       ],
     };
@@ -658,6 +669,7 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
         limit: z.number().int().positive().max(1000).optional(),
         min_trust: z.enum(['low', 'medium', 'high']).optional(),
         include_expired: z.boolean().optional().describe('include facts past their declared expires_at date (hidden by default, never deleted) — CLI parity with `cmk search --include-expired`'),
+        state_view: z.enum(['current', 'historical', 'transition', 'neutral']).optional().describe('OVERRIDE the automatic query state-view classification (Task 211 — normally detected from the query: a history/transition question auto-includes expired+superseded facts, labeled). Omit for automatic.'),
       },
     },
     makeMkSearch({ db, semanticBackend, projectRoot, userDir }),
