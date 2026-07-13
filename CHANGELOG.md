@@ -11,14 +11,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ### Added
 
 - **Codex support** — `cmk install --ide codex` wires OpenAI's Codex end-to-end: hooks in `.codex/hooks.json` (SessionStart recall-inject, prompt + turn capture — the turn read from the session's rollout file, edit observation, and the PreToolUse delete-guardrail), MCP registered through Codex's own `codex mcp add` (your `config.toml` is never hand-edited), a managed `AGENTS.md` block, and the automatic memory engine running through `codex exec` (read-only sandbox, your existing ChatGPT/Codex login — no API key). `--backend codex` routes split-brain background memory through Codex from any install. One-time step: run `/hooks` inside Codex once to trust the kit's hooks. Docs: `docs/CODEX.md`. (Task 196 tail, [#284](https://github.com/LH8PPL/claude-memory-kit/pull/284))
+- **CLI↔MCP parity params** — the MCP tools gained three options their CLI counterparts already had: `mk_search` now takes `include_expired` (surface facts past their declared expiry, hidden by default), `mk_lessons_promote` takes `section` (override the landing section), and `mk_forget` takes `deleted_by` (audit provenance). (Task 218, D-329)
 
 ### Fixed
 
 - **Live MCP recall freshness (CLI parity)** — a running `cmk mcp serve` now picks up facts written by another process mid-session (a Stop-hook auto-extract, a `cmk remember` in another terminal, a second editor window) immediately, instead of only seeing them after a restart. Every MCP read tool now refreshes the index before reading, exactly as every CLI read already did. (Task 218, D-329)
-
-### Added
-
-- **CLI↔MCP parity params** — the MCP tools gained three options their CLI counterparts already had: `mk_search` now takes `include_expired` (surface facts past their declared expiry, hidden by default), `mk_lessons_promote` takes `section` (override the landing section), and `mk_forget` takes `deleted_by` (audit provenance). (Task 218, D-329)
 
 ## [0.5.1] — 2026-07-12
 
