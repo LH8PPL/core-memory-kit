@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+## [0.5.2] — 2026-07-13
+
 ### Added
 
 - **Codex support** — `cmk install --ide codex` wires OpenAI's Codex end-to-end: hooks in `.codex/hooks.json` (SessionStart recall-inject, prompt + turn capture — the turn read from the session's rollout file, edit observation, and the PreToolUse delete-guardrail), MCP registered through Codex's own `codex mcp add` (your `config.toml` is never hand-edited), a managed `AGENTS.md` block, and the automatic memory engine running through `codex exec` (read-only sandbox, your existing ChatGPT/Codex login — no API key). `--backend codex` routes split-brain background memory through Codex from any install. One-time step: run `/hooks` inside Codex once to trust the kit's hooks. Docs: `docs/CODEX.md`. (Task 196 tail, [#284](https://github.com/LH8PPL/claude-memory-kit/pull/284))
