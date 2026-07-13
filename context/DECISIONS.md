@@ -12574,3 +12574,41 @@ _(retracted 2026-07-08)_
 
 **When:** 2026-07-12 · **Fact:** `P-VLR6M5RU`
 **Why:** v0.5.1 is in production; next session should know this milestone is shipped before starting v0.5.2.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-aCBYAKXU -->
+
+## 5 security/reliability tasks filed (216–220): unscreened-writes helper, delete g
+
+**When:** 2026-07-11 · **Fact:** `P-aCBYAKXU`
+
+<!-- decision:P-ABX3UPRC -->
+
+## Task 215's stress gate passed (exit code 0); ship pipeline is now running
+
+**When:** 2026-07-11 · **Fact:** `P-ABX3UPRC`
+
+<!-- decision:P-WaSJZ6A2 -->
+
+## Task 216 is next — shared `screenBeforeCommittedWrite` helper for committed-writ
+
+**When:** 2026-07-11 · **Fact:** `P-WaSJZ6A2`
+
+<!-- decision:P-CNWXDH3N -->
+
+## Release Plan: v0.6.0 (Day-One Memory) & v0.7.0 (Team Layer)
+
+**When:** 2026-07-12 · **Fact:** `P-CNWXDH3N`
+**Why:** User explicitly requested actual version lanes (not placeholders) for all YouTube video insights. This is the binding release roadmap.
+
+<!-- decision:P-XVNNRDRV -->
+
+## Name-Guard Flags Templated Patterns in Frontmatter Metadata
+
+**When:** 2026-07-12 · **Fact:** `P-XVNNRDRV`
+**Why:** Built-in guard against anti-patterns in metadata documentation; understanding this prevents merge-blocking surprises during commits.
