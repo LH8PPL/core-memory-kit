@@ -52,6 +52,7 @@ import { join } from 'node:path';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { appendRecallEntry } from './recall-log.mjs';
 import { VALID_TIERS } from './tier-paths.mjs';
+import { stateFieldFor } from './state-label.mjs';
 
 export const SEARCH_MODES = Object.freeze({
   KEYWORD: 'keyword',
@@ -358,6 +359,8 @@ SELECT
   o.signal_count AS signal_count,
   o.created_at AS created_at,
   o.deleted_at AS deleted_at,
+  o.superseded_by AS superseded_by,
+  o.expires_at AS expires_at,
   observations_fts.rank AS score,
   snippet(observations_fts, 0, '<b>', '</b>', '...', 16) AS snippet
 FROM observations_fts
@@ -449,6 +452,9 @@ function runKeywordSearch(db, opts) {
   // Task 194: the confidence-gated trust blend, then back to the requested
   // window. The sort is STABLE (JS spec), so gate-closed rows keep their SQL
   // (BM25) order exactly — the blend only moves rows whose scores it changed.
+  // Task 209: each row also carries its temporal STATE where ≠ current-active
+  // (the A-TMA label projection — deterministic, labels-not-reranks; current
+  // rows carry NO state key at all, the zero-noise contract).
   return rows
     .map((r) => ({
       id: r.id,
@@ -463,6 +469,7 @@ function runKeywordSearch(db, opts) {
         signalCount: r.signal_count,
         sourceFile: r.source_file,
       }),
+      ...stateFieldFor(r, opts.now),
     }))
     .sort((a, b) => a.score - b.score)
     .slice(0, requested);

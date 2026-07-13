@@ -47,6 +47,7 @@ import { lessonsPromote } from './lessons-promote.mjs';
 import { resolveReviewQueue, listReviewQueue } from './review-queue.mjs';
 import { resolveConflictQueue, listConflictQueue } from './conflict-queue.mjs';
 import { resolvePruneQueue, listPruneQueue } from './prune-queue.mjs';
+import { STATE_INSTRUCTION } from './state-label.mjs';
 import { createHash } from 'node:crypto';
 import { getObservations, citeLink, buildTimeline, recentActivity } from './read-core.mjs';
 import { resolveTierRoot } from './tier-paths.mjs';
@@ -215,6 +216,12 @@ function makeMkSearch({ db, semanticBackend, projectRoot, userDir }) {
         // Results stay content[0] (shape-compatible); the degradation note,
         // when present, rides as a second block.
         ...(degradedNote ? [{ type: 'text', text: degradedNote }] : []),
+        // Task 209 (A-TMA): the one-line state-label instruction, ONLY when a
+        // labeled (non-current) row is present — zero noise on all-current
+        // results. CLI parity: `cmk search` prints the same line.
+        ...(Array.isArray(r.results) && r.results.some((x) => x.state)
+          ? [{ type: 'text', text: STATE_INSTRUCTION }]
+          : []),
       ],
     };
   };

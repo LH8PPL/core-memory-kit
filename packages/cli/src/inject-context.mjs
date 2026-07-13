@@ -39,6 +39,10 @@ import { nowIso } from './audit-log.mjs';
 import { appendRecallEntry } from './recall-log.mjs';
 import { detectStaleness, isJournalStale } from './lazy-compress.mjs';
 import { isProvenanceCommentLine, parseBulletProvenance } from './provenance.mjs';
+// Task 209 — the state-label vocabulary + envelope instruction. state-label.mjs
+// is PURE (no DB, no I/O), so this import keeps the §20.3 hot-path contract
+// (the cli-search-blend regression test pins index-db/search/trust-score OUT).
+import { STATE_LABELS, STATE_INSTRUCTION } from './state-label.mjs';
 import { listConflictQueue } from './conflict-queue.mjs';
 import { listReviewQueue } from './review-queue.mjs';
 import { parse as parseFactFrontmatter } from './frontmatter.mjs';
@@ -438,6 +442,28 @@ function stripHtmlComments(text) {
 // are unaffected — only the session-start snapshot loses the literal
 // comment markers. Accepted as a rare edge vs. the cost of distinguishing
 // real comments from comment-shaped fact text.
+// Task 209 (A-TMA state labels): prefix a bullet whose PROVENANCE carries
+// `superseded_by:` with the fixed [superseded] label — run on the RAW body
+// BEFORE cleanScratchpadBody strips the provenance comments (the only place
+// the state signal exists in a scratchpad). Pure string scanning, no DB —
+// safe on the 500ms inject path (§20.3: this LABELS, it never re-orders).
+// Idempotent: an already-labeled bullet is left alone. Superseded is the ONLY
+// bullet state: tombstoned bullets are stripped from the file, and bullets
+// carry no expires_at (66.3 — facts only).
+function labelSupersededBullets(body) {
+  const lines = body.replace(/\r\n/g, '\n').split('\n');
+  for (let i = 0; i < lines.length - 1; i++) {
+    if (!/^\s*-\s/.test(lines[i])) continue;
+    if (lines[i].includes(STATE_LABELS.superseded)) continue;
+    const next = lines[i + 1];
+    if (!isProvenanceCommentLine(next) || !next.includes('superseded_by:')) continue;
+    const m = lines[i].match(/^(\s*-\s+(?:\([PUL]-[A-Za-z0-9]{8}\)\s+)?)(.*)$/);
+    if (!m) continue;
+    lines[i] = `${m[1]}${STATE_LABELS.superseded} ${m[2]}`;
+  }
+  return lines.join('\n');
+}
+
 function cleanScratchpadBody(body) {
   // Normalize CRLF so user-edited (Windows) scratchpads don't leave stray
   // \r after comment/seed stripping.
@@ -515,7 +541,9 @@ function readTierBlock(tier, tierRoot) {
     }
     if (body.trim() === '') continue;
     collectBulletValues(body, valueById); // raw body — provenance still present
-    const cleaned = cleanScratchpadBody(body);
+    // Task 209: label superseded bullets BEFORE the provenance strip erases
+    // the state signal (labels-not-reranks; see labelSupersededBullets).
+    const cleaned = cleanScratchpadBody(labelSupersededBullets(body));
     if (!hasRealContent(cleaned)) continue;
     sections.push(cleaned);
   }
@@ -963,9 +991,18 @@ export function injectContext({
   // this adds no git spawn for non-git projects.
   const commitProposal = buildCommitProposal({ projectRoot, gitTimeoutMs: testGitTimeoutMs });
   const proposalReserve = commitProposal ? Buffer.byteLength(commitProposal, 'utf8') + 2 : 0;
+  // Task 209: the one-line state-label instruction (A-TMA's prompt half) —
+  // reserved out of the cap like the mention/proposal, but only when a raw
+  // block actually carries a label (the zero-noise contract: a label-free
+  // snapshot is byte-identical to the pre-209 shape). Reserved from RAW
+  // blocks, emitted only if a labeled bullet SURVIVES truncation — a
+  // truncated-away label may leave a few bytes of unused headroom, which
+  // keeps `snapshot ≤ capBytes` strictly true (§7.1.2).
+  const rawHasStateLabel = rawBlocks.some((b) => b.text.includes(STATE_LABELS.superseded));
+  const stateReserve = rawHasStateLabel ? Buffer.byteLength(STATE_INSTRUCTION, 'utf8') + 2 : 0;
   const { blocks: keptBlocks, truncationEvents } = enforceCap(
     rawBlocks,
-    Math.max(0, cap - preambleReserve - mentionReserve - proposalReserve),
+    Math.max(0, cap - preambleReserve - mentionReserve - proposalReserve - stateReserve),
     ts,
     cap,
   );
@@ -982,9 +1019,12 @@ export function injectContext({
   // no body — without the preamble (which WOULD over-claim).
   const body = keptBlocks.map((b) => b.text).join('\n');
   const volatile = `${temporalMention ? temporalMention + '\n\n' : ''}${commitProposal ? commitProposal + '\n\n' : ''}`;
+  // Task 209: emit the instruction only when a labeled bullet actually
+  // survived into the final body (see the stateReserve note above).
+  const stateLine = body.includes(STATE_LABELS.superseded) ? `${STATE_INSTRUCTION}\n\n` : '';
   let snapshot;
   if (body !== '') {
-    snapshot = `${AUTHORITATIVE_MEMORY_PREAMBLE}\n\n${volatile}${body}`;
+    snapshot = `${AUTHORITATIVE_MEMORY_PREAMBLE}\n\n${stateLine}${volatile}${body}`;
   } else if (volatile !== '') {
     // Empty memory, but a temporal mention / commit proposal is pending — emit
     // the action line(s) alone (trailing blank lines trimmed), no preamble.

@@ -35,6 +35,7 @@ import { openIndexDb } from './index-db.mjs';
 import { resolveDefaultSearchMode } from './semantic-backend.mjs';
 import { reindexBoot, reindexFull } from './index-rebuild.mjs';
 import { search as searchAction, SEARCH_MODES } from './search.mjs';
+import { STATE_LABELS, STATE_INSTRUCTION } from './state-label.mjs';
 import { memoryWrite } from './memory-write.mjs';
 import { runMcpServer } from './mcp-server.mjs';
 import { dailyDistill } from './daily-distill.mjs';
@@ -1263,13 +1264,21 @@ async function runSearch(queryParts, options) {
       if (hit.tier) provenance = `${hit.tier}/${hit.trust}`;
       else if (r.scope === 'decisions') provenance = hit.retracted ? 'decision (retracted)' : 'decision';
       else provenance = 'transcript';
+      // Task 209: a non-current fact carries its state label ahead of the
+      // snippet (deterministic projection; current rows print unchanged).
+      const stateTag = hit.state ? `${STATE_LABELS[hit.state] ?? `[${hit.state}]`} ` : '';
       console.log(
-        `${hit.id}\t${provenance}\t${hit.source_file}:${hit.source_line}\t${hit.snippet}`,
+        `${hit.id}\t${provenance}\t${hit.source_file}:${hit.source_line}\t${stateTag}${hit.snippet}`,
       );
     }
     console.log(
       `\ncmk search: ${r.results.length} result(s) (mode=${r.mode}${r.scope && r.scope !== 'facts' ? `, scope=${r.scope}` : ''})`,
     );
+    // Task 209: the A-TMA envelope instruction — one line, only when a labeled
+    // row is present (zero noise on all-current results).
+    if (r.results.some((x) => x.state)) {
+      console.log(STATE_INSTRUCTION);
+    }
   } finally {
     db.close();
   }
