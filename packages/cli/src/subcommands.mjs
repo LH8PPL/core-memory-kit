@@ -2187,7 +2187,7 @@ export function runConfigShow(options = {}) {
   const log = options?.log ?? console.log;
   const probe = options?.backendCliProbe ?? ((a) => agentCliOnPath(a));
 
-  const installedFor = detectInstallKind(projectRoot); // 'claude-code' | 'kiro' | 'cursor'
+  const installedFor = detectInstallKind(projectRoot); // 'claude-code' | 'kiro' | 'cursor' | 'codex'
   const { agent: backendAgent, source } = resolveBackendAgent({ projectRoot, userDir });
   const cli = probe(backendAgent);
   const searchMode = resolveDefaultSearchMode({ projectRoot });

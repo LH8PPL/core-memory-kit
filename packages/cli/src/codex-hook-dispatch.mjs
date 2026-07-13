@@ -100,7 +100,11 @@ export function dispatchCodexHook({ event, payload = {}, cwd, userDir, deps = {}
       const turn = readCodexTurn(payload.transcript_path);
       capture({
         payload: {
-          ...(turn.userText ? { user_prompt: turn.userText } : {}),
+          // user_message is captureTurn's contract field (capture-turn.mjs:427
+          // — the Kiro Stop hook uses the same key). The first draft sent
+          // `user_prompt`, a dead key captureTurn never reads — the exact
+          // D-269/P-TQSG9PCA wired-but-dead class (skill-review Blocking #1).
+          ...(turn.userText ? { user_message: turn.userText } : {}),
           assistant_message: turn.assistantText,
         },
         projectRoot: cwd,

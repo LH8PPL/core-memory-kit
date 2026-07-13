@@ -125,6 +125,29 @@ describe('Task 196 (Codex) — installAgent legs', () => {
     expect(parsed.hooks.SessionStart[0].hooks[0].command).toContain('cmk codex-hook'); // added
   });
 
+  it('preserves a user group under a COLLIDING event key (skill-review #3 — deepMerge replaces arrays)', () => {
+    // The user has their OWN Stop group; Codex's nesting exists precisely for
+    // multiple groups per event. An install must APPEND the kit's group, never
+    // replace the array.
+    mkdirSync(join(projectRoot, '.codex'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, '.codex', 'hooks.json'),
+      JSON.stringify({ hooks: { Stop: [{ matcher: 'x', hooks: [{ type: 'command', command: 'user-stop-hook' }] }] } }, null, 2),
+      'utf8',
+    );
+    const { fn } = makeSpawnFake();
+    installAgent({ projectRoot, profile: codex(), spawnSyncImpl: fn });
+    const parsed = JSON.parse(readFileSync(join(projectRoot, '.codex', 'hooks.json'), 'utf8'));
+    const stopCommands = parsed.hooks.Stop.flatMap((g) => g.hooks.map((h) => h.command));
+    expect(stopCommands).toContain('user-stop-hook'); // the user's group survived
+    expect(stopCommands.some((c) => c.includes('cmk codex-hook'))).toBe(true); // ours added
+    // idempotency: a re-install doesn't duplicate the kit group
+    installAgent({ projectRoot, profile: codex(), spawnSyncImpl: fn });
+    const again = JSON.parse(readFileSync(join(projectRoot, '.codex', 'hooks.json'), 'utf8'));
+    const kitGroups = again.hooks.Stop.filter((g) => g.hooks.some((h) => h.command.includes('cmk codex-hook')));
+    expect(kitGroups).toHaveLength(1);
+  });
+
   it('MCP leg degrades to `manual` when the codex CLI is unavailable (install still succeeds)', () => {
     const fn = () => ({ status: null, stdout: '', stderr: '', error: new Error('ENOENT') });
     const r = installAgent({ projectRoot, profile: codex(), spawnSyncImpl: fn });
@@ -178,10 +201,45 @@ describe('Task 196 (Codex) — uninstallAgent', () => {
     expect(agentsAfter).not.toContain('claude-memory-kit:start'); // block gone
   });
 
-  it('uninstall on a clean project is a quiet no-op', () => {
+  it('preserves a user group under a COLLIDING kit event key on uninstall (skill-review #2)', () => {
     const { fn } = makeSpawnFake();
+    installAgent({ projectRoot, profile: codex(), spawnSyncImpl: fn });
+    // the user adds their OWN group under Stop — a kit event key
+    const hooksPath = join(projectRoot, '.codex', 'hooks.json');
+    const cfg = JSON.parse(readFileSync(hooksPath, 'utf8'));
+    cfg.hooks.Stop.push({ matcher: 'y', hooks: [{ type: 'command', command: 'user-stop-hook' }] });
+    writeFileSync(hooksPath, JSON.stringify(cfg, null, 2), 'utf8');
+
+    uninstallAgent({ projectRoot, profile: codex(), spawnSyncImpl: fn });
+    const after = JSON.parse(readFileSync(hooksPath, 'utf8'));
+    // the kit's Stop group is gone, the user's SURVIVES under the same key
+    expect(after.hooks.Stop).toHaveLength(1);
+    expect(after.hooks.Stop[0].hooks[0].command).toBe('user-stop-hook');
+    // fully-kit events are removed outright
+    expect(after.hooks.SessionStart).toBeUndefined();
+  });
+
+  it('uninstall on a clean project is a quiet no-op — and NEVER spawns codex mcp remove (the user-level registration is shared)', () => {
+    const { calls, fn } = makeSpawnFake();
     const r = uninstallAgent({ projectRoot, profile: codex(), spawnSyncImpl: fn });
     expect(r.action).toBe('uninstalled');
     expect(r.changed).toBe(false);
+    // the load-bearing promise (skill-review #7): no project evidence → no
+    // spawn — a stray uninstall must not deregister another project's MCP.
+    expect(calls).toHaveLength(0);
+  });
+
+  it('AGENTS.md alone (the agents-md rung) is NOT codex evidence — no mcp remove (skill-review #7)', () => {
+    // A project installed only via --ide agents-md carries the SAME managed
+    // block in AGENTS.md; uninstalling codex there must not touch the shared
+    // user-level MCP registration.
+    writeFileSync(
+      join(projectRoot, 'AGENTS.md'),
+      '<!-- claude-memory-kit:start -->\nkit block\n<!-- claude-memory-kit:end -->\n',
+      'utf8',
+    );
+    const { calls, fn } = makeSpawnFake();
+    uninstallAgent({ projectRoot, profile: codex(), spawnSyncImpl: fn });
+    expect(calls).toHaveLength(0);
   });
 });

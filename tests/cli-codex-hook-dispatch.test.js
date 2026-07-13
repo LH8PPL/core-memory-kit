@@ -26,10 +26,11 @@
 import { describe, it, expect } from 'vitest';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dispatchCodexHook } from '../packages/cli/src/codex-hook-dispatch.mjs';
 import { readCodexTurn } from '../packages/cli/src/codex-transcript.mjs';
+import { captureTurn } from '../packages/cli/src/capture-turn.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const FIXTURE = join(dirname(__filename), 'fixtures', 'codex-rollout-sample.jsonl');
@@ -159,7 +160,9 @@ describe('Task 196 (Codex) — dispatcher routing + Codex-shaped responses', () 
     expect(r.action).toBe('capture');
     expect(r.exitCode).toBe(0);
     expect(seen).toHaveLength(1);
-    expect(seen[0].payload.user_prompt).toBe('Use uv for python packages, remember that.');
+    // user_message is captureTurn's REAL contract field (capture-turn.mjs:427);
+    // the first draft pinned `user_prompt` — a dead key (skill-review Blocking #1)
+    expect(seen[0].payload.user_message).toBe('Use uv for python packages, remember that.');
     expect(seen[0].payload.assistant_message).toContain('uv (never pip)');
     expect(seen[0].projectRoot).toBe('/proj');
   });
@@ -246,6 +249,27 @@ describe('Task 196 (Codex) — dispatcher routing + Codex-shaped responses', () 
     if (r.stdout) {
       expect(JSON.parse(r.stdout).hookSpecificOutput?.permissionDecision).not.toBe('deny');
     }
+  });
+
+  it('INTEGRATION: Stop → the REAL captureTurn lands BOTH turn halves in now.md (the cross-module rule; catches the dead-key class)', () => {
+    // The fake-dep Stop test above pins the payload SHAPE; this one exercises
+    // the real call chain (dispatchCodexHook → captureTurn → now.md) — the
+    // CLAUDE.md integration-test rule. The skill review's Blocking #1 (the
+    // dispatcher sending `user_prompt`, a key captureTurn never reads) was
+    // structurally invisible to fake-dep tests; THIS test fails on it.
+    const proj = mkdtempSync(join(tmpdir(), 'cmk-codex-int-'));
+    mkdirSync(join(proj, 'context', 'sessions'), { recursive: true });
+    const r = dispatchCodexHook({
+      event: 'Stop',
+      payload: { transcript_path: FIXTURE },
+      cwd: proj,
+      env: {},
+      deps: { capture: (args) => captureTurn({ payload: args.payload, projectRoot: args.projectRoot }) },
+    });
+    expect(r.exitCode).toBe(0);
+    const nowMd = readFileSync(join(proj, 'context', 'sessions', 'now.md'), 'utf8');
+    expect(nowMd).toContain('Use uv for python packages'); // the USER half (the dead-key casualty)
+    expect(nowMd).toContain('uv (never pip)'); // the assistant half
   });
 
   it('unknown / future events no-op (forward-compatible)', () => {

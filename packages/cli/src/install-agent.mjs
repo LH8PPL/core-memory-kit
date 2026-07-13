@@ -19,6 +19,7 @@ import { existsSync, readFileSync, unlinkSync } from 'node:fs';
 import { spawnSync as defaultSpawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { mutateAgentConfig, atomicWrite } from './mutate-agent-config.mjs';
+import { stripBom } from './read-json.mjs';
 import { cursorHookCommand, codexHookCommand } from './kiro-hook-command.mjs';
 import {
   removeJsonKey,
@@ -101,7 +102,7 @@ export function installAgent({ projectRoot, profile, spawnSyncImpl = defaultSpaw
   // Only if MCP didn't already error (refuse-to-clobber means a corrupt config
   // should halt this agent's install — report, don't push past it).
   if (profile.hooks && errors.length === 0) {
-    const hookEntry = buildHookEntry(profile);
+    const hookEntry = buildHookEntry(profile, projectRoot);
     const hooksPath = join(projectRoot, profile.hooks.path);
     // hooks-json (Cursor): the file's documented shape carries a REQUIRED
     // top-level `version` alongside `hooks`. mutateAgentConfig only owns the
@@ -174,7 +175,15 @@ export function uninstallAgent({ projectRoot, profile, spawnSyncImpl = defaultSp
   // hooks: remove ONLY the event keys WE wrote (symmetry with the MCP leg —
   // remove our keys, preserve any the user added to the same `hooks` object).
   // This is safe even if a future profile points hooks.path at a shared file.
-  if (profile.hooks) {
+  if (profile.hooks && profile.hooks.mechanism === 'codex-hooks-json') {
+    // GROUP-PRESERVING removal (skill-review #2): Codex's nesting is designed
+    // for multiple groups per event, so deleting the whole event key would take
+    // the user's own groups with it (and on a never-kit-installed project,
+    // their entire SessionStart/Stop/PreToolUse config). Filter each event's
+    // array down to the non-kit groups; drop the key only when it empties.
+    if (removeKitHookGroups(projectRoot, profile)) changed = true;
+    pruneEmptyParent(join(projectRoot, profile.hooks.path), ['hooks']);
+  } else if (profile.hooks) {
     const p = join(projectRoot, profile.hooks.path);
     const ourEvents = Object.keys(buildHookEntry(profile));
     for (const ev of ourEvents) {
@@ -202,7 +211,7 @@ export function uninstallAgent({ projectRoot, profile, spawnSyncImpl = defaultSp
 // hooks-json (Cursor) is the exception: EVERY mapped event (including preShell,
 // which has no per-event bin) calls the ONE dispatcher command — the event
 // rides in the payload's hook_event_name, and the dispatcher routes.
-function buildHookEntry(profile) {
+function buildHookEntry(profile, projectRoot) {
   const hooks = {};
   if (profile.hooks.mechanism === 'hooks-json') {
     const command = cursorHookCommand();
@@ -217,11 +226,23 @@ function buildHookEntry(profile) {
     // One dispatcher command for every event (hook_event_name rides in the
     // payload); per-abstract-event matchers come from the profile DATA so the
     // kit's hooks fire only where they act (edits / shell).
+    //
+    // GROUP-PRESERVING (skill-review #3): mutateAgentConfig's deepMerge REPLACES
+    // arrays, so the entry must carry the user's existing groups under our event
+    // keys or an install would silently drop them. Read the current file, keep
+    // every non-kit group, append ONE fresh kit group per event (old kit groups
+    // filtered out first — idempotent: an unchanged re-install produces an
+    // identical entry and mutateAgentConfig reports unchanged).
     const command = codexHookCommand();
     const matchers = profile.hooks.matchers ?? {};
+    const existing = readExistingHooksFile(profile, projectRoot);
     for (const [abstractEvent, concreteEvent] of Object.entries(profile.hooks.eventMap)) {
       const matcher = matchers[abstractEvent];
+      const userGroups = (existing?.hooks?.[concreteEvent] ?? []).filter(
+        (g) => !isKitHookGroup(g, profile),
+      );
       hooks[concreteEvent] = [
+        ...userGroups,
         { ...(matcher ? { matcher } : {}), hooks: [{ type: 'command', command }] },
       ];
     }
@@ -274,19 +295,74 @@ function agentCliManualCommand(profile, argsKey) {
 }
 
 // Project-side evidence that THIS project had a kit install for the profile's
-// agent: our dispatcher in its hooks file, or our managed instruction block.
+// agent: OUR DISPATCHER in its hooks file — nothing broader. Skill-review #7
+// tightened this twice: (a) a generic `cmk ` match counted a user's own
+// cmk-referencing hook as evidence; (b) the instruction file is NOT evidence —
+// AGENTS.md's managed block is shared with the agents-md rung, so an
+// agents-md-only project would wrongly "prove" a codex install and get its
+// user-level MCP registration yanked.
 function hasAgentInstallEvidence(projectRoot, profile) {
   try {
     if (profile.hooks) {
       const hooksPath = join(projectRoot, profile.hooks.path);
-      if (existsSync(hooksPath) && readFileSync(hooksPath, 'utf8').includes('cmk ')) return true;
+      if (existsSync(hooksPath)
+          && readFileSync(hooksPath, 'utf8').includes(agentDispatcherToken(profile))) {
+        return true;
+      }
     }
-    const instrPath = join(projectRoot, profile.instructionFile);
-    if (existsSync(instrPath) && readFileSync(instrPath, 'utf8').includes(MARK_START)) return true;
   } catch {
     // unreadable file → treat as no evidence (quiet no-op)
   }
   return false;
+}
+
+// The profile's own dispatcher command token (`cmk codex-hook` for codex) —
+// the string install writes into the hooks file, platform-wrap aside.
+function agentDispatcherToken(profile) {
+  return `cmk ${profile.name}-hook`;
+}
+
+// Read the profile's hooks file for group-preserving merges. Missing/corrupt →
+// null (the write path's refuse-on-parse-error in mutateAgentConfig still
+// guards the corrupt case before anything lands).
+function readExistingHooksFile(profile, projectRoot) {
+  if (!projectRoot || !profile.hooks) return null;
+  const p = join(projectRoot, profile.hooks.path);
+  if (!existsSync(p)) return null;
+  try {
+    return JSON.parse(stripBom(readFileSync(p, 'utf8')));
+  } catch {
+    return null;
+  }
+}
+
+// Is this matcher group one of OURS? (its inner hooks name our dispatcher)
+function isKitHookGroup(group, profile) {
+  const token = agentDispatcherToken(profile);
+  return Array.isArray(group?.hooks)
+    && group.hooks.some((h) => typeof h?.command === 'string' && h.command.includes(token));
+}
+
+// Uninstall's group-preserving removal for the codex-hooks-json shape: filter
+// every mapped event's array down to the user's groups; drop a key only when
+// it empties. Returns whether anything changed.
+function removeKitHookGroups(projectRoot, profile) {
+  const p = join(projectRoot, profile.hooks.path);
+  const cfg = readExistingHooksFile(profile, projectRoot);
+  if (!cfg || typeof cfg.hooks !== 'object' || cfg.hooks === null) return false;
+  let changed = false;
+  for (const concreteEvent of Object.values(profile.hooks.eventMap)) {
+    const groups = cfg.hooks[concreteEvent];
+    if (!Array.isArray(groups)) continue;
+    const kept = groups.filter((g) => !isKitHookGroup(g, profile));
+    if (kept.length !== groups.length) {
+      changed = true;
+      if (kept.length === 0) delete cfg.hooks[concreteEvent];
+      else cfg.hooks[concreteEvent] = kept;
+    }
+  }
+  if (changed) atomicWrite(p, `${JSON.stringify(cfg, null, 2)}\n`);
+  return changed;
 }
 
 // Write the instruction file with a managed marker block + agent-specific
