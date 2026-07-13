@@ -208,7 +208,7 @@ Cross-refs: [[Frozen snapshot]]. Spec: design §1.4, §5.2.
 
 ### Auto-extract subagent
 
-The detached subprocess spawned by the [[Stop hook]] that runs the installed agent's own CLI (via the [[CompressorBackend]] factory `makeBackend` — `claude --print` on Claude Code, `kiro-cli chat` on Kiro, `cursor-agent -p` on Cursor; Task 200) against the just-captured transcript turn, asks the model to identify durable facts, and routes the results through the [[Memory-write skill]] or the [[Review queue]] per [[Trust]] level. (Before v0.4.5 this always shelled out to a hardcoded `claude` binary — the D-270 gap.)
+The detached subprocess spawned by the [[Stop hook]] that runs the installed agent's own CLI (via the [[CompressorBackend]] factory `makeBackend` — `claude --print` on Claude Code, `kiro-cli chat` on Kiro, `cursor-agent -p` on Cursor, `codex exec` on Codex; Task 200) against the just-captured transcript turn, asks the model to identify durable facts, and routes the results through the [[Memory-write skill]] or the [[Review queue]] per [[Trust]] level. (Before v0.4.5 this always shelled out to a hardcoded `claude` binary — the D-270 gap.)
 
 Cross-refs: [[Stop hook]], [[Memory-write skill]], [[Six writing triggers]], [[Trust]]. Spec: FR-10, FR-12; design §6.1.
 
@@ -452,7 +452,7 @@ Cross-refs: [[Rolling-window compression]], [[CompressorBackend]]. Spec: FR-20; 
 
 ### CompressorBackend
 
-The pluggable interface for running the automatic engine's LLM call (defined in v0.1 per ADR-0008, made multi-impl in v0.4.5 by Task 200). One implementation **per agent**, selected by `makeBackend({projectRoot})` on the installed-for agent (or the `backend.agent` split-brain override): `HaikuViaAnthropicApi` (Claude Code — `claude --print`), `KiroCliBackend` (Kiro — `kiro-cli chat`), `CursorAgentBackend` (Cursor — `cursor-agent -p`). Each runs off the user's existing agent login (no API key). This is what lets the automatic engine work for a Cursor-only / Kiro-only user (closing the D-270 gap). A future cloud-API-key backend (`BedrockHaiku`, `LocalLlama`) remains a candidate per ADR-0008 but is not shipped.
+The pluggable interface for running the automatic engine's LLM call (defined in v0.1 per ADR-0008, made multi-impl in v0.4.5 by Task 200). One implementation **per agent**, selected by `makeBackend({projectRoot})` on the installed-for agent (or the `backend.agent` split-brain override): `HaikuViaAnthropicApi` (Claude Code — `claude --print`), `KiroCliBackend` (Kiro — `kiro-cli chat`), `CursorAgentBackend` (Cursor — `cursor-agent -p`), `CodexExecBackend` (Codex — `codex exec --json`). Each runs off the user's existing agent login (no API key). This is what lets the automatic engine work for a Cursor-only / Kiro-only user (closing the D-270 gap). A future cloud-API-key backend (`BedrockHaiku`, `LocalLlama`) remains a candidate per ADR-0008 but is not shipped.
 
 Cross-refs: [[Compression]]. Spec: ADR-0008; design §8.3.
 

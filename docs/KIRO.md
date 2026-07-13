@@ -45,7 +45,7 @@ Beyond wiring the hooks, `kiro-cli` is also the **LLM backend** for a Kiro proje
 - **Split-brain (run the memory on a *different* agent than you code in):** if you code in Kiro but want the frequent background memory work to run through a different CLI you have — or vice versa — set it at install (`cmk install --ide kiro --backend cursor`) or after (`cmk config set backend.agent cursor`). Both write the same `backend.agent` key.
 - **See what's active:** `cmk config show` prints your installed-for agent, the active backend agent (and whether it's an override), the backend-CLI presence, and the semantic mode.
 
-Cross-agent siblings: **[Cursor](CURSOR.md)** · **[Claude Code](CLAUDE-CODE.md)**.
+Cross-agent siblings: **[Cursor](CURSOR.md)** · **[Claude Code](CLAUDE-CODE.md)** · **[Codex](CODEX.md)**.
 
 ## Using both Claude Code and Kiro on the same repo
 

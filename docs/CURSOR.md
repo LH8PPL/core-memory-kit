@@ -49,7 +49,7 @@ Beyond wiring the hooks, `cursor-agent` is also the **LLM backend** for a Cursor
 - **Split-brain (run the memory on a *different* agent than you code in):** code in Cursor but route the frequent background memory work through a cheaper CLI you have — set it at install (`cmk install --ide cursor --backend kiro`) or after (`cmk config set backend.agent kiro`). Both write the same `backend.agent` key.
 - **See what's active:** `cmk config show` prints your installed-for agent, the active backend agent (and whether it's an override), the backend-CLI presence, and the semantic mode.
 
-Cross-agent siblings: **[Kiro](KIRO.md)** · **[Claude Code](CLAUDE-CODE.md)**.
+Cross-agent siblings: **[Kiro](KIRO.md)** · **[Claude Code](CLAUDE-CODE.md)** · **[Codex](CODEX.md)**.
 
 ## Using both Cursor and another agent on the same repo
 

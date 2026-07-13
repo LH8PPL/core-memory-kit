@@ -10,6 +10,7 @@ A 5-minute walkthrough from zero to a working kit on your first project.
   - **Claude Code** → `claude` (`claude --version`)
   - **Kiro** → `kiro-cli` (required even if you use the Kiro IDE)
   - **Cursor** → `cursor-agent` (Cursor's CLI, in addition to the app)
+  - **Codex** → `codex` (`npm i -g @openai/codex`; required even if you use the Codex desktop app)
 
 > The agent CLI is what the kit's **automatic** features (compression, the
 > cross-project persona/wedge, auto-extract, the temporal sweep) use to run an

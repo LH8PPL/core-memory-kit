@@ -57,6 +57,8 @@ install routes just the background memory chore through Codex.
 and the two agents share one memory brain. `AGENTS.md` carries a single managed block
 (re-installs fold duplicates).
 
+Cross-agent siblings: **[Claude Code](CLAUDE-CODE.md)** · **[Kiro](KIRO.md)** · **[Cursor](CURSOR.md)**.
+
 ## Uninstalling Codex
 
 ```bash

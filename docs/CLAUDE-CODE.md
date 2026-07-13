@@ -36,7 +36,7 @@ The kit's automatic features — compression, auto-extract, the cross-project pe
 - **Split-brain (run the memory on a *different* agent than you code in):** code in Claude but route the frequent background memory work through a cheaper CLI you have — e.g. `cmk install --backend kiro` runs the automatic memory on `kiro-cli`'s Haiku (its Google login) while you keep your premium Claude subscription for actual coding. Set it at install (`cmk install --backend kiro`) or after (`cmk config set backend.agent kiro`). Both write the same `backend.agent` key.
 - **See what's active:** `cmk config show` prints your installed-for agent, the active backend agent (and whether it's an override), the backend-CLI presence, and the semantic mode.
 
-Cross-agent siblings: **[Kiro](KIRO.md)** · **[Cursor](CURSOR.md)**.
+Cross-agent siblings: **[Kiro](KIRO.md)** · **[Cursor](CURSOR.md)** · **[Codex](CODEX.md)**.
 
 ## Using Claude Code alongside another agent on the same repo
 
