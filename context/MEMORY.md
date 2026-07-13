@@ -8,18 +8,18 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-ESXEGLaX) Kit is live (`C:\Projects\claude-memory-kit`) with active MCP servers and auto-extract processes; user installing to temp folder elsewhere exposed the shared-global-DLL conflict directly.
-  <!-- source: auto-extract-session, source_line: 1, sha1: f454f3a6c88d9acb1d024e117f09fb4131c10b2b93530169b78c3ced317db24d, write: auto-extract, trust: high, at: 2026-07-12T12:01:50Z -->
-- (P-ALAUZFKJ) Confirmed layered FastAPI + in-memory repositories as the backend architecture
-  <!-- source: auto-extract-session, source_line: 1, sha1: 3b743a4380d8b19571d4b9ac393429c854100cf9bfff71f286840768246132e6, write: auto-extract, trust: high, at: 2026-07-12T17:31:39Z -->
-- (P-TEV46Ca9) Prefers actual version lanes (v0.6.0, v0.7.0, etc.) over "future 0.5.x" placeholders
-  <!-- source: auto-extract-session, source_line: 1, sha1: 466f930454f0eb460bd7a41ae7c485b58a57eb46d5279cdc4e4b5eec22dc982a, write: auto-extract, trust: high, at: 2026-07-12T19:23:50Z -->
-- (P-aD9MaJ4C) System design tolerates near-duplicate memory captures and deduplicates in post-processing sweeps
-  <!-- source: review-promote, source_line: 1, sha1: d0cc45c50d7c93345ec246529487a183053a919eabda0f02026862d02340923c, write: user-explicit, trust: high, at: 2026-07-12T20:00:01Z -->
-- (P-JX6VEMJM) Project enforces "never-hand-edit-memory" principle to preserve auto-capture integrity
-  <!-- source: review-promote, source_line: 1, sha1: e415df902cc23e3e7f7bde302464def1844d2e0c0acfcdc5fe9a54fea631fe25, write: user-explicit, trust: high, at: 2026-07-12T20:00:03Z -->
-- (P-YYFNQFSP) Task 218 is the last code task in v0.5.2; after stress + skill-review pass, goes to PR and v0.5.2 is code-complete
-  <!-- source: auto-extract-session, source_line: 1, sha1: cb7a9be987c22c5dde5c7e8b027d535d07a2d7103b3daacdb76c07c9f2a2c1d9, write: auto-extract, trust: high, at: 2026-07-13T09:44:33Z -->
+- (P-WUaFJWa7) Test was flaky under stress (5/5 failures full suite, isolation pass); robustified with seams, confirm-write-landed check, 20s deadline
+  <!-- source: review-promote, source_line: 1, sha1: 4a5f6468386c99cebca8fd341afbef2561bbc4502422adcdb9c5cf6db9a8cc82, write: user-explicit, trust: high, at: 2026-07-13T20:00:03Z -->
+- (P-X9P559YZ) handleUnlink crash-guard fixed (forget test validates); re-stress verdict determines Task 218→PR timing
+  <!-- source: review-promote, source_line: 1, sha1: 4f6889e00233f1e810a8ce7ad4cd972c65fe21b080d4f6fb5e8029d8b0dff3e3, write: user-explicit, trust: high, at: 2026-07-13T20:00:04Z -->
+- (P-JLPXJPZF) v0.5.2 code-complete; three PRs (#284, #285, #286) merged to main
+  <!-- source: review-promote, source_line: 1, sha1: a13e9637a843acdc9566e9e8d5ddd9f343a39281bfcdd134fdedc6f04398ef36, write: user-explicit, trust: high, at: 2026-07-13T20:00:05Z -->
+- (P-CKKD4VRS) Release command is `npm run release -- patch` → tag push → publish.yml (npm publish + GitHub Release)
+  <!-- source: review-promote, source_line: 1, sha1: 3c016330aeb33f22e2ec42911c9d4230d2d8b5580517e9a18b927d275a88e91f, write: user-explicit, trust: high, at: 2026-07-13T20:00:06Z -->
+- (P-Q37ZPQJP) v0.5.2 shipped — npm @lh8ppl/claude-memory-kit@0.5.2 (provenance), GitHub Release live, PRs #284 #285 #286
+  <!-- source: review-promote, source_line: 1, sha1: b3b61ce2c1d334cc42223987346b6f4df12852e50b32d5a5ff1bb306cfd68842, write: user-explicit, trust: high, at: 2026-07-13T20:00:07Z -->
+- (P-aNSaZMFH) v0.5.3 full build plan saved as durable memory P-6WEaBE9M (commit dfebca5) for clean resumption
+  <!-- source: review-promote, source_line: 1, sha1: 868f0e5f4e03fd726d4602a1c3994e8595654edca380ba897a62b8469ac4099b, write: user-explicit, trust: high, at: 2026-07-13T20:00:09Z -->
 
 ## Environment Notes
 
