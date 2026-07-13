@@ -22,6 +22,7 @@ import { resolveBackendAgent } from './make-backend.mjs';
 import { detectInstallKind } from './install-kind.mjs';
 import { runKiroHook } from './kiro-hook-bin.mjs';
 import { dispatchCursorHook } from './cursor-hook-dispatch.mjs';
+import { dispatchCodexHook } from './codex-hook-dispatch.mjs';
 import { readKiroTurn } from './kiro-transcript.mjs';
 import { injectContext } from './inject-context.mjs';
 import { captureTurn } from './capture-turn.mjs';
@@ -601,6 +602,17 @@ async function runInstallForAgent({ ide, options, log, logError }) {
   } else {
     log('  Restart the agent to activate. Complete install — one step, no separate command.');
   }
+  // Codex specifics (Task 196 tail): (a) hash-based hook trust — non-managed
+  // hooks are SKIPPED until reviewed once via /hooks (never claim zero-step);
+  // (b) when the codex CLI wasn't reachable (the desktop app bundles it
+  // off-PATH), the MCP leg degraded to a printed one-liner.
+  if (profile.name === 'codex') {
+    log('  One-time step: run /hooks inside Codex once to review + trust the kit\'s hooks (Codex skips untrusted hooks).');
+    if (wired.legs.mcp === 'manual' && wired.mcpManualCommand) {
+      log(`  MCP: the codex CLI was not reachable — register the kit\'s MCP server yourself:`);
+      log(`    ${wired.mcpManualCommand}`);
+    }
+  }
 
   if (scaffold.errors.length > 0) {
     for (const e of scaffold.errors) logError(`  error: ${e.path}: ${e.error}`);
@@ -892,6 +904,75 @@ export async function runCursorHook(_options = {}, _command, deps = {}) {
       logError(`cmk cursor-hook ${event}: ${err?.message ?? err}`);
     }
   }
+  process.exitCode = 0; // the always-exit-0 invariant (deny rides the JSON, not the exit code)
+  return r;
+}
+
+/**
+ * Task 196 (Codex) — `cmk codex-hook` — the Codex hook entrypoint.
+ *
+ * Codex wires ONE command for every hook event; the payload arrives as JSON on
+ * stdin with `hook_event_name` (the router key) + `cwd` (a common stdin field
+ * on every Codex event) + `transcript_path` (the session's rollout jsonl — the
+ * Stop-capture source). Responses are Codex's hookSpecificOutput envelopes
+ * (learn.chatgpt.com/docs/hooks, primary-verified 2026-07-12). ALWAYS exits 0 —
+ * deny rides the JSON `permissionDecision`, never an exit code.
+ */
+export async function runCodexHook(_options = {}, _command, deps = {}) {
+  const log = deps.log ?? ((s) => process.stdout.write(s));
+  const logError = deps.logError ?? ((s) => process.stderr.write(`${s}\n`));
+
+  // The Codex payload — JSON on a piped-and-closed stdin. TTY-guarded so a
+  // manual `cmk codex-hook` doesn't hang; malformed JSON degrades to {} (→
+  // unknown event → no-op), never a crash. Same BOM-tolerant reader as the
+  // other agents (the D-306 input-boundary class).
+  let payload = deps.payload;
+  if (payload === undefined) {
+    const readStdin = deps.readStdin ?? (() => readHookStdin({ isTTY: process.stdin.isTTY }));
+    payload = parseHookStdin(readStdin());
+  }
+  const event = typeof payload.hook_event_name === 'string' ? payload.hook_event_name : '';
+  // Codex sends `cwd` as a common stdin field on every event (native platform
+  // paths — no D-305 slash-drive normalization needed).
+  const cwd =
+    (typeof payload.cwd === 'string' && payload.cwd) || deps.cwd || process.cwd();
+  const env = deps.env ?? process.env;
+
+  const r = dispatchCodexHook({
+    event,
+    payload,
+    cwd,
+    env,
+    deps: {
+      inject: deps.inject ?? ((args) => {
+        const res = injectContext({ cwd: args.cwd, ...(args.userDir ? { userDir: args.userDir } : {}) });
+        return { ok: true, text: typeof res === 'string' ? res : res?.snapshot ?? '' };
+      }),
+      // Resolved auto-extract path so captureTurn spawns the detached extraction
+      // child (the D-200 class). The resolver is agent-neutral despite its name.
+      capture: deps.capture ?? ((args) => (deps.captureTurn ?? captureTurn)({
+        payload: args.payload,
+        projectRoot: args.projectRoot,
+        autoExtractPath: resolveKiroAutoExtractPath(env),
+      })),
+      capturePrompt: deps.capturePrompt ?? ((args) => capturePrompt({
+        payload: args.payload,
+        projectRoot: args.projectRoot,
+      })),
+      observe: deps.observe ?? ((args) => observeEdit({
+        payload: args.payload,
+        projectRoot: args.projectRoot,
+      })),
+      // PreToolUse → the memory delete-guardrail (D-192). Codex's payload is
+      // Claude-shaped: the shell command lives at tool_input.command.
+      guard: deps.guard ?? ((args) => decideGuard(
+        typeof args.payload?.tool_input?.command === 'string' ? args.payload.tool_input.command : '',
+      )),
+    },
+  });
+
+  if (r.stdout) log(r.stdout);
+  if (r.stderr) logError(r.stderr);
   process.exitCode = 0; // the always-exit-0 invariant (deny rides the JSON, not the exit code)
   return r;
 }
@@ -2106,7 +2187,7 @@ export function runConfigShow(options = {}) {
   const log = options?.log ?? console.log;
   const probe = options?.backendCliProbe ?? ((a) => agentCliOnPath(a));
 
-  const installedFor = detectInstallKind(projectRoot); // 'claude-code' | 'kiro' | 'cursor'
+  const installedFor = detectInstallKind(projectRoot); // 'claude-code' | 'kiro' | 'cursor' | 'codex'
   const { agent: backendAgent, source } = resolveBackendAgent({ projectRoot, userDir });
   const cli = probe(backendAgent);
   const searchMode = resolveDefaultSearchMode({ projectRoot });
@@ -2711,8 +2792,8 @@ export const subcommands = [
     description: 'cross-OS one-shot install — scaffold 3-tier dirs + inject .gitignore + drop kit CLAUDE.md block + wire Claude Code hooks',
     milestone: 3,
     optionSpec: [
-      { flags: '--ide <agent>', description: 'target agent: claude-code (default) | kiro | cursor — wires that agent\'s hooks + MCP + instruction file' },
-      { flags: '--backend <agent>', description: 'route the AUTOMATIC memory (compression/extraction) through a DIFFERENT agent\'s CLI than you code in: claude | kiro | cursor. E.g. code in Claude, run the janitor LLM on cheaper kiro-cli. Sets backend.agent; omit to follow --ide.' },
+      { flags: '--ide <agent>', description: 'target agent: claude-code (default) | kiro | cursor | codex — wires that agent\'s hooks + MCP + instruction file' },
+      { flags: '--backend <agent>', description: 'route the AUTOMATIC memory (compression/extraction) through a DIFFERENT agent\'s CLI than you code in: claude | kiro | cursor | codex. E.g. code in Claude, run the janitor LLM on cheaper kiro-cli. Sets backend.agent; omit to follow --ide.' },
       { flags: '--force', description: 'allow downgrade of an existing newer-version CLAUDE.md block' },
       { flags: '--no-hooks', description: 'scaffold only; do NOT wire hooks into .claude/settings.json' },
       { flags: '--with-semantic', description: 'enable semantic recall: install the local embedder (~260 MB once), default search to hybrid, pre-warm the model' },
@@ -2735,11 +2816,17 @@ export const subcommands = [
     action: runCursorHook,
   },
   {
+    name: 'codex-hook',
+    description: 'Codex hook entrypoint — reads the Codex JSON payload on stdin, routes on hook_event_name (inject/capture/observe/guard; called by .codex/hooks.json, not by users)',
+    milestone: 196,
+    action: runCodexHook,
+  },
+  {
     name: 'uninstall',
     description: 'remove the kit-managed surface (preserves everything else byte-for-byte; never touches context/)',
     milestone: 4,
     optionSpec: [
-      { flags: '--ide <agent>', description: 'which agent to uninstall: claude-code (default) | kiro | cursor — removes only THAT agent\'s managed surface' },
+      { flags: '--ide <agent>', description: 'which agent to uninstall: claude-code (default) | kiro | cursor | codex — removes only THAT agent\'s managed surface' },
     ],
     action: runUninstall,
   },

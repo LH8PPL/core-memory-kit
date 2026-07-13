@@ -21,12 +21,13 @@ import {
 import { KIT_HOOKS_BLOCK } from '../packages/cli/src/settings-hooks.mjs';
 
 describe('Task 50.C/50.E — agent-profiles registry', () => {
-  it('registers claude-code + kiro + cursor + agents-md', () => {
+  it('registers claude-code + kiro + cursor + codex + agents-md', () => {
     expect(getAgentProfile('claude-code')).toBeDefined();
     expect(getAgentProfile('kiro')).toBeDefined();
     expect(getAgentProfile('cursor')).toBeDefined();
+    expect(getAgentProfile('codex')).toBeDefined(); // Task 196 tail, 2026-07-12
     expect(getAgentProfile('agents-md')).toBeDefined();
-    expect(listAgentProfiles().map((p) => p.name).sort()).toEqual(['agents-md', 'claude-code', 'cursor', 'kiro']);
+    expect(listAgentProfiles().map((p) => p.name).sort()).toEqual(['agents-md', 'claude-code', 'codex', 'cursor', 'kiro']);
   });
 
   it('the registry is frozen (profiles are immutable data)', () => {

@@ -30,6 +30,7 @@ import { KNOWN_BACKEND_AGENTS } from './agent-cli.mjs';
 import { HaikuViaAnthropicApi } from './compressor.mjs';
 import { KiroCliBackend } from './kiro-backend.mjs';
 import { CursorAgentBackend } from './cursor-backend.mjs';
+import { CodexExecBackend } from './codex-backend.mjs';
 
 function normalizeAgent(kind) {
   return kind === 'claude-code' ? 'claude' : kind;
@@ -69,6 +70,8 @@ export function makeBackend({ projectRoot, userDir, ...ctorOpts } = {}) {
       return new KiroCliBackend(ctorOpts);
     case 'cursor':
       return new CursorAgentBackend(ctorOpts);
+    case 'codex':
+      return new CodexExecBackend(ctorOpts);
     case 'claude':
     default:
       return new HaikuViaAnthropicApi(ctorOpts);

@@ -17,6 +17,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { atomicWrite } from './mutate-agent-config.mjs';
+import { stripBom } from './read-json.mjs';
 
 export const DEFAULT_MARK_START = '<!-- claude-memory-kit:start -->';
 export const DEFAULT_MARK_END = '<!-- claude-memory-kit:end -->';
@@ -75,7 +76,9 @@ export function removeJsonKey(path, keyPath) {
   if (!existsSync(path)) return false;
   let root;
   try {
-    root = JSON.parse(readFileSync(path, 'utf8'));
+    // stripBom: a Windows-editor BOM must not turn removal into a silent no-op
+    // (the D-187 class mutateAgentConfig already guards; skill-review #8).
+    root = JSON.parse(stripBom(readFileSync(path, 'utf8')));
   } catch {
     return false;
   }
@@ -100,7 +103,9 @@ export function pruneEmptyParent(path, keyPath) {
   if (!existsSync(path)) return;
   let root;
   try {
-    root = JSON.parse(readFileSync(path, 'utf8'));
+    // stripBom: a Windows-editor BOM must not turn removal into a silent no-op
+    // (the D-187 class mutateAgentConfig already guards; skill-review #8).
+    root = JSON.parse(stripBom(readFileSync(path, 'utf8')));
   } catch {
     return;
   }

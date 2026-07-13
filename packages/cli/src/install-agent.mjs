@@ -16,9 +16,11 @@
 //   uninstallAgent({ projectRoot, profile }) → { action, agent, changed }
 
 import { existsSync, readFileSync, unlinkSync } from 'node:fs';
+import { spawnSync as defaultSpawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { mutateAgentConfig, atomicWrite } from './mutate-agent-config.mjs';
-import { cursorHookCommand } from './kiro-hook-command.mjs';
+import { stripBom } from './read-json.mjs';
+import { cursorHookCommand, codexHookCommand } from './kiro-hook-command.mjs';
 import {
   removeJsonKey,
   pruneEmptyParent,
@@ -60,16 +62,31 @@ const INSTRUCTION_BODY = [
 const MARK_START = '<!-- claude-memory-kit:start -->';
 const MARK_END = '<!-- claude-memory-kit:end -->';
 
-export function installAgent({ projectRoot, profile }) {
+export function installAgent({ projectRoot, profile, spawnSyncImpl = defaultSpawnSync }) {
   if (!projectRoot) throw new Error('installAgent: projectRoot is required');
   if (!profile || !profile.name) throw new Error('installAgent: a profile is required');
 
   const legs = {};
   const errors = [];
   let changed = false;
+  // The manual-MCP fallback one-liner (agent-cli mechanism only). Rides OUTSIDE
+  // the legs map — legs holds leg→action strings only; a command string in it
+  // would leak into the error-path "already wired" listing (self-review find).
+  let mcpManualCommand;
 
   // ── MCP leg ───────────────────────────────────────────────────────────────
-  if (profile.mcp) {
+  if (profile.mcp && profile.mcp.mechanism === 'agent-cli') {
+    // Codex-class agents keep MCP config in TOML the kit must not hand-edit
+    // (parse/serialize risk = the clobber class mutateAgentConfig exists to
+    // prevent, but for a format it doesn't speak). Register through the agent's
+    // OWN CLI instead (`codex mcp add`, live-verified 0.142.5). A spawn failure
+    // is NOT a clobber hazard — degrade to `manual` (the CLI layer prints the
+    // one-liner) and keep installing the other legs.
+    const r = runAgentCliMcp(profile, 'addArgs', spawnSyncImpl);
+    legs.mcp = r.ok ? 'configured' : 'manual';
+    if (!r.ok) mcpManualCommand = agentCliManualCommand(profile, 'addArgs');
+    else changed = true;
+  } else if (profile.mcp) {
     const r = mutateAgentConfig({
       path: join(projectRoot, profile.mcp.path),
       format: 'json',
@@ -85,7 +102,7 @@ export function installAgent({ projectRoot, profile }) {
   // Only if MCP didn't already error (refuse-to-clobber means a corrupt config
   // should halt this agent's install — report, don't push past it).
   if (profile.hooks && errors.length === 0) {
-    const hookEntry = buildHookEntry(profile);
+    const hookEntry = buildHookEntry(profile, projectRoot);
     const hooksPath = join(projectRoot, profile.hooks.path);
     // hooks-json (Cursor): the file's documented shape carries a REQUIRED
     // top-level `version` alongside `hooks`. mutateAgentConfig only owns the
@@ -93,6 +110,11 @@ export function installAgent({ projectRoot, profile }) {
     // is the user's (their version field is theirs — touch only our keys).
     if (profile.hooks.mechanism === 'hooks-json' && !existsSync(hooksPath)) {
       atomicWrite(hooksPath, `${JSON.stringify({ version: 1, hooks: {} }, null, 2)}\n`);
+    }
+    // codex-hooks-json: same dedicated-file idea, but Codex's documented shape
+    // has NO version key — seed just the hooks object.
+    if (profile.hooks.mechanism === 'codex-hooks-json' && !existsSync(hooksPath)) {
+      atomicWrite(hooksPath, `${JSON.stringify({ hooks: {} }, null, 2)}\n`);
     }
     const r = mutateAgentConfig({
       path: hooksPath,
@@ -116,17 +138,35 @@ export function installAgent({ projectRoot, profile }) {
   if (errors.length > 0) {
     return { action: 'error', agent: profile.name, changed, legs, errors };
   }
-  return { action: 'installed', agent: profile.name, changed, legs };
+  return {
+    action: 'installed',
+    agent: profile.name,
+    changed,
+    legs,
+    ...(mcpManualCommand ? { mcpManualCommand } : {}),
+  };
 }
 
-export function uninstallAgent({ projectRoot, profile }) {
+export function uninstallAgent({ projectRoot, profile, spawnSyncImpl = defaultSpawnSync }) {
   if (!projectRoot) throw new Error('uninstallAgent: projectRoot is required');
   if (!profile || !profile.name) throw new Error('uninstallAgent: a profile is required');
 
   let changed = false;
 
   // MCP: remove only our server key, preserve siblings.
-  if (profile.mcp) {
+  if (profile.mcp && profile.mcp.mechanism === 'agent-cli') {
+    // symmetry with the install leg: deregister through the agent's own CLI,
+    // best-effort (a missing binary just leaves the user-level entry; the
+    // uninstall of the PROJECT surfaces below still completes). The agent-cli
+    // registration is USER-level, so gate on project-side EVIDENCE of a kit
+    // install (our dispatcher in the hooks file / our instruction block) — an
+    // uninstall on a never-installed project must stay a quiet no-op, not a
+    // stray deregistration of another project's working setup.
+    if (hasAgentInstallEvidence(projectRoot, profile)) {
+      const r = runAgentCliMcp(profile, 'removeArgs', spawnSyncImpl);
+      if (r.ok) changed = true;
+    }
+  } else if (profile.mcp) {
     const p = join(projectRoot, profile.mcp.path);
     if (removeJsonKey(p, [profile.mcp.serversKey, MCP_SERVER_NAME])) changed = true;
     // prune an emptied servers object we leave behind (no kit-shaped residue).
@@ -135,7 +175,15 @@ export function uninstallAgent({ projectRoot, profile }) {
   // hooks: remove ONLY the event keys WE wrote (symmetry with the MCP leg —
   // remove our keys, preserve any the user added to the same `hooks` object).
   // This is safe even if a future profile points hooks.path at a shared file.
-  if (profile.hooks) {
+  if (profile.hooks && profile.hooks.mechanism === 'codex-hooks-json') {
+    // GROUP-PRESERVING removal (skill-review #2): Codex's nesting is designed
+    // for multiple groups per event, so deleting the whole event key would take
+    // the user's own groups with it (and on a never-kit-installed project,
+    // their entire SessionStart/Stop/PreToolUse config). Filter each event's
+    // array down to the non-kit groups; drop the key only when it empties.
+    if (removeKitHookGroups(projectRoot, profile)) changed = true;
+    pruneEmptyParent(join(projectRoot, profile.hooks.path), ['hooks']);
+  } else if (profile.hooks) {
     const p = join(projectRoot, profile.hooks.path);
     const ourEvents = Object.keys(buildHookEntry(profile));
     for (const ev of ourEvents) {
@@ -163,7 +211,7 @@ export function uninstallAgent({ projectRoot, profile }) {
 // hooks-json (Cursor) is the exception: EVERY mapped event (including preShell,
 // which has no per-event bin) calls the ONE dispatcher command — the event
 // rides in the payload's hook_event_name, and the dispatcher routes.
-function buildHookEntry(profile) {
+function buildHookEntry(profile, projectRoot) {
   const hooks = {};
   if (profile.hooks.mechanism === 'hooks-json') {
     const command = cursorHookCommand();
@@ -172,11 +220,149 @@ function buildHookEntry(profile) {
     }
     return hooks;
   }
+  if (profile.hooks.mechanism === 'codex-hooks-json') {
+    // Codex's matcher-GROUP nesting (primary-verified 2026-07-12):
+    //   {<Event>: [{matcher?, hooks: [{type:'command', command}]}]}
+    // One dispatcher command for every event (hook_event_name rides in the
+    // payload); per-abstract-event matchers come from the profile DATA so the
+    // kit's hooks fire only where they act (edits / shell).
+    //
+    // GROUP-PRESERVING (skill-review #3): mutateAgentConfig's deepMerge REPLACES
+    // arrays, so the entry must carry the user's existing groups under our event
+    // keys or an install would silently drop them. Read the current file, keep
+    // every non-kit group, append ONE fresh kit group per event (old kit groups
+    // filtered out first — idempotent: an unchanged re-install produces an
+    // identical entry and mutateAgentConfig reports unchanged).
+    const command = codexHookCommand();
+    const matchers = profile.hooks.matchers ?? {};
+    const existing = readExistingHooksFile(profile, projectRoot);
+    for (const [abstractEvent, concreteEvent] of Object.entries(profile.hooks.eventMap)) {
+      const matcher = matchers[abstractEvent];
+      const userGroups = (existing?.hooks?.[concreteEvent] ?? []).filter(
+        (g) => !isKitHookGroup(g, profile),
+      );
+      hooks[concreteEvent] = [
+        ...userGroups,
+        { ...(matcher ? { matcher } : {}), hooks: [{ type: 'command', command }] },
+      ];
+    }
+    return hooks;
+  }
   for (const [abstractEvent, concreteEvent] of Object.entries(profile.hooks.eventMap)) {
     const command = HOOK_COMMANDS[abstractEvent];
     if (command) hooks[concreteEvent] = [{ command }];
   }
   return hooks;
+}
+
+// ── agent-cli MCP helpers (Codex class) ─────────────────────────────────────
+
+// How long a `codex mcp add/remove` may take before the install stops waiting.
+// The op is a local config write by the agent's CLI — seconds, not minutes.
+const AGENT_CLI_MCP_TIMEOUT_MS = 15_000;
+
+// Run the profile's declared agent-CLI MCP registration, platform-correct.
+// Windows routes through `cmd.exe /c` so an npm `.cmd` shim resolves (the same
+// class as the hook commands — spawnSync of a bare `.cmd` name fails without a
+// shell). Argv is fixed profile DATA (no user input) — no injection surface.
+function runAgentCliMcp(profile, argsKey, spawnSyncImpl) {
+  const cli = profile.mcp?.cli;
+  const args = cli?.[argsKey];
+  if (!cli?.bin || !Array.isArray(args)) return { ok: false };
+  const isWindows = process.platform === 'win32';
+  // platform-commands: ignore — the cmd.exe wrap targets the INSTALL host's own
+  // shell resolution for the agent's .cmd shim, keyed on process.platform.
+  const cmd = isWindows ? 'cmd.exe' : cli.bin;
+  const argv = isWindows ? ['/c', cli.bin, ...args] : args;
+  try {
+    const r = spawnSyncImpl(cmd, argv, {
+      timeout: AGENT_CLI_MCP_TIMEOUT_MS,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    return { ok: !r.error && r.status === 0 };
+  } catch {
+    return { ok: false };
+  }
+}
+
+// The copy-pasteable fallback when the agent CLI wasn't reachable at install
+// time (e.g. the Codex DESKTOP app bundles the binary off-PATH).
+function agentCliManualCommand(profile, argsKey) {
+  const cli = profile.mcp?.cli;
+  if (!cli?.bin) return '';
+  return [cli.bin, ...(cli[argsKey] ?? [])].join(' ');
+}
+
+// Project-side evidence that THIS project had a kit install for the profile's
+// agent: OUR DISPATCHER in its hooks file — nothing broader. Skill-review #7
+// tightened this twice: (a) a generic `cmk ` match counted a user's own
+// cmk-referencing hook as evidence; (b) the instruction file is NOT evidence —
+// AGENTS.md's managed block is shared with the agents-md rung, so an
+// agents-md-only project would wrongly "prove" a codex install and get its
+// user-level MCP registration yanked.
+function hasAgentInstallEvidence(projectRoot, profile) {
+  try {
+    if (profile.hooks) {
+      const hooksPath = join(projectRoot, profile.hooks.path);
+      if (existsSync(hooksPath)
+          && readFileSync(hooksPath, 'utf8').includes(agentDispatcherToken(profile))) {
+        return true;
+      }
+    }
+  } catch {
+    // unreadable file → treat as no evidence (quiet no-op)
+  }
+  return false;
+}
+
+// The profile's own dispatcher command token (`cmk codex-hook` for codex) —
+// the string install writes into the hooks file, platform-wrap aside.
+function agentDispatcherToken(profile) {
+  return `cmk ${profile.name}-hook`;
+}
+
+// Read the profile's hooks file for group-preserving merges. Missing/corrupt →
+// null (the write path's refuse-on-parse-error in mutateAgentConfig still
+// guards the corrupt case before anything lands).
+function readExistingHooksFile(profile, projectRoot) {
+  if (!projectRoot || !profile.hooks) return null;
+  const p = join(projectRoot, profile.hooks.path);
+  if (!existsSync(p)) return null;
+  try {
+    return JSON.parse(stripBom(readFileSync(p, 'utf8')));
+  } catch {
+    return null;
+  }
+}
+
+// Is this matcher group one of OURS? (its inner hooks name our dispatcher)
+function isKitHookGroup(group, profile) {
+  const token = agentDispatcherToken(profile);
+  return Array.isArray(group?.hooks)
+    && group.hooks.some((h) => typeof h?.command === 'string' && h.command.includes(token));
+}
+
+// Uninstall's group-preserving removal for the codex-hooks-json shape: filter
+// every mapped event's array down to the user's groups; drop a key only when
+// it empties. Returns whether anything changed.
+function removeKitHookGroups(projectRoot, profile) {
+  const p = join(projectRoot, profile.hooks.path);
+  const cfg = readExistingHooksFile(profile, projectRoot);
+  if (!cfg || typeof cfg.hooks !== 'object' || cfg.hooks === null) return false;
+  let changed = false;
+  for (const concreteEvent of Object.values(profile.hooks.eventMap)) {
+    const groups = cfg.hooks[concreteEvent];
+    if (!Array.isArray(groups)) continue;
+    const kept = groups.filter((g) => !isKitHookGroup(g, profile));
+    if (kept.length !== groups.length) {
+      changed = true;
+      if (kept.length === 0) delete cfg.hooks[concreteEvent];
+      else cfg.hooks[concreteEvent] = kept;
+    }
+  }
+  if (changed) atomicWrite(p, `${JSON.stringify(cfg, null, 2)}\n`);
+  return changed;
 }
 
 // Write the instruction file with a managed marker block + agent-specific

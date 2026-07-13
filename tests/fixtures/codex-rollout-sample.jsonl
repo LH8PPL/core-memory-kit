@@ -1,0 +1,11 @@
+{"timestamp":"2026-07-12T19:47:00.019Z","type":"session_meta","payload":{"id":"019f57de-6633-7cb1-8b09-52f06ab59dcf","timestamp":"2026-07-12T19:47:00.019Z","cwd":"/proj/sandbox","originator":"codex_cli_rs","cli_version":"0.142.5"}}
+{"timestamp":"2026-07-12T19:47:00.230Z","type":"event_msg","payload":{"type":"task_started","model_context_window":258400}}
+{"timestamp":"2026-07-12T19:47:00.230Z","type":"response_item","payload":{"type":"message","role":"system","content":[{"type":"input_text","text":"(system instructions omitted in fixture)"}]}}
+{"timestamp":"2026-07-12T19:47:00.231Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"<environment_context>(omitted)</environment_context>"}]}}
+{"timestamp":"2026-07-12T19:47:00.232Z","type":"turn_context","payload":{"cwd":"/proj/sandbox","approval_policy":"never","sandbox_policy":{"mode":"read-only"},"model":"gpt-5.3-codex","summary":"auto"}}
+{"timestamp":"2026-07-12T19:47:00.233Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Use uv for python packages, remember that.\r\n"}]}}
+{"timestamp":"2026-07-12T19:47:04.269Z","type":"event_msg","payload":{"type":"user_message","message":"Use uv for python packages, remember that.\r\n","images":[],"local_images":[],"text_elements":[]}}
+{"timestamp":"2026-07-12T19:47:05.683Z","type":"event_msg","payload":{"type":"agent_message","message":"Noted — I'll use uv (never pip) for Python package management in this project.","phase":"final_answer","memory_citation":null}}
+{"timestamp":"2026-07-12T19:47:05.684Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Noted — I'll use uv (never pip) for Python package management in this project."}]}}
+{"timestamp":"2026-07-12T19:47:05.919Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":4595,"output_tokens":250,"total_tokens":4845}}}}
+{"timestamp":"2026-07-12T19:47:05.920Z","type":"event_msg","payload":{"type":"task_complete","last_agent_message":"Noted — I'll use uv (never pip) for Python package management in this project."}}

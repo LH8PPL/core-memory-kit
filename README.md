@@ -52,7 +52,7 @@ You work. It learns — automatically, no buttons. Next session, it remembers th
 - **Stays TRUE as it ages, not just stored** — facts carry a temporal shape ("ongoing state" vs "happened once" vs "planned"), facts with a shelf life expire on their own (`--expires 2026-08-01` → hidden from recall, recoverably archived), and a weekly pass catches state changes: when a newer fact supersedes an older one ("cut-gate in progress" → "published to npm"), the old state's validity window closes so recall answers with the *current* state — history intact, and the next session opens with a one-line note of what was resolved.
 - **Stays private + bounded** — secrets are screened before **every** committed-tier write — not just the ones you type, but the LLM-written summaries, transcript promotions, and trust upgrades too — machine paths are abstracted to `~`, and rolling compression keeps memory small as history grows (and the nightly compression is resumable: if it's interrupted at 80%, it keeps the 80% and picks up where it left off, never re-doing finished work). Because `context/` is committed to git, the kit also **screens personal/sensitive content automatically**: a deterministic pass masks emails / phone numbers / your username before anything touches disk, and an async judge catches names, addresses, and health details in prose — so a transcript lands screened, a sensitive fact routes to a gitignored local-only note, and nothing personal reaches a committed file (kill-switch: `privacy.screen: off`).
 - **Guards against accidental deletion** — a hook **blocks** a destructive command (`rm`, `git reset --hard`, …) the moment it targets a memory path, before it runs.
-- **Works across your agents** — the same memory brain on **Claude Code**, **[Kiro](https://kiro.dev)** (IDE + `kiro-cli`), and **[Cursor](https://cursor.com)**. A project's `context/` is shared, so memory you build in one is there in the others. The automatic engine runs through *your* agent's own CLI (using the login you already have — no extra API key). You can even **split the brain**: code in one agent, run the frequent background memory work through a *cheaper* one (`cmk install --backend kiro` → keep your premium subscription for coding, run the janitor LLM on `kiro-cli`). `cmk config show` tells you which agent is doing what.
+- **Works across your agents** — the same memory brain on **Claude Code**, **[Kiro](https://kiro.dev)** (IDE + `kiro-cli`), **[Cursor](https://cursor.com)**, and **[Codex](https://developers.openai.com/codex)**. A project's `context/` is shared, so memory you build in one is there in the others. The automatic engine runs through *your* agent's own CLI (using the login you already have — no extra API key). You can even **split the brain**: code in one agent, run the frequent background memory work through a *cheaper* one (`cmk install --backend kiro` → keep your premium subscription for coding, run the janitor LLM on `kiro-cli`). `cmk config show` tells you which agent is doing what.
 - **Per-project, in your repo** — `context/` lives in your project and travels with `git clone`. Each project keeps its own memory. And when uncommitted memory piles up, Claude offers a **one-tap commit** — you approve, Claude runs the git command; the kit itself never touches git.
 
 ## Quickstart
@@ -65,6 +65,7 @@ You work. It learns — automatically, no buttons. Next session, it remembers th
 > | **Claude Code** | the `claude` CLI — required even if you use Claude inside VS Code |
 > | **Kiro** | `kiro-cli` — required even if you use the Kiro IDE |
 > | **Cursor** | `cursor-agent` (Cursor's CLI) — required in addition to the Cursor app; runs natively on **Windows, macOS, and Linux** (install: `curl https://cursor.com/install -fsS \| bash`, or on Windows `irm 'https://cursor.com/install?win32=true' \| iex`), using your Cursor subscription login (no API key) |
+> | **Codex** | the `codex` CLI (`npm i -g @openai/codex`) — required even if you use the Codex desktop app (it bundles the binary off-PATH), using your ChatGPT/Codex login (no API key) |
 >
 > Without the agent's CLI, capture / search / recall / the delete-guard still work (they're pure files + SQLite), but the automatic LLM steps are skipped. `cmk doctor` tells you if your agent's CLI is missing.
 >
@@ -101,6 +102,14 @@ cmk doctor                                # verify, then restart Kiro
 cmk install --ide cursor                 # wire Cursor end-to-end
 cmk install --ide cursor --with-semantic # …with local semantic recall
 cmk doctor                                # verify, then restart Cursor
+```
+
+**Codex:**
+
+```bash
+cmk install --ide codex                  # wire Codex end-to-end
+cmk install --ide codex --with-semantic  # …with local semantic recall
+cmk doctor                                # verify, then run /hooks once inside Codex to trust the kit's hooks
 ```
 
 `cmk install` is the whole entry point: it scaffolds `context/`, drops the memory skills, wires the lifecycle hooks, and registers the MCP server so the agent can drive memory as tools — no `/plugin` step needed. A project can carry **both** agents — run both installs; they share one `context/`.
@@ -144,8 +153,8 @@ You rarely type these yourself — Claude drives the same operations as tools mi
 
 | Command | Purpose |
 | --- | --- |
-| `cmk install [--with-semantic] [--ide claude-code\|kiro\|cursor]` | Scaffold + wire hooks + register the MCP server (complete entry point) |
-| `cmk uninstall [--ide claude-code\|kiro\|cursor]` | Remove one agent's wiring — conservative, never deletes `context/` |
+| `cmk install [--with-semantic] [--ide claude-code\|kiro\|cursor\|codex]` | Scaffold + wire hooks + register the MCP server (complete entry point) |
+| `cmk uninstall [--ide claude-code\|kiro\|cursor\|codex]` | Remove one agent's wiring — conservative, never deletes `context/` |
 | `cmk search "<query>" [--mode keyword\|semantic\|hybrid] [--scope facts\|transcripts\|decisions]` | Search memory by meaning; `--scope decisions` recalls how a decision evolved |
 | `cmk remember "<fact>"` | Capture a fact explicitly (deduped, secret-screened, path-abstracted) |
 | `cmk forget <id>` | Tombstone a fact (audit trail preserved) |
@@ -161,6 +170,10 @@ There's more — `cmk register-crons`, `cmk config`, `cmk persona generate/expor
 ## Working with Cursor
 
 [Cursor](https://cursor.com) removed its native Memories feature (2.1.x) — static rules are its only built-in persistence. `cmk install --ide cursor` restores the full automatic loop: recalled memory injects at session start (`sessionStart` → `additional_context`), each turn is captured at `afterAgentResponse`, edits are observed, the delete-guardrail screens shell commands (`beforeShellExecution`), and an always-applied rule (`.cursor/rules/claude-memory-kit.mdc`) points the agent at the recall surface. All hooks drive one dispatcher (`cmk cursor-hook`) and are wired into `.cursor/hooks.json` without touching your own hooks. Restart Cursor after install so the hooks load. The full setup, surface table, backend, and dual-agent notes are in **[docs/CURSOR.md](docs/CURSOR.md)**.
+
+## Working with Codex
+
+[Codex](https://developers.openai.com/codex) gets the same automatic loop via its first-class hooks system: `cmk install --ide codex` wires `.codex/hooks.json` (`SessionStart` recall-inject, `UserPromptSubmit` prompt-capture, `Stop` turn-capture read from the session's rollout file, `PostToolUse` edit-observation, `PreToolUse` delete-guardrail), registers the MCP server through Codex's own `codex mcp add` (your `config.toml` is never hand-edited), and drops a managed `AGENTS.md` block. All hooks drive one dispatcher (`cmk codex-hook`). **One-time step:** Codex hash-trusts hooks — run `/hooks` once inside Codex and trust the kit's entries, or the hooks stay silent. The background LLM work runs through `codex exec` (read-only sandbox, your existing ChatGPT/Codex login). Full setup + notes: **[docs/CODEX.md](docs/CODEX.md)**.
 
 ## Uninstalling
 
@@ -182,6 +195,12 @@ cmk uninstall --ide kiro   # remove the .kiro/ blocks + skills + IDE hooks + AGE
 
 ```bash
 cmk uninstall --ide cursor # remove the kit's hooks.json events + mcp.json entry + .mdc rule
+```
+
+**Codex:**
+
+```bash
+cmk uninstall --ide codex  # remove the kit's hooks.json events + the AGENTS.md block + codex mcp remove
 ```
 
 On a dual-agent project, uninstall one and the other keeps working. To remove the memory data too, delete `context/` (and `context.local/`) yourself — the kit won't do it for you.
@@ -245,7 +264,7 @@ Project memory (`context/`) follows the **repo** — `git clone` brings it, and 
 
 ## Health checks
 
-`cmk doctor` runs eleven checks (HC-1..HC-11), each PASS / FAIL / SKIP with a repair command — including **HC-9** (flags a project whose scaffold is behind your installed `cmk`), **HC-10** (an informational heads-up if optional scheduled compaction stops firing; memory self-heals each session regardless), and **HC-11** (whether your agent's own CLI — `claude` / `kiro-cli` / `cursor-agent`, the one that runs the automatic memory engine — is on your PATH; if it's missing, the file-only features keep working and only the automatic LLM steps wait). Details + recovery paths: **[HEALTH-CHECKS.md](HEALTH-CHECKS.md)**.
+`cmk doctor` runs eleven checks (HC-1..HC-11), each PASS / FAIL / SKIP with a repair command — including **HC-9** (flags a project whose scaffold is behind your installed `cmk`), **HC-10** (an informational heads-up if optional scheduled compaction stops firing; memory self-heals each session regardless), and **HC-11** (whether your agent's own CLI — `claude` / `kiro-cli` / `cursor-agent` / `codex`, the one that runs the automatic memory engine — is on your PATH; if it's missing, the file-only features keep working and only the automatic LLM steps wait). Details + recovery paths: **[HEALTH-CHECKS.md](HEALTH-CHECKS.md)**.
 
 ## Acknowledgments
 
