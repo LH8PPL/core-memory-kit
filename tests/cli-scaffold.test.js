@@ -83,6 +83,7 @@ const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex', 'f
 const NON_STUB_CHILDREN = new Set([
   'queue/conflicts',    // Task 25
   'queue/review',       // Task 26
+  'queue/prune',        // Task 194 — wired (survival-gate resolver); logic tested by cli-prune-queue.test.js
   'mcp/serve',          // Task 31 — invoked by Claude Code; tested separately by cli-mcp-server.test.js
   'transcripts/extract', // Task 38
   'persona/generate',   // Task 45 follow-up — wired; logic tested by cli-auto-persona.test.js

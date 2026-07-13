@@ -46,6 +46,7 @@ import { overrideTrust } from './trust.mjs';
 import { lessonsPromote } from './lessons-promote.mjs';
 import { resolveReviewQueue, listReviewQueue } from './review-queue.mjs';
 import { resolveConflictQueue, listConflictQueue } from './conflict-queue.mjs';
+import { resolvePruneQueue, listPruneQueue } from './prune-queue.mjs';
 import { createHash } from 'node:crypto';
 import { getObservations, citeLink, buildTimeline, recentActivity } from './read-core.mjs';
 import { resolveTierRoot } from './tier-paths.mjs';
@@ -550,18 +551,20 @@ function makeMkForget({ projectRoot, userDir }) {
 function makeMkQueueList({ projectRoot, userDir }) {
   return async ({ queue }) => {
     const q = queue ?? 'review';
-    if (q !== 'review' && q !== 'conflicts') {
-      return mcpToolError({ action: 'error', errorCategory: 'schema', errors: [`queue must be 'review' or 'conflicts' (got ${q})`] });
+    if (q !== 'review' && q !== 'conflicts' && q !== 'prune') {
+      return mcpToolError({ action: 'error', errorCategory: 'schema', errors: [`queue must be 'review', 'conflicts', or 'prune' (got ${q})`] });
     }
     // PURE READ (code-review SR-1): list via the dedicated read helpers, NOT the
     // resolve* walkers — those reserialize + rewrite the queue file on every call,
     // so listing through them would mutate (mtime churn / reformat / concurrent-
-    // resolve race) on a read-only op. listReviewQueue / listConflictQueue parse
-    // the file without writing.
+    // resolve race) on a read-only op. listReviewQueue / listConflictQueue /
+    // listPruneQueue parse the file without writing.
     try {
       const entries = q === 'review'
         ? listReviewQueue({ tier: 'P', projectRoot, userDir })
-        : listConflictQueue({ tier: 'P', projectRoot, userDir });
+        : q === 'conflicts'
+          ? listConflictQueue({ tier: 'P', projectRoot, userDir })
+          : listPruneQueue({ projectRoot });
       return {
         content: [{ type: 'text', text: JSON.stringify({ queue: q, pending: entries.length, entries }, null, 2) }],
       };
@@ -600,7 +603,21 @@ function makeMkQueueResolve({ projectRoot, userDir }) {
         content: [{ type: 'text', text: JSON.stringify({ accepted: r.resolved > 0, queue: 'conflicts', id, action, result: r }, null, 2) }],
       };
     }
-    return mcpToolError({ action: 'error', errorCategory: 'schema', errors: [`queue must be 'review' or 'conflicts' (got ${q})`] });
+    if (q === 'prune') {
+      // Task 194 — the survival gate's decision surface, MCP side (parity
+      // with `cmk queue prune`). Same one-id prompter shape as the others.
+      if (action !== 'convert' && action !== 'forget' && action !== 'keep') {
+        return mcpToolError({ action: 'error', errorCategory: 'schema', errors: [`prune action must be 'convert', 'forget', or 'keep' (got ${action})`] });
+      }
+      const prompter = async (e) => (e.id === id ? action : 'skip');
+      const r = await resolvePruneQueue({ projectRoot, userDir, prompter });
+      if (r.action === 'error') return mcpToolError(r);
+      const count = action === 'convert' ? r.converted : action === 'forget' ? r.forgotten : r.kept;
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ accepted: count > 0, queue: 'prune', id, action, result: r }, null, 2) }],
+      };
+    }
+    return mcpToolError({ action: 'error', errorCategory: 'schema', errors: [`queue must be 'review', 'conflicts', or 'prune' (got ${q})`] });
   };
 }
 
@@ -767,9 +784,9 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
   server.registerTool(
     'mk_queue_list',
     {
-      description: "List pending entries in the review queue (medium-trust auto-extracts awaiting promotion) or the conflict queue (writes that clashed with existing facts). Read-only. Parity with `cmk queue review` / `cmk queue conflicts`.",
+      description: "List pending entries in the review queue (medium-trust auto-extracts awaiting promotion), the conflict queue (writes that clashed with existing facts), or the prune queue (survival-gate candidates — trust floored + still failing). Read-only. Parity with `cmk queue review` / `cmk queue conflicts` / `cmk queue prune`.",
       inputSchema: {
-        queue: z.enum(['review', 'conflicts']).optional().describe("which queue (default 'review')"),
+        queue: z.enum(['review', 'conflicts', 'prune']).optional().describe("which queue (default 'review')"),
       },
     },
     makeMkQueueList({ projectRoot, userDir }),
@@ -779,11 +796,11 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
   server.registerTool(
     'mk_queue_resolve',
     {
-      description: "Resolve one queued entry by ID. review: 'promote' (land it in MEMORY.md at high trust) | 'discard'. conflicts: 'keep-old' | 'keep-new' (merge-both composes content — use `cmk queue conflicts`). Audited.",
+      description: "Resolve one queued entry by ID. review: 'promote' (land it in MEMORY.md at high trust) | 'discard'. conflicts: 'keep-old' | 'keep-new' (merge-both composes content — use `cmk queue conflicts`). prune: 'convert' (retain as a typed anti-pattern warning) | 'forget' (tombstone) | 'keep' (dismiss, never re-queued). Audited.",
       inputSchema: {
-        queue: z.enum(['review', 'conflicts']).describe('which queue the entry is in'),
+        queue: z.enum(['review', 'conflicts', 'prune']).describe('which queue the entry is in'),
         id: z.string().describe('the queued entry ID to resolve'),
-        action: z.enum(['promote', 'discard', 'keep-old', 'keep-new', 'merge-both']).describe('review: promote|discard; conflicts: keep-old|keep-new (merge-both → use `cmk queue conflicts`)'),
+        action: z.enum(['promote', 'discard', 'keep-old', 'keep-new', 'merge-both', 'convert', 'forget', 'keep']).describe('review: promote|discard; conflicts: keep-old|keep-new (merge-both → use `cmk queue conflicts`); prune: convert|forget|keep'),
       },
     },
     makeMkQueueResolve({ projectRoot, userDir }),

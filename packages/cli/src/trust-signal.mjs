@@ -27,12 +27,22 @@
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { openIndexDb } from './index-db.mjs';
-import { updateTrustScore } from './trust-score.mjs';
+import { updateTrustScore, TRUST_SCORE_FLOOR } from './trust-score.mjs';
 import { appendAuditEntry, nowIso } from './audit-log.mjs';
 import { screenSignal, logSignal } from './feedback-screen.mjs';
+import { routePruneCandidate } from './prune-queue.mjs';
 
-const SELECT_TRUST_SCORE_SQL = 'SELECT trust_score FROM observations WHERE id = ?';
-const UPDATE_TRUST_SCORE_SQL = 'UPDATE observations SET trust_score = ? WHERE id = ?';
+const SELECT_TRUST_SCORE_SQL =
+  'SELECT trust_score, signal_count, body FROM observations WHERE id = ?';
+// Task 194: every APPLIED signal also increments signal_count — the feedback
+// counter (SYSTEM-MAP §6) that is the search blend's confidence-gate EVIDENCE.
+// Only applied signals count: rate-limited / quarantined / not-found / skipped
+// events never consume evidence (they never reached the score either).
+const UPDATE_TRUST_SCORE_SQL =
+  'UPDATE observations SET trust_score = ?, signal_count = signal_count + 1 WHERE id = ?';
+
+// Floor comparison tolerance for the survival gate (floats via clamp()).
+const FLOOR_EPSILON = 1e-9;
 
 /**
  * Apply one passive-outcome event to a fact's trust_score overlay (Task 151.8).
@@ -80,6 +90,30 @@ export function applyTrustSignal({ projectRoot, id, event, db: sharedDb } = {}) 
     if (!row) return { action: 'not-found', id };
     const next = updateTrustScore(row.trust_score, event);
     db.prepare(UPDATE_TRUST_SCORE_SQL).run(next, id);
+    // ── SURVIVAL GATE (Task 194, ADR-0017 Phase 2 — ExpeL's prune-at-zero,
+    // demote-not-evict flavored). A dampen landing on a fact ALREADY at the
+    // floor is "floored + still failing": the score can't sink further, so
+    // the loop's verdict escalates to prune-CANDIDACY — routed to the
+    // prune-review queue for a human/agent decision, NEVER a silent delete.
+    // Idempotent (the preservational queue remembers every routed id) and
+    // best-effort (a queue failure never disturbs the applied signal).
+    if (
+      event === 'dampen' &&
+      projectRoot &&
+      row.trust_score <= TRUST_SCORE_FLOOR + FLOOR_EPSILON
+    ) {
+      try {
+        routePruneCandidate({
+          projectRoot,
+          id,
+          text: row.body,
+          trustScore: next,
+          signalCount: (row.signal_count ?? 0) + 1,
+        });
+      } catch {
+        // best-effort — candidacy routing must never break the signal path.
+      }
+    }
     // Post-apply bookkeeping (best-effort): the signal log is the screen's
     // state + observability; the audit log is the canonical provenance-per-
     // mutation trail (Task 193 done-when). Each writer is isolated — a

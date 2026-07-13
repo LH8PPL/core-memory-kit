@@ -17,8 +17,8 @@ The kit ships an **MCP server** so Claude can run every memory operation **in co
 | `mk_trust` | `cmk trust` | Change a fact's trust level (low / medium / high). |
 | `mk_lessons_promote` | `cmk lessons promote` | Carry a project fact into the cross-project user tier. |
 | `mk_forget` | `cmk forget` | Tombstone a fact (audit trail preserved). **Two-step** — see below. |
-| `mk_queue_list` | `cmk queue …` | List what's pending in the review / conflict queues. |
-| `mk_queue_resolve` | `cmk queue …` | Resolve a queued item — `promote` / `discard` a review item, `keep-old` / `keep-new` a conflict. |
+| `mk_queue_list` | `cmk queue …` | List what's pending in the review / conflict / prune queues. |
+| `mk_queue_resolve` | `cmk queue …` | Resolve a queued item — `promote` / `discard` a review item, `keep-old` / `keep-new` a conflict, `convert` / `forget` / `keep` a prune candidate (the Task-194 survival gate). |
 
 ## Tool parameters (the full option surface)
 
@@ -35,8 +35,8 @@ Verified against the server's schemas (`packages/cli/src/mcp-server.mjs`); names
 | `mk_trust` | `id` (required) · `level` low/medium/high (required) |
 | `mk_lessons_promote` | `id` (required, a P- fact) · `to` USER.md/HABITS.md/LESSONS.md (default LESSONS.md) · `section` (override the landing section; default: the topic-router picks one) |
 | `mk_forget` | `id` (required) · `reason` (≤500, audited) · `deleted_by` (≤200, audit provenance; default user-explicit) · `confirm` — the token from the preview call; required to actually delete |
-| `mk_queue_list` | `queue` review/conflicts (default review) |
-| `mk_queue_resolve` | `queue` (required) · `id` (required) · `action` — review: promote/discard; conflicts: keep-old/keep-new (`merge-both` routes to the interactive `cmk queue conflicts`) |
+| `mk_queue_list` | `queue` review/conflicts/prune (default review) |
+| `mk_queue_resolve` | `queue` (required) · `id` (required) · `action` — review: promote/discard; conflicts: keep-old/keep-new (`merge-both` routes to the interactive `cmk queue conflicts`); prune: convert (retain as a typed anti-pattern warning) / forget (tombstone) / keep (dismiss, never re-queued) |
 
 ## Destructive ops are two-step (confirm token)
 

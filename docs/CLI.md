@@ -204,8 +204,8 @@ Carry your cross-project persona across **your own machines**. Two scopes, two t
 
 Carry the file via your own private channel (USB / a private git repo / Dropbox). A seamless auto-syncing variant (`cmk persona sync <your-private-git-url>`) is planned. Honors `MEMORY_KIT_USER_DIR` if you point the user tier at a synced folder.
 
-### `cmk queue review` · `cmk queue conflicts`
-Walk pending items interactively. `review` = medium-trust auto-extracts (promote/discard/skip). `conflicts` = contradictions vs. existing high-trust facts (keep-old/keep-new/merge-both/skip).
+### `cmk queue review` · `cmk queue conflicts` · `cmk queue prune`
+Walk pending items interactively. `review` = medium-trust auto-extracts (promote/discard/skip). `conflicts` = contradictions vs. existing high-trust facts (keep-old/keep-new/merge-both/skip). `prune` = **survival-gate candidates** (Task 194): facts whose evolved `trust_score` sat at the floor and *still* took a failing outcome signal — the learn-loop's "this memory keeps not working" verdict, surfaced for YOUR decision, never auto-deleted. Options: `convert` (retain it as a typed **anti-pattern** — reframed `⚠️ AVOID …`, kept searchable + injected as a warning), `forget` (tombstone through the safe path), `keep` (you vouch for it — dismissed, never re-asked), `skip`. Candidates arrive automatically (no command needed); this verb is only the resolution step.
 
 ---
 

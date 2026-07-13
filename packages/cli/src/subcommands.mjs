@@ -77,6 +77,7 @@ import { forget as forgetAction } from './forget.mjs';
 import { overrideTrust as overrideTrustAction } from './trust.mjs';
 import { resolveConflictQueue, mergeScratchpadBullets } from './conflict-queue.mjs';
 import { resolveReviewQueue } from './review-queue.mjs';
+import { resolvePruneQueue } from './prune-queue.mjs';
 import { createInterface } from 'node:readline';
 import { spawnSync } from 'node:child_process';
 import { checkKitBinding } from './native-binding.mjs';
@@ -2551,10 +2552,13 @@ async function runQueueDispatch(childName) {
   if (childName === 'review') {
     return runQueueReview();
   }
+  if (childName === 'prune') {
+    return runQueuePrune();
+  }
   // A bare `cmk queue` reaches here post-Task-129 (parent action wired);
   // commander passes an options object, not a string sub-verb.
   const verb = typeof childName === 'string' ? childName : '(none)';
-  console.log(`cmk queue: ${NOTICE_PREFIX} (run \`cmk queue review\` or \`cmk queue conflicts\`; got '${verb}')`);
+  console.log(`cmk queue: ${NOTICE_PREFIX} (run \`cmk queue review\`, \`cmk queue conflicts\`, or \`cmk queue prune\`; got '${verb}')`);
   process.exitCode = 2;
 }
 
@@ -2751,6 +2755,74 @@ export async function runQueueReview(opts = {}) {
     log('');
     log(
       `cmk queue review: ${result.promoted} promoted, ${result.discarded} discarded, ${result.skipped} skipped${result.errors && result.errors.length ? `, ${result.errors.length} errored` : ''}`,
+    );
+    if (result.errors && result.errors.length) {
+      for (const err of result.errors) {
+        logError(`  error on ${err.id} (${err.decision}): ${err.errors.join('; ')}`);
+      }
+    }
+    return result;
+  } finally {
+    if (rl) rl.close();
+  }
+}
+
+/**
+ * Interactive resolver for `cmk queue prune` (Task 194 — the survival gate's
+ * decision surface). Walks pending floored-and-still-failing candidates,
+ * prints the fact + its evidence, asks for one of `convert` (→ typed
+ * anti-pattern warning, retained) / `forget` (tombstone) / `keep` (dismiss,
+ * never re-queued) / `skip`. Same prompter-factory pattern as review/conflicts
+ * (Task 113 F-9): unit-testable without stdin.
+ */
+export function buildPrunePrompter({ ask, log }) {
+  const VALID = new Set(['convert', 'forget', 'keep', 'skip']);
+  return async ({ id, text, trustScore, signalCount, detectedAt }) => {
+    log('');
+    log('─── prune candidate (trust floored + still failing) ───────');
+    log(`id:       ${id}`);
+    log(`text:     ${text}`);
+    log(`evidence: trust_score=${trustScore} after ${signalCount} outcome signals (detected ${detectedAt})`);
+    let decision = '';
+    while (!VALID.has(decision)) {
+      const answer = await ask(`  [convert (→ anti-pattern warning) / forget / keep / skip]: `);
+      decision = String(answer).trim();
+      if (!VALID.has(decision)) {
+        log(`  unknown answer "${decision}" — please type one of: convert, forget, keep, skip`);
+      }
+    }
+    return decision;
+  };
+}
+
+// Dep-injectable like runQueueReview (Task 113 F-9 pattern): a test injects
+// { projectRoot, userDir, prompter, log, logError } to drive real resolutions
+// end-to-end without stdin. Returns the resolver result.
+export async function runQueuePrune(opts = {}) {
+  const projectRoot = opts.projectRoot ?? process.cwd();
+  const userDir = opts.userDir ?? resolveUserDir();
+  const log = opts.log ?? console.log;
+  const logError = opts.logError ?? console.error;
+
+  let rl = null;
+  let prompter = opts.prompter;
+  if (!prompter) {
+    rl = createInterface({ input: process.stdin, output: process.stdout });
+    const askOnce = (q) =>
+      new Promise((resolve) => rl.question(q, (answer) => resolve(answer)));
+    prompter = buildPrunePrompter({ ask: askOnce, log });
+  }
+
+  try {
+    const result = await resolvePruneQueue({ projectRoot, userDir, prompter });
+    if (result.action === 'error') {
+      for (const e of result.errors) logError(`cmk queue prune: ${e}`);
+      process.exitCode = 2;
+      return result;
+    }
+    log('');
+    log(
+      `cmk queue prune: ${result.converted} converted to anti-patterns, ${result.forgotten} forgotten, ${result.kept} kept, ${result.skipped} skipped${result.errors && result.errors.length ? `, ${result.errors.length} errored` : ''}`,
     );
     if (result.errors && result.errors.length) {
       for (const err of result.errors) {
@@ -3064,6 +3136,7 @@ export const subcommands = [
     children: [
       { name: 'review', description: 'walk pending medium-trust auto-extracts; promote / discard / skip' },
       { name: 'conflicts', description: 'walk pending conflicts; keep-old / keep-new / merge-both / skip' },
+      { name: 'prune', description: 'walk survival-gate candidates (trust floored + still failing); convert (→ anti-pattern) / forget / keep / skip' },
     ],
     action: runQueueDispatch,
   },

@@ -74,6 +74,16 @@ CREATE TABLE IF NOT EXISTS observations (
   -- committed frontmatter (D-218). DEFAULT 0.5 so a migrated pre-151.6 row + any
   -- insert that omits it gets a sane medium seed until the next full reindex.
   trust_score REAL NOT NULL DEFAULT 0.5,
+  -- Task 194 (ADR-0017 Phase 2 / SYSTEM-MAP §6 "feedback counters"): the count
+  -- of APPLIED outcome signals (reinforce/dampen) — the confidence-gate
+  -- EVIDENCE for the search blend. A score with no evidence never moves rank
+  -- (blend fires only at signal_count ≥ BLEND_MIN_SIGNALS). Same overlay
+  -- posture as trust_score (D-237): lives only in the rebuildable index; a
+  -- full reindex resets it to 0 — acceptable, the gate then honestly reports
+  -- "no evidence" until the loop re-earns it. Recurrence/restatement is NOT
+  -- counted here (it lives in the initTrustScore SEED) — the ADR-0017 seam:
+  -- restatement must not buy ranking boosts the way an outcome signal does.
+  signal_count INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL,
   superseded_by TEXT REFERENCES observations(id),
   deleted_at INTEGER,
@@ -222,6 +232,9 @@ export function openIndexDb({ projectRoot, dbPath } = {}) {
   // (nullable — NULL = permanent, which is exactly right for every pre-66 row;
   // the next full reindex populates real values from fact frontmatter).
   migrateAddColumn(db, 'observations', 'expires_at', 'INTEGER');
+  // Task 194: same pattern for the feedback counter (see the schema comment).
+  // Pre-194 rows start at 0 = "no outcome evidence" — exactly the honest state.
+  migrateAddColumn(db, 'observations', 'signal_count', 'INTEGER NOT NULL DEFAULT 0');
   return db;
 }
 
