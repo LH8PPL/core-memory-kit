@@ -89,6 +89,71 @@ const TRUST_ORDINAL = Object.freeze({
 // top results more heavily).
 const RRF_K = 60;
 
+// --- Task 194: the confidence-gated trust blend (ADR-0017 Phase 2) -----
+//
+// `BM25 ⊕ λ·trust_score` — the single edit that turns trust_score from
+// decorative into load-bearing (the field-wide "inert socket" anti-pattern,
+// fixed). Shape: Memoria's retrieval-integrated multiplier
+// (`final_score *= (1 + w·(useful − …)).clamp(0.5, 2.0)` — the 2026-07-01
+// failure-learning survey's cleanest oracle-free template), adapted to FTS5's
+// NEGATIVE-better bm25 rank: a multiplier > 1 pushes the rank more negative
+// (better), < 1 shrinks it toward 0 (worse). Multiplicative = scale-invariant
+// against corpus-dependent BM25 magnitudes.
+//
+// CONFIDENCE-GATED: the trust term applies ONLY when the fact carries real
+// outcome EVIDENCE — signal_count (the index's feedback counter, incremented
+// per APPLIED signal in applyTrustSignal) ≥ BLEND_MIN_SIGNALS. A score nobody
+// has tested never moves rank; and because recurrence/restatement lives in
+// the initTrustScore SEED (never in signal_count), restatement can't buy
+// ranking boosts — the ADR-0017 open seam, resolved.
+//
+// FACTS ONLY, judgments NEVER rank (ADR-0017 Decision #1): a judgment file
+// (writeFact convention: judgment_*.md) is excluded by source_file — the
+// checkable rule judgment.mjs's header promises. Inject is UNTOUCHED (§20.3's
+// hot path stays enum-ordered — the blend lives here, where the DB is
+// already open).
+
+// λ: the max fractional rank adjustment per unit of trust distance. With
+// trust_score ∈ [0.05, 0.95] and neutral 0.5, the adjustment is bounded at
+// ±λ·0.45 = ±22.5% of the BM25 rank — enough to separate ties and near-ties,
+// never enough to let a weak match leapfrog a strong one (well inside
+// Memoria's [0.5, 2.0] clamp).
+export const BLEND_LAMBDA = 0.5;
+// The evidence threshold: 3 applied outcome signals — the kit's existing
+// "three occurrences = a pattern" constant (the recurrence promotion gate,
+// ADR-0016 §20.1) applied to the loop's evidence.
+export const BLEND_MIN_SIGNALS = 3;
+// The no-op point: a score at the init default neither boosts nor dampens.
+export const BLEND_NEUTRAL = 0.5;
+
+const JUDGMENT_FILE_RE = /(^|[\\/])judgment_[^\\/]*\.md$/;
+
+/**
+ * Blend one fact's trust_score into its BM25 rank (pure; exported for
+ * isolated unit tests like reciprocalRankFusion).
+ *
+ * @param {object} o
+ * @param {number} o.score        the FTS5 bm25 rank (≤ 0; more negative = better)
+ * @param {number} [o.trustScore]  the fact's evolved trust_score [0.05, 0.95]
+ * @param {number} [o.signalCount] applied outcome-signal count (the evidence)
+ * @param {string} [o.sourceFile]  the row's source_file (judgment exclusion)
+ * @returns {number} the blended score (== score when the gate is closed)
+ */
+export function blendTrustScore({ score, trustScore, signalCount, sourceFile } = {}) {
+  if (!Number.isFinite(score)) return score;
+  if (!Number.isFinite(trustScore)) return score;
+  if (!Number.isFinite(signalCount) || signalCount < BLEND_MIN_SIGNALS) return score;
+  if (sourceFile && JUDGMENT_FILE_RE.test(sourceFile)) return score;
+  return score * (1 + BLEND_LAMBDA * (trustScore - BLEND_NEUTRAL));
+}
+
+// Oversample factor for the keyword fetch when blending: a boosted row just
+// past the raw-BM25 cutoff must be able to enter the top-N, and a dampened
+// row must SINK, not vanish (re-ranked, never dropped — the demote-not-evict
+// posture at the result-list level). ±22.5% max adjustment makes crossings a
+// near-boundary phenomenon; 3× is generous.
+const BLEND_OVERSAMPLE = 3;
+
 // --- Validation -------------------------------------------------------
 
 function validateInput(opts) {
@@ -289,6 +354,8 @@ SELECT
   o.source_line AS source_line,
   o.tier AS tier,
   o.trust AS trust,
+  o.trust_score AS trust_score,
+  o.signal_count AS signal_count,
   o.created_at AS created_at,
   o.deleted_at AS deleted_at,
   observations_fts.rank AS score,
@@ -336,8 +403,11 @@ function buildKeywordSql(opts) {
   const where = clauses.length > 0 ? ' AND ' + clauses.join(' AND ') : '';
   const sql =
     KEYWORD_BASE_SQL + where + ' ORDER BY observations_fts.rank LIMIT @limit';
-  params.limit = opts.limit ?? DEFAULT_LIMIT;
-  return { sql, params };
+  // Task 194: fetch an oversampled candidate window — the blend re-ranks in
+  // JS, then slices back to the requested limit (see BLEND_OVERSAMPLE).
+  const requested = opts.limit ?? DEFAULT_LIMIT;
+  params.limit = Math.min(requested * BLEND_OVERSAMPLE, MAX_LIMIT);
+  return { sql, params, requested };
 }
 
 // FTS5 parse errors aren't validation errors — they're query-syntax
@@ -359,7 +429,7 @@ class FTS5ParseError extends Error {
 }
 
 function runKeywordSearch(db, opts) {
-  const { sql, params } = buildKeywordSql(opts);
+  const { sql, params, requested } = buildKeywordSql(opts);
   let rows;
   try {
     rows = db.prepare(sql).all(params);
@@ -376,15 +446,26 @@ function runKeywordSearch(db, opts) {
     }
     throw err;
   }
-  return rows.map((r) => ({
-    id: r.id,
-    snippet: r.snippet ?? r.body,
-    source_file: r.source_file,
-    source_line: r.source_line,
-    tier: r.tier,
-    trust: r.trust,
-    score: r.score,
-  }));
+  // Task 194: the confidence-gated trust blend, then back to the requested
+  // window. The sort is STABLE (JS spec), so gate-closed rows keep their SQL
+  // (BM25) order exactly — the blend only moves rows whose scores it changed.
+  return rows
+    .map((r) => ({
+      id: r.id,
+      snippet: r.snippet ?? r.body,
+      source_file: r.source_file,
+      source_line: r.source_line,
+      tier: r.tier,
+      trust: r.trust,
+      score: blendTrustScore({
+        score: r.score,
+        trustScore: r.trust_score,
+        signalCount: r.signal_count,
+        sourceFile: r.source_file,
+      }),
+    }))
+    .sort((a, b) => a.score - b.score)
+    .slice(0, requested);
 }
 
 // --- Transcript-scope keyword backend (Task 104.2, the L3 raw tier) ----

@@ -258,9 +258,9 @@ Cross-refs: [[Write source]], [[Review queue]], [[Conflict queue]], [[Trust scor
 
 ### Trust score
 
-An **evolving** per-fact float (`0.05`–`0.95`) stored in the **rebuildable index** (`observations.trust_score`), never in committed frontmatter (a moving value = git-diff noise). Distinct from [[Trust]] (the coarse committed enum): the score seeds from source + recurrence, then moves from passive outcomes — a contradiction/supersession dampens it, a restatement raises it — with no command to run. A protection/floor signal (never reaches zero → demote-not-evict), NOT a sweep-ranking driver. Task 151 Move 3 (folds Task 97).
+An **evolving** per-fact float (`0.05`–`0.95`) stored in the **rebuildable index** (`observations.trust_score`), never in committed frontmatter (a moving value = git-diff noise). Distinct from [[Trust]] (the coarse committed enum): the score seeds from source + recurrence, then moves from passive outcomes — a contradiction/supersession dampens it, a restatement raises it — with no command to run. A protection/floor signal (never reaches zero → demote-not-evict), NOT a sweep-ranking driver — and since v0.5.3 (Task 194) ALSO a **search-ranking term**, but only through the confidence-gated [[Search blend]] (evidence ≥ 3 outcome signals; inject and the sweep stay enum-based). Task 151 Move 3 (folds Task 97).
 
-Cross-refs: [[Trust]], [[Recurrence gate]], [[Demote-not-evict]]. Spec: design §20.2; ADR-0016.
+Cross-refs: [[Trust]], [[Recurrence gate]], [[Demote-not-evict]], [[Search blend]]. Spec: design §20.2 + §20.7; ADR-0016.
 
 ### Recurrence gate
 
@@ -276,7 +276,7 @@ Cross-refs: [[Recurrence gate]], [[Trust score]], [[Graduation]]. Spec: design �
 
 ### Learn-loop
 
-The kit's target architecture (ADR-0017, Accepted 2026-07-02): the cycle ACQUIRE → RETRIEVE → act → JUDGE → MEASURE → CURATE → back to RETRIEVE, closed **across session boundaries** — a session is a bounded agent run, and the kit is the cross-session runtime the loop runs on (feedback on this session's recalls arrives in the *next* session). Today the kit ships the loop minus one edge: MEASURE computes a signal (trust_score) that never reaches retrieval ranking. Closing that edge = the v0.5 differentiator (Tasks 190–194). The full anatomy: [SYSTEM-MAP §6](../docs/SYSTEM-MAP.md).
+The kit's target architecture (ADR-0017, Accepted 2026-07-02): the cycle ACQUIRE → RETRIEVE → act → JUDGE → MEASURE → CURATE → back to RETRIEVE, closed **across session boundaries** — a session is a bounded agent run, and the kit is the cross-session runtime the loop runs on (feedback on this session's recalls arrives in the *next* session). The last edge — MEASURE's signal (trust_score) reaching retrieval ranking — **closed 2026-07-13 (Task 194, v0.5.3)** via the confidence-gated [[Search blend]] + [[Survival gate]]; the loop is now end-to-end. The full anatomy: [SYSTEM-MAP §6](../docs/SYSTEM-MAP.md).
 
 Cross-refs: [[Judge]], [[Recall-log]], [[Feedback-screen]], [[Judgment]], [[Trust score]]. Spec: SYSTEM-MAP §1/§6; ADR-0017.
 
@@ -312,9 +312,21 @@ Cross-refs: [[Learn-loop]], [[Judge]], [[Poison_Guard]]. Spec: SYSTEM-MAP §6; A
 
 ### Anti-pattern memory
 
-A fact whose JOB is negative: "avoid this / do not retry this route." A repeatedly-failing fact CONVERTS to this type instead of being deleted (demote-not-evict extended to the loop) and is injected as a warning — failures have positive value as cautionary examples (Memento/REMEMBERER retained-exemplar + Negative-Knowledge's dead-end veto, three independent precedents).
+A fact whose JOB is negative: "avoid this / do not retry this route." A repeatedly-failing fact CONVERTS to this type instead of being deleted (demote-not-evict extended to the loop) and is injected as a warning — failures have positive value as cautionary examples (Memento/REMEMBERER retained-exemplar + Negative-Knowledge's dead-end veto, three independent precedents). **Built (Task 194, v0.5.3):** the `convert` resolution of the [[Survival gate]]'s prune queue — a bullet is rewritten in place as `⚠️ AVOID …` (injected where it lived); a fact file is retyped `type: anti-pattern` (a conversion-ONLY type — writeFact can't dictate it) + a warning bullet lands in MEMORY.md § Anti-patterns.
 
-Cross-refs: [[Learn-loop]], [[Demote-not-evict]], [[Judgment]]. Spec: SYSTEM-MAP §6; ADR-0017 Decision #5; Task 194.
+Cross-refs: [[Learn-loop]], [[Demote-not-evict]], [[Judgment]], [[Survival gate]]. Spec: SYSTEM-MAP §6; design §20.7; ADR-0017 Decision #5; Task 194.
+
+### Search blend
+
+The confidence-gated ranking term that turned [[Trust score]] from decorative into load-bearing (Task 194, v0.5.3 — ADR-0017 Phase 2, the loop's last edge): the facts-scope keyword rank becomes `bm25 × (1 + λ·(trust_score − 0.5))`, applied ONLY when the fact carries ≥ 3 APPLIED outcome signals (`observations.signal_count`, the feedback counter — restatement/recurrence deliberately never counts, so re-saying a thing can't buy rank). Judgments never blend (`judgment_*.md` excluded); hybrid inherits via RRF; a dampened row is re-ranked, never dropped; **inject is untouched** (enum-ordered — the §20.3 hot-path rule, structurally pinned). Shape: Memoria's retrieval multiplier on FTS5's negative-better rank.
+
+Cross-refs: [[Trust score]], [[Learn-loop]], [[Judgment]], [[Survival gate]]. Spec: design §9.3 + §20.7 + the §20.3 amendment; ADR-0017 Decision #3.
+
+### Survival gate
+
+ExpeL's prune-at-zero, demote-not-evict flavored (Task 194, v0.5.3): an applied dampen landing on a fact ALREADY at the trust floor ("floored + still failing" — the score can't sink further) routes a prune-CANDIDATE to `context/queues/prune-review.md` — automatically, audit-logged, NEVER a silent delete. The queue is preservational (resolved entries keep their `resolution:` marker = the never-re-nag memory). Resolution via `cmk queue prune` / `mk_queue_resolve`: `convert` (→ [[Anti-pattern memory]]) / `forget` (safe tombstone) / `keep` (user vouches — dismissed for good) / `skip`.
+
+Cross-refs: [[Learn-loop]], [[Anti-pattern memory]], [[Trust score]], [[Review queue]], [[Conflict queue]]. Spec: design §20.7; SYSTEM-MAP §6 CURATE panel; ADR-0017 Decision #3.
 
 ### Write source
 

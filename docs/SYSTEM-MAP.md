@@ -307,8 +307,14 @@ no ritual — expectation + recall-log ride existing hooks (D-169); every memory
   2026-07-06, Task 190/PR #259** — `context/.locks/recall.log`, inject + search wired) + expectation
   pre-registration + judgment files (**1b SHIPPED 2026-07-07, Task 191** - `PREDICTION:` capture on the Stop hook + `judgment_*.md` with the earned evidence log) + the Stop-hook judge (tool-result / correction / re-ask; **1c SHIPPED 2026-07-07, Task 192** - four deterministic detectors on the capture hooks, every delta through the 1d screen) +
   feedback-screen v0 (rate-limit + burst-hold; **1d SHIPPED 2026-07-06, Task 193** - screened inside `applyTrustSignal`, state at `context/.locks/trust-signals.log`).
-- **Phase 2 — close the edge:** the confidence-gated search blend (the ADR-level §20.3 revision) +
-  survival gate + anti-pattern conversion.
+- **Phase 2 — close the edge (SHIPPED 2026-07-13, Task 194 — the MEASURE→RETRIEVE edge is CLOSED):**
+  the confidence-gated search blend (`blendTrustScore` — Memoria's multiplier on FTS5's rank, gated on
+  the new `signal_count` feedback counter ≥ 3; judgments excluded by `judgment_*.md` source_file; the
+  §20.3 amendment + design §20.7 record it) + the survival gate (a dampen on an already-floored fact →
+  `context/queues/prune-review.md`, preservational, never silent-delete) + anti-pattern conversion
+  (`cmk queue prune` convert → the fact retained as a typed `⚠️ AVOID` warning — bullet rewritten in
+  place / fact file retyped `anti-pattern` + a MEMORY.md § Anti-patterns warning bullet). Inject stays
+  enum-ordered — structurally pinned by a regression test on its import graph.
 - **Phase 3 — host-dependent:** peer-disagreement, used-vs-ignored, the agent hosts (Task 50/127),
   same-task replay (the deferred study's trigger).
 

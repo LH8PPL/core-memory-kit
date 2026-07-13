@@ -57,9 +57,9 @@ Because it rides the Stop hook (which reads the conversation directly), the rich
 
 **The privacy screen (ADR-0019, v0.5.0)** sits directly on this capture path: a deterministic L1 pattern mask (emails/phones/usernames → `«EMAIL»` etc.) at write time, plus an async L3 LLM judge that screens names/sensitive content before anything lands in a *committed* tier — `<private>…</private>` remains the explicit never-persist override. Mechanism: design.md §6.10.
 
-### Layer 4.5 — the learn-loop (v0.5.0, ADR-0017)
+### Layer 4.5 — the learn-loop (v0.5.0–v0.5.3, ADR-0017)
 
-Phase 1 of "the kit learns from outcomes" — four organs riding the existing hooks, no new rituals:
+"The kit learns from outcomes" — Phase 1 shipped four organs riding the existing hooks, no new rituals:
 
 | Organ | What it does |
 | --- | --- |
@@ -68,7 +68,7 @@ Phase 1 of "the kit learns from outcomes" — four organs riding the existing ho
 | **The Stop-hook judge** (`judge-signals.mjs`) | Four deterministic outcome detectors per turn (tool-result ±, user-correction −, re-ask −, silent-success weak-+) that emit trust deltas — no LLM self-grading. |
 | **The feedback-screen** (`feedback-screen.mjs`) | The loop's own Poison_Guard: rate-limits deltas per fact, burst-holds systemic events (a broken test suite can't tank every fact at once), audits every delta, floors trust at 0.05 (decay never deletes). |
 
-Phase 2 (Task 194, upcoming) closes the loop's edge: search ranking blends in the earned trust scores (confidence-gated, facts only — the injected snapshot stays untouched by scores). Full design: SYSTEM-MAP §6 + ADR-0017.
+Phase 2 (Task 194, v0.5.3) **closed the loop's edge**: search ranking blends in the earned trust score — confidence-gated (only past 3 applied outcome signals, the `signal_count` counter), facts only (judgments never rank), the injected snapshot untouched by scores. Its curation half: a floored-and-still-failing fact routes to the **prune-review queue** (`cmk queue prune`, never a silent delete), where it can be **converted to a retained `⚠️ AVOID` anti-pattern warning** instead of erased (`prune-queue.mjs`, `anti-pattern.mjs`). Full design: SYSTEM-MAP §6 + ADR-0017 + design §20.7.
 
 **The `memory-write` skill** is the explicit override — it triggers on "remember this" / "from now on" / "forget X" and routes through the same safe write path (dedup, Poison_Guard, cap enforcement, audit), preferring the MCP tools when the server is connected (see below).
 

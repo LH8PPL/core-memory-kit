@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Added
+
+- **Search ranking learns from outcomes (the learn-loop's last edge, closed)** — search results now blend each fact's evolved utility score into the BM25 rank, **confidence-gated**: the score moves rank only once the fact carries real evidence (3+ applied outcome signals — a new `signal_count` feedback counter in the index). A fact the loop keeps dampening sinks below a healthy one for the same query, automatically; judgments never auto-rank; the session-start snapshot is untouched (enum-ordered, structurally regression-pinned). (Task 194, ADR-0017 Phase 2, design §20.7 + the §20.3 amendment, D-330)
+- **Survival gate + `cmk queue prune`** — a fact whose trust score sits at the floor and *still* fails gets routed (automatically, audited) to a new prune-review queue instead of ever being silently deleted. Resolve with `cmk queue prune` (or `mk_queue_resolve {queue: "prune"}`): **convert** it into a retained `⚠️ AVOID` **anti-pattern warning** (bullet rewritten in place; a fact file is retyped + a warning bullet lands in MEMORY.md § Anti-patterns), **forget** it through the safe tombstone path, or **keep** it (vouched — never re-asked). `mk_queue_list` gained the `prune` queue. (Task 194, D-330)
+
 ## [0.5.2] — 2026-07-13
 
 ### Added
