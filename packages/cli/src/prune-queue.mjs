@@ -154,8 +154,15 @@ export function routePruneCandidate({ projectRoot, id, text, trustScore, signalC
     }
   }
   const ts = at ?? nowIso();
+  // TIER BOUNDARY (self-review finding, 2026-07-13): the queue lives in the
+  // COMMITTED project tier, but a U-/L- fact's content is deliberately
+  // machine-local (the persona never ships inside a project; L is gitignored).
+  // So only P- ids persist their body text here — U/L candidates queue by id
+  // with a placeholder, and the resolver looks the body up LIVE (display-only,
+  // never persisted) from the local index.
+  const persistedText = id.startsWith('P-') ? (text ?? '') : `[${id[0]}-tier content — kept out of the committed queue; shown live at resolve time]`;
   const entry = [
-    `- (candidate: ${id}) ${JSON.stringify(text ?? '')}`,
+    `- (candidate: ${id}) ${JSON.stringify(persistedText)}`,
     `  trust_score: ${Number.isFinite(trustScore) ? trustScore : 0}`,
     `  signal_count: ${Number.isFinite(signalCount) ? signalCount : 0}`,
     `  detected_at: ${ts}`,
@@ -230,12 +237,20 @@ export async function resolvePruneQueue({ projectRoot, userDir, prompter, now } 
   const result = { ...empty, errors: [] };
   const ts = now ?? nowIso();
   // Lazy imports — see the module-header note on the import cycle.
-  const { convertToAntiPattern, forgetCandidate } = await import('./anti-pattern.mjs');
+  const { convertToAntiPattern, forgetCandidate, lookupObservation } = await import('./anti-pattern.mjs');
 
   for (const entry of pending) {
+    // U-/L- entries carry a placeholder in the committed queue (tier
+    // boundary — see routePruneCandidate); resolve the live body from the
+    // local index for DISPLAY only.
+    let displayText = entry.text;
+    if (!entry.id.startsWith('P-')) {
+      const row = lookupObservation({ projectRoot, id: entry.id });
+      if (row?.body) displayText = row.body;
+    }
     const decision = await prompter({
       id: entry.id,
-      text: entry.text,
+      text: displayText,
       trustScore: entry.trustScore,
       signalCount: entry.signalCount,
       detectedAt: entry.detectedAt,

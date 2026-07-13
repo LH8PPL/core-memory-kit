@@ -145,6 +145,44 @@ describe('Task 194 — routePruneCandidate (direct boundary)', () => {
     expect(entries[0].signalCount).toBe(4);
   });
 
+  it('a U-tier candidate never persists its body into the COMMITTED queue (tier boundary; live lookup at resolve)', async () => {
+    // The persona is machine-local by design — its content must not leak into
+    // context/queues/prune-review.md (a committed file). Only the id + a
+    // placeholder persist; the resolver shows the live body from the index.
+    const db = openIndexDb({ projectRoot: sandbox });
+    db.prepare(`
+      INSERT INTO observations
+        (id, tier, source_file, source_line, source_sha1, heading_path, body,
+         write_source, trust, trust_score, signal_count, created_at)
+      VALUES ('U-USERSEC9', 'U', 'HABITS.md', 1, ?, 'HABITS.md > Working Style',
+              'the maintainer works nights on a private client', 'user-explicit',
+              'medium', 0.05, 3, ?)
+    `).run('e'.repeat(40), Date.now());
+    db.close();
+
+    routePruneCandidate({
+      projectRoot: sandbox, id: 'U-USERSEC9',
+      text: 'the maintainer works nights on a private client',
+      trustScore: 0.05, signalCount: 3,
+    });
+    const queueText = readFileSync(QUEUE_PATH(), 'utf8');
+    expect(queueText).toContain('U-USERSEC9');
+    expect(queueText).not.toContain('works nights on a private client');
+
+    // …but the resolver's prompter still SEES the live body (display-only).
+    let seen = null;
+    await resolvePruneQueue({
+      projectRoot: sandbox, userDir,
+      prompter: async (e) => {
+        if (e.id === 'U-USERSEC9') seen = e.text;
+        return 'skip';
+      },
+    });
+    expect(seen).toContain('works nights on a private client');
+    // Still not persisted after the resolve pass rewrote the file.
+    expect(readFileSync(QUEUE_PATH(), 'utf8')).not.toContain('works nights on a private client');
+  });
+
   it('already-queued id (any resolution state) → action already-queued, file untouched', () => {
     routePruneCandidate({ projectRoot: sandbox, id: 'P-NCENLY29', text: 'queued once', trustScore: 0.05, signalCount: 3 });
     const before = readFileSync(QUEUE_PATH(), 'utf8');
