@@ -13,3 +13,9 @@
 ## 2026-07-13T13:58:05Z — auto-extract (medium-trust, pending review)
 - (P-CKKD4VRS) Release command is `npm run release -- patch` → tag push → publish.yml (npm publish + GitHub Release)
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-13T13:58:05Z -->
+## 2026-07-13T14:26:21Z — auto-extract (medium-trust, pending review)
+- (P-Q37ZPQJP) v0.5.2 shipped — npm @lh8ppl/claude-memory-kit@0.5.2 (provenance), GitHub Release live, PRs #284 #285 #286
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-13T14:26:21Z -->
+## 2026-07-13T14:26:21Z — auto-extract (medium-trust, pending review)
+- (P-aNSaZMFH) v0.5.3 full build plan saved as durable memory P-6WEaBE9M (commit dfebca5) for clean resumption
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-13T14:26:21Z -->

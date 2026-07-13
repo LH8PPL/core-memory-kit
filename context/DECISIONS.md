@@ -12590,12 +12590,14 @@ _(retracted 2026-07-08)_
 <!-- decision:P-ABX3UPRC -->
 
 ## Task 215's stress gate passed (exit code 0); ship pipeline is now running
+_(retracted 2026-07-13)_
 
 **When:** 2026-07-11 · **Fact:** `P-ABX3UPRC`
 
 <!-- decision:P-WaSJZ6A2 -->
 
 ## Task 216 is next — shared `screenBeforeCommittedWrite` helper for committed-writ
+_(retracted 2026-07-13)_
 
 **When:** 2026-07-11 · **Fact:** `P-WaSJZ6A2`
 
@@ -12612,3 +12614,127 @@ _(retracted 2026-07-08)_
 
 **When:** 2026-07-12 · **Fact:** `P-XVNNRDRV`
 **Why:** Built-in guard against anti-patterns in metadata documentation; understanding this prevents merge-blocking surprises during commits.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RLE5aWN9 -->
+
+## Demands primary-source verification (code, specs, actual behavior) before accept
+
+**When:** 2026-07-12 · **Fact:** `P-RLE5aWN9`
+
+<!-- decision:P-T6PYE5VP -->
+
+## Known Environmental Artifact: Laptop Sleep During Tests
+
+**When:** 2026-07-13 · **Fact:** `P-T6PYE5VP`
+**Why:** Distinguishing environmental failures from real bugs is critical for trusting test results and avoiding unnecessary debugging.
+
+<!-- decision:P-BQ3WWXQG -->
+
+## Stress Gate Testing Strategy
+
+**When:** 2026-07-13 · **Fact:** `P-BQ3WWXQG`
+**Why:** Ensures high confidence in merge; environmental artifacts like laptop sleep and clock drift can produce flaky test failures that are not real bugs.
+
+<!-- decision:P-9CY5XHM3 -->
+
+## CMK Hook Capture Fails During Stress Gate
+
+**When:** 2026-07-13 · **Fact:** `P-9CY5XHM3`
+**Why:** A future session might encounter this hook failure and wonder if it's critical; knowing it doesn't block the gate prevents unnecessary investigation.
+
+<!-- decision:P-CTERUG3C -->
+
+## Kiro CLI MCP Trust Model and Kit's Workaround
+
+**When:** 2026-07-13 · **Fact:** `P-CTERUG3C`
+**Why:** Clarifies MCP prompts are Kiro behavior, not kit bug. Determines whether to pursue kit-side fixes (none available) or document limitation + user workaround.
+
+<!-- decision:P-SCS957AT -->
+
+## Test Seam Pattern for Timing Configs
+
+**When:** 2026-07-13 · **Fact:** `P-SCS957AT`
+**Why:** A flaky test masks real bugs. When stress-tested, Task 218's test showed 5/5 failures under full concurrency but passed in isolation. Lowering expectations defeats early detection; fix the root robustness issue instead.
+
+<!-- decision:P-49UHTP6a -->
+
+## Test Suite Pattern: buildMcpServer for MCP Refresh (not repeated runMcpServer)
+
+**When:** 2026-07-13 · **Fact:** `P-49UHTP6a`
+**Why:** The listener leak caused STACK_TRACE_ERRORs during fixture teardown in full-suite runs but not isolated tests; fix discovered and applied
+
+<!-- decision:P-RA2RDYXW -->
+
+## Research Notes Indexed via Research INDEX, Not DOCUMENTATION-MAP
+
+**When:** 2026-07-13 · **Fact:** `P-RA2RDYXW`
+**Why:** Understanding the correct documentation structure prevents confusion when adding or locating research materials; the distinction matters for validator compliance
+
+<!-- decision:P-WG9UMC6N -->
+
+## v0.5.2 code-complete; PR #286 pending CI merge
+
+**When:** 2026-07-13 · **Fact:** `P-WG9UMC6N`
+**Why:** Release readiness state. Future session needs to know whether #286 merged and what manual work remains for v0.5.2.
+
+<!-- decision:P-AY4Sa7DT -->
+
+## Retro/Build-Log Housekeeping Convention
+
+**When:** 2026-07-13 · **Fact:** `P-AY4Sa7DT`
+**Why:** Separates artifact commits from code review; ensures release notes land on the merge commit, not lost in the PR history.
+
+<!-- decision:P-B62EQCT4 -->
+
+## Release Process Discipline — Standard Ceremony Applied
+
+**When:** 2026-07-13 · **Fact:** `P-B62EQCT4`
+**Why:** Ensures consistency and catches unintended drift; doc-review walk particularly valuable for surfacing design boundary gaps.
+
+<!-- decision:P-6EVUE55F -->
+
+## Task 208 — Interactive Live-Gates Pending Token Refresh
+
+**When:** 2026-07-13 · **Fact:** `P-6EVUE55F`
+**Why:** Blocks final release sign-off but not code freeze.
+
+<!-- decision:P-4C9SFXJA -->
+
+## v0.5.2 Release — Code-Complete, Awaiting Final CI
+
+**When:** 2026-07-13 · **Fact:** `P-4C9SFXJA`
+**Why:** Tracks readiness for npm release cutover; final step is CI confirmation.
+
+<!-- decision:P-LNL6C3MH -->
+
+## Post-v0.5.2 Roadmap Decision: v0.5.3 or v0.6.0
+
+**When:** 2026-07-13 · **Fact:** `P-LNL6C3MH`
+**Why:** Two prioritized initiatives; roadmap choice impacts scope and focus for next release cycle.
+
+<!-- decision:P-6WEaBE9M -->
+
+## v0.5.3 = learn-loop Phase 2 (the user chose queue order over v0.6.0 on 2026-07-1
+
+**When:** 2026-07-13 · **Fact:** `P-6WEaBE9M`
+**Why:** The next-version plan must survive the imminent auto-compact so the next session resumes v0.5.3 correctly without re-deriving it.
+
+<!-- decision:P-E9QZCFSL -->
+
+## v0.5.2 Release Complete
+
+**When:** 2026-07-13 · **Fact:** `P-E9QZCFSL`
+**Why:** Marks the baseline state for v0.5.3 work; establishes that main is clean and green
+
+<!-- decision:P-RaVEB3SL -->
+
+## v0.5.3 Roadmap — Learn-loop Phase 2, Confidence-Gated Search Blend First
+
+**When:** 2026-07-13 · **Fact:** `P-RaVEB3SL`
+**Why:** Plan committed to survive auto-compaction; exact resumption workflow eliminates re-derivation friction
