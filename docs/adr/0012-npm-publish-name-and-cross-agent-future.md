@@ -7,7 +7,7 @@ deciders:
   - the maintainer
   - Claude Opus 4.8
 supersedes: null
-superseded_by: null
+superseded_by: 0021-rename-to-core-memory-kit.md
 related:
   - 0005-three-install-paths.md
   - 0006-lifecycle-hooks-architecture.md
@@ -23,7 +23,7 @@ tags:
 
 ## Status
 
-**Accepted** 2026-05-29.
+**Accepted** 2026-05-29. **Superseded by [ADR-0021](0021-rename-to-core-memory-kit.md) (2026-07-14)** — the deferred cross-agent name was decided: RENAME to `core-memory-kit`. This ADR's deferral logic held exactly as written (the trigger fired when Kiro/Cursor/Codex shipped); ADR-0021 executes it. Content below is preserved unedited as the audit trail.
 
 ## Context
 
