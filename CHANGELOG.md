@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Changed
+
+- **Renamed: `claude-memory-kit` → `core-memory-kit`** — the kit is agent-neutral (Claude Code · Kiro · Cursor · Codex share one memory brain), so the name now matches the product. **The `cmk` command is unchanged** — the new name was chosen to keep the `cmk` initialism you already use. The npm package is now **`@lh8ppl/core-memory-kit`** (the old `@lh8ppl/claude-memory-kit` is deprecated with a pointer); the repo moved to `github.com/LH8PPL/core-memory-kit` (old URLs auto-redirect); the default user-tier directory is `~/.core-memory-kit` (reinstall to re-point it; `MEMORY_KIT_USER_DIR` still overrides). Scaffolded instruction files are now `core-memory-kit.*`. Executes ADR-0012's deferred cross-agent name (ADR-0021, Task 195). (D-335)
+
 ## [0.5.3] — 2026-07-14
 
 ### Added

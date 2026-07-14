@@ -10,6 +10,18 @@
 
 ---
 
+## 2026-07-15 — D-335: DECISION + EXECUTION — Task 195: rename `claude-memory-kit` → `core-memory-kit` (executes ADR-0012; ADR-0021)
+
+**The user chose RENAME to `core-memory-kit`** (from the candidate pool KEEP-claude-memory-kit / RENAME-to-core-memory-kit / elevate-cmk-as-brand). The name keeps the `cmk` initialism deliberately — `cmk` binary + `MEMORY_KIT_USER_DIR` + `@lh8ppl/cmk-canonicalize` are unchanged. **ADR-0021** written as ADR-0012's successor (0012 marked superseded, content preserved).
+
+**Execution + the decisions inside it:**
+- **Config dir: a DIRECT swap** `~/.claude-memory-kit` → `~/.core-memory-kit`, NOT a migration. An earlier revision BUILT a copy-not-move / keep-the-old / marker-gated migration (12 tests green, commit `201845b`) — the right shape IF strangers depended on the old path. But the user (the SOLE real user) chose *"change everything, I'll reinstall,"* so the migration protects nobody and was removed as dead complexity. `defaultUserDir` is back to a one-liner. (Lesson preserved: a shared-tier default rename WITH real users needs copy-not-move; here there are none.)
+- **Corpus sweep: 132 files**, via an auditable script (not blind sed) with per-family rules (npm name, repo URLs, instruction filenames + detector in lockstep, config-dir literal, bare prose). **Two carve-outs enforced by the script:** (1) FROZEN records + dogfood `context/` skipped entirely (`docs/adr` except 0021 / `docs/journey` / `docs/research` / `docs/conversation-log` / `docs/sources` / `archive` / `docs/process`) — they name the project as it WAS; (2) `awrshift/claude-memory-kit` (a different product's repo) preserved via negative-lookbehind. 550 ins / 550 del — a pure 1:1 rename.
+- **The two-pass review caught a real miss:** the sweep rewrote a historical v0.4.0 tarball filename (`lh8ppl-claude-memory-kit-0.4.0.tgz`) inside `RESUME-HERE.md` (a dated point-in-time breadcrumb) and flattened Task 195's OWN entry in `tasks.md` (the KEEP option started reading "keep core-memory-kit" — nonsensical). Both fixed: RESUME-HERE reverted; the tasks.md entry's historical name-as-subject references corrected + flagged, pointing at the unedited DECISION-LOG/ADR-0012 as authoritative. The carve-out correctly protected the DECISION-LOG's own D-255/D-257/D-334 name-history (untouched).
+- **Verified:** full suite 3050 green, 15 validators green (pack-completeness, agent-adapter-parity, doc-registry all hold under the new name), live `cmk install` + `remember` + `search` round-trip works, `defaultUserDir({})` → `~/.core-memory-kit`.
+
+**User outward steps (not done by the assistant):** publish `@lh8ppl/core-memory-kit` + `npm deprecate @lh8ppl/claude-memory-kit "renamed to @lh8ppl/core-memory-kit"`; rename the GitHub repo `LH8PPL/claude-memory-kit` → `LH8PPL/core-memory-kit` (auto-redirects old URLs). Ships as the v0.5.4 headline. _Relates ADR-0021 (supersedes ADR-0012), Task 195, D-255/D-257/D-334 (the deferral + trigger history), the copy-migration in commit `201845b` (built-then-removed), D-335._
+
 ## 2026-07-14 — D-334: DECISION — the v0.5.3-cut minor-boundary backlog sweep (D-248/D-267): trigger-fired walk + per-task verdicts; Task 195 fired → laned v0.5.4
 
 **The sweep (required at every minor per D-248; opens with the D-267 trigger-fired walk).** `validate-backlog-triggers` green — all 42 open top-level tasks carry a lane or named trigger. Walked every trigger asking the D-267 question ("has this condition become TRUE since the last sweep?"):
