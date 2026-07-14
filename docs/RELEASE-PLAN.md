@@ -201,7 +201,9 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
      edge closed) + the batch riders 209 (state-labeled recall) / 211 (query state-view gate) /
      212 (`cmk stats memory-health`). All four PRs (#287–#290) merged; the D-334 minor-boundary
      backlog sweep ran (Task 195 name-decision trigger fired → laned v0.5.4).
-  4. **v0.5.4 — THE RENAME (Task 195) — ✅ EXECUTED 2026-07-15 (D-335).** The cross-agent name
+  4. **v0.5.4 — THE RENAME (Task 195) — ✅ RELEASE-COMMITTED 2026-07-15 (D-335).** CHANGELOG
+     `[0.5.4]` finalized, `packages/cli/package.json` → 0.5.4, CI green; tag `v0.5.4` = the
+     maintainer's outward step → publish.yml (npm + GitHub Release). The cross-agent name
      decision laned here at the v0.5.3-cut sweep (D-334) was DECIDED + shipped: `claude-memory-kit`
      → **`core-memory-kit`** (keeps `cmk`), ADR-0021 supersedes ADR-0012, 135-file corpus rename +
      config-dir direct swap, merged (PR #292). This BECAME the v0.5.4 headline — a clean
