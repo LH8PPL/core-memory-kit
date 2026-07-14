@@ -10,6 +10,14 @@
 
 ---
 
+## 2026-07-14 — D-333: DECISION — Task 212 ships `cmk stats memory-health` (AutoMem's Figure-4 behavioral dashboard; closes the v0.5.3 rider batch)
+
+**The insight (AutoMem, arXiv 2607.01224):** a small set of PROCESS metrics — not task success — makes memory-system quality observable and improvable (their optimized agents: writes-per-search −54–72%, redundant writes −68–83%, empty searches −13–50%). The kit's raw data already existed (recall.log/audit.log/truncation.log); this is AGGREGATION + a surface, no new capture, no LLM.
+
+**Design calls:** (a) a **new `cmk stats memory-health` verb, not a doctor section** — the D-277 split applied: doctor answers "is it healthy? (pass/fail)", stats answers "how is the process behaving? (informational)"; mixing them muddies both. (b) Module named **`memory-stats.mjs`** — `memory-health.mjs` already exists (Task 144's CONTENT-quality doctor section over the fact archive); the near-collision is disambiguated in both modules' headers, the glossary, and CLI.md. (c) **v1 metric set:** writes-per-search; empty-search rate + the recovered-by-retry split (time-window join, 10 min — production search entries carry session:null); redundant-write rate (audit actions recurrence/queued/merged/temporal_supersede ÷ writes appended/created/replaced); repeated identical searches (normalized-query counts >1); snapshot cap pressure (truncation.log events + dropped sections). Current window vs the previous same-length window (`--window 7|30`, default 7), trend arrows with polarity annotated inline (down = improving for the three rates). (d) **REPORT-ONLY** (the D-169 observe-before-alarming line): no thresholds, no PASS/FAIL, no exit-code effect — pinned by tests (incl. a no-mutation Door-2 pin). (e) CLI-only v1 (a human-facing report; the `--from-file` CLI-only precedent — no MCP tool, documented).
+
+_Relates AutoMem Fig-4 (the indicator set), Tasks 190/93 (the data sources), 194 (the consumer — design §20.7 records these as its before/after numbers), 144 (the content-quality sibling), 189 (the ROI sibling, keeps its research gate), D-277 (the verb-split precedent), D-308/D-309, D-333._
+
 ## 2026-07-13 — D-332: DECISION — Task 211 ships the query state-view gate (A-TMA's retrieval-level mechanism; the §16.18 4-view cut, un-deferred on its evidence)
 
 **The gap:** every query was state-neutral — a history question ("what did we use before X?") had no path to PREFER the superseded/expired record (expired hidden by default; superseded competing on BM25 alone). §16.18 deferred the 7-mode classifier + reranker as infrastructure-heavy — correctly; A-TMA's new evidence (its retrieval wins come from an explicitly RULE-BASED 4-view profiler — hint words + negation guards, no classifier infra) killed the cost premise for the 4-view cut (the D-248 revisit rule, executed).

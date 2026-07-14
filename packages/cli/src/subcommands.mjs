@@ -36,6 +36,7 @@ import { resolveDefaultSearchMode } from './semantic-backend.mjs';
 import { reindexBoot, reindexFull } from './index-rebuild.mjs';
 import { search as searchAction, SEARCH_MODES } from './search.mjs';
 import { STATE_LABELS, STATE_INSTRUCTION } from './state-label.mjs';
+import { computeMemoryStats, renderMemoryStats } from './memory-stats.mjs';
 import { memoryWrite } from './memory-write.mjs';
 import { runMcpServer } from './mcp-server.mjs';
 import { dailyDistill } from './daily-distill.mjs';
@@ -2853,6 +2854,37 @@ export async function runQueuePrune(opts = {}) {
   }
 }
 
+/**
+ * `cmk stats memory-health [--window <days>]` (Task 212 — the AutoMem
+ * Figure-4 behavioral dashboard). REPORT-ONLY: aggregates logs the kit
+ * already writes (recall.log / audit.log / truncation.log); no thresholds,
+ * no exit-code effect. Distinct from doctor's memory-health section (content
+ * quality over the fact archive); this is PROCESS behavior — and the
+ * Task-194 blend's tuning instrumentation.
+ */
+export function runStatsMemoryHealth(options = {}, _command, deps = {}) {
+  const log = deps.log ?? console.log;
+  const projectRoot = deps.projectRoot ?? resolvePath(process.cwd());
+  const windowDays = options.window !== undefined ? Number(options.window) : 7;
+  if (!Number.isInteger(windowDays) || windowDays <= 0 || windowDays > 365) {
+    (deps.logError ?? console.error)('cmk stats memory-health: --window must be a positive integer ≤ 365');
+    process.exitCode = 2;
+    return;
+  }
+  const report = computeMemoryStats({ projectRoot, windowDays });
+  for (const line of renderMemoryStats(report)) log(line);
+  return report;
+}
+
+async function runStatsDispatch(childName, options) {
+  if (childName === 'memory-health') {
+    return runStatsMemoryHealth(options);
+  }
+  const verb = typeof childName === 'string' ? childName : '(none)';
+  console.log(`cmk stats: ${NOTICE_PREFIX} (run \`cmk stats memory-health\`; got '${verb}')`);
+  process.exitCode = 2;
+}
+
 /** Helper: build a stub action that prints the standard notice + exits 0. */
 function stub(name, milestone, extra) {
   return function action(/* args, options */) {
@@ -3158,6 +3190,22 @@ export const subcommands = [
       { name: 'prune', description: 'walk survival-gate candidates (trust floored + still failing); convert (→ anti-pattern) / forget / keep / skip' },
     ],
     action: runQueueDispatch,
+  },
+  {
+    name: 'stats',
+    description: 'behavioral reports over the kit’s own activity logs (report-only)',
+    milestone: 212,
+    children: [
+      {
+        name: 'memory-health',
+        description: 'writes-per-search, empty-search rate, redundant-write rate, repeated searches, snapshot cap pressure — with trend arrows vs the prior window',
+        optionSpec: [
+          { flags: '--window <days>', description: 'window length in days (default 7; the spec’s 7/30 knob)' },
+        ],
+        action: (options) => runStatsMemoryHealth(options),
+      },
+    ],
+    action: runStatsDispatch,
   },
   {
     name: 'forget',

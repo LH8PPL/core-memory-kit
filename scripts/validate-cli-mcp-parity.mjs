@@ -64,6 +64,11 @@ export const CLI_ONLY = new Set([
   // `codex-hook` is the Codex hook entrypoint (called by .codex/hooks.json,
   // never by the model via MCP) — same infra/lifecycle class (Task 196 tail).
   'codex-hook',
+  // `stats` is a human-facing behavioral report (Task 212, report-only) —
+  // like doctor/config, it's the USER inspecting the kit, not the model
+  // operating memory. If an agent ever needs the numbers (e.g. Task 194
+  // auto-tuning), that's a deliberate future MCP addition, not drift.
+  'stats',
 ]);
 
 /**
