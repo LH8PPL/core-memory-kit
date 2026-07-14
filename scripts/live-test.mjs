@@ -314,7 +314,7 @@ async function main() {
     } catch (e) { log(`findings write failed: ${e.message}`); }
     if (KEEP) log(`--keep; sandbox at ${root}`);
     else {
-      try { run('npm', ['uninstall', '-g', '--prefix', prefix, '@lh8ppl/claude-memory-kit'], { timeoutMs: 60_000 }); } catch {}
+      try { run('npm', ['uninstall', '-g', '--prefix', prefix, '@lh8ppl/core-memory-kit'], { timeoutMs: 60_000 }); } catch {}
       try { rmSync(root, { recursive: true, force: true }); } catch { await new Promise((r) => setTimeout(r, 2500)); try { rmSync(root, { recursive: true, force: true }); } catch (e) { log(`cleanup: ${e?.code}; OS reclaims`); } }
     }
   }

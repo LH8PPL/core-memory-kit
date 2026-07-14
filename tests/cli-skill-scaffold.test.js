@@ -235,7 +235,7 @@ describe('Task 69.1 — cmk install scaffolds the skill into <project>/.claude/s
   beforeEach(() => {
     sandbox = mkdtempSync(join(tmpdir(), 'cmk-skill-scaffold-'));
     projectRoot = join(sandbox, 'my-project');
-    userTier = join(sandbox, 'fake-home', '.claude-memory-kit');
+    userTier = join(sandbox, 'fake-home', '.core-memory-kit');
     mkdirSync(projectRoot, { recursive: true });
   });
 

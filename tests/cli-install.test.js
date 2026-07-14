@@ -96,7 +96,7 @@ describe('Task 3 — cmk install', () => {
   beforeEach(() => {
     sandbox = mkdtempSync(join(tmpdir(), 'cmk-install-test-'));
     projectRoot = join(sandbox, 'my-project');
-    userTier = join(sandbox, 'fake-home', '.claude-memory-kit');
+    userTier = join(sandbox, 'fake-home', '.core-memory-kit');
     mkdirSync(projectRoot, { recursive: true });
   });
 
@@ -326,8 +326,8 @@ describe('Task 3 — cmk install', () => {
     it('wraps the managed block with start/end markers (for idempotent refresh)', async () => {
       await install({ projectRoot, userTier });
       const content = readFileSync(join(projectRoot, '.gitignore'), 'utf8');
-      expect(content).toContain('claude-memory-kit:gitignore:start');
-      expect(content).toContain('claude-memory-kit:gitignore:end');
+      expect(content).toContain('core-memory-kit:gitignore:start');
+      expect(content).toContain('core-memory-kit:gitignore:end');
     });
 
     it('Task 107 — the gitignore start marker carries the INSTALL version, not a stale hardcode', async () => {
@@ -336,7 +336,7 @@ describe('Task 3 — cmk install', () => {
       // drift in a v0.2.x install. The marker now tracks the kit version.
       await install({ projectRoot, userTier });
       const content = readFileSync(join(projectRoot, '.gitignore'), 'utf8');
-      expect(content).toContain(`claude-memory-kit:gitignore:start v${getKitVersion()}`);
+      expect(content).toContain(`core-memory-kit:gitignore:start v${getKitVersion()}`);
       expect(content).not.toMatch(/gitignore:start v0\.1\.0/);
     });
 
@@ -360,8 +360,8 @@ describe('Task 3 — cmk install', () => {
       await install({ projectRoot, userTier });
       await install({ projectRoot, userTier });
       const content = readFileSync(join(projectRoot, '.gitignore'), 'utf8');
-      const starts = content.match(/claude-memory-kit:gitignore:start/g) || [];
-      const ends = content.match(/claude-memory-kit:gitignore:end/g) || [];
+      const starts = content.match(/core-memory-kit:gitignore:start/g) || [];
+      const ends = content.match(/core-memory-kit:gitignore:end/g) || [];
       expect(starts.length).toBe(1);
       expect(ends.length).toBe(1);
     });
@@ -391,14 +391,14 @@ describe('Task 3 — cmk install', () => {
       // The memory tiers (committed) pinned to LF — the strict-LF frontmatter
       // boundary + split('\n') readers depend on it.
       expect(content).toMatch(/context\/\*\*.*eol=lf/);
-      expect(content).toContain('claude-memory-kit:gitattributes:start');
-      expect(content).toContain('claude-memory-kit:gitattributes:end');
+      expect(content).toContain('core-memory-kit:gitattributes:start');
+      expect(content).toContain('core-memory-kit:gitattributes:end');
     });
 
     it('the start marker carries the install version (no stale hardcode)', async () => {
       await install({ projectRoot, userTier });
       const content = readFileSync(join(projectRoot, '.gitattributes'), 'utf8');
-      expect(content).toContain(`claude-memory-kit:gitattributes:start v${getKitVersion()}`);
+      expect(content).toContain(`core-memory-kit:gitattributes:start v${getKitVersion()}`);
     });
 
     it('preserves unrelated attributes outside the managed block on re-install', async () => {
@@ -409,7 +409,7 @@ describe('Task 3 — cmk install', () => {
       const after = readFileSync(gaPath, 'utf8');
       expect(after).toContain('*.png binary');
       expect(after).toContain('*.bin -text');
-      expect(after).toContain('claude-memory-kit:gitattributes:start');
+      expect(after).toContain('core-memory-kit:gitattributes:start');
     });
 
     it('refreshes the managed block in place on re-install — no duplication', async () => {
@@ -440,10 +440,10 @@ describe('Task 3 — cmk install', () => {
       expect(existsSync(customUserTier)).toBe(true);
       expect(existsSync(join(customUserTier, 'USER.md'))).toBe(true);
       // And NOT at any other default location
-      expect(existsSync(join(sandbox, 'fake-home', '.claude-memory-kit'))).toBe(false);
+      expect(existsSync(join(sandbox, 'fake-home', '.core-memory-kit'))).toBe(false);
     });
 
-    it('defaults to ~/.claude-memory-kit/ when env var is absent (smoke test)', async () => {
+    it('defaults to ~/.core-memory-kit/ when env var is absent (smoke test)', async () => {
       // We don't actually want to write into the real ~ during tests, so we
       // only verify the API path. The unit-test-level coverage of "what does
       // resolveUserTier() return when env var is unset" lives below.
@@ -452,7 +452,7 @@ describe('Task 3 — cmk install', () => {
       delete process.env.MEMORY_KIT_USER_DIR;
       try {
         const resolved = resolveUserTier();
-        expect(resolved).toMatch(/\.claude-memory-kit/);
+        expect(resolved).toMatch(/\.core-memory-kit/);
       } finally {
         if (prev !== undefined) process.env.MEMORY_KIT_USER_DIR = prev;
       }

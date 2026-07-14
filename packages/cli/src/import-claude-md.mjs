@@ -40,8 +40,8 @@ const IMPORT_SOURCE = 'claude-md';
 // Below this length a line is noise ("go", "etc."), not a rule.
 const MIN_CANDIDATE_CHARS = 8;
 
-const MANAGED_BLOCK_START = /<!--\s*claude-memory-kit:start\b/;
-const MANAGED_BLOCK_END = /<!--\s*claude-memory-kit:end\s*-->/;
+const MANAGED_BLOCK_START = /<!--\s*core-memory-kit:start\b/;
+const MANAGED_BLOCK_END = /<!--\s*core-memory-kit:end\s*-->/;
 // Linear-time by construction (S5852, the D-128 class): every adjacent
 // pair is disjoint — `[ \t]+` can never donate characters to the `\S` that
 // starts the capture — so the regex engine has no backtracking ambiguity.

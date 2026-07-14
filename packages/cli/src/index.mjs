@@ -35,7 +35,7 @@ export function buildProgram() {
   program
     .name('cmk')
     .description(
-      'claude-memory-kit — per-project, in-repo memory system for Claude Code. ' +
+      'core-memory-kit — per-project, in-repo memory system for Claude Code. ' +
         'Run `cmk install` to scaffold a project, `cmk doctor` to verify health.'
     )
     .version(readPackageVersion(), '-V, --version', 'print the cmk version + exit');

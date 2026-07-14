@@ -1,6 +1,6 @@
 # Working with Cursor
 
-[Cursor](https://cursor.com) (the AI code editor + its `cursor-agent` CLI) is a first-class target for claude-memory-kit. The memory core — store, search, compression, the three-tier model — is identical to the Claude Code experience; only the per-agent wiring differs. Cursor removed its own native "Memories" feature in 2.1.x (static rules are its only built-in persistence), so the kit restores the automatic capture-and-recall loop Cursor lost.
+[Cursor](https://cursor.com) (the AI code editor + its `cursor-agent` CLI) is a first-class target for core-memory-kit. The memory core — store, search, compression, the three-tier model — is identical to the Claude Code experience; only the per-agent wiring differs. Cursor removed its own native "Memories" feature in 2.1.x (static rules are its only built-in persistence), so the kit restores the automatic capture-and-recall loop Cursor lost.
 
 ```bash
 cd ~/my-project
@@ -14,7 +14,7 @@ A Cursor install wires the MCP server, the lifecycle hooks (all driving one disp
 
 | Surface | Location | For |
 | --- | --- | --- |
-| **MCP server** | `.cursor/mcp.json` (`claude-memory-kit` entry; sibling servers preserved) | drives memory as tools (`mk_remember` etc.) |
+| **MCP server** | `.cursor/mcp.json` (`core-memory-kit` entry; sibling servers preserved) | drives memory as tools (`mk_remember` etc.) |
 | **Hooks** | `.cursor/hooks.json` — one dispatcher (`cmk cursor-hook`) on six events | the full automatic loop |
 | ↳ `sessionStart` | | injects recalled memory into the new session (`additional_context`) |
 | ↳ `beforeSubmitPrompt` | | captures the prompt (always `continue: true` — memory never blocks your prompt) |
@@ -22,7 +22,7 @@ A Cursor install wires the MCP server, the lifecycle hooks (all driving one disp
 | ↳ `afterFileEdit` | | records the edit observation |
 | ↳ `sessionEnd` | | runs the compress + persona tasks |
 | ↳ `beforeShellExecution` | | the memory delete-guardrail — denies a destructive command against a memory path via the JSON `permission` field |
-| **Rule** | `.cursor/rules/claude-memory-kit.mdc` (`alwaysApply: true`) | memory-awareness in context; also the cmk-owned install marker |
+| **Rule** | `.cursor/rules/core-memory-kit.mdc` (`alwaysApply: true`) | memory-awareness in context; also the cmk-owned install marker |
 
 ## Notes
 
@@ -58,7 +58,7 @@ The installs are additive — run both (e.g. `cmk install` for Claude Code and `
 ## Uninstalling Cursor
 
 ```bash
-cmk uninstall --ide cursor   # remove the Cursor surface (the kit's events in .cursor/hooks.json, the claude-memory-kit entry in .cursor/mcp.json, the managed .cursor/rules/claude-memory-kit.mdc block)
+cmk uninstall --ide cursor   # remove the Cursor surface (the kit's events in .cursor/hooks.json, the core-memory-kit entry in .cursor/mcp.json, the managed .cursor/rules/core-memory-kit.mdc block)
 ```
 
 On a dual-agent project, uninstall one agent and the other keeps working — the shared `context/` is untouched either way.

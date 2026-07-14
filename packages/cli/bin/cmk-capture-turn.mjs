@@ -2,7 +2,7 @@
 // Stop hook handler — npm-route bin (Task 49, T-037).
 //
 // De-plugin-ified twin of plugin/bin/cmk-capture-turn.mjs (Task 21).
-// Ships in the @lh8ppl/claude-memory-kit npm package so `cmk install`
+// Ships in the @lh8ppl/core-memory-kit npm package so `cmk install`
 // can wire a PATH-resolved `cmk-capture-turn` command. Two differences
 // from the plugin copy:
 //   1. src module path resolves ../src/ (not ../../packages/cli/src/).

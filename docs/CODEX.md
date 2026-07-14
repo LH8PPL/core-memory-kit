@@ -1,6 +1,6 @@
 # Working with Codex
 
-claude-memory-kit runs on [Codex](https://developers.openai.com/codex) — OpenAI's coding
+core-memory-kit runs on [Codex](https://developers.openai.com/codex) — OpenAI's coding
 agent — with the same automatic memory loop as Claude Code, Kiro, and Cursor: recalled
 memory injects at session start, every turn is captured, edits are observed, and the
 delete-guardrail screens shell commands.
@@ -15,9 +15,9 @@ cmk install --ide codex --with-semantic # …with local semantic recall
 | Surface | File | What it does |
 | --- | --- | --- |
 | Hooks | `.codex/hooks.json` | `SessionStart` recall-inject + `UserPromptSubmit` prompt-capture + `Stop` turn-capture + `PostToolUse` (matcher `apply_patch\|Edit\|Write`) edit-observation + `PreToolUse` (matcher `Bash`) delete-guardrail — all driving one dispatcher, `cmk codex-hook` |
-| MCP | `~/.codex/config.toml` `[mcp_servers]` | registered via Codex's own `codex mcp add claude-memory-kit -- cmk mcp serve` — the kit never hand-edits your TOML |
+| MCP | `~/.codex/config.toml` `[mcp_servers]` | registered via Codex's own `codex mcp add core-memory-kit -- cmk mcp serve` — the kit never hand-edits your TOML |
 | Instructions | `AGENTS.md` | a managed block pointing the agent at the recall surface (`cmk search` / `cmk remember`) — Codex reads AGENTS.md natively |
-| Memory | `context/` (+ `context.local/`, `~/.claude-memory-kit/`) | the same agent-neutral tiers every other agent shares |
+| Memory | `context/` (+ `context.local/`, `~/.core-memory-kit/`) | the same agent-neutral tiers every other agent shares |
 
 ## The one-time trust step (important)
 
@@ -72,4 +72,4 @@ Conservative: your own hooks/config outside the kit's entries are byte-preserved
 > (`~/.codex/config.toml`), shared by every project. Uninstalling the kit from one
 > project deregisters it for all of them — if another project still uses the kit on
 > Codex, re-run `cmk install --ide codex` there (idempotent) or re-add with
-> `codex mcp add claude-memory-kit -- cmk mcp serve`.
+> `codex mcp add core-memory-kit -- cmk mcp serve`.

@@ -1,4 +1,4 @@
-# Requirements — claude-memory-kit v0.1.0
+# Requirements — core-memory-kit v0.1.0
 
 **Status**: Draft for review · **Author**: Claude (Opus 4.7) + the maintainer · **Date**: 2026-05-21
 
@@ -41,7 +41,7 @@ These constrain every decision below. If a requirement violates a tenet, the ten
 | --- | --- |
 | **T1**: Markdown is the source of truth. Everything else (SQLite, vector indexes) is regenerable cache. | A user must be able to open `MEMORY.md` in VS Code, edit a typo, and have the system respect it. Opaque storage breaks this. |
 | **T2**: Per-project memory lives in `<repo>/context/` and is committed to git. | Memory must travel with `git clone`. A new dev / new laptop is up-to-speed after one clone, no export/import. |
-| **T3**: Cross-project user-tier memory lives in `~/.claude-memory-kit/` and is global. | Some facts (your name, your role, your habits) are about *you*, not any one project. Forcing them into every project is silly. |
+| **T3**: Cross-project user-tier memory lives in `~/.core-memory-kit/` and is global. | Some facts (your name, your role, your habits) are about *you*, not any one project. Forcing them into every project is silly. |
 | **T4**: Capture is mostly automatic. User-explicit triggers ("remember this") still work but are not required for the system to be useful. | The third strike on "make it automatic" — The user has been clear this is a hard requirement. |
 | **T5**: Silent by default. No "I've saved that to memory" announcements unless the user explicitly asked. | Auto-capture should be invisible. Announcing breaks the illusion. |
 | **T6**: Claude Code first. Other agents (Codex, Gemini, Hermes, Copilot) are explicitly out of scope for v0.1.0. | Don't try to be claude-mem's cross-agent surface. We can revisit in v0.2 if it matters. |
@@ -189,10 +189,10 @@ The `memory-write` skill shall enforce the documented char caps on `SOUL.md` (1,
 Acceptance: When the skill is invoked to add content to a file already at 95% of cap, the skill shall consolidate (merge similar bullets, drop stale entries older than 14 days with no current reference) BEFORE writing the new content.
 
 **FR-4 — User tier directory layout**
-The kit shall support a global user tier at `~/.claude-memory-kit/` (Windows: `%USERPROFILE%\.claude-memory-kit\`) with this layout:
+The kit shall support a global user tier at `~/.core-memory-kit/` (Windows: `%USERPROFILE%\.core-memory-kit\`) with this layout:
 
 ```text
-~/.claude-memory-kit/
+~/.core-memory-kit/
 ├── USER.md           (≤ 1,375 chars, global user identity)
 ├── HABITS.md         (≤ 1,800 chars, cross-project working style)
 └── fragments/
@@ -200,7 +200,7 @@ The kit shall support a global user tier at `~/.claude-memory-kit/` (Windows: `%
     └── <type>_<slug>.md
 ```
 
-Acceptance: When the user runs `claude-memory-kit init-user`, the system shall create `~/.claude-memory-kit/` with the layout above. When the directory already exists, the command shall be a no-op for existing files.
+Acceptance: When the user runs `core-memory-kit init-user`, the system shall create `~/.core-memory-kit/` with the layout above. When the directory already exists, the command shall be a no-op for existing files.
 
 **FR-5 — Local tier directory layout**
 The kit shall support a per-project + per-machine local tier at `<repo>/context.local/`, automatically added to `.gitignore`:
@@ -225,7 +225,7 @@ At session start, the system shall inject memory in this priority order via the 
 
 1. **Local tier** (highest priority — overrides everything): `<repo>/context.local/*.md`
 2. **Project tier** (middle priority): `<repo>/context/SOUL.md`, `MEMORY.md`, `memory/INDEX.md`, latest `sessions/today-*.md`, `sessions/now.md` (if any)
-3. **User tier** (lowest priority — defaults): `~/.claude-memory-kit/USER.md`, `HABITS.md`, `fragments/INDEX.md`
+3. **User tier** (lowest priority — defaults): `~/.core-memory-kit/USER.md`, `HABITS.md`, `fragments/INDEX.md`
 
 When the same key/topic conflicts between tiers, higher-priority tier wins. Total injection budget: ≤ 10 KB to preserve prefix-cache.
 
@@ -339,7 +339,7 @@ The kit shall provide:
 
 - ~~`install.sh` (Bash, works on macOS / Linux / Git Bash on Windows).~~ _(retired 2026-06-08)_
 - ~~`install.ps1` (PowerShell, native Windows).~~ _(retired 2026-06-08)_
-- `cmk install` (Node-based universal installer; `npm install -g @lh8ppl/claude-memory-kit` then `cmk install`) — **the sole installer**.
+- `cmk install` (Node-based universal installer; `npm install -g @lh8ppl/core-memory-kit` then `cmk install`) — **the sole installer**.
 
 Each shall scaffold the project tier into the current directory.
 
@@ -361,7 +361,7 @@ Acceptance: When a PR is opened, GitHub Actions shall run the install script on 
 When the kit is loaded as a non-primary working directory in Claude Code, the bootstrap shall NOT silently fail. Either:
 
 1. The hooks shall fire from the additional cwd (preferred — if Claude Code supports it by v0.1.0 release date).
-2. A startup check shall detect non-primary and print a clear warning to the session: "claude-memory-kit hooks won't fire when this project is loaded as an additional cwd. Reopen as primary."
+2. A startup check shall detect non-primary and print a clear warning to the session: "core-memory-kit hooks won't fire when this project is loaded as an additional cwd. Reopen as primary."
 
 Acceptance: When a user opens project A as primary and project B (with the kit installed) as additional in a VS Code workspace, project B's `context/sessions/now.md` shall either receive captures OR Claude shall emit a warning in its first response that the hooks aren't firing.
 
@@ -384,7 +384,7 @@ Acceptance: When the user enables the MCP server and invokes `search-memory("mil
 ### 3.11 Web viewer (optional)
 
 **FR-27 — Lightweight static markdown viewer**
-The kit shall ship `cmk view` that starts a local static HTTP server (default port 37778, avoiding claude-mem's 37777) rendering all of `context/` and `~/.claude-memory-kit/` as a navigable markdown wiki. No JavaScript required; pure server-rendered HTML.
+The kit shall ship `cmk view` that starts a local static HTTP server (default port 37778, avoiding claude-mem's 37777) rendering all of `context/` and `~/.core-memory-kit/` as a navigable markdown wiki. No JavaScript required; pure server-rendered HTML.
 
 Acceptance: When the user runs `cmk view`, a browser at `http://localhost:37778` shall display a directory listing and clicking any `.md` file shall render its content with syntax highlighting.
 
@@ -520,13 +520,13 @@ The following are deferred to v0.2 or later:
 
 Resolved by the user 2026-05-21 after reviewing my recommendations. Locked unless research (in progress) surfaces a meaningfully better option.
 
-### OQ-1 — User tier directory name: **RESOLVED → `~/.claude-memory-kit/`**
+### OQ-1 — User tier directory name: **RESOLVED → `~/.core-memory-kit/`**
 
 Keep the current name for v0.1. **Future-rename trigger**: if we add cross-agent support (Codex, Gemini, Hermes, Copilot) in v0.2+, rename the package and user-tier directory to `ai-agent-memory-kit` (or similar agent-neutral name). The Claude-specific name is acceptable while we ship Claude-only.
 
 ### OQ-2 — Bootstrap UX: **RESOLVED → all three**
 
-Ship: `bash install.sh` (offline-capable), `pwsh install.ps1` (Windows-native), `npx claude-memory-kit install` (cross-OS one-liner), AND a Claude Code plugin slash command (`/claude-memory-kit:bootstrap`). Each serves a different audience.
+Ship: `bash install.sh` (offline-capable), `pwsh install.ps1` (Windows-native), `npx core-memory-kit install` (cross-OS one-liner), AND a Claude Code plugin slash command (`/core-memory-kit:bootstrap`). Each serves a different audience.
 
 ### OQ-3 — SessionStart hook handling: **RESOLVED → SessionStart with PreToolUse fallback**
 

@@ -98,7 +98,7 @@ describe('Task 50.L — Kiro CLI agent-config + default-agent', () => {
       // ownership marker lives in a VALID field (description) — NOT a top-level
       // `managedBy`, which kiro-cli `agent validate` rejects as unknown (D-198).
       expect(agent.managedBy).toBeUndefined();
-      expect(agent.description).toContain('[claude-memory-kit]');
+      expect(agent.description).toContain('[core-memory-kit]');
       // the LOAD-BEARING default registration in ~/.kiro/settings/cli.json
       expect(existsSync(settingsPath())).toBe(true);
       const settings = JSON.parse(readFileSync(settingsPath(), 'utf8'));
@@ -240,7 +240,7 @@ describe('Task 50.L — Kiro CLI agent-config + default-agent', () => {
     });
 
     // SAFETY (the I-1 review finding): uninstall `rmSync`s the agent file keyed on
-    // our `[claude-memory-kit]` description marker. A user's OWN agent that happens
+    // our `[core-memory-kit]` description marker. A user's OWN agent that happens
     // to live at agents/cmk.json but is NOT ours (no marker) must NEVER be deleted —
     // the description-substring ownership check must not false-positive into data loss.
     it('does NOT delete a foreign cmk.json that lacks our marker (no false-positive rmSync)', () => {

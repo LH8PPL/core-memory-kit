@@ -854,7 +854,7 @@ export async function runDoctor({
     };
   }
   const ts = now ?? nowIso();
-  const resolvedUserDir = userDir ?? join(homedir(), '.claude-memory-kit');
+  const resolvedUserDir = userDir ?? join(homedir(), '.core-memory-kit');
 
   // Run all checks in order.
   const c1 = hc1Hooks({ projectRoot, awsDir });

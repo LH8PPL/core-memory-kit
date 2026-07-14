@@ -101,13 +101,13 @@ describe('Task 196 (Codex) — installAgent legs', () => {
     const argv = [calls[0].cmd, ...(calls[0].args ?? [])].join(' ');
     expect(argv).toContain('mcp');
     expect(argv).toContain('add');
-    expect(argv).toContain('claude-memory-kit');
+    expect(argv).toContain('core-memory-kit');
     // the spawn carries a timeout (the spawn-discipline rule)
     expect(calls[0].opts?.timeout).toBeGreaterThan(0);
 
     // instruction leg: AGENTS.md managed block
     const agentsMd = readFileSync(join(projectRoot, 'AGENTS.md'), 'utf8');
-    expect(agentsMd).toContain('<!-- claude-memory-kit:start -->');
+    expect(agentsMd).toContain('<!-- core-memory-kit:start -->');
     expect(agentsMd).toContain('cmk search');
   });
 
@@ -155,7 +155,7 @@ describe('Task 196 (Codex) — installAgent legs', () => {
     expect(r.legs.mcp).toBe('manual');
     // the copy-pasteable fallback rides OUTSIDE legs (a command string inside
     // the leg→action map would leak into the error-path listing)
-    expect(r.mcpManualCommand).toContain('codex mcp add claude-memory-kit');
+    expect(r.mcpManualCommand).toContain('codex mcp add core-memory-kit');
     // hooks still wired despite the MCP degrade
     expect(existsSync(join(projectRoot, '.codex', 'hooks.json'))).toBe(true);
   });
@@ -194,11 +194,11 @@ describe('Task 196 (Codex) — uninstallAgent', () => {
 
     const mcpArgv = removeCalls.map((c) => [c.cmd, ...(c.args ?? [])].join(' ')).join('\n');
     expect(mcpArgv).toContain('remove');
-    expect(mcpArgv).toContain('claude-memory-kit');
+    expect(mcpArgv).toContain('core-memory-kit');
 
     const agentsAfter = readFileSync(agentsPath, 'utf8');
     expect(agentsAfter).toContain('# My own notes'); // user content preserved
-    expect(agentsAfter).not.toContain('claude-memory-kit:start'); // block gone
+    expect(agentsAfter).not.toContain('core-memory-kit:start'); // block gone
   });
 
   it('preserves a user group under a COLLIDING kit event key on uninstall (skill-review #2)', () => {
@@ -235,7 +235,7 @@ describe('Task 196 (Codex) — uninstallAgent', () => {
     // user-level MCP registration.
     writeFileSync(
       join(projectRoot, 'AGENTS.md'),
-      '<!-- claude-memory-kit:start -->\nkit block\n<!-- claude-memory-kit:end -->\n',
+      '<!-- core-memory-kit:start -->\nkit block\n<!-- core-memory-kit:end -->\n',
       'utf8',
     );
     const { calls, fn } = makeSpawnFake();

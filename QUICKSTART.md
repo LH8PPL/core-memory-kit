@@ -1,4 +1,4 @@
-# claude-memory-kit — Quickstart
+# core-memory-kit — Quickstart
 
 A 5-minute walkthrough from zero to a working kit on your first project.
 
@@ -28,7 +28,7 @@ Each route is complete on its own. **Don't run both** — they wire the same hoo
 ### Route A — npm (recommended)
 
 ```bash
-npm install -g @lh8ppl/claude-memory-kit
+npm install -g @lh8ppl/core-memory-kit
 cmk --version          # should print the current version (e.g. 0.5.x)
 ```
 
@@ -41,13 +41,13 @@ This installs the `cmk` CLI **and** the 5 lifecycle hook bins. The `cmk install`
 In Claude Code:
 
 ```text
-/plugin marketplace add LH8PPL/claude-memory-kit   # add this repo as a plugin source (once per machine)
-/plugin install claude-memory-kit                  # install the global machinery — hooks + skills (once per machine)
+/plugin marketplace add LH8PPL/core-memory-kit   # add this repo as a plugin source (once per machine)
+/plugin install core-memory-kit                  # install the global machinery — hooks + skills (once per machine)
 cd ~/my-project                                    # the project you want memory in — bootstrap scaffolds into the CURRENT dir
-/claude-memory-kit:bootstrap                        # scaffold this project's context/ memory tree (once per project)
+/core-memory-kit:bootstrap                        # scaffold this project's context/ memory tree (once per project)
 ```
 
-Restart Claude Code afterward so the hooks load. The first two commands are **global** (per machine — the plugin sets `${CLAUDE_PLUGIN_ROOT}` and loads `plugin/hooks/hooks.json` plus the `bootstrap` / `memory-write` / `memory-search` skills); `bootstrap` is **per project** (run it again after a `cd` in each project you want memory in). This route does **not** require the npm CLI; add it later (`npm install -g @lh8ppl/claude-memory-kit`) only if you want `cmk search` / `cmk doctor` / cron.
+Restart Claude Code afterward so the hooks load. The first two commands are **global** (per machine — the plugin sets `${CLAUDE_PLUGIN_ROOT}` and loads `plugin/hooks/hooks.json` plus the `bootstrap` / `memory-write` / `memory-search` skills); `bootstrap` is **per project** (run it again after a `cd` in each project you want memory in). This route does **not** require the npm CLI; add it later (`npm install -g @lh8ppl/core-memory-kit`) only if you want `cmk search` / `cmk doctor` / cron.
 
 ## 2. Scaffold the kit into your project (Route A)
 
@@ -156,7 +156,7 @@ Updating is **two parts** on both routes: update the machinery, then re-stamp ea
 ```bash
 # Windows: close Claude Code first. Its MCP servers hold native DLLs (vec0.dll,
 # better_sqlite3.node) and npm can't overwrite a loaded file → EBUSY. macOS/Linux: skip.
-npm install -g @lh8ppl/claude-memory-kit@latest   # 1. update the global cmk CLI
+npm install -g @lh8ppl/core-memory-kit@latest   # 1. update the global cmk CLI
 cd ~/my-project
 cmk install                                        # 2. re-stamp THIS project (per project)
 cmk doctor                                          # 3. verify (HC-9 = pass), then restart Claude Code
@@ -169,11 +169,11 @@ If you forget the close-first step and the upgrade half-breaks (the symptom: any
 **Route B — Claude Code plugin** (inside Claude Code):
 
 ```text
-/plugin marketplace update claude-memory-kit   # 1. refresh available versions
-/plugin update claude-memory-kit               # 2. update the plugin (new hooks + skills)
+/plugin marketplace update core-memory-kit   # 1. refresh available versions
+/plugin update core-memory-kit               # 2. update the plugin (new hooks + skills)
 /reload-plugins                                # 3. apply it (hooks keep the OLD version until reload)
 cd ~/my-project
-/claude-memory-kit:bootstrap                    # 4. re-scaffold THIS project (per project)
+/core-memory-kit:bootstrap                    # 4. re-scaffold THIS project (per project)
 ```
 
 The kit's marketplace is third-party, so Claude Code does **not** auto-update it — you refresh manually with `/plugin marketplace update`. As on the npm route, `/plugin update` refreshes the global machinery but not a project's scaffold, so re-run `bootstrap` per project (the plugin-path equivalent of `cmk install`).
@@ -184,7 +184,7 @@ The kit's marketplace is third-party, so Claude Code does **not** auto-update it
 
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
-| `cmk: command not found` | Global install not on PATH | `npm install -g @lh8ppl/claude-memory-kit` (re-run); check `npm config get prefix` is on PATH |
+| `cmk: command not found` | Global install not on PATH | `npm install -g @lh8ppl/core-memory-kit` (re-run); check `npm config get prefix` is on PATH |
 | `cmk doctor` shows HC-2 FAIL after install | Settings.json missing kit hooks | `cmk repair --hooks` |
 | `cmk doctor` shows HC-4 FAIL ("transcripts not firing") | Project not Claude Code's primary cwd | Reopen the project as primary cwd |
 | `cmk search` returns no results | Index never built | `cmk reindex --full` |

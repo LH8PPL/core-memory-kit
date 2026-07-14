@@ -25,7 +25,7 @@ A Claude Code install scaffolds the 3-tier `context/` layout, injects `.gitignor
 ## Notes
 
 - **Restart Claude Code** after install so the hooks load. `cmk install` is idempotent — re-running skips existing files and refreshes the hooks.
-- Two install routes: the **npm CLI** (`npm install -g @lh8ppl/claude-memory-kit` then `cmk install`) or the **Claude Code plugin marketplace** (`/plugin marketplace add LH8PPL/claude-memory-kit` → `/plugin install` → `/claude-memory-kit:bootstrap`). Pick one — both wire the same hooks.
+- Two install routes: the **npm CLI** (`npm install -g @lh8ppl/core-memory-kit` then `cmk install`) or the **Claude Code plugin marketplace** (`/plugin marketplace add LH8PPL/core-memory-kit` → `/plugin install` → `/core-memory-kit:bootstrap`). Pick one — both wire the same hooks.
 - The kit **coexists** with Claude Code's native Auto Memory by default; `cmk doctor` (HC-6) surfaces a one-command opt-out (`cmk disable-native-memory`) if you want the kit to be the sole layer.
 
 ## The `claude` CLI as the automatic-memory backend (v0.4.5+)

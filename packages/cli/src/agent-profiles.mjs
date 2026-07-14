@@ -60,7 +60,7 @@ const kiro = defineAgentProfile({
   integrationType: 'native-hooks-mcp',
   detect: { homeDir: '.kiro' },
   // Steering file with `inclusion: always` frontmatter (applied at write time).
-  instructionFile: '.kiro/steering/claude-memory-kit.md',
+  instructionFile: '.kiro/steering/core-memory-kit.md',
   mcp: { path: '.kiro/settings/mcp.json', serversKey: 'mcpServers' },
   hooks: {
     mechanism: 'agent-config-json', // .kiro/agents/<name>.json "hooks" object (CLI)
@@ -115,8 +115,8 @@ const cursor = defineAgentProfile({
   displayName: 'Cursor',
   integrationType: 'hooks-mcp',
   detect: { homeDir: '.cursor' },
-  instructionFile: '.cursor/rules/claude-memory-kit.mdc',
-  instructionFrontmatter: 'description: claude-memory-kit — durable in-repo memory (recall + capture)\nalwaysApply: true',
+  instructionFile: '.cursor/rules/core-memory-kit.mdc',
+  instructionFrontmatter: 'description: core-memory-kit — durable in-repo memory (recall + capture)\nalwaysApply: true',
   mcp: { path: '.cursor/mcp.json', serversKey: 'mcpServers' },
   hooks: {
     mechanism: 'hooks-json', // dedicated .cursor/hooks.json (version + hooks keys)
@@ -169,8 +169,8 @@ const codex = defineAgentProfile({
     serversKey: 'mcp_servers',
     cli: {
       bin: 'codex',
-      addArgs: ['mcp', 'add', 'claude-memory-kit', '--', 'cmk', 'mcp', 'serve'],
-      removeArgs: ['mcp', 'remove', 'claude-memory-kit'],
+      addArgs: ['mcp', 'add', 'core-memory-kit', '--', 'cmk', 'mcp', 'serve'],
+      removeArgs: ['mcp', 'remove', 'core-memory-kit'],
     },
   },
   hooks: {

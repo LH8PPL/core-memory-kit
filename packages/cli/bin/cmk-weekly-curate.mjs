@@ -45,12 +45,12 @@ const envRoot = process.env.CMK_PROJECT_DIR && process.env.CMK_PROJECT_DIR.lengt
   : null;
 const projectRoot = argvRoot ?? envRoot ?? process.cwd();
 
-// User tier (cross-project) lives at ~/.claude-memory-kit. Passing it
+// User tier (cross-project) lives at ~/.core-memory-kit. Passing it
 // activates the Design-B auto-persona hook (Task 45): the weekly cycle
 // synthesizes cross-project doctrine from the project's fact archive and
 // auto-promotes it into the user tier. Without userDir the curate runs
 // project-only (backward-compatible).
-const userDir = join(homedir(), '.claude-memory-kit');
+const userDir = join(homedir(), '.core-memory-kit');
 
 // Task 167 (D-207): record the cron heartbeat on every fire (anacron model —
 // proves the cron is alive regardless of curate outcome). The lazy-roll gate

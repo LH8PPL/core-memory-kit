@@ -36,8 +36,8 @@ import {
   findManagedBlock,
 } from '../packages/cli/src/claude-md.mjs';
 
-const MARKER_START_RE = /<!--\s*claude-memory-kit:start\s+v[\d.]+(?:-[\w.]+)?\s*-->/;
-const MARKER_END_RE = /<!--\s*claude-memory-kit:end\s*-->/;
+const MARKER_START_RE = /<!--\s*core-memory-kit:start\s+v[\d.]+(?:-[\w.]+)?\s*-->/;
+const MARKER_END_RE = /<!--\s*core-memory-kit:end\s*-->/;
 
 describe('Task 4 — CLAUDE.md loader block', () => {
   let sandbox;
@@ -57,7 +57,7 @@ describe('Task 4 — CLAUDE.md loader block', () => {
     it('creates CLAUDE.md containing only the delimited block + content', () => {
       const result = injectClaudeMdBlock({
         projectRoot,
-        content: '## Memory System\n\nManaged by claude-memory-kit.',
+        content: '## Memory System\n\nManaged by core-memory-kit.',
         version: '0.1.0',
       });
 
@@ -68,13 +68,13 @@ describe('Task 4 — CLAUDE.md loader block', () => {
       expect(text).toMatch(MARKER_START_RE);
       expect(text).toMatch(MARKER_END_RE);
       expect(text).toContain('## Memory System');
-      expect(text).toContain('Managed by claude-memory-kit.');
+      expect(text).toContain('Managed by core-memory-kit.');
     });
 
     it('start marker carries the version number', () => {
       injectClaudeMdBlock({ projectRoot, content: 'x', version: '0.1.0' });
       const text = readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8');
-      expect(text).toMatch(/<!--\s*claude-memory-kit:start\s+v0\.1\.0\s*-->/);
+      expect(text).toMatch(/<!--\s*core-memory-kit:start\s+v0\.1\.0\s*-->/);
     });
   });
 
@@ -284,14 +284,14 @@ describe('Task 4 — CLAUDE.md loader block', () => {
 
       const fingerprintBefore =
         readFileSync(claudeMd, 'utf8')
-          .replace(/<!--\s*claude-memory-kit:start[\s\S]*?claude-memory-kit:end\s*-->\n?/, '');
+          .replace(/<!--\s*core-memory-kit:start[\s\S]*?core-memory-kit:end\s*-->\n?/, '');
 
       removeClaudeMdBlock({ projectRoot });
       injectClaudeMdBlock({ projectRoot, content: 'block1', version: '0.1.0' });
 
       const fingerprintAfter =
         readFileSync(claudeMd, 'utf8')
-          .replace(/<!--\s*claude-memory-kit:start[\s\S]*?claude-memory-kit:end\s*-->\n?/, '');
+          .replace(/<!--\s*core-memory-kit:start[\s\S]*?core-memory-kit:end\s*-->\n?/, '');
 
       // Content outside the block (user content) is byte-identical
       // (some whitespace normalization is OK; we just need user content intact)
@@ -302,7 +302,7 @@ describe('Task 4 — CLAUDE.md loader block', () => {
 
   describe('Boundary edge cases', () => {
     it('handles a CLAUDE.md with corrupted markers (start but no end): treats as no managed block, appends fresh', () => {
-      const corrupted = '# Project\n\n<!-- claude-memory-kit:start v0.1.0 -->\nbroken — no end marker\n';
+      const corrupted = '# Project\n\n<!-- core-memory-kit:start v0.1.0 -->\nbroken — no end marker\n';
       writeFileSync(join(projectRoot, 'CLAUDE.md'), corrupted, 'utf8');
 
       const result = injectClaudeMdBlock({
@@ -317,8 +317,8 @@ describe('Task 4 — CLAUDE.md loader block', () => {
       const text = readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8');
       expect(text).toContain('fresh block');
       // After injection there must be exactly one start and one end marker
-      const starts = (text.match(/claude-memory-kit:start/g) || []).length;
-      const ends = (text.match(/claude-memory-kit:end/g) || []).length;
+      const starts = (text.match(/core-memory-kit:start/g) || []).length;
+      const ends = (text.match(/core-memory-kit:end/g) || []).length;
       expect(starts).toBe(1);
       expect(ends).toBe(1);
     });
@@ -337,15 +337,15 @@ describe('Task 4 — CLAUDE.md loader block', () => {
       const text = [
         '# My project notes',
         '',
-        '<!-- claude-memory-kit:start v0.1.0 -->',
+        '<!-- core-memory-kit:start v0.1.0 -->',
         'old block ONE',
-        '<!-- claude-memory-kit:end -->',
+        '<!-- core-memory-kit:end -->',
         '',
         'user content BETWEEN the blocks',
         '',
-        '<!-- claude-memory-kit:start v0.1.0 -->',
+        '<!-- core-memory-kit:start v0.1.0 -->',
         'old block TWO',
-        '<!-- claude-memory-kit:end -->',
+        '<!-- core-memory-kit:end -->',
         '',
         'trailing user content',
         '',
@@ -359,7 +359,7 @@ describe('Task 4 — CLAUDE.md loader block', () => {
       expect(found.duplicateCount).toBe(1);
       // single-block text reports zero
       expect(
-        findManagedBlock('<!-- claude-memory-kit:start v0.1.0 -->\nx\n<!-- claude-memory-kit:end -->').duplicateCount,
+        findManagedBlock('<!-- core-memory-kit:start v0.1.0 -->\nx\n<!-- core-memory-kit:end -->').duplicateCount,
       ).toBe(0);
     });
 
@@ -370,8 +370,8 @@ describe('Task 4 — CLAUDE.md loader block', () => {
       expect(r.duplicatesFolded).toBe(1);
 
       const text = readFileSync(claudeMdPath(), 'utf8');
-      expect((text.match(/claude-memory-kit:start/g) || []).length).toBe(1);
-      expect((text.match(/claude-memory-kit:end/g) || []).length).toBe(1);
+      expect((text.match(/core-memory-kit:start/g) || []).length).toBe(1);
+      expect((text.match(/core-memory-kit:end/g) || []).length).toBe(1);
       expect(text).toContain('fresh managed content');
       expect(text).not.toContain('old block ONE');
       expect(text).not.toContain('old block TWO');
@@ -386,13 +386,13 @@ describe('Task 4 — CLAUDE.md loader block', () => {
       // the version downgrade must stay blocked, but the duplication must
       // heal — otherwise `cmk doctor` says "re-run cmk install" forever.
       const text = [
-        '<!-- claude-memory-kit:start v0.1.0 -->',
+        '<!-- core-memory-kit:start v0.1.0 -->',
         'older block',
-        '<!-- claude-memory-kit:end -->',
+        '<!-- core-memory-kit:end -->',
         'between',
-        '<!-- claude-memory-kit:start v0.9.0 -->',
+        '<!-- core-memory-kit:start v0.9.0 -->',
         'newer imported block',
-        '<!-- claude-memory-kit:end -->',
+        '<!-- core-memory-kit:end -->',
         '',
       ].join('\n');
       writeFileSync(claudeMdPath(), text, 'utf8');
@@ -404,7 +404,7 @@ describe('Task 4 — CLAUDE.md loader block', () => {
 
       const after = readFileSync(claudeMdPath(), 'utf8');
       // ONE block remains — the newest existing one, NOT our blocked content.
-      expect((after.match(/claude-memory-kit:start/g) || []).length).toBe(1);
+      expect((after.match(/core-memory-kit:start/g) || []).length).toBe(1);
       expect(after).toContain('newer imported block');
       expect(after).not.toContain('older block');
       expect(after).not.toContain('our older content');
@@ -417,8 +417,8 @@ describe('Task 4 — CLAUDE.md loader block', () => {
       expect(r.action).toBe('removed');
 
       const text = readFileSync(claudeMdPath(), 'utf8');
-      expect(text).not.toContain('claude-memory-kit:start');
-      expect(text).not.toContain('claude-memory-kit:end');
+      expect(text).not.toContain('core-memory-kit:start');
+      expect(text).not.toContain('core-memory-kit:end');
       expect(text).not.toContain('old block ONE');
       expect(text).not.toContain('old block TWO');
       expect(text).toContain('# My project notes');

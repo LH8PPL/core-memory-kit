@@ -230,7 +230,7 @@ describe('Task 33 — register-crons', () => {
       // VBS string-literal escaping: each embedded `"` becomes `""`.
       expect(vbs).toContain('""C:\\node.exe""');
       // The comment names itself so it's not a mystery file.
-      expect(vbs).toContain('claude-memory-kit');
+      expect(vbs).toContain('core-memory-kit');
     });
 
     it('weekly cadence emits /SC WEEKLY /D <DAY>', () => {

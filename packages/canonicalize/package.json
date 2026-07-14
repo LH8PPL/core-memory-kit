@@ -1,7 +1,7 @@
 {
   "name": "@lh8ppl/cmk-canonicalize",
   "version": "0.1.0",
-  "description": "Deterministic text canonicalization + content-addressed ID generation for claude-memory-kit. Node + Python parity package; output is byte-identical across both implementations.",
+  "description": "Deterministic text canonicalization + content-addressed ID generation for core-memory-kit. Node + Python parity package; output is byte-identical across both implementations.",
   "type": "module",
   "exports": {
     ".": "./src/index.mjs"
@@ -19,11 +19,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/LH8PPL/claude-memory-kit.git",
+    "url": "https://github.com/LH8PPL/core-memory-kit.git",
     "directory": "packages/canonicalize"
   },
   "bugs": {
-    "url": "https://github.com/LH8PPL/claude-memory-kit/issues"
+    "url": "https://github.com/LH8PPL/core-memory-kit/issues"
   },
   "keywords": [
     "claude",

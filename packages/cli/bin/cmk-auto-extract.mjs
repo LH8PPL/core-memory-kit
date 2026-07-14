@@ -47,11 +47,11 @@ try {
 
 // Task 61 — inline cross-project promotion: pass the user-tier dir so
 // cross-project doctrine promotes immediately. Resolve the base via the
-// shared tier-paths resolver (never re-derive ~/.claude-memory-kit inline —
+// shared tier-paths resolver (never re-derive ~/.core-memory-kit inline —
 // CLAUDE.md shared-modules rule).
 //
 // Wedge-from-empty (D-262): pass userDir UNCONDITIONALLY — do NOT gate on
-// existsSync. A brand-new user has no ~/.claude-memory-kit/ yet, and the whole
+// existsSync. A brand-new user has no ~/.core-memory-kit/ yet, and the whole
 // point of the wedge (B3/B4) is to fill it from EMPTY on the first cross-project
 // rule. The old `existsSync ? base : undefined` guard dropped that first rule
 // silently, so the persona could never bootstrap. The promote path

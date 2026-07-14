@@ -1,4 +1,4 @@
-# Design — claude-memory-kit v0.1.0
+# Design — core-memory-kit v0.1.0
 
 **Status**: Draft, section 1-3 of N · **Author**: Claude (Opus 4.7) + the maintainer · **Date started**: 2026-05-22
 
@@ -16,7 +16,7 @@ The design assumes [`requirements-revisions-proposed.md`](../archive/specs/v0.1.
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────┐
-│  USER TIER  ~/.claude-memory-kit/                                    │
+│  USER TIER  ~/.core-memory-kit/                                    │
 │  • USER.md         identity (1,375 char cap)                         │
 │  • HABITS.md       cross-project working style (1,800 char cap)      │
 │  • LESSONS.md      cross-project lessons (1,800 char cap) [NEW v0.1] │
@@ -55,12 +55,12 @@ The design assumes [`requirements-revisions-proposed.md`](../archive/specs/v0.1.
 
 **Precedence model** (Git config semantics): first-match-wins at observation level, deep-merge at settings level. When two tiers have the same observation ID, the most-specific tier (highest priority) wins and the others are logged as `shadowed_by` in the debug output. See §6.
 
-**User-tier path override**: the user tier path defaults to `~/.claude-memory-kit/` but can be overridden via the `MEMORY_KIT_USER_DIR` environment variable. Use cases: testing against an isolated fixture, multi-account machines, encrypted home directories, ephemeral CI runners, **pointing the user tier at a synced folder (Dropbox/iCloud) or a git checkout for cross-machine portability**. When the env var is set and points to a non-existent directory, `cmk init-user-tier` creates it; otherwise the kit reads from the override path.
+**User-tier path override**: the user tier path defaults to `~/.core-memory-kit/` but can be overridden via the `MEMORY_KIT_USER_DIR` environment variable. Use cases: testing against an isolated fixture, multi-account machines, encrypted home directories, ephemeral CI runners, **pointing the user tier at a synced folder (Dropbox/iCloud) or a git checkout for cross-machine portability**. When the env var is set and points to a non-existent directory, `cmk init-user-tier` creates it; otherwise the kit reads from the override path.
 
 **Portability — two scopes, two transports (Task 72 / D-27/D-69).** The tiers don't all travel the same way, and that's deliberate:
 
 - **Project memory follows the REPO.** `context/` is committed, so `git clone` carries it and teammates share it. Transport = git, automatic.
-- **The persona follows the HUMAN, not the repo.** The user tier (`~/.claude-memory-kit/` — USER/HABITS/LESSONS + `fragments/`) is machine-local and kept *out* of any project, because committing your working-style would leak it to everyone who clones (and the OS/git username differs across your own machines, so per-repo namespacing fails the exact cross-machine case). So persona portability is **per-human, not per-repo**:
+- **The persona follows the HUMAN, not the repo.** The user tier (`~/.core-memory-kit/` — USER/HABITS/LESSONS + `fragments/`) is machine-local and kept *out* of any project, because committing your working-style would leak it to everyone who clones (and the OS/git username differs across your own machines, so per-repo namespacing fails the exact cross-machine case). So persona portability is **per-human, not per-repo**:
   - **Built (72.1):** `cmk persona export <file>` packs the user tier into one OS-agnostic JSON bundle (allow-list: scratchpads + `settings.json` + `fragments/` + `queues/`; runtime `.locks/.index/.import-backups` excluded), and `cmk persona import <file>` applies it on another machine (overwrite + per-file backup + transactional rollback + reindex). Carry the bundle via your own private channel; content is already home-path-sanitized + Poison_Guard'd, so no usernames/secrets travel. Forward-slash bundle paths → Windows↔Mac round-trip. See [`persona-portability.mjs`](../packages/cli/src/persona-portability.mjs).
   - **Deferred (72.2, §16 candidate):** `cmk persona sync <your-private-git-url>` — make the user tier a git repo on *your own* remote with auto-pull@SessionStart + auto-push@curation (git handles transport + merge/conflict). The seamless-UX + conflict-resolution design is a deep-research candidate, so it lands after the explicit primitive.
   - **The trap to avoid:** never commit the persona into a project to make it portable — that breaks the team scenario (each person keeps their own persona; it's never shared).
@@ -123,7 +123,7 @@ SessionStart hook fires
     ├─ Resolve 3-tier file paths
     │       local: <repo>/context.local/
     │       project: <repo>/context/
-    │       user: ~/.claude-memory-kit/
+    │       user: ~/.core-memory-kit/
     │
     ├─ Read in priority order (local → project → user)
     │       SOUL.md, USER.md, HABITS.md
@@ -249,7 +249,7 @@ Last health check: 2026-05-22.
 
 **Char cap enforcement**: counted via `wc -c` on the file. Includes everything (frontmatter, comments, bullets). When a write would push the file over cap, the `memory-write` skill **consolidates first** (merge similar bullets, drop stale entries older than 14 days with no current reference), then writes the new content. (Per FR-3.)
 
-**Caps are configurable** via `<repo>/context/settings.json` (project tier) or `~/.claude-memory-kit/settings.json` (user tier). Defaults match the values shown in the §1.1 tier diagram. Per-project override example:
+**Caps are configurable** via `<repo>/context/settings.json` (project tier) or `~/.core-memory-kit/settings.json` (user tier). Defaults match the values shown in the §1.1 tier diagram. Per-project override example:
 
 ```json
 {
@@ -1074,7 +1074,7 @@ The SessionStart hook (`cmk-inject-context`) resolves and merges the three tiers
 1. Discover tier paths
    local_dir   = <repo>/context.local/         (if exists)
    project_dir = <repo>/context/               (walks up from cwd)
-   user_dir    = ~/.claude-memory-kit/         (if exists)
+   user_dir    = ~/.core-memory-kit/         (if exists)
 
 2. Read settings.json from each tier (deep-merge: local > project > user)
    Scalars override; arrays concatenate-and-dedup by ID.
@@ -1182,7 +1182,7 @@ Mirrors `git config --show-origin`. Resolves the source of any setting or observ
 $ cmk config --show-origin USER.preferred_editor
 local    <repo>/context.local/overrides.md:5    "neovim"
 project  <repo>/context/SOUL.md:18              "vscode"     (shadowed by local)
-user     ~/.claude-memory-kit/USER.md:7         "vim"        (shadowed by project)
+user     ~/.core-memory-kit/USER.md:7         "vim"        (shadowed by project)
 ```
 
 Direnv lesson: without `--show-origin`, users rage-quit when settings appear from nowhere.
@@ -1454,7 +1454,7 @@ v0.2 candidates per ADR-0008: `BedrockHaiku` (AWS), `LocalLlama` (air-gapped, KV
 ### 8.4 Compression prompt (preserves IDs and headings)
 
 ```text
-You are a memory compressor for claude-memory-kit. Output exactly the
+You are a memory compressor for core-memory-kit. Output exactly the
 following Markdown structure:
 
 ## Decisions
@@ -1609,7 +1609,7 @@ Pivoted to Node.js 2026-05-28 (the user + Claude joint decision). Rationale:
 
 1. **No new toolchain**: the kit is already Node-only. Python means new install dep + new test infra (pytest) + new platform concerns (Python install paths differ across OSes).
 2. **Existing kit pattern**: `register-crons` shells out to platform-native scheduler commands via `child_process.spawnSync`. The kit's other modules (compressor.mjs, capture-turn.mjs, auto-extract.mjs) already do this with shell:true on Windows for the `.cmd` shim case.
-3. **Single-language deploy**: v0.1.0 ships as one npm package; `npm install -g @lh8ppl/claude-memory-kit` is the whole install. Adding Python would force users to install Python too (or bundle it — much larger artifact).
+3. **Single-language deploy**: v0.1.0 ships as one npm package; `npm install -g @lh8ppl/core-memory-kit` is the whole install. Adding Python would force users to install Python too (or bundle it — much larger artifact).
 4. **Test surface fits**: vitest tests can spawn the script with `--dry-run` and assert output. No pytest infrastructure needed.
 
 The Python option is preserved in [`tasks.md`](../specs/tasks.md) Task 33.2 alongside the Node pivot so future contributors see the decision history.
@@ -1899,7 +1899,7 @@ Claude Code (client)                 cmk-mcp (server subprocess)
 Per NFR-6 (verified):
 
 - Path traversal validation on every read/write
-- Canonicalize paths via `path.resolve()` (Node) / `pathlib.Path.resolve()` (Python); reject any path outside `<repo>/context/`, `<repo>/context.local/`, or `~/.claude-memory-kit/`
+- Canonicalize paths via `path.resolve()` (Node) / `pathlib.Path.resolve()` (Python); reject any path outside `<repo>/context/`, `<repo>/context.local/`, or `~/.core-memory-kit/`
 - Per Kiro's stricter pattern: validate that paths start with the expected prefix; reject URL-encoded traversal (`%2e%2e%2f`)
 - Network egress is impossible by transport choice — stdio has no listening socket. No DNS rebinding, no bind-address concerns.
 
@@ -1971,7 +1971,7 @@ Single Node binary, ships with the kit. Subcommands:
 | Subcommand | What it does |
 | --- | --- |
 | `cmk install` | Cross-OS one-shot install (scaffold + hook wiring + `.mcp.json` MCP-server registration) — the sole installer since the `install.sh` / `install.ps1` scripts were retired 2026-06-08 |
-| `cmk init-user-tier` | Scaffold `~/.claude-memory-kit/` once per machine |
+| `cmk init-user-tier` | Scaffold `~/.core-memory-kit/` once per machine |
 | `cmk search "<query>" [flags]` | Per §9.3 — hybrid keyword + semantic |
 | `cmk reindex [--boot \| --full]` | Rebuild SQLite cache from markdown |
 | `cmk doctor` | Run HC-1..HC-8 health checks; route to self-repair |
@@ -1979,7 +1979,7 @@ Single Node binary, ships with the kit. Subcommands:
 | `cmk view [--port N]` | Local markdown viewer at `127.0.0.1:37778` |
 | `cmk import-anthropic-memory [--dry-run]` | Per §11.2 |
 | `cmk trust <id> <high\|medium\|low>` | Manual trust override |
-| `cmk lessons promote <id>` | Move a project-tier observation to `~/.claude-memory-kit/LESSONS.md` |
+| `cmk lessons promote <id>` | Move a project-tier observation to `~/.core-memory-kit/LESSONS.md` |
 | `cmk queue review` | **[CHANGE]** Interactive review of `context/queues/review.md` (medium-trust auto-extracts). Promote / discard each |
 | `cmk forget <id-or-query>` | Tombstone a fact per §6.5 |
 | `cmk purge --hard <id>` | Permanent deletion (requires confirmation; rare) |
@@ -1987,7 +1987,7 @@ Single Node binary, ships with the kit. Subcommands:
 | `cmk repair` | Idempotent self-repair (re-install hooks, reset stale locks) |
 | `cmk version` | Print kit version + check for updates |
 
-CLI implemented in Node; ships as `@lh8ppl/claude-memory-kit` npm package + standalone binary via `pkg`.
+CLI implemented in Node; ships as `@lh8ppl/core-memory-kit` npm package + standalone binary via `pkg`.
 
 **Implements**: FR-22, FR-23.
 
@@ -2001,8 +2001,8 @@ Per OQ-2 + verified plugin format from claude-mem (`plugin/.claude-plugin/plugin
 
 | Path | Audience | Mechanism |
 | --- | --- | --- |
-| `npm install -g @lh8ppl/claude-memory-kit` + `cmk install` | Cross-OS (Windows / macOS / Linux) | Node-distributed; scaffolds `template/`, wires the 5 hooks into `.claude/settings.json`, registers the MCP server in `.mcp.json` |
-| Claude Code plugin (`/plugin install claude-memory-kit` + `/claude-memory-kit:bootstrap`) | Claude Code users (no terminal) | Plugin manifest in `plugin/.claude-plugin/plugin.json`; `bootstrap` skill scaffolds per-project files |
+| `npm install -g @lh8ppl/core-memory-kit` + `cmk install` | Cross-OS (Windows / macOS / Linux) | Node-distributed; scaffolds `template/`, wires the 5 hooks into `.claude/settings.json`, registers the MCP server in `.mcp.json` |
+| Claude Code plugin (`/plugin install core-memory-kit` + `/core-memory-kit:bootstrap`) | Claude Code users (no terminal) | Plugin manifest in `plugin/.claude-plugin/plugin.json`; `bootstrap` skill scaffolds per-project files |
 
 Both paths produce **identical scaffolded state** in the target project. Tested via CI matrix on Windows 10/11, macOS 14+, Ubuntu 22.04+ (per NFR-3).
 
@@ -2013,12 +2013,12 @@ Both paths produce **identical scaffolded state** in the target project. Tested 
 The install paths above MUST inject the kit's CLAUDE.md content inside an idempotent delimited block, never as a free-floating paste:
 
 ```markdown
-<!-- claude-memory-kit:start v0.1.0 -->
-## Memory routing (claude-memory-kit)
+<!-- core-memory-kit:start v0.1.0 -->
+## Memory routing (core-memory-kit)
 
 [kit-provided CLAUDE.md content here — session-start reads, health-check rules, etc.]
 
-<!-- claude-memory-kit:end -->
+<!-- core-memory-kit:end -->
 ```
 
 **Behavior**:
@@ -2049,7 +2049,7 @@ Eight yes/no checks at session start. Each has a documented self-repair path. (T
 | **HC-6** | Native Anthropic Auto Memory status detected | **Inspect `~/.claude/projects/<slug>/memory/` existence + contents. Log result to `context/.locks/native-memory-status.log` as `{active: true \| false \| unknown, last_modified: <ISO>, file_count: N}`. Non-fatal — informational only, lets users see whether their kit is supplementing or substituting Anthropic's. Per Kiro's spec-pattern of explicit detection + audit logging.** |
 | **HC-7** | **Stale lock files under `context/.locks/` + `<userDir>/.locks/`** | **Per-stale-lock recoveryCommand emitted in the report (e.g. `rm "<path>"`). Library: [`packages/cli/src/lock-discipline.mjs`](../packages/cli/src/lock-discipline.mjs) `detectStaleLocks(projectRoot, {userDir})`. Closes the residual leak window left after PR-A's subprocess timeout (external SIGKILL / OS OOM / hardware failure — see §6.9 for the composition). Non-fatal — `cmk doctor` reports + the next auto-extract invocation's in-band stale-recovery also handles it.** |
 
-| **HC-8** | **Native bindings present (npm 12 readiness, Task 141a / D-129)** | **`require('better-sqlite3')` must load its `.node` binding; when `search.default_mode` is `hybrid`/`semantic` the embedder import is probed too (the probe distinguishes not-installed from installed-but-binding-broken — the semantic-backend loader collapses both). Fail emits the exact global remediation (`npm install -g @lh8ppl/claude-memory-kit --allow-scripts=better-sqlite3` / `npm install -g @huggingface/transformers --allow-scripts=onnxruntime-node`) with `requiresInstall: true`. The PRIMARY UX is upstream: `cmk install` runs the same probe and asks to fix inline (the user's 2026-06-12 install-time-ask steer); HC-8 is the backstop. Library: [`packages/cli/src/native-binding.mjs`](../packages/cli/src/native-binding.mjs). Verified against the npm v12 changelog + npm config docs 2026-06-12: the `allow-scripts` config is the documented path for global installs; project-level `npm approve-scripts` does not apply to `-g`.** |
+| **HC-8** | **Native bindings present (npm 12 readiness, Task 141a / D-129)** | **`require('better-sqlite3')` must load its `.node` binding; when `search.default_mode` is `hybrid`/`semantic` the embedder import is probed too (the probe distinguishes not-installed from installed-but-binding-broken — the semantic-backend loader collapses both). Fail emits the exact global remediation (`npm install -g @lh8ppl/core-memory-kit --allow-scripts=better-sqlite3` / `npm install -g @huggingface/transformers --allow-scripts=onnxruntime-node`) with `requiresInstall: true`. The PRIMARY UX is upstream: `cmk install` runs the same probe and asks to fix inline (the user's 2026-06-12 install-time-ask steer); HC-8 is the backstop. Library: [`packages/cli/src/native-binding.mjs`](../packages/cli/src/native-binding.mjs). Verified against the npm v12 changelog + npm config docs 2026-06-12: the `allow-scripts` config is the documented path for global installs; project-level `npm approve-scripts` does not apply to `-g`.** |
 
 **Critical rule** (per design §14, 2026-05-28 amendment): any repair requiring `pip install` / `npm install` / system-level changes MUST ASK the user first. Previously cited as "NFR-9" — NFR-9 is actually "Memory poisoning defense baseline" per [`requirements-revisions-proposed.md:125`](../archive/specs/v0.1.0/requirements-revisions-proposed.md). The ask-before-install rule has no FR/NFR backing today; promoting it to a proper requirements entry is a v0.1.x cleanup.
 
@@ -2100,7 +2100,7 @@ Activated via `cmk config set memory.provider <name>`. Implements `prefetch_all`
 
 ### 16.3 Cross-project search seam
 
-`~/.claude-memory-kit/registry.json` lists registered projects' `context/` paths. `cmk register-project <path>` and `cmk search --all-projects "<query>"`. The user-tier `LESSONS.md` is the interim v0.1 solution.
+`~/.core-memory-kit/registry.json` lists registered projects' `context/` paths. `cmk register-project <path>` and `cmk search --all-projects "<query>"`. The user-tier `LESSONS.md` is the interim v0.1 solution.
 
 ### 16.4 Web viewer rich UI
 
@@ -2379,7 +2379,7 @@ v0.2 candidate. Inspired by Garry Tan's GBrain (research note: [`docs/research/2
 
 2. **Verb-based type inference** for the edge type (`works_at`, `invested_in`, `founded`, `advises`, `mentions`). When a link is found, run the ~240-char context window through a per-edge-type regex catalog. GBrain's catalog is calibrated to VC/business prose; ours would need a developer-prose catalog (`works_on`, `owns`, `reviewed`, `merged_by`, `depends_on`, `replaces`, etc.). The technique adapts; the specific catalogs we write from scratch.
 
-3. **Page-role prior layer.** When per-edge inference falls through to generic `mentions`, check whether the source page itself has a role descriptor (e.g. a person-page that establishes "the user is the engineer working on claude-memory-kit" — outbound refs to projects then default to `works_on` even when individual link contexts lack the verb). Catches narrative prose where the verb appears once and downstream references rely on it being implied.
+3. **Page-role prior layer.** When per-edge inference falls through to generic `mentions`, check whether the source page itself has a role descriptor (e.g. a person-page that establishes "the user is the engineer working on core-memory-kit" — outbound refs to projects then default to `works_on` even when individual link contexts lack the verb). Catches narrative prose where the verb appears once and downstream references rely on it being implied.
 
 **Companion subcommand:** `cmk graph-query <slug> --type <edge-type>` for multi-hop traversal. Edge storage: every typed edge writes both directions (`from → to` AND `to ← from`) so traversal is symmetric. Per-page backlink count feeds §16.17's retrieval ranking (also informed by GBrain) when we add hybrid search.
 
@@ -2394,7 +2394,7 @@ v0.2 candidate. Inspired by Garry Tan's GBrain (research note: [`docs/research/2
 
 **v0.1.x candidate.**
 
-The kit's auto-extract + SessionStart + scratchpads exist and ship in v0.1.0. Cold session, the user, and Claude (reviewer) have been managing campaign state via manual journey log + design.md + tasks.md updates — the durable spec stack working as designed. But the kit's own scratchpads at `c:/Projects/claude-memory-kit/context/` are not loaded at session start; we've been treating `context/` as test-target output rather than as the kit's own memory.
+The kit's auto-extract + SessionStart + scratchpads exist and ship in v0.1.0. Cold session, the user, and Claude (reviewer) have been managing campaign state via manual journey log + design.md + tasks.md updates — the durable spec stack working as designed. But the kit's own scratchpads at `c:/Projects/core-memory-kit/context/` are not loaded at session start; we've been treating `context/` as test-target output rather than as the kit's own memory.
 
 **Soft dogfooding** (read side only — install SessionStart hook on the kit's own `context/`, leave auto-extract write side OFF during active kit development to avoid recursive modification) would absorb some of the manual discipline. Auto-load campaign state at session start; no recursive write-during-modification risk.
 
@@ -2713,9 +2713,9 @@ Provenance: Task 29 code-review finding I3 (2026-05-27).
 
 **v0.1.x candidate.**
 
-Surfaced by the Task 29 code-review-excellence pass (2026-05-27) as Important finding I1. `resolveTierRoot({tier:'U', userDir: undefined})` falls back to `homedir() + .claude-memory-kit`. If a future caller (e.g., a SessionStart hook handler) invokes `startRuntimeWatcher` or `reindexBoot` without passing `userDir`, the U-tier path silently resolves to the user's real home-dir kit installation. In production this is actually CORRECT (the user's home IS where U-tier lives), so the current behavior matches the kit's `tier-paths.mjs` convention. The risk is purely test-side: a future test that forgets to pass `userDir` would silently walk the developer's real home dir.
+Surfaced by the Task 29 code-review-excellence pass (2026-05-27) as Important finding I1. `resolveTierRoot({tier:'U', userDir: undefined})` falls back to `homedir() + .core-memory-kit`. If a future caller (e.g., a SessionStart hook handler) invokes `startRuntimeWatcher` or `reindexBoot` without passing `userDir`, the U-tier path silently resolves to the user's real home-dir kit installation. In production this is actually CORRECT (the user's home IS where U-tier lives), so the current behavior matches the kit's `tier-paths.mjs` convention. The risk is purely test-side: a future test that forgets to pass `userDir` would silently walk the developer's real home dir.
 
-Today's tests in `tests/cli-index-rebuild.test.js` all pass `userDir` explicitly (sandbox-rooted). `subcommands.mjs`'s `runReindex` also passes `userDir = join(homedir(), '.claude-memory-kit')` explicitly. The current production callers are safe.
+Today's tests in `tests/cli-index-rebuild.test.js` all pass `userDir` explicitly (sandbox-rooted). `subcommands.mjs`'s `runReindex` also passes `userDir = join(homedir(), '.core-memory-kit')` explicitly. The current production callers are safe.
 
 Deferred to v0.1.x because:
 
@@ -2892,7 +2892,7 @@ Provenance: Task 37 code-review Important #1 (2026-05-28).
 
 Surfaced 2026-05-29 during the post-publish usage walkthrough + the claude-mem install-model comparison (research note [`docs/research/2026-05-29-claude-mem-install-model.md`](../docs/research/2026-05-29-claude-mem-install-model.md)).
 
-**The problem.** v0.1.0 forces a TWO-step mandatory install: `npm install -g @lh8ppl/claude-memory-kit` + `cmk install` (scaffolds `context/`) **AND** a separate `/plugin marketplace add` + `/plugin install` (registers the hooks). Neither step alone is complete — `cmk install` scaffolds but does NOT wire the hooks, because the hook bins (`cmk-inject-context`, `cmk-capture-prompt`, `cmk-observe-edit`, `cmk-capture-turn`, `cmk-compress-session`) live in `plugin/bin/` and the hook commands reference `${CLAUDE_PLUGIN_ROOT}`, an env var only Claude Code's plugin loader sets. This was the Task 42 B4 finding ("hooks silently dead if you forget the plugin").
+**The problem.** v0.1.0 forces a TWO-step mandatory install: `npm install -g @lh8ppl/core-memory-kit` + `cmk install` (scaffolds `context/`) **AND** a separate `/plugin marketplace add` + `/plugin install` (registers the hooks). Neither step alone is complete — `cmk install` scaffolds but does NOT wire the hooks, because the hook bins (`cmk-inject-context`, `cmk-capture-prompt`, `cmk-observe-edit`, `cmk-capture-turn`, `cmk-compress-session`) live in `plugin/bin/` and the hook commands reference `${CLAUDE_PLUGIN_ROOT}`, an env var only Claude Code's plugin loader sets. This was the Task 42 B4 finding ("hooks silently dead if you forget the plugin").
 
 **The comparison.** claude-mem makes the npm route COMPLETE: `npx claude-mem install` registers the plugin hooks + worker for you (its README explicitly notes `npm install -g claude-mem` is "SDK/library only" — the `install` subcommand is what wires everything). So claude-mem offers two *complete* entry points (pick one): `npx claude-mem install` OR `/plugin` marketplace. We offer two *partial* steps that must BOTH run. We're the outlier.
 
@@ -2901,7 +2901,7 @@ Surfaced 2026-05-29 during the post-publish usage walkthrough + the claude-mem i
 1. Ship the 5 hook bins in the npm package (it already ships the 3 cron bins).
 2. Have `cmk install` write the hooks into `<repo>/.claude/settings.json` with PATH-resolved commands (`cmk-inject-context` etc., resolved via the global npm bin dir) — exactly what `cmk repair --hooks` does, minus the `${CLAUDE_PLUGIN_ROOT}` dependency.
 
-Result: `npm install -g @lh8ppl/claude-memory-kit` + `cmk install` becomes a complete, self-sufficient entry point (like `npx claude-mem install`). The `/plugin` route becomes optional-alternative (see §16.51), not mandatory-additional.
+Result: `npm install -g @lh8ppl/core-memory-kit` + `cmk install` becomes a complete, self-sufficient entry point (like `npx claude-mem install`). The `/plugin` route becomes optional-alternative (see §16.51), not mandatory-additional.
 
 Ship trigger: v0.1.1. This is the highest-value install-UX fix. Tracked as tasks.md Task 49.
 
@@ -2957,7 +2957,7 @@ So the seam is two layers:
 **Two trust mechanisms** (so the kit's hooks/MCP-tools/skills run prompt-free, one per Kiro flavor):
 
 1. **kiro-cli — agent-config `allowedCommands`** ([`kiro-cli-agent.mjs`](../packages/cli/src/kiro-cli-agent.mjs)). The CLI agent lives at **`~/.kiro/agents/cmk.json`** (registered as the default via `~/.kiro/settings/cli.json` `{"chat.defaultAgent":"cmk"}`). Key fields (kiro-cli `agent validate` is strict — only valid top-level keys): `tools:['*']` (the CAPABILITY set — WITHOUT it a custom agent has zero tools and silently no-ops every shell command; this was the D-198/CLAUDE.md root cause), `includeMcpJson:false` (the CLI does NOT wire MCP tools to a custom agent + a loaded server flashes a console window — so the CLI path is hooks+CLI-commands, not MCP), `hooks{agentSpawn, userPromptSubmit, postToolUse, stop, preToolUse}` (camelCase, `timeout_ms`), and `toolsSettings.shell.allowedCommands` (pre-trusts `^cmk …` so capture/recall run without per-command approval). **The agent location is `~/.kiro/agents/cmk.json` — NOT the old `~/.aws/amazonq/cli-agents/q_cli_default.json`, which kiro-cli never read (the D-198 bug, fixed).** The sandbox env override is `$MEMORY_KIT_KIRO_DIR` (`$MEMORY_KIT_AWS_DIR` retained as a back-compat alias).
-2. **Kiro IDE 1.0 — per-workspace Trust v2 store** ([`kiro-permissions.mjs`](../packages/cli/src/kiro-permissions.mjs)). The live trust on 1.0 is `~/.kiro/workspace-roots/<hash>/permissions.yaml` (NOT `.vscode/settings.json`, which Kiro auto-migrates here at first open). The kit writes its capability rules directly: `rules:[{capability:shell, match:[cmd.exe /c cmk hook *, …], effect:allow}, {capability:mcp, match:[claude-memory-kit/mk_remember, …], effect:allow}, {capability:skill, match:[memory-write, memory-search], effect:allow}]` — managed-merge (touch only our entries, byte-preserve the user's + Kiro's migration data). The **`<hash>`** is `sha256(projectRoot, normalized: forward-slash + no-trailing-slash + lowercase).hexdigest().slice(0,16)` — ground-truth-verified on a real install (D-203h). The IDE keeps its own MCP via `.kiro/settings/mcp.json` (where MCP works, unlike the CLI).
+2. **Kiro IDE 1.0 — per-workspace Trust v2 store** ([`kiro-permissions.mjs`](../packages/cli/src/kiro-permissions.mjs)). The live trust on 1.0 is `~/.kiro/workspace-roots/<hash>/permissions.yaml` (NOT `.vscode/settings.json`, which Kiro auto-migrates here at first open). The kit writes its capability rules directly: `rules:[{capability:shell, match:[cmd.exe /c cmk hook *, …], effect:allow}, {capability:mcp, match:[core-memory-kit/mk_remember, …], effect:allow}, {capability:skill, match:[memory-write, memory-search], effect:allow}]` — managed-merge (touch only our entries, byte-preserve the user's + Kiro's migration data). The **`<hash>`** is `sha256(projectRoot, normalized: forward-slash + no-trailing-slash + lowercase).hexdigest().slice(0,16)` — ground-truth-verified on a real install (D-203h). The IDE keeps its own MCP via `.kiro/settings/mcp.json` (where MCP works, unlike the CLI).
 
 **Tool-name note:** kiro-cli's shell tool is `execute_command` on V3 (2.9.x); it was `execute_bash` on V2. The kit pre-trusts `^cmk …` by command-prefix in `toolsSettings.shell.allowedCommands` rather than by tool name, so the V2→V3 rename doesn't re-break it (matchers are literal strings, not regex — D-197).
 
@@ -2973,7 +2973,7 @@ So the seam is two layers:
 
 - **MCP** → `.cursor/mcp.json` (`mcpServers`, stdio `{type, command, args}`) — the generic leg, unchanged.
 - **hooks** → dedicated `.cursor/hooks.json`, mechanism `hooks-json`. Cursor's documented shape carries a REQUIRED top-level `version: 1` beside `hooks{}`, so the install **seeds** a missing file with `{version: 1, hooks: {}}` before the `mutateAgentConfig` merge (an existing file is the user's — touch only our keys; their `version` is theirs). Every wired event carries ONE platform-wrapped command — **`cmk cursor-hook`** — because Cursor hooks speak **JSON over stdio in both directions** and the payload's `hook_event_name` is the router key (no per-event argv, no per-event bins).
-- **instruction** → `.cursor/rules/claude-memory-kit.mdc` with `alwaysApply: true` frontmatter via the new data-driven `instructionFrontmatter` profile field (generalizes the Kiro `inclusion: always` heuristic). **The `.mdc` extension is load-bearing** — Cursor ignores plain `.md` in `.cursor/rules/`.
+- **instruction** → `.cursor/rules/core-memory-kit.mdc` with `alwaysApply: true` frontmatter via the new data-driven `instructionFrontmatter` profile field (generalizes the Kiro `inclusion: always` heuristic). **The `.mdc` extension is load-bearing** — Cursor ignores plain `.md` in `.cursor/rules/`.
 
 **The event map** (all six legs — full Claude-Code parity plus the guard):
 
@@ -2988,7 +2988,7 @@ So the seam is two layers:
 
 `turnEnd → afterAgentResponse` (not `stop`) is deliberate: Cursor's `stop` payload is status-only, while `afterAgentResponse` carries the assistant's final text directly — **no transcript parsing**, hence NO `transcript` leg on this profile (the payload's `transcript_path` exists but its format is undocumented; deliberately not depended on). `preShell` is a cursor-only abstract event — agents without a shell-guard hook surface simply don't map it, and the generic `buildHookEntry` path skips unknown abstract events (no `HOOK_COMMANDS` entry).
 
-**The dispatcher** ([`cursor-hook-dispatch.mjs`](../packages/cli/src/cursor-hook-dispatch.mjs), a pure router; [`runCursorHook`](../packages/cli/src/subcommands.mjs) wires the real cores): the project root resolves from the payload's **`workspace_roots[0]`** (authoritative — Cursor may spawn hooks outside the project dir), cwd is only the fallback. Invariants: **always exit 0**; permission-type events **fail OPEN on a crash** (`beforeSubmitPrompt` → `{continue: true}`, `beforeShellExecution` → `{permission: 'allow'}`); `sessionEnd` returns its async work as `pending` and the bin awaits it (the process must outlive the tasks). Doctor: `detectInstallKind` keys on the cmk-owned `.cursor/rules/claude-memory-kit.mdc` marker (the I2 discipline — never a bare `.cursor/` dir), and `hc1CursorHooks` checks the dispatcher on both load-bearing events (kills the D-185 false-FAIL class for Cursor installs).
+**The dispatcher** ([`cursor-hook-dispatch.mjs`](../packages/cli/src/cursor-hook-dispatch.mjs), a pure router; [`runCursorHook`](../packages/cli/src/subcommands.mjs) wires the real cores): the project root resolves from the payload's **`workspace_roots[0]`** (authoritative — Cursor may spawn hooks outside the project dir), cwd is only the fallback. Invariants: **always exit 0**; permission-type events **fail OPEN on a crash** (`beforeSubmitPrompt` → `{continue: true}`, `beforeShellExecution` → `{permission: 'allow'}`); `sessionEnd` returns its async work as `pending` and the bin awaits it (the process must outlive the tasks). Doctor: `detectInstallKind` keys on the cmk-owned `.cursor/rules/core-memory-kit.mdc` marker (the I2 discipline — never a bare `.cursor/` dir), and `hc1CursorHooks` checks the dispatcher on both load-bearing events (kills the D-185 false-FAIL class for Cursor installs).
 
 **Coexistence note (D-268):** Cursor REMOVED its native Memories feature in 2.1.x — static rules are its only built-in persistence, so there is no native-memory collision surface (no ADR-0011 analog needed). Watch-item trigger: re-open if Cursor re-ships native memory.
 
@@ -3025,7 +3025,7 @@ Cross-ref: Task 200/201, D-270 (the gap), D-271 (the survey), D-272 (both-surfac
 **Status: SHIPPED 2026-07-13 (D-327).** The 2026-06-20 seam research classed Codex `plugin-marketplace` ("highest effort, lowest reuse"); the build-time primary-source pass ([2026-07-12 note](../docs/research/2026-07-12-codex-adapter-surfaces.md)) found that OBSOLETE — Codex ships first-class hooks (v0.117+; the probed binary is 0.142.5) with a near-Claude-compatible contract, so it rode the generic `defineAgentProfile` seam as pure data + two mechanism branches:
 
 - **`codex-hooks-json` (hooks mechanism):** dedicated `.codex/hooks.json` in MATCHER-GROUP nesting — `{hooks: {<Event>: [{matcher?, hooks: [{type:'command', command}]}]}}`, NO top-level version key (vs Cursor's flat versioned shape). Events: `SessionStart` (inject → `hookSpecificOutput.additionalContext`), `UserPromptSubmit` (prompt-capture; never blocks), `PostToolUse` matcher `apply_patch|Edit|Write` (observe), `Stop` (turn-capture), `PreToolUse` matcher `Bash` (the D-192 delete-guard → `permissionDecision: 'deny'`). NO SessionEnd event — compression rides lazy/cron, like Kiro. **Group-preserving writes both ways** (the skill-review #2/#3 class): install appends the kit's group to a user's existing event arrays (deepMerge replaces arrays, so the entry carries the user's groups); uninstall filters each event's array down to non-kit groups and drops a key only when it empties. **Hash-based hook trust is the honesty line:** Codex SKIPS non-managed hooks until the user runs `/hooks` once — stated in every doc + the install output + the HC-1 pass message; never claimed zero-step.
-- **`agent-cli` (MCP mechanism):** Codex's MCP config is TOML (`~/.codex/config.toml` `[mcp_servers]`, user-level; project config is trusted-only with open Desktop issues) — the kit registers via the agent's OWN `codex mcp add claude-memory-kit -- cmk mcp serve` (live-verified) and NEVER hand-edits TOML. Off-PATH binary (the Desktop app bundles codex.exe off-PATH) → the install prints the manual one-liner (`legs.mcp: 'manual'` + `mcpManualCommand` on the result). Uninstall's `codex mcp remove` is EVIDENCE-GATED on the project's own hooks file naming `cmk codex-hook` (the registration is user-level + shared across projects — a stray uninstall must not deregister another project's setup; AGENTS.md is NOT evidence, it's shared with the agents-md rung).
+- **`agent-cli` (MCP mechanism):** Codex's MCP config is TOML (`~/.codex/config.toml` `[mcp_servers]`, user-level; project config is trusted-only with open Desktop issues) — the kit registers via the agent's OWN `codex mcp add core-memory-kit -- cmk mcp serve` (live-verified) and NEVER hand-edits TOML. Off-PATH binary (the Desktop app bundles codex.exe off-PATH) → the install prints the manual one-liner (`legs.mcp: 'manual'` + `mcpManualCommand` on the result). Uninstall's `codex mcp remove` is EVIDENCE-GATED on the project's own hooks file naming `cmk codex-hook` (the registration is user-level + shared across projects — a stray uninstall must not deregister another project's setup; AGENTS.md is NOT evidence, it's shared with the agents-md rung).
 - **Turn capture reads the rollout:** Codex's `Stop` payload is status-only, but every payload carries `transcript_path` — `readCodexTurn` ([codex-transcript.mjs](../packages/cli/src/codex-transcript.mjs)) parses the rollout jsonl (`event_msg` / `user_message` + `agent_message`; format pinned from a REAL 0.142.5 capture committed as `tests/fixtures/codex-rollout-sample.jsonl`), BOM/CRLF/malformed-line hardened (D-306 class), and hands `user_message` + `assistant_message` to the shared `captureTurn` (the field name is captureTurn's contract — a `user_prompt` draft was the D-269 dead-key class, caught by skill review + now pinned by an integration test through the REAL captureTurn).
 - **Backend:** `CodexExecBackend` — `codex exec --skip-git-repo-check -s read-only --json -`, prompt on stdin (D-280), the LAST `item.completed`/`agent_message` parsed from the JSONL stream; ~5s live round-trip (far under cursor-agent's 60–83s); `CMK_BACKEND_SPAWN` guard via the shared `spawnBackendCall`.
 
@@ -3039,10 +3039,10 @@ Cross-ref: Task 196 (tail), D-327, the [2026-07-12 surfaces note](../docs/resear
 
 Surfaced 2026-05-29 (the user: "we also need to do something like this in parallel" — referring to claude-mem's `/plugin marketplace add thedotmack/claude-mem` + `/plugin install claude-mem`).
 
-claude-mem offers BOTH a complete npm-route installer AND a complete `/plugin` marketplace route — The user picks one. The kit should match: alongside the unified `cmk install` (§16.49), the `/plugin marketplace add LH8PPL/claude-memory-kit` + `/plugin install claude-memory-kit` flow must be a **complete, first-class entry point** that sets up everything (hooks via the plugin + a scaffold step). Today the kit references this flow in the README, and the plugin ships a `bootstrap` skill (`/claude-memory-kit:bootstrap`) that scaffolds `context/` — but the marketplace path needs to be verified end-to-end: (a) the GitHub repo is registerable as a marketplace, (b) `/plugin install` wires the hooks, (c) the bootstrap skill scaffolds the project tier. The two routes are equivalent and either alone is sufficient:
+claude-mem offers BOTH a complete npm-route installer AND a complete `/plugin` marketplace route — The user picks one. The kit should match: alongside the unified `cmk install` (§16.49), the `/plugin marketplace add LH8PPL/core-memory-kit` + `/plugin install core-memory-kit` flow must be a **complete, first-class entry point** that sets up everything (hooks via the plugin + a scaffold step). Today the kit references this flow in the README, and the plugin ships a `bootstrap` skill (`/core-memory-kit:bootstrap`) that scaffolds `context/` — but the marketplace path needs to be verified end-to-end: (a) the GitHub repo is registerable as a marketplace, (b) `/plugin install` wires the hooks, (c) the bootstrap skill scaffolds the project tier. The two routes are equivalent and either alone is sufficient:
 
-- **Route A (terminal/npm)**: `npm install -g @lh8ppl/claude-memory-kit` → `cmk install` (§16.49 makes this wire hooks too)
-- **Route B (in-Claude-Code/plugin)**: `/plugin marketplace add LH8PPL/claude-memory-kit` → `/plugin install claude-memory-kit` → `/claude-memory-kit:bootstrap`
+- **Route A (terminal/npm)**: `npm install -g @lh8ppl/core-memory-kit` → `cmk install` (§16.49 makes this wire hooks too)
+- **Route B (in-Claude-Code/plugin)**: `/plugin marketplace add LH8PPL/core-memory-kit` → `/plugin install core-memory-kit` → `/core-memory-kit:bootstrap`
 
 Ship trigger: v0.1.1, alongside §16.49. Tracked as tasks.md Task 49 (sub-task). Cross-ref: ADR-0005 (three-install-paths), ADR-0012.
 

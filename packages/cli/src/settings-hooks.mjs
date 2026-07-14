@@ -25,7 +25,7 @@
 //     every OS. So we deliberately OMIT `args` and emit a bare bin name.
 //
 // This is why the block below has no `args` and a bare command string.
-// `npm install -g @lh8ppl/claude-memory-kit` puts these 5 bins on PATH
+// `npm install -g @lh8ppl/core-memory-kit` puts these 5 bins on PATH
 // (declared in packages/cli/package.json `bin`); the hook commands then
 // resolve the same way `cmk` itself does.
 //

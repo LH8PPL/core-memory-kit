@@ -88,7 +88,7 @@ const NON_STUB_CHILDREN = new Set([
   'mcp/serve',          // Task 31 — invoked by Claude Code; tested separately by cli-mcp-server.test.js
   'transcripts/extract', // Task 38
   'persona/generate',   // Task 45 follow-up — wired; logic tested by cli-auto-persona.test.js
-  'persona/export',     // Task 72 — wired; logic tested by cli-persona-portability.test.js (also: must NOT run unisolated here — it touches the real ~/.claude-memory-kit)
+  'persona/export',     // Task 72 — wired; logic tested by cli-persona-portability.test.js (also: must NOT run unisolated here — it touches the real ~/.core-memory-kit)
   'persona/import',     // Task 72 — wired; logic tested by cli-persona-portability.test.js (also: import MUTATES the user tier — never run it against the real one in a scaffold smoke)
   'lessons/promote',    // Task 76 — wired; logic tested by cli-lessons-promote.test.js
   'config/get',         // Task 129 — wired; logic tested by cli-config.test.js (real now; exits 2 on a key set in no tier, not a stub)
@@ -102,7 +102,7 @@ describe('Task 2 — cmk CLI scaffold', () => {
       const pkgPath = join(REPO_ROOT, 'packages', 'cli', 'package.json');
       expect(existsSync(pkgPath)).toBe(true);
       const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
-      expect(pkg.name).toBe('@lh8ppl/claude-memory-kit');
+      expect(pkg.name).toBe('@lh8ppl/core-memory-kit');
       expect(pkg.bin).toBeDefined();
       expect(pkg.bin.cmk).toBeTruthy();
     });

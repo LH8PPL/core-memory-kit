@@ -56,7 +56,7 @@ describe('Task 50 — mutateAgentConfig (JSON)', () => {
       const r = mutateAgentConfig({
         path: cfgPath,
         format: 'json',
-        keyPath: ['mcpServers', 'claude-memory-kit'],
+        keyPath: ['mcpServers', 'core-memory-kit'],
         entry: KIT_ENTRY,
       });
 
@@ -69,7 +69,7 @@ describe('Task 50 — mutateAgentConfig (JSON)', () => {
       expect(existsSync(cfgPath)).toBe(true);
       const written = JSON.parse(readFileSync(cfgPath, 'utf8'));
       expect(written).toEqual({
-        mcpServers: { 'claude-memory-kit': KIT_ENTRY },
+        mcpServers: { 'core-memory-kit': KIT_ENTRY },
       });
     });
   });
@@ -90,7 +90,7 @@ describe('Task 50 — mutateAgentConfig (JSON)', () => {
       const r = mutateAgentConfig({
         path: cfgPath,
         format: 'json',
-        keyPath: ['mcpServers', 'claude-memory-kit'],
+        keyPath: ['mcpServers', 'core-memory-kit'],
         entry: KIT_ENTRY,
       });
 
@@ -99,7 +99,7 @@ describe('Task 50 — mutateAgentConfig (JSON)', () => {
 
       const written = JSON.parse(readFileSync(cfgPath, 'utf8'));
       // our key landed
-      expect(written.mcpServers['claude-memory-kit']).toEqual(KIT_ENTRY);
+      expect(written.mcpServers['core-memory-kit']).toEqual(KIT_ENTRY);
       // all 3 siblings byte-identical
       expect(written.mcpServers['some-other-server']).toEqual(seeded.mcpServers['some-other-server']);
       expect(written.mcpServers['another-server']).toEqual(seeded.mcpServers['another-server']);
@@ -119,7 +119,7 @@ describe('Task 50 — mutateAgentConfig (JSON)', () => {
       const r = mutateAgentConfig({
         path: cfgPath,
         format: 'json',
-        keyPath: ['mcpServers', 'claude-memory-kit'],
+        keyPath: ['mcpServers', 'core-memory-kit'],
         entry: KIT_ENTRY,
       });
 
@@ -135,12 +135,12 @@ describe('Task 50 — mutateAgentConfig (JSON)', () => {
 
   describe('idempotent — re-apply the same entry', () => {
     it('reports changed:false and does not rewrite when the entry already matches', () => {
-      mkSeed(cfgPath, { mcpServers: { 'claude-memory-kit': KIT_ENTRY } });
+      mkSeed(cfgPath, { mcpServers: { 'core-memory-kit': KIT_ENTRY } });
 
       const r = mutateAgentConfig({
         path: cfgPath,
         format: 'json',
-        keyPath: ['mcpServers', 'claude-memory-kit'],
+        keyPath: ['mcpServers', 'core-memory-kit'],
         entry: KIT_ENTRY,
       });
 
@@ -152,13 +152,13 @@ describe('Task 50 — mutateAgentConfig (JSON)', () => {
   describe('replace vs merge mode on an existing key', () => {
     it('merge (default) deep-merges into the existing entry', () => {
       mkSeed(cfgPath, {
-        mcpServers: { 'claude-memory-kit': { command: 'old', extra: 'keep' } },
+        mcpServers: { 'core-memory-kit': { command: 'old', extra: 'keep' } },
       });
 
       const r = mutateAgentConfig({
         path: cfgPath,
         format: 'json',
-        keyPath: ['mcpServers', 'claude-memory-kit'],
+        keyPath: ['mcpServers', 'core-memory-kit'],
         entry: { command: 'node', args: ['x'] },
         mode: 'merge',
       });
@@ -166,7 +166,7 @@ describe('Task 50 — mutateAgentConfig (JSON)', () => {
       expect(r.changed).toBe(true);
       const written = JSON.parse(readFileSync(cfgPath, 'utf8'));
       // updated fields applied, pre-existing unrelated field kept
-      expect(written.mcpServers['claude-memory-kit']).toEqual({
+      expect(written.mcpServers['core-memory-kit']).toEqual({
         command: 'node',
         args: ['x'],
         extra: 'keep',
@@ -175,24 +175,24 @@ describe('Task 50 — mutateAgentConfig (JSON)', () => {
 
     it('replace overwrites the entry wholesale', () => {
       mkSeed(cfgPath, {
-        mcpServers: { 'claude-memory-kit': { command: 'old', extra: 'gone' } },
+        mcpServers: { 'core-memory-kit': { command: 'old', extra: 'gone' } },
       });
 
       const r = mutateAgentConfig({
         path: cfgPath,
         format: 'json',
-        keyPath: ['mcpServers', 'claude-memory-kit'],
+        keyPath: ['mcpServers', 'core-memory-kit'],
         entry: { command: 'node', args: ['x'] },
         mode: 'replace',
       });
 
       expect(r.changed).toBe(true);
       const written = JSON.parse(readFileSync(cfgPath, 'utf8'));
-      expect(written.mcpServers['claude-memory-kit']).toEqual({
+      expect(written.mcpServers['core-memory-kit']).toEqual({
         command: 'node',
         args: ['x'],
       });
-      expect(written.mcpServers['claude-memory-kit'].extra).toBeUndefined();
+      expect(written.mcpServers['core-memory-kit'].extra).toBeUndefined();
     });
   });
 
@@ -202,7 +202,7 @@ describe('Task 50 — mutateAgentConfig (JSON)', () => {
       mutateAgentConfig({
         path: cfgPath,
         format: 'json',
-        keyPath: ['mcpServers', 'claude-memory-kit'],
+        keyPath: ['mcpServers', 'core-memory-kit'],
         entry: KIT_ENTRY,
       });
       const dir = cfgPath.replace(/[/\\][^/\\]+$/, '');
@@ -262,7 +262,7 @@ describe('Task 50 — mutateAgentConfig (JSON)', () => {
       const r = mutateAgentConfig({
         path: cfgPath,
         format: 'toml', // deferred for v0.4.0
-        keyPath: ['mcpServers', 'claude-memory-kit'],
+        keyPath: ['mcpServers', 'core-memory-kit'],
         entry: KIT_ENTRY,
       });
       expect(r.action).toBe('error');

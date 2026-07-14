@@ -65,7 +65,7 @@ describe('Task 196 — installAgent (Cursor)', () => {
 
       // Door 2 — MCP at .cursor/mcp.json
       const mcp = JSON.parse(readFileSync(join(projectRoot, '.cursor', 'mcp.json'), 'utf8'));
-      expect(mcp.mcpServers).toHaveProperty('claude-memory-kit');
+      expect(mcp.mcpServers).toHaveProperty('core-memory-kit');
 
       // hooks.json: Cursor's REQUIRED top-level shape — version + hooks
       const hooksCfg = JSON.parse(readFileSync(join(projectRoot, '.cursor', 'hooks.json'), 'utf8'));
@@ -79,12 +79,12 @@ describe('Task 196 — installAgent (Cursor)', () => {
 
       // the .mdc rule with alwaysApply frontmatter + the managed markers
       const mdc = readFileSync(
-        join(projectRoot, '.cursor', 'rules', 'claude-memory-kit.mdc'),
+        join(projectRoot, '.cursor', 'rules', 'core-memory-kit.mdc'),
         'utf8',
       );
       expect(mdc).toMatch(/^---\n/);
       expect(mdc).toMatch(/alwaysApply:\s*true/);
-      expect(mdc).toContain('<!-- claude-memory-kit:start -->');
+      expect(mdc).toContain('<!-- core-memory-kit:start -->');
       expect(mdc).toContain('cmk search');
     });
 
@@ -129,7 +129,7 @@ describe('Task 196 — installAgent (Cursor)', () => {
 
       const mcp = JSON.parse(readFileSync(join(projectRoot, '.cursor', 'mcp.json'), 'utf8'));
       expect(mcp.mcpServers['their-server']).toEqual({ command: 'x' });
-      expect(mcp.mcpServers).toHaveProperty('claude-memory-kit');
+      expect(mcp.mcpServers).toHaveProperty('core-memory-kit');
     });
 
     it('a corrupt hooks.json is NEVER overwritten (refuse-to-clobber)', () => {
@@ -163,9 +163,9 @@ describe('Task 196 — installAgent (Cursor)', () => {
       expect(hooksCfg.hooks.beforeReadFile[0].command).toBe('theirs');
 
       // the .mdc managed block is gone
-      const mdcPath = join(projectRoot, '.cursor', 'rules', 'claude-memory-kit.mdc');
+      const mdcPath = join(projectRoot, '.cursor', 'rules', 'core-memory-kit.mdc');
       if (existsSync(mdcPath)) {
-        expect(readFileSync(mdcPath, 'utf8')).not.toContain('claude-memory-kit:start');
+        expect(readFileSync(mdcPath, 'utf8')).not.toContain('core-memory-kit:start');
       }
     });
 
@@ -183,12 +183,12 @@ describe('Task 196 — installAgent (Cursor)', () => {
       uninstallAgent({ projectRoot, profile: cursor() });
       // frontmatter-only leftovers would be an always-applied EMPTY rule — the
       // live-test residue find. Kit-authored file, kit block gone → file gone.
-      expect(existsSync(join(projectRoot, '.cursor', 'rules', 'claude-memory-kit.mdc'))).toBe(false);
+      expect(existsSync(join(projectRoot, '.cursor', 'rules', 'core-memory-kit.mdc'))).toBe(false);
     });
 
     it('a CRLF-normalized kit-only .mdc is STILL deleted on uninstall (Windows autocrlf; skill-review #2)', () => {
       installAgent({ projectRoot, profile: cursor() });
-      const mdcPath = join(projectRoot, '.cursor', 'rules', 'claude-memory-kit.mdc');
+      const mdcPath = join(projectRoot, '.cursor', 'rules', 'core-memory-kit.mdc');
       // simulate a Windows editor / git autocrlf rewrite of the whole file
       writeFileSync(mdcPath, readFileSync(mdcPath, 'utf8').replace(/\n/g, '\r\n'), 'utf8');
       uninstallAgent({ projectRoot, profile: cursor() });
@@ -197,13 +197,13 @@ describe('Task 196 — installAgent (Cursor)', () => {
 
     it('a .mdc the user added their own content to SURVIVES uninstall (only our block is stripped)', () => {
       installAgent({ projectRoot, profile: cursor() });
-      const mdcPath = join(projectRoot, '.cursor', 'rules', 'claude-memory-kit.mdc');
+      const mdcPath = join(projectRoot, '.cursor', 'rules', 'core-memory-kit.mdc');
       writeFileSync(mdcPath, `${readFileSync(mdcPath, 'utf8')}\nMy own always-on note.\n`, 'utf8');
       uninstallAgent({ projectRoot, profile: cursor() });
       expect(existsSync(mdcPath)).toBe(true);
       const left = readFileSync(mdcPath, 'utf8');
       expect(left).toContain('My own always-on note.');
-      expect(left).not.toContain('claude-memory-kit:start');
+      expect(left).not.toContain('core-memory-kit:start');
     });
   });
 });

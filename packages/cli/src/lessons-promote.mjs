@@ -8,7 +8,7 @@
 //
 // It routes through promoteCandidatesToUserTier (D-13) at confidence:'high'
 // (an explicit user action is the highest-trust signal there is, so it promotes
-// rather than queuing). NEVER hand-edit ~/.claude-memory-kit/*.md.
+// rather than queuing). NEVER hand-edit ~/.core-memory-kit/*.md.
 //
 // Composes on: forget.resolveFact (read a project fact by id) +
 // auto-persona.promoteCandidatesToUserTier (safe user-tier write).
@@ -98,7 +98,7 @@ export function buildPromotionMention({ text, recurrenceCount, target } = {}) {
  * @param {object} opts
  * @param {string} opts.id          citation id of the project fact (e.g. P-XXXXXXXX)
  * @param {string} opts.projectRoot project root (for resolving the source fact)
- * @param {string} opts.userDir     user-tier dir (~/.claude-memory-kit)
+ * @param {string} opts.userDir     user-tier dir (~/.core-memory-kit)
  * @param {string} [opts.to]        target user-tier file (default LESSONS.md)
  * @param {string} [opts.section]   landing section (default per-target)
  * @param {string} [opts.now]       ISO timestamp override (tests)

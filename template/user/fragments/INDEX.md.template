@@ -1,5 +1,5 @@
 <!--
-File: ~/.claude-memory-kit/fragments/INDEX.md  (or $MEMORY_KIT_USER_DIR/fragments/INDEX.md).
+File: ~/.core-memory-kit/fragments/INDEX.md  (or $MEMORY_KIT_USER_DIR/fragments/INDEX.md).
 Purpose: pointer index for the user-tier granular archive.
 Format: one line per non-tombstoned fact file:
     - ({id}) [type] [title](filename.md) — <hook>

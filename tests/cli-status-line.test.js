@@ -39,7 +39,7 @@ describe('Task 145 — buildStatusLine (Door 1)', () => {
   it('empty memory → an honest "capture starts now" line, never silence', () => {
     const line = buildStatusLine({ snapshot: '', projectRoot, now: NOW });
     expect(typeof line).toBe('string');
-    expect(line).toMatch(/^claude-memory-kit:/);
+    expect(line).toMatch(/^core-memory-kit:/);
     expect(line).toMatch(/empty|starts/i);
   });
 
@@ -131,7 +131,7 @@ describe('Task 145 — the hook output carries systemMessage (Doors 1+2)', () =>
     const r = await injectContext({ cwd: projectRoot, userDir, now: NOW, testSpawnLazy: () => ({ spawned: false }) });
     expect(r.hookOutput.hookSpecificOutput.additionalContext).toBe(r.snapshot);
     expect(typeof r.hookOutput.systemMessage).toBe('string');
-    expect(r.hookOutput.systemMessage).toMatch(/^claude-memory-kit:/);
+    expect(r.hookOutput.systemMessage).toMatch(/^core-memory-kit:/);
     // The user-display line never leaks INTO the model context.
     expect(r.snapshot).not.toContain(r.hookOutput.systemMessage);
   });

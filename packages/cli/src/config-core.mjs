@@ -8,7 +8,7 @@
 // Settings live in `<tier-root>/settings.json` for each of the three tiers
 // (resolveTierRoot — the shared module, not re-derived). Resolution
 // precedence mirrors the kit's memory model + git config semantics:
-//   local (context.local/) > project (context/) > user (~/.claude-memory-kit/)
+//   local (context.local/) > project (context/) > user (~/.core-memory-kit/)
 // A `get` returns the highest-precedence tier that defines the dotted key;
 // `--show-origin` lists every tier that defines it (winner + shadowed), the
 // direnv lesson (design §7.2: "without --show-origin, users rage-quit when

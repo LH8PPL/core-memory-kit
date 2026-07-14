@@ -9,7 +9,7 @@
 //   - package.json version equals 0.1.0 (will match git tag once tagged)
 //   - CHANGELOG.md has `## [0.1.0] — YYYY-MM-DD` heading with non-empty body
 //   - GitHub Release exists for tag v0.1.0 (skipped pre-publish; runs post-publish manually)
-//   - Fresh install of @lh8ppl/claude-memory-kit@0.1.0 succeeds + cmk version outputs 0.1.0 (skipped pre-publish; the npm-pack smoke test below validates the equivalent)
+//   - Fresh install of @lh8ppl/core-memory-kit@0.1.0 succeeds + cmk version outputs 0.1.0 (skipped pre-publish; the npm-pack smoke test below validates the equivalent)
 
 import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
@@ -162,7 +162,7 @@ describe('Task 43 — release verification (pre-publish gates)', () => {
       expect(existsSync(path)).toBe(true);
       const text = readFileSync(path, 'utf8');
       expect(text.length).toBeGreaterThan(500);
-      expect(text).toMatch(/npm install -g @lh8ppl\/claude-memory-kit/);
+      expect(text).toMatch(/npm install -g @lh8ppl\/core-memory-kit/);
     });
 
     it('all 10 bins are declared (cmk + 3 cron entrypoints + 6 hook bins incl. the guardrail D-192)', () => {
@@ -206,7 +206,7 @@ describe('Task 43 — release verification (pre-publish gates)', () => {
 
   describe('Task 49 — plugin marketplace route (Route B) is registerable', () => {
     // Per Anthropic's plugin-marketplace docs (verified 2026-05-29):
-    // `/plugin marketplace add LH8PPL/claude-memory-kit` requires a
+    // `/plugin marketplace add LH8PPL/core-memory-kit` requires a
     // `.claude-plugin/marketplace.json` at the REPOSITORY ROOT listing the
     // plugin + its source path. This pins that Route B is a complete
     // parallel install path to Route A (`cmk install`).
@@ -227,11 +227,11 @@ describe('Task 43 — release verification (pre-publish gates)', () => {
       expect(mkt.plugins.length).toBeGreaterThan(0);
     });
 
-    it('lists the claude-memory-kit plugin whose source resolves to a real plugin dir', () => {
+    it('lists the core-memory-kit plugin whose source resolves to a real plugin dir', () => {
       mkt = JSON.parse(
         readFileSync(join(repoRoot, '.claude-plugin', 'marketplace.json'), 'utf8'),
       );
-      const entry = mkt.plugins.find((p) => p.name === 'claude-memory-kit');
+      const entry = mkt.plugins.find((p) => p.name === 'core-memory-kit');
       expect(entry).toBeTruthy();
       expect(typeof entry.source).toBe('string');
       // source is a relative path to the co-located plugin; resolve + verify
@@ -245,7 +245,7 @@ describe('Task 43 — release verification (pre-publish gates)', () => {
         readFileSync(join(repoRoot, 'plugin', '.claude-plugin', 'plugin.json'), 'utf8'),
       );
       expect(JSON.stringify(manifest)).not.toContain('<your-username>');
-      expect(manifest.repository).toContain('LH8PPL/claude-memory-kit');
+      expect(manifest.repository).toContain('LH8PPL/core-memory-kit');
     });
 
     it('the plugin route ships its hooks.json + node bin handlers (complete on its own)', () => {

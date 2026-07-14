@@ -1,5 +1,5 @@
 
- RUN  v4.1.8 C:/Projects/claude-memory-kit
+ RUN  v4.1.8 C:/Projects/core-memory-kit
 
  ❯ tests/cli-inject-context.test.js (44 tests | 1 failed | 41 skipped) 96ms
        ↓ returns hookOutput with the documented Anthropic shape
@@ -52,4 +52,4 @@
    Start at  13:06:47
    Duration  1.28s (transform 591ms, setup 0ms, import 762ms, tests 96ms, environment 0ms)
 
-JSON report written to C:/Projects/claude-memory-kit/.test-logs/last-run.json
+JSON report written to C:/Projects/core-memory-kit/.test-logs/last-run.json

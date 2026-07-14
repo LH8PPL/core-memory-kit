@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// cmk — claude-memory-kit CLI entry point.
+// cmk — core-memory-kit CLI entry point.
 // Thin shim: defers all argv parsing + dispatch to src/index.mjs.
 // Kept thin so the bin file rarely needs to change once installed.
 //

@@ -2,7 +2,7 @@
 // SessionEnd hook handler — npm-route bin (Task 49, T-037).
 //
 // De-plugin-ified twin of plugin/bin/cmk-compress-session.mjs (Task 22).
-// Ships in the @lh8ppl/claude-memory-kit npm package so `cmk install`
+// Ships in the @lh8ppl/core-memory-kit npm package so `cmk install`
 // can wire a PATH-resolved `cmk-compress-session` command. Only the src
 // module paths differ from the plugin copy (../src/ vs ../../packages/cli/src/).
 //
@@ -57,7 +57,7 @@ try {
   // CONCURRENTLY (they have disjoint inputs/outputs, so they don't race), keeping
   // the SessionEnd wall-clock at max(~50s) under the 60s hook ceiling instead of
   // the sequential sum (~100s). See session-end-tasks.mjs for the full rationale.
-  const userDir = process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+  const userDir = process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.core-memory-kit');
   // Task 200: the backend is now agent-relative — the factory picks the CLI of
   // the agent the project was installed for (or the backend.agent override), so a
   // Cursor-only / Kiro-only user gets a working automatic engine (D-270). The

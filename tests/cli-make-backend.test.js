@@ -36,7 +36,7 @@ function markInstall(root, kind) {
     writeFileSync(join(root, '.kiro', 'steering', 'cmk.md'), 'x', 'utf8');
   } else if (kind === 'cursor') {
     mkdirSync(join(root, '.cursor', 'rules'), { recursive: true });
-    writeFileSync(join(root, '.cursor', 'rules', 'claude-memory-kit.mdc'), 'x', 'utf8');
+    writeFileSync(join(root, '.cursor', 'rules', 'core-memory-kit.mdc'), 'x', 'utf8');
   }
 }
 // Write a project-tier settings.json with a backend.agent override.

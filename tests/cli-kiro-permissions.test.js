@@ -72,7 +72,7 @@ describe('installKiroPermissions — writes the IDE 1.0 trust store (50.N.5)', (
     expect(y).toMatch(/capability: shell/);
     expect(y).toMatch(/cmk hook/);
     expect(y).toMatch(/capability: mcp/);
-    expect(y).toMatch(/claude-memory-kit\/mk_remember/);
+    expect(y).toMatch(/core-memory-kit\/mk_remember/);
     expect(y).toMatch(/effect: allow/);
   });
 

@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/LH8PPL/claude-memory-kit/main/docs/public/assets/wordmark-dark.svg">
-    <img src="https://raw.githubusercontent.com/LH8PPL/claude-memory-kit/main/docs/public/assets/wordmark.svg" alt="claude-memory-kit" width="340">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/LH8PPL/core-memory-kit/main/docs/public/assets/wordmark-dark.svg">
+    <img src="https://raw.githubusercontent.com/LH8PPL/core-memory-kit/main/docs/public/assets/wordmark.svg" alt="core-memory-kit" width="340">
   </picture>
 </p>
 
@@ -10,10 +10,10 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@lh8ppl/claude-memory-kit"><img src="https://img.shields.io/npm/v/@lh8ppl/claude-memory-kit?label=npm&color=blue" alt="npm"></a>
-  <a href="https://github.com/LH8PPL/claude-memory-kit/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow" alt="License: MIT"></a>
+  <a href="https://www.npmjs.com/package/@lh8ppl/core-memory-kit"><img src="https://img.shields.io/npm/v/@lh8ppl/core-memory-kit?label=npm&color=blue" alt="npm"></a>
+  <a href="https://github.com/LH8PPL/core-memory-kit/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/Node.js-bundled%20%C2%B7%20none%20required-brightgreen" alt="Node.js bundled, none required">
-  <a href="https://github.com/LH8PPL/claude-memory-kit/actions/workflows/ci.yml"><img src="https://github.com/LH8PPL/claude-memory-kit/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/LH8PPL/core-memory-kit/actions/workflows/ci.yml"><img src="https://github.com/LH8PPL/core-memory-kit/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 </p>
 
 <p align="center">
@@ -29,7 +29,7 @@
   <img src="https://img.shields.io/badge/Codex-supported-6E56CF" alt="Codex supported">
 </p>
 
-Claude forgets everything when a session ends — so every new chat you re-explain who you are, what you're building, and how you like things done. **claude-memory-kit** fixes that: it quietly captures your decisions, preferences, and project context, then hands them back at the start of every session. Everything is plain text inside your project, and it travels with the code — `git clone` brings the memory along.
+Claude forgets everything when a session ends — so every new chat you re-explain who you are, what you're building, and how you like things done. **core-memory-kit** fixes that: it quietly captures your decisions, preferences, and project context, then hands them back at the start of every session. Everything is plain text inside your project, and it travels with the code — `git clone` brings the memory along.
 
 > [!NOTE]
 > **Not a developer?** If you can open a project in Claude Code, you're set — let Claude run the setup for you (see [Quickstart](#quickstart)).
@@ -51,7 +51,7 @@ Claude forgets everything when a session ends — so every new chat you re-expla
 You open Claude Code on a project you haven't touched in weeks. Before you say anything, Claude already knows your stack, your conventions, and what you decided last time:
 
 ```
-claude-memory-kit: 23 fact(s) in context, 2 captured in the last 24h, 1 conflict pending
+core-memory-kit: 23 fact(s) in context, 2 captured in the last 24h, 1 conflict pending
 ```
 
 You work. It learns — automatically, no buttons. Next session, it remembers this one too.
@@ -80,7 +80,7 @@ You work. It learns — automatically, no buttons. Next session, it remembers th
 Install the CLI once, then run `cmk install` in each project — pick your agent:
 
 ```bash
-npm install -g @lh8ppl/claude-memory-kit
+npm install -g @lh8ppl/core-memory-kit
 cd ~/my-project
 ```
 
@@ -92,7 +92,7 @@ cmk install --with-semantic   # optional: local semantic recall (~260 MB, once)
 cmk doctor                    # verify, then restart Claude Code
 ```
 
-**Kiro** (IDE + `kiro-cli` — see [the Kiro guide](https://github.com/LH8PPL/claude-memory-kit/blob/main/docs/KIRO.md)):
+**Kiro** (IDE + `kiro-cli` — see [the Kiro guide](https://github.com/LH8PPL/core-memory-kit/blob/main/docs/KIRO.md)):
 
 ```bash
 cmk install --ide kiro                   # wire Kiro end-to-end
@@ -119,21 +119,21 @@ cmk doctor                                # verify, then run /hooks once inside 
 `cmk install` is the whole entry point: it scaffolds `context/`, drops the memory skills, wires the lifecycle hooks, and registers the MCP server so the agent can drive memory as tools — no `/plugin` step needed. A project can carry **both** agents — run both installs; they share one `context/`.
 
 > [!TIP]
-> Prefer not to touch the terminal? Open the project in Claude Code and say *"install claude-memory-kit and set it up here."* Claude runs the commands; you just approve them. **Restart Claude Code once** afterward (`/exit`, then `claude`) so the hooks load.
+> Prefer not to touch the terminal? Open the project in Claude Code and say *"install core-memory-kit and set it up here."* Claude runs the commands; you just approve them. **Restart Claude Code once** afterward (`/exit`, then `claude`) so the hooks load.
 
 ### Route B — Claude Code plugin
 
 ```text
-/plugin marketplace add LH8PPL/claude-memory-kit   # add this repo as a plugin source (once per machine)
-/plugin install claude-memory-kit                  # install hooks + skills (once per machine)
+/plugin marketplace add LH8PPL/core-memory-kit   # add this repo as a plugin source (once per machine)
+/plugin install core-memory-kit                  # install hooks + skills (once per machine)
 cd ~/my-project
-/claude-memory-kit:bootstrap                        # scaffold this project's memory (once per project)
+/core-memory-kit:bootstrap                        # scaffold this project's memory (once per project)
 ```
 
 The plugin bundles the hooks + skills, so it's complete without the npm CLI. Add the CLI later only if you want `cmk search` / `cmk doctor` / cron.
 
 > [!NOTE]
-> **Updating** has two parts on both routes: update the machinery, then re-stamp each project (`cmk install` again, or `/claude-memory-kit:bootstrap`). `cmk doctor` flags any project that's behind so you don't have to remember.
+> **Updating** has two parts on both routes: update the machinery, then re-stamp each project (`cmk install` again, or `/core-memory-kit:bootstrap`). `cmk doctor` flags any project that's behind so you don't have to remember.
 
 ## How it works
 
@@ -143,13 +143,13 @@ The plugin bundles the hooks + skills, so it's complete without the npm CLI. Add
 | --- | --- | --- | --- |
 | **Project** | `<repo>/context/` | committed — travels with `clone` | Decisions, conventions, file purposes |
 | **Local** | `<repo>/context.local/` | gitignored, per-machine | Machine paths, local tool versions |
-| **User** | `~/.claude-memory-kit/` | cross-project, per-person | Persona, cross-project lessons |
+| **User** | `~/.core-memory-kit/` | cross-project, per-person | Persona, cross-project lessons |
 
 Project memory follows the **repo** (teammates get it on clone). Your persona follows **you** — machine-local, never committed. Carry it between your own machines with `cmk persona export` / `import`.
 
 ## CLI
 
-You rarely type these yourself — Claude drives the same operations as tools mid-conversation through the kit's **MCP server** (full tool reference: **[docs/MCP.md](https://github.com/LH8PPL/claude-memory-kit/blob/main/docs/MCP.md)**). The commands:
+You rarely type these yourself — Claude drives the same operations as tools mid-conversation through the kit's **MCP server** (full tool reference: **[docs/MCP.md](https://github.com/LH8PPL/core-memory-kit/blob/main/docs/MCP.md)**). The commands:
 
 | Command | Purpose |
 | --- | --- |
@@ -169,15 +169,15 @@ You rarely type these yourself — Claude drives the same operations as tools mi
 | `cmk persona generate` · `export <file>` · `import <file>` | Synthesize your cross-project persona on demand; carry it to another of **your** machines (private — never committed) |
 | `cmk import-claude-md [file]` · `import-anthropic-memory` | Seed memory from an existing `CLAUDE.md` / `.cursorrules` / `AGENTS.md`, or merge Anthropic's native auto-memory bullets (`--dry-run` previews) |
 
-Full reference with examples: **[docs/CLI.md](https://github.com/LH8PPL/claude-memory-kit/blob/main/docs/CLI.md)** or `cmk --help`.
+Full reference with examples: **[docs/CLI.md](https://github.com/LH8PPL/core-memory-kit/blob/main/docs/CLI.md)** or `cmk --help`.
 
 ## Working with Kiro
 
-[Kiro](https://kiro.dev) (the AWS agentic IDE + `kiro-cli`) is a first-class target — `cmk install --ide kiro` wires it end-to-end for both the IDE and the terminal, and a project's `context/` is shared with Claude Code. The full setup, surface table, and dual-agent notes are in **[the Kiro guide](https://github.com/LH8PPL/claude-memory-kit/blob/main/docs/KIRO.md)**.
+[Kiro](https://kiro.dev) (the AWS agentic IDE + `kiro-cli`) is a first-class target — `cmk install --ide kiro` wires it end-to-end for both the IDE and the terminal, and a project's `context/` is shared with Claude Code. The full setup, surface table, and dual-agent notes are in **[the Kiro guide](https://github.com/LH8PPL/core-memory-kit/blob/main/docs/KIRO.md)**.
 
 ## Working with Cursor
 
-[Cursor](https://cursor.com) removed its native Memories feature (2.1.x) — static rules are its only built-in persistence. `cmk install --ide cursor` restores the full automatic loop: recalled memory injects at session start, each turn is captured, edits are observed, and the delete-guardrail screens shell commands. All hooks drive one dispatcher (`cmk cursor-hook`) wired into `.cursor/hooks.json` without touching your own hooks, plus an always-applied rule (`.cursor/rules/claude-memory-kit.mdc`). Restart Cursor after install so the hooks load. The full setup, surface table, backend, and dual-agent notes are in **[the Cursor guide](https://github.com/LH8PPL/claude-memory-kit/blob/main/docs/CURSOR.md)**.
+[Cursor](https://cursor.com) removed its native Memories feature (2.1.x) — static rules are its only built-in persistence. `cmk install --ide cursor` restores the full automatic loop: recalled memory injects at session start, each turn is captured, edits are observed, and the delete-guardrail screens shell commands. All hooks drive one dispatcher (`cmk cursor-hook`) wired into `.cursor/hooks.json` without touching your own hooks, plus an always-applied rule (`.cursor/rules/core-memory-kit.mdc`). Restart Cursor after install so the hooks load. The full setup, surface table, backend, and dual-agent notes are in **[the Cursor guide](https://github.com/LH8PPL/core-memory-kit/blob/main/docs/CURSOR.md)**.
 
 ## Uninstalling
 
@@ -224,7 +224,7 @@ Keyword search structurally misses natural-language questions; the embedded sema
 ## Documentation
 
 Full docs, architecture, and design live in the repository:
-**<https://github.com/LH8PPL/claude-memory-kit>**
+**<https://github.com/LH8PPL/core-memory-kit>**
 
 ## License
 

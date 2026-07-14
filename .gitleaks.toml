@@ -4,7 +4,7 @@
 # set excluded in .gitguardian.yaml. These are required to exercise the
 # Poison_Guard regex catalog (packages/cli/src/poison-guard.mjs, design §6.7);
 # none are real credentials (verified: git history carries no live secret).
-title = "claude-memory-kit"
+title = "core-memory-kit"
 
 [extend]
 useDefault = true

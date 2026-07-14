@@ -119,9 +119,9 @@ describe('Task 142 — parseRulesFile (the typed parse)', () => {
       '```bash',
       '- not a rule, a shell example',
       '```',
-      '<!-- claude-memory-kit:start v0.3.0 -->',
+      '<!-- core-memory-kit:start v0.3.0 -->',
       '- kit boilerplate that must never import',
-      '<!-- claude-memory-kit:end -->',
+      '<!-- core-memory-kit:end -->',
       '- another real rule after the block',
     ].join('\n');
     const items = parseRulesFile(md);

@@ -164,7 +164,7 @@ describe('Task 53 — package.json bugs URL (both packages)', () => {
       const pkg = JSON.parse(read(join(REPO_ROOT, rel)));
       const bugs = typeof pkg.bugs === 'string' ? pkg.bugs : pkg.bugs?.url;
       expect(bugs, `${rel} missing bugs`).toBeTruthy();
-      expect(bugs).toMatch(/github\.com\/LH8PPL\/claude-memory-kit/);
+      expect(bugs).toMatch(/github\.com\/LH8PPL\/core-memory-kit/);
     });
   }
 });

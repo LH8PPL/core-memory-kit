@@ -390,7 +390,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
         mkdirSync(dir, { recursive: true });
         writeFileSync(
           join(dir, 'cmk.json'),
-          JSON.stringify({ name: 'cmk', description: 'claude-memory-kit … [claude-memory-kit]' }),
+          JSON.stringify({ name: 'cmk', description: 'core-memory-kit … [core-memory-kit]' }),
           'utf8',
         );
       }
@@ -463,7 +463,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
     // ── HC-1 is agent-aware for Cursor too (Task 196 — the same D-185 class:
     // a Cursor-only install has no .claude/settings.json, so the Claude-shaped
     // check would false-FAIL every Cursor install with the wrong repair hint).
-    // The cmk-owned `.cursor/rules/claude-memory-kit.mdc` marks the project as a
+    // The cmk-owned `.cursor/rules/core-memory-kit.mdc` marks the project as a
     // Cursor install; the hooks surface is `.cursor/hooks.json` carrying the
     // `cmk cursor-hook` dispatcher on the inject + capture events.
     describe('HC-1 — agent-aware (Cursor install, Task 196)', () => {
@@ -471,8 +471,8 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
         const dir = join(projectRoot, '.cursor', 'rules');
         mkdirSync(dir, { recursive: true });
         writeFileSync(
-          join(dir, 'claude-memory-kit.mdc'),
-          '---\nalwaysApply: true\n---\n\n<!-- claude-memory-kit:start -->\nx\n<!-- claude-memory-kit:end -->\n',
+          join(dir, 'core-memory-kit.mdc'),
+          '---\nalwaysApply: true\n---\n\n<!-- core-memory-kit:start -->\nx\n<!-- core-memory-kit:end -->\n',
           'utf8',
         );
       }

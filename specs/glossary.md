@@ -1,4 +1,4 @@
-# Glossary — claude-memory-kit v0.1.0
+# Glossary — core-memory-kit v0.1.0
 
 **Status**: Draft · **Date started**: 2026-05-23
 
@@ -28,7 +28,7 @@ One of three storage scopes the kit reads from at session start. Defines **who o
 
 | Tier | Path | Owned by | Travels with `git clone`? |
 | --- | --- | --- | --- |
-| **User tier** | `~/.claude-memory-kit/` (overridable via `$MEMORY_KIT_USER_DIR`) | The human, across all projects | No (machine-local) |
+| **User tier** | `~/.core-memory-kit/` (overridable via `$MEMORY_KIT_USER_DIR`) | The human, across all projects | No (machine-local) |
 | **Project tier** | `<repo>/context/` | The team, committed to git | **Yes** |
 | **Local tier** | `<repo>/context.local/` | The current machine for this project | No (gitignored) |
 
@@ -80,7 +80,7 @@ Cross-refs: [[Scratchpad]], [[Citation ID]], [[Provenance frontmatter]]. Spec: d
 
 ### Char cap
 
-The maximum byte size of a [[Scratchpad]] file, counted via `wc -c` and including frontmatter/comments. When a write would exceed cap, the kit consolidates before writing. Caps are configurable via `<repo>/context/settings.json` and `~/.claude-memory-kit/settings.json`.
+The maximum byte size of a [[Scratchpad]] file, counted via `wc -c` and including frontmatter/comments. When a write would exceed cap, the kit consolidates before writing. Caps are configurable via `<repo>/context/settings.json` and `~/.core-memory-kit/settings.json`.
 
 Cross-refs: [[Scratchpad]], [[Consolidation]]. Spec: FR-3; design §2.1.
 
@@ -98,7 +98,7 @@ Cross-refs: [[Granular archive]], [[Provenance frontmatter]], [[Type taxonomy]].
 
 ### Granular archive
 
-The collection of one-fact-per-file [[Fact file]]s under `context/memory/` (project tier) and `~/.claude-memory-kit/fragments/` (user tier). The [[INDEX]] file is the pointer index over this collection.
+The collection of one-fact-per-file [[Fact file]]s under `context/memory/` (project tier) and `~/.core-memory-kit/fragments/` (user tier). The [[INDEX]] file is the pointer index over this collection.
 
 Cross-refs: [[Fact file]], [[INDEX]], [[Pointer index]]. Spec: FR-1, FR-29; design §2.2.
 
@@ -498,7 +498,7 @@ Cross-refs: [[Rolling-window compression]], [[SessionStart hook]]. Spec: design 
 
 ### `cmk`
 
-The Node binary that ships with the kit. Subcommands per design §12. Implementation: `@lh8ppl/claude-memory-kit` npm package.
+The Node binary that ships with the kit. Subcommands per design §12. Implementation: `@lh8ppl/core-memory-kit` npm package.
 
 Spec: FR-22, FR-23; design §12.
 

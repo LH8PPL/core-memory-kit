@@ -19,8 +19,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { atomicWrite } from './mutate-agent-config.mjs';
 import { stripBom } from './read-json.mjs';
 
-export const DEFAULT_MARK_START = '<!-- claude-memory-kit:start -->';
-export const DEFAULT_MARK_END = '<!-- claude-memory-kit:end -->';
+export const DEFAULT_MARK_START = '<!-- core-memory-kit:start -->';
+export const DEFAULT_MARK_END = '<!-- core-memory-kit:end -->';
 
 /**
  * Write/refresh a managed marker block in an instruction file, byte-preserving

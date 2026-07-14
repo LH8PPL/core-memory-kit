@@ -14,7 +14,7 @@ import { describe, it, expect } from 'vitest';
 import { checkVersionDrift } from '../packages/cli/src/version-drift.mjs';
 
 const claudeMdWith = (version) =>
-  `# Project\n\nsome rules\n\n<!-- claude-memory-kit:start v${version} -->\nblock body\n<!-- claude-memory-kit:end -->\n`;
+  `# Project\n\nsome rules\n\n<!-- core-memory-kit:start v${version} -->\nblock body\n<!-- core-memory-kit:end -->\n`;
 
 describe('checkVersionDrift (HC-9)', () => {
   it('PASS when the project block version matches the installed binary', () => {
@@ -56,7 +56,7 @@ describe('checkVersionDrift (HC-9)', () => {
   it('still detects drift on a CORRUPTED block (orphan start marker, missing end) — skill-review I-1', () => {
     // findManagedBlock recovers a version from a start-marker-only block; if it's
     // stale, `cmk install` is doubly right (fixes the staleness AND the corruption).
-    const orphan = `# Project\n\n<!-- claude-memory-kit:start v0.3.3 -->\nblock body with no end marker\n`;
+    const orphan = `# Project\n\n<!-- core-memory-kit:start v0.3.3 -->\nblock body with no end marker\n`;
     const r = checkVersionDrift({ claudeMdText: orphan, kitVersion: '0.3.4' });
     expect(r.status).toBe('fail');
     expect(r.recoveryCommand).toBe('cmk install');
@@ -69,12 +69,12 @@ describe('checkVersionDrift (HC-9)', () => {
 
   it('flags DUPLICATE managed blocks even when versions match (Task 220, D-322)', () => {
     const dup = [
-      '<!-- claude-memory-kit:start v0.3.4 -->',
+      '<!-- core-memory-kit:start v0.3.4 -->',
       'block one',
-      '<!-- claude-memory-kit:end -->',
-      '<!-- claude-memory-kit:start v0.3.4 -->',
+      '<!-- core-memory-kit:end -->',
+      '<!-- core-memory-kit:start v0.3.4 -->',
       'block two',
-      '<!-- claude-memory-kit:end -->',
+      '<!-- core-memory-kit:end -->',
       '',
     ].join('\n');
     const r = checkVersionDrift({ claudeMdText: dup, kitVersion: '0.3.4' });

@@ -1,6 +1,6 @@
 # Working with Kiro
 
-[Kiro](https://kiro.dev) (the AWS agentic IDE + `kiro-cli`, built on Amazon Q) is a first-class target for claude-memory-kit. The memory core — store, search, compression, the three-tier model — is identical to the Claude Code experience; only the per-agent wiring differs. One command wires Kiro for **both** the IDE and the terminal.
+[Kiro](https://kiro.dev) (the AWS agentic IDE + `kiro-cli`, built on Amazon Q) is a first-class target for core-memory-kit. The memory core — store, search, compression, the three-tier model — is identical to the Claude Code experience; only the per-agent wiring differs. One command wires Kiro for **both** the IDE and the terminal.
 
 ```bash
 cd ~/my-project

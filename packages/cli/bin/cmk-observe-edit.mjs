@@ -2,7 +2,7 @@
 // PostToolUse hook handler — npm-route bin (Task 49, T-037).
 //
 // De-plugin-ified twin of plugin/bin/cmk-observe-edit.mjs (Task 20).
-// Ships in the @lh8ppl/claude-memory-kit npm package so `cmk install`
+// Ships in the @lh8ppl/core-memory-kit npm package so `cmk install`
 // can wire a PATH-resolved `cmk-observe-edit` command (registered
 // async: true in the hooks block). Only the src module path differs
 // from the plugin copy (../src/ vs ../../packages/cli/src/).

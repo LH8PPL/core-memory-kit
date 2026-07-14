@@ -2,7 +2,7 @@
 // UserPromptSubmit hook handler — npm-route bin (Task 49, T-037).
 //
 // De-plugin-ified twin of plugin/bin/cmk-capture-prompt.mjs (Task 19).
-// Ships in the @lh8ppl/claude-memory-kit npm package so `cmk install`
+// Ships in the @lh8ppl/core-memory-kit npm package so `cmk install`
 // can wire a PATH-resolved `cmk-capture-prompt` command. Only the src
 // module path differs from the plugin copy (../src/ vs ../../packages/cli/src/).
 //

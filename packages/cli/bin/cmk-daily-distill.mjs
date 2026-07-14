@@ -20,7 +20,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // This bin lives under packages/cli/bin/ (Task 33 B1 fix — was originally
-// under plugin/bin/ but that tree isn't in the published @lh8ppl/claude-memory-kit
+// under plugin/bin/ but that tree isn't in the published @lh8ppl/core-memory-kit
 // npm package, so `cmk register-crons` emitted cron commands pointing at
 // paths that don't exist in `npm install -g` installs). Paths resolved
 // relative to bin/ → ../src/ for both modules.

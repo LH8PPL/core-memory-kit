@@ -34,7 +34,7 @@ function windowsSystem32(exe, sub = []) {
  * Requires BOTH a `cmk` token and the consecutive `mcp serve` verb pair —
  * TOLERATING per-argument quoting, because the REAL Windows command line (live-
  * captured 2026-07-11 from a running server this very session) quotes each arg:
- *   "node"   "C:\...\claude-memory-kit\bin\cmk.mjs" "mcp" "serve"
+ *   "node"   "C:\...\core-memory-kit\bin\cmk.mjs" "mcp" "serve"
  * A bare `\bmcp\s+serve\b` missed it (the D-306 real-payload class — found by
  * the live probe, not the unit tests).
  * Documented over-match: a transient `cmk search "mcp serve"` CLI call also

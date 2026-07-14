@@ -56,8 +56,8 @@ context/.index/
 *.tgz
 .bench-logs/
 
-# claude-memory-kit:gitignore:start v0.5.0
-# claude-memory-kit — added by `cmk install`. Do not edit by hand;
+# core-memory-kit:gitignore:start v0.5.0
+# core-memory-kit — added by `cmk install`. Do not edit by hand;
 # `cmk install` refreshes these lines idempotently. Remove via
 # `cmk uninstall`.
 
@@ -86,7 +86,7 @@ context/transcripts/.extract-*.tmp
 # entries move to the committed transcript only AFTER the async privacy judge
 # screens them. Un-judged content must never travel with `git clone`.
 context/transcripts/*.live.md
-# claude-memory-kit:gitignore:end
+# core-memory-kit:gitignore:end
 
 # Public-repo dogfood deviation (Task 52, D-108): this repo is PUBLIC, so the
 # raw conversation surfaces stay machine-local — transcripts + session logs

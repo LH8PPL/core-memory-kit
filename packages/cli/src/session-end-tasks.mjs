@@ -44,7 +44,7 @@ import { promotePendingTranscripts, PII_JUDGE_SESSIONEND_TIMEOUT_MS } from './tr
  *
  * @param {object} opts
  * @param {string} opts.projectRoot - resolved project root (CMK_PROJECT_DIR or cwd).
- * @param {string} opts.userDir - user-tier root (~/.claude-memory-kit or override).
+ * @param {string} opts.userDir - user-tier root (~/.core-memory-kit or override).
  * @param {() => object} opts.makeBackend - factory returning a fresh CompressorBackend
  *   per call (each concurrent pass gets its own instance — no shared state).
  * @param {string} [opts.now] - ISO timestamp override (tests).

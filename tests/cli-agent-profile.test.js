@@ -27,7 +27,7 @@ const kiroish = {
   displayName: 'Kiro',
   integrationType: 'native-hooks-mcp',
   detect: { homeDir: '.kiro' },
-  instructionFile: '.kiro/steering/claude-memory-kit.md',
+  instructionFile: '.kiro/steering/core-memory-kit.md',
   mcp: { path: '.kiro/settings/mcp.json', serversKey: 'mcpServers' },
   hooks: { mechanism: 'agent-config-json', path: '.kiro/agents/cmk.json', eventMap: { sessionStart: 'agentSpawn', turnEnd: 'stop' } },
   transcript: { dir: '.kiro/transcripts', workspaceKey: 'base64url', parse: 'json-history' },

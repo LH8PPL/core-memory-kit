@@ -8,7 +8,7 @@
 // HC-9 makes `cmk doctor` TELL the user the project is behind + the exact command.
 //
 // The project's installed version lives in the CLAUDE.md managed-block start marker
-// (`<!-- claude-memory-kit:start v0.3.3 -->`); the installed binary version is
+// (`<!-- core-memory-kit:start v0.3.3 -->`); the installed binary version is
 // getKitVersion(). Drift = binary NEWER than the project marker → "run cmk install".
 // A project marker NEWER than the binary is a downgrade (older global cli opening a
 // newer-scaffolded project), NOT drift — flag pass, not a false alarm.
@@ -36,7 +36,7 @@ export function checkVersionDrift({ claudeMdText, kitVersion } = {}) {
   }
   const block = findManagedBlock(claudeMdText);
   if (!block) {
-    return { id, name, status: 'skip', message: 'no claude-memory-kit managed block in CLAUDE.md' };
+    return { id, name, status: 'skip', message: 'no core-memory-kit managed block in CLAUDE.md' };
   }
 
   // Task 220 (D-322): a duplicated managed block (copy-paste / kept-both-sides
@@ -48,7 +48,7 @@ export function checkVersionDrift({ claudeMdText, kitVersion } = {}) {
       id,
       name,
       status: 'fail',
-      message: `CLAUDE.md contains ${block.duplicateCount + 1} claude-memory-kit managed blocks (a duplicate from a copy-paste or merge) — re-run \`cmk install\` to fold them into one`,
+      message: `CLAUDE.md contains ${block.duplicateCount + 1} core-memory-kit managed blocks (a duplicate from a copy-paste or merge) — re-run \`cmk install\` to fold them into one`,
       recoveryCommand: 'cmk install',
     };
   }

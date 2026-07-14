@@ -140,7 +140,7 @@ export function dispatchCursorHook({ event, payload = {}, cwd, userDir, deps = {
           exitCode: 0,
           stdout: JSON.stringify({
             permission: 'deny',
-            agent_message: v.reason ?? 'blocked by the claude-memory-kit delete-guardrail',
+            agent_message: v.reason ?? 'blocked by the core-memory-kit delete-guardrail',
           }),
         };
       }

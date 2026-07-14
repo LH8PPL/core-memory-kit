@@ -2,7 +2,7 @@
 //
 // The persona (the user tier — USER/HABITS/LESSONS + fragments/) follows the
 // HUMAN, not the repo (design §1.1, D-27): it lives machine-local at
-// ~/.claude-memory-kit and is deliberately OUT of any project repo, because
+// ~/.core-memory-kit and is deliberately OUT of any project repo, because
 // committing it would leak your working-style to teammates who clone. So
 // portability across YOUR machines is per-human, not per-repo: export the user
 // tier to one OS-agnostic bundle file, carry it (USB / private repo / Dropbox),

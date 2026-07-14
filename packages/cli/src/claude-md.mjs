@@ -51,14 +51,14 @@ import {
 import { join } from 'node:path';
 
 const MARKER_START_RE =
-  /<!--\s*claude-memory-kit:start\s+v([\d.]+(?:-[\w.]+)?)\s*-->/;
-const MARKER_END_RE = /<!--\s*claude-memory-kit:end\s*-->/;
+  /<!--\s*core-memory-kit:start\s+v([\d.]+(?:-[\w.]+)?)\s*-->/;
+const MARKER_END_RE = /<!--\s*core-memory-kit:end\s*-->/;
 
 /**
  * Wrap a content string with kit markers at the given version.
  */
 function buildBlock(content, version) {
-  return `<!-- claude-memory-kit:start v${version} -->\n${content.trim()}\n<!-- claude-memory-kit:end -->`;
+  return `<!-- core-memory-kit:start v${version} -->\n${content.trim()}\n<!-- core-memory-kit:end -->`;
 }
 
 /**

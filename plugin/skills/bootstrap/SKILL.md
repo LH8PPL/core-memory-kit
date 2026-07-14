@@ -1,6 +1,6 @@
 ---
 description: >
-  Scaffolds the claude-memory-kit directory structure (context/, scripts/,
+  Scaffolds the core-memory-kit directory structure (context/, scripts/,
   cron/jobs/) into the current project. Idempotent — never
   overwrites existing files. Run once per project after installing the
   plugin. Use when the user says "bootstrap the memory system", "set up
@@ -36,7 +36,7 @@ Scaffold the memory-system files into the user's current project. The plugin its
    - `memory/INDEX.md.template` → `context/memory/INDEX.md`
    - `SETUP.md`                 → `context/SETUP.md` (no substitution)
 
-4. **Operational scripts** — v0.1.0 ships these as Node bins inside the published `@lh8ppl/claude-memory-kit` npm package, NOT as plugin-copied scripts. Users invoke them via `cmk` subcommands:
+4. **Operational scripts** — v0.1.0 ships these as Node bins inside the published `@lh8ppl/core-memory-kit` npm package, NOT as plugin-copied scripts. Users invoke them via `cmk` subcommands:
    - `cmk daily-distill` (was: `run-daily-distill.sh`)
    - `cmk weekly-curate` (was: `run-weekly-curate.sh`)
    - `cmk compress --lazy` (no-cron fallback; new in Task 35)
@@ -61,4 +61,4 @@ Scaffold the memory-system files into the user's current project. The plugin its
 
 The npm CLI's `cmk install` scaffolds `template/` into a project. The plugin can't do that because Claude Code plugins don't run setup scripts at install time — they only register skills, hooks, agents, and MCP servers.
 
-So instead the plugin ships the template content under `context-template/` and exposes this bootstrap skill, which the user runs explicitly with `/claude-memory-kit:bootstrap` after installing the plugin.
+So instead the plugin ships the template content under `context-template/` and exposes this bootstrap skill, which the user runs explicitly with `/core-memory-kit:bootstrap` after installing the plugin.

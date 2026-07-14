@@ -66,7 +66,7 @@ describe('Task 141a — checkKitBinding (Door 1)', () => {
     expect(r.reason).toContain('bindings file');
     expect(r.remedy).toBe(KIT_BINDING_REMEDY);
     expect(KIT_BINDING_REMEDY).toBe(
-      'npm install -g @lh8ppl/claude-memory-kit --allow-scripts=better-sqlite3',
+      'npm install -g @lh8ppl/core-memory-kit --allow-scripts=better-sqlite3',
     );
   });
 });

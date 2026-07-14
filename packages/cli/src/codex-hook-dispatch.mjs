@@ -145,7 +145,7 @@ export function dispatchCodexHook({ event, payload = {}, cwd, userDir, deps = {}
           stdout: envelope('PreToolUse', {
             permissionDecision: 'deny',
             permissionDecisionReason:
-              v.reason ?? 'blocked by the claude-memory-kit delete-guardrail',
+              v.reason ?? 'blocked by the core-memory-kit delete-guardrail',
           }),
         };
       }

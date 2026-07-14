@@ -242,7 +242,7 @@ describe('readKiroTurn — Kiro IDE 1.0 (D-203g: ~/.kiro/sessions/<hash>/sess_*/
       turns: [
         { type: 'user', content: 'do it' },
         { type: 'turn_start', content: '' },
-        { type: 'ContextualHookInvoked', content: 'claude-memory-kit: recall' },
+        { type: 'ContextualHookInvoked', content: 'core-memory-kit: recall' },
         { type: 'tool_call', content: 'Write app.py' },
         { type: 'assistant', content: 'the real answer' },
         { type: 'turn_end', content: '' },

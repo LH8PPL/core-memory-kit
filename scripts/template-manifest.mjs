@@ -29,7 +29,7 @@ export const requiredDirs = [
   { path: 'template/project/queues', description: 'review + conflict queues' },
   { path: 'template/project/.index', description: 'SQLite + FTS5 cache (gitignored at install)' },
   { path: 'template/local', description: 'local tier seeds (copied to <repo>/context.local/)' },
-  { path: 'template/user', description: 'user tier seeds (copied to ~/.claude-memory-kit/)' },
+  { path: 'template/user', description: 'user tier seeds (copied to ~/.core-memory-kit/)' },
   { path: 'template/user/fragments', description: 'user-tier granular archive' },
   { path: 'template/support', description: 'support files installed alongside tier seeds' },
   { path: 'template/support/cron-jobs', description: 'cron job definitions for daily + weekly memory compression' },
