@@ -26,6 +26,7 @@
   <img src="https://img.shields.io/badge/Claude_Code-supported-6E56CF" alt="Claude Code supported">
   <img src="https://img.shields.io/badge/Kiro-supported-6E56CF" alt="Kiro supported">
   <img src="https://img.shields.io/badge/Cursor-supported-6E56CF" alt="Cursor supported">
+  <img src="https://img.shields.io/badge/Codex-supported-6E56CF" alt="Codex supported">
 </p>
 
 Claude forgets everything when a session ends — so every new chat you re-explain who you are, what you're building, and how you like things done. **claude-memory-kit** fixes that: it quietly captures your decisions, preferences, and project context, then hands them back at the start of every session. Everything is plain text inside your project, and it travels with the code — `git clone` brings the memory along.
