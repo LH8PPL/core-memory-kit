@@ -82,9 +82,13 @@ bug:
 
 - **`cmk` binary + `MEMORY_KIT_USER_DIR` env var** — intentionally agent-neutral
   (ADR-0012's own note that `cmk` survives any rename). They stay verbatim.
-- **The user-tier config directory** `~/.claude-memory-kit/` — this is real
-  users' on-disk cross-project memory. It is NOT a text swap; it is a
-  **migration** (below). This is the single highest-risk line in the change.
+- **The user-tier config directory** `~/.claude-memory-kit/` → `~/.core-memory-kit/`
+  — a **direct swap of the default** (see the migration note below for why this
+  is safe here). `MEMORY_KIT_USER_DIR` still overrides it.
+- **`awrshift/claude-memory-kit`** — an UNRELATED third-party product referenced
+  in our research notes (the name-collision, ADR context). Renaming it would
+  misname someone else's repository — a factual error, not a compat concern. It
+  stays verbatim wherever it appears.
 - **Frozen historical records** — `docs/adr/` (except this new ADR),
   `docs/journey/` (except the live `build-log.md`/`DECISION-LOG.md`),
   `docs/conversation-log/`, `docs/research/`, `archive/`, and the dated
@@ -93,48 +97,31 @@ bug:
   rewrites history and breaks the decision-trail rule (this ADR's OWN references
   to "claude-memory-kit" are correct and stay).
 
-### The config-directory migration (the gating design — the maintainer's blend)
+### The config directory — a direct swap (no migration)
 
-The user-tier default resolves through `resolveUserDir()` /
-`defaultUserDir()` (`tier-paths.mjs`). The migration is **copy-not-move,
-marker-gated, keep-the-old**:
+The user-tier default resolves through `defaultUserDir()` (`tier-paths.mjs`).
+It becomes a one-line direct swap:
 
 ```
-defaultUserDir():
-  NEW = ~/.core-memory-kit
-  if MEMORY_KIT_USER_DIR set:  return it          # explicit override always wins
-  if exists(NEW):              return NEW          # already migrated, or fresh install
-  if exists(OLD ~/.claude-memory-kit):
-     copy OLD → NEW            (recursive copy; NEVER move)
-     write NEW/.migrated-from marker               # so the next run never re-copies
-     leave OLD intact          (the user's backup)
-     inform: "migrated your cross-project memory to ~/.core-memory-kit;
-              the old ~/.claude-memory-kit is kept as a backup you can delete"
-     return NEW
-  return NEW                   # brand-new user, no old dir
+defaultUserDir(env):
+  return env.MEMORY_KIT_USER_DIR ?? ~/.core-memory-kit
 ```
 
-Three safety properties, chosen deliberately over a one-time move:
+**Why a direct swap and not a copy-migration.** An earlier revision of this ADR
+designed a copy-not-move / keep-the-old / marker-gated migration to protect an
+existing user's `~/.claude-memory-kit` persona. It was built and tested (12
+tests green). But the maintainer — **the sole real user** — chose (2026-07-14):
+*"change everything, no need to hold back; if I need to uninstall and reinstall
+for it, I'll do that."* With exactly one user who will reinstall, the migration
+protects nobody: the reinstall re-scaffolds the user tier at the new path, and
+`cmk remember` / auto-extract re-populate it. So the migration + its
+install-time notice + its 12 tests were **removed** as dead complexity, and the
+default is a plain swap. `MEMORY_KIT_USER_DIR` still overrides it.
 
-- **Copy-not-move** — a crash mid-copy leaves the OLD dir fully intact; nothing
-  is ever orphaned. This turns the highest-risk line in the rename into a
-  zero-risk one.
-- **Marker-gated** — the `.migrated-from` sentinel in the NEW dir means a later
-  edit to the OLD dir never silently re-overwrites the NEW one. First copy wins.
-- **Keep-the-old** — the OLD dir is never deleted (and never trashed — a
-  cross-platform trash needs a native dep the kit deliberately avoids, and
-  trash auto-empties, which would time-limit the very backup that makes
-  copy-not-move safe). Cleanup is the user's choice, surfaced as a single line
-  in the **`cmk install` completion output** — the one place a user reliably
-  looks right after an upgrade: *"Migrated your cross-project memory to
-  `~/.core-memory-kit`; the old `~/.claude-memory-kit` is kept as a backup you
-  can delete whenever you like."* We deliberately do NOT prompt (install stays
-  non-interactive) and do NOT ride the SessionStart snapshot (it is
-  prefix-cached + stable; a migration line there would repeat every session or
-  need its own shown-once state — annoyance for no gain). Install-output only.
-
-The `MEMORY_KIT_USER_DIR` override still wins over everything, so a user who set
-a custom path is untouched.
+(Decision-trail note: the copy-migration design is preserved in this ADR's git
+history — commit `201845b` — should a future multi-user reality revive the need.
+The lesson stands: for a shared-tier default rename WITH real strangers, a
+copy-not-move migration is the safe shape; here there are none.)
 
 ## Consequences
 
@@ -142,22 +129,22 @@ a custom path is untouched.
 
 - The name finally matches the product — agent-neutral, `cmk`-preserving,
   professional. Resolves the misnomer and the collision.
-- Existing users lose nothing: the config-dir migration is copy-not-move, and
-  npm's deprecate-with-pointer keeps old installs working.
+- `defaultUserDir()` stays a clean one-liner (direct swap) — no dual-path
+  resolver logic to carry forward; the sole-user reinstall re-scaffolds the tier.
+- npm's deprecate-with-pointer keeps any old install reference working.
 - The decision is captured as a superseding ADR, so a future session sees the
   full KEEP-vs-RENAME reasoning, not just the outcome.
 
 ### Negative
 
-- A real (bounded) migration cost, larger than ADR-0012 estimated in
-  2026-05-29 because real users + a 300+-file corpus now exist. The maintainer
-  accepted this consciously at the sweep — the cost curve was known when the
-  deferral was made.
+- A real (bounded) corpus cost, larger than ADR-0012 estimated in 2026-05-29
+  because a 300+-file corpus now exists. The maintainer accepted this
+  consciously — the cost curve was known when the deferral was made.
 - Two npm package names to keep alive during the deprecation window; some
   ecosystem lag (search results, cached READMEs) until the new name settles.
-- A permanent-until-cleanup dual-path branch in `defaultUserDir()` (the OLD dir
-  read). A future release can drop the OLD-dir read once adoption of the new dir
-  is assumed universal (a tracked cleanup, not a v0.5.4 concern).
+- The sole user must reinstall to re-point the user tier to the new dir (the
+  old `~/.claude-memory-kit` is not auto-migrated — a conscious simplification,
+  not an oversight; see the direct-swap note).
 
 ### Neutral
 
@@ -172,8 +159,8 @@ a custom path is untouched.
 | **KEEP `claude-memory-kit`** (ADR-0012 shape b) | The name is now demonstrably a misnomer (4 agents), collides with an unrelated product, and advertises single-agent when the core is neutral. The maintainer chose to pay the bounded rename cost now rather than let it compound with more users. |
 | **Elevate `cmk` as the brand, keep the repo/npm name** (the middle path) | Cheapest + reversible, and it was the assistant's earlier lean — but it leaves the misleading `claude-memory-kit` as the canonical public/npm identity. The maintainer chose a clean umbrella rename over a half-measure. `cmk` is elevated ANYWAY (it's preserved), so this option's one benefit is subsumed. |
 | **Other neutral names** (`agent-memory-kit`, `mnemo`, `recall`) | `core-memory-kit` was the maintainer's pick specifically because it keeps the `cmk` initialism (muscle memory: CLI + MCP key + config dir), which the others break. |
-| **One-time MOVE of the config dir** | A move is destructive if interrupted — the exact orphaning risk the whole design exists to avoid. Copy-not-move + keep-the-old is strictly safer for zero steady-state benefit that matters (a leftover backup dir is harmless). |
-| **Rename the config dir as a plain text swap** | Silently orphans every existing user's cross-project persona. This is why the config dir is a carve-out with real migration logic, not part of the corpus find-replace. |
+| **A copy-not-move MIGRATION of the config dir** | Built + tested first (the right shape IF strangers depended on the old path), then removed: the sole real user will reinstall, so a migration protects nobody. Kept in git history (commit `201845b`) as the reference design for a future multi-user need. |
+| **Rename the config dir inside the bulk corpus find-replace** | The config-dir literal is still a deliberate carve-out of the CORPUS sweep (the swap lives in `tier-paths.mjs` as a one-liner, not as 51 scattered text replacements that could hit a doc example or a test fixture) — direct swap ≠ blind global replace. |
 
 ## References
 
@@ -188,5 +175,5 @@ a custom path is untouched.
 | Date | Reviewer | Action |
 |---|---|---|
 | 2026-05-29 | the maintainer | (ADR-0012) Deferred the cross-agent name to a later version, with a fired-on-multi-agent trigger |
-| 2026-07-14 | the maintainer | Chose `core-memory-kit`; approved the copy-not-move / keep-the-old config-dir migration blend |
-| 2026-07-14 | Claude Opus 4.8 | Wrote the execution plan + the migration contract + the carve-outs |
+| 2026-07-14 | the maintainer | Chose `core-memory-kit`; then — as the sole real user — chose "change everything, I'll reinstall," so the config-dir migration was dropped for a direct swap |
+| 2026-07-14 | Claude Opus 4.8 | Wrote the execution plan + carve-outs; built+tested the copy-migration, then removed it per the direct-swap call (preserved in history) |

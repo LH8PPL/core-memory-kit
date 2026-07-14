@@ -9,7 +9,7 @@
 //   resolveTierRoot({tier, projectRoot, userDir}) → absolute path
 //   resolveFactDir(tier, tierRoot) → absolute path to <memory|fragments>
 
-import { existsSync, realpathSync, cpSync, writeFileSync, statSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
@@ -100,25 +100,6 @@ export function resolveMcpProjectRoot({ env = process.env, cwd = process.cwd() }
 // ambiguous chars (0, O, 1, l, I, 8). See design §3.1.
 export const ID_PATTERN = /^[PUL]-[2345679ABCDEFGHJKLMNPQRSTUVWXYZa]{8}$/;
 
-// The user-tier directory names (Task 195 / ADR-0021 — the core-memory-kit
-// rename). NEW is the post-rename home; OLD is what pre-rename installs used.
-// The rename keeps `cmk` + `MEMORY_KIT_USER_DIR` verbatim (agent-neutral,
-// ADR-0012 §75) — only the on-disk default dir name changed, and it MIGRATES
-// (copy-not-move), it is never a blind text swap.
-export const NEW_USER_DIR_NAME = '.core-memory-kit';
-export const OLD_USER_DIR_NAME = '.claude-memory-kit';
-// The sentinel written into the NEW dir after a successful copy — its presence
-// means "migration already ran, never re-copy from OLD" (marker-gated so a
-// later edit to OLD can't silently clobber NEW).
-export const MIGRATION_MARKER = '.migrated-from-claude-memory-kit';
-
-// Resolve $HOME from an injectable env (HOME, or Windows USERPROFILE) so the
-// migration functions are testable against a fake home without touching the
-// real user tier. Falls back to os.homedir() when neither is set.
-function homeOf(env) {
-  return env.HOME ?? env.USERPROFILE ?? homedir();
-}
-
 // The user tier's production default (env override → home) — the same
 // fallback resolveTierRoot applies. Call it at PRODUCTION ENTRY POINTS
 // (CLI actions, hook bins, cron binaries) to make the U tier explicit for
@@ -128,77 +109,13 @@ function homeOf(env) {
 // class; the Task-66 skill review caught a weeklyCurate-internal default
 // doing exactly that).
 //
-// PURE RESOLVER (Task 195): this only DECIDES which path to use — it performs
-// NO copy and NO scaffolding (the ~15 hot-path callers must stay
-// side-effect-free). The one-time OLD→NEW copy is the SEPARATE, explicit
-// `migrateUserTierIfNeeded`, called only at install + the hook-bin entry
-// points. Resolution order: explicit override > NEW (migrated/fresh) > OLD
-// (pre-migration read, so an un-migrated user still finds their memory) > NEW
-// (brand-new user).
+// Task 195 / ADR-0021 — the core-memory-kit rename. The `cmk` binary +
+// `MEMORY_KIT_USER_DIR` env var are unchanged (agent-neutral); only the
+// on-disk default dir name changed `.claude-memory-kit` → `.core-memory-kit`.
+// A DIRECT swap (no migration): the sole real user reinstalls under the new
+// name (the maintainer's 2026-07-14 call — "change everything, I'll reinstall").
 export function defaultUserDir(env = process.env) {
-  if (env.MEMORY_KIT_USER_DIR) return env.MEMORY_KIT_USER_DIR;
-  const home = homeOf(env);
-  const newDir = join(home, NEW_USER_DIR_NAME);
-  if (existsSync(newDir)) return newDir;
-  const oldDir = join(home, OLD_USER_DIR_NAME);
-  if (existsSync(oldDir)) return oldDir; // pre-migration: read where the memory actually is
-  return newDir; // brand-new user — the NEW name is the default going forward
-}
-
-/**
- * One-time user-tier migration (Task 195 / ADR-0021): copy the pre-rename
- * `~/.claude-memory-kit` to `~/.core-memory-kit`, KEEP the old dir as a backup,
- * and write a marker so it never re-copies. Idempotent + BEST-EFFORT — it never
- * throws (a copy failure must never break `cmk install` or a hook bin).
- *
- * Call ONLY at production entry points (install + the hook bins), never inside
- * a hot-path resolver. The `env` is injectable for tests (fake HOME).
- *
- * @param {object} [env=process.env]
- * @returns {{action:'migrated'|'already-migrated'|'skipped-new-exists'|'skipped-override'|'nothing-to-migrate'|'failed', from?, to?, notice?, error?}}
- */
-export function migrateUserTierIfNeeded(env = process.env) {
-  // An explicit override means the user chose their own path — never touch the
-  // default home dirs.
-  if (env.MEMORY_KIT_USER_DIR) return { action: 'skipped-override' };
-
-  const home = homeOf(env);
-  const newDir = join(home, NEW_USER_DIR_NAME);
-  const oldDir = join(home, OLD_USER_DIR_NAME);
-  const marker = join(newDir, MIGRATION_MARKER);
-
-  try {
-    if (existsSync(newDir)) {
-      // NEW already there: migrated once (marker present) OR a fresh install
-      // scaffolded it. Either way, do NOT copy OLD over it — first write wins.
-      return { action: existsSync(marker) ? 'already-migrated' : 'skipped-new-exists' };
-    }
-    // NEW absent. Only migrate if a real OLD DIRECTORY exists.
-    if (!existsSync(oldDir)) return { action: 'nothing-to-migrate' };
-    if (!statSync(oldDir).isDirectory()) {
-      // OLD path exists but isn't a directory (corrupt/unexpected) — refuse to
-      // copy; surface as failed so a caller can log, never crash.
-      return { action: 'failed', error: `old user dir is not a directory: ${oldDir}` };
-    }
-
-    // Copy-not-move: OLD stays intact as the user's backup.
-    cpSync(oldDir, newDir, { recursive: true });
-    // Marker AFTER a successful copy (crash-safe: no marker → next run retries).
-    writeFileSync(marker, `migrated from ${OLD_USER_DIR_NAME} by the core-memory-kit rename (ADR-0021)\n`, 'utf8');
-    return {
-      action: 'migrated',
-      from: oldDir,
-      to: newDir,
-      notice:
-        `Migrated your cross-project memory to ${newDir}. ` +
-        `Your old ${oldDir} is kept as a backup — delete it whenever you like.`,
-    };
-  } catch (err) {
-    // BEST-EFFORT: never break the caller. The OLD dir is untouched (copy-not-
-    // move), so a failed migration loses nothing — the pure resolver still
-    // reads OLD until a later run succeeds.
-    return { action: 'failed', error: err?.message ?? String(err) };
-  }
+  return env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.core-memory-kit');
 }
 
 export function resolveTierRoot({ tier, projectRoot, userDir }) {

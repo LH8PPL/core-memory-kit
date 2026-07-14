@@ -84,7 +84,7 @@ import { createInterface } from 'node:readline';
 import { spawnSync } from 'node:child_process';
 import { checkKitBinding } from './native-binding.mjs';
 import { resolve as resolvePath, join, basename } from 'node:path';
-import { resolveMcpProjectRoot, normalizeProjectPath, migrateUserTierIfNeeded } from './tier-paths.mjs';
+import { resolveMcpProjectRoot, normalizeProjectPath } from './tier-paths.mjs';
 import { findRunningKitMcpServers, stopMcpServers } from './mcp-procs.mjs';
 
 /**
@@ -385,30 +385,6 @@ export async function runInstall(options /* , command */) {
   // can't cause it, so the stop's answer would always be N). The actionable
   // stop-offer is reserved for a future upgrade context that opts in.
   await warnRunningMcpServers(options, { log });
-
-  // Task 195 (ADR-0021): the user-tier config-dir migration — copy the
-  // pre-rename `~/.claude-memory-kit` to `~/.core-memory-kit` (keep-the-old,
-  // marker-gated) BEFORE the tier is scaffolded, so an existing user's
-  // cross-project persona lands in the new home before install writes into it.
-  // Best-effort + idempotent (returns 'already-migrated'/'nothing-to-migrate'
-  // on the common paths) — it never throws. The one-line notice prints ONLY on
-  // an actual first migration (the install-output surface; ADR-0021 decided
-  // against a SessionStart line + a doctor note). Skipped when a custom
-  // MEMORY_KIT_USER_DIR is set. Runs for EVERY agent path (the user tier is
-  // agent-shared), so it sits before the cross-agent routing below.
-  // `options.migrationEnv` is a TEST seam: it lets a test point the migration at
-  // a fake HOME so it never touches the tester's real ~/.claude-memory-kit
-  // (production passes nothing → process.env). Same D-69 real-persona-isolation
-  // discipline the user-tier tests already follow.
-  try {
-    const migration = migrateUserTierIfNeeded(options?.migrationEnv);
-    if (migration.action === 'migrated' && migration.notice) {
-      log(`cmk install: ${migration.notice}`);
-    }
-  } catch {
-    // defensive: migrateUserTierIfNeeded is already best-effort internally,
-    // but a migration hiccup must never block the install.
-  }
 
   // Task 50.F — cross-agent routing. Default is claude-code (the existing path,
   // untouched). For another agent, scaffold the agent-neutral project tier via
