@@ -10,6 +10,17 @@
 
 ---
 
+## 2026-07-14 — D-334: DECISION — the v0.5.3-cut minor-boundary backlog sweep (D-248/D-267): trigger-fired walk + per-task verdicts; Task 195 fired → laned v0.5.4
+
+**The sweep (required at every minor per D-248; opens with the D-267 trigger-fired walk).** `validate-backlog-triggers` green — all 42 open top-level tasks carry a lane or named trigger. Walked every trigger asking the D-267 question ("has this condition become TRUE since the last sweep?"):
+
+- **Task 195 (cross-agent NAME decision) — TRIGGER FIRED.** Its trigger was "re-decide after the two committed breadth agents ship (Cursor + Codex live)." Both are now live (Cursor v0.4.5, Codex v0.5.2) → the condition is met, and this is exactly the D-267 fired-but-could-go-unnoticed case the walk exists to catch. **Verdict: LANED v0.5.4** (the user's call at the sweep — commit it, don't re-defer; the name is an outward-facing identity decision that stays the user's, executed as a bake-off + ADR-0012 successor in the v0.5.4 governance batch). D-257's rename-to-general lean carries forward as the starting position, not a settled outcome.
+- **Recall-research trio (149/176/178) + Task 51 — trigger already dispositioned, NOT a fired stray.** Their "next recall-surface minor" trigger reads as if v0.5.3 (a search minor) could fire it, BUT the 2026-07-12 market sweep (D-326) ALREADY re-verdicted them to **v0.6.0** explicitly (RELEASE-PLAN D-309 queue item 5 + line 131) — they ride the day-one-memory corpus surface where an ADOPT verdict has real leverage, not v0.5.3's blend work. No re-open: a settled lane, confirmed still-correct.
+- **Task 199 (write-time temporal detection) — trigger's OR-clause ("v0.5 learn-loop touches the write path") did NOT fire.** The v0.5.3 batch touched the READ/search surface (blend, labels, view-gate, stats), not `writeFact`; the AND-clause (198 shipped + a live stale-State answer within the per-session window) has no new evidence either. Keep deferred, trigger intact.
+- **The rest** (47/48/51/55/67/68/70/71/73/95/96/127/140/141/146/166/174/175/177/179/180/184/186/189/196-tail/208/210/217/224/225-229) — each carries a live lane (D-309 queue: v0.5.4 governance, v0.6.0 day-one, v0.7.0 team) or an un-fired named trigger; none crossed two consecutive minors without a verdict (the D-248 kill-or-commit backstop). Task 224 (SonarCloud) stays server-side/advisory. No kills this sweep.
+
+**Net:** one fired trigger (195 → v0.5.4), zero strays, zero kills; the D-309 queue (v0.5.4 governance → v0.6.0 day-one → v0.7.0 team) stands. v0.5.3 clear to cut. _Relates D-248 (the sweep rule), D-267 (the trigger-fired-walk first step), D-309/D-326 (the version queue this confirms), D-255/D-257 (Task 195's history), D-334._
+
 ## 2026-07-14 — D-333: DECISION — Task 212 ships `cmk stats memory-health` (AutoMem's Figure-4 behavioral dashboard; closes the v0.5.3 rider batch)
 
 **The insight (AutoMem, arXiv 2607.01224):** a small set of PROCESS metrics — not task success — makes memory-system quality observable and improvable (their optimized agents: writes-per-search −54–72%, redundant writes −68–83%, empty searches −13–50%). The kit's raw data already existed (recall.log/audit.log/truncation.log); this is AGGREGATION + a surface, no new capture, no LLM.

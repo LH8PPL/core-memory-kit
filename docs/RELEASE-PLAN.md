@@ -198,6 +198,9 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
      (the bullet above).
   4. **v0.5.4 — the governance batch** — Task 96 + Task 210 (+ Task 95 if its needs-design gate
      has cleared by then; otherwise 95 slides to the next slot — its gate, not the queue, decides).
+     **+ Task 195 (the cross-agent NAME decision) — LANED here at the v0.5.3-cut sweep (D-334):
+     its trigger fired (Cursor + Codex both live), the user's call was "lane it into v0.5.4."**
+     A decide-task (name bake-off + the ADR-0012 successor); the decision stays the user's.
   5. **v0.6.0 — DAY-ONE MEMORY (the next minor differentiator; D-326, 2026-07-12 — the user's
      "actual versions, not just future versions" call after the market sweep).** Headline:
      **Task 225** (`cmk import-sessions` — bootstrap the memory from existing agent session
