@@ -201,12 +201,17 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
      edge closed) + the batch riders 209 (state-labeled recall) / 211 (query state-view gate) /
      212 (`cmk stats memory-health`). All four PRs (#287–#290) merged; the D-334 minor-boundary
      backlog sweep ran (Task 195 name-decision trigger fired → laned v0.5.4).
-  4. **v0.5.4 — the governance batch** — Task 96 + Task 210 (+ Task 95 if its needs-design gate
-     has cleared by then; otherwise 95 slides to the next slot — its gate, not the queue, decides).
-     **+ Task 195 (the cross-agent NAME decision) — LANED here at the v0.5.3-cut sweep (D-334):
-     its trigger fired (Cursor + Codex both live), the user's call was "lane it into v0.5.4."**
-     A decide-task (name bake-off + the ADR-0012 successor); the decision stays the user's.
-  5. **v0.6.0 — DAY-ONE MEMORY (the next minor differentiator; D-326, 2026-07-12 — the user's
+  4. **v0.5.4 — THE RENAME (Task 195) — ✅ EXECUTED 2026-07-15 (D-335).** The cross-agent name
+     decision laned here at the v0.5.3-cut sweep (D-334) was DECIDED + shipped: `claude-memory-kit`
+     → **`core-memory-kit`** (keeps `cmk`), ADR-0021 supersedes ADR-0012, 135-file corpus rename +
+     config-dir direct swap, merged (PR #292). This BECAME the v0.5.4 headline — a clean
+     single-purpose release. **The governance batch (Task 96 + Task 210, + Task 95 if its
+     needs-design gate clears) SLIDES to v0.5.5** — 96/210 aren't built, and holding the done rename
+     for unbuilt work is the anti-pattern; ship what's real. _Outward steps (the maintainer's):
+     npm publish `@lh8ppl/core-memory-kit` + deprecate the old; GitHub repo rename; SonarCloud key._
+  5. **v0.5.5 — the governance batch** (slid from v0.5.4) — Task 96 (compliance scrub) + Task 210
+     (deletion-propagation) + Task 95 if its needs-design gate has cleared.
+  6. **v0.6.0 — DAY-ONE MEMORY (the next minor differentiator; D-326, 2026-07-12 — the user's
      "actual versions, not just future versions" call after the market sweep).** Headline:
      **Task 225** (`cmk import-sessions` — bootstrap the memory from existing agent session
      history; install offers it; every imported write screened through 216 + the L3 judge;
@@ -220,7 +225,7 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
      — the origin creator's v3 proved the demand ("day one your memory already knows
      everything") and Hermes's 211k-star run proved memory is THE switching reason (~30% of
      1,300 analyzed comments)._
-  6. **v0.7.0 — THE TEAM LAYER (D-326).** Headline: **Task 127** (team-scoped memory — its own
+  7. **v0.7.0 — THE TEAM LAYER (D-326).** Headline: **Task 127** (team-scoped memory — its own
      trigger fired: the v0.6 planning boundary arrived AND the market demand signal landed, the
      origin creator's TeamOS beta; design-first per D-119 — seam shape / ACL / companion-vs-in-kit
      decided before code). Rider: **Task 228** (proactive-memory connectors GO/NO-GO ADR — the
