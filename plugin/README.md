@@ -1,20 +1,20 @@
-# claude-memory-kit (Claude Code plugin)
+# core-memory-kit (Claude Code plugin)
 
-Plugin distribution of the [claude-memory-kit](../README.md) memory system.
+Plugin distribution of the [core-memory-kit](../README.md) memory system.
 
 ## Install
 
 In Claude Code:
 
 ```text
-/plugin marketplace add <your-username>/claude-memory-kit
-/plugin install claude-memory-kit
+/plugin marketplace add <your-username>/core-memory-kit
+/plugin install core-memory-kit
 ```
 
 Restart Claude Code. Then in the project where you want the memory system:
 
 ```text
-/claude-memory-kit:bootstrap
+/core-memory-kit:bootstrap
 ```
 
 The bootstrap skill scaffolds `context/`, `scripts/`, and `cron/jobs/` into the project. Existing files are never overwritten.
@@ -23,8 +23,8 @@ The bootstrap skill scaffolds `context/`, `scripts/`, and `cron/jobs/` into the 
 
 - **PreToolUse hook** — injects the frozen memory snapshot (SOUL.md + USER.md + MEMORY.md + INDEX.md + today's session log) before the first tool call of each session.
 - **Stop hook** — captures transcripts AND spawns the auto-extract background job after every turn.
-- **`memory-write` skill** — auto-triggers on phrases like "remember this", "from now on", "forget about". Available as `/claude-memory-kit:memory-write`.
-- **`bootstrap` skill** — one-shot scaffold of the per-project files. Available as `/claude-memory-kit:bootstrap`.
+- **`memory-write` skill** — auto-triggers on phrases like "remember this", "from now on", "forget about". Available as `/core-memory-kit:memory-write`.
+- **`bootstrap` skill** — one-shot scaffold of the per-project files. Available as `/core-memory-kit:bootstrap`.
 
 ## What the plugin does NOT do
 
@@ -38,9 +38,9 @@ The kit ships two install paths (the legacy `install.sh` / `install.ps1` shell s
 
 | Aspect | Plugin (this directory) | npm CLI (`cmk install`) |
 |---|---|---|
-| Distribution | Claude Code marketplace | `npm install -g @lh8ppl/claude-memory-kit` |
+| Distribution | Claude Code marketplace | `npm install -g @lh8ppl/core-memory-kit` |
 | Hooks live in | Plugin directory (`${CLAUDE_PLUGIN_ROOT}`) | Project's `.claude/settings.json` (PATH-resolved bare bins) |
-| Updates | `/plugin update` | `npm update -g @lh8ppl/claude-memory-kit` |
+| Updates | `/plugin update` | `npm update -g @lh8ppl/core-memory-kit` |
 | Project-local files | Scaffolded by the bootstrap skill | Scaffolded by `cmk install` |
 | MCP server | Registered by the plugin manifest | Registered by `cmk install` in `.mcp.json` |
 

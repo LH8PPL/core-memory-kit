@@ -1,4 +1,4 @@
-# claude-memory-kit — documentation system
+# core-memory-kit — documentation system
 
 This `docs/` tree captures the **full provenance** of the kit: every decision, every research input, every external source. Designed for direct ingestion into a personal knowledge base `raw/` so the reasoning behind the code is searchable forever.
 
@@ -33,4 +33,4 @@ See [process/git-and-versioning.md](process/git-and-versioning.md) for the commi
 
 ## Wiki ingestion
 
-All files in `docs/` are written to be self-contained markdown — links are full URLs where possible, citations are inline, no editor-specific syntax. They can be copied into `/c/Projects/personal-wiki/raw/claude-memory-kit/` without modification and processed through the wiki's ingest pipeline.
+All files in `docs/` are written to be self-contained markdown — links are full URLs where possible, citations are inline, no editor-specific syntax. They can be copied into `/c/Projects/personal-wiki/raw/core-memory-kit/` without modification and processed through the wiki's ingest pipeline.

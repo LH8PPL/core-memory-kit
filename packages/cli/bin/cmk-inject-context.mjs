@@ -2,7 +2,7 @@
 // SessionStart hook handler — npm-route bin (Task 49, T-037).
 //
 // De-plugin-ified twin of plugin/bin/cmk-inject-context.mjs (Task 18).
-// This copy lives in the published @lh8ppl/claude-memory-kit npm package
+// This copy lives in the published @lh8ppl/core-memory-kit npm package
 // (declared in package.json `bin`), so `cmk install` can wire a
 // PATH-resolved `cmk-inject-context` hook command into settings.json
 // WITHOUT the plugin's `${CLAUDE_PLUGIN_ROOT}` / bash dependency. The

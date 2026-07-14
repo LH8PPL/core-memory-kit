@@ -108,8 +108,14 @@ export const ID_PATTERN = /^[PUL]-[2345679ABCDEFGHJKLMNPQRSTUVWXYZa]{8}$/;
 // userDir touch the REAL user tier (the D-69 round-tripped-real-persona
 // class; the Task-66 skill review caught a weeklyCurate-internal default
 // doing exactly that).
+//
+// Task 195 / ADR-0021 — the core-memory-kit rename. The `cmk` binary +
+// `MEMORY_KIT_USER_DIR` env var are unchanged (agent-neutral); only the
+// on-disk default dir name changed `.core-memory-kit` → `.core-memory-kit`.
+// A DIRECT swap (no migration): the sole real user reinstalls under the new
+// name (the maintainer's 2026-07-14 call — "change everything, I'll reinstall").
 export function defaultUserDir(env = process.env) {
-  return env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+  return env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.core-memory-kit');
 }
 
 export function resolveTierRoot({ tier, projectRoot, userDir }) {

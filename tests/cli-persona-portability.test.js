@@ -5,7 +5,7 @@
 // Tests for Task 72 — cmk persona export / import (user-tier portability).
 //
 // The persona (user tier) follows the HUMAN, not the repo: it's machine-local
-// (~/.claude-memory-kit) and deliberately OUT of the project so it never leaks
+// (~/.core-memory-kit) and deliberately OUT of the project so it never leaks
 // to teammates. Portability is therefore per-human — export the user tier to one
 // OS-agnostic bundle, carry it to another machine, import it. Explicit, no
 // merge (the deferred git-sync path handles auto-merge).

@@ -1,6 +1,6 @@
 # Security Policy
 
-`claude-memory-kit` runs inside your Claude Code sessions: it registers lifecycle **hooks**, **spawns subprocesses** (`claude --print`, the `cmk-*` bins), and **auto-extracts conversation content into files that get committed to git**. That makes its security posture matter more than a typical CLI's. This document describes the threat surfaces, what mitigates them, and how to report a vulnerability.
+`core-memory-kit` runs inside your Claude Code sessions: it registers lifecycle **hooks**, **spawns subprocesses** (`claude --print`, the `cmk-*` bins), and **auto-extracts conversation content into files that get committed to git**. That makes its security posture matter more than a typical CLI's. This document describes the threat surfaces, what mitigates them, and how to report a vulnerability.
 
 ## Reporting a vulnerability
 
@@ -47,6 +47,6 @@ Releases are published from CI (`.github/workflows/publish.yml`) on a `v*` tag, 
 ## Verifying what you install
 
 ```bash
-npm view @lh8ppl/claude-memory-kit dist.attestations   # provenance present
-npm pack @lh8ppl/claude-memory-kit --dry-run           # inspect tarball contents
+npm view @lh8ppl/core-memory-kit dist.attestations   # provenance present
+npm pack @lh8ppl/core-memory-kit --dry-run           # inspect tarball contents
 ```

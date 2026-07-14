@@ -33,7 +33,7 @@ import {
 // Code (`cmk mcp serve` over stdio). Agent-neutral: every agent registers the
 // same server; only the FILE it goes in differs (profile.mcp.path).
 const MCP_ENTRY = Object.freeze({ type: 'stdio', command: 'cmk', args: ['mcp', 'serve'] });
-const MCP_SERVER_NAME = 'claude-memory-kit';
+const MCP_SERVER_NAME = 'core-memory-kit';
 
 // The kit's lifecycle-hook commands, keyed by the ABSTRACT event the profile's
 // eventMap translates to the agent's concrete event name. Only the events an
@@ -51,16 +51,16 @@ const HOOK_COMMANDS = Object.freeze({
 // intentionally short — it points the agent at the kit's recall surface; the rich
 // memory lives in context/.
 const INSTRUCTION_BODY = [
-  '# claude-memory-kit',
+  '# core-memory-kit',
   '',
-  'This project uses claude-memory-kit for durable, in-repo memory across sessions.',
+  'This project uses core-memory-kit for durable, in-repo memory across sessions.',
   'Recall before re-deriving: run `cmk search "<topic>"` for prior decisions, preferences,',
   'and project facts; the curated tiers live under `context/`. Capture durable facts with',
   '`cmk remember` — never hand-edit the memory files.',
 ].join('\n');
 
-const MARK_START = '<!-- claude-memory-kit:start -->';
-const MARK_END = '<!-- claude-memory-kit:end -->';
+const MARK_START = '<!-- core-memory-kit:start -->';
+const MARK_END = '<!-- core-memory-kit:end -->';
 
 export function installAgent({ projectRoot, profile, spawnSyncImpl = defaultSpawnSync }) {
   if (!projectRoot) throw new Error('installAgent: projectRoot is required');

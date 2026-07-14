@@ -38,7 +38,7 @@ import { trimTrailingNewlines } from './managed-block.mjs';
 export const DECISIONS_HEADER =
   '# Decisions\n\n' +
   '> Append-only decision journal — every decision the kit captured, in order, with its why.\n' +
-  '> Maintained by claude-memory-kit (`cmk digest`). Superseded/retracted entries stay (the trail is the point).';
+  '> Maintained by core-memory-kit (`cmk digest`). Superseded/retracted entries stay (the trail is the point).';
 
 // Only this fact type is a "decision" in the kit taxonomy (the project/state
 // category — what project-memory's decisions.md and our DECISION-LOG track).

@@ -62,8 +62,8 @@ function hookSpecs(cmd) {
       file: 'cmk-capture.kiro.hook',
       version: '1.0.0',
       enabled: true,
-      name: 'claude-memory-kit: capture',
-      description: 'Capture durable memory at the end of each turn (claude-memory-kit). Managed by `cmk install` — do not hand-edit.',
+      name: 'core-memory-kit: capture',
+      description: 'Capture durable memory at the end of each turn (core-memory-kit). Managed by `cmk install` — do not hand-edit.',
       when: { type: 'agentStop' },
       action: { type: 'runCommand', command: hookCommand('stop', cmd), timeout: 60 },
     },
@@ -71,8 +71,8 @@ function hookSpecs(cmd) {
       file: 'cmk-inject.kiro.hook',
       version: '1.0.0',
       enabled: true,
-      name: 'claude-memory-kit: recall',
-      description: 'Inject recalled memory on each prompt (claude-memory-kit). Managed by `cmk install` — do not hand-edit.',
+      name: 'core-memory-kit: recall',
+      description: 'Inject recalled memory on each prompt (core-memory-kit). Managed by `cmk install` — do not hand-edit.',
       when: { type: 'promptSubmit' },
       action: { type: 'runCommand', command: hookCommand('promptSubmit', cmd), timeout: 30 },
     },
@@ -111,8 +111,8 @@ function v1HookFile(hook) {
 const V1_HOOK_BUILDERS = Object.freeze({
   'cmk-capture.json': (cmd) =>
     v1HookFile({
-      name: 'claude-memory-kit: capture',
-      description: `Capture durable memory at the end of each turn (claude-memory-kit). ${MANAGED}`,
+      name: 'core-memory-kit: capture',
+      description: `Capture durable memory at the end of each turn (core-memory-kit). ${MANAGED}`,
       trigger: 'Stop', // CONFIRMED by Kiro IDE 1.0's own migration (D-203d)
       action: { type: 'command', command: hookCommand('stop', cmd) },
       timeout: 60,
@@ -120,8 +120,8 @@ const V1_HOOK_BUILDERS = Object.freeze({
     }),
   'cmk-inject.json': (cmd) =>
     v1HookFile({
-      name: 'claude-memory-kit: recall',
-      description: `Inject recalled memory on each prompt (claude-memory-kit). ${MANAGED}`,
+      name: 'core-memory-kit: recall',
+      description: `Inject recalled memory on each prompt (core-memory-kit). ${MANAGED}`,
       trigger: 'UserPromptSubmit',
       action: { type: 'command', command: hookCommand('userPromptSubmit', cmd) },
       timeout: 30,
@@ -129,8 +129,8 @@ const V1_HOOK_BUILDERS = Object.freeze({
     }),
   'cmk-guard.json': () =>
     v1HookFile({
-      name: 'claude-memory-kit: delete-guard',
-      description: `Block a destructive command aimed at a memory path (claude-memory-kit). ${MANAGED}`,
+      name: 'core-memory-kit: delete-guard',
+      description: `Block a destructive command aimed at a memory path (core-memory-kit). ${MANAGED}`,
       trigger: 'PreToolUse', // v1 PreToolUse can BLOCK (non-zero exit) — supersedes Task 165(b)
       // `matcher` for PreToolUse is a TOOL-NAME glob (D-203 item 4 — exact tokens
       // live-unverified). `'*'` is conservative; the guard itself filters to memory
@@ -142,8 +142,8 @@ const V1_HOOK_BUILDERS = Object.freeze({
     }),
   'cmk-observe.json': (cmd) =>
     v1HookFile({
-      name: 'claude-memory-kit: observe-edit',
-      description: `Record large file edits (claude-memory-kit). ${MANAGED}`,
+      name: 'core-memory-kit: observe-edit',
+      description: `Record large file edits (core-memory-kit). ${MANAGED}`,
       // PostToolUse (NOT PostFileSave) — observe-edit needs a TOOL-USE payload
       // ({tool_name:'fs_write', …}) that observeEdit reads; a file-SAVE event
       // carries no tool_name → silent noop (skill-review I1). Sibling of the

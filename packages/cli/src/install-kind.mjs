@@ -20,7 +20,7 @@ export function detectInstallKind(projectRoot) {
   // Task 196: the cmk-owned Cursor rule marks a `--ide cursor` install. Same
   // keyed-on-OUR-marker discipline as Kiro (I2) — a stray .cursor/ dir alone
   // does not flip the project to the Cursor path.
-  if (existsSync(join(projectRoot, '.cursor', 'rules', 'claude-memory-kit.mdc'))) return 'cursor';
+  if (existsSync(join(projectRoot, '.cursor', 'rules', 'core-memory-kit.mdc'))) return 'cursor';
   // Task 196 tail: a `--ide codex` install writes `.codex/hooks.json` (the kit
   // seeds it; AGENTS.md alone is NOT the marker — the agents-md rung writes it
   // too). Same cmk-owned-marker discipline: a stray .codex/ dir doesn't flip

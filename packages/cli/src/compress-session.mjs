@@ -85,7 +85,7 @@ const SESSION_BUFFER_END_DELIMITER = '=== END SESSION BUFFER ===';
 
 function buildCompressionInstructions(maxOutputBytes) {
   return [
-    'You are a memory compressor for claude-memory-kit. Your task is to compress the session buffer that appears below into a four-section Markdown summary.',
+    'You are a memory compressor for core-memory-kit. Your task is to compress the session buffer that appears below into a four-section Markdown summary.',
     '',
     'Output ONLY the compressed Markdown. Do not write preamble. Do not acknowledge the task. Do not ask clarifying questions. Do not include any meta-commentary. Begin your response with the first applicable section heading.',
     '',

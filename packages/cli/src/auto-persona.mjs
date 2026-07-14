@@ -255,8 +255,8 @@ export const PERSONA_CONFIDENCE_RULE = [
 export function buildClassifierInstructions(source = 'facts') {
   const isTranscript = source === 'transcript';
   const opener = isTranscript
-    ? 'You are a persona archivist for claude-memory-kit. The input below is the RECENT CONVERSATION (user and assistant turns) from ONE project session.'
-    : 'You are a persona archivist for claude-memory-kit. The input below is a set of facts captured while the user worked on ONE project.';
+    ? 'You are a persona archivist for core-memory-kit. The input below is the RECENT CONVERSATION (user and assistant turns) from ONE project session.'
+    : 'You are a persona archivist for core-memory-kit. The input below is a set of facts captured while the user worked on ONE project.';
   const jobLine = isTranscript
     ? 'Your job: identify ONLY the things the user REVEALED or STATED that express CROSS-PROJECT doctrine — how this user works EVERYWHERE (tooling habits, how they structure their work, communication style, process rules). IGNORE anything specific to this ONE project (a particular value, name, or detail that would not carry to their other projects; one-off task state).'
     : 'Your job: identify ONLY the facts that express CROSS-PROJECT doctrine — how this user works EVERYWHERE (tooling habits, how they structure their work, communication style, process rules). IGNORE anything specific to this ONE project (a particular value, name, or detail that would not carry to their other projects; one-off task state).';

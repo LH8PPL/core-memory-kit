@@ -3,7 +3,7 @@
 Open this repo as VS Code's **primary** workspace folder (the harness derives its slug from the primary cwd — opening from the wrong folder tags transcripts + native auto-memory with the wrong project), then paste the block below as your opening message.
 
 ```text
-We're continuing work on claude-memory-kit — a per-project in-repo memory
+We're continuing work on core-memory-kit — a per-project in-repo memory
 system for Claude Code. Read these, in order, before responding:
 
 1. docs/DOCUMENTATION-MAP.md           — where every doc lives (registry + routing rules)

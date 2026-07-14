@@ -27,7 +27,7 @@ import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
 
 export const KIT_BINDING_REMEDY =
-  'npm install -g @lh8ppl/claude-memory-kit --allow-scripts=better-sqlite3';
+  'npm install -g @lh8ppl/core-memory-kit --allow-scripts=better-sqlite3';
 export const EMBEDDER_BINDING_REMEDY =
   'npm install -g @huggingface/transformers --allow-scripts=onnxruntime-node';
 

@@ -7,7 +7,7 @@
 // SessionStart / Stop / SessionEnd hooks (proved by disk side-effects); the Stop
 // hook records each turn VERBATIM into context/transcripts/{date}.md; multi-turn
 // continuity works via --session-id / --resume; MEMORY_KIT_USER_DIR isolates the
-// user tier so a run never touches the real ~/.claude-memory-kit.
+// user tier so a run never touches the real ~/.core-memory-kit.
 //
 // THE FLOW (mirrors what the user does by hand):
 //   Phase A — project-A, ONE multi-turn session (the Ralph-loop shape: stage 1
@@ -70,7 +70,7 @@ const BIN_NAMES = [
 
 // ---- the test scenario --------------------------------------------------------
 // Two stated standing rules + a recall probe. De-biased away from the kit's own
-// domain (no claude-memory-kit specifics); plain Python tooling habits.
+// domain (no core-memory-kit specifics); plain Python tooling habits.
 const RULES = [
   { keyword: /\buv\b/i, label: 'use uv (not pip)' },
   { keyword: /\bruff\b/i, label: 'run ruff before committing' },

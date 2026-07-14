@@ -3,7 +3,7 @@
 // A Claude Code `PreToolUse` hook (wired by `cmk install`) calls the
 // `cmk-guard-memory` bin before every Bash/PowerShell tool call. This module
 // is the pure decision: given a shell command, should it be BLOCKED because it
-// would delete a claude-memory-kit memory path?
+// would delete a core-memory-kit memory path?
 //
 // Why this exists: 2026-06-22 (D-192), a `cd` that silently failed left a
 // following `rm -f context/sessions/* context/transcripts/*` running in the
@@ -44,7 +44,7 @@ const MEMORY_TOKENS = [
   // a `context` path segment: `context/`, `context\`, `./context`, `repo/context`,
   // or a bare ` context` argument (e.g. `git clean -fd context`).
   /(^|[\s'"./\\])context([\s'"/\\]|$)/i,
-  /\.claude-memory-kit/i, // the cross-project user tier
+  /\.core-memory-kit/i, // the cross-project user tier
   /MEMORY\.md/i,
   /DECISIONS\.md/i,
 ];
@@ -54,7 +54,7 @@ export function isDestructive(cmd) {
   return typeof cmd === 'string' && DESTRUCTIVE.some((re) => re.test(cmd));
 }
 
-/** True if the command references a claude-memory-kit memory path. */
+/** True if the command references a core-memory-kit memory path. */
 export function touchesMemory(cmd) {
   return typeof cmd === 'string' && MEMORY_TOKENS.some((re) => re.test(cmd));
 }
@@ -113,8 +113,8 @@ export function decideGuard(cmd) {
     return {
       block: true,
       reason:
-        'BLOCKED by the claude-memory-kit delete-guardrail: this command deletes a ' +
-        'memory path (context/ , the persona tier ~/.claude-memory-kit, or a memory ' +
+        'BLOCKED by the core-memory-kit delete-guardrail: this command deletes a ' +
+        'memory path (context/ , the persona tier ~/.core-memory-kit, or a memory ' +
         'file). Memory is precious and a delete here is often non-recoverable. If you ' +
         'REALLY mean to delete memory, do it by hand after a backup — or ask the user. ' +
         'NEVER run a delete after a `cd` you have not verified with `pwd`.',

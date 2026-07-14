@@ -1,7 +1,7 @@
 {
-  "name": "@lh8ppl/claude-memory-kit",
+  "name": "@lh8ppl/core-memory-kit",
   "version": "0.5.3",
-  "description": "cmk — the CLI for claude-memory-kit. Per-project, in-repo memory system for Claude Code.",
+  "description": "cmk — the CLI for core-memory-kit. Per-project, in-repo memory system for Claude Code.",
   "type": "module",
   "bin": {
     "cmk": "./bin/cmk.mjs",
@@ -46,11 +46,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/LH8PPL/claude-memory-kit.git",
+    "url": "https://github.com/LH8PPL/core-memory-kit.git",
     "directory": "packages/cli"
   },
   "bugs": {
-    "url": "https://github.com/LH8PPL/claude-memory-kit/issues"
+    "url": "https://github.com/LH8PPL/core-memory-kit/issues"
   },
   "keywords": [
     "claude",

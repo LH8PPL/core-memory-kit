@@ -39,7 +39,7 @@ describe('Task 200 — detectInstallKind (extracted shared module)', () => {
 
   it('the cmk-owned .cursor rule marks a cursor install', () => {
     const root = tmp();
-    touch(root, '.cursor', 'rules', 'claude-memory-kit.mdc');
+    touch(root, '.cursor', 'rules', 'core-memory-kit.mdc');
     expect(detectInstallKind(root)).toBe('cursor');
   });
 

@@ -295,7 +295,7 @@ function parseTurnFile(rawTurn) {
 // layer can apply the assistant-demotion rule (§6.4 amendment, 2026-05-26).
 export function buildExtractionInstructions() {
   return [
-    'You are a memory-extraction agent for claude-memory-kit.',
+    'You are a memory-extraction agent for core-memory-kit.',
     'You read a captured turn pair (the user prompt + the assistant response) and identify durable facts worth saving.',
     '',
     'The user is the authority on facts about themselves and their preferences.',

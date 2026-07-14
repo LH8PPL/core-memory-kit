@@ -27,7 +27,7 @@
 //     without duplicating lines and without touching unrelated entries.
 //   - In dev (running from the cloned repo), the kit's template/ lives
 //     at repo root. When packaged for npm publish (Task 36), template/
-//     ships inside @lh8ppl/claude-memory-kit — `resolveTemplateDir()`
+//     ships inside @lh8ppl/core-memory-kit — `resolveTemplateDir()`
 //     handles both.
 
 import {
@@ -58,17 +58,17 @@ const CLI_PKG_DIR = resolve(CLI_SRC_DIR, '..');
 // injectGitignore ignores the version, so it's cosmetic for idempotency — but
 // it must not show a stale hardcode (was `v0.1.0` in every install). Built per
 // install from the kit version; see gitignoreStartMarker().
-const GITIGNORE_END = '# claude-memory-kit:gitignore:end';
+const GITIGNORE_END = '# core-memory-kit:gitignore:end';
 // D-126 CRLF-prevention: the .gitattributes managed block uses the SAME
 // marker discipline as .gitignore (version-stamped start, in-place refresh).
-const GITATTRIBUTES_END = '# claude-memory-kit:gitattributes:end';
+const GITATTRIBUTES_END = '# core-memory-kit:gitattributes:end';
 
 function gitattributesStartMarker(version) {
-  return `# claude-memory-kit:gitattributes:start v${version}`;
+  return `# core-memory-kit:gitattributes:start v${version}`;
 }
 
 function gitignoreStartMarker(version) {
-  return `# claude-memory-kit:gitignore:start v${version}`;
+  return `# core-memory-kit:gitignore:start v${version}`;
 }
 
 /**
@@ -110,16 +110,16 @@ export function resolveTemplateDir() {
  *
  * Precedence:
  *   1. $MEMORY_KIT_USER_DIR if set (any non-empty value).
- *   2. ~/.claude-memory-kit/  (default).
+ *   2. ~/.core-memory-kit/  (default).
  *
  * Per design §1.1: "User-tier path override: the user tier path defaults
- * to ~/.claude-memory-kit/ but can be overridden via the MEMORY_KIT_USER_DIR
+ * to ~/.core-memory-kit/ but can be overridden via the MEMORY_KIT_USER_DIR
  * environment variable."
  */
 export function resolveUserTier() {
   const env = process.env.MEMORY_KIT_USER_DIR;
   if (env && env.trim().length > 0) return env;
-  return join(homedir(), '.claude-memory-kit');
+  return join(homedir(), '.core-memory-kit');
 }
 
 /* ------------------------------------------------------------------ */
@@ -264,8 +264,8 @@ function buildGitattributesBlock(templateDir, version = getKitVersion()) {
  */
 function injectGitattributes(projectRoot, block) {
   const gaPath = join(projectRoot, '.gitattributes');
-  const startRe = /# claude-memory-kit:gitattributes:start[^\n]*\n/;
-  const endRe = /# claude-memory-kit:gitattributes:end\n?/;
+  const startRe = /# core-memory-kit:gitattributes:start[^\n]*\n/;
+  const endRe = /# core-memory-kit:gitattributes:end\n?/;
 
   if (!existsSync(gaPath)) {
     writeFileSync(gaPath, block, 'utf8');
@@ -300,8 +300,8 @@ function injectGitattributes(projectRoot, block) {
  */
 function injectGitignore(projectRoot, block) {
   const giPath = join(projectRoot, '.gitignore');
-  const startRe = /# claude-memory-kit:gitignore:start[^\n]*\n/;
-  const endRe = /# claude-memory-kit:gitignore:end\n?/;
+  const startRe = /# core-memory-kit:gitignore:start[^\n]*\n/;
+  const endRe = /# core-memory-kit:gitignore:end\n?/;
 
   if (!existsSync(giPath)) {
     writeFileSync(giPath, block, 'utf8');
@@ -423,7 +423,7 @@ export async function install(options = {}) {
   }
 
   // Hook wiring — Task 49. This is what makes `npm install -g
-  // @lh8ppl/claude-memory-kit` + `cmk install` a COMPLETE entry point
+  // @lh8ppl/core-memory-kit` + `cmk install` a COMPLETE entry point
   // (no separate `/plugin install` step needed). Writes the npm-route
   // hooks block (PATH-resolved bare bin names, shell form) into
   // <projectRoot>/.claude/settings.json via the shared writeKitHooks
@@ -650,7 +650,7 @@ async function enableSemantic({ projectRoot, spawnNpm, warm, probeEmbedder }) {
  *     (which would also re-evaluate project tier + CLAUDE.md block)
  *
  * Path precedence (same as install()): explicit option > $MEMORY_KIT_USER_DIR
- * > ~/.claude-memory-kit/. Re-runs are idempotent — existing files are
+ * > ~/.core-memory-kit/. Re-runs are idempotent — existing files are
  * skipped, not overwritten.
  *
  * Returns {userTier, created, skipped, errors}.

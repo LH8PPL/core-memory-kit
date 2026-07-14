@@ -50,7 +50,7 @@ describe('managed-block — shared helpers', () => {
     expect(removeManagedBlock(p)).toBe(true);
     const txt = readFileSync(p, 'utf8');
     expect(txt).toContain('keep');
-    expect(txt).not.toMatch(/claude-memory-kit:start/);
+    expect(txt).not.toMatch(/core-memory-kit:start/);
   });
 
   it('removeJsonKey preserves siblings; pruneEmptyParent drops an emptied object', () => {

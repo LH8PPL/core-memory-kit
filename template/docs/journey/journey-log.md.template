@@ -22,8 +22,8 @@ How to update it:
   than editing the original.
 
 For inspiration:
-  See claude-memory-kit's own journey log as a worked example:
-  https://github.com/LH8PPL/claude-memory-kit/tree/main/docs/journey
+  See core-memory-kit's own journey log as a worked example:
+  https://github.com/LH8PPL/core-memory-kit/tree/main/docs/journey
 
 This template uses HTML comments (like this one) to coach the
 user through each section. The comments are stripped from
@@ -227,9 +227,9 @@ Capture:
 - What you're OK with the AI doing without asking
 - What you want the AI to confirm first
 
-For inspiration, see how claude-memory-kit's CLAUDE.md
+For inspiration, see how core-memory-kit's CLAUDE.md
 captures this:
-https://github.com/LH8PPL/claude-memory-kit/blob/main/CLAUDE.md
+https://github.com/LH8PPL/core-memory-kit/blob/main/CLAUDE.md
 -->
 
 ### Tone

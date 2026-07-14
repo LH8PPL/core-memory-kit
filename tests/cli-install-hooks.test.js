@@ -3,7 +3,7 @@
 
 // Tests for Task 49 — unify install: `cmk install` wires the npm-route
 // hooks into <projectRoot>/.claude/settings.json so a tester only needs
-// `npm install -g @lh8ppl/claude-memory-kit && cmk install` (no separate
+// `npm install -g @lh8ppl/core-memory-kit && cmk install` (no separate
 // `/plugin install` step). Per tasks.md 49.5:
 //   - `cmk install` writes settings.json with all 5 hooks at PATH-resolved
 //     (not ${CLAUDE_PLUGIN_ROOT}) commands; idempotent re-run is a no-op

@@ -24,7 +24,7 @@
 //
 //     path     absolute path to the agent's config file (may not exist yet)
 //     format   'json'  (v0.4.0; 'yaml' / 'toml' deferred until an agent needs them)
-//     keyPath  array of keys to the slot we own, e.g. ['mcpServers', 'claude-memory-kit']
+//     keyPath  array of keys to the slot we own, e.g. ['mcpServers', 'core-memory-kit']
 //     entry    the object to place at keyPath
 //     mode     'merge' (default — deep-merge into an existing entry) | 'replace'
 //

@@ -236,7 +236,7 @@ const HOOK_EVENT_NAME = 'SessionStart';
 // boundary test pins len ≤ 700. injectContext also subtracts the reserve
 // from the cap handed to enforceCap, so custom capBytes stay honored.
 export const AUTHORITATIVE_MEMORY_PREAMBLE = [
-  '# Injected memory — AUTHORITATIVE (claude-memory-kit)',
+  '# Injected memory — AUTHORITATIVE (core-memory-kit)',
   '',
   'Ground-truth ranking: (1) terminal/tool output → live system state;',
   '(2) THIS snapshot + `cmk search` → documented knowledge & prior decisions;',
@@ -937,7 +937,7 @@ export function injectContext({
   const resolvedUserDir =
     userDir ??
     process.env.MEMORY_KIT_USER_DIR ??
-    join(homedir(), '.claude-memory-kit');
+    join(homedir(), '.core-memory-kit');
 
   // 1. Read each tier's block in priority order. readTierBlock also returns a
   // per-tier value map (id → trust/recency) parsed from the raw bodies, which
@@ -1165,7 +1165,7 @@ export function buildStatusLine({
   listConflictsImpl,
   listReviewImpl,
 } = {}) {
-  const prefix = 'claude-memory-kit:';
+  const prefix = 'core-memory-kit:';
   try {
     // 1. Unique injected fact ids — what the model can actually see.
     const ids = new Set();

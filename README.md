@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/public/assets/wordmark-dark.svg">
-    <img src="docs/public/assets/wordmark.svg" alt="claude-memory-kit" width="340">
+    <img src="docs/public/assets/wordmark.svg" alt="core-memory-kit" width="340">
   </picture>
 </p>
 
@@ -10,10 +10,10 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@lh8ppl/claude-memory-kit"><img src="https://img.shields.io/npm/v/@lh8ppl/claude-memory-kit?label=npm&color=blue" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/@lh8ppl/core-memory-kit"><img src="https://img.shields.io/npm/v/@lh8ppl/core-memory-kit?label=npm&color=blue" alt="npm"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/Node.js-bundled%20%C2%B7%20none%20required-brightgreen" alt="Node.js bundled, none required">
-  <a href="https://github.com/LH8PPL/claude-memory-kit/actions/workflows/ci.yml"><img src="https://github.com/LH8PPL/claude-memory-kit/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/LH8PPL/core-memory-kit/actions/workflows/ci.yml"><img src="https://github.com/LH8PPL/core-memory-kit/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 </p>
 
 <p align="center">
@@ -29,7 +29,7 @@
   <img src="https://img.shields.io/badge/Codex-supported-6E56CF" alt="Codex supported">
 </p>
 
-Claude forgets everything when a session ends — so every new chat you re-explain who you are, what you're building, and how you like things done. **claude-memory-kit** fixes that: it quietly captures your decisions, preferences, and project context, then hands them back at the start of every session. Everything is plain text inside your project, and it travels with the code — `git clone` brings the memory along.
+Claude forgets everything when a session ends — so every new chat you re-explain who you are, what you're building, and how you like things done. **core-memory-kit** fixes that: it quietly captures your decisions, preferences, and project context, then hands them back at the start of every session. Everything is plain text inside your project, and it travels with the code — `git clone` brings the memory along.
 
 > [!NOTE]
 > **Not a developer?** If you can open a project in Claude Code, you're set — let Claude run the setup for you (see [Quickstart](#quickstart)).
@@ -39,7 +39,7 @@ Claude forgets everything when a session ends — so every new chat you re-expla
 You open Claude Code on a project you haven't touched in weeks. Before you say anything, Claude already knows your stack, your conventions, and what you decided last time:
 
 ```
-claude-memory-kit: 23 fact(s) in context, 2 captured in the last 24h, 1 conflict pending
+core-memory-kit: 23 fact(s) in context, 2 captured in the last 24h, 1 conflict pending
 ```
 
 You work. It learns — automatically, no buttons. Next session, it remembers this one too.
@@ -78,7 +78,7 @@ You work. It learns — automatically, no buttons. Next session, it remembers th
 Install the CLI once, then run `cmk install` in each project — pick your agent:
 
 ```bash
-npm install -g @lh8ppl/claude-memory-kit
+npm install -g @lh8ppl/core-memory-kit
 cd ~/my-project
 ```
 
@@ -117,15 +117,15 @@ cmk doctor                                # verify, then run /hooks once inside 
 `cmk install` is the whole entry point: it scaffolds `context/`, drops the memory skills, wires the lifecycle hooks, and registers the MCP server so the agent can drive memory as tools — no `/plugin` step needed. A project can carry **both** agents — run both installs; they share one `context/`.
 
 > [!TIP]
-> Prefer not to touch the terminal? Open the project in Claude Code and say *"install claude-memory-kit and set it up here."* Claude runs the commands; you just approve them. **Restart Claude Code once** afterward (`/exit`, then `claude`) so the hooks load.
+> Prefer not to touch the terminal? Open the project in Claude Code and say *"install core-memory-kit and set it up here."* Claude runs the commands; you just approve them. **Restart Claude Code once** afterward (`/exit`, then `claude`) so the hooks load.
 
 ### Route B — Claude Code plugin
 
 ```text
-/plugin marketplace add LH8PPL/claude-memory-kit   # add this repo as a plugin source (once per machine)
-/plugin install claude-memory-kit                  # install hooks + skills (once per machine)
+/plugin marketplace add LH8PPL/core-memory-kit   # add this repo as a plugin source (once per machine)
+/plugin install core-memory-kit                  # install hooks + skills (once per machine)
 cd ~/my-project
-/claude-memory-kit:bootstrap                        # scaffold this project's memory (once per project)
+/core-memory-kit:bootstrap                        # scaffold this project's memory (once per project)
 ```
 
 The plugin bundles the hooks + skills, so it's complete without the npm CLI. Add the CLI later only if you want `cmk search` / `cmk doctor` / cron.
@@ -133,7 +133,7 @@ The plugin bundles the hooks + skills, so it's complete without the npm CLI. Add
 Full walkthrough: **[QUICKSTART.md](QUICKSTART.md)**. Both routes are verified on Windows / macOS / Linux in CI.
 
 > [!NOTE]
-> **Updating** has two parts on both routes: update the machinery, then re-stamp each project (`cmk install` again, or `/claude-memory-kit:bootstrap`). `cmk doctor` flags any project that's behind so you don't have to remember. Full steps in [QUICKSTART.md](QUICKSTART.md).
+> **Updating** has two parts on both routes: update the machinery, then re-stamp each project (`cmk install` again, or `/core-memory-kit:bootstrap`). `cmk doctor` flags any project that's behind so you don't have to remember. Full steps in [QUICKSTART.md](QUICKSTART.md).
 
 ## How it works
 
@@ -143,7 +143,7 @@ Full walkthrough: **[QUICKSTART.md](QUICKSTART.md)**. Both routes are verified o
 | --- | --- | --- | --- |
 | **Project** | `<repo>/context/` | committed — travels with `clone` | Decisions, conventions, file purposes |
 | **Local** | `<repo>/context.local/` | gitignored, per-machine | Machine paths, local tool versions |
-| **User** | `~/.claude-memory-kit/` | cross-project, per-person | Persona, cross-project lessons |
+| **User** | `~/.core-memory-kit/` | cross-project, per-person | Persona, cross-project lessons |
 
 Project memory follows the **repo** (teammates get it on clone). Your persona follows **you** — machine-local, never committed, so your working style never leaks to everyone who clones. Carry it between your own machines with `cmk persona export` / `import`.
 
@@ -171,7 +171,7 @@ There's more — `cmk register-crons`, `cmk config`, `cmk persona generate/expor
 
 ## Working with Cursor
 
-[Cursor](https://cursor.com) removed its native Memories feature (2.1.x) — static rules are its only built-in persistence. `cmk install --ide cursor` restores the full automatic loop: recalled memory injects at session start (`sessionStart` → `additional_context`), each turn is captured at `afterAgentResponse`, edits are observed, the delete-guardrail screens shell commands (`beforeShellExecution`), and an always-applied rule (`.cursor/rules/claude-memory-kit.mdc`) points the agent at the recall surface. All hooks drive one dispatcher (`cmk cursor-hook`) and are wired into `.cursor/hooks.json` without touching your own hooks. Restart Cursor after install so the hooks load. The full setup, surface table, backend, and dual-agent notes are in **[docs/CURSOR.md](docs/CURSOR.md)**.
+[Cursor](https://cursor.com) removed its native Memories feature (2.1.x) — static rules are its only built-in persistence. `cmk install --ide cursor` restores the full automatic loop: recalled memory injects at session start (`sessionStart` → `additional_context`), each turn is captured at `afterAgentResponse`, edits are observed, the delete-guardrail screens shell commands (`beforeShellExecution`), and an always-applied rule (`.cursor/rules/core-memory-kit.mdc`) points the agent at the recall surface. All hooks drive one dispatcher (`cmk cursor-hook`) and are wired into `.cursor/hooks.json` without touching your own hooks. Restart Cursor after install so the hooks load. The full setup, surface table, backend, and dual-agent notes are in **[docs/CURSOR.md](docs/CURSOR.md)**.
 
 ## Working with Codex
 
@@ -224,7 +224,7 @@ Keyword search structurally misses natural-language questions; the embedded sema
 Every push and PR runs secret scanning (`gitleaks` + GitGuardian), CVE / supply-chain checks (`osv-scanner` + `npm audit` + Dependabot), and SAST (`CodeQL`). Releases publish from CI on a `v*` tag with a **signed npm provenance attestation**. Threat model + disclosure policy: [`SECURITY.md`](SECURITY.md).
 
 ```bash
-npm view @lh8ppl/claude-memory-kit dist.attestations   # verify what you install
+npm view @lh8ppl/core-memory-kit dist.attestations   # verify what you install
 ```
 
 The **delete-guardrail** (`cmk-guard-memory`) is a `PreToolUse` hook that blocks a destructive command aimed at a memory path before it runs, on both agents. It's **fail-open** (a broken guard never wedges your session) and intentionally broad — a false block is recoverable; a false allow is the data loss it prevents.

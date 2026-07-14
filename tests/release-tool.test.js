@@ -20,7 +20,7 @@ import { assembleRelease, extractReleaseNotes, prepareReleaseFiles } from '../sc
 
 const SAMPLE = `# Changelog
 
-All notable changes to claude-memory-kit are documented in this file.
+All notable changes to core-memory-kit are documented in this file.
 
 ## [Unreleased]
 
@@ -30,17 +30,17 @@ v0.2 — automatic memory + "Claude stays consistent."
 
 ### Added
 
-- **persona:** \`cmk persona generate\` synthesizes a cross-project persona ([#82](https://github.com/LH8PPL/claude-memory-kit/pull/82)).
+- **persona:** \`cmk persona generate\` synthesizes a cross-project persona ([#82](https://github.com/LH8PPL/core-memory-kit/pull/82)).
 
 ### Fixed
 
-- **conflict-queue:** trust mis-read on indented provenance comments ([#82](https://github.com/LH8PPL/claude-memory-kit/pull/82)).
+- **conflict-queue:** trust mis-read on indented provenance comments ([#82](https://github.com/LH8PPL/core-memory-kit/pull/82)).
 
 ## [0.1.2] — 2026-05-30
 
 ### Added
 
-- \`cmk remember\` ([#74](https://github.com/LH8PPL/claude-memory-kit/pull/74)).
+- \`cmk remember\` ([#74](https://github.com/LH8PPL/core-memory-kit/pull/74)).
 `;
 
 describe('assembleRelease() — generate a release from the [Unreleased] section', () => {
@@ -98,7 +98,7 @@ describe('assembleRelease() — generate a release from the [Unreleased] section
 
 ### Added
 
-- first ever feature ([#1](https://github.com/LH8PPL/claude-memory-kit/pull/1)).
+- first ever feature ([#1](https://github.com/LH8PPL/core-memory-kit/pull/1)).
 `;
     const r = assembleRelease({ changelogText: firstRelease, currentVersion: '0.0.1', bump: 'minor', date: '2026-06-15' });
     expect(r.newVersion).toBe('0.1.0');
@@ -178,7 +178,7 @@ describe('prepareReleaseFiles() — Door 2: writes CHANGELOG + bumps package.jso
     mkdirSync(join(root, 'packages', 'cli'), { recursive: true });
     writeFileSync(
       join(root, 'packages', 'cli', 'package.json'),
-      JSON.stringify({ name: '@lh8ppl/claude-memory-kit', version: '0.1.2' }, null, 2) + '\n',
+      JSON.stringify({ name: '@lh8ppl/core-memory-kit', version: '0.1.2' }, null, 2) + '\n',
       'utf8',
     );
   });
@@ -195,7 +195,7 @@ describe('prepareReleaseFiles() — Door 2: writes CHANGELOG + bumps package.jso
 
     const pkg = JSON.parse(readFileSync(join(root, 'packages', 'cli', 'package.json'), 'utf8'));
     expect(pkg.version).toBe('0.2.0');
-    expect(pkg.name).toBe('@lh8ppl/claude-memory-kit'); // other fields untouched
+    expect(pkg.name).toBe('@lh8ppl/core-memory-kit'); // other fields untouched
   });
 
   it('dry mode computes the version but does NOT write either file', () => {

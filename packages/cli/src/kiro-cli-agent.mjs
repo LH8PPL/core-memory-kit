@@ -79,7 +79,7 @@ const AGENT_NAME = 'cmk';
 // A marker carried in the `description` (a VALID schema field — unlike the old
 // top-level `managedBy`, which kiro-cli's strict `agent validate` rejects). Used
 // as a belt on top of the well-known path for ownership detection on uninstall.
-const MANAGED_MARKER = '[claude-memory-kit]';
+const MANAGED_MARKER = '[core-memory-kit]';
 
 // The kiro config root is `~/.kiro/`. $MEMORY_KIT_KIRO_DIR (or the back-compat
 // $MEMORY_KIT_AWS_DIR) overrides the BASE — REQUIRED in tests so the user-tier
@@ -106,7 +106,7 @@ function cliSettingsPathOf(kiroDir) {
 function buildAgentConfig() {
   const cfg = {
     name: AGENT_NAME,
-    description: `claude-memory-kit — automatic per-session memory (inject + capture). ${MANAGED_MARKER}`,
+    description: `core-memory-kit — automatic per-session memory (inject + capture). ${MANAGED_MARKER}`,
     // ★ `tools` is the agent's CAPABILITY SET — what it CAN use. WITHOUT it, a
     // custom agent has NO tools: it cannot run shell commands at all, so the model
     // "calls" cmk remember but nothing executes (the cut-gate-kiro-cli silent
@@ -150,7 +150,7 @@ function buildAgentConfig() {
     //     so they capture/recall correctly with no model action.
     //   • EXPLICIT recall — `cmk search` (a pre-trusted shell command).
     prompt:
-      'You have claude-memory-kit memory for this project, captured automatically ' +
+      'You have core-memory-kit memory for this project, captured automatically ' +
       'each turn by the kit\'s hooks. Use the kit\'s SHELL COMMANDS for explicit ' +
       'recall/save. ### CRITICAL command form — do NOT prefix a kit command with ' +
       '`cd`. A `cd … && cmk …` prefix breaks kiro-cli\'s command allowlist (the ' +

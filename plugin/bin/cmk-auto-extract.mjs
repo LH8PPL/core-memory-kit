@@ -70,7 +70,7 @@ try {
 
 // Task 61 — inline cross-project promotion: pass the user-tier dir so
 // cross-project doctrine promotes immediately. Resolve the base via the
-// shared tier-paths resolver (never re-derive ~/.claude-memory-kit inline —
+// shared tier-paths resolver (never re-derive ~/.core-memory-kit inline —
 // CLAUDE.md shared-modules rule).
 //
 // Wedge-from-empty (D-262): pass userDir UNCONDITIONALLY — the promote path

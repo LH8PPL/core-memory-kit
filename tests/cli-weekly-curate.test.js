@@ -240,7 +240,7 @@ describe('Task 34 — weeklyCurate', () => {
     it('defaultUserDir(): env override wins, else the home default (the production entry-point resolver)', () => {
       expect(defaultUserDir({ MEMORY_KIT_USER_DIR: '/x/custom' })).toBe('/x/custom');
       const fallback = defaultUserDir({});
-      expect(fallback).toContain('.claude-memory-kit');
+      expect(fallback).toContain('.core-memory-kit');
     });
 
     it('cooldown-skipped pass: the temporal sweep does NOT run (it needs the Haiku cycle)', async () => {

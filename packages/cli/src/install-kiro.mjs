@@ -44,7 +44,7 @@ import {
 
 const MCP_PATH = ['settings', 'mcp.json'];
 const MCP_SERVERS_KEY = 'mcpServers';
-const MCP_SERVER_NAME = 'claude-memory-kit';
+const MCP_SERVER_NAME = 'core-memory-kit';
 // autoApprove pre-approves the kit's MCP tools so Kiro runs them WITHOUT a
 // per-call "Reject / Trust / Run" prompt (found live in cut-gate-kiro Session 1:
 // Kiro gates MCP TOOL calls separately from the shell-command hooks D-194 wired,
@@ -74,9 +74,9 @@ const MCP_ENTRY = Object.freeze({
 const STEERING_PATH = ['steering', 'cmk.md'];
 const STEERING_FRONTMATTER = '---\ninclusion: always\n---\n\n';
 const MEMORY_BODY = [
-  '# claude-memory-kit',
+  '# core-memory-kit',
   '',
-  'This project uses claude-memory-kit for durable, in-repo memory across sessions.',
+  'This project uses core-memory-kit for durable, in-repo memory across sessions.',
   'Recall before re-deriving: run `cmk search "<topic>"` for prior decisions,',
   'preferences, and project facts; the curated tiers live under `context/`.',
   'Capture durable facts with `cmk remember` — never hand-edit the memory files.',

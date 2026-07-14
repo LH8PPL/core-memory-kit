@@ -47,12 +47,12 @@ describe('Task 50 — installKiro (all 4 surfaces)', () => {
     // MCP
     expect(existsSync(p('settings', 'mcp.json'))).toBe(true);
     const mcp = JSON.parse(readFileSync(p('settings', 'mcp.json'), 'utf8'));
-    expect(mcp.mcpServers).toHaveProperty('claude-memory-kit');
+    expect(mcp.mcpServers).toHaveProperty('core-memory-kit');
     // autoApprove (found live in cut-gate-kiro Session 1): Kiro gates MCP TOOL
     // calls separately from shell hooks, so without this every mk_remember etc.
     // pops a Reject/Trust/Run prompt. The server entry pre-approves the kit's
     // 11 MCP tools (explicit list, scoped to our tools — not a "*" wildcard).
-    const auto = mcp.mcpServers['claude-memory-kit'].autoApprove;
+    const auto = mcp.mcpServers['core-memory-kit'].autoApprove;
     expect(Array.isArray(auto)).toBe(true);
     expect(auto).toEqual(
       expect.arrayContaining([
@@ -68,7 +68,7 @@ describe('Task 50 — installKiro (all 4 surfaces)', () => {
     // CLAUDE_PROJECT_DIR / cwd). kiro-cli does NOT use MCP (its agent sets
     // includeMcpJson:false; explicit memory goes through `cmk remember`/`cmk
     // search` shell commands), so the project-root never needs to ride in here.
-    const srv = mcp.mcpServers['claude-memory-kit'];
+    const srv = mcp.mcpServers['core-memory-kit'];
     expect(srv.args).toEqual(['mcp', 'serve']);
     expect(srv.env).toBeUndefined();
 
@@ -87,7 +87,7 @@ describe('Task 50 — installKiro (all 4 surfaces)', () => {
     // AGENTS.md (project root — Kiro's always-loaded instruction file; D-188)
     const agentsMd = join(projectRoot, 'AGENTS.md');
     expect(existsSync(agentsMd)).toBe(true);
-    expect(readFileSync(agentsMd, 'utf8')).toMatch(/claude-memory-kit/);
+    expect(readFileSync(agentsMd, 'utf8')).toMatch(/core-memory-kit/);
   });
 
   it('reports the surfaces it wired', () => {
@@ -134,7 +134,7 @@ describe('Task 50 — installKiro (all 4 surfaces)', () => {
     const body = readFileSync(agentsMd, 'utf8');
     expect(body).toMatch(/My project agent rules/); // user content preserved
     expect(body).toMatch(/Always use uv\./);
-    expect(body).toMatch(/claude-memory-kit:start/); // our managed block appended
+    expect(body).toMatch(/core-memory-kit:start/); // our managed block appended
   });
 
   it('is idempotent — a second install reports no change', () => {
@@ -153,7 +153,7 @@ describe('Task 50 — installKiro (all 4 surfaces)', () => {
     installKiro({ projectRoot, awsDir });
     const mcp = JSON.parse(readFileSync(p('settings', 'mcp.json'), 'utf8'));
     expect(mcp.mcpServers.theirs).toEqual({ command: 'x' });
-    expect(mcp.mcpServers).toHaveProperty('claude-memory-kit');
+    expect(mcp.mcpServers).toHaveProperty('core-memory-kit');
   });
 
   it('refuses to clobber a corrupt mcp.json (returns error, file untouched)', () => {
@@ -177,7 +177,7 @@ describe('Task 50 — installKiro (all 4 surfaces)', () => {
 
       const mcp = JSON.parse(readFileSync(p('settings', 'mcp.json'), 'utf8'));
       expect(mcp.mcpServers.theirs).toEqual({ command: 'x' }); // preserved
-      expect(mcp.mcpServers['claude-memory-kit']).toBeUndefined(); // ours gone
+      expect(mcp.mcpServers['core-memory-kit']).toBeUndefined(); // ours gone
       expect(existsSync(p('skills', 'memory-search'))).toBe(false);
       expect(existsSync(p('hooks', 'cmk-capture.kiro.hook'))).toBe(false);
     });
@@ -190,7 +190,7 @@ describe('Task 50 — installKiro (all 4 surfaces)', () => {
       uninstallKiro({ projectRoot, awsDir });
       const body = readFileSync(agentsMd, 'utf8');
       expect(body).toMatch(/User rules/); // user content survives
-      expect(body).not.toMatch(/claude-memory-kit:start/); // our block gone
+      expect(body).not.toMatch(/core-memory-kit:start/); // our block gone
     });
 
     it('never touches context/ (the shared brain is preserved on uninstall)', () => {
@@ -243,7 +243,7 @@ describe('Task 50 — installKiro (all 4 surfaces)', () => {
       uninstallKiro({ projectRoot, awsDir });
       expect(existsSync(steer)).toBe(true); // NOT deleted
       expect(readFileSync(steer, 'utf8')).toMatch(/My team notes/); // user content intact
-      expect(readFileSync(steer, 'utf8')).not.toMatch(/claude-memory-kit:start/); // our block still gone
+      expect(readFileSync(steer, 'utf8')).not.toMatch(/core-memory-kit:start/); // our block still gone
     });
 
     it('KEEPS an AGENTS.md with user frontmatter + body + a trailing --- (no data loss)', () => {

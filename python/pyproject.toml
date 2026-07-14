@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "cmk-canonicalize"
 version = "0.1.0.dev0"
-description = "Python parallel to @cmk/canonicalize. Deterministic text canonicalization + content-addressed ID generation for claude-memory-kit. Byte-identical with the Node implementation against fixtures/canonicalize-vectors.json."
+description = "Python parallel to @cmk/canonicalize. Deterministic text canonicalization + content-addressed ID generation for core-memory-kit. Byte-identical with the Node implementation against fixtures/canonicalize-vectors.json."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -25,8 +25,8 @@ classifiers = [
 test = ["pytest>=8.0"]
 
 [project.urls]
-Repository = "https://github.com/LH8PPL/claude-memory-kit"
-Source = "https://github.com/LH8PPL/claude-memory-kit/tree/main/python"
+Repository = "https://github.com/LH8PPL/core-memory-kit"
+Source = "https://github.com/LH8PPL/core-memory-kit/tree/main/python"
 
 [tool.hatch.build.targets.wheel]
 packages = ["cmk_canonicalize"]

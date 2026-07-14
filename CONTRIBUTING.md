@@ -1,12 +1,12 @@
-# Contributing to claude-memory-kit
+# Contributing to core-memory-kit
 
 Thanks for your interest in improving the kit itself (as opposed to installing it in your own project). This guide covers the development workflow, testing, and the conventions the codebase follows.
 
 ## Getting started
 
 ```bash
-git clone https://github.com/LH8PPL/claude-memory-kit.git
-cd claude-memory-kit
+git clone https://github.com/LH8PPL/core-memory-kit.git
+cd core-memory-kit
 npm install
 npm test          # full suite — should be green before you start
 ```
@@ -49,4 +49,4 @@ Releases are cut by the maintainer via `npm run release -- <patch|minor|major>` 
 
 ## Reporting issues
 
-Bugs and feature requests are welcome via [GitHub Issues](https://github.com/LH8PPL/claude-memory-kit/issues). For security vulnerabilities, follow the disclosure policy in [`SECURITY.md`](SECURITY.md) — please don't open a public issue for those.
+Bugs and feature requests are welcome via [GitHub Issues](https://github.com/LH8PPL/core-memory-kit/issues). For security vulnerabilities, follow the disclosure policy in [`SECURITY.md`](SECURITY.md) — please don't open a public issue for those.

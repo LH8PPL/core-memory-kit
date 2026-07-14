@@ -135,7 +135,7 @@ Registered via `cmk register-crons`. Translates to crontab entries (Linux), Laun
 │                       │                                             │
 │                       ▼                                             │
 │                  context/memory/<type>_*.md, MEMORY.md,             │
-│                  ~/.claude-memory-kit/ (cross-project doctrine)     │
+│                  ~/.core-memory-kit/ (cross-project doctrine)     │
 │                  (writes take effect NEXT session — frozen snapshot)│
 └─────────────────────────────────────────────────────────────────────┘
 
@@ -163,7 +163,7 @@ If yes → routes to the right file via memory-write. If no → exits silently. 
 
 A global memory at `~/.claude/memory/` would conflate projects. The fact that you prefer terse responses in your data-science project doesn't mean you want them in your wedding-planning project. Per-project lets each project's persona stay distinct.
 
-But genuine cross-project commonalities (you, the human, prefer X **everywhere**) do belong in one place — so the kit keeps a **third tier**: the user tier at `~/.claude-memory-kit/`. When you state how you work everywhere ("I always use pnpm", "run the linter first in every project"), auto-extract promotes it to the user tier *that turn*, and every project's SessionStart snapshot loads it — so a brand-new project cold-opens already knowing your style, with no copy-paste and no per-project re-statement. The split is deliberate: project-specific facts stay in `context/` (committed, travels with the repo); cross-project doctrine lives in the user tier (machine-local, private, **never committed** — carry it across your *own* machines with `cmk persona export`/`import`). Promotion *into* a project's committed memory is the one place explicit still beats implicit — that's `cmk lessons promote`.
+But genuine cross-project commonalities (you, the human, prefer X **everywhere**) do belong in one place — so the kit keeps a **third tier**: the user tier at `~/.core-memory-kit/`. When you state how you work everywhere ("I always use pnpm", "run the linter first in every project"), auto-extract promotes it to the user tier *that turn*, and every project's SessionStart snapshot loads it — so a brand-new project cold-opens already knowing your style, with no copy-paste and no per-project re-statement. The split is deliberate: project-specific facts stay in `context/` (committed, travels with the repo); cross-project doctrine lives in the user tier (machine-local, private, **never committed** — carry it across your *own* machines with `cmk persona export`/`import`). Promotion *into* a project's committed memory is the one place explicit still beats implicit — that's `cmk lessons promote`.
 
 ## What this is NOT
 

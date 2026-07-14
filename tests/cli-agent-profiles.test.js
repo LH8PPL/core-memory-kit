@@ -72,7 +72,7 @@ describe('Task 50.C/50.E — agent-profiles registry', () => {
     });
 
     it('steering + MCP at the verified paths', () => {
-      expect(k.instructionFile).toBe('.kiro/steering/claude-memory-kit.md');
+      expect(k.instructionFile).toBe('.kiro/steering/core-memory-kit.md');
       expect(k.mcp.path).toBe('.kiro/settings/mcp.json');
       expect(k.mcp.serversKey).toBe('mcpServers');
     });
@@ -95,7 +95,7 @@ describe('Task 50.C/50.E — agent-profiles registry', () => {
     });
 
     it('instruction leg is a .cursor/rules .mdc with alwaysApply frontmatter (plain .md is ignored by Cursor)', () => {
-      expect(c.instructionFile).toBe('.cursor/rules/claude-memory-kit.mdc');
+      expect(c.instructionFile).toBe('.cursor/rules/core-memory-kit.mdc');
       expect(c.instructionFrontmatter).toContain('alwaysApply: true');
     });
 

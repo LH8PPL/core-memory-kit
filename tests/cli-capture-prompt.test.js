@@ -297,7 +297,7 @@ describe('Task 75.2 — buildMemoryHint (the "memory available" recall nudge)', 
     seedIndex();
     const hint = buildMemoryHint({ projectRoot, prompt: 'what did we decide about the deploy target?' });
     expect(hint).toMatch(/memory-search/);
-    expect(hint).toMatch(/claude-memory-kit/);
+    expect(hint).toMatch(/core-memory-kit/);
     // Cut-gate v0.3.1: the hint also cues STRUCTURE/architecture recall — those
     // questions were re-deriving from code instead of recalling (the recall hole).
     expect(hint).toMatch(/structure|architecture/i);

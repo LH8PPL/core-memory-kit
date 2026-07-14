@@ -54,7 +54,7 @@ describe('Task 50.E/50.F — installAgent (Kiro)', () => {
       const mcpPath = join(projectRoot, '.kiro', 'settings', 'mcp.json');
       expect(existsSync(mcpPath)).toBe(true);
       const mcp = JSON.parse(readFileSync(mcpPath, 'utf8'));
-      expect(mcp.mcpServers).toHaveProperty('claude-memory-kit');
+      expect(mcp.mcpServers).toHaveProperty('core-memory-kit');
 
       // hooks at .kiro/agents/cmk.json with agentSpawn + stop
       const hooksPath = join(projectRoot, '.kiro', 'agents', 'cmk.json');
@@ -64,7 +64,7 @@ describe('Task 50.E/50.F — installAgent (Kiro)', () => {
       expect(hooksCfg.hooks).toHaveProperty('stop');
 
       // steering file with `inclusion: always` frontmatter
-      const steeringPath = join(projectRoot, '.kiro', 'steering', 'claude-memory-kit.md');
+      const steeringPath = join(projectRoot, '.kiro', 'steering', 'core-memory-kit.md');
       expect(existsSync(steeringPath)).toBe(true);
       const steering = readFileSync(steeringPath, 'utf8');
       expect(steering).toMatch(/inclusion:\s*always/);
@@ -93,7 +93,7 @@ describe('Task 50.E/50.F — installAgent (Kiro)', () => {
       const mcp = JSON.parse(readFileSync(mcpPath, 'utf8'));
       // their server survived, ours added
       expect(mcp.mcpServers['user-server']).toEqual({ command: 'theirs' });
-      expect(mcp.mcpServers).toHaveProperty('claude-memory-kit');
+      expect(mcp.mcpServers).toHaveProperty('core-memory-kit');
       expect(Object.keys(mcp.mcpServers)).toHaveLength(2);
     });
 
@@ -120,7 +120,7 @@ describe('Task 50.E/50.F — installAgent (Kiro)', () => {
       const agentsPath = join(projectRoot, 'AGENTS.md');
       expect(existsSync(agentsPath)).toBe(true);
       const body = readFileSync(agentsPath, 'utf8');
-      expect(body).toMatch(/claude-memory-kit:start/);
+      expect(body).toMatch(/core-memory-kit:start/);
       expect(body).toMatch(/cmk search/);
       // instruction-only: no agent config files
       expect(r.legs.mcp).toBeUndefined();
@@ -135,9 +135,9 @@ describe('Task 50.E/50.F — installAgent (Kiro)', () => {
       installAgent({ projectRoot, profile: agentsmd() });
       const body = readFileSync(agentsPath, 'utf8');
       expect(body).toContain('# Rules');
-      expect(body).toMatch(/claude-memory-kit:start/);
+      expect(body).toMatch(/core-memory-kit:start/);
       // exactly one blank line between the user content and our block
-      expect(body).toMatch(/# Rules\n\n<!-- claude-memory-kit:start/);
+      expect(body).toMatch(/# Rules\n\n<!-- core-memory-kit:start/);
     });
 
     it('byte-preserves the user content outside our block on uninstall', () => {
@@ -147,12 +147,12 @@ describe('Task 50.E/50.F — installAgent (Kiro)', () => {
       installAgent({ projectRoot, profile: agentsmd() });
       let body = readFileSync(agentsPath, 'utf8');
       expect(body).toContain('My project rules'); // user content preserved on install
-      expect(body).toMatch(/claude-memory-kit:start/);
+      expect(body).toMatch(/core-memory-kit:start/);
 
       uninstallAgent({ projectRoot, profile: agentsmd() });
       body = readFileSync(agentsPath, 'utf8');
       expect(body).toContain('My project rules'); // still there after uninstall
-      expect(body).not.toMatch(/claude-memory-kit:start/); // our block gone
+      expect(body).not.toMatch(/core-memory-kit:start/); // our block gone
     });
   });
 
@@ -171,7 +171,7 @@ describe('Task 50.E/50.F — installAgent (Kiro)', () => {
 
       const mcp = JSON.parse(readFileSync(mcpPath, 'utf8'));
       expect(mcp.mcpServers['user-server']).toEqual({ command: 'theirs' });
-      expect(mcp.mcpServers['claude-memory-kit']).toBeUndefined();
+      expect(mcp.mcpServers['core-memory-kit']).toBeUndefined();
     });
 
     it('prunes an emptied servers object (no kit-shaped husk left behind) — review I2', () => {
@@ -206,14 +206,14 @@ describe('Task 50.E/50.F — installAgent (Kiro)', () => {
   // duplicates into one block; uninstall removes them all.
   describe('Task 220 — duplicate instruction blocks (fold on install, remove-all on uninstall)', () => {
     const steeringPath = () =>
-      join(projectRoot, '.kiro', 'steering', 'claude-memory-kit.md');
+      join(projectRoot, '.kiro', 'steering', 'core-memory-kit.md');
 
     function seedTwoBlocks() {
       // Real shape: install once, then simulate a merge that duplicated the block.
       installAgent({ projectRoot, profile: kiro() });
       const once = readFileSync(steeringPath(), 'utf8');
-      const start = once.indexOf('<!-- claude-memory-kit:start -->');
-      const end = once.indexOf('<!-- claude-memory-kit:end -->') + '<!-- claude-memory-kit:end -->'.length;
+      const start = once.indexOf('<!-- core-memory-kit:start -->');
+      const end = once.indexOf('<!-- core-memory-kit:end -->') + '<!-- core-memory-kit:end -->'.length;
       const block = once.slice(start, end);
       writeFileSync(
         steeringPath(),
@@ -228,8 +228,8 @@ describe('Task 50.E/50.F — installAgent (Kiro)', () => {
       expect(r.action).toBe('installed');
 
       const text = readFileSync(steeringPath(), 'utf8');
-      expect((text.match(/claude-memory-kit:start/g) || []).length).toBe(1);
-      expect((text.match(/claude-memory-kit:end/g) || []).length).toBe(1);
+      expect((text.match(/core-memory-kit:start/g) || []).length).toBe(1);
+      expect((text.match(/core-memory-kit:end/g) || []).length).toBe(1);
       expect(text).toContain('user note BETWEEN blocks');
     });
 
@@ -252,8 +252,8 @@ describe('Task 50.E/50.F — installAgent (Kiro)', () => {
       // The steering file keeps the user's note (not kit-only residue) but
       // carries ZERO managed markers.
       const text = readFileSync(steeringPath(), 'utf8');
-      expect(text).not.toContain('claude-memory-kit:start');
-      expect(text).not.toContain('claude-memory-kit:end');
+      expect(text).not.toContain('core-memory-kit:start');
+      expect(text).not.toContain('core-memory-kit:end');
       expect(text).toContain('user note BETWEEN blocks');
     });
   });

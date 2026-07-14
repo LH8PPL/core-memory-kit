@@ -12,20 +12,20 @@ $home_ = $env:USERPROFILE
 $root  = 'C:\cut-gate-backups'
 
 # Explicit map: source dir name (in $HOME) -> destination subfolder under $root.
-# The tier file (.claude-memory-kit) lands as BEFORE-.claude-memory-kit inside it.
+# The tier file (.core-memory-kit) lands as BEFORE-.core-memory-kit inside it.
 # Ordering prefix keeps them chronological-ish by the version/gate they belong to.
 $map = [ordered]@{
-  'v0.2.2-cut-backup-.claude-memory-kit'        = '01_v0.2.2_cut'
-  'cut-gate3-.claude-memory-kit'                = '02_vUnknown_cut-gate3'
-  'cut-gate-6-.claude-memory-kit.bak'           = '03_vUnknown_cut-gate6'
-  'cut-gate7-.claude-memory-kit'                = '04_vUnknown_cut-gate7'
-  'cut-gate8-.claude-memory-kit'                = '05_vUnknown_cut-gate8'
-  'cut-gate-9-.claude-memory-kit'               = '06_vUnknown_cut-gate9'
-  'cut-gate10-.claude-memory-kit'               = '07_vUnknown_cut-gate10'
-  'before-cut-gate-0.3.2-.claude-memory-kit'    = '08_v0.3.2_cut-gate'
-  'before-cut-gate-0.3.3-.claude-memory-kit'    = '09_v0.3.3_cut-gate'
-  'before-cut-gate16-v0.3.3-.claude-memory-kit' = '10_v0.3.3_cut-gate16'
-  'before-cut-gate17-v0.3.4-.claude-memory-kit' = '11_v0.3.4_cut-gate17'
+  'v0.2.2-cut-backup-.core-memory-kit'        = '01_v0.2.2_cut'
+  'cut-gate3-.core-memory-kit'                = '02_vUnknown_cut-gate3'
+  'cut-gate-6-.core-memory-kit.bak'           = '03_vUnknown_cut-gate6'
+  'cut-gate7-.core-memory-kit'                = '04_vUnknown_cut-gate7'
+  'cut-gate8-.core-memory-kit'                = '05_vUnknown_cut-gate8'
+  'cut-gate-9-.core-memory-kit'               = '06_vUnknown_cut-gate9'
+  'cut-gate10-.core-memory-kit'               = '07_vUnknown_cut-gate10'
+  'before-cut-gate-0.3.2-.core-memory-kit'    = '08_v0.3.2_cut-gate'
+  'before-cut-gate-0.3.3-.core-memory-kit'    = '09_v0.3.3_cut-gate'
+  'before-cut-gate16-v0.3.3-.core-memory-kit' = '10_v0.3.3_cut-gate16'
+  'before-cut-gate17-v0.3.4-.core-memory-kit' = '11_v0.3.4_cut-gate17'
 }
 
 Write-Host "Backup root: $root" -ForegroundColor Cyan
@@ -38,7 +38,7 @@ $moved = 0; $missing = 0
 foreach ($name in $map.Keys) {
   $src  = Join-Path $home_ $name
   $dest = Join-Path $root  $map[$name]
-  $tier = Join-Path $dest  'BEFORE-.claude-memory-kit'
+  $tier = Join-Path $dest  'BEFORE-.core-memory-kit'
 
   if (-not (Test-Path $src)) {
     Write-Host "  SKIP (not found): $name" -ForegroundColor DarkGray

@@ -173,7 +173,7 @@ describe('Task 50 — dual-agent coexistence (D-188)', () => {
     // other content, but our markers are gone)
     const claudeMd = join(projectRoot, 'CLAUDE.md');
     if (existsSync(claudeMd)) {
-      expect(readFileSync(claudeMd, 'utf8')).not.toMatch(/claude-memory-kit:start/);
+      expect(readFileSync(claudeMd, 'utf8')).not.toMatch(/core-memory-kit:start/);
     }
     // Kiro surface untouched
     expect(existsSync(join(projectRoot, '.kiro', 'hooks', 'cmk-capture.kiro.hook'))).toBe(true);
@@ -204,7 +204,7 @@ describe('Task 196 — cmk install --ide cursor routing', () => {
     const hooksCfg = JSON.parse(readFileSync(join(projectRoot, '.cursor', 'hooks.json'), 'utf8'));
     expect(hooksCfg.version).toBe(1);
     expect(hooksCfg.hooks.sessionStart[0].command).toMatch(/cmk cursor-hook$/);
-    expect(existsSync(join(projectRoot, '.cursor', 'rules', 'claude-memory-kit.mdc'))).toBe(true);
+    expect(existsSync(join(projectRoot, '.cursor', 'rules', 'core-memory-kit.mdc'))).toBe(true);
     // the agent-neutral scaffold also ran
     expect(existsSync(join(projectRoot, 'context', 'MEMORY.md'))).toBe(true);
     // no Claude-Code-only or Kiro surfaces leak
@@ -224,7 +224,7 @@ describe('Task 196 — cmk install --ide cursor routing', () => {
     const hooksCfg = JSON.parse(readFileSync(join(projectRoot, '.cursor', 'hooks.json'), 'utf8'));
     expect(hooksCfg.hooks?.sessionStart).toBeUndefined();
     const mcp = JSON.parse(readFileSync(join(projectRoot, '.cursor', 'mcp.json'), 'utf8'));
-    expect(mcp.mcpServers?.['claude-memory-kit']).toBeUndefined();
+    expect(mcp.mcpServers?.['core-memory-kit']).toBeUndefined();
     // context/ is sacred — never touched by uninstall
     expect(existsSync(join(projectRoot, 'context', 'MEMORY.md'))).toBe(true);
   });

@@ -84,7 +84,7 @@ try {
   // CONCURRENTLY (disjoint inputs/outputs → no race), keeping the SessionEnd
   // wall-clock at max(~50s) under the 60s hook ceiling instead of the sequential
   // sum (~100s). See packages/cli/src/session-end-tasks.mjs for the full rationale.
-  const userDir = process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+  const userDir = process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.core-memory-kit');
   const outcomes = await runSessionEndTasks({
     projectRoot,
     userDir,

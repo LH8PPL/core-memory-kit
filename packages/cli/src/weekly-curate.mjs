@@ -64,7 +64,7 @@ const TODAY_RE = /^today-(\d{4}-\d{2}-\d{2})\.md$/;
 
 function buildCurateInstructions(archiveMaxBytes) {
   return [
-    'You are a memory archivist for claude-memory-kit. The input below is a series of daily session summaries (one per day, oldest first) that are now older than 7 days. Consolidate them into a compact archive section.',
+    'You are a memory archivist for core-memory-kit. The input below is a series of daily session summaries (one per day, oldest first) that are now older than 7 days. Consolidate them into a compact archive section.',
     '',
     'Output ONLY the consolidated Markdown. Do not write preamble. Do not acknowledge the task. Begin your response with the first heading.',
     '',

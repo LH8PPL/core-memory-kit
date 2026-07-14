@@ -1,10 +1,10 @@
-# claude-memory-kit — project CLAUDE.md
+# core-memory-kit — project CLAUDE.md
 
 Auto-loaded by Claude Code at session start when this repo is the primary workspace. Read in full before responding to the user.
 
 ## What this project is
 
-A per-project, in-repo memory system for Claude Code. Fixes per-session amnesia by storing durable facts as markdown inside `<repo>/context/` (committed) + `<repo>/context.local/` (gitignored) + `~/.claude-memory-kit/` (user-tier). Architecture-first v0.1 (~50 dev-days, 36 tasks). Not Cursor's MVP shape — we're laying foundations first.
+A per-project, in-repo memory system for Claude Code. Fixes per-session amnesia by storing durable facts as markdown inside `<repo>/context/` (committed) + `<repo>/context.local/` (gitignored) + `~/.core-memory-kit/` (user-tier). Architecture-first v0.1 (~50 dev-days, 36 tasks). Not Cursor's MVP shape — we're laying foundations first.
 
 ## Read these in order (10 minutes total)
 
@@ -179,7 +179,7 @@ When implementing new task modules under [`packages/cli/src/`](packages/cli/src/
 
 | Concern | Use this module | Don't |
 | --- | --- | --- |
-| Tier path resolution (`P/L/U`, projectRoot, userDir) | [`tier-paths.mjs`](packages/cli/src/tier-paths.mjs) | Re-derive `homedir() + .claude-memory-kit` inline |
+| Tier path resolution (`P/L/U`, projectRoot, userDir) | [`tier-paths.mjs`](packages/cli/src/tier-paths.mjs) | Re-derive `homedir() + .core-memory-kit` inline |
 | Frontmatter read/write (YAML in fact files, HTML-comment in scratchpads) | [`frontmatter.mjs`](packages/cli/src/frontmatter.mjs) (js-yaml–backed) | Write a "tiny shallow split-on-colon" parser |
 | Audit-log appends (any mutating operation) | [`audit-log.mjs`](packages/cli/src/audit-log.mjs) — `appendAuditEntry()` | `appendFileSync` to `.locks/audit.log` directly |
 | Error / result shape | [`result-shapes.mjs`](packages/cli/src/result-shapes.mjs) — `errorResult()` / `notFoundResult()` + `ERROR_CATEGORIES` enum | Hand-roll `{action: 'error', errorCategory: 'schema', ...}` per file |
@@ -376,18 +376,18 @@ The kit doesn't become usable until **Task 23** (auto-extract subagent + memory-
 ## When in doubt
 
 Re-read the journey log. If still in doubt, ask the user with one specific question — not four bullet-pointed options.
-<!-- claude-memory-kit:start v0.5.0 -->
-## Memory System — claude-memory-kit
+<!-- core-memory-kit:start v0.5.0 -->
+## Memory System — core-memory-kit
 
-This project uses **claude-memory-kit** for per-project, in-repo memory that survives session boundaries. Memory lives in `context/` (committed) and `context.local/` (gitignored). Cross-project memory lives at `~/.claude-memory-kit/` (or `$MEMORY_KIT_USER_DIR`).
+This project uses **core-memory-kit** for per-project, in-repo memory that survives session boundaries. Memory lives in `context/` (committed) and `context.local/` (gitignored). Cross-project memory lives at `~/.core-memory-kit/` (or `$MEMORY_KIT_USER_DIR`).
 
-> This block is the runtime contract for the kit. `cmk doctor` reports which layers are active in your install. Docs: <https://github.com/LH8PPL/claude-memory-kit>
+> This block is the runtime contract for the kit. `cmk doctor` reports which layers are active in your install. Docs: <https://github.com/LH8PPL/core-memory-kit>
 
 ### Where memory lives
 
 | Tier | Path | Travels with `git clone`? |
 | --- | --- | --- |
-| **User** | `~/.claude-memory-kit/` | No — machine-local, cross-project |
+| **User** | `~/.core-memory-kit/` | No — machine-local, cross-project |
 | **Project** | `<repo>/context/` | **Yes** — committed |
 | **Local** | `<repo>/context.local/` | No — gitignored, per-machine |
 
@@ -401,7 +401,7 @@ Precedence at session start: local > project > user (most-specific wins, others 
 
 ### Health checks (when `cmk doctor` is live)
 
-The `cmk doctor` health checks verify each layer is wired correctly: install integrity, hook registration, transcript capture freshness, INDEX accuracy, cron registration, semantic search backend, native Auto Memory coexistence, and stale locks. Full design + decision records: <https://github.com/LH8PPL/claude-memory-kit>.
+The `cmk doctor` health checks verify each layer is wired correctly: install integrity, hook registration, transcript capture freshness, INDEX accuracy, cron registration, semantic search backend, native Auto Memory coexistence, and stale locks. Full design + decision records: <https://github.com/LH8PPL/core-memory-kit>.
 
 ### Recalling memory (for Claude)
 
@@ -410,7 +410,7 @@ The snapshot injected at session start is a **bounded hot index, not everything*
 - **`cmk search "<topic>"`** — find any captured fact (decisions, preferences, config, lessons) across the project + user tiers.
 - **`cmk search "<topic>" --scope decisions`** — the append-only **decision journal** (`context/DECISIONS.md`). Use it for decision **history / evolution** — "what did we reject", "did X change", "why did we move away from Y" — it keeps superseded + retracted decisions the live fact store drops. (A plain `cmk search` answers "what's the current decision"; this answers "how it got there".)
 - **`context/memory/<type>_<slug>.md`** — the granular fact archive with full **Why / How** rationale (`context/memory/INDEX.md` lists them).
-- **`~/.claude-memory-kit/` (`USER.md` / `HABITS.md` / `LESSONS.md`)** — how this user works across *all* their projects.
+- **`~/.core-memory-kit/` (`USER.md` / `HABITS.md` / `LESSONS.md`)** — how this user works across *all* their projects.
 
 Reach for these *first* — re-deriving an answer the project already recorded (by re-reading files, re-searching, or working it out again) wastes the memory that exists precisely so you don't have to. Recall from memory first, then verify against the source if needed.
 
@@ -438,5 +438,5 @@ This block is managed by `cmk install`. To remove it cleanly:
 cmk uninstall
 ```
 
-Everything outside the `claude-memory-kit:start` / `:end` markers is byte-preserved.
-<!-- claude-memory-kit:end -->
+Everything outside the `core-memory-kit:start` / `:end` markers is byte-preserved.
+<!-- core-memory-kit:end -->

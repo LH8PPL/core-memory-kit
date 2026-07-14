@@ -88,7 +88,7 @@ export function validatePath(p, { projectRoot, userDir }) {
   // Per CLAUDE.md "Shared modules" rule: derive every tier root from
   // tier-paths.mjs's resolveTierRoot rather than re-deriving inline.
   // The earlier draft constructed the user-tier root as
-  // `resolvePath(userDir ?? homedir() + '/.claude-memory-kit')` —
+  // `resolvePath(userDir ?? homedir() + '/.core-memory-kit')` —
   // which silently drifted from resolveTierRoot's posture (honoring
   // env vars + path normalization). Surfaced as Layer-5 checkpoint
   // finding L5-I1 (2026-05-28); fixed by going through the shared

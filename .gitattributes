@@ -24,8 +24,8 @@
 *.yaml text eol=lf
 *.sh text eol=lf
 
-# claude-memory-kit:gitattributes:start v0.5.0
-# claude-memory-kit — added by `cmk install`. Do not edit by hand;
+# core-memory-kit:gitattributes:start v0.5.0
+# core-memory-kit — added by `cmk install`. Do not edit by hand;
 # `cmk install` refreshes these lines idempotently. Remove via
 # `cmk uninstall`.
 #
@@ -41,4 +41,4 @@
 # under context/ is never force-normalized + corrupted.
 context/**/*.md text eol=lf
 context/**/*.json text eol=lf
-# claude-memory-kit:gitattributes:end
+# core-memory-kit:gitattributes:end

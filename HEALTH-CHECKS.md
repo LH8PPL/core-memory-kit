@@ -26,7 +26,7 @@ When a check fails, route to its repair step. **Never run install commands silen
 
 Repair: run **`cmk repair --hooks`** — it idempotently merges the kit's canonical hooks block into `.claude/settings.json`, preserving any of your own hooks and other keys. (`cmk install` writes the same block; repair is the targeted re-apply.) After repairing, restart Claude Code.
 
-The block uses PATH-resolved bare bin names (shell form), which resolve the `npm install -g @lh8ppl/claude-memory-kit` global shims on every OS:
+The block uses PATH-resolved bare bin names (shell form), which resolve the `npm install -g @lh8ppl/core-memory-kit` global shims on every OS:
 
 ```json
 "hooks": {
@@ -92,7 +92,7 @@ To remove both entries: `cmk register-crons --unregister`.
 npm 12 (~July 2026) turns dependency install scripts **off by default**, including the implicit node-gyp build that `better-sqlite3`'s binding needs — a fresh `npm install -g` then looks installed but search/reindex crash at first use. `cmk install` detects this up front and offers to fix it inline; HC-8 is the backstop. Repair (the global `allow-scripts` config — the project-level `npm approve-scripts` allowlist does not apply to `-g` installs):
 
 ```bash
-npm install -g @lh8ppl/claude-memory-kit --allow-scripts=better-sqlite3
+npm install -g @lh8ppl/core-memory-kit --allow-scripts=better-sqlite3
 ```
 
 Set-and-forget alternative (one-time, machine-level — also covers future reinstalls and npx; per the npm maintainers in the v12 community discussion):
@@ -113,7 +113,7 @@ npm install -g @huggingface/transformers --allow-scripts=onnxruntime-node
 
 ### HC-9 — Project scaffold behind the installed `cmk` (re-stamp after an update)
 
-After you update the global package (`npm install -g @lh8ppl/claude-memory-kit@latest`), each project's version-stamped scaffold — the CLAUDE.md managed block, the hooks, the skills — stays at the old version until `cmk install` re-runs *there*. HC-9 catches the easily-forgotten per-project step. Repair (in the project HC-9 flagged):
+After you update the global package (`npm install -g @lh8ppl/core-memory-kit@latest`), each project's version-stamped scaffold — the CLAUDE.md managed block, the hooks, the skills — stays at the old version until `cmk install` re-runs *there*. HC-9 catches the easily-forgotten per-project step. Repair (in the project HC-9 flagged):
 
 ```bash
 cmk install

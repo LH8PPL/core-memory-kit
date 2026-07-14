@@ -1,11 +1,11 @@
 {
-  "name": "claude-memory-kit",
+  "name": "core-memory-kit",
   "description": "Per-project in-repo memory system for Claude Code. Frozen-snapshot session loads, auto-extract Stop hook, memory-write skill, keyword search, optional auto-curation crons.",
   "version": "0.1.1",
   "author": {
     "name": "Lior Hollander"
   },
-  "homepage": "https://github.com/LH8PPL/claude-memory-kit",
-  "repository": "https://github.com/LH8PPL/claude-memory-kit",
+  "homepage": "https://github.com/LH8PPL/core-memory-kit",
+  "repository": "https://github.com/LH8PPL/core-memory-kit",
   "license": "MIT"
 }

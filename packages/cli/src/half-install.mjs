@@ -54,7 +54,7 @@ export function halfInstallRecoveryMessage(err) {
     '     end the node processes whose command line contains "cmk mcp serve"',
     '     (Task Manager on Windows, your process viewer elsewhere). They',
     '     reconnect automatically on the next tool call — nothing is lost.',
-    '  2. Reinstall: npm install -g @lh8ppl/claude-memory-kit',
+    '  2. Reinstall: npm install -g @lh8ppl/core-memory-kit',
     '',
     'Your memory data (context/ in your projects + the user tier) is files on',
     'disk and is NOT touched by any of this.',

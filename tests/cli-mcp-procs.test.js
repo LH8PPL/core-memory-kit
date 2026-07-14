@@ -31,11 +31,11 @@ describe('Task 205 — isKitMcpCommandLine', () => {
   it('matches the kit server shapes, rejects everything else', () => {
     expect(isKitMcpCommandLine('node C:\\npm\\cmk.mjs mcp serve')).toBe(true);
     expect(isKitMcpCommandLine('"C:\\Program Files\\nodejs\\node.exe" "…\\bin\\cmk.mjs" mcp serve')).toBe(true);
-    expect(isKitMcpCommandLine('node /usr/lib/node_modules/@lh8ppl/claude-memory-kit/packages/cli/bin/cmk.mjs mcp serve')).toBe(true);
+    expect(isKitMcpCommandLine('node /usr/lib/node_modules/@lh8ppl/core-memory-kit/packages/cli/bin/cmk.mjs mcp serve')).toBe(true);
     // THE REAL WINDOWS PAYLOAD (live-captured 2026-07-11 from a running server —
     // the fixture-corpus discipline): every argument individually quoted. The
     // first matcher version missed exactly this (the D-306 class, caught live).
-    expect(isKitMcpCommandLine('"node"   "C:\\Users\\someone\\AppData\\Roaming\\npm\\\\node_modules\\@lh8ppl\\claude-memory-kit\\bin\\cmk.mjs" "mcp" "serve"')).toBe(true);
+    expect(isKitMcpCommandLine('"node"   "C:\\Users\\someone\\AppData\\Roaming\\npm\\\\node_modules\\@lh8ppl\\core-memory-kit\\bin\\cmk.mjs" "mcp" "serve"')).toBe(true);
     // NOT ours: other MCP servers, other node procs, a grep of the string.
     expect(isKitMcpCommandLine('node some-other-mcp-server serve')).toBe(false);
     expect(isKitMcpCommandLine('node cmk.mjs search "mcp serve"')).toBe(true); // conservative: contains all tokens — acceptable over-match, the preflight only WARNS
@@ -159,7 +159,7 @@ describe('Task 205 — half-install classifier + recovery message', () => {
     const msg = halfInstallRecoveryMessage(new Error("Cannot find module '@modelcontextprotocol/sdk'"));
     expect(msg).toContain('HALF-BROKEN');
     expect(msg).toContain('cmk mcp serve');
-    expect(msg).toContain('npm install -g @lh8ppl/claude-memory-kit');
+    expect(msg).toContain('npm install -g @lh8ppl/core-memory-kit');
     expect(msg).toContain('NOT touched');
     expect(msg).toContain('@modelcontextprotocol/sdk'); // the underlying detail surfaces
   });
@@ -232,7 +232,7 @@ describe('Task 205 — warnRunningMcpServers (the cmk install preflight)', () =>
     // Informed consent (skill-review D-314): the note shows WHAT each pid is,
     // so a confirmed stop is never blind — the command line appears.
     expect(text).toContain('node cmk mcp serve');
-    expect(text).toContain('npm install -g @lh8ppl/claude-memory-kit');
+    expect(text).toContain('npm install -g @lh8ppl/core-memory-kit');
     expect(text.toLowerCase()).toContain('fine for normal use'); // not framed as broken
     expect(stopCalled).toBe(false);
   });
@@ -383,7 +383,7 @@ describe('Task 205 — the bin boundary, REAL spawn (a half-install no longer pr
       });
       expect(r.status).toBe(1);
       expect(r.stderr).toContain('HALF-BROKEN');
-      expect(r.stderr).toContain('npm install -g @lh8ppl/claude-memory-kit');
+      expect(r.stderr).toContain('npm install -g @lh8ppl/core-memory-kit');
       // The cryptic raw-stack-only failure is gone (the stack may still be
       // absent entirely — the recovery message is the contract).
     } finally {

@@ -29,7 +29,7 @@ describe('guard-memory — BLOCK a destructive command on a memory path', () => 
     'rm -rf context.local',
     'Remove-Item context/memory -Recurse',
     'Remove-Item context\\sessions -Force',
-    'rm -rf ~/.claude-memory-kit',
+    'rm -rf ~/.core-memory-kit',
     'rm context/DECISIONS.md',
     'git clean -fd context/',
     'git reset --hard && rm -rf context/sessions',
@@ -63,7 +63,7 @@ describe('guard-memory — BLOCK a destructive command on a memory path', () => 
 
 describe('guard-memory — ALLOW (no false positives)', () => {
   const allowed = [
-    'rm lh8ppl-claude-memory-kit-0.4.0.tgz', // a tarball (not a memory path)
+    'rm lh8ppl-core-memory-kit-0.4.0.tgz', // a tarball (not a memory path)
     'rm -rf node_modules',
     'rm -rf /c/tmp/popup-test', // a throwaway temp dir
     'rm contextual.md', // the WORD "context" mid-word, not the dir

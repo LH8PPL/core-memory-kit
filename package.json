@@ -1,5 +1,5 @@
 {
-  "name": "@claude-memory-kit/repo",
+  "name": "@core-memory-kit/repo",
   "version": "0.0.1",
   "private": true,
   "description": "Per-project, in-repo memory system for Claude Code. Monorepo root for development; published packages live under packages/.",
@@ -54,6 +54,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/LH8PPL/claude-memory-kit.git"
+    "url": "https://github.com/LH8PPL/core-memory-kit.git"
   }
 }

@@ -269,7 +269,7 @@ export async function warnRunningMcpServers(options, { log } = {}) {
       '  Fine for normal use — but stop them before upgrading the global package',
     );
     emit(
-      '  (npm install -g @lh8ppl/claude-memory-kit), or the upgrade can half-break on locked files.',
+      '  (npm install -g @lh8ppl/core-memory-kit), or the upgrade can half-break on locked files.',
     );
     const askFn =
       options?.askImpl ??
@@ -412,7 +412,7 @@ export async function runInstall(options /* , command */) {
   // Outcome over inventory (self-test UX finding): state the resulting state +
   // next action, not a file tally. The old "scaffolded 5, skipped 4 existing"
   // read like a problem on a FRESH folder — the "skipped" are the cross-project
-  // user tier at ~/.claude-memory-kit/ (OUTSIDE this folder), already on disk.
+  // user tier at ~/.core-memory-kit/ (OUTSIDE this folder), already on disk.
   // The full per-tier breakdown is --verbose only.
   const projectName = basename(result.projectRoot);
   const wired =
@@ -454,7 +454,7 @@ export async function runInstall(options /* , command */) {
     log(
       `  files: ${result.created.length} created, ${result.skipped.length} already present` +
         (result.skipped.length
-          ? ' (incl. the cross-project user tier at ~/.claude-memory-kit/, outside this folder)'
+          ? ' (incl. the cross-project user tier at ~/.core-memory-kit/, outside this folder)'
           : ''),
     );
     log(
@@ -894,7 +894,7 @@ export async function runCursorHook(_options = {}, _command, deps = {}) {
           import('./session-end-tasks.mjs'),
           import('./make-backend.mjs'),
         ]);
-        const userDir = env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+        const userDir = env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.core-memory-kit');
         await runSessionEndTasks({
           projectRoot: args.projectRoot,
           userDir,
@@ -1102,7 +1102,7 @@ function runTrust(id, level /* , options, command */) {
 function runLessonsPromote(id, options = {}) {
   const projectRoot = resolvePath(process.cwd());
   const userDir =
-    process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+    process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.core-memory-kit');
   const result = lessonsPromote({
     id,
     projectRoot,
@@ -1159,7 +1159,7 @@ async function runSearch(queryParts, options) {
     ? resolvePath(normalizeProjectPath(options.project))
     : resolvePath(process.cwd());
   const userDir =
-    process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+    process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.core-memory-kit');
   const query = Array.isArray(queryParts) ? queryParts.join(' ') : queryParts;
   const db = openIndexDb({ projectRoot });
   try {
@@ -1312,7 +1312,7 @@ async function runSearch(queryParts, options) {
 export function withReadDb(fn, deps = {}) {
   const projectRoot = deps.projectRoot ?? resolvePath(process.cwd());
   const userDir =
-    deps.userDir ?? process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+    deps.userDir ?? process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.core-memory-kit');
   const logError = deps.logError ?? console.error;
   const db = openIndexDb({ projectRoot });
   try {
@@ -1571,7 +1571,7 @@ export async function runRemember(textParts, options, deps = {}) {
     ? resolvePath(normalizeProjectPath(options.project))
     : (deps.projectRoot ?? resolvePath(process.cwd()));
   const userDir =
-    deps.userDir ?? process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+    deps.userDir ?? process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.core-memory-kit');
   const log = deps.log ?? console.log;
   const logError = deps.logError ?? console.error;
 
@@ -1669,7 +1669,7 @@ export async function runRemember(textParts, options, deps = {}) {
 
 function runReindex(options /* , command */) {
   const projectRoot = resolvePath(process.cwd());
-  const userDir = join(homedir(), '.claude-memory-kit');
+  const userDir = join(homedir(), '.core-memory-kit');
   const result = reindexAction({ tier: 'P', projectRoot });
   console.log(
     `cmk reindex: tier=${result.tier} facts=${result.factCount} bytes=${result.bytes} (${result.indexPath})`,
@@ -1877,7 +1877,7 @@ async function runWeeklyCurate(/* options */) {
 export async function runPersonaGenerate(opts = {}) {
   const projectRoot = opts.projectRoot ?? resolvePath(process.cwd());
   const userDir =
-    opts.userDir ?? process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+    opts.userDir ?? process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.core-memory-kit');
   const log = opts.log ?? console.log;
   const logError = opts.logError ?? console.error;
   try {
@@ -1916,7 +1916,7 @@ export async function runPersonaGenerate(opts = {}) {
 }
 
 function resolveUserDir() {
-  return process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+  return process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.core-memory-kit');
 }
 
 /**
@@ -2106,7 +2106,7 @@ function runRegisterCrons(options /* , command */) {
  */
 async function runDoctorCli(/* options */) {
   const projectRoot = resolvePath(process.cwd());
-  const userDir = join(homedir(), '.claude-memory-kit');
+  const userDir = join(homedir(), '.core-memory-kit');
   try {
     const r = await runDoctor({ projectRoot, userDir });
     if (r.action === 'error') {
@@ -2161,7 +2161,7 @@ const TIER_FLAG_TO_NAME = { local: 'local', project: 'project', user: 'user' };
 
 export function runConfigGet(key, options = {}) {
   const projectRoot = options?.cwd ?? resolvePath(process.cwd());
-  const userDir = options?.userDir ?? join(homedir(), '.claude-memory-kit');
+  const userDir = options?.userDir ?? join(homedir(), '.core-memory-kit');
   const log = options?.log ?? console.log;
   const logError = options?.logError ?? console.error;
   const r = configGet(key, { projectRoot, userDir });
@@ -2176,7 +2176,7 @@ export function runConfigGet(key, options = {}) {
 
 export function runConfigSet(key, value, options = {}) {
   const projectRoot = options?.cwd ?? resolvePath(process.cwd());
-  const userDir = options?.userDir ?? join(homedir(), '.claude-memory-kit');
+  const userDir = options?.userDir ?? join(homedir(), '.core-memory-kit');
   const log = options?.log ?? console.log;
   const logError = options?.logError ?? console.error;
   const tier = TIER_FLAG_TO_NAME[options?.tier ?? 'project'] ?? 'project';
@@ -2192,7 +2192,7 @@ export function runConfigSet(key, value, options = {}) {
 
 export function runConfigShowOrigin(key, options = {}) {
   const projectRoot = options?.cwd ?? resolvePath(process.cwd());
-  const userDir = options?.userDir ?? join(homedir(), '.claude-memory-kit');
+  const userDir = options?.userDir ?? join(homedir(), '.core-memory-kit');
   const log = options?.log ?? console.log;
   const logError = options?.logError ?? console.error;
   const r = configShowOrigin(key, { projectRoot, userDir });
@@ -2217,7 +2217,7 @@ export function runConfigShowOrigin(key, options = {}) {
 // injectable so tests don't spawn a real binary.
 export function runConfigShow(options = {}) {
   const projectRoot = options?.cwd ?? resolvePath(process.cwd());
-  const userDir = options?.userDir ?? join(homedir(), '.claude-memory-kit');
+  const userDir = options?.userDir ?? join(homedir(), '.core-memory-kit');
   const log = options?.log ?? console.log;
   const probe = options?.backendCliProbe ?? ((a) => agentCliOnPath(a));
 
@@ -2234,7 +2234,7 @@ export function runConfigShow(options = {}) {
       ? `${backendAgent}  ← override (backend.agent), differs from installed-for`
       : `${backendAgent}  (follows the installed-for agent)`;
 
-  log('claude-memory-kit — config');
+  log('core-memory-kit — config');
   log(`  installed for:    ${installedFor}`);
   log(`  automatic memory: runs through the ${backendLine}`);
   log(`  backend CLI:      ${cliState}`);
@@ -2263,7 +2263,7 @@ export function runConfigCli(options /* , command */) {
 
 async function runRepairCli(options /* , command */) {
   const projectRoot = resolvePath(process.cwd());
-  const userDir = join(homedir(), '.claude-memory-kit');
+  const userDir = join(homedir(), '.core-memory-kit');
   // Scope flags: --hooks / --locks / --index / --format → run that one only.
   // --all OR no flag → run all of them.
   const only = (flag) =>
@@ -2545,7 +2545,7 @@ async function runMcpDispatch(childName) {
     // remember`/`cmk search` shell commands), so this server is the Claude Code +
     // Kiro IDE path. See resolveMcpProjectRoot in tier-paths.mjs.
     const projectRoot = resolveMcpProjectRoot();
-    const userDir = process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.claude-memory-kit');
+    const userDir = process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.core-memory-kit');
     // ALL logs to stderr per design §10.1; stdout is reserved for
     // JSON-RPC messages handled by the SDK's StdioServerTransport.
     // Don't console.log() anything before/during the server's run.
@@ -2968,7 +2968,7 @@ export const subcommands = [
   },
   {
     name: 'init-user-tier',
-    description: 'scaffold ~/.claude-memory-kit/ (honors $MEMORY_KIT_USER_DIR override)',
+    description: 'scaffold ~/.core-memory-kit/ (honors $MEMORY_KIT_USER_DIR override)',
     milestone: 14,
     action: runInitUserTier,
   },

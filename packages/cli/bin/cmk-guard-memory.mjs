@@ -3,7 +3,7 @@
 //
 // Wired by `cmk install` as a Claude Code PreToolUse hook (matcher
 // "Bash|PowerShell"). Reads the tool call on stdin and, if it's a destructive
-// command aimed at a claude-memory-kit memory path (context/ , the persona
+// command aimed at a core-memory-kit memory path (context/ , the persona
 // tier, a memory file), BLOCKS it by exiting 2 — Claude Code shows the stderr
 // reason to the model and the command never runs.
 //

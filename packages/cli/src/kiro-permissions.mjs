@@ -16,7 +16,7 @@
 // Format (ground-truth, read from a real grant — D-203h):
 //   rules:
 //     - { capability: shell, match: [cmd.exe /c cmk hook *, ...], effect: allow }
-//     - { capability: mcp,   match: [claude-memory-kit/mk_remember, ...], effect: allow }
+//     - { capability: mcp,   match: [core-memory-kit/mk_remember, ...], effect: allow }
 //     - { capability: skill, match: [memory-write, memory-search], effect: allow }
 //
 // Public surface:
@@ -39,7 +39,7 @@ import { MCP_AUTO_APPROVE } from './kiro-constants.mjs';
 // The kit's MCP tools, namespaced as Kiro's permissions.yaml lists them
 // (server/tool). MCP_AUTO_APPROVE is the shared source of the 11 tool names
 // (also used for the IDE's mcp.json autoApprove), so the two never drift.
-const MCP_MATCH = MCP_AUTO_APPROVE.map((t) => `claude-memory-kit/${t}`);
+const MCP_MATCH = MCP_AUTO_APPROVE.map((t) => `core-memory-kit/${t}`);
 const SHELL_MATCH = Object.freeze(['cmd.exe /c cmk hook *', 'cmd.exe /c cmk-guard-memory*']);
 const SKILL_MATCH = Object.freeze(['memory-write', 'memory-search']);
 

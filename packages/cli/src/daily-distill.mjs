@@ -48,7 +48,7 @@ const TODAY_RE = /^today-(\d{4}-\d{2}-\d{2})\.md$/;
 
 function buildDistillInstructions(maxOutputBytes) {
   return [
-    'You are a memory consolidator for claude-memory-kit. Your task is to combine the daily session summaries below into a single weekly-or-shorter rolling summary.',
+    'You are a memory consolidator for core-memory-kit. Your task is to combine the daily session summaries below into a single weekly-or-shorter rolling summary.',
     '',
     'Output ONLY the consolidated Markdown. Do not write preamble. Do not acknowledge the task. Begin your response with the first section heading.',
     '',
