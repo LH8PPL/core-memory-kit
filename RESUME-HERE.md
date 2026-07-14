@@ -18,7 +18,7 @@
 
 ## ▶ What's LEFT
 
-1. **Rebuild the artifact** so the global `cmk` has all 4 fixes (the gate tests the installed binary): §0b only — `cd packages/cli; npm pack; npm uninstall -g; npm install -g .\lh8ppl-core-memory-kit-0.4.0.tgz`. (Version stays 0.4.0 — fixes are content. The EBUSY warning on uninstall is harmless.) Do NOT re-cut (§0a done) or re-backup (§0c done).
+1. **Rebuild the artifact** so the global `cmk` has all 4 fixes (the gate tests the installed binary): §0b only — `cd packages/cli; npm pack; npm uninstall -g; npm install -g .\lh8ppl-claude-memory-kit-0.4.0.tgz`. (Version stays 0.4.0 — fixes are content. The EBUSY warning on uninstall is harmless.) Do NOT re-cut (§0a done) or re-backup (§0c done).
 2. **The live IDE/CLI checks — needs YOU in real Kiro** (say `start the Kiro live-test`): open `C:\Temp\kiro-gate` in Kiro IDE, run **Session 1** (the build arc, §2), then I verify **KH1/KH2/KH3** (IDE `agentStop` capture + `promptSubmit` inject FIRE). Then `kiro-cli chat` with NO `--agent` for **KC1–KC4** (default resolves + `agentSpawn`/`stop` fire + MCP reach). These are the only checks unit tests can't reach.
 3. **Cut v0.4.0** once the live checks pass: review the CHANGELOG/READMEs are current → the USER pushes the `v0.4.0` tag (publish.yml does npm + GitHub Release).
 4. **After the cut:** re-run `cmk install` on THIS dev repo to clear the HC-9 version-drift (deferred during the gate).
