@@ -194,8 +194,13 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
      AFTER 0.5.0 would misorder npm `latest` — the old label is preserved in the historical notes
      as the pre-D-286 expectation. Breadth-before-more-depth also buys Phase 1 live mileage before
      Phase 2 tunes on its signals.
-  3. **v0.5.3 — Phase 2, the learn-loop payoff** — Task 194 + the batch riders 209 / 211 / 212
-     (the bullet above).
+  3. **v0.5.3 — Phase 2, the learn-loop payoff — ✅ RELEASE-COMMITTED 2026-07-14** (CHANGELOG
+     `[0.5.3]` finalized, `packages/cli/package.json` → 0.5.3, CI green; tag `v0.5.3` = the
+     maintainer's outward step → publish.yml does npm + the GitHub Release). Task 194 (the
+     confidence-gated search blend + survival gate + anti-pattern conversion — the loop's last
+     edge closed) + the batch riders 209 (state-labeled recall) / 211 (query state-view gate) /
+     212 (`cmk stats memory-health`). All four PRs (#287–#290) merged; the D-334 minor-boundary
+     backlog sweep ran (Task 195 name-decision trigger fired → laned v0.5.4).
   4. **v0.5.4 — the governance batch** — Task 96 + Task 210 (+ Task 95 if its needs-design gate
      has cleared by then; otherwise 95 slides to the next slot — its gate, not the queue, decides).
      **+ Task 195 (the cross-agent NAME decision) — LANED here at the v0.5.3-cut sweep (D-334):
