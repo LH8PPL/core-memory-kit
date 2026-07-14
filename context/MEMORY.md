@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-WUaFJWa7) Test was flaky under stress (5/5 failures full suite, isolation pass); robustified with seams, confirm-write-landed check, 20s deadline
-  <!-- source: review-promote, source_line: 1, sha1: 4a5f6468386c99cebca8fd341afbef2561bbc4502422adcdb9c5cf6db9a8cc82, write: user-explicit, trust: high, at: 2026-07-13T20:00:03Z -->
 - (P-X9P559YZ) handleUnlink crash-guard fixed (forget test validates); re-stress verdict determines Task 218→PR timing
   <!-- source: review-promote, source_line: 1, sha1: 4f6889e00233f1e810a8ce7ad4cd972c65fe21b080d4f6fb5e8029d8b0dff3e3, write: user-explicit, trust: high, at: 2026-07-13T20:00:04Z -->
 - (P-JLPXJPZF) v0.5.2 code-complete; three PRs (#284, #285, #286) merged to main
@@ -20,6 +18,8 @@
   <!-- source: review-promote, source_line: 1, sha1: b3b61ce2c1d334cc42223987346b6f4df12852e50b32d5a5ff1bb306cfd68842, write: user-explicit, trust: high, at: 2026-07-13T20:00:07Z -->
 - (P-aNSaZMFH) v0.5.3 full build plan saved as durable memory P-6WEaBE9M (commit dfebca5) for clean resumption
   <!-- source: review-promote, source_line: 1, sha1: 868f0e5f4e03fd726d4602a1c3994e8595654edca380ba897a62b8469ac4099b, write: user-explicit, trust: high, at: 2026-07-13T20:00:09Z -->
+- (P-7WV4BUX4) For Task 195, complete external rename steps (npm publish/deprecate, repo rename, SonarCloud update) before opening PR.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 7769312d8ff1e0badd72a932cccd91d70b3db329dd83008231a9f8fe73527996, write: auto-extract, trust: high, at: 2026-07-14T21:23:34Z -->
 
 ## Environment Notes
 
