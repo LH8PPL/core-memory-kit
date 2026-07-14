@@ -68,7 +68,16 @@ execution plan.
    `cmk`-neutral).
 2. **GitHub repo:** rename `LH8PPL/claude-memory-kit` → `LH8PPL/core-memory-kit`
    (GitHub auto-redirects old URLs). The plugin/marketplace manifests
-   (`plugin.json`, `marketplace.json`) that hardcode the repo URL are updated.
+   (`plugin.json`, `marketplace.json`) that hardcode the repo URL are updated
+   (done in the corpus sweep). **Coupled to this — the SonarCloud project key**
+   (`sonar-project.properties`: `sonar.projectKey=LH8PPL_claude-memory-kit`) is
+   an EXTERNAL-service identifier bound to the SonarCloud dashboard, not a free
+   text swap: change it in the file ONLY together with updating (or recreating)
+   the SonarCloud project so the key matches — else the scan breaks on a
+   key mismatch. Left unchanged in the file on purpose; do it with the repo
+   rename (SonarCloud is advisory, so a lagging key blocks nothing meanwhile).
+   The skill-review caught this as the one live config the corpus sweep
+   deliberately did not touch.
 3. **Doc + code corpus:** replace the product-name string across docs + code +
    specs + template/plugin/python, WITH the carve-outs below.
 4. **In-repo memory tier:** the kit's own committed `context/` facts that mention
