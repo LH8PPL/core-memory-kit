@@ -3527,6 +3527,8 @@ _Canonical HOW for ADR-0017 Phase 2 — the MEASURE→RETRIEVE edge, closed. Dec
 
 **Constraint edges honored (the §20.3 amendment's checklist):** inject untouched (enum-ordered, no index-db import — structurally pinned); no ritual (candidates surface with no manual command; the queue verb is only the decision step); markdown stays truth (the queue is a markdown file; conversions edit committed markdown through safe paths); the asymmetry respected (the gate keys on dampens — failure evidence — not on reinforce scarcity).
 
+**Tuning instrumentation (Task 212, v0.5.3):** the blend's before/after numbers are `cmk stats memory-health` (`memory-stats.mjs` — AutoMem's Figure-4 indicator set aggregated from recall.log / audit.log / truncation.log, report-only): **empty-search rate** and **redundant-write rate** are the two the blend should move over time (fewer misses when healthy facts rank first; fewer redundant writes when recall works). Distinct from the Task-144 doctor section (content quality over the fact archive) — this is PROCESS behavior over the activity logs.
+
 ## End of design.md v0.1.0
 
 Sections 1-17 = full design surface. Cross-references to specific FRs and ADRs throughout. The four absorbable changes from the spec-generator comparison (tombstones §6.5, review queue §6.2, native auto-memory detection HC-8, structured logging §6.1) are baked in. §17 was tail-appended 2026-05-26 after the working-product live-test surfaced the spawn-layer Windows bug.

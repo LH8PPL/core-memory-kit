@@ -322,6 +322,12 @@ The deterministic temporal-state marker recall serialization attaches to a NON-c
 
 Cross-refs: [[Trust score]], [[Search blend]], [[Tombstone]]. Spec: design §9.3; `state-label.mjs`; the HEALTH-CHECKS "When recall goes wrong" taxonomy; D-308.
 
+### Memory-health dashboard
+
+The behavioral PROCESS report (`cmk stats memory-health`, Task 212 — AutoMem's Figure-4 indicator set): writes-per-search, empty-search rate (with the recovered-by-retry split), redundant-write rate, repeated identical searches, and snapshot cap pressure — each with a trend arrow vs the prior window, aggregated from logs the kit already writes (recall.log / audit.log / truncation.log; no new capture, no LLM). REPORT-ONLY in v1 (observe before alarming — the D-169 no-ritual line) and the [[Search blend]]'s tuning instrumentation. Distinct from the Task-144 doctor memory-health SECTION, which is content quality over the fact archive (stale/duplicates/queues).
+
+Cross-refs: [[Search blend]], [[Recall-log]], [[Audit log]]. Spec: design §20.7 (tuning-instrumentation note); `memory-stats.mjs`; D-308/D-333.
+
 ### Query state view
 
 The retrieval-side sibling of the [[State label]] (Task 211, v0.5.3 — A-TMA's rule-based 4-view profiler; the cheap cut of §16.18's deferred 7-mode classifier): a zero-LLM classifier (hint catalogs + a negation guard — "not what we used before" reads as current) tags each facts-scope query **current / historical / transition / neutral**. Historical/transition auto-include expired rows (a history question must reach the history — no flag) and strip the consumed hint words from the FTS query; historical additionally buckets labeled rows FIRST (a stable deterministic partition — never a score change; §20.3 and the [[Search blend]] untouched). Current/neutral are byte-identical to the default pipeline. `--state-view`/`state_view` are overrides only; the detected view rides the envelope when it changed retrieval.
