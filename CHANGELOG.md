@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+## [0.5.3] — 2026-07-14
+
 ### Added
 
 - **Search ranking learns from outcomes (the learn-loop's last edge, closed)** — search results now blend each fact's evolved utility score into the BM25 rank, **confidence-gated**: the score moves rank only once the fact carries real evidence (3+ applied outcome signals — a new `signal_count` feedback counter in the index). A fact the loop keeps dampening sinks below a healthy one for the same query, automatically; judgments never auto-rank; the session-start snapshot is untouched (enum-ordered, structurally regression-pinned). (Task 194, ADR-0017 Phase 2, design §20.7 + the §20.3 amendment, D-330)
