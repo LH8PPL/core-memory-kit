@@ -8,18 +8,18 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-Q37ZPQJP) v0.5.2 shipped — npm @lh8ppl/claude-memory-kit@0.5.2 (provenance), GitHub Release live, PRs #284 #285 #286
-  <!-- source: review-promote, source_line: 1, sha1: b3b61ce2c1d334cc42223987346b6f4df12852e50b32d5a5ff1bb306cfd68842, write: user-explicit, trust: high, at: 2026-07-13T20:00:07Z -->
-- (P-aNSaZMFH) v0.5.3 full build plan saved as durable memory P-6WEaBE9M (commit dfebca5) for clean resumption
-  <!-- source: review-promote, source_line: 1, sha1: 868f0e5f4e03fd726d4602a1c3994e8595654edca380ba897a62b8469ac4099b, write: user-explicit, trust: high, at: 2026-07-13T20:00:09Z -->
-- (P-7WV4BUX4) For Task 195, complete external rename steps (npm publish/deprecate, repo rename, SonarCloud update) before opening PR.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 7769312d8ff1e0badd72a932cccd91d70b3db329dd83008231a9f8fe73527996, write: auto-extract, trust: high, at: 2026-07-14T21:23:34Z -->
-- (P-KYSNDHME) run deterministic cut-gate (§0–§1) before git tag v0.5.4, not after
-  <!-- source: auto-extract-session, source_line: 1, sha1: 876f353a4b9c63c0c9353766e627531114f31ffaa9cf015021addc2ae68f9972, write: auto-extract, trust: high, at: 2026-07-15T06:59:28Z -->
-- (P-XVFCT3UG) renamed .claude-memory-kit to .claude-memory-kit.backup for release cut
-  <!-- source: auto-extract-session, source_line: 1, sha1: e6989c072de42054fd37da7c4da85eb460ff1d24a8249b21788e899412238d17, write: auto-extract, trust: high, at: 2026-07-15T07:03:11Z -->
-- (P-LNMa4G5T) will run section "1. Scaffold + read every file" next for cut-gate
-  <!-- source: auto-extract-session, source_line: 1, sha1: 9fe466b5a9ff31325b98bc6335c1ebc442d13a861e3656590b9d100d52e223e0, write: auto-extract, trust: high, at: 2026-07-15T07:03:11Z -->
+- (P-KKKNST9L) plain HTML/JS, no framework for chat UI
+  <!-- source: auto-extract-session, source_line: 1, sha1: 2146e44c97d01b71893958ce9d92463ba093781eb80e2f3e9ed1b983e825e99a, write: auto-extract, trust: high, at: 2026-07-15T08:44:32Z -->
+- (P-42T3NCLQ) Python backend convention—layered architecture with `api/services/repositories/schemas/core` structure; uses `uv` (never pip) + `ruff`
+  <!-- source: auto-extract-session, source_line: 1, sha1: ee979957e6280836d75fadeb5fc254092dde8f54bfde4fae2bb7dba6b0fe0733, write: auto-extract, trust: high, at: 2026-07-15T10:11:46Z -->
+- (P-2CQGFD5P) Backend scaffolding preferences are stored cross-project and automatically recalled by assistant when starting new projects
+  <!-- source: auto-extract-session, source_line: 1, sha1: e63523bdc0f08be822fc947a5d0a9b3a41852f89d407385f45f3a2d060f1d825, write: auto-extract, trust: high, at: 2026-07-15T10:11:46Z -->
+- (P-HaZGS5M2) Executed `git remote set-url origin https://github.com/LH8PPL/core-memory-kit.git` to repoint local remote to renamed repo
+  <!-- source: auto-extract-session, source_line: 1, sha1: e35b4c63dce5b6ba684af5dcdec502253796e83488d86fbcc745a8e24e9bf540, write: auto-extract, trust: high, at: 2026-07-15T12:07:27Z -->
+- (P-KVCQKBYC) Successfully re-ran GitHub Actions run 29412885758 with `gh run rerun` to retry v0.5.4 publish
+  <!-- source: auto-extract-session, source_line: 1, sha1: 37d4f5841016f41ae7f3f27418c8871745546a931032489664a88258a62070b4, write: auto-extract, trust: high, at: 2026-07-15T12:07:27Z -->
+- (P-aATCMBPD) Correction—consult primary evidence (logs, error output) before diagnosing; user caught assistant reasoning from symptoms without checking the actual log first.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 63149dd2c070fdeb85dc5066658c18d48f05f0ee92244a5087b7e9011642e02d, write: auto-extract, trust: high, at: 2026-07-15T12:22:03Z -->
 
 ## Environment Notes
 

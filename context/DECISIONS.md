@@ -12738,3 +12738,222 @@ _(retracted 2026-07-13)_
 
 **When:** 2026-07-13 · **Fact:** `P-RaVEB3SL`
 **Why:** Plan committed to survive auto-compaction; exact resumption workflow eliminates re-derivation friction
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-ESXEGLaX -->
+
+## Kit is live (`C:\Projects\claude-memory-kit`) with active MCP servers and auto-e
+
+**When:** 2026-07-12 · **Fact:** `P-ESXEGLaX`
+
+<!-- decision:P-ALAUZFKJ -->
+
+## Confirmed layered FastAPI + in-memory repositories as the backend architecture
+
+**When:** 2026-07-12 · **Fact:** `P-ALAUZFKJ`
+
+<!-- decision:P-TEV46Ca9 -->
+
+## Prefers actual version lanes (v0.6.0, v0.7.0, etc.) over "future 0.5.x" placehol
+
+**When:** 2026-07-12 · **Fact:** `P-TEV46Ca9`
+
+<!-- decision:P-aD9MaJ4C -->
+
+## System design tolerates near-duplicate memory captures and deduplicates in post-
+
+**When:** 2026-07-12 · **Fact:** `P-aD9MaJ4C`
+
+<!-- decision:P-JX6VEMJM -->
+
+## Project enforces "never-hand-edit-memory" principle to preserve auto-capture int
+
+**When:** 2026-07-12 · **Fact:** `P-JX6VEMJM`
+
+<!-- decision:P-YYFNQFSP -->
+
+## Task 218 is the last code task in v0.5.2; after stress + skill-review pass, goes
+
+**When:** 2026-07-13 · **Fact:** `P-YYFNQFSP`
+
+<!-- decision:P-Z7GUFTW2 -->
+
+## No-Disclaimed-Flakes Rule
+
+**When:** 2026-07-13 · **Fact:** `P-Z7GUFTW2`
+**Why:** Prevents real bugs from hiding behind flakiness claims; maintains test suite integrity and confidence.
+
+<!-- decision:P-UV955AFU -->
+
+## Stress Gate Process for PR Merge
+
+**When:** 2026-07-13 · **Fact:** `P-UV955AFU`
+**Why:** Catches intermittent/flaky test failures before they enter main branch; prevents false-passing PRs from degrading branch reliability.
+
+<!-- decision:P-MWTNJaDU -->
+
+## Skill review found one Important issue: handleUnlink crash path under concurrent
+
+**When:** 2026-07-13 · **Fact:** `P-MWTNJaDU`
+
+<!-- decision:P-WUaFJWa7 -->
+
+## Test was flaky under stress (5/5 failures full suite, isolation pass); robustifi
+
+**When:** 2026-07-13 · **Fact:** `P-WUaFJWa7`
+
+<!-- decision:P-X9P559YZ -->
+
+## handleUnlink crash-guard fixed (forget test validates); re-stress verdict determ
+
+**When:** 2026-07-13 · **Fact:** `P-X9P559YZ`
+
+<!-- decision:P-JLPXJPZF -->
+
+## v0.5.2 code-complete; three PRs (#284, #285, #286) merged to main
+
+**When:** 2026-07-13 · **Fact:** `P-JLPXJPZF`
+
+<!-- decision:P-CKKD4VRS -->
+
+## Release command is `npm run release -- patch` → tag push → publish.yml (npm publ
+
+**When:** 2026-07-13 · **Fact:** `P-CKKD4VRS`
+
+<!-- decision:P-RVaUWFAL -->
+
+## Minor-Boundary Backlog Sweep (D-248) Convention
+
+**When:** 2026-07-14 · **Fact:** `P-RVaUWFAL`
+**Why:** Deliberate governance to prevent lost work and accidental scope creep.
+
+<!-- decision:P-GYVP2H7V -->
+
+## v0.5.3 Release Complete — Ready for Publication
+
+**When:** 2026-07-14 · **Fact:** `P-GYVP2H7V`
+**Why:** Phase-2 completion milestone. Task 195 lane assignment is critical for v0.5.4 planning. D-248 sweep outcome is durable project state.
+
+<!-- decision:P-DE43PUK2 -->
+
+## Agent-neutral names persist across any rename
+
+**When:** 2026-07-14 · **Fact:** `P-DE43PUK2`
+**Why:** These are shared infrastructure for multiple agents (Claude, Cursor, Codex). Changing them breaks cross-agent portability.
+
+<!-- decision:P-LBPZAUVF -->
+
+## CMK search scope limitation with decision queries
+
+**When:** 2026-07-14 · **Fact:** `P-LBPZAUVF`
+**Why:** Future session might assume no name-decision history exists if relying only on search.
+
+<!-- decision:P-ZRB94KK6 -->
+
+## Config directory migration is critical blocker for rename
+
+**When:** 2026-07-14 · **Fact:** `P-ZRB94KK6`
+**Why:** Real users exist with committed memory. A blind text swap silently breaks their setup.
+
+<!-- decision:P-MGJKS5MY -->
+
+## Four-tier rename execution structure
+
+**When:** 2026-07-14 · **Fact:** `P-MGJKS5MY`
+**Why:** This tier structure determines the actual cost and feasibility of a rename. Each has different reversibility and risk.
+
+<!-- decision:P-FF4H6LK7 -->
+
+## Project governance — ADRs, frozen records, and two-phase rename flow
+
+**When:** 2026-07-14 · **Fact:** `P-FF4H6LK7`
+**Why:** Maintains immutable history and prevents retroactive revision.
+
+<!-- decision:P-3644R2D4 -->
+
+## Text-substitution carve-outs for rename
+
+**When:** 2026-07-14 · **Fact:** `P-3644R2D4`
+**Why:** Blind find-replace orphans user data, erases historical context, and breaks portability.
+
+<!-- decision:P-K9XFPMSB -->
+
+## js-yaml Critical Path in Memory System
+
+**When:** 2026-07-14 · **Fact:** `P-K9XFPMSB`
+**Why:** Frontmatter parsing is core to memory I/O; regressions break context persistence
+
+<!-- decision:P-QFMMQCCa -->
+
+## Vitest + Coverage Plugin Peer Versioning
+
+**When:** 2026-07-14 · **Fact:** `P-QFMMQCCa`
+**Why:** Misaligned versions break coverage reporting or test execution
+
+<!-- decision:P-U7NPPSEV -->
+
+## YAML parsing uses CORE_SCHEMA for stable, explicit coercion behavior
+
+**When:** 2026-07-14 · **Fact:** `P-U7NPPSEV`
+**Why:** Explicit, non-coercive yaml parsing prevents surprising type conversions that could break frontmatter handling or downstream logic. Conservative schema choice + comprehensive test coverage minimizes risk when updating js-yaml.
+
+<!-- decision:P-64ZT2ZJP -->
+
+## Cut-gate split into deterministic (CLI/install) and live (IDE) phases
+
+**When:** 2026-07-15 · **Fact:** `P-64ZT2ZJP`
+**Why:** Distinguish which gates can run in automation vs which need real IDE session; guides scope for release types
+
+<!-- decision:P-Y46UV9AA -->
+
+## Persona directory moved to ~/.core-memory-kit
+
+**When:** 2026-07-15 · **Fact:** `P-Y46UV9AA`
+**Why:** v0.5.4 install relocates persona files to align with new package identity
+
+<!-- decision:P-BH25FCLN -->
+
+## youtube-to-slide foreign-format fact file — pre-existing, not rename-related
+
+**When:** 2026-07-15 · **Fact:** `P-BH25FCLN`
+**Why:** Clarify that v0.5.4 rename is clean; this is pre-existing data quality, not caused by rebrand
+
+<!-- decision:P-B559EHDZ -->
+
+## Multi-Tier Backup Pattern for Release Cuts
+
+**When:** 2026-07-15 · **Fact:** `P-B559EHDZ`
+**Why:** Structural changes (path renames, tier migrations) risk persona corruption. Three tiers enable full recovery if gate validation fails.
+
+<!-- decision:P-FJa6A2HL -->
+
+## Post-Rename Guide Adjustment: §0 Backup Now Optional
+
+**When:** 2026-07-15 · **Fact:** `P-FJa6A2HL`
+**Why:** Path migration makes the original §0 step redundant; tier setup is already complete.
+
+<!-- decision:P-A7R47EB6 -->
+
+## Test Gate Folders Use Numbered Sequence
+
+**When:** 2026-07-15 · **Fact:** `P-A7R47EB6`
+**Why:** Numbered sequence avoids naming collisions and makes iteration history explicit.
+
+<!-- decision:P-T3EUWXVJ -->
+
+## Version 0.5.4 Tarball Ready for Gate Testing
+
+**When:** 2026-07-15 · **Fact:** `P-T3EUWXVJ`
+**Why:** Gate testing requires reproducible installation from the built tarball; avoids npm dependency before validation.
+
+<!-- decision:P-aZD9T5XX -->
+
+## Cut-Gate Guides Updated for v0.5.4 Rename
+
+**When:** 2026-07-15 · **Fact:** `P-aZD9T5XX`
+**Why:** Guides are user-facing verification steps and must reflect new naming for v0.5.4; uninstall-old-first is cut-specific
