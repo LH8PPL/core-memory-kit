@@ -63,6 +63,8 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
-          # TEMP (D-341 diagnosis): verbose so the JS/CSS bridge prints WHICH
-          # dir it opendir's before the C:/proj/context ENOENT. Reverted after.
-          args: -Dsonar.verbose=true
+          # TEMP (D-341 diagnosis): test whether disabling the incremental
+          # sensor cache stops the C:/proj/context opendir crash. The stale
+          # Windows path is not in any repo file / A3S config / setting — the
+          # restored sensor cache is the only remaining carrier. Reverted after.
+          args: -Dsonar.verbose=true -Dsonar.analysisCache.enabled=false
