@@ -1,4 +1,7 @@
 ---
+deleted_at: 2026-07-15T14:07:08Z
+deleted_reason: ''
+deleted_by: user-explicit
 id: P-BNZAZ2U3
 type: reference
 shape: State

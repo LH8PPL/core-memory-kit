@@ -1,4 +1,7 @@
 ---
+deleted_at: 2026-07-15T14:07:59Z
+deleted_reason: ''
+deleted_by: user-explicit
 id: P-5YYEHG2Y
 type: project
 shape: Absence

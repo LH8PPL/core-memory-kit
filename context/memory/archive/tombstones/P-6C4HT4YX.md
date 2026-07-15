@@ -1,4 +1,7 @@
 ---
+deleted_at: 2026-07-15T14:08:01Z
+deleted_reason: ''
+deleted_by: user-explicit
 id: P-6C4HT4YX
 type: project
 shape: State
