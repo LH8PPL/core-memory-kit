@@ -2,7 +2,12 @@
 
 **The single guide to run before tagging a release.** Version-agnostic — reused every cut.
 
-> **Cutting now: `v0.5.1`** — **the HARDENING patch** (Tasks 203–207, 213–216, 219, 220):
+> **Cutting now: `v0.5.4`** — **THE RENAME** (Task 195 / ADR-0021): `claude-memory-kit` → **`core-memory-kit`**. The `cmk` command is UNCHANGED (the name was chosen to keep the initialism); what changed is the outward IDENTITY — the npm package (`@lh8ppl/core-memory-kit`), the GitHub repo (`LH8PPL/core-memory-kit`), the scaffolded instruction filenames (`.cursor/rules/` + `.kiro/steering/core-memory-kit.*`), the managed-block marker (`core-memory-kit:start`), and **the default user-tier dir `~/.core-memory-kit`** (a direct swap — no migration; the sole user reinstalls). `MEMORY_KIT_USER_DIR` still overrides.
+> **What this cut most needs to verify is the IDENTITY surfaces, not new behavior** (there are no new features): §0 the tarball packs as `lh8ppl-core-memory-kit-<v>.tgz`; §1 a real install from it scaffolds under the new name, `cmk doctor` clean, HC-9 marker reads `core-memory-kit:start v0.5.4`, and G4's tier read points at **`~/.core-memory-kit`** (already updated in the commands below). **The package-rename install flow** (the real-user path): `npm uninstall -g @lh8ppl/claude-memory-kit` FIRST (it owns the `cmk` shim), then `npm install -g` the new tarball — a plain `-g` over the old package EEXISTs on the shim. The leak/name-privacy screen (a home path → `~`) is the other high-value check.
+> This is a **RELEASE** (`npm run release -- 0.5.4`), the v0.5.4 headline — a clean single-purpose rename; the governance batch (96/210) slid to v0.5.5. No new CLI verbs / MCP tools; doctor stays at **11 checks**. Run §0–§1 + the leak/round-trip probes (the identity surfaces); the §2–§9 live-IDE feature ladder re-tests unchanged behavior, so it's optional for a no-feature rename cut (risk-scoped rule).
+> _Replace `0.5.4` / `v0.5.4` in the commands below if you reuse this guide for a later cut._
+>
+> **Prior banner (v0.5.1 cut, kept per the decision-trail rule)** — **the HARDENING patch** (Tasks 203–207, 213–216, 219, 220):
 > the rolling-window pipeline is now **incremental + resumable** (ADR-0020 — a killed 23:00 distill keeps every finished day; the D-298 starvation fixed, with per-day provenance headers in `recent.md`),
 > **every LLM-summary / promotion side door screens through Poison_Guard** (Task 216 / D-320 — curate/distill input+output, transcript promote, persona queue, trust increases),
 > the nightly distill runs **windowless** on Windows (Task 215 — the black-box popup),
@@ -221,7 +226,7 @@ _Suite-covered, no live probe needed: Task 219 (`busy_timeout` contract pin — 
 ```powershell
 cd C:\Projects\claude-memory-kit
 git checkout main; git pull
-npm run release -- patch             # 0.5.0 → 0.5.1 this cut (patch per RELEASE-PLAN.md line 181/193 — the v0.5.1 hardening lane); [Unreleased] → ## [X.Y.Z]; bumps package.json
+npm run release -- 0.5.4             # THIS cut: the rename release (already release-committed 2026-07-15); [Unreleased] → ## [X.Y.Z]; bumps package.json. (Future cuts: `-- patch`/`minor` per RELEASE-PLAN.)
 git diff                             # review: ONLY the version bump + CHANGELOG consolidation
 git add CHANGELOG.md packages\cli\package.json
 git commit -m "release: vX.Y.Z"      # local release commit — do NOT tag yet (that's the last step)
@@ -232,11 +237,15 @@ git push origin main
 
 ```powershell
 cd C:\Projects\claude-memory-kit\packages\cli
-npm pack                             # → lh8ppl-claude-memory-kit-<version>.tgz
-npm uninstall -g @lh8ppl/claude-memory-kit
+npm pack                             # → lh8ppl-core-memory-kit-<version>.tgz
+npm uninstall -g @lh8ppl/core-memory-kit
+# ⚠️ v0.5.4 RENAME-CUT ONE-TIME: on THIS cut the global is still the OLD package,
+# so uninstall @lh8ppl/CLAUDE-memory-kit first (it owns the `cmk` shim — a plain
+# `-g` over it EEXISTs). From v0.5.4 onward the line above (uninstall the NEW
+# package) is correct for every future cut.
 # Use the EXPLICIT filename, NOT a *.tgz glob — PowerShell does NOT expand the
 # wildcard, so npm gets the literal `*` and fails ENOENT. Substitute the version.
-npm install -g .\lh8ppl-claude-memory-kit-0.5.1.tgz   # the freshly-packed tarball (substitute the version you just cut)
+npm install -g .\lh8ppl-core-memory-kit-0.5.4.tgz   # the freshly-packed tarball (substitute the version you just cut)
 cmk --version                        # ✅ matches packages/cli/package.json
 
 # BACK UP the user tier, then start clean so capture-from-zero is honest.
@@ -247,8 +256,8 @@ cmk --version                        # ✅ matches packages/cli/package.json
 $stamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
 $backupRoot = "C:\cut-gate-backups\user-tier_$stamp"
 New-Item -ItemType Directory -Force -Path (Split-Path $backupRoot) | Out-Null
-if (Test-Path $env:USERPROFILE\.claude-memory-kit) {
-  Move-Item -Path $env:USERPROFILE\.claude-memory-kit -Destination $backupRoot
+if (Test-Path $env:USERPROFILE\.core-memory-kit) {
+  Move-Item -Path $env:USERPROFILE\.core-memory-kit -Destination $backupRoot
   Write-Host "user tier backed up → $backupRoot"
 }
 # Same for the stray ~/context scaffold (test debris) if present — back up, don't bin.
@@ -257,7 +266,7 @@ if (Test-Path $env:USERPROFILE\context) {
 }
 ```
 
-> **Restore after the gate** (if you backed up a real tier): `Move-Item $backupRoot $env:USERPROFILE\.claude-memory-kit` (move the gate-created one aside first if you want to keep it). The backups live under `C:\cut-gate-backups\` and are never auto-deleted.
+> **Restore after the gate** (if you backed up a real tier): `Move-Item $backupRoot $env:USERPROFILE\.core-memory-kit` (move the gate-created one aside first if you want to keep it). The backups live under `C:\cut-gate-backups\` and are never auto-deleted.
 
 - [ ] **G0** — `cmk --version` matches the version in `packages/cli/package.json` _(if it's an older version, you're testing a stale global — re-run the `npm install -g` above against the freshly-packed `.tgz`)_
 
@@ -324,7 +333,7 @@ code .
         if (-not (Test-Path $dir)) { Write-Output "(no $dir)"; return }
         Get-ChildItem -Recurse $dir -File | % { "`n===== $($_.FullName) ====="; [System.IO.File]::ReadAllText($_.FullName) }
       }
-      Read-Tier "$env:USERPROFILE\.claude-memory-kit"   # User tier (cross-project)
+      Read-Tier "$env:USERPROFILE\.core-memory-kit"   # User tier (cross-project)
       Read-Tier "context"                                # Project tier (committed)
       Read-Tier "context.local"                          # Local tier (gitignored)
       ```
@@ -456,14 +465,14 @@ dir context\memory; type context\memory\feedback_*.md
       _(Inconclusive on a short session is honest — rerun after more turns, don't wave it.)_
 
 - [ ] **★ B3 — the wedge fills.**
-      Type: `%USERPROFILE%\.claude-memory-kit\HABITS.md` (+ `USER.md`, `LESSONS.md`)
+      Type: `%USERPROFILE%\.core-memory-kit\HABITS.md` (+ `USER.md`, `LESSONS.md`)
       → your cross-project style is there (was empty pre-v0.2).
 
 - [ ] **★ B4 — stated rule → `trust: high`, automatically.**
       The uv/ruff rule landed in a user-tier scratchpad on its own (no command),
       provenance `trust: high` + `write: user-explicit`:
       ```powershell
-      findstr /S /C:"trust: high" %USERPROFILE%\.claude-memory-kit\*.md
+      findstr /S /C:"trust: high" %USERPROFILE%\.core-memory-kit\*.md
       ```
 
 ### ★ B5 — Graduation: the write-lock fix (Task 91)
@@ -551,8 +560,8 @@ so this run just watches for it rather than forcing it.
 After Session 1 (B3/B4 fill the persona), if any persona scratchpad grew past its cap:
 
 ```powershell
-dir %USERPROFILE%\.claude-memory-kit\fragments
-findstr /S /C:"\"tier\":\"U\"" %USERPROFILE%\.claude-memory-kit\.locks\audit.log | findstr graduated
+dir %USERPROFILE%\.core-memory-kit\fragments
+findstr /S /C:"\"tier\":\"U\"" %USERPROFILE%\.core-memory-kit\.locks\audit.log | findstr graduated
 ```
 
 - [ ] **B8 — PASS (observational):**
@@ -765,7 +774,7 @@ CLI suite structurally can't cover (Claude is in the loop).
 
 ## 4d. The persona-promotion redesign (Task 151 + 70.4)  ⬅️ the v0.4.3 headline
 
-> Each probe below runs in a **throwaway sandbox** (`C:\temp\…` + a sandbox `MEMORY_KIT_USER_DIR`) against the **current-repo** binary (`node packages\cli\bin\cmk.mjs`), never the global `cmk` and never your real `context/` or `~\.claude-memory-kit`. All five were live-verified during the v0.4.3 cut.
+> Each probe below runs in a **throwaway sandbox** (`C:\temp\…` + a sandbox `MEMORY_KIT_USER_DIR`) against the **current-repo** binary (`node packages\cli\bin\cmk.mjs`), never the global `cmk` and never your real `context/` or `~\.core-memory-kit`. All five were live-verified during the v0.4.3 cut.
 
 - [ ] **★ PR1 — a re-stated fact bumps `recurrence_count` (Move 1 — the earned promotion signal).**
       The recurrence path lives ONLY in the **rich** write (`writeFact`), so the remember MUST carry a rich flag (`--why`/`--how`/`--type`/`--title`) — a *bare* `cmk remember "text"` writes an id-less `MEMORY.md` bullet and never bumps. Run the **byte-identical** rich remember **twice**:
@@ -861,7 +870,7 @@ CLI suite structurally can't cover (Claude is in the loop).
 
 ## 4e. Temporal validity + the memory-commit proposal (Task 66 + 150)  ⬅️ the v0.4.4 headline
 
-> Each probe below runs in a **throwaway sandbox** (`C:\temp\…` + a sandbox `MEMORY_KIT_USER_DIR`) against the **current-repo** binary (`node packages\cli\bin\cmk.mjs`), never the global `cmk` and never your real `context/` or `~\.claude-memory-kit`.
+> Each probe below runs in a **throwaway sandbox** (`C:\temp\…` + a sandbox `MEMORY_KIT_USER_DIR`) against the **current-repo** binary (`node packages\cli\bin\cmk.mjs`), never the global `cmk` and never your real `context/` or `~\.core-memory-kit`.
 > The `shape`/`expires_at` path lives ONLY in the **rich** write (`writeFact`), so every remember below carries a rich flag (`--why`/`--type`/`--title`) — a *bare* `cmk remember "text"` writes an id-less `MEMORY.md` bullet and never records `shape`/`expires_at`.
 
 - [ ] **★ TV1 — `--shape` writes the shape field; default is `State`; invalid is rejected (66.1).**
@@ -1055,13 +1064,13 @@ mkdir $h > $null; Set-Location $h; git init | Out-Null; cmk install | Out-Null
   Duplicate the CLAUDE.md block by hand (the kept-both-sides merge shape):
   ```powershell
   $md = Get-Content CLAUDE.md -Raw
-  $start = $md.IndexOf('<!-- claude-memory-kit:start')
-  $end = $md.IndexOf('<!-- claude-memory-kit:end -->') + '<!-- claude-memory-kit:end -->'.Length
+  $start = $md.IndexOf('<!-- core-memory-kit:start')
+  $end = $md.IndexOf('<!-- core-memory-kit:end -->') + '<!-- core-memory-kit:end -->'.Length
   $block = $md.Substring($start, $end - $start)
   $md.TrimEnd() + "`n`nuser note BETWEEN blocks`n`n" + $block + "`n" | Set-Content CLAUDE.md -Encoding utf8
   cmk doctor                            # HC-9 must FAIL naming the duplicate
   cmk install                           # folds to ONE block
-  (Select-String CLAUDE.md -Pattern "claude-memory-kit:start").Count   # = 1
+  (Select-String CLAUDE.md -Pattern "core-memory-kit:start").Count   # = 1
   findstr "BETWEEN" CLAUDE.md           # the user note survived
   cmk doctor                            # HC-9 back to PASS
   ```
@@ -1259,11 +1268,11 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 
 - [ ] **F-2**
       `cmk persona generate` → runs synthesis;
-      candidates promote or land in `~\.claude-memory-kit\queues\persona-review.md`.
+      candidates promote or land in `~\.core-memory-kit\queues\persona-review.md`.
 
 - [ ] **★ F-3 — explicit promote (Task 76).**
       `cmk lessons promote <id>` → moves a project **fact** to the user tier at **`trust: high`** via the safe path;
-      verify the bullet in `~\.claude-memory-kit\LESSONS.md`; try `--to HABITS.md`.
+      verify the bullet in `~\.core-memory-kit\LESSONS.md`; try `--to HABITS.md`.
       _Use a **fact** id — in `cmk search` output its location is a `context\memory\*.md` file (a `context\MEMORY.md:NN` row is a scratchpad **bullet**, which promote rejects with a "scratchpad bullet, not a fact" hint)._
 
 - [ ] **★ F-3b — persona portability (Task 72).**
@@ -1343,7 +1352,7 @@ Ask: *"Start a new Python backend for me - set up the structure."*
       ```powershell
       cmk doctor | Select-String "HC-9"            # PASS first (fresh install — marker matches the binary)
       # Simulate drift: downgrade the CLAUDE.md marker to an older version
-      (Get-Content CLAUDE.md) -replace 'claude-memory-kit:start v[0-9.]+','claude-memory-kit:start v0.0.1' | Set-Content CLAUDE.md
+      (Get-Content CLAUDE.md) -replace 'core-memory-kit:start v[0-9.]+','core-memory-kit:start v0.0.1' | Set-Content CLAUDE.md
       cmk doctor | Select-String "HC-9"            # now FAIL → message names v0.0.1 + the binary version
       cmk install                                  # re-stamp → marker back to current
       cmk doctor | Select-String "HC-9"            # PASS again
@@ -1409,9 +1418,9 @@ Ask: *"Start a new Python backend for me - set up the structure."*
 
 - [ ] **L1 — plugin route (route B).**
       In a *second* empty folder, inside Claude Code:
-      `/plugin marketplace add LH8PPL/claude-memory-kit`
-      → `/plugin install claude-memory-kit`
-      → `/claude-memory-kit:bootstrap`
+      `/plugin marketplace add LH8PPL/core-memory-kit`
+      → `/plugin install core-memory-kit`
+      → `/core-memory-kit:bootstrap`
       → `/reload-plugins`.
       Scaffolds `context/`, hooks active.
       (Local variant if the marketplace lags: `claude --plugin-dir <repo>\plugin`.)
@@ -1471,11 +1480,11 @@ git tag v0.3.2
 git push origin v0.3.2
 ```
 
-`publish.yml` runs the suite, publishes `@lh8ppl/claude-memory-kit@0.3.2` to npm with provenance,
+`publish.yml` runs the suite, publishes `@lh8ppl/core-memory-kit@0.3.2` to npm with provenance,
 and creates the GitHub Release from the `[0.3.2]` CHANGELOG section.
 
 **Verify after:**
-- `npm view @lh8ppl/claude-memory-kit version` → `0.3.2`
+- `npm view @lh8ppl/core-memory-kit version` → `0.3.2`
 - the npm page shows a **provenance** badge
 - the GitHub Release matches `## [0.3.2]`
 

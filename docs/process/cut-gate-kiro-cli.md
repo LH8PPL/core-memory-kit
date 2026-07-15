@@ -15,7 +15,7 @@
 > - **★★ VERSION GATE (D-198 — the hard-won lesson).** kiro-cli's behavior depends on its major version. Check it FIRST (`kiro-cli --version`):
 >   - **V2 (≤2.8.x):** embedded `agentSpawn` / `stop` / `preToolUse` all fire. The full guardrail works.
 >   - **V3 (2.9+):** `agentSpawn` / `stop` STILL fire (capture + inject work), but **`preToolUse` does NOT** — V3 redesigned hooks (standalone `.kiro/hooks/*.json` PascalCase + `permissions.yaml` for tool-blocking). The delete-guardrail via our hook is **expected-not-to-fire on V3**; kiro-cli's own shell-approval prompt covers destructive commands there. First-class V3 support is **Task 166**.
-> - **★★ Test the REAL paths — back up, run for real, restore (BINDING).** This gate runs against your **real** `~/.claude-memory-kit` (user tier) and **real** `~/.kiro` (the CLI-agent surface), because that is exactly what a real user hits. The safety is a **backup-before / restore-after** protocol (§0c), NOT env-var redirection.
+> - **★★ Test the REAL paths — back up, run for real, restore (BINDING).** This gate runs against your **real** `~/.core-memory-kit` (user tier) and **real** `~/.kiro` (the CLI-agent surface), because that is exactly what a real user hits. The safety is a **backup-before / restore-after** protocol (§0c), NOT env-var redirection.
 >
 > **Cutting now: `v0.4.0`** — Kiro is the first non-Claude-Code agent (Task 50). _Replace `0.4.0` / `v0.4.0` below if you reuse this guide for a later kiro-cli-touching cut._
 
@@ -31,7 +31,7 @@
 
 > **★★ The real-input rule (binding — D-84).** A check **PASSES only when it ran on REAL input that exercises the feature** — never "the command didn't crash." A hook that is *registered* but never *fires-and-captures-a-real-turn* is **unverified**, not a pass. The hook checks below FAIL if you only confirm the file exists.
 
-> **★★ The backup rule (binding — D-184).** Before ANY `cmk install --ide kiro` or live kiro-cli session, run the **§0c backup block** — it snapshots your real `~/.claude-memory-kit` + `~/.kiro` into `C:\cut-gate-backups\`. The gate writes to the **real** dirs; the **§Verdict restore block** preserves the test artifacts as evidence and puts your originals back.
+> **★★ The backup rule (binding — D-184).** Before ANY `cmk install --ide kiro` or live kiro-cli session, run the **§0c backup block** — it snapshots your real `~/.core-memory-kit` + `~/.kiro` into `C:\cut-gate-backups\`. The gate writes to the **real** dirs; the **§Verdict restore block** preserves the test artifacts as evidence and puts your originals back.
 
 > **★★ The BOM trap (binding — D-198).** When you hand-edit a kiro-cli agent config for diagnostics, use **Node** (`node -e "...fs.writeFileSync(...,'utf8')"`), **never** PowerShell `ConvertTo-Json | Set-Content`. PowerShell adds a UTF-8 BOM; kiro-cli's agent loader REJECTS a BOM'd config (`invalid: expected value at line 1 column 1`) and silently falls back to `kiro_default` — which looks exactly like "the kit broke" when it didn't. The kit's own installer writes clean BOM-less UTF-8; only hand-edits inject the BOM. First byte `123` (`{`) = clean; `239` = BOM.
 
@@ -55,17 +55,17 @@ git push origin main
 
 ```powershell
 cd C:\Projects\claude-memory-kit\packages\cli
-npm pack                             # → lh8ppl-claude-memory-kit-<version>.tgz
-npm uninstall -g @lh8ppl/claude-memory-kit
+npm pack                             # → lh8ppl-core-memory-kit-<version>.tgz
+npm uninstall -g @lh8ppl/core-memory-kit
 # Use the EXPLICIT filename npm pack printed — PowerShell does NOT glob `*.tgz`.
-npm install -g .\lh8ppl-claude-memory-kit-0.4.0.tgz
+npm install -g .\lh8ppl-core-memory-kit-0.4.0.tgz
 cmk --version                        # ✅ matches packages/cli/package.json
 # (If `npm uninstall -g` / install warned EPERM on better_sqlite3.node — a Windows
 #  file lock because Claude Code/Kiro hold the native DLL — CLOSE those apps first,
 #  then re-run. The version check confirms the new artifact is live.)
 ```
 
-**0c — back up the real dirs (the binding backup rule).** The gate runs against your REAL `~/.claude-memory-kit` + `~/.kiro`. Snapshot them first into a FRESH run dir, then start the user tier clean so capture-from-zero is honest:
+**0c — back up the real dirs (the binding backup rule).** The gate runs against your REAL `~/.core-memory-kit` + `~/.kiro`. Snapshot them first into a FRESH run dir, then start the user tier clean so capture-from-zero is honest:
 
 ```powershell
 # NEVER overwrite an existing backup — always a FRESH run dir. Find the next free _runN.
@@ -78,8 +78,8 @@ New-Item -ItemType Directory -Path $bk | Out-Null
 "backup run dir: $bk"
 
 # user tier (kit-only) → MOVE it aside (starts the gate from empty; restored verbatim after)
-if (Test-Path $env:USERPROFILE\.claude-memory-kit) {
-  Move-Item $env:USERPROFILE\.claude-memory-kit "$bk\$run-.claude-memory-kit"
+if (Test-Path $env:USERPROFILE\.core-memory-kit) {
+  Move-Item $env:USERPROFILE\.core-memory-kit "$bk\$run-.core-memory-kit"
 }
 # ~/.kiro: holds your real Kiro agents/settings/extensions → COPY (never move it out
 # from under Kiro), then the restore deletes only the cmk files the gate added.
@@ -97,7 +97,7 @@ if (Test-Path $env:USERPROFILE\.kiro\settings\cli.json) {
 
 - [ ] **G0** — `cmk --version` matches `packages/cli/package.json` _(older → you're testing a stale global; re-run `npm install -g` against the freshly-packed `.tgz`)._
 - [ ] **G0-cli** — `kiro-cli --version` runs (kiro-cli is on PATH). **Record the major version** — it decides the KG-guard expectation (V2 fires, V3 falls back). _(`KIRO_VERSION` env inside a session also reports it.)_
-- [ ] **G0-backup** — the fresh run dir `C:\cut-gate-backups\$run\` holds `$run-.claude-memory-kit` + `$run-.kiro`, any prior backup is untouched, and `~/.claude-memory-kit` is now absent (moved aside) so capture starts from zero. _(`~/.kiro` stays in place — it was copied, not moved.)_
+- [ ] **G0-backup** — the fresh run dir `C:\cut-gate-backups\$run\` holds `$run-.core-memory-kit` + `$run-.kiro`, any prior backup is untouched, and `~/.core-memory-kit` is now absent (moved aside) so capture starts from zero. _(`~/.kiro` stays in place — it was copied, not moved.)_
 
 ---
 
@@ -134,7 +134,7 @@ cmk doctor
       cd C:\Temp\kiro-cli-gate9
       kiro-cli agent list
       ```
-      **PASS:** the active marker `*` is on **`cmk`** (shown `Global`), e.g. `* cmk    Global    claude-memory-kit …`. **FAIL:** `*` is on `kiro_default` (built-in) → the kit's default registration didn't take; nothing will fire.
+      **PASS:** the active marker `*` is on **`cmk`** (shown `Global`), e.g. `* cmk    Global    core-memory-kit …`. **FAIL:** `*` is on `kiro_default` (built-in) → the kit's default registration didn't take; nothing will fire.
 
 - [ ] **★ KCG5 — the agent carries all three hooks + MCP + trust, in the right shape.**
       ```powershell
@@ -164,7 +164,7 @@ cmk doctor
       ```
       **PASS:** the cmk agent file STILL installs (the user can run `kiro-cli --agent cmk`), but the kit did NOT overwrite a foreign `chat.defaultAgent` — it left `their-agent` intact. **FAIL:** the kit clobbered the user's default pointer.
 
-- [ ] **★ KCG8 — scaffold reads clean (READ EVERY FILE IN ALL THREE MEMORY TIERS).** Open and read `context\MEMORY.md`, `context\SOUL.md`, `context\USER.md`, every `context\memory\*.md` + `INDEX.md`, the user tier (`~\.claude-memory-kit\*.md`). **PASS:** no kit-internal cruft (no `Task NN` / `design §` / literal `{{TODAY}}`), no real username in a committed tier, example bullets marked `(example)`, well-formed frontmatter. **FAIL:** any leak/placeholder/cruft.
+- [ ] **★ KCG8 — scaffold reads clean (READ EVERY FILE IN ALL THREE MEMORY TIERS).** Open and read `context\MEMORY.md`, `context\SOUL.md`, `context\USER.md`, every `context\memory\*.md` + `INDEX.md`, the user tier (`~\.core-memory-kit\*.md`). **PASS:** no kit-internal cruft (no `Task NN` / `design §` / literal `{{TODAY}}`), no real username in a committed tier, example bullets marked `(example)`, well-formed frontmatter. **FAIL:** any leak/placeholder/cruft.
 
 ---
 
@@ -199,7 +199,7 @@ Build a small app, **stating durable preferences as you go** (these are what mem
 
 - [ ] **★ M1 — explicit capture in chat, PROMPT-FREE (the shell-command path).** kiro-cli does NOT use MCP tools (its agent sets `includeMcpJson: false`) — explicit capture goes through the kit's **`cmk remember`** SHELL command, which the model can run because the agent has `tools: ['*']` (the capability set; without it a custom agent runs *nothing*). When you state a durable preference, the agent runs `cmk remember "<fact>" --project "<abs path>"` (NO `cd` prefix — a `cd …` prefix makes the command start with `cd`, which fails the start-anchored `^cmk remember` trust match → an approval prompt). **PASS:** the agent's `cmk remember …` runs SILENTLY (pre-trusted) and prints `saved … [P-XXXXXXXX]`; the fact lands in `context\memory\` (verify on disk: a new `user_*.md` + an `audit.log` entry). **FAIL:** the agent prepends `cd` (→ "shell requires approval"), or the agent "says saved" with no real shell output (→ the `tools` field is missing, so nothing ran), or nothing lands on disk.
 
-- [ ] **★ M-wedge — cross-project promotion fires (shell-command path).** When you state the *"in every project"* uv/ruff rule, the agent recognizes it as cross-project: it runs `cmk remember "<rule>"` then `cmk lessons promote <id>` → the rule lands in the **user tier** (`HABITS.md`). **PASS:** `type $env:USERPROFILE\.claude-memory-kit\HABITS.md` shows the uv/ruff rule (with Why/How). **FAIL:** the rule stayed project-only. _(If the agent is unsure of the id, it can `cmk search` first — both are pre-trusted.)_
+- [ ] **★ M-wedge — cross-project promotion fires (shell-command path).** When you state the *"in every project"* uv/ruff rule, the agent recognizes it as cross-project: it runs `cmk remember "<rule>"` then `cmk lessons promote <id>` → the rule lands in the **user tier** (`HABITS.md`). **PASS:** `type $env:USERPROFILE\.core-memory-kit\HABITS.md` shows the uv/ruff rule (with Why/How). **FAIL:** the rule stayed project-only. _(If the agent is unsure of the id, it can `cmk search` first — both are pre-trusted.)_
 
 ---
 
@@ -212,7 +212,7 @@ cd C:\Temp\kiro-cli-gate9
 - [ ] **B1 — auto-capture fires.** Your decisions/prefs show up **without** "remember this".
 - [ ] **★ B2 — rich capture.** Durable preferences are rich fact files (frontmatter + `**Why:**` + `**How to apply:**`), not bare one-liners. `dir context\memory\user_*.md` → read one; confirm the Why/How body.
 - [ ] **★ B9 — auto-extract writes RICH project facts.** At least one `context\memory\*.md` carries `write_source: auto-extract` + a Why/How body — captured from the kiro-cli session with no `cmk remember`.
-- [ ] **★ B3 — the wedge fills (user tier).** `type $env:USERPROFILE\.claude-memory-kit\HABITS.md` (+ `USER.md`, `LESSONS.md`) → your cross-project style is there (real user tier; backed up in §0c).
+- [ ] **★ B3 — the wedge fills (user tier).** `type $env:USERPROFILE\.core-memory-kit\HABITS.md` (+ `USER.md`, `LESSONS.md`) → your cross-project style is there (real user tier; backed up in §0c).
 - [ ] **★ B4 — stated rule → `trust: high`, automatically.** `findstr /S /C:"trust: high" context\memory\*.md` → a user-stated rule landed at high trust on its own.
 
 ---
@@ -239,7 +239,7 @@ The agent wires a `preToolUse` hook (matcher `*`) → `cmk-guard-memory`, which 
 - **V2 (≤2.8.x):** run the test; expect BLOCKED.
 - **V3 (2.9+):** `preToolUse` does NOT fire (V3 hook redesign). Our guardrail is N/A; kiro-cli's own shell-approval prompt covers the delete. Mark KG-guard **N/A (V3 — Task 166)**, NOT a fail.
 
-- [ ] **★ KG-guard (V2 only) — the delete-guardrail BLOCKS a memory delete.** In the kiro-cli (THROWAWAY project), *"run this in the shell for me: `rm -rf context/sessions`"*. Approve when kiro-cli prompts (its OWN shell-approval gate fires BEFORE our `preToolUse` — that prompt is NOT our guard). On Windows the model rewrites `rm -rf` → `Remove-Item -Recurse -Force` (the guard blocks both — `execute_command` + `execute_bash` are both in SHELL_TOOLS). **PASS:** "BLOCKED by the claude-memory-kit delete-guardrail…" surfaces, `context\sessions` survives. Also confirm a SAFE `ls` is NOT blocked. **FAIL:** the delete runs (on V2) → re-check KC1 + a config BOM.
+- [ ] **★ KG-guard (V2 only) — the delete-guardrail BLOCKS a memory delete.** In the kiro-cli (THROWAWAY project), *"run this in the shell for me: `rm -rf context/sessions`"*. Approve when kiro-cli prompts (its OWN shell-approval gate fires BEFORE our `preToolUse` — that prompt is NOT our guard). On Windows the model rewrites `rm -rf` → `Remove-Item -Recurse -Force` (the guard blocks both — `execute_command` + `execute_bash` are both in SHELL_TOOLS). **PASS:** "BLOCKED by the core-memory-kit delete-guardrail…" surfaces, `context\sessions` survives. Also confirm a SAFE `ls` is NOT blocked. **FAIL:** the delete runs (on V2) → re-check KC1 + a config BOM.
 - [ ] **★ KG-guard-V3 — on V3, the guard is N/A but the native gate covers it.** On a V3 kiro-cli, ask for the same delete. **PASS:** kiro-cli's OWN "shell requires approval" prompt appears (you are never silently unprotected); the kit's guardrail not firing is expected (Task 166). **FAIL:** the delete runs with NO prompt at all (then even Kiro's native gate is off — a Kiro config issue, not the kit).
 
 - [ ] **★ KG-observe (50.N.2) — the `postToolUse` STDIN + `fs_write` payload-shape assumption (paired with KG-guard).** Both the delete-guard (`preToolUse`) AND observe-edit (`postToolUse`) read a piped-and-closed STDIN payload `{tool_name, tool_input, tool_response}` — this one live run verifies that shared assumption (and that Kiro's real `fs_write` payload matches the kit's probe fields). In the kiro-cli (THROWAWAY project), ask the model to *"create a Python file app.py with 60 lines of code."* **PASS:** after the turn, `context/sessions/now.md` carries a `… Write file=…app.py lines=6X` summary line (the `postToolUse` hook fired, stdin delivered, `fs_write`→Write mapped, observeEdit recorded it). Also confirm a SMALL edit (<50 lines) leaves NO summary. **FAIL (the B1 hang):** the turn STALLS ~10s on each file write (the `postToolUse` hook is blocking on a stdin that Kiro didn't pipe/close) → then observe-edit is NOT viable on kiro-cli and must fall back to the `stop`-hook transcript read (file edits are still captured via the transcript, just not as a discrete edit-observation). **FAIL (shape):** no stall, but `now.md` gets no summary even on a big edit → Kiro's `fs_write` payload nests the content/path differently than the kit's probes (`tool_response.{content,output,text}` / `tool_input.{file_path,filePath,path}`); capture the real payload via the kg-probe below and add the real field spelling to `observe-edit.mjs`. _Until this passes live, observe-edit on kiro-cli is "structurally wired, live-unverified" (50.N.2)._
@@ -288,7 +288,7 @@ The `cmk` CLI is agent-agnostic — run **F-1 … F-19** (recall/index, persona,
       ```
       **PASS:** uninstall removes `~/.kiro/agents/cmk.json` + un-registers our `chat.defaultAgent` pointer (leaving `cli.json` + any sibling keys byte-untouched) + strips the project `.kiro/` managed surfaces; AND **`context/` is preserved**. **FAIL:** a user file/sibling key was deleted, `context/` was touched, or a managed surface lingered.
 
-- [ ] **★ KU2 — uninstall NEVER deletes a foreign `cmk.json` (the rmSync safety, D-198).** In a sandbox, write a user-owned `cmk.json` WITHOUT our `[claude-memory-kit]` marker, then uninstall:
+- [ ] **★ KU2 — uninstall NEVER deletes a foreign `cmk.json` (the rmSync safety, D-198).** In a sandbox, write a user-owned `cmk.json` WITHOUT our `[core-memory-kit]` marker, then uninstall:
       ```powershell
       $d = "C:\Temp\kiro-cli-foreign"; Remove-Item -Recurse -Force $d -EA SilentlyContinue
       New-Item -ItemType Directory "$d\agents" -Force | Out-Null
@@ -298,7 +298,7 @@ The `cmk` CLI is agent-agnostic — run **F-1 … F-19** (recall/index, persona,
       "foreign cmk.json survived (True): $(Test-Path $d\agents\cmk.json)"
       Remove-Item Env:\MEMORY_KIT_KIRO_DIR; Remove-Item -Recurse -Force $d
       ```
-      **PASS:** the foreign `cmk.json` (no marker) is byte-untouched — uninstall keys on our `[claude-memory-kit]` marker, never blindly deletes the filename. **FAIL:** a user's own agent was deleted.
+      **PASS:** the foreign `cmk.json` (no marker) is byte-untouched — uninstall keys on our `[core-memory-kit]` marker, never blindly deletes the filename. **FAIL:** a user's own agent was deleted.
 
 ---
 
@@ -340,15 +340,15 @@ $run  = Split-Path $bk -Leaf
 "restoring from run dir: $bk"
 
 # 1. PRESERVE the test artifacts as evidence (run-prefixed, self-identifying)
-Copy-Item $env:USERPROFILE\.claude-memory-kit  "$bk\$run-AFTER-.claude-memory-kit" -Recurse -EA SilentlyContinue
+Copy-Item $env:USERPROFILE\.core-memory-kit  "$bk\$run-AFTER-.core-memory-kit" -Recurse -EA SilentlyContinue
 Copy-Item C:\Temp\kiro-cli-gate9                "$bk\$run-AFTER-test-project"       -Recurse -EA SilentlyContinue
 Copy-Item $env:USERPROFILE\.kiro\agents        "$bk\$run-AFTER-kiro-agents"        -Recurse -EA SilentlyContinue
 "$(Get-Date -Format o) — kiro-cli gate finished; artifacts copied above." | Out-File "$bk\NOTES.md" -Append
 
 # 2. RESTORE the user tier (it was MOVED aside in §0c — put the original back verbatim)
-Remove-Item -Recurse -Force $env:USERPROFILE\.claude-memory-kit -EA SilentlyContinue
-if (Test-Path "$bk\$run-.claude-memory-kit") {
-  Move-Item "$bk\$run-.claude-memory-kit" $env:USERPROFILE\.claude-memory-kit
+Remove-Item -Recurse -Force $env:USERPROFILE\.core-memory-kit -EA SilentlyContinue
+if (Test-Path "$bk\$run-.core-memory-kit") {
+  Move-Item "$bk\$run-.core-memory-kit" $env:USERPROFILE\.core-memory-kit
 }
 
 # 3. RESTORE ~/.kiro — it was COPIED. Remove ONLY the cmk files the gate added
@@ -378,6 +378,6 @@ git tag v0.4.0
 git push origin v0.4.0
 ```
 
-`publish.yml` runs the suite, publishes `@lh8ppl/claude-memory-kit@0.4.0` to npm with provenance, and creates the GitHub Release from the `[0.4.0]` CHANGELOG section.
+`publish.yml` runs the suite, publishes `@lh8ppl/core-memory-kit@0.4.0` to npm with provenance, and creates the GitHub Release from the `[0.4.0]` CHANGELOG section.
 
-**Verify after:** `npm view @lh8ppl/claude-memory-kit version` → `0.4.0`; the npm page shows a provenance badge; the GitHub Release matches `## [0.4.0]`.
+**Verify after:** `npm view @lh8ppl/core-memory-kit version` → `0.4.0`; the npm page shows a provenance badge; the GitHub Release matches `## [0.4.0]`.

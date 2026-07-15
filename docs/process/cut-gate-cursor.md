@@ -7,8 +7,8 @@
 > - **Install command:** `cmk install --with-semantic --ide cursor` (NOT bare `cmk install`).
 > - **Three `.cursor/` surfaces, one generic installer.** `cmk install --ide cursor` rides the GENERIC per-profile installer (`installAgent`) — the D-180 "agent = thin DATA" proof-of-thesis (Cursor needed NO bespoke orchestrator, unlike Kiro's five-surface `installKiro`):
 >   - **hooks** → `.cursor/hooks.json` (`{version:1, hooks:{<event>:[{command}]}}`). Every event carries ONE command — `cmk cursor-hook` — because Cursor hooks speak **JSON over stdio in both directions** and the event name rides IN the payload (`hook_event_name`), so a single dispatcher routes all six: `sessionStart` (inject) · `beforeSubmitPrompt` (capture-prompt) · `afterAgentResponse` (capture-turn) · `afterFileEdit` (observe-edit) · `sessionEnd` (compress) · `beforeShellExecution` (the D-192 delete-guard).
->   - **MCP** → `.cursor/mcp.json` (`mcpServers.claude-memory-kit`, stdio `cmk mcp serve`).
->   - **instruction** → `.cursor/rules/claude-memory-kit.mdc` (`alwaysApply: true`; the **`.mdc` extension is load-bearing** — Cursor IGNORES a plain `.md` in `.cursor/rules/`).
+>   - **MCP** → `.cursor/mcp.json` (`mcpServers.core-memory-kit`, stdio `cmk mcp serve`).
+>   - **instruction** → `.cursor/rules/core-memory-kit.mdc` (`alwaysApply: true`; the **`.mdc` extension is load-bearing** — Cursor IGNORES a plain `.md` in `.cursor/rules/`).
 > - **The hook surface is an input adapter only** — `cmk cursor-hook` reads Cursor's JSON payload and calls the SAME `injectContext()` / `captureTurn()` / `observeEdit()` / `decideGuard()` cores as Claude Code. The memory CORE is identical; the Cursor-specific work is the WIRING (this gate's §1 surfaces + §2 live hooks).
 > - **★★ RESTART CURSOR AFTER INSTALL — BEFORE any live check (BINDING — the D-262 class).** Cursor loads `.cursor/hooks.json` at session start. A session open BEFORE `cmk install` (or before a Cursor app/extension update) has NOT loaded the just-wired hooks — inject/capture/guard won't fire and the check falsely appears to FAIL. **Fully quit + reopen Cursor after install, before §2's live checks.** A "hook didn't fire" symptom is a stale-session symptom until you've restarted and re-confirmed.
 > - **★★ The D-269 inject-content warning.** The inject leg (`sessionStart` → `additional_context`) must surface REAL memory content, not just "the hook ran" — an empty snapshot passed every unit test while shipping broken on Kiro for two minors (D-269). §2 R-inject + §5 W1 must confirm injected memory names a real Session-1 fact.
@@ -197,11 +197,11 @@ git push origin main
 
 ```powershell
 cd C:\Projects\claude-memory-kit\packages\cli
-npm pack                             # → lh8ppl-claude-memory-kit-<version>.tgz
-npm uninstall -g @lh8ppl/claude-memory-kit
+npm pack                             # → lh8ppl-core-memory-kit-<version>.tgz
+npm uninstall -g @lh8ppl/core-memory-kit
 # Use the EXPLICIT filename, NOT a *.tgz glob — PowerShell does NOT expand the
 # wildcard, so npm gets the literal `*` and fails ENOENT. Substitute the version.
-npm install -g .\lh8ppl-claude-memory-kit-0.4.1.tgz   # the freshly-packed tarball
+npm install -g .\lh8ppl-core-memory-kit-0.4.1.tgz   # the freshly-packed tarball
 cmk --version                        # ✅ matches packages/cli/package.json
 
 # BACK UP the user tier, then start clean so capture-from-zero is honest.
@@ -212,8 +212,8 @@ cmk --version                        # ✅ matches packages/cli/package.json
 $stamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
 $backupRoot = "C:\cut-gate-backups\user-tier_$stamp"
 New-Item -ItemType Directory -Force -Path (Split-Path $backupRoot) | Out-Null
-if (Test-Path $env:USERPROFILE\.claude-memory-kit) {
-  Move-Item -Path $env:USERPROFILE\.claude-memory-kit -Destination $backupRoot
+if (Test-Path $env:USERPROFILE\.core-memory-kit) {
+  Move-Item -Path $env:USERPROFILE\.core-memory-kit -Destination $backupRoot
   Write-Host "user tier backed up → $backupRoot"
 }
 # Same for the stray ~/context scaffold (test debris) if present — back up, don't bin.
@@ -222,7 +222,7 @@ if (Test-Path $env:USERPROFILE\context) {
 }
 ```
 
-> **Restore after the gate** (if you backed up a real tier): `Move-Item $backupRoot $env:USERPROFILE\.claude-memory-kit` (move the gate-created one aside first if you want to keep it). The backups live under `C:\cut-gate-backups\` and are never auto-deleted.
+> **Restore after the gate** (if you backed up a real tier): `Move-Item $backupRoot $env:USERPROFILE\.core-memory-kit` (move the gate-created one aside first if you want to keep it). The backups live under `C:\cut-gate-backups\` and are never auto-deleted.
 
 - [ ] **G0** — `cmk --version` matches the version in `packages/cli/package.json` _(if it's an older version, you're testing a stale global — re-run the `npm install -g` above against the freshly-packed `.tgz`)_
 
@@ -244,7 +244,7 @@ cmk doctor
 - [ ] **★ CU1 — install prints the Cursor success summary.**
       `cmk install --ide cursor` → the summary says **`ready for Cursor`** and names the wired legs (`instruction file + MCP + hooks`), plus the "Restart the agent to activate" line. **FAIL:** an error, or a missing leg.
 
-- [ ] **★ CU1b — `cmk doctor` clean (agent-aware HC-1 for Cursor).** `cmk doctor` → **0 fail** on a fresh Cursor install — **11 checks** (HC-1..HC-11; HC-8 native-bindings, HC-9 version-drift, HC-10 compaction-liveness, HC-11 backend-CLI-present). HC-1 must report **`Cursor capture/inject wired via .cursor/hooks.json (cmk cursor-hook)`** — the Cursor-aware check, NOT a Claude-Code-shaped fail. **HC-9** = PASS on a just-installed project; **HC-10** = SKIP on a fresh install with no cron; **HC-11** = PASS when `cursor-agent` is on PATH (the effective backend for a Cursor install), FAIL with the honest degrade message if it's absent (see ★ BK1, §4f). **FAIL:** HC-1 fails with `cmk repair --hooks` (the Claude hint) → `detectInstallKind` didn't recognize the `.cursor/rules/claude-memory-kit.mdc` marker, or the dispatcher isn't on the load-bearing events (the D-185 false-FAIL class).
+- [ ] **★ CU1b — `cmk doctor` clean (agent-aware HC-1 for Cursor).** `cmk doctor` → **0 fail** on a fresh Cursor install — **11 checks** (HC-1..HC-11; HC-8 native-bindings, HC-9 version-drift, HC-10 compaction-liveness, HC-11 backend-CLI-present). HC-1 must report **`Cursor capture/inject wired via .cursor/hooks.json (cmk cursor-hook)`** — the Cursor-aware check, NOT a Claude-Code-shaped fail. **HC-9** = PASS on a just-installed project; **HC-10** = SKIP on a fresh install with no cron; **HC-11** = PASS when `cursor-agent` is on PATH (the effective backend for a Cursor install), FAIL with the honest degrade message if it's absent (see ★ BK1, §4f). **FAIL:** HC-1 fails with `cmk repair --hooks` (the Claude hint) → `detectInstallKind` didn't recognize the `.cursor/rules/core-memory-kit.mdc` marker, or the dispatcher isn't on the load-bearing events (the D-185 false-FAIL class).
 
 - [ ] **★ CU2 — hooks surface: the versioned `.cursor/hooks.json` with the dispatcher on all 6 events.**
       ```powershell
@@ -256,13 +256,13 @@ cmk doctor
       ```powershell
       type .cursor\mcp.json
       ```
-      **PASS:** `mcpServers.claude-memory-kit` is a stdio server (`"type": "stdio"`, `"command": "cmk"`, `"args": ["mcp", "serve"]`). **FAIL:** the server key is missing or malformed.
+      **PASS:** `mcpServers.core-memory-kit` is a stdio server (`"type": "stdio"`, `"command": "cmk"`, `"args": ["mcp", "serve"]`). **FAIL:** the server key is missing or malformed.
 
 - [ ] **★ CU4 — instruction surface: the always-applied `.mdc` rule.**
       ```powershell
-      type .cursor\rules\claude-memory-kit.mdc
+      type .cursor\rules\core-memory-kit.mdc
       ```
-      **PASS:** the file exists at **`.cursor/rules/claude-memory-kit.mdc`** (the `.mdc` extension — a plain `.md` here is IGNORED by Cursor), opens with `---` frontmatter carrying **`alwaysApply: true`**, and its body sits inside `<!-- claude-memory-kit:start -->` / `:end` markers telling Cursor to recall via `cmk search` before re-deriving. **FAIL:** wrong extension, missing `alwaysApply`, or missing markers.
+      **PASS:** the file exists at **`.cursor/rules/core-memory-kit.mdc`** (the `.mdc` extension — a plain `.md` here is IGNORED by Cursor), opens with `---` frontmatter carrying **`alwaysApply: true`**, and its body sits inside `<!-- core-memory-kit:start -->` / `:end` markers telling Cursor to recall via `cmk search` before re-deriving. **FAIL:** wrong extension, missing `alwaysApply`, or missing markers.
 
 - [ ] **★ CU7 — `--with-semantic` enabled hybrid-by-default (same as Claude-Code G7).**
       The install above printed **"Semantic recall ENABLED — `cmk search` now defaults to hybrid here."**
@@ -295,7 +295,7 @@ cmk doctor
         if (-not (Test-Path $dir)) { Write-Output "(no $dir)"; return }
         Get-ChildItem -Recurse $dir -File | % { "`n===== $($_.FullName) ====="; [System.IO.File]::ReadAllText($_.FullName) }
       }
-      Read-Tier "$env:USERPROFILE\.claude-memory-kit"   # User tier (cross-project)
+      Read-Tier "$env:USERPROFILE\.core-memory-kit"   # User tier (cross-project)
       Read-Tier "context"                                # Project tier (committed)
       Read-Tier "context.local"                          # Local tier (gitignored)
       ```
@@ -435,14 +435,14 @@ dir context\memory; type context\memory\feedback_*.md
       _(Inconclusive on a short session is honest — rerun after more turns, don't wave it.)_
 
 - [ ] **★ B3 — the wedge fills.**
-      Type: `%USERPROFILE%\.claude-memory-kit\HABITS.md` (+ `USER.md`, `LESSONS.md`)
+      Type: `%USERPROFILE%\.core-memory-kit\HABITS.md` (+ `USER.md`, `LESSONS.md`)
       → your cross-project style is there (was empty pre-v0.2).
 
 - [ ] **★ B4 — stated rule → `trust: high`, automatically.**
       The uv/ruff rule landed in a user-tier scratchpad on its own (no command),
       provenance `trust: high` + `write: user-explicit`:
       ```powershell
-      findstr /S /C:"trust: high" %USERPROFILE%\.claude-memory-kit\*.md
+      findstr /S /C:"trust: high" %USERPROFILE%\.core-memory-kit\*.md
       ```
 
 ### ★ B5 — Graduation: the write-lock fix (Task 91)
@@ -530,8 +530,8 @@ so this run just watches for it rather than forcing it.
 After Session 1 (B3/B4 fill the persona), if any persona scratchpad grew past its cap:
 
 ```powershell
-dir %USERPROFILE%\.claude-memory-kit\fragments
-findstr /S /C:"\"tier\":\"U\"" %USERPROFILE%\.claude-memory-kit\.locks\audit.log | findstr graduated
+dir %USERPROFILE%\.core-memory-kit\fragments
+findstr /S /C:"\"tier\":\"U\"" %USERPROFILE%\.core-memory-kit\.locks\audit.log | findstr graduated
 ```
 
 - [ ] **B8 — PASS (observational):**
@@ -702,7 +702,7 @@ CLI suite structurally can't cover (the agent is in the loop). Restart Cursor fi
 changed `.cursor/mcp.json` since opening (Cursor launches the MCP server at session start).
 
 - [ ] **★ M0 — the 11 tools are live (Task 108).**
-      Ask Cursor to list its `claude-memory-kit` MCP tools.
+      Ask Cursor to list its `core-memory-kit` MCP tools.
       → `mk_remember, mk_search, mk_get, mk_timeline, mk_cite, mk_recent_activity, mk_trust, mk_lessons_promote, mk_forget, mk_queue_list, mk_queue_resolve` (**11**).
       _(Empty = the server didn't launch; re-check CU3 + that you restarted Cursor.)_
 
@@ -728,7 +728,7 @@ changed `.cursor/mcp.json` since opening (Cursor launches the MCP server at sess
 
 ## 4d. The persona-promotion redesign (Task 151 + 70.4)  ⬅️ the v0.4.3 headline
 
-> Each probe below runs in a **throwaway sandbox** (`C:\temp\…` + a sandbox `MEMORY_KIT_USER_DIR`) against the **current-repo** binary (`node packages\cli\bin\cmk.mjs`), never the global `cmk` and never your real `context/` or `~\.claude-memory-kit`. All five were live-verified during the v0.4.3 cut.
+> Each probe below runs in a **throwaway sandbox** (`C:\temp\…` + a sandbox `MEMORY_KIT_USER_DIR`) against the **current-repo** binary (`node packages\cli\bin\cmk.mjs`), never the global `cmk` and never your real `context/` or `~\.core-memory-kit`. All five were live-verified during the v0.4.3 cut.
 
 - [ ] **★ PR1 — a re-stated fact bumps `recurrence_count` (Move 1 — the earned promotion signal).**
       The recurrence path lives ONLY in the **rich** write (`writeFact`), so the remember MUST carry a rich flag (`--why`/`--how`/`--type`/`--title`) — a *bare* `cmk remember "text"` writes an id-less `MEMORY.md` bullet and never bumps. Run the **byte-identical** rich remember **twice**:
@@ -824,7 +824,7 @@ changed `.cursor/mcp.json` since opening (Cursor launches the MCP server at sess
 
 ## 4e. Temporal validity + the memory-commit proposal (Task 66 + 150)  ⬅️ the v0.4.4 headline
 
-> Each probe below runs in a **throwaway sandbox** (`C:\temp\…` + a sandbox `MEMORY_KIT_USER_DIR`) against the **current-repo** binary (`node packages\cli\bin\cmk.mjs`), never the global `cmk` and never your real `context/` or `~\.claude-memory-kit`.
+> Each probe below runs in a **throwaway sandbox** (`C:\temp\…` + a sandbox `MEMORY_KIT_USER_DIR`) against the **current-repo** binary (`node packages\cli\bin\cmk.mjs`), never the global `cmk` and never your real `context/` or `~\.core-memory-kit`.
 > The `shape`/`expires_at` path lives ONLY in the **rich** write (`writeFact`), so every remember below carries a rich flag (`--why`/`--type`/`--title`) — a *bare* `cmk remember "text"` writes an id-less `MEMORY.md` bullet and never records `shape`/`expires_at`.
 
 - [ ] **★ TV1 — `--shape` writes the shape field; default is `State`; invalid is rejected (66.1).**
@@ -948,7 +948,7 @@ then:
 The headline gate. Each rung exercises a different layer of the new recall stack.
 
 - [ ] **★ W1 — recall fires from the injected snapshot + the always-applied rule (the Cursor recall path).**
-      Cursor has NO scaffolded `memory-search` skill (that's Claude-Code-only) — on Cursor, recall rides the **injected `sessionStart` snapshot** + the always-applied `.cursor/rules/claude-memory-kit.mdc` (which tells Cursor to `cmk search` / lead with memory before re-deriving). Ask **naturally**, the way you'd actually talk — NOT a "what did we decide about X" trigger phrase. Pick any:
+      Cursor has NO scaffolded `memory-search` skill (that's Claude-Code-only) — on Cursor, recall rides the **injected `sessionStart` snapshot** + the always-applied `.cursor/rules/core-memory-kit.mdc` (which tells Cursor to `cmk search` / lead with memory before re-deriving). Ask **naturally**, the way you'd actually talk — NOT a "what did we decide about X" trigger phrase. Pick any:
       - *"remind me how this thing is laid out — I forget where the logic lives."*
       - *"wait, why did we set it up this way again?"*
       - *"before I add to this, what's the convention here?"*
@@ -1117,11 +1117,11 @@ Open the NEW folder in Cursor (fully restart if Cursor was already running). Ask
 
 - [ ] **F-2**
       `cmk persona generate` → runs synthesis;
-      candidates promote or land in `~\.claude-memory-kit\queues\persona-review.md`.
+      candidates promote or land in `~\.core-memory-kit\queues\persona-review.md`.
 
 - [ ] **★ F-3 — explicit promote (Task 76).**
       `cmk lessons promote <id>` → moves a project **fact** to the user tier at **`trust: high`** via the safe path;
-      verify the bullet in `~\.claude-memory-kit\LESSONS.md`; try `--to HABITS.md`.
+      verify the bullet in `~\.core-memory-kit\LESSONS.md`; try `--to HABITS.md`.
       _Use a **fact** id — in `cmk search` output its location is a `context\memory\*.md` file (a `context\MEMORY.md:NN` row is a scratchpad **bullet**, which promote rejects with a "scratchpad bullet, not a fact" hint)._
 
 - [ ] **★ F-3b — persona portability (Task 72).**
@@ -1248,7 +1248,7 @@ Open the NEW folder in Cursor (fully restart if Cursor was already running). Ask
       cmk uninstall --ide cursor   # the per-agent Cursor uninstall (NOT bare `cmk uninstall`, which is the Claude surface)
       type .cursor\hooks.json      # OUR six events GONE; a user's own hooks (+ their version field) preserved
       type .cursor\mcp.json        # our server key gone; a sibling user MCP server preserved
-      dir .cursor\rules            # claude-memory-kit.mdc GONE (a kit-only .mdc is deleted; a user-edited one survives)
+      dir .cursor\rules            # core-memory-kit.mdc GONE (a kit-only .mdc is deleted; a user-edited one survives)
       "context/ preserved (expect True): $(Test-Path context\MEMORY.md)"
       cmk install --ide cursor     # reinstalls clean over the surviving context/
       cmk init-user-tier           # idempotent on an existing user tier (no overwrite of USER.md content)
@@ -1336,11 +1336,11 @@ git tag v0.3.2
 git push origin v0.3.2
 ```
 
-`publish.yml` runs the suite, publishes `@lh8ppl/claude-memory-kit@0.3.2` to npm with provenance,
+`publish.yml` runs the suite, publishes `@lh8ppl/core-memory-kit@0.3.2` to npm with provenance,
 and creates the GitHub Release from the `[0.3.2]` CHANGELOG section.
 
 **Verify after:**
-- `npm view @lh8ppl/claude-memory-kit version` → `0.3.2`
+- `npm view @lh8ppl/core-memory-kit version` → `0.3.2`
 - the npm page shows a **provenance** badge
 - the GitHub Release matches `## [0.3.2]`
 
