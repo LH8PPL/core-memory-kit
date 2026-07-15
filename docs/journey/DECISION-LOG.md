@@ -10,6 +10,21 @@
 
 ---
 
+## 2026-07-15 — D-336: ISSUE — auto-extract confabulates the PROJECT NAME as "core-memory-kit" for an unnamed project (surfaced by the v0.5.4 rename cut-gate; NOT a rename regression)
+
+**Found in the v0.5.4 rename cut-gate (§2–§3, live Session 1 in `C:\Temp\cut-gate23`).** The gate built a FastAPI + Claude-Agent-SDK chat app; auto-extract correctly captured 8 rich project facts (B1/B2/B9 all PASS) — but **three of them were TITLED / SLUGGED as the wrong project**:
+- `project_core-memory-kit-architecture-after-sdk-rebuild.md` (P-AaH2GWBP)
+- `project_core-memory-kit-model-configuration-runtime.md` (P-4JUSFQ7F)
+- `project_core-memory-kit-session-authentication-mechanism.md` (P-2MC9PWVV)
+
+The BODIES are 100% correct (the FastAPI chat, layered structure, `claude-opus-4-8`, port 8000, per-connection `ClaudeSDKClient`). Only the **title + derived slug** name the app "Core-Memory-Kit" — which it is NOT.
+
+**Root cause — pure LLM judgment, no code path.** There is NO code that reads a project name from CLAUDE.md; the title comes entirely from the Haiku extraction judge (`title: <short Title-Case headline>`, auto-extract.mjs:342). The judge, summarizing turns about an *unnamed* app, latched onto the only proper noun in its context — **the kit's own name from the injected SessionStart memory block** (*"This project uses **core-memory-kit**…"*) — and used it as the project's name. The tell is in `extract.log`: a discarded low-trust excerpt reads *"Core-memory-kit rebuilt from Messages API to Claude Agent SDK…"* — the judge literally decided the chat app *is* core-memory-kit.
+
+**Why this is NOT a rename regression and NOT a v0.5.4 cut-blocker:** the behavior is identical pre/post rename — pre-rename the confabulation would have said "claude-memory-kit". The rename only renamed the wrong name. v0.5.4 is a no-feature identity cut; the capture behavior is unchanged, so this ships as a pre-existing latent issue, not a gate blocker. **Impact when real:** slug-namespace pollution + cross-project recall poisoning (a `cmk search` for "core-memory-kit" on an unrelated project would surface this app's facts). Low frequency (only when a project has no self-evident name AND knowledge-dense turns discuss architecture generically).
+
+**Candidate fix (deferred, needs design — NOT done here):** the extraction prompt should instruct the judge to NEVER name the project after the memory-system block, and prefer the repo/dir name or a generic descriptor when the project's own name is absent from the turn. Parked as a v0.5.x capture-quality candidate with a named trigger: *fix when a 2nd project exhibits the cross-project-recall poisoning, OR when the extraction-prompt is next revised.* _Relates auto-extract.mjs:342 (the title directive), the injected memory block (CLAUDE.md managed section), D-122 (the extraction-prompt class), D-336._
+
 ## 2026-07-15 — D-335: DECISION + EXECUTION — Task 195: rename `claude-memory-kit` → `core-memory-kit` (executes ADR-0012; ADR-0021)
 
 **The user chose RENAME to `core-memory-kit`** (from the candidate pool KEEP-claude-memory-kit / RENAME-to-core-memory-kit / elevate-cmk-as-brand). The name keeps the `cmk` initialism deliberately — `cmk` binary + `MEMORY_KIT_USER_DIR` + `@lh8ppl/cmk-canonicalize` are unchanged. **ADR-0021** written as ADR-0012's successor (0012 marked superseded, content preserved).
