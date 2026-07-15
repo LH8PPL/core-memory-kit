@@ -217,7 +217,11 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
      SLID to v0.5.5.** _Outward steps DONE: npm publish + GitHub repo rename. REMAINING (maintainer): `npm
      deprecate @lh8ppl/claude-memory-kit`; SonarCloud project-key update._
   5. **v0.5.5 — the governance batch** (slid from v0.5.4) — Task 96 (compliance scrub) + Task 210
-     (deletion-propagation) + Task 95 if its needs-design gate has cleared.
+     (deletion-propagation) + Task 95 if its needs-design gate has cleared. **Plus the v0.5.4-dogfood
+     fixes:** Task 230 (`cmk install` must REFRESH kit-owned scaffold on re-run/update — the skip-all-
+     existing rule over-applies to skills; D-343, PROVEN live during the rename) + D-337 (invisible-
+     unicode Guard defeated by maskPii, security). Task 230 is a correctness bug (an updated install
+     must reflect the current version) — laned here, not deferred.
   6. **v0.6.0 — DAY-ONE MEMORY (the next minor differentiator; D-326, 2026-07-12 — the user's
      "actual versions, not just future versions" call after the market sweep).** Headline:
      **Task 225** (`cmk import-sessions` — bootstrap the memory from existing agent session
