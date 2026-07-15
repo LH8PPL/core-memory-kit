@@ -10,3 +10,6 @@
 ## 2026-07-15T12:07:27Z — auto-extract (medium-trust, pending review)
 - (P-MRVTM6NW) v0.5.4 published to npm as `@lh8ppl/core-memory-kit@0.5.4` with sigstore provenance; repo rename verified live
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-15T12:07:27Z -->
+## 2026-07-15T14:04:33Z — auto-extract (medium-trust, pending review)
+- (P-K3FN3LUJ) Durable knowledge (procedures, workflows) should be saved to project-local memory (context/), not session-temp; values memory committed with code.
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-15T14:04:33Z -->
