@@ -201,16 +201,21 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
      edge closed) + the batch riders 209 (state-labeled recall) / 211 (query state-view gate) /
      212 (`cmk stats memory-health`). All four PRs (#287–#290) merged; the D-334 minor-boundary
      backlog sweep ran (Task 195 name-decision trigger fired → laned v0.5.4).
-  4. **v0.5.4 — THE RENAME (Task 195) — ✅ RELEASE-COMMITTED 2026-07-15 (D-335).** CHANGELOG
-     `[0.5.4]` finalized, `packages/cli/package.json` → 0.5.4, CI green; tag `v0.5.4` = the
-     maintainer's outward step → publish.yml (npm + GitHub Release). The cross-agent name
-     decision laned here at the v0.5.3-cut sweep (D-334) was DECIDED + shipped: `claude-memory-kit`
-     → **`core-memory-kit`** (keeps `cmk`), ADR-0021 supersedes ADR-0012, 135-file corpus rename +
-     config-dir direct swap, merged (PR #292). This BECAME the v0.5.4 headline — a clean
-     single-purpose release. **The governance batch (Task 96 + Task 210, + Task 95 if its
-     needs-design gate clears) SLIDES to v0.5.5** — 96/210 aren't built, and holding the done rename
-     for unbuilt work is the anti-pattern; ship what's real. _Outward steps (the maintainer's):
-     npm publish `@lh8ppl/core-memory-kit` + deprecate the old; GitHub repo rename; SonarCloud key._
+  4. **v0.5.4 — THE RENAME (Task 195) — ✅ SHIPPED 2026-07-15 (D-335).** Published `@lh8ppl/core-memory-kit@0.5.4`
+     (provenance-signed) + GitHub Release `v0.5.4`; the GitHub repo renamed to `LH8PPL/core-memory-kit`.
+     The cross-agent name decision laned here at the v0.5.3-cut sweep (D-334) was DECIDED + shipped:
+     `claude-memory-kit` → **`core-memory-kit`** (keeps `cmk`), ADR-0021 supersedes ADR-0012, 135-file
+     corpus rename + config-dir direct swap, merged (PR #292). A clean single-purpose release.
+     **Full cut-gate (§0–§9) ran green under the new name** — every ★ deterministic gate + the live §2/§5/§6
+     (build/recall/cold-open E1 wedge, E2 privacy, E3 learn-loop) passed; 4 findings surfaced (D-336 auto-extract
+     project-name confabulation · D-337 invisible-unicode guard defeated by maskPii ordering, security · D-338
+     invalid-`--shape` exit-0 · D-339 cold-open net-dampens recalled persona), **all pre-existing, none
+     rename-caused, none blockers** — D-337 laned to v0.5.5. **Publish took two attempts** — the first tag hit
+     npm E422 (provenance repo-URL mismatch: `package.json` said `core-memory-kit` but the GitHub repo was
+     still `claude-memory-kit`); fixed by renaming the repo FIRST then re-running (D-340 — the reusable
+     ordering rule). **The governance batch (Task 96 + Task 210, + Task 95 if its needs-design gate clears)
+     SLID to v0.5.5.** _Outward steps DONE: npm publish + GitHub repo rename. REMAINING (maintainer): `npm
+     deprecate @lh8ppl/claude-memory-kit`; SonarCloud project-key update._
   5. **v0.5.5 — the governance batch** (slid from v0.5.4) — Task 96 (compliance scrub) + Task 210
      (deletion-propagation) + Task 95 if its needs-design gate has cleared.
   6. **v0.6.0 — DAY-ONE MEMORY (the next minor differentiator; D-326, 2026-07-12 — the user's
