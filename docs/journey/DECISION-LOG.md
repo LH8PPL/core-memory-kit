@@ -10,6 +10,25 @@
 
 ---
 
+## 2026-07-15 — D-338: BUG (minor) — invalid `--shape` rejects the write but EXITS 0 (v0.5.4 cut-gate §4e/TV1; pre-existing, not rename)
+
+**Found in the v0.5.4 cut-gate §4e (TV1).** `cmk remember 'x' --shape Banana …` correctly **refuses to write** (no fact file created) and prints `shape: must be one of State/Event/Plan/Relationship/Preference/Absence/Timeless` — but **exits 0**. The guide's TV1 spec says the invalid shape is "rejected (non-zero exit, no file written)". The SAFETY half is correct (nothing written); only the **exit code** is wrong — a script doing `cmk remember … --shape X || handle-error` would see success and not detect the rejection. **Pre-existing (Task 66, not touched by the rename); not a v0.5.4 blocker.** Fix: the shape-validation reject path in `memory-write.mjs` should set `process.exitCode = 2` like the Poison_Guard reject does. Parked as a v0.5.x polish item. _Relates Task 66 (shape field), D-338._
+
+## 2026-07-15 — D-337: BUG (security, composition-class) — the invisible-unicode Poison_Guard is DEFEATED on the default `cmk remember` path because `maskPii` strips the char BEFORE the guard runs (v0.5.4 cut-gate §4d/PR5; pre-existing since ADR-0019, NOT a rename regression)
+
+**Found in the v0.5.4 cut-gate §4d (PR5).** `cmk remember "<text with a real U+200B zero-width space>"` **writes the fact and exits 0** — the Task-70.4 invisible-unicode guard did NOT fire. Verified the U+200B rides argv intact (`[...text].some(c=>c.charCodeAt(0)===0x200b)` → true at the Node layer), so it is not a shell-stripping false test.
+
+**Root cause — a textbook "separately-correct-jointly-broken" composition bug (the CLAUDE.md composition-verification class):**
+- `checkPoisonGuard(<zwsp text>)` in ISOLATION correctly returns `{rejected:true, pattern_id:"injection_invisible_unicode"}` (proven directly).
+- BUT on the default P/U-tier write path (`privacy.screen=on`, the default since ADR-0019/Task 148), `memory-write.mjs` runs **`maskPii(privacyStripped)` BEFORE `runPoisonGuard`** (lines ~298→314). `maskPii` **strips U+200B** as part of its normalization (proven: `maskPii` input has-U+200B=true → output has-U+200B=false). So by the time the guard runs, the invisible char is already gone → the guard sees clean text → the write proceeds.
+- Net: the invisible/zero-width/bidi guard (Task 70.4's whole point — a hidden-instruction vector that ships with `git clone`) is **unreachable on the primary capture path** whenever the privacy screen is on (the default).
+
+**Why the suite stayed green (the unit-green ≠ works-on-real-input class, applied to ordering):** `cli-poison-guard.test.js:348` asserts `checkPoisonGuard('…​…')` **directly** — the guard function alone — never through the `cmk remember` CLI where `maskPii` runs first. A test that exercises the guard in isolation structurally cannot catch "an upstream step removes the input before the guard sees it." This is exactly the integration-test-coverage-for-cross-module-flows gap: per-module correct, composition broken.
+
+**NOT a rename regression:** `git log` shows neither `memory-write.mjs` nor `pii-patterns.mjs` was touched by the v0.5.4 rename; the ordering was introduced by `7fe820d [148] Auto-judged privacy screen (ADR-0019)` (before that, the P-tier path was home-path-only sanitization, which doesn't strip ZWSP, so the guard DID see the char). So this is a **latent security regression from ADR-0019**, surfaced now by the cut-gate — not caused by the rename, and **not a v0.5.4 blocker** (v0.5.4 is a no-feature identity cut; the bug ships identically with or without the rename).
+
+**Fix (deferred, needs its own task — NOT done here):** either (a) run `checkPoisonGuard` on the RAW text BEFORE `maskPii` (screen-then-mask), or (b) make `maskPii` preserve invisible chars so the guard downstream still sees them, or (c) run an invisible-unicode screen as its own pre-mask stage. Option (a) is cleanest and matches Task 70.4's intent (reject hidden-instruction vectors before any transform). Add an integration test that drives the REAL `cmk remember` CLI with a genuine U+200B and asserts exit 2 + nothing written (the missing coverage). Priority: security — should land in the next patch (v0.5.5). _Relates memory-write.mjs (maskPii→runPoisonGuard ordering), pii-patterns.mjs (`maskPii` strips U+200B), poison-guard.mjs (Task 70.4 catalog), ADR-0019 (introduced the pre-guard mask), cli-poison-guard.test.js:348 (the isolation test that masks it), the CLAUDE.md composition-verification + integration-test rules, D-337._
+
 ## 2026-07-15 — D-336: ISSUE — auto-extract confabulates the PROJECT NAME as "core-memory-kit" for an unnamed project (surfaced by the v0.5.4 rename cut-gate; NOT a rename regression)
 
 **Found in the v0.5.4 rename cut-gate (§2–§3, live Session 1 in `C:\Temp\cut-gate23`).** The gate built a FastAPI + Claude-Agent-SDK chat app; auto-extract correctly captured 8 rich project facts (B1/B2/B9 all PASS) — but **three of them were TITLED / SLUGGED as the wrong project**:
