@@ -56,7 +56,7 @@ context/.index/
 *.tgz
 .bench-logs/
 
-# core-memory-kit:gitignore:start v0.5.0
+# core-memory-kit:gitignore:start v0.5.4
 # core-memory-kit — added by `cmk install`. Do not edit by hand;
 # `cmk install` refreshes these lines idempotently. Remove via
 # `cmk uninstall`.
@@ -75,6 +75,13 @@ context/.locks/
 # must never be committed). The durable memory lives in the scratchpads +
 # fact files, not these logs.
 context/sessions/*.extract.log
+
+# Per-day distilled artifacts: daily-distill writes today-<date>.distilled.md
+# per day so a killed run resumes from the days it finished. They are TRANSIENT
+# working state — the durable rolling summary is recent.md (assembled from them).
+# Gitignored so intermediate summary output doesn't travel with `git clone`;
+# losing them only forces a re-distill.
+context/sessions/today-*.distilled.md
 
 # Transcript-extraction temp buffer. capture-turn writes
 # context/transcripts/.extract-<ts>.tmp as the turn buffer for the detached
