@@ -3629,6 +3629,7 @@
 <!-- decision:P-497V47QC -->
 
 ## Claude Memory Kit Update Workflow
+_(retracted 2026-07-15)_
 
 **When:** 2026-06-18 · **Fact:** `P-497V47QC`
 **Why:** Users need a clear process to adopt new versions; the kit has no `cmk update` wrapper command yet (v0.3.3)
@@ -12957,3 +12958,205 @@ _(retracted 2026-07-13)_
 
 **When:** 2026-07-15 · **Fact:** `P-aZD9T5XX`
 **Why:** Guides are user-facing verification steps and must reflect new naming for v0.5.4; uninstall-old-first is cut-specific
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-Q37ZPQJP -->
+
+## v0.5.2 shipped — npm @lh8ppl/claude-memory-kit@0.5.2 (provenance), GitHub Releas
+
+**When:** 2026-07-13 · **Fact:** `P-Q37ZPQJP`
+
+<!-- decision:P-aNSaZMFH -->
+
+## v0.5.3 full build plan saved as durable memory P-6WEaBE9M (commit dfebca5) for c
+
+**When:** 2026-07-13 · **Fact:** `P-aNSaZMFH`
+
+<!-- decision:P-7WV4BUX4 -->
+
+## For Task 195, complete external rename steps (npm publish/deprecate, repo rename
+
+**When:** 2026-07-14 · **Fact:** `P-7WV4BUX4`
+
+<!-- decision:P-KYSNDHME -->
+
+## run deterministic cut-gate (§0–§1) before git tag v0.5.4, not after
+
+**When:** 2026-07-15 · **Fact:** `P-KYSNDHME`
+
+<!-- decision:P-XVFCT3UG -->
+
+## renamed .claude-memory-kit to .claude-memory-kit.backup for release cut
+
+**When:** 2026-07-15 · **Fact:** `P-XVFCT3UG`
+
+<!-- decision:P-LNMa4G5T -->
+
+## will run section "1. Scaffold + read every file" next for cut-gate
+
+**When:** 2026-07-15 · **Fact:** `P-LNMa4G5T`
+
+<!-- decision:P-URJaV36K -->
+
+## always deploy .venv and install all python packages in it
+
+**When:** 2026-07-15 · **Fact:** `P-URJaV36K`
+
+<!-- decision:P-CaY3MT5U -->
+
+## FastAPI WebSocket Chat App Architecture
+
+**When:** 2026-07-15 · **Fact:** `P-CaY3MT5U`
+**Why:** Complete, minimal chat scaffold for future reference or extension (usernames, persistence, etc.)
+
+<!-- decision:P-KKKNST9L -->
+
+## plain HTML/JS, no framework for chat UI
+
+**When:** 2026-07-15 · **Fact:** `P-KKKNST9L`
+
+<!-- decision:P-X2EDL7XS -->
+
+## Python Projects Always Use .venv
+
+**When:** 2026-07-15 · **Fact:** `P-X2EDL7XS`
+**Why:** Isolates project dependencies, prevents cross-project conflicts
+
+<!-- decision:P-2CQGFD5P -->
+
+## Backend scaffolding preferences are stored cross-project and automatically recal
+
+**When:** 2026-07-15 · **Fact:** `P-2CQGFD5P`
+
+<!-- decision:P-42T3NCLQ -->
+
+## Python backend convention—layered architecture with `api/services/repositories/s
+
+**When:** 2026-07-15 · **Fact:** `P-42T3NCLQ`
+
+<!-- decision:P-SZVF4ZHC -->
+
+## Sigstore Provenance Requires GitHub Repo-Name Match for npm Publish
+
+**When:** 2026-07-15 · **Fact:** `P-SZVF4ZHC`
+**Why:** Provenance signing validates the publish source; without repo-name identity match, sigstore cannot confirm the package originates from the correct repository.
+
+<!-- decision:P-HaZGS5M2 -->
+
+## Executed `git remote set-url origin https://github.com/LH8PPL/core-memory-kit.gi
+
+**When:** 2026-07-15 · **Fact:** `P-HaZGS5M2`
+
+<!-- decision:P-JJP9JT5F -->
+
+## Sigstore Provenance Validation Requires Repo-Package Name Alignment
+
+**When:** 2026-07-15 · **Fact:** `P-JJP9JT5F`
+**Why:** This prevented v0.5.4 from publishing until the repo was actually renamed; retrying without fixing the root cause would fail indefinitely.
+
+<!-- decision:P-KVCQKBYC -->
+
+## Successfully re-ran GitHub Actions run 29412885758 with `gh run rerun` to retry
+
+**When:** 2026-07-15 · **Fact:** `P-KVCQKBYC`
+
+<!-- decision:P-AE6CWB57 -->
+
+## v0.5.4 Released Under Renamed Repo Identity
+
+**When:** 2026-07-15 · **Fact:** `P-AE6CWB57`
+**Why:** Rename aligns package identity across all surfaces; release is functionally complete pending housekeeping.
+
+<!-- decision:P-7BSXRX4F -->
+
+## npm deprecate Wildcard Syntax Fails with E404; Use Version Ranges Instead
+
+**When:** 2026-07-15 · **Fact:** `P-7BSXRX4F`
+**Why:** The wildcard approach failed with "Not Found" error even though the package and versions exist in the registry. The version-range syntax uses a normal ranged PUT that avoids this issue.
+
+<!-- decision:P-6BHD7RaB -->
+
+## npm Deprecate Auth Failures Reported as E404
+
+**When:** 2026-07-15 · **Fact:** `P-6BHD7RaB`
+**Why:** Occurred during package rename; knowing the real cause (auth, not existence) saves debugging cycles.
+
+<!-- decision:P-V56VAX43 -->
+
+## npm 11.x `deprecate` command with version ranges fails with spurious 404
+
+**When:** 2026-07-15 · **Fact:** `P-V56VAX43`
+**Why:** Avoids wasting time diagnosing false auth/permission problems; web UI is the reliable fallback
+
+<!-- decision:P-RFPEPQKG -->
+
+## npm Deprecate E422 Bug with Version Ranges
+
+**When:** 2026-07-15 · **Fact:** `P-RFPEPQKG`
+**Why:** npm CLI constructs a malformed packument PUT when applying range-based deprecation, which the registry rejects with 422. This is a client-side npm 11.x bug, not an account/auth/permission issue.
+
+<!-- decision:P-2BKSH4A9 -->
+
+## SonarCloud Project Key Rename Coordination
+
+**When:** 2026-07-15 · **Fact:** `P-2BKSH4A9`
+**Why:** SonarCloud and local configuration must remain in sync. Pushing config before server-side key is renamed creates a gap where scans fail with 404/not-found.
+
+<!-- decision:P-G56B545Y -->
+
+## SonarCloud Project Key Update Procedure
+
+**When:** 2026-07-15 · **Fact:** `P-G56B545Y`
+**Why:** SonarCloud's key-matching logic: if a scan comes in with a key that doesn't exist in SonarCloud yet, it creates a new project. The UI update must establish the key FIRST.
+
+<!-- decision:P-4DWZ7L72 -->
+
+## SonarCloud Taint Analysis — Context Collector Crashes Not Fixable Via Rule Disabling
+
+**When:** 2026-07-15 · **Fact:** `P-4DWZ7L72`
+**Why:** SonarSource documentation + community precedent confirm this is a known limitation; prevents time wasted on configuration-based workarounds for engine-level problems
+
+<!-- decision:P-NGCNZMFJ -->
+
+## Canonical Agent Support List
+
+**When:** 2026-07-15 · **Fact:** `P-NGCNZMFJ`
+**Why:** v0.5.2 added Codex support to README/CLI but the GitHub About wasn't updated until now (v0.5.4+). Keeping metadata consistent prevents future support-list drift.
+
+<!-- decision:P-4aFAT7U2 -->
+
+## GitHub Metadata Sync Pattern
+
+**When:** 2026-07-15 · **Fact:** `P-4aFAT7U2`
+**Why:** The Codex support shipped in v0.5.2 but GitHub About wasn't updated until this session, creating false inconsistency in public-facing metadata.
+
+<!-- decision:P-GKBBMWDZ -->
+
+## Core-Memory-Kit Installed with Claude Code Hooks
+
+**When:** 2026-07-15 · **Fact:** `P-GKBBMWDZ`
+**Why:** Kit functionality depends on Claude Code version; after tool updates, hooks may break if versions diverge.
+
+<!-- decision:P-7CWH42PT -->
+
+## Kit update workflow (npm global + per-project cmk install)
+
+**When:** 2026-07-15 · **Fact:** `P-7CWH42PT`
+**Why:** The two-step is non-obvious and required; the package renamed to @lh8ppl/core-memory-kit in v0.5.4 so the old npm command is wrong
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`

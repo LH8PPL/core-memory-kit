@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <strong>Persistent, per-project memory for <a href="https://docs.claude.com/en/docs/claude-code">Claude Code</a> — plain markdown, committed with your code, recalled by meaning.</strong>
+  <strong>Persistent, per-project memory — plain markdown, committed with your code, recalled by meaning.</strong>
 </p>
 
 <p align="center">
@@ -32,7 +32,8 @@
 Claude forgets everything when a session ends — so every new chat you re-explain who you are, what you're building, and how you like things done. **core-memory-kit** fixes that: it quietly captures your decisions, preferences, and project context, then hands them back at the start of every session. Everything is plain text inside your project, and it travels with the code — `git clone` brings the memory along.
 
 > [!NOTE]
-> **Not a developer?** If you can open a project in Claude Code, you're set — let Claude run the setup for you (see [Quickstart](#quickstart)).
+> **Not a developer?**<br>
+> If you can open a project in Claude Code, you're set — let Claude run the setup for you (see [Quickstart](#quickstart)).
 
 > [!IMPORTANT]
 > **Prerequisite — the agent's CLI must be installed (not just its IDE).** The kit's automatic features (compression, the cross-project persona/wedge, auto-extract, the temporal sweep) run an LLM through your agent's **command-line tool**, which is a **separate install from the IDE**:
