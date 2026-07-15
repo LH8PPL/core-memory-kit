@@ -13160,3 +13160,56 @@ _(retracted 2026-07-13)_
 ## RESUME — v0.3.1 cut-gate near-complete; PR
 
 **When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-aATCMBPD -->
+
+## Correction—consult primary evidence (logs, error output) before diagnosing; user
+
+**When:** 2026-07-15 · **Fact:** `P-aATCMBPD`
+
+<!-- decision:P-GCTUBHQA -->
+
+## The About section was missing Codex mention; it should list all four supported a
+
+**When:** 2026-07-15 · **Fact:** `P-GCTUBHQA`
+
+<!-- decision:P-WG4UCG5R -->
+
+## Dual README Files Must Stay Synchronized
+
+**When:** 2026-07-15 · **Fact:** `P-WG4UCG5R`
+**Why:** Users access the project via different entry points (root repo vs npm package); content consistency is critical
+
+<!-- decision:P-aWPUD54M -->
+
+## Markdownlint + GitHub Alert Callouts Workaround
+
+**When:** 2026-07-15 · **Fact:** `P-aWPUD54M`
+**Why:** markdownlint has specific style rules for blockquotes in alert contexts; bare blank lines are flagged as violations
+
+<!-- decision:P-MJBS5JGZ -->
+
+## Commit Guardrail Blocks Ambiguous Include/Exclude Instructions
+
+**When:** 2026-07-15 · **Fact:** `P-MJBS5JGZ`
+**Why:** Prevents silent commits with unclear intent, especially for large-scope operations like `git add -A`.
+
+<!-- decision:P-CG74LCQU -->
+
+## og-image.svg is fully-vectorized with no source template
+
+**When:** 2026-07-15 · **Fact:** `P-CG74LCQU`
+**Why:** Future brand updates need to know that text changes cannot be done via SVG editing; regeneration from source is the proper workflow
+
+<!-- decision:P-6SPFPW4Z -->
+
+## Social Card Assets Location
+
+**When:** 2026-07-15 · **Fact:** `P-6SPFPW4Z`
+**Why:** Prevents deploying stale images elsewhere; clarifies the single source of truth for social previews.

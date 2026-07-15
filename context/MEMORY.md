@@ -8,10 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-MWQLMT7N) Questioned saving procedural doc to buried session-temp path; indicates preference for accessible, findable locations over repository purity
-  <!-- source: auto-extract-session, source_line: 1, sha1: f1b54ac5876a773086fe8e9bfcbe498dae758f03ae75a2238a7be5cb0166c3e7, write: auto-extract, trust: high, at: 2026-07-15T14:03:04Z -->
-- (P-NNQSY9HB) Kit automation (hooks/skills) should handle routine tasks; manual work frustrates user
-  <!-- source: auto-extract-session, source_line: 1, sha1: 1657061f2d0d23ff520cebb68423835eb5087c47907d6bba16370847dcfa7a9c, write: auto-extract, trust: high, at: 2026-07-15T14:10:31Z -->
 - (P-JHUDTLLF) When user issues directive ("commit and push everything"), execute decisively without deferring back for micro-decisions
   <!-- source: auto-extract-session, source_line: 1, sha1: 6637a02f946323ffebe0e4363ae5f2d8b7e57d3891aadead3f028d6a653caf40, write: auto-extract, trust: high, at: 2026-07-15T14:10:31Z -->
 - (P-XF2TNZBM) User approved pragmatic memory maintenance (fix only real issues, accept harmless drift); chose immediate commit-and-push completion over further analysis.
@@ -20,6 +16,10 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: a80e171bef5d947e327cb9f2978bce20868062daf7ea9b8a0b6bda2feda73aec, write: auto-extract, trust: high, at: 2026-07-15T18:03:00Z -->
 - (P-ZR69HNVH) Wants og-image.svg updated to remove "Claude Code" and replace with new tagline: "Persistent, per-project memory - plain markdown, committed with your code, recalled by meaning."
   <!-- source: auto-extract-session, source_line: 1, sha1: e769215e1d0722d7b6305a328faa6eca35484ad70bb305b024037f13f19455a8, write: auto-extract, trust: high, at: 2026-07-15T18:14:21Z -->
+- (P-9S7BADNX) corrected that claim wasn't empirically tested; prefers verification by testing over code reasoning
+  <!-- source: auto-extract-session, source_line: 1, sha1: 35ca83aa7c1e6fea282c6b3d1398d4c59d1887c94f32a75269c624fbbf07218e, write: auto-extract, trust: high, at: 2026-07-15T19:04:52Z -->
+- (P-BQRMQWYa) User intuitively expected `cmk install` to refresh stale skills/hooks/everything on re-run.
+  <!-- source: auto-extract-session, source_line: 1, sha1: 5f14e29ad88ffcaf459de336da734d041130c1cb913a341c5bf0ecd3d6a87812, write: auto-extract, trust: high, at: 2026-07-15T19:07:40Z -->
 
 ## Environment Notes
 
