@@ -13,3 +13,6 @@
 ## 2026-07-15T14:04:33Z — auto-extract (medium-trust, pending review)
 - (P-K3FN3LUJ) Durable knowledge (procedures, workflows) should be saved to project-local memory (context/), not session-temp; values memory committed with code.
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-15T14:04:33Z -->
+## 2026-07-15T20:14:16Z — auto-extract (medium-trust, pending review)
+- (P-324UW2UP) Task batch v0.5.5 contains three sequenced tasks (230 → 96 → 210); previous versions used per-batch autopilot grants to run the full lane uninterrupted.
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-15T20:14:16Z -->
