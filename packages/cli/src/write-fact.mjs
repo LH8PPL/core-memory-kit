@@ -315,38 +315,21 @@ export function writeFact(opts = {}) {
   // lands), and written.
   body = sanitizePrivacyTags(body);
   title = sanitizePrivacyTags(title);
-  if (opts.tier === 'P' || opts.tier === 'U') {
-    // L1 PII layer (Task 148.2, design §6.10): maskPii covers emails/phones/
-    // usernames AND home-paths (delegates to sanitizeHomePaths), BEFORE
-    // id-generation/dedup/disk. Originals go only to the gitignored
-    // redactions.log; the privacy.screen kill-switch reverts to the
-    // pre-148 home-path-only gate.
-    if (resolvePrivacyScreen({ projectRoot: opts.projectRoot }) === 'on') {
-      const usernames = localUsernames();
-      const maskedBody = maskPii(body, { usernames });
-      const maskedTitle = maskPii(title, { usernames });
-      body = maskedBody.text;
-      title = maskedTitle.text;
-      appendRedactions(opts.projectRoot, {
-        source: `write-fact:${opts.tier}`,
-        layer: 'L1',
-        redactions: [...maskedBody.redactions, ...maskedTitle.redactions],
-      });
-    } else {
-      body = sanitizeHomePaths(body);
-      title = sanitizeHomePaths(title);
-    }
-  }
 
   // Poison_Guard (write-path fix #1): fact files previously bypassed the
   // secret/poison screen that scratchpad writes get via memoryWrite. Screen
-  // the (sanitized) body before any disk write; a rejection logs the redacted
-  // excerpt to .locks/poison-guard.log and returns a poison_guard error.
-  // Screen BOTH title and body (D-312 — the title was a Poison_Guard side door:
+  // BOTH title and body (D-312 — the title was a Poison_Guard side door:
   // `--title "ghp_…"` / mk_remember title param landed a secret verbatim in the
   // committed frontmatter + INDEX.md, since title only got privacy/PII masking,
   // never the secret/injection screen). Concatenate so one screen covers both;
   // a rejection in either field blocks the write.
+  // ORDER is load-bearing (Task 231 / D-337 — screen-then-mask): the guard
+  // runs AFTER sanitizePrivacyTags (<private> content is removed by the
+  // user's explicit request — never reject content that won't land; the C5
+  // contract) but BEFORE maskPii (maskPii STRIPS invisible/zero-width/bidi
+  // codepoints, which destroyed the guard's evidence — the Task-70.4
+  // invisible-unicode screen was unreachable under the default privacy
+  // screen). Screen first; mask only what passed.
   const guard = checkPoisonGuard(`${title ?? ''}\n${body}`);
   if (guard.rejected) {
     // Best-effort log; guard on projectRoot so a U-tier write with no
@@ -369,6 +352,30 @@ export function writeFact(opts = {}) {
       id: null,
       path: null,
     });
+  }
+
+  if (opts.tier === 'P' || opts.tier === 'U') {
+    // L1 PII layer (Task 148.2, design §6.10): maskPii covers emails/phones/
+    // usernames AND home-paths (delegates to sanitizeHomePaths), BEFORE
+    // id-generation/dedup/disk. Originals go only to the gitignored
+    // redactions.log; the privacy.screen kill-switch reverts to the
+    // pre-148 home-path-only gate. Runs AFTER the Poison_Guard screen
+    // (Task 231 / D-337 — see the ordering note above the guard).
+    if (resolvePrivacyScreen({ projectRoot: opts.projectRoot }) === 'on') {
+      const usernames = localUsernames();
+      const maskedBody = maskPii(body, { usernames });
+      const maskedTitle = maskPii(title, { usernames });
+      body = maskedBody.text;
+      title = maskedTitle.text;
+      appendRedactions(opts.projectRoot, {
+        source: `write-fact:${opts.tier}`,
+        layer: 'L1',
+        redactions: [...maskedBody.redactions, ...maskedTitle.redactions],
+      });
+    } else {
+      body = sanitizeHomePaths(body);
+      title = sanitizeHomePaths(title);
+    }
   }
 
   // Use the sanitized body/title for id, frontmatter, and the file body.

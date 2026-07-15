@@ -286,6 +286,25 @@ function doAdd(opts) {
   // committed AND local tiers (private content must not reach context.local
   // either). The same single-safe-path philosophy as Poison_Guard.
   const privacyStripped = sanitizePrivacyTags(opts.text);
+
+  // Then Poison_Guard, on the privacy-stripped PRE-mask text (Task 231 /
+  // D-337 — screen-then-mask). Order is load-bearing both ways:
+  //   - AFTER sanitizePrivacyTags: <private> content is removed by the user's
+  //     explicit request; the guard must not reject content that never lands
+  //     (the C5 cut-gate contract).
+  //   - BEFORE maskPii: maskPii STRIPS invisible/zero-width/bidi codepoints,
+  //     which destroyed the guard's evidence — the Task-70.4 invisible-unicode
+  //     screen was unreachable whenever the privacy screen was on (the
+  //     default). Screen first; mask only what passed.
+  const poisonResult = runPoisonGuard({
+    text: privacyStripped,
+    projectRoot: opts.projectRoot,
+    source: opts.source,
+    sessionId: opts.sessionId,
+    now: opts.now,
+  });
+  if (poisonResult) return poisonResult;
+
   // Then the L1 PII layer (Task 148.2, design §6.10) for committed/shared
   // tiers (P/U): maskPii covers emails/phones/usernames AND the home-path→`~`
   // abstraction (it delegates to sanitizeHomePaths), masking BEFORE dedup/
@@ -310,15 +329,6 @@ function doAdd(opts) {
   }
   const addOpts =
     sanitizedText === opts.text ? opts : { ...opts, text: sanitizedText };
-
-  const poisonResult = runPoisonGuard({
-    text: addOpts.text,
-    projectRoot: opts.projectRoot,
-    source: opts.source,
-    sessionId: opts.sessionId,
-    now: opts.now,
-  });
-  if (poisonResult) return poisonResult;
 
   // Conflict-queue check (Task 25, design §6.8). Runs BEFORE the append:
   //   - new.trust < existing.trust → route to queues/conflicts.md

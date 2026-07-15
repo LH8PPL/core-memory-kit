@@ -40,16 +40,23 @@ import { nowIso } from './audit-log.mjs';
 // Task 70.4 — the invisible / zero-width / bidi code points, listed EXPLICITLY
 // (no literal invisible chars in source — those are unreadable + editor-mangleable).
 // Built into a regex char-class via `String.fromCodePoint` at module load.
-const INVISIBLE_UNICODE_CODEPOINTS = [
+// THE canonical invisible-codepoint catalog — exported so §6.10's L1 mask
+// (pii-patterns.mjs) derives its strip-set from THIS list. Task 231 skill-
+// review finding 1: the two modules each kept their own list and drifted —
+// the mask knew the invisible math operators (U+2062–64), the guard didn't,
+// so the silent-strip-and-write bypass survived for exactly those three
+// codepoints. One list, one owner (the security screen), no drift.
+export const INVISIBLE_UNICODE_CODEPOINTS = Object.freeze([
   0x00ad, // soft hyphen
   0x061c, // Arabic letter mark
   0x180e, // Mongolian vowel separator
   0x200b, 0x200c, 0x200d, // zero-width space / non-joiner / joiner
   0x2060, // word joiner
+  0x2062, 0x2063, 0x2064, // invisible times / separator / plus
   0x2066, 0x2067, 0x2068, 0x2069, // bidi isolates: LRI / RLI / FSI / PDI
   0x202a, 0x202b, 0x202c, 0x202d, 0x202e, // bidi embeds/overrides: LRE/RLE/PDF/LRO/RLO
   0xfeff, // BOM / zero-width no-break space
-];
+]);
 function buildInvisibleUnicodeRe() {
   const cls = INVISIBLE_UNICODE_CODEPOINTS.map((cp) => `\\u${cp.toString(16).padStart(4, '0')}`).join('');
   return new RegExp(`[${cls}]`);

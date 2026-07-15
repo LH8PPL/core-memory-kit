@@ -26,6 +26,7 @@ import { homedir, userInfo } from 'node:os';
 import { basename, join } from 'node:path';
 import { sanitizeHomePaths } from './sanitize.mjs';
 import { parseJsonFile } from './read-json.mjs';
+import { INVISIBLE_UNICODE_CODEPOINTS } from './poison-guard.mjs';
 
 // Stable placeholders — «»-delimited so they read as redactions, survive
 // markdown, and never collide with real content (memclaw's token style).
@@ -40,22 +41,16 @@ export const PII_PLACEHOLDERS = Object.freeze({
 // through unscanned — documented behavior, asserted in the tests.
 export const MAX_SCAN_CHARS = 65_536;
 
-// Invisible / bidi-control codepoints (hermes' set): zero-widths, word joiner,
-// invisible math operators, BOM, and the full bidi-control range. Written as
-// \u-escapes (NOT literal invisible glyphs) so the source is reviewable — a
-// bidi/joined-sequence char can't hide IN the very defense against them (the
-// SonarCloud bidi/joined-class finding), and a reviewer can read exactly which
-// codepoints we strip. The Set and the RE are DERIVED from ONE list so they
-// can never drift.
-const INVISIBLE_CODEPOINT_HEX = [
-  0x200b, 0x200c, 0x200d, // zero-width space / non-joiner / joiner
-  0x2060, // word joiner
-  0x2062, 0x2063, 0x2064, // invisible times / separator / plus
-  0xfeff, // BOM / zero-width no-break space
-  0x202a, 0x202b, 0x202c, 0x202d, 0x202e, // LRE RLE PDF LRO RLO
-  0x2066, 0x2067, 0x2068, 0x2069, // LRI RLI FSI PDI
-];
-const INVISIBLE_CHARS = new Set(INVISIBLE_CODEPOINT_HEX.map((cp) => String.fromCodePoint(cp)));
+// Invisible / bidi-control codepoints — DERIVED from the canonical catalog in
+// poison-guard.mjs (Task 231 skill-review finding 1: this module and the guard
+// each kept their own list and drifted — the mask knew U+2062–64, the guard
+// didn't, so the invisible-unicode screen was bypassable for exactly those
+// three codepoints even after the screen-then-mask reorder). ONE list, owned
+// by the security screen; the mask strips what the guard rejects. Codepoints
+// stay written as \u-escapes in that catalog (NOT literal invisible glyphs)
+// so the source is reviewable — a bidi/joined-sequence char can't hide IN the
+// very defense against them (the SonarCloud bidi/joined-class finding).
+const INVISIBLE_CHARS = new Set(INVISIBLE_UNICODE_CODEPOINTS.map((cp) => String.fromCodePoint(cp)));
 // One alternation of individually-listed codepoints — no character-class
 // ranges (a range could silently include an unintended codepoint) and no
 // literal invisibles in the source. Checked via set intersection on the RAW

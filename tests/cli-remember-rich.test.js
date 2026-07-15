@@ -29,8 +29,15 @@ describe('Task 63 — cmk remember rich mode (restore rich capture through the s
     root = mkdtempSync(join(tmpdir(), 'cmk-remember-rich-'));
     projectRoot = join(root, 'proj');
     mkdirSync(join(projectRoot, 'context', 'memory'), { recursive: true });
+    // Task 231: rich-path errors now set process.exitCode = 2 in-process —
+    // reset so a rejection in one test can't leak exit state to the runner
+    // or to a later test (the cli-remember-input.test.js convention).
+    process.exitCode = 0;
   });
-  afterEach(() => rmSync(root, { recursive: true, force: true }));
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+    process.exitCode = 0;
+  });
 
   it('writes a granular FACT FILE with Why + How (not a terse MEMORY.md bullet)', () => {
     const out = [];
