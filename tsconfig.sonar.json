@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "noEmit": true
+  },
+  "include": [
+    "packages/cli/src/**/*.mjs",
+    "packages/canonicalize/src/**/*.mjs"
+  ],
+  "exclude": [
+    "node_modules",
+    "context",
+    "context.local",
+    "docs",
+    "tests",
+    "fixtures",
+    "template",
+    "packages/cli/template"
+  ]
+}

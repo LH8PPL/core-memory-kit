@@ -63,16 +63,13 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
-          # TEMP (D-341 diagnosis, final experiment): the repo has ONLY JS —
-          # 122 .mjs files indexed, ZERO web/CSS/YAML — yet the consolidated
-          # WebSensor still runs analyzeProject and crashes on a phantom
-          # C:/proj/context. Test whether emptying the web/CSS file-suffixes
-          # (so those sub-sensors have nothing to walk) stops the crash. If it
-          # STILL crashes, it's definitively a plugin bug (config can't reach
-          # it) → SonarSource ticket. Reverted after.
+          # TEMP (D-341 diagnosis): the crash is the JS analyzer's TypeScript-
+          # program creation. Per the SonarCloud JS/TS docs, a PURE-JS project
+          # with NO tsconfig makes the scanner create a temp TS program by
+          # traversing the WHOLE project root — the walk that produces the
+          # phantom C:/proj/context opendir. The doc's fix for pure-JS is a
+          # minimal tsconfig scoping the include to real sources. Point the
+          # scanner at tsconfig.sonar.json so it uses THAT instead of walking.
           args: >-
             -Dsonar.verbose=true
-            -Dsonar.html.file.suffixes=-
-            -Dsonar.web.file.suffixes=-
-            -Dsonar.css.file.suffixes=-
-            -Dsonar.yaml.file.suffixes=-
+            -Dsonar.typescript.tsconfigPaths=tsconfig.sonar.json
