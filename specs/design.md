@@ -778,7 +778,7 @@ Per Cursor spec convergence (their `FR-052`).
 
 Auto-extract runs against captured turns that may contain secrets pasted by the user (API keys, tokens, passwords) or prompt-injection phrases scraped from web content the user shared. Because the project tier (`<repo>/context/`) is **committed to git**, a single leaked secret in `MEMORY.md` is a real exposure event.
 
-**Poison_Guard** is a pre-write regex filter applied inside the `memory-write` skill — before any write to a project-tier or user-tier file:
+**Poison_Guard** is a pre-write regex filter applied inside the `memory-write` skill — before any write to a project-tier or user-tier file. **Pipeline position (Task 231 / D-337):** on the two shared write boundaries (`memoryWrite`'s `add` action + `writeFact`) the guard screens the privacy-stripped, **PRE-mask** text — `sanitizePrivacyTags` → `checkPoisonGuard` → `maskPii` — because the §6.10 L1 mask strips invisible/zero-width/bidi codepoints and would otherwise destroy the guard's evidence (the invisible-unicode screen was unreachable under the default privacy screen until this ordering was pinned; see §6.10's contract note, incl. the shared codepoint catalog + the accepted keyword-adjacent-path sharpening):
 
 ```text
 Patterns rejected (write fails with category='poison_guard'):
@@ -970,6 +970,26 @@ scratchpad bullets, `cmk remember`):
 - **Masks in place BEFORE content-hash/dedup/disk** (memclaw's ordering — hash and dedup see
   redacted text, so mask-then-store is race-free). Stable placeholders: `«EMAIL»`, `«PHONE»`,
   `~`-substitution for paths/usernames.
+- **…but AFTER the §6.7 Poison_Guard screen (Task 231 / D-337 — the sanitize→screen→mask
+  contract).** The write-path order on the two shared write boundaries (`memoryWrite`'s
+  `add` action + `writeFact`) is: `sanitizePrivacyTags` → `checkPoisonGuard` → `maskPii`.
+  The guard runs after the `<private>` strip (user-marked-private content is removed by
+  explicit request — never reject content that won't land; the C5 cut-gate contract) and
+  BEFORE the mask, because maskPii strips invisible/zero-width/bidi codepoints — running it
+  first destroyed the guard's evidence and made the Task-70.4 invisible-unicode screen
+  unreachable under the default privacy screen (the D-337 composition bug: §6.7 and this
+  section each stated their own ordering; neither owned the guard↔mask cross-invariant).
+  The invisible-codepoint catalog is now ONE exported list (poison-guard.mjs), which this
+  layer's strip-set derives from — the two modules had drifted (the mask knew U+2062–64,
+  the guard didn't; the same no-owner shape one level down). **Known consequence, accepted
+  deliberately:** the guard now sees PRE-sanitized paths, so a POSIX path directly after a
+  credential keyword (`password: /home/<20+ chars>`) rejects where it previously slipped
+  through as `~`-sanitized — correct-conservative for a security screen; non-credential
+  home paths mask and write as before. **Scope note:** `memoryWrite`'s internal `replace`
+  action guards raw text but runs NO privacy-strip/mask at all (no CLI/MCP verb reaches
+  it; callers are kit-internal — anti-pattern + persona supersede). Pinned by
+  `tests/cli-screen-then-mask.test.js` (real-binary + both module boundaries, both
+  directions).
 - Findings carry **category + offsets, never the matched text**; each mask appends an entry
   to `context/.locks/redactions.log` (NDJSON, gitignored — the recovery surface, below).
 - Engineering bounds (hermes/gitleaks discipline): keyword pre-filter before expensive

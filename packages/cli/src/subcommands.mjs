@@ -1454,6 +1454,10 @@ export function runRememberRich(text, options = {}, deps = {}) {
   const r = rememberRich(text, options, deps);
 
   if (r.action === 'error') {
+    // Every rich-path error exits 2 (Task 231 — the bare path always did;
+    // the rich path silently exited 0, so a poison rejection or an invalid
+    // --shape (D-338) was undetectable by scripts / the PR5 cut-gate probe).
+    process.exitCode = 2;
     if (r.errorCategory === 'collision') {
       // M1: a same-title / different-content collision — actionable hint over
       // the raw "refusing overwrite".
