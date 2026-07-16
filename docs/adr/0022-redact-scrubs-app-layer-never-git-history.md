@@ -1,7 +1,7 @@
 ---
 adr: 0022
 title: "Redact scrubs the app layer completely; the kit NEVER rewrites git history (guided one-time team operation instead)"
-status: proposed
+status: accepted
 date: 2026-07-16
 deciders:
   - the maintainer (compliance-claim scope — what `redact` promises is outward-facing)
