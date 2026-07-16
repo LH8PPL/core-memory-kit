@@ -13213,3 +13213,112 @@ _(retracted 2026-07-13)_
 
 **When:** 2026-07-15 · **Fact:** `P-6SPFPW4Z`
 **Why:** Prevents deploying stale images elsewhere; clarifies the single source of truth for social previews.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-MWQLMT7N -->
+
+## Questioned saving procedural doc to buried session-temp path; indicates preferen
+
+**When:** 2026-07-15 · **Fact:** `P-MWQLMT7N`
+
+<!-- decision:P-NNQSY9HB -->
+
+## Kit automation (hooks/skills) should handle routine tasks; manual work frustrate
+
+**When:** 2026-07-15 · **Fact:** `P-NNQSY9HB`
+
+<!-- decision:P-MNR7R9UW -->
+
+## SonarCloud A3S Security-Taint Server-Side Bug Root Cause
+
+**When:** 2026-07-15 · **Fact:** `P-MNR7R9UW`
+**Why:** Clarifies that the crash is third-party, not our config/code. Explains why reverting diagnostics was the right approach rather than deep-diving into our setup.
+
+<!-- decision:P-QYG695RG -->
+
+## `cmk install` Skips Existing Files, Cannot Repair Stale Skills
+
+**When:** 2026-07-15 · **Fact:** `P-QYG695RG`
+**Why:** Explains why assistant reached for manual `cp` instead of `cmk install`, and identifies a real mechanism gap in the kit.
+
+<!-- decision:P-SNMWHBJT -->
+
+## D-343 — Kit Lacks Mechanism to Repair Stale Scaffolded Skills After Update
+
+**When:** 2026-07-15 · **Fact:** `P-SNMWHBJT`
+**Why:** Without this, updates to shipped skill templates don't propagate to existing scaffolded instances. Manual intervention is required, defeating the kit's purpose.
+
+<!-- decision:P-3KP9MTUT -->
+
+## Project Dogfooding Principle — Use Kit's Own Mechanisms
+
+**When:** 2026-07-15 · **Fact:** `P-3KP9MTUT`
+**Why:** The project's value is that users should be able to trust the kit to manage itself. When the kit maintainer hand-edits, it signals the kit is incomplete.
+
+<!-- decision:P-F63N9DY3 -->
+
+## cmk install skip-existing behavior and update implications
+
+**When:** 2026-07-15 · **Fact:** `P-F63N9DY3`
+**Why:** This is the core D-343 gap. Users reasonably expect install to freshen kit-provided files, but skip-existing (meant to protect user edits) leaves obsolete scaffolds behind, creating silent divergence on update.
+
+<!-- decision:P-T9KCDQ3U -->
+
+## Empirical test proves cmk install skips stale skills (D-343 confirmation)
+
+**When:** 2026-07-15 · **Fact:** `P-T9KCDQ3U`
+**Why:** Upgrades the finding from "I read install.mjs line 214" to empirical ground truth. Provides concrete evidence for D-343 and justifies the need for `cmk repair --skills` or doctor-tool enhancement.
+
+<!-- decision:P-SG2XHQNT -->
+
+## D-343 disposition: cmk install scaffold-refresh bug → Task 230, v0.5.5
+
+**When:** 2026-07-15 · **Fact:** `P-SG2XHQNT`
+**Why:** The finding was captured by auto-extract but the DISPOSITION (Task 230 + v0.5.5 lane) lived only in tasks.md/RELEASE-PLAN, not in the kit's memory — a recall query surfaced the drift between the committed docs and the memory
+
+<!-- decision:P-P3Ta6QVX -->
+
+## Memory Kit's Soft Spot: Agent-Choice Default Over Recall
+
+**When:** 2026-07-15 · **Fact:** `P-P3Ta6QVX`
+**Why:** Identifies the true weakness in the memory system—it's not technical, it's behavioral. The auto-capture layer works perfectly, but optional recall creates a soft boundary that operators will bypass when faster alternatives exist.
+
+<!-- decision:P-LB6ERVW3 -->
+
+## Two-Pass PR Discipline
+
+**When:** 2026-07-15 · **Fact:** `P-LB6ERVW3`
+**Why:** Maintains PR quality; reduces review feedback loops and back-and-forth.
+
+<!-- decision:P-LPXY5A7U -->
+
+## Autopilot Grant Practice
+
+**When:** 2026-07-15 · **Fact:** `P-LPXY5A7U`
+**Why:** Merging code is a high-blast-radius decision that requires explicit user authorization. Prevents accidental deployments.
+
+<!-- decision:P-XSa5CT53 -->
+
+## Two-Pass Fix Discipline
+
+**When:** 2026-07-15 · **Fact:** `P-XSa5CT53`
+**Why:** Keeps PR quality high and eliminates follow-up fixes after the PR is opened.
+
+<!-- decision:P-ZNJNM7ZC -->
+
+## SonarCloud D-341: Known Server-Side Crash
+
+**When:** 2026-07-15 · **Fact:** `P-ZNJNM7ZC`
+**Why:** Future sessions should recognize this as expected and harmless, not a regression or blocker
+
+<!-- decision:P-LWBE45ZK -->
+
+## Stress Tests Skipped for Pure File-Mutation + In-Process Ops
+
+**When:** 2026-07-15 · **Fact:** `P-LWBE45ZK`
+**Why:** These operations have no async/timing surface where race conditions could hide; stress testing is not informative.
