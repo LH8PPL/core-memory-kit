@@ -20,11 +20,11 @@ A Claude Code install scaffolds the 3-tier `context/` layout, injects `.gitignor
 | **Lifecycle hooks** | `.claude/settings.json` | the automatic loop: `SessionStart` inject, `Stop`/`SessionEnd` capture + compress, `UserPromptSubmit` prompt-capture, `PostToolUse` edit-observation |
 | **Delete-guardrail** | a `PreToolUse` hook (`cmk-guard-memory`, matcher `Bash\|PowerShell`) | blocks a destructive shell command aimed at a memory path (fail-open) |
 | **Permission auto-approver** | a `PermissionRequest` hook | keeps the kit's own tools/skills prompt-free (no per-turn "Allow?") |
-| **.gitignore entries** | `<repo>/.gitignore` | the gitignored tiers (`context.local/`, `context/sessions|transcripts|.index|.locks`) |
+| **.gitignore entries** | `<repo>/.gitignore` | the gitignored tiers (`context.local/`, `context/sessions\|transcripts\|.index\|.locks`) |
 
 ## Notes
 
-- **Restart Claude Code** after install so the hooks load. `cmk install` is idempotent — re-running skips existing files and refreshes the hooks.
+- **Restart Claude Code** after install so the hooks load. `cmk install` is idempotent — re-running refreshes the hooks and the kit's scaffolded skills to your installed version (Task 230); your memory (`context/`, `context.local/`, the user tier) is never overwritten.
 - Two install routes: the **npm CLI** (`npm install -g @lh8ppl/core-memory-kit` then `cmk install`) or the **Claude Code plugin marketplace** (`/plugin marketplace add LH8PPL/core-memory-kit` → `/plugin install` → `/core-memory-kit:bootstrap`). Pick one — both wire the same hooks.
 - The kit **coexists** with Claude Code's native Auto Memory by default; `cmk doctor` (HC-6) surfaces a one-command opt-out (`cmk disable-native-memory`) if you want the kit to be the sole layer.
 

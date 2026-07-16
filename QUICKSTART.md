@@ -56,7 +56,7 @@ cd ~/my-project
 cmk install
 ```
 
-`cmk install` is idempotent — re-running on an existing kit-enabled project is safe. It scaffolds `context/`, updates `.gitignore`, drops the CLAUDE.md loader block, and wires the hooks into `.claude/settings.json`. Restart Claude Code afterward so the new hooks load. Use `cmk install --no-hooks` for a scaffold-only install (e.g. if you wire hooks another way).
+`cmk install` is idempotent — re-running on an existing kit-enabled project is safe. It scaffolds `context/`, updates `.gitignore`, drops the CLAUDE.md loader block, wires the hooks into `.claude/settings.json`, and **refreshes the kit's scaffolded skills to your installed version** (kit-owned files update on re-install; your memory in `context/` is never overwritten). Restart Claude Code afterward so the new hooks load. Use `cmk install --no-hooks` for a scaffold-only install (e.g. if you wire hooks another way).
 
 What it creates:
 
