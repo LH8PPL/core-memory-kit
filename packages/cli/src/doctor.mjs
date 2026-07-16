@@ -48,7 +48,8 @@ import { getNativeAutoMemoryState } from './native-memory.mjs';
 import { checkKitBinding, checkEmbedderBinding } from './native-binding.mjs';
 import { resolveDefaultSearchMode } from './semantic-backend.mjs';
 import { checkVersionDrift } from './version-drift.mjs';
-import { getKitVersion } from './install.mjs';
+import { findManagedBlock, compareVersions } from './claude-md.mjs';
+import { getKitVersion, kitOwnedScaffoldDrift } from './install.mjs';
 import { hasOurCliAgent } from './kiro-cli-agent.mjs';
 import { stripBom } from './read-json.mjs';
 import { detectInstallKind } from './install-kind.mjs';
@@ -724,7 +725,48 @@ function hc9VersionDrift({ projectRoot, kitVersion }) {
   } catch {
     claudeMdText = null; // unreadable → skip (treated as not-installed)
   }
-  return checkVersionDrift({ claudeMdText, kitVersion });
+  const markerResult = checkVersionDrift({ claudeMdText, kitVersion });
+  if (markerResult.status !== 'pass') return markerResult;
+
+  // Task 230 (D-343): the marker only proves `cmk install` ran at this
+  // version — NOT that every kit-owned scaffold file matches the template.
+  // The D-343 false-green: marker at v0.5.4, skills still carrying the
+  // pre-rename recall trigger. Content-compare the kit-owned scaffold
+  // (skills) against the installed binary's template; a drifted file fails
+  // HC-9 with the same recovery (`cmk install` now REFRESHES kit-owned files).
+  //
+  // EXACT-match gate (skill-review Blocking): checkVersionDrift's pass also
+  // covers the benign DOWNGRADE (project scaffold NEWER than this binary —
+  // an older global cli on another machine). Comparing a newer project's
+  // skills against this OLDER binary's template would false-alarm with a
+  // wrong message and a recovery that silently downgrades — so the drift
+  // check runs only when the marker version equals the binary exactly.
+  let sameVersion = false;
+  try {
+    const block = claudeMdText ? findManagedBlock(claudeMdText) : null;
+    sameVersion = !!block?.version && compareVersions(kitVersion, block.version) === 0;
+  } catch {
+    sameVersion = false;
+  }
+  if (!sameVersion) return markerResult;
+
+  let drifted = [];
+  try {
+    drifted = kitOwnedScaffoldDrift({ projectRoot });
+  } catch {
+    drifted = []; // comparison failure must not take doctor down — marker verdict stands
+  }
+  if (drifted.length > 0) {
+    return {
+      ...markerResult,
+      status: 'fail',
+      message:
+        `the CLAUDE.md marker matches the installed cmk (v${kitVersion}), but ${drifted.length} kit-owned scaffold file(s) differ from this version's template: ` +
+        `${drifted.join(', ')} — re-run \`cmk install\` to refresh them (user memory is never touched).`,
+      recoveryCommand: 'cmk install',
+    };
+  }
+  return markerResult;
 }
 
 // --- HC-11: backend CLI present (Task 200 / D-272/D-277) --------------

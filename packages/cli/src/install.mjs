@@ -12,6 +12,11 @@
 //     userTier,      // resolved
 //     created: string[],   // absolute paths newly written
 //     skipped: string[],   // absolute paths that already existed (untouched)
+//     refreshed: string[], // KIT-OWNED paths rewritten to the current template
+//                          // (Task 230 — skills only today; never user memory).
+//                          // Any installTier call with `overwrite: true` MUST
+//                          // also pass a `refreshed` array — a refresh is
+//                          // never silent.
 //     gitignore: { action: 'created' | 'replaced' | 'unchanged', path: string },
 //     errors: { path: string, error: string }[],
 //   }
@@ -42,7 +47,7 @@ import { homedir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { injectClaudeMdBlock } from './claude-md.mjs';
+import { injectClaudeMdBlock, findManagedBlock, compareVersions } from './claude-md.mjs';
 import { checkKitBinding, npmSupportsAllowScripts } from './native-binding.mjs';
 import { writeKitHooks, writeKitMcpServer } from './settings-hooks.mjs';
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
@@ -182,7 +187,62 @@ function renderTemplate(content, vars) {
     .replaceAll('{{VERSION}}', vars.version);
 }
 
-function installTier(srcDir, destDir, { created, skipped, errors, vars }) {
+/**
+ * Task 230 (D-343) — detect KIT-OWNED scaffold files whose on-disk content is
+ * behind the installed binary's template. Doctor's HC-9 uses this to close the
+ * false-green D-343 hit: the CLAUDE.md marker matched the binary while a
+ * scaffolded skill was stale from a pre-update install (the marker only proves
+ * `cmk install` ran at this version — not that every kit-owned file matches).
+ *
+ * Scope: `.claude/skills/` only (the one kit-owned installTier target). A
+ * MISSING file is NOT drift — a skipClaudeFiles (Kiro/Cursor) project
+ * legitimately has no Claude skills; HC-9's marker semantics cover
+ * not-installed. Only exists-and-differs is flagged.
+ *
+ * @param {object} o
+ * @param {string} o.projectRoot
+ * @returns {string[]} relative paths (from projectRoot) of drifted files
+ */
+export function kitOwnedScaffoldDrift({ projectRoot }) {
+  const drifted = [];
+  let templateDir;
+  try {
+    templateDir = resolveTemplateDir();
+  } catch {
+    return drifted; // no template (broken install) — nothing to compare against
+  }
+  const skillsSrc = join(templateDir, '.claude', 'skills');
+  if (!existsSync(skillsSrc)) return drifted;
+  // Render with the same defaults installTier uses; skill templates carry no
+  // placeholders today, so this is a byte-passthrough (asserted by the fact
+  // that a just-installed project produces zero drift — the tests pin it).
+  const v = {
+    today: new Date().toISOString().slice(0, 10),
+    projectName: basename(projectRoot),
+    version: getKitVersion(),
+  };
+  for (const file of walkFiles(skillsSrc)) {
+    if (file.isGitkeep) continue;
+    const targetRel = join('.claude', 'skills', dirname(file.relPath), targetName(file.relPath.split('/').pop()));
+    const targetAbs = join(projectRoot, targetRel);
+    if (!existsSync(targetAbs)) continue; // missing ≠ drift (see above)
+    try {
+      const expected = renderTemplate(readFileSync(file.absSrc, 'utf8'), v);
+      const actual = readFileSync(targetAbs, 'utf8');
+      // EOL-normalized (the D-126 class — a CRLF checkout is not drift) and
+      // reported with '/' separators (walkFiles' convention) so the HC-9
+      // message reads the same on every OS.
+      if (actual.replaceAll('\r\n', '\n') !== expected.replaceAll('\r\n', '\n')) {
+        drifted.push(targetRel.replaceAll('\\', '/'));
+      }
+    } catch {
+      // unreadable file — leave to the install/repair path, not a drift flag
+    }
+  }
+  return drifted;
+}
+
+function installTier(srcDir, destDir, { created, skipped, errors, vars, overwrite, refreshed }) {
   // Self-sufficient default so no caller can crash renderTemplate by omitting
   // vars (e.g. initUserTier). install() passes an explicit vars with the real
   // projectName; standalone callers fall back to a sensible default (the user
@@ -212,7 +272,34 @@ function installTier(srcDir, destDir, { created, skipped, errors, vars }) {
     const targetAbs = join(destDir, targetRel);
 
     if (existsSync(targetAbs)) {
-      skipped.push(targetAbs);
+      // Task 230 (D-343): the skip-if-exists rule exists for USER DATA — a
+      // MEMORY.md/USER.md with the user's edits must never be clobbered. For
+      // KIT-OWNED scaffold (the skills — kit-authored code, not user data),
+      // callers pass `overwrite: true` so a kit update actually propagates:
+      // pre-230, a changed shipped skill NEVER reached an existing install
+      // (the v0.5.4 rename left every update-in-place project firing the
+      // recall skill on a dead hint string, with HC-9 green over it).
+      if (!overwrite) {
+        skipped.push(targetAbs);
+        continue;
+      }
+      try {
+        const next = renderTemplate(readFileSync(file.absSrc, 'utf8'), v);
+        const existing = readFileSync(targetAbs, 'utf8');
+        // EOL-normalized compare (the D-126 class): a Windows autocrlf
+        // checkout turns LF into CRLF on disk — that is NOT content drift,
+        // and rewriting it every install would flap forever against the
+        // next checkout. The gitattributes fragment pins eol=lf going
+        // forward; existing CRLF checkouts are simply left alone.
+        if (existing.replaceAll('\r\n', '\n') === next.replaceAll('\r\n', '\n')) {
+          skipped.push(targetAbs);
+        } else {
+          writeFileSync(targetAbs, next, 'utf8');
+          (refreshed ?? []).push(targetAbs);
+        }
+      } catch (err) {
+        errors.push({ path: targetAbs, error: err && err.message ? err.message : String(err) });
+      }
       continue;
     }
 
@@ -352,6 +439,9 @@ export async function install(options = {}) {
 
   const created = [];
   const skipped = [];
+  // Task 230: kit-owned scaffold files rewritten to the current template on a
+  // re-install (skills only today) — reported so the refresh is never silent.
+  const refreshed = [];
   const errors = [];
 
   const vars = {
@@ -360,6 +450,9 @@ export async function install(options = {}) {
     version,
   };
 
+  // USER-DATA tiers — skip-if-exists is the CONTRACT here (Task 230 boundary):
+  // context/, context.local/ and the user tier hold the user's MEMORY; a
+  // re-install must never clobber an edited MEMORY.md/USER.md/fact file.
   installTier(join(templateDir, 'project'), join(projectRoot, 'context'), { created, skipped, errors, vars });
   installTier(join(templateDir, 'local'), join(projectRoot, 'context.local'), { created, skipped, errors, vars });
   installTier(join(templateDir, 'user'), userTier, { created, skipped, errors, vars });
@@ -368,14 +461,41 @@ export async function install(options = {}) {
   // template/.claude/skills/ into <projectRoot>/.claude/skills/. This is what
   // makes model-invoked capture (the memory-write skill) ship with the npm
   // `cmk install` route, not only the plugin route — route-equivalence per
-  // design §1.3. Same boundary as the tiers: idempotent skip-existing +
-  // over-mutation-safe (a hand-edited skill survives a re-install). The skill
-  // files carry no {{placeholders}}, so renderTemplate is a byte-passthrough.
+  // design §1.3. The skill files carry no {{placeholders}}, so renderTemplate
+  // is a byte-passthrough.
+  //
+  // **Original contract (Tasks 69–229): skip-existing, "a hand-edited skill
+  // survives a re-install."** PIVOTED by Task 230 (D-343): skills are
+  // KIT-OWNED CODE, not user data — the skip rule (written for MEMORY safety)
+  // over-applied here, so a kit update that changed a shipped skill never
+  // propagated to an existing install (the v0.5.4 rename left every
+  // update-in-place project firing recall on the dead `[claude-memory-kit]`
+  // hint, HC-9 green over it). Skills now REFRESH to the current template on
+  // every install (`overwrite: true`, reported via `refreshed`); a hand-edited
+  // skill is deliberately overwritten — kit updates win on kit-owned files.
   //
   // `.claude/skills/` is CLAUDE-CODE-SPECIFIC. A `--ide kiro` install gets its
   // skills at `.kiro/skills/` (written by the Kiro orchestrator), so it passes
   // skipClaudeFiles to avoid leaving a dead Claude skills dir on a Kiro project
   // (the cut-gate find: a Kiro user shouldn't carry Claude Code's skill files).
+  // Downgrade guard (skill-review Blocking, mirrors the CLAUDE.md --force
+  // rule): if the project's existing marker is NEWER than this binary, an
+  // un-forced install must NOT quietly downgrade the skills to an older
+  // template — the same benign-downgrade case checkVersionDrift deliberately
+  // passes (an older global cli on machine B must not clobber a newer
+  // scaffold). `--force` opts into the downgrade, exactly like the block.
+  const skillsOverwrite = (() => {
+    if (force) return true;
+    try {
+      const cmPath = join(projectRoot, 'CLAUDE.md');
+      if (!existsSync(cmPath)) return true;
+      const block = findManagedBlock(readFileSync(cmPath, 'utf8'));
+      if (!block || !block.version) return true;
+      return compareVersions(version, block.version) >= 0; // not a downgrade
+    } catch {
+      return true; // unreadable marker — behave like a normal install
+    }
+  })();
   const skillsSrc = join(templateDir, '.claude', 'skills');
   if (!options.skipClaudeFiles && existsSync(skillsSrc)) {
     installTier(skillsSrc, join(projectRoot, '.claude', 'skills'), {
@@ -383,6 +503,8 @@ export async function install(options = {}) {
       skipped,
       errors,
       vars,
+      overwrite: skillsOverwrite,
+      refreshed,
     });
   }
 
@@ -516,7 +638,7 @@ export async function install(options = {}) {
   const bindingProbe = options.bindingProbe ?? checkKitBinding;
   const nativeBinding = bindingProbe();
 
-  return { projectRoot, userTier, created, skipped, gitignore, gitattributes, claudeMd, hooks, mcpServer, semantic, nativeBinding, errors };
+  return { projectRoot, userTier, created, skipped, refreshed, gitignore, gitattributes, claudeMd, hooks, mcpServer, semantic, nativeBinding, errors };
 }
 
 /**

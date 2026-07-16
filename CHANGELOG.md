@@ -12,6 +12,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 - **Screen-then-mask: the invisible-unicode Poison_Guard now actually fires on `cmk remember` / `mk_remember`** — the privacy mask (which strips zero-width/bidi characters) ran *before* the guard on both write paths, so a hidden-instruction vector smuggled via invisible Unicode was silently stripped-and-written instead of rejected. The write pipeline is now `strip <private>` → `Poison_Guard` → `mask PII`: invisible/bidi text is rejected (exit 2, nothing written, redacted log line). The guard and mask now share ONE invisible-codepoint catalog (they had drifted — the mask knew the invisible math operators U+2062–64, the guard didn't). Ordinary PII (emails, non-credential home paths) still masks and writes; **one deliberate sharpening:** a POSIX path directly after a credential keyword (`password: /home/…`) now *rejects* — the guard sees the raw path where it used to see the pre-sanitized `~` form, and a security screen erring conservative there is correct (rephrase as `…under ~/vault` to capture it). (Task 231, D-337)
 
+### Changed
+
+- **`cmk install` now REFRESHES the kit's scaffolded skills to the current version on re-install** — previously it skipped every existing file, so a kit update that changed a shipped skill never reached an already-installed project (after the v0.5.4 rename, update-in-place installs kept firing recall on the dead `[claude-memory-kit]` hint). Kit-owned files (`.claude/skills/`) now update on every `cmk install` (reported, never silent); **your memory (`context/`, `context.local/`, the user tier) is still never overwritten.** `cmk doctor` HC-9 also now detects a stale scaffolded skill by content (the version marker alone couldn't see it) and points at `cmk install`. (Task 230, D-343)
+
 ### Fixed
 
 - **Rich-path `cmk remember` errors now exit 2** — a Poison_Guard rejection, an invalid `--shape`, or a title collision on the rich path (`--why`/`--type`/…) printed the error but exited 0, so scripts couldn't detect the failure. All rich-path errors are now script-detectable, matching the bare path. (Task 231; closes D-338)

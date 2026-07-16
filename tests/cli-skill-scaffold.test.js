@@ -268,13 +268,25 @@ describe('Task 69.1 — cmk install scaffolds the skill into <project>/.claude/s
     expect(skipped.some((p) => p.endsWith('.claude/skills/memory-write/SKILL.md'))).toBe(true);
   });
 
-  it('over-mutation guard — re-install preserves a hand-edited skill', async () => {
+  // CONTRACT PIVOT (Task 230 / D-343). This test originally pinned the
+  // OPPOSITE: "re-install preserves a hand-edited skill" (the Task-69
+  // skip-existing contract). That rule — written for MEMORY safety — over-
+  // applied to kit-owned code: a kit update that changed a shipped skill never
+  // propagated (the v0.5.4 rename left every update-in-place install firing
+  // recall on the dead [claude-memory-kit] hint, HC-9 green over it). Skills
+  // are kit-authored; the user's requirement is "re-install updates everything
+  // to the current version — only the memory is never overwritten". The old
+  // test was asserting the D-343 bug, so it changed WITH the contract; the
+  // memory-tier over-mutation guard lives in cli-install-refresh.test.js.
+  it('re-install REFRESHES a hand-edited skill to the template (Task 230 — kit-owned files, kit wins)', async () => {
     await install({ projectRoot, userTier });
     const target = join(projectRoot, ...SCAFFOLDED);
+    const scaffoldedSha = sha(target);
     writeFileSync(target, '# my own edits\n', 'utf8');
-    const edited = sha(target);
-    await install({ projectRoot, userTier });
-    expect(sha(target), 'install clobbered a user-edited skill').toBe(edited);
+    const result = await install({ projectRoot, userTier });
+    expect(sha(target), 'install must refresh a drifted kit-owned skill').toBe(scaffoldedSha);
+    const refreshed = (result.refreshed ?? []).map((p) => String(p).replace(/\\/g, '/'));
+    expect(refreshed.some((p) => p.endsWith('.claude/skills/memory-write/SKILL.md'))).toBe(true);
   });
 });
 

@@ -422,17 +422,23 @@ export async function runInstall(options /* , command */) {
     result.gitignore.action === 'created' ||
     result.claudeMd.action === 'created';
 
+  // Task 230: a kit-owned scaffold refresh is never silent — name it in the
+  // human-facing line (the result's `refreshed` array is the machine surface).
+  const refreshedNote =
+    (result.refreshed?.length ?? 0) > 0
+      ? `, ${result.refreshed.length} kit file(s) refreshed to this version`
+      : '';
   if (broughtSomethingNew) {
     log(
       `cmk install: ${projectName} ready — context/ scaffolded${
         wired ? ', hooks wired' : ''
-      }.`,
+      }${refreshedNote}.`,
     );
   } else {
     log(
-      `cmk install: ${projectName} already set up (your edits preserved)${
+      `cmk install: ${projectName} already set up (your memory preserved)${
         wired ? ', hooks refreshed' : ''
-      }.`,
+      }${refreshedNote}.`,
     );
   }
   if (wired) {
