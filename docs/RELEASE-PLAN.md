@@ -222,6 +222,14 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
      existing rule over-applies to skills; D-343, PROVEN live during the rename) + D-337 (invisible-
      unicode Guard defeated by maskPii, security). Task 230 is a correctness bug (an updated install
      must reflect the current version) — laned here, not deferred.
+     **✅ SHIPPED CONTENT (2026-07-17): Task 231 (#293, D-337+D-338) + Task 230 (#294, D-343) + Task 96
+     (#295, ADR-0022 compliance scrub) + Task 210 (#296, D-308 deletion propagation).**
+     **Backlog sweep verdict (D-349):** Task 95 (dream re-curation) — its SEQUENCING gate CLEARED
+     (66 shipped, learn-loop Phase 1–2 shipped, ADR-0017 closed the umbrella) but its TWO design forks
+     (review-gate-vs-auto-apply + raw-transcript privacy) are UNRESOLVED → **kept DEFERRED with a named
+     grill-trigger** ("both forks decided in a grill session"), NOT auto-built on autopilot (a genuine
+     design fork, not a mechanical build). **v0.5.5 CUTS on the four shipped governance tasks** — exactly
+     what the lane's "Task 95 *if* its gate cleared" wording anticipated.
   6. **v0.6.0 — DAY-ONE MEMORY (the next minor differentiator; D-326, 2026-07-12 — the user's
      "actual versions, not just future versions" call after the market sweep).** Headline:
      **Task 225** (`cmk import-sessions` — bootstrap the memory from existing agent session
