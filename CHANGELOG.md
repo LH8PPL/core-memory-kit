@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+## [0.5.5] — 2026-07-16
+
 ### Added
 
 - **`cmk redact <id> --pattern <secret>` — the compliance scrub (ADR-0022).** Remove a leaked secret/PII span from every app-layer copy of a fact along the kit's full dual-write graph — the live file, tombstoned/superseded archive copies, the per-tier scratchpad bullet (incl. `context.local/private.md`), the committed `DECISIONS.md` journal entry, the search indexes — replaced with `[redacted: reason date]`; a title-borne secret's *filename* (title-derived slug) is renamed clean, and audit-log path echoes are scrubbed JSON-aware. The fact and a secret-free audit entry survive. On the committed tier it prints the honest git-history advisory (rotate first; the span-level `filter-repo --replace-text` recipe as a documented one-time team operation — the kit never rewrites git history). Per-fact and idempotent; occurrences in other facts, journal entries, or scratchpad lines are reported, never silently scrubbed. CLI-only, deliberately not an MCP tool. (Task 96, D-346/D-347)
