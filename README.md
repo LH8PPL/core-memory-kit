@@ -161,6 +161,8 @@ You rarely type these yourself — Claude drives the same operations as tools mi
 | `cmk search "<query>" [--mode keyword\|semantic\|hybrid] [--scope facts\|transcripts\|decisions]` | Search memory by meaning; `--scope decisions` recalls how a decision evolved |
 | `cmk remember "<fact>"` | Capture a fact explicitly (deduped, secret-screened, path-abstracted) |
 | `cmk forget <id>` | Tombstone a fact (audit trail preserved) |
+| `cmk redact <id> --pattern <secret>` | Compliance scrub: remove a leaked secret from the fact + every archive copy + indexes, audit kept (prints the honest git-history advisory) |
+| `cmk purge --hard <id> --yes` | Irreversible whole-fact delete — no tombstone; the compliance escalation beyond `forget` |
 | `cmk lessons promote <id>` | Carry one project fact into your cross-project user tier |
 | `cmk doctor` | Run health checks; surface a repair command per failure |
 

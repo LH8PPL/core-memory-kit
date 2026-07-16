@@ -28,6 +28,26 @@ The kit is pre-1.0. Security fixes target the **latest published** `0.2.x` relea
 | **Network** — the kit could exfiltrate memory | Silent data egress | **No silent network calls** (NFR-5): the only outbound calls are the documented Haiku compression/extraction requests. Markdown is the source of truth; indexes are local-only. |
 | **Supply chain** — a dependency ships a CVE | Vulnerable code reaches users | See "Automated scanning" below. |
 
+## Leaked-secret runbook (`cmk redact` — ADR-0022)
+
+If a secret or PII landed in a memory fact (e.g. it predates the write-path screens), the remediation order is:
+
+1. **Rotate the secret first.** `context/` is git-committed — every clone, fork, and CI cache that ever pulled the repo may hold the old commits. A rotated secret is dead wherever it leaked; no scrub substitutes for rotation.
+2. **`cmk redact <id> --pattern "<the secret>" --reason "<why>"`** — scrubs the span from the live fact, every tombstone/superseded archive copy, the scratchpad bullet, and the search indexes, replacing it with `[redacted: reason date]`. A title-borne secret contaminates the fact's *filename* too (it's a slug of the title) — redact renames the file to the scrubbed title's slug and scrubs slug residues from the local audit log. The fact and a secret-free audit entry survive. Per-fact by design: occurrences in *other* facts are reported so you can redact them by id. (`cmk purge --hard <id> --yes` is the escalation: the whole fact gone irreversibly, no tombstone.)
+3. **Optionally, purge git history — a deliberate one-time team operation the kit never runs for you.** Coordinate with everyone who has a clone (history rewrite = every clone must re-clone), then (two steps — works in every shell, PowerShell included):
+
+   ```bash
+   # step 1: write the replacement rule to a file (one rule per line)
+   echo 'THE-LEAKED-SECRET==>[redacted]' > expressions.txt
+   # step 2: rewrite history, then force-push
+   git filter-repo --replace-text expressions.txt --force
+   git push --force-with-lease
+   ```
+
+   `--replace-text` scrubs the span across history while keeping the files — the right tool after a *redact* (the fact survives). After a *purge*, use `--path <the exact purged file> --invert-paths` to drop that file from history — path-scoped to the purged file(s) the CLI printed, never the whole `context/` tier (that would erase the entire memory history). This cannot reach forks or caches you don't control — which is why step 1 comes first.
+
+The `redact`/`purge` verbs are **CLI-only, never MCP tools** — the destructive/compliance path stays explicit-human (design §6.5).
+
 ## Automated scanning (CI)
 
 Every push + PR runs (see `.github/workflows/`):

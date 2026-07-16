@@ -34,7 +34,7 @@ export const CLI_DOC_EXEMPT = new Map([
 // Shipping the feature means deleting both the phrase and its entry here.
 export const DEFERRAL_ALLOWLIST = [
   // config shipped real in Task 129 (D-121) — its stub deferral entry removed.
-  { file: 'docs/CLI.md', mustContain: 'use `cmk forget`', reason: 'purge is a v0.1.x stub (forget is the supported delete)' },
+  // purge shipped real in Task 96 (ADR-0022, D-346) — its stub deferral entry removed.
 ];
 
 const DEFERRAL_PATTERN = /not yet (shipped|implemented)|deferred to a later release/i;

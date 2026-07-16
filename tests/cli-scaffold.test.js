@@ -73,7 +73,7 @@ function runCmk(args, { input } = {}) {
  *               from the repo cwd here they exit 2 (no anchor/fact found / bad
  *               id), so they're excluded from the scaffold's exit-0 stub loop.
  */
-const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex', 'forget', 'init-user-tier', 'trust', 'search', 'remember', 'daily-distill', 'weekly-curate', 'register-crons', 'compress', 'doctor', 'digest', 'import-anthropic-memory', 'import-claude-md', 'config', 'repair', 'roll', 'disable-native-memory', 'enable-native-memory', 'get', 'timeline', 'cite', 'recent-activity', 'hook', 'cursor-hook', 'codex-hook']); // cursor-hook + codex-hook: Task 196 — wired; logic tested by cli-cursor-hook-bin.test.js
+const NON_STUB_VERBS = new Set(['version', 'install', 'uninstall', 'reindex', 'forget', 'init-user-tier', 'trust', 'search', 'remember', 'daily-distill', 'weekly-curate', 'register-crons', 'compress', 'doctor', 'digest', 'import-anthropic-memory', 'import-claude-md', 'config', 'repair', 'roll', 'disable-native-memory', 'enable-native-memory', 'get', 'timeline', 'cite', 'recent-activity', 'hook', 'cursor-hook', 'codex-hook', 'redact', 'purge']); // cursor-hook + codex-hook: Task 196 — wired; logic tested by cli-cursor-hook-bin.test.js. redact + purge: Task 96 (ADR-0022) — wired; require --pattern / --hard --yes (exit 2 otherwise); logic tested by cli-redact.test.js against tempdir sandboxes — never invoked unguarded from the repo cwd here (purge --hard is irreversible)
 
 // Wired child sub-verbs (e.g. `cmk queue conflicts` shipped in Task 25).
 // Listed as "<parent>/<child>" so the generic child-stub assertion
@@ -169,6 +169,15 @@ describe('Task 2 — cmk CLI scaffold', () => {
     const leaves = subcommands.filter(
       (s) => !s.children && !NON_STUB_VERBS.has(s.name)
     );
+
+    // As of Task 96 (redact + purge wired), EVERY leaf verb is real — a REAL
+    // pin of the no-stubs-left milestone (skill-review M12: the first
+    // placeholder here was tautological). Adding a new stub verb fails this
+    // deliberately: either wire it or consciously flip this count — the loop
+    // below then stub-tests it automatically.
+    it('no stub leaf verbs remain (Task 96 milestone)', () => {
+      expect(leaves.map((s) => s.name)).toEqual([]);
+    });
 
     for (const sub of leaves) {
       it(`\`cmk ${sub.name}\` exits 0`, () => {
