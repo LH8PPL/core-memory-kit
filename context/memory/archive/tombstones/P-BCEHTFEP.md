@@ -1,4 +1,7 @@
 ---
+deleted_at: 2026-07-16T20:03:42Z
+deleted_reason: ''
+deleted_by: user-explicit
 id: P-BCEHTFEP
 type: project
 title: '0.4.1 release gate workflow is: 0a (commit/push) → 0b (pack/install) → backup →'

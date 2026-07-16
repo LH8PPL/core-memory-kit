@@ -13322,3 +13322,50 @@ _(retracted 2026-07-13)_
 
 **When:** 2026-07-15 · **Fact:** `P-LWBE45ZK`
 **Why:** These operations have no async/timing surface where race conditions could hide; stress testing is not informative.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-9PR6SXW5 -->
+
+## Dogfood DECISIONS.md committed post-merge, not with feature PR
+
+**When:** 2026-07-16 · **Fact:** `P-9PR6SXW5`
+**Why:** Separates code/feature changes from self-referential metadata
+
+<!-- decision:P-RRA2F3PE -->
+
+## Health Check HC-12 — Deletion cascade verification
+
+**When:** 2026-07-16 · **Fact:** `P-RRA2F3PE`
+**Why:** Part of the deletion-propagation guarantee (Task 210); HC-12 is the user-facing health check that certifies cleanup worked.
+
+<!-- decision:P-AA5X9LGY -->
+
+## Task 210 — Deletion-propagation guarantee, in-flight (code done, docs/review pending)
+
+**When:** 2026-07-16 · **Fact:** `P-AA5X9LGY`
+**Why:** Current work-in-progress showing typical task completion path and phase sequence.
+
+<!-- decision:P-AAUZJ9UU -->
+
+## Task 96 — cmk redact/purge --hard, merged PR #295
+
+**When:** 2026-07-16 · **Fact:** `P-AAUZJ9UU`
+**Why:** Reference point for completed feature; demonstrates project's multi-layer review + live-test approach catching real edge cases (secrets in filenames).
+
+<!-- decision:P-AY6TaRLY -->
+
+## Task completion workflow — code, test, doc, review, live-test, merge
+
+**When:** 2026-07-16 · **Fact:** `P-AY6TaRLY`
+**Why:** Project convention; defines when a task is truly complete and what gates must pass.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
