@@ -117,13 +117,14 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
     // Contract update Task 162: HC-9 (version-drift / update-path, D-176) joined.
     // Contract update Task 200: HC-11 (backend CLI present, D-272/D-277) joined —
     // count + order extended, intent preserved.
-    it('emits exactly 11 checks with id HC-1..HC-11 in order', async () => {
+    // Contract update Task 210: HC-12 (deletion propagation, D-308) joined.
+    it('emits exactly 12 checks with id HC-1..HC-12 in order', async () => {
       const r = await runDoctor({ projectRoot, userDir });
       expect(r.action).toBe('completed');
-      expect(r.checks.length).toBe(11);
+      expect(r.checks.length).toBe(12);
       const ids = r.checks.map((c) => c.id);
       expect(ids).toEqual([
-        'HC-1', 'HC-2', 'HC-3', 'HC-4', 'HC-5', 'HC-6', 'HC-7', 'HC-8', 'HC-9', 'HC-10', 'HC-11',
+        'HC-1', 'HC-2', 'HC-3', 'HC-4', 'HC-5', 'HC-6', 'HC-7', 'HC-8', 'HC-9', 'HC-10', 'HC-11', 'HC-12',
       ]);
       // Every check has the canonical shape
       for (const c of r.checks) {
