@@ -50,6 +50,7 @@ import { resolveDefaultSearchMode } from './semantic-backend.mjs';
 import { checkVersionDrift } from './version-drift.mjs';
 import { findManagedBlock, compareVersions } from './claude-md.mjs';
 import { getKitVersion, kitOwnedScaffoldDrift } from './install.mjs';
+import { checkDeletionPropagation } from './deletion-propagation.mjs';
 import { hasOurCliAgent } from './kiro-cli-agent.mjs';
 import { stripBom } from './read-json.mjs';
 import { detectInstallKind } from './install-kind.mjs';
@@ -876,6 +877,63 @@ function hc10CompactionLiveness({ projectRoot, now }) {
   };
 }
 
+// --- HC-12: Deletion propagation (Task 210 / D-308) ---------------------
+// A tombstoned fact must be VERIFIABLY gone from every derived surface —
+// the Always-On survey's least-implemented invariant ("deletion is a cascade
+// through the derivation graph, not a single operation"). Report-first: a
+// survival names its exact location; the scrub routes to `cmk redact` (Task
+// 96) or a re-distill — doctor never edits. Vacuous (no tombstones) is a
+// labeled SKIP, never a silent pass (the AOEP negative-invariant).
+function hc12DeletionPropagation({ projectRoot }) {
+  const name = 'Tombstoned facts cascaded out of derived surfaces';
+  let r;
+  try {
+    r = checkDeletionPropagation({ projectRoot });
+  } catch (err) {
+    return { id: 'HC-12', name, status: 'fail', message: `check error: ${err?.message ?? err}` };
+  }
+  if (r.vacuous) {
+    return {
+      id: 'HC-12',
+      name,
+      status: 'skip',
+      message: 'no tombstoned facts to verify (vacuously clean — nothing has been forgotten yet)',
+    };
+  }
+  if (r.survivals.length > 0) {
+    const detail = r.survivals
+      .slice(0, 5)
+      .map((s) => `${s.id} survives in ${s.path}${s.surface === 'index' ? '' : ' (content match)'}`)
+      .join('; ');
+    const more = r.survivals.length > 5 ? ` (+${r.survivals.length - 5} more)` : '';
+    // Surface-aware recovery (skill-review Minor): `cmk reindex` fixes an INDEX
+    // survival but is a no-op on a SUMMARY survival (it never rewrites
+    // sessions/). Since forget already reindexes in-band (Task 110), a real
+    // FAIL is almost always a summary survival — point at the fix that works.
+    const anyIndex = r.survivals.some((s) => s.surface === 'index');
+    const anySummary = r.survivals.some((s) => s.surface === 'summary');
+    const recoveryCommand = anyIndex && !anySummary ? 'cmk reindex' : 'cmk redact <id> --pattern "<the leaked text>"';
+    return {
+      id: 'HC-12',
+      name,
+      status: 'fail',
+      message:
+        `${r.survivals.length} deletion survival(s): ${detail}${more} — a forgotten fact still lives in a derived surface. ` +
+        (anySummary
+          ? 'For a summary survival: `cmk redact <id> --pattern "…"` scrubs the line, or the next distill re-writes it. '
+          : '') +
+        (anyIndex ? 'For an index survival: `cmk reindex`.' : ''),
+      recoveryCommand,
+    };
+  }
+  return {
+    id: 'HC-12',
+    name,
+    status: 'pass',
+    message: `${r.checked} tombstoned fact(s) verified gone from the index + distilled summaries${r.truncated ? ' (bounded sample)' : ''}`,
+  };
+}
+
 export async function runDoctor({
   projectRoot,
   userDir,
@@ -911,10 +969,11 @@ export async function runDoctor({
   const c9 = hc9VersionDrift({ projectRoot, kitVersion: kitVersion ?? getKitVersion() });
   const c10 = hc10CompactionLiveness({ projectRoot, now: ts });
   const c11 = hc11BackendCli({ projectRoot, userDir: resolvedUserDir, backendCliProbe });
+  const c12 = hc12DeletionPropagation({ projectRoot });
 
   return {
     action: 'completed',
-    checks: [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11],
+    checks: [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12],
     duration_ms: Date.now() - t0,
   };
 }

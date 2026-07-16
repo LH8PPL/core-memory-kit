@@ -37,6 +37,7 @@ import {
 } from './cooldown.mjs';
 import { autoDrainQueues } from './auto-drain.mjs';
 import { screenBeforeCommittedWrite } from './poison-guard.mjs';
+import { screenTombstonedContent, readTombstoneFacts } from './deletion-propagation.mjs';
 
 const DEFAULT_MAX_OUTPUT_BYTES = 4096;
 const SESSIONS_REL = ['context', 'sessions'];
@@ -157,14 +158,30 @@ function readDistilledDay(projectRoot, date) {
 // relevant to the next session) until the whole fits. A single section that
 // itself exceeds the cap is kept (truncating mid-section would corrupt it — the
 // per-day budget already bounds an individual day).
-function assembleRecent(projectRoot, files, maxOutputBytes = DEFAULT_MAX_OUTPUT_BYTES) {
+function assembleRecent(projectRoot, files, maxOutputBytes = DEFAULT_MAX_OUTPUT_BYTES, tomb = null) {
+  // Screen with the tombstone set (M2 — passed in by the caller so it's read
+  // ONCE per run, not re-read per day). Return the drop count so the caller
+  // can log it (I2 — the assembly re-screen must not drop silently).
+  const tombFacts = tomb ?? readTombstoneFacts({ projectRoot });
+  let assemblyDropped = 0;
   const sections = files
     .map((f) => {
-      const body = readDistilledDay(projectRoot, f.date).trim();
+      // Task 210 (D-308) — screen at ASSEMBLY too, not only at bank-time: a
+      // fact forgotten AFTER a day was banked leaves stale content in that
+      // day's .distilled.md artifact, which a plain re-read would faithfully
+      // re-emit into recent.md. Re-screening here means a forget between
+      // distill runs propagates to recent.md on the NEXT run, no re-distill
+      // needed. (The bank-time screen still matters — it keeps the persisted
+      // artifact clean going forward; this is the second, cheap safety net.)
+      const raw = readDistilledDay(projectRoot, f.date).trim();
+      if (!raw) return '';
+      const screen = screenTombstonedContent(raw, { facts: tombFacts.facts, truncated: tombFacts.truncated });
+      assemblyDropped += screen.dropped.length;
+      const body = screen.text.trim();
       return body ? `## ${f.date}\n\n${body}` : '';
     })
     .filter(Boolean);
-  if (sections.length === 0) return '';
+  if (sections.length === 0) return { output: '', dropped: assemblyDropped };
   // Drop oldest-first (sections are chronological, oldest at index 0) until the
   // joined output fits. Never drop the last (newest) section.
   let kept = sections;
@@ -174,7 +191,7 @@ function assembleRecent(projectRoot, files, maxOutputBytes = DEFAULT_MAX_OUTPUT_
   ) {
     kept = kept.slice(1);
   }
-  return kept.join('\n\n') + '\n';
+  return { output: kept.join('\n\n') + '\n', dropped: assemblyDropped };
 }
 
 function distillLogPath(projectRoot, date) {
@@ -292,6 +309,12 @@ export async function dailyDistill({
   let distilledThisRun = 0;
   let skippedResumed = 0;
   let guardRejectedDays = 0; // Task 216: days held back by the Poison_Guard screen
+  let tombstoneDropped = 0; // Task 210: summary spans dropped for carrying already-tombstoned content
+  // Read the tombstone set ONCE for the whole run (M2). `truncated` when the
+  // archive exceeds the bound — surfaced in the log (I4) so a partial screen is
+  // never silent, mirroring the check's honesty.
+  const runTomb = readTombstoneFacts({ projectRoot });
+  const tombstoneScreenTruncated = runTomb.truncated;
   for (const f of files) {
     if (!dayNeedsDistill(projectRoot, f)) {
       skippedResumed += 1; // already done in a prior (possibly killed) run
@@ -358,15 +381,16 @@ export async function dailyDistill({
       // Assemble recent.md from whatever days ARE done (incl. this run's banked
       // days + prior-run artifacts) BEFORE returning the error — so a partial
       // run still advances recent.md's freshness instead of leaving it stale.
-      const partial = assembleRecent(projectRoot, files, maxOutputBytes);
+      const partial = assembleRecent(projectRoot, files, maxOutputBytes, runTomb);
+      tombstoneDropped += partial.dropped;
       const recentPath = recentMdPath(projectRoot);
-      if (partial.trim()) writeFileSync(recentPath, partial, 'utf8');
+      if (partial.output.trim()) writeFileSync(recentPath, partial.output, 'utf8');
       return {
         action: 'error', error_category: errorCategory, duration_ms,
         errorMessage: err?.message ?? String(err),
         distilledThisRun, skippedResumed,
         // partial forward progress: recent.md reflects the completed days.
-        outputPath: partial.trim() ? recentPath : undefined,
+        outputPath: partial.output.trim() ? recentPath : undefined,
       };
     }
     // Persist THIS day's distilled artifact immediately (the 80%-survives write).
@@ -392,8 +416,20 @@ export async function dailyDistill({
       if (dayGuardRejected) guardRejectedDays += 1;
     }
     if (dayOut && !dayGuardRejected) {
-      writeFileSync(distilledDayPath(projectRoot, f.date), dayOut + '\n', 'utf8');
-      distilledThisRun += 1;
+      // Task 210 (D-308) — the deletion-propagation FORWARD path: keep the
+      // banked per-day artifact free of content from a fact that was ALREADY
+      // forgotten (the day file predates the forget; Haiku faithfully
+      // reproduces it). Line-level drop, counted in the log — never silent.
+      // (A forget AFTER banking is caught by the assembleRecent re-screen.)
+      const tombScreen = screenTombstonedContent(dayOut, { facts: runTomb.facts, truncated: runTomb.truncated });
+      tombstoneDropped += tombScreen.dropped.length;
+      const banked = tombScreen.text.trim();
+      if (banked) {
+        writeFileSync(distilledDayPath(projectRoot, f.date), banked + '\n', 'utf8');
+        distilledThisRun += 1;
+      }
+      // an all-tombstoned day banks nothing → re-evaluated next run, same as
+      // an empty backend result (no artifact, no false "done")
     }
   }
 
@@ -402,7 +438,9 @@ export async function dailyDistill({
   // summaries (each under `## <date>`), re-capped to maxOutputBytes. A run that
   // only completed some days still produces a valid, fresher recent.md — never
   // nothing (the D-298 fix).
-  const output = assembleRecent(projectRoot, files, maxOutputBytes);
+  const assembled = assembleRecent(projectRoot, files, maxOutputBytes, runTomb);
+  const output = assembled.output;
+  tombstoneDropped += assembled.dropped; // I2: assembly-time drops are counted, never silent
   const output_bytes = Buffer.byteLength(output, 'utf8');
   const path = recentMdPath(projectRoot);
 
@@ -472,6 +510,12 @@ export async function dailyDistill({
       skipped_resumed: skippedResumed,
       // Task 216: partial-success visibility — days held back by the screen.
       ...(guardRejectedDays > 0 ? { guard_rejected_days: guardRejectedDays } : {}),
+      // Task 210: deletion-propagation forward path — spans replaced for
+      // carrying already-tombstoned content (never silent).
+      ...(tombstoneDropped > 0 ? { tombstone_dropped: tombstoneDropped } : {}),
+      // I4: the tombstone set exceeded the bound — the screen was PARTIAL; a
+      // 201st+ tombstone's content may slip through. Surfaced, never silent.
+      ...(tombstoneScreenTruncated ? { tombstone_screen_truncated: true } : {}),
       ...(retries > 0 ? { retries } : {}), // 161.12: succeeded after a transient retry
     },
   });
@@ -484,6 +528,7 @@ export async function dailyDistill({
     distilledThisRun,
     skippedResumed,
     ...(guardRejectedDays > 0 ? { guardRejectedDays } : {}),
+    ...(tombstoneDropped > 0 ? { tombstoneDropped } : {}),
     drained,
     duration_ms,
   };
