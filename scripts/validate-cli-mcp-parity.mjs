@@ -69,6 +69,12 @@ export const CLI_ONLY = new Set([
   // operating memory. If an agent ever needs the numbers (e.g. Task 194
   // auto-tuning), that's a deliberate future MCP addition, not drift.
   'stats',
+  // `redact` is the compliance scrub (Task 96, ADR-0022) — CLI-only BY
+  // CONTRACT, not by omission: the destructive/compliance path stays
+  // explicit-human (§6.5). `purge` (already listed above) is its
+  // irreversible sibling. Adding either as an MCP tool is a §6.5 violation,
+  // not parity drift — cli-redact.test.js pins the absence.
+  'redact',
 ]);
 
 /**

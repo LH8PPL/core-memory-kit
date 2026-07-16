@@ -185,8 +185,16 @@ Tombstone a fact (preserves an audit trail). `--yes` required. **Disappears from
 cmk forget P-S79MJHFN --yes --reason "superseded"
 ```
 
-### `cmk purge <id> --hard`
-Hard-delete an observation (irreversible; `--hard` required). **Not yet implemented (stub)** — use `cmk forget` (tombstone, recoverable) for normal deletion.
+### `cmk redact <id> --pattern <text> [--reason <text>] [--project <dir>]`
+The compliance scrub (Task 96, ADR-0022): remove a leaked secret/PII span from **every app-layer copy of a fact** — the live file (or its tombstoned/superseded archive copy), the dual-written scratchpad bullet (per-tier, incl. the local `private.md`), the committed `DECISIONS.md` journal entry, the INDEX + search index — replacing each occurrence with `[redacted: <reason> <date>]`. When the secret was in the **title**, the fact's *filename* (title-derived slug) carries it too — the live file is renamed to the scrubbed title's slug, and slug residues are scrubbed from the audit log (JSON-aware, so quoted/escaped forms are caught). The fact itself survives; a secret-free audit entry records the redaction. Idempotent, per-fact (occurrences of the same pattern in *other* facts, journal entries, or scratchpad lines are reported, never silently scrubbed). CLI-only — deliberately not an MCP tool.
+
+- `--pattern <text>` — the literal secret text to scrub (treated as a literal, never a regex).
+- `--reason <text>` — recorded in the marker + audit entry (default: `compliance`).
+
+**Git history is not touched** — on the committed project tier the command prints the honest advisory: rotate the secret first (history copies in clones/forks/CI caches are compromised regardless), then the span-level `git filter-repo --replace-text` recipe if your team decides to redact history as a documented one-time operation (see [SECURITY.md](../SECURITY.md)). The kit never runs it for you. On the user/local tiers (not committed) a shorter rotate-anyway note prints instead.
+
+### `cmk purge --hard <id> --yes [--project <dir>]`
+The **irreversible** whole-fact delete (Task 96, ADR-0022): removes the fact from live + every archive copy (tombstones, superseded) + scratchpad bullets + its `DECISIONS.md` journal entry + indexes, keeping **no tombstone** — the compliance escalation beyond `cmk forget` (which tombstones recoverably). Requires BOTH `--hard` and `--yes`; explicit-human-only, never an MCP tool (§6.5). A secret-free audit entry survives (removed filenames are scrubbed from historical audit entries — a secret-titled fact's filename is itself a leak); the git-history advisory prints path-scoped to exactly the purged file(s).
 
 ### `cmk lessons promote <id> [--to <file>] [--section <name>]`
 

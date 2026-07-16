@@ -163,6 +163,8 @@ You rarely type these yourself — Claude drives the same operations as tools mi
 | `cmk remember "<fact>"` | Capture a fact explicitly (deduped, secret-screened, path-abstracted). `--from-file fact.json` for backtick/quote-heavy rich facts |
 | `cmk get <id…>` / `cmk timeline <id>` / `cmk cite <id>` / `cmk recent-activity` | Read the index back — full fact bodies + provenance, context around an observation, a citation link, recent changes (the CLI side of the `mk_*` MCP read tools) |
 | `cmk forget <id>` | Tombstone a fact — gone from `cmk search` immediately (audit trail preserved) |
+| `cmk redact <id> --pattern <secret>` | Compliance scrub: remove a leaked secret from the fact + every archive copy + indexes, audit kept (prints the honest git-history advisory) |
+| `cmk purge --hard <id> --yes` | Irreversible whole-fact delete — no tombstone; the compliance escalation beyond `forget` |
 | `cmk lessons promote <id> [--to USER.md\|HABITS.md]` | Promote one project fact to your cross-project **user tier** so it applies in **every** project |
 | `cmk roll --scope now\|today\|recent` | Manually trigger a compression pipeline |
 | `cmk register-crons [--dry-run] [--unregister]` | Register daily + weekly compression jobs (cron / launchd / Task Scheduler) |

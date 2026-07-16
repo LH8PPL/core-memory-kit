@@ -408,6 +408,18 @@ The user-level action that produces a [[Tombstone]]. Triggered by `cmk forget <i
 
 Cross-refs: [[Tombstone]], [[Memory-write skill]]. Spec: design §6.5.
 
+### Redact
+
+The compliance scrub (Task 96, ADR-0022): `cmk redact <id> --pattern <secret>` removes a leaked secret/PII span from **every app-layer copy** of a fact — the live file, its [[Tombstone]]/[[Superseded]] archive copies, the scratchpad bullet, the search indexes — replacing each occurrence with `[redacted: reason date]`. The fact survives (redact ≠ delete); the audit entry never carries the secret. Per-fact, idempotent, CLI-only (never an MCP tool). Git history is NOT touched — the command prints the rotate-first + `filter-repo` advisory instead (the kit never rewrites history; the human owns git).
+
+Cross-refs: [[Purge]], [[Tombstone]], [[Audit log]]. Spec: design §6.5; ADR-0022; SECURITY.md runbook.
+
+### Purge
+
+The irreversible whole-fact delete (Task 96, ADR-0022): `cmk purge --hard <id> --yes` removes a fact from live + every archive copy + scratchpad bullets + indexes with **no tombstone** — the compliance escalation beyond [[Forget]]. Requires both flags; explicit-human-only, never an MCP tool (the §6.5 separate-destructive-path contract). A secret-free audit entry survives.
+
+Cross-refs: [[Redact]], [[Forget]], [[Tombstone]]. Spec: design §6.5; ADR-0022.
+
 ### Validity window
 
 The time span a `State`-shaped fact's claim held true: `created_at` (open) → `ended_at` (close), with `status: completed` and a [[Superseded]] link once closed. The window closes at the SUPERSEDING fact's `created_at` — event-time decides the boundary, never the wall clock and never the LLM (which only classifies the pair; see [[Temporal sweep]]). Closed facts move to `archive/superseded/` — never deleted; point-in-time history stays readable. Task 66.2, D-259.

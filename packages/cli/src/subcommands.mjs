@@ -76,6 +76,7 @@ const __filename_subcommands = fileURLToPath(import.meta.url);
 const __dirname_subcommands = dirname(__filename_subcommands);
 import { homedir } from 'node:os';
 import { forget as forgetAction } from './forget.mjs';
+import { redactFact, purgeHard, gitAdvisory } from './redact.mjs';
 import { overrideTrust as overrideTrustAction } from './trust.mjs';
 import { resolveConflictQueue, mergeScratchpadBullets } from './conflict-queue.mjs';
 import { resolveReviewQueue } from './review-queue.mjs';
@@ -1752,6 +1753,103 @@ async function runDigestCli(options) {
  * follow-up (the boundary's `confirm()` callback path is still tested by
  * cli-forget.test.js; the CLI just doesn't wire stdin readline yet).
  */
+// Task 96 (ADR-0022) — the compliance scrub. CLI-ONLY by contract: neither
+// redact nor purge ships as an MCP tool (§6.5 — the destructive/compliance
+// path stays explicit-human; pinned by cli-redact.test.js).
+export function runRedact(id, options /* , command */) {
+  const projectRoot = options?.project
+    ? resolvePath(normalizeProjectPath(options.project))
+    : resolvePath(process.cwd());
+  if (!options?.pattern) {
+    console.error('cmk redact: --pattern <text> is required (the literal secret/PII to scrub).');
+    process.exitCode = 2;
+    return;
+  }
+  const result = redactFact({
+    id,
+    pattern: options.pattern,
+    reason: options.reason,
+    projectRoot,
+    userDir: resolveUserDir(),
+  });
+  if (result.action !== 'redacted') {
+    for (const e of result.errors ?? [`error (${result.errorCategory})`]) {
+      console.error(`cmk redact: ${e}`);
+    }
+    process.exitCode = 2;
+    return;
+  }
+  console.log(
+    `cmk redact: redacted ${result.occurrences} occurrence(s) in ${result.files.length} file(s) for ${result.id}.`,
+  );
+  if (result.renamed) {
+    console.log(
+      `  renamed the fact file (the title-derived FILENAME carried the secret): now ${result.renamed.to}`,
+    );
+  }
+  if (result.renameSkipped) {
+    console.log(
+      '  WARNING: the fact FILENAME still carries the secret (a clean target name was not available) — rename the file by hand and run `cmk reindex`.',
+    );
+  }
+  if (result.remainingElsewhere > 0) {
+    console.log(
+      `  NOTE: the same pattern appears ${result.remainingElsewhere} more time(s) in OTHER facts/scratchpads — redact is per-fact by design; run \`cmk search\` to find and redact them by id.`,
+    );
+  }
+  printGitHistoryNote({ tier: id?.[0], advisory: gitAdvisory({ mode: 'redact' }) });
+}
+
+// The git-history follow-up only applies to the COMMITTED tier (P). The U tier
+// lives outside the repo and the L tier (context.local/) is gitignored —
+// telling those users "git history still contains the text" is false
+// (skill-review M13a). Rotation advice holds everywhere.
+function printGitHistoryNote({ tier, advisory }) {
+  if (tier === 'P') {
+    for (const line of advisory) console.log(`  ${line}`);
+  } else {
+    console.log(
+      '  note (ADR-0022): this tier is not committed to git (user/local tier) — no git-history follow-up needed. Still ROTATE a leaked secret: any copy that left this machine is compromised.',
+    );
+  }
+}
+
+export function runPurge(id, options /* , command */) {
+  const projectRoot = options?.project
+    ? resolvePath(normalizeProjectPath(options.project))
+    : resolvePath(process.cwd());
+  if (!options?.hard) {
+    console.error(
+      'cmk purge: only --hard is implemented (the irreversible whole-fact delete). Use `cmk forget` for normal, tombstoned deletion.',
+    );
+    process.exitCode = 2;
+    return;
+  }
+  if (!options?.yes) {
+    console.error(
+      'cmk purge --hard: IRREVERSIBLE — no tombstone, no recovery. Re-run with --yes to confirm.',
+    );
+    process.exitCode = 2;
+    return;
+  }
+  const result = purgeHard({ id, yes: true, projectRoot, userDir: resolveUserDir() });
+  if (result.action !== 'purged') {
+    for (const e of result.errors ?? [`error (${result.errorCategory})`]) {
+      console.error(`cmk purge: ${e}`);
+    }
+    process.exitCode = 2;
+    return;
+  }
+  console.log(
+    `cmk purge: permanently removed ${result.id} (${result.removed.length} file(s), ${result.scratchpadEdits.length} scratchpad edit(s)). No tombstone was kept.`,
+  );
+  // repo-relative, forward-slash paths for the filter-repo advisory
+  const relRemoved = result.removed.map((p) =>
+    p.startsWith(projectRoot) ? p.slice(projectRoot.length + 1).replaceAll('\\', '/') : p,
+  );
+  printGitHistoryNote({ tier: id?.[0], advisory: gitAdvisory({ mode: 'purge', paths: relRemoved }) });
+}
+
 function runForget(idOrQuery, options /* , command */) {
   if (!options.yes) {
     console.error(
@@ -3230,12 +3328,30 @@ export const subcommands = [
     action: runForget,
   },
   {
+    name: 'redact',
+    description:
+      'compliance scrub (Task 96, ADR-0022): remove a leaked secret/PII span from EVERY app-layer copy of a fact — live file, tombstone/superseded archives, scratchpad bullet, indexes — replacing it with [redacted: reason date]; keeps the fact + a secret-free audit entry, then prints the honest git-history advisory (rotate first; the kit never rewrites history). CLI-only, never an MCP tool',
+    milestone: 96,
+    argSpec: [{ flags: '<id>', description: 'the fact id (live, tombstoned, or superseded)' }],
+    optionSpec: [
+      { flags: '--pattern <text>', description: 'the literal secret/PII text to scrub (treated as a literal, not a regex)' },
+      { flags: '--reason <text>', description: 'recorded in the redaction marker + audit entry (default: compliance)' },
+      { flags: '--project <dir>', description: 'project root (default: cwd)' },
+    ],
+    action: runRedact,
+  },
+  {
     name: 'purge',
-    description: 'permanent deletion of an observation — rare; bypasses the tombstone audit trail',
-    milestone: 'v0.1.x',
-    argSpec: [{ flags: '<id>', description: 'citation ID' }],
-    optionSpec: [{ flags: '--hard', description: 'required confirmation flag' }],
-    action: stub('purge', 'v0.1.x', 'use `cmk forget` for normal deletion; this is for emergencies only'),
+    description:
+      'IRREVERSIBLE whole-fact delete (Task 96, ADR-0022): removes the fact from live + every archive copy + scratchpads + indexes with NO tombstone — the compliance escalation beyond `cmk forget`; keeps a secret-free audit entry + prints the git-history advisory. Explicit-human-only (requires --hard --yes), never an MCP tool (§6.5)',
+    milestone: 96,
+    argSpec: [{ flags: '<id>', description: 'the fact id (live, tombstoned, or superseded)' }],
+    optionSpec: [
+      { flags: '--hard', description: 'required — names the irreversible mode (use `cmk forget` for normal, tombstoned deletion)' },
+      { flags: '--yes', description: 'required — confirms the irreversible delete' },
+      { flags: '--project <dir>', description: 'project root (default: cwd)' },
+    ],
+    action: runPurge,
   },
   {
     name: 'roll',
