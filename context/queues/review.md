@@ -16,3 +16,6 @@
 ## 2026-07-15T20:14:16Z — auto-extract (medium-trust, pending review)
 - (P-324UW2UP) Task batch v0.5.5 contains three sequenced tasks (230 → 96 → 210); previous versions used per-batch autopilot grants to run the full lane uninterrupted.
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-15T20:14:16Z -->
+## 2026-07-18T13:38:52Z — auto-extract (medium-trust, pending review)
+- (P-25JLTT5Z) Research paper ingested; research note created; 10 base sources re-read; synthesis completed
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-18T13:38:52Z -->
