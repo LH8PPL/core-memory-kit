@@ -659,6 +659,97 @@ describe('runImportSessions — the CLI layer (dep-injected, no stdin, no live b
   });
 });
 
+describe('runImportSessions — flag validation + narration branches', () => {
+  it('rejects an invalid --since with exit 2 (a typo must not silently import everything)', async () => {
+    seedThreeSessions();
+    const errs = [];
+    const prevExit = process.exitCode;
+    try {
+      const backend = makeBackend(3);
+      await runImportSessions({
+        projectRoot, backend, harnessRoot, now: NOW,
+        since: 'not-a-date',
+        log: () => {}, logError: (m) => errs.push(m),
+      });
+      expect(errs.join('\n')).toContain('--since');
+      expect(process.exitCode).toBe(2);
+      expect(backend.calls).toHaveLength(0);
+    } finally {
+      process.exitCode = prevExit;
+    }
+  });
+
+  it('a refusal-shaped summary fails the unit like an empty one (retried, not consumed)', async () => {
+    writeSessionJsonl(
+      harnessRoot, slug, UUID_A,
+      [{ role: 'user', ts: '2026-06-01T09:00:00Z', text: 'Refusal-prone content.' }],
+      { mtime: '2026-06-01T10:00:00Z' },
+    );
+    const refusing = new MockHaikuBackend({
+      responses: [{ outputText: 'I cannot summarize this transcript.', inputTokens: 1, outputTokens: 5, costUSD: 0, preservedIds: [] }],
+    });
+    const first = await importSessions({ projectRoot, backend: refusing, now: NOW, harnessRoot });
+    expect(first.failed).toEqual([{ sessionId: UUID_A, error_category: 'empty-summary' }]);
+    expect(readImportedSessionIds(projectRoot).has(UUID_A)).toBe(false);
+  });
+
+  it('CLI narrates failures + screened summaries; a wholly-failed run exits 1', async () => {
+    seedThreeSessions();
+    const logs = [];
+    const prevExit = process.exitCode;
+    try {
+      // Zero canned responses → every session fails at the backend.
+      await runImportSessions({
+        projectRoot, backend: makeBackend(0), harnessRoot, now: NOW, yes: true,
+        log: (m) => logs.push(m), logError: (m) => logs.push(m),
+      });
+      const out = logs.join('\n');
+      expect(out).toContain('failed at the backend');
+      expect(out).toContain('resumable');
+      expect(process.exitCode).toBe(1);
+    } finally {
+      process.exitCode = prevExit;
+    }
+
+    // Screened narration: one clean + one secret-leaking summary.
+    const logs2 = [];
+    const mixed = new MockHaikuBackend({
+      responses: [
+        { outputText: DAY_SUMMARY, inputTokens: 1, outputTokens: 1, costUSD: 0, preservedIds: [] },
+        { outputText: '## Decisions\n- key AKIAIOSFODNN7EXAMPLE deploys', inputTokens: 1, outputTokens: 1, costUSD: 0, preservedIds: [] },
+        { outputText: DAY_SUMMARY, inputTokens: 1, outputTokens: 1, costUSD: 0, preservedIds: [] },
+      ],
+    });
+    await runImportSessions({
+      projectRoot, backend: mixed, harnessRoot, now: NOW, yes: true,
+      log: (m) => logs2.push(m), logError: (m) => logs2.push(m),
+    });
+    expect(logs2.join('\n')).toContain('withheld by the privacy/secret screen');
+  });
+
+  it('CLI dry-run prints the per-session preview lines; --max labels the cap; --all removes it', async () => {
+    seedThreeSessions();
+    const logs = [];
+    await runImportSessions({
+      projectRoot, backend: makeBackend(0), harnessRoot, now: NOW,
+      dryRun: true, max: '1',
+      log: (m) => logs.push(m), logError: (m) => logs.push(m),
+    });
+    const out = logs.join('\n');
+    expect(out).toContain('cap 1');
+    expect(out).toContain(UUID_C); // newest is the one selected
+    expect(out).toContain('dry-run — nothing written');
+
+    const logs2 = [];
+    await runImportSessions({
+      projectRoot, backend: makeBackend(0), harnessRoot, now: NOW,
+      dryRun: true, all: true,
+      log: (m) => logs2.push(m), logError: (m) => logs2.push(m),
+    });
+    expect(logs2.join('\n')).toContain('no cap');
+  });
+});
+
 describe('the install offer (Task 225 automatic-path criterion)', () => {
   it('offerImportSessions: history present + "y" → imports through the same pipeline', async () => {
     seedThreeSessions();
@@ -699,6 +790,25 @@ describe('the install offer (Task 225 automatic-path criterion)', () => {
     expect(hint.action).toBe('hint');
     expect(logs.join('\n')).toContain('cmk import-sessions');
     expect(existsSync(ledgerPath())).toBe(false);
+  });
+
+  it('offerImportSessions: a post-consent failure is NOT silent — the resume hint prints (M4)', async () => {
+    seedThreeSessions();
+    const logs = [];
+    const offer = await offerImportSessions(
+      {
+        harnessRoot,
+        importBackend: makeBackend(3),
+        now: NOW,
+        importPrompter: async () => {
+          throw new Error('prompter exploded');
+        },
+      },
+      { projectRoot, log: (m) => logs.push(m) },
+    );
+    expect(offer.action).toBe('error');
+    expect(logs.join('\n')).toContain('cmk import-sessions');
+    expect(logs.join('\n')).toContain('resume');
   });
 
   it('cmk install detects existing harness history and OFFERS the import (no manual command)', async () => {

@@ -7,8 +7,8 @@
 //   importSessions({projectRoot, backend, now, harnessRoot?, slug?,
 //                   allProjects?, sinceIso?, maxSessions?, dryRun?,
 //                   timeoutMs?, maxAttempts?})
-//     → {action, discovered, alreadyImported, selected,
-//        imported[], screened_out[], failed[], preview?}
+//     → {action, discovered, alreadyImported, skippedActive, selected,
+//        imported[], screened_out[], failed[], preview?, rawFloorProtected?}
 //
 //   readImportedSessionIds(projectRoot) → Set<sessionId>
 //
@@ -113,7 +113,13 @@ export const ACTIVE_SESSION_GRACE_MS = 5 * 60 * 1000;
 // that exits 0 with empty stdout permanently consumes the session with a
 // marker-only day block. Sibling precedent: daily-distill banks only
 // non-empty output; transcript-screen has outputPassesRejectGate.
-const REFUSAL_RE = /^(i\s*(?:can\s*not|cannot|can't|am\s+unable|'m\s+unable)|i'm\s+sorry|i\s+apologize|as\s+an\s+ai)/i;
+const REFUSAL_OPENERS = ["i'm sorry", 'i apologize', 'as an ai'];
+const REFUSAL_CANT_RE = /^i\s*(?:can\s*not|can'?t|am\s+unable|'m\s+unable)/;
+
+function looksLikeRefusal(text) {
+  const head = text.slice(0, 32).toLowerCase();
+  return REFUSAL_OPENERS.some((p) => head.startsWith(p)) || REFUSAL_CANT_RE.test(head);
+}
 
 const LEDGER_HEADER = [
   '# Imported sessions — `cmk import-sessions`',
@@ -162,6 +168,24 @@ function buildImportInstructions(date, maxOutputBytes) {
   ].join('\n');
 }
 
+function collectIdsFromFile(path, re, ids) {
+  let text = '';
+  try {
+    text = readFileSync(path, 'utf8');
+  } catch {
+    return;
+  }
+  for (const m of text.matchAll(re)) ids.add(m[1].toLowerCase());
+}
+
+function listDayFiles(sessionsDir) {
+  try {
+    return readdirSync(sessionsDir).filter((n) => n.startsWith('today-') && n.endsWith('.md'));
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Every session id this project has already processed (imported, screened,
  * or skipped-empty). Primary artifact: the committed ledger. Secondary:
@@ -173,32 +197,10 @@ function buildImportInstructions(date, maxOutputBytes) {
 export function readImportedSessionIds(projectRoot) {
   const ids = new Set();
   const ledger = ledgerPath(projectRoot);
-  if (existsSync(ledger)) {
-    let text = '';
-    try {
-      text = readFileSync(ledger, 'utf8');
-    } catch {
-      text = '';
-    }
-    for (const m of text.matchAll(LEDGER_LINE_RE)) ids.add(m[1].toLowerCase());
-  }
+  if (existsSync(ledger)) collectIdsFromFile(ledger, LEDGER_LINE_RE, ids);
   const sessionsDir = join(projectRoot, ...SESSIONS_REL);
-  if (existsSync(sessionsDir)) {
-    let names = [];
-    try {
-      names = readdirSync(sessionsDir).filter((n) => n.startsWith('today-') && n.endsWith('.md'));
-    } catch {
-      names = [];
-    }
-    for (const name of names) {
-      let text = '';
-      try {
-        text = readFileSync(join(sessionsDir, name), 'utf8');
-      } catch {
-        continue;
-      }
-      for (const m of text.matchAll(MARKER_RE)) ids.add(m[1].toLowerCase());
-    }
+  for (const name of listDayFiles(sessionsDir)) {
+    collectIdsFromFile(join(sessionsDir, name), MARKER_RE, ids);
   }
   return ids;
 }
@@ -254,6 +256,185 @@ async function syncSearchIndex(projectRoot) {
   }
 }
 
+// Discovery → dedup vs the resume artifacts → active-session deferral →
+// newest-first cap → oldest-first processing order.
+function selectSessions({ projectRoot, scopeSlug, sinceIso, harnessRoot, ts, maxSessions }) {
+  const discovered = discoverSessions({ slug: scopeSlug, sinceIso, harnessRoot });
+  const done = readImportedSessionIds(projectRoot);
+  const notDone = discovered.filter((s) => !done.has(s.sessionId.toLowerCase()));
+  const activeCutoffMs = new Date(ts).getTime() - ACTIVE_SESSION_GRACE_MS;
+  const fresh = notDone.filter((s) => s.mtimeMs <= activeCutoffMs);
+  // discoverSessions sorts newest-first: the cap keeps the NEWEST history
+  // (the most valuable on day one), then we process oldest-first so day
+  // files build chronologically and a killed run resumes forward.
+  const selected = fresh.slice(0, Math.max(0, maxSessions));
+  selected.reverse();
+  return {
+    discovered: discovered.length,
+    alreadyImported: discovered.length - notDone.length,
+    skippedActive: notDone.length - fresh.length,
+    selected,
+  };
+}
+
+function buildDryRunPreview(selected, backend) {
+  return selected.map((s) => {
+    let bytes = 0;
+    try {
+      bytes = statSync(s.jsonlPath).size;
+    } catch {
+      bytes = 0;
+    }
+    return {
+      sessionId: s.sessionId,
+      slug: s.slug,
+      mtime: new Date(s.mtimeMs).toISOString(),
+      jsonlBytes: bytes,
+      estimatedCostUSD:
+        backend && typeof backend.estimatedCostPerCall === 'function'
+          ? backend.estimatedCostPerCall(bytes)
+          : null,
+    };
+  });
+}
+
+// B1 (skill-review, fail-closed): the raw floor holds UN-screened text on a
+// path only the v0.6.0 gitignore fragment covers — an upgraded-but-not-
+// reinstalled project's old managed block would let `git add context/`
+// commit it. Refresh the managed block via the install machinery, then
+// VERIFY coverage; unverifiable → raw extracts go to a temp dir instead
+// (the summaries still flow — the floor is skipped, honestly reported).
+function resolveRawDir(projectRoot) {
+  refreshGitignoreBlock(projectRoot);
+  let rawFloorProtected = false;
+  try {
+    const giText = readFileSync(join(projectRoot, '.gitignore'), 'utf8');
+    rawFloorProtected =
+      giText.includes('context/transcripts/imported/') ||
+      /^context\/transcripts\/\s*$/m.test(giText);
+  } catch {
+    rawFloorProtected = false;
+  }
+  const rawDir = rawFloorProtected
+    ? rawImportDir(projectRoot)
+    : mkdtempSync(join(tmpdir(), 'cmk-import-raw-'));
+  return { rawDir, rawFloorProtected };
+}
+
+// Oversized extracts send only their tail (IMPORT_INPUT_MAX_BYTES) — the
+// full text stays on the raw floor. Tail starts at a line boundary so the
+// summarizer never sees a torn line (or a torn multi-byte char from the
+// byte slice).
+function boundSummarizeInput(input) {
+  const inputBytes = Buffer.byteLength(input, 'utf8');
+  if (inputBytes <= IMPORT_INPUT_MAX_BYTES) return input;
+  const buf = Buffer.from(input, 'utf8');
+  let tail = buf.subarray(buf.length - IMPORT_INPUT_MAX_BYTES).toString('utf8');
+  const nl = tail.indexOf('\n');
+  if (nl !== -1) tail = tail.slice(nl + 1);
+  return (
+    `[transcript truncated for summarization — kept the final ${Math.round(IMPORT_INPUT_MAX_BYTES / 1024)} KB of ${Math.round(inputBytes / 1024)} KB; the full extract is preserved on the raw floor]\n\n` +
+    tail
+  );
+}
+
+// One session through steps 1–5. Returns a tagged outcome; the caller
+// routes it into the run's result arrays. `ctx` = the per-run invariants.
+async function importOneSession(s, ctx) {
+  const { projectRoot, backend, ts, rawDir, privacyOn, timeoutMs, maxAttempts } = ctx;
+  const sessionId = s.sessionId.toLowerCase();
+
+  // 1. Raw floor (ADR-0010).
+  const rawPath = join(rawDir, `${sessionId}.md`);
+  const extracted = extractTranscript({ inputPath: s.jsonlPath, outputPath: rawPath });
+  if (extracted.action !== 'completed') {
+    return { type: 'failed', entry: { sessionId, error_category: extracted.errorCategory ?? 'extract-failed' } };
+  }
+  const date = sessionDateFor(extracted, s.mtimeMs);
+
+  if (extracted.turnsKept === 0) {
+    appendLedgerLine(projectRoot, { ts, sessionId, slug: s.slug, date, status: 'skipped-empty' });
+    auditImport(projectRoot, {
+      ts, sessionId,
+      reasonCode: REASON_CODES.IMPORT_SKIPPED_EMPTY,
+      extra: { slug: s.slug, date },
+    });
+    return { type: 'empty' };
+  }
+
+  // 2. Summarize (one agent-relative backend call; privacy judged in-prompt
+  //    per the ADR-0019 sessions-tier posture).
+  const input = boundSummarizeInput(readFileSync(rawPath, 'utf8'));
+  let result;
+  try {
+    result = await compressWithRetry(
+      backend,
+      {
+        input,
+        instructions: buildImportInstructions(date, SUMMARY_MAX_BYTES),
+        preserveCitationIds: false,
+        maxOutputBytes: SUMMARY_MAX_BYTES,
+        timeoutMs,
+      },
+      { maxAttempts, baseBackoffMs: CEILING_FREE_BACKOFF_MS },
+    );
+    touchCooldownMarker({ projectRoot, now: ts });
+  } catch (err) {
+    touchCooldownMarker({ projectRoot, now: ts });
+    const error_category =
+      err instanceof HaikuTimeoutError
+        ? ERROR_CATEGORIES.HAIKU_TIMEOUT
+        : ERROR_CATEGORIES.COMPRESS_FAILED;
+    // NOT ledgered — the next run retries this session.
+    return { type: 'failed', entry: { sessionId, error_category } };
+  }
+
+  // I1: empty/refusal output = FAILURE (not ledgered → retried next run),
+  // never a permanently-consumed session with a marker-only day block.
+  let summary = String(result.outputText ?? '').trim();
+  if (summary === '' || looksLikeRefusal(summary)) {
+    return { type: 'failed', entry: { sessionId, error_category: 'empty-summary' } };
+  }
+
+  // 3. L1 mask + the committed-write screen (216).
+  if (privacyOn) {
+    summary = maskPii(summary, { usernames: localUsernames() }).text;
+  }
+  const guard = screenBeforeCommittedWrite(summary, { projectRoot, source: 'import-sessions', ts });
+  if (guard.rejected) {
+    appendLedgerLine(projectRoot, { ts, sessionId, slug: s.slug, date, status: 'screened' });
+    auditImport(projectRoot, {
+      ts, sessionId,
+      reasonCode: REASON_CODES.IMPORT_SCREENED,
+      extra: { slug: s.slug, date, pattern_id: guard.pattern_id },
+    });
+    return { type: 'screened', entry: { sessionId, pattern_id: guard.pattern_id } };
+  }
+
+  // 4. Day-file append with the Task-213 provenance marker.
+  const marker = `<!-- imported-session: ${sessionId} slug: ${s.slug} spans: ${extracted.sessionStart ?? '?'} → ${extracted.sessionEnd ?? '?'} -->`;
+  const dayPath = appendToTodayMd({ projectRoot, date, body: `${marker}\n${summary}\n` });
+
+  // 5. Ledger + audit — the unit is durable from here (ADR-0020).
+  appendLedgerLine(projectRoot, { ts, sessionId, slug: s.slug, date, status: 'imported' });
+  auditImport(projectRoot, {
+    ts, sessionId,
+    reasonCode: REASON_CODES.IMPORT_APPLIED,
+    extra: { slug: s.slug, date, turnsKept: extracted.turnsKept },
+  });
+  return {
+    type: 'imported',
+    entry: {
+      sessionId,
+      slug: s.slug,
+      date,
+      dayFile: dayPath,
+      turnsKept: extracted.turnsKept,
+      summaryBytes: Buffer.byteLength(summary, 'utf8'),
+    },
+  };
+}
+
 /**
  * Import existing Claude Code session history into the project memory.
  * See the module header for the per-session pipeline.
@@ -280,8 +461,8 @@ export async function importSessions({
   const ts = now ?? nowIso();
 
   const scopeSlug = allProjects ? undefined : (slug ?? harnessSlugForPath(projectRoot));
-  const discovered = discoverSessions({ slug: scopeSlug, sinceIso, harnessRoot });
-  if (discovered.length === 0) {
+  const sel = selectSessions({ projectRoot, scopeSlug, sinceIso, harnessRoot, ts, maxSessions });
+  if (sel.discovered === 0) {
     return {
       action: 'skipped',
       reason: 'no-sessions',
@@ -294,191 +475,44 @@ export async function importSessions({
     };
   }
 
-  const done = readImportedSessionIds(projectRoot);
-  const notDone = discovered.filter((s) => !done.has(s.sessionId.toLowerCase()));
-  const alreadyImported = discovered.length - notDone.length;
-
-  // Skip likely-still-running sessions (M3): un-ledgered, so they import
-  // whole once quiet — never a partial summary + a live-capture duplicate.
-  const activeCutoffMs = new Date(ts).getTime() - ACTIVE_SESSION_GRACE_MS;
-  const fresh = notDone.filter((s) => s.mtimeMs <= activeCutoffMs);
-  const skippedActive = notDone.length - fresh.length;
-
-  // discoverSessions sorts newest-first: the cap keeps the NEWEST history
-  // (the most valuable on day one), then we process oldest-first so day
-  // files build chronologically and a killed run resumes forward.
-  const selected = fresh.slice(0, Math.max(0, maxSessions));
-  selected.reverse();
+  const base = {
+    discovered: sel.discovered,
+    alreadyImported: sel.alreadyImported,
+    skippedActive: sel.skippedActive,
+    selected: sel.selected.length,
+  };
 
   if (dryRun) {
     return {
       action: 'dry-run',
-      discovered: discovered.length,
-      alreadyImported,
-      skippedActive,
-      selected: selected.length,
+      ...base,
       imported: [],
       screened_out: [],
       failed: [],
-      preview: selected.map((s) => {
-        let bytes = 0;
-        try {
-          bytes = statSync(s.jsonlPath).size;
-        } catch {
-          bytes = 0;
-        }
-        return {
-          sessionId: s.sessionId,
-          slug: s.slug,
-          mtime: new Date(s.mtimeMs).toISOString(),
-          jsonlBytes: bytes,
-          estimatedCostUSD:
-            backend && typeof backend.estimatedCostPerCall === 'function'
-              ? backend.estimatedCostPerCall(bytes)
-              : null,
-        };
-      }),
+      preview: buildDryRunPreview(sel.selected, backend),
     };
   }
 
   const imported = [];
   const screenedOut = [];
   const failed = [];
-  const privacyOn = resolvePrivacyScreen({ projectRoot }) === 'on';
+  const { rawDir, rawFloorProtected } = resolveRawDir(projectRoot);
+  const ctx = {
+    projectRoot,
+    backend,
+    ts,
+    rawDir,
+    privacyOn: resolvePrivacyScreen({ projectRoot }) === 'on',
+    timeoutMs,
+    maxAttempts,
+  };
 
-  // B1 (skill-review, fail-closed): the raw floor holds UN-screened text on a
-  // path only the v0.6.0 gitignore fragment covers — an upgraded-but-not-
-  // reinstalled project's old managed block would let `git add context/`
-  // commit it. Refresh the managed block via the install machinery, then
-  // VERIFY coverage; unverifiable → raw extracts go to a temp dir instead
-  // (the summaries still flow — the floor is skipped, honestly reported).
-  refreshGitignoreBlock(projectRoot);
-  let rawFloorProtected = false;
-  try {
-    const giText = readFileSync(join(projectRoot, '.gitignore'), 'utf8');
-    rawFloorProtected =
-      giText.includes('context/transcripts/imported/') ||
-      /^context\/transcripts\/\s*$/m.test(giText);
-  } catch {
-    rawFloorProtected = false;
-  }
-  const rawDir = rawFloorProtected
-    ? rawImportDir(projectRoot)
-    : mkdtempSync(join(tmpdir(), 'cmk-import-raw-'));
-
-  for (const s of selected) {
-    const sessionId = s.sessionId.toLowerCase();
-    // 1. Raw floor (ADR-0010): extract to the gitignored imported/ dir.
-    const rawPath = join(rawDir, `${sessionId}.md`);
-    const extracted = extractTranscript({ inputPath: s.jsonlPath, outputPath: rawPath });
-    if (extracted.action !== 'completed') {
-      failed.push({ sessionId, error_category: extracted.errorCategory ?? 'extract-failed' });
-      continue;
-    }
-    const date = sessionDateFor(extracted, s.mtimeMs);
-
-    if (extracted.turnsKept === 0) {
-      appendLedgerLine(projectRoot, { ts, sessionId, slug: s.slug, date, status: 'skipped-empty' });
-      auditImport(projectRoot, {
-        ts,
-        sessionId,
-        reasonCode: REASON_CODES.IMPORT_SKIPPED_EMPTY,
-        extra: { slug: s.slug, date },
-      });
-      continue;
-    }
-
-    // 2. Summarize (one agent-relative backend call; privacy judged in-prompt
-    //    per the ADR-0019 sessions-tier posture). Oversized extracts send only
-    //    their tail (IMPORT_INPUT_MAX_BYTES) — full text stays on the raw floor.
-    let input = readFileSync(rawPath, 'utf8');
-    const inputBytes = Buffer.byteLength(input, 'utf8');
-    if (inputBytes > IMPORT_INPUT_MAX_BYTES) {
-      const buf = Buffer.from(input, 'utf8');
-      let tail = buf.subarray(buf.length - IMPORT_INPUT_MAX_BYTES).toString('utf8');
-      // Start at a line boundary so the summarizer never sees a torn line
-      // (or a torn multi-byte character from the byte slice).
-      const nl = tail.indexOf('\n');
-      if (nl !== -1) tail = tail.slice(nl + 1);
-      input =
-        `[transcript truncated for summarization — kept the final ${Math.round(IMPORT_INPUT_MAX_BYTES / 1024)} KB of ${Math.round(inputBytes / 1024)} KB; the full extract is preserved on the raw floor]\n\n` +
-        tail;
-    }
-    let result;
-    try {
-      result = await compressWithRetry(
-        backend,
-        {
-          input,
-          instructions: buildImportInstructions(date, SUMMARY_MAX_BYTES),
-          preserveCitationIds: false,
-          maxOutputBytes: SUMMARY_MAX_BYTES,
-          timeoutMs,
-        },
-        { maxAttempts, baseBackoffMs: CEILING_FREE_BACKOFF_MS },
-      );
-      touchCooldownMarker({ projectRoot, now: ts });
-    } catch (err) {
-      touchCooldownMarker({ projectRoot, now: ts });
-      failed.push({
-        sessionId,
-        error_category:
-          err instanceof HaikuTimeoutError
-            ? ERROR_CATEGORIES.HAIKU_TIMEOUT
-            : ERROR_CATEGORIES.COMPRESS_FAILED,
-      });
-      continue; // NOT ledgered — the next run retries this session.
-    }
-
-    // I1: empty/refusal output = FAILURE (not ledgered → retried next run),
-    // never a permanently-consumed session with a marker-only day block.
-    let summary = String(result.outputText ?? '').trim();
-    if (summary === '' || REFUSAL_RE.test(summary)) {
-      failed.push({ sessionId, error_category: 'empty-summary' });
-      continue;
-    }
-
-    // 3. L1 mask + the committed-write screen (216).
-    if (privacyOn) {
-      summary = maskPii(summary, { usernames: localUsernames() }).text;
-    }
-    const guard = screenBeforeCommittedWrite(summary, {
-      projectRoot,
-      source: 'import-sessions',
-      ts,
-    });
-    if (guard.rejected) {
-      screenedOut.push({ sessionId, pattern_id: guard.pattern_id });
-      appendLedgerLine(projectRoot, { ts, sessionId, slug: s.slug, date, status: 'screened' });
-      auditImport(projectRoot, {
-        ts,
-        sessionId,
-        reasonCode: REASON_CODES.IMPORT_SCREENED,
-        extra: { slug: s.slug, date, pattern_id: guard.pattern_id },
-      });
-      continue;
-    }
-
-    // 4. Day-file append with the Task-213 provenance marker.
-    const marker = `<!-- imported-session: ${sessionId} slug: ${s.slug} spans: ${extracted.sessionStart ?? '?'} → ${extracted.sessionEnd ?? '?'} -->`;
-    const dayPath = appendToTodayMd({ projectRoot, date, body: `${marker}\n${summary}\n` });
-
-    // 5. Ledger + audit — the unit is durable from here (ADR-0020).
-    appendLedgerLine(projectRoot, { ts, sessionId, slug: s.slug, date, status: 'imported' });
-    auditImport(projectRoot, {
-      ts,
-      sessionId,
-      reasonCode: REASON_CODES.IMPORT_APPLIED,
-      extra: { slug: s.slug, date, turnsKept: extracted.turnsKept },
-    });
-    imported.push({
-      sessionId,
-      slug: s.slug,
-      date,
-      dayFile: dayPath,
-      turnsKept: extracted.turnsKept,
-      summaryBytes: Buffer.byteLength(summary, 'utf8'),
-    });
+  for (const s of sel.selected) {
+    const outcome = await importOneSession(s, ctx);
+    if (outcome.type === 'imported') imported.push(outcome.entry);
+    else if (outcome.type === 'screened') screenedOut.push(outcome.entry);
+    else if (outcome.type === 'failed') failed.push(outcome.entry);
+    // 'empty' is ledgered + audited inside the unit; nothing to collect.
   }
 
   // 6. Searchable immediately (best-effort; reindexBoot self-heals).
@@ -489,10 +523,7 @@ export async function importSessions({
 
   return {
     action: 'completed',
-    discovered: discovered.length,
-    alreadyImported,
-    skippedActive,
-    selected: selected.length,
+    ...base,
     imported,
     screened_out: screenedOut,
     failed,

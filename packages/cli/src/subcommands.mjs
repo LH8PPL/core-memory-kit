@@ -2624,11 +2624,10 @@ async function runTranscriptsExtract(options) {
 // Dep-injectable like runQueueReview (Task 113 pattern): a test injects
 // { projectRoot, backend, harnessRoot, prompter, log, logError, now } to
 // drive the real pipeline without stdin or a live backend.
-export async function runImportSessions(opts = {}) {
-  const projectRoot = opts.projectRoot ?? process.cwd();
-  const log = opts.log ?? console.log;
-  const logError = opts.logError ?? console.error;
 
+// --max / --all / --since flag validation. Returns {ok:false} after
+// logging + exit 2, or {ok:true, maxSessions}.
+function parseImportFlags(opts, logError) {
   let maxSessions = DEFAULT_MAX_SESSIONS;
   if (opts.all === true) {
     maxSessions = Number.MAX_SAFE_INTEGER;
@@ -2637,17 +2636,84 @@ export async function runImportSessions(opts = {}) {
     if (!Number.isFinite(maxSessions) || maxSessions <= 0) {
       logError(`cmk import-sessions: --max must be a positive integer (got "${opts.max}")`);
       process.exitCode = 2;
-      return;
+      return { ok: false };
     }
   }
-
   // M5: a mistyped --since would otherwise silently disable the filter
   // (NaN comparisons are always false → everything imports).
   if (opts.since != null && Number.isNaN(new Date(opts.since).getTime())) {
     logError(`cmk import-sessions: --since must be an ISO date (got "${opts.since}")`);
     process.exitCode = 2;
-    return;
+    return { ok: false };
   }
+  return { ok: true, maxSessions };
+}
+
+function importCapLabel(opts, maxSessions) {
+  if (opts.all === true) return 'no cap';
+  if (maxSessions === DEFAULT_MAX_SESSIONS) return `cap ${DEFAULT_MAX_SESSIONS} — raise with --max/--all`;
+  return `cap ${maxSessions}`;
+}
+
+function narrateImportPreview(preview, opts, maxSessions, log) {
+  const already = preview.alreadyImported > 0 ? ` (${preview.alreadyImported} already imported)` : '';
+  const active = preview.skippedActive > 0 ? ` (${preview.skippedActive} still-active, deferred)` : '';
+  const cap = importCapLabel(opts, maxSessions);
+  log(`cmk import-sessions: found ${preview.discovered} session(s)${already}${active} — ${preview.selected} selected (newest first, ${cap}).`);
+}
+
+// One confirmation, default-skip. --yes bypasses; a test injects a prompter;
+// non-interactive without either requires the explicit --yes (the kit-wide
+// apply-command convention). Returns 'yes' | 'declined' | 'no-tty'.
+async function confirmImportRun(opts, log, logError) {
+  if (opts.yes === true) return 'yes';
+  let prompter = opts.prompter;
+  let rl = null;
+  if (!prompter && process.stdin.isTTY && process.stdout.isTTY) {
+    rl = createInterface({ input: process.stdin, output: process.stdout });
+    prompter = (q) => new Promise((res) => rl.question(q, (a) => res(a)));
+  }
+  if (!prompter) {
+    logError('cmk import-sessions: non-interactive session — re-run with --yes to proceed.');
+    process.exitCode = 2;
+    return 'no-tty';
+  }
+  try {
+    const answer = await prompter('  Proceed? [y/N]: ');
+    if (/^y(es)?$/i.test(String(answer).trim())) return 'yes';
+    log('cmk import-sessions: skipped — run again anytime; a re-run imports only new sessions.');
+    return 'declined';
+  } finally {
+    if (rl) rl.close();
+  }
+}
+
+function narrateImportResult(result, log) {
+  const days = new Set(result.imported.map((s) => s.date));
+  log(`cmk import-sessions: imported ${result.imported.length} session(s) into ${days.size} dated day file(s) under context/sessions/.`);
+  if (result.screened_out.length > 0) {
+    log(`  ${result.screened_out.length} summary(ies) withheld by the privacy/secret screen (logged; raw extract kept locally).`);
+  }
+  if (result.failed.length > 0) {
+    log(`  ${result.failed.length} session(s) failed at the backend — a re-run imports ONLY the remainder (resumable).`);
+    if (result.imported.length === 0) process.exitCode = 1;
+  }
+  if (result.rawFloorProtected === false) {
+    log('  Note: could not verify .gitignore covers context/transcripts/imported/ — raw extracts went to a temp dir instead (summaries imported normally). Run `cmk install` to refresh the managed block.');
+  }
+  if (result.imported.length > 0) {
+    log('  Searchable now: try `cmk search "<topic>"`. Raw transcripts: context/transcripts/imported/ (local-only).');
+  }
+}
+
+export async function runImportSessions(opts = {}) {
+  const projectRoot = opts.projectRoot ?? process.cwd();
+  const log = opts.log ?? console.log;
+  const logError = opts.logError ?? console.error;
+
+  const flags = parseImportFlags(opts, logError);
+  if (!flags.ok) return;
+  const { maxSessions } = flags;
 
   const common = {
     projectRoot,
@@ -2672,19 +2738,12 @@ export async function runImportSessions(opts = {}) {
     log('cmk import-sessions: no matching Claude Code sessions found under ~/.claude/projects/.');
     return preview;
   }
-  log(
-    `cmk import-sessions: found ${preview.discovered} session(s)` +
-      (preview.alreadyImported > 0 ? ` (${preview.alreadyImported} already imported)` : '') +
-      (preview.skippedActive > 0 ? ` (${preview.skippedActive} still-active, deferred)` : '') +
-      ` — ${preview.selected} selected (newest first${opts.all ? ', no cap' : `, cap ${maxSessions === DEFAULT_MAX_SESSIONS ? `${DEFAULT_MAX_SESSIONS} — raise with --max/--all` : maxSessions}`}).`,
-  );
+  narrateImportPreview(preview, opts, maxSessions, log);
   if (preview.selected === 0) {
     log('cmk import-sessions: nothing new to import.');
     return preview;
   }
-  log(
-    `  This summarizes ${preview.selected} session(s) through your agent backend (one call each) — it uses your subscription/API budget.`,
-  );
+  log(`  This summarizes ${preview.selected} session(s) through your agent backend (one call each) — it uses your subscription/API budget.`);
 
   if (opts.dryRun === true) {
     for (const p of preview.preview) {
@@ -2694,31 +2753,9 @@ export async function runImportSessions(opts = {}) {
     return preview;
   }
 
-  // One confirmation, default-skip. --yes bypasses; a test injects a prompter;
-  // non-interactive without either requires the explicit --yes (the kit-wide
-  // apply-command convention).
-  if (opts.yes !== true) {
-    let prompter = opts.prompter;
-    let rl = null;
-    if (!prompter && process.stdin.isTTY && process.stdout.isTTY) {
-      rl = createInterface({ input: process.stdin, output: process.stdout });
-      prompter = (q) => new Promise((res) => rl.question(q, (a) => res(a)));
-    }
-    if (!prompter) {
-      logError('cmk import-sessions: non-interactive session — re-run with --yes to proceed.');
-      process.exitCode = 2;
-      return preview;
-    }
-    try {
-      const answer = await prompter('  Proceed? [y/N]: ');
-      if (!/^y(es)?$/i.test(String(answer).trim())) {
-        log('cmk import-sessions: skipped — run again anytime; a re-run imports only new sessions.');
-        return { action: 'declined' };
-      }
-    } finally {
-      if (rl) rl.close();
-    }
-  }
+  const consent = await confirmImportRun(opts, log, logError);
+  if (consent === 'no-tty') return preview;
+  if (consent === 'declined') return { action: 'declined' };
 
   const result = await importSessions({ ...common, backend });
   if (result.action === 'error') {
@@ -2726,27 +2763,7 @@ export async function runImportSessions(opts = {}) {
     process.exitCode = 1;
     return result;
   }
-  const days = new Set(result.imported.map((s) => s.date));
-  log(
-    `cmk import-sessions: imported ${result.imported.length} session(s) into ${days.size} dated day file(s) under context/sessions/.`,
-  );
-  if (result.screened_out.length > 0) {
-    log(
-      `  ${result.screened_out.length} summary(ies) withheld by the privacy/secret screen (logged; raw extract kept locally).`,
-    );
-  }
-  if (result.failed.length > 0) {
-    log(
-      `  ${result.failed.length} session(s) failed at the backend — a re-run imports ONLY the remainder (resumable).`,
-    );
-    if (result.imported.length === 0) process.exitCode = 1;
-  }
-  if (result.rawFloorProtected === false) {
-    log('  Note: could not verify .gitignore covers context/transcripts/imported/ — raw extracts went to a temp dir instead (summaries imported normally). Run `cmk install` to refresh the managed block.');
-  }
-  if (result.imported.length > 0) {
-    log('  Searchable now: try `cmk search "<topic>"`. Raw transcripts: context/transcripts/imported/ (local-only).');
-  }
+  narrateImportResult(result, log);
   return result;
 }
 
