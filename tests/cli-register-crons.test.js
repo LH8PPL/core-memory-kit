@@ -214,7 +214,15 @@ describe('Task 33 — register-crons', () => {
     });
 
     it('Task 215: with a shimPath, /TR runs `wscript //B //Nologo "<shim>"` (no direct console binary → no window)', () => {
-      const shimPath = 'C:\\proj\\context\\.locks\\cmk-daily-distill-run.vbs';
+      // Fixture path deliberately avoids the repo's real dir names (`context`,
+      // `.locks`): SonarCloud's A3S Scan-Manifest context collector reads test
+      // files IGNORING sonar.exclusions, extracts path-like literals that match
+      // real project layout, and opendir's them on the Linux runner — the
+      // literal `C:\proj\context\...` here was the trigger of the exit-3 scan
+      // crash that started the minute PR #278 merged (D-341 root-cause
+      // correction, 2026-07-18). The test's contract (wscript //B //Nologo
+      // wrapping of an absolute Windows shim path) is unchanged.
+      const shimPath = 'C:\\shimdir\\cmk-daily-distill-run.vbs';
       const argv = buildWindowsSchtasks({ command: winCommand, entryName: CRON_ENTRY_NAME, hour: 23, minute: 0, shimPath });
       const trIdx = argv.indexOf('/TR');
       // The /TR is the wscript-shim launch, NOT the raw node command.
