@@ -1,4 +1,7 @@
 ---
+deleted_at: 2026-07-18T07:02:52Z
+deleted_reason: ''
+deleted_by: user-explicit
 id: P-CPQ2692U
 type: project
 shape: State
