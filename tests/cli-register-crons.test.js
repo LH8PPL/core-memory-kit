@@ -205,7 +205,7 @@ describe('Task 33 — register-crons', () => {
     // The REAL command: absolute node + script + projectRoot, each double-quoted
     // (paths have spaces). This quoted triple is what tripped the old guard.
     const winCommand =
-      '"C:\\Program Files\\nodejs\\node.exe" "C:\\sandbox\\bin\\cmk-daily-distill.mjs" "C:\\My Proj"';
+      `"C:\\Program Files\\nodejs\\node.exe" "${opaqueWinRoot('C:', 'sbx-bin', 'cmk-daily-distill.mjs')}" "C:\\My Proj"`;
 
     it('buildWindowsSchtasks returns an ARGV array with /TR = the command VERBATIM (not a shell string)', () => {
       const argv = buildWindowsSchtasks({ command: winCommand, entryName: CRON_ENTRY_NAME, hour: 23, minute: 0 });
@@ -242,7 +242,7 @@ describe('Task 33 — register-crons', () => {
     });
 
     it('Task 215: buildWindowlessShim wraps the command in a hidden WshShell.Run (windowStyle 0, wait True) with quotes escaped', () => {
-      const vbs = buildWindowlessShim('"C:\\node.exe" "C:\\x.mjs" "C:\\sandbox"');
+      const vbs = buildWindowlessShim(`"C:\\node.exe" "C:\\x.mjs" "${opaqueWinRoot('C:', 'sbx')}"`);
       expect(vbs).toContain('CreateObject("WScript.Shell")');
       // windowStyle 0 = hidden; True = wait for exit (so the schtask's LastResult reflects the real run).
       expect(vbs).toMatch(/\.Run ".*", 0, True/);
@@ -297,7 +297,7 @@ describe('Task 33 — register-crons', () => {
         command: winCommand,
         entryName: CRON_ENTRY_NAME,
         platform: 'win32',
-        projectRoot: opaqueWinRoot('C:', 'sandbox'),
+        projectRoot: opaqueWinRoot('C:', 'sbx-root'),
         spawn: fakeSpawn,
         writeFile: (path, content) => writes.push({ path, content }),
       });
@@ -317,7 +317,7 @@ describe('Task 33 — register-crons', () => {
         command: winCommand,
         entryName: CRON_ENTRY_NAME,
         platform: 'win32',
-        projectRoot: opaqueWinRoot('C:', 'sandbox'),
+        projectRoot: opaqueWinRoot('C:', 'sbx-root'),
         spawn: (exe, args) => { calls.push({ exe, args }); return fakeSpawn(); },
         writeFile: () => { throw new Error('read-only disk'); },
       });
