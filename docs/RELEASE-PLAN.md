@@ -224,6 +224,9 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
      must reflect the current version) — laned here, not deferred.
      **✅ SHIPPED CONTENT (2026-07-17): Task 231 (#293, D-337+D-338) + Task 230 (#294, D-343) + Task 96
      (#295, ADR-0022 compliance scrub) + Task 210 (#296, D-308 deletion propagation).**
+     **✅ PUBLISHED 2026-07-18: `@lh8ppl/core-memory-kit@0.5.5` (npm latest, provenance) + GitHub
+     Release, publish.yml fully green — including SonarCloud (the D-341 crash was SOLVED en route:
+     D-350 overturned the server-side conclusion; the trigger was our own test fixtures, fixed PR #299).**
      **Backlog sweep verdict (D-349):** Task 95 (dream re-curation) — its SEQUENCING gate CLEARED
      (66 shipped, learn-loop Phase 1–2 shipped, ADR-0017 closed the umbrella) but its TWO design forks
      (review-gate-vs-auto-apply + raw-transcript privacy) are UNRESOLVED → **kept DEFERRED with a named
