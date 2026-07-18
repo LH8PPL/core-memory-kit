@@ -247,6 +247,16 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
      — the origin creator's v3 proved the demand ("day one your memory already knows
      everything") and Hermes's 211k-star run proved memory is THE switching reason (~30% of
      1,300 analyzed comments)._
+     **+ D-353 sweep additions (2026-07-18, the user-requested full-backlog quality walk):**
+     **Task 51** (session-rollup indexing — rides the recall batch) · **Task 175** (`cmk tour` —
+     onboarding, the Day-One theme) · **Task 186** (validate-docs consolidation — the D-249
+     structural graduation; its v0.5.1 decide-point had passed undecided) · v0.6.x riders:
+     **47+48+71** (the doctor-UX batch — their "next doctor-surface touch" trigger fired
+     unnoticed at Task 210) + **73** (user-tier placeholder re-render — its install-surface
+     trigger fired at Task 230, not subsumed by it). **Task 174** is auto-flagged
+     kill-or-commit at this minor's cut (fired twice unnoticed). Sweep also closed 8 tasks
+     whose deliverables had shipped (59/68/97/130/147/179/188/224) and refreshed every stale
+     disposition (55/70/80/98/146/166/196) — full verdicts in D-353.
   7. **v0.7.0 — THE TEAM LAYER (D-326).** Headline: **Task 127** (team-scoped memory — its own
      trigger fired: the v0.6 planning boundary arrived AND the market demand signal landed, the
      origin creator's TeamOS beta; design-first per D-119 — seam shape / ACL / companion-vs-in-kit
