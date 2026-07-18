@@ -1075,7 +1075,7 @@ Each parent task ships as a PR titled `[<task #>] <description>` (e.g., `[7] Per
   - Test doctor HC-1 reports user-opted-out distinctly
   - _Requirements: forward-looking to a new NFR (see §16.48); design §14_
 
-- [ ] 47. **→ SWEEP VERDICT 2026-07-18 (D-353): trigger FIRED unnoticed (Task 210 touched the doctor surface). Laned v0.6.x — the doctor-UX rider batch (with 48+71); per-touch re-firing is noise.** **[Trigger (D-248/D-253): the next doctor-surface touch, or recurring HC-failure user reports]** `cmk doctor --repair` — prompt-then-install for individual failed HCs
+- [ ] 47. **→ SWEEP VERDICT 2026-07-18 (D-353): trigger FIRED unnoticed (Task 210 touched the doctor surface). Laned v0.6.x — the doctor-UX rider batch (with 48+71); per-touch re-firing is noise.** **+ D-354 addition: HC-5 gains a cron-TARGET-exists check** (the v0.5.4 rename stranded the absolute-path schtask on the dead package name for 4 nights; sentinel-presence HC-5 stayed green while HC-10 caught it — read the registered command, stat the target, FAIL with `cmk register-crons` recovery when gone). **[Trigger (D-248/D-253): the next doctor-surface touch, or recurring HC-failure user reports]** `cmk doctor --repair` — prompt-then-install for individual failed HCs
   - Estimate: M · Depends: 46
   - **Motivation**: even with `cmk install --with-semantic` opt-in at install time, users who skipped it (or whose memsearch broke) need a runtime path to fix. Currently `cmk doctor` prints the command; user runs it manually. This task adds a prompt that the user can `[y/N]` to invoke the same install command.
 - [ ] 47.1 Add `--repair` flag to `cmk doctor`
