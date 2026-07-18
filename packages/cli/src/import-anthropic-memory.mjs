@@ -43,13 +43,16 @@ import { writeBullet } from './provenance.mjs';
 import { hashContent } from './content-hash.mjs';
 import { checkPoisonGuard, logPoisonGuardRejection } from './poison-guard.mjs';
 import { sanitizeHomePaths } from './sanitize.mjs';
+import { harnessSlugForPath } from './transcripts.mjs';
 
 const MEMORY_REL = ['context', 'MEMORY.md'];
 
 // Same slug pattern HC-8 uses (matches Python's
-// `re.sub(r'[^a-zA-Z0-9]', '-', project_dir)`).
+// `re.sub(r'[^a-zA-Z0-9]', '-', project_dir)`). Kept as the historical
+// export name; the canonical rule lives in transcripts.mjs (Task 225 M6 —
+// three inline copies consolidated to one).
 export function anthropicSlugFor(projectRoot) {
-  return String(projectRoot).replace(/[^a-zA-Z0-9]/g, '-');
+  return harnessSlugForPath(projectRoot);
 }
 
 /**

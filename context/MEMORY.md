@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-CY2DG5ZS) after rename, guide's §0 backup step can be skipped—tier setup already complete
-  <!-- source: review-promote, source_line: 1, sha1: 4f40a68fd7cfef84ecc6fa65302df98e30707f357f8194d655950392a979c77b, write: user-explicit, trust: high, at: 2026-07-18T14:40:50Z -->
 - (P-ANJ3MXFK) ConnectionManager class with broadcast pattern for WebSocket message distribution
   <!-- source: review-promote, source_line: 1, sha1: 578bf8d3e8b021e5b2f36e49596a7d3ba1a2cdee88fcf0801904410a730ce2d2, write: user-explicit, trust: high, at: 2026-07-18T14:40:52Z -->
 - (P-MRVTM6NW) v0.5.4 published to npm as `@lh8ppl/core-memory-kit@0.5.4` with sigstore provenance; repo rename verified live
@@ -20,6 +18,8 @@
   <!-- source: review-promote, source_line: 1, sha1: 7ba3f084f6d0c21bcab10e7d70c327592c8e24dab08f4e5fa5f72a1f1dbb22c9, write: user-explicit, trust: high, at: 2026-07-18T14:40:56Z -->
 - (P-25JLTT5Z) Research paper ingested; research note created; 10 base sources re-read; synthesis completed
   <!-- source: review-promote, source_line: 1, sha1: cbf5202562f59061066353a097811e08ab0602439793bc041133d0f9dd5f566c, write: user-explicit, trust: high, at: 2026-07-18T14:40:57Z -->
+- (P-VQKAHVV9) Wants to run distill immediately, not wait until 23:00 scheduled time.
+  <!-- source: review-promote, source_line: 1, sha1: e186f10b5c93ed2b9c98149ddcef415cf8a23549d88267b26c1fe4d53bc7319b, write: user-explicit, trust: high, at: 2026-07-18T20:00:00Z -->
 
 ## Environment Notes
 

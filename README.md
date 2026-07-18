@@ -48,6 +48,7 @@ You work. It learns — automatically, no buttons. Next session, it remembers th
 ## Features
 
 - **Remembers across sessions** — a frozen snapshot of your project + persona injects once at session start, so Claude leads with what it knows instead of re-deriving it from code.
+- **Starts with a memory, not from zero** — `cmk import-sessions` bootstraps the memory from your **existing** Claude Code history: past sessions are summarized into dated memory ("as if captured live"), screened for secrets/PII before anything lands in a committed file, and searchable immediately. `cmk install` detects existing history and offers it (one question, default-skip). Resumable — a killed run keeps its progress, and a re-run imports only new sessions.
 - **Captures automatically, prompt-free** — a background pass reads each turn and saves durable facts as searchable notes. No "save" button. When you *do* say "remember this," the kit auto-approves its **own** tools and skills so the save happens with no "Allow?" prompt — nothing else is touched.
 - **Recalls by meaning** — ask in your own words ("where do credentials go") and get the right fact even with zero keyword overlap. Fully local, zero API calls — **R@5 0.941 / paraphrase 1.000** ([benchmarks](#benchmarks)).
 - **Learns how you work, everywhere** — state a habit once ("always use uv, never pip") and a brand-new project cold-opens already knowing it.

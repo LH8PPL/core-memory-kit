@@ -18,7 +18,7 @@ import { installAgent, uninstallAgent } from './install-agent.mjs';
 import { installKiro, uninstallKiro } from './install-kiro.mjs';
 import { getAgentProfile, listAgentProfiles } from './agent-profiles.mjs';
 import { agentCliOnPath, KNOWN_BACKEND_AGENTS } from './agent-cli.mjs';
-import { resolveBackendAgent } from './make-backend.mjs';
+import { resolveBackendAgent, makeBackend } from './make-backend.mjs';
 import { detectInstallKind } from './install-kind.mjs';
 import { runKiroHook } from './kiro-hook-bin.mjs';
 import { dispatchCursorHook } from './cursor-hook-dispatch.mjs';
@@ -53,7 +53,8 @@ import { runDoctor } from './doctor.mjs';
 import { importAnthropicMemory } from './import-anthropic-memory.mjs';
 import { configGet, configSet, configShowOrigin } from './config-core.mjs';
 import { importClaudeMd } from './import-claude-md.mjs';
-import { extractTranscript, discoverSessions } from './transcripts.mjs';
+import { extractTranscript, discoverSessions, harnessSlugForPath } from './transcripts.mjs';
+import { importSessions, DEFAULT_MAX_SESSIONS } from './import-sessions.mjs';
 import { runRepair } from './repair.mjs';
 import { runRoll, ROLL_SCOPES } from './roll.mjs';
 import { lessonsPromote } from './lessons-promote.mjs';
@@ -491,6 +492,11 @@ export async function runInstall(options /* , command */) {
     overrideResult.ok && overrideResult.agent ? overrideResult.agent : 'claude';
   // Task 200 (D-272): first-touch backend-CLI heads-up for the effective backend.
   warnMissingBackendCli(effectiveBackend, { log, backendCliProbe: options?.backendCliProbe });
+
+  // Task 225: the day-one-memory offer — existing harness history detected →
+  // ONE question, default-skip. Before the binding ask, which stays LAST
+  // (Task 141a: the tail of install output is what gets read).
+  await offerImportSessions(options, { projectRoot: result.projectRoot, log });
 
   // Task 141a: the binding ask comes LAST — it's the one thing the user may
   // still need to act on, and the tail of install output is what gets read.
@@ -2613,6 +2619,218 @@ async function runTranscriptsExtract(options) {
   console.log(`cmk transcripts extract: processed ${sessions.length} session(s); ${totalTurns} total turns; ${(totalBytes / 1024 / 1024).toFixed(2)} MB written`);
 }
 
+// --- cmk import-sessions (Task 225, D-326 — the v0.6.0 headline) ----------
+//
+// Dep-injectable like runQueueReview (Task 113 pattern): a test injects
+// { projectRoot, backend, harnessRoot, prompter, log, logError, now } to
+// drive the real pipeline without stdin or a live backend.
+
+// --max / --all / --since flag validation. Returns {ok:false} after
+// logging + exit 2, or {ok:true, maxSessions}.
+function parseImportFlags(opts, logError) {
+  let maxSessions = DEFAULT_MAX_SESSIONS;
+  if (opts.all === true) {
+    maxSessions = Number.MAX_SAFE_INTEGER;
+  } else if (opts.max != null) {
+    maxSessions = Number.parseInt(opts.max, 10);
+    if (!Number.isFinite(maxSessions) || maxSessions <= 0) {
+      logError(`cmk import-sessions: --max must be a positive integer (got "${opts.max}")`);
+      process.exitCode = 2;
+      return { ok: false };
+    }
+  }
+  // M5: a mistyped --since would otherwise silently disable the filter
+  // (NaN comparisons are always false → everything imports).
+  if (opts.since != null && Number.isNaN(new Date(opts.since).getTime())) {
+    logError(`cmk import-sessions: --since must be an ISO date (got "${opts.since}")`);
+    process.exitCode = 2;
+    return { ok: false };
+  }
+  return { ok: true, maxSessions };
+}
+
+function importCapLabel(opts, maxSessions) {
+  if (opts.all === true) return 'no cap';
+  if (maxSessions === DEFAULT_MAX_SESSIONS) return `cap ${DEFAULT_MAX_SESSIONS} — raise with --max/--all`;
+  return `cap ${maxSessions}`;
+}
+
+function narrateImportPreview(preview, opts, maxSessions, log) {
+  const already = preview.alreadyImported > 0 ? ` (${preview.alreadyImported} already imported)` : '';
+  const active = preview.skippedActive > 0 ? ` (${preview.skippedActive} still-active, deferred)` : '';
+  const cap = importCapLabel(opts, maxSessions);
+  log(`cmk import-sessions: found ${preview.discovered} session(s)${already}${active} — ${preview.selected} selected (newest first, ${cap}).`);
+}
+
+// One confirmation, default-skip. --yes bypasses; a test injects a prompter;
+// non-interactive without either requires the explicit --yes (the kit-wide
+// apply-command convention). Returns 'yes' | 'declined' | 'no-tty'.
+async function confirmImportRun(opts, log, logError) {
+  if (opts.yes === true) return 'yes';
+  let prompter = opts.prompter;
+  let rl = null;
+  if (!prompter && process.stdin.isTTY && process.stdout.isTTY) {
+    rl = createInterface({ input: process.stdin, output: process.stdout });
+    prompter = (q) => new Promise((res) => rl.question(q, (a) => res(a)));
+  }
+  if (!prompter) {
+    logError('cmk import-sessions: non-interactive session — re-run with --yes to proceed.');
+    process.exitCode = 2;
+    return 'no-tty';
+  }
+  try {
+    const answer = await prompter('  Proceed? [y/N]: ');
+    if (/^y(es)?$/i.test(String(answer).trim())) return 'yes';
+    log('cmk import-sessions: skipped — run again anytime; a re-run imports only new sessions.');
+    return 'declined';
+  } finally {
+    if (rl) rl.close();
+  }
+}
+
+function narrateImportResult(result, log) {
+  const days = new Set(result.imported.map((s) => s.date));
+  log(`cmk import-sessions: imported ${result.imported.length} session(s) into ${days.size} dated day file(s) under context/sessions/.`);
+  if (result.screened_out.length > 0) {
+    log(`  ${result.screened_out.length} summary(ies) withheld by the privacy/secret screen (logged; raw extract kept locally).`);
+  }
+  if (result.failed.length > 0) {
+    log(`  ${result.failed.length} session(s) failed at the backend — a re-run imports ONLY the remainder (resumable).`);
+    if (result.imported.length === 0) process.exitCode = 1;
+  }
+  if (result.rawFloorProtected === false) {
+    log('  Note: could not verify .gitignore covers context/transcripts/imported/ — raw extracts went to a temp dir instead (summaries imported normally). Run `cmk install` to refresh the managed block.');
+  }
+  if (result.imported.length > 0) {
+    log('  Searchable now: try `cmk search "<topic>"`. Raw transcripts: context/transcripts/imported/ (local-only).');
+  }
+}
+
+export async function runImportSessions(opts = {}) {
+  const projectRoot = opts.projectRoot ?? process.cwd();
+  const log = opts.log ?? console.log;
+  const logError = opts.logError ?? console.error;
+
+  const flags = parseImportFlags(opts, logError);
+  if (!flags.ok) return;
+  const { maxSessions } = flags;
+
+  const common = {
+    projectRoot,
+    harnessRoot: opts.harnessRoot,
+    slug: opts.slug,
+    allProjects: opts.allProjects === true,
+    sinceIso: opts.since,
+    maxSessions,
+    now: opts.now,
+  };
+  const backend = opts.backend ?? makeBackend({ projectRoot });
+
+  // Discovery preview first — the honest cost heads-up BEFORE any spend
+  // (summarization runs on the user's subscription / API billing).
+  const preview = await importSessions({ ...common, backend, dryRun: true });
+  if (preview.action === 'error') {
+    logError(`cmk import-sessions: ${(preview.errors ?? []).join('; ')}`);
+    process.exitCode = 2;
+    return preview;
+  }
+  if (preview.action === 'skipped') {
+    log('cmk import-sessions: no matching Claude Code sessions found under ~/.claude/projects/.');
+    return preview;
+  }
+  narrateImportPreview(preview, opts, maxSessions, log);
+  if (preview.selected === 0) {
+    log('cmk import-sessions: nothing new to import.');
+    return preview;
+  }
+  log(`  This summarizes ${preview.selected} session(s) through your agent backend (one call each) — it uses your subscription/API budget.`);
+
+  if (opts.dryRun === true) {
+    for (const p of preview.preview) {
+      log(`  ${p.sessionId}  ${p.mtime.slice(0, 10)}  ${(p.jsonlBytes / 1024).toFixed(1)} KB  (${p.slug})`);
+    }
+    log('cmk import-sessions: dry-run — nothing written.');
+    return preview;
+  }
+
+  const consent = await confirmImportRun(opts, log, logError);
+  if (consent === 'no-tty') return preview;
+  if (consent === 'declined') return { action: 'declined' };
+
+  const result = await importSessions({ ...common, backend });
+  if (result.action === 'error') {
+    logError(`cmk import-sessions: ${(result.errors ?? []).join('; ')}`);
+    process.exitCode = 1;
+    return result;
+  }
+  narrateImportResult(result, log);
+  return result;
+}
+
+// The `cmk install` tail-offer (Task 225's automatic-path criterion): detect
+// existing harness history and ask ONE question, default-skip — the user
+// never needs to know the command. Best-effort: never fails the install.
+export async function offerImportSessions(options, { projectRoot, log }) {
+  try {
+    const found = discoverSessions({
+      slug: harnessSlugForPath(projectRoot),
+      harnessRoot: options?.harnessRoot,
+    });
+    if (found.length === 0) return { action: 'none' };
+
+    let prompter = options?.importPrompter;
+    let rl = null;
+    if (!prompter && process.stdin.isTTY && process.stdout.isTTY) {
+      rl = createInterface({ input: process.stdin, output: process.stdout });
+      prompter = (q) => new Promise((res) => rl.question(q, (a) => res(a)));
+    }
+    if (!prompter) {
+      log(
+        `  Found ${found.length} existing Claude Code session(s) for this project — bootstrap your memory anytime with: cmk import-sessions`,
+      );
+      return { action: 'hint' };
+    }
+    let answer;
+    try {
+      answer = await prompter(
+        `  Found ${found.length} existing Claude Code session(s) for this project. Import them into memory now? (summarizes up to ${DEFAULT_MAX_SESSIONS} newest via your agent backend) [y/N]: `,
+      );
+    } finally {
+      if (rl) rl.close();
+    }
+    if (!/^y(es)?$/i.test(String(answer).trim())) {
+      log('  Skipped — run `cmk import-sessions` anytime.');
+      return { action: 'declined' };
+    }
+    // `importBackend`, not `backend`: runInstall's options.backend is the
+    // --backend <agent> override flag (Task 201) — a different thing.
+    const backend = options?.importBackend ?? makeBackend({ projectRoot });
+    const result = await importSessions({
+      projectRoot,
+      backend,
+      harnessRoot: options?.harnessRoot,
+      now: options?.now,
+    });
+    if (result.action === 'completed') {
+      log(
+        `  Imported ${result.imported.length} session(s) into dated memory — searchable via \`cmk search\`.`,
+      );
+    }
+    return { action: 'imported', result };
+  } catch (err) {
+    // Best-effort — never fail the install. But a user who answered "y"
+    // must not get silence (M4); the resumable design makes the hint true.
+    try {
+      log(
+        `  Import hit an error (${err?.message ?? err}) — run \`cmk import-sessions\` to resume; finished sessions are kept.`,
+      );
+    } catch {
+      // even the log is best-effort
+    }
+    return { action: 'error' };
+  }
+}
+
 async function runCompress(options /* , command */) {
   const lazy = options?.lazy === true;
   if (!lazy) {
@@ -3245,6 +3463,21 @@ export const subcommands = [
       { flags: '--yes', description: 'apply every proposal without prompting (apply requires explicit --yes)' },
     ],
     action: runImportClaudeMd,
+  },
+  {
+    name: 'import-sessions',
+    description: 'bootstrap project memory from existing Claude Code session history — summarize, screen, land as dated day files (resumable; a re-run imports only new sessions)',
+    milestone: 225,
+    optionSpec: [
+      { flags: '--slug <slug>', description: 'import a specific harness project slug (default: this project\'s slug)' },
+      { flags: '--all-projects', description: 'import sessions from every project slug under ~/.claude/projects/' },
+      { flags: '--since <YYYY-MM-DD>', description: 'only sessions with mtime >= this date' },
+      { flags: '--max <n>', description: `cap the newest-first selection (default ${DEFAULT_MAX_SESSIONS})` },
+      { flags: '--all', description: 'remove the selection cap (import the full history)' },
+      { flags: '--dry-run', description: 'preview the selection + cost heads-up, write nothing' },
+      { flags: '--yes', description: 'skip the confirmation prompt (required non-interactively)' },
+    ],
+    action: runImportSessions,
   },
   {
     name: 'transcripts',

@@ -71,7 +71,11 @@ function sha1(text) {
 // now.md (the volatile live buffer — already in context, and its constant
 // truncation would churn the index) and non-.md observability files.
 const RAW_TIER_DIRS = ['transcripts', 'sessions'];
-const SESSIONS_EXCLUDE = new Set(['now.md']);
+// now.md: the volatile live buffer (already in context; constant truncation
+// would churn the index). imported-sessions.md: the Task-225 provenance
+// ledger — a UUID list, not recallable memory; indexing it would pollute
+// transcript-scope hits with ledger rows.
+const SESSIONS_EXCLUDE = new Set(['now.md', 'imported-sessions.md']);
 
 export function syncTranscriptChunks({ db, projectRoot, now = Date.now() } = {}) {
   let files = 0;

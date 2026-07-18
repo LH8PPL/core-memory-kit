@@ -253,6 +253,14 @@ Walk pending items interactively. `review` = medium-trust auto-extracts (promote
 
 ## Import & transcripts
 
+### `cmk import-sessions [flags]`
+
+**Bootstrap the memory from your EXISTING Claude Code history** — so day one isn't empty (the v0.6.0 headline). Discovers past sessions under `~/.claude/projects/<slug>/`, summarizes each one through your agent backend into the kit's dated day-file shape ("as if captured live"), and lands them in `context/sessions/` — searchable immediately via `cmk search`. Every imported write is **screened** (secret screen + PII mask + a privacy instruction in the summarize call) before anything touches a committed tier; raw extracted transcripts archive to the local-only `context/transcripts/imported/` floor for deep recall.
+
+- `--slug <slug>` · `--all-projects` · `--since <YYYY-MM-DD>` · `--max <n>` (default 50 newest) · `--all` (no cap) · `--dry-run` (preview + cost heads-up) · `--yes` (skip the confirmation; required non-interactively).
+- **Resumable + idempotent**: each session persists as it completes; the committed `context/sessions/imported-sessions.md` ledger is the resume point, so a killed run keeps its progress and a re-run imports only NEW sessions. With a partial import (`--max`), each re-run progressively backfills the next N newest not-yet-imported sessions; a fully-imported corpus is a no-op.
+- `cmk install` detects existing history and offers this automatically (one question, default-skip).
+
 ### `cmk import-anthropic-memory [--dry-run] [--yes]`
 
 Merge useful bullets from Anthropic's native auto-memory into the project MEMORY.md. `--dry-run` previews; `--yes` applies.

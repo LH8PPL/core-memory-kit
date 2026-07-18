@@ -34,3 +34,9 @@ context/transcripts/.extract-*.tmp
 # entries move to the committed transcript only AFTER the async privacy judge
 # screens them. Un-judged content must never travel with `git clone`.
 context/transcripts/*.live.md
+
+# Raw session extracts from `cmk import-sessions` — raw, UN-screened
+# conversation text (the deep-recall floor for imported history), so it stays
+# machine-local like the live buffer; only the screened per-session summaries
+# land in the committed sessions tier.
+context/transcripts/imported/

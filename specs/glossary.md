@@ -420,6 +420,12 @@ The irreversible whole-fact delete (Task 96, ADR-0022): `cmk purge --hard <id> -
 
 Cross-refs: [[Redact]], [[Forget]], [[Tombstone]]. Spec: design §6.5; ADR-0022.
 
+### Bootstrap import
+
+The `cmk import-sessions` pipeline (Task 225, the v0.6.0 headline): existing Claude Code session history (`~/.claude/projects/<slug>/<uuid>.jsonl`) is discovered, extracted to a gitignored raw floor (`context/transcripts/imported/`), summarized per-session through the agent backend into the [[Rolling window]] day-file shape "as if captured live" (privacy instruction in the same call, L1 mask + the Task-216 screen before the committed write), and made searchable immediately. Idempotent + resumable via the committed **import ledger** (`context/sessions/imported-sessions.md`) — the artifact-derived resume point that survives weekly-curate's rotation of the day files; a re-run imports only new sessions. Deliberately NOT a run-once sentinel (rejected: can't recover a killed run, can't catch up later).
+
+Cross-refs: [[Rolling window]], [[Poison_Guard]], [[Provenance frontmatter]]. Spec: design §22; ADR-0010, ADR-0019, ADR-0020; D-326/D-355.
+
 ### Re-curation pass
 
 The kit's offline-consolidation organ (Task 95; the "dream" pass — designed 2026-07-18, D-352, build lanes after v0.6.0): a batched, roll-scheduled pass that reads **raw transcripts + the fact corpus + scratchpads** and produces re-curation ops — merge duplicates, resolve contradictions latest-wins (event-time decides, never the LLM), surface cross-session insights, prune resolved scratchpad threads. Three stages: deterministic dedup floor → ONE batched LLM call proposing `{add, update, supersede, none}` ops → code-validated application under the **op-class split**: non-destructive ops auto-apply inside a screened envelope; lossy/generative ops land as an adopt-or-discard diff in a review queue. Inputs are never modified; the source tier prunes only after adoption. Absorbs F-D (semantic dedup), Task 55's insight-surfacing remainder, and Task 68 (thread pruning).

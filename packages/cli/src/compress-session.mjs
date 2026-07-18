@@ -213,7 +213,10 @@ function restoreRolling(projectRoot, rollingPath) {
   }
 }
 
-function appendToTodayMd({ projectRoot, date, body }) {
+// Exported for import-sessions (Task 225): imported per-session summaries
+// append through the SAME writer as live rolls, so the day-file shape (MD022
+// blank-line discipline, trailing-newline invariant) has one owner.
+export function appendToTodayMd({ projectRoot, date, body }) {
   const path = todayMdPath(projectRoot, date);
   mkdirSync(dirname(path), { recursive: true });
   // Lint-clean append (MD022 blanks-around-headings): a same-day re-append puts
