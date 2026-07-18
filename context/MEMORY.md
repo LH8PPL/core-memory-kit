@@ -8,18 +8,18 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-JZ4WaJFA) Prefers logical line breaks in markdown for readability; dislikes mid-phrase text wrapping (e.g., break bold question to its own line)
-  <!-- source: auto-extract-session, source_line: 1, sha1: a80e171bef5d947e327cb9f2978bce20868062daf7ea9b8a0b6bda2feda73aec, write: auto-extract, trust: high, at: 2026-07-15T18:03:00Z -->
-- (P-ZR69HNVH) Wants og-image.svg updated to remove "Claude Code" and replace with new tagline: "Persistent, per-project memory - plain markdown, committed with your code, recalled by meaning."
-  <!-- source: auto-extract-session, source_line: 1, sha1: e769215e1d0722d7b6305a328faa6eca35484ad70bb305b024037f13f19455a8, write: auto-extract, trust: high, at: 2026-07-15T18:14:21Z -->
-- (P-9S7BADNX) corrected that claim wasn't empirically tested; prefers verification by testing over code reasoning
-  <!-- source: auto-extract-session, source_line: 1, sha1: 35ca83aa7c1e6fea282c6b3d1398d4c59d1887c94f32a75269c624fbbf07218e, write: auto-extract, trust: high, at: 2026-07-15T19:04:52Z -->
-- (P-BQRMQWYa) User intuitively expected `cmk install` to refresh stale skills/hooks/everything on re-run.
-  <!-- source: auto-extract-session, source_line: 1, sha1: 5f14e29ad88ffcaf459de336da734d041130c1cb913a341c5bf0ecd3d6a87812, write: auto-extract, trust: high, at: 2026-07-15T19:07:40Z -->
-- (P-JBTVZ9JZ) User submitted first research paper for Task 95 review (Language Models Need Sleep)
-  <!-- source: auto-extract-session, source_line: 1, sha1: c9eba369f1e874779b517927c3287edec8669b53b801bb4950b2f3edb8c99297, write: auto-extract, trust: high, at: 2026-07-18T13:38:52Z -->
-- (P-MGC6MEGJ) User created core-memory-kit (github.com/LH8PPL/core-memory-kit) after discovering that project files + hooks + CLAUDE.md rules were individually insufficient for reliable agent memory
-  <!-- source: auto-extract-session, source_line: 1, sha1: b5599e6ffbcb1d5c6d8c0a87b76090acc461f4a8d3ba6924b7b19db7b95a18f2, write: auto-extract, trust: high, at: 2026-07-18T14:11:04Z -->
+- (P-CY2DG5ZS) after rename, guide's §0 backup step can be skipped—tier setup already complete
+  <!-- source: review-promote, source_line: 1, sha1: 4f40a68fd7cfef84ecc6fa65302df98e30707f357f8194d655950392a979c77b, write: user-explicit, trust: high, at: 2026-07-18T14:40:50Z -->
+- (P-ANJ3MXFK) ConnectionManager class with broadcast pattern for WebSocket message distribution
+  <!-- source: review-promote, source_line: 1, sha1: 578bf8d3e8b021e5b2f36e49596a7d3ba1a2cdee88fcf0801904410a730ce2d2, write: user-explicit, trust: high, at: 2026-07-18T14:40:52Z -->
+- (P-MRVTM6NW) v0.5.4 published to npm as `@lh8ppl/core-memory-kit@0.5.4` with sigstore provenance; repo rename verified live
+  <!-- source: review-promote, source_line: 1, sha1: 95b589127b3d47aaee686e556bf6fa80c6b9fd833144dd807fb89ff4ba691093, write: user-explicit, trust: high, at: 2026-07-18T14:40:53Z -->
+- (P-K3FN3LUJ) Durable knowledge (procedures, workflows) should be saved to project-local memory (context/), not session-temp; values memory committed with code.
+  <!-- source: review-promote, source_line: 1, sha1: 6bb7cd1394c3254b8d756d8706497fb5669792a561ebb5bfe639f5866e301bbe, write: user-explicit, trust: high, at: 2026-07-18T14:40:54Z -->
+- (P-324UW2UP) Task batch v0.5.5 contains three sequenced tasks (230 → 96 → 210); previous versions used per-batch autopilot grants to run the full lane uninterrupted.
+  <!-- source: review-promote, source_line: 1, sha1: 7ba3f084f6d0c21bcab10e7d70c327592c8e24dab08f4e5fa5f72a1f1dbb22c9, write: user-explicit, trust: high, at: 2026-07-18T14:40:56Z -->
+- (P-25JLTT5Z) Research paper ingested; research note created; 10 base sources re-read; synthesis completed
+  <!-- source: review-promote, source_line: 1, sha1: cbf5202562f59061066353a097811e08ab0602439793bc041133d0f9dd5f566c, write: user-explicit, trust: high, at: 2026-07-18T14:40:57Z -->
 
 ## Environment Notes
 

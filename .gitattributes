@@ -24,7 +24,7 @@
 *.yaml text eol=lf
 *.sh text eol=lf
 
-# core-memory-kit:gitattributes:start v0.5.4
+# core-memory-kit:gitattributes:start v0.5.5
 # core-memory-kit — added by `cmk install`. Do not edit by hand;
 # `cmk install` refreshes these lines idempotently. Remove via
 # `cmk uninstall`.
@@ -41,4 +41,8 @@
 # under context/ is never force-normalized + corrupted.
 context/**/*.md text eol=lf
 context/**/*.json text eol=lf
+# Kit-owned scaffold (Task 230): the skills refresh from the template on every
+# `cmk install` (exact-content compare) — pin LF so a Windows autocrlf checkout
+# can't make an identical skill look drifted (the same D-126 class).
+.claude/skills/**/*.md text eol=lf
 # core-memory-kit:gitattributes:end
