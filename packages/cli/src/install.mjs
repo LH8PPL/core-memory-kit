@@ -329,6 +329,31 @@ function buildGitignoreBlock(templateDir, version = getKitVersion()) {
 }
 
 /**
+ * Refresh the managed .gitignore block to the CURRENT kit version, outside a
+ * full install. Task 225 (skill-review B1): `cmk import-sessions` writes raw
+ * UN-screened extracts to context/transcripts/imported/ — a path only the
+ * v0.6.0 fragment gitignores. On an upgraded-but-not-reinstalled project the
+ * old block lacks that line and the transcripts tier is COMMITTED by design,
+ * so the import verb must refresh the block itself before touching the raw
+ * floor (fail-closed: its caller verifies coverage and skips the raw write
+ * when this can't be confirmed).
+ *
+ * Returns { action: 'created'|'replaced'|'unchanged'|'error', path, error? }.
+ */
+export function refreshGitignoreBlock(projectRoot) {
+  try {
+    const templateDir = resolveTemplateDir();
+    return injectGitignore(projectRoot, buildGitignoreBlock(templateDir, getKitVersion()));
+  } catch (err) {
+    return {
+      action: 'error',
+      path: join(projectRoot, '.gitignore'),
+      error: err?.message ?? String(err),
+    };
+  }
+}
+
+/**
  * Build the canonical .gitattributes managed block from
  * template/.gitattributes.fragment (D-126 CRLF prevention — force LF on the
  * committed memory tiers so default Windows git doesn't mangle the bytes at

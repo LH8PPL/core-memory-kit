@@ -51,6 +51,7 @@ import { checkVersionDrift } from './version-drift.mjs';
 import { findManagedBlock, compareVersions } from './claude-md.mjs';
 import { getKitVersion, kitOwnedScaffoldDrift } from './install.mjs';
 import { checkDeletionPropagation } from './deletion-propagation.mjs';
+import { harnessSlugForPath } from './transcripts.mjs';
 import { hasOurCliAgent } from './kiro-cli-agent.mjs';
 import { stripBom } from './read-json.mjs';
 import { detectInstallKind } from './install-kind.mjs';
@@ -539,9 +540,8 @@ function hc6NativeAutoMemory({ projectRoot, now }) {
   // see whether the kit is supplementing or substituting.
   const ts = now ?? nowIso();
   // Anthropic uses the slug pattern `re.sub(r'[^a-zA-Z0-9]', '-', project_dir)`
-  // per claude-remember research (SOURCES.md). We approximate that here
-  // without invoking Python regex semantics.
-  const slug = projectRoot.replace(/[^a-zA-Z0-9]/g, '-');
+  // per claude-remember research (SOURCES.md) — the shared rule (Task 225 M6).
+  const slug = harnessSlugForPath(projectRoot);
   const anthropicMemoryDir = join(homedir(), '.claude', 'projects', slug, 'memory');
   let entry;
   if (!existsSync(anthropicMemoryDir)) {

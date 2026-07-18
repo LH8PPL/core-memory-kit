@@ -48,7 +48,7 @@ export const REASON_CODES = Object.freeze({
   CONFLICT_RESOLVED: 'conflict-resolved', // conflict-queue: user resolved a pending conflict via cmk queue conflicts (keep-old / keep-new / merge-both)
   REVIEW_PROMOTED: 'review-promoted', // review-queue: user promoted a medium-trust auto-extract to MEMORY.md (Task 26, design §6.2)
   REVIEW_DISCARDED: 'review-discarded', // review-queue: user discarded a medium-trust auto-extract via cmk queue review
-  IMPORT_APPLIED: 'import-applied', // import-anthropic-memory: bullet applied to project MEMORY.md with write_source:imported (Task 38)
+  IMPORT_APPLIED: 'import-applied', // import-anthropic-memory: bullet applied to project MEMORY.md with write_source:imported (Task 38). ALSO emitted by import-sessions (Task 225, action:'import-session') — consumers disambiguate on `action`.
   IMPORT_SKIPPED_DUPLICATE: 'import-skipped-duplicate', // import-anthropic-memory: candidate canonicalize-matched existing fact, skipped (Task 38)
   IMPORT_SCREENED: 'import-screened', // import-sessions: a session's summary was rejected by screenBeforeCommittedWrite — recorded (ledger status:screened) so re-runs don't re-buy the summary (Task 225)
   IMPORT_SKIPPED_EMPTY: 'import-skipped-empty', // import-sessions: session had zero text turns after the extract filter; ledgered so re-runs skip it without a backend call (Task 225)

@@ -2641,6 +2641,14 @@ export async function runImportSessions(opts = {}) {
     }
   }
 
+  // M5: a mistyped --since would otherwise silently disable the filter
+  // (NaN comparisons are always false → everything imports).
+  if (opts.since != null && Number.isNaN(new Date(opts.since).getTime())) {
+    logError(`cmk import-sessions: --since must be an ISO date (got "${opts.since}")`);
+    process.exitCode = 2;
+    return;
+  }
+
   const common = {
     projectRoot,
     harnessRoot: opts.harnessRoot,
@@ -2667,6 +2675,7 @@ export async function runImportSessions(opts = {}) {
   log(
     `cmk import-sessions: found ${preview.discovered} session(s)` +
       (preview.alreadyImported > 0 ? ` (${preview.alreadyImported} already imported)` : '') +
+      (preview.skippedActive > 0 ? ` (${preview.skippedActive} still-active, deferred)` : '') +
       ` — ${preview.selected} selected (newest first${opts.all ? ', no cap' : `, cap ${maxSessions === DEFAULT_MAX_SESSIONS ? `${DEFAULT_MAX_SESSIONS} — raise with --max/--all` : maxSessions}`}).`,
   );
   if (preview.selected === 0) {
@@ -2732,6 +2741,9 @@ export async function runImportSessions(opts = {}) {
     );
     if (result.imported.length === 0) process.exitCode = 1;
   }
+  if (result.rawFloorProtected === false) {
+    log('  Note: could not verify .gitignore covers context/transcripts/imported/ — raw extracts went to a temp dir instead (summaries imported normally). Run `cmk install` to refresh the managed block.');
+  }
   if (result.imported.length > 0) {
     log('  Searchable now: try `cmk search "<topic>"`. Raw transcripts: context/transcripts/imported/ (local-only).');
   }
@@ -2788,8 +2800,17 @@ export async function offerImportSessions(options, { projectRoot, log }) {
       );
     }
     return { action: 'imported', result };
-  } catch {
-    return { action: 'error' }; // best-effort — never fail the install
+  } catch (err) {
+    // Best-effort — never fail the install. But a user who answered "y"
+    // must not get silence (M4); the resumable design makes the hint true.
+    try {
+      log(
+        `  Import hit an error (${err?.message ?? err}) — run \`cmk import-sessions\` to resume; finished sessions are kept.`,
+      );
+    } catch {
+      // even the log is best-effort
+    }
+    return { action: 'error' };
   }
 }
 

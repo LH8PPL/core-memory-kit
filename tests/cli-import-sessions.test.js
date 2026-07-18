@@ -38,6 +38,7 @@ import {
   DEFAULT_MAX_SESSIONS,
   SUMMARY_MAX_BYTES,
   IMPORT_INPUT_MAX_BYTES,
+  ACTIVE_SESSION_GRACE_MS,
 } from '../packages/cli/src/import-sessions.mjs';
 import { openIndexDb } from '../packages/cli/src/index-db.mjs';
 import { reindexBoot } from '../packages/cli/src/index-rebuild.mjs';
@@ -398,6 +399,89 @@ describe('importSessions — selection bounds (picker semantics)', () => {
       projectRoot, backend: makeBackend(4), now: NOW, harnessRoot, allProjects: true,
     });
     expect(all.discovered).toBe(4);
+  });
+});
+
+describe('importSessions — skill-review fixes (B1/I1/M2/M3)', () => {
+  it('M2: the day-file MARKER is a working resume point on its own — ledger deleted, re-run buys nothing', async () => {
+    writeSessionJsonl(
+      harnessRoot,
+      slug,
+      UUID_A,
+      [{ role: 'user', ts: '2026-06-01T09:00:00Z', text: 'Marker-guard content.' }],
+      { mtime: '2026-06-01T10:00:00Z' },
+    );
+    await importSessions({ projectRoot, backend: makeBackend(1), now: NOW, harnessRoot });
+    // Simulate a crash between the day-file append and the ledger append.
+    rmSync(ledgerPath());
+    expect(readImportedSessionIds(projectRoot).has(UUID_A)).toBe(true); // via marker
+    const backend2 = makeBackend(1);
+    const rerun = await importSessions({ projectRoot, backend: backend2, now: NOW, harnessRoot });
+    expect(backend2.calls).toHaveLength(0);
+    expect(rerun.alreadyImported).toBe(1);
+  });
+
+  it('M3: a still-active session (fresh mtime) is deferred un-ledgered, and imports once quiet', async () => {
+    writeSessionJsonl(
+      harnessRoot,
+      slug,
+      UUID_A,
+      [{ role: 'user', ts: '2026-07-18T11:59:00Z', text: 'In-flight session content.' }],
+      { mtime: NOW }, // mtime == now → inside the grace window
+    );
+    const backend = makeBackend(1);
+    const result = await importSessions({ projectRoot, backend, now: NOW, harnessRoot });
+    expect(result.skippedActive).toBe(1);
+    expect(result.imported).toEqual([]);
+    expect(backend.calls).toHaveLength(0);
+    expect(existsSync(ledgerPath())).toBe(false); // NOT ledgered — imports later
+
+    // The same session, once quiet (now advanced past the grace window), imports.
+    const later = new Date(new Date(NOW).getTime() + ACTIVE_SESSION_GRACE_MS + 60_000).toISOString();
+    const backend2 = makeBackend(1);
+    const second = await importSessions({ projectRoot, backend: backend2, now: later, harnessRoot });
+    expect(second.imported).toHaveLength(1);
+  });
+
+  it('I1: an empty backend output FAILS the unit (not ledgered) — the re-run retries and succeeds', async () => {
+    writeSessionJsonl(
+      harnessRoot,
+      slug,
+      UUID_A,
+      [{ role: 'user', ts: '2026-06-01T09:00:00Z', text: 'Hiccup-prone content.' }],
+      { mtime: '2026-06-01T10:00:00Z' },
+    );
+    const empty = new MockHaikuBackend({
+      responses: [{ outputText: '   ', inputTokens: 1, outputTokens: 0, costUSD: 0, preservedIds: [] }],
+    });
+    const first = await importSessions({ projectRoot, backend: empty, now: NOW, harnessRoot });
+    expect(first.imported).toEqual([]);
+    expect(first.failed).toEqual([{ sessionId: UUID_A, error_category: 'empty-summary' }]);
+    expect(existsSync(dayFile('2026-06-01'))).toBe(false); // no marker-only block
+    expect(readImportedSessionIds(projectRoot).has(UUID_A)).toBe(false);
+
+    const backend2 = makeBackend(1);
+    const second = await importSessions({ projectRoot, backend: backend2, now: NOW, harnessRoot });
+    expect(second.imported).toHaveLength(1);
+  });
+
+  it('B1: an upgraded project with an OLD managed gitignore block gets it refreshed before the raw floor is written', async () => {
+    seedThreeSessions();
+    // Simulate the pre-0.6.0 install: rewrite .gitignore with an old-style
+    // managed block that lacks the imported/ line.
+    const giPath = join(projectRoot, '.gitignore');
+    writeFileSync(
+      giPath,
+      '# core-memory-kit:gitignore:start v0.5.5\ncontext.local/\ncontext/.index/\ncontext/.locks/\n# core-memory-kit:gitignore:end\n',
+      'utf8',
+    );
+    const result = await importSessions({ projectRoot, backend: makeBackend(3), now: NOW, harnessRoot });
+    expect(result.rawFloorProtected).toBe(true);
+    const gi = readFileSync(giPath, 'utf8');
+    expect(gi).toContain('context/transcripts/imported/');
+    expect(
+      existsSync(join(projectRoot, 'context', 'transcripts', 'imported', `${UUID_A}.md`)),
+    ).toBe(true);
   });
 });
 

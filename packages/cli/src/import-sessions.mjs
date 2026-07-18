@@ -52,12 +52,15 @@
 import {
   existsSync,
   mkdirSync,
+  mkdtempSync,
   readdirSync,
   readFileSync,
   appendFileSync,
   statSync,
 } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
+import { refreshGitignoreBlock } from './install.mjs';
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { discoverSessions, extractTranscript, harnessSlugForPath } from './transcripts.mjs';
@@ -90,8 +93,27 @@ const LEDGER_REL = ['context', 'sessions', 'imported-sessions.md'];
 const RAW_IMPORT_REL = ['context', 'transcripts', 'imported'];
 const SESSIONS_REL = ['context', 'sessions'];
 
-const SESSION_UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+// ONE id shape for BOTH resume-point reads (skill-review M1): discovery
+// accepts any 36-char [0-9a-f-] basename (transcripts.mjs UUID_RE), so the
+// ledger scan and the day-file marker scan must accept the same — a stricter
+// ledger regex would re-import a loose-shaped id forever once its day file
+// rotates. Ledger scan is anchored to the written line format.
+const LEDGER_LINE_RE = /^- \S+ ([0-9a-f-]{36}) slug:/gim;
 const MARKER_RE = /<!-- imported-session: ([0-9a-f-]{36})/gi;
+
+// Skill-review M3: a session whose jsonl changed within this window is
+// (very likely) STILL RUNNING — importing it would summarize a partial
+// transcript, permanently ledger it, and duplicate what the live Stop-hook
+// pipeline is already capturing. Skip it un-ledgered; it imports whole once
+// it goes quiet.
+export const ACTIVE_SESSION_GRACE_MS = 5 * 60 * 1000;
+
+// Skill-review I1: an empty or refusal-shaped backend output must FAIL the
+// unit (not ledgered → retried next run) — otherwise a claude-CLI hiccup
+// that exits 0 with empty stdout permanently consumes the session with a
+// marker-only day block. Sibling precedent: daily-distill banks only
+// non-empty output; transcript-screen has outputPassesRejectGate.
+const REFUSAL_RE = /^(i\s*(?:can\s*not|cannot|can't|am\s+unable|'m\s+unable)|i'm\s+sorry|i\s+apologize|as\s+an\s+ai)/i;
 
 const LEDGER_HEADER = [
   '# Imported sessions — `cmk import-sessions`',
@@ -158,7 +180,7 @@ export function readImportedSessionIds(projectRoot) {
     } catch {
       text = '';
     }
-    for (const m of text.matchAll(SESSION_UUID_RE)) ids.add(m[0].toLowerCase());
+    for (const m of text.matchAll(LEDGER_LINE_RE)) ids.add(m[1].toLowerCase());
   }
   const sessionsDir = join(projectRoot, ...SESSIONS_REL);
   if (existsSync(sessionsDir)) {
@@ -273,8 +295,14 @@ export async function importSessions({
   }
 
   const done = readImportedSessionIds(projectRoot);
-  const fresh = discovered.filter((s) => !done.has(s.sessionId.toLowerCase()));
-  const alreadyImported = discovered.length - fresh.length;
+  const notDone = discovered.filter((s) => !done.has(s.sessionId.toLowerCase()));
+  const alreadyImported = discovered.length - notDone.length;
+
+  // Skip likely-still-running sessions (M3): un-ledgered, so they import
+  // whole once quiet — never a partial summary + a live-capture duplicate.
+  const activeCutoffMs = new Date(ts).getTime() - ACTIVE_SESSION_GRACE_MS;
+  const fresh = notDone.filter((s) => s.mtimeMs <= activeCutoffMs);
+  const skippedActive = notDone.length - fresh.length;
 
   // discoverSessions sorts newest-first: the cap keeps the NEWEST history
   // (the most valuable on day one), then we process oldest-first so day
@@ -287,6 +315,7 @@ export async function importSessions({
       action: 'dry-run',
       discovered: discovered.length,
       alreadyImported,
+      skippedActive,
       selected: selected.length,
       imported: [],
       screened_out: [],
@@ -317,10 +346,30 @@ export async function importSessions({
   const failed = [];
   const privacyOn = resolvePrivacyScreen({ projectRoot }) === 'on';
 
+  // B1 (skill-review, fail-closed): the raw floor holds UN-screened text on a
+  // path only the v0.6.0 gitignore fragment covers — an upgraded-but-not-
+  // reinstalled project's old managed block would let `git add context/`
+  // commit it. Refresh the managed block via the install machinery, then
+  // VERIFY coverage; unverifiable → raw extracts go to a temp dir instead
+  // (the summaries still flow — the floor is skipped, honestly reported).
+  refreshGitignoreBlock(projectRoot);
+  let rawFloorProtected = false;
+  try {
+    const giText = readFileSync(join(projectRoot, '.gitignore'), 'utf8');
+    rawFloorProtected =
+      giText.includes('context/transcripts/imported/') ||
+      /^context\/transcripts\/\s*$/m.test(giText);
+  } catch {
+    rawFloorProtected = false;
+  }
+  const rawDir = rawFloorProtected
+    ? rawImportDir(projectRoot)
+    : mkdtempSync(join(tmpdir(), 'cmk-import-raw-'));
+
   for (const s of selected) {
     const sessionId = s.sessionId.toLowerCase();
     // 1. Raw floor (ADR-0010): extract to the gitignored imported/ dir.
-    const rawPath = join(rawImportDir(projectRoot), `${sessionId}.md`);
+    const rawPath = join(rawDir, `${sessionId}.md`);
     const extracted = extractTranscript({ inputPath: s.jsonlPath, outputPath: rawPath });
     if (extracted.action !== 'completed') {
       failed.push({ sessionId, error_category: extracted.errorCategory ?? 'extract-failed' });
@@ -381,8 +430,15 @@ export async function importSessions({
       continue; // NOT ledgered — the next run retries this session.
     }
 
-    // 3. L1 mask + the committed-write screen (216).
+    // I1: empty/refusal output = FAILURE (not ledgered → retried next run),
+    // never a permanently-consumed session with a marker-only day block.
     let summary = String(result.outputText ?? '').trim();
+    if (summary === '' || REFUSAL_RE.test(summary)) {
+      failed.push({ sessionId, error_category: 'empty-summary' });
+      continue;
+    }
+
+    // 3. L1 mask + the committed-write screen (216).
     if (privacyOn) {
       summary = maskPii(summary, { usernames: localUsernames() }).text;
     }
@@ -435,10 +491,12 @@ export async function importSessions({
     action: 'completed',
     discovered: discovered.length,
     alreadyImported,
+    skippedActive,
     selected: selected.length,
     imported,
     screened_out: screenedOut,
     failed,
     indexSynced,
+    rawFloorProtected,
   };
 }
