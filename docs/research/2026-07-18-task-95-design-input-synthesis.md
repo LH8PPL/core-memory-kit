@@ -1,0 +1,37 @@
+# Task-95 design-input synthesis — the full research base, re-read (the D-349 review, step 1)
+
+**Date:** 2026-07-18 · **Method:** per-source re-extraction of all eleven 95-relevant sources (the ten recorded notes/ADR below + the [Sleep-paradigm paper](2026-07-18-sleep-paradigm-memory-consolidation.md) ingested the same day), by a dedicated extraction pass — findings only, no verdicts — then synthesized against the two open forks. **Sources:** Anthropic Dreams (2026-06-04) · curation-cluster code study (2026-06-29) · Memora (2026-07-03) · the five-source sweep (2026-07-10: AutoMem/stash/Always-On survey) · mem0/graphiti/memory-os dive (2026-06-06) · TencentDB code dive (2026-06-15) · memclaw (2026-06-12) · ruflo (2026-06-12) · memory-os review (2026-06-04) · ADR-0017 · Sleep (arXiv 2606.03979). _Point-in-time record; the grill outcome graduates to an ADR._
+
+## What the research already SETTLES (convergent — the grill does not re-open these)
+
+1. **The op set: ADD / UPDATE / SUPERSEDE-mark — never DELETE.** Unanimous across the code-dived systems (curation-cluster verdict; graphiti's `expired_at`-never-delete; memclaw archive-not-delete; letta condense-not-evict) and the kit's own D-61/D-163 posture. The losing side of latest-wins is supersede/anti-pattern material, never erasure (ADR-0017 Decision #5).
+2. **The layered recipe: deterministic floor → ONE batched LLM pass → code decides.** Hash-dedup floor free of LLM (mem0 abandoned its per-write LLM judge — evidence it's too costly/unstable per-write); one off-hot-path LLM pass finds duplicate/contradiction *candidates* (graphiti `resolve_edge`; TencentDB's batch unified-pool prompt with `{store,update,merge,skip}` + multi-target ids + timestamp-union); **which-wins is decided by EVENT-TIME, not the LLM**; the LLM proposes membership + wording, **code validates ids against the corpus and rejects hallucinations** (the D-230 unanimous bridge discipline: arithmetic counts, the LLM never counts).
+3. **Merge aggressiveness stays conservative.** Two independent empirical warnings: Memora App. F (θ 0.80→0.6 = 3.4× merges, NO quality gain; update ratio flat 16.5–22.2% as stores grow) + Sleep Fig. 4 (a faster-churning stable tier *hurts* retention). Similarity finds candidates; a judge (LLM or user) decides; never auto-merge on distance.
+4. **Read RAW, not derivatives.** The D-44 lesson, re-validated empirically by Memora (raw-segment grounding 0.863 vs extracted-summary 0.838) and architecturally by Sleep (offline consolidation must re-process at a different abstraction level, not replay the same one — the exact critique of the kit's in-place `weekly-curate`).
+5. **Ordering invariants (Sleep):** consolidate BEFORE the fast tier rolls (the lifecycle-G8 loss spot — schedule the pass against the today→archive roll); compute→consolidate→update (the output is a *prospective* state, validated before applied; input preserved until confirmed); write into NEW capacity; prune the source only AFTER adoption.
+6. **Governance obligations the pass inherits:** provenance-through-consolidation (a condensed claim keeps a source pointer — Task 213; "lossy summarization is where provenance dies"); **deletion propagation** (a rebuild from raw transcripts must not resurrect forgotten facts — Task 210's check becomes a REGRESSION GATE input for 95); AOEP two-sided tests; every skip carries a stated reason (stash's never-silent-drop); partial output preserved on failure (Dreams) = the kit's ADR-0020 resumability.
+7. **Insight surfacing is judgment-shaped → provisional, confidence-visible, never auto-ranked** (ADR-0017's judgment contract); trajectory capture (ruflo) is at most an insight *category*, unverified.
+8. **A regression gate on the pass's own output.** AutoMem (keep a rewrite only if metrics improve on fixed seeds) + Sleep (dreams kept only if they measurably improve) + Task-212's stats as the kit's cheap deterministic metric set.
+
+## F1 — how the output lands (the grill's REAL question, sharpened)
+
+The evidence does not support a binary. It supports a **split by op class**:
+
+- **For a review-gate:** Dreams' contract at the origin ("input never modified → output reviewable; adopt or discard; safe by construction"); the Task-95 filing's own word ("reviewable, not per-write"); SETTLED D-126 (no auto-commit); Sleep's validate-before-apply protocol; Task 199's propose-and-approve precedent.
+- **For bounded auto-apply:** every scaled system auto-applies *non-destructive* ops (stash appends dated `## Updates` blocks, never overwrites; graphiti marks, never deletes); ADR-0017's posture is "automatic-first, human-optional" where the channel is **screened + bounded + audited** (the feedback-screen template: rate-limit, burst-hold, every-Δ logged); Memora's flat 16.5–22.2% merge rate says the op volume is tractable either way; TencentDB proves inline auto-resolve works at scale (while the kit deliberately keeps the safer queue as fallback).
+- **The sharpened grill question:** *which op classes auto-apply and which queue?* A defensible strawman for the grill: deterministic/non-destructive ops (hash-dedup, event-time supersede-marks with both sides retained) auto-apply under the feedback-screen-style envelope; **lossy or generative ops** (merged wording, new insight entries, anything touching a high-trust fact) land as a reviewable adopt-or-discard diff. Git is the rollback for both (rollback = the field's rarest capability, 27/435 — the kit gets it free).
+
+## F2 — raw-transcript privacy (the evidence is one-sided)
+
+- **The binding precedent is the kit's own:** ADR-0017 Decision #4 refused to ship an unscreened memory-mutating channel (feedback). A curation LLM reading unscreened verbatim transcripts and emitting memory ops is a third such channel — *no ship without a screen*.
+- **The kit already treats unscreened-raw-as-LLM-input as a competitor deficiency** (stash "streams raw verbatim — no per-fact screen" is recorded as a kit WIN; TencentDB has "no equivalent" of the write-boundary screen).
+- **The machinery exists:** Task 216's `screenBeforeCommittedWrite` already covers the curate/distill side-doors' input+output; Task 70.5's source-trust tiers add the missing provenance dimension (transcripts mix user-said / tool-output / pasted-web content — not uniformly promotable to committed authority; prompt-injection-through-memory is the survey/Task-70 frame the pass inherits).
+- **The grill question reduces to:** confirm "extend the 216 screen to the 95 pass (input + output) + tag source-trust per claim" — vs the more expensive dedicated-screen design. No source argues for feeding raw verbatim unscreened.
+
+## What no source settles (grill-only)
+
+- The F1 op-class split (above) — where exactly the auto/queue line sits, and how the adopt UX composes with D-126/Task 150's propose-and-approve.
+- Scope of v1: fact-level re-curation only, or also the AutoMem-style schema/process self-audit (the sweep filed it as a *candidate* extension)?
+- Cadence: scheduled against the today→archive roll (the Sleep invariant) vs cron-idle vs user-invoked (`cmk dream`?) — and its cost envelope (Dreams bills per token; the kit's pass reads 1–100 transcripts).
+
+_Relates: Task 95 (the consumer), D-349 (the review trigger — this completes the existing-base re-read; the user's papers continue to land as their own notes), D-126/Task 150 (the adopt UX it must compose with), Tasks 210/212/213/216/70.5 (the shipped organs the pass composes with), ADR-0017 (the loop it is an organ of)._
