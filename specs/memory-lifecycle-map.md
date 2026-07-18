@@ -50,7 +50,7 @@ Legend: ✓ intent matches code · ✗ gap (design says X, code does Y) · ~ par
 ## Edge-by-edge: intent vs. code
 
 | # | Edge | Trust gate | Cap | Dedup | On evict/overflow | Intent vs code |
-|---|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- | --- |
 | 1 | **capture → route** (auto-extract) | H→mem, M→review queue, L→discard; assistant-origin demoted 1 level | — | within-call, **canonical-ID (literal only)** | **LOW discarded → `low_trust_discarded` trace in extract.log** | ✅ G6 fixed (Task 92, D-67): drop logs excerpt+reason; literal dedup still misses rewordings (G5) |
 | 2 | **explicit `cmk remember`** | terse→bullet, rich→fact file | bullet hits MEMORY.md cap | fact: by-ID; bullet: scratchpad | n/a | ✗ **no cross-store dedup** → bullet + fact file double-capture (G3) |
 | 3 | **route → MEMORY.md** (appendScratchpadBullet) | high only (from auto-extract) | **2500B**, trigger 95% | none at append | consolidate, then CAP_EXCEEDED | ✗ no append-time content dedup |
@@ -87,7 +87,7 @@ Legend: ✓ intent matches code · ✗ gap (design says X, code does Y) · ~ par
 ## Consolidated gaps (the class, with severity + task home)
 
 | Gap | What | Severity | Home |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **G1** | ~~Graduation unbuilt → write-lock~~ — **project MEMORY.md graduation SHIPPED** (Task 91, PR #113; cap-pressure safety valve, transactional, search-only); user-tier graduation still deferred | shipped | Task 91 (#113) |
 | **G2** | consolidate() hard-deletes L/M >14d, no tombstone (violates §6.5) | High | Task 91.2 (filed). _Its derived-layer cousin — a tombstoned fact surviving in a distilled summary — is closed by **Task 210** (edge #26): forward filter + HC-12 report._ |
 | **G3** | No cross-store dedup → bullet + fact-file double-capture | High | Task 91.1 (filed) |
