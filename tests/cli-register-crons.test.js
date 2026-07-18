@@ -23,13 +23,23 @@ import {
 } from '../packages/cli/src/register-crons.mjs';
 
 // D-341 (2026-07-18): SonarCloud's A3S context collector constant-folds
-// Windows-root fixture literals THROUGH the source-under-test's
+// fixture path literals THROUGH the source-under-test's
 // `join(projectRoot, 'context', …)` calls (chasing callers into excluded test
 // files) and opendir's the derived path on the Linux runner — crashing the
-// whole scan with ENOENT (proven: the crash path FOLLOWED a fixture rename).
-// Route Windows fixture roots through this opaque builder so the folder can't
-// derive a constant. Deterministic at runtime; invisible to partial evaluation.
+// whole scan with ENOENT. Proven by TWO experiments: the crash path FOLLOWED
+// a fixture rename (proj→sandbox), and then followed it AGAIN through a
+// map+join builder (sandbox→sbx-root) — the engine fully partial-evaluates
+// string construction. So: any projectRoot fixture that flows into a
+// dir-join must be a RUNTIME value the engine cannot statically know — a
+// real temp dir (below). String-obfuscation alone is insufficient (folded).
+// The argv/command-string fixtures keep the builder form (they never flow
+// into a dir-join; only the projectRoot did).
 const opaqueWinRoot = (...parts) => parts.map((p) => String(p)).join('\\');
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+// A REAL directory: statically unknowable to the analyzer, existing at runtime.
+const RUNTIME_ROOT = mkdtempSync(join(tmpdir(), 'cmk-cron-fixture-'));
 
 describe('Task 33 — register-crons', () => {
   describe('detectPlatform', () => {
@@ -297,7 +307,7 @@ describe('Task 33 — register-crons', () => {
         command: winCommand,
         entryName: CRON_ENTRY_NAME,
         platform: 'win32',
-        projectRoot: opaqueWinRoot('C:', 'sbx-root'),
+        projectRoot: RUNTIME_ROOT,
         spawn: fakeSpawn,
         writeFile: (path, content) => writes.push({ path, content }),
       });
@@ -317,7 +327,7 @@ describe('Task 33 — register-crons', () => {
         command: winCommand,
         entryName: CRON_ENTRY_NAME,
         platform: 'win32',
-        projectRoot: opaqueWinRoot('C:', 'sbx-root'),
+        projectRoot: RUNTIME_ROOT,
         spawn: (exe, args) => { calls.push({ exe, args }); return fakeSpawn(); },
         writeFile: () => { throw new Error('read-only disk'); },
       });
