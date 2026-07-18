@@ -72,7 +72,7 @@ describe('Task 104.1 — extractTurnToolActivity (pure JSONL → Tools block)', 
       assistantTools(['a', 'Read', { file_path: 'old.txt' }]),
       toolResult('a', 'old body'),
       userPromptStr('the string-content prompt'),
-      assistantTools(['b', 'Read', { file_path: 'C:/proj/new.txt' }]),
+      assistantTools(['b', 'Read', { file_path: 'C:/sandbox/new.txt' }]),
       toolResult('b', 'new body'),
     ].join('\n');
     const block = extractTurnToolActivity(jsonl);

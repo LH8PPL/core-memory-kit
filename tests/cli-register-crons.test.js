@@ -196,7 +196,7 @@ describe('Task 33 — register-crons', () => {
     // The REAL command: absolute node + script + projectRoot, each double-quoted
     // (paths have spaces). This quoted triple is what tripped the old guard.
     const winCommand =
-      '"C:\\Program Files\\nodejs\\node.exe" "C:\\proj\\bin\\cmk-daily-distill.mjs" "C:\\My Proj"';
+      '"C:\\Program Files\\nodejs\\node.exe" "C:\\sandbox\\bin\\cmk-daily-distill.mjs" "C:\\My Proj"';
 
     it('buildWindowsSchtasks returns an ARGV array with /TR = the command VERBATIM (not a shell string)', () => {
       const argv = buildWindowsSchtasks({ command: winCommand, entryName: CRON_ENTRY_NAME, hour: 23, minute: 0 });
@@ -214,14 +214,16 @@ describe('Task 33 — register-crons', () => {
     });
 
     it('Task 215: with a shimPath, /TR runs `wscript //B //Nologo "<shim>"` (no direct console binary → no window)', () => {
-      // Fixture path deliberately avoids the repo's real dir names (`context`,
-      // `.locks`): SonarCloud's A3S Scan-Manifest context collector reads test
+      // Fixture path deliberately avoids the repo's real dir names ("context",
+      // ".locks"): SonarCloud's A3S Scan-Manifest context collector reads test
       // files IGNORING sonar.exclusions, extracts path-like literals that match
-      // real project layout, and opendir's them on the Linux runner — the
-      // literal `C:\proj\context\...` here was the trigger of the exit-3 scan
-      // crash that started the minute PR #278 merged (D-341 root-cause
-      // correction, 2026-07-18). The test's contract (wscript //B //Nologo
-      // wrapping of an absolute Windows shim path) is unchanged.
+      // real project layout, and opendir's them on the Linux runner — the old
+      // drive-letter fixture here (drive + proj + the context dir name) was the
+      // trigger of the exit-3 scan crash that started the minute PR #278 merged
+      // (D-341 root-cause correction, 2026-07-18; the literal itself is not
+      // repeated in this comment for exactly that reason). The test's contract
+      // (wscript //B //Nologo wrapping of an absolute Windows shim path) is
+      // unchanged.
       const shimPath = 'C:\\shimdir\\cmk-daily-distill-run.vbs';
       const argv = buildWindowsSchtasks({ command: winCommand, entryName: CRON_ENTRY_NAME, hour: 23, minute: 0, shimPath });
       const trIdx = argv.indexOf('/TR');
@@ -231,7 +233,7 @@ describe('Task 33 — register-crons', () => {
     });
 
     it('Task 215: buildWindowlessShim wraps the command in a hidden WshShell.Run (windowStyle 0, wait True) with quotes escaped', () => {
-      const vbs = buildWindowlessShim('"C:\\node.exe" "C:\\x.mjs" "C:\\proj"');
+      const vbs = buildWindowlessShim('"C:\\node.exe" "C:\\x.mjs" "C:\\sandbox"');
       expect(vbs).toContain('CreateObject("WScript.Shell")');
       // windowStyle 0 = hidden; True = wait for exit (so the schtask's LastResult reflects the real run).
       expect(vbs).toMatch(/\.Run ".*", 0, True/);
@@ -286,7 +288,7 @@ describe('Task 33 — register-crons', () => {
         command: winCommand,
         entryName: CRON_ENTRY_NAME,
         platform: 'win32',
-        projectRoot: 'C:\\proj',
+        projectRoot: 'C:\\sandbox',
         spawn: fakeSpawn,
         writeFile: (path, content) => writes.push({ path, content }),
       });
@@ -306,7 +308,7 @@ describe('Task 33 — register-crons', () => {
         command: winCommand,
         entryName: CRON_ENTRY_NAME,
         platform: 'win32',
-        projectRoot: 'C:\\proj',
+        projectRoot: 'C:\\sandbox',
         spawn: (exe, args) => { calls.push({ exe, args }); return fakeSpawn(); },
         writeFile: () => { throw new Error('read-only disk'); },
       });
