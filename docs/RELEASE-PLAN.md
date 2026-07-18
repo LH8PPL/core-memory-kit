@@ -263,6 +263,12 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
      decided before code). Rider: **Task 228** (proactive-memory connectors GO/NO-GO ADR — the
      OpenWiki Brains class; the in-theme cut = other-agents' session stores as 225 import
      sources; external SaaS connectors decided deliberately, likely NO).
+     **⚠️ SLOT CONTENTION to decide at the v0.6.0-cut sweep (noted 2026-07-18, post-D-352):**
+     **Task 95** (dream re-curation — design DONE at design §21, forkless, build-ready) now also
+     wants the after-v0.6.0 slot. The fork: 95-first (the import→re-curate synergy — 225's bulk
+     imports produce exactly the mess 95 cleans, and the imported corpora are 95's ideal live-test
+     input) vs 127-first (the fired TeamOS demand signal). Both are minor-worthy differentiators;
+     neither is committed to the digit — decide at the cut, not before.
   _Task 208 (the Cursor interactive gate) is a gate RUN, not a release — it fires on token refresh
   (~2026-07-24) and rides whatever slot is current when it runs. Per D-157 the minor DIGITS above
   are "expected" — the order + content are the commitment; a ready security-patch may re-stamp._
