@@ -22,6 +22,15 @@ import {
   WEEKLY_ENTRY_NAME,
 } from '../packages/cli/src/register-crons.mjs';
 
+// D-341 (2026-07-18): SonarCloud's A3S context collector constant-folds
+// Windows-root fixture literals THROUGH the source-under-test's
+// `join(projectRoot, 'context', …)` calls (chasing callers into excluded test
+// files) and opendir's the derived path on the Linux runner — crashing the
+// whole scan with ENOENT (proven: the crash path FOLLOWED a fixture rename).
+// Route Windows fixture roots through this opaque builder so the folder can't
+// derive a constant. Deterministic at runtime; invisible to partial evaluation.
+const opaqueWinRoot = (...parts) => parts.map((p) => String(p)).join('\\');
+
 describe('Task 33 — register-crons', () => {
   describe('detectPlatform', () => {
     it('returns process.platform', () => {
@@ -288,7 +297,7 @@ describe('Task 33 — register-crons', () => {
         command: winCommand,
         entryName: CRON_ENTRY_NAME,
         platform: 'win32',
-        projectRoot: 'C:\\sandbox',
+        projectRoot: opaqueWinRoot('C:', 'sandbox'),
         spawn: fakeSpawn,
         writeFile: (path, content) => writes.push({ path, content }),
       });
@@ -308,7 +317,7 @@ describe('Task 33 — register-crons', () => {
         command: winCommand,
         entryName: CRON_ENTRY_NAME,
         platform: 'win32',
-        projectRoot: 'C:\\sandbox',
+        projectRoot: opaqueWinRoot('C:', 'sandbox'),
         spawn: (exe, args) => { calls.push({ exe, args }); return fakeSpawn(); },
         writeFile: () => { throw new Error('read-only disk'); },
       });
