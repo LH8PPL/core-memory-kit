@@ -7333,6 +7333,7 @@ _(retracted 2026-07-15)_
 <!-- decision:P-BCEHTFEP -->
 
 ## 0.4.1 release gate workflow is: 0a (commit/push) → 0b (pack/install) → backup →
+_(retracted 2026-07-18)_
 
 **When:** 2026-06-26 · **Fact:** `P-BCEHTFEP`
 
@@ -12530,6 +12531,7 @@ _(retracted 2026-07-08)_
 <!-- decision:P-2YXUGHZJ -->
 
 ## SonarCloud Scanner Crash — Root Cause and Resolution Path
+_(retracted 2026-07-18)_
 
 **When:** 2026-07-12 · **Fact:** `P-2YXUGHZJ`
 **Why:** Prevents fruitless repo-level troubleshooting. Key insight: SonarCloud crashes rooted in server settings are not fixable from the repo.
@@ -12565,6 +12567,7 @@ _(retracted 2026-07-08)_
 <!-- decision:P-LQ9ZQHPZ -->
 
 ## SonarCloud Stale Source Path Requires Manual Web-UI Clear
+_(retracted 2026-07-18)_
 
 **When:** 2026-07-12 · **Fact:** `P-LQ9ZQHPZ`
 **Why:** The path is no longer valid (codebase refactored) and causes red flags in the build dashboard; clearing it via web UI will resolve the flag.
@@ -13235,6 +13238,7 @@ _(retracted 2026-07-13)_
 <!-- decision:P-MNR7R9UW -->
 
 ## SonarCloud A3S Security-Taint Server-Side Bug Root Cause
+_(retracted 2026-07-18)_
 
 **When:** 2026-07-15 · **Fact:** `P-MNR7R9UW`
 **Why:** Clarifies that the crash is third-party, not our config/code. Explains why reverting diagnostics was the right approach rather than deep-diving into our setup.
@@ -13369,3 +13373,179 @@ _(retracted 2026-07-13)_
 ## RESUME — v0.3.1 cut-gate near-complete; PR
 
 **When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-JHUDTLLF -->
+
+## When user issues directive ("commit and push everything"), execute decisively wi
+
+**When:** 2026-07-15 · **Fact:** `P-JHUDTLLF`
+
+<!-- decision:P-XF2TNZBM -->
+
+## User approved pragmatic memory maintenance (fix only real issues, accept harmles
+
+**When:** 2026-07-15 · **Fact:** `P-XF2TNZBM`
+
+<!-- decision:P-JZ4WaJFA -->
+
+## Prefers logical line breaks in markdown for readability; dislikes mid-phrase tex
+
+**When:** 2026-07-15 · **Fact:** `P-JZ4WaJFA`
+
+<!-- decision:P-ZR69HNVH -->
+
+## Wants og-image.svg updated to remove "Claude Code" and replace with new tagline:
+
+**When:** 2026-07-15 · **Fact:** `P-ZR69HNVH`
+
+<!-- decision:P-9S7BADNX -->
+
+## corrected that claim wasn't empirically tested; prefers verification by testing
+
+**When:** 2026-07-15 · **Fact:** `P-9S7BADNX`
+
+<!-- decision:P-BQRMQWYa -->
+
+## User intuitively expected `cmk install` to refresh stale skills/hooks/everything
+
+**When:** 2026-07-15 · **Fact:** `P-BQRMQWYa`
+
+<!-- decision:P-A4GU3LYU -->
+
+## Task 210 Completion + Autopilot Chain
+
+**When:** 2026-07-16 · **Fact:** `P-A4GU3LYU`
+**Why:** Task 210 near completion; workflow pattern (code → tests → gated-stress → autopilot → pause) is repeatable. Stress orphaning (restart-induced) is a known edge case; re-launching recovers state.
+
+<!-- decision:P-YaPDDL5J -->
+
+## 0.4.1 release gate workflow is: 0a (commit/push) then 0b (pack/install) then bac
+
+**When:** 2026-07-16 · **Fact:** `P-YaPDDL5J`
+
+<!-- decision:P-LS77BMUS -->
+
+## Task 95 (dream re-curation) path settled 2026-07-17: ship v0.5.5 without it; the
+
+**When:** 2026-07-17 · **Fact:** `P-LS77BMUS`
+**Why:** The user chose research-review-first over building now; they hold relevant papers not yet in the research base
+
+<!-- decision:P-AE694PBJ -->
+
+## SonarCloud Agent-Centric Development Beta Causes Crash
+
+**When:** 2026-07-17 · **Fact:** `P-AE694PBJ`
+**Why:** Root cause identified and empirically verified; Beta rollout date correlates perfectly with crash onset; reproduced across SonarJS versions
+
+<!-- decision:P-DZTLQFUD -->
+
+## SonarCloud/SonarJS 13.3.0 Does Not Fix Crash
+
+**When:** 2026-07-17 · **Fact:** `P-DZTLQFUD`
+**Why:** Eliminates hypothesis that this is a known SonarJS bug; points to environmental/feature root cause instead
+
+<!-- decision:P-HMF9AEQD -->
+
+## SonarCloud exit-3 crash RESOLVED 2026-07-18 (D-350, overturning D-341): the trig
+
+**When:** 2026-07-18 · **Fact:** `P-HMF9AEQD`
+**Why:** The wrong server-side conclusion survived three sessions because the flag-rollout correlation was real but incomplete; the original grep missed backslash-escaped fixtures (grep BOTH path-separator forms)
+
+<!-- decision:P-JJ4DBU9S -->
+
+## v0.5.5 published 2026-07-18: @lh8ppl/core-memory-kit@0.5.5 on npm (latest, prove
+
+**When:** 2026-07-18 · **Fact:** `P-JJ4DBU9S`
+
+<!-- decision:P-GP5CEG9H -->
+
+## Task 95 Research Review — Design Synthesis Status
+
+**When:** 2026-07-18 · **Fact:** `P-GP5CEG9H`
+**Why:** Research base now synthesized; design frame emerging and externally validated; remaining questions are more focused.
+
+<!-- decision:P-JBTVZ9JZ -->
+
+## User submitted first research paper for Task 95 review (Language Models Need Sle
+
+**When:** 2026-07-18 · **Fact:** `P-JBTVZ9JZ`
+
+<!-- decision:P-LRQ5GQU5 -->
+
+## Task 95 design forks SETTLED 2026-07-18 (D-352): (F1) op-class split — non-destr
+
+**When:** 2026-07-18 · **Fact:** `P-LRQ5GQU5`
+**Why:** The grill ran after the 11-source research review; the user explicitly challenged whether recommendations were effort-driven — F2's answer was merits (shared-screen prevents drift), scope's answer was sequencing (self-audit builds on the proven envelope), both recorded honestly
+
+<!-- decision:P-BDPLJ5AQ -->
+
+## Patch Release Strategy
+
+**When:** 2026-07-18 · **Fact:** `P-BDPLJ5AQ`
+**Why:** Prevents unnecessary release churn; users only receive patches for genuine user-facing fixes. Clarifies why v0.5.6 does not pre-exist.
+
+<!-- decision:P-LRB6JNQM -->
+
+## Task Classification and Audit System
+
+**When:** 2026-07-18 · **Fact:** `P-LRB6JNQM`
+**Why:** The project uses mixed versioning and event-driven sequencing. Regular audits keep task-to-lane mappings and trigger states synchronized with reality.
+
+<!-- decision:P-GKLSaB6Y -->
+
+## Backlog Disposition Audit Results — 2026-07-18
+
+**When:** 2026-07-18 · **Fact:** `P-GKLSaB6Y`
+**Why:** Audit reveals task-drift before v0.6.0 cut. Monitoring gap allowed 11 triggers to fire unnoticed; laning drift caused stale entries to survive multiple versions. Sub-task checkbox decay in shipped parents.
+
+<!-- decision:P-9F5aKB6J -->
+
+## Core Memory Kit Solves Discipline, Not Storage
+
+**When:** 2026-07-18 · **Fact:** `P-9F5aKB6J`
+**Why:** User's lived experience: started with simple files + hooks + rules, found Claude Code still didn't reliably remember/act. Kit emerged to solve systematic discipline.
+
+<!-- decision:P-MGC6MEGJ -->
+
+## User created core-memory-kit (github.com/LH8PPL/core-memory-kit) after discoveri
+
+**When:** 2026-07-18 · **Fact:** `P-MGC6MEGJ`
+
+<!-- decision:P-TWBH3a93 -->
+
+## v0.5.4 is current version; tarball at packages/cli/lh8ppl-core-memory-kit-0.5.4.
+
+**When:** 2026-07-18 · **Fact:** `P-TWBH3a93`
+
+<!-- decision:P-a3MV5PVK -->
+
+## The nightly distill schtask CAN be triggered on demand: 'schtasks /Run /TN cmk-d
+
+**When:** 2026-07-18 · **Fact:** `P-a3MV5PVK`
+**Why:** Corrects a mis-captured auto-extract fact (P-G4EATW57, now tombstoned) that claimed on-demand triggering was impossible — the claim was disproven minutes later in the same session
+
+<!-- decision:P-HQJGUaYF -->
+
+## v0.7.0 Assignment Fork at v0.6.0 Cut
+
+**When:** 2026-07-18 · **Fact:** `P-HQJGUaYF`
+**Why:** This fork shapes the post-v0.6.0 roadmap and release priority.
+
+<!-- decision:P-LPM24M4G -->
+
+## Session-state 2026-07-18 (pre-compact checkpoint): v0.5.5 PUBLISHED (231/230/96/
+
+**When:** 2026-07-18 · **Fact:** `P-LPM24M4G`
+
+<!-- decision:P-7DQUA2NE -->
+
+## Post-Compact Session Entry Point
+
+**When:** 2026-07-18 · **Fact:** `P-7DQUA2NE`
+**Why:** Post-compact session needs explicit, specific resumption point.
