@@ -143,6 +143,7 @@ Hybrid will fuse keyword + semantic (RRF) once the Layer-5b backend lands.
 | `cmk roll --scope now\|today\|recent` | Manually trigger compression |
 | `cmk repair --hooks\|--locks\|--index\|--all` | Idempotent self-repair |
 | `cmk forget <id>` | Tombstone a fact (preserves audit trail) |
+| `cmk import-sessions --dry-run` | Preview bootstrapping memory from your existing Claude Code history (day one isn't empty — `cmk install` also offers this when it detects history) |
 | `cmk import-anthropic-memory --dry-run` | Preview merging Anthropic's native auto-memory |
 
 Full reference: `cmk --help`.

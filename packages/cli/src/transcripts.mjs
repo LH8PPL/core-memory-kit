@@ -47,6 +47,16 @@ const LOCAL_STDERR_RE = /<local-command-stderr>[\s\S]*?<\/local-command-stderr>/
 
 const UUID_RE = /^([0-9a-f-]{36})\.jsonl$/i;
 
+/**
+ * The Claude Code harness slug for a project path — the directory name used
+ * under ~/.claude/projects/. Same rule the harness applies (every
+ * non-alphanumeric char → '-'); the two pre-existing inline copies live in
+ * doctor.mjs + import-anthropic-memory.mjs.
+ */
+export function harnessSlugForPath(projectRoot) {
+  return String(projectRoot).replace(/[^a-zA-Z0-9]/g, '-');
+}
+
 function stripHarnessNoise(text) {
   return String(text)
     .replace(SYSTEM_REMINDER_RE, '')

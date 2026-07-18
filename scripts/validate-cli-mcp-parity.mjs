@@ -53,6 +53,10 @@ export const PARITY_MAP = {
 export const CLI_ONLY = new Set([
   'install', 'uninstall', 'init-user-tier', 'reindex', 'doctor', 'config', 'digest',
   'import-anthropic-memory', 'import-claude-md', 'transcripts', 'purge', 'roll', 'repair',
+  // `import-sessions` is a bulk user-invoked bootstrap (interactive picker +
+  // cost consent) — the USER onboarding their history, not the model operating
+  // memory mid-session; same CLI-only class as the other import verbs (Task 225).
+  'import-sessions',
   'daily-distill', 'weekly-curate', 'persona', 'disable-native-memory',
   'enable-native-memory', 'compress', 'register-crons', 'mcp', 'version',
   // `hook` is the Kiro hook entrypoint (called by Kiro's IDE/CLI hooks, never by

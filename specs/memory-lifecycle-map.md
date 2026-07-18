@@ -43,6 +43,11 @@ Legend: ✓ intent matches code · ✗ gap (design says X, code does Y) · ~ par
   turn ─buffer──> now.md ─compress(Haiku)─> today-{date}.md ─(truncate now.md)
   today (≤7d) ─distill(per-day)─> today-{date}.distilled.md (gitignored) ─assemble─> recent.md (4096B cap, drop-oldest-first)
   today (>7d) ─curate─> archive.md (4096B) ─then UNLINK the today file
+
+  IMPORT (Task 225 — pre-kit history enters the same diary):
+  ~/.claude/projects/<slug>/<uuid>.jsonl ─extract─> transcripts/imported/<uuid>.md (gitignored raw floor, never indexed)
+        └─summarize(backend, privacy-in-prompt) ─L1 mask + screen(216)─> today-{date}.md (same day-file writer, provenance marker)
+  imported-sessions.md (committed ledger) = the resume/idempotency artifact (survives curate's rotation of the day files)
 ```
 
 ---

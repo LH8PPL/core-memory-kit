@@ -100,6 +100,10 @@ Two scheduled jobs keep the system healthy without manual intervention (register
 
 Registered via `cmk register-crons`. Translates to crontab entries (Linux), LaunchAgents (macOS), or Task Scheduler tasks (Windows). Idempotent — re-running overwrites existing entries cleanly. See [`packages/cli/src/register-crons.mjs`](packages/cli/src/register-crons.mjs) for the platform mapping.
 
+### Bootstrap import (day-one memory)
+
+`cmk import-sessions` points the acquisition machinery **backward**: existing Claude Code session history is summarized per-session into the same dated day files the live capture writes ("as if captured live"), screened before every committed write, raw-archived to a local-only floor, and indexed for search — so a fresh install starts with a populated memory instead of an empty one. `cmk install` offers it automatically when it detects history. Resumable via a committed ledger; a re-run imports only new sessions. Mechanism: design §22.
+
 ## Data flow
 
 ```

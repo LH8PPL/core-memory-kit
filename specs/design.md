@@ -3589,6 +3589,63 @@ Runs **against the today→archive roll** (the Sleep ordering invariant: consoli
 
 No DELETE op exists (only the human-only `cmk purge --hard`, §6.5). No in-entry trail-lossy merges (the Memora not-adopted line: the kit keeps separate facts + closed windows). No LLM-decided which-wins, no LLM-counted recurrence, no auto-ranked judgments, no unscreened raw-verbatim to the LLM, no self-audit mutations in phase 1 (report-only until the envelope is proven).
 
+## 22. Bootstrap import — `cmk import-sessions` (Task 225, D-326; shipped v0.6.0)
+
+The day-one-memory mechanism: a user with months of Claude Code history installs the kit
+and their memory already knows it. Origin: the 2026-07-12 market sweep (the origin
+creator's v3 `memory:import-sessions` demo — see the research note); the kit's version
+differs in exactly the places the sweep flagged as its strengths (screening + resumability).
+
+### 22.1 Pipeline (per session, oldest-first)
+
+`discoverSessions` (38b, `~/.claude/projects/<slug>/<uuid>.jsonl`) → `extractTranscript`
+(38b filter contract: text turns only, tool/thinking/system noise dropped) → raw markdown
+archived to **`context/transcripts/imported/<uuid>.md`** (the ADR-0010 floor for imported
+history — **gitignored + never indexed**: unscreened content must not travel or become
+searchable, the 148.3 invariant) → ONE agent-relative backend call (`makeBackend`, Task
+200/201) summarizes into the day-file shape (`## Decisions / ## Open Questions / ## Active
+Threads`, ≤`SUMMARY_MAX_BYTES`=1200) **with the ADR-0019 privacy instruction in the same
+call** (the sessions-tier posture: judge-in-the-prompt + L1 `maskPii`, no second call) →
+`screenBeforeCommittedWrite` (216, scope `all`) → append `today-<session-end-date>.md` via
+the shared `appendToTodayMd` writer, prefixed with a `<!-- imported-session: <uuid> … -->`
+provenance marker (Task 213) → ledger + audit (`import-applied` / `import-screened` /
+`import-skipped-empty`) → best-effort `syncTranscriptChunks` so the summaries are
+searchable immediately (scope `transcripts`; the next `reindexBoot` self-heals if it fails).
+
+### 22.2 Resumability (ADR-0020) — ledger-artifact, NOT run-once sentinel
+
+The origin creator's import is sentinel-guarded run-once — considered + **REJECTED**
+(tasks.md 225 decision trail): it can't recover a killed run and can't catch up later.
+The kit derives the resume point from artifacts: **`context/sessions/imported-sessions.md`**
+— a committed, single-writer, append-only ledger, one line per processed session
+(`imported` / `screened` / `skipped-empty`). Why a committed ledger and not day-file
+markers alone: weekly-curate ROTATES old day files into `archive.md` (Haiku-summarized —
+markers die), so only the ledger keeps idempotency durable across rotation and `git clone`.
+Day-file markers remain the secondary guard (a run killed between the day-file append and
+the ledger line re-skips via the marker scan). A failed backend call is deliberately NOT
+ledgered — the next run retries exactly the remainder. The ledger is excluded from the
+transcript-chunk index (`SESSIONS_EXCLUDE`) — a UUID list is not recallable memory.
+
+### 22.3 Consent + bounds
+
+Selection: newest-first, `DEFAULT_MAX_SESSIONS`=50 cap (`--max` / `--all` override;
+`--since` / `--slug` / `--all-projects` scope). One confirmation, default-skip, after an
+honest cost heads-up (one backend call per session on the user's subscription); `--yes`
+required non-interactively; `--dry-run` previews. **The install offer** (the automatic-path
+criterion): `cmk install` on the claude-code path detects existing history for the
+project's slug and asks the one question itself — the user never needs to know the command.
+
+### 22.4 Composition note — the curate-squash bound (open follow-up)
+
+`weekly-curate` folds ALL >7-day-old day files through ONE `archiveMaxBytes`-capped
+compress, then deletes them — so a bulk import of months gets coarser archive granularity
+than live capture would have (26 weekly folds vs 1). Mitigations shipped: the default
+selection bound + compact summaries + the raw floor (drill-down survives regardless).
+The clean fix is making weekly-curate per-week-resumable (the ADR-0020 checklist applied
+to curate — it is all-or-nothing today). **Ship trigger:** when a real bulk import (>4
+weeks of history) demonstrably degrades archive quality, or at the next curate-surface
+task, whichever first.
+
 ## End of design.md v0.1.0
 
 Sections 1-17 = full design surface. Cross-references to specific FRs and ADRs throughout. The four absorbable changes from the spec-generator comparison (tombstones §6.5, review queue §6.2, native auto-memory detection HC-8, structured logging §6.1) are baked in. §17 was tail-appended 2026-05-26 after the working-product live-test surfaced the spawn-layer Windows bug.
