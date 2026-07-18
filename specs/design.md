@@ -3554,6 +3554,41 @@ _Canonical HOW for ADR-0017 Phase 2 — the MEASURE→RETRIEVE edge, closed. Dec
 
 **Tuning instrumentation (Task 212, v0.5.3):** the blend's before/after numbers are `cmk stats memory-health` (`memory-stats.mjs` — AutoMem's Figure-4 indicator set aggregated from recall.log / audit.log / truncation.log, report-only): **empty-search rate** and **redundant-write rate** are the two the blend should move over time (fewer misses when healthy facts rank first; fewer redundant writes when recall works). Distinct from the Task-144 doctor section (content quality over the fact archive) — this is PROCESS behavior over the activity logs.
 
+## 21. Dream re-curation engine (Task 95) — the offline-consolidation pass (designed 2026-07-18, D-352; build lanes after v0.6.0)
+
+_Design written from the settled forks (D-352, the four-question grill) + the 11-source research base ([synthesis](../docs/research/2026-07-18-task-95-design-input-synthesis.md), [Sleep paradigm](../docs/research/2026-07-18-sleep-paradigm-memory-consolidation.md)). This section is the mechanism contract the build implements; no open forks remain._
+
+### 21.1 What it is
+
+The kit's **offline consolidation** organ (the Sleep paper's second phase; Anthropic Dreams' shape): a batched pass that reads **raw transcripts + the fact corpus + scratchpads** and produces re-curation ops — merge duplicates, resolve contradictions latest-wins, surface cross-session insights, prune resolved scratchpad threads (the absorbed Task-68 facet), re-curating from the RAW tier rather than derivative-over-derivative (the D-44 lesson; Memora measured raw-grounding 0.863 vs extracted 0.838). It absorbs F-D (semantic dedup), Task 55's remainder (behavioral-pattern/insight surfacing), and Task 68; `weekly-curate`'s curation half evolves into it. **Phase 2 of the same lane** (built second, on the proven envelope): the AutoMem-style **schema/process self-audit** — a meta-pass over `audit.log` + `recall.log` + the `context/memory/` tree diagnosing SYSTEMIC pathologies (unbounded append-logs, redundant-write patterns, recurring empty searches), report-only into the same review queue.
+
+### 21.2 The three-stage pass
+
+1. **Deterministic floor (zero-LLM):** canonical-ID / hash dedup over the candidate set (the mem0 lesson — they abandoned their per-write LLM judge for exactly this floor). Nothing the floor can decide reaches the LLM.
+2. **ONE batched LLM call (the TencentDB pool shape):** per new/changed memory, recall top-K=5 existing candidates (FTS5 BM25; embedding cosine at θ=0.80 when the semantic backend is present — the Memora-validated threshold; **App. F warning binding: θ stays ≥0.80, similarity only FINDS candidates**), build one de-duplicated pool, and a single call returns per-item `action ∈ {add, update, supersede, none}` + `target_ids[]` (many-to-many) + proposed wording + a **timestamps union** (feeds the Task-66 validity engine). **The LLM proposes; CODE decides:** ids are validated against the corpus (hallucinated ids rejected — the D-230 bridge discipline), **which-wins on a contradiction is decided by EVENT-TIME, never by the LLM**, and the LLM never counts recurrence.
+3. **Op application — the D-352 op-class split:**
+   - **AUTO class (non-destructive, deterministic, reversible):** exact-duplicate cleanup and event-time supersede-marks (validity-window close via the 66 engine — both sides retained, archive-not-delete). Applied under a **feedback-screen-style envelope** (ADR-0017 Decision-#4 template): per-run op budget, every op audit-logged, floor/trust rules respected, burst-hold on anomalous volumes.
+   - **QUEUE class (lossy or generative):** merged wording, NEW insight/judgment entries, scratchpad thread-pruning, and ANY op touching a high-trust fact → land as a reviewable **adopt-or-discard diff** in `context/queues/recuration.md` (the conflicts/prune queue pattern; composes with D-126/Task-150 propose-and-approve). The Dreams contract holds: **inputs are never modified; the prospective output is validated before anything applies; the source tier is pruned only AFTER adoption** (the Sleep compute→consolidate→update protocol).
+
+### 21.3 Screening + provenance (the D-352 F2 answer)
+
+Input AND output route through the **shared** `screenBeforeCommittedWrite` (Task 216 — extending the one screen; a dedicated second screen re-creates the D-337 two-screens-drift shape and is rejected). Each extracted claim carries a **source-trust tag** (Task 70.5: `user-said` / `tool-output` / `pasted-web`); only `user-said` claims may promote to committed authority through the AUTO class — the rest queue. Every condensed/merged claim keeps **source pointers** (the Task-213 pattern: source-session ids + absorbed fact ids; "lossy summarization is where provenance dies") and the merged-timestamps union.
+
+### 21.4 Scheduling + resumability
+
+Runs **against the today→archive roll** (the Sleep ordering invariant: consolidate BEFORE the fast tier loses data — the lifecycle-G8 spot), on the existing idle/cron + lazy machinery, composed with the Haiku cooldown. **Resumable per ADR-0020:** per-batch durable units, results banked as they complete, resume point derived from artifacts, partial output preserved on failure (the Dreams behavior). Insight surfacing obeys the ADR-0017 judgment contract: provisional, confidence-visible, **never auto-ranked**.
+
+### 21.5 Gates (each run, before anything lands)
+
+- **HC-12 as a regression gate:** the pass's output must not resurrect tombstoned content (deletion propagation — Task 210's check run against the prospective output).
+- **Task-212 stats probe:** before/after deterministic metrics (fact count, dup-pair estimate, queue depths) logged per run; a run that worsens them quarantines its own AUTO ops to the queue.
+- **Never-silent-skip:** every skipped item carries a stated reason in the run log (the stash discipline); every op audit-logged.
+- **Conservative by default:** merge threshold θ≥0.80; per-run op caps; the archive/persona tiers churn RARELY (Sleep Fig. 4: a fast-churning stable tier HURTS retention).
+
+### 21.6 Anti-scope (settled, not up for re-litigation at build time)
+
+No DELETE op exists (only the human-only `cmk purge --hard`, §6.5). No in-entry trail-lossy merges (the Memora not-adopted line: the kit keeps separate facts + closed windows). No LLM-decided which-wins, no LLM-counted recurrence, no auto-ranked judgments, no unscreened raw-verbatim to the LLM, no self-audit mutations in phase 1 (report-only until the envelope is proven).
+
 ## End of design.md v0.1.0
 
 Sections 1-17 = full design surface. Cross-references to specific FRs and ADRs throughout. The four absorbable changes from the spec-generator comparison (tombstones §6.5, review queue §6.2, native auto-memory detection HC-8, structured logging §6.1) are baked in. §17 was tail-appended 2026-05-26 after the working-product live-test surfaced the spawn-layer Windows bug.

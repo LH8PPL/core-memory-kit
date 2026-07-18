@@ -420,6 +420,12 @@ The irreversible whole-fact delete (Task 96, ADR-0022): `cmk purge --hard <id> -
 
 Cross-refs: [[Redact]], [[Forget]], [[Tombstone]]. Spec: design §6.5; ADR-0022.
 
+### Re-curation pass
+
+The kit's offline-consolidation organ (Task 95; the "dream" pass — designed 2026-07-18, D-352, build lanes after v0.6.0): a batched, roll-scheduled pass that reads **raw transcripts + the fact corpus + scratchpads** and produces re-curation ops — merge duplicates, resolve contradictions latest-wins (event-time decides, never the LLM), surface cross-session insights, prune resolved scratchpad threads. Three stages: deterministic dedup floor → ONE batched LLM call proposing `{add, update, supersede, none}` ops → code-validated application under the **op-class split**: non-destructive ops auto-apply inside a screened envelope; lossy/generative ops land as an adopt-or-discard diff in a review queue. Inputs are never modified; the source tier prunes only after adoption. Absorbs F-D (semantic dedup), Task 55's insight-surfacing remainder, and Task 68 (thread pruning).
+
+Cross-refs: [[Validity window]], [[Temporal sweep]], [[Tombstone]], [[Poison_Guard]]. Spec: design §21; D-352/D-353; the [Task-95 synthesis](../docs/research/2026-07-18-task-95-design-input-synthesis.md).
+
 ### Validity window
 
 The time span a `State`-shaped fact's claim held true: `created_at` (open) → `ended_at` (close), with `status: completed` and a [[Superseded]] link once closed. The window closes at the SUPERSEDING fact's `created_at` — event-time decides the boundary, never the wall clock and never the LLM (which only classifies the pair; see [[Temporal sweep]]). Closed facts move to `archive/superseded/` — never deleted; point-in-time history stays readable. Task 66.2, D-259.
