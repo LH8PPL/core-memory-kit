@@ -37,6 +37,7 @@ import {
   harnessSlugForPath,
   DEFAULT_MAX_SESSIONS,
   SUMMARY_MAX_BYTES,
+  IMPORT_INPUT_MAX_BYTES,
 } from '../packages/cli/src/import-sessions.mjs';
 import { openIndexDb } from '../packages/cli/src/index-db.mjs';
 import { reindexBoot } from '../packages/cli/src/index-rebuild.mjs';
@@ -397,6 +398,52 @@ describe('importSessions — selection bounds (picker semantics)', () => {
       projectRoot, backend: makeBackend(4), now: NOW, harnessRoot, allProjects: true,
     });
     expect(all.discovered).toBe(4);
+  });
+});
+
+describe('importSessions — the summarize-input cap (IMPORT_INPUT_MAX_BYTES budget pair)', () => {
+  it('at-cap: a session under the input cap is sent to the backend whole, no truncation marker', async () => {
+    writeSessionJsonl(
+      harnessRoot,
+      slug,
+      UUID_A,
+      [{ role: 'user', ts: '2026-06-01T09:00:00Z', text: 'Compact session content.' }],
+      { mtime: '2026-06-01T10:00:00Z' },
+    );
+    const backend = makeBackend(1);
+    await importSessions({ projectRoot, backend, now: NOW, harnessRoot });
+    expect(backend.calls[0].input).toContain('Compact session content.');
+    expect(backend.calls[0].input).not.toContain('[transcript truncated for summarization');
+    expect(Buffer.byteLength(backend.calls[0].input, 'utf8')).toBeLessThanOrEqual(IMPORT_INPUT_MAX_BYTES);
+  });
+
+  it('over-cap: an oversized extract sends only its TAIL with an honest truncation marker (the 64 MB live finding)', async () => {
+    // Build a session whose extracted markdown exceeds the cap; the LAST turn
+    // must survive (the tail carries the session's conclusions).
+    const bigTurns = [];
+    const filler = 'x'.repeat(4000);
+    for (let i = 0; i < Math.ceil(IMPORT_INPUT_MAX_BYTES / 4000) + 20; i++) {
+      bigTurns.push({ role: 'user', ts: '2026-06-01T09:00:00Z', text: `turn ${i} ${filler}` });
+    }
+    bigTurns.push({ role: 'assistant', ts: '2026-06-01T18:00:00Z', text: 'FINAL_CONCLUSION_SENTINEL reached.' });
+    writeSessionJsonl(harnessRoot, slug, UUID_A, bigTurns, { mtime: '2026-06-01T19:00:00Z' });
+
+    const backend = makeBackend(1);
+    const result = await importSessions({ projectRoot, backend, now: NOW, harnessRoot });
+    expect(result.imported).toHaveLength(1);
+
+    const sent = backend.calls[0].input;
+    expect(sent).toContain('[transcript truncated for summarization');
+    expect(sent).toContain('FINAL_CONCLUSION_SENTINEL');
+    expect(sent).not.toContain('turn 0 '); // the head was dropped
+    // Marker + tail stays within cap + marker overhead.
+    expect(Buffer.byteLength(sent, 'utf8')).toBeLessThanOrEqual(IMPORT_INPUT_MAX_BYTES + 256);
+    // The raw floor keeps the FULL extract regardless.
+    const raw = readFileSync(
+      join(projectRoot, 'context', 'transcripts', 'imported', `${UUID_A}.md`),
+      'utf8',
+    );
+    expect(raw).toContain('turn 0 ');
   });
 });
 

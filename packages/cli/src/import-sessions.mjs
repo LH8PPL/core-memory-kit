@@ -79,6 +79,13 @@ export const DEFAULT_MAX_SESSIONS = 50;
 // so a fat per-session summary would only buy squash losses downstream.
 export const SUMMARY_MAX_BYTES = 1200;
 
+// Per-session summarize-INPUT cap (live-test finding: a real marathon session's
+// jsonl was 64 MB — even text-only extraction can dwarf the backend's context
+// and budget). Oversized extracts send only their TAIL (a session's end carries
+// its conclusions/decisions), with an honest truncation marker so the
+// summarizer knows it saw a suffix. The raw floor keeps the FULL extract.
+export const IMPORT_INPUT_MAX_BYTES = 262_144; // 256 KiB
+
 const LEDGER_REL = ['context', 'sessions', 'imported-sessions.md'];
 const RAW_IMPORT_REL = ['context', 'transcripts', 'imported'];
 const SESSIONS_REL = ['context', 'sessions'];
@@ -333,13 +340,27 @@ export async function importSessions({
     }
 
     // 2. Summarize (one agent-relative backend call; privacy judged in-prompt
-    //    per the ADR-0019 sessions-tier posture).
+    //    per the ADR-0019 sessions-tier posture). Oversized extracts send only
+    //    their tail (IMPORT_INPUT_MAX_BYTES) — full text stays on the raw floor.
+    let input = readFileSync(rawPath, 'utf8');
+    const inputBytes = Buffer.byteLength(input, 'utf8');
+    if (inputBytes > IMPORT_INPUT_MAX_BYTES) {
+      const buf = Buffer.from(input, 'utf8');
+      let tail = buf.subarray(buf.length - IMPORT_INPUT_MAX_BYTES).toString('utf8');
+      // Start at a line boundary so the summarizer never sees a torn line
+      // (or a torn multi-byte character from the byte slice).
+      const nl = tail.indexOf('\n');
+      if (nl !== -1) tail = tail.slice(nl + 1);
+      input =
+        `[transcript truncated for summarization — kept the final ${Math.round(IMPORT_INPUT_MAX_BYTES / 1024)} KB of ${Math.round(inputBytes / 1024)} KB; the full extract is preserved on the raw floor]\n\n` +
+        tail;
+    }
     let result;
     try {
       result = await compressWithRetry(
         backend,
         {
-          input: readFileSync(rawPath, 'utf8'),
+          input,
           instructions: buildImportInstructions(date, SUMMARY_MAX_BYTES),
           preserveCitationIds: false,
           maxOutputBytes: SUMMARY_MAX_BYTES,
