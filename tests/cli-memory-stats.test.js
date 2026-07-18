@@ -174,6 +174,9 @@ describe('Task 212 — the CLI surface (cmk stats memory-health)', () => {
     const report = runStatsMemoryHealth({}, undefined, {
       projectRoot: sandbox,
       log: (l) => lines.push(l),
+      // inject the clock like every computeMemoryStats test — without this the
+      // fixed-date fixtures age out of the real-now window (the D-351 time bomb)
+      now: NOW,
     });
     expect(report.current.writes).toBe(6);
     expect(lines.join('\n')).toMatch(/writes-per-search/);

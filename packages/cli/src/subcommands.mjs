@@ -2979,7 +2979,11 @@ export function runStatsMemoryHealth(options = {}, _command, deps = {}) {
     process.exitCode = 2;
     return;
   }
-  const report = computeMemoryStats({ projectRoot, windowDays });
+  // deps.now: the injected-clock seam (the Task-113 pattern) — without it the
+  // CLI surface is untestable against fixed-date fixtures (a fixture seeded
+  // relative to a constant ages out of the real-now window as days pass — the
+  // 2026-07-18 time-bomb: green July 14-17, red on the 18th; D-351).
+  const report = computeMemoryStats({ projectRoot, windowDays, now: deps.now });
   for (const line of renderMemoryStats(report)) log(line);
   return report;
 }

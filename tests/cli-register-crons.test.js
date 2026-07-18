@@ -22,6 +22,25 @@ import {
   WEEKLY_ENTRY_NAME,
 } from '../packages/cli/src/register-crons.mjs';
 
+// D-341 (2026-07-18): SonarCloud's A3S context collector constant-folds
+// fixture path literals THROUGH the source-under-test's
+// `join(projectRoot, 'context', …)` calls (chasing callers into excluded test
+// files) and opendir's the derived path on the Linux runner — crashing the
+// whole scan with ENOENT. Proven by TWO experiments: the crash path FOLLOWED
+// a fixture rename (proj→sandbox), and then followed it AGAIN through a
+// map+join builder (sandbox→sbx-root) — the engine fully partial-evaluates
+// string construction. So: any projectRoot fixture that flows into a
+// dir-join must be a RUNTIME value the engine cannot statically know — a
+// real temp dir (below). String-obfuscation alone is insufficient (folded).
+// The argv/command-string fixtures keep the builder form (they never flow
+// into a dir-join; only the projectRoot did).
+const opaqueWinRoot = (...parts) => parts.map((p) => String(p)).join('\\');
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+// A REAL directory: statically unknowable to the analyzer, existing at runtime.
+const RUNTIME_ROOT = mkdtempSync(join(tmpdir(), 'cmk-cron-fixture-'));
+
 describe('Task 33 — register-crons', () => {
   describe('detectPlatform', () => {
     it('returns process.platform', () => {
@@ -196,7 +215,7 @@ describe('Task 33 — register-crons', () => {
     // The REAL command: absolute node + script + projectRoot, each double-quoted
     // (paths have spaces). This quoted triple is what tripped the old guard.
     const winCommand =
-      '"C:\\Program Files\\nodejs\\node.exe" "C:\\proj\\bin\\cmk-daily-distill.mjs" "C:\\My Proj"';
+      `"C:\\Program Files\\nodejs\\node.exe" "${opaqueWinRoot('C:', 'sbx-bin', 'cmk-daily-distill.mjs')}" "C:\\My Proj"`;
 
     it('buildWindowsSchtasks returns an ARGV array with /TR = the command VERBATIM (not a shell string)', () => {
       const argv = buildWindowsSchtasks({ command: winCommand, entryName: CRON_ENTRY_NAME, hour: 23, minute: 0 });
@@ -214,7 +233,17 @@ describe('Task 33 — register-crons', () => {
     });
 
     it('Task 215: with a shimPath, /TR runs `wscript //B //Nologo "<shim>"` (no direct console binary → no window)', () => {
-      const shimPath = 'C:\\proj\\context\\.locks\\cmk-daily-distill-run.vbs';
+      // Fixture path deliberately avoids the repo's real dir names ("context",
+      // ".locks"): SonarCloud's A3S Scan-Manifest context collector reads test
+      // files IGNORING sonar.exclusions, extracts path-like literals that match
+      // real project layout, and opendir's them on the Linux runner — the old
+      // drive-letter fixture here (drive + proj + the context dir name) was the
+      // trigger of the exit-3 scan crash that started the minute PR #278 merged
+      // (D-341 root-cause correction, 2026-07-18; the literal itself is not
+      // repeated in this comment for exactly that reason). The test's contract
+      // (wscript //B //Nologo wrapping of an absolute Windows shim path) is
+      // unchanged.
+      const shimPath = 'C:\\shimdir\\cmk-daily-distill-run.vbs';
       const argv = buildWindowsSchtasks({ command: winCommand, entryName: CRON_ENTRY_NAME, hour: 23, minute: 0, shimPath });
       const trIdx = argv.indexOf('/TR');
       // The /TR is the wscript-shim launch, NOT the raw node command.
@@ -223,7 +252,7 @@ describe('Task 33 — register-crons', () => {
     });
 
     it('Task 215: buildWindowlessShim wraps the command in a hidden WshShell.Run (windowStyle 0, wait True) with quotes escaped', () => {
-      const vbs = buildWindowlessShim('"C:\\node.exe" "C:\\x.mjs" "C:\\proj"');
+      const vbs = buildWindowlessShim(`"C:\\node.exe" "C:\\x.mjs" "${opaqueWinRoot('C:', 'sbx')}"`);
       expect(vbs).toContain('CreateObject("WScript.Shell")');
       // windowStyle 0 = hidden; True = wait for exit (so the schtask's LastResult reflects the real run).
       expect(vbs).toMatch(/\.Run ".*", 0, True/);
@@ -278,7 +307,7 @@ describe('Task 33 — register-crons', () => {
         command: winCommand,
         entryName: CRON_ENTRY_NAME,
         platform: 'win32',
-        projectRoot: 'C:\\proj',
+        projectRoot: RUNTIME_ROOT,
         spawn: fakeSpawn,
         writeFile: (path, content) => writes.push({ path, content }),
       });
@@ -298,7 +327,7 @@ describe('Task 33 — register-crons', () => {
         command: winCommand,
         entryName: CRON_ENTRY_NAME,
         platform: 'win32',
-        projectRoot: 'C:\\proj',
+        projectRoot: RUNTIME_ROOT,
         spawn: (exe, args) => { calls.push({ exe, args }); return fakeSpawn(); },
         writeFile: () => { throw new Error('read-only disk'); },
       });

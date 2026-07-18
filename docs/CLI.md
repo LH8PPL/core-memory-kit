@@ -9,6 +9,7 @@ Most commands operate on the **project tier** (`<repo>/context/`) by default, us
 ## Setup & lifecycle
 
 ### `cmk install [--force] [--no-hooks] [--with-semantic | --no-semantic] [--ide <agent>] [--backend <agent>]`
+
 Scaffold the kit into the current project: creates the 3-tier `context/` layout, injects `.gitignore` entries, drops the managed CLAUDE.md block, and **wires the lifecycle hooks** into `.claude/settings.json` (the memory hooks + a `PreToolUse` **delete-guardrail** + a `PermissionRequest` **auto-approver** that keeps the kit's own tools/skills prompt-free, below). Idempotent — re-running is safe: **kit-owned files (the scaffolded `.claude/skills/`) refresh to your installed version** (reported, never silent — Task 230), while **your memory (`context/`, `context.local/`, the user tier) is never overwritten**. Restart Claude Code afterward so hooks load.
 - `--force` — allow downgrading an existing newer-version CLAUDE.md block.
 - `--no-hooks` — scaffold only; don't touch `.claude/settings.json`.
@@ -28,6 +29,7 @@ cmk install --ide codex     # wire Codex instead of Claude Code
 **Memory delete-guardrail.** Beyond the 5 memory hooks, `cmk install` also wires a `PreToolUse` hook (`cmk-guard-memory`) on both agents — Claude Code (matcher `Bash|PowerShell`) and Kiro (`execute_bash`). It inspects every shell command the agent is about to run and **blocks it** (the tool never executes) when it's a destructive command (`rm`, `Remove-Item`, `del`, `git clean`, `git reset --hard`, `find … -delete`, `truncate`, `>`-truncate) aimed at a memory path (`context/`, the `~/.core-memory-kit` persona tier, `MEMORY.md` / `DECISIONS.md`). It's **fail-open** (a broken guard never wedges the session) and intentionally broad (a false block is recoverable by rephrasing; a false allow is the data loss it prevents). `cmk-guard-memory` is an internal hook bin, not a command you run by hand.
 
 ### `cmk uninstall [--ide <agent>]`
+
 Remove one agent's kit-managed wiring. **Conservative** — preserves everything outside the kit's markers and **never deletes `context/`** (your memory data).
 - (no flag) → removes the **Claude Code** surface: the managed `CLAUDE.md` block (+ hooks).
 - `--ide kiro` → removes the **Kiro** surface: the `.kiro/` managed blocks (MCP entry, steering), the `AGENTS.md` managed block, the `.kiro/skills/` + `.kiro/hooks/` files, the kit's `kiroAgent.trustedCommands` entries in `.vscode/settings.json` (your own trusted commands are preserved), the kit's rules in the Kiro IDE 1.0 per-workspace `~/.kiro/workspace-roots/<hash>/permissions.yaml` (your own rules preserved), and the guarded `~/.kiro/agents/cmk.json` CLI agent.
@@ -36,15 +38,19 @@ Remove one agent's kit-managed wiring. **Conservative** — preserves everything
 - On a dual-agent project, uninstalling one agent leaves the other (and the shared `context/`) working. To remove the memory data, delete `context/` yourself.
 
 ### `cmk hook`
+
 `cmk hook <agentSpawn|promptSubmit|stop>` — the **Kiro** hook entrypoint, called by Kiro's IDE + CLI hooks (not by users). `agentSpawn`/`promptSubmit` inject recalled memory into the agent's context; `stop` captures the turn from Kiro's transcript. Always exits 0 so a hook failure never breaks the Kiro session. Wired automatically by `cmk install --ide kiro`.
 
 ### `cmk cursor-hook`
+
 The **Cursor** hook entrypoint, called by `.cursor/hooks.json` (not by users). Reads Cursor's JSON payload on stdin and routes on its `hook_event_name`: `sessionStart` injects recalled memory (`additional_context`), `beforeSubmitPrompt` captures the prompt, `afterAgentResponse` captures the turn, `afterFileEdit` records the edit observation, `sessionEnd` runs the compress+persona tasks, `beforeShellExecution` is the memory delete-guardrail (denies via the JSON `permission` field). Always exits 0 so a hook failure never blocks a prompt or shell command. Wired automatically by `cmk install --ide cursor`.
 
 ### `cmk codex-hook`
+
 The **Codex** hook entrypoint, called by `.codex/hooks.json` (not by users). Reads Codex's JSON payload on stdin and routes on its `hook_event_name`: `SessionStart` injects recalled memory (`hookSpecificOutput.additionalContext`), `UserPromptSubmit` captures the prompt, `Stop` captures the turn (read from the payload's `transcript_path` rollout file), `PostToolUse` records the edit observation, `PreToolUse` is the memory delete-guardrail (denies via `hookSpecificOutput.permissionDecision`). Always exits 0 so a hook failure never blocks a prompt or tool call. Wired automatically by `cmk install --ide codex` (one-time `/hooks` trust inside Codex required).
 
 ### `cmk init-user-tier`
+
 Scaffold the cross-project user tier at `~/.core-memory-kit/` (honors `$MEMORY_KIT_USER_DIR`). Use on a new machine.
 
 ---
@@ -52,6 +58,7 @@ Scaffold the cross-project user tier at `~/.core-memory-kit/` (honors `$MEMORY_K
 ## Capture
 
 ### `cmk remember <text…> [flags]`
+
 Explicitly capture a durable fact. Routes through the kit's safe write path — **Poison_Guard** (rejects secrets), **home-path abstraction** (`C:\Users\you\…` → `~\…` so a committed fact never leaks your username), **dedup**, and correct provenance. This is the safe alternative to hand-writing files under `context/memory/` (which bypasses all of the above).
 
 **Terse form** (no rich flags) → a one-line bullet in the project `MEMORY.md` (the layer recalled at session start):
@@ -81,6 +88,7 @@ Most capture is automatic (the Stop hook extracts facts each turn) — use `cmk 
 ## Inspect & search
 
 ### `cmk search <query…> [flags]`
+
 Search accumulated memory.
 - `--mode keyword|semantic|hybrid` — the project default is `keyword`, or `hybrid` after `cmk install --with-semantic` (the `search.default_mode` setting). Semantic/hybrid need the optional local embedder; explicitly requesting them without it exits 2 with the install hint, while a configured default degrades gracefully to keyword.
 - `--scope facts|transcripts|decisions` — `facts` (default) searches curated memory; `transcripts` searches the raw session record (verbatim transcripts + compressed session summaries) — the last-resort recall tier; hits are `T:<file>:<line>` locations, and fact-only filters (tier/trust/since) don't apply. `decisions` searches the append-only decision journal (`context/DECISIONS.md`) — use it for decision **history / evolution / "what did we reject"** queries; it returns superseded + retracted decisions the live fact store no longer carries (keyword-only; fact-only filters don't apply).
@@ -94,6 +102,7 @@ cmk search "deploy steps" --min-trust high --tier P --limit 5
 ```
 
 ### `cmk get <ids…>`
+
 Fetch full observation bodies + provenance by citation ID (parity with the `mk_get` MCP tool). Takes one or more ids from `cmk search` output. **Live facts only by default** — a forgotten (tombstoned) id returns `not found`. After `cmk forget`, the fact's body persists on disk in `context/memory/archive/tombstones/<id>.md` (the durable recovery artifact). Automatic recall never resurfaces a forgotten fact by design — forgetting it makes it invisible to the agent, not re-asserted from memory.
 
 - `--include-tombstoned` — **human-only recovery opt-in.** On a live miss, also reads the tombstone archive and returns the forgotten fact's body + deletion provenance (`deleted_at` / `deleted_by`), marked `tombstoned: true`. This flag exists ONLY on the CLI; the `mk_get` MCP tool is tombstone-blind, so the AI can never recover a fact you forgot (D-163). A live fact always wins — recovery is a miss-only fallback.
@@ -105,6 +114,7 @@ cmk get P-S79MJHFN --include-tombstoned   # recover a forgotten fact (human-only
 ```
 
 ### `cmk timeline <anchor> [--before <n>] [--after <n>]`
+
 Sequential context around an anchor observation — what was captured before and after it, by creation time (`mk_timeline` parity).
 - `--before <n>` / `--after <n>` — observations on each side (default 5 each).
 ```bash
@@ -112,12 +122,15 @@ cmk timeline P-S79MJHFN --before 3 --after 3
 ```
 
 ### `cmk cite <id>`
+
 Render the canonical Markdown citation link for an observation (`mk_cite` parity) — paste-ready provenance for docs/PRs.
 
 ### `cmk recent-activity [--window 1h|24h|7d] [--limit <n>]`
+
 List recently added observations within a time window (`mk_recent_activity` parity; default window 24h, limit 20). The "what did the kit capture lately?" view.
 
 ### `cmk digest`
+
 Print a readable digest of everything in memory (facts grouped by type, with trust + date), AND sync `context/DECISIONS.md` — the **append-only decision journal**. Two surfaces, two lifecycles:
 - The **digest** is a *regenerated* snapshot of current knowledge (printed to stdout) — like a rebuilt index, it reflects only what exists now.
 - **`context/DECISIONS.md`** is a *committed, append-only* chronological log of every decision (`type: project` facts) and its **Why**. Unlike the digest it is **never regenerated and never rolls**: a superseded or forgotten decision stays in the file, annotated `_(retracted …)_` in place — because the value of a decision log is the trail (what you decided *and* what you moved away from). It travels with `git clone` and shows up in the PR diff that captured the decision.
@@ -126,17 +139,20 @@ cmk digest
 ```
 
 ### `cmk doctor`
+
 Run the health checks (HC-1..HC-12); reports PASS/FAIL/SKIP with a repair command per failure. HC-8 (npm 12 readiness) verifies the native bindings load and emits the exact `--allow-scripts` remediation when npm blocked an install script. HC-9 flags project-scaffold version drift after a global update; HC-10 is an informational scheduled-compaction-liveness heads-up; **HC-11 (backend LLM CLI present)** checks that the CLI of the agent this project runs its automatic engine on (`claude` / `kiro-cli` / `cursor-agent`) is on your PATH — when it's missing, it FAILS with an honest "automatic features degraded, file-only still works" message (never a silent no-op); **HC-12 (deletion propagation)** verifies every tombstoned fact is actually gone from the derived surfaces (the search index + distilled summaries) and names any survivor's exact location — SKIPs as *vacuous* when nothing has been forgotten yet. The report ends with an informational **memory-health section** (content quality: fact count + trust distribution, old-and-untouched facts, possible duplicate pairs, pending queue items) — read-only, never affects the exit code.
 ```bash
 cmk doctor
 ```
 
 ### `cmk reindex [--boot|--full]`
+
 Rebuild the SQLite/FTS5 search cache (regenerable; never source of truth).
 - `--boot` — incremental (changed files only, **and prunes removed files**) · `--full` — drop + rebuild.
 - **Rarely needed by hand.** Every read path (`cmk search` / `get` / `timeline` / `cite` / `recent-activity`) reindexes incrementally before reading, and `cmk forget` reindexes in-band — so captures, edits, and deletions all show up in search automatically (Task 110). Reach for this only to force a `--full` rebuild after manual surgery on the markdown.
 
 ### `cmk config get <key>` · `cmk config set <key> <value> [--local]` · `cmk config show` · `cmk config --show-origin <key>`
+
 Read/write kit settings (`context/settings.json`) without hand-editing JSON. Keys are dotted paths (e.g. `search.default_mode`). `get` resolves across tiers (local > project > user) and prints the winning value; `set` writes the project tier by default, or the gitignored local tier with `--local`, preserving every sibling key; `--show-origin` lists every tier that defines the key, marking the winner and the shadowed (the "where did this come from?" surface — the direnv lesson). `true`/`false`/numbers are coerced; everything else stays a string. A key set in no tier exits 2.
 
 **`cmk config show`** — a one-glance INFORMATIONAL readout of this project's memory setup (distinct from `cmk doctor`, which is a health/pass-fail check): the agent you installed for, the **active backend agent** that runs your automatic memory (and whether it's a `--backend`/`backend.agent` override that differs from the installed-for agent), whether that backend CLI is on your PATH, and the semantic-search mode. This is what makes the split-brain backend override legible — without it, "which agent runs my automatic memory" is invisible. Read-only; never a non-zero exit.
@@ -146,6 +162,7 @@ Read/write kit settings (`context/settings.json`) without hand-editing JSON. Key
 ## Maintenance & repair
 
 ### `cmk repair [--hooks|--locks|--index|--all]`
+
 Idempotent self-repair (default `--all` if no flag).
 - `--hooks` — re-merge the kit hooks into `.claude/settings.json` (fixes HC-2).
 - `--locks` — clear stale locks (>1h). `--index` — `reindex --full`.
@@ -155,6 +172,7 @@ cmk repair --all
 ```
 
 ### `cmk register-crons [--dry-run] [--unregister]`
+
 Register the daily-distill + weekly-curate jobs with the host scheduler (Linux crontab / macOS launchd / Windows Task Scheduler). Optional — without it, Layer 6 falls back to lazy-on-read compression.
 
 ---
@@ -162,12 +180,15 @@ Register the daily-distill + weekly-curate jobs with the host scheduler (Linux c
 ## Compression (normally automatic)
 
 ### `cmk roll [--scope now|today|recent]`
+
 Manually trigger a compression pass. `now` = compress-session (default), `today` = daily-distill, `recent` = weekly-curate.
 
 ### `cmk daily-distill` · `cmk weekly-curate`
+
 Run one pipeline pass directly (these are what the scheduler invokes; humans normally use `cmk register-crons` or `cmk roll`). `daily-distill` consolidates the day's session buffers into `today-{date}.md`; `weekly-curate` archives `today-*.md` older than 7 days into `archive.md`, dedups bullets, and rebuilds `recent.md`. The weekly pass also runs the kit's maintenance sweeps (Task 66, v0.4.4): the **expiry sweep** (facts past their declared `expires_at` are tombstoned — recoverable, never hard-deleted) and the **temporal sweep** (same-subject facts judged in one batched Haiku call; a newer "current state" fact closes the older one's validity window, so stale states stop surfacing — the next session start mentions what was resolved).
 
 ### `cmk compress --lazy`
+
 The lazy-on-read fallback for no-cron environments: checks staleness and delegates to daily-distill / weekly-curate as needed. Typically invoked detached from the SessionStart hook — not by hand. (Bare `cmk compress` without `--lazy` is a stub.)
 
 These also ship as standalone bins for the scheduler: `cmk-daily-distill`, `cmk-weekly-curate`, `cmk-compress-lazy` (invoked by cron; not typically by hand).
@@ -177,15 +198,18 @@ These also ship as standalone bins for the scheduler: `cmk-daily-distill`, `cmk-
 ## Memory management
 
 ### `cmk trust <id> <low|medium|high>`
+
 Override an observation's trust level. IDs come from `cmk search` (e.g. `P-S79MJHFN`).
 
 ### `cmk forget <id-or-query> [--yes] [--reason <text>] [--deleted-by <enum>]`
+
 Tombstone a fact (preserves an audit trail). `--yes` required. **Disappears from `cmk search` immediately** — forget reindexes in-band, so no manual `cmk reindex` (Task 110). The content stays recoverable by a human via `cmk get <id> --include-tombstoned` (reads the tombstone archive) — never by the AI (D-163). Claude can also do this in conversation via the `mk_forget` tool.
 ```bash
 cmk forget P-S79MJHFN --yes --reason "superseded"
 ```
 
 ### `cmk redact <id> --pattern <text> [--reason <text>] [--project <dir>]`
+
 The compliance scrub (Task 96, ADR-0022): remove a leaked secret/PII span from **every app-layer copy of a fact** — the live file (or its tombstoned/superseded archive copy), the dual-written scratchpad bullet (per-tier, incl. the local `private.md`), the committed `DECISIONS.md` journal entry, the INDEX + search index — replacing each occurrence with `[redacted: <reason> <date>]`. When the secret was in the **title**, the fact's *filename* (title-derived slug) carries it too — the live file is renamed to the scrubbed title's slug, and slug residues are scrubbed from the audit log (JSON-aware, so quoted/escaped forms are caught). The fact itself survives; a secret-free audit entry records the redaction. Idempotent, per-fact (occurrences of the same pattern in *other* facts, journal entries, or scratchpad lines are reported, never silently scrubbed). CLI-only — deliberately not an MCP tool.
 
 - `--pattern <text>` — the literal secret text to scrub (treated as a literal, never a regex).
@@ -194,6 +218,7 @@ The compliance scrub (Task 96, ADR-0022): remove a leaked secret/PII span from *
 **Git history is not touched** — on the committed project tier the command prints the honest advisory: rotate the secret first (history copies in clones/forks/CI caches are compromised regardless), then the span-level `git filter-repo --replace-text` recipe if your team decides to redact history as a documented one-time operation (see [SECURITY.md](../SECURITY.md)). The kit never runs it for you. On the user/local tiers (not committed) a shorter rotate-anyway note prints instead.
 
 ### `cmk purge --hard <id> --yes [--project <dir>]`
+
 The **irreversible** whole-fact delete (Task 96, ADR-0022): removes the fact from live + every archive copy (tombstones, superseded) + scratchpad bullets + its `DECISIONS.md` journal entry + indexes, keeping **no tombstone** — the compliance escalation beyond `cmk forget` (which tombstones recoverably). Requires BOTH `--hard` and `--yes`; explicit-human-only, never an MCP tool (§6.5). A secret-free audit entry survives (removed filenames are scrubbed from historical audit entries — a secret-titled fact's filename is itself a leak); the git-history advisory prints path-scoped to exactly the purged file(s).
 
 ### `cmk lessons promote <id> [--to <file>] [--section <name>]`
@@ -204,9 +229,11 @@ Promote a project-tier fact to the cross-project user tier. By default the fact 
 - `--section <name>` — force the landing section. With `--to`, it's that file's section; **without `--to`, the section applies to the routed file** (so an unusual `--section X` with no `--to` can create section `X` inside whichever file the content routes to).
 
 ### `cmk persona generate`
+
 Synthesize your **cross-project doctrine** ("how you work everywhere") from this project's captured facts right now, instead of waiting for the weekly pass: high-confidence doctrine auto-promotes into the user tier (`~/.core-memory-kit/`), and lower-confidence candidates are saved to `queues/persona-review.md`. A manual trigger for the pipeline `weekly-curate` runs automatically.
 
 ### `cmk persona export <file>` · `cmk persona import <file>`
+
 Carry your cross-project persona across **your own machines**. Two scopes, two transports: *project* memory follows the repo (committed git), but your *persona* (the user tier) follows the **human** — it's machine-local and deliberately kept out of any project, so committing your working-style never leaks it to teammates.
 
 - **`export <file>`** bundles the user tier (the `USER`/`HABITS`/`LESSONS` scratchpads + the `fragments/` fact store + `settings.json` + `queues/`) into one OS-agnostic JSON file. Runtime state (`.locks/`, the `.index/` cache) is never bundled, and the content is already home-path-sanitized + secret-screened at capture time, so the bundle carries no machine paths or usernames.
@@ -215,9 +242,11 @@ Carry your cross-project persona across **your own machines**. Two scopes, two t
 Carry the file via your own private channel (USB / a private git repo / Dropbox). A seamless auto-syncing variant (`cmk persona sync <your-private-git-url>`) is planned. Honors `MEMORY_KIT_USER_DIR` if you point the user tier at a synced folder.
 
 ### `cmk stats memory-health [--window <days>]`
+
 The memory PROCESS behavioral dashboard (Task 212 — AutoMem's indicator set). Aggregates logs the kit already writes (recall.log / audit.log / truncation.log) into five metrics with trend arrows vs the prior window: **writes-per-search** (falling = healthier consult-before-write), **empty-search rate** (with the recovered-by-retry split), **redundant-write rate** (writes that later dedup-merged / conflict-queued / superseded), **repeated identical searches** (the "stuck" signal), and **snapshot cap pressure** (truncations + dropped sections). REPORT-ONLY — no thresholds, no pass/fail, no exit-code effect (observe before alarming); these are also the tuning numbers for the outcome-learning search blend. `--window 7|30` (default 7). Content quality (stale facts, duplicates, pending queues) lives in `cmk doctor`, not here.
 
 ### `cmk queue review` · `cmk queue conflicts` · `cmk queue prune`
+
 Walk pending items interactively. `review` = medium-trust auto-extracts (promote/discard/skip). `conflicts` = contradictions vs. existing high-trust facts (keep-old/keep-new/merge-both/skip). `prune` = **survival-gate candidates** (Task 194): facts whose evolved `trust_score` sat at the floor and *still* took a failing outcome signal — the learn-loop's "this memory keeps not working" verdict, surfaced for YOUR decision, never auto-deleted. Options: `convert` (retain it as a typed **anti-pattern** — reframed `⚠️ AVOID …`, kept searchable + injected as a warning), `forget` (tombstone through the safe path), `keep` (you vouch for it — dismissed, never re-asked), `skip`. Candidates arrive automatically (no command needed); this verb is only the resolution step.
 
 ---
@@ -225,15 +254,19 @@ Walk pending items interactively. `review` = medium-trust auto-extracts (promote
 ## Import & transcripts
 
 ### `cmk import-anthropic-memory [--dry-run] [--yes]`
+
 Merge useful bullets from Anthropic's native auto-memory into the project MEMORY.md. `--dry-run` previews; `--yes` applies.
 
 ### `cmk import-claude-md [file] [--dry-run] [--yes]`
+
 Onboard from the rules file you already own: parse an existing `CLAUDE.md` (default), `.cursorrules`, `AGENTS.md`, or any rules file into **typed granular facts** (`user` / `feedback` / `project` / `reference`, inferred from the nearest heading). Every candidate goes through the kit's safe write path — Poison_Guard secret screening, home-path sanitization, dedup against existing memory — and lands with `write_source: imported`, `trust: medium`, and real `source_file` / `source_line` provenance. Code fences and the kit's own managed CLAUDE.md block are never imported. `--dry-run` previews the typed proposals; apply requires explicit `--yes`.
 
 ### `cmk disable-native-memory` · `cmk enable-native-memory`
+
 Opt this project out of (or back into) Claude Code's **native** Auto Memory. `disable` writes `autoMemoryEnabled: false` into the committable `.claude/settings.json` (travels with `git clone`) so only the kit's memory runs — avoids the context bloat of both layers injecting at session start. The kit coexists with native memory by default; this is the one-command opt-out (ADR-0011). `enable` reverses it.
 
 ### `cmk transcripts extract [flags]`
+
 Extract clean markdown transcripts from `~/.claude/projects/<slug>/<uuid>.jsonl`.
 - `--session <uuid-suffix>` · `--slug <slug>` · `--since <YYYY-MM-DD>` · `--output <dir>` · `--include-thinking`.
 
@@ -242,12 +275,15 @@ Extract clean markdown transcripts from `~/.claude/projects/<slug>/<uuid>.jsonl`
 ## Advanced
 
 ### `cmk mcp serve`
+
 Run the MCP server over stdio (invoked by Claude Code, not by humans) — exposes memory as the **11** `mcp__cmk__*` tools: read — `mk_search`, `mk_get`, `mk_timeline`, `mk_cite`, `mk_recent_activity`; write/mutate — `mk_remember`, `mk_trust`, `mk_lessons_promote`, `mk_forget`, `mk_queue_list`, `mk_queue_resolve`. See [`MCP.md`](MCP.md) for the full reference.
 
 ### `cmk version` / `cmk --version`
+
 Print the installed kit version.
 
 ---
 
 ## Hook bins (not run by hand)
+
 `cmk-inject-context` (SessionStart), `cmk-capture-prompt` (UserPromptSubmit), `cmk-observe-edit` (PostToolUse), `cmk-capture-turn` (Stop), `cmk-compress-session` (SessionEnd) — wired into `.claude/settings.json` by `cmk install`; Claude Code invokes them automatically.
