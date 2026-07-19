@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-ANJ3MXFK) ConnectionManager class with broadcast pattern for WebSocket message distribution
-  <!-- source: review-promote, source_line: 1, sha1: 578bf8d3e8b021e5b2f36e49596a7d3ba1a2cdee88fcf0801904410a730ce2d2, write: user-explicit, trust: high, at: 2026-07-18T14:40:52Z -->
 - (P-MRVTM6NW) v0.5.4 published to npm as `@lh8ppl/core-memory-kit@0.5.4` with sigstore provenance; repo rename verified live
   <!-- source: review-promote, source_line: 1, sha1: 95b589127b3d47aaee686e556bf6fa80c6b9fd833144dd807fb89ff4ba691093, write: user-explicit, trust: high, at: 2026-07-18T14:40:53Z -->
 - (P-K3FN3LUJ) Durable knowledge (procedures, workflows) should be saved to project-local memory (context/), not session-temp; values memory committed with code.
@@ -20,6 +18,8 @@
   <!-- source: review-promote, source_line: 1, sha1: cbf5202562f59061066353a097811e08ab0602439793bc041133d0f9dd5f566c, write: user-explicit, trust: high, at: 2026-07-18T14:40:57Z -->
 - (P-VQKAHVV9) Wants to run distill immediately, not wait until 23:00 scheduled time.
   <!-- source: review-promote, source_line: 1, sha1: e186f10b5c93ed2b9c98149ddcef415cf8a23549d88267b26c1fe4d53bc7319b, write: user-explicit, trust: high, at: 2026-07-18T20:00:00Z -->
+- (P-9JAFFKDH) youtube-to-slide fully migrated onto the kit; trust-dialog step completed.
+  <!-- source: review-promote, source_line: 1, sha1: 9f29f0bd9188e6826bdc312953027f1ff27f1e9f43b7e635cc41beb413900412, write: user-explicit, trust: high, at: 2026-07-19T20:00:23Z -->
 
 ## Environment Notes
 
