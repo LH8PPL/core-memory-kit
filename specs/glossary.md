@@ -128,6 +128,22 @@ The four categories a [[Fact file]] can have: `user_*`, `feedback_*`, `project_*
 
 Spec: design §2.2.
 
+### Working memory
+
+The field's term (cognitive-science lineage — IBM/Weaviate/MLM taxonomy) for an agent's CURRENT-session live state. In the kit: the bounded `MEMORY.md` [[Scratchpad]] (active threads, environment notes, pending decisions) + the `sessions/now.md` pre-roll buffer. Cap-managed with graduation-not-truncation ([[Consolidation]], design §19) — the answer to the taxonomy's "re-asking = over-trimmed working memory" pitfall. Distinct from the kit's own [[Type taxonomy]] (fact PURPOSE) and [[Fact shape]] (fact TIME) — the four memory TYPES classify storage surfaces, not facts. (Task 229, D-326.)
+
+### Semantic memory
+
+The field's term for durable FACTS — decisions, preferences, configuration, knowledge. In the kit: the [[Granular archive]] (`context/memory/`, typed per the [[Type taxonomy]], with Why/How rationale) + `USER.md`. Write-time validation (dedup + the conflict queue + [[Poison_Guard]]) answers the "corrupted semantic memory" pitfall; [[Validity window]]s + state labels keep it TRUE as it ages. (Task 229, D-326.)
+
+### Episodic memory
+
+The field's term for WHAT HAPPENED, WHEN — the event record. In the kit: the rolling session window (`today-*.md` → `recent.md` → `archive.md`) + the verbatim transcripts tier (ADR-0010 floor) + the [[Bootstrap import]]ed history. Facts and events live in SEPARATE stores — the answer to the "contradictory retrieval" pitfall — and every recall hit cites its date ([[Recall ladder]], Task 227). (Task 229, D-326.)
+
+### Procedural memory
+
+The field's term for HOW TO WORK — habits, methods, distilled lessons. In the kit: the user-tier `HABITS.md`/`LESSONS.md` (cross-project via [[Auto-persona]]/`cmk lessons promote`), the [[Learn-loop]]'s judgment records, and the scaffolded skills. The distill chain keeps LESSONS, not replays, and the learn-loop's utility scores make procedure that keeps working rank higher — the answer to the "procedural memory that never improves" pitfall. (Task 229, D-326.)
+
 ### Fact shape
 
 What KIND of truth a fact asserts — the temporal classification (Task 66.1, from Chandra's "Beyond the Log" taxonomy): `State` (ongoing condition), `Event` (happened once), `Plan` (future-dated), `Relationship`, `Preference`, `Absence` (a negative fact — "user does NOT do X"), `Timeless`. Optional `shape` field in [[Provenance frontmatter]]; written explicitly (default `State`) on new facts, absence on pre-66 facts also reads as `State`. Orthogonal to [[Type taxonomy]] (type = what the fact is FOR; shape = how it relates to TIME). The temporal machinery keys on it: validity windows (66.2) touch only `State`, the expiry sweep (66.3) any shape, contradiction-catch (66.4) `State`.

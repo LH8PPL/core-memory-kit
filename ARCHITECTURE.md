@@ -6,6 +6,8 @@ The kit solves one problem: **Claude Code starts each session with no memory of 
 
 Each layer solves one specific symptom of the amnesia problem. You can install just 1-3 (zero dependencies, file ops only) or add 4-6 as needed.
 
+**In the standard agent-memory taxonomy** (working / semantic / episodic / procedural), the layers map like this: **working** memory = the Layer-3 scratchpads (`MEMORY.md`) + the `now.md` buffer · **semantic** = the Layer-2 fact archive + `USER.md` · **episodic** = the Layer-4/6 session record (rolling window + transcripts) · **procedural** = the user-tier `HABITS.md`/`LESSONS.md`, the Layer-4.5 judgment records, and the scaffolded skills. See the README's "four memory types" table for the pitfalls each answers.
+
 ### Layer 1 — In-repo location
 
 `context/` lives at the project root. Travels with `git clone`. Each project has its own — nothing crosses boundaries. Survives VS Code multi-root workspace setups where a global memory location would get confused about which project is active.
