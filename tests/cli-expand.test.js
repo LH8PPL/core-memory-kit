@@ -165,9 +165,14 @@ describe('expandObservation — the facts surface (fact/scratchpad ids)', () => 
   it('expands a scratchpad bullet to its heading-section siblings', () => {
     // Write both bullets through the kit's REAL scratchpad path (hand-written
     // bullets carry no provenance and deliberately do not index).
+    // Fixture wording deliberately avoids the word "runner": on GitHub
+    // Actions the OS username IS `runner`, and the L1 privacy mask replaces
+    // local-username occurrences with «USER» — which silently breaks the
+    // FTS match on Linux CI while passing locally (found on PR #303's
+    // ubuntu leg; the mask is working as designed, the fixture collided).
     for (const text of [
-      'The CI runner pins Node 24',
-      'SIBLING-NOTE: the Windows runner needs the long-path opt-in',
+      'The CI executor pins Node 24',
+      'SIBLING-NOTE: the Windows executor needs the long-path opt-in',
     ]) {
       const w = memoryWrite({
         action: 'add',
@@ -182,7 +187,7 @@ describe('expandObservation — the facts surface (fact/scratchpad ids)', () => 
     }
 
     withDb((db) => {
-      const found = search({ db, query: 'CI runner pins Node', projectRoot });
+      const found = search({ db, query: 'CI executor pins Node', projectRoot });
       const hit = found.results.find((r) => String(r.source_file).includes('MEMORY.md'));
       expect(hit).toBeTruthy();
       const expanded = expandObservation(db, hit.id, { projectRoot, userDir });
