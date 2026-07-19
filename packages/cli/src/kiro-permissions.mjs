@@ -37,7 +37,7 @@ import yaml from 'js-yaml';
 import { MCP_AUTO_APPROVE } from './kiro-constants.mjs';
 
 // The kit's MCP tools, namespaced as Kiro's permissions.yaml lists them
-// (server/tool). MCP_AUTO_APPROVE is the shared source of the 11 tool names
+// (server/tool). MCP_AUTO_APPROVE is the shared source of the 12 tool names
 // (also used for the IDE's mcp.json autoApprove), so the two never drift.
 const MCP_MATCH = MCP_AUTO_APPROVE.map((t) => `core-memory-kit/${t}`);
 const SHELL_MATCH = Object.freeze(['cmd.exe /c cmk hook *', 'cmd.exe /c cmk-guard-memory*']);

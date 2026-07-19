@@ -208,6 +208,59 @@ describe('expandObservation — edges', () => {
       expect(out.error).toBeTruthy();
     });
   });
+
+  it('SECURITY: a T: id can only reach INDEXED transcript sources — the unscreened surfaces are refused even though they sit inside the project (skill-review Blocking, D-356)', () => {
+    // Plant every unscreened surface a crafted mk_expand call could target.
+    const locksDir = join(projectRoot, 'context', '.locks');
+    mkdirSync(locksDir, { recursive: true });
+    writeFileSync(join(locksDir, 'redactions.log'), '{"original":"hunter2-plaintext"}\n', 'utf8');
+    const importedDir = join(projectRoot, 'context', 'transcripts', 'imported');
+    mkdirSync(importedDir, { recursive: true });
+    writeFileSync(join(importedDir, 'raw-secret.md'), 'RAW-UNSCREENED-IMPORT\n', 'utf8');
+    const trDir = join(projectRoot, 'context', 'transcripts');
+    writeFileSync(join(trDir, '2026-06-01.live.md'), 'UNSCREENED-LIVE-TURN\n', 'utf8');
+    writeFileSync(join(projectRoot, 'context', 'sessions', 'now.md'), 'VOLATILE-BUFFER\n', 'utf8');
+    // And a legitimately-indexed day file, as the positive control.
+    writeFileSync(
+      join(projectRoot, 'context', 'sessions', 'today-2026-06-04.md'),
+      '## Decisions\n- INDEXED-CONTROL decided\n',
+      'utf8',
+    );
+
+    withDb((db) => {
+      for (const bad of [
+        'T:context/.locks/redactions.log:1',
+        'T:context/transcripts/imported/raw-secret.md:1',
+        'T:context/transcripts/2026-06-01.live.md:1',
+        'T:context/sessions/now.md:1',
+      ]) {
+        const out = expandObservation(db, bad, { projectRoot, userDir });
+        expect(out.error, bad).toBe('not an indexed transcript source');
+        expect(JSON.stringify(out)).not.toMatch(/hunter2|RAW-UNSCREENED|UNSCREENED-LIVE|VOLATILE/);
+      }
+      // The positive control: an indexed source still expands.
+      const ok = expandObservation(db, 'T:context/sessions/today-2026-06-04.md:1', { projectRoot, userDir });
+      expect(ok.error).toBeUndefined();
+      expect(ok.content).toContain('INDEXED-CONTROL');
+    });
+  });
+
+  it('a single anchor line larger than the cap is hard-clamped to maxChars', () => {
+    writeFileSync(
+      join(projectRoot, 'context', 'sessions', 'today-2026-06-05.md'),
+      `## Decisions\n- ${'y'.repeat(9000)}\n`,
+      'utf8',
+    );
+    withDb((db) => {
+      const out = expandObservation(db, 'T:context/sessions/today-2026-06-05.md:1', {
+        projectRoot,
+        userDir,
+        maxChars: 500,
+      });
+      expect(out.truncated).toBe(true);
+      expect(out.content.length).toBeLessThanOrEqual(500);
+    });
+  });
 });
 
 describe('runExpand — the CLI verb', () => {

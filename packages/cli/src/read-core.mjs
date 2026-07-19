@@ -181,7 +181,11 @@ function windowSection(lines, { start, end, anchorIdx }, maxChars) {
     }
     if (!grew) break;
   }
-  return { content: section.slice(lo, hi + 1).join('\n'), truncated: true };
+  // Hard clamp (skill-review M-finding): a single anchor line larger than
+  // maxChars would otherwise exceed the cap on its own.
+  let content = section.slice(lo, hi + 1).join('\n');
+  if (content.length > maxChars) content = content.slice(0, maxChars);
+  return { content, truncated: true };
 }
 
 /**
@@ -203,6 +207,19 @@ export function expandObservation(db, id, { projectRoot, userDir, maxChars = EXP
   if (t) {
     sourceFile = t[1];
     sourceLine = Number(t[2]);
+    // SECURITY (skill-review Blocking, D-356): a T: id is FREE-FORM,
+    // model-suppliable input (mk_expand) — the traversal guard below stops
+    // ESCAPES, but the unscreened files INSIDE the project (the gitignored
+    // redactions.log with every redaction's plaintext original, the raw
+    // imported/ floor, *.live.md, now.md) would otherwise be readable by
+    // path. Gate on the transcript-chunk INDEX: only a source_file the
+    // indexer actually indexed is expandable — transcript-index.mjs's
+    // exclusion set is exactly the unscreened surface, so "never indexed"
+    // becomes an enforced read-boundary instead of a description.
+    const indexed = db
+      .prepare('SELECT 1 FROM transcript_chunks WHERE source_file = ? LIMIT 1')
+      .get(sourceFile);
+    if (!indexed) return { id: raw, error: 'not an indexed transcript source' };
   } else if (ID_PATTERN.test(raw)) {
     const row = db
       .prepare('SELECT source_file, source_line, tier FROM observations WHERE id = ?')

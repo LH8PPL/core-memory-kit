@@ -1880,13 +1880,19 @@ shapes the search surface returns — a fact/scratchpad observation id (row look
 (`T:<file>:<line>`, parsed directly). Reads the source file, extracts the enclosing heading
 section (nearest heading at-or-above the anchor line, down to the next same-or-higher-level
 heading), and bounds it to **`EXPAND_MAX_CHARS` = 4000** — an oversized section returns a
-line-aligned window grown outward from the anchor, flagged `truncated` (at-cap/over-cap test pair
-in tests/cli-expand.test.js). Transcript-chunk anchors sit on their section's HEADING line
-(chunkTranscript stamps every window of a section with the heading line), so a T:-id expansion is
-head-anchored by construction. Read-only; unscreened surfaces stay unreachable (the raw
-`imported/` floor and `*.live.md` are never indexed, so no hit id can point into them — §22.1 /
-design §6.10). Registered as the 12th MCP tool (`mk_expand`), Kiro-auto-approved, parity-mapped
-to `cmk expand`.
+line-aligned window grown outward from the anchor, flagged `truncated`, hard-clamped even when a
+single anchor line exceeds the cap (at-cap/over-cap test pair in tests/cli-expand.test.js).
+Transcript-chunk anchors sit on their section's HEADING line (chunkTranscript stamps every window
+of a section with the heading line), so a T:-id expansion is head-anchored by construction.
+Read-only. **The unscreened-surface boundary is ENFORCED, not descriptive** (the skill-review's
+Blocking find, D-356): a T: id is free-form model-suppliable input, and "never indexed" alone
+would not stop a crafted path at `context/.locks/redactions.log` (every redaction's plaintext
+original), the raw `imported/` floor, `*.live.md`, or `now.md` — all inside the traversal guard's
+base. The T: branch therefore gates on the transcript-chunk INDEX (`SELECT 1 FROM
+transcript_chunks WHERE source_file = ?`): only a source the indexer actually indexed is
+expandable, and transcript-index.mjs's exclusion set is exactly the unscreened surface (§22.1 /
+design §6.10; regression-locked with planted-secret fixtures). Registered as the 12th MCP tool
+(`mk_expand`), Kiro-auto-approved, parity-mapped to `cmk expand`.
 
 ## 10. MCP server (Layer 4b — optional)
 
