@@ -50,7 +50,7 @@ const MCP_SERVER_NAME = 'core-memory-kit';
 // Kiro gates MCP TOOL calls separately from the shell-command hooks D-194 wired,
 // so mk_remember etc. prompted every time). Verified shape from kiro.dev/docs/mcp:
 // an `autoApprove` array of bare tool names INSIDE the server entry. Explicit
-// list of the 11 kit tools — scoped to OUR tools, never a `"*"` wildcard (which
+// list of the 12 kit tools — scoped to OUR tools, never a `"*"` wildcard (which
 // would auto-approve any tool the server ever adds). mk_forget is safe to
 // auto-approve the CALL: it has its own two-step confirm-token before deleting.
 // MCP_AUTO_APPROVE now lives in the leaf kiro-constants.mjs (shared with

@@ -7,7 +7,7 @@
 // adapter wraps the result in a content envelope, the CLI adapter prints it.
 
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve, relative, isAbsolute } from 'node:path';
 import { ID_PATTERN } from './tier-paths.mjs';
 import { parse as parseFrontmatter } from './frontmatter.mjs';
 import { stateFieldFor } from './state-label.mjs';
@@ -98,6 +98,162 @@ function readTombstone(projectRoot, id) {
 export function citeLink(id) {
   if (!ID_PATTERN.test(id)) return { ok: false, error: 'id must match ID_PATTERN' };
   return { ok: true, link: `[#${id}](memkit://obs/${id})` };
+}
+
+// --- The EXPAND rung (Task 226, D-326) -----------------------------------
+//
+// The missing middle rung of the recall ladder: a search hit returns the
+// matched chunk; answering "what did we decide and why" often needs the
+// hit's NEIGHBORHOOD — the rest of its heading section in the SOURCE file.
+// mk_timeline is a different axis (created_at-adjacent observations);
+// expand is source-file-adjacent content. Bounded by EXPAND_MAX_CHARS —
+// never the whole file. Read-only.
+
+export const EXPAND_MAX_CHARS = 4000;
+
+const T_ID_RE = /^T:(.+):(\d+)$/;
+const HEADING_RE = /^(#{1,6})\s/;
+
+// Resolve a db-carried source_file against its tier's base dir, refusing
+// anything that escapes the base (the db is kit-written, but a hostile
+// T:-shaped id is user/model input — same guard class as readTombstone).
+function resolveSourceAbs(sourceFile, tier, { projectRoot, userDir }) {
+  const base = tier === 'U' ? userDir : projectRoot;
+  if (!base || typeof sourceFile !== 'string' || sourceFile === '') return null;
+  const abs = resolve(base, sourceFile);
+  const rel = relative(base, abs);
+  if (rel === '' || rel.startsWith('..') || isAbsolute(rel)) return null;
+  return abs;
+}
+
+// The enclosing heading section of a 1-based anchor line: the nearest
+// heading at-or-above the anchor, down to the next heading of the same or
+// higher level (or EOF). No heading above → from the file start to the
+// first heading after the anchor.
+function extractSection(lines, anchorLine) {
+  const anchorIdx = Math.min(Math.max(anchorLine - 1, 0), lines.length - 1);
+  let start = 0;
+  let level = 7;
+  let heading = null;
+  for (let k = anchorIdx; k >= 0; k--) {
+    const m = HEADING_RE.exec(lines[k]);
+    if (m) {
+      start = k;
+      level = m[1].length;
+      heading = lines[k].trim();
+      break;
+    }
+  }
+  let end = lines.length;
+  for (let k = (heading ? start + 1 : anchorIdx + 1); k < lines.length; k++) {
+    const m = HEADING_RE.exec(lines[k]);
+    if (m && m[1].length <= level) {
+      end = k;
+      break;
+    }
+  }
+  return { start, end, heading, anchorIdx };
+}
+
+// Bound an oversized section to a char window CENTERED on the anchor line,
+// aligned to line boundaries so the reader never sees a torn line.
+function windowSection(lines, { start, end, anchorIdx }, maxChars) {
+  const section = lines.slice(start, end);
+  const full = section.join('\n');
+  if (full.length <= maxChars) return { content: full, truncated: false };
+
+  const anchorInSection = anchorIdx - start;
+  let lo = anchorInSection;
+  let hi = anchorInSection;
+  let budget = maxChars - lines[anchorIdx].length;
+  // Grow outward, alternating, until the budget is spent.
+  while (budget > 0 && (lo > 0 || hi < section.length - 1)) {
+    let grew = false;
+    if (lo > 0 && section[lo - 1].length + 1 <= budget) {
+      lo -= 1;
+      budget -= section[lo].length + 1;
+      grew = true;
+    }
+    if (budget > 0 && hi < section.length - 1 && section[hi + 1].length + 1 <= budget) {
+      hi += 1;
+      budget -= section[hi].length + 1;
+      grew = true;
+    }
+    if (!grew) break;
+  }
+  // Hard clamp (skill-review M-finding): a single anchor line larger than
+  // maxChars would otherwise exceed the cap on its own.
+  let content = section.slice(lo, hi + 1).join('\n');
+  if (content.length > maxChars) content = content.slice(0, maxChars);
+  return { content, truncated: true };
+}
+
+/**
+ * Expand a recall hit to its source-file neighborhood: the enclosing
+ * heading section, bounded. Accepts BOTH hit-id shapes the search surface
+ * returns — a fact/scratchpad observation id (`P-XXXXXXXX`) and a
+ * transcript-chunk id (`T:<source_file>:<source_line>`).
+ *
+ * @returns {{id, source_file, source_line, tier, heading, content, truncated}
+ *          | {id, error}}
+ */
+export function expandObservation(db, id, { projectRoot, userDir, maxChars = EXPAND_MAX_CHARS } = {}) {
+  const raw = String(id ?? '');
+  let sourceFile;
+  let sourceLine;
+  let tier = 'P';
+
+  const t = T_ID_RE.exec(raw);
+  if (t) {
+    sourceFile = t[1];
+    sourceLine = Number(t[2]);
+    // SECURITY (skill-review Blocking, D-356): a T: id is FREE-FORM,
+    // model-suppliable input (mk_expand) — the traversal guard below stops
+    // ESCAPES, but the unscreened files INSIDE the project (the gitignored
+    // redactions.log with every redaction's plaintext original, the raw
+    // imported/ floor, *.live.md, now.md) would otherwise be readable by
+    // path. Gate on the transcript-chunk INDEX: only a source_file the
+    // indexer actually indexed is expandable — transcript-index.mjs's
+    // exclusion set is exactly the unscreened surface, so "never indexed"
+    // becomes an enforced read-boundary instead of a description.
+    const indexed = db
+      .prepare('SELECT 1 FROM transcript_chunks WHERE source_file = ? LIMIT 1')
+      .get(sourceFile);
+    if (!indexed) return { id: raw, error: 'not an indexed transcript source' };
+  } else if (ID_PATTERN.test(raw)) {
+    const row = db
+      .prepare('SELECT source_file, source_line, tier FROM observations WHERE id = ?')
+      .get(raw);
+    if (!row) return { id: raw, error: 'not found' };
+    sourceFile = row.source_file;
+    sourceLine = row.source_line ?? 1;
+    tier = row.tier ?? 'P';
+  } else {
+    return { id: raw, error: 'invalid id format (expected a kit observation id or T:<file>:<line>)' };
+  }
+
+  const abs = resolveSourceAbs(sourceFile, tier, { projectRoot, userDir });
+  if (!abs) return { id: raw, error: `source path refused: ${sourceFile}` };
+  if (!existsSync(abs)) return { id: raw, error: `source file not found: ${sourceFile}` };
+
+  let text;
+  try {
+    text = readFileSync(abs, 'utf8');
+  } catch (err) {
+    return { id: raw, error: `source unreadable: ${err?.message ?? err}` };
+  }
+  const lines = text.split('\n');
+  const section = extractSection(lines, sourceLine);
+  const { content, truncated } = windowSection(lines, section, maxChars);
+  return {
+    id: raw,
+    source_file: sourceFile,
+    source_line: sourceLine,
+    tier,
+    heading: section.heading,
+    content,
+    truncated,
+  };
 }
 
 const TIMELINE_COLUMNS = 'id, body, source_file, source_line, tier, trust, created_at';

@@ -121,6 +121,10 @@ Sequential context around an anchor observation — what was captured before and
 cmk timeline P-S79MJHFN --before 3 --after 3
 ```
 
+### `cmk expand <hit-id>`
+
+Expand a recall hit to its **source-file neighborhood** — the enclosing heading section around the hit (sibling bullets, the surrounding day-file entry), bounded to a per-expand cap, never the whole file (`mk_expand` parity). Takes either hit-id shape a search returns: a citation ID (`P-XXXXXXXX`) or a transcript-chunk id (`T:<file>:<line>`). **The recall ladder's middle rung**: search → **expand** → transcript drill — stop at the shallowest rung that answers; expand answers "what surrounds this hit" at a fraction of a transcript drill's tokens. (`cmk timeline` is the other context axis — chronological neighbors rather than file neighbors.)
+
 ### `cmk cite <id>`
 
 Render the canonical Markdown citation link for an observation (`mk_cite` parity) — paste-ready provenance for docs/PRs.
@@ -284,7 +288,7 @@ Extract clean markdown transcripts from `~/.claude/projects/<slug>/<uuid>.jsonl`
 
 ### `cmk mcp serve`
 
-Run the MCP server over stdio (invoked by Claude Code, not by humans) — exposes memory as the **11** `mcp__cmk__*` tools: read — `mk_search`, `mk_get`, `mk_timeline`, `mk_cite`, `mk_recent_activity`; write/mutate — `mk_remember`, `mk_trust`, `mk_lessons_promote`, `mk_forget`, `mk_queue_list`, `mk_queue_resolve`. See [`MCP.md`](MCP.md) for the full reference.
+Run the MCP server over stdio (invoked by Claude Code, not by humans) — exposes memory as the **12** `mcp__cmk__*` tools: read — `mk_search`, `mk_get`, `mk_timeline`, `mk_expand`, `mk_cite`, `mk_recent_activity`; write/mutate — `mk_remember`, `mk_trust`, `mk_lessons_promote`, `mk_forget`, `mk_queue_list`, `mk_queue_resolve`. See [`MCP.md`](MCP.md) for the full reference.
 
 ### `cmk version` / `cmk --version`
 

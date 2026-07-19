@@ -2,7 +2,7 @@
 //
 // Per design §10 + tasks.md 31 + ADR-0014 (Task 108b parity):
 //   - stdio JSON-RPC transport per MCP 2025-06-18 spec
-//   - Eleven tools (full CLI parity): READ — mk_search, mk_get, mk_timeline,
+//   - Twelve tools (full CLI parity): READ — mk_search, mk_get, mk_timeline, mk_expand,
 //     mk_cite, mk_recent_activity; WRITE/MUTATE — mk_remember, mk_trust,
 //     mk_lessons_promote, mk_forget, mk_queue_list, mk_queue_resolve
 //   - Path-traversal validation on every read/write surface
@@ -49,7 +49,7 @@ import { resolveConflictQueue, listConflictQueue } from './conflict-queue.mjs';
 import { resolvePruneQueue, listPruneQueue } from './prune-queue.mjs';
 import { STATE_INSTRUCTION } from './state-label.mjs';
 import { createHash } from 'node:crypto';
-import { getObservations, citeLink, buildTimeline, recentActivity } from './read-core.mjs';
+import { getObservations, citeLink, buildTimeline, recentActivity, expandObservation } from './read-core.mjs';
 import { resolveTierRoot } from './tier-paths.mjs';
 
 // The kit version, read from package.json — NOT hardcoded. A hardcoded '0.1.0'
@@ -269,6 +269,20 @@ function makeMkTimeline({ db, projectRoot, userDir }) {
       return { content: [{ type: 'text', text: `error: ${r.error}` }], isError: true };
     }
     return { content: [{ type: 'text', text: JSON.stringify(r.timeline, null, 2) }] };
+  };
+}
+
+function makeMkExpand({ db, projectRoot, userDir }) {
+  // Thin adapter over read-core.expandObservation (shared with CLI
+  // `cmk expand` — ADR-0014 parity). The recall ladder's middle rung:
+  // a hit's source-file neighborhood, bounded by EXPAND_MAX_CHARS.
+  return async ({ id }) => {
+    refreshIndexForRead({ db, projectRoot, userDir }); // CLI parity (withReadDb)
+    const r = expandObservation(db, id, { projectRoot, userDir });
+    if (r.error) {
+      return { content: [{ type: 'text', text: `error: ${r.error}` }], isError: true };
+    }
+    return { content: [{ type: 'text', text: JSON.stringify(r, null, 2) }] };
   };
 }
 
@@ -701,6 +715,18 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
       },
     },
     makeMkTimeline({ db, projectRoot, userDir }),
+  );
+
+  // mk_expand
+  server.registerTool(
+    'mk_expand',
+    {
+      description: "Expand a recall hit to its source-file neighborhood — the enclosing heading section, bounded (the recall ladder's middle rung between a search hit and the transcript drill).",
+      inputSchema: {
+        id: z.string().describe('a search-hit id — a kit observation ID (P-XXXXXXXX) or a transcript-chunk id (T:<file>:<line>)'),
+      },
+    },
+    makeMkExpand({ db, projectRoot, userDir }),
   );
 
   // mk_cite

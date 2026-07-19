@@ -127,7 +127,7 @@ describe('Task 31 — MCP server', () => {
   });
 
   describe('Tool registration', () => {
-    it('registers all 11 documented tools (6 read/write + 3 mutate + 2 queue — 108b)', () => {
+    it('registers all 12 documented tools (7 read/write + 3 mutate + 2 queue — 108b + 226)', () => {
       const server = buildMcpServer({ projectRoot, userDir, db });
       const tools = server._registeredTools ?? {};
       const names = Object.keys(tools).sort();
@@ -136,6 +136,7 @@ describe('Task 31 — MCP server', () => {
           'mk_search',
           'mk_get',
           'mk_timeline',
+          'mk_expand', // Task 226 — the recall ladder's expand rung
           'mk_cite',
           'mk_remember',
           'mk_recent_activity',

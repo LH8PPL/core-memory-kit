@@ -25,8 +25,8 @@ The full memory loop — inject, capture, edit-observation, explicit save, and c
 | **IDE hooks** | `.kiro/hooks/cmk-{capture,inject,guard,observe}.json` (Kiro IDE 1.0+ v1 format) + legacy `cmk-{capture,inject}.kiro.hook` (older Kiro) | the **GUI** — recall + capture + a delete-guard (`PreToolUse`) + large-edit observation (`PostToolUse`) |
 | **CLI agent** | `~/.kiro/agents/cmk.json` + a `chat.defaultAgent` pointer in `~/.kiro/settings/cli.json` | **`kiro-cli`** — `agentSpawn`/`stop`/`userPromptSubmit`/`postToolUse` hooks (auto inject + capture + prompt-capture + large-edit observation) + the `cmk remember`/`cmk search` shell commands for explicit memory (`tools: ['*']` enables them; no MCP, so no console-window popup) |
 | **Trusted commands** | `.vscode/settings.json` (`kiroAgent.trustedCommands`) + the CLI agent's `allowedCommands` (`cmk hook *`, `cmk-guard-memory`, `cmk remember`, `cmk search`) | both — auto-approve the kit's commands (no per-turn "Run / Reject") |
-| **Auto-approved MCP tools** | `autoApprove` in `mcp.json` | the **IDE** — the kit's 11 memory tools run without a per-call "Reject / Trust / Run" (kiro-cli uses the shell commands instead) |
-| **Workspace permissions** (Kiro IDE 1.0+) | `~/.kiro/workspace-roots/<hash>/permissions.yaml` | the **IDE 1.0** — pre-trusts the kit's hooks, 11 MCP tools, and its two skills so even the first "Load skill: memory-write" runs with **no Allow prompt** (Kiro 1.0's per-workspace trust store) |
+| **Auto-approved MCP tools** | `autoApprove` in `mcp.json` | the **IDE** — the kit's 12 memory tools run without a per-call "Reject / Trust / Run" (kiro-cli uses the shell commands instead) |
+| **Workspace permissions** (Kiro IDE 1.0+) | `~/.kiro/workspace-roots/<hash>/permissions.yaml` | the **IDE 1.0** — pre-trusts the kit's hooks, 12 MCP tools, and its two skills so even the first "Load skill: memory-write" runs with **no Allow prompt** (Kiro 1.0's per-workspace trust store) |
 
 ## Notes
 
