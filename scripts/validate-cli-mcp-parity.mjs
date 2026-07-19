@@ -58,6 +58,10 @@ export const CLI_ONLY = new Set([
   // cost consent) — the USER onboarding their history, not the model operating
   // memory mid-session; same CLI-only class as the other import verbs (Task 225).
   'import-sessions',
+  // `tour` is a human-facing onboarding explainer (like doctor/stats) — the
+  // in-conversation surface is the /tour slash command running the CLI, not
+  // an MCP tool (Task 175).
+  'tour',
   'daily-distill', 'weekly-curate', 'persona', 'disable-native-memory',
   'enable-native-memory', 'compress', 'register-crons', 'mcp', 'version',
   // `hook` is the Kiro hook entrypoint (called by Kiro's IDE/CLI hooks, never by

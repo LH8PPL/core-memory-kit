@@ -533,6 +533,22 @@ export async function install(options = {}) {
     });
   }
 
+  // Slash commands — Task 175. `.claude/commands/` is KIT-OWNED (the Task-230
+  // class, same refresh/downgrade rules as skills): the /tour command file
+  // lets the agent run the onboarding tour in-conversation. Claude-Code-
+  // specific like skills (a --ide install gets its agent's own surface).
+  const commandsSrc = join(templateDir, '.claude', 'commands');
+  if (!options.skipClaudeFiles && existsSync(commandsSrc)) {
+    installTier(commandsSrc, join(projectRoot, '.claude', 'commands'), {
+      created,
+      skipped,
+      errors,
+      vars,
+      overwrite: skillsOverwrite,
+      refreshed,
+    });
+  }
+
   const gitignore = injectGitignore(projectRoot, buildGitignoreBlock(templateDir, version));
   // D-126 CRLF prevention: pin LF on the committed memory tiers so default
   // Windows git can't mangle the bytes at clone (the read-side self-heal

@@ -55,6 +55,7 @@ import { configGet, configSet, configShowOrigin } from './config-core.mjs';
 import { importClaudeMd } from './import-claude-md.mjs';
 import { extractTranscript, discoverSessions, harnessSlugForPath } from './transcripts.mjs';
 import { importSessions, DEFAULT_MAX_SESSIONS } from './import-sessions.mjs';
+import { buildTour } from './tour.mjs';
 import { runRepair } from './repair.mjs';
 import { runRoll, ROLL_SCOPES } from './roll.mjs';
 import { lessonsPromote } from './lessons-promote.mjs';
@@ -1412,6 +1413,23 @@ export function runExpand(id, _options = {}, _command, deps = {}) {
   log(`${r.source_file}:${r.source_line}${headingLabel}${boundLabel}`);
   log('');
   log(r.content);
+}
+
+// Task 175 (D-215) — `cmk tour`: narrate the user's OWN memory. Tour
+// EXPLAINS, doctor CHECKS. Read-only; honest (everything shown is read
+// from the real tiers).
+export function runTour(_options = {}, _command, deps = {}) {
+  const log = deps.log ?? console.log;
+  const projectRoot = deps.projectRoot ?? resolvePath(process.cwd());
+  const userDir =
+    deps.userDir ?? process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.core-memory-kit');
+  const t = buildTour({ projectRoot, userDir });
+  log('cmk tour — your memory, as it actually is on disk\n');
+  for (const s of t.sections) {
+    log(`## ${s.title}`);
+    log(s.body);
+    log('');
+  }
 }
 
 export function runRecentActivity(options = {}, _command, deps = {}) {
@@ -3494,6 +3512,12 @@ export const subcommands = [
       { flags: '--yes', description: 'apply every proposal without prompting (apply requires explicit --yes)' },
     ],
     action: runImportClaudeMd,
+  },
+  {
+    name: 'tour',
+    description: "narrate this project's memory — what's captured, where it lives, how to recall it (tour EXPLAINS; `cmk doctor` CHECKS)",
+    milestone: 175,
+    action: runTour,
   },
   {
     name: 'import-sessions',

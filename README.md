@@ -58,6 +58,7 @@ You work. It learns — automatically, no buttons. Next session, it remembers th
 - **Guards against accidental deletion** — a hook **blocks** a destructive command (`rm`, `git reset --hard`, …) the moment it targets a memory path, before it runs.
 - **Works across your agents** — the same memory brain on **Claude Code**, **[Kiro](https://kiro.dev)** (IDE + `kiro-cli`), **[Cursor](https://cursor.com)**, and **[Codex](https://developers.openai.com/codex)**. A project's `context/` is shared, so memory you build in one is there in the others. The automatic engine runs through *your* agent's own CLI (using the login you already have — no extra API key). You can even **split the brain**: code in one agent, run the frequent background memory work through a *cheaper* one (`cmk install --backend kiro` → keep your premium subscription for coding, run the janitor LLM on `kiro-cli`). `cmk config show` tells you which agent is doing what.
 - **Per-project, in your repo** — `context/` lives in your project and travels with `git clone`. Each project keeps its own memory. And when uncommitted memory piles up, Claude offers a **one-tap commit** — you approve, Claude runs the git command; the kit itself never touches git.
+- **Shows you around** — `cmk tour` (or `/tour` in conversation) walks you through YOUR memory: what's been captured, where it lives, how to get it back — real counts and your own fact titles, never invented examples.
 
 ## Quickstart
 

@@ -20,6 +20,7 @@ The full memory loop — inject, capture, edit-observation, explicit save, and c
 | --- | --- | --- |
 | **MCP server** | `.kiro/settings/mcp.json` (with `autoApprove`) | the **IDE** — drives memory as tools (`mk_remember` etc.), pre-approved so they run prompt-free |
 | **Steering** | `.kiro/steering/cmk.md` (`inclusion: always`) | both — memory-awareness in context |
+| **Tour** | `.kiro/steering/tour.md` (`inclusion: manual` — surfaces as an on-demand slash command) | both — the `cmk tour` onboarding walkthrough, in-conversation (Task 175) |
 | **AGENTS.md** | `<repo>/AGENTS.md` | both — Kiro's always-loaded instruction file |
 | **Skills** | `.kiro/skills/memory-search` + `memory-write` | both |
 | **IDE hooks** | `.kiro/hooks/cmk-{capture,inject,guard,observe}.json` (Kiro IDE 1.0+ v1 format) + legacy `cmk-{capture,inject}.kiro.hook` (older Kiro) | the **GUI** — recall + capture + a delete-guard (`PreToolUse`) + large-edit observation (`PostToolUse`) |

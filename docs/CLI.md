@@ -258,6 +258,10 @@ Walk pending items interactively. `review` = medium-trust auto-extracts (promote
 
 ## Import & transcripts
 
+### `cmk tour`
+
+**Narrate this project's memory** — a warm, honest walkthrough of what's actually on disk: the three tiers + precedence, what's been captured (real counts + a few of YOUR fact titles — never invented examples), how recall works (`search` scopes, `expand`, the injected snapshot), and next steps. Degrades gracefully on a fresh install (teaches the structure + how it fills). **Tour EXPLAINS; `cmk doctor` CHECKS** — they're siblings, not substitutes. In conversation: the `/tour` slash command (scaffolded into `.claude/commands/` by `cmk install`; Kiro gets a manual-inclusion `tour.md` steering file) runs the same core.
+
 ### `cmk import-sessions [flags]`
 
 **Bootstrap the memory from your EXISTING Claude Code history** — so day one isn't empty (the v0.6.0 headline). Discovers past sessions under `~/.claude/projects/<slug>/`, summarizes each one through your agent backend into the kit's dated day-file shape ("as if captured live"), and lands them in `context/sessions/` — searchable immediately via `cmk search`. Every imported write is **screened** (secret screen + PII mask + a privacy instruction in the summarize call) before anything touches a committed tier; raw extracted transcripts archive to the local-only `context/transcripts/imported/` floor for deep recall.
