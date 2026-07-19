@@ -10,7 +10,7 @@ Most commands operate on the **project tier** (`<repo>/context/`) by default, us
 
 ### `cmk install [--force] [--no-hooks] [--with-semantic | --no-semantic] [--ide <agent>] [--backend <agent>]`
 
-Scaffold the kit into the current project: creates the 3-tier `context/` layout, injects `.gitignore` entries, drops the managed CLAUDE.md block, and **wires the lifecycle hooks** into `.claude/settings.json` (the memory hooks + a `PreToolUse` **delete-guardrail** + a `PermissionRequest` **auto-approver** that keeps the kit's own tools/skills prompt-free, below). Idempotent — re-running is safe: **kit-owned files (the scaffolded `.claude/skills/`) refresh to your installed version** (reported, never silent — Task 230), while **your memory (`context/`, `context.local/`, the user tier) is never overwritten**. Restart Claude Code afterward so hooks load.
+Scaffold the kit into the current project: creates the 3-tier `context/` layout, injects `.gitignore` entries, drops the managed CLAUDE.md block, and **wires the lifecycle hooks** into `.claude/settings.json` (the memory hooks + a `PreToolUse` **delete-guardrail** + a `PermissionRequest` **auto-approver** that keeps the kit's own tools/skills prompt-free, below). Idempotent — re-running is safe: **kit-owned files (the scaffolded `.claude/skills/` + `.claude/commands/`) refresh to your installed version** (reported, never silent — Task 230), while **your memory (`context/`, `context.local/`, the user tier) is never overwritten**. Restart Claude Code afterward so hooks load.
 - `--force` — allow downgrading an existing newer-version CLAUDE.md block.
 - `--no-hooks` — scaffold only; don't touch `.claude/settings.json`.
 - `--with-semantic` — install the optional local embedder (`npm install -g @huggingface/transformers`, ~260 MB once), pre-warm the model, and set `search.default_mode: hybrid` for this project — bare `cmk search` then recalls by meaning, no flags. `--no-semantic` pins keyword-only.
@@ -52,6 +52,10 @@ The **Codex** hook entrypoint, called by `.codex/hooks.json` (not by users). Rea
 ### `cmk init-user-tier`
 
 Scaffold the cross-project user tier at `~/.core-memory-kit/` (honors `$MEMORY_KIT_USER_DIR`). Use on a new machine.
+
+### `cmk tour`
+
+**Narrate this project's memory** — a warm, honest walkthrough of what's actually on disk: the three tiers + precedence, what's been captured (real counts + a few of YOUR fact titles — never invented examples), how recall works (`search` scopes, `expand`, the injected snapshot), and next steps. Degrades gracefully on a fresh install (teaches the structure + how it fills). **Tour EXPLAINS; `cmk doctor` CHECKS** — they're siblings, not substitutes. In conversation: the `/tour` slash command (scaffolded into `.claude/commands/` by `cmk install`; Kiro gets a manual-inclusion `tour.md` steering file) runs the same core.
 
 ---
 

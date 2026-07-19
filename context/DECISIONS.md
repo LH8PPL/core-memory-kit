@@ -13662,3 +13662,57 @@ _(retracted 2026-07-18)_
 
 **When:** 2026-07-19 · **Fact:** `P-RVRUBRNV`
 **Why:** Windows CI experiences non-deterministic EPERM races during teardown; this pattern is established in the codebase and avoids deep refactoring.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-ANJ3MXFK -->
+
+## ConnectionManager class with broadcast pattern for WebSocket message distributio
+
+**When:** 2026-07-18 · **Fact:** `P-ANJ3MXFK`
+
+<!-- decision:P-XPWT7NNS -->
+
+## Clean pre-existing table-lint warnings by default
+
+**When:** 2026-07-19 · **Fact:** `P-XPWT7NNS`
+**Why:** Maintains code quality and lint cleanliness standards across the codebase
+
+<!-- decision:P-A5BVKWZ7 -->
+
+## Closed Products Recall Architecture Validation
+
+**When:** 2026-07-19 · **Fact:** `P-A5BVKWZ7`
+**Why:** Validates kit's current architecture aligns with production systems
+
+<!-- decision:P-4TT7GZYA -->
+
+## Research Task Workflow Pattern
+
+**When:** 2026-07-19 · **Fact:** `P-4TT7GZYA`
+**Why:** Established integration pattern ensuring research findings flow through clear decision points before merge
+
+<!-- decision:P-2VNQDPBE -->
+
+## Letta – Architectural Comparison to Core-Memory-Kit
+
+**When:** 2026-07-19 · **Fact:** `P-2VNQDPBE`
+**Why:** Closest shipped sibling in memory-hierarchy design space. Architectural contrast directly informs kit design decisions and risk assessment.
+
+<!-- decision:P-2ZKGXSTX -->
+
+## Letta Precedent – Evidence for Tasks 149 & 95
+
+**When:** 2026-07-19 · **Fact:** `P-2ZKGXSTX`
+**Why:** Both tasks are foundational to kit design. Letta provides shipping proof-of-concept and design precedent.
+
+<!-- decision:P-XGX92LLV -->
+
+## onnxruntime-node Postinstall CDN Timeout
+
+**When:** 2026-07-19 · **Fact:** `P-XGX92LLV`
+**Why:** Future sessions should recognize this as transient infrastructure noise, not a real code problem, and know to retry rather than debug the code.

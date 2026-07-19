@@ -72,6 +72,24 @@ const MCP_ENTRY = Object.freeze({
 });
 
 const STEERING_PATH = ['steering', 'cmk.md'];
+
+// Task 175 — the /tour slash surface (manual-inclusion steering files appear
+// as on-demand slash commands in Kiro).
+const TOUR_STEERING_PATH = ['steering', 'tour.md'];
+const TOUR_STEERING_FRONTMATTER = '---\ninclusion: manual\n---\n\n';
+const TOUR_STEERING_BODY = [
+  "# Tour this project's memory (core-memory-kit)",
+  '',
+  'Run `cmk tour` and present its output to the user conversationally.',
+  '',
+  '- Do NOT invent or embellish what the memory contains — the tour reads the',
+  "  user's real files; stay faithful to its output.",
+  '- Keep it scannable: the tier table, what is captured (with the real',
+  '  examples the tour shows), how recall works, next steps.',
+  '- If nothing is captured yet, say so plainly and point at how it fills',
+  '  (automatic capture, "remember this", `cmk import-sessions`).',
+  '- `cmk doctor` is the health check; the tour is the explainer.',
+].join('\n');
 const STEERING_FRONTMATTER = '---\ninclusion: always\n---\n\n';
 const MEMORY_BODY = [
   '# core-memory-kit',
@@ -123,6 +141,12 @@ export function installKiro({ projectRoot, awsDir } = {}) {
   // ── steering ───────────────────────────────────────────────────────────────
   if (writeManagedBlock(kiro(STEERING_PATH), { body: STEERING_BODY, frontmatter: STEERING_FRONTMATTER })) changed = true;
   surfaces.push('steering');
+
+  // ── tour steering (Task 175) — the Kiro slash surface for `cmk tour`.
+  //    `inclusion: manual` steering files surface as on-demand slash commands
+  //    (#tour) in Kiro, mirroring Claude Code's .claude/commands/tour.md.
+  //    Same managed-block discipline; removed by uninstallKiro below.
+  if (writeManagedBlock(kiro(TOUR_STEERING_PATH), { body: TOUR_STEERING_BODY, frontmatter: TOUR_STEERING_FRONTMATTER })) changed = true;
 
   // ── AGENTS.md (project root) — Kiro's always-loaded instruction file; the CLI
   //    agent-config's prompt:file://AGENTS.md points here (D-188). Managed block,
@@ -207,6 +231,11 @@ export function uninstallKiro({ projectRoot, awsDir } = {}) {
   const steeringTouched = removeManagedBlock(steeringPath);
   if (steeringTouched) changed = true;
 
+  // tour steering (Task 175): same marker-block removal + husk cleanup.
+  const tourSteeringPath = kiro(TOUR_STEERING_PATH);
+  const tourSteeringTouched = removeManagedBlock(tourSteeringPath);
+  if (tourSteeringTouched) changed = true;
+
   // AGENTS.md: strip our marker block only (a user's own AGENTS.md content,
   // outside our markers, is byte-preserved).
   const agentsMdPath = join(projectRoot, AGENTS_MD_PATH);
@@ -221,6 +250,7 @@ export function uninstallKiro({ projectRoot, awsDir } = {}) {
   // file is never even a deletion candidate, narrowing the blast radius.
   if (agentsMdTouched && removeIfHusk(agentsMdPath)) changed = true;
   if (steeringTouched && removeIfHusk(steeringPath)) changed = true;
+  if (tourSteeringTouched && removeIfHusk(tourSteeringPath)) changed = true;
   if (mcpTouched && removeIfHusk(mcpPath)) changed = true;
 
   // skills + IDE hooks + CLI agent-config: remove our files only.

@@ -146,6 +146,21 @@ describe('HC-9 detects a stale kit-owned scaffold even when install has NOT re-r
     expect(hc9After.status).toBe('pass');
   });
 
+  it('HC-9 fails on a drifted /tour COMMAND file too — .claude/commands/ is in the kit-owned class (Task 175 skill-review I2)', async () => {
+    await install({ projectRoot, userTier: userDir });
+    const cmdPath = join(projectRoot, '.claude', 'commands', 'tour.md');
+    writeFileSync(cmdPath, readFileSync(cmdPath, 'utf8') + '\n<!-- HAND-EDIT -->\n');
+
+    const before = await runDoctor({ projectRoot, userDir });
+    const hc9Before = before.checks.find((c) => c.id === 'HC-9');
+    expect(hc9Before.status).toBe('fail');
+    expect(hc9Before.message).toContain('commands/tour.md');
+
+    await install({ projectRoot, userTier: userDir });
+    const after = await runDoctor({ projectRoot, userDir });
+    expect(after.checks.find((c) => c.id === 'HC-9').status).toBe('pass');
+  });
+
   it('HC-9 stays pass on a project with no skills dir (a Kiro-style install is not drift)', async () => {
     await install({ projectRoot, userTier: userDir, skipClaudeFiles: true });
     expect(existsSync(skillPath())).toBe(false);

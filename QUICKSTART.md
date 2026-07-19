@@ -138,6 +138,7 @@ Hybrid will fuse keyword + semantic (RRF) once the Layer-5b backend lands.
 
 | Command | Purpose |
 | --- | --- |
+| `cmk tour` | A guided tour of YOUR memory — what's captured, where it lives, how to recall it |
 | `cmk doctor` | Full health check (HC-1..HC-9) |
 | `cmk search "<query>"` | Search memory (default keyword) |
 | `cmk roll --scope now\|today\|recent` | Manually trigger compression |
