@@ -12,6 +12,7 @@ The kit ships an **MCP server** so Claude can run every memory operation **in co
 | `mk_search` | `cmk search` | Search by keyword or meaning (`mode`: keyword/semantic/hybrid — hybrid is the project default after `cmk install --with-semantic`). `scope: "transcripts"` searches the raw session record as a last resort; `scope: "decisions"` searches the decision journal for decision-history / "what did we reject" queries. Non-current rows carry a `state` field (`superseded`/`expired`/`retracted` — Task 209) + a one-line reading instruction rides as an extra content block when any labeled row is present. |
 | `mk_get` | `cmk get` | Full fact body + provenance for one or more ids. |
 | `mk_timeline` | `cmk timeline` | Sequential context around an observation. |
+| `mk_expand` | `cmk expand` | A hit's **source-file neighborhood** — the enclosing heading section, bounded (the recall ladder's middle rung: search → expand → transcript drill). Takes either hit-id shape (`P-XXXXXXXX` or `T:<file>:<line>`). |
 | `mk_cite` | `cmk cite` | A canonical citation link for an id. |
 | `mk_recent_activity` | `cmk recent-activity` | Recent changes in a time window. |
 | `mk_trust` | `cmk trust` | Change a fact's trust level (low / medium / high). |
@@ -30,6 +31,7 @@ Verified against the server's schemas (`packages/cli/src/mcp-server.mjs`); names
 | `mk_search` | `query` (required) · `mode` keyword/semantic/hybrid (omit = the project default) · `scope` facts/transcripts/decisions (transcripts = the session record, last resort; decisions = the decision journal, for history/"what did we reject") · `tier` U/P/L · `since` ISO date · `limit` ≤1000 · `min_trust` low/medium/high · `include_expired` (include facts past their declared `expires_at`; hidden by default, never deleted) · `state_view` current/historical/transition/neutral (OVERRIDE only — Task 211 classifies the query automatically: a history/transition question auto-includes expired+superseded facts, labeled and, for historical, listed first) (the fact-only filters + semantic/hybrid don't apply under `scope: "transcripts"` or `"decisions"`) |
 | `mk_get` | `ids` (required, 1–100 per call — batch, don't loop) |
 | `mk_timeline` | `anchor` (required id) · `depth_before` / `depth_after` (≤50, default 5 each) |
+| `mk_expand` | `id` (required — a fact id or a transcript-chunk `T:<file>:<line>` id from a search hit) |
 | `mk_cite` | `id` (required) |
 | `mk_recent_activity` | `window` 1h/24h/7d (default 24h) · `limit` ≤1000 (default 20) |
 | `mk_trust` | `id` (required) · `level` low/medium/high (required) |

@@ -45,7 +45,7 @@ import { autoPersona } from './auto-persona.mjs';
 import { exportPersona, importPersona } from './persona-portability.mjs';
 import { setNativeAutoMemory, nativeMemoryInstallNote } from './native-memory.mjs';
 import { rememberRich, richFactTitle, nonProjectTierNote, prepareNearDupGuard } from './remember-core.mjs';
-import { getObservations, citeLink, buildTimeline, recentActivity } from './read-core.mjs';
+import { getObservations, citeLink, buildTimeline, recentActivity, expandObservation } from './read-core.mjs';
 import { readHookStdin } from './read-hook-stdin.mjs';
 import { stripBom } from './read-json.mjs';
 import { runLazyCompress } from './lazy-compress.mjs';
@@ -1388,6 +1388,28 @@ export function runTimeline(anchor, options = {}, _command, deps = {}) {
     return;
   }
   log(JSON.stringify(r.timeline, null, 2));
+}
+
+// Task 226 (D-326) — the EXPAND rung: a hit's source-file neighborhood
+// (enclosing heading section, bounded). Shares read-core.expandObservation
+// with mk_expand (ADR-0014 parity).
+export function runExpand(id, _options = {}, _command, deps = {}) {
+  const log = deps.log ?? console.log;
+  const logError = deps.logError ?? console.error;
+  const projectRoot = deps.projectRoot ?? resolvePath(process.cwd());
+  const userDir =
+    deps.userDir ?? process.env.MEMORY_KIT_USER_DIR ?? join(homedir(), '.core-memory-kit');
+  const r = withReadDb((db) => expandObservation(db, id, { projectRoot, userDir }), deps);
+  if (r.error) {
+    logError(`cmk expand: ${r.error} (id: ${id})`);
+    process.exitCode = 2;
+    return;
+  }
+  const headingLabel = r.heading ? ` — ${r.heading}` : '';
+  const boundLabel = r.truncated ? ' (bounded window)' : '';
+  log(`${r.source_file}:${r.source_line}${headingLabel}${boundLabel}`);
+  log('');
+  log(r.content);
 }
 
 export function runRecentActivity(options = {}, _command, deps = {}) {
@@ -3367,6 +3389,13 @@ export const subcommands = [
       { flags: '--after <n>', description: 'observations after the anchor (default: 5)' },
     ],
     action: runTimeline,
+  },
+  {
+    name: 'expand',
+    description: "a recall hit's source-file neighborhood — the enclosing heading section, bounded (the recall ladder's middle rung; mk_expand parity)",
+    milestone: 226,
+    argSpec: [{ flags: '<id>', description: 'a search-hit id — a citation ID (P-XXXXXXXX) or a transcript-chunk id (T:<file>:<line>)' }],
+    action: runExpand,
   },
   {
     name: 'cite',

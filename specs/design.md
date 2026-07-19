@@ -1865,6 +1865,29 @@ Returns: `[{id, snippet, source_file, source_line, tier, trust, score}]`. Trust 
 
 ---
 
+### 9.4 The recall ladder + the expand rung (`cmk expand` / `mk_expand` — Task 226, D-326; shipped v0.6.0)
+
+The recall LADDER is the tiered discipline the memory-search skill enforces: **index search →
+expand → (timeline) → full bodies → last-resort transcript drill**, stop at the shallowest rung
+that answers. Task 226 built the middle rung the ladder implied but lacked: **expand** returns a
+hit's SOURCE-FILE neighborhood — the enclosing heading section (sibling bullets, the surrounding
+day-file entry) — where `mk_timeline` returns created_at-adjacent observations (a different axis:
+file-adjacent vs time-adjacent).
+
+Mechanism (`read-core.mjs::expandObservation`, shared CLI/MCP per ADR-0014): accepts BOTH hit-id
+shapes the search surface returns — a fact/scratchpad observation id (row lookup → `source_file` +
+`source_line`, tier-aware base-dir resolution with a traversal guard) and a transcript-chunk id
+(`T:<file>:<line>`, parsed directly). Reads the source file, extracts the enclosing heading
+section (nearest heading at-or-above the anchor line, down to the next same-or-higher-level
+heading), and bounds it to **`EXPAND_MAX_CHARS` = 4000** — an oversized section returns a
+line-aligned window grown outward from the anchor, flagged `truncated` (at-cap/over-cap test pair
+in tests/cli-expand.test.js). Transcript-chunk anchors sit on their section's HEADING line
+(chunkTranscript stamps every window of a section with the heading line), so a T:-id expansion is
+head-anchored by construction. Read-only; unscreened surfaces stay unreachable (the raw
+`imported/` floor and `*.live.md` are never indexed, so no hit id can point into them — §22.1 /
+design §6.10). Registered as the 12th MCP tool (`mk_expand`), Kiro-auto-approved, parity-mapped
+to `cmk expand`.
+
 ## 10. MCP server (Layer 4b — optional)
 
 **Eleven tools as of Task 108b (2026-06-08, [ADR-0014](../docs/adr/0014-unify-cli-mcp-shared-core.md)).** The MCP surface now reaches **full parity** with the `cmk` CLI over shared cores (`remember-core.mjs` / `read-core.mjs`); a `validate-cli-mcp-parity` guard ([`scripts/validate-cli-mcp-parity.mjs`](../scripts/validate-cli-mcp-parity.mjs), wired into `npm test`) fails the build on drift. `cmk install` registers the server in `.mcp.json` + allowlists `mcp__cmk__*`, so the model drives every memory op prompt-free (D-85; R2/D-80 resolved — see §16.57).

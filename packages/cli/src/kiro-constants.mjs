@@ -9,6 +9,7 @@ export const MCP_AUTO_APPROVE = Object.freeze([
   'mk_search',
   'mk_get',
   'mk_timeline',
+  'mk_expand',
   'mk_cite',
   'mk_recent_activity',
   'mk_trust',

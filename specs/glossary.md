@@ -420,6 +420,12 @@ The irreversible whole-fact delete (Task 96, ADR-0022): `cmk purge --hard <id> -
 
 Cross-refs: [[Redact]], [[Forget]], [[Tombstone]]. Spec: design §6.5; ADR-0022.
 
+### Recall ladder
+
+The tiered recall discipline codified in the memory-search skill (Task 226, D-326): **search the index → expand the hit's neighborhood → (optionally) timeline across time → fetch full bodies → LAST RESORT: the session record** — stop at the shallowest rung that answers. The **expand rung** (`cmk expand` / `mk_expand`) is the middle rung the kit long implied but never built: a hit's enclosing heading section from its SOURCE file (sibling bullets, the surrounding day-file entry), bounded by a per-expand char cap — file-adjacent context, where `mk_timeline` is time-adjacent context. Works on both hit-id shapes (`P-XXXXXXXX` fact ids and `T:<file>:<line>` transcript-chunk ids).
+
+Cross-refs: [[Bootstrap import]], [[Provenance frontmatter]]. Spec: design §9.4; the memory-search skill; D-326/D-356.
+
 ### Bootstrap import
 
 The `cmk import-sessions` pipeline (Task 225, the v0.6.0 headline): existing Claude Code session history (`~/.claude/projects/<slug>/<uuid>.jsonl`) is discovered, extracted to a gitignored raw floor (`context/transcripts/imported/`), summarized per-session through the agent backend into the [[Rolling window]] day-file shape "as if captured live" (privacy instruction in the same call, L1 mask + the Task-216 screen before the committed write), and made searchable immediately. Idempotent + resumable via the committed **import ledger** (`context/sessions/imported-sessions.md`) — the artifact-derived resume point that survives weekly-curate's rotation of the day files; a re-run imports only new sessions. Deliberately NOT a run-once sentinel (rejected: can't recover a killed run, can't catch up later).

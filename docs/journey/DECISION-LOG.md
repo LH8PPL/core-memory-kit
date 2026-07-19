@@ -10,6 +10,12 @@
 
 ---
 
+## 2026-07-18 — D-356: DECISION — Task 226 build choices: a follow-up verb (`cmk expand`/`mk_expand`), NOT an `--expand` search flag; file-adjacent vs time-adjacent named as two axes; T:-id expansion is head-anchored by construction
+
+**The spec offered two shapes** ("an `--expand` option on search OR an `mk_expand <hit-id>` follow-up"). **Chosen: the follow-up verb.** Why: the ladder's flow is search → pick the ONE hit that looks right → expand THAT — a search-level flag would expand every result (N× the tokens for hits the model is about to discard) and couples the bound to the search call. The verb also lands the natural CLI/MCP parity pair (`expand` ↔ `mk_expand`, the 11th parity op / 12th MCP tool, Kiro-auto-approved via the shared `MCP_AUTO_APPROVE` catalog).
+
+**Two contracts worth the trail:** (1) **expand vs timeline = two AXES, both kept** — expand is file-adjacent (the enclosing heading section in the SOURCE file), timeline is time-adjacent (created_at neighbors); the skill's ladder names expand Step 2 and timeline Step 2b rather than replacing one with the other. (2) **A transcript-chunk id expands head-anchored** — `chunkTranscript` stamps every window of a section with the section HEADING's line, so `T:<file>:<line>` cannot point at the matched text's own line; the bounded window therefore grows from the section head (documented in §9.4 + pinned by the budget-pair test; the test originally assumed text-centered windowing and was corrected to the real contract — a test-was-wrong instance, said explicitly). Safety: tier-aware base-dir resolution with a traversal guard on the (model-suppliable) T:-shaped id; the unscreened surfaces (`imported/`, `*.live.md`) stay unreachable because they are never indexed. _Relates D-326 (the lane), ADR-0014 (shared read core), Task 126 (the transcript-chunk scope), design §9.4, the memory-search skill, D-356._
+
 ## 2026-07-18 — D-355: DECISION — Task 225 build choices: committed-LEDGER resumability (not day-file markers alone, not the video's sentinel) · gitignored+un-indexed raw floor · judge-in-the-prompt privacy posture · 50/1200 bounds as the curate-squash mitigation
 
 **The v0.6.0 headline built per its tasks.md spec; four choices made at build time, each with a rejected alternative:**

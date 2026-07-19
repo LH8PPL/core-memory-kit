@@ -13549,3 +13549,33 @@ _(retracted 2026-07-18)_
 
 **When:** 2026-07-18 · **Fact:** `P-7DQUA2NE`
 **Why:** Post-compact session needs explicit, specific resumption point.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-CY2DG5ZS -->
+
+## after rename, guide's §0 backup step can be skipped—tier setup already complete
+
+**When:** 2026-07-18 · **Fact:** `P-CY2DG5ZS`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`

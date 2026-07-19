@@ -15,7 +15,7 @@ description: >-
   purely about uncommitted or just-edited live code that memory cannot know,
   concerns this conversation only, or the user asked to ignore memory.
 context: fork
-allowed-tools: mcp__cmk__mk_search mcp__cmk__mk_get mcp__cmk__mk_timeline mcp__cmk__mk_recent_activity Bash(cmk search *) Bash(cmk get *) Bash(cmk timeline *) Bash(cmk recent-activity *)
+allowed-tools: mcp__cmk__mk_search mcp__cmk__mk_get mcp__cmk__mk_timeline mcp__cmk__mk_expand mcp__cmk__mk_recent_activity Bash(cmk search *) Bash(cmk get *) Bash(cmk timeline *) Bash(cmk expand *) Bash(cmk recent-activity *)
 ---
 
 # Recalling from deep memory
@@ -31,10 +31,12 @@ Memory is the ground truth for documented knowledge and prior decisions
 (the injected-snapshot authority rule). Your job is to find what is already
 recorded and return ONLY a curated summary — never the raw dumps.
 
-## The 3-step ladder (filter before you fetch)
+## The recall ladder (filter before you fetch; stop at the shallowest rung that answers)
 
-Work index → context → bodies. Full bodies are ~10x the tokens of an index
-line; fetch them only for the ids that survived filtering.
+Work index → neighborhood → bodies → (last resort) the session record.
+Full bodies are ~10x the tokens of an index line; fetch them only for the
+ids that survived filtering. **Stop climbing the moment a rung answers the
+question** — most questions end at step 1 or 2.
 
 **Step 1 — Search the index.** Prefer the MCP tool when the `cmk` server is
 connected; otherwise the CLI:
@@ -47,9 +49,22 @@ Each hit is one line: id, tier/trust, source location, snippet. Run 1-3
 query variants if the first misses (synonyms; the key noun alone). Drop
 hits that are clearly off-topic or too generic.
 
-**Step 2 — Context around an anchor (optional).** When a hit looks right
-but you need what happened around it (what led to a decision, what followed
-a fix):
+**Step 2 — Expand the hit's neighborhood (the middle rung).** A hit returns
+the matched chunk; "what did we decide and why" often lives in the lines
+AROUND it. Expand returns the hit's enclosing heading section from its
+source file — sibling bullets, the surrounding day-file entry — bounded,
+never the whole file. Works on BOTH hit-id shapes (`P-XXXXXXXX` and
+`T:<file>:<line>`):
+
+- MCP: `mk_expand` with `id: "<hit id>"`.
+- CLI: `cmk expand <hit-id>`
+
+Prefer expand over jumping straight to the transcript drill — it answers
+"what surrounds this hit" at a fraction of the tokens.
+
+**Step 2b — Context across time (optional, a different axis).** When you
+need what happened AROUND a fact chronologically (what led to a decision,
+what followed a fix) rather than what sits around it in its file:
 
 - MCP: `mk_timeline` with `anchor: "<id>"` (and `depth_before`/`depth_after`).
 - CLI: `cmk timeline <id>`
