@@ -13579,3 +13579,86 @@ _(retracted 2026-07-18)_
 ## RESUME — v0.3.1 cut-gate near-complete; PR
 
 **When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-LK7BAX3A -->
+
+## mk_expand `T:` Path Redactions.log Vulnerability & Fix
+
+**When:** 2026-07-19 · **Fact:** `P-LK7BAX3A`
+**Why:** Critical security constraint; the fix was part of Task 226 completion. Future sessions need to know this path is gated.
+
+<!-- decision:P-NBX7JNEN -->
+
+## Stress Test Phase in Pre-Merge Workflow
+
+**When:** 2026-07-19 · **Fact:** `P-NBX7JNEN`
+**Why:** Catches concurrency-sensitive and load-sensitive flakes before merge.
+
+<!-- decision:P-ZJJ97aRB -->
+
+## Timing Assertion Flakiness in Concurrent Test Environments
+
+**When:** 2026-07-19 · **Fact:** `P-ZJJ97aRB`
+**Why:** Helps future sessions distinguish environmental noise from real regressions; saves debugging time.
+
+<!-- decision:P-QKFZaQJE -->
+
+## VBS Launcher Quirk for Hidden Scheduled Task Windows
+
+**When:** 2026-07-19 · **Fact:** `P-QKFZaQJE`
+**Why:** Visible cmd popups on schedule are disruptive; VBS wrapper is transparent to task logic but hides the UI.
+
+<!-- decision:P-62Y6FYUW -->
+
+## youtube-to-slide Claude Code Trust Requirement
+
+**When:** 2026-07-19 · **Fact:** `P-62Y6FYUW`
+**Why:** The permission system enforces trust boundaries for sensitive operations like memory writes; the assistant cannot modify ~/.claude.json without explicit user action.
+
+<!-- decision:P-FR9H7HQZ -->
+
+## youtube-to-slide Scheduled Task Shims (VBS Launchers)
+
+**When:** 2026-07-19 · **Fact:** `P-FR9H7HQZ`
+**Why:** The three youtube-to-slide memory tasks were triggering visible cmd popups on schedule; the VBS shim pattern hides the window while preserving task functionality and follows the established pattern used by the kit itself.
+
+<!-- decision:P-NFVBC6PL -->
+
+## youtube-to-slide Uses Core-Memory-Kit Scheduling
+
+**When:** 2026-07-19 · **Fact:** `P-NFVBC6PL`
+**Why:** Eliminates duplicate task-scheduling systems (was two separate sets), enables unified health checks via `cmk doctor`, prevents the popup/crash issues caused by overlapping definitions, simplifies ongoing maintenance
+
+<!-- decision:P-QREFRDFY -->
+
+## GitHub Actions Username Privacy-Mask Collision
+
+**When:** 2026-07-19 · **Fact:** `P-QREFRDFY`
+**Why:** Non-obvious behavior during CI testing; privacy mask works as designed but collides with GitHub Actions' own username convention. Future test debugging on Linux Actions may encounter this.
+
+<!-- decision:P-HKWRGMHA -->
+
+## youtube-to-slide Migration to core-memory-kit Complete
+
+**When:** 2026-07-19 · **Fact:** `P-HKWRGMHA`
+**Why:** Full migration of a live project's memory system onto core-memory-kit. Scale (26 facts) and techniques (semantic import, dated sessions, legacy archival) are reference patterns for future migrations.
+
+<!-- decision:P-ZRKLT9K2 -->
+
+## Core Memory Kit Requires VS Code Folder Trust
+
+**When:** 2026-07-19 · **Fact:** `P-ZRKLT9K2`
+**Why:** Kit's background memory jobs require write access. This was discovered during migration when permission popups appeared until trust was granted.
+
+<!-- decision:P-RVRUBRNV -->
+
+## Windows rmSync Cleanup Flake Workaround
+
+**When:** 2026-07-19 · **Fact:** `P-RVRUBRNV`
+**Why:** Windows CI experiences non-deterministic EPERM races during teardown; this pattern is established in the codebase and avoids deep refactoring.

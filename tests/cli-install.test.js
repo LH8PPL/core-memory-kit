@@ -101,7 +101,7 @@ describe('Task 3 — cmk install', () => {
   });
 
   afterEach(() => {
-    rmSync(sandbox, { recursive: true, force: true });
+    rmSync(sandbox, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   });
 
   describe('Fresh install', () => {
@@ -244,7 +244,7 @@ describe('Task 3 — cmk install', () => {
         expect(r.stdout).not.toMatch(/skipped \d+ existing/);
         expect(r.stdout).not.toMatch(/scaffolded \d+ file/);
       } finally {
-        rmSync(sandbox, { recursive: true, force: true });
+        rmSync(sandbox, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       }
     });
 
@@ -258,7 +258,7 @@ describe('Task 3 — cmk install', () => {
         expect(r.stdout).toMatch(/files: \d+ created, \d+ already present/);
         expect(r.stdout).toMatch(/\.gitignore=.*CLAUDE\.md=.*hooks=/);
       } finally {
-        rmSync(sandbox, { recursive: true, force: true });
+        rmSync(sandbox, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       }
     });
   });

@@ -490,6 +490,60 @@ function runKeywordSearch(db, opts) {
     .slice(0, requested);
 }
 
+// Task 227: epoch-ms → ISO yyyy-mm-dd (UTC), null-safe — the citation date.
+function isoDateFromEpochMs(ms) {
+  if (typeof ms !== 'number' || !Number.isFinite(ms)) return null;
+  const d = new Date(ms);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+}
+
+// Task 227: a transcript/sessions hit's date lives in its FILE NAME
+// (today-2026-06-07.md / 2026-05-21.md). Undated files (recent.md,
+// archive.md) return null — their sections carry their own date headings.
+const SOURCE_DATE_RE = /(\d{4}-\d{2}-\d{2})/;
+function dateFromSourceFileName(sourceFile) {
+  const m = SOURCE_DATE_RE.exec(String(sourceFile ?? '').split('/').pop() ?? '');
+  return m ? m[1] : null;
+}
+
+/**
+ * Task 227 (D-358): stamp the WHEN + WHERE citation halves onto facts-scope
+ * results IN PLACE — `date` (from the row's created_at) + `heading` (its
+ * heading_path). Runs after the mode branch so keyword, semantic, and
+ * hybrid-fused rows are all covered (the semantic backend's row shape lacks
+ * these fields). One batched lookup, bounded by the result window; a row
+ * whose id isn't in the observations table (defensive) keeps nulls.
+ * Exported for isolated unit-testing of the semantic/hybrid path without an
+ * embedder.
+ */
+/**
+ * Task 227: the transcripts-scope half of the same contract — stamp `date`
+ * from the day-file name onto rows that arrived without one (the semantic
+ * transcript backend's row shape). Idempotent over already-stamped keyword
+ * rows. Exported for isolated unit-testing without an embedder.
+ */
+export function enrichTranscriptDates(results) {
+  for (const r of results) {
+    if (r) r.date = r.date ?? dateFromSourceFileName(r.source_file);
+  }
+  return results;
+}
+
+export function enrichFactCitations(db, results) {
+  if (results.length === 0) return results;
+  const placeholders = results.map(() => '?').join(',');
+  const rows = db
+    .prepare(`SELECT id, created_at, heading_path FROM observations WHERE id IN (${placeholders})`)
+    .all(...results.map((r) => r.id));
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  for (const r of results) {
+    const meta = byId.get(r.id);
+    r.date = meta ? isoDateFromEpochMs(meta.created_at) : (r.date ?? null);
+    r.heading = meta ? (meta.heading_path ?? null) : (r.heading ?? null);
+  }
+  return results;
+}
+
 // --- Transcript-scope keyword backend (Task 104.2, the L3 raw tier) ----
 
 const TRANSCRIPT_KEYWORD_SQL = `
@@ -533,6 +587,8 @@ function runTranscriptKeywordSearch(db, opts) {
     source_file: r.source_file,
     source_line: r.source_line,
     heading: r.heading,
+    // Task 227: the WHEN half — derived from the day-file name.
+    date: dateFromSourceFileName(r.source_file),
     score: r.score,
   }));
 }
@@ -757,6 +813,20 @@ export function search(opts = {}) {
       });
     }
     throw err;
+  }
+
+  // Task 227 (D-358): the citation date + heading are enriched HERE, after
+  // the mode branch, so keyword, semantic, AND hybrid-fused rows all carry
+  // them — the semantic backend returns its own row shape without these
+  // fields, and the first cut (fields on the keyword mapper only) printed
+  // "—" on every hybrid hit in the live-test. One owner, all modes — and
+  // BOTH scopes (the skill review caught the same class left open on the
+  // transcripts-scope semantic path).
+  const enrichScope = opts.scope ?? SEARCH_SCOPES.FACTS;
+  if (enrichScope === SEARCH_SCOPES.FACTS) {
+    enrichFactCitations(opts.db, results);
+  } else if (enrichScope === SEARCH_SCOPES.TRANSCRIPTS) {
+    enrichTranscriptDates(results);
   }
 
   // Task 211: on the HISTORICAL view, bucket stateful (labeled) rows FIRST —

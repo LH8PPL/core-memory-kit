@@ -505,14 +505,15 @@ describe('Task 31 — MCP server', () => {
     // cites is documented but unwired in memoryWrite — silently dropping would
     // mislead the model into thinking citations landed, so mk_remember rejects
     // it clearly (the fact's text still captures if resubmitted without cites).
-    it('mk_remember rejects the cites parameter (not recorded yet)', async () => {
+    it('mk_remember rejects the cites parameter (PERMANENT — closed in Task 227, links is the wired path)', async () => {
       const server = buildMcpServer({ projectRoot, userDir, db });
       const r = await invokeTool(server, 'mk_remember', {
         text: 'a fact with citations',
         cites: ['P-AAAAAAAA'],
       });
       expect(r.isError).toBe(true);
-      expect(r.content[0].text).toMatch(/cites.*not recorded yet/);
+      expect(r.content[0].text).toMatch(/cites.*permanently not recorded/);
+      expect(r.content[0].text).toContain('links');
     });
 
     // tier U/L: mk_remember writes the PROJECT tier (P) regardless; a fact goes
