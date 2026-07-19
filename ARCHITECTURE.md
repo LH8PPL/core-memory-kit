@@ -6,6 +6,8 @@ The kit solves one problem: **Claude Code starts each session with no memory of 
 
 Each layer solves one specific symptom of the amnesia problem. You can install just 1-3 (zero dependencies, file ops only) or add 4-6 as needed.
 
+**In the standard agent-memory taxonomy** (working / semantic / episodic / procedural), the layers map like this: **working** memory = the Layer-3 `MEMORY.md` scratchpad + the `now.md` buffer · **semantic** = the Layer-2 fact archive + `USER.md` · **episodic** = the Layer-4/6 session record (rolling window + transcripts) · **procedural** = the user-tier `HABITS.md`/`LESSONS.md`, the Layer-4.5 judgment records, and the scaffolded skills. See the README's "four memory types" table for the pitfalls each answers.
+
 ### Layer 1 — In-repo location
 
 `context/` lives at the project root. Travels with `git clone`. Each project has its own — nothing crosses boundaries. Survives VS Code multi-root workspace setups where a global memory location would get confused about which project is active.
@@ -26,7 +28,7 @@ Why not `~/.claude/projects/<slug>/`? Two reasons:
 Three small files form the always-loaded snapshot:
 
 | File | Cap | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `context/SOUL.md` | ~1.8 KB | Project persona / disposition / norms |
 | `context/USER.md` | ~1.4 KB | Stable user identity, preferences, working style |
 | `context/MEMORY.md` | ~2.5 KB | Hot working state: active threads, environment notes, pending decisions |
@@ -40,7 +42,7 @@ The **frozen snapshot pattern**: these files load once per session, form static 
 **Five lifecycle hooks** wire memory in. All are PATH-resolved node bins (`cmk-*`) — no bash, so they run on Windows / macOS / Linux under any shell (the cross-OS pivot, design §5):
 
 | Event | Hook bin | What it does |
-|---|---|---|
+| --- | --- | --- |
 | **SessionStart** | `cmk-inject-context` | Builds the frozen snapshot (SOUL/USER/MEMORY + the latest day-session) and emits it as `additionalContext`. Also kicks off lazy-on-read compression if the buffer is stale. |
 | **UserPromptSubmit** | `cmk-capture-prompt` | Records the user's prompt as extraction context for the turn. |
 | **PostToolUse** (`Write\|Edit\|MultiEdit`) | `cmk-observe-edit` (async) | Notes file edits as observation signal. |
@@ -94,7 +96,7 @@ Used for **Tier 2 retrieval** — when Tier 0 (snapshot) and Tier 1 (grep INDEX.
 Two scheduled jobs keep the system healthy without manual intervention (registered via `cmk register-crons`; they fall back to lazy-on-read if you skip cron):
 
 | Job | Schedule | What |
-|---|---|---|
+| --- | --- | --- |
 | Daily memory distillation (`cmk daily-distill`) | 23:00 daily | Extracts durable facts from today's session log into MEMORY.md. |
 | Weekly memory curator (`cmk weekly-curate`) | Sun 09:00 | Prunes resolved threads, merges duplicates, drops stale entries. |
 

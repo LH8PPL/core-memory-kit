@@ -151,6 +151,19 @@ Project memory follows the **repo** (teammates get it on clone). Your persona fo
 
 The kit is built in six layers (in-repo storage → granular archive → bounded scratchpads → auto-extract hooks → search → compression). See **[ARCHITECTURE.md](ARCHITECTURE.md)** for the breakdown + data-flow diagram, [`specs/design.md`](specs/design.md) for the full design, and [`specs/glossary.md`](specs/glossary.md) for terminology.
 
+### The four memory types, in kit terms
+
+If you know the standard agent-memory taxonomy (working / semantic / episodic / procedural), the kit implements all four:
+
+| Memory type | What it holds | Where the kit keeps it |
+| --- | --- | --- |
+| **Working** | the current session's live state | `MEMORY.md` scratchpad + `sessions/now.md` (bounded, cap-managed) |
+| **Semantic** | durable facts — decisions, preferences, config | the fact archive `context/memory/` + `USER.md` (typed, with Why/How) |
+| **Episodic** | what happened, when | the rolling session window (`today-*` → `recent` → `archive`) + verbatim transcripts |
+| **Procedural** | how to work — habits, lessons, judgment | `HABITS.md` / `LESSONS.md` + judgment records + the scaffolded skills |
+
+And the taxonomy's classic pitfalls each have a built-in answer: *re-asking* (over-trimmed working memory) → load-caps with **graduation, not truncation**; *contradictory retrieval* (facts and events in one undifferentiated store) → facts and session logs are **separate stores**, and non-current facts come back labeled (`[superseded]` / `[expired]`); *corrupted semantic memory* (no write-time validation) → every write passes **dedup + the conflict queue + the Poison_Guard screen**; *procedural memory that never improves* (storing replays, not lessons) → the distill chain keeps **lessons**, and the learn-loop scores what keeps working.
+
 ## CLI
 
 You rarely type these yourself — Claude drives the same operations as tools mid-conversation through the kit's MCP server (see **[docs/MCP.md](docs/MCP.md)**). The most-used commands:
