@@ -24,12 +24,12 @@ let sandbox;
 let projectRoot;
 let userDir;
 
-beforeEach(() => {
+beforeEach(async () => {
   sandbox = mkdtempSync(join(tmpdir(), 'cmk-tour-'));
   projectRoot = join(sandbox, 'proj');
   userDir = join(sandbox, 'user-tier');
   mkdirSync(projectRoot, { recursive: true });
-  install({ projectRoot, userTier: userDir, skipClaudeFiles: true, noHooks: true, noSemantic: true });
+  await install({ projectRoot, userTier: userDir, skipClaudeFiles: true, noHooks: true, noSemantic: true });
 });
 
 afterEach(() => {
@@ -101,6 +101,28 @@ describe('buildTour — a fresh/empty install degrades gracefully', () => {
   it('survives a missing user tier without throwing', () => {
     const t = buildTour({ projectRoot, userDir: join(sandbox, 'nonexistent-user') });
     expect(t.sections.length).toBeGreaterThan(0);
+  });
+
+  it('a sessions-only corpus (fresh import-sessions run, zero facts) is NOT "nothing captured" (skill-review I1)', () => {
+    // The v0.6.0 headline flow: cmk import-sessions writes day files before
+    // any fact exists. The tour must count that as captured memory.
+    writeFileSync(
+      join(projectRoot, 'context', 'sessions', '2026-07-19.md'),
+      '# 2026-07-19\n\n## Imported session\n- worked on the tour\n',
+    );
+    const t = buildTour({ projectRoot, userDir });
+    const text = t.sections.map((s) => `${s.title}\n${s.body}`).join('\n\n');
+    expect(text).not.toMatch(/nothing captured yet/i);
+    expect(text).toMatch(/1 session file/);
+  });
+
+  it('transcript count includes transcripts/imported/ — where import-sessions archives (skill-review I3)', () => {
+    const importedDir = join(projectRoot, 'context', 'transcripts', 'imported');
+    mkdirSync(importedDir, { recursive: true });
+    writeFileSync(join(importedDir, '2026-07-19-abc.md'), '# imported raw extract\n');
+    const t = buildTour({ projectRoot, userDir });
+    const text = t.sections.map((s) => `${s.title}\n${s.body}`).join('\n\n');
+    expect(text).toMatch(/1 transcript file/);
   });
 });
 

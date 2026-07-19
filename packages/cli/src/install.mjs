@@ -194,10 +194,11 @@ function renderTemplate(content, vars) {
  * scaffolded skill was stale from a pre-update install (the marker only proves
  * `cmk install` ran at this version — not that every kit-owned file matches).
  *
- * Scope: `.claude/skills/` only (the one kit-owned installTier target). A
- * MISSING file is NOT drift — a skipClaudeFiles (Kiro/Cursor) project
- * legitimately has no Claude skills; HC-9's marker semantics cover
- * not-installed. Only exists-and-differs is flagged.
+ * Scope: the kit-owned installTier targets — `.claude/skills/` and
+ * `.claude/commands/` (the Task-175 slash-command scaffold joined the
+ * Task-230 class). A MISSING file is NOT drift — a skipClaudeFiles
+ * (Kiro/Cursor) project legitimately has no Claude skills; HC-9's marker
+ * semantics cover not-installed. Only exists-and-differs is flagged.
  *
  * @param {object} o
  * @param {string} o.projectRoot
@@ -211,8 +212,6 @@ export function kitOwnedScaffoldDrift({ projectRoot }) {
   } catch {
     return drifted; // no template (broken install) — nothing to compare against
   }
-  const skillsSrc = join(templateDir, '.claude', 'skills');
-  if (!existsSync(skillsSrc)) return drifted;
   // Render with the same defaults installTier uses; skill templates carry no
   // placeholders today, so this is a byte-passthrough (asserted by the fact
   // that a just-installed project produces zero drift — the tests pin it).
@@ -221,22 +220,26 @@ export function kitOwnedScaffoldDrift({ projectRoot }) {
     projectName: basename(projectRoot),
     version: getKitVersion(),
   };
-  for (const file of walkFiles(skillsSrc)) {
-    if (file.isGitkeep) continue;
-    const targetRel = join('.claude', 'skills', dirname(file.relPath), targetName(file.relPath.split('/').pop()));
-    const targetAbs = join(projectRoot, targetRel);
-    if (!existsSync(targetAbs)) continue; // missing ≠ drift (see above)
-    try {
-      const expected = renderTemplate(readFileSync(file.absSrc, 'utf8'), v);
-      const actual = readFileSync(targetAbs, 'utf8');
-      // EOL-normalized (the D-126 class — a CRLF checkout is not drift) and
-      // reported with '/' separators (walkFiles' convention) so the HC-9
-      // message reads the same on every OS.
-      if (actual.replaceAll('\r\n', '\n') !== expected.replaceAll('\r\n', '\n')) {
-        drifted.push(targetRel.replaceAll('\\', '/'));
+  for (const dirName of ['skills', 'commands']) {
+    const src = join(templateDir, '.claude', dirName);
+    if (!existsSync(src)) continue;
+    for (const file of walkFiles(src)) {
+      if (file.isGitkeep) continue;
+      const targetRel = join('.claude', dirName, dirname(file.relPath), targetName(file.relPath.split('/').pop()));
+      const targetAbs = join(projectRoot, targetRel);
+      if (!existsSync(targetAbs)) continue; // missing ≠ drift (see above)
+      try {
+        const expected = renderTemplate(readFileSync(file.absSrc, 'utf8'), v);
+        const actual = readFileSync(targetAbs, 'utf8');
+        // EOL-normalized (the D-126 class — a CRLF checkout is not drift) and
+        // reported with '/' separators (walkFiles' convention) so the HC-9
+        // message reads the same on every OS.
+        if (actual.replaceAll('\r\n', '\n') !== expected.replaceAll('\r\n', '\n')) {
+          drifted.push(targetRel.replaceAll('\\', '/'));
+        }
+      } catch {
+        // unreadable file — leave to the install/repair path, not a drift flag
       }
-    } catch {
-      // unreadable file — leave to the install/repair path, not a drift flag
     }
   }
   return drifted;

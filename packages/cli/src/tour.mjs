@@ -17,6 +17,9 @@ import { join } from 'node:path';
 import { parse as parseFrontmatter } from './frontmatter.mjs';
 import { parseObservationsFromScratchpad } from './index-rebuild.mjs';
 
+// The four user-facing fact types. `judgment_*` files are deliberately
+// excluded — same as the facts-scope search exclusion (search.mjs): the
+// learn-loop's judgment records are machinery, not the user's memory story.
 const FACT_FILE_RE = /^(user|feedback|project|reference)_.+\.md$/;
 
 function safeList(dir) {
@@ -80,14 +83,25 @@ export function buildTour({ projectRoot, userDir } = {}) {
   const decisions = safeRead(join(ctx, 'DECISIONS.md'));
   const decisionCount = (decisions.match(/^## /gm) ?? []).length;
   const sessionFiles = safeList(join(ctx, 'sessions')).filter((n) => n.endsWith('.md')).length;
-  const transcriptFiles = safeList(join(ctx, 'transcripts')).filter((n) => n.endsWith('.md')).length;
+  // Recursive one level: import-sessions archives raw extracts under
+  // transcripts/imported/ — "real counts" must include them (skill-review I3).
+  const transcriptsDir = join(ctx, 'transcripts');
+  const transcriptFiles =
+    safeList(transcriptsDir).filter((n) => n.endsWith('.md')).length +
+    safeList(join(transcriptsDir, 'imported')).filter((n) => n.endsWith('.md')).length;
   const userTierExists = !!userDir && existsSync(userDir);
 
   const examples = [
     ...sampleFacts(join(ctx, 'memory'), 'context/memory/', 3),
     ...(userTierExists ? sampleFacts(join(userDir, 'memory'), 'user/memory/', 2) : []),
   ];
-  const empty = projFacts === 0 && memoryBullets === 0 && userFacts === 0;
+  // Empty = NO memory of any kind (skill-review I1: a corpus with only
+  // imported day files or only journal entries is NOT empty — a fresh
+  // scaffold seeds sessions/transcripts with .gitkeep only and never
+  // scaffolds DECISIONS.md, so this stays honestly zero on first install).
+  const empty =
+    projFacts === 0 && memoryBullets === 0 && userFacts === 0 &&
+    sessionFiles === 0 && transcriptFiles === 0 && decisionCount === 0;
 
   const sections = [];
 
