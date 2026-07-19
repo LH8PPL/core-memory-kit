@@ -18,7 +18,8 @@ import { join } from 'node:path';
 import { install } from '../packages/cli/src/install.mjs';
 import { openIndexDb } from '../packages/cli/src/index-db.mjs';
 import { reindexBoot } from '../packages/cli/src/index-rebuild.mjs';
-import { search, enrichFactCitations } from '../packages/cli/src/search.mjs';
+import { search, enrichFactCitations, enrichTranscriptDates } from '../packages/cli/src/search.mjs';
+import { semanticRowPassesFilters } from '../packages/cli/src/semantic-backend.mjs';
 import { rememberRich } from '../packages/cli/src/remember-core.mjs';
 
 let sandbox;
@@ -113,6 +114,35 @@ describe('enrichFactCitations — the semantic/hybrid seam (the live-test "—" 
       expect(unknown[0].date).toBeNull();
       expect(unknown[0].heading).toBeNull();
     });
+  });
+});
+
+describe('enrichTranscriptDates — the transcripts-scope semantic seam (skill-review I1)', () => {
+  it('stamps the day-file date onto semantic-shaped transcript rows; keyword-stamped rows untouched', () => {
+    const rows = [
+      // The semantic transcript backend's shape — no date field.
+      { id: 'T:context/sessions/today-2026-06-09.md:3', snippet: 'x', source_file: 'context/sessions/today-2026-06-09.md', source_line: 3, heading: '## Decisions', score: 0.9 },
+      // A keyword-side row that already carries its date — must not change.
+      { id: 'T:context/sessions/recent.md:2', snippet: 'y', source_file: 'context/sessions/recent.md', source_line: 2, heading: '## 2026-06-01', date: null, score: 0.8 },
+    ];
+    enrichTranscriptDates(rows);
+    expect(rows[0].date).toBe('2026-06-09');
+    expect(rows[1].date).toBeNull();
+  });
+});
+
+describe('semanticRowPassesFilters — the since filter actually filters (pre-existing ×1000 bug)', () => {
+  it('a row older than --since is excluded in semantic mode (created_at is epoch MS, not seconds)', () => {
+    const old = { created_at: Date.parse('2026-01-05T00:00:00Z'), deleted_at: null, expires_at: null, tier: 'P', trust: 'high' };
+    const fresh = { created_at: Date.parse('2026-07-01T00:00:00Z'), deleted_at: null, expires_at: null, tier: 'P', trust: 'high' };
+    const opts = { since: '2026-06-01' };
+    // The old `created_at * 1000` made every row pass; ms-to-ms compares now.
+    expect(semanticRowPassesFilters(old, opts)).toBe(false);
+    expect(semanticRowPassesFilters(fresh, opts)).toBe(true);
+    // The neighboring filters keep their semantics.
+    expect(semanticRowPassesFilters({ ...fresh, deleted_at: 123 }, {})).toBe(false);
+    expect(semanticRowPassesFilters({ ...fresh, tier: 'U' }, { tier: 'P' })).toBe(false);
+    expect(semanticRowPassesFilters({ ...fresh, trust: 'low' }, { minTrust: 'high' })).toBe(false);
   });
 });
 

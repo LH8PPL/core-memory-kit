@@ -332,6 +332,28 @@ export async function syncSemanticIndex({
  * seam contract: (opts) => [{id, snippet, source_file, source_line, tier,
  * trust, score}] — score in [0,1], higher = closer.
  */
+// The semantic post-filters, extracted as a pure seam so the `since`/tier/
+// trust/tombstone/expiry semantics are unit-testable WITHOUT the embedder.
+// Task 227 skill-review find (pre-existing bug, fixed here): `created_at` is
+// ALREADY epoch ms (index-rebuild's isoToEpochMs = Date.parse); the old
+// `r.created_at * 1000` assumed seconds, making the left side ~3 orders too
+// large so `since` could never exclude a row in semantic mode — silently
+// ignored. The keyword path (search.mjs @since_ms) compares ms-to-ms; now
+// this does too.
+const MIN_TRUST_RANK = { low: 0, medium: 1, high: 2 };
+export function semanticRowPassesFilters(r, opts = {}, nowMs = Date.now()) {
+  if (!opts.includeTombstoned && r.deleted_at != null) return false;
+  // Exclusive end: expires_at == now is already expired (D-258).
+  if (!opts.includeExpired && r.expires_at != null && nowMs >= r.expires_at) return false;
+  if (opts.tier && r.tier !== opts.tier) return false;
+  if (opts.minTrust && MIN_TRUST_RANK[r.trust] < MIN_TRUST_RANK[opts.minTrust]) return false;
+  if (opts.since) {
+    const sinceMs = Date.parse(opts.since);
+    if (Number.isFinite(sinceMs) && r.created_at < sinceMs) return false;
+  }
+  return true;
+}
+
 export async function prepareSemanticBackend({
   db,
   query,
@@ -434,22 +456,10 @@ export async function prepareSemanticBackend({
             )
             .all(qBlob, k);
 
-          const minTrustRank = { low: 0, medium: 1, high: 2 };
           // Task 66.3: expiry clock — injectable via opts.now, same contract
           // as the keyword path's @now_ms (search.mjs).
           const nowMs = opts.now ? Date.parse(opts.now) : Date.now();
-          const filtered = rows.filter((r) => {
-            if (!opts.includeTombstoned && r.deleted_at != null) return false;
-            // Exclusive end: expires_at == now is already expired (D-258).
-            if (!opts.includeExpired && r.expires_at != null && nowMs >= r.expires_at) return false;
-            if (opts.tier && r.tier !== opts.tier) return false;
-            if (opts.minTrust && minTrustRank[r.trust] < minTrustRank[opts.minTrust]) return false;
-            if (opts.since) {
-              const sinceMs = Date.parse(opts.since);
-              if (Number.isFinite(sinceMs) && r.created_at * 1000 < sinceMs) return false;
-            }
-            return true;
-          });
+          const filtered = rows.filter((r) => semanticRowPassesFilters(r, opts, nowMs));
 
           return filtered.slice(0, limit).map((r) => ({
             id: r.id,

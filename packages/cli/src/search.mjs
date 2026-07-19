@@ -516,6 +516,19 @@ function dateFromSourceFileName(sourceFile) {
  * Exported for isolated unit-testing of the semantic/hybrid path without an
  * embedder.
  */
+/**
+ * Task 227: the transcripts-scope half of the same contract — stamp `date`
+ * from the day-file name onto rows that arrived without one (the semantic
+ * transcript backend's row shape). Idempotent over already-stamped keyword
+ * rows. Exported for isolated unit-testing without an embedder.
+ */
+export function enrichTranscriptDates(results) {
+  for (const r of results) {
+    if (r) r.date = r.date ?? dateFromSourceFileName(r.source_file);
+  }
+  return results;
+}
+
 export function enrichFactCitations(db, results) {
   if (results.length === 0) return results;
   const placeholders = results.map(() => '?').join(',');
@@ -806,9 +819,14 @@ export function search(opts = {}) {
   // the mode branch, so keyword, semantic, AND hybrid-fused rows all carry
   // them — the semantic backend returns its own row shape without these
   // fields, and the first cut (fields on the keyword mapper only) printed
-  // "—" on every hybrid hit in the live-test. One owner, all modes.
-  if ((opts.scope ?? SEARCH_SCOPES.FACTS) === SEARCH_SCOPES.FACTS) {
+  // "—" on every hybrid hit in the live-test. One owner, all modes — and
+  // BOTH scopes (the skill review caught the same class left open on the
+  // transcripts-scope semantic path).
+  const enrichScope = opts.scope ?? SEARCH_SCOPES.FACTS;
+  if (enrichScope === SEARCH_SCOPES.FACTS) {
     enrichFactCitations(opts.db, results);
+  } else if (enrichScope === SEARCH_SCOPES.TRANSCRIPTS) {
+    enrichTranscriptDates(results);
   }
 
   // Task 211: on the HISTORICAL view, bucket stateful (labeled) rows FIRST —

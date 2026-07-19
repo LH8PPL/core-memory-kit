@@ -2812,11 +2812,11 @@ Provenance: Task 30 code-review Minor #5 (2026-05-27).
 
 ### 16.39 mk_remember cites parameter — wire through memoryWrite provenance
 
-**v0.1.x candidate.**
+**~~v0.1.x candidate~~ — CLOSED 2026-07-19 (Task 227, D-358; see the closure block below).**
 
 Surfaced by the Task 31 code-review-excellence pass (2026-05-28) as Important finding I1. The MCP tool `mk_remember`'s public surface documents a `cites?: string[]` parameter (design §10's tool table). The underlying [`memoryWrite`](../packages/cli/src/memory-write.mjs) function doesn't accept `cites` today — its provenance frontmatter is generated from `source`, `at`, `sha1`, etc., not from a caller-supplied citation list.
 
-Current behavior (message reworded in Task 121, 2026-06-09): `mk_remember` rejects requests with non-empty `cites` and returns a clear "not recorded yet — omit it" error (the Zod `.describe()` says the same). The schema still accepts the parameter so an empty array is a no-op; actual citation linking is deferred.
+Behavior through Task 227 (message reworded in Task 121, 2026-06-09): `mk_remember` rejected requests with non-empty `cites` with a "not recorded yet — omit it" error (the Zod `.describe()` said the same). The schema still accepts the parameter so an empty array is a no-op; citation linking was deferred behind the trigger below.
 
 v0.1.x candidate: wire `cites` through `memoryWrite` → provenance frontmatter as an optional `cites: [P-XXX, P-YYY, ...]` field. Then downstream (`mk_get`, the indexer) can surface citation relationships. Requires:
 
