@@ -300,16 +300,19 @@ function makeMkCite() {
 
 function makeMkRemember({ projectRoot, userDir }) {
   return async ({ text, tier, cites, why, how, type, title, links, shape, expires }) => {
-    // cites: memoryWrite doesn't wire cites → provenance yet. Silently dropping
-    // the array would tell the model "your citation was recorded" — false — so
-    // reject it clearly (the fact's own text is still captured if resubmitted
-    // without cites). Tracked in design §16.39.
+    // cites: PERMANENTLY not recorded — CLOSED deliberately in Task 227
+    // (design §16.39): `links` already delivers write-time fact-linking
+    // (→ `related` frontmatter + [[cross-links]]), and recall-side citations
+    // (id + date + heading + path) come from provenance automatically, so a
+    // second citation param would be a redundant surface. Silently dropping
+    // the array would tell the model "your citation was recorded" — false —
+    // so the rejection stays, now as the permanent contract.
     if (Array.isArray(cites) && cites.length > 0) {
       return {
         content: [
           {
             type: 'text',
-            text: 'error: the `cites` parameter is not recorded yet — resubmit the fact without it (reference related facts via `links` for [[cross-links]]).',
+            text: 'error: the `cites` parameter is permanently not recorded (closed — design §16.39). Use `links` to connect related facts; recall results carry their own citations (id + date + heading + source) from provenance.',
           },
         ],
         isError: true,
@@ -752,7 +755,7 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
       inputSchema: {
         text: z.string().min(1).max(5000).describe('the fact text (max 5000 chars)'),
         tier: z.enum(['U', 'P', 'L']).optional().describe("target tier (default P). U/L are captured to the project tier (P) with a note — use mk_lessons_promote to make a fact cross-project"),
-        cites: z.array(z.string()).optional().describe('not recorded yet — omit it'),
+        cites: z.array(z.string()).optional().describe('permanently not recorded (closed — use `links` for fact-linking); omit it'),
         // Task 108b — rich capture parity with the CLI `cmk remember --why/--how`.
         // Any of these routes to a granular Why/How fact file (not a terse bullet).
         why: z.string().max(5000).optional().describe('rich: the rationale (the **Why:** block)'),

@@ -1283,8 +1283,10 @@ async function runSearch(queryParts, options) {
       // Task 209: a non-current fact carries its state label ahead of the
       // snippet (deterministic projection; current rows print unchanged).
       const stateTag = hit.state ? `${STATE_LABELS[hit.state] ?? `[${hit.state}]`} ` : '';
+      // Task 227: the citation DATE column — "here's WHEN" — between the
+      // provenance and the source location; undated rows print a dash.
       console.log(
-        `${hit.id}\t${provenance}\t${hit.source_file}:${hit.source_line}\t${stateTag}${hit.snippet}`,
+        `${hit.id}\t${provenance}\t${hit.date ?? '—'}\t${hit.source_file}:${hit.source_line}\t${stateTag}${hit.snippet}`,
       );
     }
     console.log(

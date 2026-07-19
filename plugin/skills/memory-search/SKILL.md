@@ -124,6 +124,10 @@ Return a short, curated answer for the main conversation:
 
 - The relevant facts/decisions, each with its citation id (e.g. `P-XXXXXXXX`)
   and the Why when it matters.
+- **Cite the WHEN and the WHERE:** every hit carries a `date` and a
+  `heading`/source — say "decided 2026-06-20" and name the source file, so
+  the caller can judge freshness and drill in. An undated hit (a
+  consolidated summary) — cite the section's own date heading instead.
 - One line of source traceability per item (the source file the index line
   showed).
 - If nothing relevant exists, say exactly that — "no recorded memory on

@@ -1829,7 +1829,7 @@ Two backends:
 - **Semantic (optional, Layer 5b — SHIPPED, Task 65/ADR-0015)**: sqlite-vec inside the kit's index + a local ONNX embedder (`Xenova/bge-base-en-v1.5`, optional `@huggingface/transformers` install). Sub-second after the one-time model warm-up.
 - **Hybrid (default when both available)**: reciprocal-rank fusion (0.5 keyword, 0.5 semantic).
 
-Returns: `[{id, snippet, source_file, source_line, tier, trust, score}]`. Trust visible so users can filter via `--min-trust`. Tier visible so MCP-tool callers can route on tier without re-querying. `source_file` + `source_line` are separate fields (not a colon-joined string) so callers don't need to split; the kit's existing `${file}:${line}` formatter (used in `cmk` CLI output) composes both on display.
+Returns: `[{id, snippet, source_file, source_line, tier, trust, date, heading, score}]`. Trust visible so users can filter via `--min-trust`. Tier visible so MCP-tool callers can route on tier without re-querying. `source_file` + `source_line` are separate fields (not a colon-joined string) so callers don't need to split; the kit's existing `${file}:${line}` formatter (used in `cmk` CLI output) composes both on display. **`date` + `heading` (Task 227, D-326):** every hit carries the WHEN + WHERE halves of a complete citation — facts derive `date` from `created_at` and expose their `heading_path`; transcript-scope hits derive `date` from the day-file name (undated files like `recent.md` carry null — their sections have their own date headings). The CLI prints the date as its own column; recall answers can say "decided 2026-06-20".
 
 **Ranking learns (Task 194, v0.5.3):** the facts-scope keyword rank is a **confidence-gated trust blend** — `bm25 × (1 + λ·(trust_score − 0.5))`, applied only when the fact carries ≥ 3 applied outcome signals; judgments never blend; hybrid inherits via RRF; inject is untouched. Full mechanics + rationale: §20.7 (+ the §20.3 amendment).
 
@@ -2828,6 +2828,8 @@ v0.1.x candidate: wire `cites` through `memoryWrite` → provenance frontmatter 
 Ship trigger: a user-facing need for citation linking. Most likely as part of v0.1.x's MCP server hardening or a Knowledge-Graph extraction layer.
 
 Provenance: Task 31 code-review Important #1 (2026-05-28).
+
+**CLOSED 2026-07-19 (Task 227, D-358) — deliberately NOT wired; the rejection is now the permanent contract.** The trigger question ("a user-facing need for citation linking") resolved NO on both halves: **write-time** fact-linking already ships as the `links` param (→ `related` frontmatter + `[[cross-links]]`, wired on both `cmk remember --links` and `mk_remember`), so `cites` would be a redundant second surface for the same capability; **recall-time** citations are provenance's job and are now complete (Task 227 surfaced `date` + `heading` on every search hit, alongside the existing id + `source_file:line`) — a caller never needs to hand-supply what the kit derives. The `cites` schema key stays (an empty array remains a no-op for back-compat) and a non-empty array errors permanently, pointing at `links` — silently dropping it would tell the model a citation landed when it didn't. Pinned by the cli-mcp-server contract test. The original wiring plan above is preserved as the decision trail; re-open only with new evidence of a need neither `links` nor provenance covers (e.g. a Knowledge-Graph layer wanting typed edges).
 
 ### 16.40 mk_remember tier U / L support
 

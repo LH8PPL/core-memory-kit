@@ -272,6 +272,9 @@ describe('Task 30 — cmk search', () => {
     });
 
     it('semantic mode with injected backend returns its results', () => {
+      // The enrich step (Task 227) looks the row up in observations — a
+      // semantic hit always corresponds to a real indexed fact.
+      seedObservation(db, { id: 'P-AAAAAAAA', body: 'pnpm fact' });
       const fakeSemantic = () => [
         { id: 'P-AAAAAAAA', snippet: 'semantic hit', source_file: 'MEMORY.md', source_line: 1, tier: 'P', trust: 'high', score: 0.95 },
       ];
@@ -283,8 +286,16 @@ describe('Task 30 — cmk search', () => {
       });
       expect(r.action).toBe('found');
       expect(r.mode).toBe('semantic');
+      // Task 227 (D-358): semantic/hybrid rows gain the citation fields via
+      // the post-mode enrich step — date (from the observation's created_at)
+      // + heading (its heading_path). The backend's own fields pass through
+      // unchanged; the enrichment is additive.
       expect(r.results).toEqual([
-        { id: 'P-AAAAAAAA', snippet: 'semantic hit', source_file: 'MEMORY.md', source_line: 1, tier: 'P', trust: 'high', score: 0.95 },
+        {
+          id: 'P-AAAAAAAA', snippet: 'semantic hit', source_file: 'MEMORY.md', source_line: 1,
+          tier: 'P', trust: 'high', score: 0.95,
+          date: '2026-05-27', heading: 'MEMORY.md > Active Threads',
+        },
       ]);
     });
   });
