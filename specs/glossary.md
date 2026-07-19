@@ -130,7 +130,7 @@ Spec: design §2.2.
 
 ### Working memory
 
-The field's term (cognitive-science lineage — IBM/Weaviate/MLM taxonomy) for an agent's CURRENT-session live state. In the kit: the bounded `MEMORY.md` [[Scratchpad]] (active threads, environment notes, pending decisions) + the `sessions/now.md` pre-roll buffer. Cap-managed with graduation-not-truncation ([[Consolidation]], design §19) — the answer to the taxonomy's "re-asking = over-trimmed working memory" pitfall. Distinct from the kit's own [[Type taxonomy]] (fact PURPOSE) and [[Fact shape]] (fact TIME) — the four memory TYPES classify storage surfaces, not facts. (Task 229, D-326.)
+The field's term (cognitive-science lineage — IBM/Weaviate/MLM taxonomy) for an agent's CURRENT-session live state. In the kit: the bounded `MEMORY.md` [[Scratchpad]] (active threads, environment notes, pending decisions) + the `sessions/now.md` pre-roll buffer. Nothing is truncated away: the scratchpad cap-manages with graduation-not-truncation ([[Consolidation]], design §19), and `now.md` drains via the [[Rolling window]] roll (design §8) — together the answer to the taxonomy's "re-asking = over-trimmed working memory" pitfall. Distinct from the kit's own [[Type taxonomy]] (fact PURPOSE) and [[Fact shape]] (fact TIME) — the four memory TYPES classify storage surfaces, not facts. (Task 229, D-326.)
 
 ### Semantic memory
 
