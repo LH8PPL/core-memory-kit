@@ -63,7 +63,7 @@ A session that has lost all memory must be able to read **only the three spine f
 
 ### Zone 4 — `archive/` (frozen; superseded/retired; never current state, never ref-validated)
 
-Holds docs that are genuinely done and were cited as provenance but are no longer live: `archive/docs/conversation-log/` (retired), `archive/specs/v0.1.0/requirements-revisions-proposed.md` (merged into requirements.md), `archive/docs/journey/PHASE-3-PLAN.md` (husk, folded into tasks.md). Inbound citations point here; the files themselves are excluded from `validate-references` (see its SKIP set).
+Holds docs that are genuinely done and were cited as provenance but are no longer live: `archive/docs/conversation-log/` (retired), `archive/specs/v0.1.0/requirements-revisions-proposed.md` (merged into requirements.md), `archive/docs/journey/PHASE-3-PLAN.md` (husk, folded into tasks.md). Inbound citations point here; the files themselves are excluded from the `references` family of `validate-docs` (see its SKIP set).
 
 ### Not policed by the registry validator
 
@@ -91,7 +91,7 @@ Holds docs that are genuinely done and were cited as provenance but are no longe
 
 ## Enforcement (dev-process only — not part of the shipped kit)
 
-[`scripts/validate-doc-registry.mjs`](../scripts/validate-doc-registry.mjs), wired into `npm test`, **fails the build if any working-doc markdown file in a high-risk zone (`specs/`, `docs/` top level, `docs/journey/`, repo-root `*.md`) is not listed in the Registry below** — i.e., a new rogue surface cannot appear without being registered here. Bulk history dirs (`docs/research/`, `docs/sources/`, `docs/process/`, `docs/adr/`, `docs/conversation-log/`, `archive/`) are registered by zone. This is the across-compaction guarantee: it does not rely on Claude remembering the rule. It is a tool for *our* work — users of the kit never run it and it ships nothing.
+[`scripts/validate-docs.mjs`](../scripts/validate-docs.mjs) (the `registry` family — run it alone with `--only registry`), wired into `npm test`, **fails the build if any working-doc markdown file in a high-risk zone (`specs/`, `docs/` top level, `docs/journey/`, repo-root `*.md`) is not listed in the Registry below — and, since Task 186, also if a Registry entry names a file that no longer exists (both directions)** — i.e., a new rogue surface cannot appear without being registered here. Bulk history dirs (`docs/research/`, `docs/sources/`, `docs/process/`, `docs/adr/`, `docs/conversation-log/`, `archive/`) are registered by zone. This is the across-compaction guarantee: it does not rely on Claude remembering the rule. It is a tool for *our* work — users of the kit never run it and it ships nothing.
 
 When you add a doc, add its path to the Registry in the same commit, or the build goes red.
 
