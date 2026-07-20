@@ -283,17 +283,42 @@ export const WORK_STATE_INSTRUCTION =
  * @param {string} body the assembled snapshot body
  * @returns {string} the body with work-state headings annotated
  */
+/** The heading matcher — ONE definition, shared by the counter and the
+ *  annotator so the cap reserve can never diverge from what is inserted. */
+function workStateHeadingRe(section) {
+  const caveat = WORK_STATE_INSTRUCTION.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`^(##[ \\t]+${section})[ \\t]*\\r?$(?!\\r?\\n${caveat})`, 'gm');
+}
+
+/**
+ * How many work-state headings `annotateWorkStateHeadings` would annotate.
+ * Used to size the cap reserve exactly (skill-review: a fixed 2-slot reserve
+ * overflowed on a 3-heading body).
+ *
+ * @param {string} text
+ * @returns {number}
+ */
+export function countWorkStateHeadings(text) {
+  if (!text) return 0;
+  let n = 0;
+  for (const section of WORK_STATE_SECTIONS) {
+    n += (text.match(workStateHeadingRe(section)) ?? []).length;
+  }
+  return n;
+}
+
 export function annotateWorkStateHeadings(body) {
   if (!body) return body;
   let out = body;
-  const caveat = WORK_STATE_INSTRUCTION.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   for (const section of WORK_STATE_SECTIONS) {
     // Whole-line match on the heading; tolerate CRLF + trailing spaces. The
     // negative lookahead makes this idempotent — an already-annotated heading
     // (caveat on the FOLLOWING line) is skipped, so a body can be re-annotated
-    // without stacking duplicates.
-    const re = new RegExp(`^(##[ \\t]+${section})[ \\t]*\\r?$(?!\\r?\\n${caveat})`, 'gm');
-    out = out.replace(re, (_m, heading) => `${heading}\n${WORK_STATE_INSTRUCTION}`);
+    // without stacking duplicates. Preserve the line's OWN ending (skill-review
+    // M2: always inserting '\n' silently converted an annotated CRLF pair to LF).
+    out = out.replace(workStateHeadingRe(section), (m, heading) =>
+      `${heading}${m.endsWith('\r') ? '\r\n' : '\n'}${WORK_STATE_INSTRUCTION}`,
+    );
   }
   return out;
 }
@@ -1055,10 +1080,18 @@ export function injectContext({
   const rawHasWorkState = rawBlocks.some((b) =>
     WORK_STATE_SECTIONS.some((s) => b.text.includes(`## ${s}`)),
   );
-  // One annotation per work-state section that could survive, + its newline.
-  const workStateReserve = rawHasWorkState
-    ? (Buffer.byteLength(WORK_STATE_INSTRUCTION, 'utf8') + 1) * WORK_STATE_SECTIONS.length
-    : 0;
+  // Reserve from the ACTUAL number of headings the annotator will match, not a
+  // fixed 2 (skill-review, CONFIRMED overflow: 3 matching headings against a
+  // 2-slot reserve produced 4021 bytes on a 4000 cap). Counted with the SAME
+  // regex the annotator uses, so reserve and effect can never disagree — the
+  // earlier substring probe required an exact single space while the regex
+  // tolerates `[ \t]+`, making non-canonical headings invisible to the reserve.
+  const rawWorkStateHeadings = rawBlocks.reduce(
+    (n, b) => n + countWorkStateHeadings(b.text),
+    0,
+  );
+  const workStateReserve =
+    rawWorkStateHeadings * (Buffer.byteLength(WORK_STATE_INSTRUCTION, 'utf8') + 2);
   const { blocks: keptBlocks, truncationEvents } = enforceCap(
     rawBlocks,
     Math.max(0, cap - preambleReserve - mentionReserve - proposalReserve - stateReserve - workStateReserve),

@@ -154,6 +154,36 @@ describe('Task 234 — the snapshot still honors its cap with the instruction pr
     expect(Buffer.byteLength(r.snapshot, 'utf8')).toBeLessThanOrEqual(cap);
   });
 
+  it('BLOCKING regression: THREE work-state headings still fit the cap (reserve counts real matches)', () => {
+    // Skill-review CONFIRMED overflow: a fixed 2-slot reserve produced 4021
+    // bytes on a 4000 cap once a third matching heading appeared. The reserve
+    // is now counted with the SAME regex the annotator uses.
+    const filler = (tag, n) =>
+      Array.from({ length: n }, (_, i) => `- (P-234567${tag}) ${tag} item ${i} with body text\n`).join('');
+    seedMemory(
+      '# Working Memory\n\n## Active Threads\n\n' + filler('A', 12) +
+        '\n## Pending Decisions\n\n' + filler('B', 12) +
+        '\n## Active Threads\n\n' + filler('C', 12),
+    );
+    const cap = 4000;
+    const r = injectContext({ cwd: projectRoot, userDir, capBytes: cap });
+    expect(
+      Buffer.byteLength(r.snapshot, 'utf8'),
+      'the annotation must never push the snapshot past the caller\'s cap (§7.1.2)',
+    ).toBeLessThanOrEqual(cap);
+  });
+
+  it('a CRLF body keeps CRLF on the annotated line pair', () => {
+    const out = annotateWorkStateHeadings('## Active Threads\r\n\r\n- (P-2345679H) x\r\n');
+    expect(out).toContain(`## Active Threads\r\n${WORK_STATE_INSTRUCTION}`);
+    expect(annotateWorkStateHeadings(out), 'still idempotent under CRLF').toBe(out);
+  });
+
+  it('a heading whose name merely PREFIXES another is not annotated', () => {
+    const out = annotateWorkStateHeadings('## Active Threads Resolved\n\n- (P-2345679J) done\n');
+    expect(out).not.toContain(WORK_STATE_INSTRUCTION);
+  });
+
   it('an EMPTY memory emits no preamble and no work-state instruction (no over-claim)', () => {
     seedMemory('# Working Memory\n\n## Active Threads\n\n');
     const r = injectContext({ cwd: projectRoot, userDir });
