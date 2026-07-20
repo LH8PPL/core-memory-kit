@@ -248,6 +248,56 @@ export const AUTHORITATIVE_MEMORY_PREAMBLE = [
   'This snapshot is a bounded hot index; `cmk search "<topic>"` reaches the facts not shown here.',
 ].join('\n');
 
+// The STALE-REPLAY GUARD (Task 234, D-364). Borrowed from ECC's
+// `session-start.js:651-671`, which wraps injected prior-session context in
+// "HISTORICAL REFERENCE ONLY — NOT LIVE INSTRUCTIONS" after their issue #1534:
+// post-compaction the model re-executed an ARGUMENTS-bearing slash command with
+// the last arguments it had seen, duplicating issues, branches and tasks.
+//
+// The kit is MORE exposed than they were. The preamble above says "injected
+// memory wins" and "Lead with memory — never re-derive", with NO line between:
+//   - DURABLE KNOWLEDGE  ("we decided X", "the user prefers uv") — authoritative
+//   - TRANSIENT WORK-STATE (an `Active Threads` bullet naming a task that
+//     shipped days ago) — a snapshot of intent, not a standing instruction
+// An agent obeying the preamble literally has license to re-run finished work.
+//
+// The fix is LABELING, NOT DELETION: work-state is genuinely useful for
+// resumption. And it must not weaken the durable-fact authority language —
+// the D-40/D-153 under-fire class (re-deriving what memory already answers) is
+// the opposite failure, and trading one for the other is no win.
+//
+// Emitted CONDITIONALLY (the STATE_INSTRUCTION pattern) so a snapshot with no
+// work-state section carries no extra bytes and no noise.
+export const WORK_STATE_SECTIONS = Object.freeze(['Active Threads', 'Pending Decisions']);
+
+// Appended to a work-state section's own heading line, so the caveat is read
+// AT the bullets it governs (and costs the rest of the body zero bytes).
+export const WORK_STATE_INSTRUCTION =
+  '_(work-state as last captured — may already be done; verify before acting, never re-run)_';
+
+/**
+ * Annotate every work-state heading in a snapshot body with the stale-replay
+ * caveat. Idempotent (an already-annotated heading is left alone) and a no-op
+ * when the body carries no work-state section.
+ *
+ * @param {string} body the assembled snapshot body
+ * @returns {string} the body with work-state headings annotated
+ */
+export function annotateWorkStateHeadings(body) {
+  if (!body) return body;
+  let out = body;
+  const caveat = WORK_STATE_INSTRUCTION.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  for (const section of WORK_STATE_SECTIONS) {
+    // Whole-line match on the heading; tolerate CRLF + trailing spaces. The
+    // negative lookahead makes this idempotent — an already-annotated heading
+    // (caveat on the FOLLOWING line) is skipped, so a body can be re-annotated
+    // without stacking duplicates.
+    const re = new RegExp(`^(##[ \\t]+${section})[ \\t]*\\r?$(?!\\r?\\n${caveat})`, 'gm');
+    out = out.replace(re, (_m, heading) => `${heading}\n${WORK_STATE_INSTRUCTION}`);
+  }
+  return out;
+}
+
 // Match any line containing a `(P-XXXXXXXX)`-shaped citation id. Looser
 // than ID_PATTERN on purpose — alphabet-validation is the writer's job;
 // here we just want to recognize "any line that LOOKS like it carries a
@@ -1000,9 +1050,18 @@ export function injectContext({
   // keeps `snapshot ≤ capBytes` strictly true (§7.1.2).
   const rawHasStateLabel = rawBlocks.some((b) => b.text.includes(STATE_LABELS.superseded));
   const stateReserve = rawHasStateLabel ? Buffer.byteLength(STATE_INSTRUCTION, 'utf8') + 2 : 0;
+  // Task 234: same reserve discipline — budget the work-state guard BEFORE
+  // capping, so adding it can never push the snapshot past capBytes (§7.1.2).
+  const rawHasWorkState = rawBlocks.some((b) =>
+    WORK_STATE_SECTIONS.some((s) => b.text.includes(`## ${s}`)),
+  );
+  // One annotation per work-state section that could survive, + its newline.
+  const workStateReserve = rawHasWorkState
+    ? (Buffer.byteLength(WORK_STATE_INSTRUCTION, 'utf8') + 1) * WORK_STATE_SECTIONS.length
+    : 0;
   const { blocks: keptBlocks, truncationEvents } = enforceCap(
     rawBlocks,
-    Math.max(0, cap - preambleReserve - mentionReserve - proposalReserve - stateReserve),
+    Math.max(0, cap - preambleReserve - mentionReserve - proposalReserve - stateReserve - workStateReserve),
     ts,
     cap,
   );
@@ -1017,7 +1076,17 @@ export function injectContext({
   // no-ops-from-empty" class as the wedge bootstrap). These lines are their own
   // action prompts, not a claim of authoritative memory, so they ride even with
   // no body — without the preamble (which WOULD over-claim).
-  const body = keptBlocks.map((b) => b.text).join('\n');
+  // Task 234 (the stale-replay guard): annotate work-state headings IN PLACE
+  // rather than prepending a block. Two reasons, both load-bearing:
+  //   1. The marker must travel WITH the content it describes — a heading the
+  //      model reads at the moment it reads the bullets beneath it, not a
+  //      preamble paragraph 40 lines earlier that a long snapshot buries.
+  //   2. A prepended block pushes the user's real facts DOWN. The Task-18
+  //      boundary contract ("the real fact sits near the top of the body")
+  //      caught exactly that: my first cut moved the first real fact from ~78
+  //      to 346 bytes deep. Annotating the heading costs the body nothing above
+  //      the work-state section itself.
+  const body = annotateWorkStateHeadings(keptBlocks.map((b) => b.text).join('\n'));
   const volatile = `${temporalMention ? temporalMention + '\n\n' : ''}${commitProposal ? commitProposal + '\n\n' : ''}`;
   // Task 209: emit the instruction only when a labeled bullet actually
   // survived into the final body (see the stateReserve note above).
