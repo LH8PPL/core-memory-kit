@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Changed
 
+- **Injected memory now distinguishes durable knowledge from in-flight work-state.** The `Active Threads` / `Pending Decisions` sections of the session-start snapshot carry a one-line caveat (`work-state as last captured — may already be done; verify before acting, never re-run`), so the snapshot's "injected memory wins" authority can no longer be read as a licence to re-run work that already shipped. Durable facts keep their full authority — the caveat is scoped to the two work-state headings and appears only when they do. (Task 234, D-364)
 - **Internal: the four doc validators became one.** `validate-references`, `validate-doc-registry`, `validate-doc-completeness` and `validate-index-completeness` are now four **families** inside a single `scripts/validate-docs.mjs`, driven by `docs/DOCUMENTATION-MAP.md` as the manifest — one place to add a doc, no overlap, and a new **both-directions** check (a Registry entry naming a file that no longer exists now fails, not just an unregistered file). Run one family with `--only <references|registry|catalogs|coverage>`; `<!-- validate-docs: ignore -->` suppresses a line, and the legacy `<!-- validate-references: ignore -->` marker is honored forever. Dev-tooling only — the kit ships nothing from this and users never run it. (Task 186, D-249/D-370, [#310](https://github.com/LH8PPL/core-memory-kit/pull/310))
 
 ## [0.5.5] — 2026-07-16
