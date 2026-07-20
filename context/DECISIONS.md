@@ -13716,3 +13716,152 @@ _(retracted 2026-07-18)_
 
 **When:** 2026-07-19 · **Fact:** `P-XGX92LLV`
 **Why:** Future sessions should recognize this as transient infrastructure noise, not a real code problem, and know to retry rather than debug the code.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-MRVTM6NW -->
+
+## v0.5.4 published to npm as `@lh8ppl/core-memory-kit@0.5.4` with sigstore provena
+
+**When:** 2026-07-18 · **Fact:** `P-MRVTM6NW`
+
+<!-- decision:P-K3FN3LUJ -->
+
+## Durable knowledge (procedures, workflows) should be saved to project-local memor
+
+**When:** 2026-07-18 · **Fact:** `P-K3FN3LUJ`
+
+<!-- decision:P-324UW2UP -->
+
+## Task batch v0.5.5 contains three sequenced tasks (230 → 96 → 210); previous vers
+
+**When:** 2026-07-18 · **Fact:** `P-324UW2UP`
+
+<!-- decision:P-RYN7KWJJ -->
+
+## BORROW CANDIDATE from ECC (verified in their scripts/hooks/session-start.js:651-
+
+**When:** 2026-07-20 · **Fact:** `P-RYN7KWJJ`
+**Why:** Our AUTHORITATIVE_MEMORY_PREAMBLE (inject-context.mjs:238-249) ranks injected memory ABOVE the model's own assumptions and says 'lead with memory' / 'injected memory wins' - but draws NO line between durable recorded knowledge (we decided X, the user prefers uv) and stale in-flight work state. Our own snapshots carry Active Threads bullets like 'Task 227: commit teardown fix then PR then automerge' and 'user must accept trust dialog' long after those shipped. That is the exact re-execution hazard ECC hit, and our preamble is MORE forceful than theirs was.
+
+<!-- decision:P-W7LKGN53 -->
+
+## BUG (live-probed 2026-07-20): concurrent scratchpad writes SILENTLY LOSE bullets
+
+**When:** 2026-07-20 · **Fact:** `P-W7LKGN53`
+**Why:** Worst failure shape: silent data loss with a success exit code. The kit's whole promise is durable memory. Any concurrent-agent scenario hits this - an ultracode/workflow fan-out where each subagent's Stop hook or mk_remember appends to one MEMORY.md, two Claude Code windows on one repo, or Claude + Kiro dual-agent (a shipped supported config). The .locks dir and lock-discipline.mjs exist to DETECT stale locks but the scratchpad write path never TAKES one.
+
+<!-- decision:P-B3BLXE9V -->
+
+## slugify is NOT safe to de-duplicate despite 3 same-named copies (graduation.mjs,
+
+**When:** 2026-07-20 · **Fact:** `P-B3BLXE9V`
+**Why:** A clone scanner flags slugify as a TOP candidate (3 sites, identical name) so any future dedup pass will surface it again and it looks like free cleanup. It is a data bug wearing a refactor's clothes - changing a slug function changes the filenames facts are written to.
+
+<!-- decision:P-KJ32WCUR -->
+
+## The fact-store walk is duplicated across 10 modules with NO shared walker: the s
+
+**When:** 2026-07-20 · **Fact:** `P-KJ32WCUR`
+**Why:** This is the exact class the CLAUDE.md shared-modules table was written for - the Layer-2 review found 4 modules reimplementing the same helpers and the drift had already produced a bug (INDEX.md unfiltered in one writer's dedup scan). Today a new skip rule (new sidecar filename, new tombstone convention, a judgment_* exclusion) must be remembered in 9 separate places.
+
+<!-- decision:P-U5LLL2CL -->
+
+## Auto-extract degrades to ZERO captures under heavy concurrent load in the same s
+
+**When:** 2026-07-20 · **Fact:** `P-U5LLL2CL`
+**Why:** This is a silent-degradation class, the worst shape for a memory kit: the user believes capture is automatic, the hook fires every turn, and the only evidence of total failure is a phase:extract error_category:haiku_timeout line in context/sessions/DATE.extract.log that nobody reads. On a heavy session - exactly the sessions richest in durable findings - the automatic path can contribute nothing while appearing healthy.
+
+<!-- decision:P-WaA4WPBD -->
+
+## Memory Capture Status Emitted at Session Start
+
+**When:** 2026-07-20 · **Fact:** `P-WaA4WPBD`
+**Why:** Provides automatic, non-disruptive visibility into a critical automatic subsystem without requiring user commands.
+
+<!-- decision:P-995L5NHT -->
+
+## Silent Failures Require Automatic User-Facing Surfaces
+
+**When:** 2026-07-20 · **Fact:** `P-995L5NHT`
+**Why:** Users don't proactively run diagnostics; silent failures go unnoticed if surfaced only on-demand. Automatic subsystems must have default-safe, always-on visibility.
+
+<!-- decision:P-THKPG6TZ -->
+
+## Auto-Extract Reliability Pattern
+
+**When:** 2026-07-20 · **Fact:** `P-THKPG6TZ`
+**Why:** Prevents false conclusions about tool failure — timeouts don't mean permanent breakage; they often resolve in the next session when system resources free up.
+
+<!-- decision:P-MWG3J4a5 -->
+
+## Task 186 WIP Status and Rebase Prerequisite
+
+**When:** 2026-07-20 · **Fact:** `P-MWG3J4a5`
+**Why:** The next session needs to know whether this branch is ready for work or needs preparation first.
+
+<!-- decision:P-BFB7Y7TN -->
+
+## v0.6.0 Release Contents
+
+**When:** 2026-07-20 · **Fact:** `P-BFB7Y7TN`
+**Why:** Clarity on what's committed, what's still in progress, and what's paused or stalled.
+
+<!-- decision:P-H9ACD2B4 -->
+
+## Notification Doctrine — Non-Actionable Repeating Failures
+
+**When:** 2026-07-20 · **Fact:** `P-H9ACD2B4`
+**Why:** Repeating non-actionable reports train teams to ignore notifications and degrade signal-to-noise on real incidents.
+
+<!-- decision:P-X66TPQRV -->
+
+## Task 242: Auto-Extract Silent Failures — Self-Heal-First Design
+
+**When:** 2026-07-20 · **Fact:** `P-X66TPQRV`
+**Why:** User correctly flagged that a repeating per-session warning about uncontrollable failures is non-actionable and burns the notification channel. The system must heal silently or the warning becomes a nag that trains users to ignore real alerts.
+
+<!-- decision:P-96QaCC9J -->
+
+## Memory Tiers Contain Only Mission Context
+
+**When:** 2026-07-20 · **Fact:** `P-96QaCC9J`
+**Why:** Operational noise in session memory pollutes the user's mission context every session. A failure notification in memory that loads automatically becomes a repeated nag without user action, training users to ignore that channel when it genuinely matters.
+
+<!-- decision:P-Y723NJZC -->
+
+## Code Audit Baseline — Memory Tiers Clean
+
+**When:** 2026-07-20 · **Fact:** `P-Y723NJZC`
+**Why:** Confirms Task 242's memory-content filter addresses a proposed risk, not an existing shipped problem. Establishes clean baseline for the kit.
+
+<!-- decision:P-A3YUPTWL -->
+
+## Memory Tier Boundaries — Kit Health Signals
+
+**When:** 2026-07-20 · **Fact:** `P-A3YUPTWL`
+**Why:** Keeps memory focused on user project context rather than kit-internal operations. A remembered operational notice becomes a permanent nag; operational signals belong in transient reporting channels. Prevents pollution of the tier that should carry only durable project knowledge.
+
+<!-- decision:P-NaCR3Y9V -->
+
+## Consolidated Doc Validator Architecture
+
+**When:** 2026-07-20 · **Fact:** `P-NaCR3Y9V`
+**Why:** D-249 required separating judgment (what to check) from machinery (how to check). This consolidation unified the judgment layer into one per-change walk while keeping overlapping machinery as four families.
+
+<!-- decision:P-DPFVXU4E -->
+
+## Refactor Risk Concentrates in the Glue
+
+**When:** 2026-07-20 · **Fact:** `P-DPFVXU4E`
+**Why:** Moved pieces maintain their prior invariants; new binding code must satisfy untested invariants. This is the defect class most likely to escape review.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
