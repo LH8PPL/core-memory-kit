@@ -144,6 +144,7 @@ function hc1Hooks({ projectRoot, awsDir }) {
     { event: 'SessionStart', command: 'cmk-inject-context' },
     { event: 'Stop', command: 'cmk-capture-turn' },
     { event: 'SessionEnd', command: 'cmk-compress-session' },
+    { event: 'PreCompact', command: 'cmk-precompact' },
   ];
   const hooks = settings?.hooks ?? {};
   const missing = [];

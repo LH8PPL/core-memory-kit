@@ -290,6 +290,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
           SessionStart: [{ command: 'cmk-inject-context' }],
           Stop: [{ command: 'cmk-capture-turn' }],
           SessionEnd: [{ command: 'cmk-compress-session' }],
+          PreCompact: [{ command: 'cmk-precompact' }],
         },
       });
       const r = await runDoctor({ projectRoot, userDir });
@@ -308,6 +309,7 @@ describe('Task 37 — runDoctor (cmk doctor health checks)', () => {
           SessionStart: [{ hooks: [{ type: 'command', command: 'cmk-inject-context', timeout: 30 }] }],
           Stop: [{ hooks: [{ type: 'command', command: 'cmk-capture-turn', timeout: 30 }] }],
           SessionEnd: [{ hooks: [{ type: 'command', command: 'cmk-compress-session', timeout: 60 }] }],
+          PreCompact: [{ hooks: [{ type: 'command', command: 'cmk-precompact', timeout: 10 }] }],
         },
       });
       const r = await runDoctor({ projectRoot, userDir });

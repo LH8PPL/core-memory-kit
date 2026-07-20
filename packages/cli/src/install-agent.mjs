@@ -44,6 +44,7 @@ const HOOK_COMMANDS = Object.freeze({
   postEdit: 'cmk-observe-edit',
   turnEnd: 'cmk-capture-turn',
   sessionEnd: 'cmk-compress-session',
+  preCompact: 'cmk-precompact',
 });
 
 // Steering / instruction-file body. Kiro reads `inclusion: always` frontmatter

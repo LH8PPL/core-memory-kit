@@ -79,7 +79,7 @@ You'll see something like:
 
 ```text
 [FAIL] HC-1: Stop + SessionStart hooks registered
-         missing hook references: SessionStart.cmk-inject-context, Stop.cmk-capture-turn, SessionEnd.cmk-compress-session
+         missing hook references: SessionStart.cmk-inject-context, Stop.cmk-capture-turn, SessionEnd.cmk-compress-session, PreCompact.cmk-precompact
          → repair: cmk repair --hooks
 [SKIP] HC-2: Daily distill is fresh (≤2 days)
          context/sessions/recent.md missing — distill never ran

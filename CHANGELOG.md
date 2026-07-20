@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Added
+
+- **A long session's memory now consolidates when the context compacts, not only when you close the window.** The session buffer's roll previously had two triggers, and neither fires *during* a session: `SessionEnd` (which Claude Code fires only on a clean window-close — a marathon session often never gets one) and the next session's lazy start (too late to help the session you're in). So a long working day could leave the buffer unconsolidated for days — nothing lost (it's on disk from the first turn), but never rolled up. The kit now hooks `PreCompact` and rolls right there. It **never blocks your compaction**: the handler gates in milliseconds and hands the work to a detached background pass — measured live at **270 ms to return** while the real roll ran in 9 s behind it. Firing it twice (compaction then session-end) can't double-write. Claude Code is currently the only agent with a compaction event; the others roll at their next lazy/cron pass, noted honestly in each agent's doc. (Task 235, D-364/D-376)
+
 ## [0.6.0] — 2026-07-20
 
 ### Added

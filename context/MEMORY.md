@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-VQKAHVV9) Wants to run distill immediately, not wait until 23:00 scheduled time.
-  <!-- source: review-promote, source_line: 1, sha1: e186f10b5c93ed2b9c98149ddcef415cf8a23549d88267b26c1fe4d53bc7319b, write: user-explicit, trust: high, at: 2026-07-18T20:00:00Z -->
 - (P-9JAFFKDH) youtube-to-slide fully migrated onto the kit; trust-dialog step completed.
   <!-- source: review-promote, source_line: 1, sha1: 9f29f0bd9188e6826bdc312953027f1ff27f1e9f43b7e635cc41beb413900412, write: user-explicit, trust: high, at: 2026-07-19T20:00:23Z -->
 - (P-U5PPSG7Y) Users will not run doctor check commands; silent failures must surface automatically without user action
@@ -20,6 +18,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: d51a9228579feee3af7e7f70823074ad7ee3938f92536ff731b28d1a08c4a4b3, write: auto-extract, trust: high, at: 2026-07-20T09:57:00Z -->
 - (P-ZW2M9SW5) Concerned that research notes become stale (current note from 2026-05-22 is ~2 months old); proposes blanket re-verification of all tasks
   <!-- source: auto-extract-session, source_line: 1, sha1: e82328fb3c16aafb8e5c650947332998eefbeb9176e237efd974e9ec463fd45e, write: auto-extract, trust: high, at: 2026-07-20T15:12:21Z -->
+- (P-LQGHEXKC) User approved rule commit at 9% context remaining; indicates pragmatic preference for progress over context exhaustion
+  <!-- source: auto-extract-session, source_line: 1, sha1: 5fe2264d89d2c9dd31a0766848d9dbf74a47f8755130fb0f726f5e4d697bff9b, write: auto-extract, trust: high, at: 2026-07-20T16:12:40Z -->
 
 ## Environment Notes
 

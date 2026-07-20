@@ -1339,6 +1339,36 @@ Composition:
 - **`inject-context.mjs` integration**: after snapshot assembly, calls `detectStaleness` synchronously. If non-fresh + non-cron-active, spawns `cmk compress --lazy` via `child_process.spawn` with `detached: true` + `stdio: 'ignore'` + `unref()`. The detached child's lifecycle is decoupled from the SessionStart hook — the hook returns its 500ms budget cleanly while the child runs in the background. The child writes to `<projectRoot>/context/.locks/lazy-compress.log` (NDJSON).
 - **Composition with shared cooldown**: `runLazyCompress` honors the 120s cooldown via the shared `cooldown.mjs` marker — same as `dailyDistill` / `weeklyCurate`. If multiple SessionStart fires happen within 120s (rapid-reopen scenario), only one Haiku call actually runs; the others see `skipped: cooldown`.
 
+### 8.2.6 `PreCompact` — the THIRD now-to-today roll trigger (Task 235 / D-376)
+
+**The premise, stated precisely.** It is NOT that context is lost at compaction. `capture-turn` appends every completed turn to `now.md`, so the buffer is already durable on disk before `PreCompact` fires — compaction discards the CONTEXT WINDOW, not the file. The real gap is that the now-to-today roll had only two triggers, and **neither fires during a long session**:
+
+| Trigger | When it fires | Why it misses a marathon session |
+| --- | --- | --- |
+| `SessionEnd` (§8.1) | clean window-close only | Claude Code fires `SessionEnd` ONLY on a clean close — a long session that is killed, crashes, or is left open never gets one (the Task-105/D-75 class; the v0.4.0 dogfood grew `now.md` to 410 KB exactly this way) |
+| SessionStart-lazy (§8.2.2) | start of the NEXT session | too late to help the session that is compacting right now |
+
+`PreCompact` is the only roll trigger that fires **during** the session, and a compaction is a reliable signal that the session IS a long one. That is the whole value: bound `now.md` and consolidate the buffer at the moment we know it matters.
+
+**Composition — why NOT `runLazyCompress`.** It looks like the natural reuse, but its `cron-active` gate is a SessionStart concern ("a cron ran recently; it will handle staleness eventually"). Eventually is 23:00. A compaction at 14:00 on a cron-registered repo would do **nothing at all**. So `precompact.mjs` composes DIRECTLY on `compressSession` — the same roll `SessionEnd` runs, cron-independent. Reuse the pipeline, not the gate.
+
+**The never-block contract (primary-source verified 2026-07-20, code.claude.com/docs/en/hooks).** A `PreCompact` hook CAN block compaction — a `decision: block` response or exit 2 — and its default timeout is **600 s**. The kit uses NEITHER. Blocking a user's compaction to bank memory would hold their session hostage; the posture is fail-open everywhere. The bin emits no `decision` on any path and always exits 0, and `tests/cli-precompact.test.js` pins that both ways (valid payload AND garbage payload).
+
+**Why the work is detached.** Nothing here is urgent (the buffer is already on disk), so an inline LLM compress would buy nothing and cost 20-80 s of visible latency at EVERY compaction (the §8.2.5 / D-179 latency measurements). The hook gates cheaply (one `existsSync` + one small read + the cooldown stat), spawns `cmk-precompact-worker` detached, and returns — the same two-bin posture as `capture-turn` → `auto-extract` and `inject-context` → `compress-lazy`. Live-measured 2026-07-20: hook returned in **270 ms**; the worker's real Haiku roll took **9.2 s** behind it.
+
+**Double-fire (PreCompact then SessionEnd) — the two guards are NOT interchangeable.** An earlier draft of this section claimed they were; skill-review falsified it (2026-07-20) by tracing when the marker is actually written:
+
+| Case | Cooldown marker | Atomic claim (§16.27) |
+| --- | --- | --- |
+| **Sequential** — a compaction, then a session-end seconds later | ✅ hot (`touchCooldownMarker` fires on `compressSession`'s SUCCESS path) | ✅ buffer already drained |
+| **Concurrent** — two rollers whose gate-checks both land before either finishes its Haiku call | ❌ **zero protection** — the marker is only touched *after* a successful compress, so both read "not in cooldown" | ✅ **the only guard** — one `renameSync` on `now.md` wins; the loser gets ENOENT, treats it as an empty buffer, and returns skipped BEFORE calling the backend |
+
+So the cooldown is a **budget** guard, not a concurrency guard, and `claimNowBuffer`'s atomic rename is the mutex — the same one `compressSession` already relies on for the SessionEnd-vs-SessionStart-lazy race, reused rather than duplicated. Pinned by the concurrent test in `tests/cli-precompact.test.js` (two un-awaited `runPreCompact` calls → exactly one backend call, one day file). Live-verified for the sequential case: a second fire logged `spawned:false, reason:empty-buffer` and the day file stayed byte-identical.
+
+**Per-agent availability (the Task-50 seam).** `preCompact` is an abstract event in `agent-profiles.mjs`; only Claude Code maps it (`preCompact: 'PreCompact'`), because Kiro, Cursor and Codex expose no compaction event. Unmapped agents simply do not wire the leg — the same way Kiro/Codex do not map `sessionEnd` and only Cursor maps `preShell`. Each agent doc names the gap honestly.
+
+**Cross-references:** §8.1 (the SessionEnd pipeline this parallels), §8.2.2 (the lazy roll whose cron gate is deliberately NOT reused), §8.2.5 (the bounded compress input this inherits), §16.27 (the claim-rename that makes a concurrent capture-turn append safe against the detached roll), §8.5 (timeout composition — the ceiling-free budget the worker takes). _Implements: Task 235; D-364 (the ECC study), D-376 (the sharpened premise)._
+
 ### 8.2.3 `compaction-state.mjs` deep module (Task 167, v0.4.1) — SUPERSEDES the §8.2.2 `detectStaleness` gating
 
 **Tail-appended 2026-06-25 (D-206/D-207).** The §8.2.2 design above shipped a real bug: `detectStaleness` short-circuits to `cron-active` on the mere EXISTENCE of the `cron-registered` sentinel (§8.2.2 bullet 3), ABOVE the `stale-now` check — so a registered-but-never-fired cron (laptop asleep at 23:00) disabled the lazy roll, and `now.md` grew to 410 KB un-rolled (the v0.4.0 dogfood; the injected snapshot froze 5 days stale). **The §8.2.2 sentinel-presence gate is the part being replaced; the artifact-derived `stale-now`/`stale-daily`/`stale-weekly` logic is KEPT verbatim (it was never the broken part).**
