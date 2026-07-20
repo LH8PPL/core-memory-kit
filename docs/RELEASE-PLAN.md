@@ -279,7 +279,12 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
      rides immediately after for context locality). Both are ECC borrows verified at code
      level; neither is memory-design (their memory is thinner than ours — see the
      [study](research/2026-07-20-ecc-harness-os-comparison.md)).
-  6c. **v0.6.2 — CI hygiene (D-364/D-367, laned 2026-07-20).** **Task 240** (CI toolchain
+  6c. **v0.6.2 — internal hygiene (D-364/D-367/D-368, laned 2026-07-20).** **Task 241**
+     (de-duplicate the fact-store walk — 10 modules walk it, the `INDEX.md` skip-idiom is
+     in 9 files, `list*FactFiles` is byte-identical in 4, and there is no shared walker
+     despite `tier-paths.mjs` already owning `resolveFactDir`; + `escapeRegExp`/
+     `asIsoString`/`dateFromIso` hoists. Pure refactor: zero test edits allowed).
+     **Task 240** (CI toolchain
      drift — Node is a copy-pasted literal in 9 `setup-node` blocks and ALREADY disagrees:
      `bench-storage.yml` runs 24 while the gates run 20; fix = one `.nvmrc` +
      `node-version-file:` + a re-drift guard). **Task 237** (supply-chain

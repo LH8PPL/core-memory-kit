@@ -10,6 +10,22 @@
 
 ---
 
+## 2026-07-20 — D-368: NOTE — measured clone audit over all 125 src modules: the fact-store walk is duplicated 9-10× with no shared walker (Task 241); `slugify` is a trap, not a dupe
+
+**Trigger.** The user asked whether there is more code duplication worth removing. Measured with a normalized sliding-window hash scan over every `packages/cli/src/*.mjs` (comments/blank/brace-only lines stripped, windows hashed, cross-file collisions reported longest-first), then **every candidate read** — a scanner finds *structural* similarity; only reading separates "same code" from "same shape, different contract."
+
+**Numbers:** 38 cross-file clone groups at an 8-line window; **2 survive at 14 lines**. Duplicate helper NAMES defined in 2+ files: 17.
+
+**The real finding — the fact-store walk has no shared home.** 10 modules walk `resolveFactDir` with `readdirSync`; the skip-idiom `entry.name === 'INDEX.md'` appears in **9 files**; `listLiveFactFiles`/`listFactFiles` is the **same byte-identical body under two names in 4 files** (forget / merge-facts / reindex / trust); and `temporal-sweep.mjs:69-93` ↔ `validity-window.mjs:42-65` is a **14-line** walk-parse-skip clone differing only in its final predicate. Meanwhile `tier-paths.mjs` already exports `resolveFactDir` — the natural home was there the whole time. **This is the exact class the CLAUDE.md shared-modules table was written for** (the Layer-2 review that found 4 modules reimplementing the same helpers, with drift already producing bugs — INDEX.md unfiltered in one writer's dedup scan). A new skip rule today must be remembered in 9 places. → **Task 241 (v0.6.2)**, with `escapeRegExp` (2 sites, byte-identical), `asIsoString` (2 sites, byte-identical — and `validity-window`'s own comment admits *"same as expiry-sweep.mjs"*), and `dateFromIso` (3 sites, functionally identical) as riders.
+
+**The one worth naming — `slugify` is a TRAP.** Three sites, one name, and the scanner flags it. Reading them: `graduation.mjs` caps at **40** with a deliberately ReDoS-safe string-op shape; `judgment.mjs` caps at **60** via a regex trim; `rich-fact.mjs::slugifyFact` caps at **60** with a `'fact'` fallback. Merging them **silently changes generated filenames across three subsystems.** A mechanical de-dupe here is a data bug wearing a refactor's clothes. Recorded in Task 241's entry as explicitly-rejected so nobody re-proposes it from the same scan output.
+
+**Also rejected, deliberately:** the `MISSING_PROJECT_ROOT`/`MISSING_BACKEND` guard preamble (11 + 8 sites) — genuinely repetitive, but it is entry-point *contract* that reads better inline, and each site computes `duration_ms` from its own `t0`; and `validateOptions`/`readSettings`/`findSectionRange` (3 sites each) — same name, different per-module contracts, not verified identical, so out of scope rather than assumed.
+
+**Method note worth keeping.** Of the candidates the scanner surfaced, the highest-count one (`slugify`, 3 sites) was the one that must NOT be touched, and the most valuable one (the fact-walk) only became visible after *counting the idiom across files* rather than trusting the window hash. **Clone detection proposes; reading disposes.** This is the third measure-don't-assume pass this session (D-366 retraction, D-367 sweep, this) — the pattern holds: the check is cheap, the assumption is expensive.
+
+---
+
 ## 2026-07-20 — D-367: DECISION — the ECC process sweep: 1 of 4 borrows ACCEPTED (Node-pin drift, Task 240), 3 REJECTED on evidence
 
 **Trigger.** The user asked whether the three additional ECC process observations I'd named in chat were tasks. They were not — they were unverified chat claims, the exact state the "actionable tasks, laned to real versions" directive (D-364 lane work) forbids. So each got checked against our own repo before being written down. **Three of the four died on contact with evidence**, which is the point of checking.
