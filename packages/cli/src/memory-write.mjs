@@ -63,6 +63,12 @@ import { maskPii, localUsernames, resolvePrivacyScreen } from './pii-patterns.mj
 import { appendRedactions } from './redactions-log.mjs';
 import { applyTrustSignal } from './trust-signal.mjs';
 
+// Write-sources produced by MACHINE paths. Anything not listed persists as
+// 'user-explicit' — the strongest provenance — so a new machine source must be
+// added here deliberately rather than inheriting the user label by default
+// (Task 242 skill-review B1: the fallback was being relabelled user-explicit).
+export const MACHINE_WRITE_SOURCES = new Set(['auto-extract', 'auto-extract-fallback']);
+
 const VALID_ACTIONS = new Set(['add', 'replace', 'remove']);
 
 // --- Validation ----------------------------------------------------
@@ -426,7 +432,13 @@ function appendBulletGuarded(opts) {
         : opts.source,
       source_line: 1,
       sha1,
-      write: opts.source === 'auto-extract' ? 'auto-extract' : 'user-explicit',
+      // The PERSISTED write-source. Task 242 (skill-review B1): this used to be
+      // a binary `auto-extract ? … : 'user-explicit'`, which silently relabelled
+      // the deterministic fallback as USER-EXPLICIT on disk — the strongest
+      // provenance in the kit, for its weakest capture path. Machine-written
+      // sources are now named honestly (a keyword heuristic must never be
+      // indistinguishable from something the user said).
+      write: MACHINE_WRITE_SOURCES.has(opts.source) ? opts.source : 'user-explicit',
       trust: opts.trust ?? 'high',
       at: ts,
     },
