@@ -17,7 +17,9 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = resolve(dirname(__filename), '..');
-const VALIDATOR = join(REPO_ROOT, 'scripts', 'validate-doc-registry.mjs');
+// Task 186 consolidation: the registry family now lives in the one
+// manifest-driven validate-docs.mjs; this suite is its behavior lock.
+const VALIDATOR = join(REPO_ROOT, 'scripts', 'validate-docs.mjs');
 
 function makeSandbox() {
   const sandbox = mkdtempSync(join(tmpdir(), 'cmk-docreg-test-'));
@@ -34,7 +36,7 @@ function writeMap(sandbox, registryBody) {
 }
 
 function runValidator(sandbox) {
-  const r = spawnSync(process.execPath, [VALIDATOR], {
+  const r = spawnSync(process.execPath, [VALIDATOR, '--only', 'registry'], {
     cwd: sandbox,
     encoding: 'utf8',
     windowsHide: true,

@@ -24,7 +24,7 @@ import {
   extractLinkedFiles,
   listSiblingMarkdown,
   CATALOG_INDEXES,
-} from '../scripts/validate-index-completeness.mjs';
+} from '../scripts/validate-docs.mjs'; // Task 186: the catalogs family of the one doc validator
 
 describe('checkIndexCompleteness — drift detection (the index-lag class)', () => {
   it('returns no errors when the index lists exactly its siblings', () => {

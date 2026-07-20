@@ -73,7 +73,7 @@ describe('guard-memory — ALLOW (no false positives)', () => {
     'cat context/MEMORY.md', // reading a memory file is fine
     'git status',
     'npm test',
-    'node scripts/validate-references.mjs',
+    'node scripts/validate-docs.mjs',
     // EXEMPT: destructive verbs + memory tokens appear in the TEXT but nothing
     // is deleted (a commit message / echo / grep ABOUT a delete). The local
     // guardrail blocked its own feature commit on this — the false-positive fix.
