@@ -287,7 +287,7 @@ Project memory (`context/`) follows the **repo** — `git clone` brings it, and 
 
 ## Health checks
 
-`cmk doctor` runs eleven checks (HC-1..HC-11), each PASS / FAIL / SKIP with a repair command — including **HC-9** (flags a project whose scaffold is behind your installed `cmk`), **HC-10** (an informational heads-up if optional scheduled compaction stops firing; memory self-heals each session regardless), and **HC-11** (whether your agent's own CLI — `claude` / `kiro-cli` / `cursor-agent` / `codex`, the one that runs the automatic memory engine — is on your PATH; if it's missing, the file-only features keep working and only the automatic LLM steps wait). Details + recovery paths: **[HEALTH-CHECKS.md](HEALTH-CHECKS.md)**.
+`cmk doctor` runs eleven checks (HC-1..HC-12), each PASS / FAIL / SKIP with a repair command — including **HC-9** (flags a project whose scaffold is behind your installed `cmk`), **HC-10** (an informational heads-up if optional scheduled compaction stops firing; memory self-heals each session regardless), and **HC-11** (whether your agent's own CLI — `claude` / `kiro-cli` / `cursor-agent` / `codex`, the one that runs the automatic memory engine — is on your PATH; if it's missing, the file-only features keep working and only the automatic LLM steps wait). Details + recovery paths: **[HEALTH-CHECKS.md](HEALTH-CHECKS.md)**.
 
 ## Acknowledgments
 

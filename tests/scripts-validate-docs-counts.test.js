@@ -3,8 +3,11 @@
 // Door 2 N/A: a validator reads; it writes nothing to disk.
 // Door 3 N/A: no subprocess — the family imports the live registries directly.
 // Door 4 N/A: no message-queue surface.
-// Door 5 N/A: reporting is the validator's stdout/exit code, asserted by the
-//   `--only counts` smoke in scripts-validate-docs.test.js, not an NDJSON log.
+// Door 5 N/A: reporting is the validator's stdout + exit code, not an NDJSON
+//   log. The end-to-end reporting contract (FAIL names the line + both numbers,
+//   exit 1 on drift / 0 when clean) is pinned by the `--only counts` subprocess
+//   smoke at the bottom of THIS file — skill-review caught the earlier header
+//   crediting a test in scripts-validate-docs.test.js that did not exist.
 //
 // Task 236 (D-364) — the `counts` family: prose count-claims can't drift.
 //
@@ -22,11 +25,19 @@
 // it is written rather than the day someone remembers to register it.
 
 import { describe, it, expect } from 'vitest';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   extractCountClaims,
   checkCounts,
+  isFrozenRecord,
   COUNT_COLLECTIONS,
 } from '../scripts/validate-docs.mjs';
+
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 describe('Task 236 — extracting count claims from prose', () => {
   it('finds a digit claim about a kit-owned collection', () => {
@@ -172,6 +183,76 @@ describe('Task 236 — frozen records are exempt (history is not drift)', () => 
   });
 });
 
+describe('Task 236 — skill-review regressions', () => {
+  const live = { mcpTools: 12, cliVerbs: 41, healthChecks: 12, agentProfiles: 5 };
+
+  it('a SINGULAR noun modifying another word is not a count claim', () => {
+    // "6 MCP tool descriptions" is not a claim that 6 tools exist — a real
+    // count of 6 would say "tools". Bare singulars fired on this shape and
+    // would have failed the build on correct prose.
+    const docs = [
+      { path: 'docs/CLI.md', text: 'This release touched 6 MCP tool descriptions.' },
+      { path: 'docs/CLI.md', text: 'We auto-register 1 MCP tool automatically on install.' },
+      { path: 'docs/CLI.md', text: 'each health check prints 3 health check lines' },
+    ];
+    expect(checkCounts({ docs, live })).toEqual([]);
+  });
+
+  it('DELIBERATELY does not match singulars at all — the cost of that conservatism', () => {
+    // Restricting singulars to a count of one was tried and still could not
+    // separate "auto-register 1 MCP tool automatically" (incidental) from
+    // "ships 1 agent profile" (a real claim). No cheap rule distinguishes them,
+    // so the family accepts the miss rather than risk failing correct prose.
+    // This test PINS the trade-off so it is a decision, not an accident.
+    const docs = [{ path: 'README.md', text: 'the kit ships 1 agent profile' }];
+    expect(checkCounts({ docs, live }), 'a singular claim is knowingly unchecked').toEqual([]);
+  });
+
+  it('LIVE cut-gate checklists are NOT frozen — only the dated guides are', () => {
+    // The exemption that hid real drift: docs/process/ holds BOTH dated
+    // point-in-time guides AND checklists re-run every cut. Blanket-exempting
+    // the directory reproduced the ECC failure inside the fix for it.
+    expect(isFrozenRecord('docs/process/cut-gate-kiro.md')).toBe(false);
+    expect(isFrozenRecord('docs/process/cut-gate.md')).toBe(false);
+    expect(isFrozenRecord('docs/process/v0.2.0-self-test-guide.md')).toBe(true);
+    expect(isFrozenRecord('docs/process/v0.1.1-scenario-test.md')).toBe(true);
+  });
+
+  it('backticked and hyphenated-adjective claims are still caught', () => {
+    expect(extractCountClaims('the kit ships `9 MCP tools`')[0]).toMatchObject({ n: 9 });
+    expect(extractCountClaims('there are 9 kit-owned MCP tools')[0]).toMatchObject({ n: 9 });
+  });
+});
+
+describe('Task 236 — Door 5: the end-to-end reporting contract', () => {
+  it('exits 1 and names the drift; exits 0 when clean', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'cmk-counts-e2e-'));
+    try {
+      const doc = join(repo, 'GUIDE.md');
+      writeFileSync(doc, 'the kit ships 999 MCP tools\n', 'utf8');
+      const bad = spawnSync(
+        process.execPath,
+        [join(REPO_ROOT, 'scripts', 'validate-docs.mjs'), '--only', 'counts'],
+        { encoding: 'utf8', timeout: 60_000, env: { ...process.env, CMK_VALIDATOR_ROOT: repo } },
+      );
+      expect(bad.status, 'drift must exit non-zero').toBe(1);
+      expect(bad.stderr).toMatch(/GUIDE\.md/);
+      expect(bad.stderr).toMatch(/999/);
+
+      writeFileSync(doc, 'the kit ships plenty of MCP tools\n', 'utf8');
+      const good = spawnSync(
+        process.execPath,
+        [join(REPO_ROOT, 'scripts', 'validate-docs.mjs'), '--only', 'counts'],
+        { encoding: 'utf8', timeout: 60_000, env: { ...process.env, CMK_VALIDATOR_ROOT: repo } },
+      );
+      expect(good.status, 'clean must exit zero').toBe(0);
+      expect(good.stdout).toMatch(/counts:/);
+    } finally {
+      rmSync(repo, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    }
+  });
+});
+
 describe('Task 236 — the collection registry', () => {
   it('every collection declares how to resolve its LIVE count', () => {
     for (const [name, cfg] of Object.entries(COUNT_COLLECTIONS)) {
@@ -184,5 +265,36 @@ describe('Task 236 — the collection registry', () => {
     expect(Object.keys(COUNT_COLLECTIONS).sort()).toEqual([
       'agentProfiles', 'cliVerbs', 'healthChecks', 'mcpTools',
     ]);
+  });
+});
+
+describe('Task 236 — the HC range notation is a count claim in disguise', () => {
+  const live = { mcpTools: 12, cliVerbs: 41, healthChecks: 12, agentProfiles: 5 };
+
+  it('catches a stale HC-1..HC-N range (how the cut-gate guides actually phrase it)', () => {
+    const docs = [{ path: 'docs/process/cut-gate.md', text: 'doctor emits 11 checks (HC-1..HC-11)' }];
+    const errors = checkCounts({ docs, live });
+    expect(errors, 'the bare noun "checks" is too generic to match — the RANGE is not').toHaveLength(1);
+    expect(errors[0]).toMatch(/HC-1\.\.HC-11/);
+  });
+
+  it('accepts a current range', () => {
+    const docs = [{ path: 'README.md', text: 'all checks (HC-1..HC-12) pass' }];
+    expect(checkCounts({ docs, live })).toEqual([]);
+  });
+
+  it('skips the two docs that narrate build history inline', () => {
+    // A shipped [x] entry naming HC-1..HC-9 is what existed then. Both files
+    // would need ~15 inline markers apiece to say what one exemption says.
+    const docs = [
+      { path: 'specs/tasks.md', text: '- [x] 137. doctor had HC-1..HC-9 at the time' },
+      { path: 'specs/design.md', text: 'the original set was HC-1..HC-5' },
+    ];
+    expect(checkCounts({ docs, live })).toEqual([]);
+  });
+
+  it('a memory tier at ANY depth is frozen, not just the repo root', () => {
+    expect(isFrozenRecord('packages/cli/context/transcripts/2026-06-19.md')).toBe(true);
+    expect(isFrozenRecord('context/memory/x.md')).toBe(true);
   });
 });

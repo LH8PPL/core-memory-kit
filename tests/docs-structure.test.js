@@ -51,13 +51,16 @@ describe('Task 41 — README references v0.1.0 surface (no stale references)', (
     expect(text).not.toMatch(/install\.ps1\b/);
   });
 
-  it('references the 11 health checks (HC-1..HC-11) — HC-9 version-drift (Task 162); HC-10 compaction-liveness (Task 167); HC-11 backend-CLI (Task 200)', () => {
+  // Task 236: this assertion was ITSELF stale — it pinned HC-1..HC-11 while the
+  // live count was 12, i.e. the exact hand-maintained-count drift the new
+  // `counts` validator family exists to catch, committed inside a test. The
+  // per-number `not.toMatch` list is dropped too: enumerating every stale value
+  // is the same losing game (each new HC needs one more line). `validate-docs
+  // --only counts` now resolves the range against the LIVE registry, so this
+  // test only needs to assert the README mentions the range at all.
+  it('references the health-check range (its VALUE is pinned by validate-docs counts)', () => {
     text = readFileSync(join(repoRoot, 'README.md'), 'utf8');
-    expect(text).toMatch(/HC-1\.\.HC-11/);
-    expect(text).not.toMatch(/HC-1\.\.HC-7\b/); // stale counts must not linger
-    expect(text).not.toMatch(/HC-1\.\.HC-8\b/);
-    expect(text).not.toMatch(/HC-1\.\.HC-9\b/);
-    expect(text).not.toMatch(/HC-1\.\.HC-10\b/);
+    expect(text).toMatch(/HC-1\.\.HC-\d+/);
     expect(text).not.toMatch(/memsearch/i);
   });
 

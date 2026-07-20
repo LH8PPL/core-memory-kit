@@ -117,9 +117,19 @@ function topLevelMd(dir) {
     .map((e) => join(dir, e.name));
 }
 
+// Directories never worth descending into. Pruned DURING the walk, not filtered
+// after it: the counts family (Task 236) is the first caller to walk the repo
+// ROOT rather than a known subdir, and post-hoc filtering still paid the full
+// recursive readdir of node_modules — measured 9.19s vs 38ms, a >200x tax on
+// every `npm test` and 5x that under stress (skill-review).
+const WALK_SKIP_DIRS = new Set([
+  'node_modules', '.git', '.stress-logs', '.test-logs', 'coverage', 'dist', '.vitest',
+]);
+
 function walkMdRec(dir, out = []) {
   if (!existsSync(dir)) return out;
   for (const e of readdirSync(dir, { withFileTypes: true })) {
+    if (e.isDirectory() && WALK_SKIP_DIRS.has(e.name)) continue;
     const p = join(dir, e.name);
     if (e.isDirectory()) walkMdRec(p, out);
     else if (e.name.endsWith('.md')) out.push(p);
@@ -734,11 +744,21 @@ async function familyCoverage() {
  * phrases a sentence uses for the collection; `resolve` reads the LIVE count
  * from the code (never a second hand-maintained number).
  */
+// `nouns` are PLURAL forms ONLY — singulars are deliberately NOT matched.
+// Skill-review found bare singulars firing on ordinary attributive prose ("6 MCP
+// tool descriptions", "1 MCP tool automatically on install"): nothing stops the
+// noun from modifying a following word. Restricting singulars to a count of one
+// still could not separate "auto-register 1 MCP tool automatically" (incidental)
+// from "ships 1 agent profile" (a real claim) — no cheap rule distinguishes
+// them, so this family's conservatism rule decides it: a false positive fails
+// the build on CORRECT prose, which is worse than missing a claim. Claims of
+// exactly one are rare and low-value here anyway — drift makes a number grow,
+// and anything past one takes the plural.
 export const COUNT_COLLECTIONS = Object.freeze({
-  mcpTools: { nouns: ['MCP tools', 'MCP tool', 'mk_ tools'], label: 'MCP tools' },
-  cliVerbs: { nouns: ['CLI verbs', 'CLI verb', 'cmk verbs', 'subcommands'], label: 'CLI verbs' },
-  healthChecks: { nouns: ['health checks', 'health check', 'HC checks'], label: 'health checks' },
-  agentProfiles: { nouns: ['agent profiles', 'agent profile'], label: 'agent profiles' },
+  mcpTools: { nouns: ['MCP tools', 'mk_ tools'], label: 'MCP tools' },
+  cliVerbs: { nouns: ['CLI verbs', 'cmk verbs', 'subcommands'], label: 'CLI verbs' },
+  healthChecks: { nouns: ['health checks', 'HC checks'], label: 'health checks' },
+  agentProfiles: { nouns: ['agent profiles'], label: 'agent profiles' },
 });
 
 // Spelled-out numbers seen in real kit prose ("Twelve tools"). Bounded on
@@ -758,10 +778,29 @@ const FROZEN_RECORD_PREFIXES = [
   'docs/adr/',
   'docs/research/',
   'docs/sources/',
+  // ALL of docs/journey/, including the "living" build-log.md + DECISION-LOG.md.
+  // This DIVERGES from CLAUDE.md's frozen-record bullet ("docs/journey/ except
+  // the live build-log.md/DECISION-LOG.md") and the divergence is deliberate, so
+  // it is stated rather than left as a silent contradiction (skill-review):
+  // both files are APPEND-ONLY chronological records — every entry is dated and
+  // true-as-of-writing, so a count inside one is history the moment it lands
+  // (DECISION-LOG alone carries 11 such counts: "9 health checks", "33 CLI
+  // verbs", …). They are "living" in that new entries are appended, NOT in that
+  // old entries are revised — which is precisely the frozen-record property this
+  // family cares about. Trade-off accepted: a wrong count in a BRAND-NEW entry
+  // also goes unchecked.
   'docs/journey/',
   'docs/conversation-log/',
   'archive/',
-  'docs/process/',
+  // NOT all of docs/process/ — skill-review caught this exemption doing exactly
+  // what this family exists to prevent. CLAUDE.md's frozen-record rule scopes
+  // the exemption to "the dated `docs/process/v0.*.*-self-test-*` guides"; the
+  // cut-gate checklists beside them are LIVE (re-run every cut, `cut-gate-kiro.md`
+  // last touched 2026-07-15) — and blanket-exempting the directory was hiding a
+  // real drift in one: it still said "11 MCP tools" / "11 checks now" when both
+  // are 12. The ECC "checked 40 places, drift happened in the 41st" failure,
+  // reproduced inside the fix for it. Only the dated point-in-time guides are
+  // frozen; see FROZEN_RECORD_PATTERNS below.
   // The MEMORY TIERS. Found by running this family for real (2026-07-20): the
   // kit's own captured memory is a point-in-time record in the strongest sense
   // — a fact reading "v0.3.5 verified all 9 health checks pass" is CORRECTLY
@@ -777,9 +816,21 @@ const FROZEN_RECORD_PREFIXES = [
   'docs/SOURCES.md',
 ];
 
+// Frozen by NAME rather than directory — the dated point-in-time guides that
+// live alongside actively-maintained process docs (CLAUDE.md names this exact
+// set: "the dated `docs/process/v0.*.*-self-test-*` guides").
+const FROZEN_RECORD_PATTERNS = [
+  /^docs\/process\/v\d+\.\d+\.\d+-/,
+  // A memory tier at ANY depth, not just the repo root — `packages/cli/context/`
+  // is the packaged scaffold's own tier and is just as much a point-in-time
+  // record. The root-anchored `context/` prefix missed it.
+  /(^|\/)context(\.local)?\//,
+];
+
 export function isFrozenRecord(path) {
   const p = String(path).replace(/\\/g, '/');
-  return FROZEN_RECORD_PREFIXES.some((pre) => p === pre || p.startsWith(pre));
+  if (FROZEN_RECORD_PREFIXES.some((pre) => p === pre || p.startsWith(pre))) return true;
+  return FROZEN_RECORD_PATTERNS.some((re) => re.test(p));
 }
 
 /**
@@ -800,10 +851,12 @@ export function extractCountClaims(text) {
 
   for (const [collection, cfg] of Object.entries(COUNT_COLLECTIONS)) {
     for (const noun of cfg.nouns) {
-      // (number)(one optional adjective)(noun). `\b` on both ends; a preceding
-      // `v` or `.` disqualifies the number as a version fragment.
+      const num = String.raw`\d{1,4}|${wordAlt}`;
+      // (number)(optional adjective, hyphenated allowed)(noun). Backticks around
+      // the claim are tolerated — "`12 MCP tools`" is the same claim. `\b` on
+      // both ends; a preceding `v` or `.` disqualifies the number as a version.
       const re = new RegExp(
-        String.raw`(^|[^\w.])(?:v)?(\d{1,4}|${wordAlt})\s+(?:[a-z]+\s+)?${escapeRegExp(noun)}\b`,
+        String.raw`(^|[^\w.])\`?(?:v)?(${num})\s+(?:[a-z][a-z-]*\s+)?${escapeRegExp(noun)}\b`,
         'gi',
       );
       for (let i = 0; i < lines.length; i += 1) {
@@ -827,6 +880,36 @@ export function extractCountClaims(text) {
   return out;
 }
 
+// The range rule is skipped in the two living docs that narrate BUILD HISTORY
+// inline: `specs/tasks.md` is a ledger of shipped `[x]` entries ("HC-1..HC-9" in
+// a 2026-06 entry is what existed then), and `specs/design.md` records decisions
+// at their moment. Both would need ~15 inline markers apiece to say what this
+// one line says. Everything describing the CURRENT product — READMEs,
+// QUICKSTART, the cut-gate checklists, the glossary — is checked.
+const RANGE_RULE_EXEMPT = new Set(['specs/tasks.md', 'specs/design.md']);
+
+/**
+ * The `HC-1..HC-N` range notation is a count claim in disguise, and it is how
+ * the cut-gate guides actually phrase it ("11 checks now (HC-1..HC-11)"). The
+ * noun scan misses it because the surrounding word is a bare "checks", which is
+ * far too generic to match safely. The range is unambiguous and kit-specific,
+ * so it gets its own rule: the upper bound IS the claimed size.
+ *
+ * Found while fixing the drift the narrowed docs/process/ exemption exposed —
+ * four more guides carried a stale range the noun scan could not see.
+ */
+export function extractRangeClaims(text) {
+  const out = [];
+  const lines = String(text).split(/\r?\n/);
+  const re = /\bHC-0*1\s*(?:\.\.|-|–|—|\bthrough\b|\bto\b)\s*HC-(\d{1,3})\b/gi;
+  for (let i = 0; i < lines.length; i += 1) {
+    for (const m of lines[i].matchAll(re)) {
+      out.push({ n: Number(m[1]), collection: 'healthChecks', line: i + 1, raw: m[0].trim() });
+    }
+  }
+  return out;
+}
+
 /**
  * Compare every claim against the live count. Pure — `live` is injected so the
  * check is testable without importing the kit's registries.
@@ -841,7 +924,12 @@ export function checkCounts({ docs, live }) {
   for (const { path, text } of docs) {
     if (isFrozenRecord(path)) continue;
     const lines = String(text).split(/\r?\n/);
-    for (const claim of extractCountClaims(text)) {
+    const norm = String(path).replace(/\\/g, '/');
+    const claims = [
+      ...extractCountClaims(text),
+      ...(RANGE_RULE_EXEMPT.has(norm) ? [] : extractRangeClaims(text)),
+    ];
+    for (const claim of claims) {
       const actual = live[claim.collection];
       if (typeof actual !== 'number' || claim.n === actual) continue;
       const lineText = lines[claim.line - 1] ?? '';

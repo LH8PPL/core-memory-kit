@@ -580,7 +580,7 @@ Spec: design §10.
 
 ### Health check (HC)
 
-One of 7 yes/no diagnostics run by [[`cmk doctor`]]. Each has a documented self-repair path. HC-1..HC-5 cover hooks/distill/transcripts/INDEX/cron; HC-6 detects whether Anthropic's native Auto Memory is active; HC-7 checks for stale lock files. (The two memsearch checks were removed in Task 120.)
+One of 7 yes/no diagnostics run by [[`cmk doctor`]]. Each has a documented self-repair path. HC-1..HC-12 cover hooks/distill/transcripts/INDEX/cron; HC-6 detects whether Anthropic's native Auto Memory is active; HC-7 checks for stale lock files. (The two memsearch checks were removed in Task 120.)
 
 Spec: design §14.
 
