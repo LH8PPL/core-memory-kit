@@ -257,6 +257,27 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
      kill-or-commit at this minor's cut (fired twice unnoticed). Sweep also closed 8 tasks
      whose deliverables had shipped (59/68/97/130/147/179/188/224) and refreshed every stale
      disposition (55/70/80/98/146/166/196) — full verdicts in D-353.
+     **+ D-364 ECC-study addition (2026-07-20):** **Task 234** (stale-replay guard on the
+     injected snapshot) joins THIS lane — a correctness fix to an instruction-authority
+     surface every user already runs: the preamble says "injected memory wins / lead with
+     memory" while the snapshot carries `Active Threads` bullets naming shipped work, which
+     is standing license to re-execute finished tasks. Small (one 700-byte-capped constant),
+     so it rides the current cut rather than waiting.
+  6b. **v0.6.1 — the capture + gate riders (D-364, laned 2026-07-20).** **Task 235**
+     (`PreCompact` capture — bank at the compaction boundary, the moment context is about to
+     be discarded; the kit currently hooks `Stop` + `SessionEnd` but not the boundary itself)
+     · **Task 236** (catalog/count CI gate — a `counts` family on the Task-186 validator so
+     prose claims like "12 MCP tools" can't drift; depends on 186 landing in v0.6.0, and
+     rides immediately after for context locality). Both are ECC borrows verified at code
+     level; neither is memory-design (their memory is thinner than ours — see the
+     [study](research/2026-07-20-ecc-harness-os-comparison.md)).
+  6c. **v0.6.2 — security hygiene (D-364, laned 2026-07-20).** **Task 237** (supply-chain
+     watch — make the existing osv-scanner + npm-audit PR gates STANDING so an advisory
+     published after our last PR still reaches us; deliberately NOT copying ECC's
+     hand-curated IOC blocklist, which rots). ~1 workflow file against a deliberately tiny
+     dependency surface. _(Task 238 — agent-proximity collision advisory — is deliberately
+     NOT laned: the kit has no parallel-agent surface, so a lane would be a fabricated
+     commitment. It carries a named D-248 trigger instead.)_
   7. **v0.7.0 — THE TEAM LAYER (D-326).** Headline: **Task 127** (team-scoped memory — its own
      trigger fired: the v0.6 planning boundary arrived AND the market demand signal landed, the
      origin creator's TeamOS beta; design-first per D-119 — seam shape / ACL / companion-vs-in-kit
