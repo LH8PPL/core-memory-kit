@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-MRVTM6NW) v0.5.4 published to npm as `@lh8ppl/core-memory-kit@0.5.4` with sigstore provenance; repo rename verified live
-  <!-- source: review-promote, source_line: 1, sha1: 95b589127b3d47aaee686e556bf6fa80c6b9fd833144dd807fb89ff4ba691093, write: user-explicit, trust: high, at: 2026-07-18T14:40:53Z -->
 - (P-K3FN3LUJ) Durable knowledge (procedures, workflows) should be saved to project-local memory (context/), not session-temp; values memory committed with code.
   <!-- source: review-promote, source_line: 1, sha1: 6bb7cd1394c3254b8d756d8706497fb5669792a561ebb5bfe639f5866e301bbe, write: user-explicit, trust: high, at: 2026-07-18T14:40:54Z -->
 - (P-324UW2UP) Task batch v0.5.5 contains three sequenced tasks (230 → 96 → 210); previous versions used per-batch autopilot grants to run the full lane uninterrupted.
@@ -20,6 +18,8 @@
   <!-- source: review-promote, source_line: 1, sha1: e186f10b5c93ed2b9c98149ddcef415cf8a23549d88267b26c1fe4d53bc7319b, write: user-explicit, trust: high, at: 2026-07-18T20:00:00Z -->
 - (P-9JAFFKDH) youtube-to-slide fully migrated onto the kit; trust-dialog step completed.
   <!-- source: review-promote, source_line: 1, sha1: 9f29f0bd9188e6826bdc312953027f1ff27f1e9f43b7e635cc41beb413900412, write: user-explicit, trust: high, at: 2026-07-19T20:00:23Z -->
+- (P-U5PPSG7Y) Users will not run doctor check commands; silent failures must surface automatically without user action
+  <!-- source: auto-extract-session, source_line: 1, sha1: 2fbc6b626fdd3b4481847bd6899f45be737494f975ecdaf3a777558e7c0ad526, write: auto-extract, trust: high, at: 2026-07-20T09:34:41Z -->
 
 ## Environment Notes
 
