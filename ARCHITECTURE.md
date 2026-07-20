@@ -106,6 +106,10 @@ Registered via `cmk register-crons`. Translates to crontab entries (Linux), Laun
 
 `cmk import-sessions` points the acquisition machinery **backward**: existing Claude Code session history is summarized per-session into the same dated day files the live capture writes ("as if captured live"), screened before every committed write, raw-archived to a local-only floor, and indexed for search — so a fresh install starts with a populated memory instead of an empty one. `cmk install` offers it automatically when it detects history. Resumable via a committed ledger; a re-run imports only new sessions. Mechanism: design §22.
 
+## When capture fails
+
+Automatic extraction runs an LLM in the background, and that call can time out or error — most often on a busy machine, which is exactly when a session is producing the most worth remembering. Rather than dropping the turn, a **deterministic no-LLM fallback** keeps the durable statements from your own words, routed through the normal review queue and tagged with its own provenance. Capture degrades to partial, never to nothing. The fallback keeps *mission context only* — it never records the kit's own operational noise into your memory. See design §6.4b.
+
 ## Data flow
 
 ```

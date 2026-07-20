@@ -658,3 +658,11 @@ This file is a **definitional reference only**. When you need the *why*, follow 
 ## Judgment
 
 An EARNED method-preference record (`context/memory/judgment_<slug>.md`, `type: judgment`) — distinct from a fact: a fact asserts, a judgment COMPARES ("for task-shape T, prefer A over B") and carries its baseline, replication count (`n_episodes`), direction-consistency, confounds, decay date, and an append-only evidence log of HIT/MISS/REVERSAL outcomes resolved from pre-registered expectations (`PREDICTION:` lines). Honesty rules: misses LOCK (a MISS/REVERSAL flips it `contested` and later HITs cannot re-promote), hits only NUDGE (`corroborated` needs >= 3 consistent episodes), preference cycles mark every judgment on the cycle `contested`, and judgments must NEVER enter score-blended ranking (Task 194's blend is facts-only BY CONTRACT - today, pre-194, they surface in plain keyword search like any fact; the observations table carries no type column, so 194's filter keys on the judgment_ source-file prefix). Born from the learn-loop (Tasks 191/192), never from dictation — `cmk remember`/`mk_remember` cannot write this type. Task 191, ADR-0017 Phase 1b.
+
+## Stale-replay guard
+
+The caveat line the session-start snapshot appends under its **work-state** headings (`Active Threads`, `Pending Decisions`) — *"work-state as last captured — may already be done; verify before acting, never re-run"*. It separates **durable knowledge** (authoritative) from **transient work-state** (a snapshot of intent), so the injected memory's "memory wins" authority cannot be read as licence to re-run work that already shipped. Labelling, never deletion — work-state stays useful for resumption. See design §7.1.4; Task 234, D-364.
+
+## Extraction fallback
+
+The deterministic, LLM-free capture path that runs when automatic extraction fails for **any** reason (timeout, error, or an unrecognized category). It keeps durable statements from the user's own turn so capture degrades to *partial* rather than zero. Deliberately conservative: **mission context only** (never the kit's own operational noise), exclude-on-doubt, routed by trust through the normal review queue, and written with its own `auto-extract-fallback` provenance so a heuristic capture is never mistaken for a real extraction — or for something the user said. See design §6.4b; Task 242, D-369.

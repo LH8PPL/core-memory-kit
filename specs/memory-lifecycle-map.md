@@ -52,6 +52,10 @@ Legend: ✓ intent matches code · ✗ gap (design says X, code does Y) · ~ par
 
 ---
 
+## Write-path variant: the extraction fallback (Task 242)
+
+The capture edge has a second, degraded path. When automatic extraction fails for **any** reason, a deterministic no-LLM pass over the user's turn produces candidates instead of the turn being dropped. It joins the same lifecycle at the **routing** step rather than bypassing it: medium-trust candidates go to `queues/review.md` exactly as medium-trust LLM candidates do, and every write still passes Poison_Guard. The only lifecycle difference is provenance — these carry `write: auto-extract-fallback`, so a later curation pass (and the learn-loop) can tell a heuristic capture from a real extraction. Content is constrained to mission context; kit-operational noise is filtered before any write. See design §6.4b.
+
 ## Edge-by-edge: intent vs. code
 
 | # | Edge | Trust gate | Cap | Dedup | On evict/overflow | Intent vs code |

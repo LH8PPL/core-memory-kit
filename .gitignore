@@ -56,7 +56,7 @@ context/.index/
 *.tgz
 .bench-logs/
 
-# core-memory-kit:gitignore:start v0.5.5
+# core-memory-kit:gitignore:start v0.6.0
 # core-memory-kit — added by `cmk install`. Do not edit by hand;
 # `cmk install` refreshes these lines idempotently. Remove via
 # `cmk uninstall`.
@@ -93,6 +93,12 @@ context/transcripts/.extract-*.tmp
 # entries move to the committed transcript only AFTER the async privacy judge
 # screens them. Un-judged content must never travel with `git clone`.
 context/transcripts/*.live.md
+
+# Raw session extracts from `cmk import-sessions` — raw, UN-screened
+# conversation text (the deep-recall floor for imported history), so it stays
+# machine-local like the live buffer; only the screened per-session summaries
+# land in the committed sessions tier.
+context/transcripts/imported/
 # core-memory-kit:gitignore:end
 
 # Public-repo dogfood deviation (Task 52, D-108): this repo is PUBLIC, so the

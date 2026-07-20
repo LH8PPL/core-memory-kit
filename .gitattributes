@@ -24,7 +24,7 @@
 *.yaml text eol=lf
 *.sh text eol=lf
 
-# core-memory-kit:gitattributes:start v0.5.5
+# core-memory-kit:gitattributes:start v0.6.0
 # core-memory-kit — added by `cmk install`. Do not edit by hand;
 # `cmk install` refreshes these lines idempotently. Remove via
 # `cmk uninstall`.

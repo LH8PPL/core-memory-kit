@@ -49,3 +49,7 @@ cmk uninstall   # remove the Claude Code surface (the managed CLAUDE.md block); 
 ```
 
 On a dual-agent project, uninstall one agent and the other keeps working — the shared `context/` is untouched either way.
+
+## Slash commands
+
+`cmk install` scaffolds `.claude/commands/tour.md`, so **`/tour`** walks you through your own memory in conversation — the same narration as `cmk tour` (tiers, real counts, your own fact titles, how recall works). It is a kit-owned file: it refreshes with the kit on re-install and `cmk doctor` (HC-9) flags it if it drifts.

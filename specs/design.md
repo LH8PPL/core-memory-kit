@@ -638,6 +638,18 @@ Cap enforcement workflow at >95%: consolidate similar bullets / drop stale entri
 
 **Implementation note**: the skill's `SKILL.md` file declares phrase triggers in its `description` field — that's what makes Claude Code's harness auto-invoke it on user prompts containing those phrases. **The auto-extract subagent invokes the skill programmatically** (not via phrase match), bypassing the trigger system entirely. Both paths land at the same skill code.
 
+### 6.4b Extraction fallback — capture never reaches zero (Task 242, D-369)
+
+Auto-extract used to return `observation_count: 0, candidates: []` on **any** LLM failure, dropping the turn whole. Measured on the kit's own dogfood logs: **6 of 6** extractions ended `haiku_timeout` in one session → zero captures, silently (the only evidence is NDJSON nobody reads). Normal days invert the ratio, so the loop is **starved, not broken** — and the sessions richest in durable findings are exactly the ones that starve it.
+
+**Trigger: ANY non-success outcome**, including an unrecognized category. Of 295 historical failures only 166 were `haiku_timeout`; `concurrent_run` (82) and `haiku_failed` (47) are the rest, so a timeout-only fallback would leave ~44% still capturing nothing.
+
+**Mechanism** (`extract-fallback.mjs`): a deterministic, LLM-free pass over the USER's turn only (the assistant's turn is inference, not ground truth — the D-122 self-poisoning lesson). Keeps a line only if it carries a durable-statement signal, is not a question/command, and is **not kit-operational**.
+
+**The mission-context-only constraint (binding).** The fallback is dumber than the LLM path and would otherwise capture whatever durable-looking prose is present — on a kit-debugging session, almost entirely kit-failure noise. Kit bugs, timeouts, hook errors and our own debugging are **build artifacts** whose home is the DECISION-LOG and tasks.md, never a tier injected into every future session. Default is **exclude-on-doubt**: a missed capture is recoverable (the LLM pass re-attempts the turn), a poisoned tier is not.
+
+**Routing + provenance.** Candidates route **by trust exactly like the LLM path** — medium goes to the review queue (`routeMedium`), never straight into the hot index; a dumber extractor must not get *less* scrutiny. Writes carry their own `write: auto-extract-fallback` provenance (registered in `VALID_WRITE_SOURCES`) so a keyword heuristic is distinguishable on disk from both a real extraction and something the user said. Poison_Guard still screens every write. Door 5: `extract.log` records `fallback_candidates` / `fallback_written` / `fallback_rejections`.
+
 ### 6.4 Six writing triggers (Hermes-verified pattern) + bi-turn extraction
 
 The auto-extract prompt instructs the sub-Claude to save when EITHER the user turn OR the assistant turn reveals one of these triggers:
@@ -1184,6 +1196,25 @@ Design constraints:
 - **Empty snapshot stays empty** — no preamble without memory behind it (downstream tooling relies on `additionalContext === ''` for the nothing-to-inject case).
 
 The instruction-first lever is deliberately ahead of the Layer-5b backend (Task 65): per D-64, the framing is the bigger recall lever than the search backend. The remaining Task-75 halves (75.1 recall skill, 75.2 prompt hint) land after Task 65 so they wrap the full hybrid ladder.
+
+#### 7.1.4 Work-state labelling — the stale-replay guard (Task 234, D-364)
+
+The preamble (§7.1.2) tells the model *"injected memory wins"* and *"lead with memory — never re-derive"*. That authority is correct for **durable knowledge** and wrong for **transient work-state**: an `Active Threads` bullet naming a task that shipped days ago is a snapshot of intent, not a standing instruction. Without a distinction the preamble licenses **re-running finished work** — the failure ECC hit in production (their #1534: a post-compaction replay of an `ARGUMENTS=`-bearing slash command duplicated issues/branches/tasks).
+
+**Mechanism.** `annotateWorkStateHeadings(body)` appends a single caveat line under each heading in `WORK_STATE_SECTIONS` (`Active Threads`, `Pending Decisions`):
+
+```text
+## Active Threads
+_(work-state as last captured — may already be done; verify before acting, never re-run)_
+```
+
+**Three properties, each load-bearing:**
+
+1. **Labelling, not deletion.** Work-state is genuinely useful for resumption; the fix is to mark it, not drop it. The durable-fact authority language in §7.1.2 is unchanged — weakening it would trade this failure for the D-40/D-153 *under-fire* class (the model re-deriving what memory already answers), which is no win.
+2. **Annotated IN PLACE, not prepended.** The caveat rides the heading so it is read AT the bullets it governs — and so it costs the body above it zero bytes. A prepended block pushed the first real fact from ~78 to 346 bytes deep and broke the Task-18 "real fact near the top of the body" contract; that boundary test caught the first cut.
+3. **Reserve counted with the SAME regex that annotates.** `workStateReserve` is `matchCount × (len + 2)`, where the count comes from `countWorkStateHeadings()` using `workStateHeadingRe()` — the identical matcher. An earlier cut reserved a fixed 2 slots and a 3-heading body overflowed the cap (4021 bytes on 4000, violating §7.1.2). Deriving the reserve from the same source as the effect is the structural fix; *"I reserved enough"* is the assumption that failed.
+
+Idempotent (a negative lookahead skips an already-annotated heading) and CRLF-preserving.
 
 #### 7.1.3 Reserved volatile lines — the temporal mention (66.4) + the memory-commit proposal (150)
 
