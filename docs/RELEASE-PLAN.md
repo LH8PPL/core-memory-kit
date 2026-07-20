@@ -279,7 +279,10 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
      rides immediately after for context locality). Both are ECC borrows verified at code
      level; neither is memory-design (their memory is thinner than ours — see the
      [study](research/2026-07-20-ecc-harness-os-comparison.md)).
-  6c. **v0.6.2 — security hygiene (D-364, laned 2026-07-20).** **Task 237** (supply-chain
+  6c. **v0.6.2 — CI hygiene (D-364/D-367, laned 2026-07-20).** **Task 240** (CI toolchain
+     drift — Node is a copy-pasted literal in 9 `setup-node` blocks and ALREADY disagrees:
+     `bench-storage.yml` runs 24 while the gates run 20; fix = one `.nvmrc` +
+     `node-version-file:` + a re-drift guard). **Task 237** (supply-chain
      watch — make the existing osv-scanner + npm-audit PR gates STANDING so an advisory
      published after our last PR still reaches us; deliberately NOT copying ECC's
      hand-curated IOC blocklist, which rots). ~1 workflow file against a deliberately tiny

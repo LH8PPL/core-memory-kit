@@ -10,6 +10,22 @@
 
 ---
 
+## 2026-07-20 — D-367: DECISION — the ECC process sweep: 1 of 4 borrows ACCEPTED (Node-pin drift, Task 240), 3 REJECTED on evidence
+
+**Trigger.** The user asked whether the three additional ECC process observations I'd named in chat were tasks. They were not — they were unverified chat claims, the exact state the "actionable tasks, laned to real versions" directive (D-364 lane work) forbids. So each got checked against our own repo before being written down. **Three of the four died on contact with evidence**, which is the point of checking.
+
+**ACCEPTED → Task 240 (v0.6.2): CI toolchain drift.** Measured: `node-version` is a copy-pasted literal in **9 `setup-node` blocks across 8 workflows** (`ci.yml` alone has 3), and they **already disagree** — `bench-storage.yml` pins **24**, everything else pins **20**. No `.nvmrc` / `.tool-versions` / shared constant exists; `package.json` declares only the `">=20"` consumer floor. A benchmark job running a different major than the gates that approve the code is the composition-verification class applied to CI (a gate must run the runtime the release runs), and the drift is *already present*, not hypothetical. Fix: one `.nvmrc` + `node-version-file:` everywhere, a deliberate documented decision for the bench job, and a guard so it cannot silently re-drift.
+
+**REJECTED — commitlint.** ECC ships `commitlint.config.js`; we do not, and our commit conventions live as prose in CLAUDE.md, so this *looked* like a textbook prose→enforcement graduation. Measured instead: **38 of the last 40 non-merge commits already conform**, and both outliers use `research(recall):` — a scope we chose deliberately. A stock conventional-commits linter would flag *our own convention* as an error. Enforcement for a discipline that is already 95% self-held, at the cost of fighting the tool over a scope we want, is negative value.
+
+**REJECTED — a `TROUBLESHOOTING.md`.** ECC separates "what people actually hit" from "what the diagnostic reports"; I proposed mirroring it. Measured: [`QUICKSTART.md`](../../QUICKSTART.md) §Troubleshooting (line ~185) **already carries a Symptom / Likely cause / Fix table**. Adding the file would create a *second surface for one concern* — precisely the rogue-doc-surface class `validate-doc-registry` + DOCUMENTATION-MAP exist to prevent. The right move if that table outgrows QUICKSTART is to *move* it, not to duplicate it.
+
+**REJECTED — reusable `workflow_call` files.** The stated benefit was de-duplicating CI setup. Measured: the real duplication IS the 9 `setup-node` blocks, which `.nvmrc` fixes in one line each. Extracting reusable workflows to solve that is ceremony over a one-line fix (the over-engineering anti-pattern), and it would add an indirection layer to the release path — the surface where we least want indirection.
+
+**The meta-point worth keeping.** Four plausible-sounding borrows from a 211k-star project; **one survived a five-minute check of our own repo.** "They do X and we don't" is a hypothesis, not a finding — the gap is only real if our side actually lacks it, and three times out of four here, we didn't. The rejections are recorded explicitly (in Task 240's entry too) so nobody re-proposes them from the same surface reading.
+
+---
+
 ## 2026-07-20 — D-366: RETRACTION — D-365's "data-loss bug" DOES NOT EXIST; the probe was wrong, not the kit
 
 **Retracts the BUG half of [D-365](#2026-07-20--d-365-bug--concurrent-scratchpad-writes-silently-lose-bullets-the-no-parallel-agent-surface-premise-was-disproved-by-a-20-line-probe) in full.** D-365 is kept below (decision-trail rule) but its core claim is **false**. Task 239 is **CLOSED as not-a-bug**; the `file-lock.mjs` + wrapped critical section written to "fix" it were reverted unmerged.
