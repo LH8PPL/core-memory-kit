@@ -8,10 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-N5VVVCV2) Direction-2 path-harvesting bug: was pulling paths from narrative prose, would fail build when map narrates archived doc (exact scenario the decision-trail rule requires).
-  <!-- source: review-promote, source_line: 1, sha1: 845250f872c3c35aeecd9818f28d782aa3ab619127412520741e17e2ff08b632, write: user-explicit, trust: high, at: 2026-07-20T20:00:07Z -->
-- (P-G5AYFaF9) v0.6.0 installed globally and on this project; 12/12 doctor checks passed; no regression from v0.5.5
-  <!-- source: review-promote, source_line: 1, sha1: 68cfd67d86c7232fd7cb038622476707866b1afd99f5cc8150709f423a930334, write: user-explicit, trust: high, at: 2026-07-20T20:00:08Z -->
 - (P-4HURZJLF) npm cleanup warning with D-302 DLL-lock is expected during global upgrade; install is healthy
   <!-- source: review-promote, source_line: 1, sha1: fbe78e5943d82290470a1040581f3ac1e409c66905ccb2c09722360cda97ffbd, write: user-explicit, trust: high, at: 2026-07-20T20:00:10Z -->
 - (P-4GZGQL2G) Proposes targeted three-question triage + ~60-day staleness threshold instead of blanket re-research; recommends post-compact CLAUDE.md codification
@@ -20,6 +16,10 @@
   <!-- source: review-promote, source_line: 1, sha1: a9f8319d404d4450c175034ae142968233a3603817fc33cfa42d0389d5edcafd, write: user-explicit, trust: high, at: 2026-07-20T20:00:12Z -->
 - (P-EJY4TRLG) Kit is working correctly; cmk doctor reports 12 PASS/0 FAIL with 55 observations captured today and 1,837 facts in store
   <!-- source: review-promote, source_line: 1, sha1: 16d3ac1924434b60572d174ec43aa25d2e4c8c064131d7e603fefbb013aa277b, write: user-explicit, trust: high, at: 2026-07-20T20:00:13Z -->
+- (P-NBU4E54T) Add explicit timeouts to all background/foreground processes; don't wait indefinitely.
+  <!-- source: auto-extract-session, source_line: 1, sha1: b1b4143c08c0f8be8f85cc3461188795eb61751622cdca34c062e2527a191158, write: auto-extract, trust: high, at: 2026-07-20T20:31:13Z -->
+- (P-K5ZEYQRW) Confirms readiness to proceed with patch release sequence
+  <!-- source: auto-extract-session, source_line: 1, sha1: 7db18d177fa41c4227570abdc30e18cf1655aa27d491fc765666e5f4e86b5ef9, write: auto-extract, trust: high, at: 2026-07-20T20:37:45Z -->
 
 ## Environment Notes
 
