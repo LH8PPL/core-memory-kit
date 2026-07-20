@@ -10,7 +10,27 @@
 
 ---
 
+## 2026-07-20 — D-366: RETRACTION — D-365's "data-loss bug" DOES NOT EXIST; the probe was wrong, not the kit
+
+**Retracts the BUG half of [D-365](#2026-07-20--d-365-bug--concurrent-scratchpad-writes-silently-lose-bullets-the-no-parallel-agent-surface-premise-was-disproved-by-a-20-line-probe) in full.** D-365 is kept below (decision-trail rule) but its core claim is **false**. Task 239 is **CLOSED as not-a-bug**; the `file-lock.mjs` + wrapped critical section written to "fix" it were reverted unmerged.
+
+**Ground truth (16 SERIAL writes, every record accounted for across the whole tier):** all 16 bullets are present. 8 remain in `MEMORY.md`; the other 8 **graduated** into individual fact files under `context/memory/` — each with its own file, an `INDEX.md` entry, and full searchability. **Zero loss.** This is `graduateForCapRelief` working exactly as designed (design §19 load-cap-not-write-cap, §20.3 P-tier graduation): when the hot index hits its cap, the oldest high-trust bullets move to the permanent fact store rather than being dropped.
+
+**What the probe actually measured.** It counted `MEMORY.md` occurrences and called the difference LOST — never checking `context/memory/`, `archive/evicted-bullets.md`, or the audit log (which names every evicted/graduated id **with its destination path**). A tier where cap pressure deliberately MOVES bullets between surfaces cannot be audited by grepping one surface.
+
+**The falsifying test I should have run first.** Serial: 9/16 in MEMORY.md. Staggered (150ms apart): 9/16. Parallel: 9/16. **Identical with zero concurrency** — and a lost-update race cannot reproduce without concurrency. One serial baseline run would have killed the diagnosis in a minute; I ran it only after a lock trace (16 perfectly-serialized ACQUIRE/RELEASE pairs, no overlap) proved the lock was working while bullets still "vanished."
+
+**The error class (twice in one session).** D-364 §6 logged me claiming ECC shipped Task-95 re-curation from an architecture *diagram* instead of code. This is the same failure with a different input: a symptom that **resembled** a known bug class (concurrent writes + missing rows + exit 0 = lost update) accepted as diagnosis without the one measurement that distinguishes it. Resemblance is not evidence. The irony is exact — I found ECC's unimplemented confidence-evolution by checking whether the code did what the docs said, then asserted a race without checking whether the data was actually gone.
+
+**Binding takeaway (added to the verification discipline):** before reporting ANY data-loss bug — (1) **run the serial baseline FIRST**; if the loss reproduces with zero concurrency it is not a race; (2) **account for every record across the WHOLE tier** (`memory/` fact files, `archive/evicted-bullets.md`, `archive/superseded/`, `tombstones/`) before using the word "lost" — this kit MOVES records by design; (3) **read the audit log**, which already names each moved id and its destination. Captured as `P-aKTA2KND`.
+
+**What SURVIVES from D-365 (still true + still valuable):** the *user's* point that a cheaply-testable premise must be TESTED, not asserted. That half was right and produced real work — it is now recorded as the meta-rule below, and it is what eventually falsified my own claim too. Task 238's premise correction also stands on its own evidence (the parallel surface IS reachable via workflow fan-out / two windows / Claude+Kiro); only the "and it corrupts memory" conclusion is withdrawn.
+
+---
+
 ## 2026-07-20 — D-365: BUG — concurrent scratchpad writes silently lose bullets; the "no parallel-agent surface" premise was disproved by a 20-line probe
+
+> **⚠️ RETRACTED 2026-07-20 by [D-366](#2026-07-20--d-366-retraction--d-365s-data-loss-bug-does-not-exist-the-probe-was-wrong-not-the-kit) — the data-loss claim below is FALSE.** All bullets were accounted for (8 in `MEMORY.md`, 8 graduated to `context/memory/` fact files); the probe grepped one surface of a tier that moves records by design. Kept unedited per the decision-trail rule. The surviving true half is the meta-lesson at the end: a cheaply-testable premise must be probed, not asserted.
 
 **Trigger.** Immediately after D-364 laned Task 238 as *not-laned, no problem yet*, the user asked: *"about 'parallel-agent surface' — can't you test that? run the next task with agents like if I enable ultracode+workflow and see what happens?"* The question was better than my reasoning: I had asserted the trigger hadn't fired without ever **probing** whether it would.
 

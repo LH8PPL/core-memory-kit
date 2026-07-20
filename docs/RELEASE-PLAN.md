@@ -263,13 +263,14 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
      memory" while the snapshot carries `Active Threads` bullets naming shipped work, which
      is standing license to re-execute finished tasks. Small (one 700-byte-capped constant),
      so it rides the current cut rather than waiting.
-     **+ D-365 (2026-07-20) — Task 239 joins this lane, DATA-LOSS class:** a live probe
-     (prompted by the user's "can't you test the parallel-agent surface?") found concurrent
-     scratchpad writes **silently lose bullets** — 16-way → 8 of 16 lost, every process
-     exiting 0 reporting success. `appendScratchpadBullet` takes no lock on its
-     read-modify-write. Reachable on shipped configs (workflow fan-out, two Claude Code
-     windows, the supported Claude+Kiro dual-agent). A durability bug in the durability
-     product ships in the current cut, not a later patch.
+     **+ D-365 → RETRACTED by D-365's successor D-366 (2026-07-20):** a live probe appeared
+     to show concurrent scratchpad writes losing bullets, and Task 239 was laned here as a
+     DATA-LOSS fix. **It was a false positive** — all bullets were accounted for (8 in
+     `MEMORY.md`, 8 graduated to `context/memory/` fact files per the §19/§20.3 cap-relief
+     design); the probe grepped one surface of a tier that moves records by design, and
+     serial/staggered/parallel runs were identical (a race cannot reproduce at zero
+     concurrency). **Task 239 is CLOSED not-a-bug; the lock written for it was reverted
+     unmerged; this lane is unchanged.**
   6b. **v0.6.1 — the capture + gate riders (D-364, laned 2026-07-20).** **Task 235**
      (`PreCompact` capture — bank at the compaction boundary, the moment context is about to
      be discarded; the kit currently hooks `Stop` + `SessionEnd` but not the boundary itself)
