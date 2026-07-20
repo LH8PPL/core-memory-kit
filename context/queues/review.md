@@ -13,3 +13,9 @@
 ## 2026-07-20T10:24:41Z — auto-extract (medium-trust, pending review)
 - (P-N5VVVCV2) Direction-2 path-harvesting bug: was pulling paths from narrative prose, would fail build when map narrates archived doc (exact scenario the decision-trail rule requires).
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-20T10:24:41Z -->
+## 2026-07-20T12:46:29Z — auto-extract (medium-trust, pending review)
+- (P-G5AYFaF9) v0.6.0 installed globally and on this project; 12/12 doctor checks passed; no regression from v0.5.5
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-20T12:46:29Z -->
+## 2026-07-20T12:46:29Z — auto-extract (medium-trust, pending review)
+- (P-4HURZJLF) npm cleanup warning with D-302 DLL-lock is expected during global upgrade; install is healthy
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-20T12:46:29Z -->

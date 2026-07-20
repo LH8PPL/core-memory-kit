@@ -27,6 +27,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { nowIso } from './audit-log.mjs';
+import { runBackfill } from './backfill.mjs';
 import { ERROR_CATEGORIES } from './result-shapes.mjs';
 import { HaikuTimeoutError } from './compressor.mjs';
 import { compressWithRetry, CEILING_FREE_TIMEOUT_MS, CEILING_FREE_BACKOFF_MS } from './compress-retry.mjs';
@@ -215,6 +216,9 @@ function recentMdPath(projectRoot) {
  * @returns {Promise<object>} action: 'distilled' | 'skipped' | 'error'
  */
 export async function dailyDistill({
+  // Task 174: weeklyCurate calls dailyDistill internally; it passes this so the
+  // git sweep runs once per cron pass, not twice (same shape as skipDrain).
+  skipBackfill = false,
   projectRoot,
   backend,
   now,
@@ -239,6 +243,25 @@ export async function dailyDistill({
     return { action: 'skipped', reason: 'no-context-dir', duration_ms: Date.now() - t0 };
   }
 
+  // Task 174 (D-372) — GIT-HISTORY BACKFILL SWEEP. THE automatic path: a day
+  // with commits but no session log gets reconstructed here, with NO user
+  // command (`cmk backfill` is only the manual override — per D-169 the cron
+  // sweep is the deliverable, not the verb). Measured before building: 37.5%
+  // of this repo's own dogfood days had commits and no record.
+  //
+  // Runs BEFORE the distill body on purpose: a day filled now becomes input
+  // the same pass can distill, instead of waiting a day. Bounded per run and
+  // fail-open — a backfill problem must never wedge the distill (the cron's
+  // primary job) or the queue drain below.
+  let backfilled = null;
+  if (!skipBackfill) {
+    try {
+      backfilled = await runBackfill({ projectRoot, backend });
+    } catch {
+      backfilled = null;
+    }
+  }
+
   // Auto-drain the project-tier review + conflict queues (v0.2 Phase 2, D-6).
   // Non-Haiku file IO — runs on EVERY pass regardless of the Haiku cooldown
   // below, so queues drain even when the distill itself is cooled down.
@@ -256,7 +279,7 @@ export async function dailyDistill({
       cost_usd: 0, duration_ms, success: true, skipped_reason: 'cooldown',
     };
     writeDistillLogEntry({ projectRoot, date, entry });
-    return { action: 'skipped', reason: 'cooldown', drained, duration_ms };
+    return { action: 'skipped', reason: 'cooldown', drained, backfilled, duration_ms };
   }
 
   // Read last 7 days of today-*.md.
@@ -283,7 +306,7 @@ export async function dailyDistill({
         skipped_reason: 'no-input',
       },
     });
-    return { action: 'skipped', reason: 'no-input', drained, duration_ms };
+    return { action: 'skipped', reason: 'no-input', drained, backfilled, duration_ms };
   }
 
   const input_bytes = files.reduce(

@@ -3294,6 +3294,41 @@ function stub(name, milestone, extra) {
  */
 
 /** @type {Subcommand[]} */
+// `cmk backfill` (Task 174, D-372) — the MANUAL OVERRIDE for the git-history
+// backfill. The automatic path is the sweep on the `daily-distill` cron (D-169:
+// the cron is the deliverable, this verb is only for "fill it now").
+export async function runBackfillCli(options = {}, _cmd, deps = {}) {
+  const projectRoot = deps.projectRoot ?? resolvePath(process.cwd());
+  const log = deps.log ?? console.log;
+  const { runBackfill, findBackfillGaps } = await import('./backfill.mjs');
+  const windowDays = Number(options?.days ?? 14);
+
+  if (options?.dryRun) {
+    const gaps = findBackfillGaps({ projectRoot, windowDays });
+    if (gaps.length === 0) {
+      log('cmk backfill: no gaps — every commit day in the window has a session log.');
+      return;
+    }
+    log(`cmk backfill: ${gaps.length} day(s) with commits but no session log:`);
+    for (const g of gaps) log(`  ${g.date}`);
+    log('Run `cmk backfill` to reconstruct them from git history.');
+    return;
+  }
+
+  const backend = deps.backend ?? makeBackend({ projectRoot });
+  const r = await runBackfill({ projectRoot, backend, windowDays, maxPerRun: Number(options?.max ?? 3) });
+  if (r.backfilled.length === 0 && r.failed.length === 0) {
+    log('cmk backfill: nothing to do — no commit day in the window is missing its session log.');
+    return;
+  }
+  if (r.backfilled.length) {
+    log(`cmk backfill: reconstructed ${r.backfilled.length} day(s) from git history — ${r.backfilled.join(', ')}`);
+    log('  (marked as reconstructed, not captured; a real session log is never overwritten)');
+  }
+  if (r.failed.length) log(`  ${r.failed.length} day(s) could not be summarized: ${r.failed.join(', ')}`);
+  if (r.remaining > 0) log(`  ${r.remaining} more remain — re-run to continue (bounded per run).`);
+}
+
 export const subcommands = [
   {
     name: 'install',
@@ -3449,6 +3484,17 @@ export const subcommands = [
     description: 'run health checks HC-1..HC-9; print structured report with self-repair commands',
     milestone: 37,
     action: runDoctorCli,
+  },
+  {
+    name: 'backfill',
+    description: 'reconstruct session logs for days that have git commits but no session record (the daily cron does this automatically; this is the manual override)',
+    milestone: 174,
+    optionSpec: [
+      { flags: '--dry-run', description: 'list the gap days without reconstructing them' },
+      { flags: '--days <n>', description: 'how far back to look (default 14)' },
+      { flags: '--max <n>', description: 'max days to reconstruct in one run (default 3)' },
+    ],
+    action: runBackfillCli,
   },
   {
     name: 'digest',
