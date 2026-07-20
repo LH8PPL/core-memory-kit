@@ -124,6 +124,67 @@ describe('validate-docs — the consolidation contract (Task 186)', () => {
     expect(r.stderr).toMatch(/unknown family/i);
   });
 
+  // ── Skill-review regressions: the arg-parsing seams the suite could not see.
+  // Each of these previously produced a WRONG-BUT-GREEN or wrong-scope run.
+
+  it('BLOCKING regression: `--only` with NO value fails loudly (was: OK + exit 0 having checked NOTHING)', () => {
+    const r = run(sandbox, ['--only']);
+    expect(r.exitCode, 'a validator must never report success for zero work').toBe(1);
+    expect(r.stderr).toMatch(/requires at least one family/i);
+    expect(r.stdout).not.toMatch(/validate-docs: OK/);
+  });
+
+  it('BLOCKING regression: `--only=<family>` (equals form) selects that family, not ALL of them', () => {
+    writeFileSync(join(sandbox, 'specs', 'broken.md'), 'See [x](nope.md).\n');
+    writeMap(sandbox, '`specs/broken.md`\n');
+    // registry alone passes; if the equals-form were ignored, references would
+    // also run and FAIL on the broken link above.
+    const r = run(sandbox, ['--only=registry']);
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout).toMatch(/registry:/);
+    expect(r.stdout).not.toMatch(/markdown files scanned/);
+  });
+
+  it('an unknown flag is rejected rather than silently ignored', () => {
+    const r = run(sandbox, ['--bogus']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr).toMatch(/unknown flag/i);
+  });
+
+  it('duplicate families run once, not twice', () => {
+    writeMap(sandbox, '(no files)\n');
+    const r = run(sandbox, ['--only', 'registry,registry']);
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout.match(/registry:/g) ?? []).toHaveLength(1);
+  });
+
+  it('BLOCKING regression: the Registry may NARRATE a since-deleted doc in prose without failing', () => {
+    // The decision-trail-preservation rule REQUIRES the map to be able to say
+    // "the old plan lived in docs/journey/OLD-PLAN.md before it was archived".
+    // Direction-2 must only harvest STRUCTURAL (backticked) entries.
+    writeFileSync(join(sandbox, 'specs', 'real.md'), '# real\n');
+    writeMap(
+      sandbox,
+      '`specs/real.md`\n\n_Note: the old plan lived in docs/journey/OLD-PLAN.md before it was archived._\n',
+    );
+    const r = run(sandbox, ['--only', 'registry']);
+    expect(r.exitCode, `prose path must not be treated as a registry entry:\n${r.stderr}`).toBe(0);
+  });
+
+  it('a BACKTICKED registry entry pointing at a deleted file still fails (direction 2 intact)', () => {
+    writeMap(sandbox, '`specs/ghost.md`\n');
+    const r = run(sandbox, ['--only', 'registry']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr).toMatch(/specs\/ghost\.md/);
+  });
+
+  it('the coverage family reports a real error under a fixture root (no raw ENOENT stack)', () => {
+    const r = run(sandbox, ['--only', 'coverage']);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr).toMatch(/missing user-facing doc/i);
+    expect(r.stderr).not.toMatch(/at familyCoverage|ENOENT:/);
+  });
+
   it('the real repo passes ALL families through the single entry (Door 3)', () => {
     const r = run(null);
     expect(r.exitCode, `validate-docs failed on the repo:\n${r.stderr}`).toBe(0);

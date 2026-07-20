@@ -146,7 +146,19 @@ export function parseRegistryEntries(mapText) {
   if (idx === -1) return [];
   const section = mapText.slice(idx);
   const out = new Set();
-  const re = /(?:^|[\s`(])((?:[A-Za-z0-9._-]+|(?:specs|docs)\/[A-Za-z0-9._/-]+)\.md)\b/g;
+  // BACKTICKED tokens ONLY — a registry ENTRY is structural (`path/to/doc.md`),
+  // never free prose.
+  //
+  // Skill-review B3: matching bare tokens too made direction-2 harvest paths out
+  // of ORDINARY SENTENCES. On the real map it was already pulling three paths from
+  // a prose line ("_Reclassified 2026-05-31 …_"), green only because those files
+  // happen to exist — and it would FAIL the build the moment the map narrated an
+  // archived or renamed doc ("the old plan lived in docs/journey/OLD-PLAN.md
+  // before it was archived"). That is exactly what the decision-trail-preservation
+  // rule REQUIRES the map to be able to say, so the check would have punished the
+  // repo for following its own binding rule. A validator that fires on correct
+  // prose is worse than none; restrict to the structural form.
+  const re = /`((?:[A-Za-z0-9._-]+|(?:specs|docs)\/[A-Za-z0-9._/-]+)\.md)`/g;
   for (const m of section.matchAll(re)) out.add(m[1]);
   return [...out];
 }
@@ -551,6 +563,10 @@ export const CLI_DOC_EXEMPT = new Map([
 
 // Legitimate deferral phrases — each entry pins ONE documented stub.
 // Shipping the feature means deleting both the phrase and its entry here.
+// Decision trail (preserved from the pre-consolidation script per the
+// decision-trail-preservation rule — skill-review M7 caught its loss):
+//   - `config` shipped real in Task 129 (D-121) — its stub deferral entry removed.
+//   - `purge` shipped real in Task 96 (ADR-0022, D-346) — its entry removed.
 export const DEFERRAL_ALLOWLIST = [];
 
 const DEFERRAL_PATTERN = /not yet (shipped|implemented)|deferred to a later release/i;
@@ -650,19 +666,39 @@ async function familyCoverage() {
   // The verb list + tool schemas come from the kit's SOURCES (the script's
   // own repo); the docs come from REPO (root-overridable). In practice both
   // are the real repo — fixture tests select other families via --only.
+  // Skill-review I4: under a fixture CMK_VALIDATOR_ROOT these reads threw a raw
+  // ENOENT stack trace instead of a diagnostic. The header said fixture roots
+  // "should use --only", which is prose, not enforcement. Fail with a real error.
+  const missing = [];
+  const readDoc = (rel) => {
+    const abs = join(REPO, ...rel.split('/'));
+    if (!existsSync(abs)) {
+      missing.push(rel);
+      return '';
+    }
+    return readFileSync(abs, 'utf8');
+  };
+
   const { subcommands } = await import(
     pathToFileURL(join(SCRIPT_REPO, 'packages', 'cli', 'src', 'subcommands.mjs')).href
   );
   const cliVerbs = new Set(subcommands.map((s) => s.name));
-  const cliDocText = readFileSync(join(REPO, 'docs', 'CLI.md'), 'utf8');
-  const mcpDocText = readFileSync(join(REPO, 'docs', 'MCP.md'), 'utf8');
+  const cliDocText = readDoc('docs/CLI.md');
+  const mcpDocText = readDoc('docs/MCP.md');
   const toolParams = parseMcpToolParams(
     readFileSync(join(SCRIPT_REPO, 'packages', 'cli', 'src', 'mcp-server.mjs'), 'utf8'),
   );
-  const docs = USER_FACING_DOCS.map((p) => ({
-    path: p,
-    text: readFileSync(join(REPO, ...p.split('/')), 'utf8'),
-  }));
+  const docs = USER_FACING_DOCS.map((p) => ({ path: p, text: readDoc(p) }));
+
+  if (missing.length > 0) {
+    return {
+      errors: [
+        `coverage: missing user-facing doc(s) under ${REPO}: ${missing.join(', ')} — ` +
+          `the coverage family needs the real repo's docs (a sandboxed CMK_VALIDATOR_ROOT should select other families with \`--only\`)`,
+      ],
+      summary: 'coverage: SKIPPED (docs not found)',
+    };
+  }
 
   const errors = [
     ...checkCliDocs({ cliVerbs, cliDocText }),
@@ -690,22 +726,37 @@ const FAMILIES = new Map([
 async function runCli() {
   const args = process.argv.slice(2);
   let selected = [...FAMILIES.keys()];
-  const onlyIdx = args.indexOf('--only');
+  const valid = [...FAMILIES.keys()].join(', ');
+  const die = (msg) => {
+    console.error(`validate-docs: ${msg} — valid families: ${valid}`);
+    console.error('  usage: validate-docs.mjs [--only <family>[,<family>...]]');
+    process.exit(1);
+  };
+
+  // Accept BOTH `--only x` and `--only=x`. Skill-review B2: matching only the
+  // bare flag meant `--only=catalogs` was silently ignored and the run fell
+  // through to ALL families — failing open in the opposite direction from B1.
+  const onlyIdx = args.findIndex((a) => a === '--only' || a.startsWith('--only='));
   if (onlyIdx !== -1) {
-    const names = (args[onlyIdx + 1] ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-    for (const n of names) {
-      if (!FAMILIES.has(n)) {
-        console.error(
-          `validate-docs: unknown family '${n}' — valid families: ${[...FAMILIES.keys()].join(', ')}`,
-        );
-        process.exit(1);
-      }
-    }
+    const arg = args[onlyIdx];
+    const raw = arg.startsWith('--only=') ? arg.slice('--only='.length) : (args[onlyIdx + 1] ?? '');
+    // Skill-review B1 (the worst one): `--only` with no value produced an EMPTY
+    // selection, so the loop ran zero families and printed `OK` with exit 0 — a
+    // validator reporting success while checking nothing. An empty value is now
+    // the same loud error as an unknown family.
+    const names = [...new Set(raw.split(',').map((s) => s.trim()).filter(Boolean))];
+    if (names.length === 0) die("`--only` requires at least one family");
+    for (const n of names) if (!FAMILIES.has(n)) die(`unknown family '${n}'`);
     selected = names;
+  }
+  // Reject unknown flags rather than ignoring them (the same fail-open class).
+  for (const a of args) {
+    if (a.startsWith('--') && a !== '--only' && !a.startsWith('--only=')) die(`unknown flag '${a}'`);
   }
 
   const summaries = [];
   let failed = false;
+  const ranReferences = selected.includes('references');
   for (const name of selected) {
     const result = await FAMILIES.get(name)();
     if (result.errors.length > 0) {
@@ -717,11 +768,15 @@ async function runCli() {
   }
 
   if (failed) {
-    console.error('');
-    console.error(
-      `  If a reference violation is intentional (e.g., a reserved-future ADR number),`,
-    );
-    console.error(`  add <!-- validate-docs: ignore --> on the same line.`);
+    // Skill-review M6: the suppression hint only applies to the `references`
+    // family — printing it after a registry/catalogs/coverage failure gave
+    // irrelevant remediation (markers aren't honored outside references).
+    if (ranReferences) {
+      console.error('');
+      console.error('  If a REFERENCE violation is intentional (e.g. a reserved-future ADR');
+      console.error('  number), add <!-- validate-docs: ignore --> on the same line.');
+      console.error('  (Suppression markers apply to the `references` family only.)');
+    }
     process.exit(1);
   }
   console.log(`validate-docs: OK — ${summaries.join('; ')}`);
