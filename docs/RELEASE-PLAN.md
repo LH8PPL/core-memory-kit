@@ -263,6 +263,14 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
      memory" while the snapshot carries `Active Threads` bullets naming shipped work, which
      is standing license to re-execute finished tasks. Small (one 700-byte-capped constant),
      so it rides the current cut rather than waiting.
+     **+ D-369 (2026-07-20) — Task 242 joins this lane, SILENT-DEGRADATION class:** this
+     repo's own dogfood logs show auto-extract hitting **6/6 `haiku_timeout` (zero captures
+     for a whole session)** under heavy concurrent load, each burning the full 90s budget —
+     while normal days run 74/6 and 52/3. The loop is starved, not broken, and it fails
+     **silently** (the only evidence is NDJSON nobody reads). Fix = SURFACE it (an HC/doctor
+     check that fails at 0% success) + SURVIVE it (deterministic no-LLM fallback so a
+     starved loop degrades to partial, never zero). A memory kit that stops remembering on
+     its busiest days is a durability defect, not polish — it ships in the current cut.
      **+ D-365 → RETRACTED by D-365's successor D-366 (2026-07-20):** a live probe appeared
      to show concurrent scratchpad writes losing bullets, and Task 239 was laned here as a
      DATA-LOSS fix. **It was a false positive** — all bullets were accounted for (8 in

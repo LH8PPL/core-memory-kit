@@ -10,6 +10,22 @@
 
 ---
 
+## 2026-07-20 — D-369: BUG — auto-extract fails SILENTLY to zero under load (Task 242, v0.6.0); + a correction about what "no auto-extract facts" meant
+
+**Trigger.** The user asked why durable findings were going into `tasks.md`/`DECISION-LOG` and commit messages but not through the kit — then, when the automatic path came up: *"how do we fix this so this is automatic and not me telling you? or you noticing?"* and *"this sounds like a bug in the kit."* It is.
+
+**The measured finding.** On 2026-07-20 this repo's own dogfood log shows **6 of 6** extractions ending `haiku_timeout`, each burning the **full 90s budget** (`duration_ms: 90030`) → **zero automatic captures for the whole session**, during which I ran subagents, full test suites and 24-way concurrent spawn probes. Historical logs invert that ratio (07-01: 74 success / 6 timeout · 07-15: 52 / 3), so the loop is **starved, not broken**.
+
+**Why it's the worst shape.** It fails *silently*: the Stop hook fires every turn, nothing in the CLI or chat says "your last 6 turns were never captured," and the only evidence lives in `context/sessions/{date}.extract.log` — NDJSON nobody reads. The sessions richest in durable findings (long, heavy, multi-agent) are precisely the ones most likely to capture nothing while looking healthy. **This extends D-169** from "is the automatic path ever run by a human?" to "**is its OUTCOME ever asserted?**" — and it is the D-298/HC-10 outcome-vs-heartbeat false-green class again: a hook that fired is not a hook that worked.
+
+**→ Task 242, laned v0.6.0 (current cut).** Two halves, both required because they fail differently: **(1) SURFACE** — an HC-*/doctor check that FAILS when today's extract success rate is 0; **(2) SURVIVE** — on `haiku_timeout`, fall back to a deterministic no-LLM capture so a starved loop degrades to *partial*, never zero. Explicitly rejected: raising the 90s budget (trades silence for slowness, still zero on a loaded machine) and "run less concurrent work" (a memory kit cannot require a quiet machine to remember).
+
+**CORRECTION, logged (the same class as D-366, third time this session).** My first read of this was *"zero fact files carry `write: auto-extract` provenance — auto-extract has NEVER worked here."* **Wrong.** Auto-extract writes **scratchpad bullets + INDEX entries** (17 present), not `write: auto-extract` fact files, and it logged **111 successful extractions across two sampled days alone**. I had again grepped ONE surface and concluded absence — the exact mistake D-366 retracted a data-loss bug for, repeated within the hour. The real defect is narrower and more interesting than the one I first announced: not "never works" but "**silently degrades to zero exactly when it matters most**." *The lesson isn't new, it's that I keep needing it: check the surface the writer actually writes to, before saying a thing never happened.*
+
+**On the process half of the user's question.** Durable findings DID reach the kit this session (`P-XMSVZWDD`, `P-ENJNBQ7N`, `P-RYN7KWJJ`, `P-aKTA2KND`) — but D-367's and D-368's went only to docs until the user asked, and were then captured retroactively (`P-B3BLXE9V`, `P-KJ32WCUR`, `P-RP97AHKK`, `P-U5LLL2CL`). With the automatic path starved, the manual `cmk remember` at each finding **was** the capture path, and I used it inconsistently — filing to `tasks.md` and treating that as done. Task 242 fixes the machine half; the discipline half is the existing per-task-boundary dogfood flush (CLAUDE.md checkpoint pattern #4), which says the same thing and which I did not honor per-finding.
+
+---
+
 ## 2026-07-20 — D-368: NOTE — measured clone audit over all 125 src modules: the fact-store walk is duplicated 9-10× with no shared walker (Task 241); `slugify` is a trap, not a dupe
 
 **Trigger.** The user asked whether there is more code duplication worth removing. Measured with a normalized sliding-window hash scan over every `packages/cli/src/*.mjs` (comments/blank/brace-only lines stripped, windows hashed, cross-file collisions reported longest-first), then **every candidate read** — a scanner finds *structural* similarity; only reading separates "same code" from "same shape, different contract."
