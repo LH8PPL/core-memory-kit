@@ -10,6 +10,26 @@
 
 ---
 
+## 2026-07-20 — D-371: DECISION — Task 234 shipped: the stale-replay guard; an existing test and the reviewer each corrected a design I was confident in
+
+**Shipped** (PR #311): the injected snapshot now labels its work-state sections. `annotateWorkStateHeadings()` appends one caveat line under `## Active Threads` / `## Pending Decisions` — *"work-state as last captured — may already be done; verify before acting, never re-run"* — so the preamble's *"injected memory wins / lead with memory"* can no longer be read as licence to re-run finished work. The ECC borrow (D-364 §5.1) made concrete.
+
+**Proven live, mid-build, on our own memory.** While implementing this, the repo's injected snapshot carried `Active Threads: "Task 234 — test written, implementation pending"` **as I was writing the implementation**. The hazard is not hypothetical for us; it was in the prompt at the moment of the fix.
+
+**Labeling, NOT deletion** — work-state is genuinely useful for resumption. And the durable-fact authority language is untouched: D-40/D-153's under-fire class (the model re-deriving what memory already answers) is the *opposite* failure, and trading one for the other is no win. The caveat is scoped to the two headings and appears only when they do.
+
+**TWO corrections, neither of which I found myself:**
+
+1. **An existing test caught the design.** My first cut PREPENDED an instruction block; that pushed the user's first real fact from ~78 to **346 bytes deep** and broke `cli-inject-context`'s Task-18 contract (*"the real fact sits near the top of the body"*). The test was right and I was wrong — the caveat now rides the heading in place, so it travels with the content it governs and costs the body above it zero bytes. *A boundary test written for one purpose fifteen tasks ago caught an unrelated regression in a surface nobody was thinking about.*
+2. **The reviewer reproduced a cap overflow empirically.** `workStateReserve` reserved a **fixed 2 slots** while the annotator annotates every match — a 3-heading body produced **4021 bytes on a 4000 cap**, violating §7.1.2 (*"snapshot ≤ capBytes exactly"*). Root fix: the reserve is now counted with the **same regex** the annotator uses (one shared `workStateHeadingRe`), so reserve and effect cannot diverge. It also closed a subtler divergence — the old substring probe demanded an exact single space while the regex tolerates `[ 	]+`, making non-canonical headings invisible to the reserve. Plus CRLF preservation (the insert always used `
+`, silently converting an annotated CRLF pair to LF).
+
+**The pattern worth keeping:** both defects were in *my* new code, and both were about a derived quantity drifting from the thing it derives (a reserve vs its regex; an instruction's position vs the body's contract). Deriving the count from the same source as the effect is the structural fix; *"I reserved enough"* was the assumption.
+
+**Gates:** 3209/3209 green, 189 files · live-verified on the real repo (3 annotations, correct positions, 7679-byte snapshot) · 3 regressions added (3-heading cap boundary, CRLF idempotency, prefix collision) · stress skipped with reason (pure string transformation on an existing in-memory path).
+
+---
+
 ## 2026-07-20 — D-370: DECISION — Task 186 shipped: the four doc validators became ONE (D-249's structural half); every defect was in the NEW seams
 
 **Shipped** (PR #310): `validate-references` / `-doc-registry` / `-doc-completeness` / `-index-completeness` are now four **families** inside a single `scripts/validate-docs.mjs`, driven by `docs/DOCUMENTATION-MAP.md` as the manifest, selectable with `--only <family>`. Validators **21 → 18**. D-249 unified the *judgment* layer into one per-change walk; this is the *machinery* half it named.
