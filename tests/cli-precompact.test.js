@@ -213,6 +213,38 @@ describe('Task 235 — the roll actually banks', () => {
 });
 
 describe('Task 235 — the double-fire guard (PreCompact → SessionEnd)', () => {
+  it('CONCURRENT rollers: only ONE compresses — the atomic claim is the real mutex', async () => {
+    // The guard that matters, pinned honestly (skill-review, 2026-07-20). An
+    // earlier docstring claimed the cooldown marker and the drained buffer were
+    // two INDEPENDENT guards. They are not: touchCooldownMarker fires only on
+    // compressSession's SUCCESS path, so two rollers whose gate-checks both land
+    // before either finishes its Haiku call BOTH read "not in cooldown". The
+    // only thing between them is claimNowBuffer's atomic rename (§16.27) — one
+    // renameSync wins, the loser sees ENOENT and skips before calling the
+    // backend. The sequential test below cannot see this; it awaits the first
+    // roll, so the marker is already hot and the buffer already drained.
+    seedNow('## 2026-07-20T10:00:00Z — turn\ncontested buffer\n');
+    const backend = new MockHaikuBackend({
+      responses: [
+        { outputText: '## Decisions\n- roller A\n', inputTokens: 100, outputTokens: 30, costUSD: 0.0002, preservedIds: [] },
+        { outputText: '## Decisions\n- roller B\n', inputTokens: 100, outputTokens: 30, costUSD: 0.0002, preservedIds: [] },
+      ],
+    });
+
+    // Deliberately NOT awaited in sequence — both gate-check before either lands.
+    const [a, b] = await Promise.all([
+      runPreCompact({ projectRoot, backend }),
+      runPreCompact({ projectRoot, backend }),
+    ]);
+
+    expect(backend.calls.length, 'exactly one roller may reach the backend').toBe(1);
+    expect(todayFiles().length, 'exactly one day file').toBe(1);
+    // One compressed, one skipped — never two compressions, never two errors.
+    const actions = [a.action, b.action].sort();
+    expect(actions.filter((x) => x === 'compressed')).toHaveLength(1);
+  });
+
+
   it('a second run right after a successful roll does NOT double-write', async () => {
     seedNow('## 2026-07-20T10:00:00Z — turn\nfirst content\n');
     await runPreCompact({ projectRoot, backend: backendReturning('## Decisions\n- first\n') });

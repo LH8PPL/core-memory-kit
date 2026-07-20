@@ -22,3 +22,6 @@
 ## 2026-07-20T15:12:21Z — auto-extract (medium-trust, pending review)
 - (P-4GZGQL2G) Proposes targeted three-question triage + ~60-day staleness threshold instead of blanket re-research; recommends post-compact CLAUDE.md codification
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-20T15:12:21Z -->
+## 2026-07-20T16:58:47Z — auto-extract (medium-trust, pending review)
+- (P-X5RW6LBQ) Kit guardrail over-blocks on safety as designed; can't distinguish commands from documentation, so writing about a blocked command triggers the guard again
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-20T16:58:47Z -->

@@ -140,14 +140,27 @@ export function shouldPreCompact({ projectRoot, now, cooldownMs = DEFAULT_COOLDO
 /**
  * Roll `now.md` → `today-{date}.md` at the compaction boundary.
  *
- * DOUBLE-FIRE (PreCompact → SessionEnd) is guarded TWICE, independently:
- *   1. the cooldown marker is hot for 120s after this roll's Haiku call, so a
- *      SessionEnd seconds later gates out; and
- *   2. a successful roll DRAINS now.md (compressSession claim-renames the whole
- *      buffer away, §16.27), so even past the cooldown there is nothing to
- *      re-compress.
- * Either alone is sufficient; both together mean no ordering of the two events
- * can produce a duplicate day-file entry.
+ * DOUBLE-FIRE (PreCompact → SessionEnd) — what actually protects what. The two
+ * guards are NOT interchangeable, and an earlier version of this comment claimed
+ * they were (skill-review, 2026-07-20):
+ *
+ *   SEQUENTIAL (the common case — a compaction, then a session-end seconds
+ *   later). Both guards apply: the cooldown marker is hot (touchCooldownMarker
+ *   fires on compressSession's SUCCESS path) AND the buffer is already drained.
+ *
+ *   CONCURRENT (two rollers whose gate-checks both land before either finishes
+ *   its Haiku call — e.g. this detached worker racing a SessionEnd). **The
+ *   cooldown provides ZERO protection here**: the marker is only touched after a
+ *   successful compress, so both rollers read "not in cooldown" and proceed. The
+ *   ONLY thing standing between them is `claimNowBuffer`'s atomic rename
+ *   (§16.27 / Task 106) — one `renameSync` on now.md wins, the loser gets ENOENT,
+ *   treats it as an empty buffer, and returns skipped BEFORE calling the backend.
+ *
+ * So: the cooldown is a BUDGET guard, not a concurrency guard. The atomic claim
+ * is the mutex, and it is the same one compressSession already relies on for the
+ * SessionEnd-vs-SessionStart-lazy race — this path reuses it rather than adding
+ * a second mechanism. Pinned by the concurrent test in cli-precompact.test.js;
+ * if that claim is ever weakened, this path loses its only real protection.
  *
  * Never throws. Returns a result shape; the caller is a detached worker whose
  * only job is to run this and exit.

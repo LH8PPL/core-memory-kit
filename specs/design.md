@@ -1356,7 +1356,14 @@ Composition:
 
 **Why the work is detached.** Nothing here is urgent (the buffer is already on disk), so an inline LLM compress would buy nothing and cost 20-80 s of visible latency at EVERY compaction (the §8.2.5 / D-179 latency measurements). The hook gates cheaply (one `existsSync` + one small read + the cooldown stat), spawns `cmk-precompact-worker` detached, and returns — the same two-bin posture as `capture-turn` → `auto-extract` and `inject-context` → `compress-lazy`. Live-measured 2026-07-20: hook returned in **270 ms**; the worker's real Haiku roll took **9.2 s** behind it.
 
-**Double-fire (PreCompact then SessionEnd) is guarded TWICE, independently:** (1) the shared 120 s cooldown marker is hot after the roll's Haiku call, so a `SessionEnd` seconds later gates out; and (2) a successful roll DRAINS `now.md` (the §16.27 claim-rename removes the buffer entirely), so even past the cooldown there is nothing to re-compress. Either alone suffices; both together mean no ordering of the two events can duplicate a day-file entry. Live-verified: a second fire logged `spawned:false, reason:empty-buffer` and the day file stayed byte-identical.
+**Double-fire (PreCompact then SessionEnd) — the two guards are NOT interchangeable.** An earlier draft of this section claimed they were; skill-review falsified it (2026-07-20) by tracing when the marker is actually written:
+
+| Case | Cooldown marker | Atomic claim (§16.27) |
+| --- | --- | --- |
+| **Sequential** — a compaction, then a session-end seconds later | ✅ hot (`touchCooldownMarker` fires on `compressSession`'s SUCCESS path) | ✅ buffer already drained |
+| **Concurrent** — two rollers whose gate-checks both land before either finishes its Haiku call | ❌ **zero protection** — the marker is only touched *after* a successful compress, so both read "not in cooldown" | ✅ **the only guard** — one `renameSync` on `now.md` wins; the loser gets ENOENT, treats it as an empty buffer, and returns skipped BEFORE calling the backend |
+
+So the cooldown is a **budget** guard, not a concurrency guard, and `claimNowBuffer`'s atomic rename is the mutex — the same one `compressSession` already relies on for the SessionEnd-vs-SessionStart-lazy race, reused rather than duplicated. Pinned by the concurrent test in `tests/cli-precompact.test.js` (two un-awaited `runPreCompact` calls → exactly one backend call, one day file). Live-verified for the sequential case: a second fire logged `spawned:false, reason:empty-buffer` and the day file stayed byte-identical.
 
 **Per-agent availability (the Task-50 seam).** `preCompact` is an abstract event in `agent-profiles.mjs`; only Claude Code maps it (`preCompact: 'PreCompact'`), because Kiro, Cursor and Codex expose no compaction event. Unmapped agents simply do not wire the leg — the same way Kiro/Codex do not map `sessionEnd` and only Cursor maps `preShell`. Each agent doc names the gap honestly.
 
