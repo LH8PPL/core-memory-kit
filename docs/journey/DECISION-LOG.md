@@ -10,6 +10,27 @@
 
 ---
 
+## 2026-07-20 — D-365: BUG — concurrent scratchpad writes silently lose bullets; the "no parallel-agent surface" premise was disproved by a 20-line probe
+
+**Trigger.** Immediately after D-364 laned Task 238 as *not-laned, no problem yet*, the user asked: *"about 'parallel-agent surface' — can't you test that? run the next task with agents like if I enable ultracode+workflow and see what happens?"* The question was better than my reasoning: I had asserted the trigger hadn't fired without ever **probing** whether it would.
+
+**The probe (real repo binary, sandboxed tiers, Windows).** N concurrent `cmk remember` processes against ONE project tier — the exact write path a workflow fan-out's subagent Stop hooks / `mk_remember` calls exercise.
+
+- **Rich fact writes: CLEAN.** 8-way and 24-way → 24/24 facts on disk, INDEX complete, zero leaked locks, zero duplicates. Each fact is its own file; no contention.
+- **Shared-scratchpad writes: BROKEN.** 16-way → **8 of 16 bullets LOST**, **all 16 processes exit 0 reporting success**, zero leaked locks, file structurally intact (headings + comment markers balanced). Reproduced twice with *different victim sets*. **8-way was clean** → load-threshold dependent, which is why no test or live-test ever caught it.
+
+**Root cause.** `appendScratchpadBullet` (`scratchpad.mjs:362`) is an **unguarded** `readFileSync` → mutate → `writeFileSync`: no lock, no atomic rename, no compare-and-swap. Two processes read the same `original`; the second write clobbers the first. Same shape at the `memory-write.mjs` remove (471/496) and replace (580/615) sites. **The irony:** `.locks/` + `lock-discipline.mjs` ship specifically to DETECT stale locks, while the scratchpad write path never TAKES one — a detection half with no acquisition half.
+
+**Why it matters.** Silent data loss behind a success exit code, in the subsystem whose entire promise is durability. And it is **reachable on shipped configs today**, not hypothetically: a workflow/ultracode fan-out, two Claude Code windows on one repo, or the **supported** Claude + Kiro dual-agent setup.
+
+**→ Task 239, laned v0.6.0 (the current cut).** Fix in the write path (exclusive `O_EXCL` lock reusing the shipped stale-lock detection, or temp-write + atomic rename with a content-hash CAS retry — decided on evidence); applied to ALL sibling read-modify-write sites via a both-ways caller map; loss must become a serialized success or a LOUD failure, never a silent exit 0; the probe gets promoted into `tests/` as an N-way regression at a concurrency that currently fails.
+
+**Task 238 premise CORRECTED** (old rationale preserved in place per the decision-trail rule). Its data-loss half became 239; only the speculative *semantic*-collision half remains, with a narrowed trigger.
+
+**The meta-lesson (the one worth keeping).** D-248 says a deferral needs a *named, checkable* trigger. This adds: **when the trigger's condition is cheaply testable, TEST IT rather than declaring it unfired.** I wrote "no parallel-agent surface today" as though it were an observation; it was an assumption, and a ~20-line probe falsified it in minutes — finding a shipped data-loss bug in the process. The D-267 fired-walk at each minor's sweep should probe cheap conditions, not just re-read them.
+
+---
+
 ## 2026-07-20 — D-364: NOTE — ECC (`affaan-m/ecc`) studied at code level: a harness OS, not a memory rival; 5 non-memory borrows; one logged self-correction
 
 **Trigger.** The user asked how the kit stacks up against [`affaan-m/ecc`](https://github.com/affaan-m/ecc) (v2.0.0) before continuing the v0.6.0 lane. Full note: [`docs/research/2026-07-20-ecc-harness-os-comparison.md`](../research/2026-07-20-ecc-harness-os-comparison.md).
