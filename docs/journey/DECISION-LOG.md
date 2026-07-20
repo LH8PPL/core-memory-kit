@@ -10,6 +10,22 @@
 
 ---
 
+## 2026-07-20 — D-375: DECISION — prior-art TRIAGE per task (the per-task half of D-374); "check everything every time" considered and narrowed
+
+**Trigger.** The user, after the D-374 sweep: *"i was thinking about it, every task needs to go over again on the research and re clone or do web search. what do you think?"*
+
+**Verdict: agree with the diagnosis, narrow the prescription.** The blanket form spends uniform effort on non-uniform need — 8 of 34 open tasks (`240` .nvmrc pin, `241` dedupe, `73` placeholder re-render, `140` ReDoS, `208` a QA run…) have **no outside world to consult**, and re-cloning the corpus per task is waste: the notes ARE the distillation of ~101 projects; the clones are a cache.
+
+**But the user's instinct surfaced the one thing the D-374 sweep structurally CANNOT catch: STALENESS.** A note is a dated snapshot, not a standing fact. Our basic-memory note (governing Task 184) is from **2026-05-22** — two months old, describing that project as it was then. Projects ship. A stale note looks exactly like a fresh one, so the sweep will happily match it and hand the implementer an out-of-date "fact." **Absence is what the sweep catches; staleness is what it can't.**
+
+**The rule (now in CLAUDE.md) — three questions at task start:** (1) does the task carry a D-374 annotation → read it; (2) is the governing note **>~60 days old AND about a live project we're copying** → re-verify against the CURRENT repo or a web search; (3) is the task in a known corpus gap (self-healing CLI repair UX · command-obfuscation detection · npm native-dep migration) → outward research REQUIRED before designing. **All three "no" → say "prior-art N/A — internal hygiene" in the task entry and skip.** Recording the skip is part of the rule: an unexplained skip is indistinguishable from a forgotten check.
+
+**The one unconditional clause:** *any task that COPIES how another project does something gets a fresh look at that project*, whatever our note says — one repo, not the corpus, so it stays cheap, and it is precisely where a stale note does the most damage.
+
+**Why this shape:** D-374 fixed the systematic half (sweep the whole backlog each minor, annotate onto the tasks). This is the per-task half, and the two compose — the sweep does the expensive breadth work once per minor; the triage does the cheap freshness check per task. Neither alone is sufficient: the sweep goes stale between minors, and per-task checking alone misses cross-task links (it was the sweep, not any single task, that noticed **146**'s concurrency probe is what tells whether **238**'s trigger has fired).
+
+---
+
 ## 2026-07-20 — D-374: DECISION — prior-art checking moves from build-time-per-task to sweep-time-whole-backlog (+ a third miss on Task 174 owned)
 
 **Trigger.** After Task 174 shipped, the user: *"did you check all the projects and research notes?"* → *"14 projects are not even close to all the projects we researched"* → *"maybe you should check all the projects we researched if they help any of the tasks we will have?"*

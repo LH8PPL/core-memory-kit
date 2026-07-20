@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-25JLTT5Z) Research paper ingested; research note created; 10 base sources re-read; synthesis completed
-  <!-- source: review-promote, source_line: 1, sha1: cbf5202562f59061066353a097811e08ab0602439793bc041133d0f9dd5f566c, write: user-explicit, trust: high, at: 2026-07-18T14:40:57Z -->
 - (P-VQKAHVV9) Wants to run distill immediately, not wait until 23:00 scheduled time.
   <!-- source: review-promote, source_line: 1, sha1: e186f10b5c93ed2b9c98149ddcef415cf8a23549d88267b26c1fe4d53bc7319b, write: user-explicit, trust: high, at: 2026-07-18T20:00:00Z -->
 - (P-9JAFFKDH) youtube-to-slide fully migrated onto the kit; trust-dialog step completed.
@@ -20,6 +18,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: 5ad89e0d499bfe6f192f0789fef6a09352d015cf091b178ecf435d9564568b6a, write: auto-extract, trust: high, at: 2026-07-20T09:45:52Z -->
 - (P-D6YJMV2S) If problematic pattern exists, must deal with it comprehensively across all affected places in the kit, not partially
   <!-- source: auto-extract-session, source_line: 1, sha1: d51a9228579feee3af7e7f70823074ad7ee3938f92536ff731b28d1a08c4a4b3, write: auto-extract, trust: high, at: 2026-07-20T09:57:00Z -->
+- (P-ZW2M9SW5) Concerned that research notes become stale (current note from 2026-05-22 is ~2 months old); proposes blanket re-verification of all tasks
+  <!-- source: auto-extract-session, source_line: 1, sha1: e82328fb3c16aafb8e5c650947332998eefbeb9176e237efd974e9ec463fd45e, write: auto-extract, trust: high, at: 2026-07-20T15:12:21Z -->
 
 ## Environment Notes
 

@@ -19,3 +19,6 @@
 ## 2026-07-20T12:46:29Z — auto-extract (medium-trust, pending review)
 - (P-4HURZJLF) npm cleanup warning with D-302 DLL-lock is expected during global upgrade; install is healthy
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-20T12:46:29Z -->
+## 2026-07-20T15:12:21Z — auto-extract (medium-trust, pending review)
+- (P-4GZGQL2G) Proposes targeted three-question triage + ~60-day staleness threshold instead of blanket re-research; recommends post-compact CLAUDE.md codification
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-20T15:12:21Z -->
