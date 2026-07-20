@@ -10,6 +10,26 @@
 
 ---
 
+## 2026-07-20 — D-370: DECISION — Task 186 shipped: the four doc validators became ONE (D-249's structural half); every defect was in the NEW seams
+
+**Shipped** (PR #310): `validate-references` / `-doc-registry` / `-doc-completeness` / `-index-completeness` are now four **families** inside a single `scripts/validate-docs.mjs`, driven by `docs/DOCUMENTATION-MAP.md` as the manifest, selectable with `--only <family>`. Validators **21 → 18**. D-249 unified the *judgment* layer into one per-change walk; this is the *machinery* half it named.
+
+**Not just a merge — one new capability.** The `registry` family now checks **both directions**: previously only an unregistered file failed, now a Registry entry naming a **file that no longer exists** fails too. It caught a stale `PHASE-3-PLAN.md` entry on the real map immediately.
+
+**Back-compat kept deliberately:** the legacy `<!-- validate-references: ignore -->` marker is honored forever alongside the new `<!-- validate-docs: ignore -->`, so **no existing doc needed editing** — the consolidation is invisible to every file it governs.
+
+**The review's lesson — parity was clean; the NEW code was not.** The skill pass verified all four ported families line-by-line against the deleted originals (SKIP set, fence-length semantics, inline-code stripping, slugify, the FR/NFR/Task/ADR/§ index builders, `CLI_DOC_EXEMPT`, `DEFERRAL_ALLOWLIST`, `parseMcpToolParams`) and found **zero** regressions — plus one Windows path-join improvement. **All 3 Blocking findings were in the seams I wrote fresh:**
+
+- **`--only` with no value ran ZERO families and exited 0**, printing `validate-docs: OK`. A validator reporting success while checking nothing — and the *likelier* typo than an unknown family, which did error correctly. The false-green class, in a tool whose entire job is catching false greens.
+- **`--only=catalogs` silently ran ALL FOUR families** (`indexOf` missed the equals form) — failing open in the opposite direction from the first.
+- **Direction-2 harvested paths out of ordinary PROSE.** On the real map it was already pulling three paths from a narrative line, green only because those files exist, and it would have **failed the build the day the map narrated an archived or renamed doc** — precisely what the decision-trail-preservation rule *requires* it to be able to say. **The validator would have punished the repo for obeying its own binding rule.** Restricted to backticked (structural) entries.
+
+**The generalizable point:** a refactor's risk is not in the code it moves, it is in the glue written to hold the moved pieces together. The 3189-test suite could not see any of these — the reviewer's phrasing is the keeper: *"a validator that checks nothing exits green and no test notices."* Seven regression tests now pin exactly those paths (empty value, equals form, unknown flag, duplicates, prose-vs-backticked both directions, fixture-root coverage).
+
+**Gates:** 3196/3196 green, 188 files · **zero test edits** beyond the intentional repointing (pure refactor — a test needing a change would have meant a broken contract) · all three Blocking fixes live-verified on the real repo · stress skipped with reason (no spawn/hook/concurrency surface).
+
+---
+
 ## 2026-07-20 — D-369: BUG — auto-extract fails SILENTLY to zero under load (Task 242, v0.6.0); + a correction about what "no auto-extract facts" meant
 
 **Trigger.** The user asked why durable findings were going into `tasks.md`/`DECISION-LOG` and commit messages but not through the kit — then, when the automatic path came up: *"how do we fix this so this is automatic and not me telling you? or you noticing?"* and *"this sounds like a bug in the kit."* It is.
