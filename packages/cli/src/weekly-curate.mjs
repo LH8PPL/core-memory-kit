@@ -245,7 +245,9 @@ export function dedupBullets(archiveText, sourceDates) {
  *   `## Week of` heading.
  */
 export function stampArchiveProvenance(archiveText, sourceDates) {
-  const dates = [...new Set((sourceDates ?? []).filter(Boolean))].sort();
+  // Explicit code-unit comparator (sonar S2871) — ISO day keys again, so this
+  // is chronological AND machine-independent; localeCompare would not be.
+  const dates = [...new Set((sourceDates ?? []).filter(Boolean))].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   if (dates.length === 0) return archiveText;
   const tag = `<!-- source_days: [${dates.join(', ')}] -->`;
   const lines = String(archiveText ?? '').split('\n');

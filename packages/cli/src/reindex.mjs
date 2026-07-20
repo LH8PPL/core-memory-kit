@@ -65,7 +65,10 @@ function listFactFiles(factDir) {
     if (entry.name === 'INDEX.md') continue;
     out.push(entry.name);
   }
-  return out.sort();
+  // Explicit code-unit comparator (sonar S2871). These filenames order INDEX.md,
+  // a COMMITTED file — locale-dependent collation would make the same corpus
+  // produce different diffs on different machines.
+  return out.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
 export function reindex(opts = {}) {

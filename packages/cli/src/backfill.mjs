@@ -99,7 +99,11 @@ export function commitDays(projectRoot, windowDays = DEFAULT_WINDOW_DAYS) {
       { cwd: projectRoot, encoding: 'utf8', windowsHide: true, timeout: GIT_TIMEOUT_MS, stdio: ['ignore', 'pipe', 'ignore'] },
     );
     const days = out.split(/\r?\n/).map((l) => l.trim()).filter((l) => ISO_DAY_RE.test(l));
-    return [...new Set(days)].sort().reverse();
+    // Explicit code-unit comparator (sonar S2871). Deliberately NOT
+    // localeCompare: these are ISO-8601 day keys, and locale collation would
+    // make the resume order machine-dependent. Code-unit order on ISO dates IS
+    // chronological order, and it is identical on every machine.
+    return [...new Set(days)].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)).reverse();
   } catch {
     return [];
   }
