@@ -89,12 +89,20 @@ describe('Task 242 — capture NEVER reaches zero, for every failure mode, with 
       ).toBeGreaterThan(0);
       expect(r.fallbackUsed).toBe(true);
 
-      // Door 2 — the mission fact is on disk; the kit noise is NOT.
+      // Door 2 — the mission fact is captured (medium trust → the REVIEW
+      // QUEUE, the same gate the LLM path's medium candidates use: a dumber
+      // extractor must not get less scrutiny). The kit noise is nowhere.
+      const queue = join(projectRoot, 'context', 'queues', 'review.md');
+      const captured = existsSync(queue) ? readFileSync(queue, 'utf8') : '';
       const mem = readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8');
-      expect(mem).toMatch(/payment retry window/i);
-      expect(mem, 'kit-operational noise must never reach a memory tier').not.toMatch(
-        /extractor|timed out|cmk doctor|validate-docs/i,
+      expect(captured, 'the mission fact must be captured somewhere recoverable').toMatch(
+        /payment retry window/i,
       );
+      for (const surface of [captured, mem]) {
+        expect(surface, 'kit-operational noise must never reach a memory tier').not.toMatch(
+          /extractor|cmk doctor|validate-docs/i,
+        );
+      }
     });
   }
 
@@ -107,6 +115,33 @@ describe('Task 242 — capture NEVER reaches zero, for every failure mode, with 
     expect(entry.success).toBe(false);
     expect(entry.fallback_candidates).toBeGreaterThan(0);
     expect(entry.fallback_written).toBeGreaterThan(0);
+  });
+
+  it('BLOCKING regression: the PERSISTED provenance is honest, not relabelled user-explicit', async () => {
+    // Skill-review B1: memory-write mapped `source === 'auto-extract' ? … :
+    // 'user-explicit'`, so a fallback capture persisted on disk as
+    // USER-EXPLICIT — the kit's STRONGEST provenance, for its weakest capture
+    // path. The old test only checked the in-memory candidate object, so it
+    // passed while the bug shipped. This asserts the bytes.
+    const { memoryWrite } = await import('../packages/cli/src/memory-write.mjs');
+    const r = memoryWrite({
+      action: 'add',
+      text: 'we decided the invoice retention window is seven years',
+      tier: 'P',
+      scratchpad: 'MEMORY.md',
+      section: 'Active Threads',
+      source: 'auto-extract-fallback',
+      trust: 'high',
+      projectRoot,
+    });
+    expect(r.action).toBe('appended');
+    const mem = readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8');
+    expect(mem, 'the on-disk write-source must name the fallback').toMatch(
+      /write:\s*auto-extract-fallback/,
+    );
+    expect(mem, 'a machine heuristic must never persist as user-explicit').not.toMatch(
+      /write:\s*user-explicit/,
+    );
   });
 
   it('provenance is HONEST — the fallback is not laundered as an LLM extraction', async () => {
@@ -122,7 +157,8 @@ describe('Task 242 — capture NEVER reaches zero, for every failure mode, with 
     const haikuBackend = { compress: async () => { throw new Error('fail'); } };
     const r = await runAutoExtract({ projectRoot, userDir, turnFile, haikuBackend });
     expect(r.observation_count).toBe(0);
-    const mem = readFileSync(join(projectRoot, 'context', 'MEMORY.md'), 'utf8');
-    expect(mem).not.toMatch(/extractor/i);
+    const queue = join(projectRoot, 'context', 'queues', 'review.md');
+    const captured = existsSync(queue) ? readFileSync(queue, 'utf8') : '';
+    expect(captured).not.toMatch(/extractor/i);
   });
 });

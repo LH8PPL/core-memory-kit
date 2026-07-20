@@ -38,7 +38,7 @@ import { ID_PATTERN } from './tier-paths.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 
 const VALID_TRUST = new Set(['high', 'medium', 'low']);
-const VALID_WRITE_SOURCES = new Set([
+export const VALID_WRITE_SOURCES = new Set([
   'user-explicit',
   'auto-extract',
   'compressor',
@@ -48,6 +48,11 @@ const VALID_WRITE_SOURCES = new Set([
   // merged bullet to the scratchpad; its provenance needs a valid write key
   // (the old hand-rolled comment had none and broke reindex - D-125 class).
   'merged',
+  // Task 242 (D-369): the deterministic no-LLM fallback that keeps capture
+  // alive when the extractor fails. Its OWN key on purpose — a keyword
+  // heuristic must be distinguishable on disk from both a real LLM extraction
+  // ('auto-extract') and something the user actually said ('user-explicit').
+  'auto-extract-fallback',
 ]);
 const REQUIRED_PROVENANCE_FIELDS = [
   'source',
@@ -173,7 +178,7 @@ function validateBulletInput({ id, text, provenance }) {
 
   if (provenance.write && !VALID_WRITE_SOURCES.has(provenance.write)) {
     errors.push(
-      `provenance.write: must be one of user-explicit/auto-extract/compressor/manual-edit/imported (got ${JSON.stringify(provenance.write)})`,
+      `provenance.write: must be one of ${[...VALID_WRITE_SOURCES].join('/')} (got ${JSON.stringify(provenance.write)})`,
     );
   }
 

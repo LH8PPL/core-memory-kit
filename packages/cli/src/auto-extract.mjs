@@ -1053,6 +1053,7 @@ export async function runAutoExtract({
       // a memory tier, which on a kit-debugging session is most of the turn.
       let fallbackCandidates = [];
       let fallbackWritten = 0;
+      const fallbackRejections = [];
       try {
         fallbackCandidates = extractFallbackCandidates({ userTurn });
       } catch {
@@ -1060,26 +1061,38 @@ export async function runAutoExtract({
       }
       for (const candidate of fallbackCandidates) {
         try {
-          // NOT routeHigh: that hardcodes `trust: 'high'` + `source:
-          // 'auto-extract'`, which would launder a keyword heuristic as a real
-          // LLM extraction. Honest provenance is a done-criterion of this task,
-          // so the fallback writes under its OWN source + its own (lower) trust.
-          // Still through memoryWrite → Poison_Guard screens it like any write.
-          const r = memoryWrite({
-            action: 'add',
-            text: candidate.text,
-            tier: 'P',
-            scratchpad: 'MEMORY.md',
-            section: 'Active Threads',
-            source: candidate.write_source,
-            sessionId: sessionId ?? 'session',
-            trust: candidate.trust,
-            projectRoot,
-            now: ts,
-          });
+          // Skill-review B2: route by TRUST, exactly like the LLM path — a
+          // DUMBER extractor must not get LESS scrutiny. Medium-trust fallback
+          // candidates go to the review queue (the same gate `routeMedium`
+          // applies to medium-trust LLM candidates), never straight into
+          // MEMORY.md. Capture still survives the failure — it lands somewhere
+          // recoverable and the user promotes it — which is the task's actual
+          // invariant ("never zero"), not "writes to the hot index".
+          //
+          // NOT routeHigh either: that hardcodes `trust:'high'` +
+          // `source:'auto-extract'`, which would launder a keyword heuristic as
+          // a real LLM extraction (honest provenance is a done-criterion).
+          const r =
+            candidate.trust === 'high'
+              ? memoryWrite({
+                  action: 'add',
+                  text: candidate.text,
+                  tier: 'P',
+                  scratchpad: 'MEMORY.md',
+                  section: 'Active Threads',
+                  source: candidate.write_source,
+                  sessionId: sessionId ?? 'session',
+                  trust: candidate.trust,
+                  projectRoot,
+                  now: ts,
+                })
+              : routeMedium({ candidate, projectRoot, ts });
           if (r?.action === 'appended' || r?.action === 'queued') fallbackWritten += 1;
-        } catch {
-          // One bad candidate must not sink the rest (fail-open, per-item).
+        } catch (routeErr) {
+          // One bad candidate must not sink the rest — but do NOT swallow it
+          // silently (skill-review I5: every other routing path records a
+          // rejection). Surface it in the same extract.log entry.
+          fallbackRejections.push(routeErr?.message ?? String(routeErr));
         }
       }
 
@@ -1092,6 +1105,7 @@ export async function runAutoExtract({
         // and that it came from the heuristic path — not an LLM extraction.
         fallback_candidates: fallbackCandidates.length,
         fallback_written: fallbackWritten,
+        ...(fallbackRejections.length ? { fallback_rejections: fallbackRejections } : {}),
       };
       const logPath = writeExtractLogEntry({ projectRoot, ts, entry });
       return {

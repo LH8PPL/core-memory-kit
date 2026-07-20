@@ -35,17 +35,14 @@ import {
 } from './tier-paths.mjs';
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
-import { writeBullet, parseBulletProvenance, isProvenanceCommentLine } from './provenance.mjs';
+import { writeBullet, parseBulletProvenance, isProvenanceCommentLine, VALID_WRITE_SOURCES } from './provenance.mjs';
 import { graduateForCapRelief, condenseScratchpadForCapRelief } from './graduation.mjs';
 
 const VALID_TRUST = new Set(['high', 'medium', 'low']);
-const VALID_WRITE_SOURCES = new Set([
-  'user-explicit',
-  'auto-extract',
-  'compressor',
-  'manual-edit',
-  'imported',
-]);
+// Task 242 (skill-review): this used to be a THIRD copy of the write-source
+// enum (provenance.mjs owns it, memory-write.mjs had another). A local copy
+// silently rejected a new source the owner already accepted — the D-368
+// duplication class, caught live. Import the owner's set; never re-declare it.
 // Per Task 13.2 / provenance.mjs: 6 comment fields. `id` comes from the
 // bullet line and is added by appendScratchpadBullet, not from caller.
 const REQUIRED_PROVENANCE_FIELDS = [
@@ -101,7 +98,7 @@ function validateOptions(opts) {
     }
     if (opts.provenance.write && !VALID_WRITE_SOURCES.has(opts.provenance.write)) {
       errors.push(
-        `provenance.write: must be one of user-explicit/auto-extract/compressor/manual-edit/imported (got ${JSON.stringify(opts.provenance.write)})`,
+        `provenance.write: must be one of ${[...VALID_WRITE_SOURCES].join('/')} (got ${JSON.stringify(opts.provenance.write)})`,
       );
     }
   }
