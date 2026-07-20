@@ -63,6 +63,25 @@ export const REASON_CODES = Object.freeze({
   POISON_GUARD_REJECTED: 'poison-guard-rejected', // Task 216 (D-320): a durable write was dropped by screenBeforeCommittedWrite at a site with no project-scoped poison-guard.log (e.g. the user-tier persona-review queue) — the redacted audit entry is the observability trail so the drop is never silent
 });
 
+/**
+ * Deterministic string ordering (sonar S2871 wants an explicit comparator).
+ *
+ * Deliberately NOT `localeCompare`, despite that being the rule's suggestion:
+ * the callers sort ISO-8601 day keys (backfill's resume order, archive
+ * provenance) and the filenames that order INDEX.md — a COMMITTED file. Locale
+ * collation is machine-dependent, so the same corpus could produce different
+ * output (and different diffs) on different machines. Code-unit order is
+ * identical everywhere, and on ISO dates it IS chronological order.
+ *
+ * Shared rather than copied into each caller: three sites needed it, which is
+ * exactly the drift the shared-module discipline exists to prevent.
+ */
+export function compareCodeUnits(a, b) {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
 export function nowIso() {
   return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
 }

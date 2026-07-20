@@ -2180,7 +2180,7 @@ Decisions made knowing the cost — for the audit trail:
 2. **180-line CLAUDE.md template** even though Bijit Ghosh's article recommends 80-120. User explicitly chose to test. Refactor in v0.1.x if adherence empirically degrades.
 3. **Token budget ~20-35 KB at session start** (ours + Anthropic's under Option D). Higher than ideal but well within Claude's 200K context.
 4. **Per-project isolation requires explicit promotion for cross-project facts.** `LESSONS.md` (user tier) and `cmk lessons promote` cover this. Cross-project search deferred to v0.2.
-5. **6 MCP tools instead of 5.** `recent_activity` added after Basic Memory primary-source examination showed it's a common query.
+5. **6 MCP tools instead of 5.** <!-- validate-docs: ignore --> `recent_activity` added after Basic Memory primary-source examination showed it's a common query. _(Historical: the count at that decision; the live surface is larger now.)_
 6. **Markdown-as-source / SQLite-as-cache requires regeneration on schema changes.** Acceptable — simpler than DB-as-source-of-truth.
 7. **PreToolUse hook kept as fallback** for snapshot injection. Slight redundancy with SessionStart; defense-in-depth.
 8. **Haiku 4.5 for auto-extract**, not Sonnet/Opus. Cost: $1/$5 per MTok. Quality difference small enough that Haiku is the right call.
@@ -3442,6 +3442,32 @@ The test file declares the discipline with a `// @door-3.5: prompt-assertion —
 ### 17.11 Live-test trend thresholds (the gate side, not the suite side)
 
 **Tail-appended 2026-06-12 (Task 137.5; the D-122 detection gap.)** Per-turn outcomes are individually plausible — a single `nothing_durable` skip is normal; 90%+ of judged turns skipping is the fingerprint of a systemic suppressor. Lenient per-turn pass-bars tolerate stochastic masking; only the TREND exposes it. [`scripts/extract-trend.mjs`](../scripts/extract-trend.mjs) (`npm run trend:extract -- <dir>`) reads a live run's `*.extract.log` files and FAILS when the nothing_durable rate over judged turns crosses the threshold (default 80%, min sample 5; mechanical skips like `concurrent_run` are excluded from the denominator). NOT wired into the npm-test prerun — the trend is a property of a live run's accumulated log, not of the source tree; it's a cut-gate step (cut-gate.md §3).
+
+### 17.12 Prose count-claims — the `counts` family (Task 236 / D-377)
+
+**The drift class.** Sentences like "12 MCP tools" / "41 CLI verbs" / "12 health checks" are hand-maintained numbers describing collections the CODE owns. They were hand-fixed ~6 times across v0.4–v0.6, always reactively. This is the "single source of truth" rule applied to a derived *number* rather than a derived index.
+
+**Scan, never enumerate — and the reason is empirical.** ECC ships this exact gate (`scripts/ci/catalog.js`) and hand-enumerates **40 doc locations**, each with its own file + regex. Their `WORKING-CONTEXT.md` is in **none** of them — and that is precisely the file measured **4 months stale** (47/79/181 claimed at v1.10.0 vs 67/94/278 actual at v2.0.0). Their gate runs green in CI while the staleness ships: it checked 40 places, the drift happened in the 41st. **Drift lands wherever you did not enumerate**, and the enumeration list is itself a thing a human must remember to extend — the same dependency the stale number had. So this family scans every living markdown doc; a new doc is covered the day it is written.
+
+**Resolution is from CODE, never a second hand-maintained number:** MCP tools via `parseMcpToolParams`, CLI verbs via the `subcommands` registry, agent profiles via `AGENT_PROFILES`, and HC ids scanned across **all of `packages/cli/src`** — not `doctor.mjs` alone, because **HC-9 lives in `version-drift.mjs`** (Task 162). The first cut scanned only the doctor and undercounted by one: the family committed the exact drift class it polices, which is the sharpest possible argument for resolving against the whole owning surface.
+
+**Exemptions, by class:**
+
+| Class | Mechanism | Why |
+| --- | --- | --- |
+| Frozen records — CHANGELOG, `docs/adr/`, `docs/research/`, `docs/sources/`, `docs/journey/`, `docs/conversation-log/`, `archive/`, `docs/process/` | path prefix (structural) | a point-in-time record naming an old count is HISTORY; editing it to match today's code is a bug (the D-249 frozen-record rule) |
+| **The memory tiers** — `context/`, `context.local/` | path prefix | strongest case of the same: a captured fact reading *"v0.3.5 verified all 9 health checks pass"* is correctly-recorded history, and "fixing" it would corrupt the memory the kit exists to keep. 50 of the family's first 62 hits | <!-- validate-docs: ignore -->
+| **`docs/SOURCES.md`** | path prefix | the external-project catalog — the collection nouns are not kit-exclusive, so every count there is somebody else's surface |
+| Identifier-shaped numbers — `Task 108 added MCP tools`, `#5873 for MCP tools` | pattern (a number introduced by `#` or by `task`/`issue`/`PR`/`ADR`/`FR`/`HC`/`D`) | a number that NAMES something is not a quantity |
+| A one-off historical line inside a LIVING doc | inline `<!-- validate-docs: ignore -->` | deliberate, visible, reviewable — preferable to widening a path exemption |
+
+**Conservatism posture:** a false positive here fails the build on correct prose, which is worse than missing one claim. So the number must sit immediately before the collection noun (one optional adjective between), and version-shaped tokens (`v0.6.0`, `0.6`) never count.
+
+**A second claim shape: the `HC-1..HC-N` range.** The cut-gate guides phrase the count as "11 checks now (HC-1..HC-11)", where the surrounding noun is a bare "checks" — far too generic for the noun scan to match safely. The RANGE is unambiguous and kit-specific, so it gets its own rule: the upper bound IS the claimed size. Exempt in `specs/tasks.md` + `specs/design.md`, the two living docs that narrate build history inline (a shipped `[x]` entry naming `HC-1..HC-9` is what existed then; both would need ~15 inline markers apiece to say what one exemption says).
+
+**What it caught on its first real runs — 30 stale claims:** `specs/glossary.md` described `cmk doctor` as running "all 7 health checks (HC-1..HC-7)"; a LIVE cut-gate checklist still said "11 MCP tools" / "11 checks now"; and the range rule then found 26 more across **the npm README, QUICKSTART (still on `HC-1..HC-9`), RELEASE-PLAN, both READMEs and every cut-gate guide**. Several had survived five minor releases and every prior doc review. One more turned up inside a TEST — `docs-structure.test.js` pinned `HC-1..HC-11` with a growing list of `not.toMatch` lines enumerating previously-stale values; the same losing game, now replaced by a shape assertion with the value resolved against the live registry. <!-- validate-docs: ignore -->
+
+**Cross-references:** §17.7 (the validator-modes family this joins), the CLAUDE.md validators table, D-249 (the ONE doc-drift rule this makes structural for numbers), D-377 (the scan-vs-enumerate decision + the prior-art counter-example). _Implements: Task 236._
 
 ## 18. Cross-platform command discipline
 
