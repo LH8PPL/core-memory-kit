@@ -308,7 +308,8 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
      decided before code). Rider: **Task 228** (proactive-memory connectors GO/NO-GO ADR — the
      OpenWiki Brains class; the in-theme cut = other-agents' session stores as 225 import
      sources; external SaaS connectors decided deliberately, likely NO).
-     **⚠️ SLOT CONTENTION to decide at the v0.6.0-cut sweep (noted 2026-07-18, post-D-352):**
+     **✅ SLOT CONTENTION RESOLVED 2026-07-20 at the v0.6.0 cut (D-372) — 95 FIRST (v0.7.0), 127 follows (v0.8.0).** Decided on measurement, not preference: (a) **95's input exists and is large** — 1,810 fact files in this repo's own corpus today, plus a review queue the Task-242 fallback now feeds, i.e. exactly the curation load 95 is for; (b) **the synergy is real and immediate** — v0.6.0's headline (`cmk import-sessions`) bulk-imports history, which IS the mess 95 cleans, and those imported corpora are 95's ideal live-test input, available the moment v0.6.0 ships; (c) **127's demand signal is EXTERNAL and locally unvalidated** — the repo has 1 human author (plus a bot and an alias); the TeamOS signal is a market observation, not something we can live-test, and D-119 requires 127 to be design-first anyway. Shipping 95 first also means 127 later inherits a CURATED corpus rather than a raw one. _Original contention text preserved below._
+     **⚠️ SLOT CONTENTION (noted 2026-07-18, post-D-352):**
      **Task 95** (dream re-curation — design DONE at design §21, forkless, build-ready) now also
      wants the after-v0.6.0 slot. The fork: 95-first (the import→re-curate synergy — 225's bulk
      imports produce exactly the mess 95 cleans, and the imported corpora are 95's ideal live-test

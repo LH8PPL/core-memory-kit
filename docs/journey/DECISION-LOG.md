@@ -10,6 +10,18 @@
 
 ---
 
+## 2026-07-20 — D-372: DECISION — the v0.6.0 cut sweep: Task 174 COMMIT (v0.6.1) and Task 95 wins the v0.7.0 slot, both decided by MEASUREMENT
+
+Two decisions the cut required. Both were judgment calls I could have made from preference; both got probed instead — the D-366 lesson applied prospectively rather than as a retraction.
+
+**1. Task 174 (git-history backfill) — auto-flagged KILL-OR-COMMIT after firing twice unnoticed. Verdict: COMMIT, laned v0.6.1.** Its trigger is *"a commits-but-no-log day observed in dogfood"*, which is directly checkable, so I checked: **15 of 40 dogfood days (37.5%) have commits but NO session record** — no `today-*.md` and no distilled `## <date>` section in `recent.md`/`archive.md` — measured over the post-install window only (≥2026-06-10, Task 52's pivot; earlier days legitimately have none because the kit wasn't running). The trigger isn't merely fired; it fires on **more than a third of working days**, each one durable work the memory has no record of. Killing it would have been killing a fix for a failure happening continuously on our own repo. *(Method note: the first probe returned "0 session-log days" because it globbed `sessions/*.md` for a `YYYY-MM-DD.md` name — the real day-files are `today-*.md` plus distilled sections. Caught and corrected BEFORE concluding; the one-surface-proxy class again, this time stopped at the measurement instead of at the retraction.)*
+
+**2. The 95-vs-127 slot contention → Task 95 (dream re-curation) takes v0.7.0; Task 127 (team layer) follows.** Evidence, not taste: (a) **95's input already exists and is large** — 1,810 fact files in this repo's corpus, plus a review queue that Task 242's fallback now feeds, which is precisely the curation load 95 exists for; (b) **the synergy is immediate** — v0.6.0's headline `cmk import-sessions` bulk-imports history, which IS the mess 95 cleans, and those imported corpora become 95's ideal live-test input the day v0.6.0 ships; (c) **127's demand signal is external and locally unvalidated** — this repo has ONE human author, so the TeamOS market signal is something we cannot live-test, and D-119 already requires 127 to be design-first. Ordering 95 first also means 127 later inherits a *curated* corpus instead of a raw one. Neither task was ever committed to a digit (D-157), so this is the commitment now.
+
+**The through-line for both:** each had a checkable condition sitting behind it, and checking cost minutes. This session produced four measure-don't-assume corrections (D-366 phantom data-loss, the "auto-extract never worked" claim, the pollution keyword-scan, and the first 174 probe) — three of which the user caught first. These two are the same discipline applied *before* the claim rather than after.
+
+---
+
 ## 2026-07-20 — D-371: DECISION — Task 234 shipped: the stale-replay guard; an existing test and the reviewer each corrected a design I was confident in
 
 **Shipped** (PR #311): the injected snapshot now labels its work-state sections. `annotateWorkStateHeadings()` appends one caveat line under `## Active Threads` / `## Pending Decisions` — *"work-state as last captured — may already be done; verify before acting, never re-run"* — so the preamble's *"injected memory wins / lead with memory"* can no longer be read as licence to re-run finished work. The ECC borrow (D-364 §5.1) made concrete.
