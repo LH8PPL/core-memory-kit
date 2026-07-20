@@ -13,3 +13,6 @@
 ## 2026-07-20T10:24:41Z — auto-extract (medium-trust, pending review)
 - (P-N5VVVCV2) Direction-2 path-harvesting bug: was pulling paths from narrative prose, would fail build when map narrates archived doc (exact scenario the decision-trail rule requires).
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-20T10:24:41Z -->
+## 2026-07-20T11:30:23Z — auto-extract (medium-trust, pending review)
+- (P-Z3JG7NPY) Task 234 fix prevents memory snapshot conflation of durable facts and in-flight work-state using labeled caveats, not deletions | no sensitivity markers needed
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-20T11:30:23Z -->
