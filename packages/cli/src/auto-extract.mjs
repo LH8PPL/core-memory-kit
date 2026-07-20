@@ -53,6 +53,7 @@ import { join, dirname } from 'node:path';
 import { generateId } from '@lh8ppl/cmk-canonicalize';
 import { hashContent } from './content-hash.mjs';
 import { memoryWrite } from './memory-write.mjs';
+import { extractFallbackCandidates } from './extract-fallback.mjs';
 import { writeFact } from './write-fact.mjs';
 import { buildRichFactBody, slugifyFact } from './rich-fact.mjs';
 import { sanitizeForTitle } from './sanitize.mjs';
@@ -1040,20 +1041,67 @@ export async function runAutoExtract({
       const category = err instanceof HaikuTimeoutError
         ? ERROR_CATEGORIES.HAIKU_TIMEOUT
         : ERROR_CATEGORIES.HAIKU_FAILED;
+      // Task 242 (D-369) — SELF-HEAL: never let a failed extraction drop the
+      // turn whole. Run the deterministic LLM-free fallback so capture degrades
+      // to PARTIAL, never to zero. Runs on ANY failure category (timeout,
+      // failed, and any future/unrecognized one) — of 295 historical failures
+      // only 166 were timeouts, so a timeout-only fallback would leave ~44%
+      // still capturing nothing.
+      //
+      // The fallback is MISSION-CONTEXT-ONLY by construction (see
+      // extract-fallback.mjs): it must never launder kit-operational noise into
+      // a memory tier, which on a kit-debugging session is most of the turn.
+      let fallbackCandidates = [];
+      let fallbackWritten = 0;
+      try {
+        fallbackCandidates = extractFallbackCandidates({ userTurn });
+      } catch {
+        fallbackCandidates = []; // the safety net must never break the hook
+      }
+      for (const candidate of fallbackCandidates) {
+        try {
+          // NOT routeHigh: that hardcodes `trust: 'high'` + `source:
+          // 'auto-extract'`, which would launder a keyword heuristic as a real
+          // LLM extraction. Honest provenance is a done-criterion of this task,
+          // so the fallback writes under its OWN source + its own (lower) trust.
+          // Still through memoryWrite → Poison_Guard screens it like any write.
+          const r = memoryWrite({
+            action: 'add',
+            text: candidate.text,
+            tier: 'P',
+            scratchpad: 'MEMORY.md',
+            section: 'Active Threads',
+            source: candidate.write_source,
+            sessionId: sessionId ?? 'session',
+            trust: candidate.trust,
+            projectRoot,
+            now: ts,
+          });
+          if (r?.action === 'appended' || r?.action === 'queued') fallbackWritten += 1;
+        } catch {
+          // One bad candidate must not sink the rest (fail-open, per-item).
+        }
+      }
+
       const entry = {
         ...baseEntry,
         success: false,
         error_category: category,
         duration_ms: Date.now() - t0,
+        // Observability: the log must show that capture survived the failure,
+        // and that it came from the heuristic path — not an LLM extraction.
+        fallback_candidates: fallbackCandidates.length,
+        fallback_written: fallbackWritten,
       };
       const logPath = writeExtractLogEntry({ projectRoot, ts, entry });
       return {
         action: 'error',
         error_category: category,
-        observation_count: 0,
+        observation_count: fallbackWritten,
         duration_ms: entry.duration_ms,
         logPath,
-        candidates: [],
+        candidates: fallbackCandidates,
+        fallbackUsed: fallbackCandidates.length > 0,
         errorMessage: err?.message ?? String(err),
       };
     }
