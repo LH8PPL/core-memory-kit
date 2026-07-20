@@ -30,6 +30,7 @@
 import { existsSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { compareCodeUnits } from './audit-log.mjs';
 
 const SESSIONS_REL = ['context', 'sessions'];
 
@@ -103,7 +104,7 @@ export function commitDays(projectRoot, windowDays = DEFAULT_WINDOW_DAYS) {
     // localeCompare: these are ISO-8601 day keys, and locale collation would
     // make the resume order machine-dependent. Code-unit order on ISO dates IS
     // chronological order, and it is identical on every machine.
-    return [...new Set(days)].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)).reverse();
+    return [...new Set(days)].sort(compareCodeUnits).reverse();
   } catch {
     return [];
   }

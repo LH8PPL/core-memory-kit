@@ -8,18 +8,18 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-9JAFFKDH) youtube-to-slide fully migrated onto the kit; trust-dialog step completed.
-  <!-- source: review-promote, source_line: 1, sha1: 9f29f0bd9188e6826bdc312953027f1ff27f1e9f43b7e635cc41beb413900412, write: user-explicit, trust: high, at: 2026-07-19T20:00:23Z -->
-- (P-U5PPSG7Y) Users will not run doctor check commands; silent failures must surface automatically without user action
-  <!-- source: auto-extract-session, source_line: 1, sha1: 2fbc6b626fdd3b4481847bd6899f45be737494f975ecdaf3a777558e7c0ad526, write: auto-extract, trust: high, at: 2026-07-20T09:34:41Z -->
-- (P-26DCN2T5) Reject per-session warnings about non-actionable failures; prioritize self-heal over reporting
-  <!-- source: auto-extract-session, source_line: 1, sha1: 5ad89e0d499bfe6f192f0789fef6a09352d015cf091b178ecf435d9564568b6a, write: auto-extract, trust: high, at: 2026-07-20T09:45:52Z -->
-- (P-D6YJMV2S) If problematic pattern exists, must deal with it comprehensively across all affected places in the kit, not partially
-  <!-- source: auto-extract-session, source_line: 1, sha1: d51a9228579feee3af7e7f70823074ad7ee3938f92536ff731b28d1a08c4a4b3, write: auto-extract, trust: high, at: 2026-07-20T09:57:00Z -->
-- (P-ZW2M9SW5) Concerned that research notes become stale (current note from 2026-05-22 is ~2 months old); proposes blanket re-verification of all tasks
-  <!-- source: auto-extract-session, source_line: 1, sha1: e82328fb3c16aafb8e5c650947332998eefbeb9176e237efd974e9ec463fd45e, write: auto-extract, trust: high, at: 2026-07-20T15:12:21Z -->
-- (P-LQGHEXKC) User approved rule commit at 9% context remaining; indicates pragmatic preference for progress over context exhaustion
-  <!-- source: auto-extract-session, source_line: 1, sha1: 5fe2264d89d2c9dd31a0766848d9dbf74a47f8755130fb0f726f5e4d697bff9b, write: auto-extract, trust: high, at: 2026-07-20T16:12:40Z -->
+- (P-N5VVVCV2) Direction-2 path-harvesting bug: was pulling paths from narrative prose, would fail build when map narrates archived doc (exact scenario the decision-trail rule requires).
+  <!-- source: review-promote, source_line: 1, sha1: 845250f872c3c35aeecd9818f28d782aa3ab619127412520741e17e2ff08b632, write: user-explicit, trust: high, at: 2026-07-20T20:00:07Z -->
+- (P-G5AYFaF9) v0.6.0 installed globally and on this project; 12/12 doctor checks passed; no regression from v0.5.5
+  <!-- source: review-promote, source_line: 1, sha1: 68cfd67d86c7232fd7cb038622476707866b1afd99f5cc8150709f423a930334, write: user-explicit, trust: high, at: 2026-07-20T20:00:08Z -->
+- (P-4HURZJLF) npm cleanup warning with D-302 DLL-lock is expected during global upgrade; install is healthy
+  <!-- source: review-promote, source_line: 1, sha1: fbe78e5943d82290470a1040581f3ac1e409c66905ccb2c09722360cda97ffbd, write: user-explicit, trust: high, at: 2026-07-20T20:00:10Z -->
+- (P-4GZGQL2G) Proposes targeted three-question triage + ~60-day staleness threshold instead of blanket re-research; recommends post-compact CLAUDE.md codification
+  <!-- source: review-promote, source_line: 1, sha1: ad3ef01da79ad4f666c5fe725c372d454bf6f963d4a8687f2599ebb9429cf80b, write: user-explicit, trust: high, at: 2026-07-20T20:00:11Z -->
+- (P-X5RW6LBQ) Kit guardrail over-blocks on safety as designed; can't distinguish commands from documentation, so writing about a blocked command triggers the guard again
+  <!-- source: review-promote, source_line: 1, sha1: a9f8319d404d4450c175034ae142968233a3603817fc33cfa42d0389d5edcafd, write: user-explicit, trust: high, at: 2026-07-20T20:00:12Z -->
+- (P-EJY4TRLG) Kit is working correctly; cmk doctor reports 12 PASS/0 FAIL with 55 observations captured today and 1,837 facts in store
+  <!-- source: review-promote, source_line: 1, sha1: 16d3ac1924434b60572d174ec43aa25d2e4c8c064131d7e603fefbb013aa277b, write: user-explicit, trust: high, at: 2026-07-20T20:00:13Z -->
 
 ## Environment Notes
 

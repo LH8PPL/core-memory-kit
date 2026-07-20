@@ -15,6 +15,7 @@ import {
 import { join } from 'node:path';
 import { VALID_TIERS, resolveTierRoot, resolveFactDir } from './tier-paths.mjs';
 import { parse } from './frontmatter.mjs';
+import { compareCodeUnits } from './audit-log.mjs';
 
 const INDEX_SIZE_WARN_BYTES = 25 * 1024;
 const HOOK_MAX_LEN = 80;
@@ -68,7 +69,7 @@ function listFactFiles(factDir) {
   // Explicit code-unit comparator (sonar S2871). These filenames order INDEX.md,
   // a COMMITTED file — locale-dependent collation would make the same corpus
   // produce different diffs on different machines.
-  return out.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  return out.sort(compareCodeUnits);
 }
 
 export function reindex(opts = {}) {

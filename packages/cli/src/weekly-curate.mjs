@@ -36,7 +36,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { canonicalize } from '@lh8ppl/cmk-canonicalize';
-import { nowIso } from './audit-log.mjs';
+import { nowIso, compareCodeUnits } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { HaikuTimeoutError } from './compressor.mjs';
 import { compressWithRetry, CEILING_FREE_TIMEOUT_MS, CEILING_FREE_BACKOFF_MS } from './compress-retry.mjs';
@@ -247,7 +247,7 @@ export function dedupBullets(archiveText, sourceDates) {
 export function stampArchiveProvenance(archiveText, sourceDates) {
   // Explicit code-unit comparator (sonar S2871) — ISO day keys again, so this
   // is chronological AND machine-independent; localeCompare would not be.
-  const dates = [...new Set((sourceDates ?? []).filter(Boolean))].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  const dates = [...new Set((sourceDates ?? []).filter(Boolean))].sort(compareCodeUnits);
   if (dates.length === 0) return archiveText;
   const tag = `<!-- source_days: [${dates.join(', ')}] -->`;
   const lines = String(archiveText ?? '').split('\n');
