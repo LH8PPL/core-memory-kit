@@ -10,6 +10,18 @@
 
 ---
 
+## 2026-07-20 — D-378 · NOTE · A green workflow is not a green commit (the SonarCloud miss)
+
+**The user caught a failing SonarCloud Quality Gate on `main` that I had twice reported as green.** It had been red since the Task-235 merge.
+
+**Why the miss is structural, not careless:** SonarCloud posts its Quality Gate as a **CHECK RUN via its GitHub App**, not as an Actions workflow. So `gh run list` showed SonarCloud *succeeding* — the analysis uploaded fine — while the **gate** failed. D-310's fix (watch the CI workflow BY NAME, never `--limit 1`) was correctly followed and still produced the wrong answer, one level up: it enumerates WORKFLOWS, and the failing thing was not one. The GitHub UI shows checks and statuses together, which is why a glance at the browser caught what the CLI did not.
+
+**The rule (CLAUDE.md sub-rule (d)):** after any push to `main`, enumerate `repos/<owner>/<repo>/commits/<sha>/check-runs` filtered to `.conclusion != "success"` (plus `/status` for legacy statuses). Empty output is the only thing that means green. **A green workflow is not a green commit.**
+
+**What the gate actually flagged, stated honestly:** D Reliability on New Code, from 3 CRITICAL `S2871` hits (`.sort()` with no comparator) — **none of which is a real correctness bug.** `Array.prototype.sort`'s default compares UTF-16 code units, and every site sorts ISO-8601 day keys or ASCII filenames, where that is exactly the intended order. The rule is still legitimate (the default is a genuine trap for numeric arrays) and the fix is free.
+
+**Deliberately NOT `localeCompare`, despite the rule's message naming it** — two sites sort ISO day keys and one orders `INDEX.md`, a COMMITTED file. Locale collation is machine-dependent, so the same corpus could produce different output and different diffs on different machines. Code-unit order is identical everywhere and, on ISO dates, chronological. The first fix inlined `(a<b?-1:a>b?1:0)` and tripped **S3358 (nested ternary)** → C Maintainability; extracted as `compareCodeUnits` beside `nowIso` in `audit-log.mjs` — shared rather than copied to three sites, which is the drift the shared-module discipline exists to prevent and the class Task 241 is already scoped to fold.
+
 ## 2026-07-20 — D-377 · DECISION · Task 236 `counts` family: scan every living doc, never enumerate locations
 
 **The design was settled by prior art, and the prior art was a counter-example.** Task 236 copies ECC's `catalog:check`, so D-375's unconditional clause fired and their repo got a fresh read at HEAD (`0071fa5`, same day). `scripts/ci/catalog.js` verifies prose counts by **hand-enumerating 40 doc locations**, each with its own file + regex + `expected` extraction. **And `WORKING-CONTEXT.md` is in none of them** — which is exactly the file the D-364 study measured as **4 months stale** (claiming 47 agents / 79 commands / 181 skills at v1.10.0 while their tree holds 67/94/278 at v2.0.0).
