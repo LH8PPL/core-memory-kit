@@ -165,7 +165,7 @@ describe('Task 43 — release verification (pre-publish gates)', () => {
       expect(text).toMatch(/npm install -g @lh8ppl\/core-memory-kit/);
     });
 
-    it('all 10 bins are declared (cmk + 3 cron entrypoints + 6 hook bins incl. the guardrail D-192)', () => {
+    it('all 11 bins are declared (cmk + 3 cron entrypoints + 7 hook bins incl. the guardrail D-192 + PreCompact)', () => {
       const pkg = JSON.parse(
         readFileSync(join(repoRoot, 'packages', 'cli', 'package.json'), 'utf8'),
       );
@@ -180,6 +180,7 @@ describe('Task 43 — release verification (pre-publish gates)', () => {
         'cmk-guard-memory',
         'cmk-inject-context',
         'cmk-observe-edit',
+        'cmk-precompact',
         'cmk-weekly-curate',
       ]);
     });

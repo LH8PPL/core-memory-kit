@@ -39,6 +39,12 @@ const claudeCode = defineAgentProfile({
       postEdit: 'PostToolUse',
       turnEnd: 'Stop',
       sessionEnd: 'SessionEnd',
+      // Task 235: the roll trigger that fires DURING a long session. Claude
+      // Code is currently the ONLY agent with a compaction event — Kiro,
+      // Cursor and Codex expose no equivalent, so they simply don't map this
+      // abstract event (the same way Kiro/Codex don't map `sessionEnd` and
+      // only Cursor maps `preShell`). The gap is documented per-agent.
+      preCompact: 'PreCompact',
     },
   },
   // Claude Code transcripts: ~/.claude/projects/<slug>/<session>.jsonl (JSONL).

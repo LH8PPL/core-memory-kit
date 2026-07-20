@@ -279,7 +279,7 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
      serial/staggered/parallel runs were identical (a race cannot reproduce at zero
      concurrency). **Task 239 is CLOSED not-a-bug; the lock written for it was reverted
      unmerged; this lane is unchanged.**
-  6b. **v0.6.1 — the capture + gate riders (D-364, laned 2026-07-20).** **Task 235**
+  6b. **v0.6.1 — the capture + gate riders (D-364, laned 2026-07-20).** **Task 235** ✅ _shipped 2026-07-20_
      (`PreCompact` capture — bank at the compaction boundary, the moment context is about to
      be discarded; the kit currently hooks `Stop` + `SessionEnd` but not the boundary itself)
      · **Task 236** (catalog/count CI gate — a `counts` family on the Task-186 validator so

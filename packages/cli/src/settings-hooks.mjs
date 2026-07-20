@@ -89,6 +89,17 @@ export const KIT_HOOKS_BLOCK = Object.freeze({
   PostToolUse: [{ matcher: 'Write|Edit|MultiEdit', hooks: [{ type: 'command', command: 'cmk-observe-edit', async: true, timeout: 120 }] }],
   Stop: [{ hooks: [{ type: 'command', command: 'cmk-capture-turn', timeout: 30 }] }],
   SessionEnd: [{ hooks: [{ type: 'command', command: 'cmk-compress-session', timeout: 60 }] }],
+  // PreCompact — the THIRD now→today roll trigger (Task 235). SessionEnd fires
+  // only on a clean window-close and SessionStart-lazy fires too late for the
+  // session that is compacting, so a marathon session had NO roll trigger at all
+  // (the Task-105/D-75 class: now.md grew to 410 KB in the v0.4.0 dogfood).
+  // No matcher = both `manual` (/compact) and `auto` (context full).
+  // The 10s timeout is deliberate and generous: the handler only GATES and
+  // spawns a detached worker — it must never run the LLM inline and make the
+  // user wait on their own compaction. It also never emits `decision`, so it
+  // cannot block compaction (the fail-open posture; docs allow blocking, we
+  // refuse it).
+  PreCompact: [{ hooks: [{ type: 'command', command: 'cmk-precompact', timeout: 10 }] }],
 });
 
 /**
@@ -108,6 +119,7 @@ export const KIT_COMMAND_TOKENS = Object.freeze([
   'cmk-observe-edit',
   'cmk-capture-turn',
   'cmk-compress-session',
+  'cmk-precompact',
 ]);
 
 /** True if a hooks-array entry references any kit bin. */

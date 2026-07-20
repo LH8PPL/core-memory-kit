@@ -1,0 +1,115 @@
+#!/usr/bin/env node
+// PreCompact hook handler — plugin-route twin (Task 235).
+//
+// Fires when Claude Code is about to compact the context window. Its ONLY job
+// is to decide cheaply whether a now→today roll is worth doing and, if so, hand
+// it to a DETACHED worker — then return immediately.
+//
+// THE NEVER-BLOCK CONTRACT (primary-source verified 2026-07-20,
+// code.claude.com/docs/en/hooks): a PreCompact hook can block compaction with
+// `{"decision":"block"}` or exit 2. The kit must NEVER do either — blocking a
+// user's compaction to bank memory would hold their session hostage. This bin
+// emits no `decision` on any path and always exits 0.
+//
+// Protocol: drain stdin (the payload carries {trigger, session_id,
+// transcript_path, cwd}), resolve the project root, gate, maybe spawn, emit
+// {"continue": true}, exit 0.
+
+import { spawn } from 'node:child_process';
+import { dirname, join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+function emitContinue() {
+  // No `decision` field — this is what "allow the compaction" looks like.
+  process.stdout.write('{"continue": true}');
+}
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const readHookStdinPath = join(__dirname, '..', '..', 'packages', 'cli', 'src', 'read-hook-stdin.mjs');
+const precompactModulePath = join(__dirname, '..', '..', 'packages', 'cli', 'src', 'precompact.mjs');
+const workerPath = join(__dirname, 'cmk-precompact-worker.mjs');
+
+let readHookStdin;
+let shouldPreCompact;
+let appendPreCompactLog;
+try {
+  ({ readHookStdin } = await import(pathToFileURL(readHookStdinPath).href));
+  ({ shouldPreCompact, appendPreCompactLog } = await import(pathToFileURL(precompactModulePath).href));
+} catch (err) {
+  process.stderr.write(`cmk-precompact: failed to load modules: ${err?.message ?? err}\n`);
+  emitContinue();
+  process.exit(0);
+}
+
+// Drain the payload so Claude Code's pipe closes cleanly — but NOT on an
+// interactive TTY (a manual run), where a blocking read never sees EOF
+// (Task 100/101; DECISION-LOG 2026-06-06).
+const raw = readHookStdin({ isTTY: process.stdin.isTTY });
+
+let trigger = 'auto';
+let payloadCwd = null;
+try {
+  const input = JSON.parse(raw);
+  if (input && typeof input === 'object') {
+    if (input.trigger === 'manual' || input.trigger === 'auto') trigger = input.trigger;
+    if (typeof input.cwd === 'string' && input.cwd.length > 0) payloadCwd = input.cwd;
+  }
+} catch {
+  // Garbage or empty payload — proceed with defaults. A malformed payload must
+  // never cost the user their compaction.
+}
+
+const projectRoot = process.env.CMK_PROJECT_DIR ?? payloadCwd ?? process.cwd();
+
+try {
+  const gate = shouldPreCompact({ projectRoot });
+  let spawned = false;
+  let spawnError;
+
+  if (gate.run) {
+    if (!existsSync(workerPath)) {
+      spawnError = 'worker-missing';
+    } else {
+      try {
+        // Detached fire-and-forget: the roll outlives this hook by design, so
+        // the user waits on nothing. Same posture as capture-turn →
+        // auto-extract. windowsHide suppresses the console flash (Task 81).
+        // spawn-discipline: ignore detached-fire-and-forget (the worker intentionally outlives this hook; it carries its own bounded timeout via runPreCompact → compressSession's CEILING_FREE_TIMEOUT_MS)
+        const child = spawn(process.execPath, [workerPath, projectRoot], {
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: true,
+          env: { ...process.env, CMK_PROJECT_DIR: projectRoot, CMK_PRECOMPACT_TRIGGER: trigger },
+        });
+        child.unref();
+        spawned = true;
+      } catch (err) {
+        spawnError = err?.message ?? String(err);
+      }
+    }
+  }
+
+  // Door 5: the compaction event is ALWAYS recorded, spawn or no spawn. A
+  // compaction that banked nothing must still be diagnosable — the "silent
+  // no-op" is exactly what makes a capture gap invisible for weeks (D-369).
+  appendPreCompactLog({
+    projectRoot,
+    entry: {
+      ts: new Date().toISOString(),
+      scope: 'precompact-hook',
+      trigger,
+      spawned,
+      reason: gate.reason,
+      ...(spawnError ? { spawn_error: spawnError } : {}),
+    },
+  });
+} catch (err) {
+  // Defensive backstop — nothing in the body may reach the user as a failure.
+  process.stderr.write(`cmk-precompact: unexpected error: ${err?.message ?? err}\n`);
+}
+
+emitContinue();
+process.exit(0);

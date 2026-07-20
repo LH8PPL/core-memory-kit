@@ -48,6 +48,7 @@ The **frozen snapshot pattern**: these files load once per session, form static 
 | **PostToolUse** (`Write\|Edit\|MultiEdit`) | `cmk-observe-edit` (async) | Notes file edits as observation signal. |
 | **Stop** | `cmk-capture-turn` | After every turn: appends the transcript **and** detached-spawns auto-extract. |
 | **SessionEnd** | `cmk-compress-session` | Rolls the session buffer when the window closes (so memory stays bounded even if you never cleanly close). |
+| **PreCompact** | `cmk-precompact` | Rolls the buffer when the context window is about to be compacted — the only roll trigger that fires **during** a long session. Gates cheaply and hands the work to a detached worker, so a compaction never waits on memory. |
 
 **Auto-extract** (`cmk-auto-extract`, a detached background subagent spawned by the Stop hook — it runs the LLM through the installed agent's own CLI via `makeBackend`: `claude --print` on Claude Code, `kiro-cli chat` on Kiro, `cursor-agent -p` on Cursor, `codex exec` on Codex — Task 200) reads the turn and writes durable memory with no manual flag:
 

@@ -34,6 +34,9 @@ reminds you on its HC-1 line.
   the session's rollout (`~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`).
 - **No SessionEnd event.** Codex's hook list has no session-end trigger, so end-of-session
   compression rides the lazy roll + optional cron paths (exactly like Kiro).
+- **No compaction event.** Codex exposes no `PreCompact` equivalent, so the Task-235
+  compaction-boundary roll is Claude-Code-only. On Codex a long session's buffer rolls at
+  the next lazy/cron pass instead — later, but never lost (the buffer is already on disk).
 - **Codex Desktop app**: the desktop app bundles `codex.exe` off-PATH, so the install's
   automatic `codex mcp add` may not find it — the install prints the one-liner to run
   yourself. The CLI (`npm i -g @openai/codex`) puts `codex` on PATH and everything is

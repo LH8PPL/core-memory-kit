@@ -274,6 +274,7 @@ describe('Task 39 — runRepair', () => {
         'PostToolUse',
         'Stop',
         'SessionEnd',
+        'PreCompact', // Task 235 — the roll trigger that fires DURING a session
       ]);
     });
 

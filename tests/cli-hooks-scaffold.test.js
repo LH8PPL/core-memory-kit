@@ -62,6 +62,9 @@ const EXPECTED_HOOKS = [
   { event: 'PostToolUse', stub: 'cmk-observe-edit', timeout: 120, async: true, matcher: 'Write|Edit|MultiEdit', isStub: false },
   { event: 'Stop', stub: 'cmk-capture-turn', timeout: 30, async: false, isStub: false },
   { event: 'SessionEnd', stub: 'cmk-compress-session', timeout: 60, async: false, isStub: false },
+  // Task 235: the third now→today roll trigger. 10s because the handler only
+  // gates + spawns a detached worker — it must NEVER run the LLM inline.
+  { event: 'PreCompact', stub: 'cmk-precompact', timeout: 10, async: false, isStub: false },
 ];
 
 function loadHooksJson() {

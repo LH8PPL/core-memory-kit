@@ -13865,3 +13865,126 @@ _(retracted 2026-07-18)_
 ## RESUME — v0.3.1 cut-gate near-complete; PR
 
 **When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-25JLTT5Z -->
+
+## Research paper ingested; research note created; 10 base sources re-read; synthes
+
+**When:** 2026-07-18 · **Fact:** `P-25JLTT5Z`
+
+<!-- decision:P-VQKAHVV9 -->
+
+## Wants to run distill immediately, not wait until 23:00 scheduled time.
+
+**When:** 2026-07-18 · **Fact:** `P-VQKAHVV9`
+
+<!-- decision:P-T5S9F5BB -->
+
+## Release Roadmap v0.6.1 — v0.7.0 and Task 95 Timing Logic
+
+**When:** 2026-07-20 · **Fact:** `P-T5S9F5BB`
+**Why:** Task 95 is a differentiator (belongs in MINOR by D-24), but also has a hard data dependency that only real usage can satisfy. Timing prevents shipping a feature with no meaningful test data.
+
+<!-- decision:P-QG473UUX -->
+
+## Versioning Rule D-24 — MINOR Carries One Differentiator
+
+**When:** 2026-07-20 · **Fact:** `P-QG473UUX`
+**Why:** A headline feature buried in a patch gets no visibility (nobody reads patch release notes). Each MINOR deserves clear, focused marketing and user attention.
+
+<!-- decision:P-CJSMVDZ3 -->
+
+## D-249 Documentation Walk Checklist
+
+**When:** 2026-07-20 · **Fact:** `P-CJSMVDZ3`
+**Why:** Prior PR #311 claimed §7.1 docs edit that was never performed. Prevents documentation drift and the overstating-commits anti-pattern.
+
+<!-- decision:P-KHaCEVKE -->
+
+## v0.6.0+ Upgrade Verification Matrix
+
+**When:** 2026-07-20 · **Fact:** `P-KHaCEVKE`
+**Why:** v0.6.0 introduced new features and fixed issues; matrix catches breakage early in upgrade path.
+
+<!-- decision:P-9YPXRSQM -->
+
+## Stale-Replay Guard: Partial Coverage Identified
+
+**When:** 2026-07-20 · **Fact:** `P-9YPXRSQM`
+**Why:** In this project, memory is the canonical state. Working lists can rot without active verification. The current guard is a safety net for one state path but doesn't cover working lists.
+
+<!-- decision:P-66TG4TaV -->
+
+## Extend File Rewrite Rule to All Tools
+
+**When:** 2026-07-20 · **Fact:** `P-66TG4TaV`
+**Why:** Whole-file rewrites in any language/tool have the same risk — they can silently alter file structure (line endings, whitespace) in ways that break downstream tooling.
+
+<!-- decision:P-GQ7BXW7B -->
+
+## Git as Sole Evidence in Gap Cases
+
+**When:** 2026-07-20 · **Fact:** `P-GQ7BXW7B`
+**Why:** This constrains design decisions. The feature isn't "pluggable evidence sources" but "git-only reconstruction for gaps". Trying to generalize would add complexity for zero benefit.
+
+<!-- decision:P-XGASCFaJ -->
+
+## Line-Ending Normalization Risk in Python Rewrites
+
+**When:** 2026-07-20 · **Fact:** `P-XGASCFaJ`
+**Why:** Python's text I/O defaults may not preserve the original file's line-ending convention. In mixed-OS repos, this causes silent failures that are hard to debug.
+
+<!-- decision:P-TM723GL7 -->
+
+## Research Finding — No Prior Art for Session Memory Reconstruction from Git
+
+**When:** 2026-07-20 · **Fact:** `P-TM723GL7`
+**Why:** Future research should start from "this is the only published approach to date" + the caveat that Graphiti articulated the core insight earlier in house.
+
+<!-- decision:P-LERWEE52 -->
+
+## Task 174 Deliverable Structure
+
+**When:** 2026-07-20 · **Fact:** `P-LERWEE52`
+**Why:** Understanding the deliverable structure (what runs automatically vs manually, why git is the only source) is essential for maintenance and future iterations.
+
+<!-- decision:P-U37YCE7G -->
+
+## Cheap-Proxy Anti-Pattern
+
+**When:** 2026-07-20 · **Fact:** `P-U37YCE7G`
+**Why:** Led to undercounting of prior art and false confidence in incomplete scans.
+
+<!-- decision:P-BFFBCZ2Q -->
+
+## Prior-Art Findings Annotated on Task Entries
+
+**When:** 2026-07-20 · **Fact:** `P-BFFBCZ2Q`
+**Why:** Separate documentation doesn't reliably surface findings to decision-makers. On-task annotations prevent re-solving known problems.
+
+<!-- decision:P-GUZB92V7 -->
+
+## Research Corpus Structure and Cloning Strategy
+
+**When:** 2026-07-20 · **Fact:** `P-GUZB92V7`
+**Why:** Future sessions need accurate scope (101 not 14) to avoid measurement errors and ensure comprehensive prior-art coverage.
+
+<!-- decision:P-F9PWWUYW -->
+
+## SESSION STATE at pause (2026-07-20, pre-compact): v0.6.0 SHIPPED - published to 
+
+**When:** 2026-07-20 · **Fact:** `P-F9PWWUYW`
+**Why:** The session paused at 10 percent context before auto-compact. A post-compact session needs the resumption point without re-deriving it from git log or tasks.md.
+
+<!-- decision:P-JVSCKCFL -->
+
+## Proposed Task Research Triage System
+
+**When:** 2026-07-20 · **Fact:** `P-JVSCKCFL`
+**Why:** Notes decay rapidly on live projects—a May note is now ~2 months stale, making it a lead rather than ground truth. Uniform re-research on all tasks is wasteful (8 tasks have no external corpus to verify against). Targeted re-verification of copying-focused tasks catches real risks with minimal overhead.

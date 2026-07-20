@@ -10,6 +10,22 @@
 
 ---
 
+## 2026-07-20 — D-376 · DECISION + NOTE · Task 235 `PreCompact` capture: the premise sharpened, and why the roll is detached
+
+**The task's premise was directionally right but imprecisely stated**, and the imprecision would have shaped the build wrong. Task 235's entry says the pre-compact window's content "reaches `now.md` only as whatever per-turn extraction already banked" — which reads as *content is at risk at compaction*. It is not. `capture-turn` appends every completed turn to `now.md`; compaction discards the CONTEXT WINDOW, not the file. Had I built to the stated premise I would have reached for `transcript_path` and written a second summarizer racing the compaction.
+
+**The real gap, restated:** the now-to-today roll has only two triggers and **neither fires during a long session** — `SessionEnd` fires only on a clean window-close (a marathon session often never gets one; the Task-105/D-75 class that grew `now.md` to 410 KB in the v0.4.0 dogfood), and SessionStart-lazy fires at the *next* session's start. `PreCompact` is the third trigger and the only in-session one, and a compaction is a reliable signal the session IS long. Same task, sharper reason — and it changes the design: reuse the shipped `compressSession` roll, do not fork a transcript summarizer.
+
+**Decisions taken (all three would have gone the other way on the loose premise):**
+
+1. **Compose on `compressSession`, NOT `runLazyCompress`.** The lazy path looks like the natural reuse but its `cron-active` gate is a SessionStart concern — "a cron ran recently, it will handle staleness." Eventually is 23:00; a 14:00 compaction on a cron-registered repo would do nothing at all. Reuse the pipeline, not the gate.
+2. **Detached, not inline.** Nothing is urgent (the buffer is already on disk), so an inline compress would buy nothing and cost 20-80 s of visible latency at every compaction. Two bins, mirroring `capture-turn` → `auto-extract`. Live-measured: hook returns in **270 ms**, the real Haiku roll runs **9.2 s** behind it.
+3. **Never block.** Primary-source verified against code.claude.com/docs/en/hooks (2026-07-20): a `PreCompact` hook CAN block compaction and gets a **600 s** default timeout. The kit uses neither — blocking a user's compaction to bank memory would hold the session hostage. Pinned both ways in tests (valid AND garbage payload).
+
+**Prior-art triage ran per D-375** (this task COPIES an ECC mechanism, so the unconditional re-read fired): re-read `ecc/scripts/hooks/pre-compact.js` at their HEAD (2026-07-20, same day). TAKEN: hook the event at all, always exit 0, never leave the event unlogged (their `compaction-log.txt` becomes our `precompact.log` NDJSON). LEFT: their synchronous inline LLM call (they make the user wait) and their transcript-derived summary (a second summarizer we do not need).
+
+**NOTE — two over-blocks in our own guardrail, hit while doing this task.** `cmk-guard-memory` blocked (a) a READ-ONLY directory listing whose only sin was a redirect token appearing near a `context/` path, and then (b) the DECISION-LOG prose describing that first block, because the entry quoted the command verbatim. The second is the sharper finding: **the guard cannot distinguish a command from documentation *about* a command**, so writing up a guard incident trips the guard. Both are the stated posture working as designed ("over-block is safe, under-block is data loss"), not defects, and per the binding rule a block is a STOP signal — the first command was rewritten without a redirect and this entry was rewritten without the verbatim string; neither was rerouted into another shell. Recorded because **Task 217 tracks only the guard's UNDER-block classes** and these are the first measured instances of the over-block side reaching real work. If it recurs, the redirect rule wants narrowing to "destructive verb OR a truncating redirect whose TARGET resolves to a memory path" rather than any-redirect-near-the-token.
+
 ## 2026-07-20 — D-375: DECISION — prior-art TRIAGE per task (the per-task half of D-374); "check everything every time" considered and narrowed
 
 **Trigger.** The user, after the D-374 sweep: *"i was thinking about it, every task needs to go over again on the research and re clone or do web search. what do you think?"*

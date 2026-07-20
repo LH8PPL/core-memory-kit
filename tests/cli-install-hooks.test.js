@@ -52,6 +52,7 @@ const EXPECTED_EVENTS = [
   'PostToolUse',
   'Stop',
   'SessionEnd',
+  'PreCompact', // Task 235 — the roll trigger that fires DURING a long session
 ];
 const EXPECTED_COMMANDS = {
   PermissionRequest: 'cmk-approve-permission',
@@ -61,6 +62,7 @@ const EXPECTED_COMMANDS = {
   PostToolUse: 'cmk-observe-edit',
   Stop: 'cmk-capture-turn',
   SessionEnd: 'cmk-compress-session',
+  PreCompact: 'cmk-precompact',
 };
 
 let sandbox;
@@ -80,7 +82,7 @@ afterEach(() => {
 });
 
 describe('Task 49 — cmk install wires hooks (Door 1: result contract)', () => {
-  it('reports hooks.action === "wired" + the 7 events on a fresh install', async () => {
+  it('reports hooks.action === "wired" + the 8 events on a fresh install', async () => {
     const r = await install({ projectRoot, userTier });
     expect(r.hooks.action).toBe('wired');
     expect(r.hooks.path).toBe(settingsPath);
@@ -102,7 +104,7 @@ describe('Task 49 — cmk install wires hooks (Door 1: result contract)', () => 
 });
 
 describe('Task 49 — settings.json content (Door 2: state)', () => {
-  it('writes all 7 hooks at PATH-resolved bare bin names — NOT ${CLAUDE_PLUGIN_ROOT}, NO bash wrapper', async () => {
+  it('writes all 8 hooks at PATH-resolved bare bin names — NOT ${CLAUDE_PLUGIN_ROOT}, NO bash wrapper', async () => {
     await install({ projectRoot, userTier });
     const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
     for (const event of EXPECTED_EVENTS) {
@@ -295,10 +297,12 @@ describe('Task 49 — settings.json content (Door 2: state)', () => {
       settingsPath,
       JSON.stringify({
         hooks: {
-          // PreCompact is NOT kit-managed → its empty user array must be left
-          // untouched. (Can't use PreToolUse here anymore: the kit now manages it
-          // for the delete-guardrail, D-192, so it WOULD get a kit entry.)
-          PreCompact: [], // user-authored empty array, no kit entry
+          // SubagentStop is NOT kit-managed → its empty user array must be
+          // left untouched. (This fixture keeps migrating as the kit adopts
+          // events: PreToolUse fell to the delete-guardrail (D-192), then
+          // PreCompact to the compaction roll (Task 235). Any event absent
+          // from KIT_HOOKS_BLOCK works; the ASSERTION is what matters.)
+          SubagentStop: [], // user-authored empty array, no kit entry
           Notification: [{ hooks: [{ type: 'command', command: 'notify-me.sh' }] }],
         },
       }),
@@ -307,7 +311,7 @@ describe('Task 49 — settings.json content (Door 2: state)', () => {
     await install({ projectRoot, userTier });
     const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
     // Empty user array preserved (not pruned), unrelated user hook intact
-    expect(settings.hooks.PreCompact).toEqual([]);
+    expect(settings.hooks.SubagentStop).toEqual([]);
     expect(JSON.stringify(settings.hooks.Notification)).toContain('notify-me.sh');
   });
 
@@ -359,7 +363,7 @@ describe('Task 49 — writeKitHooks boundary (the shared install/repair seam)', 
     expect(settings.permissions.allow).toContain('Bash(ls)'); // user content preserved
   });
 
-  it('KIT_HOOKS_BLOCK + KIT_COMMAND_TOKENS stay in sync with the 7 bins', () => {
+  it('KIT_HOOKS_BLOCK + KIT_COMMAND_TOKENS stay in sync with the 8 bins', () => {
     expect(Object.keys(KIT_HOOKS_BLOCK)).toEqual(EXPECTED_EVENTS);
     for (const cmd of Object.values(EXPECTED_COMMANDS)) {
       expect(KIT_COMMAND_TOKENS).toContain(cmd);
