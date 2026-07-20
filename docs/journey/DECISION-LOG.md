@@ -10,6 +10,31 @@
 
 ---
 
+## 2026-07-20 — D-374: DECISION — prior-art checking moves from build-time-per-task to sweep-time-whole-backlog (+ a third miss on Task 174 owned)
+
+**Trigger.** After Task 174 shipped, the user: *"did you check all the projects and research notes?"* → *"14 projects are not even close to all the projects we researched"* → *"maybe you should check all the projects we researched if they help any of the tasks we will have?"*
+
+**Three misses on ONE task, each caught by the user, each the same shape.**
+1. I built Task 174 from its spec + the single borrow the spec named, checking nothing else.
+2. Asked whether I'd used the research, I swept the **14 locally-cloned repos** and reported "no prior art exists." That was **14% of the corpus** — the notes reference **101 distinct repos**. The clones are whatever happens to be on disk from recent sessions; **the corpus is the NOTES.** One-surface-proxy, applied to our own evidence base.
+3. Asked again, the full note sweep found [`docs/sources/gul-jabeen-claude-memory-guide-2026.md`](../sources/gul-jabeen-claude-memory-guide-2026.md) § **"Git Hooks: Memory from Commit History"** (`git log -1 --oneline >> .claude-memory.md`). Cruder than what we built — no summarization, no gap detection, no honesty marking — but it IS the concept, and it was in our own `docs/sources/`. **"No prior art exists" was false.**
+
+**The systematic sweep** ([full note](../research/2026-07-20-prior-art-sweep-backlog-vs-corpus.md)): 95 research + 6 source notes + 24 ADRs matched against 34 open tasks. **Five findings likely to change what we build**, now annotated onto the task entries themselves:
+
+- **184** — basic-memory ships `project_management`/`workspaces`; our own 2026-05-22 note says *"they've already solved the multi-project navigation problem."* Task 184 was drafted **2026-07-01** without picking it up. The archetype of what this sweep exists to prevent.
+- **67** — a 9-system survey found **not one** system gates promotion behind a manual signal. The task's current lean (an explicit `--cross-project` flag) may be the field's **rejected minority** approach.
+- **146** — the WAL/concurrency harness already exists (3 repros against our own db); also the probe that tells whether **238**'s parallel-agent trigger has fired. The two tasks were never cross-linked.
+- **177** — `pro-workflow/src/optimizer/` is already cloned and unread; the task's "clone + read" step is half done.
+- **223** — the privacy note **predicted its live cut-gate failure 12 days before it happened**, and argues against the deterministic L1 pass the task is considering.
+
+**Three corpus gaps** where open tasks would design blind: self-healing CLI repair UX (47/48/73 — nothing on `npm audit fix`/`brew doctor`/`rustup` flows), command-obfuscation detection (217 — nothing on catching same-effect-different-syntax destructive ops), npm native-dependency migration precedent (141b).
+
+**THE PROCESS CHANGE (the durable part).** Prior-art checking at *build time, per task* is structurally unreliable — it depends on the implementer remembering to grep, at the moment they are least inclined to. It moves to: **(a) sweep the WHOLE backlog against the WHOLE corpus at each minor's backlog sweep**, alongside the D-267 fired-trigger walk; **(b) record every match as an ANNOTATION ON THE TASK ENTRY**, so the finding reaches the implementer when they open the task rather than depending on recall; **(c) the corpus is the notes** — searching clones is searching a cache, not the record.
+
+*The pattern across this whole session: five measure-don't-assume corrections, four of them caught by the user first. The common shape is never ignorance — it is accepting a cheap proxy (a grep count, one surface, the cloned subset) as the measurement of the thing it merely resembles.*
+
+---
+
 ## 2026-07-20 — D-372: DECISION — the v0.6.0 cut sweep: Task 174 COMMIT (v0.6.1) and Task 95 wins the v0.7.0 slot, both decided by MEASUREMENT
 
 Two decisions the cut required. Both were judgment calls I could have made from preference; both got probed instead — the D-366 lesson applied prospectively rather than as a retraction.

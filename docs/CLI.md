@@ -170,6 +170,16 @@ Read/write kit settings (`context/settings.json`) without hand-editing JSON. Key
 
 ## Maintenance & repair
 
+### `cmk backfill [--dry-run] [--days <n>] [--max <n>]`
+
+**Reconstruct the session logs for days you worked but the kit didn't record.** If a session crashes, the Stop hook misfires, or you spend a day in another tool and only commit, that day has commits in git but no entry in `context/sessions/` — a silent hole in your memory timeline. This finds those days and rebuilds a short work log for each from that day's commit messages and diffs.
+
+- **Normally you never run this** — the daily distill cron sweeps for gaps automatically. The verb is the manual "fill it now" override.
+- Every reconstruction is **marked as reconstructed**, not passed off as a captured session — it's derived from git, so it knows only what the commits show.
+- **A real session log is never overwritten.** Real always beats reconstructed.
+- Idempotent and bounded: re-running won't duplicate a day, and each run does a few days at most so a long-neglected repo can't stall the cron.
+- `--dry-run` lists the gap days and writes nothing · `--days <n>` how far back to look (default 14) · `--max <n>` days per run (default 3).
+
 ### `cmk repair [--hooks|--locks|--index|--all]`
 
 Idempotent self-repair (default `--all` if no flag).

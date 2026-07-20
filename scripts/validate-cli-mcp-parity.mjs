@@ -62,6 +62,10 @@ export const CLI_ONLY = new Set([
   // in-conversation surface is the /tour slash command running the CLI, not
   // an MCP tool (Task 175).
   'tour',
+  // `backfill` is infra/lifecycle: the daily cron does it automatically (D-169)
+  // and the verb is only a manual maintenance override — not an operation the
+  // model should drive mid-conversation (Task 174).
+  'backfill',
   'daily-distill', 'weekly-curate', 'persona', 'disable-native-memory',
   'enable-native-memory', 'compress', 'register-crons', 'mcp', 'version',
   // `hook` is the Kiro hook entrypoint (called by Kiro's IDE/CLI hooks, never by
