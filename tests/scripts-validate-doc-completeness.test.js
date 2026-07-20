@@ -16,7 +16,7 @@ import {
   checkMcpDocs,
   checkDeferralPhrases,
   parseMcpToolParams,
-} from '../scripts/validate-doc-completeness.mjs';
+} from '../scripts/validate-docs.mjs'; // Task 186: the coverage family of the one doc validator
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -120,7 +120,7 @@ describe('Task 128 — the validator passes on the canonical repo (Door 3)', () 
   it('exits 0 and reports all three checks', () => {
     const r = spawnSync(
       process.execPath,
-      [join(REPO_ROOT, 'scripts', 'validate-doc-completeness.mjs')],
+      [join(REPO_ROOT, 'scripts', 'validate-docs.mjs'), '--only', 'coverage'],
       { encoding: 'utf8', cwd: REPO_ROOT },
     );
     expect(r.status, `validator failed:\n${r.stderr}`).toBe(0);

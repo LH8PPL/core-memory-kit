@@ -63,7 +63,7 @@ A session that has lost all memory must be able to read **only the three spine f
 
 ### Zone 4 — `archive/` (frozen; superseded/retired; never current state, never ref-validated)
 
-Holds docs that are genuinely done and were cited as provenance but are no longer live: `archive/docs/conversation-log/` (retired), `archive/specs/v0.1.0/requirements-revisions-proposed.md` (merged into requirements.md), `archive/docs/journey/PHASE-3-PLAN.md` (husk, folded into tasks.md). Inbound citations point here; the files themselves are excluded from `validate-references` (see its SKIP set).
+Holds docs that are genuinely done and were cited as provenance but are no longer live: `archive/docs/conversation-log/` (retired), `archive/specs/v0.1.0/requirements-revisions-proposed.md` (merged into requirements.md), `archive/docs/journey/PHASE-3-PLAN.md` (husk, folded into tasks.md). Inbound citations point here; the files themselves are excluded from the `references` family of `validate-docs` (see its SKIP set).
 
 ### Not policed by the registry validator
 
@@ -91,7 +91,7 @@ Holds docs that are genuinely done and were cited as provenance but are no longe
 
 ## Enforcement (dev-process only — not part of the shipped kit)
 
-[`scripts/validate-doc-registry.mjs`](../scripts/validate-doc-registry.mjs), wired into `npm test`, **fails the build if any working-doc markdown file in a high-risk zone (`specs/`, `docs/` top level, `docs/journey/`, repo-root `*.md`) is not listed in the Registry below** — i.e., a new rogue surface cannot appear without being registered here. Bulk history dirs (`docs/research/`, `docs/sources/`, `docs/process/`, `docs/adr/`, `docs/conversation-log/`, `archive/`) are registered by zone. This is the across-compaction guarantee: it does not rely on Claude remembering the rule. It is a tool for *our* work — users of the kit never run it and it ships nothing.
+[`scripts/validate-docs.mjs`](../scripts/validate-docs.mjs) (the `registry` family — run it alone with `--only registry`), wired into `npm test`, **fails the build if any working-doc markdown file in a high-risk zone (`specs/`, `docs/` top level, `docs/journey/`, repo-root `*.md`) is not listed in the Registry below — and, since Task 186, also if a Registry entry names a file that no longer exists (both directions)** — i.e., a new rogue surface cannot appear without being registered here. Bulk history dirs (`docs/research/`, `docs/sources/`, `docs/process/`, `docs/adr/`, `docs/conversation-log/`, `archive/`) are registered by zone. This is the across-compaction guarantee: it does not rely on Claude remembering the rule. It is a tool for *our* work — users of the kit never run it and it ships nothing.
 
 When you add a doc, add its path to the Registry in the same commit, or the build goes red.
 
@@ -111,7 +111,7 @@ When you add a doc, add its path to the Registry in the same commit, or the buil
 `docs/DOCUMENTATION-MAP.md` · `docs/README.md` · `docs/SOURCES.md` · `docs/BOOTSTRAP.md` · `docs/CLI.md` · `docs/MCP.md` · `docs/KIRO.md` · `docs/CURSOR.md` · `docs/CODEX.md` · `docs/CLAUDE-CODE.md`
 
 **`docs/journey/`:**
-`docs/journey/DECISION-LOG.md` · `docs/journey/build-log.md` · `docs/journey/RESUME-HERE-2026-05-28.md` · `docs/journey/v0.1.0-live-test.md` · `docs/journey/v0.1.0-requirements-coverage.md` · `docs/journey/v0.1.1-self-test-findings.md` · `docs/journey/v0.2.0-live-test-findings.md` · `docs/journey/v0.3.3-live-test-findings.md` · `docs/journey/2026-05-26-live-test-findings.md` · `docs/journey/2026-05-26-live-test-findings-scenarios-3-7.md` · `docs/journey/2026-05-26-snapshot-cap-coordination.md` · `docs/journey/2026-05-26-user-tier-cap-fix.md` (`PHASE-3-PLAN.md` is archived → `archive/docs/journey/`)
+`docs/journey/DECISION-LOG.md` · `docs/journey/build-log.md` · `docs/journey/RESUME-HERE-2026-05-28.md` · `docs/journey/v0.1.0-live-test.md` · `docs/journey/v0.1.0-requirements-coverage.md` · `docs/journey/v0.1.1-self-test-findings.md` · `docs/journey/v0.2.0-live-test-findings.md` · `docs/journey/v0.3.3-live-test-findings.md` · `docs/journey/2026-05-26-live-test-findings.md` · `docs/journey/2026-05-26-live-test-findings-scenarios-3-7.md` · `docs/journey/2026-05-26-snapshot-cap-coordination.md` · `docs/journey/2026-05-26-user-tier-cap-fix.md` (the phase-3 plan is archived → `archive/docs/journey/PHASE-3-PLAN.md`)
 
 **`docs/journey/live-test-runs/`** — per-run `npm run live-test` findings, one TIMESTAMPED file per run (a run-to-run trail to spot drift/regressions). A SUBDIR, so the registry validator (which scans `docs/journey/` non-recursively) does not police it file-by-file — no per-run registration needed.
 

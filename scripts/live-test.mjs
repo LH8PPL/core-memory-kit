@@ -302,7 +302,7 @@ async function main() {
     // Findings are a TRACKED record, one TIMESTAMPED file PER RUN (never
     // overwritten) so the run-to-run history is preserved — e.g. the recall
     // probe's variance is only visible across runs. They live in
-    // docs/journey/live-test-runs/, a SUBDIR that validate-doc-registry scans
+    // docs/journey/live-test-runs/, a SUBDIR that validate-docs (registry) scans
     // non-recursively (line 100 of that validator), so per-run files need no
     // registration and don't break `npm test`.
     try {
