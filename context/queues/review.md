@@ -25,3 +25,6 @@
 ## 2026-07-20T16:58:47Z — auto-extract (medium-trust, pending review)
 - (P-X5RW6LBQ) Kit guardrail over-blocks on safety as designed; can't distinguish commands from documentation, so writing about a blocked command triggers the guard again
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-20T16:58:47Z -->
+## 2026-07-20T18:17:20Z — auto-extract (medium-trust, pending review)
+- (P-EJY4TRLG) Kit is working correctly; cmk doctor reports 12 PASS/0 FAIL with 55 observations captured today and 1,837 facts in store
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-20T18:17:20Z -->

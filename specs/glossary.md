@@ -556,7 +556,7 @@ Cross-refs: [[Rolling-window compression]]. Spec: design §12; T-033.
 
 ### `cmk doctor`
 
-The diagnostic command that runs all 7 health checks (HC-1..HC-7) and prints a structured report with documented self-repair commands for any failures.
+The diagnostic command that runs all 12 health checks (HC-1..HC-12) and prints a structured report with documented self-repair commands for any failures.
 
 Cross-refs: [[Health check]]. Spec: design §14; T-031.
 

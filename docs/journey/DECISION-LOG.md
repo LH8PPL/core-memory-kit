@@ -10,6 +10,24 @@
 
 ---
 
+## 2026-07-20 — D-377 · DECISION · Task 236 `counts` family: scan every living doc, never enumerate locations
+
+**The design was settled by prior art, and the prior art was a counter-example.** Task 236 copies ECC's `catalog:check`, so D-375's unconditional clause fired and their repo got a fresh read at HEAD (`0071fa5`, same day). `scripts/ci/catalog.js` verifies prose counts by **hand-enumerating 40 doc locations**, each with its own file + regex + `expected` extraction. **And `WORKING-CONTEXT.md` is in none of them** — which is exactly the file the D-364 study measured as **4 months stale** (claiming 47 agents / 79 commands / 181 skills at v1.10.0 while their tree holds 67/94/278 at v2.0.0).
+
+**So their gate exists, runs green in CI, and the staleness ships anyway: it checked 40 places and the drift happened in the 41st.** That is not a hypothetical objection to enumeration — it is the source repo demonstrating the failure mode in the specific file we already caught. Drift lands wherever you did not enumerate, and enumeration is a list somebody has to remember to extend, which is the same human-memory dependency the number itself had. **DECISION: scan every living markdown doc; a new doc is covered the day it is written, not the day someone registers it.**
+
+**Three false-positive classes were found only by RUNNING it — none were predictable from the spec** (62 raw hits → 7 → 1 genuine):
+
+1. **The memory tiers are frozen records, in the strongest sense.** `context/` + `context.local/` produced 50 of the first 62 hits. A captured fact reading *"v0.3.5 verified all 9 health checks pass"* is **correctly recorded history**; "fixing" it to match today's code would corrupt the very thing the kit exists to keep. Same reasoning as `docs/research/`, higher stakes — exempt by path prefix.
+2. **`docs/SOURCES.md` counts belong to other people.** The collection nouns are not kit-exclusive: *"14 MCP tools"* there describes an external project's surface. A doc whose whole subject is other projects can only generate noise — exempt.
+3. **Identifier-shaped numbers are names, not quantities.** *"Task 108 added MCP tools"* and *"#5873 for MCP tools"* read as claims of 108 and 5873 tools. A number introduced by `#` or by an identifier word (`task`/`issue`/`PR`/`ADR`/`FR`/`HC`/`D`) is rejected.
+
+**The family's own resolver committed the drift class it polices.** Counting HC ids by scanning `doctor.mjs` returned **11**, while `cmk doctor` reports **12** — because **HC-9 lives in `version-drift.mjs`** (Task 162), not the doctor. A single-file scan of a contract that had quietly spread across modules is precisely the "hand-maintained view of a collection the code owns" failure this family exists to catch. Fixed by scanning all of `packages/cli/src`. Worth recording: the validator was wrong in the same shape as the prose it validates.
+
+**It earned its keep immediately** — `specs/glossary.md` still described `cmk doctor` as running *"all 7 health checks (HC-1..HC-7)"*. Twelve exist. That line had survived five minor releases and every prior doc review.
+
+**Suppression posture:** frozen records are exempt by PATH (structural, no marker needed, so a new research note is covered automatically); a one-off historical line inside a LIVING doc (design.md's *"6 MCP tools instead of 5"*, a shipped task entry) takes the inline `<!-- validate-docs: ignore -->` marker — deliberate, visible, and reviewable, rather than widening the exemption.
+
 ## 2026-07-20 — D-376 · DECISION + NOTE · Task 235 `PreCompact` capture: the premise sharpened, and why the roll is detached
 
 **The task's premise was directionally right but imprecisely stated**, and the imprecision would have shaped the build wrong. Task 235's entry says the pre-compact window's content "reaches `now.md` only as whatever per-turn extraction already banked" — which reads as *content is at risk at compaction*. It is not. `capture-turn` appends every completed turn to `now.md`; compaction discards the CONTEXT WINDOW, not the file. Had I built to the stated premise I would have reached for `transcript_path` and written a second summarizer racing the compaction.

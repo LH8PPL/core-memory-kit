@@ -713,6 +713,193 @@ async function familyCoverage() {
 }
 
 // ====================================================================
+// FAMILY: counts (Task 236 / D-364) — prose count-claims vs the live registry
+// ====================================================================
+//
+// The drift class: sentences like "12 MCP tools" / "41 CLI verbs" are
+// hand-maintained numbers about collections the CODE owns. We have hand-fixed
+// them ~6 times across v0.4–v0.6, always after a human noticed.
+//
+// WHY A GENERIC SCAN, NOT A LIST OF LOCATIONS (the D-375 prior-art finding):
+// ECC ships this exact gate and hand-enumerates 40 doc locations, each with its
+// own file + regex. Their `WORKING-CONTEXT.md` is in NONE of them — which is
+// exactly the file measured 4 months stale (claiming 47/79/181 while their tree
+// held 67/94/278). Their gate runs green in CI and the staleness ships anyway:
+// it checked 40 places, the drift happened in the 41st. Drift lands wherever you
+// did not enumerate. So we scan every living doc, and a NEW doc is covered the
+// day it is written rather than the day someone remembers to register it.
+
+/**
+ * The kit-owned collections whose size appears in prose. `nouns` are the
+ * phrases a sentence uses for the collection; `resolve` reads the LIVE count
+ * from the code (never a second hand-maintained number).
+ */
+export const COUNT_COLLECTIONS = Object.freeze({
+  mcpTools: { nouns: ['MCP tools', 'MCP tool', 'mk_ tools'], label: 'MCP tools' },
+  cliVerbs: { nouns: ['CLI verbs', 'CLI verb', 'cmk verbs', 'subcommands'], label: 'CLI verbs' },
+  healthChecks: { nouns: ['health checks', 'health check', 'HC checks'], label: 'health checks' },
+  agentProfiles: { nouns: ['agent profiles', 'agent profile'], label: 'agent profiles' },
+});
+
+// Spelled-out numbers seen in real kit prose ("Twelve tools"). Bounded on
+// purpose — beyond twenty, prose uses digits.
+const NUMBER_WORDS = Object.freeze({
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9,
+  ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15,
+  sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20,
+});
+
+// Point-in-time RECORDS: these legitimately name historical counts, and
+// "updating" one to match today's code is a bug, not a fix (the D-249
+// frozen-record rule). Path-prefix matched, so a new research note or ADR is
+// exempt automatically.
+const FROZEN_RECORD_PREFIXES = [
+  'CHANGELOG.md',
+  'docs/adr/',
+  'docs/research/',
+  'docs/sources/',
+  'docs/journey/',
+  'docs/conversation-log/',
+  'archive/',
+  'docs/process/',
+  // The MEMORY TIERS. Found by running this family for real (2026-07-20): the
+  // kit's own captured memory is a point-in-time record in the strongest sense
+  // — a fact reading "v0.3.5 verified all 9 health checks pass" is CORRECTLY
+  // recorded history, and "fixing" it to match today's code would corrupt the
+  // very thing the kit exists to keep. Same reasoning as docs/research, higher
+  // stakes. (This is also where 50 of the family's first 62 hits came from.)
+  'context/',
+  'context.local/',
+  // The EXTERNAL-projects catalog. Also found by running this for real: every
+  // count in SOURCES.md is about somebody ELSE's collection ("14 MCP tools" =
+  // that project's tools, not ours). The collection nouns are not kit-exclusive,
+  // so a doc whose whole subject is other projects can only produce noise here.
+  'docs/SOURCES.md',
+];
+
+export function isFrozenRecord(path) {
+  const p = String(path).replace(/\\/g, '/');
+  return FROZEN_RECORD_PREFIXES.some((pre) => p === pre || p.startsWith(pre));
+}
+
+/**
+ * Find count-shaped claims about kit-owned collections. Pure.
+ *
+ * Deliberately CONSERVATIVE — a false positive here fails the build on correct
+ * prose, which is worse than missing one claim. So the number must sit
+ * immediately before the collection noun (optionally with one adjective
+ * between), and a version-looking token (`v0.6.0`, `0.6`) never counts.
+ *
+ * @param {string} text
+ * @returns {Array<{n: number, collection: string, line: number, raw: string}>}
+ */
+export function extractCountClaims(text) {
+  const out = [];
+  const lines = String(text).split(/\r?\n/);
+  const wordAlt = Object.keys(NUMBER_WORDS).join('|');
+
+  for (const [collection, cfg] of Object.entries(COUNT_COLLECTIONS)) {
+    for (const noun of cfg.nouns) {
+      // (number)(one optional adjective)(noun). `\b` on both ends; a preceding
+      // `v` or `.` disqualifies the number as a version fragment.
+      const re = new RegExp(
+        String.raw`(^|[^\w.])(?:v)?(\d{1,4}|${wordAlt})\s+(?:[a-z]+\s+)?${escapeRegExp(noun)}\b`,
+        'gi',
+      );
+      for (let i = 0; i < lines.length; i += 1) {
+        for (const m of lines[i].matchAll(re)) {
+          // A `v` prefix or a dotted neighbour means a version, not a count.
+          if (/^v/i.test(m[0].trim()) || /\d\.\d/.test(m[0])) continue;
+          // IDENTIFIER, not a count. Found by running this for real: the corpus
+          // is full of "Task 108 added MCP tools" and "#5873 for MCP tools",
+          // which read as claims of 108 and 5873 tools. A number introduced by
+          // `#` or by an identifier word is a name, not a quantity.
+          const before = lines[i].slice(0, m.index + m[1].length);
+          if (/(?:#|\b(?:task|issue|pr|adr|fr|nfr|hc|d)[-\s#]*)$/i.test(before)) continue;
+          const token = m[2].toLowerCase();
+          const n = NUMBER_WORDS[token] ?? Number(token);
+          if (!Number.isFinite(n)) continue;
+          out.push({ n, collection, line: i + 1, raw: m[0].trim() });
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Compare every claim against the live count. Pure — `live` is injected so the
+ * check is testable without importing the kit's registries.
+ *
+ * @param {object} a
+ * @param {Array<{path: string, text: string}>} a.docs
+ * @param {Record<string, number>} a.live
+ * @returns {string[]} errors
+ */
+export function checkCounts({ docs, live }) {
+  const errors = [];
+  for (const { path, text } of docs) {
+    if (isFrozenRecord(path)) continue;
+    const lines = String(text).split(/\r?\n/);
+    for (const claim of extractCountClaims(text)) {
+      const actual = live[claim.collection];
+      if (typeof actual !== 'number' || claim.n === actual) continue;
+      const lineText = lines[claim.line - 1] ?? '';
+      if (SUPPRESSIONS.some((marker) => lineText.includes(marker))) continue;
+      const label = COUNT_COLLECTIONS[claim.collection].label;
+      errors.push(
+        `${path}:${claim.line} claims ${claim.n} ${label} ("${claim.raw}") but the live count is ${actual} — ` +
+          `update the prose, or add <!-- validate-docs: ignore --> if the number is deliberately historical`,
+      );
+    }
+  }
+  return errors;
+}
+
+async function familyCounts() {
+  const { subcommands } = await import(
+    pathToFileURL(join(SCRIPT_REPO, 'packages', 'cli', 'src', 'subcommands.mjs')).href
+  );
+  const { AGENT_PROFILES } = await import(
+    pathToFileURL(join(SCRIPT_REPO, 'packages', 'cli', 'src', 'agent-profiles.mjs')).href
+  );
+  const mcpSrc = readFileSync(join(SCRIPT_REPO, 'packages', 'cli', 'src', 'mcp-server.mjs'), 'utf8');
+  // HC ids are the doctor's contract surface, but they are NOT all declared in
+  // doctor.mjs — HC-9 lives in version-drift.mjs (Task 162). Scanning only the
+  // doctor undercounted by one, which is exactly the drift this family exists
+  // to catch, committed by the family itself. Scan the whole src tree.
+  const srcDir = join(SCRIPT_REPO, 'packages', 'cli', 'src');
+  const hcIds = new Set();
+  for (const f of readdirSync(srcDir)) {
+    if (!f.endsWith('.mjs')) continue;
+    for (const m of readFileSync(join(srcDir, f), 'utf8').matchAll(/\bid:\s*'(HC-\d+)'/g)) {
+      hcIds.add(m[1]);
+    }
+  }
+
+  const live = {
+    mcpTools: parseMcpToolParams(mcpSrc).size,
+    cliVerbs: new Set(subcommands.map((s) => s.name)).size,
+    healthChecks: hcIds.size,
+    agentProfiles: Object.keys(AGENT_PROFILES).length,
+  };
+
+  // Scan every LIVING markdown doc in the repo — that is the whole point.
+  const docs = walkMdRec(REPO)
+    .map((abs) => ({ path: relPosix(REPO, abs), abs }))
+    .filter((d) => !d.path.includes('node_modules/'))
+    .filter((d) => !isFrozenRecord(d.path))
+    .map((d) => ({ path: d.path, text: readFileSync(d.abs, 'utf8') }));
+
+  const errors = checkCounts({ docs, live });
+  const shown = Object.entries(live).map(([k, v]) => `${v} ${COUNT_COLLECTIONS[k].label}`).join(' / ');
+  return {
+    errors,
+    summary: `counts: ${docs.length} living doc(s) scanned against the live registry (${shown})`,
+  };
+}
+
+// ====================================================================
 // CLI
 // ====================================================================
 
@@ -721,6 +908,7 @@ const FAMILIES = new Map([
   ['references', familyReferences],
   ['catalogs', familyCatalogs],
   ['coverage', familyCoverage],
+  ['counts', familyCounts],
 ]);
 
 async function runCli() {
