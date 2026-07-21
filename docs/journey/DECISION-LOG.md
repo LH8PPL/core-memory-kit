@@ -10,6 +10,18 @@
 
 ---
 
+## 2026-07-21 — D-384 · CORRECTION · D-383's bench-storage call was WRONG — the pin would have crashed the benchmark, not skewed it
+
+**Reverses the one fork D-383 decided.** D-383 moved `bench-storage.yml` from Node 24 onto the `.nvmrc` pin (20), reasoning that a benchmark measuring on a different major than the approving gates is an invisible confound. **That reasoning is sound in general and wrong in this specific case:** `scripts/bench-storage.mjs` imports `node:sqlite` unconditionally at module scope, and that module did not exist before **Node 22.5**. On Node 20 the benchmark does not produce misleading numbers — it **throws on import**, and `node --experimental-sqlite` is rejected at startup too. The workflow would have failed every run.
+
+**Corrected:** `bench-storage.yml` keeps Node 24 as the allowlist's first (and only) member, with the ≥22.5 requirement written into the entry. The allowlist's purpose is restated accordingly — not "stays empty," but "every divergence is a written, defensible choice." D-383's general argument stands for every other workflow; only its application to this one is reversed.
+
+**How it was missed, precisely, because the mechanism matters more than the miss:** the sweep was a regex over 8 workflow files. `bench-storage.yml`'s own header comment — two lines above the line that was edited — reads *"Node 24 — node:sqlite needs ≥ 22.5."* It had said so all along. The edit was mechanical and did not read the file it was changing, and the resulting D-383 entry then argued confidently for a decision the file itself contradicted.
+
+**The class, and it is not new here:** a *sweep* is a refactor, and the caller-map-both-ways rule applies to it — before changing a value across N files, read what each file does with that value. Bulk-editing by pattern is exactly where "separately-correct-jointly-broken" gets introduced, because the pattern match is blind to why any individual site is the way it is. Related in spirit to D-381's same-lane-deliverable assumption from hours earlier: both are "I changed a thing without reading its context."
+
+**Also closed in the same fix (skill-review):** the validator shipped with **no test file**, while its own module comment claimed the functions were exported "so it is testable without the real repo" — 14 of the repo's other 16 validators have one, and the TDD rule is binding. Now 10 tests, including a regression pinning bench-storage's allowlist entry so a future tidy-up cannot silently empty it. Also: the sub-checkboxes on Task 240 said ☐ while the same entry's prose said shipped (the flip-on-ship rule), and the space-before-colon YAML form (`node-version : 20`) slipped past the regex.
+
 ## 2026-07-21 — D-383 · DECISION · Node pinned once in `.nvmrc`; bench-storage JOINS the pin rather than keeping its drift
 
 **The drift was already real, not prospective:** `node-version` was a copy-pasted literal in 11 `setup-node` blocks across 8 workflows, and `bench-storage.yml` ran Node **24** while every gate that approves the code ran **20**. So the benchmark measured a different runtime than the one production ships on, silently, for as long as that literal had been there. That is the composition-verification class applied to CI — a gate running a different runtime than the release job can pass code the release breaks on.

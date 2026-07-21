@@ -26,14 +26,28 @@ const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 const WORKFLOWS = join(REPO, '.github', 'workflows');
 
 /**
- * Workflows allowed a literal `node-version`, each with the reason it diverges.
- * EMPTY BY DESIGN — a matrix build testing multiple majors would belong here
- * (that is a deliberate test axis, not drift). `bench-storage.yml` was moved
- * ONTO the pin rather than exempted: a benchmark on a different major than the
- * gates is an invisible confound, which is the opposite of what a benchmark is
- * for.
+ * Workflows allowed a literal `node-version`, each with the REASON it diverges.
+ * The point is not that the list stays empty — it is that every entry is a
+ * written, defensible choice rather than a copy-paste accident. A matrix build
+ * testing multiple majors would belong here too (a deliberate test axis, not
+ * drift).
  */
-export const LITERAL_ALLOWLIST = Object.freeze({});
+export const LITERAL_ALLOWLIST = Object.freeze({
+  // REQUIRED divergence, not drift. `scripts/bench-storage.mjs` imports
+  // `node:sqlite` unconditionally at module scope, and that module did not
+  // exist before Node 22.5 — on the .nvmrc pin (20) the benchmark does not
+  // produce worse numbers, it CRASHES on import, and `node --experimental-sqlite`
+  // is rejected at startup too.
+  //
+  // Decision-trail: D-383 originally moved this workflow ONTO the pin, arguing a
+  // bench on a different major is an invisible confound. That reasoning was
+  // right in general and WRONG here, because the thing being benchmarked has a
+  // hard floor above the pin. Caught by skill-review; the file's own header
+  // comment ("Node 24 — node:sqlite needs >= 22.5") had said so all along, two
+  // lines above the line that was edited. The sweep was mechanical and did not
+  // read it. See D-384.
+  'bench-storage.yml': 'node:sqlite requires Node >= 22.5 (added 22.5.0); the benchmark imports it at module scope, so the .nvmrc pin (20) would crash the run rather than skew it',
+});
 
 /** Pure: find bare `node-version:` literals in a workflow's text. */
 export function findLiteralPins(text) {
@@ -41,7 +55,9 @@ export function findLiteralPins(text) {
   const lines = String(text).split(/\r?\n/);
   for (let i = 0; i < lines.length; i += 1) {
     // `node-version-file:` is the good form and must not match.
-    if (/^\s*node-version:\s*\S/.test(lines[i])) {
+    // `\s*` before the colon: `node-version : 20` is valid YAML and would
+    // otherwise slip past (skill-review Minor).
+    if (/^\s*node-version\s*:\s*\S/.test(lines[i])) {
       out.push({ line: i + 1, text: lines[i].trim() });
     }
   }

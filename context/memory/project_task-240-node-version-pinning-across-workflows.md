@@ -12,7 +12,7 @@ source_line: 1
 source_sha1: 885d9736f544ada9be13f194ff36ee448da005faf96e0514328c741e36b56604
 ---
 
-- **Problem:** `node-version` literal copy-pasted in 11 blocks across 8 workflows; divergence already present (bench-storage ran Node 24, gates ran Node 20)
+- **Problem:** `node-version` literal copy-pasted in 10 blocks across 8 workflows; divergence already present (bench-storage ran Node 24, gates ran Node 20)
 - **Solution:** Centralize to single `.nvmrc`; all workflow blocks read from it
 - **Validator:** `validate-node-pin.mjs` fails build on bare literals; empty allowlist by design to force documented divergence
 - **Proof:** Planted test value (`node-version: 18`), verified exact failure message and remedy, reverted clean
