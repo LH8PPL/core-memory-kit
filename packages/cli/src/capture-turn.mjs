@@ -70,10 +70,7 @@ import { extractTurnToolCalls, formatToolCalls, readTranscriptTail } from './tur
 import { readLastEntryFromNowMd } from './auto-extract.mjs';
 import { capturePredictions } from './expectations.mjs';
 import { judgeTurn } from './judge-signals.mjs';
-
-function dateFromIso(iso) {
-  return String(iso).slice(0, 10);
-}
+import { dateFromIso } from './audit-log.mjs';
 
 // A `.extract-<ts>.tmp` turn-file lives only for the duration of one
 // auto-extract run (bounded by the Stop-hook ceiling, design §8.5). The owning

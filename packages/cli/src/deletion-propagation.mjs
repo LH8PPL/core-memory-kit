@@ -38,6 +38,9 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse as parseFrontmatter } from './frontmatter.mjs';
+// Regex-escape a literal needle so it can be matched case-insensitively with
+// flexible whitespace (needles are whitespace-normalized; the raw line isn't).
+import { escapeRegExp } from './sanitize.mjs';
 import { openIndexDb } from './index-db.mjs';
 
 const SESSIONS_REL = ['context', 'sessions'];
@@ -225,8 +228,3 @@ export function screenTombstonedContent(
   return { text: outLines.join('\n'), dropped, truncated };
 }
 
-// Regex-escape a literal needle so it can be matched case-insensitively with
-// flexible whitespace (needles are whitespace-normalized; the raw line isn't).
-function escapeRegExp(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}

@@ -8,15 +8,14 @@
 import {
   existsSync,
   mkdirSync,
-  readdirSync,
   readFileSync,
-  statSync,
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
 import { generateId } from '@lh8ppl/cmk-canonicalize';
 import { VALID_TIERS, resolveTierRoot, resolveFactDir } from './tier-paths.mjs';
 import { parse, format } from './frontmatter.mjs';
+import { eachFactIn } from './fact-store.mjs';
 import { reindex } from './reindex.mjs';
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
@@ -210,18 +209,15 @@ function buildFrontmatterObject(opts, computed) {
 }
 
 // Per Layer-2 review M2: filter INDEX.md from the dedup scan. Pre-fix the
-// inline scanner here didn't exclude INDEX.md; harmless in practice (it
-// has no `id:` matching real ids) but inconsistent with reindex/forget.
+// inline scanner here didn't exclude INDEX.md; harmless in practice (it has no
+// `id:` matching real ids) but inconsistent with reindex/forget — the exact
+// drift the shared walker (Task 241) now makes structurally impossible.
+//
+// `eachFactIn`, not `eachLiveFact`: the dedup scan must find a TOMBSTONED fact
+// too, or a write could re-issue an id that is already spoken for.
 function findExistingFactById(factDir, id) {
-  if (!existsSync(factDir)) return null;
-  for (const entry of readdirSync(factDir, { withFileTypes: true })) {
-    if (!entry.isFile()) continue;
-    if (!entry.name.endsWith('.md')) continue;
-    if (entry.name === 'INDEX.md') continue;
-    const p = join(factDir, entry.name);
-    if (!statSync(p).isFile()) continue;
-    const { frontmatter } = parse(readFileSync(p, 'utf8'));
-    if (frontmatter?.id === id) return p;
+  for (const fact of eachFactIn(factDir)) {
+    if (fact.frontmatter.id === id) return fact.path;
   }
   return null;
 }

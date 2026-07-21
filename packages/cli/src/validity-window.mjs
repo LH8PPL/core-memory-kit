@@ -15,51 +15,24 @@
 // result-shapes, reindex, trust-signal (the supersession dampen, 151.8/151.12).
 
 import {
-  existsSync,
   mkdirSync,
-  readdirSync,
-  readFileSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { ID_PATTERN, resolveTierRoot, resolveFactDir } from './tier-paths.mjs';
+import { ID_PATTERN } from './tier-paths.mjs';
 import { parse, format } from './frontmatter.mjs';
-import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
+import { appendAuditEntry, nowIso, REASON_CODES, asIsoString } from './audit-log.mjs';
+import { eachLiveFact } from './fact-store.mjs';
 import { ERROR_CATEGORIES, errorResult, notFoundResult } from './result-shapes.mjs';
 import { resolveFact } from './forget.mjs';
 import { reindex } from './reindex.mjs';
 import { applyTrustSignal } from './trust-signal.mjs';
 import { openIndexDb } from './index-db.mjs';
 
-// js-yaml CORE_SCHEMA keeps ISO strings as strings, but a hand-edited or
-// Date-parsed value is normalized defensively (same as expiry-sweep.mjs).
-function asIsoString(v) {
-  if (v instanceof Date) return v.toISOString();
-  return v == null ? '' : String(v);
-}
-
 function findLiveFact(id, { projectRoot, userDir }) {
-  const tiers = [];
-  if (projectRoot) tiers.push('P', 'L');
-  if (userDir) tiers.push('U');
-  for (const tier of tiers) {
-    const tierRoot = resolveTierRoot({ tier, projectRoot, userDir });
-    const factDir = resolveFactDir(tier, tierRoot);
-    if (!existsSync(factDir)) continue;
-    for (const entry of readdirSync(factDir, { withFileTypes: true })) {
-      if (!entry.isFile() || !entry.name.endsWith('.md') || entry.name === 'INDEX.md') continue;
-      const path = join(factDir, entry.name);
-      let frontmatter, body;
-      try {
-        ({ frontmatter, body } = parse(readFileSync(path, 'utf8')));
-      } catch {
-        continue;
-      }
-      if (frontmatter?.id === id && !frontmatter.deleted_at) {
-        return { id, tier, tierRoot, factDir, path, frontmatter, body };
-      }
-    }
+  for (const fact of eachLiveFact({ projectRoot, userDir })) {
+    if (fact.frontmatter.id === id) return fact;
   }
   return null;
 }

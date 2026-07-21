@@ -10,6 +10,16 @@
 
 ---
 
+## 2026-07-21 — D-385 · NOTE — the clone audit undercounted by 5: a grep for ONE spelling of an idiom measures the spelling, not the idiom
+
+**Task 241 shipped the shared fact-walk** ([`fact-store.mjs`](../../packages/cli/src/fact-store.mjs)) — the fifth member of the shared-modules set the other four joined back in 2026-05. Measured result: cross-file clone groups at a 14-line window **1 → 0** (the `temporal-sweep` ↔ `validity-window` pair D-368 named), at 8 lines **20 → 15**; the four byte-identical listers gone; suite **3325/3325 with zero test edits**, which is the whole contract of a pure refactor.
+
+**The finding worth keeping is that D-368's own measurement was low.** It reported the walk in **9 files**, because its scan keyed on the literal `entry.name === 'INDEX.md'`. Reading for the walk rather than the string found **14**: `decisions-journal`, `digest`, `memory-health` and `import-claude-md` iterate `readdirSync(dir)` as plain strings (`name === 'INDEX.md'`), and `doctor`'s HC-4 spells it `n !== 'INDEX.md'`. Same walk, three spellings, and the scan saw one. **The four string-form walks were also the weakest of the fourteen** — none had an `isFile()` guard, so a directory named `x.md` would have been read as a fact.
+
+This is the D-377 shape one level in: that finding was *enumerate-the-locations misses the location you did not enumerate*; this one is *grep-the-idiom misses the idiom you did not spell*. Both are the same underlying error — measuring a proxy and reporting it as the quantity. The correction in both cases is the same: SCAN broadly, then READ. A normalized clone scan is a candidate generator, never a census.
+
+**The rejections carried more weight than the migrations.** Four sites share the mechanics but not the contract, and mechanically folding them in would have been a bug wearing a refactor's clothes — exactly the `slugify` trap D-368 already flagged. `import-claude-md`'s dedup set deliberately indexes fact files with NO `id`, so routing it through the id-requiring walk would have quietly shrunk the set and let a duplicate import land. `judgment.mjs` reads a different collection out of the same directory. `lazy-compress` short-circuits on the first dirent with no stat and no parse, by documented intent. `forget`'s scratchpad walk is a different collection at the tier root. Each now carries its reason in the module header, so the next scanner-driven sweep reads the verdict instead of re-deriving it.
+
 ## 2026-07-21 — D-384 · CORRECTION · D-383's bench-storage call was WRONG — the pin would have crashed the benchmark, not skewed it
 
 **Reverses the one fork D-383 decided.** D-383 moved `bench-storage.yml` from Node 24 onto the `.nvmrc` pin (20), reasoning that a benchmark measuring on a different major than the approving gates is an invisible confound. **That reasoning is sound in general and wrong in this specific case:** `scripts/bench-storage.mjs` imports `node:sqlite` unconditionally at module scope, and that module did not exist before **Node 22.5**. On Node 20 the benchmark does not produce misleading numbers — it **throws on import**, and `node --experimental-sqlite` is rejected at startup too. The workflow would have failed every run.

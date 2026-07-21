@@ -42,7 +42,7 @@
 // established sources of truth and does NOT re-implement bullet/frontmatter
 // parsing or path resolution.
 
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { basename, join, relative } from 'node:path';
 import chokidar from 'chokidar';
 import { INDEX_DB_SCHEMA } from './index-db.mjs';
@@ -50,6 +50,7 @@ import { hashContent } from './content-hash.mjs';
 import { syncTranscriptChunks } from './transcript-index.mjs';
 import { readBullet, parseBulletProvenance, isSeedProvenance } from './provenance.mjs';
 import { parse as parseFrontmatter } from './frontmatter.mjs';
+import { listFactFiles } from './fact-store.mjs';
 import { initTrustScore } from './trust-score.mjs';
 import {
   VALID_TIERS,
@@ -88,17 +89,12 @@ export function listObservationSources({ projectRoot, userDir }) {
     }
     // Granular fact files: <tier>/memory/*.md (excluding INDEX.md)
     const factDir = resolveFactDir(tier, root);
-    if (existsSync(factDir)) {
-      for (const entry of readdirSync(factDir, { withFileTypes: true })) {
-        if (!entry.isFile()) continue;
-        if (!entry.name.endsWith('.md')) continue;
-        if (entry.name === 'INDEX.md') continue;
-        sources.push({
-          path: join(factDir, entry.name),
-          tier,
-          kind: 'fact',
-        });
-      }
+    for (const filename of listFactFiles(factDir)) {
+      sources.push({
+        path: join(factDir, filename),
+        tier,
+        kind: 'fact',
+      });
     }
   }
   return sources;

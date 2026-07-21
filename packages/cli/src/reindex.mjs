@@ -6,16 +6,18 @@
 // parse). See CLAUDE.md "Shared modules" rule.
 
 import {
-  existsSync,
   mkdirSync,
-  readdirSync,
   readFileSync,
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
 import { VALID_TIERS, resolveTierRoot, resolveFactDir } from './tier-paths.mjs';
 import { parse } from './frontmatter.mjs';
-import { compareCodeUnits } from './audit-log.mjs';
+// The shared fact-file lister (Task 241). Its sort uses the same explicit
+// code-unit comparator this module needed: these filenames order INDEX.md, a
+// COMMITTED file, and locale-dependent collation would make the same corpus
+// produce different diffs on different machines.
+import { listFactFiles } from './fact-store.mjs';
 
 const INDEX_SIZE_WARN_BYTES = 25 * 1024;
 const HOOK_MAX_LEN = 80;
@@ -55,21 +57,6 @@ function formatIndexLine({ id, type, title, filename, hook }) {
   const linkTitle = String(title ?? '').replace(/\s+/g, ' ').trim();
   const head = `- (${id}) [${type}] [${linkTitle}](${filename})`;
   return hook ? `${head} — ${autolinkBareUrls(hook)}` : head;
-}
-
-function listFactFiles(factDir) {
-  if (!existsSync(factDir)) return [];
-  const out = [];
-  for (const entry of readdirSync(factDir, { withFileTypes: true })) {
-    if (!entry.isFile()) continue;
-    if (!entry.name.endsWith('.md')) continue;
-    if (entry.name === 'INDEX.md') continue;
-    out.push(entry.name);
-  }
-  // Explicit code-unit comparator (sonar S2871). These filenames order INDEX.md,
-  // a COMMITTED file — locale-dependent collation would make the same corpus
-  // produce different diffs on different machines.
-  return out.sort(compareCodeUnits);
 }
 
 export function reindex(opts = {}) {

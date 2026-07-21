@@ -24,9 +24,9 @@
 // tier at write time; this section is the batch view over what already
 // landed.
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parse as parseFrontmatter } from './frontmatter.mjs';
+import { eachFactIn } from './fact-store.mjs';
 import { listConflictQueue } from './conflict-queue.mjs';
 import { listReviewQueue } from './review-queue.mjs';
 import { nowIso } from './audit-log.mjs';
@@ -67,23 +67,17 @@ function jaccard(aSet, bSet) {
 function readFacts(projectRoot) {
   const dir = join(projectRoot, 'context', 'memory');
   const facts = [];
-  if (!existsSync(dir)) return facts;
-  for (const name of readdirSync(dir)) {
-    if (!name.endsWith('.md') || name === 'INDEX.md') continue;
-    try {
-      const { frontmatter, body } = parseFrontmatter(readFileSync(join(dir, name), 'utf8'));
-      if (!frontmatter?.id) continue;
-      facts.push({
-        slug: name.replace(/\.md$/, ''),
-        id: frontmatter.id,
-        type: frontmatter.type ?? 'unknown',
-        trust: frontmatter.trust ?? 'unknown',
-        createdAt: frontmatter.created_at ?? null,
-        body: String(body ?? ''),
-      });
-    } catch {
-      // unparseable file — content health can't read it; HC-4/reindex own that class
-    }
+  // Shared fact walk (Task 241): it skips INDEX.md + unparseable files, which
+  // content health can't read anyway (HC-4/reindex own reporting that class).
+  for (const { id, filename, frontmatter, body } of eachFactIn(dir)) {
+    facts.push({
+      slug: filename.replace(/\.md$/, ''),
+      id,
+      type: frontmatter.type ?? 'unknown',
+      trust: frontmatter.trust ?? 'unknown',
+      createdAt: frontmatter.created_at ?? null,
+      body,
+    });
   }
   return facts;
 }

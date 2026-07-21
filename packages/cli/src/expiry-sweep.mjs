@@ -19,21 +19,12 @@
 // `yes: true` on forget is deliberate: the human decision was made at WRITE
 // time when the expiry was declared; the sweep executes it.
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { resolveTierRoot, resolveFactDir } from './tier-paths.mjs';
-import { parse } from './frontmatter.mjs';
 import { forget } from './forget.mjs';
-import { nowIso } from './audit-log.mjs';
-
-// Which tiers to walk: P + L always (both live under projectRoot); U only
-// when a userDir is supplied — same convention as forget's resolver.
-function tiersFor({ projectRoot, userDir }) {
-  const tiers = [];
-  if (projectRoot) tiers.push('P', 'L');
-  if (userDir) tiers.push('U');
-  return tiers;
-}
+import { nowIso, asIsoString } from './audit-log.mjs';
+// The shared fact walk (Task 241). `tiersFor` — "P + L always, U only when a
+// userDir is supplied" — used to be defined HERE and re-inlined in three other
+// modules; it now lives beside the walker that consumes it.
+import { eachLiveFact } from './fact-store.mjs';
 
 /**
  * Sweep all fact tiers for facts past their declared expires_at and
@@ -52,54 +43,35 @@ export function sweepExpiredFacts({ projectRoot, userDir, now } = {}) {
   const errors = [];
   let skippedMalformed = 0;
 
-  for (const tier of tiersFor({ projectRoot, userDir })) {
-    const tierRoot = resolveTierRoot({ tier, projectRoot, userDir });
-    const factDir = resolveFactDir(tier, tierRoot);
-    if (!existsSync(factDir)) continue;
+  for (const { id, tier, frontmatter } of eachLiveFact({ projectRoot, userDir })) {
+    if (frontmatter.expires_at === undefined || frontmatter.expires_at === null) continue;
 
-    for (const entry of readdirSync(factDir, { withFileTypes: true })) {
-      if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
-      if (entry.name === 'INDEX.md') continue;
+    // asIsoString: the kit's frontmatter.mjs uses CORE_SCHEMA, which keeps ISO
+    // strings as STRINGS (it deliberately does not resolve timestamps) — its
+    // Date branch guards files touched by a non-kit YAML parser, not our own.
+    const raw = asIsoString(frontmatter.expires_at);
+    const expiresMs = Date.parse(raw);
+    if (Number.isNaN(expiresMs)) {
+      // A hand-edited/corrupted value: never sweep what we can't read;
+      // count it so doctor/curate output can surface the drift.
+      skippedMalformed++;
+      continue;
+    }
+    if (nowMs < expiresMs) continue; // still valid
 
-      let frontmatter;
-      try {
-        ({ frontmatter } = parse(readFileSync(join(factDir, entry.name), 'utf8')));
-      } catch {
-        continue; // unreadable file is not this sweep's problem
-      }
-      if (!frontmatter?.id || frontmatter.deleted_at) continue;
-      if (frontmatter.expires_at === undefined || frontmatter.expires_at === null) continue;
-
-      // The kit's frontmatter.mjs uses CORE_SCHEMA, which keeps ISO strings
-      // as STRINGS (it deliberately does not resolve timestamps) — the Date
-      // branch guards files touched by a non-kit YAML parser, not our own.
-      const raw =
-        frontmatter.expires_at instanceof Date
-          ? frontmatter.expires_at.toISOString()
-          : String(frontmatter.expires_at);
-      const expiresMs = Date.parse(raw);
-      if (Number.isNaN(expiresMs)) {
-        // A hand-edited/corrupted value: never sweep what we can't read;
-        // count it so doctor/curate output can surface the drift.
-        skippedMalformed++;
-        continue;
-      }
-      if (nowMs < expiresMs) continue; // still valid
-
-      const r = forget({
-        idOrQuery: frontmatter.id,
-        projectRoot,
-        userDir,
-        reason: `expired: declared expires_at ${raw} passed (swept at ${ts})`,
-        deletedBy: 'expiry-sweep',
-        yes: true,
-        now: ts,
-      });
-      if (r.action === 'tombstoned') {
-        swept.push({ id: frontmatter.id, tier, expiresAt: raw });
-      } else {
-        errors.push(`${frontmatter.id}: ${r.action}${r.errors ? ' — ' + r.errors.join('; ') : ''}`);
-      }
+    const r = forget({
+      idOrQuery: id,
+      projectRoot,
+      userDir,
+      reason: `expired: declared expires_at ${raw} passed (swept at ${ts})`,
+      deletedBy: 'expiry-sweep',
+      yes: true,
+      now: ts,
+    });
+    if (r.action === 'tombstoned') {
+      swept.push({ id, tier, expiresAt: raw });
+    } else {
+      errors.push(`${id}: ${r.action}${r.errors ? ' — ' + r.errors.join('; ') : ''}`);
     }
   }
 

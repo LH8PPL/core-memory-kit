@@ -24,10 +24,11 @@
 // Explicit user action only. Never automatic. `--dry-run` previews; apply
 // requires explicit `--yes` (same confirmation contract as the precedent).
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { canonicalize, generateId } from '@lh8ppl/cmk-canonicalize';
 import { hashContent } from './content-hash.mjs';
+import { listFactFiles } from './fact-store.mjs';
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult } from './result-shapes.mjs';
 import { writeFact } from './write-fact.mjs';
@@ -151,16 +152,17 @@ function collectExistingCanonical(projectRoot) {
     }
   }
   const factDir = join(projectRoot, 'context', 'memory');
-  if (existsSync(factDir)) {
-    for (const name of readdirSync(factDir)) {
-      if (!name.endsWith('.md') || name === 'INDEX.md') continue;
-      try {
-        const { body } = parseFrontmatter(readFileSync(join(factDir, name), 'utf8'));
-        const c = canonicalize(String(body ?? '').trim());
-        if (c) existing.add(c);
-      } catch {
-        // skip unparseable files; writeFact's own id dedup still backstops
-      }
+  // The shared LISTER, not the parsed walk: this dedup set is deliberately
+  // permissive — it indexes the body of every fact file, INCLUDING one with no
+  // `id` in its frontmatter. `eachFactIn` requires an id, so using it here would
+  // silently shrink the dedup set and let a duplicate import through.
+  for (const name of listFactFiles(factDir)) {
+    try {
+      const { body } = parseFrontmatter(readFileSync(join(factDir, name), 'utf8'));
+      const c = canonicalize(String(body ?? '').trim());
+      if (c) existing.add(c);
+    } catch {
+      // skip unparseable files; writeFact's own id dedup still backstops
     }
   }
   return existing;

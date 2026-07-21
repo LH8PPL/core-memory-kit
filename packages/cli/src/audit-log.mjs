@@ -86,6 +86,37 @@ export function nowIso() {
   return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
 }
 
+/**
+ * Normalize a frontmatter timestamp to the kit's strict ISO string form.
+ *
+ * The kit's `frontmatter.mjs` uses js-yaml CORE_SCHEMA, which deliberately does
+ * NOT resolve timestamps — an ISO value stays a string. The Date branch guards
+ * files touched by a NON-kit YAML parser (a hand-edit through an editor plugin),
+ * not our own writes. `null`/`undefined` → `''` so `Date.parse` fails cleanly
+ * rather than throwing.
+ *
+ * Shared per Task 241: byte-identical in temporal-sweep + validity-window, and
+ * the latter's own comment admitted it was copied ("same as expiry-sweep.mjs").
+ */
+export function asIsoString(v) {
+  if (v instanceof Date) return v.toISOString();
+  return v == null ? '' : String(v);
+}
+
+/**
+ * The `YYYY-MM-DD` day key from an ISO timestamp — the day-file/session naming
+ * convention across the capture + compress path. Validating upstream would be
+ * over-engineering: callers pass `nowIso()` or a test fixture date.
+ *
+ * Shared per Task 241: three functionally-identical copies (capture-prompt,
+ * capture-turn, compress-session). `String(iso)` is the tolerant form both
+ * capture sites already used; compress-session's `ts.slice` threw on a
+ * non-string, so consolidating here only widens what is accepted.
+ */
+export function dateFromIso(iso) {
+  return String(iso).slice(0, 10);
+}
+
 function auditLogPath(tierRoot) {
   return join(tierRoot, '.locks', 'audit.log');
 }
