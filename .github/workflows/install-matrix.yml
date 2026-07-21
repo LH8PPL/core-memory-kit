@@ -31,7 +31,7 @@ jobs:
       - name: Set up Node 20
         uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
 
       - name: Install Node deps (with retry — npm transient "Exit handler" bug on macOS)
         shell: bash

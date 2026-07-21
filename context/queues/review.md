@@ -16,3 +16,6 @@
 ## 2026-07-21T12:41:53Z — auto-extract (medium-trust, pending review)
 - (P-47RHYWDa) GitHub issues auto-close when supply-chain surface is clean, preventing alert fatigue and duplicate daily notifications.
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-21T12:41:53Z -->
+## 2026-07-21T13:32:51Z — auto-extract (medium-trust, pending review)
+- (P-ZNQa9BGN) we need to fix this:
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-21T13:32:51Z -->

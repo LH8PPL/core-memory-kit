@@ -36,7 +36,7 @@ jobs:
           fetch-depth: 0 # full history for accurate blame / new-code detection
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version-file: .nvmrc
       - run: npm ci --no-audit --no-fund
       # Cache the HF test model (bge-small) — SAME step as ci.yml's test +
       # coverage jobs (Task 125.3 / PR #152). Without it this job's uncached

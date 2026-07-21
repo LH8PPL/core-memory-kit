@@ -24,7 +24,7 @@ jobs:
       - name: Set up Node 20
         uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v6

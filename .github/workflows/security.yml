@@ -51,7 +51,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version-file: .nvmrc
       - run: npm ci --no-audit --no-fund
       # Hard-gate on high/critical in SHIPPED (production) deps only:
       # `--omit=dev` excludes the vitest/vite/esbuild test toolchain, so a
@@ -87,11 +87,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          # Literal 20 to match this file's other jobs. Task 240 converts ALL
-          # setup-node blocks to `node-version-file: .nvmrc` in one sweep —
-          # referencing that file before 240 ships would break this job (caught
-          # pre-commit: the same-lane-deliverable assumption class).
-          node-version: 20
+          node-version-file: .nvmrc
       - run: npm ci --no-audit --no-fund
       # Both scanners run again here in REPORT mode (never failing the step) so
       # the reporter sees their raw JSON. `|| true` is deliberate: a scanner
