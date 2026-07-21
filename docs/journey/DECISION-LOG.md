@@ -10,6 +10,20 @@
 
 ---
 
+## 2026-07-21 — D-381 · DECISION · Task 237's standing watch: DAILY not weekly, and the gate's logic lives in a script so it can be tested
+
+**The task shipped the day its own thesis fired in the wild.** Task 237 argued a standing watch was needed because the push/PR gates only run when someone pushes. Hours before building it, `main` went red on exactly that: two advisories (`body-parser` GHSA-v422-hmwv-36x6, `protobufjs` GHSA-j3f2-48v5-ccww) published overnight, caught only because a research commit happened to be pushed that afternoon. On a quiet week they'd have sat undetected. That is evidence, not a rationale.
+
+**DAILY, not the weekly the task entry proposed** (decision-trail: the original wording was "weekly + on-dependency-change"). The same 24 hours produced TWO advisories on a surface of ~8 direct dependencies; weekly would mean up to 7 days of unknown exposure. Two scanners over a tiny dep tree is cheap enough that daily costs nothing meaningful.
+
+**The gate's logic lives in `scripts/supply-chain-report.mjs`, NOT in workflow YAML — and that was forced by the done-criterion.** The task required proving the gate BITES, and its own suggestion was "a deliberately-pinned vulnerable fixture." Pinning a real vulnerable dependency on `main` to prove a security gate works is absurd. Extracting the decision as a PURE function makes the criterion satisfiable properly: 10 unit tests feed it fixtures, including **an osv-only finding while npm-audit is clean** — the exact 2026-07-21 shape, since the two databases genuinely disagree — and a moderate-only case that must stay SILENT (alert-fatigue is how a watch gets ignored). This generalizes: *when a done-criterion is hard to test, that is usually the design telling you the logic is in the wrong layer.*
+
+**Delivery is an ISSUE, because a failed check on a scheduled run notifies nobody** (no PR to annotate). Stable body marker → a re-run updates one issue instead of filing a new one every morning; auto-closes when the surface goes clean. On PR/push the check failure remains the delivery, so nothing double-reports.
+
+**LEFT from the ECC borrow (re-read at their HEAD per D-375):** their hand-curated IOC blocklist of known-compromised `package@version` pairs. A hand-tended list rots the moment it stops being tended, and a stale security list is worse than none — it reads as coverage. Recorded in SECURITY.md so nobody re-proposes it.
+
+**A composition bug caught pre-commit, worth naming:** the new job first read `node-version-file: .nvmrc` — a file that does not exist, because it is **Task 240's deliverable**, an unshipped task in the SAME lane. Shipping it would have broken the workflow on its first scheduled run, at 06:23 UTC, with nobody watching. Fixed to the literal `node-version: 20` matching this file's other jobs, leaving 240 to sweep them all together as its entry specifies. **The class: assuming a same-lane task's deliverable already exists** — lane membership means "planned together", not "already there". The caller-map discipline applied to a task's outputs rather than a function's callers.
+
 ## 2026-07-21 — D-380 · NOTE + DECISION · The dreaming/graph research pass: 36 notes, three verdicts, and a press-laundering finding
 
 **The user's commission:** a research pass over 17 saved articles/PDF + 9 repos, with agents (Sonnet), links followed, images read, already-read projects delta-re-cloned, and the graph-DB question explicitly on the table. Run as a 32-agent workflow (29 readers → 3 themed syntheses; 4.35M subagent tokens, 0 errors), then a 2-agent follow-up over primary pages the user fetched manually past the AI firewalls. All notes in `docs/research/2026-07-21-*.md`, registered in INDEX.md.

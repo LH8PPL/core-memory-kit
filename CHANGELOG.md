@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Changed
+
+- **The kit now watches for dependency advisories every day, not only when someone pushes.** Its security scanners already gated every pull request — but an advisory published *after* the last PR reached nobody until the next one. That gap is real: the day this shipped, two advisories landed overnight and were caught only because an unrelated commit happened to be pushed. The same scanners now also run daily and, on a high/critical finding, open a GitHub issue naming the package and the fix (updated on re-run, closed automatically when the surface goes clean). Coverage boundary stated honestly in SECURITY.md: published advisories only — not zero-days or typosquats. (Task 237, D-381)
+
 ## [0.6.1] — 2026-07-20
 
 ### Added

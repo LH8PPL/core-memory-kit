@@ -56,6 +56,14 @@ Every push + PR runs (see `.github/workflows/`):
 - **Known CVEs / supply chain** — `osv-scanner` (OSV.dev DB → Security tab) + `npm audit --audit-level=high` (**hard gate** on high/critical) + **Dependabot** (weekly update PRs for npm + GitHub Actions).
 - **SAST** — `CodeQL` (JavaScript) on the kit's own source.
 
+### The standing watch (Task 237)
+
+The push/PR gates above only run **when someone pushes** — so an advisory published *after* the last PR reaches nobody until the next one. That is not hypothetical: on **2026-07-21** two advisories (`body-parser` GHSA-v422-hmwv-36x6, `protobufjs` GHSA-j3f2-48v5-ccww) were published overnight and were caught only because an unrelated commit happened to be pushed that afternoon.
+
+So the same two scanners also run **daily on a schedule** (and on demand via `workflow_dispatch`). When they find something high/critical, the watch **opens a GitHub issue** — a failed check on a scheduled run notifies nobody, since there is no PR to annotate. A re-run updates that one issue rather than filing a new one each morning, and the issue is **closed automatically** when the dependency surface goes clean again.
+
+**What the watch covers, honestly:** *published* advisories in the npm and OSV databases. It does **not** detect zero-days, typosquatted packages, or a compromised-but-not-yet-reported version — it is a latency fix for known advisories, not a guarantee against unknown ones. We deliberately do **not** maintain a hand-curated blocklist of known-compromised `package@version` pairs: such a list rots the moment it stops being tended, and a stale security list is worse than none because it reads as coverage.
+
 ### Accepted, non-shipping findings
 
 `npm audit` currently reports a small number of **moderate** advisories confined to the **dev/test toolchain** (`vitest` / `vite` / `esbuild`). These packages are **devDependencies — they are never published** in the npm tarball (the `files` whitelist ships only `bin/`, `src/`, `template/`, `README.md`). They do not reach a user's machine and so are not gated on; Dependabot tracks them for routine cleanup.
