@@ -34,7 +34,7 @@ import {
   unlinkSync,
 } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { nowIso } from './audit-log.mjs';
+import { nowIso, dateFromIso } from './audit-log.mjs';
 import { ERROR_CATEGORIES } from './result-shapes.mjs';
 import { HaikuTimeoutError } from './compressor.mjs';
 import { maskPii, localUsernames, resolvePrivacyScreen } from './pii-patterns.mjs';
@@ -134,12 +134,6 @@ function todayMdPath(projectRoot, date) {
 
 function compressLogPath(projectRoot, date) {
   return join(projectRoot, ...SESSIONS_DIR_RELATIVE, `${date}.compress.log`);
-}
-
-function dateFromIso(ts) {
-  // ISO 8601 first 10 chars are YYYY-MM-DD; safe for both
-  // '2026-05-26T10:00:00Z' and the nowIso() shape.
-  return ts.slice(0, 10);
 }
 
 // Task 106 (§16.27 file-rename pattern). ATOMICALLY claim the live buffer:

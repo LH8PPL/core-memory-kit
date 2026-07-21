@@ -24,16 +24,16 @@
 // ("state updates resolved: X → Y") is read from the temporal_supersede
 // audit entries by inject-context at the next SessionStart.
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { resolveTierRoot, resolveFactDir } from './tier-paths.mjs';
 import { parse } from './frontmatter.mjs';
 import { canonicalize } from '@lh8ppl/cmk-canonicalize';
 import { openIndexDb } from './index-db.mjs';
 import { reindexBoot } from './index-rebuild.mjs';
 import { resolveTemporalSupersede } from './validity-window.mjs';
 import { bumpFactRecurrence } from './write-fact.mjs';
-import { nowIso } from './audit-log.mjs';
+import { nowIso, asIsoString } from './audit-log.mjs';
+import { eachLiveFact } from './fact-store.mjs';
 
 // Cost bound: one batched call, at most this many pairs per sweep. Overflow
 // is NOT silent (the no-silent-caps rule): when the cap would be exceeded the
@@ -47,11 +47,6 @@ const CANDIDATES_PER_FACT = 3;
 const BODY_SLICE = 350;
 const DEFAULT_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
 const MARKER_REL = ['context', '.locks', 'temporal-sweep-last-run'];
-
-function asIsoString(v) {
-  if (v instanceof Date) return v.toISOString();
-  return v == null ? '' : String(v);
-}
 
 function readMarker(projectRoot) {
   const p = join(projectRoot, ...MARKER_REL);
@@ -68,39 +63,23 @@ function writeMarker(projectRoot, ts) {
 
 function collectNewStateFacts({ projectRoot, userDir, sinceMs }) {
   const out = [];
-  const tiers = [];
-  if (projectRoot) tiers.push('P', 'L');
-  if (userDir) tiers.push('U');
-  for (const tier of tiers) {
-    const tierRoot = resolveTierRoot({ tier, projectRoot, userDir });
-    const factDir = resolveFactDir(tier, tierRoot);
-    if (!existsSync(factDir)) continue;
-    for (const entry of readdirSync(factDir, { withFileTypes: true })) {
-      if (!entry.isFile() || !entry.name.endsWith('.md') || entry.name === 'INDEX.md') continue;
-      const path = join(factDir, entry.name);
-      let frontmatter, body;
-      try {
-        ({ frontmatter, body } = parse(readFileSync(path, 'utf8')));
-      } catch {
-        continue;
-      }
-      if (!frontmatter?.id || frontmatter.deleted_at || frontmatter.superseded_by) continue;
-      // Windows close on CURRENT-STATE claims only — State is the default
-      // shape for every pre-66 fact (absence reads as State, design §16.18).
-      const shape = frontmatter.shape ?? 'State';
-      if (shape !== 'State') continue;
-      const createdMs = Date.parse(asIsoString(frontmatter.created_at));
-      if (!Number.isFinite(createdMs) || createdMs <= sinceMs) continue;
-      out.push({
-        id: frontmatter.id,
-        tier,
-        title: frontmatter.title ?? '',
-        created: asIsoString(frontmatter.created_at),
-        createdMs,
-        body: (body ?? '').trim(),
-        path,
-      });
-    }
+  for (const { id, tier, path, frontmatter, body } of eachLiveFact({ projectRoot, userDir })) {
+    if (frontmatter.superseded_by) continue;
+    // Windows close on CURRENT-STATE claims only — State is the default
+    // shape for every pre-66 fact (absence reads as State, design §16.18).
+    const shape = frontmatter.shape ?? 'State';
+    if (shape !== 'State') continue;
+    const createdMs = Date.parse(asIsoString(frontmatter.created_at));
+    if (!Number.isFinite(createdMs) || createdMs <= sinceMs) continue;
+    out.push({
+      id,
+      tier,
+      title: frontmatter.title ?? '',
+      created: asIsoString(frontmatter.created_at),
+      createdMs,
+      body: body.trim(),
+      path,
+    });
   }
   return out;
 }

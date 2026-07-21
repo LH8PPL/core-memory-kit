@@ -16,9 +16,7 @@
 
 import {
   existsSync,
-  readdirSync,
   readFileSync,
-  statSync,
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
@@ -30,6 +28,7 @@ import {
   resolveFactDir,
 } from './tier-paths.mjs';
 import { parse, format } from './frontmatter.mjs';
+import { eachFactIn } from './fact-store.mjs';
 import { readBullet, writeBullet } from './provenance.mjs';
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import { screenBeforeCommittedWrite } from './poison-guard.mjs';
@@ -60,25 +59,13 @@ function validateOptions(opts) {
   return errors;
 }
 
-function listFactFiles(factDir) {
-  if (!existsSync(factDir)) return [];
-  const out = [];
-  for (const entry of readdirSync(factDir, { withFileTypes: true })) {
-    if (!entry.isFile()) continue;
-    if (!entry.name.endsWith('.md')) continue;
-    if (entry.name === 'INDEX.md') continue;
-    out.push(entry.name);
-  }
-  return out;
-}
-
+// `eachFactIn`, not `eachLiveFact`: a trust override applies to a TOMBSTONED
+// fact too (the level is metadata about the source, independent of whether the
+// fact is currently live), so this walk must not filter on deleted_at.
 function findFactFileById(factDir, id) {
-  for (const filename of listFactFiles(factDir)) {
-    const path = join(factDir, filename);
-    if (!statSync(path).isFile()) continue;
-    const { frontmatter } = parse(readFileSync(path, 'utf8'));
-    if (frontmatter?.id === id) {
-      return { path, frontmatter };
+  for (const fact of eachFactIn(factDir)) {
+    if (fact.frontmatter.id === id) {
+      return { path: fact.path, frontmatter: fact.frontmatter };
     }
   }
   return null;

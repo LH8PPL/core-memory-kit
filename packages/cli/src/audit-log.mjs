@@ -86,6 +86,51 @@ export function nowIso() {
   return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
 }
 
+/**
+ * Normalize a frontmatter timestamp to the kit's strict ISO string form.
+ *
+ * The kit's `frontmatter.mjs` uses js-yaml CORE_SCHEMA, which deliberately does
+ * NOT resolve timestamps — an ISO value stays a string. The Date branch guards
+ * files touched by a NON-kit YAML parser (a hand-edit through an editor plugin),
+ * not our own writes. `null`/`undefined` → `''` so `Date.parse` fails cleanly
+ * rather than throwing.
+ *
+ * Shared per Task 241: byte-identical in temporal-sweep + validity-window, and
+ * the latter's own comment admitted it was copied ("same as expiry-sweep.mjs").
+ */
+export function asIsoString(v) {
+  if (v instanceof Date) return v.toISOString();
+  return v == null ? '' : String(v);
+}
+
+/**
+ * The `YYYY-MM-DD` day key from an ISO timestamp — the day-file/session naming
+ * convention across the capture + compress path.
+ *
+ * Shared per Task 241: three functionally-identical copies (capture-prompt,
+ * capture-turn, compress-session). The two capture sites used the tolerant
+ * `String(iso).slice(0,10)`; compress-session used `ts.slice(0,10)`, which THREW
+ * on a non-string. Consolidating naively on the tolerant form looked like a pure
+ * widening and was not: `compress-session` feeds this straight into a FILENAME
+ * (`today-${date}.md`), and `String(new Date(…)).slice(0,10)` yields
+ * `'Tue Jul 21'` — a perfectly legal filename on both platforms. The crash WAS
+ * the guard, so dropping it would have turned a loud failure into a silently
+ * misnamed day file, which is the worst outcome for a memory tier.
+ *
+ * So the type check is explicit and applies to all three callers. Every one of
+ * them passes `nowIso()` or a fixture string today, and the capture hooks catch
+ * and fail open, so a throw here degrades to "this turn was not captured" rather
+ * than to a corrupt day file. (Skill-review M2, Task 241.)
+ */
+export function dateFromIso(iso) {
+  if (typeof iso !== 'string') {
+    throw new TypeError(
+      `dateFromIso: expected an ISO string, got ${iso === null ? 'null' : typeof iso}`,
+    );
+  }
+  return iso.slice(0, 10);
+}
+
 function auditLogPath(tierRoot) {
   return join(tierRoot, '.locks', 'audit.log');
 }

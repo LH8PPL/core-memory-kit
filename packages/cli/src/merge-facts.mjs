@@ -7,11 +7,8 @@
 // modules" rule.
 
 import {
-  existsSync,
   mkdirSync,
-  readdirSync,
   readFileSync,
-  statSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -23,6 +20,7 @@ import {
   resolveFactDir,
 } from './tier-paths.mjs';
 import { parse, format } from './frontmatter.mjs';
+import { eachFactIn } from './fact-store.mjs';
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult, notFoundResult } from './result-shapes.mjs';
 import { writeFact } from './write-fact.mjs';
@@ -30,26 +28,10 @@ import { reindex } from './reindex.mjs';
 import { applyTrustSignal } from './trust-signal.mjs';
 import { openIndexDb } from './index-db.mjs';
 
-function listLiveFactFiles(factDir) {
-  if (!existsSync(factDir)) return [];
-  const out = [];
-  for (const entry of readdirSync(factDir, { withFileTypes: true })) {
-    if (!entry.isFile()) continue;
-    if (!entry.name.endsWith('.md')) continue;
-    if (entry.name === 'INDEX.md') continue;
-    out.push(entry.name);
-  }
-  return out;
-}
-
 function findLiveFactById(factDir, id) {
-  if (!existsSync(factDir)) return null;
-  for (const filename of listLiveFactFiles(factDir)) {
-    const p = join(factDir, filename);
-    if (!statSync(p).isFile()) continue;
-    const { frontmatter, body } = parse(readFileSync(p, 'utf8'));
-    if (frontmatter?.id === id && !frontmatter.deleted_at) {
-      return { id, path: p, frontmatter, body };
+  for (const fact of eachFactIn(factDir)) {
+    if (fact.frontmatter.id === id && !fact.frontmatter.deleted_at) {
+      return { id, path: fact.path, frontmatter: fact.frontmatter, body: fact.body };
     }
   }
   return null;

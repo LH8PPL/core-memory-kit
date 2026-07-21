@@ -31,13 +31,7 @@ import { maskPii, localUsernames, resolvePrivacyScreen } from './pii-patterns.mj
 import { appendRedactions } from './redactions-log.mjs';
 import { liveTranscriptPath } from './transcript-screen.mjs';
 import { judgeUserPrompt } from './judge-signals.mjs';
-
-function dateFromIso(iso) {
-  // Slice 'YYYY-MM-DD' from 'YYYY-MM-DDTHH:MM:SSZ'. Validating
-  // upstream would be over-engineering — callers pass nowIso() or a
-  // test fixture date.
-  return String(iso).slice(0, 10);
-}
+import { dateFromIso } from './audit-log.mjs';
 
 // Task 75.2 — the per-prompt "memory available" recall nudge (memsearch's
 // UserPromptSubmit hint, D-115's 75.2 half). The SessionStart snapshot +

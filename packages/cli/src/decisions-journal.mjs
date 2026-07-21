@@ -31,7 +31,7 @@
 
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parse as parseFrontmatter } from './frontmatter.mjs';
+import { eachFactIn } from './fact-store.mjs';
 import { ID_PATTERN } from './tier-paths.mjs';
 import { trimTrailingNewlines } from './managed-block.mjs';
 
@@ -224,24 +224,20 @@ const RICH_WHY_RE = /(?:^|\n)[ \t]*\*\*Why:\*\*[ \t]*([^\n]+)/;
 function readProjectDecisionFacts(projectRoot) {
   const dir = join(projectRoot, 'context', 'memory');
   const out = [];
-  if (!existsSync(dir)) return out;
-  for (const name of readdirSync(dir)) {
-    if (!name.endsWith('.md') || name === 'INDEX.md') continue;
-    try {
-      const { frontmatter, body } = parseFrontmatter(readFileSync(join(dir, name), 'utf8'));
-      if (!frontmatter?.id || frontmatter.type !== DECISION_TYPE) continue;
-      if (frontmatter.deleted_at) continue;
-      const whyMatch = String(body ?? '').match(RICH_WHY_RE);
-      out.push({
-        id: frontmatter.id,
-        type: frontmatter.type,
-        title: frontmatter.title ?? frontmatter.id,
-        createdAt: frontmatter.created_at ?? null,
-        why: whyMatch ? whyMatch[1].trim() : null,
-      });
-    } catch {
-      // unparseable file — reindex/HC-4 own that class; the journal skips it
-    }
+  // The shared fact walk (Task 241) — it already skips unreadable/unparseable
+  // files and INDEX.md, the class this loop used to handle with its own
+  // try/catch (reindex/HC-4 own reporting that; the journal just skips).
+  for (const { id, frontmatter, body } of eachFactIn(dir)) {
+    if (frontmatter.type !== DECISION_TYPE) continue;
+    if (frontmatter.deleted_at) continue;
+    const whyMatch = body.match(RICH_WHY_RE);
+    out.push({
+      id,
+      type: frontmatter.type,
+      title: frontmatter.title ?? id,
+      createdAt: frontmatter.created_at ?? null,
+      why: whyMatch ? whyMatch[1].trim() : null,
+    });
   }
   // Stable chronological order (oldest first) so appends read like a timeline.
   out.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));

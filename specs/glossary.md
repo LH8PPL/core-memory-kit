@@ -100,6 +100,8 @@ Cross-refs: [[Granular archive]], [[Provenance frontmatter]], [[Type taxonomy]].
 
 The collection of one-fact-per-file [[Fact file]]s under `context/memory/` (project tier) and `~/.core-memory-kit/fragments/` (user tier). The [[INDEX]] file is the pointer index over this collection.
 
+**Canonical walker**: all traversal of this collection goes through [`packages/cli/src/fact-store.mjs`](../packages/cli/src/fact-store.mjs) — `listFactFiles` for names, `eachFactIn` / `eachFact` / `eachLiveFact` for parsed facts. Don't roll your own `readdir` loop: the skip rules (INDEX.md, non-files, unparseable frontmatter, tombstones) belong in one place, and they were reimplemented in 14 sites before Task 241. See design §1.3 + CLAUDE.md "Shared modules" rule.
+
 Cross-refs: [[Fact file]], [[INDEX]], [[Pointer index]]. Spec: FR-1, FR-29; design §2.2.
 
 ### INDEX

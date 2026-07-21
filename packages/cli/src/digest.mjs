@@ -12,9 +12,8 @@
 // `--decisions` flag also triggers the DECISIONS.md journal sync (the one
 // mutation, delegated to the append-only writer).
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { parse as parseFrontmatter } from './frontmatter.mjs';
+import { eachFactIn } from './fact-store.mjs';
 
 const TYPE_ORDER = ['project', 'feedback', 'reference', 'user'];
 const TYPE_LABEL = {
@@ -27,22 +26,17 @@ const TYPE_LABEL = {
 function readFacts(projectRoot) {
   const dir = join(projectRoot, 'context', 'memory');
   const facts = [];
-  if (!existsSync(dir)) return facts;
-  for (const name of readdirSync(dir)) {
-    if (!name.endsWith('.md') || name === 'INDEX.md') continue;
-    try {
-      const { frontmatter } = parseFrontmatter(readFileSync(join(dir, name), 'utf8'));
-      if (!frontmatter?.id || frontmatter.deleted_at) continue;
-      facts.push({
-        id: frontmatter.id,
-        type: frontmatter.type ?? 'unknown',
-        title: frontmatter.title ?? frontmatter.id,
-        trust: frontmatter.trust ?? 'unknown',
-        createdAt: frontmatter.created_at ?? null,
-      });
-    } catch {
-      // unparseable — reindex/HC-4 own that class
-    }
+  // Shared fact walk (Task 241): it skips INDEX.md + unreadable/unparseable
+  // files, so the local try/catch is no longer this function's concern.
+  for (const { id, frontmatter } of eachFactIn(dir)) {
+    if (frontmatter.deleted_at) continue;
+    facts.push({
+      id,
+      type: frontmatter.type ?? 'unknown',
+      title: frontmatter.title ?? id,
+      trust: frontmatter.trust ?? 'unknown',
+      createdAt: frontmatter.created_at ?? null,
+    });
   }
   return facts;
 }

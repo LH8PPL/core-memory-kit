@@ -24,7 +24,7 @@
 
 import { homedir, userInfo } from 'node:os';
 import { basename, join } from 'node:path';
-import { sanitizeHomePaths } from './sanitize.mjs';
+import { sanitizeHomePaths, escapeRegExp } from './sanitize.mjs';
 import { parseJsonFile } from './read-json.mjs';
 import { INVISIBLE_UNICODE_CODEPOINTS } from './poison-guard.mjs';
 
@@ -85,10 +85,6 @@ function mightContainPii(text, usernames) {
   if (lower.includes('users') || lower.includes('/home/')) return true;
   for (const u of usernames) if (u && text.includes(u)) return true;
   return false;
-}
-
-function escapeRegExp(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**

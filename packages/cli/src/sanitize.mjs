@@ -67,3 +67,19 @@ export function sanitizeHomePaths(text) {
 export function sanitizeForTitle(s) {
   return sanitizeHomePaths(sanitizePrivacyTags(String(s).trim()));
 }
+
+/**
+ * Escape every regex metacharacter in `s` so it can be embedded in a `RegExp`
+ * as a LITERAL. Both callers build a pattern out of user/corpus-supplied text
+ * (a name to scrub, a username to mask) — without this, a `.` or `(` in that
+ * text silently changes what the pattern matches.
+ *
+ * Lives here rather than in a new one-function module: this file is the kit's
+ * string-shaping home (sanitizeHomePaths / sanitizeForTitle), and it is a leaf,
+ * so `deletion-propagation` gains a cheap import instead of pulling in the
+ * whole pii-patterns chain. Shared per Task 241 (byte-identical in
+ * deletion-propagation + pii-patterns).
+ */
+export function escapeRegExp(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}

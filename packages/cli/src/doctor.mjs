@@ -41,6 +41,7 @@ import {
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import { nowIso } from './audit-log.mjs';
+import { listFactFiles } from './fact-store.mjs';
 import { detectStaleLocks } from './lock-discipline.mjs';
 import { cronSentinelPath } from './lazy-compress.mjs';
 import { isCompactionNeeded } from './compaction-state.mjs';
@@ -436,12 +437,12 @@ function hc4IndexConsistency({ projectRoot }) {
       recoveryCommand: 'cmk reindex',
     };
   }
-  // Count fact files (*.md excluding INDEX.md itself).
+  // Count fact files (*.md excluding INDEX.md itself) — the shared fact-file
+  // lister (Task 241), so a future skip rule reaches HC-4 automatically instead
+  // of leaving it comparing INDEX.md against a differently-filtered set.
   let factFiles;
   try {
-    factFiles = readdirSync(memoryDir).filter(
-      (n) => /\.md$/.test(n) && n !== 'INDEX.md',
-    );
+    factFiles = listFactFiles(memoryDir);
   } catch (err) {
     return {
       id: 'HC-4',

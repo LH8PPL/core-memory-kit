@@ -9,9 +9,7 @@
 import {
   existsSync,
   mkdirSync,
-  readdirSync,
   readFileSync,
-  statSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -24,6 +22,12 @@ import {
   resolveFactDir,
 } from './tier-paths.mjs';
 import { parse, format } from './frontmatter.mjs';
+import {
+  INDEX_FILENAME,
+  eachFactIn,
+  eachLiveFact,
+  listMarkdownFiles,
+} from './fact-store.mjs';
 import { appendAuditEntry, nowIso, REASON_CODES } from './audit-log.mjs';
 import { ERROR_CATEGORIES, errorResult, notFoundResult } from './result-shapes.mjs';
 import { findBulletScratchpad } from './bullet-lookup.mjs';
@@ -37,18 +41,6 @@ import { reindex } from './reindex.mjs';
 // LIFTED here — reasons may contain newlines, colons, etc. and round-trip
 // correctly. Round-trip tests in cli-forget.test.js (`B2 relaxation`) prove it.
 
-function listLiveFactFiles(factDir) {
-  if (!existsSync(factDir)) return [];
-  const out = [];
-  for (const entry of readdirSync(factDir, { withFileTypes: true })) {
-    if (!entry.isFile()) continue;
-    if (!entry.name.endsWith('.md')) continue;
-    if (entry.name === 'INDEX.md') continue;
-    out.push(entry.name);
-  }
-  return out;
-}
-
 function readFactAt(filePath) {
   const text = readFileSync(filePath, 'utf8');
   const { frontmatter, body } = parse(text);
@@ -58,16 +50,20 @@ function readFactAt(filePath) {
 function resolveById(id, { projectRoot, userDir }) {
   const tier = id[0];
   if (!VALID_TIERS.has(tier)) return { matches: [] };
-  const tierRoot = resolveTierRoot({ tier, projectRoot, userDir });
-  const factDir = resolveFactDir(tier, tierRoot);
-  for (const filename of listLiveFactFiles(factDir)) {
-    const p = join(factDir, filename);
-    if (!statSync(p).isFile()) continue;
-    const { frontmatter, body } = readFactAt(p);
-    if (frontmatter?.id === id && !frontmatter.deleted_at) {
+  // The id's own prefix names its tier, so this walks exactly one.
+  for (const fact of eachLiveFact({ projectRoot, userDir, tiers: [tier] })) {
+    if (fact.frontmatter.id === id) {
       return {
         matches: [
-          { id, tier, path: p, frontmatter, body, tierRoot, factDir },
+          {
+            id,
+            tier,
+            path: fact.path,
+            frontmatter: fact.frontmatter,
+            body: fact.body,
+            tierRoot: fact.tierRoot,
+            factDir: fact.factDir,
+          },
         ],
       };
     }
@@ -78,30 +74,19 @@ function resolveById(id, { projectRoot, userDir }) {
 function resolveByQuery(query, { projectRoot, userDir }) {
   const canonicalQuery = canonicalize(query);
   if (!canonicalQuery) return { matches: [] };
-  const tiersToSearch = [];
-  if (projectRoot) tiersToSearch.push('P', 'L');
-  if (userDir) tiersToSearch.push('U');
 
   const matches = [];
-  for (const tier of tiersToSearch) {
-    const tierRoot = resolveTierRoot({ tier, projectRoot, userDir });
-    const factDir = resolveFactDir(tier, tierRoot);
-    for (const filename of listLiveFactFiles(factDir)) {
-      const p = join(factDir, filename);
-      if (!statSync(p).isFile()) continue;
-      const { frontmatter, body } = readFactAt(p);
-      if (!frontmatter?.id || frontmatter.deleted_at) continue;
-      if (canonicalize(body).includes(canonicalQuery)) {
-        matches.push({
-          id: frontmatter.id,
-          tier,
-          path: p,
-          frontmatter,
-          body,
-          tierRoot,
-          factDir,
-        });
-      }
+  for (const fact of eachLiveFact({ projectRoot, userDir })) {
+    if (canonicalize(fact.body).includes(canonicalQuery)) {
+      matches.push({
+        id: fact.frontmatter.id,
+        tier: fact.tier,
+        path: fact.path,
+        frontmatter: fact.frontmatter,
+        body: fact.body,
+        tierRoot: fact.tierRoot,
+        factDir: fact.factDir,
+      });
     }
   }
   // Layer-2 review M3: sort matches deterministically so ambiguous-error
@@ -165,20 +150,22 @@ function scrubScratchpadFile(filePath, id) {
   return { changed: true, removed: bulletsRemoved };
 }
 
+// NOT a fact walk — this walks the TIER ROOT for scratchpads, a different
+// collection that happens to share the .md + INDEX.md skip. It takes the shared
+// `listMarkdownFiles` primitive with its own exclusion set rather than the fact
+// walker, so the two stay independently correct.
+//
+// DECISIONS.md is the APPEND-ONLY decision journal (Task 147 / D-161), NOT a
+// scratchpad — forget must NOT strip its id-bearing lines (the marker +
+// **Fact:** line). The journal sync marks the entry RETRACTED in place instead
+// (preserving the trail). Scrubbing it here would delete the entry's marker and
+// break the retract-in-place path (composition bug).
+const SCRATCHPAD_WALK_EXCLUDE = [INDEX_FILENAME, 'DECISIONS.md'];
+
 function scrubAllScratchpads(tierRoot, id) {
-  if (!existsSync(tierRoot)) return [];
   const edits = [];
-  for (const entry of readdirSync(tierRoot, { withFileTypes: true })) {
-    if (!entry.isFile()) continue;
-    if (!entry.name.endsWith('.md')) continue;
-    if (entry.name === 'INDEX.md') continue;
-    // DECISIONS.md is the APPEND-ONLY decision journal (Task 147 / D-161), NOT
-    // a scratchpad — forget must NOT strip its id-bearing lines (the marker +
-    // **Fact:** line). The journal sync marks the entry RETRACTED in place
-    // instead (preserving the trail). Scrubbing it here would delete the
-    // entry's marker and break the retract-in-place path (composition bug).
-    if (entry.name === 'DECISIONS.md') continue;
-    const p = join(tierRoot, entry.name);
+  for (const filename of listMarkdownFiles(tierRoot, { exclude: SCRATCHPAD_WALK_EXCLUDE })) {
+    const p = join(tierRoot, filename);
     const r = scrubScratchpadFile(p, id);
     if (r.changed) edits.push({ path: p, removed: r.removed });
   }
@@ -354,17 +341,17 @@ export function resolveFact({ id, projectRoot, userDir }) {
   const tierRoot = resolveTierRoot({ tier, projectRoot, userDir });
   const factDir = resolveFactDir(tier, tierRoot);
 
-  for (const filename of listLiveFactFiles(factDir)) {
-    const p = join(factDir, filename);
-    if (!statSync(p).isFile()) continue;
-    const { frontmatter, body } = readFactAt(p);
-    if (frontmatter?.id === id) {
+  // `eachFactIn`, not `eachLiveFact`: this resolver REPORTS the state, so it
+  // must see a tombstoned fact still sitting in the fact dir and label it
+  // rather than skip it.
+  for (const fact of eachFactIn(factDir)) {
+    if (fact.frontmatter.id === id) {
       return {
-        state: frontmatter.deleted_at ? 'tombstoned' : 'live',
-        path: p,
-        body,
-        frontmatter,
-        deletedAt: frontmatter.deleted_at,
+        state: fact.frontmatter.deleted_at ? 'tombstoned' : 'live',
+        path: fact.path,
+        body: fact.body,
+        frontmatter: fact.frontmatter,
+        deletedAt: fact.frontmatter.deleted_at,
       };
     }
   }

@@ -199,6 +199,7 @@ When implementing new task modules under [`packages/cli/src/`](packages/cli/src/
 | Frontmatter read/write (YAML in fact files, HTML-comment in scratchpads) | [`frontmatter.mjs`](packages/cli/src/frontmatter.mjs) (js-yaml–backed) | Write a "tiny shallow split-on-colon" parser |
 | Audit-log appends (any mutating operation) | [`audit-log.mjs`](packages/cli/src/audit-log.mjs) — `appendAuditEntry()` | `appendFileSync` to `.locks/audit.log` directly |
 | Error / result shape | [`result-shapes.mjs`](packages/cli/src/result-shapes.mjs) — `errorResult()` / `notFoundResult()` + `ERROR_CATEGORIES` enum | Hand-roll `{action: 'error', errorCategory: 'schema', ...}` per file |
+| Walking the granular fact archive (list, parse, skip INDEX.md/tombstones) | [`fact-store.mjs`](packages/cli/src/fact-store.mjs) — `listFactFiles()` + `eachFactIn()` / `eachFact()` / `eachLiveFact()` | Write another `readdirSync(factDir)` loop with its own skip rules (this one reached **14 copies** before Task 241) |
 
 Why: the Layer-2 review surfaced 4 modules independently reimplementing the same helpers with small variations — drift was already producing bugs (e.g. `INDEX.md` not filtered from one writer's dedup scan; audit-log shape divergence across writers). Future Layer 3/4/5/6 modules import from these shared sources. See [design §1.3](specs/design.md) for the architectural note and [glossary](specs/glossary.md) entries for [[Audit log]] + [[Result shape]] + [[Provenance frontmatter]].
 
