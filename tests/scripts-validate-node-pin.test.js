@@ -99,25 +99,41 @@ describe('Task 240 — the allowlist is a written choice, not a loophole', () =>
     // the COMPOSITION between .nvmrc and the benchmark's node:sqlite floor —
     // asserted conditionally so this test survives the floor moving in either
     // direction instead of pinning one side of it.
-    const nvmrcMajor = Number.parseInt(
-      readFileSync(join(REPO, '.nvmrc'), 'utf8').trim(),
-      10,
+    // Parse the FULL version, not just the major (skill-review, Task 243):
+    // a major-only parse gave an exact pin like `22.4.0` the green branch while
+    // the bench would crash on it. Tolerate nvm's `v` prefix — `v22` is valid
+    // for both nvm and setup-node's node-version-file, and Number.parseInt('v22')
+    // is NaN, which would fail LOUDLY but point at exactly the wrong fix.
+    const raw = readFileSync(join(REPO, '.nvmrc'), 'utf8').trim().replace(/^v/, '');
+    const [major, minor] = raw.split('.').map((n) => Number.parseInt(n, 10));
+    // The bench's REAL floor is node:sqlite EXTENSION loading (allowExtension /
+    // loadExtension, used by runChild for sqlite-vec): Node 22.13.0 / 23.5.0
+    // per the Node docs — NOT 22.5, which is only where the module appears. A
+    // bare-major pin (`22`) resolves to the latest 22.x, always past 22.13; an
+    // EXACT pin carries its stated minor and must clear the floor itself.
+    // `minor === undefined` is the bare-major case (`22` splits to one part —
+    // and Number.isNaN(undefined) is FALSE, it does not coerce, so checking
+    // NaN alone routed the bare pin into the wrong branch on the first run).
+    const bareOrHighMinor = minor === undefined || Number.isNaN(minor) || minor >= 13;
+    const pinClearsSqliteFloor = major > 22 || (major === 22 && bareOrHighMinor);
+    const bench = readFileSync(
+      join(REPO, '.github', 'workflows', 'bench-storage.yml'),
+      'utf8',
     );
-    if (nvmrcMajor >= 22) {
-      // node:sqlite exists on every 22.x setup-node resolves (>= 22.5) — the
-      // bench must run the pinned runtime like every other job, and any future
-      // re-divergence must re-earn its allowlist entry in writing.
+    if (pinClearsSqliteFloor) {
+      // The bench must run the pinned runtime like every other job, and any
+      // future re-divergence must re-earn its allowlist entry in writing.
       expect(LITERAL_ALLOWLIST['bench-storage.yml']).toBeUndefined();
-      const bench = readFileSync(
-        join(REPO, '.github', 'workflows', 'bench-storage.yml'),
-        'utf8',
-      );
       expect(bench).toMatch(/node-version-file:\s*\.nvmrc/);
     } else {
-      // The D-384 world: a pin below the node:sqlite floor crashes the bench,
-      // so the divergence MUST be declared.
+      // The D-384 world: a pin below the extension floor crashes the bench, so
+      // the divergence MUST be declared — AND the workflow must actually be OFF
+      // the pin. Asserting only the entry would pass the broken state
+      // {entry present, workflow still on .nvmrc}, which crashes exactly the
+      // same way (skill-review Minor, Task 243).
       expect(LITERAL_ALLOWLIST['bench-storage.yml']).toBeTruthy();
-      expect(LITERAL_ALLOWLIST['bench-storage.yml']).toMatch(/22\.5|node:sqlite/);
+      expect(LITERAL_ALLOWLIST['bench-storage.yml']).toMatch(/22\.13|node:sqlite/);
+      expect(bench).not.toMatch(/node-version-file:\s*\.nvmrc/);
     }
   });
 });

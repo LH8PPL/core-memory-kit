@@ -42,10 +42,13 @@ export const LITERAL_ALLOWLIST = Object.freeze({
   // — on the then-pin (20) the benchmark would CRASH on import, not skew. So it
   // kept a declared `node-version: 24` divergence here. Task 243 then raised
   // `.nvmrc` itself to 22 (better-sqlite3 v13's engines floor; Node 20 was EOL
-  // 2026-04), which resolves to a 22.x >= 22.5 — the crash-floor reason
-  // evaporated, D-383's original argument (a bench on a different major than
-  // the gates is an invisible confound) came back into force, and bench-storage
-  // joined the pin. `--experimental-sqlite` stays on the bench command: Node 22
+  // 2026-04): a bare-major 22 resolves to the latest 22.x, which clears the
+  // bench's REAL floor — node:sqlite EXTENSION loading (allowExtension /
+  // loadExtension), Node 22.13.0 / 23.5.0 per the Node docs; 22.5 is only
+  // where the module appears (skill-review corrected the number). The
+  // crash-floor reason evaporated, D-383's original argument (a bench on a
+  // different major than the gates is an invisible confound) came back into
+  // force, and bench-storage joined the pin. `--experimental-sqlite` stays on the bench command: Node 22
   // requires it for node:sqlite (stable only in later majors).
 });
 
