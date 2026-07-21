@@ -1,16 +1,23 @@
 // fact-store.mjs — the ONE walk over the granular fact archive (Task 241 / D-368).
 //
 // WHY THIS MODULE EXISTS. A measured clone audit over all 125 `src/*.mjs`
-// modules found the fact-store walk reimplemented in 10 places: the skip-idiom
-// `entry.name === 'INDEX.md'` appeared in 9 files, `listLiveFactFiles` /
-// `listFactFiles` was the same byte-identical body under two names in 4 files,
-// and `temporal-sweep` ↔ `validity-window` shared a 14-line walk-parse-skip
-// clone differing only in its final predicate. Meanwhile `tier-paths.mjs`
-// already exported `resolveFactDir` — the natural home was there the whole time.
+// modules found the fact-store walk reimplemented in **14 places**: four
+// byte-identical listers under two names (`listLiveFactFiles` / `listFactFiles`),
+// a 14-line walk-parse-skip clone across `temporal-sweep` ↔ `validity-window`
+// differing only in its final predicate, and inline `readdir` loops everywhere
+// else. Meanwhile `tier-paths.mjs` already exported `resolveFactDir` — the
+// natural home was there the whole time.
+//
+// (D-368's scan reported NINE, because it keyed on the literal
+// `entry.name === 'INDEX.md'`. Five more spelled the same walk differently:
+// `decisions-journal` / `digest` / `memory-health` / `import-claude-md` iterate
+// `readdirSync(dir)` as plain strings, and `doctor`'s HC-4 writes
+// `n !== 'INDEX.md'`. A grep for one spelling of an idiom measures the spelling,
+// not the idiom — D-385.)
 //
 // The risk that created is concrete, not stylistic: a NEW skip rule (another
 // sidecar filename, a tombstone convention, a `judgment_*` exclusion) had to be
-// remembered in 9 places. That exact drift already produced a bug once — the
+// remembered in fourteen places. That exact drift already produced a bug once — the
 // Layer-2 review found INDEX.md unfiltered in one writer's dedup scan while
 // every other walker excluded it (see `write-fact.mjs`'s M2 note). This module
 // is the shared home the CLAUDE.md shared-modules table prescribes for the
@@ -45,8 +52,22 @@
 //     which is the honest relationship: shared mechanics, separate collection.
 //   · `import-claude-md.mjs` — takes the LISTER only. Its dedup set is
 //     deliberately permissive and indexes id-less fact files too.
+//   · `redact.mjs::countRemainingElsewhere` — walks the fact dir RECURSIVELY
+//     (into `archive/tombstones/`, `archive/superseded/`) and INTENTIONALLY does
+//     not skip `INDEX.md`: it counts residual pattern occurrences everywhere, so
+//     excluding the index would under-report a leak.
 //   · sessions / transcripts / tombstones / locks / queues walks — different
 //     collections that merely share the `.md` suffix.
+//
+// ONE TRADE WORTH NAMING. The five string-form walks previously used a bare
+// `readdirSync(dir)` with a suffix filter and NO `isFile()` check; they now get
+// one. That is the intended fix (a directory named `x.md` was readable as a
+// fact) — but it is a trade, not a free win: `Dirent.isFile()` is a pure `d_type`
+// check with no stat fallback, so on a filesystem that reports `DT_UNKNOWN`
+// (some FUSE mounts, XFS without `ftype=1`) it is false for EVERY entry and
+// those sites would see zero facts. Not reachable on Windows, ext4, btrfs or
+// APFS, and the other nine sites already carried this exposure — recorded so the
+// next reader knows it was weighed rather than missed.
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
