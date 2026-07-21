@@ -167,23 +167,33 @@ describe('Task 174 — reconstruction', () => {
   });
 });
 
+// A date safely INSIDE the default 14-day backfill window regardless of when
+// the suite runs. The first version hardcoded '2026-07-07' — 13 days back when
+// written, drifting one day closer to the window edge every day until it fell
+// out at 2026-07-21T12:10 UTC and failed CI deterministically (a fixture time
+// bomb, same rot class as the hardcoded doc counts Task 236 gates against).
+function recentDay(daysAgo = 3) {
+  return new Date(Date.now() - daysAgo * 86400000).toISOString().slice(0, 10);
+}
+
 describe('Task 174 — THE automatic path (D-169): no command run', () => {
   it('the daily-distill cron fills the gap by itself — `cmk backfill` never invoked', async () => {
     // THE done-criterion. A test that only drove runBackfill() would prove the
     // VERB works while the automatic path stayed dead — precisely the D-169
     // failure (a capability whose only route is a command a user must remember).
-    commitOn('2026-07-07', 'feat: shipped without a session log');
+    const gapDay = recentDay(3);
+    commitOn(gapDay, 'feat: shipped without a session log');
     const backend = { compress: async () => '## Decisions\n- reconstructed by the cron\n' };
 
     await dailyDistill({ projectRoot, backend });
 
-    const p = join(projectRoot, 'context', 'sessions', 'today-2026-07-07.md');
+    const p = join(projectRoot, 'context', 'sessions', `today-${gapDay}.md`);
     expect(existsSync(p), 'the cron must fill the gap with no user command').toBe(true);
     expect(readFileSync(p, 'utf8')).toContain(BACKFILL_MARKER);
   });
 
   it('a backfill failure never wedges the distill (fail-open on the cron path)', async () => {
-    commitOn('2026-07-08', 'feat: q');
+    commitOn(recentDay(2), 'feat: q');
     const exploding = { compress: async () => { throw new Error('backend down'); } };
     // Must not throw — the cron's primary job survives a backfill problem.
     await expect(dailyDistill({ projectRoot, backend: exploding })).resolves.toBeDefined();
