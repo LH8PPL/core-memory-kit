@@ -11,7 +11,7 @@ npm install
 npm test          # full suite — should be green before you start
 ```
 
-Node ≥ 20 is required. The kit is verified on Windows, macOS, and Linux in CI, so changes must work cross-platform.
+Node ≥ 20 is required. **CI pins the exact major in [`.nvmrc`](.nvmrc)** — `nvm use` / `fnm use` picks it up, so your local Node matches every gate. (`engines.node: '>=20'` in `packages/cli/package.json` is a separate, deliberately looser thing: the floor a USER's machine must meet. Do not conflate them — narrowing it narrows what we support.) The kit is verified on Windows, macOS, and Linux in CI, so changes must work cross-platform.
 
 ## Running tests
 
