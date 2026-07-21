@@ -84,3 +84,72 @@ export function checkVersionDrift({ claudeMdText, kitVersion } = {}) {
     recoveryCommand: 'cmk install',
   };
 }
+
+// --- The stale-GLOBAL half (Task 245 / D-382) --------------------------------
+//
+// checkVersionDrift above catches "the PROJECT is behind the binary." It cannot
+// catch "the BINARY is behind the registry" — the silent-upgrade-failure class
+// D-382 observed live: an `npm install -g @latest` that quietly leaves the old
+// version in place (whatever the cause — the observed instance best fits
+// registry-propagation timing minutes after a publish) keeps `cmk doctor`
+// reporting healthy, because every check compares against the INSTALLED binary
+// and an un-upgraded pair is internally consistent. That is how the PreCompact
+// hook was absent from the kit's own repo for hours after Task 235 shipped.
+//
+// This check closes the hole regardless of cause: ask the npm registry what
+// `latest` is and SAY SO OUT LOUD when the running binary is behind. Soft by
+// design — a health check must never fail because the machine is offline:
+//   - skipped entirely under CI (install-matrix runs doctor on every PR; a
+//     registry hiccup must not flake a gate) or CMK_SKIP_UPDATE_CHECK=1
+//   - short timeout; ANY network/HTTP/parse failure → {checked:false}, silent
+//   - a plain registry metadata GET (the same request `npm view` makes);
+//     nothing is sent beyond the package name
+
+export const REGISTRY_LATEST_URL =
+  'https://registry.npmjs.org/@lh8ppl%2fcore-memory-kit/latest';
+
+export const UPDATE_CHECK_TIMEOUT_MS = 2500;
+
+/**
+ * Compare the running binary against the registry's `latest`. Never throws.
+ *
+ * @param {object} args
+ * @param {string} args.installedVersion     — getKitVersion()
+ * @param {Function} [args.fetcher]          — injectable fetch (tests)
+ * @param {number} [args.timeoutMs]
+ * @param {Record<string,string|undefined>} [args.env]
+ * @returns {Promise<{checked:boolean, reason?:string, latest?:string, installed?:string, stale?:boolean}>}
+ */
+export async function checkPublishedLatest({
+  installedVersion,
+  fetcher,
+  timeoutMs = UPDATE_CHECK_TIMEOUT_MS,
+  env = process.env,
+} = {}) {
+  // CI: the install-matrix runs doctor on every PR — a registry hiccup must
+  // not flake a gate. VITEST: the doctor suite calls runDoctor dozens of times
+  // locally; without this, every one is a real registry GET (a test that wants
+  // this path injects `env: {}` + a fake fetcher explicitly).
+  if (env.CI || env.VITEST || env.CMK_SKIP_UPDATE_CHECK) {
+    return { checked: false, reason: 'ci-or-disabled' };
+  }
+  try {
+    const f = fetcher ?? fetch;
+    const res = await f(REGISTRY_LATEST_URL, {
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!res.ok) return { checked: false, reason: `http-${res.status}` };
+    const { version } = await res.json();
+    if (typeof version !== 'string' || !version) {
+      return { checked: false, reason: 'bad-payload' };
+    }
+    return {
+      checked: true,
+      latest: version,
+      installed: installedVersion,
+      stale: compareVersions(installedVersion, version) < 0,
+    };
+  } catch {
+    return { checked: false, reason: 'network' };
+  }
+}

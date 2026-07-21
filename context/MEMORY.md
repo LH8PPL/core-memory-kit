@@ -8,18 +8,16 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-K5ZEYQRW) Confirms readiness to proceed with patch release sequence
-  <!-- source: auto-extract-session, source_line: 1, sha1: 7db18d177fa41c4227570abdc30e18cf1655aa27d491fc765666e5f4e86b5ef9, write: auto-extract, trust: high, at: 2026-07-20T20:37:45Z -->
-- (P-VBVYMWY9) research files are saved to core-memory-kit/docs/research/, not local-wiki/raw/ — user clarified assistant's incorrect assumption about destination project
-  <!-- source: auto-extract-session, source_line: 1, sha1: d235d96fa6186f1bdeabd3fade5dbb484ff9f9640eb2eca385439657fb839f49, write: auto-extract, trust: high, at: 2026-07-21T09:04:03Z -->
-- (P-V3DETX52) Prefers simple checklists/bullet format to markdown tables for task lists
-  <!-- source: auto-extract-session, source_line: 1, sha1: 14b72ed5c969ee9125ff4c7094f3eab5f19bd649fa64fef99ac05cc58e267e55, write: auto-extract, trust: high, at: 2026-07-21T11:33:56Z -->
-- (P-3BHCGQQT) local-wiki is personal-only wiki; file placement within project is flexible
-  <!-- source: auto-extract-session, source_line: 1, sha1: 0a1c96d6b8f707b47ce071cf5e215aa5f4ab86d6f34750859999dbe58662fdb7, write: auto-extract, trust: high, at: 2026-07-21T11:33:56Z -->
-- (P-EQNQHEU9) Bench-storage.yml pins Node 20 but node:sqlite (imported at module scope, line 29) requires ≥22.5, causing immediate import failure
-  <!-- source: auto-extract-session, source_line: 1, sha1: 12665f3ae4abc2c56fd3392cade4cd0c05247885e16a8aa2012a2ad1a1ad2950, write: auto-extract, trust: high, at: 2026-07-21T14:26:42Z -->
-- (P-MTZLLCQ3) User values accurate severity calibration — asked "do we have a problem RIGHT NOW?" to distinguish latent bugs from active failures
-  <!-- source: auto-extract-session, source_line: 1, sha1: ab6ead73e25726a21760c36f3092bda4e96af9d446d9c0ab0e61309ff53c522f, write: auto-extract, trust: high, at: 2026-07-21T15:43:08Z -->
+- (P-RRNKSRGD) i dont know if any of this will have it, but we need to think about adding graph db or graph memory.
+  <!-- source: review-promote, source_line: 1, sha1: 248a7f39c422cf235db584cd5283985571f80dfd4634411b07d91167b0d7293b, write: user-explicit, trust: high, at: 2026-07-21T20:03:59Z -->
+- (P-297QM6EH) if it's a project that we already read we need to still clone and see what changed.
+  <!-- source: review-promote, source_line: 1, sha1: 07380925ec5451c48fa4a47113726de00c941e7eedb8a91730955278769778d0, write: user-explicit, trust: high, at: 2026-07-21T20:10:23Z -->
+- (P-ZSFNNKGQ) Research verification process uses parallel background agents with line-item specificity (CONFIRMED/ABSENT/CONTRADICTED) across primaries, stored in docs/research/ with timestamps, integrated in one batch commit with INDEX/SOURCES/DECISION-LOG.
+  <!-- source: review-promote, source_line: 1, sha1: d180e2da6f7359d80810554e54c31299cb43795f9a261928210ec2b4c4342058, write: user-explicit, trust: high, at: 2026-07-21T20:12:08Z -->
+- (P-ZSaRDQAa) "100 sessions / 200-line index / four named phases" originates from community reimplementation (dream-skill), not Anthropic official docs — distinguishing unofficial guesses from official specs is critical for design validation.
+  <!-- source: review-promote, source_line: 1, sha1: 7b60090cf4889a21ecf4c7bacbaf9fd9ebc6cfe9afbd2fb03f1afa591e9426f2, write: user-explicit, trust: high, at: 2026-07-21T20:12:14Z -->
+- (P-F4ALX9JS) Daily (not weekly) scanning decided because real data shows 2 advisories per 24h on ~8 direct deps; weekly risks up to 7d exposure.
+  <!-- source: review-promote, source_line: 1, sha1: 72ff3a90cc7eb6cc91801fde9a617326895291d7fe58e48e2cc88ab67e44981d, write: user-explicit, trust: high, at: 2026-07-21T20:12:28Z -->
 
 ## Environment Notes
 

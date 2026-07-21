@@ -48,7 +48,7 @@ import { isCompactionNeeded } from './compaction-state.mjs';
 import { getNativeAutoMemoryState } from './native-memory.mjs';
 import { checkKitBinding, checkEmbedderBinding } from './native-binding.mjs';
 import { resolveDefaultSearchMode } from './semantic-backend.mjs';
-import { checkVersionDrift } from './version-drift.mjs';
+import { checkVersionDrift, checkPublishedLatest } from './version-drift.mjs';
 import { findManagedBlock, compareVersions } from './claude-md.mjs';
 import { getKitVersion, kitOwnedScaffoldDrift } from './install.mjs';
 import { checkDeletionPropagation } from './deletion-propagation.mjs';
@@ -945,6 +945,7 @@ export async function runDoctor({
   embedderBindingProbe,
   backendCliProbe, // injectable: HC-11 backend-CLI probe (tests avoid a real spawn)
   awsDir, // injectable: sandboxes the HC-1 Kiro CLI-agent (~/.aws) probe in tests
+  registryFetcher, // injectable: Task 245 stale-global check (tests avoid a real registry GET)
 } = {}) {
   const t0 = Date.now();
   if (!projectRoot) {
@@ -968,7 +969,39 @@ export async function runDoctor({
   const c7 = hc7StaleLocks({ projectRoot, userDir: resolvedUserDir });
   const c8 = await hc8NativeBindings({ projectRoot, kitBindingProbe, embedderBindingProbe });
   // HC-9: kitVersion injectable for tests; defaults to the installed binary's version.
-  const c9 = hc9VersionDrift({ projectRoot, kitVersion: kitVersion ?? getKitVersion() });
+  const resolvedKitVersion = kitVersion ?? getKitVersion();
+  let c9 = hc9VersionDrift({ projectRoot, kitVersion: resolvedKitVersion });
+  // Task 245 (D-382): the stale-GLOBAL half. Every check above compares against
+  // the INSTALLED binary, so a silently-failed `npm i -g` upgrade reads as
+  // healthy (an un-upgraded pair is internally consistent — exactly how the
+  // PreCompact hook was absent from the kit's own repo for hours after Task
+  // 235). Ask the registry what `latest` is; soft by design — skipped in CI /
+  // CMK_SKIP_UPDATE_CHECK, silent on any network failure, and it can only
+  // ESCALATE pass→warn, never mask a real HC-9 failure.
+  // An injected fetcher is an explicit opt-in: it bypasses the CI/VITEST env
+  // gate (otherwise the doctor-integration path would be untestable — the same
+  // guard that keeps the suite off the network would keep the test off the
+  // code). Production passes no fetcher and gets the full gate.
+  const published = await checkPublishedLatest({
+    installedVersion: resolvedKitVersion,
+    fetcher: registryFetcher,
+    ...(registryFetcher ? { env: {} } : {}),
+  });
+  // Escalates pass AND skip — the stale-global fact is about the BINARY, not
+  // this project, so "kit not installed here" (skip) still deserves the note.
+  // Never fail: a real HC-9 failure's message + recovery must not be replaced
+  // by the softer upgrade nag.
+  if (published.checked && published.stale && c9.status !== 'fail') {
+    c9 = {
+      ...c9,
+      status: 'warn',
+      message:
+        `${c9.message}; but your installed cmk (v${published.installed}) is behind the published ` +
+        `v${published.latest} — run \`npm install -g @lh8ppl/core-memory-kit@latest\`, then \`cmk install\` here ` +
+        `(verify with \`cmk version\` after: a quiet npm run can leave the old version in place, D-382)`,
+      recoveryCommand: 'npm install -g @lh8ppl/core-memory-kit@latest',
+    };
+  }
   const c10 = hc10CompactionLiveness({ projectRoot, now: ts });
   const c11 = hc11BackendCli({ projectRoot, userDir: resolvedUserDir, backendCliProbe });
   const c12 = hc12DeletionPropagation({ projectRoot });

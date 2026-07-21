@@ -2270,14 +2270,16 @@ async function runDoctorCli(/* options */) {
       process.exitCode = 2;
       return;
     }
-    // Structured report: one line per check
-    const counts = { pass: 0, fail: 0, skip: 0 };
+    // Structured report: one line per check. `warn` (Task 245: HC-9's
+    // stale-global note) is advisory — surfaced with its repair command but
+    // never the exit code; only `fail` fails doctor.
+    const counts = { pass: 0, warn: 0, fail: 0, skip: 0 };
     for (const c of r.checks) {
-      counts[c.status] += 1;
+      counts[c.status] = (counts[c.status] ?? 0) + 1;
       const statusLabel = c.status.toUpperCase().padEnd(4);
       console.log(`[${statusLabel}] ${c.id}: ${c.name}`);
       console.log(`         ${c.message}`);
-      if (c.status === 'fail' && c.recoveryCommand) {
+      if ((c.status === 'fail' || c.status === 'warn') && c.recoveryCommand) {
         // Repair-command surfaced for the user. Per 37.5 + NFR-9, we
         // do NOT auto-invoke install-requiring repairs — the user
         // copies the command.
@@ -2288,8 +2290,9 @@ async function runDoctorCli(/* options */) {
       }
     }
     console.log('');
+    const warnPart = counts.warn > 0 ? ` · ${counts.warn} warn` : '';
     console.log(
-      `Summary: ${counts.pass} pass · ${counts.fail} fail · ${counts.skip} skip (${r.duration_ms}ms)`,
+      `Summary: ${counts.pass} pass${warnPart} · ${counts.fail} fail · ${counts.skip} skip (${r.duration_ms}ms)`,
     );
     if (counts.fail > 0) process.exitCode = 1;
 
