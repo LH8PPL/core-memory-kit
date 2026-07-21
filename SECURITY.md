@@ -68,6 +68,10 @@ So the same two scanners also run **daily on a schedule** (and on demand via `wo
 
 `npm audit` currently reports a small number of **moderate** advisories confined to the **dev/test toolchain** (`vitest` / `vite` / `esbuild`). These packages are **devDependencies — they are never published** in the npm tarball (the `files` whitelist ships only `bin/`, `src/`, `template/`, `README.md`). They do not reach a user's machine and so are not gated on; Dependabot tracks them for routine cleanup.
 
+### Accepted, shipped-but-unreachable findings
+
+One narrower class also exists, held to a stricter bar (each entry in [`osv-scanner.toml`](osv-scanner.toml) must state a reachability argument **and** a checkable removal trigger): a **shipped** dependency whose vulnerable code path the kit structurally never executes, with **no fix available inside the dependent's admitted version range**. Currently one entry: `@hono/node-server` (via the MCP SDK) has a Moderate Windows path-traversal in its HTTP **static-file serving** — the kit's MCP server is **stdio-only** and never starts an HTTP listener, and the fix exists only in a major outside the SDK's range. It is removed the day the SDK admits the fixed major. The sibling advisory from the same disclosure (`hono`) *was* fixable in-range and was **updated, not accepted**.
+
 ## Publishing integrity
 
 Releases are published from CI (`.github/workflows/publish.yml`) on a `v*` tag, with a **signed npm provenance attestation** (GitHub OIDC) — proving each tarball was built from this repository at a specific commit. The publish credential is a **least-privilege granular npm token** stored only as the encrypted `NPM_TOKEN` GitHub Actions secret — never on a contributor's disk.
