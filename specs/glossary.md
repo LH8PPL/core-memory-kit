@@ -190,7 +190,7 @@ Cross-refs: [[Citation ID]], [[Canonical text]]. Spec: design §3.2.
 
 ### Hook
 
-A shell command Claude Code invokes at specific lifecycle events. The kit registers 6 hooks: Setup, SessionStart, UserPromptSubmit, PostToolUse, Stop, SessionEnd.
+A shell command Claude Code invokes at specific lifecycle events. The kit registers 8: `SessionStart` (inject the snapshot), `UserPromptSubmit` (capture the prompt), `PostToolUse` (observe edits), `Stop` (capture the turn + spawn auto-extract), `SessionEnd` (compress the session), `PreCompact` (roll the buffer at a compaction boundary — Task 235), `PreToolUse` (the memory delete-guardrail, D-192), and `PermissionRequest` (the prompt-free auto-approver, Task 172). _(`Setup` was dropped pre-v0.1.0 — it is not in Anthropic's documented common-events set and no bin ships for it.)_
 
 Cross-refs: [[SessionStart hook]], [[stop_hook_active guard]]. Spec: FR-9; design §5.
 
@@ -553,6 +553,10 @@ Spec: FR-22, FR-23; design §12.
 The manual force-roll command that invokes the same compression internals as the [[SessionEnd hook]]/cron but on user demand. Flags: `--scope now|today|recent`.
 
 Cross-refs: [[Rolling-window compression]]. Spec: design §12; T-033.
+
+### Backfill
+
+A reconstructed `sessions/today-{date}.md` for a day that has **git commits but no session log** — the capture path missed it entirely (a crashed session, a misfired hook, or a day worked in another tool and only committed). `daily-distill` sweeps for these gaps and rebuilds the day from its commit messages; `cmk backfill` is the manual override. Every reconstruction carries a marker so it is never mistaken for a captured session, and a real log is **never** overwritten (real > reconstructed, always). Distinct from [[Distillation]], which compresses what the kit DID observe. Introduced Task 174 (v0.6.1) after a probe found 37.5% of this repo's own working days had commits and no record.
 
 ### `cmk doctor`
 

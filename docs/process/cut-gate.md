@@ -344,7 +344,7 @@ code .
       - **no real username (`C:\Users\<you>` / your name)** anywhere in a COMMITTED tier (user + project) — a public-repo leak is a cut-blocker; `context.local/` (gitignored) may hold real paths but a fresh scaffold shouldn't
       - example bullets clearly marked `(example)` so a user knows to replace them
       - well-formed frontmatter (the seed `2020-01-01` / all-zero sha1 are deliberate sentinels — fine)
-      `.claude\settings.json` has the 5 hooks + the `Bash(cmk:*)` allow-list.
+      `.claude\settings.json` has the 8 hooks + the `Bash(cmk:*)` allow-list.
 
 - [ ] **★ G6 — `cmk install` registered the MCP server (Task 108 — new in v0.2.3).**
       Install now wires the MCP surface so Claude can run every memory op in chat, prompt-free:

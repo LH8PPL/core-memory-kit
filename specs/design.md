@@ -2115,7 +2115,7 @@ Per OQ-2 + verified plugin format from claude-mem (`plugin/.claude-plugin/plugin
 
 | Path | Audience | Mechanism |
 | --- | --- | --- |
-| `npm install -g @lh8ppl/core-memory-kit` + `cmk install` | Cross-OS (Windows / macOS / Linux) | Node-distributed; scaffolds `template/`, wires the 5 hooks into `.claude/settings.json`, registers the MCP server in `.mcp.json` |
+| `npm install -g @lh8ppl/core-memory-kit` + `cmk install` | Cross-OS (Windows / macOS / Linux) | Node-distributed; scaffolds `template/`, wires the 8 hooks into `.claude/settings.json`, registers the MCP server in `.mcp.json` |
 | Claude Code plugin (`/plugin install core-memory-kit` + `/core-memory-kit:bootstrap`) | Claude Code users (no terminal) | Plugin manifest in `plugin/.claude-plugin/plugin.json`; `bootstrap` skill scaffolds per-project files |
 
 Both paths produce **identical scaffolded state** in the target project. Tested via CI matrix on Windows 10/11, macOS 14+, Ubuntu 22.04+ (per NFR-3).
