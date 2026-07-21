@@ -10,6 +10,26 @@
 
 ---
 
+## 2026-07-21 — D-386 · NOTE — `main` is red on SonarQube Cloud, and it is NOT our code: a persistent server-side 500 on a project-scoped endpoint
+
+**State at time of writing:** every check on `main` is green except **SonarQube Cloud**, which fails on `2e5b1dc`. Recorded because a red `main` is exactly the state a future session will find and mis-diagnose, and because the D-378 rule that surfaced it (enumerate `commits/<sha>/check-runs`; a green workflow is not a green commit) is what made it visible at all — `gh run list` showed the SonarCloud *workflow* and the failure is a *check run*.
+
+**The scanner never reached our code.** Three attempts, all failing before file analysis:
+
+| attempt | endpoint | error |
+| --- | --- | --- |
+| 1 | `api.sonarcloud.io/analysis/analyses` | **504** "Endpoint request timed out" |
+| 2 | `sonarcloud.io/batch/project.protobuf?key=…` | **500** "An unexpected error occurred. Please try again later." |
+| 3 | `sonarcloud.io/batch/project.protobuf?key=…` | **500** (identical to 2) |
+
+**The timeline settles it.** `85f77f1` — the Task 241 MERGE, carrying every line of the actual refactor — passed SonarQube at 18:32. `2e5b1dc` — **8 lines of markdown across two docs**, zero source — failed at 18:40. Eight minutes apart, and `batch/project.protobuf` is fetched to get project metadata BEFORE any file is read, so the content of the failing commit is causally irrelevant. What changed between green and red is wall-clock, not the tree.
+
+**What is NOT established, and is left open deliberately.** SonarCloud's status page reads *"All Systems Operational"* (last incident 2026-07-16, resolved), so "SonarCloud is down" is unsupported. Attempts 2–3 fail at a **project-scoped** endpoint (`?key=LH8PPL_core-memory-kit`), which is equally consistent with our project's server-side state being wedged as with an undeclared partial outage. Distinguishing them needs the SonarCloud dashboard, which is the maintainer's account — so the diagnosis stops at "server-side, not ours" rather than reaching for a cause it cannot check. Naming one here would be the pattern-match failure D-366 exists to prevent.
+
+**Disposition: nothing to fix in the repo; do not "fix" the build.** Re-run the job later; if it persists, check the project dashboard or SonarSource support. **Do not treat this as a reason to touch code** — the temptation on a red main is to change something, and there is nothing here to change. Equally: do NOT let this normalize a red `main`. If a LATER commit fails SonarQube, verify it is still this 500 before assuming it is the same thing — inheriting a known-red status is how a real gate failure hides behind an old excuse (the lazy-framing class, applied to a build state rather than a PR body).
+
+**Process note worth keeping.** Calling this a transient flake after attempt 1 would have been the exact dismissive framing CLAUDE.md forbids, and it would have been WRONG in a load-bearing way: the re-run produced a *different* error at a *different* endpoint, which is what turned "probably a blip" into a characterized failure with a timeline. The re-run WAS the verification. I also told the user "no problem right now" minutes before finding this — an answer given about capture-tier state that I let stand as an answer about the repo generally, without enumerating the checks first.
+
 ## 2026-07-21 — D-385 · NOTE — the clone audit undercounted by 5: a grep for ONE spelling of an idiom measures the spelling, not the idiom
 
 **Task 241 shipped the shared fact-walk** ([`fact-store.mjs`](../../packages/cli/src/fact-store.mjs)) — the fifth member of the shared-modules set the other four joined back in 2026-05. Measured result: cross-file clone groups at a 14-line window **1 → 0** (the `temporal-sweep` ↔ `validity-window` pair D-368 named), at 8 lines **20 → 15**; the four byte-identical listers gone; suite **3325/3325 with zero test edits**, which is the whole contract of a pure refactor.
