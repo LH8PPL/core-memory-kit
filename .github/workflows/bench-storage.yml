@@ -5,7 +5,13 @@
 # the trustworthy verdict a laptop can't (the bench itself reports INCONCLUSIVE
 # + exit 2 when its noise rivals the bar).
 #
-# Manually triggered (workflow_dispatch). Node 24 — node:sqlite needs ≥ 22.5.
+# Manually triggered (workflow_dispatch). Node comes from .nvmrc (Task 243) —
+# and the REAL floor is node:sqlite's EXTENSION loading (allowExtension /
+# loadExtension, used by runChild for sqlite-vec), which landed in Node
+# 22.13.0 / 23.5.0 — the module itself exists from 22.5. A bare-major .nvmrc
+# resolves to the latest 22.x (>= 22.13), so the pin is safe; an exact pin
+# below 22.13 would crash the bench, which the conditional invariant in
+# tests/scripts-validate-node-pin.test.js guards.
 name: Bench (storage bake-off)
 
 on:
@@ -32,7 +38,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version-file: .nvmrc
       - run: npm ci --no-audit --no-fund
       - name: Run the storage bake-off
         run: |

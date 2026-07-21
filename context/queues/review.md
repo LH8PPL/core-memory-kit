@@ -25,3 +25,6 @@
 ## 2026-07-21T14:26:42Z — auto-extract (medium-trust, pending review)
 - (P-M694W947) Validator `validate-node-pin.mjs` now has 10 test cases; was previously untested despite exporting functions for testability
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-21T14:26:42Z -->
+## 2026-07-21T15:40:51Z — auto-extract (medium-trust, pending review)
+- (P-NLaBQ5KP) Task 243 (better-sqlite3 v12→v13) must not re-open the settled node:sqlite rejection (D-162).
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-21T15:40:51Z -->

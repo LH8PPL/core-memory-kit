@@ -229,7 +229,7 @@ Keyword search structurally misses natural-language questions; the embedded sema
 
 ## Requirements
 
-- Node.js ≥ 20
+- Node.js ≥ 22
 - Claude Code (for the hook-driven auto-memory loop) — or [Kiro](https://kiro.dev), or [Cursor](https://cursor.com)
 - Optional: `cmk install --with-semantic` for semantic/hybrid recall (installs the local `@huggingface/transformers` embedder, ~260 MB once — no API, no Python)
 

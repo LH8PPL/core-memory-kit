@@ -13988,3 +13988,476 @@ _(retracted 2026-07-18)_
 
 **When:** 2026-07-20 · **Fact:** `P-JVSCKCFL`
 **Why:** Notes decay rapidly on live projects—a May note is now ~2 months stale, making it a lead rather than ground truth. Uniform re-research on all tasks is wasteful (8 tasks have no external corpus to verify against). Targeted re-verification of copying-focused tasks catches real risks with minimal overhead.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-9JAFFKDH -->
+
+## youtube-to-slide fully migrated onto the kit; trust-dialog step completed.
+
+**When:** 2026-07-19 · **Fact:** `P-9JAFFKDH`
+
+<!-- decision:P-U5PPSG7Y -->
+
+## Users will not run doctor check commands; silent failures must surface automatic
+
+**When:** 2026-07-20 · **Fact:** `P-U5PPSG7Y`
+
+<!-- decision:P-26DCN2T5 -->
+
+## Reject per-session warnings about non-actionable failures; prioritize self-heal
+
+**When:** 2026-07-20 · **Fact:** `P-26DCN2T5`
+
+<!-- decision:P-D6YJMV2S -->
+
+## If problematic pattern exists, must deal with it comprehensively across all affe
+
+**When:** 2026-07-20 · **Fact:** `P-D6YJMV2S`
+
+<!-- decision:P-ZW2M9SW5 -->
+
+## Concerned that research notes become stale (current note from 2026-05-22 is ~2 m
+
+**When:** 2026-07-20 · **Fact:** `P-ZW2M9SW5`
+
+<!-- decision:P-LQGHEXKC -->
+
+## User approved rule commit at 9% context remaining; indicates pragmatic preferenc
+
+**When:** 2026-07-20 · **Fact:** `P-LQGHEXKC`
+
+<!-- decision:P-99WUZ6LJ -->
+
+## D-375 Fresh-Look-on-Porting Validated
+
+**When:** 2026-07-20 · **Fact:** `P-99WUZ6LJ`
+**Why:** Porting without review can embed anti-patterns; fresh look catches differences in context/constraints
+
+<!-- decision:P-YZLQUWEB -->
+
+## Kit Guardrail Behavior — Over-Block for Safety
+
+**When:** 2026-07-20 · **Fact:** `P-YZLQUWEB`
+**Why:** Kit's stated "over-block is safe" posture is intentional design, not defect; safe to trust and respect
+
+<!-- decision:P-W6J92CKU -->
+
+## Self-Review Finding — now.md Unbounded Read
+
+**When:** 2026-07-20 · **Fact:** `P-W6J92CKU`
+**Why:** Catching issues before they compound; now.md can grow very large (dogfood grew to 410 KB in v0.4.0)
+
+<!-- decision:P-BY6AWCVJ -->
+
+## Task 235 Design — now→today Roll Trigger
+
+**When:** 2026-07-20 · **Fact:** `P-BY6AWCVJ`
+**Why:** Corrected premise ("content at risk during compaction" → "roll timing gap in marathons") shaped all decisions; this is the fix
+
+<!-- decision:P-ZHL6MRCS -->
+
+## Task 235 Live Validation
+
+**When:** 2026-07-20 · **Fact:** `P-ZHL6MRCS`
+**Why:** Proves design meets performance constraints in production
+
+<!-- decision:P-37MBHXA2 -->
+
+## Task 236: Counts Family Validation
+
+**When:** 2026-07-20 · **Fact:** `P-37MBHXA2`
+**Why:** Automating count validation prevents silent documentation drift and eliminates recurring manual fix overhead. Good context locality with existing Task 186 implementation.
+
+<!-- decision:P-KMK6PSWV -->
+
+## Version Roadmap: v0.6.1 through v0.6.2
+
+**When:** 2026-07-20 · **Fact:** `P-KMK6PSWV`
+**Why:** Provides medium-term task sequencing; clarifies scope/priority grouping for upcoming work.
+
+<!-- decision:P-3BTLM525 -->
+
+## Task 236: Enumeration Anti-Pattern (Prior-Art Finding)
+
+**When:** 2026-07-20 · **Fact:** `P-3BTLM525`
+**Why:** Provides empirical justification for scanning generically rather than hand-enumerating locations.
+
+<!-- decision:P-Y6HVD6U5 -->
+
+## D-366 Class: Hidden Order Dependencies in Claimed-Independent Mechanisms
+
+**When:** 2026-07-20 · **Fact:** `P-Y6HVD6U5`
+**Why:** Recurring fault in this codebase: reasoning about independent components without tracing when each executes.
+
+<!-- decision:P-7VYDGZSM -->
+
+## Prior-Art Finding: ECC Gate Enumeration vs Generic Scan
+
+**When:** 2026-07-20 · **Fact:** `P-7VYDGZSM`
+**Why:** Prior-art triage finding that directly motivated architecture choice for Task 236.
+
+<!-- decision:P-N5YLL25P -->
+
+## HC-6: Native Auto Memory Runs Alongside Kit
+
+**When:** 2026-07-20 · **Fact:** `P-N5YLL25P`
+**Why:** Double layer can cause redundancy or confusion; knowing the condition and remedy helps avoid debug cycles
+
+<!-- decision:P-X2RFWHE2 -->
+
+## Task 242 Fallback (Timeout Self-Heal) Installed but Unproven in Production
+
+**When:** 2026-07-20 · **Fact:** `P-X2RFWHE2`
+**Why:** Need to confirm feature works before claiming it's production-ready
+
+<!-- decision:P-3C34TVJU -->
+
+## v0.6.0 Installed; PreCompact (Task 235) Waiting for Release
+
+**When:** 2026-07-20 · **Fact:** `P-3C34TVJU`
+**Why:** Knowing version and pending features helps plan upgrades
+
+<!-- decision:P-EJaVPBA9 -->
+
+## SonarCloud Quality Gate Posts as GitHub Check Runs, Not Workflows
+
+**When:** 2026-07-20 · **Fact:** `P-EJaVPBA9`
+**Why:** This session missed a SonarCloud Quality Gate failure while relying on workflow status alone
+
+<!-- decision:P-PJB2L2JE -->
+
+## Use Deterministic Comparators for Sorting Committed Files
+
+**When:** 2026-07-20 · **Fact:** `P-PJB2L2JE`
+**Why:** Committed files must produce identical sorted output everywhere; locale collation breaks reproducibility
+
+<!-- decision:P-aJBM76PW -->
+
+## main branch at fc9c816, CI green through latest push
+
+**When:** 2026-07-20 · **Fact:** `P-aJBM76PW`
+
+<!-- decision:P-5TPJF3RJ -->
+
+## Task 242 solution: self-heal first (deterministic fallback, retry, backoff), not
+
+**When:** 2026-07-20 · **Fact:** `P-5TPJF3RJ`
+
+<!-- decision:P-KBa273UP -->
+
+## PR #310 shipped; 3196/3196 tests green, 188 files, zero test edits beyond repoin
+
+**When:** 2026-07-20 · **Fact:** `P-KBa273UP`
+
+<!-- decision:P-YCRXH9HD -->
+
+## Back-compat: legacy `<!-- validate-references: ignore -->` markers honored forev
+
+**When:** 2026-07-20 · **Fact:** `P-YCRXH9HD`
+
+<!-- decision:P-N5VVVCV2 -->
+
+## Direction-2 path-harvesting bug: was pulling paths from narrative prose, would f
+
+**When:** 2026-07-20 · **Fact:** `P-N5VVVCV2`
+
+<!-- decision:P-G5AYFaF9 -->
+
+## v0.6.0 installed globally and on this project; 12/12 doctor checks passed; no re
+
+**When:** 2026-07-20 · **Fact:** `P-G5AYFaF9`
+
+<!-- decision:P-4HURZJLF -->
+
+## npm cleanup warning with D-302 DLL-lock is expected during global upgrade; insta
+
+**When:** 2026-07-20 · **Fact:** `P-4HURZJLF`
+
+<!-- decision:P-4GZGQL2G -->
+
+## Proposes targeted three-question triage + ~60-day staleness threshold instead of
+
+**When:** 2026-07-20 · **Fact:** `P-4GZGQL2G`
+
+<!-- decision:P-X5RW6LBQ -->
+
+## Kit guardrail over-blocks on safety as designed; can't distinguish commands from
+
+**When:** 2026-07-20 · **Fact:** `P-X5RW6LBQ`
+
+<!-- decision:P-EJY4TRLG -->
+
+## Kit is working correctly; cmk doctor reports 12 PASS/0 FAIL with 55 observations
+
+**When:** 2026-07-20 · **Fact:** `P-EJY4TRLG`
+
+<!-- decision:P-SYX763T5 -->
+
+## Workflow Green ≠ Commit Green
+
+**When:** 2026-07-20 · **Fact:** `P-SYX763T5`
+**Why:** Prevents false confidence in build/deploy readiness; assistant initially relied on workflows and missed commit-level failures.
+
+<!-- decision:P-6QV27W3J -->
+
+## D-24 Constraint: Patch Releases Skip D-248 Backlog Sweep
+
+**When:** 2026-07-20 · **Fact:** `P-6QV27W3J`
+**Why:** This rule shapes release-gate decisions and tells when a release path is "short" (patch) vs. requires additional review (minor/major boundaries)
+
+<!-- decision:P-HS76QXSV -->
+
+## Catch Task/Changelog Version Mismatches Pre-Release
+
+**When:** 2026-07-20 · **Fact:** `P-HS76QXSV`
+**Why:** User review is a safety net for high-impact issues, not a substitute for process discipline. v0.6.1 had a version mismatch caught only when the user noticed the task status.
+
+<!-- decision:P-WKSP73MT -->
+
+## prebuild-install Deprecation Causing npm ci Failures
+
+**When:** 2026-07-20 · **Fact:** `P-WKSP73MT`
+**Why:** Known deprecation moving toward removal. Symptom will repeat predictably until the root cause (task 141b) is addressed.
+
+<!-- decision:P-MLBNJHWN -->
+
+## Verify Check-Run Agent Liveness Before Status Reports
+
+**When:** 2026-07-20 · **Fact:** `P-MLBNJHWN`
+**Why:** False "running" reports can mask real failures or delay diagnosis during release verification.
+
+<!-- decision:P-N4JDFHPV -->
+
+## Workflow Green ≠ Release Commit Checks Green
+
+**When:** 2026-07-20 · **Fact:** `P-N4JDFHPV`
+**Why:** This divergence broke release confidence and caused a second verification pass. Workflow runs aggregate multiple check types; one check failure can be invisible at the workflow level.
+
+<!-- decision:P-SZBGN6KF -->
+
+## Task 141b (node:sqlite Migration) Rejected in D-162
+
+**When:** 2026-07-21 · **Fact:** `P-SZBGN6KF`
+**Why:** This decision was based on measured performance data and represents a deliberate choice to maintain SQLite with better-sqlite3 for FTS search performance
+
+<!-- decision:P-5JA3WDAS -->
+
+## Binding Rule – README Line for User-Facing Features
+
+**When:** 2026-07-21 · **Fact:** `P-5JA3WDAS`
+**Why:** Ensures user-facing features are discoverable; surface-level doc review catches gaps early.
+
+<!-- decision:P-KUKaB9HF -->
+
+## Counts Validator Scope and Intentional Exclusions
+
+**When:** 2026-07-21 · **Fact:** `P-KUKaB9HF`
+**Why:** Assistant explained this as intentional design: some validation gaps are safer left to human judgment than caught by brittle automation.
+
+<!-- decision:P-S6VBB4JE -->
+
+## Doc Review is PR-Body-Based; Direct Merges Bypass It
+
+**When:** 2026-07-21 · **Fact:** `P-S6VBB4JE`
+**Why:** Assistant identified direct merge as the root cause of stale docs despite binding rules.
+
+<!-- decision:P-33VV5YY5 -->
+
+## Research Pass Methodology (Proven Workflow)
+
+**When:** 2026-07-21 · **Fact:** `P-33VV5YY5`
+**Why:** Past research cycles (D-374, D-153) showed batch intake prevents missing items and code-level reading catches contradictions. The process balances depth and coverage.
+
+<!-- decision:P-KFP3TJTW -->
+
+## Three Corpus Gaps Identified in D-374 Sweep
+
+**When:** 2026-07-21 · **Fact:** `P-KFP3TJTW`
+**Why:** These gaps block multiple open tasks. Research sources touching any of these areas have immediate implementation value.
+
+<!-- decision:P-ESHZTR53 -->
+
+## D-153 Research Quality Discipline for Agent Reading Tasks
+
+**When:** 2026-07-21 · **Fact:** `P-ESHZTR53`
+**Why:** Research workflow requires notes that clearly distinguish source-backed facts from interpretation. Downstream synthesis tasks depend on knowing what can be cited to the original author and what is agent inference.
+
+<!-- decision:P-KVF7CKVR -->
+
+## Harness Args Parameter Format and Normalization
+
+**When:** 2026-07-21 · **Fact:** `P-KVF7CKVR`
+**Why:** Initial workflow run failed immediately when args normalizer was not present (harness sent string, script expected object). After fixing the normalizer, agents spawned successfully and the workflow proceeded on pace.
+
+<!-- decision:P-MAVB6VGU -->
+
+## Multi-Step Research Ingestion Integration Workflow
+
+**When:** 2026-07-21 · **Fact:** `P-MAVB6VGU`
+**Why:** Separates concerns — user handles access barriers (HTTP 403s), assistant ensures claims verification. Prevents attributions from being incomplete or speculative. Follow-up pass guarantees fetched pages actually verify what they were cited for.
+
+<!-- decision:P-X2LL4KJ5 -->
+
+## LLM Memory Spec Attribution Verification
+
+**When:** 2026-07-21 · **Fact:** `P-X2LL4KJ5`
+**Why:** Distinguishes rigorous primary-source research from laundered secondary claims; affects conclusions drawn from press articles
+
+<!-- decision:P-ZB34KHQH -->
+
+## local-wiki Research Verification Workflow
+
+**When:** 2026-07-21 · **Fact:** `P-ZB34KHQH`
+**Why:** Enables efficient batch verification and maintains audit trail for research credibility
+
+<!-- decision:P-3JF5CFSL -->
+
+## local-wiki Source Prioritization Tiers
+
+**When:** 2026-07-21 · **Fact:** `P-3JF5CFSL`
+**Why:** Allocates limited research time to high-confidence primary sources first, defers secondary coverage
+
+<!-- decision:P-M7AUP769 -->
+
+## Laundering Detection — Official Spec vs. Community Reimplementation
+
+**When:** 2026-07-21 · **Fact:** `P-M7AUP769`
+**Why:** Prevents building design decisions on false assumptions sourced from hobbyist guesses instead of actual official contracts.
+
+<!-- decision:P-FQJZRA2B -->
+
+## Research Verification Workflow — Parallel Agents & Batch Integration
+
+**When:** 2026-07-21 · **Fact:** `P-FQJZRA2B`
+**Why:** Surfaces whether design claims are officially documented, speculative, or laundered from unofficial sources — critical for validating decisions (e.g., Task 95) against actual specs.
+
+<!-- decision:P-UB9UP3TD -->
+
+## Fixture Time Bomb in cli-backfill Test (2026-07-21)
+
+**When:** 2026-07-21 · **Fact:** `P-UB9UP3TD`
+**Why:** Time-dependent test fixtures decay predictably and exemplify Task 236's thesis on rot. Hardcoded windows are a hazard class that requires relative dates as remedy.
+
+<!-- decision:P-TMSFZF2V -->
+
+## New v0.6.2 Guard Candidate – Undefended CWD-as-Root Assumption
+
+**When:** 2026-07-21 · **Fact:** `P-TMSFZF2V`
+**Why:** The exposure is real and undefended. Formalizing a guard closes the gap and prevents accidental commits of kit-specific scaffolding.
+
+<!-- decision:P-K2C2GJYP -->
+
+## Standing OSV Advisory Surveillance (Task 237 Lane)
+
+**When:** 2026-07-21 · **Fact:** `P-K2C2GJYP`
+**Why:** Advisory publication is asynchronous and can break main post-merge. Standing surveillance is required because one-time checks miss post-merge arrivals. This incident is hard evidence for Task 237's v0.6.2 scope.
+
+<!-- decision:P-NB6G2FHF -->
+
+## Task 95 Ready – §21 Design Validated Against Full Corpus
+
+**When:** 2026-07-21 · **Fact:** `P-NB6G2FHF`
+**Why:** The three research verdicts confirm §21's robustness and market readiness. No competing designs found; all observed hazards already handled.
+
+<!-- decision:P-SK59CBTD -->
+
+## Daily Supply-Chain Scanning Cadence
+
+**When:** 2026-07-21 · **Fact:** `P-SK59CBTD`
+**Why:** Minimize supply-chain risk exposure window.
+
+<!-- decision:P-UMSaR3CZ -->
+
+## Do Not Reference Unshipped Task Outputs in Config
+
+**When:** 2026-07-21 · **Fact:** `P-UMSaR3CZ`
+**Why:** Scheduled jobs run without human supervision; config errors don't surface until automation fires, by which time no PR provides context.
+
+<!-- decision:P-4NAWVQ6M -->
+
+## Lane Membership: "Planned Together" vs "Already There"
+
+**When:** 2026-07-21 · **Fact:** `P-4NAWVQ6M`
+**Why:** Catches inter-task dependencies and latent failures where one task assumes a peer's output exists prematurely.
+
+<!-- decision:P-MALPGCPV -->
+
+## npm install -g Silent Failure When Run From Repo Directory
+
+**When:** 2026-07-21 · **Fact:** `P-MALPGCPV`
+**Why:** Silent failure creates user experience bugs. Users following documentation showing repo-directory installs will silently get stale versions and encounter unexpected behavior. Undetected by standard install confirmation flows.
+
+<!-- decision:P-K79HDTZS -->
+
+## `npm install -g` Silent Failure From Repo Cwd
+
+**When:** 2026-07-21 · **Fact:** `P-K79HDTZS`
+**Why:** Users following install docs from their project root will silently get stale versions. This needs to be fixed before v0.6.2 release.
+
+<!-- decision:P-ZQ93PM26 -->
+
+## PR #315 Security Gate Defects (Task 237)
+
+**When:** 2026-07-21 · **Fact:** `P-ZQ93PM26`
+**Why:** Real security workflow failures. Empirical review (running actual code against fixtures) caught defects reasoning alone would miss. All merged in v0.6.2.
+
+<!-- decision:P-AV5XGE69 -->
+
+## Task 240 — Node Version Pinning Across Workflows
+
+**When:** 2026-07-21 · **Fact:** `P-AV5XGE69`
+**Why:** Silently divergent runtimes between benchmark and gates hide configuration drift and undermine benchmark numbers. Structural validation prevents future regression.
+
+<!-- decision:P-PJ7GCV7M -->
+
+## Validator Gap — D-nnn (Decision-Log) Citations Not Enforced
+
+**When:** 2026-07-21 · **Fact:** `P-PJ7GCV7M`
+**Why:** Discovered while writing docs: user cited D-382 in commit messages before the entry existed, and drift happened within hours. Showed that unstructured citations rot.
+
+<!-- decision:P-E75VAaB6 -->
+
+## v0.6.2 Release State and Task Risk Assessment
+
+**When:** 2026-07-21 · **Fact:** `P-E75VAaB6`
+**Why:** Guides next session on which work is safe vs. which must defer until fresh context available.
+
+<!-- decision:P-E4U9NH6W -->
+
+## validate-docs Citation Gap
+
+**When:** 2026-07-21 · **Fact:** `P-E4U9NH6W`
+**Why:** Systematic validation is core to the project's argument; this gap leaves a category of citations unguarded.
+
+<!-- decision:P-HS3NQQGR -->
+
+## Task 240 Resolution – Bench-Storage Allowlist Entry
+
+**When:** 2026-07-21 · **Fact:** `P-HS3NQQGR`
+**Why:** File's own header comment documented this floor but was not consulted during bulk pattern-matching sweep. D-384 lesson: bulk refactors require reading context.
+
+<!-- decision:P-NTY7KNC7 -->
+
+## Validator Test Coverage – TDD Conformance Gap Closed
+
+**When:** 2026-07-21 · **Fact:** `P-NTY7KNC7`
+**Why:** Project CLAUDE.md rule: "write the test first... never change the test to make it pass." Task 240 shipped untested, violating the rule.
+
+<!-- decision:P-A3LFDBR9 -->
+
+## "bench-storage" Allowlist Entry Is Pinned and Cannot Be Removed
+
+**When:** 2026-07-21 · **Fact:** `P-A3LFDBR9`
+**Why:** Removing it would break the regression test; it is a deliberate, load-bearing constraint.
+
+<!-- decision:P-VVZPFZ6R -->
+
+## Task 245 Diagnosis Deferred Until Reproducible
+
+**When:** 2026-07-21 · **Fact:** `P-VVZPFZ6R`
+**Why:** Avoids designing fixes to non-existent problems; ensures effort is spent on real issues.

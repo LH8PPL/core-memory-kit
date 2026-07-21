@@ -4,7 +4,7 @@ A 5-minute walkthrough from zero to a working kit on your first project.
 
 ## Prerequisites
 
-- Node 20 or later (`node --version`)
+- Node 22 or later (`node --version`)
 - A git repo to install into (the kit's `context/` lives inside)
 - **Your agent's command-line tool on PATH** — separate from the IDE:
   - **Claude Code** → `claude` (`claude --version`)

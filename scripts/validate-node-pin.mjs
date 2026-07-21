@@ -33,20 +33,23 @@ const WORKFLOWS = join(REPO, '.github', 'workflows');
  * drift).
  */
 export const LITERAL_ALLOWLIST = Object.freeze({
-  // REQUIRED divergence, not drift. `scripts/bench-storage.mjs` imports
-  // `node:sqlite` unconditionally at module scope, and that module did not
-  // exist before Node 22.5 — on the .nvmrc pin (20) the benchmark does not
-  // produce worse numbers, it CRASHES on import, and `node --experimental-sqlite`
-  // is rejected at startup too.
+  // EMPTY as of Task 243 (2026-07-21) — but it was NOT always, and the trail
+  // matters: bench-storage.yml held the first entry for exactly one day.
   //
-  // Decision-trail: D-383 originally moved this workflow ONTO the pin, arguing a
-  // bench on a different major is an invisible confound. That reasoning was
-  // right in general and WRONG here, because the thing being benchmarked has a
-  // hard floor above the pin. Caught by skill-review; the file's own header
-  // comment ("Node 24 — node:sqlite needs >= 22.5") had said so all along, two
-  // lines above the line that was edited. The sweep was mechanical and did not
-  // read it. See D-384.
-  'bench-storage.yml': 'node:sqlite requires Node >= 22.5 (added 22.5.0); the benchmark imports it at module scope, so the .nvmrc pin (20) would crash the run rather than skew it',
+  // Decision-trail: D-383 moved bench-storage onto the pin; D-384 REVERSED that
+  // (Blocking, caught by skill-review) because `scripts/bench-storage.mjs`
+  // imports `node:sqlite` at module scope, which did not exist before Node 22.5
+  // — on the then-pin (20) the benchmark would CRASH on import, not skew. So it
+  // kept a declared `node-version: 24` divergence here. Task 243 then raised
+  // `.nvmrc` itself to 22 (better-sqlite3 v13's engines floor; Node 20 was EOL
+  // 2026-04): a bare-major 22 resolves to the latest 22.x, which clears the
+  // bench's REAL floor — node:sqlite EXTENSION loading (allowExtension /
+  // loadExtension), Node 22.13.0 / 23.5.0 per the Node docs; 22.5 is only
+  // where the module appears (skill-review corrected the number). The
+  // crash-floor reason evaporated, D-383's original argument (a bench on a
+  // different major than the gates is an invisible confound) came back into
+  // force, and bench-storage joined the pin. `--experimental-sqlite` stays on the bench command: Node 22
+  // requires it for node:sqlite (stable only in later majors).
 });
 
 /** Pure: find bare `node-version:` literals in a workflow's text. */

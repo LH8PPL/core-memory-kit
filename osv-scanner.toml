@@ -9,7 +9,11 @@
 # the vitest major bump, which Dependabot will propose as a reviewable PR.
 #
 # IMPORTANT: a new advisory in a SHIPPED (production) dependency is NOT listed
-# here and will still fail the scan — the gate stays real.
+# here and will still fail the scan — the gate stays real. The ONE exception
+# class (below, Task 243): a shipped dep whose vulnerable code path is
+# STRUCTURALLY unreachable in the kit AND that has no fix inside the dependent's
+# admitted range — such an entry must name its reachability argument AND a
+# checkable removal trigger (D-248), or it does not belong here.
 
 [[IgnoredVulns]]
 id = "GHSA-67mh-4wv8-2f99"
@@ -18,3 +22,20 @@ reason = "esbuild is a dev/test-toolchain dependency (via vitest); never in the 
 [[IgnoredVulns]]
 id = "GHSA-4w7w-66w2-5vf9"
 reason = "vite is a dev/test-toolchain dependency (via vitest); never in the published package"
+
+# SHIPPED dep, unreachable path (2026-07-21). @hono/node-server ships via
+# @modelcontextprotocol/sdk (^1.19.9), and the advisory (Windows %5C path
+# traversal, CVSS 5.9 Moderate) is in its HTTP STATIC-FILE serving — code the
+# kit never executes: `cmk mcp serve` is stdio-only (stdin/stdout transport;
+# SECURITY.md and the design's stdio-only posture), no HTTP listener, no static
+# files. The fix (2.0.5) exists ONLY in the 2.x major, outside the SDK's ^1.x
+# range — an npm override across a major the SDK was not built against would
+# trade a vuln in dead code for live breakage risk. The sibling advisory from
+# the same disclosure (hono GHSA-xgm2-5f3f-mvvc) WAS in-range and was fixed for
+# real (4.12.31), not ignored.
+# REMOVAL TRIGGER (checkable): remove this entry when @modelcontextprotocol/sdk
+# admits @hono/node-server >= 2.0.5 — check with:
+#   npm view @modelcontextprotocol/sdk dependencies
+[[IgnoredVulns]]
+id = "GHSA-frvp-7c67-39w9"
+reason = "@hono/node-server HTTP static serving is unreachable (stdio-only MCP server); no fix in the SDK's ^1.x range; remove when the SDK admits >=2.0.5"

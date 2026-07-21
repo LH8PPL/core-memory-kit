@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-NBU4E54T) Add explicit timeouts to all background/foreground processes; don't wait indefinitely.
-  <!-- source: auto-extract-session, source_line: 1, sha1: b1b4143c08c0f8be8f85cc3461188795eb61751622cdca34c062e2527a191158, write: auto-extract, trust: high, at: 2026-07-20T20:31:13Z -->
 - (P-K5ZEYQRW) Confirms readiness to proceed with patch release sequence
   <!-- source: auto-extract-session, source_line: 1, sha1: 7db18d177fa41c4227570abdc30e18cf1655aa27d491fc765666e5f4e86b5ef9, write: auto-extract, trust: high, at: 2026-07-20T20:37:45Z -->
 - (P-VBVYMWY9) research files are saved to core-memory-kit/docs/research/, not local-wiki/raw/ — user clarified assistant's incorrect assumption about destination project
@@ -20,6 +18,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: 0a1c96d6b8f707b47ce071cf5e215aa5f4ab86d6f34750859999dbe58662fdb7, write: auto-extract, trust: high, at: 2026-07-21T11:33:56Z -->
 - (P-EQNQHEU9) Bench-storage.yml pins Node 20 but node:sqlite (imported at module scope, line 29) requires ≥22.5, causing immediate import failure
   <!-- source: auto-extract-session, source_line: 1, sha1: 12665f3ae4abc2c56fd3392cade4cd0c05247885e16a8aa2012a2ad1a1ad2950, write: auto-extract, trust: high, at: 2026-07-21T14:26:42Z -->
+- (P-MTZLLCQ3) User values accurate severity calibration — asked "do we have a problem RIGHT NOW?" to distinguish latent bugs from active failures
+  <!-- source: auto-extract-session, source_line: 1, sha1: ab6ead73e25726a21760c36f3092bda4e96af9d446d9c0ab0e61309ff53c522f, write: auto-extract, trust: high, at: 2026-07-21T15:43:08Z -->
 
 ## Environment Notes
 

@@ -15,11 +15,16 @@
 // logic but left no safety net for the next regex edit.
 
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   findLiteralPins,
   checkNodePins,
   LITERAL_ALLOWLIST,
 } from '../scripts/validate-node-pin.mjs';
+
+const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const GOOD = 'jobs:\n  a:\n    steps:\n      - uses: actions/setup-node@v7\n        with:\n          node-version-file: .nvmrc\n';
 const BAD = 'jobs:\n  a:\n    steps:\n      - uses: actions/setup-node@v7\n        with:\n          node-version: 18\n';
@@ -81,12 +86,54 @@ describe('Task 240 — the allowlist is a written choice, not a loophole', () =>
     }
   });
 
-  it('bench-storage is allowlisted for the node:sqlite floor (D-384 regression)', () => {
-    // The first draft of Task 240 swept this workflow onto the pin, which would
-    // have CRASHED the benchmark: scripts/bench-storage.mjs imports node:sqlite
-    // at module scope and that module needs Node >= 22.5. Pin this so nobody
-    // "helpfully" empties the allowlist later.
-    expect(LITERAL_ALLOWLIST['bench-storage.yml']).toBeTruthy();
-    expect(LITERAL_ALLOWLIST['bench-storage.yml']).toMatch(/22\.5|node:sqlite/);
+  it('bench-storage composes with the .nvmrc floor for node:sqlite (D-384 → Task 243)', () => {
+    // TEST DELIBERATELY CHANGED (Task 243) — the original pinned "bench-storage
+    // MUST hold an allowlist entry", which was correct while .nvmrc was 20:
+    // scripts/bench-storage.mjs imports node:sqlite at module scope, that module
+    // needs Node >= 22.5, and the D-384 Blocking was that pinning it to 20 would
+    // CRASH the benchmark, not skew it. Task 243 raised .nvmrc to 22 (the
+    // better-sqlite3 v13 engines floor), which resolves to a 22.x >= 22.5 — so
+    // the crash-floor reason evaporated and D-383's original argument (a bench
+    // on a different major than the gates is an invisible confound) says it must
+    // JOIN the pin. The durable invariant was never "the entry exists"; it is
+    // the COMPOSITION between .nvmrc and the benchmark's node:sqlite floor —
+    // asserted conditionally so this test survives the floor moving in either
+    // direction instead of pinning one side of it.
+    // Parse the FULL version, not just the major (skill-review, Task 243):
+    // a major-only parse gave an exact pin like `22.4.0` the green branch while
+    // the bench would crash on it. Tolerate nvm's `v` prefix — `v22` is valid
+    // for both nvm and setup-node's node-version-file, and Number.parseInt('v22')
+    // is NaN, which would fail LOUDLY but point at exactly the wrong fix.
+    const raw = readFileSync(join(REPO, '.nvmrc'), 'utf8').trim().replace(/^v/, '');
+    const [major, minor] = raw.split('.').map((n) => Number.parseInt(n, 10));
+    // The bench's REAL floor is node:sqlite EXTENSION loading (allowExtension /
+    // loadExtension, used by runChild for sqlite-vec): Node 22.13.0 / 23.5.0
+    // per the Node docs — NOT 22.5, which is only where the module appears. A
+    // bare-major pin (`22`) resolves to the latest 22.x, always past 22.13; an
+    // EXACT pin carries its stated minor and must clear the floor itself.
+    // `minor === undefined` is the bare-major case (`22` splits to one part —
+    // and Number.isNaN(undefined) is FALSE, it does not coerce, so checking
+    // NaN alone routed the bare pin into the wrong branch on the first run).
+    const bareOrHighMinor = minor === undefined || Number.isNaN(minor) || minor >= 13;
+    const pinClearsSqliteFloor = major > 22 || (major === 22 && bareOrHighMinor);
+    const bench = readFileSync(
+      join(REPO, '.github', 'workflows', 'bench-storage.yml'),
+      'utf8',
+    );
+    if (pinClearsSqliteFloor) {
+      // The bench must run the pinned runtime like every other job, and any
+      // future re-divergence must re-earn its allowlist entry in writing.
+      expect(LITERAL_ALLOWLIST['bench-storage.yml']).toBeUndefined();
+      expect(bench).toMatch(/node-version-file:\s*\.nvmrc/);
+    } else {
+      // The D-384 world: a pin below the extension floor crashes the bench, so
+      // the divergence MUST be declared — AND the workflow must actually be OFF
+      // the pin. Asserting only the entry would pass the broken state
+      // {entry present, workflow still on .nvmrc}, which crashes exactly the
+      // same way (skill-review Minor, Task 243).
+      expect(LITERAL_ALLOWLIST['bench-storage.yml']).toBeTruthy();
+      expect(LITERAL_ALLOWLIST['bench-storage.yml']).toMatch(/22\.13|node:sqlite/);
+      expect(bench).not.toMatch(/node-version-file:\s*\.nvmrc/);
+    }
   });
 });

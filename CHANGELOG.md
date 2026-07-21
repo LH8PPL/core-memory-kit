@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Changed
 
+- **BREAKING (floor): the kit now requires Node >= 22** (was >= 20). Node 20 reached end-of-life in April 2026; the driver bump below is what forced the call, and it ships in a patch deliberately — an EOL runtime is not a supported surface to preserve. If `node --version` says 20/21, upgrade Node before updating the kit.
+- **`npm install -g` is quiet again: the `prebuild-install@7.1.3: No longer maintained` deprecation warning is gone.** `better-sqlite3` v13 ships its prebuilt binaries directly and drops the deprecated downloader; verified A/B on a clean install (published v0.6.1 prints the warning, this build prints nothing). FTS5 search, sqlite-vec KNN, and the full suite verified on the new driver. (Task 243)
 - **The kit now watches for dependency advisories every day, not only when someone pushes.** Its security scanners already gated every pull request — but an advisory published *after* the last PR reached nobody until the next one. That gap is real: the day this shipped, two advisories landed overnight and were caught only because an unrelated commit happened to be pushed. The same scanners now also run daily and, on a high/critical finding, open a GitHub issue naming the package and the fix (updated on re-run, closed automatically when the surface goes clean). Coverage boundary stated honestly in SECURITY.md: published advisories only — not zero-days or typosquats. (Task 237, D-381)
 
 ## [0.6.1] — 2026-07-20
