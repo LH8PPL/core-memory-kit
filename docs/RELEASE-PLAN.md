@@ -287,7 +287,7 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
      rides immediately after for context locality). Both are ECC borrows verified at code
      level; neither is memory-design (their memory is thinner than ours — see the
      [study](research/2026-07-20-ecc-harness-os-comparison.md)).
-  6c. **v0.6.2 — internal hygiene (D-364/D-367/D-368, laned 2026-07-20).** **Task 241**
+  6c. **v0.6.2 — internal hygiene (D-364/D-367/D-368, laned 2026-07-20).** **Task 243** (drop the user-visible `prebuild-install` deprecation warning — a `better-sqlite3` v12→v13 bump; v13 dropped that dep entirely. NOT the node:sqlite migration, which stays REJECTED per D-162 — D-379, added 2026-07-21 from the user's install-noise report). **Task 241**
      (de-duplicate the fact-store walk — 10 modules walk it, the `INDEX.md` skip-idiom is
      in 9 files, `list*FactFiles` is byte-identical in 4, and there is no shared walker
      despite `tier-paths.mjs` already owning `resolveFactDir`; + `escapeRegExp`/

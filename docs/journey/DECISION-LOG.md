@@ -10,6 +10,18 @@
 
 ---
 
+## 2026-07-21 — D-379 · DECISION · The `prebuild-install` deprecation is a one-dependency bump, not the rejected storage migration (Task 243)
+
+**The user's question:** *"prebuild-install@7.1.3: No longer maintained is noisy for users, what are we using it for?"* — and it is a fair complaint: `better-sqlite3` is a PRODUCTION dependency, so that warning prints on every `npm install -g @lh8ppl/core-memory-kit`, at a first install, where it reads as "this kit is built on abandoned code."
+
+**Traced, not assumed:** it is not ours — `better-sqlite3@12.11.1` → `prebuild-install@7.1.3`, whose job is fetching a precompiled native binary so users need no C++ toolchain. Removing it naively makes installs strictly WORSE.
+
+**The cheap fix:** **`better-sqlite3@13.0.0` dropped `prebuild-install` entirely** (its only dep is now `node-addon-api@^8`). We pin `^12.11.1`. So the noise disappears with a major bump of one dependency — no architecture change, no Node-floor change, no migration. Laned as **Task 243, v0.6.2**, where the real work is the install-matrix verification (how v13 obtains its prebuilt binary now is the thing that could make install UX worse rather than better).
+
+**The part worth recording as a process note — I nearly re-opened a settled decision.** I framed this to the user as "the `node:sqlite` migration is the separate later architectural question," and to support it I re-ran the FTS5 and extension-loading spikes from scratch on Node 24 (both passed). **Both had already been run in June, and the migration was REJECTED — Task 141b / D-162, on CLEAN CI data: node:sqlite ~10% slower on FTS5 keyword search and ~32% slower on incremental reindex, failing D-147's no-measurable-regression bar.** I found this only when opening `tasks.md` to write the new entry.
+
+**Why it matters beyond the wasted spikes:** the two spikes I re-ran *passed*, and in isolation they read as "the migration is viable" — which is exactly the framing I gave the user before checking. The decision did not turn on those spikes; it turned on the third one they gate. **A passing spike is not a decision, and re-deriving half a decision's inputs is worse than not looking at all, because it produces false confidence.** The decision-log rule exists for precisely this: read the record BEFORE re-deriving, not after. Task 243's entry carries the warning inline so the next reader hits it before touching the storage layer.
+
 ## 2026-07-20 — D-378 · NOTE · A green workflow is not a green commit (the SonarCloud miss)
 
 **The user caught a failing SonarCloud Quality Gate on `main` that I had twice reported as green.** It had been red since the Task-235 merge.
