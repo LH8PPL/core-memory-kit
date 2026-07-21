@@ -19,3 +19,6 @@
 ## 2026-07-21T13:32:51Z — auto-extract (medium-trust, pending review)
 - (P-ZNQa9BGN) we need to fix this:
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-21T13:32:51Z -->
+## 2026-07-21T13:49:40Z — auto-extract (medium-trust, pending review)
+- (P-ZHV3V3US) Task 240 (Node pinning across 8 workflows) shipped successfully, fixing silent divergence where bench-storage ran Node 24 while gates ran Node 20
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-21T13:49:40Z -->
