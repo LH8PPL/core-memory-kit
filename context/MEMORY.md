@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-EJY4TRLG) Kit is working correctly; cmk doctor reports 12 PASS/0 FAIL with 55 observations captured today and 1,837 facts in store
-  <!-- source: review-promote, source_line: 1, sha1: 16d3ac1924434b60572d174ec43aa25d2e4c8c064131d7e603fefbb013aa277b, write: user-explicit, trust: high, at: 2026-07-20T20:00:13Z -->
 - (P-NBU4E54T) Add explicit timeouts to all background/foreground processes; don't wait indefinitely.
   <!-- source: auto-extract-session, source_line: 1, sha1: b1b4143c08c0f8be8f85cc3461188795eb61751622cdca34c062e2527a191158, write: auto-extract, trust: high, at: 2026-07-20T20:31:13Z -->
 - (P-K5ZEYQRW) Confirms readiness to proceed with patch release sequence
@@ -20,6 +18,8 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: 14b72ed5c969ee9125ff4c7094f3eab5f19bd649fa64fef99ac05cc58e267e55, write: auto-extract, trust: high, at: 2026-07-21T11:33:56Z -->
 - (P-3BHCGQQT) local-wiki is personal-only wiki; file placement within project is flexible
   <!-- source: auto-extract-session, source_line: 1, sha1: 0a1c96d6b8f707b47ce071cf5e215aa5f4ab86d6f34750859999dbe58662fdb7, write: auto-extract, trust: high, at: 2026-07-21T11:33:56Z -->
+- (P-EQNQHEU9) Bench-storage.yml pins Node 20 but node:sqlite (imported at module scope, line 29) requires ≥22.5, causing immediate import failure
+  <!-- source: auto-extract-session, source_line: 1, sha1: 12665f3ae4abc2c56fd3392cade4cd0c05247885e16a8aa2012a2ad1a1ad2950, write: auto-extract, trust: high, at: 2026-07-21T14:26:42Z -->
 
 ## Environment Notes
 

@@ -22,3 +22,6 @@
 ## 2026-07-21T13:49:40Z — auto-extract (medium-trust, pending review)
 - (P-ZHV3V3US) Task 240 (Node pinning across 8 workflows) shipped successfully, fixing silent divergence where bench-storage ran Node 24 while gates ran Node 20
   <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-21T13:49:40Z -->
+## 2026-07-21T14:26:42Z — auto-extract (medium-trust, pending review)
+- (P-M694W947) Validator `validate-node-pin.mjs` now has 10 test cases; was previously untested despite exporting functions for testability
+  <!-- proposed_trust: medium, write: auto-extract, at: 2026-07-21T14:26:42Z -->
