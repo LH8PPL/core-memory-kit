@@ -33,10 +33,39 @@ import { readFileSync, writeFileSync } from 'node:fs';
  * identical here so the standing watch and the PR gate can never disagree about
  * what counts as serious.
  */
-export const ALERT_SEVERITIES = new Set(['high', 'critical']);
+export const ALERT_SEVERITIES = new Set(['high', 'critical', 'unknown']);
 
 /** Stable marker so a re-run UPDATES one issue instead of filing a new one daily. */
 export const ISSUE_MARKER = '<!-- cmk:supply-chain-watch -->';
+
+/**
+ * The real severity of an OSV vulnerability. The OSV schema puts it in
+ * `database_specific.severity` (GHSA's LOW/MODERATE/HIGH/CRITICAL) or as CVSS
+ * vectors under `severity[]`. Neither is guaranteed present.
+ *
+ * An UNKNOWN severity is treated as alert-worthy: for a security watch,
+ * failing toward "tell someone" beats failing toward silence — and unlike the
+ * old hardcoded 'high', this is a deliberate policy rather than a wrong fact.
+ */
+export function osvSeverity(vuln) {
+  const ds = vuln?.database_specific?.severity;
+  if (typeof ds === 'string' && ds.trim()) {
+    const v = ds.trim().toLowerCase();
+    return v === 'moderate' ? 'moderate' : v; // GHSA says MODERATE, npm says moderate
+  }
+  const cvss = Array.isArray(vuln?.severity) ? vuln.severity[0]?.score : null;
+  if (typeof cvss === 'string') {
+    const m = /\/(?:CR|)AV:/.test(cvss) ? null : cvss.match(/^(\d+(?:\.\d+)?)$/);
+    if (m) {
+      const n = Number(m[1]);
+      if (n >= 9) return 'critical';
+      if (n >= 7) return 'high';
+      if (n >= 4) return 'moderate';
+      return 'low';
+    }
+  }
+  return 'unknown';
+}
 
 function safeParse(json) {
   try {
@@ -44,6 +73,22 @@ function safeParse(json) {
     return v && typeof v === 'object' ? v : {};
   } catch {
     return {};
+  }
+}
+
+/**
+ * Did this scanner actually produce output we could read? Empty string, junk,
+ * or a non-object all mean "the scan did not run", which is NOT the same as
+ * "the scan found nothing".
+ */
+export function isParseableScan(json) {
+  const raw = String(json || '').trim();
+  if (raw === '') return false;
+  try {
+    const v = JSON.parse(raw);
+    return v !== null && typeof v === 'object';
+  } catch {
+    return false;
   }
 }
 
@@ -96,10 +141,14 @@ export function parseOsvResults(json) {
           version: p?.package?.version || '',
           id: v?.id || 'unknown',
           summary: v?.summary || '',
-          // osv-scanner's own gating already filters what it reports; anything
-          // it surfaces here is treated as alert-worthy (it is the broader DB,
-          // and it is the scanner that caught what npm audit missed).
-          severity: 'high',
+          // Skill-review BLOCKING fix: this used to hardcode 'high' on the
+          // claim that "osv-scanner's own gating already filters what it
+          // reports". That claim is FALSE per the OSV schema (severity is
+          // informational metadata; osv-scanner applies no default severity
+          // filter — consuming tools must). The reviewer proved it by feeding
+          // the real script a LOW-severity fixture: it alerted. Read the real
+          // severity instead, and let the shared filter decide.
+          severity: osvSeverity(v),
           source: 'osv',
         });
       }
@@ -115,12 +164,23 @@ export function parseOsvResults(json) {
  * @returns {{shouldAlert:boolean, title:string, body:string, findings:object[], marker:string}}
  */
 export function buildSupplyChainReport({ auditJson = '', osvJson = '', now = '' } = {}) {
+  // Skill-review IMPORTANT fix: a scan that never ran must NOT be reported as
+  // clean. Both collection steps are best-effort (`|| true`,
+  // `continue-on-error`), so a registry outage or a failed action pull yields
+  // empty/garbage input — which previously produced shouldAlert:false, and the
+  // workflow AUTO-CLOSES on clean. That closes a real security issue on a day
+  // the scan never happened, in a workflow whose whole point is failing loudly.
+  const auditParsed = isParseableScan(auditJson);
+  const osvParsed = isParseableScan(osvJson);
+  const scanStatus = auditParsed && osvParsed ? 'ok' : 'incomplete';
+
   const audit = parseNpmAudit(auditJson).filter((f) => ALERT_SEVERITIES.has(f.severity));
-  const osv = parseOsvResults(osvJson);
+  // Same filter for osv — it used to bypass this entirely (the BLOCKING fix).
+  const osv = parseOsvResults(osvJson).filter((f) => ALERT_SEVERITIES.has(f.severity));
   const findings = [...audit, ...osv];
 
   if (findings.length === 0) {
-    return { shouldAlert: false, title: '', body: '', findings: [], marker: ISSUE_MARKER };
+    return { shouldAlert: false, scanStatus, title: '', body: '', findings: [], marker: ISSUE_MARKER };
   }
 
   const lines = [
@@ -156,6 +216,7 @@ export function buildSupplyChainReport({ auditJson = '', osvJson = '', now = '' 
 
   return {
     shouldAlert: true,
+    scanStatus,
     title: `Supply-chain watch: ${findings.length} dependency finding(s)`,
     body: lines.join('\n'),
     findings,
@@ -189,6 +250,9 @@ if (import.meta.url === new URL(`file://${process.argv[1]?.replace(/\\/g, '/')}`
   // The workflow branches on this line.
   process.stdout.write(JSON.stringify({
     shouldAlert: report.shouldAlert,
+    // The workflow gates its auto-close on this: only a scan that DEMONSTRABLY
+    // ran may declare the surface clean.
+    scanStatus: report.scanStatus,
     title: report.title,
     count: report.findings.length,
   }) + '\n');

@@ -25,6 +25,8 @@ import {
   parseNpmAudit,
   parseOsvResults,
   buildSupplyChainReport,
+  osvSeverity,
+  isParseableScan,
   ALERT_SEVERITIES,
 } from '../scripts/supply-chain-report.mjs';
 
@@ -131,7 +133,56 @@ describe('Task 237 — THE GATE BITES (the load-bearing half)', () => {
     expect(r.body).toContain(r.marker);
   });
 
-  it('the alert severities are the documented set (high + critical only)', () => {
-    expect([...ALERT_SEVERITIES].sort()).toEqual(['critical', 'high']);
+  it('the alert severities are the documented set (high + critical + unknown-fails-loud)', () => {
+    expect([...ALERT_SEVERITIES].sort()).toEqual(['critical', 'high', 'unknown']);
+  });
+});
+
+describe('Task 237 — skill-review regressions (each was a real defect)', () => {
+  // BLOCKING: osv findings hardcoded severity:'high' AND bypassed the filter.
+  // The reviewer proved it by feeding the real script a LOW fixture: it alerted.
+  const osvLow = JSON.stringify({
+    results: [{ packages: [{ package: { name: 'noisy-pkg', version: '1.0.0' },
+      vulnerabilities: [{ id: 'GHSA-low-low-low', database_specific: { severity: 'LOW' } }] }] }],
+  });
+  const osvCritical = JSON.stringify({
+    results: [{ packages: [{ package: { name: 'bad-pkg', version: '1.0.0' },
+      vulnerabilities: [{ id: 'GHSA-crit-crit-crit', database_specific: { severity: 'CRITICAL' } }] }] }],
+  });
+
+  it('reads the REAL osv severity instead of assuming high', () => {
+    expect(osvSeverity({ database_specific: { severity: 'LOW' } })).toBe('low');
+    expect(osvSeverity({ database_specific: { severity: 'CRITICAL' } })).toBe('critical');
+    expect(osvSeverity({}), 'no severity anywhere = unknown, not a fabricated high').toBe('unknown');
+  });
+
+  it('does NOT alert on a LOW-severity osv finding (the alert-fatigue defect)', () => {
+    const r = buildSupplyChainReport({ auditJson: '{}', osvJson: osvLow });
+    expect(r.shouldAlert, 'LOW osv findings must not wake anyone').toBe(false);
+  });
+
+  it('DOES alert on a critical osv finding (the filter must not over-correct)', () => {
+    expect(buildSupplyChainReport({ auditJson: '{}', osvJson: osvCritical }).shouldAlert).toBe(true);
+  });
+
+  it('an UNKNOWN-severity osv finding still alerts (fail toward telling someone)', () => {
+    const noSev = JSON.stringify({ results: [{ packages: [{ package: { name: 'x', version: '1' },
+      vulnerabilities: [{ id: 'GHSA-unknown' }] }] }] });
+    expect(buildSupplyChainReport({ auditJson: '{}', osvJson: noSev }).shouldAlert).toBe(true);
+  });
+
+  // IMPORTANT: a scan that never ran read as "clean" — and the workflow
+  // auto-closes on clean, i.e. it would close a live security issue.
+  it('a FAILED scan reports scanStatus incomplete, never a clean bill', () => {
+    expect(buildSupplyChainReport({ auditJson: '', osvJson: '{}' }).scanStatus).toBe('incomplete');
+    expect(buildSupplyChainReport({ auditJson: 'garbage{{', osvJson: '{}' }).scanStatus).toBe('incomplete');
+    expect(isParseableScan('')).toBe(false);
+    expect(isParseableScan('not json')).toBe(false);
+  });
+
+  it('a genuinely clean scan is distinguishable from a failed one', () => {
+    const r = buildSupplyChainReport({ auditJson: '{"vulnerabilities":{}}', osvJson: '{"results":[]}' });
+    expect(r.shouldAlert).toBe(false);
+    expect(r.scanStatus, 'only THIS may license the workflow to auto-close').toBe('ok');
   });
 });
