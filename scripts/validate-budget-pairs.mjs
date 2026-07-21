@@ -39,6 +39,13 @@ const REPO = process.env.CMK_VALIDATOR_ROOT
  */
 export const BUDGET_REGISTRY = [
   {
+    name: 'stale-global update check timeout (UPDATE_CHECK_TIMEOUT_MS=2500 — doctor must never hang on an unreachable registry)',
+    sourceRef: 'design section HC-9 stale-global half / Task 245 (D-388)',
+    testFile: 'tests/cli-update-check.test.js',
+    atCapPattern: 'at-cap',
+    overCapPattern: 'over-cap',
+  },
+  {
     name: 'feedback-screen rate-limit (RATE_LIMIT_PER_FACT_PER_DAY=5, per-fact daily trust-delta cap)',
     sourceRef: 'design section 20.2 / Task 193 (ADR-0017 Phase 1d)',
     testFile: 'tests/cli-feedback-screen.test.js',

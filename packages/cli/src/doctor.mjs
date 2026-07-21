@@ -997,7 +997,11 @@ export async function runDoctor({
       status: 'warn',
       message:
         `${c9.message}; but your installed cmk (v${published.installed}) is behind the published ` +
-        `v${published.latest} — run \`npm install -g @lh8ppl/core-memory-kit@latest\`, then \`cmk install\` here ` +
+        `v${published.latest} — run \`npm install -g @lh8ppl/core-memory-kit@latest\`` +
+        // Skill-review M1: only tell the user to re-stamp THIS project when it
+        // actually is a kit project — the skip branch means it deliberately
+        // is not, and "cmk install here" would scaffold it unasked.
+        (c9.status === 'pass' ? `, then \`cmk install\` here ` : ` `) +
         `(verify with \`cmk version\` after: a quiet npm run can leave the old version in place, D-382)`,
       recoveryCommand: 'npm install -g @lh8ppl/core-memory-kit@latest',
     };
