@@ -212,6 +212,18 @@ CREATE TABLE IF NOT EXISTS edges (
 
 CREATE INDEX IF NOT EXISTS idx_edges_dst ON edges(dst);
 CREATE INDEX IF NOT EXISTS idx_edges_type ON edges(type);
+
+-- Task 232: a tiny single-writer key/value sidecar for index-build state that
+-- can't be inferred from row emptiness. The edges rebuild writes a sentinel key
+-- here AFTER a successful rebuild, so the boot path distinguishes "edges never
+-- built" (pre-232 index → migrate once) from "built, legitimately empty" (a
+-- corpus whose facts simply carry no links → never re-walk). Without it, an
+-- empty edges table on a link-free corpus reads as "never built" on EVERY boot
+-- and re-walks the whole corpus before every read.
+CREATE TABLE IF NOT EXISTS meta (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);
 `;
 
 /**

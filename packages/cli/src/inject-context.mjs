@@ -42,7 +42,7 @@ import { isProvenanceCommentLine, parseBulletProvenance } from './provenance.mjs
 // Task 209 — the state-label vocabulary + envelope instruction. state-label.mjs
 // is PURE (no DB, no I/O), so this import keeps the §20.3 hot-path contract
 // (the cli-search-blend regression test pins index-db/search/trust-score OUT).
-import { STATE_LABELS, STATE_INSTRUCTION } from './state-label.mjs';
+import { STATE_LABELS, STATE_INSTRUCTION, hasSupersededLabel } from './state-label.mjs';
 import { listConflictQueue } from './conflict-queue.mjs';
 import { listReviewQueue } from './review-queue.mjs';
 import { parse as parseFactFrontmatter } from './frontmatter.mjs';
@@ -529,9 +529,10 @@ function labelSupersededBullets(body) {
   const lines = body.replace(/\r\n/g, '\n').split('\n');
   for (let i = 0; i < lines.length - 1; i++) {
     if (!/^\s*-\s/.test(lines[i])) continue;
-    // Idempotent: an already-labeled bullet is left alone. Match either the
-    // bare label or the Task-232 successor-named form (`[superseded by …]`).
-    if (lines[i].includes('[superseded')) continue;
+    // Idempotent: an already-labeled bullet is left alone. Match ONLY the real
+    // label forms (bare or the Task-232 successor-named form) so a literal
+    // `[superseded` in fact prose never blocks labeling.
+    if (hasSupersededLabel(lines[i])) continue;
     const next = lines[i + 1];
     if (!isProvenanceCommentLine(next) || !next.includes('superseded_by:')) continue;
     const m = lines[i].match(/^(\s*-\s+(?:\([PUL]-[A-Za-z0-9]{8}\)\s+)?)(.*)$/);
@@ -1080,9 +1081,10 @@ export function injectContext({
   // blocks, emitted only if a labeled bullet SURVIVES truncation — a
   // truncated-away label may leave a few bytes of unused headroom, which
   // keeps `snapshot ≤ capBytes` strictly true (§7.1.2).
-  // Match either the bare `[superseded — …]` or the Task-232 successor-named
-  // `[superseded by P-XXXX]` form (both start with `[superseded`).
-  const rawHasStateLabel = rawBlocks.some((b) => b.text.includes('[superseded'));
+  // Match ONLY the real label forms (bare `[superseded — …]` or the Task-232
+  // successor-named `[superseded by P-XXXX]`) — a literal `[superseded` in fact
+  // prose must not reserve the instruction line's budget.
+  const rawHasStateLabel = rawBlocks.some((b) => hasSupersededLabel(b.text));
   const stateReserve = rawHasStateLabel ? Buffer.byteLength(STATE_INSTRUCTION, 'utf8') + 2 : 0;
   // Task 234: same reserve discipline — budget the work-state guard BEFORE
   // capping, so adding it can never push the snapshot past capBytes (§7.1.2).
@@ -1131,9 +1133,9 @@ export function injectContext({
   const body = annotateWorkStateHeadings(keptBlocks.map((b) => b.text).join('\n'));
   const volatile = `${temporalMention ? temporalMention + '\n\n' : ''}${commitProposal ? commitProposal + '\n\n' : ''}`;
   // Task 209: emit the instruction only when a labeled bullet actually
-  // survived into the final body (see the stateReserve note above). Match both
-  // the bare label and the Task-232 successor-named form (`[superseded by …]`).
-  const stateLine = body.includes('[superseded') ? `${STATE_INSTRUCTION}\n\n` : '';
+  // survived into the final body (see the stateReserve note above). Match ONLY
+  // the real label forms (bare + the Task-232 successor-named `[superseded by …]`).
+  const stateLine = hasSupersededLabel(body) ? `${STATE_INSTRUCTION}\n\n` : '';
   let snapshot;
   if (body !== '') {
     snapshot = `${AUTHORITATIVE_MEMORY_PREAMBLE}\n\n${stateLine}${volatile}${body}`;

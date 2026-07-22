@@ -132,6 +132,28 @@ describe('graph-index pure helpers', () => {
     expect(extractWikilinks('[[slug|Nice Label]]')).toEqual(['slug']);
     expect(extractWikilinks('no links here')).toEqual([]);
   });
+
+  // Finding #2 (reviewer): shell/regex/code noise that happens to double-bracket
+  // must NOT mint edges.
+  it('extractWikilinks ignores a bash test `[[ -f ... ]]` (not slug-shaped)', () => {
+    expect(extractWikilinks('run `[[ -f "$x" ]] && echo ok`')).toEqual([]);
+    expect(extractWikilinks('```sh\n[[ -f "$x" ]] && echo ok\n```')).toEqual([]);
+  });
+
+  it('extractWikilinks ignores a POSIX class `[[:digit:]]` (not slug-shaped)', () => {
+    expect(extractWikilinks('pattern `[[:digit:]]+`')).toEqual([]);
+    expect(extractWikilinks('grep [[:digit:]] here')).toEqual([]); // even outside code — `:` fails the slug shape
+  });
+
+  it('extractWikilinks ignores array indexing `arr[[i]]` inside code', () => {
+    expect(extractWikilinks('the value `arr[[i]]` is nested')).toEqual([]);
+    expect(extractWikilinks('```js\nconst v = arr[[i]];\n```')).toEqual([]);
+  });
+
+  it('extractWikilinks still parses a real wikilink OUTSIDE a fence', () => {
+    expect(extractWikilinks('```sh\n[[ -f x ]]\n```\nbut [[real-slug]] links')).toEqual(['real-slug']);
+    expect(extractWikilinks('prose with a `code span` then [[real-slug]]')).toEqual(['real-slug']);
+  });
 });
 
 describe('edges table build (Task 232)', () => {
@@ -290,16 +312,48 @@ describe('over-mutation guard — changing one fact leaves unrelated edges intac
 });
 
 describe('reindexBoot cold-edge migration (pre-232 index)', () => {
-  it('populates an empty edges table on the next boot when observations exist', () => {
+  it('populates the edges table on the next boot when it was never built', () => {
     seedCorpus();
     reindexFull({ projectRoot, userDir, db });
-    // Simulate a pre-232 index: observations present, edges empty.
+    // Simulate a pre-232 index: observations present, edges + sentinel absent
+    // (a pre-232 index has never run rebuildEdges, so no meta['edges_built_at']).
     db.prepare('DELETE FROM edges').run();
+    db.prepare("DELETE FROM meta WHERE key = 'edges_built_at'").run();
     expect(db.prepare('SELECT COUNT(*) AS n FROM edges').get().n).toBe(0);
-    // A no-change boot should still self-heal the cold edges.
+    // A no-change boot should still self-heal the never-built edges.
     const r = reindexBoot({ projectRoot, userDir, db });
     expect(r.edgesRebuilt).toBe(true);
     expect(db.prepare('SELECT COUNT(*) AS n FROM edges').get().n).toBeGreaterThan(0);
+  });
+
+  // Finding #1 (reviewer): the cold-edge migration must TERMINATE on a link-free
+  // corpus — an empty edges table that has been BUILT (sentinel present) must not
+  // read as "never built" and re-walk the whole corpus on every read.
+  it('a link-free corpus builds edges ONCE then never re-walks on a no-change boot', () => {
+    // Facts with NO related / [[wikilink]] / superseded_by → zero edges.
+    seedFact({ id: A, slug: 'alpha' });
+    seedFact({ id: B, slug: 'bravo' });
+    // First boot: files changed → rebuild runs, edges legitimately empty, sentinel set.
+    const first = reindexBoot({ projectRoot, userDir, db });
+    expect(first.edgesRebuilt).toBe(true);
+    expect(db.prepare('SELECT COUNT(*) AS n FROM edges').get().n).toBe(0);
+    // Second (and third) no-change boots must NOT rebuild — the sentinel proves
+    // "built, legitimately empty", not "never built".
+    expect(reindexBoot({ projectRoot, userDir, db }).edgesRebuilt).toBe(false);
+    expect(reindexBoot({ projectRoot, userDir, db }).edgesRebuilt).toBe(false);
+  });
+
+  it('a real file change still triggers an edge rebuild after the sentinel is set', () => {
+    seedFact({ id: A, slug: 'alpha' });
+    seedFact({ id: B, slug: 'bravo' });
+    reindexBoot({ projectRoot, userDir, db }); // sets sentinel
+    expect(reindexBoot({ projectRoot, userDir, db }).edgesRebuilt).toBe(false);
+    // Change a fact to add a link → the next boot MUST rebuild (and resolve it).
+    const aPath = join(projectRoot, 'context', 'memory', 'feedback_alpha.md');
+    writeFileSync(aPath, readFileSync(aPath, 'utf8').replace(/\n---\n/, '\nrelated: [bravo]\n---\n'), 'utf8');
+    const r = reindexBoot({ projectRoot, userDir, db });
+    expect(r.edgesRebuilt).toBe(true);
+    expect(db.prepare("SELECT dst FROM edges WHERE src = ?").get(A)).toMatchObject({ dst: B });
   });
 });
 

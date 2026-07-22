@@ -52,7 +52,7 @@ import { readBullet, parseBulletProvenance, isSeedProvenance } from './provenanc
 import { parse as parseFrontmatter } from './frontmatter.mjs';
 import { listFactFiles } from './fact-store.mjs';
 import { initTrustScore } from './trust-score.mjs';
-import { rebuildEdges, edgesEmpty } from './graph-index.mjs';
+import { rebuildEdges, edgesBuilt } from './graph-index.mjs';
 import {
   VALID_TIERS,
   SCRATCHPADS_BY_TIER,
@@ -615,22 +615,29 @@ export function reindexBoot({ projectRoot, userDir, db, now }) {
   // fact add/edit/prune can create, resolve, or dangle an edge, and edges are
   // cross-file so the rebuild is wholesale (graph-index.rebuildEdges). Skipped
   // on a no-change boot (the common hot-path case) to keep the every-read
-  // reindex cheap — UNLESS the edges table is cold (empty while observations
-  // exist), which is the one-time migration case for a pre-232 index: populate
-  // it on the next read so the graph self-heals with no manual `reindex --full`.
+  // reindex cheap — UNLESS the edges have NEVER been built (no meta sentinel),
+  // which is the one-time migration case for a pre-232 index: populate it on the
+  // next read so the graph self-heals with no manual `reindex --full`. The
+  // sentinel (not row emptiness) gates this — a link-free corpus builds an empty
+  // edges table ONCE and is never re-walked, so the migration terminates.
   let edgeCount = 0;
   const changed = filesReindexed > 0 || filesPruned > 0;
   let coldEdges = false;
   try {
-    coldEdges = edgesEmpty(db) && db.prepare('SELECT 1 FROM observations LIMIT 1').get() !== undefined;
+    coldEdges = !edgesBuilt(db) && db.prepare('SELECT 1 FROM observations LIMIT 1').get() !== undefined;
   } catch {
     coldEdges = false;
   }
-  if (changed || coldEdges) {
+  const edgesRebuilt = changed || coldEdges;
+  if (edgesRebuilt) {
     try {
       ({ edgeCount } = rebuildEdges(db, { projectRoot, userDir }));
-    } catch {
-      // best-effort; the next boot retries
+    } catch (err) {
+      // best-effort (a broken graph must never fail the observation reindex),
+      // but NOT silent: a permanently-failing rebuild leaves a signal (Door 5).
+      process.stderr.write(
+        `cmk reindex: edge rebuild (boot) failed: ${err?.message ?? err}\n`,
+      );
     }
   }
 
@@ -643,7 +650,7 @@ export function reindexBoot({ projectRoot, userDir, db, now }) {
     transcriptFiles: transcripts.files,
     transcriptChunks: transcripts.chunks,
     edgeCount,
-    edgesRebuilt: changed || coldEdges,
+    edgesRebuilt,
     durationMs: Date.now() - t0,
     skipped,
   };
@@ -736,8 +743,12 @@ export function reindexFull({ projectRoot, userDir, db, now }) {
   let edgeCount = 0;
   try {
     ({ edgeCount } = rebuildEdges(db, { projectRoot, userDir }));
-  } catch {
-    // best-effort; the next reindex retries
+  } catch (err) {
+    // best-effort (a broken graph must never fail the observation reindex),
+    // but NOT silent: a permanently-failing rebuild leaves a signal (Door 5).
+    process.stderr.write(
+      `cmk reindex: edge rebuild (full) failed: ${err?.message ?? err}\n`,
+    );
   }
 
   return {
