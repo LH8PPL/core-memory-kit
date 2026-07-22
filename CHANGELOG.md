@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+## [0.6.2] — 2026-07-22
+
+### Fixed
+
+- **Automatic capture no longer strands memory when the agent runs from a subdirectory.** The capture hooks resolved their project root from the current working directory alone, so if the agent's cwd was a subfolder of your project (e.g. during a build step), per-turn capture, auto-extract, and the PreCompact roll would quietly write to a *new* `context/` folder there — which nothing reads, while `cmk doctor` still reported healthy. The hooks now resolve the real project root (via `CLAUDE_PROJECT_DIR` or by walking up to your `context/` dir), so capture always lands in the one tier. (Task 246)
+
 ### Changed
 
 - **`cmk doctor` now notices when your installed `cmk` itself is behind the published version — and says so.** Previously every check compared against the installed binary, so an `npm install -g` upgrade that quietly did nothing (observed live, D-382) left doctor reporting healthy on the old version. HC-9 now also asks the npm registry what `latest` is and WARNs with the exact upgrade command — plus a reminder to verify with `cmk version` afterwards, since the failure being caught is precisely an upgrade that looked fine and did nothing. Fully soft: offline/CI runs skip it silently, `CMK_SKIP_UPDATE_CHECK=1` opts out, and it never turns a healthy doctor red. (Task 245)
