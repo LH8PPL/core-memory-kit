@@ -25,6 +25,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const readHookStdinPath = join(__dirname, '..', 'src', 'read-hook-stdin.mjs');
 const modulePath = join(__dirname, '..', 'src', 'capture-turn.mjs');
+const tierPathsPath = join(__dirname, '..', 'src', 'tier-paths.mjs');
 
 // Auto-extract path: env override → sibling cmk-auto-extract.mjs (ships
 // in this same bin/ dir). Absent only in a corrupt install; the spawn
@@ -38,9 +39,11 @@ const autoExtractPath =
 let readHookStdin;
 let parseHookPayload;
 let captureTurn;
+let resolveHookProjectRoot;
 try {
   ({ readHookStdin, parseHookPayload } = await import(pathToFileURL(readHookStdinPath).href));
   ({ captureTurn } = await import(pathToFileURL(modulePath).href));
+  ({ resolveHookProjectRoot } = await import(pathToFileURL(tierPathsPath).href));
 } catch (err) {
   process.stderr.write(
     `cmk-capture-turn: failed to load modules: ${err?.message ?? err}\n`,
@@ -66,8 +69,13 @@ try {
   process.exit(0);
 }
 
+// Task 246: resolve the REAL project root (CLAUDE_PROJECT_DIR / CMK_PROJECT_DIR
+// → walk up to the nearest context/ → cwd), never bare cwd — a subdirectory cwd
+// used to fork a stray, unread memory tier. captureTurn threads this same root
+// down to the detached auto-extract child via CMK_PROJECT_DIR, so the whole
+// capture chain lands in one place.
 try {
-  captureTurn({ payload, projectRoot: process.cwd(), autoExtractPath });
+  captureTurn({ payload, projectRoot: resolveHookProjectRoot(), autoExtractPath });
 } catch (err) {
   process.stderr.write(
     `cmk-capture-turn: handler failed: ${err?.message ?? err}\n`,

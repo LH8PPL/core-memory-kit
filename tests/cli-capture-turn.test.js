@@ -1084,7 +1084,17 @@ describe('Task 132 — dedup snapshot neutralizes embedded section markers (I1)'
         await new Promise((r) => setTimeout(r, 150));
       }
     }
-    rmSync(sandbox, { recursive: true, force: true });
+    // Final attempt is SWALLOWED, not thrown: on Windows under full-suite load
+    // a detached auto-extract child can still hold the sandbox as its cwd after
+    // the 1.5s retry window, so rmSync throws EPERM — a TEMP-DIR cleanup race,
+    // never a test outcome. The OS reclaims the temp dir later. Surfacing it as
+    // a failure was the documented cli-capture-turn full-suite-concurrency flake
+    // (CLAUDE.md lazy-framing instance #2); this guards the one unprotected line.
+    try {
+      rmSync(sandbox, { recursive: true, force: true });
+    } catch {
+      // best-effort temp cleanup — a leaked temp dir is not a failing test
+    }
   });
 
   it('a line-start USER_TURN: inside the previous entry cannot hijack the parse', () => {

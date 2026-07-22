@@ -18,13 +18,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const readHookStdinPath = join(__dirname, '..', 'src', 'read-hook-stdin.mjs');
 const modulePath = join(__dirname, '..', 'src', 'observe-edit.mjs');
+const tierPathsPath = join(__dirname, '..', 'src', 'tier-paths.mjs');
 
 let readHookStdin;
 let parseHookPayload;
 let observeEdit;
+let resolveHookProjectRoot;
 try {
   ({ readHookStdin, parseHookPayload } = await import(pathToFileURL(readHookStdinPath).href));
   ({ observeEdit } = await import(pathToFileURL(modulePath).href));
+  ({ resolveHookProjectRoot } = await import(pathToFileURL(tierPathsPath).href));
 } catch (err) {
   process.stderr.write(
     `cmk-observe-edit: failed to load modules: ${err?.message ?? err}\n`,
@@ -48,8 +51,10 @@ try {
   process.exit(0);
 }
 
+// Task 246: resolve the REAL project root, never bare cwd (a subdirectory cwd
+// used to fork a stray, unread memory tier).
 try {
-  observeEdit({ payload, projectRoot: process.cwd() });
+  observeEdit({ payload, projectRoot: resolveHookProjectRoot() });
 } catch (err) {
   process.stderr.write(
     `cmk-observe-edit: handler failed: ${err?.message ?? err}\n`,

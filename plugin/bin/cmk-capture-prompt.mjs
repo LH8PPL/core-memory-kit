@@ -37,13 +37,17 @@ const modulePath = join(
   'capture-prompt.mjs',
 );
 
+const tierPathsPath = join(dirname(modulePath), 'tier-paths.mjs');
+
 let readHookStdin;
 let parseHookPayload;
 let capturePrompt;
 let buildMemoryHint;
+let resolveHookProjectRoot;
 try {
   ({ readHookStdin, parseHookPayload } = await import(pathToFileURL(readHookStdinPath).href));
   ({ capturePrompt, buildMemoryHint } = await import(pathToFileURL(modulePath).href));
+  ({ resolveHookProjectRoot } = await import(pathToFileURL(tierPathsPath).href));
 } catch (err) {
   process.stderr.write(
     `cmk-capture-prompt: failed to load modules: ${err?.message ?? err}\n`,
@@ -69,8 +73,12 @@ try {
   process.exit(0);
 }
 
+// Task 246: resolve the REAL project root once (never bare cwd — a subdirectory
+// cwd used to fork a stray, unread memory tier); capture + hint share it.
+const projectRoot = resolveHookProjectRoot();
+
 try {
-  capturePrompt({ payload, projectRoot: process.cwd() });
+  capturePrompt({ payload, projectRoot });
 } catch (err) {
   process.stderr.write(
     `cmk-capture-prompt: handler failed: ${err?.message ?? err}\n`,
@@ -82,7 +90,7 @@ try {
 // systemMessage is user-display). Best-effort: a hint failure must never
 // break the capture protocol.
 try {
-  const hint = buildMemoryHint({ projectRoot: process.cwd(), prompt: payload?.prompt });
+  const hint = buildMemoryHint({ projectRoot, prompt: payload?.prompt });
   if (hint) {
     process.stdout.write(
       JSON.stringify({

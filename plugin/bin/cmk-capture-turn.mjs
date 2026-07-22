@@ -49,9 +49,11 @@ const autoExtractPath =
 let readHookStdin;
 let parseHookPayload;
 let captureTurn;
+let resolveHookProjectRoot;
 try {
   ({ readHookStdin, parseHookPayload } = await import(pathToFileURL(readHookStdinPath).href));
   ({ captureTurn } = await import(pathToFileURL(modulePath).href));
+  ({ resolveHookProjectRoot } = await import(pathToFileURL(join(dirname(modulePath), 'tier-paths.mjs')).href));
 } catch (err) {
   process.stderr.write(
     `cmk-capture-turn: failed to load modules: ${err?.message ?? err}\n`,
@@ -78,7 +80,7 @@ try {
 }
 
 try {
-  captureTurn({ payload, projectRoot: process.cwd(), autoExtractPath });
+  captureTurn({ payload, projectRoot: resolveHookProjectRoot(), autoExtractPath });
 } catch (err) {
   process.stderr.write(
     `cmk-capture-turn: handler failed: ${err?.message ?? err}\n`,

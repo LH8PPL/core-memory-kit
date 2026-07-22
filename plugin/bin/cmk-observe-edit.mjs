@@ -78,8 +78,10 @@ try {
 process.stdout.write(JSON.stringify({ continue: true }));
 
 let observeEdit;
+let resolveHookProjectRoot;
 try {
   ({ observeEdit } = await import(pathToFileURL(modulePath).href));
+  ({ resolveHookProjectRoot } = await import(pathToFileURL(join(dirname(modulePath), 'tier-paths.mjs')).href));
 } catch (err) {
   process.stderr.write(
     `cmk-observe-edit: failed to load module: ${err?.message ?? err}\n`,
@@ -87,8 +89,10 @@ try {
   process.exit(0);
 }
 
+// Task 246: resolve the REAL project root, never bare cwd (a subdirectory cwd
+// used to fork a stray, unread memory tier).
 try {
-  observeEdit({ payload, projectRoot: process.cwd() });
+  observeEdit({ payload, projectRoot: resolveHookProjectRoot() });
 } catch (err) {
   process.stderr.write(
     `cmk-observe-edit: handler failed: ${err?.message ?? err}\n`,

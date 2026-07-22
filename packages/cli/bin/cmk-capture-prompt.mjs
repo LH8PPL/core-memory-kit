@@ -22,14 +22,17 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const readHookStdinPath = join(__dirname, '..', 'src', 'read-hook-stdin.mjs');
 const modulePath = join(__dirname, '..', 'src', 'capture-prompt.mjs');
+const tierPathsPath = join(__dirname, '..', 'src', 'tier-paths.mjs');
 
 let readHookStdin;
 let parseHookPayload;
 let capturePrompt;
 let buildMemoryHint;
+let resolveHookProjectRoot;
 try {
   ({ readHookStdin, parseHookPayload } = await import(pathToFileURL(readHookStdinPath).href));
   ({ capturePrompt, buildMemoryHint } = await import(pathToFileURL(modulePath).href));
+  ({ resolveHookProjectRoot } = await import(pathToFileURL(tierPathsPath).href));
 } catch (err) {
   process.stderr.write(
     `cmk-capture-prompt: failed to load modules: ${err?.message ?? err}\n`,
@@ -55,8 +58,14 @@ try {
   process.exit(0);
 }
 
+// Task 246: resolve the REAL project root once (CLAUDE_PROJECT_DIR /
+// CMK_PROJECT_DIR → walk up to the nearest context/ → cwd), never bare cwd —
+// a subdirectory cwd used to fork a stray, unread memory tier. Both the capture
+// and the hint below share this one resolution.
+const projectRoot = resolveHookProjectRoot();
+
 try {
-  capturePrompt({ payload, projectRoot: process.cwd() });
+  capturePrompt({ payload, projectRoot });
 } catch (err) {
   process.stderr.write(
     `cmk-capture-prompt: handler failed: ${err?.message ?? err}\n`,
@@ -68,7 +77,7 @@ try {
 // systemMessage is user-display). Best-effort: a hint failure must never
 // break the capture protocol.
 try {
-  const hint = buildMemoryHint({ projectRoot: process.cwd(), prompt: payload?.prompt });
+  const hint = buildMemoryHint({ projectRoot, prompt: payload?.prompt });
   if (hint) {
     process.stdout.write(
       JSON.stringify({
