@@ -1256,6 +1256,11 @@ async function runSearch(queryParts, options) {
       includeExpired: options?.includeExpired === true,
       // Task 211: the state-view OVERRIDE only — classification is automatic.
       stateView: options?.stateView,
+      // Task 233: the recall-origin tag for skill-fire telemetry. The
+      // memory-search skill's first ladder step runs `cmk search --source
+      // skill`, so the recall-log records which searches the skill drove —
+      // making the ADR-0024 fire-rate measurable (before/after).
+      recallOrigin: options?.source,
       semanticBackend,
     });
     if (r.action === 'error') {
@@ -3463,6 +3468,7 @@ export const subcommands = [
       { flags: '--include-tombstoned', description: 'include deleted observations in results' },
       { flags: '--include-expired', description: 'include facts past their declared expires_at (hidden by default, never deleted)' },
       { flags: '--state-view <view>', description: 'OVERRIDE the automatic query state-view classification: current | historical | transition | neutral (Task 211 — normally detected from the query, no flag needed)' },
+      { flags: '--source <origin>', description: 'recall-origin tag for telemetry (e.g. skill) — records in the recall log which surface drove the search so the memory-search skill fire-rate is measurable (Task 233). Normal user searches omit it.' },
       { flags: '--project <dir>', description: 'project root to search (default: cwd). Used by the kiro-cli agent (no `cd` prefix — Kiro #4579).' },
     ],
     action: runSearch,

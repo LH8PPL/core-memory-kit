@@ -855,6 +855,11 @@ export function search(opts = {}) {
       source: 'search',
       query: opts.query,
       ids: results.map((r) => r.id),
+      // Task 233: the recall ORIGIN tag (e.g. 'skill' from `cmk search
+      // --source skill` / `mk_search {source:'skill'}`) — added only when set,
+      // so a plain search entry stays byte-shape identical. Lets the ADR-0024
+      // fire-rate be measured (skill-driven searches vs all searches).
+      origin: opts.recallOrigin,
     });
   }
 

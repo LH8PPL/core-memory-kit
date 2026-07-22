@@ -8,7 +8,14 @@
 // .locks tier is already gitignored (run-time transient state, same class as
 // audit.log). One line per surfacing event:
 //
-//   { session, ts, source: 'inject'|'search', ids: [...], query? }
+//   { session, ts, source: 'inject'|'search'|'hint', ids: [...], query?,
+//     form?('static'|'evidence'), origin?('skill'), toolPolicy? }
+//
+// The optional form/origin/toolPolicy fields (Task 233) are the skill-fire
+// telemetry: `form` on a 'hint' entry says which hint fired per prompt;
+// `origin` on a 'search' entry marks a skill-driven recall; `toolPolicy`
+// records the harness tool-loading population. Downstream 191/192 consumers
+// filter on `source` ('search'/'inject'), so a 'hint' entry is inert to them.
 //
 // IDs + query only — never fact bodies. The `query` field IS user-typed text,
 // so this is not content-free — the posture holding it is the file's class:
@@ -42,12 +49,18 @@ export function recallLogPath(projectRoot) {
  * @param {string} projectRoot
  * @param {object} entry
  * @param {string|null} [entry.session] - hook payload session_id when known.
- * @param {string} entry.source - 'inject' | 'search'.
+ * @param {string} entry.source - 'inject' | 'search' | 'hint'.
  * @param {string[]} [entry.ids] - the observation ids that surfaced.
- * @param {string} [entry.query] - the search query (search source only).
+ * @param {string} [entry.query] - the search/hint query text.
+ * @param {string} [entry.form] - hint form ('static' | 'evidence'), source:'hint' only (Task 233).
+ * @param {string} [entry.origin] - recall origin tag ('skill' | …), source:'search' only (Task 233 skill-fire telemetry).
+ * @param {string} [entry.toolPolicy] - harness tool-loading policy; defaults to $CMK_HARNESS_TOOL_POLICY when set (P-DXPCKAUU).
  * @returns {{ ok: boolean }}
  */
-export function appendRecallEntry(projectRoot, { session = null, source, ids = [], query } = {}) {
+export function appendRecallEntry(
+  projectRoot,
+  { session = null, source, ids = [], query, form, origin, toolPolicy } = {},
+) {
   try {
     const line = {
       session,
@@ -56,6 +69,20 @@ export function appendRecallEntry(projectRoot, { session = null, source, ids = [
       ids,
     };
     if (query !== undefined) line.query = query;
+    // Task 233 — skill-invocation telemetry (Door 5): the fire-rate the
+    // ADR-0024 success criterion measures is derivable from these fields.
+    // `form` distinguishes a static from an evidence-bearing hint fire;
+    // `origin` marks a skill-originated search (via `cmk search --source
+    // skill` / `mk_search {source:'skill'}`). Both are added ONLY when the
+    // caller sets them, so an ordinary inject/search entry stays byte-shape
+    // identical to the pre-233 record (no reader breakage).
+    if (form !== undefined) line.form = form;
+    if (origin !== undefined) line.origin = origin;
+    // The harness tool-loading policy dimension (P-DXPCKAUU: deferred-tools
+    // harnesses are a different population). Recorded when trivially available
+    // — the caller passes it, or the cut-gate exports CMK_HARNESS_TOOL_POLICY.
+    const resolvedPolicy = toolPolicy ?? process.env.CMK_HARNESS_TOOL_POLICY;
+    if (resolvedPolicy) line.toolPolicy = resolvedPolicy;
     const path = recallLogPath(projectRoot);
     mkdirSync(join(projectRoot, 'context', '.locks'), { recursive: true });
     appendFileSync(path, `${JSON.stringify(line)}\n`, 'utf8');

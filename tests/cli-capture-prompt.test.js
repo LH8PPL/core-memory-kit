@@ -36,7 +36,15 @@ import {
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { capturePrompt, buildMemoryHint } from '../packages/cli/src/capture-prompt.mjs';
+import {
+  capturePrompt,
+  buildMemoryHint,
+  clearsBm25Floor,
+  HINT_BM25_SCORE_FLOOR,
+  STATIC_MEMORY_HINT,
+} from '../packages/cli/src/capture-prompt.mjs';
+import { openIndexDb, getIndexDbPath } from '../packages/cli/src/index-db.mjs';
+import { readRecallLog } from '../packages/cli/src/recall-log.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = join(dirname(__filename), '..');
@@ -333,6 +341,203 @@ describe('Task 75.2 — buildMemoryHint (the "memory available" recall nudge)', 
     seedIndex();
     expect(buildMemoryHint({ projectRoot, prompt: '' })).toBe(null);
     expect(buildMemoryHint({ projectRoot })).toBe(null);
+  });
+});
+
+// Task 233 (ADR-0024): the gated cheap-index pointer hint — the static line
+// upgrades to a real FTS5 query over the prompt's terms, injecting ≤3 index
+// lines (id · title · date, NEVER bodies) when the top hit clears a bm25 score
+// floor. Zero LLM. Fail-open: any error → the byte-identical static hint.
+describe('Task 233 — buildMemoryHint evidence upgrade (gated cheap-index pointer)', () => {
+  let sandbox, projectRoot;
+  beforeEach(() => {
+    sandbox = mkdtempSync(join(tmpdir(), 'cmk-hint-evidence-'));
+    projectRoot = join(sandbox, 'proj');
+    mkdirSync(join(projectRoot, 'context', 'memory'), { recursive: true });
+  });
+  afterEach(() => rmSync(sandbox, { recursive: true, force: true }));
+
+  function seedIndexWithEntry() {
+    writeFileSync(
+      join(projectRoot, 'context', 'memory', 'INDEX.md'),
+      '# Granular memory index — project tier\n\n## Files\n\n' +
+        '- (P-DEP2ABCD) [project] [Deploy target decision](project_deploy.md) — we chose hetzner\n',
+      'utf8',
+    );
+  }
+  function insertObs(db, { id, body, heading = 'H', source_file = 'f.md' }) {
+    db.prepare(
+      `INSERT INTO observations
+        (id, tier, source_file, source_line, source_sha1, heading_path, body,
+         write_source, trust, created_at, superseded_by, deleted_at, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      id, 'P', source_file, 1, 'a'.repeat(40), heading, body,
+      'user-explicit', 'high', Date.parse('2026-05-27T10:00:00Z'), null, null, null,
+    );
+  }
+  // Realistic corpus: bm25 IDF is corpus-dependent (a 2-doc index gives a
+  // near-zero score for a common term — the floor is meaningless there). Seed
+  // filler docs so a genuine match scores in the production −4..−12 range, well
+  // past the −0.5 floor, exactly as it does on a real ~2000-fact corpus.
+  const B32 = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // kit alphabet (no 0/O/1/l/I/8)
+  function fillerId(i) {
+    let s = '';
+    let n = i + 1000;
+    for (let k = 0; k < 8; k++) { s = B32[n % 31] + s; n = Math.floor(n / 31) + 7; }
+    return 'P-' + s;
+  }
+  const FILLERS = [
+    'ci pipeline uses github actions', 'the readme documents install steps',
+    'semantic backend uses onnx embedder', 'validate docs checks references',
+    'cron schedules nightly distill', 'frontmatter yaml parser handles crlf',
+    'poison guard screens secrets', 'the mcp server exposes tools',
+    'trust score blends into ranking', 'conflict queue resolves duplicates',
+  ];
+  function seedCorpus(db) {
+    for (let i = 0; i < 40; i++) insertObs(db, { id: fillerId(i), body: `${FILLERS[i % FILLERS.length]} number ${i}`, source_file: `f${i}.md` });
+  }
+  function seedDbFact({
+    id = 'P-DEP2ABCD',
+    body = 'we chose hetzner as the production deploy target',
+    heading = 'Deploy target decision',
+    source_file = 'project_deploy.md',
+    withCorpus = true,
+  } = {}) {
+    const db = openIndexDb({ projectRoot });
+    if (withCorpus) seedCorpus(db);
+    insertObs(db, { id, body, heading, source_file });
+    db.close();
+  }
+
+  it('injects up to 3 INDEX LINES (id · title · date, never bodies) when the top hit clears the bm25 floor', () => {
+    seedIndexWithEntry();
+    seedDbFact();
+    const hint = buildMemoryHint({
+      projectRoot,
+      prompt: 'what did we decide about the deploy target for production?',
+    });
+    expect(hint).toMatch(/P-DEP2ABCD/); // the index line's id
+    expect(hint).toMatch(/Deploy target decision/); // the title (from INDEX.md)
+    expect(hint).toMatch(/2026-05-27/); // the date (from created_at)
+    expect(hint).toMatch(/memory-search/); // still points at the skill
+    // NEVER a body — the raw fact body must not leak into the hint.
+    expect(hint).not.toContain('we chose hetzner as the production deploy target');
+    // header + ≤3 index lines + one pointer line
+    expect(hint.split('\n').length).toBeLessThanOrEqual(5);
+  });
+
+  it('caps the index lines at 3 even when more hits clear the floor', () => {
+    writeFileSync(
+      join(projectRoot, 'context', 'memory', 'INDEX.md'),
+      '# Granular memory index — project tier\n\n## Files\n\n' +
+        '- (P-DEP2ABCD) [project] [Deploy one](f1.md) — x\n' +
+        '- (P-DEP2ABCE) [project] [Deploy two](f2.md) — x\n' +
+        '- (P-DEP2ABCF) [project] [Deploy three](f3.md) — x\n' +
+        '- (P-DEP2ABCG) [project] [Deploy four](f4.md) — x\n',
+      'utf8',
+    );
+    const db = openIndexDb({ projectRoot });
+    seedCorpus(db);
+    for (const id of ['P-DEP2ABCD', 'P-DEP2ABCE', 'P-DEP2ABCF', 'P-DEP2ABCG']) {
+      insertObs(db, { id, body: `deploy target production choice ${id}`, source_file: `${id}.md` });
+    }
+    db.close();
+    const hint = buildMemoryHint({
+      projectRoot,
+      prompt: 'what did we decide about the deploy target production choice?',
+    });
+    const idLines = hint.split('\n').filter((l) => /^- P-/.test(l));
+    expect(idLines.length).toBeLessThanOrEqual(3);
+  });
+
+  it('bm25 floor budget pair: at-cap clears, over-cap (below the bm25 floor) does not', () => {
+    // HINT_BM25_SCORE_FLOOR is the WORST acceptable bm25 rank (FTS5 bm25 is
+    // negative-better, so a hit clears the floor when score <= FLOOR).
+    expect(clearsBm25Floor(HINT_BM25_SCORE_FLOOR)).toBe(true); // at-cap: exactly at the floor qualifies
+    expect(clearsBm25Floor(HINT_BM25_SCORE_FLOOR + 0.1)).toBe(false); // over-cap: below the bm25 floor → static hint
+    expect(clearsBm25Floor(HINT_BM25_SCORE_FLOOR - 5)).toBe(true); // well past the floor (more relevant)
+    expect(clearsBm25Floor(NaN)).toBe(false);
+    expect(clearsBm25Floor(undefined)).toBe(false);
+  });
+
+  it('falls back to the byte-identical STATIC hint below the ~20-char query gate (10..19 chars)', () => {
+    seedIndexWithEntry();
+    seedDbFact();
+    const hint = buildMemoryHint({ projectRoot, prompt: 'deploy target?' }); // 14 chars: >=10, <20
+    expect(hint).toBe(STATIC_MEMORY_HINT);
+  });
+
+  it('the STATIC hint text is byte-identical to the pre-233 wording (other surfaces match on it)', () => {
+    expect(STATIC_MEMORY_HINT).toBe(
+      '[core-memory-kit] Recorded memory available beyond the session snapshot — ' +
+        'use the memory-search skill when the answer may already be recorded (prior decisions, history, conventions, ' +
+        'project structure/architecture, where things live). Recall it; do not re-read the code to reconstruct it.',
+    );
+  });
+
+  it('falls back to the static hint when the query has NO qualifying hit', () => {
+    seedIndexWithEntry(); // INDEX advertises an archive…
+    // …but the only indexed fact does NOT match the query.
+    seedDbFact({ id: 'P-UNRELATD', body: 'the CI pipeline uses github actions', source_file: 'ci.md' });
+    const hint = buildMemoryHint({
+      projectRoot,
+      prompt: 'what banana pudding recipe did we settle on for the party?',
+    });
+    expect(hint).toBe(STATIC_MEMORY_HINT);
+  });
+
+  it('fail-open: a corrupt index DB yields the STATIC hint, never a crash, never null', () => {
+    seedIndexWithEntry();
+    const dbPath = getIndexDbPath(projectRoot);
+    mkdirSync(dirname(dbPath), { recursive: true });
+    writeFileSync(dbPath, 'this is not a sqlite database', 'utf8');
+    let hint;
+    expect(() => {
+      hint = buildMemoryHint({ projectRoot, prompt: 'what did we decide about the deploy target?' });
+    }).not.toThrow();
+    expect(hint).toBe(STATIC_MEMORY_HINT);
+  });
+
+  it('completes within a tight time budget on a seeded index (hot-path latency guard)', () => {
+    seedIndexWithEntry();
+    seedDbFact();
+    const t0 = Date.now();
+    buildMemoryHint({ projectRoot, prompt: 'what did we decide about the deploy target for production?' });
+    expect(Date.now() - t0).toBeLessThan(500); // must never blow the prompt-hook budget
+  });
+
+  it('Door 5: logs the hint form + ids into the recall log (source:hint, form:evidence)', () => {
+    seedIndexWithEntry();
+    seedDbFact();
+    buildMemoryHint({
+      projectRoot,
+      prompt: 'what did we decide about the deploy target for production?',
+      sessionId: 'sess-hint-1',
+    });
+    const hintEntries = readRecallLog(projectRoot).filter((e) => e.source === 'hint');
+    expect(hintEntries).toHaveLength(1);
+    expect(hintEntries[0].form).toBe('evidence');
+    expect(hintEntries[0].ids).toContain('P-DEP2ABCD');
+    expect(hintEntries[0].session).toBe('sess-hint-1');
+    expect(hintEntries[0].query).toMatch(/deploy target/);
+    // never a body in the log
+    expect(hintEntries[0].body).toBeUndefined();
+  });
+
+  it('Door 5: logs form:static on a static fallback (before/after fire-rate is measurable)', () => {
+    seedIndexWithEntry();
+    buildMemoryHint({ projectRoot, prompt: 'deploy some stuff' }); // 17 chars → static
+    const hintEntries = readRecallLog(projectRoot).filter((e) => e.source === 'hint');
+    expect(hintEntries).toHaveLength(1);
+    expect(hintEntries[0].form).toBe('static');
+    expect(hintEntries[0].ids).toEqual([]);
+  });
+
+  it('Door 5: does NOT log a hint when none fires (short prompt / no archive)', () => {
+    seedIndexWithEntry();
+    buildMemoryHint({ projectRoot, prompt: 'go' }); // < 10 chars → null, no fire
+    expect(readRecallLog(projectRoot).filter((e) => e.source === 'hint')).toHaveLength(0);
   });
 });
 

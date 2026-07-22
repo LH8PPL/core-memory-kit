@@ -32,6 +32,9 @@ import { appendRedactions } from './redactions-log.mjs';
 import { liveTranscriptPath } from './transcript-screen.mjs';
 import { judgeUserPrompt } from './judge-signals.mjs';
 import { dateFromIso } from './audit-log.mjs';
+import { openIndexDb, getIndexDbPath } from './index-db.mjs';
+import { prepareFtsQuery, enrichFactCitations } from './search.mjs';
+import { appendRecallEntry } from './recall-log.mjs';
 
 // Task 75.2 — the per-prompt "memory available" recall nudge (memsearch's
 // UserPromptSubmit hint, D-115's 75.2 half). The SessionStart snapshot +
@@ -44,10 +47,207 @@ import { dateFromIso } from './audit-log.mjs';
 // stays negligible, and it rides the EXISTING hook (no extra spawn).
 const HINT_MIN_PROMPT_CHARS = 10;
 
-export function buildMemoryHint({ projectRoot, prompt } = {}) {
+// Task 233 (ADR-0024): the evidence-query gate. A prompt this long or longer
+// pays a REAL FTS5 query over its terms; shorter (but still ≥ MIN) prompts get
+// the static line without the query cost. The pro-workflow "cheap-index
+// pointer" borrow — a natural-language question ("what did we decide about X?")
+// clears 20 chars; a terse "deploy target?" doesn't and stays static.
+const HINT_QUERY_MIN_CHARS = 20;
+
+// The bm25 SCORE FLOOR — the WORST acceptable top-hit rank for injecting index
+// lines (the graphiti `reranker_min_score` pattern). FTS5's bm25 rank is
+// NEGATIVE-better, so a hit clears the floor when `score <= FLOOR`.
+//
+// Chosen CONSERVATIVELY (lenient) per the octopoda-OS calibration warning
+// (their 0.80 floor filtered 5/7 relevant facts; lowered to 0.45). MEASURED on
+// this kit's FTS5: bm25 magnitude is CORPUS-DEPENDENT (it scales with IDF) — on
+// a realistic ~50-doc corpus a genuine OR-term match scores −4 to −12, while a
+// weak single-common-term match sits near 0; on a 2-doc corpus even a real
+// match is ~−1e-6 (near-zero IDF). So −0.5 rejects only the near-zero degenerate
+// matches on a real corpus while letting genuine matches through — the pointer
+// is advisory + low-cost, so a marginal false-positive is cheaper than a
+// filtered-out true match. Named + TUNABLE (never magic); a real-corpus
+// calibration pass may adjust it with the recall.log fire-rate evidence.
+export const HINT_BM25_SCORE_FLOOR = -0.5;
+
+// At most this many index lines in an evidence hint — id · title · date, never
+// bodies (the per-prompt token cost stays tiny).
+const HINT_MAX_INDEX_LINES = 3;
+
+// The hint query is RECALL-oriented, not precision-oriented. A whole natural-
+// language prompt fed to FTS5's implicit-AND matches almost nothing (the doc
+// must contain every word, verbs and all — "what did we DECIDE about X" ANDs to
+// zero), so the hint extracts CONTENT terms and joins them with OR: a pointer
+// wants "any strong term match," and the bm25 floor then filters the weak
+// single-common-term hits. (This is deliberately different semantics from
+// `cmk search`'s per-token implicit-AND — a user's explicit search wants
+// precision; the ambient hint wants recall. The bm25 floor is what keeps OR
+// from surfacing noise.) At most this many terms bound the query cost.
+const HINT_MAX_QUERY_TERMS = 8;
+
+// A small English stopword set — the words that carry no recall signal and,
+// under OR, would match nearly everything. Kept tiny + inline (no dependency).
+const HINT_STOPWORDS = new Set([
+  'the', 'and', 'for', 'are', 'was', 'were', 'our', 'you', 'your', 'his', 'her',
+  'its', 'their', 'what', 'which', 'who', 'whom', 'this', 'that', 'these', 'those',
+  'with', 'from', 'about', 'into', 'over', 'did', 'does', 'done', 'have', 'has',
+  'had', 'can', 'could', 'should', 'would', 'will', 'shall', 'may', 'might', 'must',
+  'we', 'us', 'me', 'my', 'is', 'be', 'been', 'being', 'do', 'to', 'of', 'in', 'on',
+  'at', 'by', 'or', 'as', 'it', 'an', 'a', 'so', 'if', 'but', 'not', 'no', 'yes',
+  'how', 'why', 'when', 'where', 'get', 'got', 'use', 'used', 'using', 'decide',
+  'decided', 'think', 'know', 'want', 'need', 'like', 'tell', 'show', 'make',
+]);
+
+// Extract the recall terms from a prompt: content words ≥ 3 chars, minus
+// stopwords, deduped, capped. Returns [] when nothing usable (→ static hint).
+function hintTerms(prompt) {
+  const seen = new Set();
+  const terms = [];
+  for (const raw of String(prompt).toLowerCase().split(/[^\p{L}\p{N}_]+/u)) {
+    if (raw.length < 3 || HINT_STOPWORDS.has(raw) || seen.has(raw)) continue;
+    seen.add(raw);
+    terms.push(raw);
+    if (terms.length >= HINT_MAX_QUERY_TERMS) break;
+  }
+  return terms;
+}
+
+// The recall-oriented keyword query: OR over the content terms, live rows only
+// (not tombstoned, not expired). Minimal read (id + rank) — the citation date +
+// heading are enriched via the shared enrichFactCitations. Deliberately a
+// separate, narrow query shape from search.mjs's precision backend (OR-recall
+// vs per-token AND); it does not blend trust (a pointer needs relevance, not
+// the loop's ranking) and does not log a recall entry (the hint logs its own).
+const HINT_KEYWORD_SQL = `
+SELECT o.id AS id, observations_fts.rank AS score
+FROM observations_fts
+JOIN observations o ON o.rowid = observations_fts.rowid
+WHERE observations_fts MATCH @q
+  AND o.deleted_at IS NULL
+  AND (o.expires_at IS NULL OR o.expires_at > @now)
+ORDER BY observations_fts.rank
+LIMIT @limit
+`;
+
+// The static fallback — byte-IDENTICAL to the pre-233 wording (other surfaces,
+// incl. the memory-search SKILL.md description + HC-9's drift check, match on
+// the `[core-memory-kit] … memory-search` shape; do not reword).
+export const STATIC_MEMORY_HINT =
+  '[core-memory-kit] Recorded memory available beyond the session snapshot — ' +
+  'use the memory-search skill when the answer may already be recorded (prior decisions, history, conventions, ' +
+  'project structure/architecture, where things live). Recall it; do not re-read the code to reconstruct it.';
+
+/**
+ * Does a top-hit's FTS5 bm25 rank clear the pointer-hint floor? Pure + exported
+ * for the boundary budget pair (FTS5 bm25 is negative-better: a lower score is
+ * more relevant, so a hit qualifies when `score <= HINT_BM25_SCORE_FLOOR`).
+ *
+ * @param {number} score the top hit's bm25 rank
+ * @returns {boolean}
+ */
+export function clearsBm25Floor(score) {
+  return Number.isFinite(score) && score <= HINT_BM25_SCORE_FLOOR;
+}
+
+// Parse an id → title map from the granular INDEX.md (the reindex format:
+// `- (P-XXXXXXXX) [tier] [Title](file.md) — snippet`). The title is the human
+// label we surface in an index line — NOT the fact body (never bodies). Cheap:
+// one linear scan over a file we already read for the archive gate.
+const INDEX_TITLE_RE = /^- \(([PUL]-[A-Za-z0-9]{8})\) \[[^\]]*\] \[([^\]]+)\]/;
+function parseIndexTitles(indexContent) {
+  const titles = new Map();
+  for (const line of String(indexContent ?? '').split('\n')) {
+    const m = INDEX_TITLE_RE.exec(line);
+    if (m) titles.set(m[1], m[2].trim());
+  }
+  return titles;
+}
+
+// Format one evidence index line: `- id · title · date` (date omitted when the
+// hit has none). NEVER the body.
+function formatIndexLine({ id, title, date }) {
+  return `- ${id} · ${title}${date ? ` · ${date}` : ''}`;
+}
+
+function buildEvidenceHintText(lines) {
+  return (
+    '[core-memory-kit] Recorded memory may already answer this — indexed fact(s) matching your prompt:\n' +
+    lines.map(formatIndexLine).join('\n') +
+    '\nRecall with the memory-search skill (or `cmk get <id>`) — do not re-read the code to reconstruct it.'
+  );
+}
+
+// Run the real FTS5 query over the prompt's terms and, when the top hit clears
+// the bm25 floor, return up to HINT_MAX_INDEX_LINES {id, title, date}. Best-
+// effort: opens the EXISTING index only (never reindexes — this is the every-
+// prompt hot path; a slightly-stale index just misses a pointer, which degrades
+// to the static hint), and returns null on any miss so the caller falls back.
+// The index DB is opened here (NOT the §20.3-pinned inject path — the ADR
+// sanctions a real FTS5 query in the per-prompt hook).
+function queryHintEvidence({ projectRoot, prompt, indexContent, now }) {
+  const dbPath = getIndexDbPath(projectRoot);
+  // Don't CREATE an index on the hot path — a project that never searched has
+  // no DB yet; the static hint is correct until the first real search builds it.
+  if (!existsSync(dbPath)) return null;
+  const terms = hintTerms(prompt);
+  if (terms.length === 0) return null;
+  const match = terms.map((t) => prepareFtsQuery(t)).join(' OR ');
+  let db;
+  try {
+    db = openIndexDb({ projectRoot });
+    const rows = db
+      .prepare(HINT_KEYWORD_SQL)
+      .all({ q: match, now: now ? Date.parse(now) : Date.now(), limit: HINT_MAX_INDEX_LINES });
+    if (rows.length === 0) return null;
+    if (!clearsBm25Floor(rows[0].score)) return null;
+    enrichFactCitations(db, rows); // shared owner: stamps r.date + r.heading
+    const titles = parseIndexTitles(indexContent);
+    const lines = rows.slice(0, HINT_MAX_INDEX_LINES).map((h) => ({
+      id: h.id,
+      title: titles.get(h.id) ?? h.heading ?? '(untitled)',
+      date: h.date ?? null,
+    }));
+    return { lines, ids: lines.map((l) => l.id) };
+  } finally {
+    try {
+      db?.close();
+    } catch {
+      /* best-effort close */
+    }
+  }
+}
+
+// Record the hint fire — the Door-5 telemetry the ADR-0024 fire-rate criterion
+// needs. Best-effort: a broken diagnostic must NEVER break the prompt hook.
+function logHintFire({ projectRoot, sessionId, form, ids, prompt }) {
+  try {
+    appendRecallEntry(projectRoot, { session: sessionId ?? null, source: 'hint', form, ids, query: prompt });
+  } catch {
+    /* the recall log is best-effort — never break the prompt hook */
+  }
+}
+
+/**
+ * The per-prompt recall hint (memsearch's UserPromptSubmit nudge, upgraded per
+ * ADR-0024). Below MIN chars, or with no granular archive → null (no fire).
+ * Otherwise a hint FIRES: a prompt ≥ HINT_QUERY_MIN_CHARS runs a real FTS5
+ * query and, when the top hit clears the bm25 floor, injects ≤3 INDEX LINES
+ * (id · title · date, never bodies) + the skill pointer; below the query gate
+ * or the floor → the byte-identical static hint. Zero LLM/embedding. FAIL-OPEN:
+ * ANY error degrades to the static hint — never a crash, never a blocked prompt
+ * (this runs on EVERY user prompt).
+ *
+ * @param {object} opts
+ * @param {string} opts.projectRoot
+ * @param {string} opts.prompt
+ * @param {string|null} [opts.sessionId] hook payload session_id (telemetry attribution)
+ * @returns {string|null}
+ */
+export function buildMemoryHint({ projectRoot, prompt, sessionId } = {}) {
   if (typeof prompt !== 'string' || prompt.trim().length < HINT_MIN_PROMPT_CHARS) {
     return null;
   }
+  let indexContent;
   try {
     const indexPath = join(projectRoot, 'context', 'memory', 'INDEX.md');
     if (!existsSync(indexPath)) return null;
@@ -55,15 +255,30 @@ export function buildMemoryHint({ projectRoot, prompt } = {}) {
     // is always true post-install (skill-review finding). Require at least
     // one real entry — a fresh, empty project must not advertise recorded
     // memory it does not have. Entry lines start "- (" (the reindex format).
-    if (!readFileSync(indexPath, 'utf8').includes('\n- (')) return null;
+    indexContent = readFileSync(indexPath, 'utf8');
+    if (!indexContent.includes('\n- (')) return null;
   } catch {
     return null;
   }
-  return (
-    '[core-memory-kit] Recorded memory available beyond the session snapshot — ' +
-    'use the memory-search skill when the answer may already be recorded (prior decisions, history, conventions, ' +
-    'project structure/architecture, where things live). Recall it; do not re-read the code to reconstruct it.'
-  );
+  // Archive present + substantive prompt → a hint WILL fire. Default: static.
+  let form = 'static';
+  let ids = [];
+  let text = STATIC_MEMORY_HINT;
+  if (prompt.trim().length >= HINT_QUERY_MIN_CHARS) {
+    try {
+      const ev = queryHintEvidence({ projectRoot, prompt, indexContent });
+      if (ev && ev.lines.length > 0) {
+        form = 'evidence';
+        ids = ev.ids;
+        text = buildEvidenceHintText(ev.lines);
+      }
+    } catch {
+      // FAIL-OPEN: any evidence-path error (missing index, sqlite failure) →
+      // the static hint. Never crash; never block the prompt.
+    }
+  }
+  logHintFire({ projectRoot, sessionId, form, ids, prompt });
+  return text;
 }
 
 export function capturePrompt({ payload, projectRoot, now } = {}) {
