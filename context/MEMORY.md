@@ -8,18 +8,18 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-ZHV3V3US) Task 240 (Node pinning across 8 workflows) shipped successfully, fixing silent divergence where bench-storage ran Node 24 while gates ran Node 20
-  <!-- source: review-promote, source_line: 1, sha1: bae80741e59662e3f3e17f1306d1c6c12cc779741b48734bd2cd8217c58e2ab9, write: user-explicit, trust: high, at: 2026-07-21T20:17:16Z -->
-- (P-M694W947) Validator `validate-node-pin.mjs` now has 10 test cases; was previously untested despite exporting functions for testability
-  <!-- source: review-promote, source_line: 1, sha1: 01f655635cb19e096cd68be7a55a4d4fcca305f90c3b64e97624f27b5c5418d9, write: user-explicit, trust: high, at: 2026-07-21T20:17:22Z -->
-- (P-NLaBQ5KP) Task 243 (better-sqlite3 v12→v13) must not re-open the settled node:sqlite rejection (D-162).
-  <!-- source: review-promote, source_line: 1, sha1: c7d83135eddffe7c56c1c349a5900ba2a1c7fad5eda8605d8af196256b0c2fe6, write: user-explicit, trust: high, at: 2026-07-21T20:17:22Z -->
-- (P-3QUKR7HJ) v0.6.2 release is gated on your approval; carries breaking Node-20-drop; follows D-248/D-267 rule (backlog sweep → mechanic → tag push)
-  <!-- source: auto-extract-session, source_line: 1, sha1: c21ded709af7ab80f6c9cf4a516dbf8a9baa6f6ec34bcfefafb4d40d45d668b9, write: auto-extract, trust: high, at: 2026-07-22T08:05:23Z -->
 - (P-DaY9B4Qa) Task 246 (orphaned-tier recovery, 7 stranded facts) awaits your yes before proceeding
   <!-- source: auto-extract-session, source_line: 1, sha1: e01558879ada20711286aff3cecb7ca0b4f0da493f2e5f2875b801146e293b45, write: auto-extract, trust: high, at: 2026-07-22T08:05:23Z -->
 - (P-9W7XDMCA) Prefers copying memory files faithfully (preserving original metadata/timestamps) rather than re-capturing them
   <!-- source: auto-extract-session, source_line: 1, sha1: af42b4e340cf0bdce5541253bbb9d5e970145185bed145339c54502d80d5109f, write: auto-extract, trust: high, at: 2026-07-22T08:27:03Z -->
+- (P-3DP6a3JY) v0.6.2 release not cut yet—only commit staged; tag must be pushed before merging new work
+  <!-- source: auto-extract-session, source_line: 1, sha1: 0aa84f85fdf49a9965f4ad29e0e31e3cb7e0513d6e2ce2831c35d9c81d80e584, write: auto-extract, trust: high, at: 2026-07-22T10:49:05Z -->
+- (P-MUBQ32A9) rejects doctor-based detection for Task 248; wants automatic recovery baked into install/update, not manual diagnostics
+  <!-- source: auto-extract-session, source_line: 1, sha1: 8177a37f3d525db6889f7a899e68767e5b9470a01b215b086a2d36dd53201eda, write: auto-extract, trust: high, at: 2026-07-22T10:53:19Z -->
+- (P-4FSYPAC9) doctor should only run for specific conditions (issues in kit/memory/hooks/settings), not blanket auto-run
+  <!-- source: auto-extract-session, source_line: 1, sha1: 132fda1d266fe481a4357a7abb68791cfcbad2a8bbe2893785344971727a950c, write: auto-extract, trust: high, at: 2026-07-22T13:38:09Z -->
+- (P-7Z2ANUQX) prefer a skill (not hook) so the AI understands why/how to invoke doctor for kit-related problems
+  <!-- source: auto-extract-session, source_line: 1, sha1: 172b26f52da4c14d66cbd77b3823144dca915c5ab0c29748b2464138f8364a41, write: auto-extract, trust: high, at: 2026-07-22T13:38:09Z -->
 
 ## Environment Notes
 
