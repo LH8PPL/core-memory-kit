@@ -14451,6 +14451,7 @@ _(retracted 2026-07-18)_
 <!-- decision:P-A3LFDBR9 -->
 
 ## "bench-storage" Allowlist Entry Is Pinned and Cannot Be Removed
+_(retracted 2026-07-22)_
 
 **When:** 2026-07-21 · **Fact:** `P-A3LFDBR9`
 **Why:** Removing it would break the regression test; it is a deliberate, load-bearing constraint.
@@ -14461,3 +14462,495 @@ _(retracted 2026-07-18)_
 
 **When:** 2026-07-21 · **Fact:** `P-VVZPFZ6R`
 **Why:** Avoids designing fixes to non-existent problems; ensures effort is spent on real issues.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-aZDaSLaC -->
+
+## Cut-Gate Must Test Published Artifact, Not Repo Code
+
+**When:** 2026-06-18 · **Fact:** `P-aZDaSLaC`
+**Why:** The cut-gate's purpose is to verify the live artifact users will receive. Testing repo code means missing bugs that only appear in the published tarball, defeating the test's entire purpose.
+
+<!-- decision:P-6EM9G3GA -->
+
+## Windows DLL Lock Prevents Global npm Install During Active Claude Code
+
+**When:** 2026-06-18 · **Fact:** `P-6EM9G3GA`
+**Why:** npm requires exclusive file access during install. Lingering process handles to DLLs can prevent file replacement. Forcing the install or killing processes manually risks the exact breakage this project's testing practices are designed to catch.
+
+<!-- decision:P-ZP6SQRM5 -->
+
+## NPM Package Contents and Documentation Strategy
+
+**When:** 2026-06-28 · **Fact:** `P-ZP6SQRM5`
+**Why:** npm tarballs should be lean; GitHub is the authoritative home. But npm README is the package landing page, so it must link to key docs and provide enough CLI reference for visitors to understand the full scope without leaving npm.
+
+<!-- decision:P-735AX2UF -->
+
+## Current Gate Artifact — v0.5.0 with Task-148 and SonarCloud Fixes
+
+**When:** 2026-07-08 · **Fact:** `P-735AX2UF`
+**Why:** Anchors artifact version and contents; future sessions can verify baseline without re-deriving
+
+<!-- decision:P-C5XPPXT2 -->
+
+## D-293 Workaround — Avoid --with-semantic on Dev Repo Large Corpus
+
+**When:** 2026-07-08 · **Fact:** `P-C5XPPXT2`
+**Why:** Prevents accidental resource exhaustion of dev environment; keeps gate work isolated and unblocking
+
+<!-- decision:P-LPR4WSKB -->
+
+## Gate Testing — Isolated Throwaway Folders
+
+**When:** 2026-07-08 · **Fact:** `P-LPR4WSKB`
+**Why:** Isolates test environment from dev state (uncommitted changes, corpus size, prior installs); ensures reproducible results; avoids D-293 memory issues
+
+<!-- decision:P-NBU4E54T -->
+
+## Add explicit timeouts to all background/foreground processes; don't wait indefin
+
+**When:** 2026-07-20 · **Fact:** `P-NBU4E54T`
+
+<!-- decision:P-K5ZEYQRW -->
+
+## Confirms readiness to proceed with patch release sequence
+
+**When:** 2026-07-20 · **Fact:** `P-K5ZEYQRW`
+
+<!-- decision:P-VBVYMWY9 -->
+
+## research files are saved to core-memory-kit/docs/research/, not local-wiki/raw/
+
+**When:** 2026-07-21 · **Fact:** `P-VBVYMWY9`
+
+<!-- decision:P-3BHCGQQT -->
+
+## local-wiki is personal-only wiki; file placement within project is flexible
+
+**When:** 2026-07-21 · **Fact:** `P-3BHCGQQT`
+
+<!-- decision:P-V3DETX52 -->
+
+## Prefers simple checklists/bullet format to markdown tables for task lists
+
+**When:** 2026-07-21 · **Fact:** `P-V3DETX52`
+
+<!-- decision:P-EQNQHEU9 -->
+
+## Bench-storage.yml pins Node 20 but node:sqlite (imported at module scope, line 2
+
+**When:** 2026-07-21 · **Fact:** `P-EQNQHEU9`
+
+<!-- decision:P-CX2AV7CS -->
+
+## Capture-hook bins create orphaned memory tiers due to missing root discovery
+
+**When:** 2026-07-21 · **Fact:** `P-CX2AV7CS`
+**Why:** Discovered when Task-241 staging found `context/` in `packages/cli/src/` with facts accumulated since 2026-06-18, none mirrored to root tier. The gitignore-per-path approach (`gitignore:111`, 2026-06-13) only treated the symptom at one location.
+
+<!-- decision:P-5PK5NMX5 -->
+
+## Orphaned memory tier at packages/cli/context/ (2026-06-18 through 2026-07-12)
+
+**When:** 2026-07-21 · **Fact:** `P-5PK5NMX5`
+**Why:** Capture-hook bins default `projectRoot: process.cwd()` without root-discovery walk, creating tiers in any subdirectory they're invoked from.
+
+<!-- decision:P-MTZLLCQ3 -->
+
+## User values accurate severity calibration — asked "do we have a problem RIGHT NO
+
+**When:** 2026-07-21 · **Fact:** `P-MTZLLCQ3`
+
+<!-- decision:P-WGWVVRCJ -->
+
+## D-386 Documents Known SonarCloud Server-Side Failure
+
+**When:** 2026-07-21 · **Fact:** `P-WGWVVRCJ`
+**Why:** Inherited red CI status looks like a code problem to a future session. Recording D-386 prevents misdiagnosis and false investigation.
+
+<!-- decision:P-ECJD5TDF -->
+
+## Multi-Run CI Diagnostics Separate Code from Infrastructure Failures
+
+**When:** 2026-07-21 · **Fact:** `P-ECJD5TDF`
+**Why:** Calling a failure "transient flake" after one attempt hides infrastructure problems. Comparing multiple runs transforms an assumption into a characterized failure.
+
+<!-- decision:P-CG4aK6TB -->
+
+## Task 243 (2026-07-21) SUPERSEDED the bench-storage allowlist constraint: the LIT
+
+**When:** 2026-07-21 · **Fact:** `P-CG4aK6TB`
+**Why:** A stale memory saying 'do not remove this entry' would make a future session treat the now-correct empty allowlist as a regression and re-add a divergence whose reason no longer exists.
+
+<!-- decision:P-YFTSDaCA -->
+
+## better-sqlite3 Pinned to ^13.0.1 (Not 13.0.0)
+
+**When:** 2026-07-21 · **Fact:** `P-YFTSDaCA`
+**Why:** Avoids critical vitest incompatibility in initial 13.0.0 release.
+
+<!-- decision:P-4D7KC5QA -->
+
+## D-384 Regression Test Uses Conditional Composition Invariant
+
+**When:** 2026-07-21 · **Fact:** `P-4D7KC5QA`
+**Why:** Decouples test logic from a specific Node version. Relationship-based logic is robust to future floor changes.
+
+<!-- decision:P-XYXZ55YA -->
+
+## Major Dependency Bump Verification Strategy
+
+**When:** 2026-07-21 · **Fact:** `P-XYXZ55YA`
+**Why:** Major versions can break features silently or introduce tool noise. A/B acceptance catches tool-level changes unit tests miss.
+
+<!-- decision:P-P4CZUCSN -->
+
+## Node Version Floor Bumped to 22 in v0.6.2
+
+**When:** 2026-07-21 · **Fact:** `P-P4CZUCSN`
+**Why:** better-sqlite3 v13 has a hard Node 22 floor. This is a breaking change for users on Node <22.
+
+<!-- decision:P-9VFRUHaZ -->
+
+## Stale Memory Entries Tombstoned via `cmk remember`
+
+**When:** 2026-07-21 · **Fact:** `P-9VFRUHaZ`
+**Why:** Stale memory can block justified changes. Tombstoning marks entries as superseded and stops them being restored from old snapshots.
+
+<!-- decision:P-PDKUW4UG -->
+
+## Native-Binary Swap Test Uses v13 Bundled Binaries
+
+**When:** 2026-07-21 · **Fact:** `P-PDKUW4UG`
+**Why:** Validates that bundled binaries work correctly across all target platforms before shipping a native-binary version change.
+
+<!-- decision:P-CXJVGGaR -->
+
+## Standing Autopilot Handles Merges When Gates Pass
+
+**When:** 2026-07-21 · **Fact:** `P-CXJVGGaR`
+**Why:** Reduces toil in the final merge step; keeps PR workflow smooth and predictable.
+
+<!-- decision:P-ZRRAMUQ9 -->
+
+## Copy-Paste Errors Persist in Headers Across Months
+
+**When:** 2026-07-21 · **Fact:** `P-ZRRAMUQ9`
+**Why:** Single-site fixes don't scale; human review catches one instance but misses duplicates in sister files
+
+<!-- decision:P-VHLMEE6P -->
+
+## Node-sqlite Extension Loading Requires 22.13.0/23.5.0
+
+**When:** 2026-07-21 · **Fact:** `P-VHLMEE6P`
+**Why:** Core-memory-kit's doc-walk and validator had the version wrong in three locations; incorrect floor blocks correct binary checks
+
+<!-- decision:P-FaACAXaZ -->
+
+## Advisory Acceptance Policy — Dead-Code Exception Class
+
+**When:** 2026-07-21 · **Fact:** `P-FaACAXaZ`
+**Why:** Forced major bumps create tested, live breakage; accepting a vuln in provably unreachable code is lower risk when removal trigger ensures cleanup as soon as fix becomes in-range
+
+<!-- decision:P-9K4XKJZG -->
+
+## Task 245: Root Cause Was Registry Propagation Timing, Not Working Directory
+
+**When:** 2026-07-21 · **Fact:** `P-9K4XKJZG`
+**Why:** Distinguishing coincidence from cause prevents shipping band-aids for phantom issues. The fix doesn't prove the root cause — it makes the tool resilient to the condition.
+
+<!-- decision:P-GCHH57SC -->
+
+## Stress Test Suite Timing
+
+**When:** 2026-07-21 · **Fact:** `P-GCHH57SC`
+**Why:** Essential for scheduling and capacity planning during gate execution and release workflow
+
+<!-- decision:P-96KYDaBH -->
+
+## Vitest Output Buffering and Process Verification
+
+**When:** 2026-07-21 · **Fact:** `P-96KYDaBH`
+**Why:** Previous session reported gates "running" when both had actually died; trusting spawn output instead of inspecting process state produced false confidence
+
+<!-- decision:P-RRNKSRGD -->
+
+## i dont know if any of this will have it, but we need to think about adding graph
+
+**When:** 2026-07-21 · **Fact:** `P-RRNKSRGD`
+
+<!-- decision:P-DXPCKAUU -->
+
+## MCP tools under-used when harness defers them - Task 233 fire-rate evidence
+
+**When:** 2026-07-21 · **Fact:** `P-DXPCKAUU`
+**Why:** The kit's model-facing design (skills, MCP tools, per-prompt hints) presumes the tools are in the agent's active tool set. A deferred-tools harness adds a load step that silently redirects the agent to shell habits — the under-fire class (D-40/D-153) at the TOOL-SELECTION layer rather than the recall layer. Without this recorded, the next fire-rate analysis would miss that harness tool-loading policy is a variable.
+
+<!-- decision:P-297QM6EH -->
+
+## if it's a project that we already read we need to still clone and see what chang
+
+**When:** 2026-07-21 · **Fact:** `P-297QM6EH`
+
+<!-- decision:P-ZSFNNKGQ -->
+
+## Research verification process uses parallel background agents with line-item spe
+
+**When:** 2026-07-21 · **Fact:** `P-ZSFNNKGQ`
+
+<!-- decision:P-ZSaRDQAa -->
+
+## "100 sessions / 200-line index / four named phases" originates from community re
+
+**When:** 2026-07-21 · **Fact:** `P-ZSaRDQAa`
+
+<!-- decision:P-F4ALX9JS -->
+
+## Daily (not weekly) scanning decided because real data shows 2 advisories per 24h
+
+**When:** 2026-07-21 · **Fact:** `P-F4ALX9JS`
+
+<!-- decision:P-77VH6NNB -->
+
+## Kit identity: a harness over the harness - the user's framing
+
+**When:** 2026-07-21 · **Fact:** `P-77VH6NNB`
+**Why:** Names the gap between the kit's two halves precisely: hooks COERCE (harness-grade), skills/tools HOPE (model-initiated). Every under-fire observation this week is one symptom of that asymmetry. The framing decides Task 233's direction: move recall from model-choice toward environment-shaping.
+
+<!-- decision:P-47RHYWDa -->
+
+## GitHub issues auto-close when supply-chain surface is clean, preventing alert fa
+
+**When:** 2026-07-21 · **Fact:** `P-47RHYWDa`
+
+<!-- decision:P-ZHV3V3US -->
+
+## Task 240 (Node pinning across 8 workflows) shipped successfully, fixing silent d
+
+**When:** 2026-07-21 · **Fact:** `P-ZHV3V3US`
+
+<!-- decision:P-NLaBQ5KP -->
+
+## Task 243 (better-sqlite3 v12→v13) must not re-open the settled node:sqlite rejec
+
+**When:** 2026-07-21 · **Fact:** `P-NLaBQ5KP`
+
+<!-- decision:P-M694W947 -->
+
+## Validator `validate-node-pin.mjs` now has 10 test cases; was previously untested
+
+**When:** 2026-07-21 · **Fact:** `P-M694W947`
+
+<!-- decision:P-SaCABUM9 -->
+
+## Stress Test Configuration & Constraints
+
+**When:** 2026-07-22 · **Fact:** `P-SaCABUM9`
+**Why:** Baseline timing and no-edit discipline prevent measurement corruption and false signals in future stress test sessions
+
+<!-- decision:P-4VYW5YJZ -->
+
+## v0.6.2 Release Tail Workflow
+
+**When:** 2026-07-22 · **Fact:** `P-4VYW5YJZ`
+**Why:** Sequences the final release steps; structure may apply as a template to future releases
+
+<!-- decision:P-QaaENG7Q -->
+
+## v0.6.2 BREAKING — Node 20 Support Dropped
+
+**When:** 2026-07-22 · **Fact:** `P-QaaENG7Q`
+**Why:** Flagged as a conscious consideration point before pushing the v0.6.2 tag.
+
+<!-- decision:P-DQRCDVJJ -->
+
+## Decide Cron-Reliability Backstop Strategy
+
+**When:** 2026-07-22 · **Fact:** `P-DQRCDVJJ`
+**Why:** GitHub's cron unreliability exposed in this cycle; Task 237's delivery depends on the watch running reliably.
+
+<!-- decision:P-E4aE423K -->
+
+## GitHub Scheduled Workflows Can Miss Runs
+
+**When:** 2026-07-22 · **Fact:** `P-E4aE423K`
+**Why:** Time-sensitive checks (dependency scanning, security advisories) must have a backstop to ensure they run even if the cron pool drops the cycle.
+
+<!-- decision:P-EYLNZYPC -->
+
+## Task 237 Delivery Chain: Scan → File Issue → Auto-Close
+
+**When:** 2026-07-22 · **Fact:** `P-EYLNZYPC`
+**Why:** Automation chains can silently break at any stage (scan finds nothing, issue doesn't file, auto-close doesn't trigger). Live testing before the fix merges catches these gaps.
+
+<!-- decision:P-5CNSQWFN -->
+
+## Decision-Log Validation Gap (D-nnn IDs)
+
+**When:** 2026-07-22 · **Fact:** `P-5CNSQWFN`
+**Why:** The validation gap allowed decision-log ID drift to go unnoticed; closing it prevents future drift
+
+<!-- decision:P-KMUEHPBP -->
+
+## Supply-Chain Watch Issue-Filing Fixed (Task 237)
+
+**When:** 2026-07-22 · **Fact:** `P-KMUEHPBP`
+**Why:** This was a unit-green/integration-broken gap (unit tests used pure reporter; the workflow's output wiring was never exercised until a real advisory fired)
+
+<!-- decision:P-C9T2E2aS -->
+
+## v0.6.2 Minor Release Gate Process (D-248/D-267 Rule)
+
+**When:** 2026-07-22 · **Fact:** `P-C9T2E2aS`
+**Why:** Minor releases with breaking changes require backlog sweep and explicit user approval at tag time
+
+<!-- decision:P-3QUKR7HJ -->
+
+## v0.6.2 release is gated on your approval; carries breaking Node-20-drop; follows
+
+**When:** 2026-07-22 · **Fact:** `P-3QUKR7HJ`
+
+<!-- decision:P-UR5Q5EAN -->
+
+## Faithful Relocation for Memory Migration in Core-Memory-Kit
+
+**When:** 2026-07-22 · **Fact:** `P-UR5Q5EAN`
+**Why:** Timeline accuracy is essential to memory system integrity. Corrupting `created_at` dates obscures when knowledge was actually learned and breaks retrospective utility of the archive.
+
+<!-- decision:P-UPNQSMQS -->
+
+## Memory Safety Guard Prevents Agent Bypass Attempts
+
+**When:** 2026-07-22 · **Fact:** `P-UPNQSMQS`
+**Why:** Memory systems require strong protections against agent-initiated destructive operations. The guard correctly blocks the agent, leaving such operations to the user.
+
+<!-- decision:P-L3PXDCSG -->
+
+## Misplaced Memory Files Recovered to Root Context
+
+**When:** 2026-07-22 · **Fact:** `P-L3PXDCSG`
+**Why:** Task 246 recovery — ensuring memories written through capture-hooks end up in context/memory/ (root) rather than package-nested locations.
+
+<!-- decision:P-BC7LXZSQ -->
+
+## Task 246 Phase 2: Redirect Capture-Hook Bins to Root Resolver
+
+**When:** 2026-07-22 · **Fact:** `P-BC7LXZSQ`
+**Why:** Recovery cleaned up misplaced files, but the root cause is that capture logic directs memories to wrong locations. The fix must redirect the 8 hooks.
+
+<!-- decision:P-BNaQHZ99 -->
+
+## PowerShell Directory Deletion Syntax
+
+**When:** 2026-07-22 · **Fact:** `P-BNaQHZ99`
+**Why:** User's primary shell is PowerShell on Windows; bash syntax like `rm -rf` causes ParameterBindingException errors.
+
+<!-- decision:P-W6YDZZYN -->
+
+## design.md as Canonical Spine (D-228)
+
+**When:** 2026-07-22 · **Fact:** `P-W6YDZZYN`
+**Why:** Prevents architectural fragmentation; maintains unified source of truth.
+
+<!-- decision:P-YUWKJ6AX -->
+
+## Doc Archiving Task Recommendation (Post-Task-246)
+
+**When:** 2026-07-22 · **Fact:** `P-YUWKJ6AX`
+**Why:** Live docs have swollen with shipped/historical material. Archiving improves readability and reduces git-diff noise.
+
+<!-- decision:P-FSCKAQR7 -->
+
+## Memory Tier at ~1,949 Facts (INDEX.md Capacity)
+
+**When:** 2026-07-22 · **Fact:** `P-FSCKAQR7`
+**Why:** Memory consolidation is high-touch knowledge work, distinct from doc cleanup/archiving.
+
+<!-- decision:P-C4RJDCAD -->
+
+## Release Workflow — Tag Before Merging New Work
+
+**When:** 2026-07-22 · **Fact:** `P-C4RJDCAD`
+**Why:** Ensures CHANGELOG version claims match the actual tagged commits—maintaining release integrity.
+
+<!-- decision:P-7TEaNKZY -->
+
+## Orphaned Memory Tier Bug (246) and Recovery Strategy
+
+**When:** 2026-07-22 · **Fact:** `P-7TEaNKZY`
+**Why:** Real users running <v0.6.2 will have stray folders on disk after upgrade. Understanding the bug chain and recovery path is essential for release notes and post-upgrade support.
+
+<!-- decision:P-YFS9URVA -->
+
+## v0.6.2 Release Staging & Task 248 Timing Decision
+
+**When:** 2026-07-22 · **Fact:** `P-YFS9URVA`
+**Why:** v0.6.2 is the release target users upgrade TO from buggy versions; recovery in v0.6.2 is ideal UX but requires un-staging and rebuilding
+
+<!-- decision:P-7XFB9A3T -->
+
+## Fixes Must Be Automatic in Install/Upgrade Flow, Not Diagnostic-Tool-Based
+
+**When:** 2026-07-22 · **Fact:** `P-7XFB9A3T`
+**Why:** Aligns with kit philosophy (D-85/D-164/D-169) that the kit self-heals automatically; invisible-until-you-run-a-command fixes are design failures
+
+<!-- decision:P-3PWCGWZH -->
+
+## Task 248 reframed (the user's design call, 2026-07-22): the pre-existing-orphane
+
+**When:** 2026-07-22 · **Fact:** `P-3PWCGWZH`
+**Why:** The kit's philosophy (D-85/D-164/D-169) is automatic-not-manual: a fix that only surfaces when a user RUNS doctor is the invisible-until-you-run-a-command failure the kit fights. The actual repair must be automatic at the upgrade moment; doctor only backstops.
+
+<!-- decision:P-YQGQC2a5 -->
+
+## v0.6.2 Release Approved Before Auto-Recovery
+
+**When:** 2026-07-22 · **Fact:** `P-YQGQC2a5`
+**Why:** v0.6.2 stops new stray tier creation; recovery can wait. Deferring to v0.6.3 keeps cmk install clean and avoids rushing code late in a long, error-prone session.
+
+<!-- decision:P-HSQMYJJT -->
+
+## Doctor is reactive-only; memory-write/search are automatic
+
+**When:** 2026-07-22 · **Fact:** `P-HSQMYJJT`
+**Why:** Doctor is critical for health checks, but its reactive-only status leaves failures invisible to the AI and to automatic workflows.
+
+<!-- decision:P-TPRU57DD -->
+
+## Principle U-U5PPSG7Y recorded but unimplemented
+
+**When:** 2026-07-22 · **Fact:** `P-TPRU57DD`
+**Why:** This gap is a known design debt. It directly conflicts with an existing, documented design principle, making it clear scope for v0.6.3 work alongside the reframed task 248.
+
+<!-- decision:P-4L9NLWUL -->
+
+## Doctor-as-a-skill design (2026-07-22 discussion): PRIOR-ART VERDICT — no precede
+
+**When:** 2026-07-22 · **Fact:** `P-4L9NLWUL`
+**Why:** My first take (a troubleshooting skill) was half-right but cut against the kit's own recorded conviction that failures must surface via an UNPROMPTED channel, not a command/skill the AI chooses to run. The compose (status-line nudge + skill how-to) honors both, and it is the honest reconciliation — a skill alone repeats the under-fire failure the kit fights.
+
+<!-- decision:P-6YY29BQU -->
+
+## Doctor/health nudge — CORRECTED design (2026-07-22, supersedes the SessionStart-
+
+**When:** 2026-07-22 · **Fact:** `P-6YY29BQU`
+**Why:** The nudge must key on the ACTUAL failure event (self-cleaning) not a schedule (nags forever or goes stale). A skill alone repeats the under-fire class (D-40/D-153); the failure-driven whisper does the automatic NOTICING (honors D-169), the skill does the how-to. They compose.
+
+<!-- decision:P-VALD4GBG -->
+
+## Task 250 — Failure-Driven Nudge Implementation
+
+**When:** 2026-07-22 · **Fact:** `P-VALD4GBG`
+**Why:** Concrete implementation anchors; ensures future work aligns with design decision confirmed this session
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
