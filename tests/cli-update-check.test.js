@@ -32,6 +32,7 @@ import {
   UPDATE_CHECK_TIMEOUT_MS,
 } from '../packages/cli/src/version-drift.mjs';
 import { runDoctor } from '../packages/cli/src/doctor.mjs';
+import { formatDoctorReport } from '../packages/cli/src/subcommands.mjs';
 
 const okFetcher = (version) => async () => ({
   ok: true,
@@ -196,6 +197,42 @@ describe('HC-9 integration — doctor says it out loud, softly', () => {
       claudeMd: INSTALLED_AT('0.6.0'),
     });
     expect(offline.status).toBe('pass'); // soft: offline is never a finding
+  });
+
+  it('the renderer surfaces WARN advisory-only: repair line shown, not counted as fail', () => {
+    const { lines, counts, failCount } = formatDoctorReport(
+      [
+        { id: 'HC-1', name: 'a', status: 'pass', message: 'ok' },
+        {
+          id: 'HC-9',
+          name: 'version',
+          status: 'warn',
+          message: 'behind the published v0.6.1',
+          recoveryCommand: 'npm install -g @lh8ppl/core-memory-kit@latest',
+        },
+        { id: 'HC-4', name: 'idx', status: 'fail', message: 'stale', recoveryCommand: 'cmk reindex' },
+      ],
+      42,
+    );
+    const text = lines.join('\n');
+    // WARN renders its label + repair command...
+    expect(text).toMatch(/\[WARN\] HC-9/);
+    expect(text).toMatch(/→ repair: npm install -g @lh8ppl\/core-memory-kit@latest/);
+    // ...appears in the summary only because it's > 0...
+    expect(text).toMatch(/Summary: 1 pass · 1 warn · 1 fail · 0 skip \(42ms\)/);
+    // ...but NEVER contributes to the exit verdict — only the real fail does.
+    expect(counts.warn).toBe(1);
+    expect(failCount).toBe(1);
+  });
+
+  it('omits the warn segment entirely when no check warns (byte-stable for the common case)', () => {
+    const { lines, failCount } = formatDoctorReport(
+      [{ id: 'HC-1', name: 'a', status: 'pass', message: 'ok' }],
+      10,
+    );
+    expect(lines.join('\n')).toMatch(/Summary: 1 pass · 0 fail · 0 skip \(10ms\)/);
+    expect(lines.join('\n')).not.toMatch(/warn/);
+    expect(failCount).toBe(0);
   });
 
   it('never masks a real HC-9 failure — fail keeps its message and recovery', async () => {

@@ -108,6 +108,13 @@ jobs:
           node scripts/supply-chain-report.mjs --audit audit.json --osv osv.json --out issue-body.md > verdict.json
           echo "alert=$(node -e "process.stdout.write(String(require('./verdict.json').shouldAlert))")" >> "$GITHUB_OUTPUT"
           echo "scan=$(node -e "process.stdout.write(require('./verdict.json').scanStatus)")" >> "$GITHUB_OUTPUT"
+          # The issue TITLE — wired here so `gh issue create --title "$ISSUE_TITLE"`
+          # is never blank. Its absence was Task 237's untested delivery gap: the
+          # pure reporter produced `title`, the workflow only read shouldAlert +
+          # scanStatus, and the create step crashed `title can't be blank` the
+          # FIRST time a real finding fired (2026-07-22). Unit tests fed the
+          # function, never the workflow's output wiring — the D-303 class.
+          echo "title=$(node -e "process.stdout.write(require('./verdict.json').title)")" >> "$GITHUB_OUTPUT"
       # Fail LOUDLY to an issue, not silently to a log (the task's own wording).
       # The stable marker in the body means a re-run updates the open issue
       # rather than filing a new one every morning.

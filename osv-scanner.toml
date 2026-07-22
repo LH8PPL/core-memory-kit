@@ -23,6 +23,18 @@ reason = "esbuild is a dev/test-toolchain dependency (via vitest); never in the 
 id = "GHSA-4w7w-66w2-5vf9"
 reason = "vite is a dev/test-toolchain dependency (via vitest); never in the published package"
 
+[[IgnoredVulns]]
+# sharp reaches the tree only through @huggingface/transformers, which is a
+# repo DEVdependency (the semantic-backend test harness) — it is NOT a
+# dependency of the published @lh8ppl/core-memory-kit (its `files` whitelist is
+# bin/ src/ template/ README.md; no node_modules), and a user who opts into
+# semantic recall installs transformers SEPARATELY on their own machine. So
+# this HIGH cannot reach a kit user via our package. npm audit already omits it
+# (--omit=dev); this line makes osv-scanner (which scans the whole lockfile)
+# agree. Same dev-only class as vite/esbuild above.
+id = "GHSA-f88m-g3jw-g9cj"
+reason = "sharp is dev-only (via @huggingface/transformers, a repo devDependency for backend tests); never in the published package"
+
 # SHIPPED dep, unreachable path (2026-07-21). @hono/node-server ships via
 # @modelcontextprotocol/sdk (^1.19.9), and the advisory (Windows %5C path
 # traversal, CVSS 5.9 Moderate) is in its HTTP STATIC-FILE serving — code the

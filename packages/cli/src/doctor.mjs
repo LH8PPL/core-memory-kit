@@ -992,8 +992,13 @@ export async function runDoctor({
   // Never fail: a real HC-9 failure's message + recovery must not be replaced
   // by the softer upgrade nag.
   if (published.checked && published.stale && c9.status !== 'fail') {
+    // Explicit field copy rather than `...c9`: c9 is a plain sync result, but
+    // Sonar's flow analysis (S6544) mis-reads the spread in this post-`await`
+    // block as spreading a Promise. Listing the carried fields is unambiguous
+    // to reader and analyzer alike — id + name stay, the rest is the warn.
     c9 = {
-      ...c9,
+      id: c9.id,
+      name: c9.name,
       status: 'warn',
       message:
         `${c9.message}; but your installed cmk (v${published.installed}) is behind the published ` +
