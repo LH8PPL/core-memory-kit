@@ -8,10 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-3DP6a3JY) v0.6.2 release not cut yet—only commit staged; tag must be pushed before merging new work
-  <!-- source: auto-extract-session, source_line: 1, sha1: 0aa84f85fdf49a9965f4ad29e0e31e3cb7e0513d6e2ce2831c35d9c81d80e584, write: auto-extract, trust: high, at: 2026-07-22T10:49:05Z -->
-- (P-MUBQ32A9) rejects doctor-based detection for Task 248; wants automatic recovery baked into install/update, not manual diagnostics
-  <!-- source: auto-extract-session, source_line: 1, sha1: 8177a37f3d525db6889f7a899e68767e5b9470a01b215b086a2d36dd53201eda, write: auto-extract, trust: high, at: 2026-07-22T10:53:19Z -->
 - (P-4FSYPAC9) doctor should only run for specific conditions (issues in kit/memory/hooks/settings), not blanket auto-run
   <!-- source: auto-extract-session, source_line: 1, sha1: 132fda1d266fe481a4357a7abb68791cfcbad2a8bbe2893785344971727a950c, write: auto-extract, trust: high, at: 2026-07-22T13:38:09Z -->
 - (P-7Z2ANUQX) prefer a skill (not hook) so the AI understands why/how to invoke doctor for kit-related problems
@@ -20,6 +16,12 @@
   <!-- source: auto-extract-session, source_line: 1, sha1: d981dbb401f474f9f580525d8766936545dd2eb501b2d7956c6e88d98a39bc3c, write: auto-extract, trust: high, at: 2026-07-22T15:53:04Z -->
 - (P-X59WSM9D) `.claude/` directory is fully gitignored in this project
   <!-- source: auto-extract-session, source_line: 1, sha1: e0cdbbc8caae3bdd2d350fe39abd235a9fa39c26287706729f7cadcd848612e6, write: auto-extract, trust: high, at: 2026-07-22T16:08:36Z -->
+- (P-3RQPTZET) wants Octopoda-OS captured durably ("just so i dont forget")
+  <!-- source: auto-extract-session, source_line: 1, sha1: 6de30e9ebdc95e9c4edef5355262473783d33eba6d839c3efe376e9e7ffa9c5c, write: auto-extract, trust: high, at: 2026-07-22T16:49:43Z -->
+- (P-XWP6XLLG) Approves adopting ideas from Octopoda on loop detection
+  <!-- source: auto-extract-session, source_line: 1, sha1: 8a5ea241784bd36933158c5a2b7fc8f5b59c255c3f2258d74f4430db0e8c4fc9, write: auto-extract, trust: high, at: 2026-07-22T16:54:09Z -->
+- (P-aUSPYZJR) Requests immediate execution of loop research ("why not do the research now?")
+  <!-- source: auto-extract-session, source_line: 1, sha1: b726ba345267453a7e56d16c6a10c7265452787b1ff98679a19f7daab7f3fc8c, write: auto-extract, trust: high, at: 2026-07-22T16:54:09Z -->
 
 ## Environment Notes
 
