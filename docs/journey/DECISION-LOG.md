@@ -10,6 +10,10 @@
 
 ---
 
+## 2026-07-22 — D-392 · DECISION — Task 232 pulled into v0.6.3: the recurring graph itch ships as the ADR-0023 ADOPT slice, next to 233
+
+**The trigger:** the user's "aren't we missing a graph layer?" question recurred for the THIRD time in two days (P-RRNKSRGD on 2026-07-21, then twice in the OKF conversation — ending in "is it stupid?"). The recorded answer each time: the instinct is right (the kit writes `related:`/`superseded_by` edges it never traverses — the D-219 gap), the graph-DB prescription is the rejected shape (ADR-0023, re-confirmed D-380), and Task 232 is the sanctioned build. **The decision:** stop re-answering and ship it — 232 joins the v0.6.3 lane next to 233, so the two ADR build slices (recall-trigger hint + edge activation) land together as the release's recall pair. A recurring, correct instinct pointing at an approved-but-unbuilt task is a scheduling signal, not a question to keep answering from the record. RELEASE-PLAN 6d + both task trailers updated; ADR-0023's DEFER half (LLM edge-derivation) stays behind its relational-qtype benchmark trigger — nothing re-opened.
+
 ## 2026-07-22 — D-391 · NOTE — Google's OKF v0.1 verified at primary source: the kit's file-based architecture, as a vendor-neutral Google spec; Task 251 (interop) filed deferred; the graph question stays SETTLED
 
 **The finding.** The user surfaced a Medium article claiming Google's "Open Knowledge Format is replacing the vector database." Primary source checked before opining (the rule held): the repo is REAL — `GoogleCloudPlatform/knowledge-catalog/okf/SPEC.md`, v0.1, with example bundles + a reference agent. The spec is markdown files + YAML frontmatter (required `type`), reserved `index.md`/`log.md`, markdown links as the graph, git-native, deliberately permissive. **Near-isomorphic to the kit's `context/` tier** — the strongest external validation of the file-based bet to date, with the kit a superset on tiering/trust/caps/capture-coercion/hybrid-recall. The ARTICLE is hype (its headline claim appears nowhere in the spec; the U-2AD4YBKD press-laundering class) — the SOURCES.md entry grades spec ✓ / article secondary.
