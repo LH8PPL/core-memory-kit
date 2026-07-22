@@ -36,6 +36,7 @@ export const PARITY_MAP = {
   get: { cli: 'get', mcp: ['mk_get'] },
   timeline: { cli: 'timeline', mcp: ['mk_timeline'] },
   expand: { cli: 'expand', mcp: ['mk_expand'] },
+  links: { cli: 'links', mcp: ['mk_links'] },
   cite: { cli: 'cite', mcp: ['mk_cite'] },
   'recent-activity': { cli: 'recent-activity', mcp: ['mk_recent_activity'] },
   trust: { cli: 'trust', mcp: ['mk_trust'] },

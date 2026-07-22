@@ -15,7 +15,7 @@ description: >-
   purely about uncommitted or just-edited live code that memory cannot know,
   concerns this conversation only, or the user asked to ignore memory.
 context: fork
-allowed-tools: mcp__cmk__mk_search mcp__cmk__mk_get mcp__cmk__mk_timeline mcp__cmk__mk_expand mcp__cmk__mk_recent_activity Bash(cmk search *) Bash(cmk get *) Bash(cmk timeline *) Bash(cmk expand *) Bash(cmk recent-activity *)
+allowed-tools: mcp__cmk__mk_search mcp__cmk__mk_get mcp__cmk__mk_timeline mcp__cmk__mk_expand mcp__cmk__mk_links mcp__cmk__mk_recent_activity Bash(cmk search *) Bash(cmk get *) Bash(cmk timeline *) Bash(cmk expand *) Bash(cmk links *) Bash(cmk recent-activity *)
 ---
 
 # Recalling from deep memory
@@ -68,6 +68,18 @@ what followed a fix) rather than what sits around it in its file:
 
 - MCP: `mk_timeline` with `anchor: "<id>"` (and `depth_before`/`depth_after`).
 - CLI: `cmk timeline <id>`
+
+**Step 2c — Follow the relations (optional, the relational axis).** When the
+question is "what points AT this fact" (backlinks — other facts that
+reference it, not a similarity question) or "what replaced what, in order"
+(the supersession chain), traverse the links graph instead of searching:
+
+- MCP: `mk_links` with `id: "<id>"` (and `direction: "in"|"out"|"both"`, `depth`).
+- CLI: `cmk links <id> [--direction in|out] [--depth N]`
+
+This is the fourth adjacency axis beside expand (file), timeline (time), and
+the decisions scope (evolution). A superseded fact's label names its
+successor (`[superseded by P-XXXX]`) — follow it to the current version.
 
 **Step 3 — Fetch full bodies for the survivors only.**
 

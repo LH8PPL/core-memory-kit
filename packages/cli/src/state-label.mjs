@@ -86,3 +86,39 @@ export function stateFieldFor(row, now) {
   });
   return state ? { state } : {};
 }
+
+// A kit id shape (matches ID_PATTERN without importing tier-paths — this module
+// stays dependency-free so it is safe on the 500ms inject hot path).
+const SUCCESSOR_ID_RE = /^[PUL]-[a-zA-Z0-9]{8}$/;
+
+// Matches ONLY the real superseded label forms — the bare
+// `[superseded — kept for history]` (pre-232) OR the successor-named
+// `[superseded by P-XXXXXXXX]` (Task 232) — so a literal `[superseded` in
+// ordinary fact prose can't false-trigger the snapshot's label detection.
+export const SUPERSEDED_LABEL_RE = /\[superseded(?: — kept for history| by [PUL]-[a-zA-Z0-9]{8})\]/;
+
+/** True when `text` contains a real superseded state label (either form). */
+export function hasSupersededLabel(text) {
+  return SUPERSEDED_LABEL_RE.test(String(text ?? ''));
+}
+
+/**
+ * Render the display label for a projected state. Task 232 (ADR-0023) upgrades
+ * the `superseded` label to NAME its successor — `[superseded by P-XXXXXXXX]`
+ * instead of the bare `[superseded — kept for history]` — so a reader (human or
+ * model) can walk straight to the current fact. Falls back to the bare label
+ * when the successor id is unknown/malformed. Other states are unchanged.
+ *
+ * @param {string} state   one of the STATE_LABELS keys
+ * @param {object} [row]   the source row (read for `superseded_by`)
+ * @returns {string} the label text to prefix a rendered fact
+ */
+export function stateLabelText(state, row = {}) {
+  if (state === 'superseded') {
+    const successor = row.superseded_by;
+    if (typeof successor === 'string' && SUCCESSOR_ID_RE.test(successor)) {
+      return `[superseded by ${successor}]`;
+    }
+  }
+  return STATE_LABELS[state] ?? `[${state}]`;
+}

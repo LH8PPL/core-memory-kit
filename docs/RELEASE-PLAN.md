@@ -283,7 +283,7 @@ Task-185 sweep (D-253). Build = the design's phases, strict order (each is PR-si
      (`PreCompact` capture — bank at the compaction boundary, the moment context is about to
      be discarded; the kit currently hooks `Stop` + `SessionEnd` but not the boundary itself)
      · **Task 236** (catalog/count CI gate — a `counts` family on the Task-186 validator so
-     prose claims like "12 MCP tools" can't drift; depends on 186 landing in v0.6.0, and
+     prose claims like "12 MCP tools" can't drift; depends on 186 landing in v0.6.0, and <!-- validate-docs: ignore (illustrative example of the counts family, not a live count) -->
      rides immediately after for context locality). Both are ECC borrows verified at code
      level; neither is memory-design (their memory is thinner than ours — see the
      [study](research/2026-07-20-ecc-harness-os-comparison.md)).

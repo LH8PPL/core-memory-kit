@@ -127,7 +127,7 @@ describe('Task 31 — MCP server', () => {
   });
 
   describe('Tool registration', () => {
-    it('registers all 12 documented tools (7 read/write + 3 mutate + 2 queue — 108b + 226)', () => {
+    it('registers all 13 documented tools (8 read/write + 3 mutate + 2 queue — 108b + 226 + 232)', () => {
       const server = buildMcpServer({ projectRoot, userDir, db });
       const tools = server._registeredTools ?? {};
       const names = Object.keys(tools).sort();
@@ -137,6 +137,7 @@ describe('Task 31 — MCP server', () => {
           'mk_get',
           'mk_timeline',
           'mk_expand', // Task 226 — the recall ladder's expand rung
+          'mk_links', // Task 232 — the relational adjacency axis
           'mk_cite',
           'mk_remember',
           'mk_recent_activity',
@@ -359,6 +360,41 @@ describe('Task 31 — MCP server', () => {
       const r = await invokeTool(server, 'mk_timeline', { anchor: 'P-ZZZZZZZZ' });
       expect(r.isError).toBe(true);
       expect(r.content[0].text).toMatch(/not found/);
+    });
+  });
+
+  describe('mk_links (Task 232 — the relational adjacency axis)', () => {
+    // Seed a superseded_by edge directly. refreshIndexForRead's boot won't wipe
+    // it: the edges table is non-empty, so the cold-edge rebuild is skipped.
+    function seedEdge(src, dst, type = 'superseded_by', dstResolved = 1) {
+      db.prepare('INSERT OR IGNORE INTO edges (src, dst, type, dst_resolved) VALUES (?, ?, ?, ?)')
+        .run(src, dst, type, dstResolved);
+    }
+
+    it('returns the supersession chain + backlinks for a fact', async () => {
+      seedObservation(db, { id: 'P-AAAAAAAA', body: 'old version' });
+      seedObservation(db, { id: 'P-BBBBBBBB', body: 'new version' });
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      // Warm up: the first read triggers a boot reindex that rebuilds edges from
+      // the scaffold (none). AFTER that, the edges table is non-empty once we
+      // seed, so the next boot skips the cold-edge rebuild and our edge survives.
+      await invokeTool(server, 'mk_get', { ids: ['P-AAAAAAAA'] });
+      seedEdge('P-AAAAAAAA', 'P-BBBBBBBB', 'superseded_by');
+      const r = await invokeTool(server, 'mk_links', { id: 'P-AAAAAAAA' });
+      expect(r.isError).toBeFalsy();
+      const parsed = JSON.parse(r.content[0].text);
+      expect(parsed.found).toBe(true);
+      expect(parsed.supersession_chain).toEqual(['P-AAAAAAAA', 'P-BBBBBBBB']);
+      // Backlink direction: B is pointed AT by A.
+      const rB = await invokeTool(server, 'mk_links', { id: 'P-BBBBBBBB', direction: 'in' });
+      const parsedB = JSON.parse(rB.content[0].text);
+      expect(parsedB.backlinks.map((e) => e.from)).toContain('P-AAAAAAAA');
+    });
+
+    it('errors on an invalid id', async () => {
+      const server = buildMcpServer({ projectRoot, userDir, db });
+      const r = await invokeTool(server, 'mk_links', { id: 'bad' });
+      expect(r.isError).toBe(true);
     });
   });
 

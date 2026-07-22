@@ -701,9 +701,9 @@ Run these **in the Cursor Agent chat**, not the terminal. This is the surface th
 CLI suite structurally can't cover (the agent is in the loop). Restart Cursor first if you
 changed `.cursor/mcp.json` since opening (Cursor launches the MCP server at session start).
 
-- [ ] **★ M0 — the 11 tools are live (Task 108).**
+- [ ] **★ M0 — the 13 tools are live (Task 108).**
       Ask Cursor to list its `core-memory-kit` MCP tools.
-      → `mk_remember, mk_search, mk_get, mk_timeline, mk_cite, mk_recent_activity, mk_trust, mk_lessons_promote, mk_forget, mk_queue_list, mk_queue_resolve` (**11**).
+      → `mk_remember, mk_search, mk_get, mk_timeline, mk_expand, mk_links, mk_cite, mk_recent_activity, mk_trust, mk_lessons_promote, mk_forget, mk_queue_list, mk_queue_resolve` (**13**).
       _(Empty = the server didn't launch; re-check CU3 + that you restarted Cursor.)_
 
 - [ ] **★ M1 — capture in chat (Task 108).**

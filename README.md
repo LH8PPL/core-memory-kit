@@ -178,6 +178,7 @@ You rarely type these yourself — Claude drives the same operations as tools mi
 | `cmk install [--with-semantic] [--ide claude-code\|kiro\|cursor\|codex]` | Scaffold + wire hooks + register the MCP server (complete entry point) |
 | `cmk uninstall [--ide claude-code\|kiro\|cursor\|codex]` | Remove one agent's wiring — conservative, never deletes `context/` |
 | `cmk search "<query>" [--mode keyword\|semantic\|hybrid] [--scope facts\|transcripts\|decisions]` | Search memory by meaning; `--scope decisions` recalls how a decision evolved |
+| `cmk links <id> [--direction in\|out] [--depth <n>]` | The relational axis — a fact's backlinks (what points AT it), out-links, and full supersession chain (what replaced what) |
 | `cmk remember "<fact>"` | Capture a fact explicitly (deduped, secret-screened, path-abstracted) |
 | `cmk forget <id>` | Tombstone a fact (audit trail preserved) |
 | `cmk redact <id> --pattern <secret>` | Compliance scrub: remove a leaked secret from the fact + every archive copy + indexes, audit kept (prints the honest git-history advisory) |

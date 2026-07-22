@@ -24,6 +24,8 @@ import {
   projectStateLabel,
   STATE_LABELS,
   STATE_INSTRUCTION,
+  stateLabelText,
+  hasSupersededLabel,
 } from '../packages/cli/src/state-label.mjs';
 import { search } from '../packages/cli/src/search.mjs';
 import { getObservations } from '../packages/cli/src/read-core.mjs';
@@ -61,6 +63,29 @@ function seedObservation(db, {
     trust, created_at, superseded_by, deleted_at, expires_at,
   );
 }
+
+// Task 232 (reviewer finding #7): the snapshot/search label matcher must match
+// ONLY the real label forms, so a literal `[superseded` in fact prose can't
+// false-trigger the state instruction or block labeling.
+describe('Task 232 — stateLabelText + hasSupersededLabel (label naming + precise match)', () => {
+  it('stateLabelText names the successor for a superseded row; falls back when unknown', () => {
+    expect(stateLabelText('superseded', { superseded_by: 'P-NEWERNE2' })).toBe('[superseded by P-NEWERNE2]');
+    expect(stateLabelText('superseded', {})).toBe(STATE_LABELS.superseded);
+    expect(stateLabelText('superseded', { superseded_by: 'not-an-id' })).toBe(STATE_LABELS.superseded);
+    expect(stateLabelText('expired', {})).toBe(STATE_LABELS.expired);
+  });
+
+  it('hasSupersededLabel matches BOTH real forms', () => {
+    expect(hasSupersededLabel(`- a bullet ${STATE_LABELS.superseded} text`)).toBe(true);
+    expect(hasSupersededLabel('- a bullet [superseded by P-NEWERNE2] text')).toBe(true);
+  });
+
+  it('hasSupersededLabel does NOT match literal prose that merely contains "[superseded"', () => {
+    expect(hasSupersededLabel('the API returns [superseded] as a raw status token')).toBe(false);
+    expect(hasSupersededLabel('a note about the word [superseded in brackets')).toBe(false);
+    expect(hasSupersededLabel('[superseded by something-not-an-id]')).toBe(false);
+  });
+});
 
 describe('Task 209 — projectStateLabel (the pure projection)', () => {
   it('current-active (no state metadata) → null: the common case is UNLABELED', () => {
@@ -240,9 +265,10 @@ describe('Task 209 — the snapshot labels superseded bullets (inject, no DB)', 
       );
       writeFileSync(memPath, seeded, 'utf8');
       const text = snapshotOf(projectRoot, userDir);
-      // The superseded bullet carries the label; the live sibling does not.
+      // The superseded bullet carries the label NAMING its successor (Task 232 /
+      // ADR-0023 — the label upgrade); the live sibling does not.
       const labeledLine = text.split('\n').find((l) => l.includes('P-PREVBULL'));
-      expect(labeledLine).toContain('[superseded — kept for history]');
+      expect(labeledLine).toContain('[superseded by P-LVEBULL2]');
       const liveLine = text.split('\n').find((l) => l.includes('P-LVEBULL2'));
       expect(liveLine).not.toContain('[superseded');
       // The one-line envelope instruction ships with the snapshot when a label is present.

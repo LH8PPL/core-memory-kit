@@ -747,9 +747,9 @@ CLI suite structurally can't cover (Claude is in the loop).
 > restart-after-install issue: the logs prove `.mcp.json` loaded and the server connected in that first
 > session — a restart is not the fix.)_
 
-- [ ] **★ M0 — the 11 tools are live (Task 108).**
+- [ ] **★ M0 — the 13 tools are live (Task 108).**
       Say: *"list your cmk MCP tools."*
-      → `mk_remember, mk_search, mk_get, mk_timeline, mk_cite, mk_recent_activity, mk_trust, mk_lessons_promote, mk_forget, mk_queue_list, mk_queue_resolve` (**11**).
+      → `mk_remember, mk_search, mk_get, mk_timeline, mk_expand, mk_links, mk_cite, mk_recent_activity, mk_trust, mk_lessons_promote, mk_forget, mk_queue_list, mk_queue_resolve` (**13**).
       _(If they don't resolve on the first turn, see the ℹ️ note above — it's the Claude Code #42148 ToolSearch race, not a launch failure. Confirm G6 registered the server, then retry on a fresh turn.)_
 
 - [ ] **★ M1 — capture in chat, prompt-free (Task 108).**

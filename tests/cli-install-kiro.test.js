@@ -51,7 +51,7 @@ describe('Task 50 — installKiro (all 4 surfaces)', () => {
     // autoApprove (found live in cut-gate-kiro Session 1): Kiro gates MCP TOOL
     // calls separately from shell hooks, so without this every mk_remember etc.
     // pops a Reject/Trust/Run prompt. The server entry pre-approves the kit's
-    // 11 MCP tools (explicit list, scoped to our tools — not a "*" wildcard).
+    // 13 MCP tools (explicit list, scoped to our tools — not a "*" wildcard).
     const auto = mcp.mcpServers['core-memory-kit'].autoApprove;
     expect(Array.isArray(auto)).toBe(true);
     expect(auto).toEqual(

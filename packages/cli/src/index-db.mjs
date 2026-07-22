@@ -178,6 +178,52 @@ CREATE TRIGGER IF NOT EXISTS tch_after_delete AFTER DELETE ON transcript_chunks 
   INSERT INTO transcript_chunks_fts(transcript_chunks_fts, rowid, body, heading)
   VALUES ('delete', old.rowid, old.body, old.heading);
 END;
+
+-- Task 232 (ADR-0023 ACTIVATE slice / D-392) — the relational adjacency axis.
+-- The kit already WRITES two edge kinds it never traversed: related:
+-- frontmatter (+ [[slug]] body wikilinks) and the superseded_by FK. This
+-- table ACTIVATES them: a plain (src, dst, type) edge list, rebuilt from the
+-- markdown at reindex EXACTLY like the FTS mirror (ADR-0002 — markdown stays
+-- the only source of truth; the table drops + rebuilds byte-stable). Populated
+-- by graph-index.mjs::rebuildEdges, never written directly by a mutating op.
+--
+--   src          — the SOURCE fact id (always a kit id [PUL]-XXXXXXXX); the
+--                  fact whose frontmatter/body carries the reference.
+--   dst          — the TARGET. For superseded_by it is the successor's id.
+--                  For related/link it is the referenced fact's id when the
+--                  slug resolves to a known fact, else the raw slug (a dangling
+--                  link the model wrote before/without the target existing).
+--   type         — 'related' (frontmatter) | 'link' ([[slug]] body wikilink) |
+--                  'superseded_by' (the supersession FK).
+--   dst_resolved — 1 when dst is a real kit id (backlink-answerable), 0 when dst
+--                  is an unresolved slug. Lets a backlink-by-id query ignore
+--                  danglers without dropping them from the graph.
+--
+-- No FTS mirror, no triggers: edges are structural metadata, not searchable
+-- text. Rebuilt wholesale (not incrementally) so cross-file slug→id resolution
+-- is always consistent — a new fact can resolve a previously-dangling link.
+CREATE TABLE IF NOT EXISTS edges (
+  src TEXT NOT NULL,
+  dst TEXT NOT NULL,
+  type TEXT NOT NULL CHECK(type IN ('related', 'link', 'superseded_by')),
+  dst_resolved INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (src, dst, type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_edges_dst ON edges(dst);
+CREATE INDEX IF NOT EXISTS idx_edges_type ON edges(type);
+
+-- Task 232: a tiny single-writer key/value sidecar for index-build state that
+-- can't be inferred from row emptiness. The edges rebuild writes a sentinel key
+-- here AFTER a successful rebuild, so the boot path distinguishes "edges never
+-- built" (pre-232 index → migrate once) from "built, legitimately empty" (a
+-- corpus whose facts simply carry no links → never re-walk). Without it, an
+-- empty edges table on a link-free corpus reads as "never built" on EVERY boot
+-- and re-walks the whole corpus before every read.
+CREATE TABLE IF NOT EXISTS meta (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);
 `;
 
 /**
