@@ -95,6 +95,36 @@ export function resolveMcpProjectRoot({ env = process.env, cwd = process.cwd() }
   return discoverRootUpward(cwd, ['context']);
 }
 
+/**
+ * Resolve the project root for a CAPTURE HOOK bin (Task 246 / D-382-adjacent).
+ *
+ * The bug this fixes: the capture-hook entry bins (cmk-capture-prompt /
+ * -capture-turn / -observe-edit, CLI + plugin) passed bare `process.cwd()` as
+ * projectRoot — no env check, no discovery. So whenever the agent's cwd was a
+ * SUBDIRECTORY of the project (an `npm pack` from packages/cli, say), the kit's
+ * automatic capture forked a fresh `context/` tier THERE and wrote to it,
+ * unread — while `cmk doctor` stayed green because every check looks at the
+ * ROOT tier. Two orphaned tiers accrued in this repo before it was caught.
+ *
+ * Precedence (widest-supported first, same discovery the MCP server already
+ * trusts): CLAUDE_PROJECT_DIR (Claude Code sets it per hook) → CMK_PROJECT_DIR
+ * (the kit sets it when a parent bin spawns a child — so a spawned entry bin
+ * inherits its parent's resolution) → walk UP to the nearest `context/`-bearing
+ * ancestor, stopping at $HOME → `resolve(cwd)` as the last resort. The walk is
+ * what turns a subdirectory cwd back into the real root; the env vars short-
+ * circuit it when the host already knows the answer.
+ *
+ * @param {object} [opts]
+ * @param {Record<string,string|undefined>} [opts.env=process.env]
+ * @param {string} [opts.cwd=process.cwd()]
+ * @returns {string} the resolved project root (absolute)
+ */
+export function resolveHookProjectRoot({ env = process.env, cwd = process.cwd() } = {}) {
+  const explicit = env.CLAUDE_PROJECT_DIR || env.CMK_PROJECT_DIR;
+  if (explicit && explicit.trim() !== '') return resolve(explicit);
+  return discoverRootUpward(cwd, ['context']);
+}
+
 // Matches IDs produced by @lh8ppl/cmk-canonicalize.generateId(). Tier prefix +
 // 8 chars from the custom 32-char base32 alphabet that excludes the six
 // ambiguous chars (0, O, 1, l, I, 8). See design §3.1.

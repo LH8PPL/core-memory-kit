@@ -16,7 +16,11 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';
 import { join } from 'node:path';
-import { resolveMcpProjectRoot, normalizeProjectPath } from '../packages/cli/src/tier-paths.mjs';
+import {
+  resolveMcpProjectRoot,
+  resolveHookProjectRoot,
+  normalizeProjectPath,
+} from '../packages/cli/src/tier-paths.mjs';
 
 const homedirForTest = homedir();
 
@@ -84,5 +88,70 @@ describe('resolveMcpProjectRoot — which project does `cmk mcp serve` serve', (
     expect(normalizeProjectPath('C:\\Temp\\proj')).toBe('C:\\Temp\\proj');
     expect(normalizeProjectPath('/home/me/proj')).toBe('/home/me/proj'); // not /<single-letter>/
     expect(normalizeProjectPath(undefined)).toBe(undefined);
+  });
+});
+
+describe('resolveHookProjectRoot — where the capture HOOKS write (Task 246)', () => {
+  // The bug: the capture-hook bins passed bare process.cwd(), so a subdirectory
+  // cwd forked a stray, unread memory tier. This resolver is the fix — same
+  // discovery the MCP path trusts, plus CMK_PROJECT_DIR so a spawned child
+  // inherits its parent's answer.
+
+  it('THE FIX: a subdirectory cwd walks UP to the real root, not a stray tier there', () => {
+    // Reproduces the exact 2026-06-18 origin: capture fired with cwd deep inside
+    // packages/cli, and bare cwd forked context/ there. The walk finds the root.
+    const proj = join(sandbox, 'repo');
+    const deep = join(proj, 'packages', 'cli', 'src');
+    mkdirSync(join(proj, 'context'), { recursive: true });
+    mkdirSync(deep, { recursive: true });
+    expect(resolveHookProjectRoot({ env: {}, cwd: deep })).toBe(proj);
+  });
+
+  it('prefers CLAUDE_PROJECT_DIR (Claude Code sets it per hook) above the walk', () => {
+    const proj = join(sandbox, 'claude-proj');
+    mkdirSync(join(proj, 'context'), { recursive: true });
+    const r = resolveHookProjectRoot({
+      env: { CLAUDE_PROJECT_DIR: proj },
+      cwd: join(sandbox, 'elsewhere', 'deep'),
+    });
+    expect(r).toBe(proj);
+  });
+
+  it('honors CMK_PROJECT_DIR so a spawned child inherits its parent bin\'s resolution', () => {
+    // captureTurn spawns auto-extract with env.CMK_PROJECT_DIR = the resolved
+    // root; the child must trust it over its own (inherited) cwd.
+    const proj = join(sandbox, 'parent-resolved');
+    mkdirSync(proj, { recursive: true });
+    const r = resolveHookProjectRoot({
+      env: { CMK_PROJECT_DIR: proj },
+      cwd: join(sandbox, 'child-cwd'),
+    });
+    expect(r).toBe(proj);
+  });
+
+  it('CLAUDE_PROJECT_DIR wins over CMK_PROJECT_DIR when both are set', () => {
+    const claude = join(sandbox, 'from-claude');
+    const cmk = join(sandbox, 'from-cmk');
+    mkdirSync(claude, { recursive: true });
+    mkdirSync(cmk, { recursive: true });
+    expect(
+      resolveHookProjectRoot({ env: { CLAUDE_PROJECT_DIR: claude, CMK_PROJECT_DIR: cmk }, cwd: sandbox }),
+    ).toBe(claude);
+  });
+
+  it('an empty/whitespace env value does NOT short-circuit the walk (blank is not a project)', () => {
+    const proj = join(sandbox, 'blank-env-proj');
+    const deep = join(proj, 'sub');
+    mkdirSync(join(proj, 'context'), { recursive: true });
+    mkdirSync(deep, { recursive: true });
+    expect(resolveHookProjectRoot({ env: { CLAUDE_PROJECT_DIR: '   ' }, cwd: deep })).toBe(proj);
+  });
+
+  it('does NOT escape into a stray ~/context/ — home is the discovery boundary (Task 168 inherited)', () => {
+    const orphan = join(sandbox, 'deep', 'sub', 'dir');
+    mkdirSync(orphan, { recursive: true });
+    const r = resolveHookProjectRoot({ env: {}, cwd: orphan });
+    expect(r).toBe(orphan);
+    expect(r.length).toBeGreaterThan(homedirForTest.length);
   });
 });
