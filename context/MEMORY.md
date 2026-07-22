@@ -8,20 +8,18 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-4FSYPAC9) doctor should only run for specific conditions (issues in kit/memory/hooks/settings), not blanket auto-run
-  <!-- source: auto-extract-session, source_line: 1, sha1: 132fda1d266fe481a4357a7abb68791cfcbad2a8bbe2893785344971727a950c, write: auto-extract, trust: high, at: 2026-07-22T13:38:09Z -->
-- (P-7Z2ANUQX) prefer a skill (not hook) so the AI understands why/how to invoke doctor for kit-related problems
-  <!-- source: auto-extract-session, source_line: 1, sha1: 172b26f52da4c14d66cbd77b3823144dca915c5ab0c29748b2464138f8364a41, write: auto-extract, trust: high, at: 2026-07-22T13:38:09Z -->
-- (P-GCQFaXGC) Wants to reduce token usage by using Fable 5 as orchestrator, delegating implementation work to Opus 4.8
-  <!-- source: auto-extract-session, source_line: 1, sha1: d981dbb401f474f9f580525d8766936545dd2eb501b2d7956c6e88d98a39bc3c, write: auto-extract, trust: high, at: 2026-07-22T15:53:04Z -->
-- (P-X59WSM9D) `.claude/` directory is fully gitignored in this project
-  <!-- source: auto-extract-session, source_line: 1, sha1: e0cdbbc8caae3bdd2d350fe39abd235a9fa39c26287706729f7cadcd848612e6, write: auto-extract, trust: high, at: 2026-07-22T16:08:36Z -->
 - (P-3RQPTZET) wants Octopoda-OS captured durably ("just so i dont forget")
   <!-- source: auto-extract-session, source_line: 1, sha1: 6de30e9ebdc95e9c4edef5355262473783d33eba6d839c3efe376e9e7ffa9c5c, write: auto-extract, trust: high, at: 2026-07-22T16:49:43Z -->
 - (P-XWP6XLLG) Approves adopting ideas from Octopoda on loop detection
   <!-- source: auto-extract-session, source_line: 1, sha1: 8a5ea241784bd36933158c5a2b7fc8f5b59c255c3f2258d74f4430db0e8c4fc9, write: auto-extract, trust: high, at: 2026-07-22T16:54:09Z -->
 - (P-aUSPYZJR) Requests immediate execution of loop research ("why not do the research now?")
   <!-- source: auto-extract-session, source_line: 1, sha1: b726ba345267453a7e56d16c6a10c7265452787b1ff98679a19f7daab7f3fc8c, write: auto-extract, trust: high, at: 2026-07-22T16:54:09Z -->
+- (P-E6TXLFHN) D-293: --with-semantic on large corpora caused 8.8GB memory freeze; now fixed; workaround is to avoid re-running locally on dev repo
+  <!-- source: review-promote, source_line: 1, sha1: 22c252242955fbe72b01b6a416935f98aa5823b1390a260f7feed6709729a977, write: user-explicit, trust: high, at: 2026-07-22T20:00:03Z -->
+- (P-5CR4P996) on another subject i dont know why but i always file like we are missing on the graph database aspect as an addition to what we have now, and i dont remember if and why we dismised it.
+  <!-- source: review-promote, source_line: 1, sha1: c0907c6f3a5d423548ba0904418a97e8e14c70ea2e5cf06fdbd384d3132120d9, write: user-explicit, trust: high, at: 2026-07-22T20:00:05Z -->
+- (P-RLUYAZD2) Task 233 now dispatched to Opus implementer with complete work order; CI has cleared (both commits green on main)
+  <!-- source: review-promote, source_line: 1, sha1: 8ffa471b2e49c2873913deefae07baca315921bd069e8f16b393ddb6a233109b, write: user-explicit, trust: high, at: 2026-07-22T20:00:08Z -->
 
 ## Environment Notes
 
