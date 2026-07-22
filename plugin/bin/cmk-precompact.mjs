@@ -35,9 +35,11 @@ const workerPath = join(__dirname, 'cmk-precompact-worker.mjs');
 let readHookStdin;
 let shouldPreCompact;
 let appendPreCompactLog;
+let resolveHookProjectRoot;
 try {
   ({ readHookStdin } = await import(pathToFileURL(readHookStdinPath).href));
   ({ shouldPreCompact, appendPreCompactLog } = await import(pathToFileURL(precompactModulePath).href));
+  ({ resolveHookProjectRoot } = await import(pathToFileURL(join(dirname(precompactModulePath), 'tier-paths.mjs')).href));
 } catch (err) {
   process.stderr.write(`cmk-precompact: failed to load modules: ${err?.message ?? err}\n`);
   emitContinue();
@@ -62,7 +64,10 @@ try {
   // never cost the user their compaction.
 }
 
-const projectRoot = process.env.CMK_PROJECT_DIR ?? payloadCwd ?? process.cwd();
+// Task 246: resolve the REAL project root, never a bare cwd (PreCompact is a
+// Claude-Code hook that writes a `.locks/` dir unconditionally — it forked
+// strays from a subdirectory cwd too). Seed the walk with the payload cwd.
+const projectRoot = resolveHookProjectRoot({ cwd: payloadCwd ?? process.cwd() });
 
 try {
   const gate = shouldPreCompact({ projectRoot });

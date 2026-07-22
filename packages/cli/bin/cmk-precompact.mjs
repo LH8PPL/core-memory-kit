@@ -30,14 +30,17 @@ const __dirname = dirname(__filename);
 
 const readHookStdinPath = join(__dirname, '..', 'src', 'read-hook-stdin.mjs');
 const precompactModulePath = join(__dirname, '..', 'src', 'precompact.mjs');
+const tierPathsPath = join(__dirname, '..', 'src', 'tier-paths.mjs');
 const workerPath = join(__dirname, 'cmk-precompact-worker.mjs');
 
 let readHookStdin;
 let shouldPreCompact;
 let appendPreCompactLog;
+let resolveHookProjectRoot;
 try {
   ({ readHookStdin } = await import(pathToFileURL(readHookStdinPath).href));
   ({ shouldPreCompact, appendPreCompactLog } = await import(pathToFileURL(precompactModulePath).href));
+  ({ resolveHookProjectRoot } = await import(pathToFileURL(tierPathsPath).href));
 } catch (err) {
   process.stderr.write(`cmk-precompact: failed to load modules: ${err?.message ?? err}\n`);
   emitContinue();
@@ -62,7 +65,14 @@ try {
   // never cost the user their compaction.
 }
 
-const projectRoot = process.env.CMK_PROJECT_DIR ?? payloadCwd ?? process.cwd();
+// Task 246: resolve the REAL project root, never a bare cwd. PreCompact is a
+// Claude-Code hook fired with the same subdirectory cwd that forked the stray
+// tiers, and it writes a `.locks/` dir unconditionally — so it forked strays
+// too. Seed the walk with the payload's cwd (Claude Code populates it), then
+// let the resolver prefer CLAUDE_PROJECT_DIR / CMK_PROJECT_DIR and walk up to
+// the nearest context/. The detached worker inherits the resolved root via
+// CMK_PROJECT_DIR below.
+const projectRoot = resolveHookProjectRoot({ cwd: payloadCwd ?? process.cwd() });
 
 try {
   const gate = shouldPreCompact({ projectRoot });

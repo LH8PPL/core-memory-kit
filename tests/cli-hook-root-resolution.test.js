@@ -26,6 +26,7 @@ import { fileURLToPath } from 'node:url';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 const BIN = join(REPO, 'packages', 'cli', 'bin', 'cmk-observe-edit.mjs');
+const PRECOMPACT_BIN = join(REPO, 'packages', 'cli', 'bin', 'cmk-precompact.mjs');
 
 // A payload observe-edit acts on: an eligible tool + a >50-line response.
 function bigWritePayload(filePath) {
@@ -88,6 +89,27 @@ describe('capture-hook bin resolves the real project root (Task 246, live)', () 
     });
     expect(r.status).toBe(0);
     expect(existsSync(join(proj, 'context', 'sessions', 'now.md'))).toBe(true);
+    expect(existsSync(join(subdir, 'context'))).toBe(false);
+  });
+});
+
+describe('cmk-precompact resolves the real root too (Task 246 review — the hook the grep missed)', () => {
+  // PreCompact writes context/.locks/precompact.log UNCONDITIONALLY on every
+  // fire (before any gate/spawn), so a subdirectory cwd forked a stray tier
+  // there just like the capture bins. The done-criteria grep for
+  // `projectRoot: process.cwd()` could not see it — precompact wrote the
+  // vulnerable value as a `?? process.cwd()` fallback. Same live proof.
+  it('run from a SUBDIRECTORY, the precompact log lands in the ROOT tier — no stray', () => {
+    const r = spawnSync(process.execPath, [PRECOMPACT_BIN], {
+      input: JSON.stringify({ trigger: 'auto', cwd: subdir, session_id: 's', transcript_path: 't' }),
+      cwd: subdir,
+      env: cleanEnv(), // force the walk
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
+    expect(r.status).toBe(0); // never blocks compaction
+    // The unconditional log write landed at the ROOT, and no stray tier at the subdir.
+    expect(existsSync(join(proj, 'context', '.locks'))).toBe(true);
     expect(existsSync(join(subdir, 'context'))).toBe(false);
   });
 });
