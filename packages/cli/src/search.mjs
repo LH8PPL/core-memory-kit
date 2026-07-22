@@ -64,6 +64,13 @@ export const SEARCH_MODES = Object.freeze({
 export const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 1000;
 
+// Task 233: the bounded set of recall-origin tags the recall log accepts on a
+// `search` entry (skill-fire telemetry). Bounded to keep log cardinality small
+// — the CLI (`--source`) coerces unknown values to undefined against this set,
+// and the MCP `mk_search` mirrors it as a zod enum. Extend both when adding an
+// origin.
+export const RECALL_ORIGINS = Object.freeze(['skill']);
+
 // Task 104.2 (D-117) — search scopes. 'facts' = the curated observation
 // index (L1, the default). 'transcripts' = the SEPARATE raw-transcript
 // chunk index (the L3 last-resort tier) — reached ONLY when explicitly

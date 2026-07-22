@@ -44,7 +44,7 @@ import {
   STATIC_MEMORY_HINT,
 } from '../packages/cli/src/capture-prompt.mjs';
 import { openIndexDb, getIndexDbPath } from '../packages/cli/src/index-db.mjs';
-import { readRecallLog } from '../packages/cli/src/recall-log.mjs';
+import { readRecallLog, recallLogPath } from '../packages/cli/src/recall-log.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = join(dirname(__filename), '..');
@@ -538,6 +538,68 @@ describe('Task 233 — buildMemoryHint evidence upgrade (gated cheap-index point
     seedIndexWithEntry();
     buildMemoryHint({ projectRoot, prompt: 'go' }); // < 10 chars → null, no fire
     expect(readRecallLog(projectRoot).filter((e) => e.source === 'hint')).toHaveLength(0);
+  });
+
+  // BLOCKING regression (reviewer's repro): the RAW prompt must NEVER reach
+  // recall.log — private blocks stripped + PII masked BEFORE the query or the
+  // log see it (FR-15 / design §6.6). The logged `query` is screened terms only.
+  it('PRIVACY: a <private> block in the prompt reaches NEITHER the query NOR the recall log', () => {
+    seedIndexWithEntry();
+    seedDbFact();
+    const SENTINEL = 'SSN987654321SENTINEL';
+    buildMemoryHint({
+      projectRoot,
+      prompt: `what did we decide about <private>${SENTINEL}</private> the deploy target for production?`,
+      sessionId: 'sess-priv',
+    });
+    // The raw recall.log file carries neither the private token nor the raw prompt.
+    const raw = readFileSync(recallLogPath(projectRoot), 'utf8');
+    expect(raw).not.toContain(SENTINEL);
+    expect(raw).not.toContain('<private>');
+    // The hint still fired + logged its screened query.
+    const [entry] = readRecallLog(projectRoot).filter((e) => e.source === 'hint');
+    expect(entry).toBeDefined();
+    expect(entry.query).not.toContain(SENTINEL);
+    expect(entry.query).toMatch(/deploy|target|production/); // the non-private terms survive
+  });
+
+  it('PRIVACY: a PII token (email) in the prompt is masked (maskPii screen) before it can reach disk', () => {
+    seedIndexWithEntry();
+    seedDbFact();
+    // A maskPii-covered email → genuinely verifies the L1 screen ran (not a
+    // tokenization coincidence): the local part must not survive as a term.
+    buildMemoryHint({
+      projectRoot,
+      prompt: 'remind me what the deploy target was for bobsecret@corp.io on production',
+    });
+    const raw = readFileSync(recallLogPath(projectRoot), 'utf8');
+    expect(raw).not.toContain('bobsecret'); // the email local part is masked, not logged
+    expect(raw).not.toContain('corp.io');
+    const [entry] = readRecallLog(projectRoot).filter((e) => e.source === 'hint');
+    expect(entry.query).not.toMatch(/bobsecret/);
+    expect(entry.query).toMatch(/deploy|target|production/); // non-PII terms survive
+  });
+
+  it('PRIVACY/bound: the logged query is capped (a huge prompt cannot write an unbounded NDJSON line)', () => {
+    seedIndexWithEntry();
+    seedDbFact();
+    const huge = 'z'.repeat(4000); // one giant token
+    buildMemoryHint({ projectRoot, prompt: `${huge}` });
+    const [entry] = readRecallLog(projectRoot).filter((e) => e.source === 'hint');
+    expect(entry.query.length).toBeLessThanOrEqual(200);
+  });
+
+  it('Door 5: an evidence-query ERROR logs form:static WITH error:true (errored ≠ no-match)', () => {
+    seedIndexWithEntry();
+    // Corrupt the index so the evidence query throws (openIndexDb close-on-throw).
+    const dbPath = getIndexDbPath(projectRoot);
+    mkdirSync(dirname(dbPath), { recursive: true });
+    writeFileSync(dbPath, 'not a sqlite database', 'utf8');
+    const hint = buildMemoryHint({ projectRoot, prompt: 'what did we decide about the deploy target?' });
+    expect(hint).toBe(STATIC_MEMORY_HINT); // fail-open
+    const [entry] = readRecallLog(projectRoot).filter((e) => e.source === 'hint');
+    expect(entry.form).toBe('static');
+    expect(entry.error).toBe(true);
   });
 });
 

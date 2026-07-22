@@ -706,7 +706,7 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
         min_trust: z.enum(['low', 'medium', 'high']).optional(),
         include_expired: z.boolean().optional().describe('include facts past their declared expires_at date (hidden by default, never deleted) — CLI parity with `cmk search --include-expired`'),
         state_view: z.enum(['current', 'historical', 'transition', 'neutral']).optional().describe('OVERRIDE the automatic query state-view classification (Task 211 — normally detected from the query: a history/transition question auto-includes expired+superseded facts, labeled). Omit for automatic.'),
-        source: z.string().max(32).optional().describe("recall-origin tag for telemetry (Task 233) — the memory-search skill passes 'skill' so the recall log makes the skill fire-rate measurable (ADR-0024). Omit for ordinary searches."),
+        source: z.enum(['skill']).optional().describe("recall-origin tag for telemetry (Task 233) — the memory-search skill passes 'skill' so the recall log makes the skill fire-rate measurable (ADR-0024); a bounded enum keeps log cardinality small (extend it when a new origin is added). Omit for ordinary searches."),
       },
     },
     makeMkSearch({ db, semanticBackend, projectRoot, userDir }),

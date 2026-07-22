@@ -54,12 +54,13 @@ export function recallLogPath(projectRoot) {
  * @param {string} [entry.query] - the search/hint query text.
  * @param {string} [entry.form] - hint form ('static' | 'evidence'), source:'hint' only (Task 233).
  * @param {string} [entry.origin] - recall origin tag ('skill' | …), source:'search' only (Task 233 skill-fire telemetry).
+ * @param {boolean} [entry.error] - source:'hint' only: the evidence query errored (≠ a genuine no-match) (Task 233).
  * @param {string} [entry.toolPolicy] - harness tool-loading policy; defaults to $CMK_HARNESS_TOOL_POLICY when set (P-DXPCKAUU).
  * @returns {{ ok: boolean }}
  */
 export function appendRecallEntry(
   projectRoot,
-  { session = null, source, ids = [], query, form, origin, toolPolicy } = {},
+  { session = null, source, ids = [], query, form, origin, error, toolPolicy } = {},
 ) {
   try {
     const line = {
@@ -78,6 +79,7 @@ export function appendRecallEntry(
     // identical to the pre-233 record (no reader breakage).
     if (form !== undefined) line.form = form;
     if (origin !== undefined) line.origin = origin;
+    if (error !== undefined) line.error = error;
     // The harness tool-loading policy dimension (P-DXPCKAUU: deferred-tools
     // harnesses are a different population). Recorded when trivially available
     // — the caller passes it, or the cut-gate exports CMK_HARNESS_TOOL_POLICY.

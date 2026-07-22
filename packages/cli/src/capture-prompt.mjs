@@ -85,6 +85,11 @@ const HINT_MAX_INDEX_LINES = 3;
 // from surfacing noise.) At most this many terms bound the query cost.
 const HINT_MAX_QUERY_TERMS = 8;
 
+// Cap the `query` field logged to recall.log (the extracted, screened terms —
+// never the raw prompt). Bounds the NDJSON line length AND is a second belt on
+// top of the privacy screen: even screened text is length-bounded on disk.
+const HINT_LOG_QUERY_MAX = 200;
+
 // A small English stopword set — the words that carry no recall signal and,
 // under OR, would match nearly everything. Kept tiny + inline (no dependency).
 const HINT_STOPWORDS = new Set([
@@ -129,9 +134,11 @@ ORDER BY observations_fts.rank
 LIMIT @limit
 `;
 
-// The static fallback — byte-IDENTICAL to the pre-233 wording (other surfaces,
-// incl. the memory-search SKILL.md description + HC-9's drift check, match on
-// the `[core-memory-kit] … memory-search` shape; do not reword).
+// The static fallback — byte-IDENTICAL to the pre-233 wording. The exact text
+// is pinned by a STATIC_MEMORY_HINT boundary test (tests/cli-capture-prompt.js);
+// do not reword. (Separately, the SKILL.md description matches on the looser
+// `[core-memory-kit] Memory available` shape — a different string — and HC-9
+// guards SKILL-scaffold version-drift, not this line.)
 export const STATIC_MEMORY_HINT =
   '[core-memory-kit] Recorded memory available beyond the session snapshot — ' +
   'use the memory-search skill when the answer may already be recorded (prior decisions, history, conventions, ' +
@@ -177,20 +184,21 @@ function buildEvidenceHintText(lines) {
   );
 }
 
-// Run the real FTS5 query over the prompt's terms and, when the top hit clears
-// the bm25 floor, return up to HINT_MAX_INDEX_LINES {id, title, date}. Best-
-// effort: opens the EXISTING index only (never reindexes — this is the every-
-// prompt hot path; a slightly-stale index just misses a pointer, which degrades
-// to the static hint), and returns null on any miss so the caller falls back.
-// The index DB is opened here (NOT the §20.3-pinned inject path — the ADR
-// sanctions a real FTS5 query in the per-prompt hook).
-function queryHintEvidence({ projectRoot, prompt, indexContent, now }) {
+// Run the real FTS5 query over the pre-extracted (SCREENED) terms and, when the
+// top hit clears the bm25 floor, return up to HINT_MAX_INDEX_LINES
+// {id, title, date}. Best-effort: opens the EXISTING index only (never
+// reindexes — this is the every-prompt hot path; a slightly-stale index just
+// misses a pointer, which degrades to the static hint), and returns null on any
+// miss so the caller falls back. The index DB is opened here (NOT the
+// §20.3-pinned inject path — the ADR sanctions a real FTS5 query in the
+// per-prompt hook). `terms` are already privacy-screened by the caller — no raw
+// prompt text reaches the query.
+function queryHintEvidence({ projectRoot, terms, indexContent, now }) {
   const dbPath = getIndexDbPath(projectRoot);
   // Don't CREATE an index on the hot path — a project that never searched has
   // no DB yet; the static hint is correct until the first real search builds it.
   if (!existsSync(dbPath)) return null;
-  const terms = hintTerms(prompt);
-  if (terms.length === 0) return null;
+  if (!terms || terms.length === 0) return null;
   const match = terms.map((t) => prepareFtsQuery(t)).join(' OR ');
   let db;
   try {
@@ -218,10 +226,20 @@ function queryHintEvidence({ projectRoot, prompt, indexContent, now }) {
 }
 
 // Record the hint fire — the Door-5 telemetry the ADR-0024 fire-rate criterion
-// needs. Best-effort: a broken diagnostic must NEVER break the prompt hook.
-function logHintFire({ projectRoot, sessionId, form, ids, prompt }) {
+// needs. `query` is the SCREENED, extracted terms (never the raw prompt) — see
+// buildMemoryHint. `error` distinguishes an errored evidence query from a
+// genuine no-match in the fire-rate data (added only when true). Best-effort: a
+// broken diagnostic must NEVER break the prompt hook.
+function logHintFire({ projectRoot, sessionId, form, ids, query, error }) {
   try {
-    appendRecallEntry(projectRoot, { session: sessionId ?? null, source: 'hint', form, ids, query: prompt });
+    appendRecallEntry(projectRoot, {
+      session: sessionId ?? null,
+      source: 'hint',
+      form,
+      ids,
+      query,
+      error: error || undefined,
+    });
   } catch {
     /* the recall log is best-effort — never break the prompt hook */
   }
@@ -236,6 +254,11 @@ function logHintFire({ projectRoot, sessionId, form, ids, prompt }) {
  * or the floor → the byte-identical static hint. Zero LLM/embedding. FAIL-OPEN:
  * ANY error degrades to the static hint — never a crash, never a blocked prompt
  * (this runs on EVERY user prompt).
+ *
+ * PRIVACY (FR-15 / design §6.6): the prompt is SCREENED at the top — private
+ * blocks stripped + PII masked — BEFORE any use, so neither the FTS query nor
+ * the recall log ever sees raw prompt text. The logged `query` is the extracted,
+ * screened terms, capped — never the full prompt.
  *
  * @param {object} opts
  * @param {string} opts.projectRoot
@@ -260,24 +283,46 @@ export function buildMemoryHint({ projectRoot, prompt, sessionId } = {}) {
   } catch {
     return null;
   }
+  // PRIVACY SCREEN (FR-15): strip <private> blocks + mask PII BEFORE any use.
+  // Private terms must not reach the FTS query OR the log. If screening throws,
+  // fall to empty text (→ static hint, empty logged query) — never risk raw text.
+  let screened;
+  try {
+    screened = maskPii(sanitizePrivacyTags(prompt), { usernames: localUsernames() }).text;
+  } catch {
+    screened = '';
+  }
+  const terms = hintTerms(screened);
+  // The ONLY prompt-derived text that reaches disk: the screened terms, capped.
+  const loggedQuery = terms.join(' ').slice(0, HINT_LOG_QUERY_MAX);
+
   // Archive present + substantive prompt → a hint WILL fire. Default: static.
   let form = 'static';
   let ids = [];
   let text = STATIC_MEMORY_HINT;
-  if (prompt.trim().length >= HINT_QUERY_MIN_CHARS) {
+  let errored = false;
+  if (screened.trim().length >= HINT_QUERY_MIN_CHARS && terms.length > 0) {
     try {
-      const ev = queryHintEvidence({ projectRoot, prompt, indexContent });
+      const ev = queryHintEvidence({ projectRoot, terms, indexContent });
       if (ev && ev.lines.length > 0) {
         form = 'evidence';
         ids = ev.ids;
         text = buildEvidenceHintText(ev.lines);
       }
-    } catch {
+    } catch (err) {
       // FAIL-OPEN: any evidence-path error (missing index, sqlite failure) →
-      // the static hint. Never crash; never block the prompt.
+      // the static hint. Never crash; never block the prompt. Distinguish it
+      // from a genuine no-match in the telemetry (finding 2) + one stderr line
+      // (the bin's existing non-fatal pattern).
+      errored = true;
+      try {
+        process.stderr.write(`cmk-capture-prompt: hint evidence query failed: ${err?.message ?? err}\n`);
+      } catch {
+        /* stderr unavailable — the log's error flag still records it */
+      }
     }
   }
-  logHintFire({ projectRoot, sessionId, form, ids, prompt });
+  logHintFire({ projectRoot, sessionId, form, ids, query: loggedQuery, error: errored });
   return text;
 }
 
