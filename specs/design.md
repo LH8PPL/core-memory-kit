@@ -1959,6 +1959,46 @@ expandable, and transcript-index.mjs's exclusion set is exactly the unscreened s
 design §6.10; regression-locked with planted-secret fixtures). Registered as the 12th MCP tool
 (`mk_expand`), Kiro-auto-approved, parity-mapped to `cmk expand`.
 
+### 9.5 The relational axis — `edges` table + `cmk links` / `mk_links` (Task 232, ADR-0023 ACTIVATE slice; D-392)
+
+The **fourth adjacency axis** beside `expand` (source-file), `timeline` (created_at), and
+`--scope decisions` (evolution): **relational**. The kit already WROTE two edge kinds it never
+traversed — `related:` frontmatter (+ `[[slug]]` body wikilinks) and the `superseded_by` FK — so
+backlinks ("what points AT this fact") and supersession chains ("what replaced what, in order")
+were genuinely unanswerable, and the model had no reinforcement loop to write MORE edges (a
+write-only capability). Task 232 ACTIVATES them; the DEFER/REJECT halves of ADR-0023 (LLM edge
+derivation, graph-DB / typed-KG shapes) stay out of scope behind their named triggers.
+
+**The `edges` table** (`index-db.mjs` schema, populated by [`graph-index.mjs`](../packages/cli/src/graph-index.mjs)::`rebuildEdges`):
+`edges(src, dst, type, dst_resolved)` — `type` ∈ `related` (frontmatter) | `link` (`[[slug]]`
+body wikilink) | `superseded_by` (the supersession FK). `src` is always a kit id; `dst` is the
+target's id when a `related`/`link` slug resolves against the corpus slug→id map, else the raw
+slug with `dst_resolved = 0` (a dangling link stays visible on the `out` side without polluting
+backlink-by-id queries). **Rebuilt from the markdown exactly like the FTS mirror** (ADR-0002 —
+markdown stays the only source of truth): a full reindex drops + rebuilds it byte-stable, a boot
+reindex refreshes it when any fact changed (or once, lazily, to migrate a pre-232 index). Zero
+LLM, zero drift, no third index class. **Wholesale rebuild, not incremental** — slug resolution
+is cross-file (a new fact can resolve a link another fact wrote earlier), so a per-file update
+could leave a stale dangling flag. `superseded_by` edges come from BOTH the indexed
+`observations.superseded_by` column AND the `archive/superseded/<id>.md` files (a superseded fact
+is MOVED there, taking its backward pointer out of the top-level walk — without reading those the
+chain is unwalkable, since the live successor carries no backward pointer). The
+`~30-line D-nnn/Task-nnn co-occurrence byproduct` the ADR floated was **skipped** (D-392): a fact↔fact
+co-occurrence over a shared anchor is O(n²) within an anchor group (50 facts on one D-nnn → 1,225
+edges), past "clean + deterministic ~30 lines", and FTS exact-token search already answers "what
+else mentions D-109" perfectly (D-107) — so the edge type would add cost without adding an
+answer flat search lacks.
+
+**The query surface** (`read-core.mjs::buildLinks`, shared CLI/MCP per ADR-0014 —
+`cmk links <id> [--depth N --direction in|out|both]` + `mk_links`, the 13th MCP tool,
+Kiro-auto-approved, parity-mapped): out-links + backlinks via a depth-bounded recursive CTE over
+`edges`, and the **supersession chain** via a second recursive CTE walked in BOTH directions over
+`superseded_by` (returned oldest→newest, `null` unless the fact actually participates). `related`
+is now also surfaced on `mk_get`/`cmk get` output (the depth-1 out-neighbourhood — invisible
+pre-232). And the Task-209 superseded state label is upgraded to NAME its successor —
+`[superseded by P-XXXX]` (`state-label.mjs::stateLabelText`), on `cmk search` output and the
+injected snapshot alike — so a reader walks straight to the current fact.
+
 ## 10. MCP server (Layer 4b — optional)
 
 **Eleven tools as of Task 108b (2026-06-08, [ADR-0014](../docs/adr/0014-unify-cli-mcp-shared-core.md)).** The MCP surface now reaches **full parity** with the `cmk` CLI over shared cores (`remember-core.mjs` / `read-core.mjs`); a `validate-cli-mcp-parity` guard ([`scripts/validate-cli-mcp-parity.mjs`](../scripts/validate-cli-mcp-parity.mjs), wired into `npm test`) fails the build on drift. `cmk install` registers the server in `.mcp.json` + allowlists `mcp__cmk__*`, so the model drives every memory op prompt-free (D-85; R2/D-80 resolved — see §16.57).
@@ -1970,6 +2010,7 @@ _Read / capture (the original six — FR-26 + `recent_activity` from Basic Memor
 | `mk_search(query, mode?, tier?, since?, limit?, min_trust?)` | BM25 + optional vector hybrid | ~50-100 tokens/result |
 | `mk_get(ids[])` | Full body + provenance + relations | ~500-1000 tokens/result |
 | `mk_timeline(anchor, depth_before?, depth_after?)` | Sequential context around an ID or timestamp | varies |
+| `mk_links(id, depth?, direction?)` | Relational adjacency — backlinks, out-links, supersession chain (Task 232) | varies |
 | `mk_cite(id)` | Canonical Markdown citation link `[#P-S79MJHFN](memkit://obs/P-S79MJHFN)` | trivial |
 | `mk_remember(text, why?, how?, type?, title?, links?, tier?, cites?)` | Explicit save — a rich Why/How fact file when `why`/`how`/`title`/`type` are given (shared `rememberRich` core), else a terse bullet | `{id, written_to, accepted}` |
 | `mk_recent_activity(window?: "1h"\|"24h"\|"7d", limit?)` | Recent memory mutations | List of recent observation changes |
@@ -3450,7 +3491,7 @@ The test file declares the discipline with a `// @door-3.5: prompt-assertion —
 
 ### 17.12 Prose count-claims — the `counts` family (Task 236 / D-377)
 
-**The drift class.** Sentences like "12 MCP tools" / "41 CLI verbs" / "12 health checks" are hand-maintained numbers describing collections the CODE owns. They were hand-fixed ~6 times across v0.4–v0.6, always reactively. This is the "single source of truth" rule applied to a derived *number* rather than a derived index.
+**The drift class.** Sentences like "12 MCP tools" / "41 CLI verbs" / "12 health checks" are hand-maintained numbers describing collections the CODE owns. They were hand-fixed ~6 times across v0.4–v0.6, always reactively. This is the "single source of truth" rule applied to a derived *number* rather than a derived index. <!-- validate-docs: ignore (illustrative examples of the drift class, not live counts) -->
 
 **Scan, never enumerate — and the reason is empirical.** ECC ships this exact gate (`scripts/ci/catalog.js`) and hand-enumerates **40 doc locations**, each with its own file + regex. Their `WORKING-CONTEXT.md` is in **none** of them — and that is precisely the file measured **4 months stale** (47/79/181 claimed at v1.10.0 vs 67/94/278 actual at v2.0.0). Their gate runs green in CI while the staleness ships: it checked 40 places, the drift happened in the 41st. **Drift lands wherever you did not enumerate**, and the enumeration list is itself a thing a human must remember to extend — the same dependency the stale number had. So this family scans every living markdown doc; a new doc is covered the day it is written.
 

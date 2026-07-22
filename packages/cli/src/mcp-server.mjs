@@ -2,8 +2,8 @@
 //
 // Per design §10 + tasks.md 31 + ADR-0014 (Task 108b parity):
 //   - stdio JSON-RPC transport per MCP 2025-06-18 spec
-//   - Twelve tools (full CLI parity): READ — mk_search, mk_get, mk_timeline, mk_expand,
-//     mk_cite, mk_recent_activity; WRITE/MUTATE — mk_remember, mk_trust,
+//   - Thirteen tools (full CLI parity): READ — mk_search, mk_get, mk_timeline, mk_expand,
+//     mk_links, mk_cite, mk_recent_activity; WRITE/MUTATE — mk_remember, mk_trust,
 //     mk_lessons_promote, mk_forget, mk_queue_list, mk_queue_resolve
 //   - Path-traversal validation on every read/write surface
 //   - All logs to stderr (or sessions/{date}.mcp.log); stdout pure
@@ -49,7 +49,7 @@ import { resolveConflictQueue, listConflictQueue } from './conflict-queue.mjs';
 import { resolvePruneQueue, listPruneQueue } from './prune-queue.mjs';
 import { STATE_INSTRUCTION } from './state-label.mjs';
 import { createHash } from 'node:crypto';
-import { getObservations, citeLink, buildTimeline, recentActivity, expandObservation } from './read-core.mjs';
+import { getObservations, citeLink, buildTimeline, recentActivity, expandObservation, buildLinks } from './read-core.mjs';
 import { resolveTierRoot } from './tier-paths.mjs';
 
 // The kit version, read from package.json — NOT hardcoded. A hardcoded '0.1.0'
@@ -280,6 +280,20 @@ function makeMkExpand({ db, projectRoot, userDir }) {
     refreshIndexForRead({ db, projectRoot, userDir }); // CLI parity (withReadDb)
     const r = expandObservation(db, id, { projectRoot, userDir });
     if (r.error) {
+      return { content: [{ type: 'text', text: `error: ${r.error}` }], isError: true };
+    }
+    return { content: [{ type: 'text', text: JSON.stringify(r, null, 2) }] };
+  };
+}
+
+function makeMkLinks({ db, projectRoot, userDir }) {
+  // Thin adapter over read-core.buildLinks (shared with CLI `cmk links` —
+  // ADR-0014 parity). The relational adjacency axis: backlinks, out-links, and
+  // the supersession chain. Read-only.
+  return async ({ id, depth, direction }) => {
+    refreshIndexForRead({ db, projectRoot, userDir }); // CLI parity (withReadDb)
+    const r = buildLinks(db, id, { depth: depth ?? 1, direction: direction ?? 'both' });
+    if (!r.ok) {
       return { content: [{ type: 'text', text: `error: ${r.error}` }], isError: true };
     }
     return { content: [{ type: 'text', text: JSON.stringify(r, null, 2) }] };
@@ -730,6 +744,20 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
       },
     },
     makeMkExpand({ db, projectRoot, userDir }),
+  );
+
+  // mk_links (Task 232 — the relational adjacency axis; ADR-0023 ACTIVATE slice)
+  server.registerTool(
+    'mk_links',
+    {
+      description: "Traverse a fact's relations — its backlinks (what points AT it), out-links (its `related`/[[cross-links]]), and full supersession chain (what replaced what, in order). The two graph-only shapes flat search can't answer. Read-only.",
+      inputSchema: {
+        id: z.string().describe('a kit observation ID (P-XXXXXXXX)'),
+        depth: z.number().int().positive().max(20).optional().describe('how many hops to traverse for links/backlinks (default 1)'),
+        direction: z.enum(['in', 'out', 'both']).optional().describe("'in' = backlinks (what references this fact); 'out' = what this fact references; 'both' (default)"),
+      },
+    },
+    makeMkLinks({ db, projectRoot, userDir }),
   );
 
   // mk_cite

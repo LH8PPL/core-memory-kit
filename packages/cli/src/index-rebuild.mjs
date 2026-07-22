@@ -52,6 +52,7 @@ import { readBullet, parseBulletProvenance, isSeedProvenance } from './provenanc
 import { parse as parseFrontmatter } from './frontmatter.mjs';
 import { listFactFiles } from './fact-store.mjs';
 import { initTrustScore } from './trust-score.mjs';
+import { rebuildEdges, edgesEmpty } from './graph-index.mjs';
 import {
   VALID_TIERS,
   SCRATCHPADS_BY_TIER,
@@ -610,6 +611,29 @@ export function reindexBoot({ projectRoot, userDir, db, now }) {
     // best-effort; the next boot retries
   }
 
+  // Task 232 (ADR-0023): refresh the graph edges when anything changed — a
+  // fact add/edit/prune can create, resolve, or dangle an edge, and edges are
+  // cross-file so the rebuild is wholesale (graph-index.rebuildEdges). Skipped
+  // on a no-change boot (the common hot-path case) to keep the every-read
+  // reindex cheap — UNLESS the edges table is cold (empty while observations
+  // exist), which is the one-time migration case for a pre-232 index: populate
+  // it on the next read so the graph self-heals with no manual `reindex --full`.
+  let edgeCount = 0;
+  const changed = filesReindexed > 0 || filesPruned > 0;
+  let coldEdges = false;
+  try {
+    coldEdges = edgesEmpty(db) && db.prepare('SELECT 1 FROM observations LIMIT 1').get() !== undefined;
+  } catch {
+    coldEdges = false;
+  }
+  if (changed || coldEdges) {
+    try {
+      ({ edgeCount } = rebuildEdges(db, { projectRoot, userDir }));
+    } catch {
+      // best-effort; the next boot retries
+    }
+  }
+
   return {
     filesScanned,
     filesReindexed,
@@ -618,6 +642,8 @@ export function reindexBoot({ projectRoot, userDir, db, now }) {
     observationsPruned,
     transcriptFiles: transcripts.files,
     transcriptChunks: transcripts.chunks,
+    edgeCount,
+    edgesRebuilt: changed || coldEdges,
     durationMs: Date.now() - t0,
     skipped,
   };
@@ -648,6 +674,7 @@ export function reindexFull({ projectRoot, userDir, db, now }) {
     DROP TRIGGER IF EXISTS tch_after_delete;
     DROP TABLE IF EXISTS transcript_chunks;
     DROP TABLE IF EXISTS files;
+    DROP TABLE IF EXISTS edges;
   `);
   db.exec(INDEX_DB_SCHEMA);
 
@@ -702,11 +729,23 @@ export function reindexFull({ projectRoot, userDir, db, now }) {
     // best-effort; the next reindex retries
   }
 
+  // Task 232 (ADR-0023): rebuild the graph edges from the same markdown. A full
+  // reindex ALWAYS rebuilds — the edges table was dropped above and this is the
+  // byte-stable rebuild the ADR-0002 constraint requires. Best-effort: an edge
+  // hiccup must not fail the observation reindex.
+  let edgeCount = 0;
+  try {
+    ({ edgeCount } = rebuildEdges(db, { projectRoot, userDir }));
+  } catch {
+    // best-effort; the next reindex retries
+  }
+
   return {
     filesScanned,
     observationsAffected,
     transcriptFiles: transcripts.files,
     transcriptChunks: transcripts.chunks,
+    edgeCount,
     durationMs: Date.now() - t0,
     skipped,
   };

@@ -11,6 +11,7 @@ import { join, resolve, relative, isAbsolute } from 'node:path';
 import { ID_PATTERN } from './tier-paths.mjs';
 import { parse as parseFrontmatter } from './frontmatter.mjs';
 import { stateFieldFor } from './state-label.mjs';
+import { relatedRefsFor, traverseLinks, supersessionChain } from './graph-index.mjs';
 
 const GET_COLUMNS =
   'id, body, heading_path, source_file, source_line, tier, trust, ' +
@@ -42,7 +43,18 @@ export function getObservations(db, ids, { includeTombstoned = false, projectRoo
     const row = stmt.get(id);
     // Task 209: rows carry their temporal STATE where ≠ current-active (the
     // A-TMA label projection); current rows carry no state key (zero noise).
-    if (row) return { ...row, ...stateFieldFor(row, now) }; // a LIVE hit always wins
+    // Task 232 (ADR-0023): surface the fact's `related` out-links (the written
+    // edges that were invisible until now) — only when the fact actually carries
+    // any, so a plain fact stays noise-free. This is the same graph the
+    // `cmk links` verb walks; here it is the depth-1 out-neighbourhood.
+    if (row) {
+      const related = relatedRefsFor(db, id);
+      return {
+        ...row,
+        ...stateFieldFor(row, now),
+        ...(related.length > 0 ? { related } : {}),
+      }; // a LIVE hit always wins
+    }
     // Live miss. Recovery is opt-in AND needs projectRoot to locate the archive.
     if (includeTombstoned && projectRoot) {
       const recovered = readTombstone(projectRoot, id);
@@ -294,6 +306,63 @@ export const RECENT_WINDOWS = Object.freeze({
   '24h': 24 * 60 * 60 * 1000,
   '7d': 7 * 24 * 60 * 60 * 1000,
 });
+
+// --- The LINKS axis (Task 232, ADR-0023 ACTIVATE / D-392) ------------------
+//
+// The relational adjacency axis — the fourth beside `expand` (source-file),
+// `timeline` (created_at), and `--scope decisions` (evolution). Answers the two
+// genuinely graph-only query shapes the flat hybrid can't: BACKLINKS ("what
+// points AT this fact") and SUPERSESSION CHAINS ("what replaced what, in
+// order"). Shared CLI/MCP core (ADR-0014): `cmk links` + `mk_links` are thin
+// adapters over this.
+
+/**
+ * The link neighbourhood of an observation id: its out-links (what it
+ * references), backlinks (what references it), and the full supersession chain
+ * it participates in. Read-only, pure DB (edges table).
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} id  a kit observation id
+ * @param {object} [opts]
+ * @param {number} [opts.depth=1]           traversal depth for out/backlinks
+ * @param {'in'|'out'|'both'} [opts.direction='both']
+ * @returns {{ok:false, error:string} | {ok:true, id, found, depth, direction,
+ *          out?, backlinks?, supersession_chain}}
+ */
+export function buildLinks(db, id, { depth = 1, direction = 'both' } = {}) {
+  if (!ID_PATTERN.test(id)) return { ok: false, error: 'id must be a valid kit ID' };
+  const dir = direction === 'in' || direction === 'out' ? direction : 'both';
+  const d = Math.max(1, Math.min(Number(depth) || 1, 20));
+
+  // `found` = the id is a known observation OR it appears as any edge endpoint
+  // (a dangling target can still have backlinks). This lets `links` answer for a
+  // superseded fact whose row is present and for a slug-only reference alike.
+  const knownRow = db.prepare('SELECT 1 FROM observations WHERE id = ? LIMIT 1').get(id);
+  const anyEdge = db.prepare('SELECT 1 FROM edges WHERE src = ? OR dst = ? LIMIT 1').get(id, id);
+  const found = Boolean(knownRow || anyEdge);
+
+  const edges = traverseLinks(db, id, { depth: d, direction: dir });
+  const out = edges
+    .filter((e) => e.direction === 'out')
+    .map((e) => ({ to: e.to_id, type: e.type, resolved: e.dst_resolved === 1, depth: e.depth }));
+  const backlinks = edges
+    .filter((e) => e.direction === 'in')
+    .map((e) => ({ from: e.from_id, type: e.type, depth: e.depth }));
+  const chain = supersessionChain(db, id);
+
+  return {
+    ok: true,
+    id,
+    found,
+    depth: d,
+    direction: dir,
+    ...(dir !== 'in' ? { out } : {}),
+    ...(dir !== 'out' ? { backlinks } : {}),
+    // Only meaningful when the fact actually participates in a supersession
+    // chain (length > 1); a lone `[id]` is noise, so null it out.
+    supersession_chain: chain.length > 1 ? chain : null,
+  };
+}
 
 /** Observations changed within a time window, newest first. */
 export function recentActivity(db, { window = '24h', limit = 20 } = {}) {

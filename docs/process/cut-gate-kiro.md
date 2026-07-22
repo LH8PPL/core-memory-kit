@@ -127,7 +127,7 @@ cmk doctor
       type .kiro\settings\mcp.json        # mcpServers["core-memory-kit"] = { type:"stdio", command:"cmk", args:["mcp","serve"], autoApprove:[...] }
       (Get-Content $env:USERPROFILE\.kiro\agents\cmk.json -Raw | ConvertFrom-Json).allowedTools  # CLI side: ["@cmk"]
       ```
-      **PASS:** `.kiro/settings/mcp.json` registers the `core-memory-kit` stdio server **AND** carries an `autoApprove` array listing the kit's 12 MCP tools (`mk_remember` … `mk_queue_resolve`) — so Kiro runs them without a per-call "Reject / Trust / Run" prompt (D-196; found live in Session 1). The CLI agent-config carries the analog `allowedTools: ["@cmk"]` (the Amazon-Q agent uses `allowedTools` `@server/tool`, NOT `autoApprove`). **Neither is a `"*"` blanket** — scoped to the kit's own tools. **FAIL:** no `autoApprove` → every `mk_remember` in chat pops Reject/Trust/Run (M1-live confirms the prompt is gone).
+      **PASS:** `.kiro/settings/mcp.json` registers the `core-memory-kit` stdio server **AND** carries an `autoApprove` array listing the kit's 13 MCP tools (`mk_remember` … `mk_queue_resolve`) — so Kiro runs them without a per-call "Reject / Trust / Run" prompt (D-196; found live in Session 1). The CLI agent-config carries the analog `allowedTools: ["@cmk"]` (the Amazon-Q agent uses `allowedTools` `@server/tool`, NOT `autoApprove`). **Neither is a `"*"` blanket** — scoped to the kit's own tools. **FAIL:** no `autoApprove` → every `mk_remember` in chat pops Reject/Trust/Run (M1-live confirms the prompt is gone).
 
 - [ ] **★ KG3 — steering surface (shared IDE+CLI).**
       ```powershell

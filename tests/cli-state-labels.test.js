@@ -240,9 +240,10 @@ describe('Task 209 — the snapshot labels superseded bullets (inject, no DB)', 
       );
       writeFileSync(memPath, seeded, 'utf8');
       const text = snapshotOf(projectRoot, userDir);
-      // The superseded bullet carries the label; the live sibling does not.
+      // The superseded bullet carries the label NAMING its successor (Task 232 /
+      // ADR-0023 — the label upgrade); the live sibling does not.
       const labeledLine = text.split('\n').find((l) => l.includes('P-PREVBULL'));
-      expect(labeledLine).toContain('[superseded — kept for history]');
+      expect(labeledLine).toContain('[superseded by P-LVEBULL2]');
       const liveLine = text.split('\n').find((l) => l.includes('P-LVEBULL2'));
       expect(liveLine).not.toContain('[superseded');
       // The one-line envelope instruction ships with the snapshot when a label is present.

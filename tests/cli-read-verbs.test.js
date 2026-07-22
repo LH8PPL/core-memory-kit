@@ -26,6 +26,7 @@ import {
   runCite,
   runTimeline,
   runRecentActivity,
+  runLinks,
 } from '../packages/cli/src/subcommands.mjs';
 
 let sandbox, projectRoot, userDir, out, err;
@@ -78,6 +79,38 @@ describe('cmk read verbs — CLI parity with the MCP read tools (108b)', () => {
   it('cmk timeline on a bad anchor → stderr + exit 2 (exercises withReadDb open path)', () => {
     runTimeline('bad-anchor', {}, undefined, deps());
     expect(err.join(' ')).toMatch(/valid kit ID/);
+    expect(process.exitCode).toBe(2);
+  });
+
+  // Task 232 — `cmk links`: the relational adjacency axis, full open→reindex
+  // (with edge rebuild)→query path over REAL facts written via the shared core.
+  it('cmk links surfaces a real out-link (related) + its backlink', () => {
+    const target = writeFact('linked-target', 'the fact being pointed at');
+    // rememberRich maps `links` → the fact's `related:` frontmatter (bare slugs).
+    const source = rememberRich('the fact that references the target',
+      { title: 'linking-source', type: 'feedback', why: 'w', how: 'h', links: ['linked-target'] },
+      { projectRoot });
+
+    runLinks(source.id, {}, undefined, deps());
+    const outLinks = JSON.parse(out.join('\n'));
+    expect(outLinks.found).toBe(true);
+    expect(outLinks.out.map((e) => e.to)).toContain(target.id);
+
+    out.length = 0;
+    runLinks(target.id, { direction: 'in' }, undefined, deps());
+    const backlinks = JSON.parse(out.join('\n'));
+    expect(backlinks.backlinks.map((e) => e.from)).toContain(source.id);
+  });
+
+  it('cmk links on a bad id → stderr + exit 2', () => {
+    runLinks('bad-id', {}, undefined, deps());
+    expect(err.join(' ')).toMatch(/valid kit ID/);
+    expect(process.exitCode).toBe(2);
+  });
+
+  it('cmk links rejects an invalid --direction', () => {
+    runLinks('P-AAAAAAAA', { direction: 'sideways' }, undefined, deps());
+    expect(err.join(' ')).toMatch(/direction must be/);
     expect(process.exitCode).toBe(2);
   });
 

@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 <!-- New user-facing capabilities land here in the same PR that ships them (CLAUDE.md "Document user-facing capabilities" rule). -->
 
+### Added
+
+- **`cmk links <id>` / `mk_links` — the relational recall axis.** The kit already *wrote* two kinds of links between facts — `related:` cross-links (and `[[slug]]` wikilinks) and the `superseded_by` chain — but never let you *traverse* them, so "what points AT this fact?" (backlinks) and "what replaced what, in order?" (supersession chains) were unanswerable, and `related` was invisible even in `cmk get`. Those links now build into a rebuildable graph index at reindex (from the markdown alone — zero LLM, rebuilt byte-stable exactly like the search index), and `cmk links <id> [--depth N] [--direction in|out|both]` (plus the `mk_links` MCP tool the agent drives in conversation) walks it: backlinks, out-links, and the full oldest→newest supersession chain in one call. `cmk get`/`mk_get` now also surface a fact's `related` list, and a superseded fact's state label names its successor — `[superseded by P-XXXX]` instead of a bare `[superseded]` — so you can walk straight to the current version. The fourth adjacency axis beside `expand` (source-file), `timeline` (time), and `--scope decisions` (evolution). (Task 232, ADR-0023, D-392)
+
 ## [0.6.2] — 2026-07-22
 
 ### Fixed

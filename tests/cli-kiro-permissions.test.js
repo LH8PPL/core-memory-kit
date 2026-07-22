@@ -143,7 +143,7 @@ describe('installKiroPermissions — writes the IDE 1.0 trust store (50.N.5)', (
     expect(readFileSync(p, 'utf8')).toBe(before); // untouched
   });
 
-  it('the output matches Kiro IDE 1.0\'s real format (the 3 capabilities present, effect: allow, 12 mcp tools)', () => {
+  it('the output matches Kiro IDE 1.0\'s real format (the 3 capabilities present, effect: allow, 13 mcp tools)', () => {
     installKiroPermissions({ projectRoot, env: { USERPROFILE: kiroHome } });
     const parsed = yaml.load(readFileSync(permsPath(), 'utf8'));
     expect(Array.isArray(parsed.rules)).toBe(true);
@@ -151,7 +151,7 @@ describe('installKiroPermissions — writes the IDE 1.0 trust store (50.N.5)', (
     expect(byCap('shell')).toBeTruthy();
     expect(byCap('mcp')).toBeTruthy();
     expect(byCap('skill')).toBeTruthy();
-    expect(byCap('mcp').match).toHaveLength(12); // all 12 tools (mk_expand joined in Task 226)
+    expect(byCap('mcp').match).toHaveLength(13); // all 13 tools (mk_links joined in Task 232)
     expect(byCap('skill').match).toEqual(expect.arrayContaining(['memory-write', 'memory-search']));
   });
 });

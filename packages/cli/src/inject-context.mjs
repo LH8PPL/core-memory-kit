@@ -529,12 +529,19 @@ function labelSupersededBullets(body) {
   const lines = body.replace(/\r\n/g, '\n').split('\n');
   for (let i = 0; i < lines.length - 1; i++) {
     if (!/^\s*-\s/.test(lines[i])) continue;
-    if (lines[i].includes(STATE_LABELS.superseded)) continue;
+    // Idempotent: an already-labeled bullet is left alone. Match either the
+    // bare label or the Task-232 successor-named form (`[superseded by …]`).
+    if (lines[i].includes('[superseded')) continue;
     const next = lines[i + 1];
     if (!isProvenanceCommentLine(next) || !next.includes('superseded_by:')) continue;
     const m = lines[i].match(/^(\s*-\s+(?:\([PUL]-[A-Za-z0-9]{8}\)\s+)?)(.*)$/);
     if (!m) continue;
-    lines[i] = `${m[1]}${STATE_LABELS.superseded} ${m[2]}`;
+    // Task 232 (ADR-0023): name the successor from the provenance comment so the
+    // snapshot label points at the current fact (`[superseded by P-XXXX]`); fall
+    // back to the bare label when the id is absent/malformed.
+    const succ = next.match(/superseded_by:\s*([PUL]-[A-Za-z0-9]{8})/);
+    const label = succ ? `[superseded by ${succ[1]}]` : STATE_LABELS.superseded;
+    lines[i] = `${m[1]}${label} ${m[2]}`;
   }
   return lines.join('\n');
 }
@@ -1073,7 +1080,9 @@ export function injectContext({
   // blocks, emitted only if a labeled bullet SURVIVES truncation — a
   // truncated-away label may leave a few bytes of unused headroom, which
   // keeps `snapshot ≤ capBytes` strictly true (§7.1.2).
-  const rawHasStateLabel = rawBlocks.some((b) => b.text.includes(STATE_LABELS.superseded));
+  // Match either the bare `[superseded — …]` or the Task-232 successor-named
+  // `[superseded by P-XXXX]` form (both start with `[superseded`).
+  const rawHasStateLabel = rawBlocks.some((b) => b.text.includes('[superseded'));
   const stateReserve = rawHasStateLabel ? Buffer.byteLength(STATE_INSTRUCTION, 'utf8') + 2 : 0;
   // Task 234: same reserve discipline — budget the work-state guard BEFORE
   // capping, so adding it can never push the snapshot past capBytes (§7.1.2).
@@ -1122,8 +1131,9 @@ export function injectContext({
   const body = annotateWorkStateHeadings(keptBlocks.map((b) => b.text).join('\n'));
   const volatile = `${temporalMention ? temporalMention + '\n\n' : ''}${commitProposal ? commitProposal + '\n\n' : ''}`;
   // Task 209: emit the instruction only when a labeled bullet actually
-  // survived into the final body (see the stateReserve note above).
-  const stateLine = body.includes(STATE_LABELS.superseded) ? `${STATE_INSTRUCTION}\n\n` : '';
+  // survived into the final body (see the stateReserve note above). Match both
+  // the bare label and the Task-232 successor-named form (`[superseded by …]`).
+  const stateLine = body.includes('[superseded') ? `${STATE_INSTRUCTION}\n\n` : '';
   let snapshot;
   if (body !== '') {
     snapshot = `${AUTHORITATIVE_MEMORY_PREAMBLE}\n\n${stateLine}${volatile}${body}`;

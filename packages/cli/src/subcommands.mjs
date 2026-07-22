@@ -35,7 +35,7 @@ import { openIndexDb } from './index-db.mjs';
 import { resolveDefaultSearchMode } from './semantic-backend.mjs';
 import { reindexBoot, reindexFull } from './index-rebuild.mjs';
 import { search as searchAction, SEARCH_MODES } from './search.mjs';
-import { STATE_LABELS, STATE_INSTRUCTION } from './state-label.mjs';
+import { STATE_INSTRUCTION, stateLabelText } from './state-label.mjs';
 import { computeMemoryStats, renderMemoryStats } from './memory-stats.mjs';
 import { memoryWrite } from './memory-write.mjs';
 import { runMcpServer } from './mcp-server.mjs';
@@ -45,7 +45,7 @@ import { autoPersona } from './auto-persona.mjs';
 import { exportPersona, importPersona } from './persona-portability.mjs';
 import { setNativeAutoMemory, nativeMemoryInstallNote } from './native-memory.mjs';
 import { rememberRich, richFactTitle, nonProjectTierNote, prepareNearDupGuard } from './remember-core.mjs';
-import { getObservations, citeLink, buildTimeline, recentActivity, expandObservation } from './read-core.mjs';
+import { getObservations, citeLink, buildTimeline, recentActivity, expandObservation, buildLinks } from './read-core.mjs';
 import { readHookStdin } from './read-hook-stdin.mjs';
 import { stripBom } from './read-json.mjs';
 import { runLazyCompress } from './lazy-compress.mjs';
@@ -1283,7 +1283,9 @@ async function runSearch(queryParts, options) {
       else provenance = 'transcript';
       // Task 209: a non-current fact carries its state label ahead of the
       // snippet (deterministic projection; current rows print unchanged).
-      const stateTag = hit.state ? `${STATE_LABELS[hit.state] ?? `[${hit.state}]`} ` : '';
+      // Task 232 (ADR-0023): a superseded row NAMES its successor
+      // (`[superseded by P-XXXX]`) via stateLabelText.
+      const stateTag = hit.state ? `${stateLabelText(hit.state, hit)} ` : '';
       // Task 227: the citation DATE column — "here's WHEN" — between the
       // provenance and the source location; undated rows print a dash.
       console.log(
@@ -1413,6 +1415,31 @@ export function runExpand(id, _options = {}, _command, deps = {}) {
   log(`${r.source_file}:${r.source_line}${headingLabel}${boundLabel}`);
   log('');
   log(r.content);
+}
+
+// Task 232 (ADR-0023 ACTIVATE slice / D-392) — the LINKS rung: the relational
+// adjacency axis. Answers backlinks ("what points AT this fact") + supersession
+// chains ("what replaced what, in order") — the two graph-only query shapes flat
+// hybrid can't. Shares read-core.buildLinks with mk_links (ADR-0014 parity).
+export function runLinks(id, options = {}, _command, deps = {}) {
+  const log = deps.log ?? console.log;
+  const logError = deps.logError ?? console.error;
+  const direction = options.direction ?? 'both';
+  if (!['in', 'out', 'both'].includes(direction)) {
+    logError(`cmk links: --direction must be in|out|both (got '${direction}')`);
+    process.exitCode = 2;
+    return;
+  }
+  const depth = options.depth !== undefined ? Number(options.depth) : 1;
+  const r = withReadDb((db) => buildLinks(db, id, { depth, direction }), deps);
+  if (!r.ok) {
+    logError(`cmk links: ${r.error} (id: ${id})`);
+    process.exitCode = 2;
+    return;
+  }
+  log(JSON.stringify(r, null, 2));
+  // No links + not a known observation → exit 2 (script-friendly "nothing here").
+  if (!r.found) process.exitCode = 2;
 }
 
 // Task 175 (D-215) — `cmk tour`: narrate the user's OWN memory. Tour
@@ -3470,6 +3497,17 @@ export const subcommands = [
     milestone: 226,
     argSpec: [{ flags: '<id>', description: 'a search-hit id — a citation ID (P-XXXXXXXX) or a transcript-chunk id (T:<file>:<line>)' }],
     action: runExpand,
+  },
+  {
+    name: 'links',
+    description: 'the relational adjacency axis — a fact\'s backlinks (what points AT it), out-links (its related/[[cross-links]]), and full supersession chain (mk_links parity)',
+    milestone: 232,
+    argSpec: [{ flags: '<id>', description: 'a citation ID (e.g. P-S79MJHFN)' }],
+    optionSpec: [
+      { flags: '--depth <n>', description: 'how many hops to traverse for links/backlinks (default: 1)' },
+      { flags: '--direction <dir>', description: 'in (backlinks) | out (references) | both (default: both)' },
+    ],
+    action: runLinks,
   },
   {
     name: 'cite',

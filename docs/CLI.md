@@ -130,6 +130,25 @@ cmk timeline P-S79MJHFN --before 3 --after 3
 
 Expand a recall hit to its **source-file neighborhood** — the enclosing heading section around the hit (sibling bullets, the surrounding day-file entry), bounded to a per-expand cap, never the whole file (`mk_expand` parity). Takes either hit-id shape a search returns: a citation ID (`P-XXXXXXXX`) or a transcript-chunk id (`T:<file>:<line>`). **The recall ladder's middle rung**: search → **expand** → transcript drill — stop at the shallowest rung that answers; expand answers "what surrounds this hit" at a fraction of a transcript drill's tokens. (`cmk timeline` is the other context axis — chronological neighbors rather than file neighbors.)
 
+### `cmk links <id> [--depth <n>] [--direction in|out|both]`
+
+Traverse a fact's **relations** — the relational adjacency axis (`mk_links` parity), the fourth beside `expand` (source-file), `timeline` (time), and `--scope decisions` (evolution). Answers the two graph-only shapes flat search can't:
+
+- **Backlinks** — "what points AT this fact" (the `in` direction). Not a similarity question; the referencing facts may share no vocabulary.
+- **Supersession chain** — "what replaced what, in order" (walked in both directions over `superseded_by`, returned oldest→newest).
+- **Out-links** — the fact's own `related:` + `[[cross-links]]` (the `out` direction).
+
+The graph is built at reindex from the markdown the kit already writes (`related:` frontmatter, `[[slug]]` body wikilinks, and the `superseded_by` chain) into a rebuildable `edges` table — zero LLM, rebuilt byte-stable exactly like the FTS index.
+
+- `--depth <n>` — hops to traverse for links/backlinks (default 1).
+- `--direction in|out|both` — `in` = backlinks, `out` = references, `both` (default).
+
+```bash
+cmk links P-S79MJHFN                      # backlinks + out-links + supersession chain
+cmk links P-S79MJHFN --direction in       # only what points AT this fact
+cmk links P-S79MJHFN --depth 2            # two hops out
+```
+
 ### `cmk cite <id>`
 
 Render the canonical Markdown citation link for an observation (`mk_cite` parity) — paste-ready provenance for docs/PRs.

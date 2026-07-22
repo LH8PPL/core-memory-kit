@@ -485,6 +485,10 @@ function runKeywordSearch(db, opts) {
         sourceFile: r.source_file,
       }),
       ...stateFieldFor(r, opts.now),
+      // Task 232 (ADR-0023): carry the successor id on a superseded row so the
+      // render can name it (`[superseded by P-XXXX]`). Only present when set —
+      // a current fact has null superseded_by — so zero noise on healthy rows.
+      ...(r.superseded_by ? { superseded_by: r.superseded_by } : {}),
     }))
     .sort((a, b) => a.score - b.score)
     .slice(0, requested);
