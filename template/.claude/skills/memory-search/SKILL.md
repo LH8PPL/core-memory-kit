@@ -42,12 +42,27 @@ question** — most questions end at step 1 or 2.
 connected; otherwise the CLI:
 
 - MCP: `mk_search` with `query` (natural language is fine — when semantic
-  recall is enabled the project default searches by meaning; paraphrase hits).
-- CLI: `cmk search "<query>"`
+  recall is enabled the project default searches by meaning; paraphrase hits)
+  AND `source: "skill"` (a telemetry tag — it lets the kit measure how often
+  this skill fires; harmless, always pass it).
+- CLI: `cmk search "<query>" --source skill`
 
 Each hit is one line: id, tier/trust, source location, snippet. Run 1-3
 query variants if the first misses (synonyms; the key noun alone). Drop
 hits that are clearly off-topic or too generic.
+
+**Score the survivors before you fetch.** After dropping off-topic hits,
+rate each remaining hit 1-3 for how directly it answers the question (3 =
+likely answers it, 1 = tangential). Fetch full bodies (step 3) ONLY when at
+least 2 hits survive at score ≥ 2 — a lone weak hit rarely repays the tokens;
+answer from the index line + a re-query instead. This is the policy-retriever
+discipline: filter hard, fetch little.
+
+**Relative-answer re-query.** If the question is relative — "the same X as
+Sarah", "like the auth project", "whatever we used last time" — a single
+search often can't resolve it. Re-query the REFERENT first (search "Sarah"
+/ "auth project" to find X), THEN search X for the actual answer. Two cheap
+searches beat one that can't land.
 
 **Step 2 — Expand the hit's neighborhood (the middle rung).** A hit returns
 the matched chunk; "what did we decide and why" often lives in the lines
@@ -88,6 +103,13 @@ successor (`[superseded by P-XXXX]`) — follow it to the current version.
 
 Rich facts carry **Why** / **How to apply** blocks — include those when the
 question is about rationale or how to act on a rule.
+
+**Episodic grouping — when several survivors share the same `source_file`**
+(the source-location column of their index lines), they came from ONE episode
+(a session, a day-file entry). Do a single `cmk expand` / `mk_expand` on one of
+them instead of N separate `mk_get` bodies — expand returns their shared
+enclosing section once, restoring the narrative the flat hits fragmented, at a
+fraction of the tokens.
 
 **Step 4 — LAST RESORT: the session record.** Only when curated memory
 (steps 1-3) has no answer and the question is about what actually happened

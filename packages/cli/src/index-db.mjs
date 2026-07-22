@@ -250,6 +250,26 @@ export function openIndexDb({ projectRoot, dbPath } = {}) {
   const path = dbPath ?? getIndexDbPath(projectRoot);
   mkdirSync(dirname(path), { recursive: true });
   const db = new Database(path);
+  try {
+    return configureIndexDb(db);
+  } catch (err) {
+    // A corrupt/non-sqlite file at `path` opens fine but throws on the first
+    // pragma/exec ("file is not a database"). Close the handle before
+    // rethrowing — otherwise the open fd leaks (on Windows it also locks the
+    // file, so a caller that fails open can never clean the dir). The read
+    // callers already catch + degrade; they must not also leak.
+    try {
+      db.close();
+    } catch {
+      /* best-effort */
+    }
+    throw err;
+  }
+}
+
+// Apply the documented pragma posture + schema + non-destructive migrations to
+// an open handle. Separated so openIndexDb can close-on-throw around it.
+function configureIndexDb(db) {
   // WAL + NORMAL synchronous: design §9.1 posture. WAL allows many
   // readers + one writer concurrently; NORMAL trades a small durability
   // window (between WAL checkpoints) for write throughput, acceptable

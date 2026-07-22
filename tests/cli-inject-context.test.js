@@ -1209,6 +1209,59 @@ describe('Task 150 — the memory-commit proposal line (ADR-0018: propose-and-ap
     expect(r.snapshot).not.toBe('');
     expect(Buffer.byteLength(r.snapshot, 'utf8')).toBeLessThanOrEqual(cap);
   });
+
+  it('ALL-reserve joint composition (Task 233): preamble + temporal mention + commit proposal + state instruction + work-state caveat + existence advertisement together, snapshot ≤ capBytes (§7.1.2)', () => {
+    // Every reserved line active at once — the composition the per-feature
+    // tests never see. If the new existence-ad reserve is NOT subtracted from
+    // the cap handed to enforceCap, this overflows.
+    gitInit();
+    // (1) MEMORY.md: a work-state heading (workState reserve) + a superseded
+    // bullet (state-instruction reserve).
+    writeFile(
+      join(f.projectRoot, 'context', 'MEMORY.md'),
+      '# MEMORY\n\n## Active Threads\n- (P-9LXBA3ZK) the old plan we moved away from\n' +
+        '<!-- at: 2026-06-01T00:00:00Z trust: high sha1: abcd superseded_by: P-2CFEBV9Y -->\n',
+    );
+    // (2) INDEX.md with real `- (` entries → existence advertisement reserve.
+    writeFile(
+      join(f.projectRoot, 'context', 'memory', 'INDEX.md'),
+      '# Granular memory index\n\n## Files\n\n' +
+        '- (P-9LXBA3ZK) [project] [Old plan](f1.md) — x\n' +
+        '- (P-2CFEBV9Y) [project] [New plan](f2.md) — y\n',
+    );
+    // (3) a recent temporal_supersede → temporal-mention reserve.
+    const archivePath = join(
+      f.projectRoot, 'context', 'memory', 'archive', 'superseded', 'P-TEMPA2B3.md',
+    );
+    writeFile(
+      archivePath,
+      '---\nid: P-TEMPA2B3\ntype: project\ntitle: v9.9 cut-gate in progress\nended_at: 2026-07-01T18:00:00Z\nstatus: completed\nsuperseded_by: P-TEMPC4D5\n---\n\nOld state.\n',
+    );
+    writeFile(
+      join(f.projectRoot, 'context', '.locks', 'audit.log'),
+      JSON.stringify({
+        ts: '2026-07-01T18:00:00Z',
+        action: 'temporal_supersede',
+        tier: 'P',
+        id: 'P-TEMPA2B3',
+        paths: { archive: archivePath },
+        extra: { supersededBy: 'P-TEMPC4D5', endedAt: '2026-07-01T18:00:00Z', judgedBy: 'temporal-sweep' },
+      }) + '\n',
+    );
+    const cap = 3200; // room for all reserves + a tier block, but tight enough to matter
+    const r = injectContext({
+      cwd: f.projectRoot, userDir: f.userDir, now: '2026-07-02T12:00:00Z', capBytes: cap,
+      testGitTimeoutMs: 30000,
+    });
+    // All reserved lines actually present (the reserves are genuinely active):
+    expect(r.snapshot).toMatch(/Searchable memory/); // existence advertisement
+    expect(r.snapshot).toContain('v9.9 cut-gate in progress'); // temporal mention
+    expect(r.snapshot).toMatch(/one-tap commit/i); // commit proposal
+    expect(r.snapshot).toMatch(/\[superseded/); // superseded label (→ state instruction)
+    expect(r.snapshot).toMatch(/verify before acting/i); // work-state caveat
+    // …and the composition never overflows the ceiling.
+    expect(Buffer.byteLength(r.snapshot, 'utf8')).toBeLessThanOrEqual(cap);
+  });
 });
 
 describe('Task 18 — bin/cmk-inject-context (hook handler — node bin)', () => {
@@ -1398,5 +1451,87 @@ describe('Task 75.0 — authoritative-memory preamble (D-64 / memory-os Ground T
     expect(iUser).toBeGreaterThan(iProject);
     // additionalContext still equals the snapshot (hook contract).
     expect(r.hookOutput.hookSpecificOutput.additionalContext).toBe(r.snapshot);
+  });
+});
+
+// Task 233 (ADR-0024, the Letta borrow): the SessionStart snapshot gains ONE
+// live metadata line — fact count + available scopes + last-write recency —
+// so the model knows what there is to search before deciding. Computed WITHOUT
+// importing the sqlite index (§20.3 pin), byte-stable when memory is unchanged.
+describe('Task 233 — existence advertisement', () => {
+  let sandbox, projectRoot, userDir;
+  beforeEach(() => {
+    const f = makeFixture();
+    sandbox = f.sandbox;
+    projectRoot = f.projectRoot;
+    userDir = f.userDir;
+  });
+  afterEach(() => rmSync(sandbox, { recursive: true, force: true }));
+
+  function seedWithArchive() {
+    // A real scratchpad body → the snapshot has a body (preamble present).
+    writeFile(
+      join(projectRoot, 'context', 'MEMORY.md'),
+      '# MEMORY\n\n## Active Threads\n- (P-9LXBA3ZK) prefers Black for Python formatting\n',
+    );
+    // A granular INDEX with 2 entries → fact count = 2, facts scope present.
+    writeFile(
+      join(projectRoot, 'context', 'memory', 'INDEX.md'),
+      '# Granular memory index — project tier\n\n## Files\n\n' +
+        '- (P-9LXBA3ZK) [project] [Formatting](project_fmt.md) — black\n' +
+        '- (P-2CFEBV9Y) [project] [Deploy](project_deploy.md) — hetzner\n',
+    );
+  }
+
+  it('adds one metadata line naming fact count + scopes to the snapshot', () => {
+    seedWithArchive();
+    const r = injectContext({ cwd: projectRoot, userDir });
+    expect(r.snapshot).toMatch(/Searchable memory/);
+    expect(r.snapshot).toMatch(/2 recorded fact/); // count from INDEX entries
+    expect(r.snapshot).toMatch(/scopes: facts/); // scope presence
+    const advLines = r.snapshot.split('\n').filter((l) => l.includes('Searchable memory'));
+    expect(advLines).toHaveLength(1); // ONE line, not a paragraph
+    // still model-facing (rides the additionalContext snapshot)
+    expect(r.hookOutput.hookSpecificOutput.additionalContext).toBe(r.snapshot);
+  });
+
+  it('is byte-stable across two builds when memory is unchanged (prefix-cache safety)', () => {
+    seedWithArchive();
+    const a = injectContext({ cwd: projectRoot, userDir, now: '2026-07-22T10:00:00Z' });
+    const b = injectContext({ cwd: projectRoot, userDir, now: '2026-07-22T10:00:00Z' });
+    expect(a.snapshot).toBe(b.snapshot);
+  });
+
+  it('lists the decisions scope when DECISIONS.md exists', () => {
+    seedWithArchive();
+    writeFile(
+      join(projectRoot, 'context', 'DECISIONS.md'),
+      '# Decision journal\n\n<!-- decision:P-9LXBA3ZK -->\n## chose Black\n',
+    );
+    const r = injectContext({ cwd: projectRoot, userDir });
+    expect(r.snapshot).toMatch(/scopes:[^.]*decisions/);
+  });
+
+  it('no advertisement when the archive is empty (no INDEX entries → byte-shape unchanged)', () => {
+    // seedThreeTierFixture writes INDEX.md WITHOUT any `- (` entry lines.
+    seedThreeTierFixture({ projectRoot, userDir });
+    const r = injectContext({ cwd: projectRoot, userDir });
+    expect(r.snapshot).not.toMatch(/Searchable memory/);
+  });
+
+  it('snapshot stays ≤ capBytes with the advertisement reserved (§7.1.2)', () => {
+    seedWithArchive();
+    const r = injectContext({ cwd: projectRoot, userDir, capBytes: 13000 });
+    expect(Buffer.byteLength(r.snapshot, 'utf8')).toBeLessThanOrEqual(13000);
+  });
+
+  it('§20.3 pin: inject-context computes the line WITHOUT importing the sqlite index', async () => {
+    const src = readFileSync(
+      new URL('../packages/cli/src/inject-context.mjs', import.meta.url),
+      'utf8',
+    );
+    expect(src).not.toMatch(/from '\.\/index-db\.mjs'/);
+    expect(src).not.toMatch(/from '\.\/search\.mjs'/);
+    expect(src).not.toMatch(/from '\.\/trust-score\.mjs'/);
   });
 });

@@ -117,6 +117,15 @@ export const BUDGET_REGISTRY = [
       'both lines are RESERVED out of the caller cap (snapshot ≤ capBytes pinned by the tightened cap-composition tests incl. the three-reserve joint test in cli-inject-context.test.js); the template-sizing edge (Σ legal caps + reserves > the snapshot cap → graceful section-drop with a truncation.log event) is the DOCUMENTED accepted trade-off in §7.1.3 with a named re-open trigger',
   },
   {
+    name: 'recall-hint bm25 score floor (HINT_BM25_SCORE_FLOOR — the top hit must clear the floor to inject index lines; below → static hint; Task 233)',
+    sourceRef: 'design §20.8 / ADR-0024 (the octopoda-OS conservative-floor calibration)',
+    testFile: 'tests/cli-capture-prompt.test.js',
+    // at-cap: a score exactly at the floor clears; over-cap: a score just past
+    // the floor (less relevant) falls back to the static hint.
+    atCapPattern: 'HINT_BM25_SCORE_FLOOR',
+    overCapPattern: 'below the bm25 floor',
+  },
+  {
     name: 'index-db busy_timeout (5000ms bounded wait before SQLITE_BUSY; Task 219)',
     sourceRef: 'design §16.34 / §16.35 (D-321)',
     suppressed:

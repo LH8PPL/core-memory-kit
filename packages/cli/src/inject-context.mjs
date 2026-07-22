@@ -176,6 +176,91 @@ function buildCommitProposal({ projectRoot, gitTimeoutMs }) {
   }
 }
 
+// Task 233 (ADR-0024, the Letta existence-advertisement borrow): ONE live
+// metadata line telling the model WHAT there is to search before it decides to
+// — fact count + available scopes + last-write recency. It is the "you know
+// what there is to search" half of the recall-trigger hybrid (the per-prompt
+// hint is the "here's what matches" half).
+//
+// §20.3 IMPORT PIN: this is computed WITHOUT opening the sqlite index — the
+// inject path must never import index-db (a structural regression test pins the
+// import graph). The three inputs are all read from the always-present markdown
+// + logs: the fact COUNT from the granular INDEX.md (the reindex-maintained
+// derived view — the same file the per-prompt hint gates on); the SCOPES from
+// tier-file presence; the RECENCY from the audit-log tail. Byte-stable when
+// memory is unchanged: no `now`-relative rendering (an absolute capture date),
+// so two builds over an unchanged corpus produce identical bytes (the snapshot
+// is prefix-cache-sensitive). Empty string when there is no granular archive
+// (a fresh project has nothing to advertise) — so the pre-233 snapshot shape is
+// byte-identical on empty-archive installs.
+const ADVERTISEMENT_INDEX_ENTRY_RE = /\n- \([PUL]-[A-Za-z0-9]{8}\)/g;
+function buildExistenceAdvertisement({ projectRoot }) {
+  try {
+    const indexPath = join(projectRoot, 'context', 'memory', 'INDEX.md');
+    if (!existsSync(indexPath)) return '';
+    const indexContent = readFileSync(indexPath, 'utf8');
+    const factCount = (indexContent.match(ADVERTISEMENT_INDEX_ENTRY_RE) ?? []).length;
+    if (factCount === 0) return ''; // nothing recorded → nothing to advertise
+    const scopes = ['facts'];
+    if (existsSync(join(projectRoot, 'context', 'DECISIONS.md'))) scopes.push('decisions');
+    if (hasTranscriptTier(projectRoot)) scopes.push('transcripts');
+    const recency = latestCaptureDate({ projectRoot });
+    return (
+      `Searchable memory beyond this snapshot: ${factCount} recorded fact(s) · scopes: ${scopes.join(', ')}` +
+      `${recency ? ` · latest capture ${recency}` : ''}. ` +
+      'Reach it with the memory-search skill or `cmk search "<topic>"`.'
+    );
+  } catch {
+    return '';
+  }
+}
+
+// True when a raw-transcript tier exists to search (the `transcripts` scope).
+// Presence-only, cheap: a transcripts/ or sessions/ dir holding at least one
+// markdown file. Deterministic given the corpus (byte-stable advertisement).
+function hasTranscriptTier(projectRoot) {
+  for (const sub of ['transcripts', 'sessions']) {
+    const dir = join(projectRoot, 'context', sub);
+    try {
+      if (existsSync(dir) && readdirSync(dir).some((n) => n.endsWith('.md'))) return true;
+    } catch {
+      /* unreadable dir — treat as absent */
+    }
+  }
+  return false;
+}
+
+// The newest capture DATE (yyyy-mm-dd, UTC) from the audit-log tail — a
+// `created` fact or an APPLIED import (the same capture definition the status
+// line uses). Absolute date → byte-stable when no new capture landed. Null when
+// the audit log is absent (a fresh clone: .locks is gitignored) or unreadable,
+// in which case the advertisement simply omits the recency clause.
+function latestCaptureDate({ projectRoot }) {
+  try {
+    const auditPath = join(projectRoot, 'context', '.locks', 'audit.log');
+    if (!existsSync(auditPath)) return null;
+    let newest = -1;
+    for (const line of readAuditTail(auditPath).split(/\r?\n/)) {
+      if (!line.trim()) continue;
+      let e;
+      try {
+        e = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      const isCapture =
+        e.action === 'created' || (e.action === 'import' && e.reasonCode === 'import-applied');
+      if (!isCapture) continue;
+      const ms = Date.parse(e.ts);
+      if (Number.isFinite(ms) && ms > newest) newest = ms;
+    }
+    if (newest < 0) return null;
+    return new Date(newest).toISOString().slice(0, 10);
+  } catch {
+    return null;
+  }
+}
+
 // Positioned read of the LAST 64KB of an audit log — recency lives at the
 // end; a months-old multi-MB log read in full would pay for history we
 // discard, inside the 500ms SessionStart budget. Drops the (possibly torn)
@@ -1074,6 +1159,13 @@ export function injectContext({
   // this adds no git spawn for non-git projects.
   const commitProposal = buildCommitProposal({ projectRoot, gitTimeoutMs: testGitTimeoutMs });
   const proposalReserve = commitProposal ? Buffer.byteLength(commitProposal, 'utf8') + 2 : 0;
+  // Task 233 (ADR-0024): the existence advertisement — a persistent metadata
+  // line that rides the AUTHORITATIVE block (only with a body, alongside the
+  // preamble). Reserved out of the cap like the other lines (§7.1.2), so adding
+  // it can never push the snapshot past capBytes. Computed WITHOUT the sqlite
+  // index (§20.3 pin — see buildExistenceAdvertisement).
+  const existenceAd = rawBlocks.length > 0 ? buildExistenceAdvertisement({ projectRoot }) : '';
+  const existenceReserve = existenceAd ? Buffer.byteLength(existenceAd, 'utf8') + 2 : 0;
   // Task 209: the one-line state-label instruction (A-TMA's prompt half) —
   // reserved out of the cap like the mention/proposal, but only when a raw
   // block actually carries a label (the zero-noise contract: a label-free
@@ -1105,7 +1197,10 @@ export function injectContext({
     rawWorkStateHeadings * (Buffer.byteLength(WORK_STATE_INSTRUCTION, 'utf8') + 2);
   const { blocks: keptBlocks, truncationEvents } = enforceCap(
     rawBlocks,
-    Math.max(0, cap - preambleReserve - mentionReserve - proposalReserve - stateReserve - workStateReserve),
+    Math.max(
+      0,
+      cap - preambleReserve - mentionReserve - proposalReserve - stateReserve - workStateReserve - existenceReserve,
+    ),
     ts,
     cap,
   );
@@ -1136,9 +1231,13 @@ export function injectContext({
   // survived into the final body (see the stateReserve note above). Match ONLY
   // the real label forms (bare + the Task-232 successor-named `[superseded by …]`).
   const stateLine = hasSupersededLabel(body) ? `${STATE_INSTRUCTION}\n\n` : '';
+  // Task 233: the existence advertisement rides the AUTHORITATIVE block (with a
+  // body only), right after the preamble/state line — a persistent knowledge
+  // line, ahead of the volatile action prompts.
+  const adLine = existenceAd ? `${existenceAd}\n\n` : '';
   let snapshot;
   if (body !== '') {
-    snapshot = `${AUTHORITATIVE_MEMORY_PREAMBLE}\n\n${stateLine}${volatile}${body}`;
+    snapshot = `${AUTHORITATIVE_MEMORY_PREAMBLE}\n\n${stateLine}${adLine}${volatile}${body}`;
   } else if (volatile !== '') {
     // Empty memory, but a temporal mention / commit proposal is pending — emit
     // the action line(s) alone (trailing blank lines trimmed), no preamble.

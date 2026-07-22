@@ -237,6 +237,62 @@ describe('Task 190 — search wire-site', () => {
   });
 });
 
+describe('Task 233 — recall-log optional form/origin/toolPolicy fields (skill-fire telemetry)', () => {
+  it('appendRecallEntry records form + origin only when provided (back-compat: absent otherwise)', () => {
+    const projectRoot = join(sandbox, 'proj');
+    mkdirSync(projectRoot, { recursive: true });
+    appendRecallEntry(projectRoot, { source: 'hint', form: 'evidence', ids: ['P-9LXBA3ZK'] });
+    appendRecallEntry(projectRoot, { source: 'search', origin: 'skill', query: 'q', ids: [] });
+    appendRecallEntry(projectRoot, { source: 'inject', ids: ['U-CVGYFKW2'] });
+    const [hint, searchE, inject] = readRecallLog(projectRoot);
+    expect(hint.form).toBe('evidence');
+    expect(hint.origin).toBeUndefined();
+    expect(searchE.origin).toBe('skill');
+    expect(searchE.form).toBeUndefined();
+    // A plain inject entry is byte-shape identical to the pre-233 record.
+    expect(inject.form).toBeUndefined();
+    expect(inject.origin).toBeUndefined();
+    expect(inject.toolPolicy).toBeUndefined();
+  });
+
+  it('records the harness tool-loading policy from CMK_HARNESS_TOOL_POLICY when set (P-DXPCKAUU population marker)', () => {
+    const projectRoot = join(sandbox, 'proj');
+    mkdirSync(projectRoot, { recursive: true });
+    const prev = process.env.CMK_HARNESS_TOOL_POLICY;
+    process.env.CMK_HARNESS_TOOL_POLICY = 'deferred';
+    try {
+      appendRecallEntry(projectRoot, { source: 'hint', form: 'static', ids: [] });
+    } finally {
+      if (prev === undefined) delete process.env.CMK_HARNESS_TOOL_POLICY;
+      else process.env.CMK_HARNESS_TOOL_POLICY = prev;
+    }
+    const [entry] = readRecallLog(projectRoot);
+    expect(entry.toolPolicy).toBe('deferred');
+  });
+
+  it('search({recallOrigin}) records origin:skill in the recall entry (CLI --source skill path)', () => {
+    const projectRoot = join(sandbox, 'proj');
+    mkdirSync(projectRoot, { recursive: true });
+    const db = openIndexDb({ projectRoot, dbPath: join(sandbox, 'memory.db') });
+    db.prepare(`
+      INSERT INTO observations
+        (id, tier, source_file, source_line, source_sha1, heading_path, body,
+         write_source, trust, created_at, superseded_by, deleted_at, expires_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'P-9LXBA3ZK', 'P', 'MEMORY.md', 1, 'a'.repeat(40),
+      'MEMORY.md > Active Threads', 'prefers Black for Python formatting',
+      'user-explicit', 'high', Date.parse('2026-07-01T10:00:00Z'), null, null, null,
+    );
+    const r = search({ db, query: 'Black formatting', projectRoot, recallOrigin: 'skill' });
+    expect(r.action).toBe('found');
+    db.close();
+    const [entry] = readRecallLog(projectRoot);
+    expect(entry.source).toBe('search');
+    expect(entry.origin).toBe('skill');
+  });
+});
+
 describe('Task 190 — non-kit-project gate (skill-review I2)', () => {
   it('inject in a cwd with NO context/ writes NOTHING — no scaffold in non-kit repos', () => {
     // The plugin's GLOBAL SessionStart hook fires in every repo; without the

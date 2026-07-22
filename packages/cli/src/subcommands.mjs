@@ -34,7 +34,7 @@ import { reindex as reindexAction } from './reindex.mjs';
 import { openIndexDb } from './index-db.mjs';
 import { resolveDefaultSearchMode } from './semantic-backend.mjs';
 import { reindexBoot, reindexFull } from './index-rebuild.mjs';
-import { search as searchAction, SEARCH_MODES } from './search.mjs';
+import { search as searchAction, SEARCH_MODES, RECALL_ORIGINS } from './search.mjs';
 import { STATE_INSTRUCTION, stateLabelText } from './state-label.mjs';
 import { computeMemoryStats, renderMemoryStats } from './memory-stats.mjs';
 import { memoryWrite } from './memory-write.mjs';
@@ -1256,6 +1256,13 @@ async function runSearch(queryParts, options) {
       includeExpired: options?.includeExpired === true,
       // Task 211: the state-view OVERRIDE only — classification is automatic.
       stateView: options?.stateView,
+      // Task 233: the recall-origin tag for skill-fire telemetry. The
+      // memory-search skill's first ladder step runs `cmk search --source
+      // skill`, so the recall-log records which searches the skill drove —
+      // making the ADR-0024 fire-rate measurable (before/after). Coerced
+      // against the bounded RECALL_ORIGINS set (mirrors the mk_search zod enum)
+      // so an unknown/typo value can't bloat log cardinality.
+      recallOrigin: RECALL_ORIGINS.includes(options?.source) ? options.source : undefined,
       semanticBackend,
     });
     if (r.action === 'error') {
@@ -3463,6 +3470,7 @@ export const subcommands = [
       { flags: '--include-tombstoned', description: 'include deleted observations in results' },
       { flags: '--include-expired', description: 'include facts past their declared expires_at (hidden by default, never deleted)' },
       { flags: '--state-view <view>', description: 'OVERRIDE the automatic query state-view classification: current | historical | transition | neutral (Task 211 — normally detected from the query, no flag needed)' },
+      { flags: '--source <origin>', description: 'recall-origin tag for telemetry (e.g. skill) — records in the recall log which surface drove the search so the memory-search skill fire-rate is measurable (Task 233). Normal user searches omit it.' },
       { flags: '--project <dir>', description: 'project root to search (default: cwd). Used by the kiro-cli agent (no `cd` prefix — Kiro #4579).' },
     ],
     action: runSearch,

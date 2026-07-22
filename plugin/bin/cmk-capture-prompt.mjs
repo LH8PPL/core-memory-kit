@@ -90,7 +90,7 @@ try {
 // systemMessage is user-display). Best-effort: a hint failure must never
 // break the capture protocol.
 try {
-  const hint = buildMemoryHint({ projectRoot, prompt: payload?.prompt });
+  const hint = buildMemoryHint({ projectRoot, prompt: payload?.prompt, sessionId: payload?.session_id });
   if (hint) {
     process.stdout.write(
       JSON.stringify({
