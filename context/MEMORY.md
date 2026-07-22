@@ -8,18 +8,18 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-K5ZEYQRW) Confirms readiness to proceed with patch release sequence
-  <!-- source: auto-extract-session, source_line: 1, sha1: 7db18d177fa41c4227570abdc30e18cf1655aa27d491fc765666e5f4e86b5ef9, write: auto-extract, trust: high, at: 2026-07-20T20:37:45Z -->
-- (P-VBVYMWY9) research files are saved to core-memory-kit/docs/research/, not local-wiki/raw/ — user clarified assistant's incorrect assumption about destination project
-  <!-- source: auto-extract-session, source_line: 1, sha1: d235d96fa6186f1bdeabd3fade5dbb484ff9f9640eb2eca385439657fb839f49, write: auto-extract, trust: high, at: 2026-07-21T09:04:03Z -->
-- (P-V3DETX52) Prefers simple checklists/bullet format to markdown tables for task lists
-  <!-- source: auto-extract-session, source_line: 1, sha1: 14b72ed5c969ee9125ff4c7094f3eab5f19bd649fa64fef99ac05cc58e267e55, write: auto-extract, trust: high, at: 2026-07-21T11:33:56Z -->
-- (P-3BHCGQQT) local-wiki is personal-only wiki; file placement within project is flexible
-  <!-- source: auto-extract-session, source_line: 1, sha1: 0a1c96d6b8f707b47ce071cf5e215aa5f4ab86d6f34750859999dbe58662fdb7, write: auto-extract, trust: high, at: 2026-07-21T11:33:56Z -->
-- (P-EQNQHEU9) Bench-storage.yml pins Node 20 but node:sqlite (imported at module scope, line 29) requires ≥22.5, causing immediate import failure
-  <!-- source: auto-extract-session, source_line: 1, sha1: 12665f3ae4abc2c56fd3392cade4cd0c05247885e16a8aa2012a2ad1a1ad2950, write: auto-extract, trust: high, at: 2026-07-21T14:26:42Z -->
-- (P-MTZLLCQ3) User values accurate severity calibration — asked "do we have a problem RIGHT NOW?" to distinguish latent bugs from active failures
-  <!-- source: auto-extract-session, source_line: 1, sha1: ab6ead73e25726a21760c36f3092bda4e96af9d446d9c0ab0e61309ff53c522f, write: auto-extract, trust: high, at: 2026-07-21T15:43:08Z -->
+- (P-F4ALX9JS) Daily (not weekly) scanning decided because real data shows 2 advisories per 24h on ~8 direct deps; weekly risks up to 7d exposure.
+  <!-- source: review-promote, source_line: 1, sha1: 72ff3a90cc7eb6cc91801fde9a617326895291d7fe58e48e2cc88ab67e44981d, write: user-explicit, trust: high, at: 2026-07-21T20:12:28Z -->
+- (P-47RHYWDa) GitHub issues auto-close when supply-chain surface is clean, preventing alert fatigue and duplicate daily notifications.
+  <!-- source: review-promote, source_line: 1, sha1: 20c3aa1a6bfc458fc991d5b893f9a70866ed2ca4690b1cea52e339a0daba5bce, write: user-explicit, trust: high, at: 2026-07-21T20:16:03Z -->
+- (P-ZNQa9BGN) we need to fix this:
+  <!-- source: review-promote, source_line: 1, sha1: f4ebf321b3510568f33aff69f58e7d0575767d8f1c64fc941f0def0b53b2a481, write: user-explicit, trust: high, at: 2026-07-21T20:17:16Z -->
+- (P-ZHV3V3US) Task 240 (Node pinning across 8 workflows) shipped successfully, fixing silent divergence where bench-storage ran Node 24 while gates ran Node 20
+  <!-- source: review-promote, source_line: 1, sha1: bae80741e59662e3f3e17f1306d1c6c12cc779741b48734bd2cd8217c58e2ab9, write: user-explicit, trust: high, at: 2026-07-21T20:17:16Z -->
+- (P-M694W947) Validator `validate-node-pin.mjs` now has 10 test cases; was previously untested despite exporting functions for testability
+  <!-- source: review-promote, source_line: 1, sha1: 01f655635cb19e096cd68be7a55a4d4fcca305f90c3b64e97624f27b5c5418d9, write: user-explicit, trust: high, at: 2026-07-21T20:17:22Z -->
+- (P-NLaBQ5KP) Task 243 (better-sqlite3 v12→v13) must not re-open the settled node:sqlite rejection (D-162).
+  <!-- source: review-promote, source_line: 1, sha1: c7d83135eddffe7c56c1c349a5900ba2a1c7fad5eda8605d8af196256b0c2fe6, write: user-explicit, trust: high, at: 2026-07-21T20:17:22Z -->
 
 ## Environment Notes
 
