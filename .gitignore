@@ -8,7 +8,12 @@ Thumbs.db
 
 # Claude Code dev-only config at repo root (per-developer, not part of the kit).
 # Plugin format files at plugin/.claude-plugin/ stay tracked — different dir.
-/.claude/
+# Carve-out 2026-07-22 (D-390): .claude/agents/ IS committed — the model-split
+# agent definitions (implementer/mechanic/reviewer) encode the repo's team-level
+# workflow, not per-developer state. Everything else under .claude/ stays ignored
+# (settings, cmk-install-scaffolded skills, commands).
+/.claude/*
+!/.claude/agents/
 
 # Python
 __pycache__/

@@ -10,6 +10,16 @@
 
 ---
 
+## 2026-07-22 — D-390 · DECISION — Model-split orchestration trial: the lead model plans/reviews, Opus implements, Sonnet does mechanical work (`.claude/agents/` carved out of the gitignore and committed)
+
+**The user's ask (token-cost control):** run the strongest model as the tech lead — plan, decompose, review verdicts, merges, trivial edits — and delegate the labor: **Opus** for deep work (implementation, tests, debugging, the implementer self-review pass) and **Sonnet** for mechanical work (boilerplate, sweeps, fixtures, doc formatting). Two deliberate deviations from the "pure orchestrator writes no code" shape: (1) the lead KEEPS trivial edits — delegating a one-line fix costs more than making it; the threshold is roughly an hour of labor; (2) **tests are Opus-tier, not Sonnet-tier** — the five-doors/over-mutation discipline is exactly where shipped bugs have hidden (every autopilot PR had a skill-review catch), so tests are deep work in this repo.
+
+**Shipped:** three committed agent definitions — [`.claude/agents/implementer.md`](../../.claude/agents/implementer.md) (opus), [`mechanic.md`](../../.claude/agents/mechanic.md) (sonnet), [`reviewer.md`](../../.claude/agents/reviewer.md) (opus) — each carrying the role-scoped binding rules (TDD, five doors, shared modules, honest work-report format, no git ops, no memory-file edits). The reviewer agent IS the second pass of the two-pass review discipline; the lead arbitrates its findings and holds the merge.
+
+**Gitignore carve-out (decision-trail preserved):** `/.claude/` was wholly ignored with the reason "per-developer, not part of the kit." That reason still stands for settings / cmk-scaffolded skills / commands — but the agent definitions encode the repo's team-level workflow, the same class as CLAUDE.md, so `.claude/agents/` alone is re-included (`/.claude/*` + `!/.claude/agents/`; the original comment stays in the file with the carve-out dated).
+
+**Trial, not doctrine:** first trial is Task 233 (the v0.6.3 opener). Verdict by the adoption-verification template — same quality at lower cost, measured, not felt. Graduating the split into CLAUDE.md's workflow rules waits on that verdict.
+
 ## 2026-07-22 — D-389 · FIX + DECISION — Task 246 root cause fixed (capture bins → `resolveHookProjectRoot`); the stray-tier DOCTOR check split to Task 248
 
 **The fix.** The capture-hook entry bins passed bare `process.cwd()` as projectRoot, so a subdirectory cwd forked a fresh, unread `context/` tier (two accrued in this repo — recovered + deleted earlier today). Root cause closed with one shared resolver: `resolveHookProjectRoot({env, cwd})` in `tier-paths.mjs` — `CLAUDE_PROJECT_DIR` → `CMK_PROJECT_DIR` → `discoverRootUpward(cwd, ['context'])` → `resolve(cwd)`. It REUSES `discoverRootUpward` (the same walk `resolveMcpProjectRoot` trusts) and deliberately does NOT touch `resolveMcpProjectRoot` — no blast radius on the MCP path. Wired at all 8 entry-bin sites across 6 files (CLI + plugin × {capture-prompt ×2, capture-turn, observe-edit}). The caller-map both-ways paid off: the detached workers ALREADY receive the root via `env.CMK_PROJECT_DIR` set by their parent's `spawn`, so fixing the entry points fixes the whole cascade — the workers needed no change.

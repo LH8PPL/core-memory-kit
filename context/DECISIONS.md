@@ -14954,3 +14954,86 @@ _(retracted 2026-07-22)_
 ## RESUME — v0.3.1 cut-gate near-complete; PR
 
 **When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-SaYWRBVS -->
+
+## Actionable-Failure Threshold for Whisper Triggers
+
+**When:** 2026-07-22 · **Fact:** `P-SaYWRBVS`
+**Why:** Prevents alert fatigue; aligns with user principle "never warn on non-actionable issues" and kit's fail-open posture.
+
+<!-- decision:P-R3MK9NAL -->
+
+## Failure-Driven Whisper + Skill Architecture with Required Amendments
+
+**When:** 2026-07-22 · **Fact:** `P-R3MK9NAL`
+**Why:** Addresses blind spot where task was "all report" without self-healing. Should be consistent with user's prior argument on Task 248. Noise threshold keeps whisper from being a nuisance.
+
+<!-- decision:P-a66RC3LN -->
+
+## Kit lacks skill-fire telemetry for measuring recall improvements
+
+**When:** 2026-07-22 · **Fact:** `P-a66RC3LN`
+**Why:** "Fired zero times" is anecdote, not telemetry. Can't validate a fix you can't measure.
+
+<!-- decision:P-5XS9TMPG -->
+
+## Memory-write under-fire is lower-priority than memory-search
+
+**When:** 2026-07-22 · **Fact:** `P-5XS9TMPG`
+**Why:** This asymmetry explains prioritization: recall work has 10x leverage. Write can afford to coast on auto-extract; search cannot.
+
+<!-- decision:P-BGLaBTCK -->
+
+## Task 233 (ADR-0024): Memory-search fix via evidence-bearing hints
+
+**When:** 2026-07-22 · **Fact:** `P-BGLaBTCK`
+**Why:** Addresses observed failure mode where memory-search fires zero times despite per-prompt hint. Root cause: ambient hints lack credibility; specific evidence restores model trust in memory layer.
+
+<!-- decision:P-VQG6TZVA -->
+
+## CI Watch Pattern — Must Await ALL Checks, Not Subset
+
+**When:** 2026-07-22 · **Fact:** `P-VQG6TZVA`
+**Why:** Sonar is a blocking check; partial watches give false "all green" signals
+
+<!-- decision:P-59WP2aNJ -->
+
+## Design Documentation Pattern — Durable Across Sessions
+
+**When:** 2026-07-22 · **Fact:** `P-59WP2aNJ`
+**Why:** Prevents rework and preserves reasoning behind shape decisions
+
+<!-- decision:P-2ZJMTAYa -->
+
+## v0.6.2 Published Release State and Contents
+
+**When:** 2026-07-22 · **Fact:** `P-2ZJMTAYa`
+**Why:** Establishes the current deployed baseline; needed for understanding what's in the wild
+
+<!-- decision:P-76aPFZKX -->
+
+## v0.6.3 Lane Execution Sequence — Next Session Start
+
+**When:** 2026-07-22 · **Fact:** `P-76aPFZKX`
+**Why:** 233 is foundational; 248 needs clean state to avoid interaction with prior work; sequence ensures install-flow safety
+
+<!-- decision:P-6TKFaXTT -->
+
+## v0.6.3 Lane PR Composition and Release Purposes
+
+**When:** 2026-07-22 · **Fact:** `P-6TKFaXTT`
+**Why:** Future sessions need the concrete lane structure and each PR's purpose to continue merge/review work
+
+<!-- decision:P-AJY64N9L -->
+
+## Documentation Drifts at Event Boundaries, Not PR Moments
+
+**When:** 2026-07-22 · **Fact:** `P-AJY64N9L`
+**Why:** Standard doc walks are PR-driven and catch per-change updates. Release cuts and lane decisions happen outside the PR process, leaving event-level docs unowned.
