@@ -162,6 +162,13 @@ function renderGroup(type, groupFacts, slugToBase, idToBase) {
   return lines;
 }
 
+// Render-only cap on how many citers a single anchor lists in MAP.md — a hub
+// like ADR-0017 (26 citers) would otherwise blow one map line into a wall of
+// wikilinks. The `edges` table + `cmk links` are UNAFFECTED (they carry every
+// citer); this bounds only the human-browsable render. Code-unit order keeps the
+// shown subset deterministic, so byte-stability holds.
+export const MAP_ANCHOR_CITERS_SHOWN = 20;
+
 // Task 256 — the `## Cited anchors` constellation section. Doc-anchors
 // (D-nnn/Task nnn/ADR/FR/NFR) densely cited across fact BODIES become visible
 // hubs: each qualifying anchor lists the facts that cite it as wikilinks, so the
@@ -183,8 +190,10 @@ function renderAnchorSection(facts, idToBase) {
       .filter(Boolean)
       .sort(compareCodeUnits);
     if (!bases.length) continue; // every citer resolved out of the walk (defensive)
-    const links = bases.map((b) => `[[${b}]]`).join(', ');
-    lines.push(`- **${label}** ← ${links}`);
+    const shown = bases.slice(0, MAP_ANCHOR_CITERS_SHOWN);
+    const links = shown.map((b) => `[[${b}]]`).join(', ');
+    const extra = bases.length - shown.length;
+    lines.push(`- **${label}** ← ${links}${extra > 0 ? ` … and ${extra} more` : ''}`);
   }
   return lines;
 }

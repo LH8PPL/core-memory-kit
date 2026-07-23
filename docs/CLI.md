@@ -140,6 +140,8 @@ Traverse a fact's **relations** — the relational adjacency axis (`mk_links` pa
 - **Out-links** — the fact's own `related:` + `[[cross-links]]` (the `out` direction).
 - **What cites an anchor** — pass an **anchor token** (`D-nnn`, `Task nnn`, `ADR-nnnn`, `FR-nn`, `NFR-nn`) instead of a fact id and `links` returns the facts that cite it (its citers, as backlinks). An anchor is a graph sink, so `out` is empty.
 
+A fact's own anchor citations show up in its **out-links** here (`--direction out` lists the `anchor:` nodes it cites, `type: cites`) — `links` is the graph surface. This is deliberately *not* mirrored in `cmk get`'s `related` list, which stays the clean fact-content surface (`related`/`[[cross-links]]` only). Anchor citations are graph structure, not fact metadata.
+
 The graph is built at reindex from the markdown the kit already writes (`related:` frontmatter, `[[slug]]` body wikilinks, the `superseded_by` chain, and body **anchor citations** — Task 256) into a rebuildable `edges` table — zero LLM, rebuilt byte-stable exactly like the FTS index.
 
 - `--depth <n>` — hops to traverse for links/backlinks (default 1).

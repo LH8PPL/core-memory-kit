@@ -32,7 +32,7 @@ import {
   MIN_ANCHOR_CITERS,
   ANCHOR_DF_CEILING_RATIO,
 } from '../packages/cli/src/graph-index.mjs';
-import { buildLinks } from '../packages/cli/src/read-core.mjs';
+import { buildLinks, getObservations } from '../packages/cli/src/read-core.mjs';
 
 let sandbox, projectRoot, userDir, db;
 
@@ -136,6 +136,75 @@ describe('extractAnchors — pure body → anchor tokens', () => {
 
   it('still extracts anchors OUTSIDE code', () => {
     expect(extractAnchors('`D-1 literal` but D-2 is real')).toEqual(['anchor:D-2']);
+  });
+});
+
+// --------------------------------------------------------------------------
+describe('extractAnchors — plural / range / slash shorthand (review finding 1)', () => {
+  it('plural `Tasks` + a range emits ENDPOINTS ONLY (not the interior)', () => {
+    expect(extractAnchors('see Tasks 28-35 for context')).toEqual(['anchor:Task-28', 'anchor:Task-35']);
+    expect(extractAnchors('Task 28-35 range')).toEqual(['anchor:Task-28', 'anchor:Task-35']);
+    expect(extractAnchors('just Tasks 28 alone')).toEqual(['anchor:Task-28']);
+    expect(extractAnchors('single Task 232 here')).toEqual(['anchor:Task-232']);
+  });
+
+  it('slash-continuation: bare trailing numbers inherit the prefix', () => {
+    expect(extractAnchors('FR-28/29/30 all apply')).toEqual(['anchor:FR-28', 'anchor:FR-29', 'anchor:FR-30']);
+    expect(extractAnchors('NFR-1/2 both')).toEqual(['anchor:NFR-1', 'anchor:NFR-2']);
+    expect(extractAnchors('D-40/153 shorthand')).toEqual(['anchor:D-40', 'anchor:D-153']);
+  });
+
+  it('each-part-carries-its-own-prefix slash form yields both (via re-scan)', () => {
+    expect(extractAnchors('D-40/D-153 style')).toEqual(['anchor:D-40', 'anchor:D-153']);
+  });
+
+  it('still rejects the negatives (a version, a glued suffix)', () => {
+    expect(extractAnchors('shipped in v0.6.3 today')).toEqual([]);
+    expect(extractAnchors('the flag D-361x is not a decision')).toEqual([]);
+  });
+});
+
+// --------------------------------------------------------------------------
+describe('small-corpus ceiling floor (review finding 2) — N=2/3/4 boundary', () => {
+  const mk = (n, body) => ({ id: mkId(n), filename: `feedback_${n}.md`, body });
+
+  it('N=2 (at-cap): ceiling floored to MIN_ANCHOR_CITERS — both citers form an edge', () => {
+    const { qualifying, ceiling } = computeCitations([mk(700, 'D-5'), mk(701, 'D-5')]);
+    expect(ceiling).toBe(2); // Math.max(2, floor(2*0.5)=1)
+    expect(qualifying.has('anchor:D-5')).toBe(true);
+  });
+
+  it('N=3: an anchor cited by 2 of 3 qualifies (was impossible before the floor)', () => {
+    const { qualifying, ceiling } = computeCitations([mk(702, 'D-5'), mk(703, 'D-5'), mk(704, 'plain')]);
+    expect(ceiling).toBe(2); // Math.max(2, floor(3*0.5)=1)
+    expect(qualifying.has('anchor:D-5')).toBe(true);
+  });
+
+  it('N=3 (over-cap): an anchor cited by ALL 3 is dropped as a stopword', () => {
+    const { qualifying } = computeCitations([mk(705, 'D-5'), mk(706, 'D-5'), mk(707, 'D-5')]);
+    expect(qualifying.has('anchor:D-5')).toBe(false); // df=3 > ceiling 2
+  });
+
+  it('N=4: behavior identical to before — floor(4*0.5)=2 == MIN, df=2 qualifies', () => {
+    const { qualifying, ceiling } = computeCitations([mk(708, 'D-5'), mk(709, 'D-5'), mk(710, 'p'), mk(711, 'p')]);
+    expect(ceiling).toBe(2);
+    expect(qualifying.has('anchor:D-5')).toBe(true);
+  });
+});
+
+// --------------------------------------------------------------------------
+describe('links --direction out surfaces a fact\'s cites edges (review finding 3, ratified intended)', () => {
+  it("a fact's out-links include its anchor: cites nodes; get.related stays clean", () => {
+    seedFact({ id: mkId(720), slug: 'a', body: 'per D-361 shipped' });
+    seedFact({ id: mkId(721), slug: 'b', body: 'D-361 too' });
+    for (let i = 722; i < 728; i++) seedFact({ id: mkId(i), slug: `p${i}`, body: 'padding' });
+    reindexFull({ projectRoot, userDir, db });
+    // links (the graph surface) SHOWS the cites out-edge to the anchor node.
+    const out = buildLinks(db, mkId(720), { direction: 'out' }).out;
+    expect(out.some((e) => e.to === 'anchor:D-361' && e.type === 'cites')).toBe(true);
+    // get.related (the fact surface) does NOT — the deliberate asymmetry.
+    const [row] = getObservations(db, [mkId(720)]);
+    expect(row.related ?? []).not.toContain('anchor:D-361');
   });
 });
 

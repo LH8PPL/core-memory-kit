@@ -28,7 +28,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildVaultMap } from '../packages/cli/src/vault-map.mjs';
+import { buildVaultMap, MAP_ANCHOR_CITERS_SHOWN } from '../packages/cli/src/vault-map.mjs';
 import { MAP_FILENAME } from '../packages/cli/src/fact-store.mjs';
 import { reindex } from '../packages/cli/src/reindex.mjs';
 import { writeFact } from '../packages/cli/src/write-fact.mjs';
@@ -314,5 +314,50 @@ describe('Task 256 — buildVaultMap() anchor constellations', () => {
     ];
     const out = buildVaultMap(facts, { tier: 'P' });
     expect(out).not.toContain('## Cited anchors');
+  });
+});
+
+// Task 256 — the render-only per-anchor citer cap (review finding 4). The edges
+// table + `cmk links` carry every citer; MAP.md bounds the human-browsable list.
+describe('Task 256 — anchor render cap MAP_ANCHOR_CITERS_SHOWN', () => {
+  // Deterministic unique valid-shaped ids (programmatic → no validate-test-ids trip).
+  const ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZa';
+  const mkId = (n) => {
+    let x = n;
+    let s = '';
+    for (let i = 0; i < 8; i++) {
+      s = ALPHABET[x % 32] + s;
+      x = Math.floor(x / 32);
+    }
+    return `P-${s}`;
+  };
+  // n facts each citing D-5, plus padding so the anchor clears the df-ceiling.
+  function corpus(n) {
+    const facts = [];
+    for (let i = 0; i < n; i++) {
+      facts.push(fact({ id: mkId(i), filename: `feedback_c${i}.md`, title: `C${i}`, body: 'cites D-5' }));
+    }
+    for (let i = 0; i < n + 5; i++) {
+      facts.push(fact({ id: mkId(1000 + i), filename: `feedback_p${i}.md`, title: `P${i}`, body: 'plain fact' }));
+    }
+    return facts;
+  }
+  const anchorLine = (out) => out.split('\n').find((l) => l.startsWith('- **D-5**'));
+
+  it('at-cap: exactly MAP_ANCHOR_CITERS_SHOWN citers → all shown, no "and N more"', () => {
+    expect(MAP_ANCHOR_CITERS_SHOWN).toBe(20);
+    const line = anchorLine(buildVaultMap(corpus(20), { tier: 'P' }));
+    expect((line.match(/\[\[/g) || []).length).toBe(20);
+    expect(line).not.toContain('more');
+  });
+
+  it('over-cap: 21 citers → 20 shown + "… and 1 more"', () => {
+    const line = anchorLine(buildVaultMap(corpus(21), { tier: 'P' }));
+    expect((line.match(/\[\[/g) || []).length).toBe(20);
+    expect(line).toContain('… and 1 more');
+  });
+
+  it('the capped render is byte-stable across rebuilds', () => {
+    expect(buildVaultMap(corpus(30), { tier: 'P' })).toBe(buildVaultMap(corpus(30), { tier: 'P' }));
   });
 });

@@ -102,17 +102,39 @@ export function extractWikilinks(body) {
 export const MIN_ANCHOR_CITERS = 2;
 export const ANCHOR_DF_CEILING_RATIO = 0.5;
 
-// Anchor token patterns (global, canonical-node mapping). NFR has its own
-// pattern; `\bFR-` cannot match inside `NFR-` (the `N` before `F` is a word
-// char, so there is no `\b` there), so FR never steals an NFR token. `Task` and
-// `D-` use a trailing `\b` so a possessive (`Task 232's`) still matches but a
-// glued suffix (`D-361x`) does not. ADR keeps its 4-digit form (files are `00NN`).
-const ANCHOR_PATTERNS = [
-  { re: /\bD-(\d+)\b/g, node: (m) => `anchor:D-${m[1]}` },
-  { re: /\bTask[\s-]+(\d+)\b/g, node: (m) => `anchor:Task-${m[1]}` },
-  { re: /\bADR-(\d{4})\b/g, node: (m) => `anchor:ADR-${m[1]}` },
-  { re: /\bNFR-(\d+)\b/g, node: (m) => `anchor:NFR-${m[1]}` },
-  { re: /\bFR-(\d+)\b/g, node: (m) => `anchor:FR-${m[1]}` },
+// Anchor token matchers (global). Each `expand(match)` yields one OR MORE
+// canonical `anchor:` nodes, because the corpus writes these anchors in plural,
+// range, and slash-continuation shorthand — not only the bare singular form:
+//
+//   - `Task 232` / `Tasks 28-35` / `Task 28-35` — the plural `Tasks` and a
+//     range. A RANGE emits its ENDPOINTS ONLY (`Task-28` + `Task-35`); the
+//     interior isn't literally cited, so expanding it would fabricate edges.
+//   - `FR-28/29/30` / `NFR-1/2` / `D-40/153` — slash-continuation shorthand
+//     where trailing bare numbers inherit the prefix → one node each. (The
+//     `D-40/D-153` form where each part carries its OWN prefix already yields
+//     two nodes via a re-scan — pinned by test — so the slash group is only for
+//     the bare-continuation case.)
+//   - `ADR-0023` — 4-digit, singular only (files are `00NN`; no plural/range).
+//
+// NFR is matched by its own pattern before FR; `\bFR-` cannot match inside
+// `NFR-` (the `N` before `F` is a word char → no `\b` there), so FR never steals
+// an NFR token. The trailing `\b` (after the last digit group) keeps a
+// possessive (`Task 232's`) matching while a glued suffix (`D-361x`,
+// `v0.6.3`) does not.
+function slashNodes(prefix, head, tail) {
+  const nums = [head];
+  if (tail) for (const n of tail.split('/')) if (n) nums.push(n);
+  return nums.map((n) => `anchor:${prefix}-${n}`);
+}
+function rangeNodes(prefix, a, b) {
+  return b ? [`anchor:${prefix}-${a}`, `anchor:${prefix}-${b}`] : [`anchor:${prefix}-${a}`];
+}
+const ANCHOR_MATCHERS = [
+  { re: /\bD-(\d+)((?:\/\d+)*)\b/g, expand: (m) => slashNodes('D', m[1], m[2]) },
+  { re: /\bTasks?[\s-]+(\d+)(?:\s*-\s*(\d+))?\b/g, expand: (m) => rangeNodes('Task', m[1], m[2]) },
+  { re: /\bADR-(\d{4})\b/g, expand: (m) => [`anchor:ADR-${m[1]}`] },
+  { re: /\bNFR-(\d+)((?:\/\d+)*)\b/g, expand: (m) => slashNodes('NFR', m[1], m[2]) },
+  { re: /\bFR-(\d+)((?:\/\d+)*)\b/g, expand: (m) => slashNodes('FR', m[1], m[2]) },
 ];
 
 // Bare kit fact ids cited in a body (the ID_PATTERN body, global). Same alphabet
@@ -122,21 +144,27 @@ const FACT_ID_G = /\b[PUL]-[2345679ABCDEFGHJKLMNPQRSTUVWXYZa]{8}\b/g;
 /**
  * Extract the distinct anchor citations from a fact body, in first-seen order.
  * Code fences + inline code are stripped first (a literal `D-361` example must
- * never mint an edge). Doc-anchors return their canonical `anchor:` node; a
- * cited fact id returns the bare id (no prefix — it is a real node).
+ * never mint an edge). Doc-anchors return their canonical `anchor:` node(s) —
+ * one match can yield several (plural/range/slash shorthand); a cited fact id
+ * returns the bare id (no prefix — it is a real node).
  */
 export function extractAnchors(body) {
   const text = stripCode(body);
-  const found = []; // { index, node }
-  for (const { re, node } of ANCHOR_PATTERNS) {
+  const found = []; // { index, order, node }
+  for (const { re, expand } of ANCHOR_MATCHERS) {
     re.lastIndex = 0;
     let m;
-    while ((m = re.exec(text)) !== null) found.push({ index: m.index, node: node(m) });
+    while ((m = re.exec(text)) !== null) {
+      let order = 0;
+      for (const node of expand(m)) found.push({ index: m.index, order: order++, node });
+    }
   }
   FACT_ID_G.lastIndex = 0;
   let fm;
-  while ((fm = FACT_ID_G.exec(text)) !== null) found.push({ index: fm.index, node: fm[0] });
-  found.sort((a, b) => a.index - b.index);
+  while ((fm = FACT_ID_G.exec(text)) !== null) found.push({ index: fm.index, order: 0, node: fm[0] });
+  // First-seen order: by body position, then sub-order within a single match
+  // (so `FR-28/29/30` stays 28,29,30). Stable.
+  found.sort((a, b) => a.index - b.index || a.order - b.order);
   const seen = new Set();
   const out = [];
   for (const { node } of found) {
@@ -154,16 +182,17 @@ export function extractAnchors(body) {
  * `Task-232`, `ADR-0023`, `FR-13`, `NFR-9`) maps to its canonical `anchor:`
  * node; anything else returns null (the caller emits the schema-error shape,
  * never a crash). The whole input must BE the token (anchored match), so a
- * sentence or a malformed `D-361x` is rejected.
+ * sentence or a malformed `D-361x` is rejected. A range/slash query resolves to
+ * its FIRST node (querying `Tasks 28-35` answers for Task-28).
  */
 export function anchorNodeForToken(raw) {
   const s = String(raw ?? '').trim();
   if (!s) return null;
   if (ID_PATTERN.test(s)) return s;
-  for (const { re, node } of ANCHOR_PATTERNS) {
+  for (const { re, expand } of ANCHOR_MATCHERS) {
     re.lastIndex = 0;
     const m = re.exec(s);
-    if (m && m.index === 0 && m[0].length === s.length) return node(m);
+    if (m && m.index === 0 && m[0].length === s.length) return expand(m)[0];
   }
   return null;
 }
@@ -200,7 +229,12 @@ export function computeCitations(
       set.add(f.id);
     }
   }
-  const ceiling = Math.floor(facts.length * ceilingRatio);
+  // The df-ceiling never drops below the single-citer floor: floor(N * 0.5) is 1
+  // for N ∈ {2, 3}, which is BELOW MIN_ANCHOR_CITERS (2), so a 2-or-3-fact corpus
+  // could otherwise NEVER form a doc-anchor edge (`df >= 2 && df <= 1` is
+  // vacuously false). `Math.max(minAnchorCiters, …)` is behavior-identical for
+  // N ≥ 4 (floor already ≥ 2) and unbreaks the tiny-corpus case.
+  const ceiling = Math.max(minAnchorCiters, Math.floor(facts.length * ceilingRatio));
   const qualifying = new Set();
   for (const [t, citers] of anchorCiters) {
     const df = citers.size;

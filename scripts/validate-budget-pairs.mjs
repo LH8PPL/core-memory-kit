@@ -133,11 +133,18 @@ export const BUDGET_REGISTRY = [
     overCapPattern: 'cited by only 1 fact is SKIPPED',
   },
   {
-    name: 'anchor document-frequency ceiling (ANCHOR_DF_CEILING_RATIO=0.5 — a doc-anchor cited by more than half the corpus is a stopword hub; dropped)',
+    name: 'anchor document-frequency ceiling (ANCHOR_DF_CEILING_RATIO=0.5, effective = max(MIN_ANCHOR_CITERS, floor(N*0.5)) — a doc-anchor cited by more than half the corpus is a stopword hub; dropped; small-corpus floor unbreaks N=2/3)',
     sourceRef: 'design §9.5.1 / Task 256 (D-400)',
     testFile: 'tests/cli-anchor-edges.test.js',
     atCapPattern: 'cited by exactly half the corpus is KEPT',
     overCapPattern: 'cited by more than half the corpus is dropped',
+  },
+  {
+    name: 'anchor render cap (MAP_ANCHOR_CITERS_SHOWN=20 — MAP.md lists at most this many citers per anchor then "… and N more"; render-only, edges table unaffected)',
+    sourceRef: 'design §9.5.1 / Task 256 (D-400)',
+    testFile: 'tests/cli-vault-map.test.js',
+    atCapPattern: 'at-cap: exactly MAP_ANCHOR_CITERS_SHOWN citers',
+    overCapPattern: 'over-cap: 21 citers',
   },
   {
     name: 'index-db busy_timeout (5000ms bounded wait before SQLITE_BUSY; Task 219)',

@@ -2038,7 +2038,24 @@ relational signal, never a corpus-wide stopword — so it is exempt from both; n
   (a lone leaf that clutters the graph without densifying it); skipped.
 - `ANCHOR_DF_CEILING_RATIO = 0.5` — a doc-anchor cited by MORE than this fraction of the whole corpus
   is a degenerate stopword hub; skipped (the obsidian-mind cluster-detector precedent: a token in
-  >half the corpus is noise). Boundary tests pin both at/over their thresholds (validate-budget-pairs).
+  >half the corpus is noise). The effective ceiling is `Math.max(MIN_ANCHOR_CITERS, floor(N × 0.5))` —
+  behavior-identical for N ≥ 4 (the floor is already ≥ 2) but it un-breaks a 2-or-3-fact corpus, where
+  `floor(N × 0.5) = 1 < 2` would otherwise make `df ≥ 2 && df ≤ 1` vacuously false and forbid ALL
+  doc-anchor edges. Boundary tests pin both at/over their thresholds (validate-budget-pairs), incl.
+  the N = 2/3/4 corpus sizes.
+
+**Extraction covers the corpus's real citation shapes, not just the bare singular** (review finding):
+the plural `Tasks 28-35` and range `Task 28-35` forms emit their **endpoints only** (`Task-28` +
+`Task-35` — the interior isn't literally cited, so expanding it would fabricate edges); the
+slash-continuation shorthand `FR-28/29/30` emits `FR-28`/`FR-29`/`FR-30` (bare trailing numbers
+inherit the prefix); and `D-40/D-153` (each part carrying its own prefix) yields both via a re-scan.
+Negatives still reject: `v0.6.3`, `D-361x` (glued suffix).
+
+**The links / get asymmetry is deliberate.** A fact's `cites` edges ARE surfaced by `cmk links`
+(`--direction out` lists a fact's out-neighbourhood, including its `anchor:` cites nodes — `links` is
+the graph surface) but are NOT surfaced in `cmk get`/`mk_get`'s `related` list (`relatedRefsFor`
+filters `type IN ('related','link')` only — `get` stays the clean fact-content surface). Anchor
+citations are graph structure, not fact metadata.
 
 **Query + render:** `cmk links D-361` / `mk_links {id:"D-361"}` answers "what cites D-361" in one
 call — `buildLinks` normalizes an anchor token (or fact id) to its node via `anchorNodeForToken`,
