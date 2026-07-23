@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-3RQPTZET) wants Octopoda-OS captured durably ("just so i dont forget")
-  <!-- source: auto-extract-session, source_line: 1, sha1: 6de30e9ebdc95e9c4edef5355262473783d33eba6d839c3efe376e9e7ffa9c5c, write: auto-extract, trust: high, at: 2026-07-22T16:49:43Z -->
 - (P-XWP6XLLG) Approves adopting ideas from Octopoda on loop detection
   <!-- source: auto-extract-session, source_line: 1, sha1: 8a5ea241784bd36933158c5a2b7fc8f5b59c255c3f2258d74f4430db0e8c4fc9, write: auto-extract, trust: high, at: 2026-07-22T16:54:09Z -->
 - (P-aUSPYZJR) Requests immediate execution of loop research ("why not do the research now?")
@@ -20,6 +18,8 @@
   <!-- source: review-promote, source_line: 1, sha1: c0907c6f3a5d423548ba0904418a97e8e14c70ea2e5cf06fdbd384d3132120d9, write: user-explicit, trust: high, at: 2026-07-22T20:00:05Z -->
 - (P-RLUYAZD2) Task 233 now dispatched to Opus implementer with complete work order; CI has cleared (both commits green on main)
   <!-- source: review-promote, source_line: 1, sha1: 8ffa471b2e49c2873913deefae07baca315921bd069e8f16b393ddb6a233109b, write: user-explicit, trust: high, at: 2026-07-22T20:00:08Z -->
+- (P-FC2WQ9Ja) User views Obsidian vault integration as pragmatic/simple; questions whether elaborate own-UI build effort is necessary
+  <!-- source: auto-extract-session, source_line: 1, sha1: 1c2e19133df77337096fbcc048fc242eb26455ced9d6a60e6caef44056baeb34, write: auto-extract, trust: high, at: 2026-07-23T08:30:20Z -->
 
 ## Environment Notes
 

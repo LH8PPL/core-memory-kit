@@ -10,6 +10,14 @@
 
 ---
 
+## 2026-07-23 — D-397 · DECISION — The viewer question DECIDED (corrects D-396's overreach): both paths, both LANED — 254 (Obsidian view) into v0.6.3, 255 (own UI) as v0.6.4's headline; and the user's anti-stalling directive
+
+**The correction first.** D-396's line "the viewer question's answer becomes 'don't build one; be a good vault'" was the assistant deciding a question that was the user's — caught by the user in the same hour ("you are doing things again without explaining anything and deciding things without input"). The record: the Obsidian vault view was ONE candidate answer to parked D-121, not THE answer. This entry supersedes that line; D-396's factual content (the recall win, the borrow trail) stands.
+
+**The decision (the user's, explicit).** Option 3 of the three presented: BOTH paths, sequenced — **Task 254** (Obsidian vault view) laned v0.6.3; **Task 255** (the kit's own viewer — D-121's idea, shipped a stub in v0.1.0, stub removed + idea parked 2026-06-11, demand evidence recorded 2026-06-12, untouched for 6 weeks) laned as **v0.6.4's headline differentiator**, design/grill first per D-121's own design-first framing. 254 doubles as the demand probe; 255 owns what Obsidian can't render (trust tiers, supersession chains, doctor, conflict queues, the 233 fire-rate).
+
+**The directive (binding on future deferrals):** the user — *"we had it for 6 weeks and nothing, like alot of things we defered it for no reason. now i want to be decisive and just do it, no more stalling things."* Applied going forward: when the user engages with a parked item, the default motion is LANE IT (a committed slot), not refresh-its-trigger. This does not overturn D-248's trigger discipline for items nobody has touched — it biases the boundary cases toward commitment, and it makes "parked >1 minor + the user re-raised it" an automatic lane-it signal. Captured to memory in the same batch.
+
 ## 2026-07-23 — D-396 · NOTE + DECISION — obsidian-mind re-asked and answered FROM THE RECORD; Tasks 253 (three remaining borrows) + 254 (Obsidian vault view — parked D-121's cheap resolution) filed
 
 **The recall win worth recording:** the user asked "is obsidian-mind better than our project? can we take anything?" — and the full answer already existed (`docs/research/2026-07-21-repo-obsidian-mind.md`, from the D-380 pass two days prior): code-level verdict (its "graph-first" is marketing — a boolean link-lint, our 10th flagship-under-delivers data point; capture is hint-and-hope vs our coerced extraction; facts are untyped prose; retrieval is outsourced), six borrow candidates — **two of which had already shipped in 232/233** (the existence advertisement; the fence-aware wikilink parsing, where the 232 reviewer independently caught exactly the edge case the note had flagged). No re-research needed; the corpus paid for itself.
