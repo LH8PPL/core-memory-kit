@@ -10,6 +10,14 @@
 
 ---
 
+## 2026-07-23 — D-398 · DECISION — Task 254 shipped (PR #323) hours after D-397 laned it: the memory tier is Obsidian-browsable; the split's third cycle, and the guardrail's best day
+
+**The ship (the anti-stalling directive's first proof):** laned in the morning, merged the same day. Reindex now emits a committed, byte-stable `context/memory/MAP.md` — every fact as a resolvable `[[type_slug]]` wikilink with related/supersession edges as links — lighting up the existing 2,000+-fact corpus in Obsidian's graph with ZERO fact-file rewrites; new facts carry `aliases: [<id>]` so `[[P-XXXX]]` resolves; `docs/OBSIDIAN.md` is the walkthrough with the read-vs-write trade stated honestly. Ratified in-cycle: MAP **committed** (the INDEX.md precedent); shape-b (wikilink `related` properties) **skipped** because Obsidian's property-link behavior was unverifiable at primary source — documented as a future option rather than designed against a guess; **no mass-rewrite** of existing facts (the lead's hard constraint held).
+
+**The split's third cycle — including its first agent-caused incident, handled exactly right:** the implementer's first test run defaulted `projectRoot` to the real repo and wrote fixtures into the LIVE dogfood `context/memory/`. The delete-guardrail blocked its cleanup twice; it STOPPED and disclosed with an exact mine-vs-legit boundary (D-192 discipline holding inside a subagent) — and the lead cleaned up via the kit's own safe path (`cmk purge` by id + reindex), zero hand-deletes. The reviewer's verdict was **mergeable-as-is** (first in three cycles); the lead's top suspected composition bug (MAP's wikilinks flooding the 232 edges table) traced CLEAN with double protection. Then the SonarCloud gate failed for real (S2871 bare `sort()` + complexity 45) — fixed with the determinism made EXPLICIT (shared `compareCodeUnits`, `localeCompare` banned as locale-dependent) and the refactor proven **byte-identical by SHA-256** on the real corpus. Suite 3436 green.
+
+**Left open deliberately:** Task 255 (the kit's own viewer, v0.6.4 headline) awaits its design/grill session with the user; Task 253(b)'s injection-size meter and the remaining borrows ride their triggers.
+
 ## 2026-07-23 — D-397 · DECISION — The viewer question DECIDED (corrects D-396's overreach): both paths, both LANED — 254 (Obsidian view) into v0.6.3, 255 (own UI) as v0.6.4's headline; and the user's anti-stalling directive
 
 **The correction first.** D-396's line "the viewer question's answer becomes 'don't build one; be a good vault'" was the assistant deciding a question that was the user's — caught by the user in the same hour ("you are doing things again without explaining anything and deciding things without input"). The record: the Obsidian vault view was ONE candidate answer to parked D-121, not THE answer. This entry supersedes that line; D-396's factual content (the recall win, the borrow trail) stands.
