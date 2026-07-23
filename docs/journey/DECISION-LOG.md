@@ -10,6 +10,14 @@
 
 ---
 
+## 2026-07-23 — D-396 · NOTE + DECISION — obsidian-mind re-asked and answered FROM THE RECORD; Tasks 253 (three remaining borrows) + 254 (Obsidian vault view — parked D-121's cheap resolution) filed
+
+**The recall win worth recording:** the user asked "is obsidian-mind better than our project? can we take anything?" — and the full answer already existed (`docs/research/2026-07-21-repo-obsidian-mind.md`, from the D-380 pass two days prior): code-level verdict (its "graph-first" is marketing — a boolean link-lint, our 10th flagship-under-delivers data point; capture is hint-and-hope vs our coerced extraction; facts are untyped prose; retrieval is outsourced), six borrow candidates — **two of which had already shipped in 232/233** (the existence advertisement; the fence-aware wikilink parsing, where the 232 reviewer independently caught exactly the edge case the note had flagged). No re-research needed; the corpus paid for itself.
+
+**The user's insight → Task 254:** obsidian-mind's one genuine advantage (a human-facing UI) is *arrangement, not software* — Obsidian opens any markdown folder as a vault, and `context/` is already markdown. Filed as the Obsidian vault view: docs + link-compat polish (id aliases / wikilink-formatted `related` over 232's edges) + clutter scoping + the hand-edit trade documented. **This revisits parked D-121 (the viewer) with new evidence** — a near-zero-build path that did not exist when D-121 was parked; the viewer question's answer becomes "don't build one; be a good vault."
+
+**Task 253** carries the note's three unshipped borrows (source-aware injection split · injection-size meter · tmpdir-cwd for detached spawns), each S, each with a ride-along trigger rather than a lane.
+
 ## 2026-07-22 — D-395 · DECISION + NOTE — Task 233 shipped (PR #322): recall gets its evidence-bearing hint AND its instrument; the review round catches a Blocking privacy leak; the D-390 trial verdict firms up at n=2
 
 **The ship.** ADR-0024's three composed mitigations are live: `buildMemoryHint` static→FTS5 (≥20-char gate, bm25 floor −0.5 named+tunable per the Octopoda calibration lesson, ≤3 index lines never bodies, fail-open, **8.4–9.8 ms measured on the real 2007-fact corpus with screening included**); the SessionStart existence advertisement (markdown+logs only — the §20.3 pin held); the Memora ladder refinements in both SKILL.md copies. Plus the user's scope addition: **fire-rate instrumentation** — every hint logs its form, skill-originated searches self-mark (`--source skill` / `mk_search {source:'skill'}`, bounded enum), errors distinguishable from no-match. The ADR's success criterion is now measurable; the before/after comparison starts accruing from this ship.

@@ -15037,3 +15037,272 @@ _(retracted 2026-07-22)_
 
 **When:** 2026-07-22 · **Fact:** `P-AJY64N9L`
 **Why:** Standard doc walks are PR-driven and catch per-change updates. Release cuts and lane decisions happen outside the PR process, leaving event-level docs unowned.
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-DaY9B4Qa -->
+
+## Task 246 (orphaned-tier recovery, 7 stranded facts) awaits your yes before proce
+
+**When:** 2026-07-22 · **Fact:** `P-DaY9B4Qa`
+
+<!-- decision:P-9W7XDMCA -->
+
+## Prefers copying memory files faithfully (preserving original metadata/timestamps
+
+**When:** 2026-07-22 · **Fact:** `P-9W7XDMCA`
+
+<!-- decision:P-MUBQ32A9 -->
+
+## rejects doctor-based detection for Task 248; wants automatic recovery baked into
+
+**When:** 2026-07-22 · **Fact:** `P-MUBQ32A9`
+
+<!-- decision:P-4FSYPAC9 -->
+
+## doctor should only run for specific conditions (issues in kit/memory/hooks/setti
+
+**When:** 2026-07-22 · **Fact:** `P-4FSYPAC9`
+
+<!-- decision:P-7Z2ANUQX -->
+
+## prefer a skill (not hook) so the AI understands why/how to invoke doctor for kit
+
+**When:** 2026-07-22 · **Fact:** `P-7Z2ANUQX`
+
+<!-- decision:P-SSP653KU -->
+
+## Agent Model Delegation for Token Cost Control
+
+**When:** 2026-07-22 · **Fact:** `P-SSP653KU`
+**Why:** Enables cost optimization while preserving orchestration quality; subagent isolation prevents context bloat
+
+<!-- decision:P-GCQFaXGC -->
+
+## Wants to reduce token usage by using Fable 5 as orchestrator, delegating impleme
+
+**When:** 2026-07-22 · **Fact:** `P-GCQFaXGC`
+
+<!-- decision:P-CQ4PVEBQ -->
+
+## Three-Tier Model Delegation Pattern
+
+**When:** 2026-07-22 · **Fact:** `P-CQ4PVEBQ`
+**Why:** Prior shipped bugs hid in test discipline, justifying deep-reasoning (Opus) not mechanical (Sonnet) for tests. Matches model to task complexity. Reduces context bloat.
+
+<!-- decision:P-JQ2ZNFKR -->
+
+## Agent Binding Rules
+
+**When:** 2026-07-22 · **Fact:** `P-JQ2ZNFKR`
+**Why:** Keeps deployment, memory, and decision authority centralized; preserves audit trail.
+
+<!-- decision:P-RN5FXKDQ -->
+
+## Agent Definitions Committed and Pushed
+
+**When:** 2026-07-22 · **Fact:** `P-RN5FXKDQ`
+
+<!-- decision:P-2J4ZDGWK -->
+
+## Gitignore Carve-out for `.claude/agents/`
+
+**When:** 2026-07-22 · **Fact:** `P-2J4ZDGWK`
+**Why:** Agent definitions are durable, project-wide policy (not per-developer), so they belong in git. Settings and scaffolding remain ignored per original design.
+
+<!-- decision:P-GAJYHVPQ -->
+
+## Three-Tier Agent Split Trial on Task 233
+
+**When:** 2026-07-22 · **Fact:** `P-GAJYHVPQ`
+**Why:** The split is new; real-world validation on a live task is necessary before formalizing as standing policy.
+
+<!-- decision:P-RCETHGSN -->
+
+## .claude/ Gitignore Strategy
+
+**When:** 2026-07-22 · **Fact:** `P-RCETHGSN`
+**Why:** Separation ensures the kit remains portable and developer-neutral (no one's personal config leaks) while versioning workflow fixtures (agent roles and split discipline) that need to be stable and shared. Agent definitions are trial infrastructure, not ephemera.
+
+<!-- decision:P-X59WSM9D -->
+
+## `.claude/` directory is fully gitignored in this project
+
+**When:** 2026-07-22 · **Fact:** `P-X59WSM9D`
+
+<!-- decision:P-EYCWXa3K -->
+
+## OKF v0.1 (GoogleCloudPlatform/knowledge-catalog) is a vendor-neutral spec: markd
+
+**When:** 2026-07-22 · **Fact:** `P-EYCWXa3K`
+**Why:** Positions the kit within an emerging vendor-neutral ecosystem; strengthens the adoption narrative and external credibility
+
+<!-- decision:P-G72M6QBA -->
+
+## Kit Name-Privacy Validator for Auto-Extract
+
+**When:** 2026-07-22 · **Fact:** `P-G72M6QBA`
+**Why:** Kit memory is committed to git (possibly public). Personal/project names should not leak into public memory without user consent. This validator enforces privacy by design.
+
+<!-- decision:P-J2DHFQSR -->
+
+## Graph Database Rejected — Empirical Basis and DEFER Gate
+
+**When:** 2026-07-22 · **Fact:** `P-J2DHFQSR`
+**Why:** Verdict tested twice. Real practice in the field validates the rejection. Honest caveat: Task 232's scope unknown to cover all inference; requires benchmark if multi-hop need emerges in production.
+
+<!-- decision:P-9aCLVPGM -->
+
+## Task 232 — Rebuild Edge Table from Markdown
+
+**When:** 2026-07-22 · **Fact:** `P-9aCLVPGM`
+**Why:** Itch is not stupidity — it's accurate diagnosis of missing visibility. Kit already writes the data; 232 makes it usable. The nagging is the kit's own thesis surfacing.
+
+<!-- decision:P-5XJB5RDS -->
+
+## Octopoda-OS (github.com/RyjoxTechnologies/Octopoda-OS) — 'open-source memory + o
+
+**When:** 2026-07-22 · **Fact:** `P-5XJB5RDS`
+**Why:** The user asked to note it so it is not forgotten; potential prior-art for observability/health tasks (212, 250)
+
+<!-- decision:P-MCWGF2LE -->
+
+## D-364 Discipline for External Source Claims
+
+**When:** 2026-07-22 · **Fact:** `P-MCWGF2LE`
+**Why:** Maintains research quality and prevents adopting unproven external ideas as-is
+
+<!-- decision:P-TV55UZNC -->
+
+## Kit's Own Loops Are Real Detection Targets
+
+**When:** 2026-07-22 · **Fact:** `P-TV55UZNC`
+**Why:** Loop detection is not just theoretical — the kit has real problems that must be solved
+
+<!-- decision:P-FFSJDRUR -->
+
+## Loop-Detection Research Feeds Task 250 and Task 212
+
+**When:** 2026-07-22 · **Fact:** `P-FFSJDRUR`
+**Why:** Loop detection is a required ingredient for the whisper's failure detection and process health monitoring
+
+<!-- decision:P-DZ7BVLGW -->
+
+## D-364 Discipline — Code-Verified vs README-Only Research Tagging
+
+**When:** 2026-07-22 · **Fact:** `P-DZ7BVLGW`
+**Why:** Field flagships often ship less than READMEs promise. The discipline forces a distinction between documentation and code reality, preventing decisions on false assumptions.
+
+<!-- decision:P-GWWGT2G6 -->
+
+## Kit Missing Tool-Call Log for Full Loop-Detection Coverage
+
+**When:** 2026-07-22 · **Fact:** `P-GWWGT2G6`
+**Why:** Task 212 and Task 250 reference these detectors. Without tool-call logging, the kit can feed only "pure event log" classifiers, limiting detection scope.
+
+<!-- decision:P-TSZAYQNU -->
+
+## Octopoda Loop-Detection Code-Verified Findings
+
+**When:** 2026-07-22 · **Fact:** `P-TSZAYQNU`
+**Why:** Closes half the corpus gap (detection algorithms). Directly feeds Task 250 (loop-detection prior art), Task 212 (process-health metrics architecture), Task 233 (recall-nudging validation). Unvalidated quality informs risk assessment.
+
+<!-- decision:P-692R5VaA -->
+
+## Relevance Threshold Calibration — Octopoda's 0.80 → 0.45 Lesson
+
+**When:** 2026-07-22 · **Fact:** `P-692R5VaA`
+**Why:** Threshold tuning in retrieval systems is non-obvious. A seemingly safe (0.80) floor can be too aggressive, suppressing relevant signals. Applies to Task 233 (recall-nudging validation) and hint-injection logic.
+
+<!-- decision:P-A64FS6AK -->
+
+## Agent Definitions Load at Session Start, Not Invokable in That Session
+
+**When:** 2026-07-22 · **Fact:** `P-A64FS6AK`
+**Why:** Understanding agent-definition lifecycle is critical when orchestrating multi-agent workflows within a single session. This quirk would otherwise cause unexpected failures or require awkward manual workarounds.
+
+<!-- decision:P-WAXZ3EEX -->
+
+## Flush Memory to Main Before Creating Feature Branch
+
+**When:** 2026-07-22 · **Fact:** `P-WAXZ3EEX`
+**Why:** Feature PRs should reflect code changes only; memory updates are orthogonal and complicate review clarity. Separating them improves PR signal-to-noise.
+
+<!-- decision:P-Z9PJXGEG -->
+
+## Lead-Implementer Orchestration for Multi-Part Implementation Tasks
+
+**When:** 2026-07-22 · **Fact:** `P-Z9PJXGEG`
+**Why:** Separates planning (lead) from execution (implementer). Allows both to operate at their respective depths; implementer avoids context-switching; lead can think strategically without interruption.
+
+<!-- decision:P-M4AMN9GC -->
+
+## Hot-Path Hook Latency Anti-Pattern
+
+**When:** 2026-07-22 · **Fact:** `P-M4AMN9GC`
+**Why:** Hooks can add significant latency. When called synchronously on high-frequency paths, they compound—not just in aggregate, but in tail latencies and p99 impact.
+
+<!-- decision:P-KBEXAa9S -->
+
+## Relevance-Floor Calibration for FTS5 Backends
+
+**When:** 2026-07-22 · **Fact:** `P-KBEXAa9S`
+**Why:** High floors create false negatives that go unnoticed; for retrieval, false negatives are worse than false positives. Octopoda's quantified data directly applies to our recall requirements.
+
+<!-- decision:P-CDRKH6WB -->
+
+## §20.3 Import-Pin Constraint for Task 233
+
+**When:** 2026-07-22 · **Fact:** `P-CDRKH6WB`
+**Why:** The hint build composes three pieces (FTS5-backed hint, existence advertisement, Memora refinements). The import-pin is the one place the build could break a hidden structural requirement without obvious failure symptoms.
+
+<!-- decision:P-DA7L5A3Q -->
+
+## FTS5 Parser Crash History and Current Injection Surface
+
+**When:** 2026-07-22 · **Fact:** `P-DA7L5A3Q`
+**Why:** Prevents crashes and injection attacks via search queries
+
+<!-- decision:P-DCW27YSQ -->
+
+## Privacy Sanitization Pattern for All Prompt Handling
+
+**When:** 2026-07-22 · **Fact:** `P-DCW27YSQ`
+**Why:** Task 233 implementation logged raw prompts to disk, leaking `<private>` content (including PII/SSN). Violates the kit's privacy contract.
+
+<!-- decision:P-XQ5439GU -->
+
+## Two-Pass Review Discipline Validated on Critical Bugs
+
+**When:** 2026-07-22 · **Fact:** `P-XQ5439GU`
+**Why:** Confirms review overhead is justified by real-world catch rate on production-critical issues
+
+<!-- decision:P-AJMLYMUW -->
+
+## VS Code + Vitest + Git Bash Environment Issue
+
+**When:** 2026-07-22 · **Fact:** `P-AJMLYMUW`
+**Why:** Environment-specific issue that causes hard-to-diagnose test flakes; explicitly surfaced as worth documenting to prevent future re-diagnosis sessions
+
+<!-- decision:P-P3BT459T -->
+
+## Vitest workers spawned from the Claude Code Bash tool inside VS Code can fail un
+
+**When:** 2026-07-22 · **Fact:** `P-P3BT459T`
+**Why:** Prevents a future session from re-diagnosing a full-suite red as a code problem when it is shell-env poisoning
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
+
+<!-- decision:P-RES031CG -->
+
+## RESUME — v0.3.1 cut-gate near-complete; PR
+
+**When:** 2026-06-14 · **Fact:** `P-RES031CG`
