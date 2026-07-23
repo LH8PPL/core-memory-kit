@@ -10,6 +10,14 @@
 
 ---
 
+## 2026-07-23 — D-399 · FIX — `.obsidian/` gitignored at any depth: Task 254's first REAL use (the user, minutes after ship) found the gap the whole two-pass cycle missed
+
+**The find:** the user opened the repo as an Obsidian vault to see the new MAP.md graph — and Obsidian wrote an untracked `.obsidian/` workspace-config folder that NOTHING excluded. Worse than the root case: opening the RECOMMENDED `context/memory/` vault would put `.obsidian/` (with its constantly-churning `workspace.json`) inside the committed memory tier, where every `git add context/` memory flush would stage per-user editor state into the public repo. `docs/OBSIDIAN.md` even said "the kit ships no `.obsidian/` folder" — true, but it guarded the wrong direction: the USER's Obsidian ships one into the vault it opens.
+
+**The fix:** `.obsidian/` in `.gitignore`, unanchored (matches any depth — verified against both the root and `context/memory/` paths).
+
+**The lesson (the live-test rule's purest instance yet):** implementer + reviewer + Sonar + 3436 tests all passed over this, because no automated pass OPENS the app — the gap was structurally invisible to every gate and took the first human minutes to hit. Same class as D-303/D-306: the input boundary only the real world exercises. The user's screenshot doubled as the first real-world verification that the vault view works (the memory ball rendered, MAP.md as hub).
+
 ## 2026-07-23 — D-398 · DECISION — Task 254 shipped (PR #323) hours after D-397 laned it: the memory tier is Obsidian-browsable; the split's third cycle, and the guardrail's best day
 
 **The ship (the anti-stalling directive's first proof):** laned in the morning, merged the same day. Reindex now emits a committed, byte-stable `context/memory/MAP.md` — every fact as a resolvable `[[type_slug]]` wikilink with related/supersession edges as links — lighting up the existing 2,000+-fact corpus in Obsidian's graph with ZERO fact-file rewrites; new facts carry `aliases: [<id>]` so `[[P-XXXX]]` resolves; `docs/OBSIDIAN.md` is the walkthrough with the read-vs-write trade stated honestly. Ratified in-cycle: MAP **committed** (the INDEX.md precedent); shape-b (wikilink `related` properties) **skipped** because Obsidian's property-link behavior was unverifiable at primary source — documented as a future option rather than designed against a guess; **no mass-rewrite** of existing facts (the lead's hard constraint held).
