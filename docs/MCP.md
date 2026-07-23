@@ -13,7 +13,7 @@ The kit ships an **MCP server** so Claude can run every memory operation **in co
 | `mk_get` | `cmk get` | Full fact body + provenance for one or more ids. |
 | `mk_timeline` | `cmk timeline` | Sequential context around an observation. |
 | `mk_expand` | `cmk expand` | A hit's **source-file neighborhood** — the enclosing heading section, bounded (the recall ladder's middle rung: search → expand → transcript drill). Takes either hit-id shape (`P-XXXXXXXX` or `T:<file>:<line>`). |
-| `mk_links` | `cmk links` | A fact's **relations** — backlinks ("what points AT this"), out-links (its `related`/`[[cross-links]]`), and the full supersession chain ("what replaced what, in order"). The relational adjacency axis — the two graph-only shapes flat search can't answer. |
+| `mk_links` | `cmk links` | A fact's **relations** — backlinks ("what points AT this"), out-links (its `related`/`[[cross-links]]`), and the full supersession chain ("what replaced what, in order"). Also accepts an **anchor token** (`D-nnn`, `Task nnn`, `ADR-nnnn`, `FR-nn`, `NFR-nn`) to answer "what cites this anchor". The relational adjacency axis — the graph-only shapes flat search can't answer. |
 | `mk_cite` | `cmk cite` | A canonical citation link for an id. |
 | `mk_recent_activity` | `cmk recent-activity` | Recent changes in a time window. |
 | `mk_trust` | `cmk trust` | Change a fact's trust level (low / medium / high). |
@@ -33,7 +33,7 @@ Verified against the server's schemas (`packages/cli/src/mcp-server.mjs`); names
 | `mk_get` | `ids` (required, 1–100 per call — batch, don't loop) |
 | `mk_timeline` | `anchor` (required id) · `depth_before` / `depth_after` (≤50, default 5 each) |
 | `mk_expand` | `id` (required — a fact id or a transcript-chunk `T:<file>:<line>` id from a search hit) |
-| `mk_links` | `id` (required) · `depth` (≤20, default 1 — hops for links/backlinks) · `direction` in/out/both (default both — `in` = backlinks, `out` = references) |
+| `mk_links` | `id` (required — a fact id `P-XXXXXXXX` OR an anchor token `D-361`/`Task 232`/`ADR-0023`/`FR-13`/`NFR-9`) · `depth` (≤20, default 1 — hops for links/backlinks) · `direction` in/out/both (default both — `in` = backlinks, `out` = references) |
 | `mk_cite` | `id` (required) |
 | `mk_recent_activity` | `window` 1h/24h/7d (default 24h) · `limit` ≤1000 (default 20) |
 | `mk_trust` | `id` (required) · `level` low/medium/high (required) |

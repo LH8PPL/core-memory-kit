@@ -756,9 +756,9 @@ export function buildMcpServer({ projectRoot, userDir, db, semanticBackend }) {
   server.registerTool(
     'mk_links',
     {
-      description: "Traverse a fact's relations — its backlinks (what points AT it), out-links (its `related`/[[cross-links]]), and full supersession chain (what replaced what, in order). The two graph-only shapes flat search can't answer. Read-only.",
+      description: "Traverse a fact's relations — its backlinks (what points AT it), out-links (its `related`/[[cross-links]]), and full supersession chain (what replaced what, in order). Also accepts an ANCHOR token (D-nnn, Task nnn, ADR-nnnn, FR-nn, NFR-nn) to answer \"what cites this anchor\" (its citers as backlinks). The graph-only shapes flat search can't answer. Read-only.",
       inputSchema: {
-        id: z.string().describe('a kit observation ID (P-XXXXXXXX)'),
+        id: z.string().describe('a kit observation ID (P-XXXXXXXX) OR an anchor token (D-361, Task 232, ADR-0023, FR-13, NFR-9)'),
         depth: z.number().int().positive().max(20).optional().describe('how many hops to traverse for links/backlinks (default 1)'),
         direction: z.enum(['in', 'out', 'both']).optional().describe("'in' = backlinks (what references this fact); 'out' = what this fact references; 'both' (default)"),
       },

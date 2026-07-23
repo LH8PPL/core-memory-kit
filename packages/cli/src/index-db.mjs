@@ -194,10 +194,15 @@ END;
 --                  slug resolves to a known fact, else the raw slug (a dangling
 --                  link the model wrote before/without the target existing).
 --   type         — 'related' (frontmatter) | 'link' ([[slug]] body wikilink) |
---                  'superseded_by' (the supersession FK).
+--                  'superseded_by' (the supersession FK) | 'cites' (Task 256 —
+--                  a body anchor citation: fact -> an anchor: hub node
+--                  (anchor:D-361 / anchor:Task-232 / anchor:ADR-0023 /
+--                  anchor:FR-13 / anchor:NFR-9, a non-file node) OR fact -> a
+--                  cited fact id.
 --   dst_resolved — 1 when dst is a real kit id (backlink-answerable), 0 when dst
---                  is an unresolved slug. Lets a backlink-by-id query ignore
---                  danglers without dropping them from the graph.
+--                  is an unresolved slug OR a non-file anchor: node. Lets a
+--                  backlink-by-id query (dst_resolved = 1) ignore danglers +
+--                  anchors without dropping them from the graph.
 --
 -- No FTS mirror, no triggers: edges are structural metadata, not searchable
 -- text. Rebuilt wholesale (not incrementally) so cross-file slug→id resolution
@@ -205,7 +210,7 @@ END;
 CREATE TABLE IF NOT EXISTS edges (
   src TEXT NOT NULL,
   dst TEXT NOT NULL,
-  type TEXT NOT NULL CHECK(type IN ('related', 'link', 'superseded_by')),
+  type TEXT NOT NULL CHECK(type IN ('related', 'link', 'superseded_by', 'cites')),
   dst_resolved INTEGER NOT NULL DEFAULT 1,
   PRIMARY KEY (src, dst, type)
 );
@@ -285,6 +290,14 @@ function configureIndexDb(db) {
   // cross-process test — rather than leaving it to a driver default a future
   // major (or a `timeout: 0` option) could silently change.
   db.pragma('busy_timeout = 5000');
+  // Task 256: the edges CHECK constraint gained 'cites'. CREATE TABLE IF NOT
+  // EXISTS does NOT alter an existing table's CHECK, so a pre-256 index would
+  // reject `cites` inserts. edges is a fully rebuildable structural table (drop
+  // + rebuild from markdown every reindex — ADR-0002), so dropping a stale one
+  // BEFORE the schema runs loses nothing: the schema below recreates it (+ its
+  // indexes) with the new constraint, and the sentinel is cleared so the next
+  // read's cold-edge path repopulates it. No-op on a fresh or already-current DB.
+  migrateEdgesSchema(db);
   // Apply schema (idempotent CREATE IF NOT EXISTS).
   db.exec(INDEX_DB_SCHEMA);
   // Task 151.6: non-destructive column migration. CREATE TABLE IF NOT EXISTS does
@@ -302,6 +315,30 @@ function configureIndexDb(db) {
   // Pre-194 rows start at 0 = "no outcome evidence" — exactly the honest state.
   migrateAddColumn(db, 'observations', 'signal_count', 'INTEGER NOT NULL DEFAULT 0');
   return db;
+}
+
+// Task 256: drop a pre-256 `edges` table whose CHECK constraint lacks 'cites' so
+// the schema below recreates it with the current constraint (+ its indexes). The
+// stored table DDL is read from sqlite_master; a table whose SQL already names
+// 'cites' is current → no-op. Clearing the `edges_built_at` sentinel forces the
+// next reindex's cold-edge path to repopulate the freshly-empty table (without
+// it, `edgesBuilt()` would report "built" over 0 rows). Runs BEFORE db.exec of
+// the schema, so the CREATE TABLE IF NOT EXISTS re-adds the table + indexes.
+function migrateEdgesSchema(db) {
+  let row;
+  try {
+    row = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'edges'").get();
+  } catch {
+    return; // no sqlite_master access on a brand-new handle → schema will create it
+  }
+  if (!row || typeof row.sql !== 'string') return; // edges table not present yet
+  if (row.sql.includes("'cites'")) return; // already current
+  db.exec('DROP TABLE IF EXISTS edges');
+  try {
+    db.exec("DELETE FROM meta WHERE key = 'edges_built_at'");
+  } catch {
+    // meta table may not exist on a very old index; the cold-edge path handles that
+  }
 }
 
 // Add `column` to `table` if it isn't already present (idempotent). SQLite has no

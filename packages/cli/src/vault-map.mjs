@@ -27,7 +27,12 @@
 // the committed-map determinism depend on it; every sort here is an EXPLICIT
 // code-unit comparator (never locale-dependent) for exactly that reason.
 
-import { extractWikilinks, relatedSlugs, slugForFactFilename } from './graph-index.mjs';
+import {
+  extractWikilinks,
+  relatedSlugs,
+  slugForFactFilename,
+  computeCitations,
+} from './graph-index.mjs';
 import { compareCodeUnits } from './audit-log.mjs';
 
 const TIER_LABEL = {
@@ -157,6 +162,42 @@ function renderGroup(type, groupFacts, slugToBase, idToBase) {
   return lines;
 }
 
+// Render-only cap on how many citers a single anchor lists in MAP.md — a hub
+// like ADR-0017 (26 citers) would otherwise blow one map line into a wall of
+// wikilinks. The `edges` table + `cmk links` are UNAFFECTED (they carry every
+// citer); this bounds only the human-browsable render. Code-unit order keeps the
+// shown subset deterministic, so byte-stability holds.
+export const MAP_ANCHOR_CITERS_SHOWN = 20;
+
+// Task 256 — the `## Cited anchors` constellation section. Doc-anchors
+// (D-nnn/Task nnn/ADR/FR/NFR) densely cited across fact BODIES become visible
+// hubs: each qualifying anchor lists the facts that cite it as wikilinks, so the
+// map (already the graph's hub note) clusters around decision/task anchors.
+// Reuses graph-index.computeCitations — the SAME guard/aggregation the `edges`
+// table is built from (Task 232/256), so the map and the queryable graph never
+// drift. Byte-stable: anchors sorted by their display token, citers by base,
+// both with the explicit code-unit comparator (never locale-dependent).
+function renderAnchorSection(facts, idToBase) {
+  const { qualifying, anchorCiters } = computeCitations(facts);
+  if (qualifying.size === 0) return [];
+  const anchors = [...qualifying]
+    .map((node) => ({ node, label: node.slice('anchor:'.length) }))
+    .sort((a, b) => compareCodeUnits(a.label, b.label));
+  const lines = ['', '## Cited anchors', ''];
+  for (const { node, label } of anchors) {
+    const bases = [...anchorCiters.get(node)]
+      .map((id) => idToBase.get(id))
+      .filter(Boolean)
+      .sort(compareCodeUnits);
+    if (!bases.length) continue; // every citer resolved out of the walk (defensive)
+    const shown = bases.slice(0, MAP_ANCHOR_CITERS_SHOWN);
+    const links = shown.map((b) => `[[${b}]]`).join(', ');
+    const extra = bases.length - shown.length;
+    lines.push(`- **${label}** ← ${links}${extra > 0 ? ` … and ${extra} more` : ''}`);
+  }
+  return lines;
+}
+
 /** The map's header block (title + generated banner + fact count). */
 function buildHeader(tier, factCount) {
   return [
@@ -193,5 +234,6 @@ export function buildVaultMap(facts, { tier = 'P' } = {}) {
   for (const t of types) {
     lines.push(...renderGroup(t, byType.get(t), slugToBase, idToBase));
   }
+  lines.push(...renderAnchorSection(facts, idToBase));
   return lines.join('\n') + '\n';
 }

@@ -3508,9 +3508,9 @@ export const subcommands = [
   },
   {
     name: 'links',
-    description: 'the relational adjacency axis — a fact\'s backlinks (what points AT it), out-links (its related/[[cross-links]]), and full supersession chain (mk_links parity)',
+    description: 'the relational adjacency axis — a fact\'s backlinks (what points AT it), out-links (its related/[[cross-links]]), and full supersession chain; also accepts an anchor token (D-nnn, Task nnn, ADR-nnnn, FR-nn, NFR-nn) to answer "what cites this anchor" (mk_links parity)',
     milestone: 232,
-    argSpec: [{ flags: '<id>', description: 'a citation ID (e.g. P-S79MJHFN)' }],
+    argSpec: [{ flags: '<id>', description: 'a citation ID (e.g. P-S79MJHFN) OR an anchor token (e.g. D-361, Task 232, ADR-0023)' }],
     optionSpec: [
       { flags: '--depth <n>', description: 'how many hops to traverse for links/backlinks (default: 1)' },
       { flags: '--direction <dir>', description: 'in (backlinks) | out (references) | both (default: both)' },

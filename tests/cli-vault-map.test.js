@@ -28,7 +28,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildVaultMap } from '../packages/cli/src/vault-map.mjs';
+import { buildVaultMap, MAP_ANCHOR_CITERS_SHOWN } from '../packages/cli/src/vault-map.mjs';
 import { MAP_FILENAME } from '../packages/cli/src/fact-store.mjs';
 import { reindex } from '../packages/cli/src/reindex.mjs';
 import { writeFact } from '../packages/cli/src/write-fact.mjs';
@@ -263,5 +263,101 @@ describe('Task 254 — reindex() writes MAP.md alongside INDEX.md', () => {
     const map = readFileSync(mapPath, 'utf8');
     expect(map).not.toContain('garbage');
     expect(map).toContain('[[feedback_alpha]]');
+  });
+});
+
+// Task 256 — the `## Cited anchors` constellation section: decision/task/ADR
+// anchors densely cited across fact bodies become browsable hubs in the map.
+describe('Task 256 — buildVaultMap() anchor constellations', () => {
+  // A 4-fact corpus → df-ceiling floor(4*0.5)=2, so an anchor cited by exactly
+  // 2 facts qualifies (at-cap) and a 1-citer anchor is below the floor.
+  function corpus() {
+    return [
+      fact({ id: 'P-2DZG7XF4', filename: 'feedback_a.md', title: 'A', body: 'per D-361 and Task 232 we shipped' }),
+      fact({ id: 'P-34GZDKAW', filename: 'feedback_b.md', title: 'B', body: 'D-361 is load-bearing per ADR-0023' }),
+      fact({ id: 'P-56UXMRD6', filename: 'feedback_c.md', title: 'C', body: 'this fact cites D-999 alone' }),
+      fact({ id: 'P-D6YL7RBC', filename: 'feedback_d.md', title: 'D', body: 'no anchors here' }),
+    ];
+  }
+
+  it('renders a Cited anchors section with each qualifying anchor + its citing facts', () => {
+    const out = buildVaultMap(corpus(), { tier: 'P' });
+    expect(out).toContain('## Cited anchors');
+    // D-361 cited by facts a + b → a hub with both as wikilinks.
+    expect(out).toContain('- **D-361** ← [[feedback_a]], [[feedback_b]]');
+  });
+
+  it('omits a single-citer anchor (below MIN_ANCHOR_CITERS floor)', () => {
+    const out = buildVaultMap(corpus(), { tier: 'P' });
+    // D-999 + Task-232 + ADR-0023 are each cited by only one fact → no hub.
+    expect(out).not.toContain('D-999');
+    expect(out).not.toContain('Task-232');
+    expect(out).not.toContain('ADR-0023');
+  });
+
+  it('no qualifying anchors → no Cited anchors section', () => {
+    const out = buildVaultMap(
+      [fact({ id: 'P-2DZG7XF4', filename: 'feedback_a.md', title: 'A', body: 'plain, no anchors' })],
+      { tier: 'P' },
+    );
+    expect(out).not.toContain('## Cited anchors');
+  });
+
+  it('the anchor section is byte-stable across rebuilds', () => {
+    expect(buildVaultMap(corpus(), { tier: 'P' })).toBe(buildVaultMap(corpus(), { tier: 'P' }));
+  });
+
+  it('a doc-anchor citing INSIDE code does not become a hub', () => {
+    const facts = [
+      fact({ id: 'P-2DZG7XF4', filename: 'feedback_a.md', title: 'A', body: 'literal `D-361` in code' }),
+      fact({ id: 'P-34GZDKAW', filename: 'feedback_b.md', title: 'B', body: '```\nD-361 fenced\n```' }),
+    ];
+    const out = buildVaultMap(facts, { tier: 'P' });
+    expect(out).not.toContain('## Cited anchors');
+  });
+});
+
+// Task 256 — the render-only per-anchor citer cap (review finding 4). The edges
+// table + `cmk links` carry every citer; MAP.md bounds the human-browsable list.
+describe('Task 256 — anchor render cap MAP_ANCHOR_CITERS_SHOWN', () => {
+  // Deterministic unique valid-shaped ids (programmatic → no validate-test-ids trip).
+  const ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZa';
+  const mkId = (n) => {
+    let x = n;
+    let s = '';
+    for (let i = 0; i < 8; i++) {
+      s = ALPHABET[x % 32] + s;
+      x = Math.floor(x / 32);
+    }
+    return `P-${s}`;
+  };
+  // n facts each citing D-5, plus padding so the anchor clears the df-ceiling.
+  function corpus(n) {
+    const facts = [];
+    for (let i = 0; i < n; i++) {
+      facts.push(fact({ id: mkId(i), filename: `feedback_c${i}.md`, title: `C${i}`, body: 'cites D-5' }));
+    }
+    for (let i = 0; i < n + 5; i++) {
+      facts.push(fact({ id: mkId(1000 + i), filename: `feedback_p${i}.md`, title: `P${i}`, body: 'plain fact' }));
+    }
+    return facts;
+  }
+  const anchorLine = (out) => out.split('\n').find((l) => l.startsWith('- **D-5**'));
+
+  it('at-cap: exactly MAP_ANCHOR_CITERS_SHOWN citers → all shown, no "and N more"', () => {
+    expect(MAP_ANCHOR_CITERS_SHOWN).toBe(20);
+    const line = anchorLine(buildVaultMap(corpus(20), { tier: 'P' }));
+    expect((line.match(/\[\[/g) || []).length).toBe(20);
+    expect(line).not.toContain('more');
+  });
+
+  it('over-cap: 21 citers → 20 shown + "… and 1 more"', () => {
+    const line = anchorLine(buildVaultMap(corpus(21), { tier: 'P' }));
+    expect((line.match(/\[\[/g) || []).length).toBe(20);
+    expect(line).toContain('… and 1 more');
+  });
+
+  it('the capped render is byte-stable across rebuilds', () => {
+    expect(buildVaultMap(corpus(30), { tier: 'P' })).toBe(buildVaultMap(corpus(30), { tier: 'P' }));
   });
 });

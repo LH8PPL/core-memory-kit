@@ -11,7 +11,7 @@ import { join, resolve, relative, isAbsolute } from 'node:path';
 import { ID_PATTERN } from './tier-paths.mjs';
 import { parse as parseFrontmatter } from './frontmatter.mjs';
 import { stateFieldFor } from './state-label.mjs';
-import { relatedRefsFor, traverseLinks, supersessionChain } from './graph-index.mjs';
+import { relatedRefsFor, traverseLinks, supersessionChain, anchorNodeForToken } from './graph-index.mjs';
 
 const GET_COLUMNS =
   'id, body, heading_path, source_file, source_line, tier, trust, ' +
@@ -321,16 +321,28 @@ export const RECENT_WINDOWS = Object.freeze({
  * references), backlinks (what references it), and the full supersession chain
  * it participates in. Read-only, pure DB (edges table).
  *
+ * Accepts a kit observation id OR an anchor token (Task 256): `D-361`,
+ * `Task 232`, `ADR-0023`, `FR-13`, `NFR-9` — normalized to its `anchor:` node,
+ * so `cmk links D-361` answers "what cites D-361" (its citers as backlinks; an
+ * anchor is a graph sink, so `out` is empty). A token that is neither returns
+ * the schema-error shape, never a crash.
+ *
  * @param {import('better-sqlite3').Database} db
- * @param {string} id  a kit observation id
+ * @param {string} idOrAnchor  a kit observation id or an anchor token
  * @param {object} [opts]
  * @param {number} [opts.depth=1]           traversal depth for out/backlinks
  * @param {'in'|'out'|'both'} [opts.direction='both']
  * @returns {{ok:false, error:string} | {ok:true, id, found, depth, direction,
  *          out?, backlinks?, supersession_chain}}
  */
-export function buildLinks(db, id, { depth = 1, direction = 'both' } = {}) {
-  if (!ID_PATTERN.test(id)) return { ok: false, error: 'id must be a valid kit ID' };
+export function buildLinks(db, idOrAnchor, { depth = 1, direction = 'both' } = {}) {
+  const id = anchorNodeForToken(idOrAnchor);
+  if (!id) {
+    return {
+      ok: false,
+      error: 'id must be a valid kit ID or anchor token (D-nnn, Task nnn, ADR-nnnn, FR-nn, NFR-nn)',
+    };
+  }
   const dir = direction === 'in' || direction === 'out' ? direction : 'both';
   const d = Math.max(1, Math.min(Number(depth) || 1, 20));
 

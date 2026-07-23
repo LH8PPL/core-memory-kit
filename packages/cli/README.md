@@ -173,7 +173,7 @@ You rarely type these yourself — Claude drives the same operations as tools mi
 | `cmk search "<query>" [--mode keyword\|semantic\|hybrid] [--scope facts\|transcripts\|decisions]` | Search memory by meaning (hybrid default after `--with-semantic`); `--scope transcripts` = raw session record; `--scope decisions` = the decision journal (history / "what did we reject") |
 | `cmk remember "<fact>"` | Capture a fact explicitly (deduped, secret-screened, path-abstracted). `--from-file fact.json` for backtick/quote-heavy rich facts |
 | `cmk get <id…>` / `cmk timeline <id>` / `cmk cite <id>` / `cmk recent-activity` | Read the index back — full fact bodies + provenance, context around an observation, a citation link, recent changes (the CLI side of the `mk_*` MCP read tools) |
-| `cmk links <id> [--direction in\|out\|both] [--depth <n>]` | The relational axis — a fact's backlinks (what points AT it), out-links (`related`/`[[cross-links]]`), and full supersession chain (`mk_links` parity) |
+| `cmk links <id-or-anchor> [--direction in\|out\|both] [--depth <n>]` | The relational axis — a fact's backlinks (what points AT it), out-links (`related`/`[[cross-links]]`), and full supersession chain; also accepts an anchor token (`D-361`, `ADR-0023`) → which facts cite it (`mk_links` parity) |
 | `cmk forget <id>` | Tombstone a fact — gone from `cmk search` immediately (audit trail preserved) |
 | `cmk redact <id> --pattern <secret>` | Compliance scrub: remove a leaked secret from the fact + every archive copy + indexes, audit kept (prints the honest git-history advisory) |
 | `cmk purge --hard <id> --yes` | Irreversible whole-fact delete — no tombstone; the compliance escalation beyond `forget` |
