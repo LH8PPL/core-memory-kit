@@ -115,6 +115,12 @@ context/transcripts/
 context/sessions/
 packages/cli/context/
 
+# Obsidian vault config (Task 254: users open context/memory/ — or the whole
+# repo — as a vault; Obsidian writes per-user workspace state into .obsidian/
+# wherever it opens. Never committed, at any depth — found live on the task's
+# first real use, D-399).
+.obsidian/
+
 # Logo design scratch files (the shippable assets live in docs/public/assets/)
 docs/public/*.html
 docs/public/A _ Restore.png
