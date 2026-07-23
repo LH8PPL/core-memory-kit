@@ -1134,7 +1134,7 @@ describe('Task 103 — rich fact synthesis (auto-extract → fact store)', () =>
     const dir = join(projectRoot, 'context', 'memory');
     if (!existsSync(dir)) return [];
     return readdirSync(dir)
-      .filter((n) => n.endsWith('.md') && n !== 'INDEX.md')
+      .filter((n) => n.endsWith('.md') && n !== 'INDEX.md' && n !== 'MAP.md')
       .map((n) => ({ name: n, text: readFileSync(join(dir, n), 'utf8') }));
   }
 

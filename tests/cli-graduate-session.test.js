@@ -79,7 +79,7 @@ function buildScratchpad({
 
 function factFiles(factDir) {
   if (!existsSync(factDir)) return [];
-  return readdirSync(factDir).filter((f) => f.endsWith('.md') && f !== 'INDEX.md');
+  return readdirSync(factDir).filter((f) => f.endsWith('.md') && f !== 'INDEX.md' && f !== 'MAP.md');
 }
 
 describe('Task 94.3 — proactive SessionEnd graduation sweep', () => {

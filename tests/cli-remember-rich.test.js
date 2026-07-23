@@ -19,7 +19,7 @@ import { runRememberRich } from '../packages/cli/src/subcommands.mjs';
 
 function factFiles(projectRoot) {
   const dir = join(projectRoot, 'context', 'memory');
-  return readdirSync(dir).filter((f) => f.endsWith('.md') && f !== 'INDEX.md');
+  return readdirSync(dir).filter((f) => f.endsWith('.md') && f !== 'INDEX.md' && f !== 'MAP.md');
 }
 
 describe('Task 63 — cmk remember rich mode (restore rich capture through the safe path)', () => {

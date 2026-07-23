@@ -160,6 +160,14 @@ function buildFrontmatterObject(opts, computed) {
   // Key order matters for visual diff stability — insertion order = on-disk order.
   const fm = {
     id: computed.id,
+    // Task 254 (Obsidian vault view — shape a, forward-only): the fact's own id
+    // as an Obsidian `aliases`, so a `[[P-XXXX]]` id reference (the kit's
+    // cross-reference currency — used across fact bodies + the `superseded_by`
+    // FK + the generated vault map) resolves to this file in Obsidian. Files are
+    // named `<type>_<slug>.md`, so `[[id]]` would not resolve without it. Purely
+    // additive: no kit reader consumes `aliases` (verified caller-map — reindex/
+    // graph-index/read-core/search read id/type/title/related/superseded_by only).
+    aliases: [computed.id],
     type: opts.type,
     // Task 66.1 (design §16.18): temporal shape, default State. Written
     // explicitly so the file self-describes; readers treat ABSENCE (all

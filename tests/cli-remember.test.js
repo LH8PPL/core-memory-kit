@@ -115,7 +115,7 @@ describe('cmk remember — durable capture CLI', () => {
   // reach it (and that rich mode writes a FACT FILE, not a MEMORY.md bullet).
   function factFiles() {
     return readdirSync(join(projectRoot, 'context', 'memory')).filter(
-      (f) => f.endsWith('.md') && f !== 'INDEX.md',
+      (f) => f.endsWith('.md') && f !== 'INDEX.md' && f !== 'MAP.md',
     );
   }
 

@@ -274,6 +274,8 @@ Hardcoded defaults in design.md are starting points; teams that distill more agg
 ```markdown
 ---
 id: P-7K2X9Q4F
+aliases: [P-7K2X9Q4F]          # Task 254: the fact's own id as an Obsidian alias, so
+                               # `[[P-XXXX]]` resolves in a vault view (§9.6). Forward-only.
 type: feedback
 shape: Preference              # Task 66.1: temporal classification, default State (§16.18)
 title: Webcam ROI is wider than expected
@@ -1998,6 +2000,46 @@ is now also surfaced on `mk_get`/`cmk get` output (the depth-1 out-neighbourhood
 pre-232). And the Task-209 superseded state label is upgraded to NAME its successor —
 `[superseded by P-XXXX]` (`state-label.mjs::stateLabelText`), on `cmk search` output and the
 injected snapshot alike — so a reader walks straight to the current fact.
+
+### 9.6 The Obsidian vault view — a generated map note + forward id aliases (Task 254; D-397 companion to Task 255)
+
+The memory tier is already markdown + frontmatter, so Obsidian opens `context/memory/` as a
+vault (search, backlinks, graph) for free. What does NOT resolve on its own: the kit's own edges.
+Fact files are `<type>_<slug>.md`, but the edges the kit writes reference the bare `<slug>`
+(`related:`, `[[slug]]` body links) or an id (`superseded_by`) — none of which Obsidian resolves
+to a `<type>_<slug>.md` file. Two zero-migration touches bridge that **without rewriting any of the
+~2,000 committed fact files** (the Task 254 hard constraint — a mass rewrite is a migration with
+guardrail implications, deliberately out of scope):
+
+1. **`MAP.md` — a generated vault map note** ([`vault-map.mjs`](../packages/cli/src/vault-map.mjs)::`buildVaultMap`,
+   written by [`reindex.mjs`](../packages/cli/src/reindex.mjs) beside `INDEX.md`). It renders every
+   fact as a resolvable `[[<type>_<slug>]]` wikilink (the filename basename Obsidian DOES resolve),
+   grouped by type, with each fact's relation set (`related:` ∪ body `[[slug]]`, resolved slug→
+   filename — the SAME union `graph-index.mjs` surfaces) and its supersession (`superseded_by` id →
+   live successor filename, else the bare `[[id]]`) rendered as links. This lights up the WHOLE
+   corpus graph — including facts written long before Obsidian was installed — from one generated
+   note, a **pure EXPORT-FORMAT over the same markdown reindex already walks** (no new logic, no DB,
+   zero LLM). Built from reindex's existing per-tier walk (no second file read), best-effort (a
+   map-render hiccup never fails the reindex that a capture depends on), and **byte-stable** (two
+   rebuilds over the same corpus are identical — clean diffs, exactly like `INDEX.md`).
+   `MAP.md` joins `INDEX.md` in [`fact-store.mjs`](../packages/cli/src/fact-store.mjs)'s
+   `listMarkdownFiles` default exclude, so no fact walk mistakes it for a fact.
+2. **Forward-only id aliases** ([`write-fact.mjs`](../packages/cli/src/write-fact.mjs)): every NEW
+   fact carries `aliases: [<id>]`, so an `[[P-XXXX]]` id reference (the kit's cross-reference
+   currency — fact bodies, `superseded_by`, the map) resolves to its file in Obsidian. Purely
+   additive frontmatter; no kit reader consumes `aliases`.
+
+**Committed, like `INDEX.md`** (the precedent — a human-browsable derived view that travels with the
+repo so a teammate opens the vault graph-lit on clone), not gitignored like `.index/` — a deliberate
+call flagged for ratification (the churn/size class is identical to the already-committed `INDEX.md`;
+markdown stays the only source of truth either way per ADR-0002, so a gitignore flip is a one-liner
+if the churn is judged not worth the travels-with-clone win). **Committed vs. own-viewer scope:** the
+map is the CHEAP companion (D-397) — it tests whether users look at their memory; the kit-specific
+rendering Obsidian can't do (trust tiers, supersession semantics, doctor status, conflict queues,
+the recall fire-rate) is Task 255's own viewer. **`related` wikilink-property export (shape b) was
+NOT adopted** — it would couple the Obsidian export format into `graph-index.relatedSlugs` (an
+edges-table-parser touch) and depends on Obsidian 1.4+ property-link behavior not verifiable against
+primary source in-sandbox; the map already renders `related` as links without that risk.
 
 ## 10. MCP server (Layer 4b — optional)
 

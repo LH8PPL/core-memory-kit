@@ -34,7 +34,7 @@ function memoryMd() {
 }
 function factFiles() {
   return readdirSync(join(projectRoot, 'context', 'memory')).filter(
-    (f) => f.endsWith('.md') && f !== 'INDEX.md',
+    (f) => f.endsWith('.md') && f !== 'INDEX.md' && f !== 'MAP.md',
   );
 }
 function firstFactId() {
