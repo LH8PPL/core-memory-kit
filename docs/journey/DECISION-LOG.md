@@ -10,6 +10,14 @@
 
 ---
 
+## 2026-07-23 — D-401 · DECISION — Task 256 shipped (PR #324): the citation lattice goes live — 1,210 explained edges from the corpus's own anchors; and the branch-hygiene incident that re-proved the direct-to-main rule
+
+**The ship (filed and merged the same day — the anti-stalling directive's second same-day proof):** fact bodies' structured citations (`D-nnn`/`Task nnn`/`ADR`/`FR`/fact-ids, plural + range-endpoint + slash forms) extract at reindex into capped-star `cites` edges — `anchor:` namespace, MIN_CITERS=2 + DF ceiling `max(2, ⌊N·0.5⌋)` (fact-id edges exempt), all budget-paired. `cmk links D-198` → 22 citers in one call; MAP.md's `## Cited anchors` renders the constellations (per-anchor render cap 20). The pre-256 edges-CHECK migration reproduced clean by the reviewer — one rebuild, sentinel re-set, no D-394 resurrection. Suite 3482 green; MAP byte-stable by SHA across runs.
+
+**The review round's live-corpus catch:** the plural "Tasks N" form (82 real occurrences) extracted ZERO edges — found by counting against the corpus, not fixtures; the widened extraction added +58 real edges (1,152 → 1,210). Second Important: the two noise guards composed to forbid anchor edges on sub-4-fact corpora — reproduced, floored, boundary-tested. The reviewer also disproved-by-rerun the implementer's exit-255 explanation (real suite: green).
+
+**The incident (lead-caused, recorded against the lead):** a `git commit -am` on the branch swept 4 modified `context/` files into a BRANCH commit — a half-state (regenerated INDEX without its untracked fact files) that broke THREE CI checks at once, plus out-of-scope ruff artifacts from an editor format-watcher. Recovery: branch restored to zero context/ changes (the rule the flag bypassed), live dogfood state preserved for the complete main flush, and the standing process fix: **no `-a`/`-A` staging in this repo — explicit paths only.** The memory-flushes-direct-to-main rule (U-GaYXKXSZ lineage) now has its second precedent.
+
 ## 2026-07-23 — D-400 · DECISION — Task 256 filed + laned v0.6.3: anchor co-citation edges ("graphify for memories") — the sparse-graph diagnosis, and why 232's skip doesn't bind
 
 **The user's finding, taken seriously:** the vault graph underwhelmed ("nice… not the wow I thought"). Diagnosis: NOT a storage problem — a graph DB would render the same ~5%-linked corpus equally sparsely — an EDGE-AUTHORING problem. The unexploited asset: fact bodies densely cite structured anchors (`D-nnn`, `Task nnn`, ADRs, FRs, fact ids) that nothing parses. Extracting that lattice is deterministic, every edge self-explaining ("both cite D-361"), zero LLM — the graphify shape (deterministic parse of a structured corpus, no vector store) applied to the one corpus only this kit can parse, because the kit defines its structure.
