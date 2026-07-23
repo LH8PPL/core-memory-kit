@@ -265,3 +265,54 @@ describe('Task 254 — reindex() writes MAP.md alongside INDEX.md', () => {
     expect(map).toContain('[[feedback_alpha]]');
   });
 });
+
+// Task 256 — the `## Cited anchors` constellation section: decision/task/ADR
+// anchors densely cited across fact bodies become browsable hubs in the map.
+describe('Task 256 — buildVaultMap() anchor constellations', () => {
+  // A 4-fact corpus → df-ceiling floor(4*0.5)=2, so an anchor cited by exactly
+  // 2 facts qualifies (at-cap) and a 1-citer anchor is below the floor.
+  function corpus() {
+    return [
+      fact({ id: 'P-2DZG7XF4', filename: 'feedback_a.md', title: 'A', body: 'per D-361 and Task 232 we shipped' }),
+      fact({ id: 'P-34GZDKAW', filename: 'feedback_b.md', title: 'B', body: 'D-361 is load-bearing per ADR-0023' }),
+      fact({ id: 'P-56UXMRD6', filename: 'feedback_c.md', title: 'C', body: 'this fact cites D-999 alone' }),
+      fact({ id: 'P-D6YL7RBC', filename: 'feedback_d.md', title: 'D', body: 'no anchors here' }),
+    ];
+  }
+
+  it('renders a Cited anchors section with each qualifying anchor + its citing facts', () => {
+    const out = buildVaultMap(corpus(), { tier: 'P' });
+    expect(out).toContain('## Cited anchors');
+    // D-361 cited by facts a + b → a hub with both as wikilinks.
+    expect(out).toContain('- **D-361** ← [[feedback_a]], [[feedback_b]]');
+  });
+
+  it('omits a single-citer anchor (below MIN_ANCHOR_CITERS floor)', () => {
+    const out = buildVaultMap(corpus(), { tier: 'P' });
+    // D-999 + Task-232 + ADR-0023 are each cited by only one fact → no hub.
+    expect(out).not.toContain('D-999');
+    expect(out).not.toContain('Task-232');
+    expect(out).not.toContain('ADR-0023');
+  });
+
+  it('no qualifying anchors → no Cited anchors section', () => {
+    const out = buildVaultMap(
+      [fact({ id: 'P-2DZG7XF4', filename: 'feedback_a.md', title: 'A', body: 'plain, no anchors' })],
+      { tier: 'P' },
+    );
+    expect(out).not.toContain('## Cited anchors');
+  });
+
+  it('the anchor section is byte-stable across rebuilds', () => {
+    expect(buildVaultMap(corpus(), { tier: 'P' })).toBe(buildVaultMap(corpus(), { tier: 'P' }));
+  });
+
+  it('a doc-anchor citing INSIDE code does not become a hub', () => {
+    const facts = [
+      fact({ id: 'P-2DZG7XF4', filename: 'feedback_a.md', title: 'A', body: 'literal `D-361` in code' }),
+      fact({ id: 'P-34GZDKAW', filename: 'feedback_b.md', title: 'B', body: '```\nD-361 fenced\n```' }),
+    ];
+    const out = buildVaultMap(facts, { tier: 'P' });
+    expect(out).not.toContain('## Cited anchors');
+  });
+});

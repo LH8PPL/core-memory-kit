@@ -358,8 +358,13 @@ describe('reindexBoot cold-edge migration (pre-232 index)', () => {
 });
 
 describe('buildLinks edge cases', () => {
-  it('rejects a malformed id', () => {
-    expect(buildLinks(db, 'not-an-id')).toEqual({ ok: false, error: 'id must be a valid kit ID' });
+  it('rejects a token that is neither a fact id nor an anchor', () => {
+    // Task 256: buildLinks now also accepts anchor tokens (D-nnn/Task nnn/…), so
+    // the schema-error message names both accepted input shapes.
+    expect(buildLinks(db, 'not-an-id')).toEqual({
+      ok: false,
+      error: 'id must be a valid kit ID or anchor token (D-nnn, Task nnn, ADR-nnnn, FR-nn, NFR-nn)',
+    });
   });
 
   it('a known-but-unlinked id returns found:true with empty neighbourhoods', () => {

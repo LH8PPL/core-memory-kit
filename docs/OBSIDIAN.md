@@ -23,10 +23,10 @@ This is a **companion**, not the kit's own viewer. Obsidian is great at arrangem
 | Note | What it is |
 | --- | --- |
 | `<type>_<slug>.md` (e.g. `project_milvus-version.md`) | One durable fact per file — title, the fact, its *Why* and *How to apply*, and provenance frontmatter. These are your memory. |
-| `MAP.md` | A **generated map note** — every fact as a clickable `[[link]]`, grouped by type, with each fact's related-links and supersession shown. This is what lights up the graph. Do not edit it (see below). |
+| `MAP.md` | A **generated map note** — every fact as a clickable `[[link]]`, grouped by type, with each fact's related-links and supersession shown, plus a **`## Cited anchors`** section that clusters facts under the decisions (`D-nnn`), tasks, and ADRs they cite. This is what lights up the graph. Do not edit it (see below). |
 | `INDEX.md` | The kit's generated pointer index (title + one-line hook per fact). Also generated; also don't edit. |
 
-**Graph view** (the sidebar orbit icon): open it and you'll see every fact connected through `MAP.md`, with related facts clustered. **Backlinks** (bottom of any note): "linked mentions" shows what points at the fact you're reading.
+**Graph view** (the sidebar orbit icon): open it and you'll see every fact connected through `MAP.md`, with related facts clustered and browsable constellations forming around the decision/task anchors your facts cite most. **Backlinks** (bottom of any note): "linked mentions" shows what points at the fact you're reading.
 
 ---
 

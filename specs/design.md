@@ -1973,7 +1973,8 @@ derivation, graph-DB / typed-KG shapes) stay out of scope behind their named tri
 
 **The `edges` table** (`index-db.mjs` schema, populated by [`graph-index.mjs`](../packages/cli/src/graph-index.mjs)::`rebuildEdges`):
 `edges(src, dst, type, dst_resolved)` — `type` ∈ `related` (frontmatter) | `link` (`[[slug]]`
-body wikilink) | `superseded_by` (the supersession FK). `src` is always a kit id; `dst` is the
+body wikilink) | `superseded_by` (the supersession FK) | `cites` (a body anchor citation —
+§9.5.1). `src` is always a kit id; `dst` is the
 target's id when a `related`/`link` slug resolves against the corpus slug→id map, else the raw
 slug with `dst_resolved = 0` (a dangling link stays visible on the `out` side without polluting
 backlink-by-id queries). **Rebuilt from the markdown exactly like the FTS mirror** (ADR-0002 —
@@ -2000,6 +2001,52 @@ is now also surfaced on `mk_get`/`cmk get` output (the depth-1 out-neighbourhood
 pre-232). And the Task-209 superseded state label is upgraded to NAME its successor —
 `[superseded by P-XXXX]` (`state-label.mjs::stateLabelText`), on `cmk search` output and the
 injected snapshot alike — so a reader walks straight to the current fact.
+
+#### 9.5.1 Anchor co-citation edges — the `cites` type (Task 256, ADR-0023 ACTIVATE slice; D-400)
+
+**Original plan (pre-2026-07-23, D-392):** the `~30-line D-nnn/Task-nnn co-occurrence byproduct`
+the ADR floated was **skipped** — a fact↔fact co-occurrence over a shared anchor is O(n²) within an
+anchor group (50 facts on one D-nnn → 1,225 edges), past "clean + deterministic ~30 lines" (the
+skip paragraph above stands as the decision trail).
+
+**Revisit 2026-07-23 (D-400), with new evidence:** the user's live finding that the Obsidian vault
+graph (§9.6) underwhelms — because only ~5% of facts carry `related:`, while fact BODIES densely
+cite the structured anchors the kit itself defines (`D-nnn`, `Task nnn`, `ADR-nnnn`, `FR-nn`/`NFR-nn`,
+and bare `[PUL]-XXXXXXXX` fact ids) and nothing parsed that lattice. The 232 skip does **not** bind
+because 256's shape is the **CAPPED STAR**, not all-pairs: each anchor is ONE hub node, each citing
+fact ONE spoke, so a 50-fact group costs 50 edges (linear) — answering 232's O(n²) objection rather
+than overruling it. Still the deterministic ADOPT shape (parsed from markdown, byte-stable rebuild,
+zero LLM); the DEFER slice (LLM derivation) is untouched behind its benchmark trigger.
+
+**The `cites` edges** ([`graph-index.mjs`](../packages/cli/src/graph-index.mjs)::`extractAnchors` +
+`computeCitations`, emitted inside `rebuildEdges`). Code fences + inline code are stripped first
+(`stripCode`) so a literal `D-361` example never mints an edge. Boundary-correct: `D-361x` (glued
+suffix) does NOT match; `Task 232's` (possessive) DOES. Two node kinds share the type, disambiguated
+by an `anchor:` prefix:
+
+- a **doc-anchor** (D/Task/ADR/FR/NFR) is a NON-FILE node → `dst = anchor:D-361`, `dst_resolved = 0`.
+  The prefix keeps it unambiguously distinct from a fact id in `cmk links` output and keeps
+  backlink-by-id queries (`dst_resolved = 1`) from ever matching it.
+- a cited **fact id** is a real node → `dst =` the bare id, `dst_resolved = 1` when that fact exists
+  in the corpus, else `0` (a direct fact→fact edge, exactly like a `link`).
+
+**Two noise guards, on the doc-anchor hubs ONLY** (a fact-id citation is a direct edge — always
+relational signal, never a corpus-wide stopword — so it is exempt from both; named constants in
+`graph-index.mjs`):
+
+- `MIN_ANCHOR_CITERS = 2` — a doc-anchor cited by fewer distinct facts forms no co-citation cluster
+  (a lone leaf that clutters the graph without densifying it); skipped.
+- `ANCHOR_DF_CEILING_RATIO = 0.5` — a doc-anchor cited by MORE than this fraction of the whole corpus
+  is a degenerate stopword hub; skipped (the obsidian-mind cluster-detector precedent: a token in
+  >half the corpus is noise). Boundary tests pin both at/over their thresholds (validate-budget-pairs).
+
+**Query + render:** `cmk links D-361` / `mk_links {id:"D-361"}` answers "what cites D-361" in one
+call — `buildLinks` normalizes an anchor token (or fact id) to its node via `anchorNodeForToken`,
+returns the citers as backlinks (an anchor is a graph sink → `out` empty). A bad token gets the
+schema-error shape, never a crash. `MAP.md` (§9.6) gains a `## Cited anchors` section rendering each
+qualifying anchor as a browsable hub (`- **D-361** ← [[fact_a]], [[fact_b]]`), built from the SAME
+`computeCitations` the edges table uses (map + queryable graph never drift), byte-stable
+(`compareCodeUnits`, never `localeCompare`).
 
 ### 9.6 The Obsidian vault view — a generated map note + forward id aliases (Task 254; D-397 companion to Task 255)
 
