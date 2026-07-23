@@ -134,7 +134,7 @@ describe('runRemember — in-process channel dispatch (108a)', () => {
   });
   const deps = () => ({ projectRoot, log: (m) => out.push(m), logError: (m) => out.push('ERR:' + m) });
   const facts = () =>
-    readdirSync(join(projectRoot, 'context', 'memory')).filter((f) => f.endsWith('.md') && f !== 'INDEX.md');
+    readdirSync(join(projectRoot, 'context', 'memory')).filter((f) => f.endsWith('.md') && f !== 'INDEX.md' && f !== 'MAP.md');
 
   it('--from-file dispatches to a granular fact file (channel success glue)', () => {
     const p = join(root, 'f.json');

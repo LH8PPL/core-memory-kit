@@ -79,6 +79,14 @@ import { compareCodeUnits } from './audit-log.mjs';
 // lists. Every fact walk must skip it or it re-enters as a pseudo-fact.
 export const INDEX_FILENAME = 'INDEX.md';
 
+// Task 254's Obsidian vault map — a SECOND generated sidecar that lives beside
+// the facts (rendered by vault-map.mjs, written by reindex.mjs). It has no `id`
+// frontmatter, so eachFactIn already drops it — but reindex's lister-based walk
+// would otherwise warn "missing frontmatter" for it, so it joins INDEX.md in the
+// default exclude. redact/forget pass their OWN exclude sets and are unaffected
+// (redact deliberately scans everything, incl. the map, for residual leaks).
+export const MAP_FILENAME = 'MAP.md';
+
 /**
  * List the `.md` files directly inside `dir`, excluding generated/non-fact
  * names. Missing dir → `[]` (every caller treated a missing fact dir as empty).
@@ -91,10 +99,10 @@ export const INDEX_FILENAME = 'INDEX.md';
  *
  * @param {string} dir
  * @param {object} [opts]
- * @param {string[]} [opts.exclude=[INDEX_FILENAME]] filenames to skip
+ * @param {string[]} [opts.exclude=[INDEX_FILENAME, MAP_FILENAME]] filenames to skip
  * @returns {string[]} filenames (not paths), sorted
  */
-export function listMarkdownFiles(dir, { exclude = [INDEX_FILENAME] } = {}) {
+export function listMarkdownFiles(dir, { exclude = [INDEX_FILENAME, MAP_FILENAME] } = {}) {
   if (!existsSync(dir)) return [];
   const skip = new Set(exclude);
   const out = [];

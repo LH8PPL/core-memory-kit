@@ -99,7 +99,7 @@ function setCap(projectRoot, maxChars) {
 function factFiles(projectRoot) {
   const dir = join(projectRoot, 'context', 'memory');
   if (!existsSync(dir)) return [];
-  return readdirSync(dir).filter((f) => f.endsWith('.md') && f !== 'INDEX.md');
+  return readdirSync(dir).filter((f) => f.endsWith('.md') && f !== 'INDEX.md' && f !== 'MAP.md');
 }
 
 describe('Task 94 — load-cap, not write-cap (§19 / D-61)', () => {

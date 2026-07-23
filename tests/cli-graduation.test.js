@@ -102,7 +102,7 @@ function setCap(projectRoot, maxChars) {
 function factFiles(projectRoot) {
   const dir = join(projectRoot, 'context', 'memory');
   if (!existsSync(dir)) return [];
-  return readdirSync(dir).filter((f) => f.endsWith('.md') && f !== 'INDEX.md');
+  return readdirSync(dir).filter((f) => f.endsWith('.md') && f !== 'INDEX.md' && f !== 'MAP.md');
 }
 
 describe('Task 91 — MEMORY.md graduation (safety valve)', () => {

@@ -76,7 +76,7 @@ function memoryMd() {
 
 function factFiles() {
   const dir = join(projectRoot, 'context', 'memory');
-  return readdirSync(dir).filter((f) => f.endsWith('.md') && f !== 'INDEX.md');
+  return readdirSync(dir).filter((f) => f.endsWith('.md') && f !== 'INDEX.md' && f !== 'MAP.md');
 }
 
 function poisonLog() {

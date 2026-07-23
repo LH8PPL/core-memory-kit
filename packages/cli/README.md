@@ -154,6 +154,8 @@ The plugin bundles the hooks + skills, so it's complete without the npm CLI. Add
 
 Project memory follows the **repo** (teammates get it on clone). Your persona follows **you** — machine-local, never committed. Carry it between your own machines with `cmk persona export` / `import`.
 
+Because it's plain markdown, you can **browse your memory in [Obsidian](https://obsidian.md)** — open `context/memory/` as a vault for search, backlinks, and a graph of your facts. Browsing is safe; keep writing through the kit so screening and the audit trail stay intact. See [docs/OBSIDIAN.md](https://github.com/LH8PPL/core-memory-kit/blob/main/docs/OBSIDIAN.md).
+
 If you know the standard agent-memory taxonomy, the kit implements all four types: **working** memory = the `MEMORY.md` scratchpad + `now.md` · **semantic** = the typed fact archive (`context/memory/`) + `USER.md` · **episodic** = the rolling session window + verbatim transcripts · **procedural** = `HABITS.md`/`LESSONS.md` + judgment records + the scaffolded skills. The classic pitfalls are answered structurally: caps graduate instead of truncating, facts and events live in separate stores (non-current facts come back labeled), every fact write is validated (dedup + conflict queue + secret screen), and the distill chain keeps lessons — not replays.
 
 ## CLI

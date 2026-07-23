@@ -52,7 +52,7 @@ describe('writeFact — INDEX rebuild failure is observable, not swallowed (D-15
 
     // Door 2 — the fact file is durably on disk despite the failed rebuild.
     const factDir = join(projectRoot, 'context', 'memory');
-    const files = readdirSync(factDir).filter((n) => n.endsWith('.md') && n !== 'INDEX.md');
+    const files = readdirSync(factDir).filter((n) => n.endsWith('.md') && n !== 'INDEX.md' && n !== 'MAP.md');
     expect(files).toContain('project_a-fact.md');
 
     // Door 4 — the failure left a trace (the D-152 gap: it used to be silent).

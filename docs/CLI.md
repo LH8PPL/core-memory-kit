@@ -179,6 +179,7 @@ cmk doctor
 Rebuild the SQLite/FTS5 search cache (regenerable; never source of truth).
 - `--boot` — incremental (changed files only, **and prunes removed files**) · `--full` — drop + rebuild.
 - **Rarely needed by hand.** Every read path (`cmk search` / `get` / `timeline` / `cite` / `recent-activity`) reindexes incrementally before reading, and `cmk forget` reindexes in-band — so captures, edits, and deletions all show up in search automatically (Task 110). Reach for this only to force a `--full` rebuild after manual surgery on the markdown.
+- Also regenerates the tier's `INDEX.md` pointer index and its `MAP.md` Obsidian vault map (both derived, byte-stable, never source of truth). See **[docs/OBSIDIAN.md](OBSIDIAN.md)** for browsing memory in Obsidian.
 
 ### `cmk config get <key>` · `cmk config set <key> <value> [--local]` · `cmk config show` · `cmk config --show-origin <key>`
 

@@ -137,6 +137,17 @@ describe('Task 7 — writeFact() boundary', () => {
       const result = writeFact(opts);
       expect(result.id).toBe(generateId('P', opts.body));
     });
+
+    // Task 254 (Obsidian vault view — shape a, forward-only): every NEW fact
+    // carries `aliases: [<id>]` so an Obsidian `[[P-XXXX]]` id reference (the
+    // kit's cross-reference currency — used in bodies + supersession) resolves
+    // to the fact file. Purely additive frontmatter; no kit reader consumes it.
+    it('new fact frontmatter carries aliases: [<id>] for Obsidian id-wikilink resolution', () => {
+      const opts = validOptions({ projectRoot });
+      const result = writeFact(opts);
+      const { frontmatter } = parseFrontmatter(result.path);
+      expect(frontmatter.aliases).toEqual([result.id]);
+    });
   });
 
   describe('schema validation — each of 9 required fields, when omitted, → error_category: "schema"', () => {
@@ -628,7 +639,7 @@ describe('Task 7 — writeFact() boundary', () => {
       expect(result.errors.join(' ')).toMatch(/shape/);
       const factDir = join(projectRoot, 'context', 'memory');
       expect(
-        existsSync(factDir) ? readdirSync(factDir).filter((f) => f.endsWith('.md') && f !== 'INDEX.md') : [],
+        existsSync(factDir) ? readdirSync(factDir).filter((f) => f.endsWith('.md') && f !== 'INDEX.md' && f !== 'MAP.md') : [],
       ).toHaveLength(0);
     });
 

@@ -47,7 +47,7 @@ function memoryMd() {
 function factFiles() {
   const dir = join(projectRoot, 'context', 'memory');
   return existsSync(dir)
-    ? readdirSync(dir).filter((n) => n.endsWith('.md') && n !== 'INDEX.md')
+    ? readdirSync(dir).filter((n) => n.endsWith('.md') && n !== 'INDEX.md' && n !== 'MAP.md')
     : [];
 }
 

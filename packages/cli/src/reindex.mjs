@@ -17,7 +17,8 @@ import { parse } from './frontmatter.mjs';
 // code-unit comparator this module needed: these filenames order INDEX.md, a
 // COMMITTED file, and locale-dependent collation would make the same corpus
 // produce different diffs on different machines.
-import { listFactFiles } from './fact-store.mjs';
+import { listFactFiles, MAP_FILENAME } from './fact-store.mjs';
+import { buildVaultMap } from './vault-map.mjs';
 
 const INDEX_SIZE_WARN_BYTES = 25 * 1024;
 const HOOK_MAX_LEN = 80;
@@ -107,6 +108,10 @@ export function reindex(opts = {}) {
       title: frontmatter.title,
       filename,
       hook: extractHook(body),
+      // Task 254: carry the parsed frontmatter + body so the vault map renders
+      // from the SAME walk (no second file read). Consumed only by buildVaultMap.
+      frontmatter,
+      body,
     });
   }
 
@@ -128,11 +133,28 @@ export function reindex(opts = {}) {
     );
   }
 
+  // Task 254: the Obsidian vault map, beside INDEX.md, from the SAME walk.
+  // Best-effort: the facts are already durably on disk and INDEX.md is written,
+  // so a map-render hiccup must NEVER turn a successful reindex (and thus a
+  // capture) into an error — the next reindex regenerates it (it's a derived,
+  // regenerable view, ADR-0002).
+  const mapPath = join(factDir, MAP_FILENAME);
+  let mapBytes = null;
+  try {
+    const mapContent = buildVaultMap(entries, { tier });
+    writeFileSync(mapPath, mapContent, 'utf8');
+    mapBytes = Buffer.byteLength(mapContent, 'utf8');
+  } catch (mapErr) {
+    pushWarning(`reindex: vault map (${MAP_FILENAME}) not written: ${mapErr.message}`);
+  }
+
   return {
     tier,
     indexPath,
     factCount: entries.length,
     bytes,
+    mapPath,
+    mapBytes,
     warnings,
   };
 }

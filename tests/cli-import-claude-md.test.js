@@ -63,7 +63,7 @@ function factDir() {
 function readFactFiles() {
   if (!existsSync(factDir())) return [];
   return readdirSync(factDir())
-    .filter((n) => n.endsWith('.md') && n !== 'INDEX.md')
+    .filter((n) => n.endsWith('.md') && n !== 'INDEX.md' && n !== 'MAP.md')
     .map((n) => ({ name: n, text: readFileSync(join(factDir(), n), 'utf8') }));
 }
 

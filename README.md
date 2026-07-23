@@ -156,6 +156,10 @@ Project memory follows the **repo** (teammates get it on clone). Your persona fo
 
 The kit is built in six layers (in-repo storage → granular archive → bounded scratchpads → auto-extract hooks → search → compression). See **[ARCHITECTURE.md](ARCHITECTURE.md)** for the breakdown + data-flow diagram, [`specs/design.md`](specs/design.md) for the full design, and [`specs/glossary.md`](specs/glossary.md) for terminology.
 
+### Browse it in Obsidian
+
+Your memory is plain markdown, so [Obsidian](https://obsidian.md) opens `context/memory/` as a vault — search, backlinks, and a graph view of your facts, no export step. Browsing is free and safe; keep *writing* through the kit (`cmk remember` / your agent) so secret-screening, path-abstraction, and the audit trail stay intact. Walkthrough: **[docs/OBSIDIAN.md](docs/OBSIDIAN.md)**.
+
 ### The four memory types, in kit terms
 
 If you know the standard agent-memory taxonomy (working / semantic / episodic / procedural), the kit implements all four:
