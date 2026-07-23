@@ -10,6 +10,12 @@
 
 ---
 
+## 2026-07-23 — D-400 · DECISION — Task 256 filed + laned v0.6.3: anchor co-citation edges ("graphify for memories") — the sparse-graph diagnosis, and why 232's skip doesn't bind
+
+**The user's finding, taken seriously:** the vault graph underwhelmed ("nice… not the wow I thought"). Diagnosis: NOT a storage problem — a graph DB would render the same ~5%-linked corpus equally sparsely — an EDGE-AUTHORING problem. The unexploited asset: fact bodies densely cite structured anchors (`D-nnn`, `Task nnn`, ADRs, FRs, fact ids) that nothing parses. Extracting that lattice is deterministic, every edge self-explaining ("both cite D-361"), zero LLM — the graphify shape (deterministic parse of a structured corpus, no vector store) applied to the one corpus only this kit can parse, because the kit defines its structure.
+
+**Decision-trail on the 232 skip:** 232 rejected ALL-PAIRS co-occurrence (O(n²) within an anchor group). 256's shape is the CAPPED STAR — one hub per anchor, linear cost — which answers the recorded objection rather than overruling it. ADR-0023 untouched: this is still the ADOPT slice's deterministic-from-markdown shape; the DEFER slice (LLM derivation) stays behind its benchmark trigger. **Laned v0.6.3** under the D-397 anti-stalling directive (the user delegated the call: "i dont know, what do you recommend?" → both this and folding graph-value into the 255 grill). Also confirmed: the README note the user asked for already shipped in 254 (the "Browse it in Obsidian" section + docs/OBSIDIAN.md link — verified, both READMEs).
+
 ## 2026-07-23 — D-399 · FIX — `.obsidian/` gitignored at any depth: Task 254's first REAL use (the user, minutes after ship) found the gap the whole two-pass cycle missed
 
 **The find:** the user opened the repo as an Obsidian vault to see the new MAP.md graph — and Obsidian wrote an untracked `.obsidian/` workspace-config folder that NOTHING excluded. Worse than the root case: opening the RECOMMENDED `context/memory/` vault would put `.obsidian/` (with its constantly-churning `workspace.json`) inside the committed memory tier, where every `git add context/` memory flush would stage per-user editor state into the public repo. `docs/OBSIDIAN.md` even said "the kit ships no `.obsidian/` folder" — true, but it guarded the wrong direction: the USER's Obsidian ships one into the vault it opens.

@@ -8,8 +8,6 @@
 
 <!-- Current work in progress. Drop bullets as work resolves. -->
 
-- (P-XWP6XLLG) Approves adopting ideas from Octopoda on loop detection
-  <!-- source: auto-extract-session, source_line: 1, sha1: 8a5ea241784bd36933158c5a2b7fc8f5b59c255c3f2258d74f4430db0e8c4fc9, write: auto-extract, trust: high, at: 2026-07-22T16:54:09Z -->
 - (P-aUSPYZJR) Requests immediate execution of loop research ("why not do the research now?")
   <!-- source: auto-extract-session, source_line: 1, sha1: b726ba345267453a7e56d16c6a10c7265452787b1ff98679a19f7daab7f3fc8c, write: auto-extract, trust: high, at: 2026-07-22T16:54:09Z -->
 - (P-E6TXLFHN) D-293: --with-semantic on large corpora caused 8.8GB memory freeze; now fixed; workaround is to avoid re-running locally on dev repo
@@ -20,6 +18,8 @@
   <!-- source: review-promote, source_line: 1, sha1: 8ffa471b2e49c2873913deefae07baca315921bd069e8f16b393ddb6a233109b, write: user-explicit, trust: high, at: 2026-07-22T20:00:08Z -->
 - (P-FC2WQ9Ja) User views Obsidian vault integration as pragmatic/simple; questions whether elaborate own-UI build effort is necessary
   <!-- source: auto-extract-session, source_line: 1, sha1: 1c2e19133df77337096fbcc048fc242eb26455ced9d6a60e6caef44056baeb34, write: auto-extract, trust: high, at: 2026-07-23T08:30:20Z -->
+- (P-XXGTVH6K) Opened entire repo root as Obsidian vault to visually explore memory system
+  <!-- source: auto-extract-session, source_line: 1, sha1: 0de957bf8b076063d3aa6aed8d492eac5453d1d91e5eee97469d1c52241cc62e, write: auto-extract, trust: high, at: 2026-07-23T10:27:12Z -->
 
 ## Environment Notes
 
