@@ -206,6 +206,20 @@ describe('Task 254 — reindex() writes MAP.md alongside INDEX.md', () => {
     expect(map).toContain('Facts: 1');
   });
 
+  it('Door 1: a map-write FAILURE degrades to a warning — mapBytes null, INDEX.md still written, reindex still succeeds (review finding #2)', () => {
+    writeFact(validFactOpts({ projectRoot, slug: 'alpha', title: 'Alpha fact' }));
+    // Force writeFileSync(mapPath) to throw: occupy the MAP.md path with a DIRECTORY.
+    rmSync(join(memDir, MAP_FILENAME), { force: true });
+    mkdirSync(join(memDir, MAP_FILENAME));
+    const warnings = [];
+    const result = reindex({ tier: 'P', projectRoot, userDir, warn: (m) => warnings.push(m) });
+    expect(result.mapBytes).toBeNull();
+    expect(warnings.some((w) => w.includes(MAP_FILENAME))).toBe(true);
+    // the failure is CONTAINED: the index write and fact count are unaffected
+    expect(existsSync(result.indexPath)).toBe(true);
+    expect(result.factCount).toBe(1);
+  });
+
   it('MAP.md is not itself indexed as a fact (INDEX.md never lists it; reindex emits no warning for it)', () => {
     writeFact(validFactOpts({ projectRoot, slug: 'alpha', title: 'Alpha' }));
     const warnings = [];

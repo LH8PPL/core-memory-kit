@@ -14,7 +14,7 @@ This is a **companion**, not the kit's own viewer. Obsidian is great at arrangem
 2. **Open folder as vault** → pick **`context/memory/`** inside your repo.
 3. That's it. Every fact is a note; the graph and backlinks work immediately.
 
-**Open `context/memory/`, not `context/`.** The `memory/` folder is just your facts plus two generated helper notes. The parent `context/` also holds locks, the search index, tombstones, queues, and raw session logs — noise you don't want in a browse view. See [Keep the clutter out](#keep-the-clutter-out) if you'd rather open the whole `context/`.
+**Open `context/memory/`, not `context/`.** The `memory/` folder is your facts, two generated helper notes, and an `archive/` subfolder (superseded facts and tombstones the kit keeps for history — they'll appear in the file list and search; add `archive/` to Obsidian's **Settings → Files & Links → Excluded files** if you'd rather hide them). The parent `context/` also holds locks, the search index, queues, and raw session logs — noise you don't want in a browse view. See [Keep the clutter out](#keep-the-clutter-out) if you'd rather open the whole `context/`.
 
 ---
 
